@@ -8,7 +8,7 @@ fn main() {
 
     match opttype {
         OptionType::Path(p) => {
-
+            println!("{}", p);
         },
         OptionType::Help(c) => {
             Options::show_help("uwscr.exe", &c);
