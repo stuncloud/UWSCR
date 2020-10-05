@@ -85,6 +85,14 @@ pub enum Token {
     Step,
     Next,
 
+    Select,
+    Case,
+    Default,
+    Selend,
+
+    Continue,
+    Break,
+
     With,
     EndWith,
 
@@ -101,7 +109,6 @@ pub enum Token {
     EndClass,
 
     // キーワード
-    Result,
     This,
     Global,
 

@@ -64,12 +64,16 @@ impl fmt::Display for Infix {
 #[derive(PartialEq, Clone, Debug)]
 pub enum Expression {
     Identifier(Identifier),
+    Array(Vec<Expression>, Box<Expression>), // 配列、配列宣言時の添字
     Literal(Literal),
     Prefix(Prefix, Box<Expression>),
     Infix(Infix, Box<Expression>, Box<Expression>),
     Index(Box<Expression>, Box<Expression>),
-    HashTbl(Identifier, Box<Option<Expression>>),
     Function {
+        params: Vec<Identifier>,
+        body: BlockStatement
+    },
+    Procedure {
         params: Vec<Identifier>,
         body: BlockStatement
     },
@@ -92,7 +96,6 @@ pub enum Literal {
     String(String),
     Bool(bool),
     Array(Vec<Expression>),
-    Hash(Vec<(Expression, Expression)>),
     // Path(String),
     Empty,
     Null,
@@ -100,13 +103,19 @@ pub enum Literal {
 }
 
 #[derive(PartialEq, Clone, Debug)]
+pub enum HashOption {
+    CaseCare,
+    Sort,
+    None
+}
+
+#[derive(PartialEq, Clone, Debug)]
 pub enum Statement {
     Blank,
     Dim(Identifier, Expression),
-    DimArray(Identifier, Expression, Vec<Expression>),
     Public(Identifier, Expression),
     Const(Identifier, Expression),
-    Result(Expression),
+    HashTbl(Identifier, HashOption),
     Print(Expression),
     Call(String),
     DefDll(String),
@@ -125,6 +134,8 @@ pub enum Statement {
     },
     While(Expression, BlockStatement),
     Repeat(Expression, BlockStatement),
+    Continue(u32),
+    Break(u32),
     IfSingleLine {
         condition: Expression,
         consequence: Box<Statement>,
@@ -139,6 +150,21 @@ pub enum Statement {
         condition: Expression,
         consequence: BlockStatement,
         alternatives: Vec<(Option<Expression>, BlockStatement)>
+    },
+    Select {
+        expression: Expression,
+        cases: Vec<(Vec<Expression>, BlockStatement)>,
+        default: Option<BlockStatement>
+    },
+    Function {
+        name: Identifier,
+        params: Vec<Identifier>,
+        body: BlockStatement
+    },
+    Procedure {
+        name: Identifier,
+        params: Vec<Identifier>,
+        body: BlockStatement
     },
 }
 

@@ -203,6 +203,10 @@ impl Lexer {
             "else" => Token::Else,
             "elseif" => Token::ElseIf,
             "endif" => Token::EndIf,
+            "select" => Token::Select,
+            "case" => Token::Case,
+            "default" => Token::Default,
+            "selend" => Token::Selend,
             "print" => Token::Print,
             "call" => {
                 Token::Call(self.consume_special_statement())
@@ -219,12 +223,13 @@ impl Lexer {
             "in" => Token::In,
             "step" => Token::Step,
             "next" => Token::Next,
+            "continue" => Token::Continue,
+            "break" => Token::Break,
             "with" => Token::With,
             "endwith" => Token::EndWith,
             "textblock" => Token::TextBlock,
             "endtextblock" => Token::EndTextBlock,
             "function" => Token::Function,
-            "result" => Token::Result,
             "procedure" => Token::Procedure,
             "fend" => Token::Fend,
             "module" => Token::Module,
@@ -234,6 +239,7 @@ impl Lexer {
             "dim" => Token::Dim,
             "public" => Token::Public,
             "const" => Token::Const,
+            "hashtbl" => Token::HashTable,
             "mod" => Token::Mod,
             "and" => Token::And,
             "or" => Token::Or,
@@ -457,7 +463,7 @@ fend
             Token::Identifier("bar".to_string()),
             Token::Rparen,
             Token::Eol,
-            Token::Result,
+            Token::Identifier("result".to_string()),
             Token::EqualOrAssign,
             Token::Identifier("foo".to_string()),
             Token::Plus,
@@ -483,10 +489,24 @@ def_dll hogefunc(int, int):int: hoge.dll
     }
 
     #[test]
+    fn test_hashtbl() {
+        let input = "hashtbl hoge";
+        test_next_token(input, vec!{
+            Token::HashTable,
+            Token::Identifier(String::from("hoge"))
+        })
+    }
+
+    #[test]
     fn hoge() {
-        let chars = "あいう".chars().collect::<Vec<char>>();
-        assert_eq!('あ', chars[0]);
-        assert_eq!('', '\x01');
-        assert!(true);
+        let mut hoge = vec![];
+        hoge.push(1);
+        hoge.push(2);
+        hoge.push(3);
+        hoge.insert(0, 4);
+        hoge.insert(0, 5);
+        hoge.push(6);
+
+        println!("{:?}", hoge);
     }
 }

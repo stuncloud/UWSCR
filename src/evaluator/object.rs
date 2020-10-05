@@ -17,10 +17,13 @@ pub enum Object {
     Array(Vec<Object>),
     Hash(HashMap<Object, Object>),
     Function(Vec<Identifier>, BlockStatement, Rc<RefCell<Env>>),
+    Procedure(Vec<Identifier>, BlockStatement, Rc<RefCell<Env>>),
     Builtin(i32, BuiltinFunction),
     Null,
     Empty,
     Nothing,
+    Continue(u32),
+    Break(u32),
     Result(Box<Object>),
     Error(String),
 }
@@ -30,7 +33,7 @@ impl fmt::Display for Object {
         match *self {
             Object::Num(ref value) => write!(f, "{}", value),
             Object::String(ref value) => write!(f, "{}", value),
-            Object::Bool(ref value) => write!(f, "{}", value),
+            Object::Bool(b) => write!(f, "{}", if b {"True"} else {"False"}),
             Object::Array(ref objects) => {
                 let mut result = String::new();
                 for (i, obj) in objects.iter().enumerate() {
@@ -64,9 +67,23 @@ impl fmt::Display for Object {
                 }
                 write!(f, "function({}) {{ ... }}", result)
             },
+            Object::Procedure(ref params, _, _) => {
+                let mut result = String::new();
+                for (i, Identifier(ref s)) in params.iter().enumerate() {
+                    if i < 1 {
+                        result.push_str(&format!("{}", s))
+                    } else {
+                        result.push_str(&format!(", {}", s))
+                    }
+                }
+                write!(f, "procedure({}) {{ ... }}", result)
+            },
             Object::Builtin(_, _) => write!(f, "[builtin function]"),
             Object::Null => write!(f, "NULL"),
             Object::Empty => write!(f, "EMPTY"),
+            Object::Nothing => write!(f, "NOTHING"),
+            Object::Continue(ref n) => write!(f, "Continue {}", n),
+            Object::Break(ref n) => write!(f, "Break {}", n),
             Object::Result(ref value) => write!(f, "{}", value),
             Object::Error(ref value) => write!(f, "{}", value),
         }

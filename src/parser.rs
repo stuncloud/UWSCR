@@ -109,6 +109,9 @@ impl Parser {
             Token::Else,
             Token::ElseIf,
             Token::EndIf,
+            Token::Case,
+            Token::Default,
+            Token::Selend,
             Token::Wend,
             Token::Until,
             Token::Next,
@@ -117,6 +120,7 @@ impl Parser {
             Token::Fend,
             Token::EndModule,
             Token::EndClass,
+            Token::Rbrace,
         ];
         self.is_current_token_in(eobtokens)
     }
@@ -202,12 +206,26 @@ impl Parser {
         ))
     }
 
+    fn is_global_definition(statement: &Statement) -> bool {
+        match statement {
+            Statement::Function{name: _, params: _, body: _} |
+            Statement::Procedure{name: _, params: _, body: _} |
+            Statement::Public(_, _) |
+            Statement::Const(_, _) => true,
+            _ => false
+        }
+    }
+
     pub fn parse(&mut self) -> Program {
         let mut program: Program = vec![];
 
         while ! self.is_current_token(&Token::Eof) {
             match self.parse_statement() {
-                Some(s) => program.push(s),
+                Some(s) => if Self::is_global_definition(&s) {
+                    program.insert(0, s)
+                } else {
+                    program.push(s)
+                },
                 None => {}
             }
             self.bump();
@@ -234,30 +252,28 @@ impl Parser {
     fn parse_statement(&mut self) -> Option<Statement> {
         match self.current_token {
             Token::Dim => self.parse_dim_statement(),
+            Token::Public => self.parse_public_statement(),
+            Token::Const => self.parse_const_statement(),
             Token::If => self.parse_if_statement(),
+            Token::Select => self.parse_select_statement(),
             Token::Print => self.parse_print_statement(),
-            Token::Result => self.parse_result_statement(),
             Token::For => self.parse_for_statement(),
             Token::While => self.parse_while_statement(),
             Token::Repeat => self.parse_repeat_statement(),
+            Token::Continue => self.parse_continue_statement(),
+            Token::Break => self.parse_break_statement(),
             Token::Blank => Some(Statement::Blank),
             Token::Call(_) => self.parse_special_statement(),
             Token::DefDll(_) => self.parse_special_statement(),
+            Token::HashTable => self.parse_hashtable_statement(),
+            Token::Function => self.parse_function_statement(false),
+            Token::Procedure => self.parse_function_statement(true),
             _ => self.parse_expression_statement(),
         }
     }
 
-    fn parse_dim_statement(&mut self) -> Option<Statement> {
-        match &self.next_token {
-            Token::Identifier(_) => self.bump(),
-            _ => return None,
-        }
-
-        // 変数名
-        let var_name = match self.parse_identifier() {
-            Some(e) => e,
-            None => return None
-        };
+    fn parse_variable_definition(&mut self) -> Option<Expression> {
+        let expression: Expression;
 
         if self.is_next_token(&Token::Lbracket) {
             self.bump();
@@ -274,71 +290,134 @@ impl Parser {
             if ! self.is_next_token_expected(Token::Rbracket) {
                 return None;
             };
-
-            // 代入演算子がなければ配列宣言のみ
-            if ! self.is_next_token(&Token::EqualOrAssign) {
-                return Some(Statement::DimArray(var_name, index, vec![]));
+            expression = if ! self.is_next_token(&Token::EqualOrAssign) {
+                // 代入演算子がなければ配列宣言のみ
+                Expression::Array(Vec::new(), Box::new(index))
+            } else {
+                self.bump();
+                let list = match self.parse_expression_list(Token::Eol) {
+                    Some(vec_e) => vec_e,
+                    None => return None
+                };
+                Expression::Array(list, Box::new(index))
             };
-            self.bump();
-
-            let list = match self.parse_expression_list(Token::Eol) {
-                Some(vec_e) => vec_e,
-                None => return None
-            };
-
-            Some(Statement::DimArray(var_name, index, list))
         } else {
             // 変数定義
             // 代入演算子がなければ変数宣言のみ
-            if ! self.is_next_token(&Token::EqualOrAssign) {
-                return Some(Statement::Dim(var_name, Expression::Literal(Literal::Empty)));
-            };
-            self.bump();
-            self.bump();
-            let expression = match self.parse_expression(Precedence::Lowest, false) {
-                Some(e) => e,
-                None => return None
+            expression = if ! self.is_next_token(&Token::EqualOrAssign) {
+                Expression::Literal(Literal::Empty)
+            } else {
+                self.bump();
+                self.bump();
+                match self.parse_expression(Precedence::Lowest, false) {
+                    Some(e) => e,
+                    None => return None
+                }
             };
             if self.is_next_token(&Token::Semicolon) || self.is_next_token(&Token::Eol) {
                 self.bump();
             }
-
-            Some(Statement::Dim(var_name, expression))
         }
 
+        Some(expression)
     }
 
-    fn parse_result_statement(&mut self) -> Option<Statement> {
+    fn parse_public_statement(&mut self) -> Option<Statement> {
         match &self.next_token {
             Token::Identifier(_) => self.bump(),
             _ => return None,
-        };
-
-        // 代入演算子かどうか
-        if ! self.is_next_token_expected(Token::EqualOrAssign) {
-            return None;
-        };
-
-        self.bump();
-
-        let expression = match self.parse_expression(Precedence::Lowest, false) {
+        }
+        // 変数名
+        let var_name = match self.parse_identifier() {
             Some(e) => e,
             None => return None
         };
-
-        if self.is_next_token(&Token::Semicolon) || self.is_next_token(&Token::LineBreak) {
-            self.bump();
+        match self.parse_variable_definition() {
+            Some(e) => Some(Statement::Public(var_name, e)),
+            None => None
         }
-
-        Some(Statement::Result(expression))
     }
+
+    fn parse_dim_statement(&mut self) -> Option<Statement> {
+        match &self.next_token {
+            Token::Identifier(_) => self.bump(),
+            _ => return None,
+        }
+        // 変数名
+        let var_name = match self.parse_identifier() {
+            Some(e) => e,
+            None => return None
+        };
+        match self.parse_variable_definition() {
+            Some(e) => Some(Statement::Dim(var_name, e)),
+            None => None
+        }
+    }
+
+    fn parse_const_statement(&mut self) -> Option<Statement> {
+        match &self.next_token {
+            Token::Identifier(_) => self.bump(),
+            _ => return None,
+        }
+        // 変数名
+        let var_name = match self.parse_identifier() {
+            Some(e) => e,
+            None => return None
+        };
+        match self.parse_variable_definition() {
+            Some(e) => Some(Statement::Const(var_name, e)),
+            None => None
+        }
+    }
+
+    fn parse_hashtable_statement(&mut self) -> Option<Statement> {
+        // hashtbl hoge
+        // hashtbl hoge = HASH_CASECARE
+        // hashtbl hoge = HASH_SORT
+        self.bump();
+        let identifier = match self.parse_identifier() {
+            Some(i) => i,
+            None => return None
+        };
+        let hash_option = if self.is_next_token(&Token::EqualOrAssign) {
+            self.bump();
+            self.bump();
+            match self.parse_expression(Precedence::Lowest, false) {
+                Some(e) => {
+                    match self.parse_hashtable_option(e) {
+                        Some(o) => o,
+                        None => return None
+                    }
+                },
+                None => return None
+            }
+        } else {
+            HashOption::None
+        };
+        Some(Statement::HashTbl(identifier, hash_option))
+    }
+
+    fn parse_hashtable_option(&mut self, expression: Expression) -> Option<HashOption> {
+        match expression {
+            Expression::Identifier(i) => {
+                let Identifier(name) = i;
+                match name.as_str() {
+                    "HASH_CASECARE" => Some(HashOption::CaseCare),
+                    "HASH_SORT" => Some(HashOption::Sort),
+                    _ => None
+                }
+            },
+            _ => None
+        }
+    }
+
 
     fn parse_print_statement(&mut self) -> Option<Statement> {
         self.bump();
 
         let expression = match self.parse_expression(Precedence::Lowest, false) {
             Some(e) => e,
-            None => return None
+            None => Expression::Literal(Literal::String("".to_string()))
         };
 
         Some(Statement::Print(expression))
@@ -353,6 +432,24 @@ impl Parser {
                 Some(Statement::DefDll(s.clone()))
             },
             _ => None
+        }
+    }
+
+    fn parse_continue_statement(&mut self) -> Option<Statement> {
+        self.bump();
+        match self.parse_number_expression() {
+            Some(Expression::Literal(Literal::Num(n))) => Some(Statement::Continue(n as u32)),
+            Some(_) => None,
+            None => Some(Statement::Continue(1)),
+        }
+    }
+
+    fn parse_break_statement(&mut self) -> Option<Statement> {
+        self.bump();
+        match self.parse_number_expression() {
+            Some(Expression::Literal(Literal::Num(n))) => Some(Statement::Break(n as u32)),
+            Some(_) => None,
+            None => Some(Statement::Break(1)),
         }
     }
 
@@ -490,7 +587,6 @@ impl Parser {
             Token::Lbracket => self.parse_array_expression(),
             Token::Bang | Token::Minus | Token::Plus => self.parse_prefix_expression(),
             Token::Lparen => self.parse_grouped_expression(),
-            Token::HashTable => self.parse_hashtable_expression(),
             Token::Function => self.parse_function_expression(),
             Token::Then | Token::Eol => return None,
             _ => {
@@ -605,30 +701,6 @@ impl Parser {
             None => None
         }
     }
-
-    fn parse_hashtable_expression(&mut self) -> Option<Expression> {
-        // hashtable hoge
-        // hashtable hoge = HASH_CASECARE
-        // hashtable hoge = HASH_SORT
-        self.bump();
-        let identifier = match self.parse_identifier() {
-            Some(i) => i,
-            None => return None
-        };
-        let expression;
-        if self.is_next_token(&Token::EqualOrAssign) {
-            self.bump();
-            self.bump();
-            expression = match self.parse_expression(Precedence::Lowest, false) {
-                Some(e) => Some(e),
-                None => return None
-            };
-        } else {
-            expression = None;
-        }
-        Some(Expression::HashTbl(identifier, Box::new(expression)))
-    }
-
 
     fn parse_expression_list(&mut self, end: Token) -> Option<Vec<Expression>> {
         let mut list:Vec<Expression> = vec![];
@@ -829,6 +901,75 @@ impl Parser {
 
     }
 
+    fn parse_select_statement(&mut self) -> Option<Statement> {
+        self.bump();
+        let expression = match self.parse_expression(Precedence::Lowest, false) {
+            Some(e) => e,
+            None => return None
+        };
+        let mut cases = vec![];
+        let mut default = None;
+        self.bump();
+        self.bump();
+        while self.is_current_token_in(vec![Token::Case, Token::Default]) {
+            match self.current_token {
+                Token::Case => {
+                    let case_values = match self.parse_expression_list(Token::Eol) {
+                        Some(list) => list,
+                        None => return None
+                    };
+                    cases.push((
+                        case_values,
+                        self.parse_block_statement()
+                    ));
+                },
+                Token::Default => {
+                    self.bump();
+                    default = Some(self.parse_block_statement());
+                },
+                _ => return None
+            }
+        }
+        if ! self.is_current_token(&Token::Selend) {
+            self.error_got_invalid_token(Token::Selend);
+            return None;
+        }
+        Some(Statement::Select {expression, cases, default})
+    }
+
+    fn parse_function_statement(&mut self, is_proc: bool) -> Option<Statement> {
+        self.bump();
+        let name = match self.parse_identifier() {
+            Some(i) => i,
+            None => {
+                self.error_token_is_not_identifier();
+                return None;
+            },
+        };
+
+        if ! self.is_next_token_expected(Token::Lparen) {
+            return None;
+        }
+
+        let params = match self.parse_function_parameters() {
+            Some(p) => p,
+            None => return None
+        };
+
+        self.bump();
+        let body = self.parse_block_statement();
+
+        if ! self.is_current_token(&Token::Fend) {
+            self.error_got_invalid_token(Token::Fend);
+            return None;
+        }
+        if is_proc {
+            Some(Statement::Procedure{name, params, body})
+        } else {
+            Some(Statement::Function{name, params, body})
+        }
+    }
+
     fn parse_ternary_operator_expression(&mut self, left: Expression) -> Option<Expression> {
 
         self.bump();
@@ -986,21 +1127,25 @@ dim arr2[4]
                 Identifier(String::from("piyo")),
                 Expression::Literal(Literal::Empty)
             ),
-            Statement::DimArray(
+            Statement::Dim(
                 Identifier(String::from("arr1")),
-                Expression::Literal(Literal::Empty),
-                vec![
-                    Expression::Literal(Literal::Num(1 as f64)),
-                    Expression::Literal(Literal::Num(3 as f64)),
-                    Expression::Literal(Literal::Num(5 as f64)),
-                    Expression::Literal(Literal::Num(7 as f64)),
-                    Expression::Literal(Literal::Num(9 as f64)),
-                ]
+                Expression::Array(
+                    vec![
+                        Expression::Literal(Literal::Num(1 as f64)),
+                        Expression::Literal(Literal::Num(3 as f64)),
+                        Expression::Literal(Literal::Num(5 as f64)),
+                        Expression::Literal(Literal::Num(7 as f64)),
+                        Expression::Literal(Literal::Num(9 as f64)),
+                    ],
+                    Box::new(Expression::Literal(Literal::Empty)),
+                )
             ),
-            Statement::DimArray(
+            Statement::Dim(
                 Identifier(String::from("arr2")),
-                Expression::Literal(Literal::Num(4 as f64)),
-                vec![]
+                Expression::Array(
+                    vec![],
+                    Box::new(Expression::Literal(Literal::Num(4 as f64))),
+                )
             ),
         ]);
     }
@@ -1049,14 +1194,16 @@ print []
                 Literal::String(String::from("文字列リテラル"))
             )),
             Statement::Print(Expression::Literal(
-                Literal::Array(vec![
-                    Expression::Literal(Literal::String(String::from("配"))),
-                    Expression::Literal(Literal::String(String::from("列"))),
-                    Expression::Literal(Literal::String(String::from("リ"))),
-                    Expression::Literal(Literal::String(String::from("テ"))),
-                    Expression::Literal(Literal::String(String::from("ラ"))),
-                    Expression::Literal(Literal::String(String::from("ル"))),
-                ])
+                Literal::Array(
+                    vec![
+                        Expression::Literal(Literal::String(String::from("配"))),
+                        Expression::Literal(Literal::String(String::from("列"))),
+                        Expression::Literal(Literal::String(String::from("リ"))),
+                        Expression::Literal(Literal::String(String::from("テ"))),
+                        Expression::Literal(Literal::String(String::from("ラ"))),
+                        Expression::Literal(Literal::String(String::from("ル"))),
+                    ]
+                )
             )),
             Statement::Print(Expression::Literal(
                 Literal::Array(vec![])
@@ -1236,6 +1383,95 @@ endif
                 ]
             },
         ]);
+    }
+
+    #[test]
+    fn test_select() {
+        let tests = vec![
+            (
+                r#"
+select 1
+    case 1,2
+        print a
+    case 3
+        print b
+    default
+        print c
+selend
+                "#,
+                vec![
+                    Statement::Select {
+                        expression: Expression::Literal(Literal::Num(1.0)),
+                        cases: vec![
+                            (
+                                vec![
+                                    Expression::Literal(Literal::Num(1.0)),
+                                    Expression::Literal(Literal::Num(2.0))
+                                ],
+                                vec![
+                                    Statement::Print(Expression::Identifier(Identifier("a".to_string())))
+                                ]
+                            ),
+                            (
+                                vec![
+                                    Expression::Literal(Literal::Num(3.0))
+                                ],
+                                vec![
+                                    Statement::Print(Expression::Identifier(Identifier("b".to_string())))
+                                ]
+                            ),
+                        ],
+                        default: Some(vec![
+                            Statement::Print(Expression::Identifier(Identifier("c".to_string())))
+                        ])
+                    }
+                ]
+            ),
+            (
+                r#"
+select 1
+    default
+        print c
+selend
+                "#,
+                vec![
+                    Statement::Select {
+                        expression: Expression::Literal(Literal::Num(1.0)),
+                        cases: vec![],
+                        default: Some(vec![
+                            Statement::Print(Expression::Identifier(Identifier("c".to_string())))
+                        ])
+                    }
+                ]
+            ),
+            (
+                r#"
+select 1
+    case 1
+        print a
+selend
+                "#,
+                vec![
+                    Statement::Select {
+                        expression: Expression::Literal(Literal::Num(1.0)),
+                        cases: vec![
+                            (
+                                vec![
+                                    Expression::Literal(Literal::Num(1.0)),
+                                ],
+                                vec![
+                                    Statement::Print(Expression::Identifier(Identifier("a".to_string())))
+                                ]
+                            ),
+                        ],
+                        default: None
+                    }
+                ]
+            ),
+        ];
+        for (input, expected) in tests {
+            parser_test(input, expected);
+        }
     }
 
     #[test]
@@ -1734,12 +1970,14 @@ endif
                             Infix::Multiply,
                             Box::new(Expression::Identifier(Identifier(String::from("a")))),
                             Box::new(Expression::Index(
-                                Box::new(Expression::Literal(Literal::Array(vec![
-                                    Expression::Literal(Literal::Num(1 as f64)),
-                                    Expression::Literal(Literal::Num(2 as f64)),
-                                    Expression::Literal(Literal::Num(3 as f64)),
-                                    Expression::Literal(Literal::Num(4 as f64)),
-                                ]))),
+                                Box::new(Expression::Literal(Literal::Array(
+                                    vec![
+                                        Expression::Literal(Literal::Num(1 as f64)),
+                                        Expression::Literal(Literal::Num(2 as f64)),
+                                        Expression::Literal(Literal::Num(3 as f64)),
+                                        Expression::Literal(Literal::Num(4 as f64)),
+                                    ]
+                                ))),
                                 Box::new(Expression::Infix(
                                     Infix::Multiply,
                                     Box::new(Expression::Identifier(Identifier(String::from("b")))),
@@ -1773,10 +2011,12 @@ endif
                                 Infix::Multiply,
                                 Box::new(Expression::Literal(Literal::Num(2 as f64))),
                                 Box::new(Expression::Index(
-                                    Box::new(Expression::Literal(Literal::Array(vec![
-                                        Expression::Literal(Literal::Num(1 as f64)),
-                                        Expression::Literal(Literal::Num(2 as f64)),
-                                    ]))),
+                                    Box::new(Expression::Literal(Literal::Array(
+                                        vec![
+                                            Expression::Literal(Literal::Num(1 as f64)),
+                                            Expression::Literal(Literal::Num(2 as f64)),
+                                        ]
+                                    ))),
                                     Box::new(Expression::Literal(Literal::Num(1 as f64)))
                                 ))
                             )
@@ -2117,6 +2357,159 @@ until (a == b) and (c >= d)
                             Box::new(Expression::Identifier(Identifier(String::from("c")))),
                             Box::new(Expression::Identifier(Identifier(String::from("r")))),
                         )),
+                    })
+                ]
+            ),
+            (
+                "a ? b: c ? d: e",
+                vec![
+                    Statement::Expression(Expression::Ternary{
+                        condition: Box::new(Expression::Identifier(Identifier("a".to_string()))),
+                        consequence: Box::new(Expression::Identifier(Identifier("b".to_string()))),
+                        alternative: Box::new(Expression::Ternary{
+                            condition: Box::new(Expression::Identifier(Identifier("c".to_string()))),
+                            consequence: Box::new(Expression::Identifier(Identifier("d".to_string()))),
+                            alternative: Box::new(Expression::Identifier(Identifier("e".to_string())))
+                        })
+                    })
+                ]
+            ),
+        ];
+        for (input, expected) in tests {
+            parser_test(input, expected);
+        }
+    }
+
+    #[test]
+    fn test_hashtbl() {
+        let tests = vec![
+            (
+                "hashtbl hoge",
+                vec![
+                    Statement::HashTbl(
+                        Identifier(String::from("hoge")),
+                        HashOption::None
+                    )
+                ]
+            ),
+            (
+                "hashtbl hoge = HASH_CASECARE",
+                vec![
+                    Statement::HashTbl(
+                        Identifier(String::from("hoge")),
+                        HashOption::CaseCare
+                    )
+                ]
+            ),
+            (
+                "hashtbl hoge = HASH_SORT",
+                vec![
+                    Statement::HashTbl(
+                        Identifier(String::from("hoge")),
+                        HashOption::Sort
+                    )
+                ]
+            ),
+        ];
+        for (input, expected) in tests {
+            parser_test(input, expected);
+        }
+    }
+
+    #[test]
+    fn test_function() {
+        let tests = vec![
+            (
+                r#"
+function hoge(foo, bar, baz)
+    result = foo + bar + baz
+fend
+                "#,
+                vec![
+                    Statement::Function {
+                        name: Identifier("hoge".to_string()),
+                        params: vec![
+                            Identifier("foo".to_string()),
+                            Identifier("bar".to_string()),
+                            Identifier("baz".to_string()),
+                        ],
+                        body: vec![
+                            Statement::Expression(
+                                Expression::Assign(
+                                    Box::new(Expression::Identifier(Identifier("result".to_string()))),
+                                    Box::new(Expression::Infix(
+                                        Infix::Plus,
+                                        Box::new(Expression::Infix(
+                                            Infix::Plus,
+                                            Box::new(Expression::Identifier(Identifier("foo".to_string()))),
+                                            Box::new(Expression::Identifier(Identifier("bar".to_string()))),
+                                        )),
+                                        Box::new(Expression::Identifier(Identifier("baz".to_string()))),
+                                    )),
+                                )
+                            )
+                        ],
+                    }
+                ]
+            ),
+            (
+                r#"
+procedure hoge(foo, bar, baz)
+    print foo + bar + baz
+fend
+                "#,
+                vec![
+                    Statement::Procedure {
+                        name: Identifier("hoge".to_string()),
+                        params: vec![
+                            Identifier("foo".to_string()),
+                            Identifier("bar".to_string()),
+                            Identifier("baz".to_string()),
+                        ],
+                        body: vec![
+                            Statement::Print(
+                                Expression::Infix(
+                                    Infix::Plus,
+                                    Box::new(Expression::Infix(
+                                        Infix::Plus,
+                                        Box::new(Expression::Identifier(Identifier("foo".to_string()))),
+                                        Box::new(Expression::Identifier(Identifier("bar".to_string()))),
+                                    )),
+                                    Box::new(Expression::Identifier(Identifier("baz".to_string()))),
+                                ),
+                            )
+                        ],
+                    }
+                ]
+            ),
+            (
+                r#"
+print hoge(1)
+
+function hoge(a)
+    result = a
+fend
+                "#,
+                vec![
+                    Statement::Function {
+                        name: Identifier("hoge".to_string()),
+                        params: vec![
+                            Identifier("a".to_string()),
+                        ],
+                        body: vec![
+                            Statement::Expression(
+                                Expression::Assign(
+                                    Box::new(Expression::Identifier(Identifier("result".to_string()))),
+                                    Box::new(Expression::Identifier(Identifier("a".to_string()))),
+                                )
+                            )
+                        ],
+                    },
+                    Statement::Print(Expression::FuncCall{
+                        func: Box::new(Expression::Identifier(Identifier("hoge".to_string()))),
+                        args: vec![
+                            Expression::Literal(Literal::Num(1.0)),
+                        ],
                     })
                 ]
             ),

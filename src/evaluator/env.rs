@@ -6,6 +6,7 @@ use std::rc::Rc;
 #[derive(PartialEq, Clone, Debug)]
 pub struct Env {
     store: HashMap<String, Object>,
+    global: HashMap<String, Object>,
     outer: Option<Rc<RefCell<Env>>>,
 }
 
@@ -13,13 +14,15 @@ impl Env {
     pub fn new() -> Self {
         Env {
             store: HashMap::new(),
-            outer: None
+            global: HashMap::new(),
+            outer: None,
         }
     }
 
     pub fn from(store: HashMap<String, Object>) -> Self {
         Env {
             store,
+            global: HashMap::new(),
             outer: None
         }
     }
@@ -27,6 +30,7 @@ impl Env {
     pub fn new_with_outer(outer: Rc<RefCell<Env>>) -> Self {
         Env {
             store: HashMap::new(),
+            global: HashMap::new(),
             outer: Some(outer)
         }
     }
@@ -36,12 +40,19 @@ impl Env {
             Some(value) => Some(value.clone()),
             None => match self.outer {
                 Some(ref outer) => outer.borrow_mut().get(name),
-                None => None
+                None => match self.global.get(&name) {
+                    Some(value) => Some(value.clone()),
+                    None => None
+                }
             }
         }
     }
 
     pub fn set(&mut self, name: String, value: &Object) {
         self.store.insert(name, value.clone());
+    }
+
+    pub fn set_global(&mut self, name: String, value: &Object) {
+        self.global.insert(name, value.clone());
     }
 }
