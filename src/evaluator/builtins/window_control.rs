@@ -1,9 +1,9 @@
 use crate::evaluator::object::*;
 
 pub fn getid(args: Vec<Object>) -> Object {
-    Object::Num(1.0)
+    Object::Num(args.len() as f64)
 }
 
 pub fn clkitem(args: Vec<Object>) -> Object {
-    Object::Bool(true)
+    Object::Bool(args.len() > 0)
 }

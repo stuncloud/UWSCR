@@ -2,6 +2,7 @@ use crate::ast::*;
 use crate::evaluator::env::*;
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
@@ -15,10 +16,11 @@ pub enum Object {
     String(String),
     Bool(bool),
     Array(Vec<Object>),
-    Hash(HashMap<Object, Object>),
+    Hash(HashMap<String, Object>, bool),
+    SortedHash(BTreeMap<String, Object>, bool),
     Function(Vec<Identifier>, BlockStatement, Rc<RefCell<Env>>),
     Procedure(Vec<Identifier>, BlockStatement, Rc<RefCell<Env>>),
-    Builtin(i32, BuiltinFunction),
+    BuiltinFunction(i32, BuiltinFunction),
     Null,
     Empty,
     Nothing,
@@ -45,7 +47,18 @@ impl fmt::Display for Object {
                 }
                 write!(f, "[{}]", result)
             },
-            Object::Hash(ref hash) => {
+            Object::Hash(ref hash, _) => {
+                let mut result = String::new();
+                for (i, (k, v)) in hash.iter().enumerate() {
+                    if i < 1 {
+                        result.push_str(&format!("{}: {}", k, v))
+                    } else {
+                        result.push_str(&format!(", {}: {}", k, v))
+                    }
+                }
+                write!(f, "{{{}}}", result)
+            },
+            Object::SortedHash(ref hash, _) => {
                 let mut result = String::new();
                 for (i, (k, v)) in hash.iter().enumerate() {
                     if i < 1 {
@@ -78,7 +91,7 @@ impl fmt::Display for Object {
                 }
                 write!(f, "procedure({}) {{ ... }}", result)
             },
-            Object::Builtin(_, _) => write!(f, "[builtin function]"),
+            Object::BuiltinFunction(_, _) => write!(f, "[builtin function]"),
             Object::Null => write!(f, "NULL"),
             Object::Empty => write!(f, "EMPTY"),
             Object::Nothing => write!(f, "NOTHING"),

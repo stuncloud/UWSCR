@@ -7,7 +7,11 @@ use crate::evaluator::env::*;
 use crate::evaluator::object::*;
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::rc::Rc;
+
+const HASH_CASECARE: u32 = 0x1000;
+const HASH_SORT: u32 = 0x2000;
 
 #[derive(Debug)]
 pub struct  Evaluator {
@@ -115,14 +119,31 @@ impl Evaluator {
                     None
                 }
             },
-            Statement::HashTbl(i, o) => {
-                match o {
-                    HashOption::CaseCare => (),
-                    HashOption::Sort => (),
-                    HashOption::None => (),
+            Statement::HashTbl(i, hashopt) => {
+                let opt = match hashopt {
+                    Some(e) => match self.eval_expression(e) {
+                        Some(o) => {
+                            if Self::is_error(&o) {
+                                return Some(o);
+                            } else {
+                                match o {
+                                    Object::Num(n) => n as u32,
+                                    _ => return Some(Self::error(format!("invalid hashtbl option: {}", o)))
+                                }
+                            }
+                        },
+                        None => return Some(Self::error(format!("syntax error")))
+                    },
+                    None => 0
                 };
-                let hash = HashMap::new();
-                let value = Object::Hash(hash);
+                let casecare = (opt & HASH_CASECARE) > 0;
+                let value = if (opt & HASH_SORT) > 0 {
+                    let hash = BTreeMap::new();
+                    Object::SortedHash(hash, casecare)
+                } else {
+                    let hash = HashMap::new();
+                    Object::Hash(hash, casecare)
+                };
                 let Identifier(name) = i;
                 self.env.borrow_mut().set(name, &value);
                 None
@@ -380,7 +401,8 @@ impl Evaluator {
                     Object::Error(m) => return Some(Self::error(m)),
                     Object::Array(a) => a,
                     Object::String(s) => s.chars().map(|c| Object::String(c.to_string())).collect::<Vec<Object>>(),
-                    Object::Hash(h) => h.keys().map(|key| key.clone()).collect::<Vec<Object>>(),
+                    Object::Hash(h, _) => h.keys().map(|key| Object::String(key.clone())).collect::<Vec<Object>>(),
+                    Object::SortedHash(h, _) => h.keys().map(|key| Object::String(key.clone())).collect::<Vec<Object>>(),
                     _ => return Some(Self::error(format!("for-in requires array, hashtable, string, or collection")))
                 }
             },
@@ -611,15 +633,39 @@ impl Evaluator {
             } else {
                 Self::error(format!("imvalid index: {}[{}]", left, index))
             },
-            Object::Hash(ref h) => match index {
-                Object::Num(_) |
-                Object::Bool(_) |
-                Object::String(_) => match h.get(&index) {
+            Object::Hash(ref h, casecare) => {
+                let key = match index {
+                    Object::Num(n) => n.to_string(),
+                    Object::Bool(b) => b.to_string(),
+                    Object::String(s) => if casecare {
+                        s
+                    } else {
+                        s.to_ascii_uppercase()
+                    },
+                    Object::Error(_) => return index,
+                    _ => return Self::error(format!("invalid hash key:{}", index))
+                };
+                match h.get(&key) {
                     Some(o) => o.clone(),
                     None => Object::Empty
-                },
-                Object::Error(_) => index,
-                _ => Self::error(format!("invalid key:{}", index))
+                }
+            },
+            Object::SortedHash(ref h, casecare) => {
+                let key = match index {
+                    Object::Num(n) => n.to_string(),
+                    Object::Bool(b) => b.to_string(),
+                    Object::String(s) => if casecare {
+                        s
+                    } else {
+                        s.to_ascii_uppercase()
+                    },
+                    Object::Error(_) => return index,
+                    _ => return Self::error(format!("invalid hash key:{}", index))
+                };
+                match h.get(&key) {
+                    Some(o) => o.clone(),
+                    None => Object::Empty
+                }
             },
             _ => Self::error(format!("3 unknown operator: {} {}", left, index))
         }
@@ -674,10 +720,35 @@ impl Evaluator {
                                     _ => return Some(Self::error(format!("invalid index: {}", index)))
                                 };
                             },
-                            Object::Hash(h) => {
+                            Object::Hash(h, casecare) => {
+                                let key = match index {
+                                    Object::Num(n) => n.to_string(),
+                                    Object::Bool(b) => b.to_string(),
+                                    Object::String(s) => if casecare {
+                                        s
+                                    } else {
+                                        s.to_ascii_uppercase()
+                                    },
+                                    _ => return Some(Self::error(format!("invalid hash key: {}", index)))
+                                };
                                 let mut hash = h.clone();
-                                hash.entry(index).or_insert_with(|| value);
-                                env.set(name, &Object::Hash(hash));
+                                hash.entry(key).or_insert_with(|| value);
+                                env.set(name, &Object::Hash(hash, casecare));
+                            },
+                            Object::SortedHash(h, casecare) => {
+                                let key = match index {
+                                    Object::Num(n) => n.to_string(),
+                                    Object::Bool(b) => b.to_string(),
+                                    Object::String(s) => if casecare {
+                                        s
+                                    } else {
+                                        s.to_ascii_uppercase()
+                                    },
+                                    _ => return Some(Self::error(format!("invalid hash key: {}", index)))
+                                };
+                                let mut hash = h.clone();
+                                hash.entry(key).or_insert_with(|| value);
+                                env.set(name, &Object::SortedHash(hash, casecare));
                             },
                             _ => return Some(Self::error(format!("not an array or hashtable: {}", name)))
                         };
@@ -792,7 +863,7 @@ impl Evaluator {
                 is_proc = true;
                 (p, b, e)
             },
-            Some(Object::Builtin(expected_param_len, f)) => {
+            Some(Object::BuiltinFunction(expected_param_len, f)) => {
                 if expected_param_len < 0 || expected_param_len > args.len() as i32 {
                     return f(args);
                 } else {
@@ -933,12 +1004,26 @@ mod tests {
 
     #[test]
     fn test_assign_variable() {
-        let input = r#"
+        let test_cases = vec![
+            (
+                r#"
 dim hoge = 1
 hoge = 2
 hoge
-        "#;
-        eval_test(input, Some(Object::Num(2.0)));
+                "#,
+                Some(Object::Num(2.0))
+            ),
+            (
+                r#"
+dim HOGE = 2
+hoge
+                "#,
+                Some(Object::Num(2.0))
+            ),
+        ];
+        for (input, expected) in test_cases {
+            eval_test(input, expected);
+        }
     }
 
     #[test]
@@ -975,6 +1060,31 @@ hoge[FALSE] = 2
 hoge[FALSE]
                 "#,
                 Some(Object::Num(2.0))
+            ),
+            (
+                r#"
+hashtbl hoge = HASH_CASECARE
+hoge["abc"] = 1
+hoge["ABC"] = 2
+hoge["abc"] + hoge["ABC"]
+                "#,
+                Some(Object::Num(3.0))
+            ),
+            (
+                r#"
+hashtbl hoge = HASH_CASECARE or HASH_SORT
+hoge["abc"] = "a"
+hoge["ABC"] = "b"
+hoge["000"] = "c"
+hoge["999"] = "d"
+
+a = ""
+for key in hoge
+    a = a + hoge[key]
+next
+a
+                "#,
+                Some(Object::String("cdba".to_string()))
             ),
         ];
         for (input, expected) in test_cases {

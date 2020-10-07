@@ -103,19 +103,12 @@ pub enum Literal {
 }
 
 #[derive(PartialEq, Clone, Debug)]
-pub enum HashOption {
-    CaseCare,
-    Sort,
-    None
-}
-
-#[derive(PartialEq, Clone, Debug)]
 pub enum Statement {
     Blank,
     Dim(Identifier, Expression),
     Public(Identifier, Expression),
     Const(Identifier, Expression),
-    HashTbl(Identifier, HashOption),
+    HashTbl(Identifier, Option<Expression>),
     Print(Expression),
     Call(String),
     DefDll(String),

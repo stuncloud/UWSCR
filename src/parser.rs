@@ -383,34 +383,14 @@ impl Parser {
             self.bump();
             self.bump();
             match self.parse_expression(Precedence::Lowest, false) {
-                Some(e) => {
-                    match self.parse_hashtable_option(e) {
-                        Some(o) => o,
-                        None => return None
-                    }
-                },
+                Some(e) => Some(e),
                 None => return None
             }
         } else {
-            HashOption::None
+            None
         };
         Some(Statement::HashTbl(identifier, hash_option))
     }
-
-    fn parse_hashtable_option(&mut self, expression: Expression) -> Option<HashOption> {
-        match expression {
-            Expression::Identifier(i) => {
-                let Identifier(name) = i;
-                match name.as_str() {
-                    "HASH_CASECARE" => Some(HashOption::CaseCare),
-                    "HASH_SORT" => Some(HashOption::Sort),
-                    _ => None
-                }
-            },
-            _ => None
-        }
-    }
-
 
     fn parse_print_statement(&mut self) -> Option<Statement> {
         self.bump();
@@ -2388,7 +2368,7 @@ until (a == b) and (c >= d)
                 vec![
                     Statement::HashTbl(
                         Identifier(String::from("hoge")),
-                        HashOption::None
+                        None
                     )
                 ]
             ),
@@ -2397,7 +2377,7 @@ until (a == b) and (c >= d)
                 vec![
                     Statement::HashTbl(
                         Identifier(String::from("hoge")),
-                        HashOption::CaseCare
+                        Some(Expression::Identifier(Identifier("HASH_CASECARE".to_string())))
                     )
                 ]
             ),
@@ -2406,7 +2386,7 @@ until (a == b) and (c >= d)
                 vec![
                     Statement::HashTbl(
                         Identifier(String::from("hoge")),
-                        HashOption::Sort
+                        Some(Expression::Identifier(Identifier("HASH_SORT".to_string())))
                     )
                 ]
             ),

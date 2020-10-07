@@ -1,7 +1,7 @@
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
-    Illegal,
+    Illegal(char),
     Blank, // 空行
     Eof,
     Eol, // 行末、コメント開始も行末として扱う

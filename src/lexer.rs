@@ -74,6 +74,18 @@ impl Lexer {
             '/' => {
                 if self.nextch_is('/') {
                     // Token::Comment
+                    loop {
+                        self.read_char();
+                        if self.nextch_is('\r') {
+                            if self.nextch_is('\n'){
+                                self.read_char();
+                            }
+                            break;
+                        }
+                        if self.nextch_is('\n') {
+                            break;
+                        }
+                    }
                     Token::Eol
                 } else {
                     Token::Slash
@@ -141,8 +153,14 @@ impl Lexer {
             '\n' => {
                 Token::Eol
             },
+            '\r' => {
+                if self.nextch_is('\n') {
+                    self.read_char();
+                }
+                Token::Eol
+            },
             '\0' => Token::Eof,
-            '\x01'..=' ' => Token::Illegal,
+            '\x01'..=' ' => Token::Illegal(self.ch),
             _ => {
                 return self.consume_identifier();
             },

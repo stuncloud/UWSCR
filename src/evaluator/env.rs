@@ -36,7 +36,7 @@ impl Env {
     }
 
     pub fn get(&mut self, name: String) -> Option<Object> {
-        match self.store.get(&name) {
+        match self.store.get(&name.to_ascii_uppercase()) {
             Some(value) => Some(value.clone()),
             None => match self.outer {
                 Some(ref outer) => outer.borrow_mut().get(name),
@@ -49,10 +49,10 @@ impl Env {
     }
 
     pub fn set(&mut self, name: String, value: &Object) {
-        self.store.insert(name, value.clone());
+        self.store.insert(name.to_ascii_uppercase(), value.clone());
     }
 
     pub fn set_global(&mut self, name: String, value: &Object) {
-        self.global.insert(name, value.clone());
+        self.global.insert(name.to_ascii_uppercase(), value.clone());
     }
 }
