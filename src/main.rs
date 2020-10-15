@@ -1,8 +1,10 @@
 use std::path::PathBuf;
 use std::error::Error;
 use structopt::{clap::ArgGroup, StructOpt};
+use std::fs;
 
 use uwscr::script;
+use uwscr::repl;
 
 #[derive(StructOpt, Debug)]
 #[structopt(group = ArgGroup::with_name("command").required(false))]
@@ -20,7 +22,7 @@ struct Opt {
 fn main() -> Result<(), Box<dyn Error>> {
     let opt = Opt::from_args();
     if opt.repl {
-        println!("replは未実装です");
+        repl::run();
         return Ok(());
     }
     if opt.language_server {
@@ -28,9 +30,21 @@ fn main() -> Result<(), Box<dyn Error>> {
         return Ok(());
     }
     match opt.file {
-        Some(path) => script::run(path),
+        Some(path) => {
+            let script = fs::read_to_string(path)?;
+            match script::run(script) {
+                Ok(_) => Ok(()),
+                Err(errors) => {
+                    eprintln!("parser had {} error[s]", errors.len());
+                    for err in errors {
+                        eprintln!("{}", err);
+                    }
+                    Ok(())
+                }
+            }
+        },
         None => {
-            println!("replは未実装です");
+            repl::run();
             Ok(())
         }
     }

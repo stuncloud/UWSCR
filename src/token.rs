@@ -39,6 +39,11 @@ pub enum Token {
     Xor, // xor
     Mod, // mod
 
+    AddAssign, // +=,
+    SubtractAssign, // -=,
+    MultiplyAssign, // *=,
+    DivideAssign, // /=,
+
     // Assign, // = (代入)
     EqualOrAssign, // 代入または等式r
     Equal, // =, ==
@@ -62,7 +67,6 @@ pub enum Token {
     Lbracket, // [
     Rbracket, // ]
     LineContinue, // _
-    LineBreak, // 改行
     BackSlash, // \ ファイルパス用
 
     // ブロック構文
@@ -103,14 +107,13 @@ pub enum Token {
     Procedure,
     Fend,
 
+    Exit,
+
     Module,
     EndModule,
     Class,
     EndClass,
-
-    // キーワード
-    This,
-    Global,
+    Private,
 
     // その他
     Option(String),

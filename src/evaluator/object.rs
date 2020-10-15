@@ -28,6 +28,8 @@ pub enum Object {
     Break(u32),
     Result(Box<Object>),
     Error(String),
+    Eval(String),
+    Exit,
 }
 
 impl fmt::Display for Object {
@@ -51,9 +53,9 @@ impl fmt::Display for Object {
                 let mut result = String::new();
                 for (i, (k, v)) in hash.iter().enumerate() {
                     if i < 1 {
-                        result.push_str(&format!("{}: {}", k, v))
+                        result.push_str(&format!("\"{}\": {}", k, v))
                     } else {
-                        result.push_str(&format!(", {}: {}", k, v))
+                        result.push_str(&format!(", \"{}\": {}", k, v))
                     }
                 }
                 write!(f, "{{{}}}", result)
@@ -62,9 +64,9 @@ impl fmt::Display for Object {
                 let mut result = String::new();
                 for (i, (k, v)) in hash.iter().enumerate() {
                     if i < 1 {
-                        result.push_str(&format!("{}: {}", k, v))
+                        result.push_str(&format!("\"{}\": {}", k, v))
                     } else {
-                        result.push_str(&format!(", {}: {}", k, v))
+                        result.push_str(&format!(", \"{}\": {}", k, v))
                     }
                 }
                 write!(f, "{{{}}}", result)
@@ -78,7 +80,7 @@ impl fmt::Display for Object {
                         result.push_str(&format!(", {}", s))
                     }
                 }
-                write!(f, "function({}) {{ ... }}", result)
+                write!(f, "_func_({})", result)
             },
             Object::Procedure(ref params, _, _) => {
                 let mut result = String::new();
@@ -89,15 +91,17 @@ impl fmt::Display for Object {
                         result.push_str(&format!(", {}", s))
                     }
                 }
-                write!(f, "procedure({}) {{ ... }}", result)
+                write!(f, "_proc_({})", result)
             },
             Object::BuiltinFunction(_, _) => write!(f, "[builtin function]"),
             Object::Null => write!(f, "NULL"),
-            Object::Empty => write!(f, "EMPTY"),
+            Object::Empty => write!(f, ""),
             Object::Nothing => write!(f, "NOTHING"),
             Object::Continue(ref n) => write!(f, "Continue {}", n),
             Object::Break(ref n) => write!(f, "Break {}", n),
+            Object::Exit => write!(f, "Exit"),
             Object::Result(ref value) => write!(f, "{}", value),
+            Object::Eval(ref value) => write!(f, "{}", value),
             Object::Error(ref value) => write!(f, "{}", value),
         }
     }

@@ -82,11 +82,13 @@ pub enum Expression {
         args: Vec<Expression>,
     },
     Assign(Box<Expression>, Box<Expression>),
+    CompoundAssign(Box<Expression>, Box<Expression>, Infix), // += -= *= /=
     Ternary { // ?: 三項演算子
         condition: Box<Expression>,
         consequence: Box<Expression>,
         alternative: Box<Expression>,
-    }
+    },
+    DotCall(Box<Expression>, Box<Expression>), // hoge.fuga hoge.piyo()
 }
 
 #[derive(PartialEq, Clone, Debug)]
@@ -159,6 +161,9 @@ pub enum Statement {
         params: Vec<Identifier>,
         body: BlockStatement
     },
+    Exit,
+    Module(Identifier, BlockStatement),
+    Private(Box<Statement>),
 }
 
 pub type BlockStatement = Vec<Statement>;
@@ -177,4 +182,5 @@ pub enum Precedence {
     Prefix,         // X or !X
     FuncCall,       // myfunc(x)
     Index,          // array[index]
+    DotCall,        // hoge.fuga
 }

@@ -5,6 +5,9 @@ pub mod builtins;
 use crate::ast::*;
 use crate::evaluator::env::*;
 use crate::evaluator::object::*;
+use crate::parser::Parser;
+use crate::lexer::Lexer;
+
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::collections::BTreeMap;
@@ -67,9 +70,10 @@ impl Evaluator {
             }
             match self.eval_statement(statement) {
                 Some(o) => match o {
-                    Object::Error(msg) => return Some(Self::error(msg)),
-                    Object::Continue(n) => return Some(Object::Continue(n)),
-                    Object::Break(n) => return Some(Object::Break(n)),
+                    Object::Error(_) |
+                    Object::Continue(_) |
+                    Object::Break(_) |
+                    Object::Exit => return Some(o),
                     _ => (),
                 },
                 None => (),
@@ -89,8 +93,12 @@ impl Evaluator {
                     Some(value)
                 } else {
                     let Identifier(name) = i;
-                    self.env.borrow_mut().set(name, &value);
-                    None
+                    if self.env.borrow_mut().is_defined(&name) {
+                        Some(Self::error(format!("{} is already defined", name)))
+                    } else {
+                        self.env.borrow_mut().set(name, &value);
+                        None
+                    }
                 }
             },
             Statement::Public(i, e) => {
@@ -102,8 +110,12 @@ impl Evaluator {
                     Some(value)
                 } else {
                     let Identifier(name) = i;
-                    self.env.borrow_mut().set_global(name, &value);
-                    None
+                    if self.env.borrow_mut().is_defined(&name) {
+                        Some(Self::error(format!("{} is already defined", name)))
+                    } else {
+                        self.env.borrow_mut().set(name, &value);
+                        None
+                    }
                 }
             },
             Statement::Const(i, e) => {
@@ -115,8 +127,12 @@ impl Evaluator {
                     Some(value)
                 } else {
                     let Identifier(name) = i;
-                    self.env.borrow_mut().set_global(name, &value);
-                    None
+                    if self.env.borrow_mut().is_defined(&name) {
+                        Some(Self::error(format!("{} is already defined", name)))
+                    } else {
+                        self.env.borrow_mut().set(name, &value);
+                        None
+                    }
                 }
             },
             Statement::HashTbl(i, hashopt) => {
@@ -145,8 +161,12 @@ impl Evaluator {
                     Object::Hash(hash, casecare)
                 };
                 let Identifier(name) = i;
-                self.env.borrow_mut().set(name, &value);
-                None
+                if self.env.borrow_mut().is_defined(&name) {
+                    Some(Self::error(format!("{} is already defined", name)))
+                } else {
+                    self.env.borrow_mut().set(name, &value);
+                    None
+                }
             },
             Statement::Print(e) => {
                 match self.eval_expression(e) {
@@ -190,16 +210,37 @@ impl Evaluator {
             },
             Statement::Function {name, params, body} => {
                 let Identifier(name) = name;
+                for statement in body.clone() {
+                    match statement {
+                        Statement::Public(_, _) | Statement::Const(_, _) => {
+                            println!("found {:?}", statement);
+                            match self.eval_statement(statement) {
+                                Some(Object::Error(msg)) => return Some(Self::error(msg)),
+                                _ => {},
+                            };
+                        },
+                        _ => {},
+                    };
+                }
                 let func = Object::Function(params, body, Rc::clone(&self.env));
-                self.env.borrow_mut().set(name, &func);
-                None
+                if self.env.borrow_mut().is_defined(&name) {
+                    Some(Self::error(format!("{} is already defined", name)))
+                } else {
+                    self.env.borrow_mut().set(name, &func);
+                    None
+                }
             },
             Statement::Procedure {name, params, body} => {
                 let Identifier(name) = name;
                 let func = Object::Procedure(params, body, Rc::clone(&self.env));
-                self.env.borrow_mut().set(name, &func);
-                None
+                if self.env.borrow_mut().is_defined(&name) {
+                    Some(Self::error(format!("{} is already defined", name)))
+                } else {
+                    self.env.borrow_mut().set(name, &func);
+                    None
+                }
             },
+            Statement::Exit => Some(Object::Exit),
             _ => None
         }
     }
@@ -539,22 +580,42 @@ impl Evaluator {
                 None
             },
             Expression::Infix(i, l, r) => {
-                let left = self.eval_expression(*l);
-                let right = self.eval_expression(*r);
-                if left.is_some() && right.is_some() {
-                    Some(self.eval_infix_expression(i, left.unwrap(), right.unwrap()))
-                } else {
-                    None
-                }
+                let left = match self.eval_expression(*l) {
+                    Some(o) => if Self::is_error(&o) {
+                        return Some(o);
+                    } else {
+                        o
+                    },
+                    None => return None
+                };
+                let right = match self.eval_expression(*r) {
+                    Some(o) => if Self::is_error(&o) {
+                        return Some(o);
+                    } else {
+                        o
+                    },
+                    None => return None
+                };
+                Some(self.eval_infix_expression(i, left, right))
             },
             Expression::Index(l, i) => {
-                let left = self.eval_expression(*l);
-                let index = self.eval_expression(*i);
-                if left.is_some() && index.is_some() {
-                    Some(self.eval_index_expression(left.unwrap(), index.unwrap()))
-                } else {
-                    None
-                }
+                let left = match self.eval_expression(*l) {
+                    Some(o) => if Self::is_error(&o) {
+                        return Some(o);
+                    } else {
+                        o
+                    },
+                    None => return None
+                };
+                let index = match self.eval_expression(*i) {
+                    Some(o) => if Self::is_error(&o) {
+                        return Some(o);
+                    } else {
+                        o
+                    },
+                    None => return None
+                };
+                Some(self.eval_index_expression(left, index))
             },
             Expression::Function {params, body} => {
                 Some(Object::Function(params, body, Rc::clone(&self.env)))
@@ -573,13 +634,58 @@ impl Evaluator {
                 if Self::is_error(&value) {
                     Some(value)
                 } else {
-                    self.eval_assign_expression(*l, value);
-                    None
+                    self.eval_assign_expression(*l, value)
+                }
+            },
+            Expression::CompoundAssign(l, r, i) => {
+                let left = match self.eval_expression(*l.clone()) {
+                    Some(o) => if Self::is_error(&o) {
+                        return Some(o);
+                    } else {
+                        o
+                    },
+                    None => return None
+                };
+                let right = match self.eval_expression(*r) {
+                    Some(o) => if Self::is_error(&o) {
+                        return Some(o);
+                    } else {
+                        o
+                    },
+                    None => return None
+                };
+                // let left = self.eval_expression(*l.clone());
+                // let right = self.eval_expression(*r);
+                let value= self.eval_infix_expression(i, left, right);
+                if Self::is_error(&value) {
+                    Some(value)
+                } else {
+                    self.eval_assign_expression(*l, value)
                 }
             },
             Expression::Ternary {condition, consequence, alternative} => {
                 self.eval_ternary_expression(*condition, *consequence, *alternative)
-            }
+            },
+            Expression::DotCall(l, m) => {
+                let left = match self.eval_expression(*l) {
+                    Some(o) => if Self::is_error(&o) {
+                        return Some(o);
+                    } else {
+                        o
+                    },
+                    None => return None
+                };
+                let member = match self.eval_expression(*m) {
+                    Some(o) => if Self::is_error(&o) {
+                        return Some(o);
+                    } else {
+                        o
+                    },
+                    None => return None
+                };
+
+                Some(Self::error(format!(". operator not supported: {}.{}", left, member)))
+            },
         }
     }
 
@@ -768,7 +874,7 @@ impl Evaluator {
                     Object::Num(n) => {
                         self.eval_infix_number_expression(infix, l, n)
                     },
-                    Object::String(_) => {
+                    Object::String(_) | Object::Empty => {
                         self.eval_infix_string_expression(infix, left, right)
                     },
                     Object::Bool(b) => {
@@ -781,14 +887,14 @@ impl Evaluator {
             },
             Object::String(_) => {
                 match right {
-                    Object::Num(_) | Object::String(_) | Object::Bool(_) => (),
+                    Object::Num(_) | Object::String(_) | Object::Bool(_) | Object::Empty => (),
                     _ => return Self::error(format!("mismatched type: {} {} {}", left, infix, right))
                 };
                 self.eval_infix_string_expression(infix, left, right)
             },
             Object::Bool(l) => match right {
                 Object::Bool(b) => self.eval_infix_logical_operator_expression(infix, l, b),
-                Object::String(_) => self.eval_infix_string_expression(infix, left, right),
+                Object::String(_) | Object::Empty => self.eval_infix_string_expression(infix, left, right),
                 Object::Num(n) => self.eval_infix_number_expression(infix, l as i64 as f64, n),
                 _ => Self::error(format!("mismatched type: {} {} {}", left, infix, right))
             },
@@ -864,8 +970,27 @@ impl Evaluator {
                 (p, b, e)
             },
             Some(Object::BuiltinFunction(expected_param_len, f)) => {
-                if expected_param_len < 0 || expected_param_len > args.len() as i32 {
-                    return f(args);
+                if expected_param_len > 0 || expected_param_len <= args.len() as i32 {
+                    let func_result = f(args);
+                    return match func_result {
+                        Object::Eval(s) => {
+                            let mut parser = Parser::new(Lexer::new(&s));
+                            let program = parser.parse();
+                            let errors = parser.get_errors();
+                            if errors.len() > 0 {
+                                let mut eval_parse_error = format!("eval parse error[{}]:", errors.len());
+                                for err in errors {
+                                    eval_parse_error = format!("{} {}", eval_parse_error, err);
+                                }
+                                return Self::error(eval_parse_error);
+                            }
+                            match self.eval(program) {
+                                Some(o) => o,
+                                None => Object::Empty
+                            }
+                        },
+                        _ => func_result
+                    };
                 } else {
                     return Self::error(format!(
                         "too much arguments ({}). max count of arguments should be {}",
@@ -897,14 +1022,15 @@ impl Evaluator {
 
         self.env = Rc::new(RefCell::new(scoped_env));
         let object = self.eval_block_statement(body);
-        let result = match self.env.borrow_mut().get("result".to_string()) {
-            Some(o) => o,
-            None => if is_proc {
-                Object::Empty
-            } else {
-                Object::Error("no result found".to_string())
+        let result = if is_proc {
+            Object::Empty
+        } else {
+            match self.env.borrow_mut().get("result".to_string()) {
+                Some(o) => o,
+                None => Object::Empty
             }
         };
+
         self.env = current_env;
 
         match object {
@@ -941,18 +1067,19 @@ mod tests {
     use crate::lexer::Lexer;
     use crate::parser::Parser;
 
-    fn eval_test(input: &str, expected: Option<Object>) {
-        assert_eq!(eval(input), expected);
+    fn eval_test(input: &str, expected: Option<Object>, ast: bool) {
+        assert_eq!(eval(input, ast), expected);
     }
 
-    fn eval(input: &str) -> Option<Object> {
+    fn eval(input: &str, ast: bool) -> Option<Object> {
         let mut e = Evaluator::new(Rc::new(
             RefCell::new(Env::from(init_builtins()))
         ));
-        let result = e.eval(
-            Parser::new(Lexer::new(input)).parse()
-        );
-        // println!("{:?}", e);
+        let program = Parser::new(Lexer::new(input)).parse();
+        if ast {
+            println!("{:?}", program);
+        }
+        let result = e.eval(program);
         result
     }
 
@@ -983,7 +1110,7 @@ mod tests {
             ("5 mod 3", Some(Object::Num(2.0))),
         ];
         for (input, expected) in test_cases {
-            eval_test(input, expected);
+            eval_test(input, expected, false);
         }
     }
 
@@ -998,7 +1125,7 @@ mod tests {
             (r#"TRUE + "hoge""#, Some(Object::String("Truehoge".to_string()))),
         ];
         for (input, expected) in test_cases {
-            eval_test(input, expected);
+            eval_test(input, expected, false);
         }
     }
 
@@ -1022,7 +1149,7 @@ hoge
             ),
         ];
         for (input, expected) in test_cases {
-            eval_test(input, expected);
+            eval_test(input, expected, false);
         }
     }
 
@@ -1088,7 +1215,7 @@ a
             ),
         ];
         for (input, expected) in test_cases {
-            eval_test(input, expected);
+            eval_test(input, expected, false);
         }
     }
 
@@ -1099,7 +1226,7 @@ dim hoge[] = 1,3,5
 hoge[0] = "hoge"
 hoge[0]
         "#;
-        eval_test(input, Some(Object::String("hoge".to_string())));
+        eval_test(input, Some(Object::String("hoge".to_string())), false);
     }
 
     #[test]
@@ -1109,7 +1236,7 @@ hoge = [1,3,5]
 hoge[0] = 2
 hoge[0]
         "#;
-        eval_test(input, Some(Object::Num(2.0)));
+        eval_test(input, Some(Object::Num(2.0)), false);
     }
 
     #[test]
@@ -1118,7 +1245,7 @@ hoge[0]
 public hoge = 1
 hoge
         "#;
-        eval_test(input, Some(Object::Num(1.0)));
+        eval_test(input, Some(Object::Num(1.0)), false);
     }
 
     #[test]
@@ -1132,7 +1259,7 @@ hoge
             Object::Num(2.0),
             Object::Empty,
             Object::Empty,
-        ])));
+        ])), false);
     }
 
     #[test]
@@ -1141,7 +1268,7 @@ hoge
 hoge = "print test"
 print hoge
         "#;
-        eval_test(input, None);
+        eval_test(input, None, false);
     }
 
     #[test]
@@ -1219,7 +1346,7 @@ a
             ),
         ];
         for (input, expected) in test_cases {
-            eval_test(input, expected);
+            eval_test(input, expected, false);
         }
     }
 
@@ -1288,7 +1415,7 @@ a
             ),
         ];
         for (input, expected) in test_cases {
-            eval_test(input, expected);
+            eval_test(input, expected, false);
         }
     }
 
@@ -1325,7 +1452,7 @@ a
             ),
         ];
         for (input, expected) in test_cases {
-            eval_test(input, expected);
+            eval_test(input, expected, false);
         }
     }
 
@@ -1355,7 +1482,7 @@ a
             ),
         ];
         for (input, expected) in test_cases {
-            eval_test(input, expected);
+            eval_test(input, expected, false);
         }
     }
 
@@ -1392,7 +1519,7 @@ a
             ),
         ];
         for (input, expected) in test_cases {
-            eval_test(input, expected);
+            eval_test(input, expected, false);
         }
     }
 
@@ -1444,7 +1571,7 @@ a
             ),
         ];
         for (input, expected) in test_cases {
-            eval_test(input, expected);
+            eval_test(input, expected, false);
         }
     }
 
@@ -1503,7 +1630,7 @@ a
             ),
         ];
         for (input, expected) in test_cases {
-            eval_test(input, expected);
+            eval_test(input, expected, false);
         }
     }
 
@@ -1576,7 +1703,7 @@ a
             ),
         ];
         for (input, expected) in test_cases {
-            eval_test(input, expected);
+            eval_test(input, expected, false);
         }
     }
 
@@ -1657,7 +1784,7 @@ a
             ),
         ];
         for (input, expected) in test_cases {
-            eval_test(input, expected);
+            eval_test(input, expected, false);
         }
     }
 
@@ -1682,6 +1809,30 @@ a
             ),
             (
                 r#"
+a = hoge(5)
+
+function hoge(n)
+    // no result
+fend
+
+a
+                "#,
+                Some(Object::Empty)
+            ),
+            (
+                r#"
+a = hoge(5)
+
+procedure hoge(n)
+    result = n
+fend
+
+a
+                "#,
+                Some(Object::Empty)
+            ),
+            (
+                r#"
 a = 1
 hoge(5)
 
@@ -1703,9 +1854,21 @@ f(5, 10)
                 "#,
                 Some(Object::Num(15.0))
             ),
+            (
+                r#"
+a = 1
+p = procedure(x, y)
+    a = x + y
+fend
+
+p(5, 10)
+a
+                "#,
+                Some(Object::Num(1.0))
+            ),
         ];
         for (input, expected) in test_cases {
-            eval_test(input, expected);
+            eval_test(input, expected, false);
         }
     }
     #[test]
@@ -1721,7 +1884,109 @@ a
             ),
         ];
         for (input, expected) in test_cases {
-            eval_test(input, expected);
+            eval_test(input, expected, false);
         }
+    }
+
+    #[test]
+    fn test_multiple_definitions() {
+        let test_cases = vec![
+            (
+                r#"
+dim a = 1
+dim a = 2
+                "#,
+                Some(Object::Error("a is already defined".to_string()))
+            ),
+            (
+                r#"
+public a = 1
+dim a = 2
+                "#,
+                Some(Object::Error("a is already defined".to_string()))
+            ),
+            (
+                r#"
+hashtbl a
+hashtbl a
+                "#,
+                Some(Object::Error("a is already defined".to_string()))
+            ),
+            (
+                r#"
+hashtbl a
+function a()
+fend
+                "#,
+                Some(Object::Error("a is already defined".to_string()))
+            ),
+        ];
+        for (input, expected) in test_cases {
+            eval_test(input, expected, false);
+        }
+    }
+
+    #[test]
+    fn test_compound_assign() {
+        let test_cases = vec![
+            (
+                r#"
+a = 1
+a += 1
+a
+                "#,
+                Some(Object::Num(2.0))
+            ),
+            (
+                r#"
+a = "hoge"
+a += "fuga"
+a
+                "#,
+                Some(Object::String("hogefuga".to_string()))
+            ),
+            (
+                r#"
+a = 5
+a -= 3
+a
+                "#,
+                Some(Object::Num(2.0))
+            ),
+            (
+                r#"
+a = 2
+a *= 5
+a
+                "#,
+                Some(Object::Num(10.0))
+            ),
+            (
+                r#"
+a = 10
+a /= 5
+a
+                "#,
+                Some(Object::Num(2.0))
+            ),
+        ];
+        for (input, expected) in test_cases {
+            eval_test(input, expected, false);
+        }
+    }
+
+    #[test]
+    fn test_public_in_function() {
+        let input = r#"
+hoge = a + b()
+
+function b()
+    public a = 5
+    result = 6
+fend
+
+hoge
+        "#;
+        eval_test(input, Some(Object::Num(11.0)), false)
     }
 }

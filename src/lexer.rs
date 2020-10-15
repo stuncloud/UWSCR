@@ -69,8 +69,18 @@ impl Lexer {
                     Token::EqualOrAssign
                 }
             },
-            '+' => Token::Plus,
-            '-' => Token::Minus,
+            '+' => if self.nextch_is('=') {
+                self.read_char();
+                Token::AddAssign
+            } else {
+                Token::Plus
+            },
+            '-' => if self.nextch_is('=') {
+                self.read_char();
+                Token::SubtractAssign
+            } else {
+                Token::Minus
+            },
             '/' => {
                 if self.nextch_is('/') {
                     // Token::Comment
@@ -87,11 +97,19 @@ impl Lexer {
                         }
                     }
                     Token::Eol
+                } else if self.nextch_is('=') {
+                    self.read_char();
+                    Token::DivideAssign
                 } else {
                     Token::Slash
                 }
             },
-            '*' => Token::Asterisk,
+            '*' => if self.nextch_is('=') {
+                self.read_char();
+                Token::MultiplyAssign
+            } else {
+                Token::Asterisk
+            },
             '!' => {
                 if self.nextch_is('=') {
                     self.read_char();
@@ -150,6 +168,7 @@ impl Lexer {
             '"' => {
                 return self.consume_string();
             },
+            '\'' => return self.consume_single_quote_string(),
             '\n' => {
                 Token::Eol
             },
@@ -250,10 +269,12 @@ impl Lexer {
             "function" => Token::Function,
             "procedure" => Token::Procedure,
             "fend" => Token::Fend,
+            "exit" => Token::Exit,
             "module" => Token::Module,
             "endmodule" => Token::EndModule,
             "class" => Token::Class,
             "endclass" => Token::EndClass,
+            "private" => Token::Private,
             "dim" => Token::Dim,
             "public" => Token::Public,
             "const" => Token::Const,
@@ -312,6 +333,23 @@ impl Lexer {
         loop {
             match self.ch {
                 '"' | '\0' => {
+                    let literal: &String = &self.input[start_pos..self.pos].into_iter().collect();
+                    self.read_char();
+                    return Token::String(literal.to_string());
+                },
+                _ => {
+                    self.read_char();
+                }
+            }
+        }
+    }
+
+    fn consume_single_quote_string(&mut self) -> Token {
+        self.read_char();
+        let start_pos = self.pos;
+        loop {
+            match self.ch {
+                '\'' | '\0' => {
                     let literal: &String = &self.input[start_pos..self.pos].into_iter().collect();
                     self.read_char();
                     return Token::String(literal.to_string());
@@ -513,6 +551,47 @@ def_dll hogefunc(int, int):int: hoge.dll
             Token::HashTable,
             Token::Identifier(String::from("hoge"))
         })
+    }
+
+    #[test]
+    fn test_calc_assign() {
+        let test_cases = vec![
+            (
+                "a += 1",
+                vec![
+                    Token::Identifier("a".to_string()),
+                    Token::AddAssign,
+                    Token::Num(1.0)
+                ]
+            ),
+            (
+                "a -= 1",
+                vec![
+                    Token::Identifier("a".to_string()),
+                    Token::SubtractAssign,
+                    Token::Num(1.0)
+                ]
+            ),
+            (
+                "a *= 1",
+                vec![
+                    Token::Identifier("a".to_string()),
+                    Token::MultiplyAssign,
+                    Token::Num(1.0)
+                ]
+            ),
+            (
+                "a /= 1",
+                vec![
+                    Token::Identifier("a".to_string()),
+                    Token::DivideAssign,
+                    Token::Num(1.0)
+                ]
+            ),
+        ];
+        for (input, expected) in test_cases {
+            test_next_token(input, expected);
+        }
     }
 
     #[test]
