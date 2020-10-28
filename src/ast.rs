@@ -3,6 +3,13 @@ use std::fmt;
 #[derive(PartialEq, Clone, Debug)]
 pub struct Identifier(pub String);
 
+impl fmt::Display for Identifier {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let Identifier(name) = self;
+        write!(f, "{}", name)
+    }
+}
+
 #[derive(PartialEq, Clone, Debug)]
 pub enum Prefix {
     Plus,
@@ -69,11 +76,11 @@ pub enum Expression {
     Prefix(Prefix, Box<Expression>),
     Infix(Infix, Box<Expression>, Box<Expression>),
     Index(Box<Expression>, Box<Expression>),
-    Function {
+    AnonymusFunction {
         params: Vec<Identifier>,
         body: BlockStatement
     },
-    Procedure {
+    AnonymusProcedure {
         params: Vec<Identifier>,
         body: BlockStatement
     },
@@ -106,7 +113,6 @@ pub enum Literal {
 
 #[derive(PartialEq, Clone, Debug)]
 pub enum Statement {
-    Blank,
     Dim(Identifier, Expression),
     Public(Identifier, Expression),
     Const(Identifier, Expression),
@@ -161,9 +167,20 @@ pub enum Statement {
         params: Vec<Identifier>,
         body: BlockStatement
     },
+    ModuleFunction {
+        module_name: String,
+        name: String,
+        params: Vec<Identifier>,
+        body: BlockStatement
+    },
+    ModuleProcedure {
+        module_name: String,
+        name: String,
+        params: Vec<Identifier>,
+        body: BlockStatement
+    },
     Exit,
-    Module(Identifier, BlockStatement),
-    Private(Box<Statement>),
+    Module(Identifier, BlockStatement), // public, private
 }
 
 pub type BlockStatement = Vec<Statement>;

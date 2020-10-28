@@ -11,7 +11,8 @@ use crate::lexer::Lexer;
 
 pub fn run(script: String) -> Result<(), Vec<ParseError>> {
 
-    let env = Env::from(init_builtins());
+    let (f, c) = init_builtins();
+    let env = Env::from_builtin(f, c);
     let mut evaluator = Evaluator::new(Rc::new(RefCell::new(env)));
     let mut parser = Parser::new(Lexer::new(&script));
     let program = parser.parse();
@@ -27,3 +28,19 @@ pub fn run(script: String) -> Result<(), Vec<ParseError>> {
     Ok(())
 }
 
+pub fn out_ast(script: String) {
+
+    let mut parser = Parser::new(Lexer::new(&script));
+    let program = parser.parse();
+    let errors = parser.get_errors();
+    if errors.len() > 0 {
+        eprintln!("got {} parse error[s]", errors.len());
+        for err in errors {
+            eprintln!("{}", err);
+        }
+        eprintln!("");
+    }
+    for statement in program {
+        println!("{:?}", statement);
+    }
+}

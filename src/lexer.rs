@@ -84,7 +84,7 @@ impl Lexer {
             '/' => {
                 if self.nextch_is('/') {
                     // Token::Comment
-                    loop {
+                    while ! self.nextch_is('\0') {
                         self.read_char();
                         if self.nextch_is('\r') {
                             if self.nextch_is('\n'){
@@ -220,7 +220,7 @@ impl Lexer {
         let start_pos = self.pos;
         loop {
             match self.ch {
-                'a'..='z' | 'A'..='Z' | '0'..='9' | '_' => {
+                'a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '.' => {
                     self.read_char();
                 },
                 '\0'..=' ' | '　' => {
@@ -294,9 +294,18 @@ impl Lexer {
 
     fn consume_number(&mut self) -> Token {
         let start_pos = self.pos;
+        let mut has_period = false;
         loop {
             match self.ch {
-                '0'..='9' | '.'  => {
+                '0'..='9' => {
+                    if self.nextch_is('.') {
+                        self.read_char();
+                        if ! has_period {
+                            has_period = true;
+                        } else {
+                            break;
+                        }
+                    }
                     self.read_char();
                 },
                 _ => {
@@ -592,18 +601,5 @@ def_dll hogefunc(int, int):int: hoge.dll
         for (input, expected) in test_cases {
             test_next_token(input, expected);
         }
-    }
-
-    #[test]
-    fn hoge() {
-        let mut hoge = vec![];
-        hoge.push(1);
-        hoge.push(2);
-        hoge.push(3);
-        hoge.insert(0, 4);
-        hoge.insert(0, 5);
-        hoge.push(6);
-
-        println!("{:?}", hoge);
     }
 }

@@ -12,6 +12,9 @@ struct Opt {
     #[structopt(long, short, group = "command", help = "対話モードで起動します")]
     repl: bool,
 
+    #[structopt(long, short, help = "構文木を出力します")]
+    ast: bool,
+
     #[structopt(long = "server", short= "s", group = "command", help = "Language serverを起動します")]
     language_server: bool,
 
@@ -32,6 +35,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     match opt.file {
         Some(path) => {
             let script = fs::read_to_string(path)?;
+            if opt.ast {
+                script::out_ast(script);
+                return Ok(());
+            }
             match script::run(script) {
                 Ok(_) => Ok(()),
                 Err(errors) => {

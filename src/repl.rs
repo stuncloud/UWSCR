@@ -11,7 +11,8 @@ use crate::parser::ParseErrorKind;
 use crate::lexer::Lexer;
 
 pub fn run() {
-    let env = Env::from(init_builtins());
+    let (f, c) = init_builtins();
+    let env = Env::from_builtin(f, c);
     let mut evaluator = Evaluator::new(Rc::new(RefCell::new(env)));
     let mut require_newline = false;
     let mut multiline = String::new();
@@ -46,14 +47,15 @@ pub fn run() {
                     _ => eprintln!("{}", error)
                 }
             }
-        }
-        match evaluator.eval(program) {
-            Some(Object::Exit) => {
-                println!("bye!");
-                break;
-            },
-            Some(o) => println!("{}", o),
-            None => ()
+        } else {
+            match evaluator.eval(program) {
+                Some(Object::Exit) => {
+                    println!("bye!");
+                    break;
+                },
+                Some(o) => println!("{}", o),
+                None => ()
+            }
         }
     }
 }

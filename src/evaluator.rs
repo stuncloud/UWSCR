@@ -51,10 +51,8 @@ impl Evaluator {
         let mut result = None;
 
         for statement in program {
-            if statement == Statement::Blank {
-                continue;
-            }
             match self.eval_statement(statement) {
+                Some(Object::Exit) => return Some(Object::Exit),
                 Some(Object::Error(msg)) => return Some(Object::Error(msg)),
                 obj => result = obj,
             }
@@ -65,9 +63,6 @@ impl Evaluator {
 
     fn eval_block_statement(&mut self, block: BlockStatement) -> Option<Object> {
         for statement in block {
-            if statement == Statement::Blank {
-                continue;
-            }
             match self.eval_statement(statement) {
                 Some(o) => match o {
                     Object::Error(_) |
@@ -82,90 +77,87 @@ impl Evaluator {
         None
     }
 
+    fn eval_definition_statement(&mut self, identifier: Identifier, expression: Expression) -> (String, Object) {
+        let Identifier(name) = identifier;
+        let obj = match self.eval_expression(expression) {
+            Some(o) => o,
+            None => Self::error(format!("syntax error on definition"))
+        };
+        (name, obj)
+    }
+
+    fn eval_hahtbl_definition_statement(&mut self, identifier: Identifier, hashopt: Option<Expression>) -> (String, Object) {
+        let Identifier(name) = identifier;
+        let opt = match hashopt {
+            Some(e) => match self.eval_expression(e) {
+                Some(o) => {
+                    if Self::is_error(&o) {
+                        return (name, o);
+                    } else {
+                        match o {
+                            Object::Num(n) => n as u32,
+                            _ => return (name, Self::error(format!("invalid hashtbl option: {}", o)))
+                        }
+                    }
+                },
+                None => return (name, Self::error(format!("syntax error")))
+            },
+            None => 0
+        };
+        let casecare = (opt & HASH_CASECARE) > 0;
+        let obj = if (opt & HASH_SORT) > 0 {
+            let hash = BTreeMap::new();
+            Object::SortedHash(hash, casecare)
+        } else {
+            let hash = HashMap::new();
+            Object::Hash(hash, casecare)
+        };
+        (name, obj)
+    }
+
     fn eval_statement(&mut self, statement: Statement) -> Option<Object> {
         match statement {
             Statement::Dim(i, e) => {
-                let value = match self.eval_expression(e) {
-                    Some(o) => o,
-                    None => return None
-                };
+                let (name, value) = self.eval_definition_statement(i, e);
                 if Self::is_error(&value) {
                     Some(value)
                 } else {
-                    let Identifier(name) = i;
-                    if self.env.borrow_mut().is_defined(&name) {
-                        Some(Self::error(format!("{} is already defined", name)))
-                    } else {
-                        self.env.borrow_mut().set(name, &value);
-                        None
+                    match self.env.borrow_mut().define_local(name, &value) {
+                        Ok(()) => None,
+                        Err(err) => Some(err),
                     }
                 }
             },
             Statement::Public(i, e) => {
-                let value = match self.eval_expression(e) {
-                    Some(o) => o,
-                    None => return None
-                };
+                let (name, value) = self.eval_definition_statement(i, e);
                 if Self::is_error(&value) {
                     Some(value)
                 } else {
-                    let Identifier(name) = i;
-                    if self.env.borrow_mut().is_defined(&name) {
-                        Some(Self::error(format!("{} is already defined", name)))
-                    } else {
-                        self.env.borrow_mut().set(name, &value);
-                        None
+                    match self.env.borrow_mut().define_public(name, &value) {
+                        Ok(()) => None,
+                        Err(err) => Some(err),
                     }
                 }
             },
             Statement::Const(i, e) => {
-                let value = match self.eval_expression(e) {
-                    Some(o) => o,
-                    None => return None
-                };
+                let (name, value) = self.eval_definition_statement(i, e);
                 if Self::is_error(&value) {
                     Some(value)
                 } else {
-                    let Identifier(name) = i;
-                    if self.env.borrow_mut().is_defined(&name) {
-                        Some(Self::error(format!("{} is already defined", name)))
-                    } else {
-                        self.env.borrow_mut().set(name, &value);
-                        None
+                    match self.env.borrow_mut().define_const(name, &value) {
+                        Ok(()) => None,
+                        Err(err) => Some(err),
                     }
                 }
             },
             Statement::HashTbl(i, hashopt) => {
-                let opt = match hashopt {
-                    Some(e) => match self.eval_expression(e) {
-                        Some(o) => {
-                            if Self::is_error(&o) {
-                                return Some(o);
-                            } else {
-                                match o {
-                                    Object::Num(n) => n as u32,
-                                    _ => return Some(Self::error(format!("invalid hashtbl option: {}", o)))
-                                }
-                            }
-                        },
-                        None => return Some(Self::error(format!("syntax error")))
-                    },
-                    None => 0
-                };
-                let casecare = (opt & HASH_CASECARE) > 0;
-                let value = if (opt & HASH_SORT) > 0 {
-                    let hash = BTreeMap::new();
-                    Object::SortedHash(hash, casecare)
-                } else {
-                    let hash = HashMap::new();
-                    Object::Hash(hash, casecare)
-                };
-                let Identifier(name) = i;
-                if self.env.borrow_mut().is_defined(&name) {
-                    Some(Self::error(format!("{} is already defined", name)))
-                } else {
-                    self.env.borrow_mut().set(name, &value);
-                    None
+                let (name, hashtbl) = self.eval_hahtbl_definition_statement(i, hashopt);
+                if Self::is_error(&hashtbl) {
+                    return Some(hashtbl);
+                }
+                match self.env.borrow_mut().define_local(name, &hashtbl) {
+                    Ok(()) => None,
+                    Err(err) => Some(err),
                 }
             },
             Statement::Print(e) => {
@@ -209,45 +201,84 @@ impl Evaluator {
                 self.eval_select_statement(expression, cases, default)
             },
             Statement::Function {name, params, body} => {
-                let Identifier(name) = name;
-                for statement in body.clone() {
-                    match statement {
-                        Statement::Public(_, _) | Statement::Const(_, _) => {
-                            println!("found {:?}", statement);
-                            match self.eval_statement(statement) {
-                                Some(Object::Error(msg)) => return Some(Self::error(msg)),
-                                _ => {},
-                            };
-                        },
-                        _ => {},
-                    };
+                let Identifier(fname) = name;
+                let func = self.eval_funtcion_definition_statement(&fname, params, body, false, None);
+                if Self::is_error(&func) {
+                    return Some(func);
                 }
-                let func = Object::Function(params, body, Rc::clone(&self.env));
-                if self.env.borrow_mut().is_defined(&name) {
-                    Some(Self::error(format!("{} is already defined", name)))
-                } else {
-                    self.env.borrow_mut().set(name, &func);
-                    None
+                match self.env.borrow_mut().define_function(fname, &func) {
+                    Ok(()) => None,
+                    Err(err) => Some(err),
                 }
             },
             Statement::Procedure {name, params, body} => {
-                let Identifier(name) = name;
-                let func = Object::Procedure(params, body, Rc::clone(&self.env));
-                if self.env.borrow_mut().is_defined(&name) {
-                    Some(Self::error(format!("{} is already defined", name)))
-                } else {
-                    self.env.borrow_mut().set(name, &func);
-                    None
+                let Identifier(pname) = name;
+                let func = self.eval_funtcion_definition_statement(&pname, params, body, true, None);
+                if Self::is_error(&func) {
+                    return Some(func);
+                }
+                match self.env.borrow_mut().define_function(pname, &func) {
+                    Ok(()) => None,
+                    Err(err) => Some(err),
+                }
+            },
+            Statement::ModuleFunction {module_name, name, params, body} => {
+                let func = self.eval_funtcion_definition_statement(&name, params, body, false, Some(&module_name));
+                if Self::is_error(&func) {
+                    return Some(func);
+                }
+                match self.env.borrow_mut().define_function(format!("{}.{}", module_name, name), &func) {
+                    Ok(()) => None,
+                    Err(err) => Some(err),
+                }
+            },
+            Statement::ModuleProcedure {module_name, name, params, body} => {
+                let func = self.eval_funtcion_definition_statement(&name, params, body, true, Some(&module_name));
+                if Self::is_error(&func) {
+                    return Some(func);
+                }
+                match self.env.borrow_mut().define_function(format!("{}.{}", module_name, name), &func) {
+                    Ok(()) => None,
+                    Err(err) => Some(err),
+                }
+            },
+            Statement::Module(i, block) => {
+                let Identifier(name) = i;
+                let module = self.eval_module_statement(&name, block, false);
+                if Self::is_error(&module) {
+                    return Some(module);
+                }
+                let result = self.env.borrow_mut().define_module(name.clone(), &module);
+                match result {
+                    Ok(()) => {
+                        let constructor_name = format!("{}.{}", name.clone(), name.clone());
+                        if ! self.env.borrow_mut().does_function_exists(&constructor_name) {
+                            return None;
+                        }
+                        let constructor = self.eval_function_call_expression(
+                            Box::new(Expression::Identifier(Identifier(constructor_name))),
+                            vec![]
+                        );
+                        if Self::is_error(&constructor) {
+                            Some(constructor)
+                        } else {
+                            None
+                        }
+                    },
+                    Err(err) => Some(err),
                 }
             },
             Statement::Exit => Some(Object::Exit),
-            _ => None
         }
     }
 
     fn eval_if_line_statement(&mut self, condition: Expression, consequence: Statement, alternative: Option<Statement>) -> Option<Object> {
         let cond = match self.eval_expression(condition) {
-            Some(o) => o,
+            Some(o) => if Self::is_error(&o) {
+                return Some(o);
+            } else {
+                o
+            },
             None => return Some(Self::error(format!("syntax error")))
         };
         if Self::is_truthy(cond) {
@@ -262,7 +293,11 @@ impl Evaluator {
 
     fn eval_if_statement(&mut self, condition: Expression, consequence: BlockStatement, alternative: Option<BlockStatement>) -> Option<Object> {
         let cond = match self.eval_expression(condition) {
-            Some(o) => o,
+            Some(o) => if Self::is_error(&o) {
+                return Some(o);
+            } else {
+                o
+            },
             None => return Some(Self::error(format!("syntax error")))
         };
         if Self::is_truthy(cond) {
@@ -277,7 +312,11 @@ impl Evaluator {
 
     fn eval_elseif_statement(&mut self, condition: Expression, consequence: BlockStatement, alternatives: Vec<(Option<Expression>, BlockStatement)>) -> Option<Object> {
         let cond = match self.eval_expression(condition) {
-            Some(o) => o,
+            Some(o) => if Self::is_error(&o) {
+                return Some(o);
+            } else {
+                o
+            },
             None => return Some(Self::error(format!("syntax error")))
         };
         if Self::is_truthy(cond) {
@@ -288,7 +327,11 @@ impl Evaluator {
                     Some(e) => {
                         // elseif
                         let cond = match self.eval_expression(e) {
-                            Some(o) => o,
+                            Some(o) => if Self::is_error(&o) {
+                                return Some(o);
+                            } else {
+                                o
+                            },
                             None => return Some(Self::error(format!("syntax error")))
                         };
                         if Self::is_truthy(cond) {
@@ -307,7 +350,11 @@ impl Evaluator {
 
     fn eval_select_statement(&mut self, expression: Expression, cases: Vec<(Vec<Expression>, BlockStatement)>, default: Option<BlockStatement>) -> Option<Object> {
         let select_obj = match self.eval_expression(expression) {
-            Some(o) => o,
+            Some(o) => if Self::is_error(&o) {
+                return Some(o);
+            } else {
+                o
+            },
             None => return Some(Self::error(format!("syntax error")))
         };
         for (case_exp, block) in cases {
@@ -330,9 +377,6 @@ impl Evaluator {
 
     fn eval_loopblock_statement(&mut self, block: BlockStatement) -> Option<Object> {
         for statement in block {
-            if statement == Statement::Blank {
-                continue;
-            };
             match self.eval_statement(statement) {
                 Some(o) => if Self::is_error(&o) {
                     return Some(o);
@@ -398,7 +442,10 @@ impl Evaluator {
             },
             None => 1
         };
-        self.env.borrow_mut().set(var.clone(), &Object::Num(counter as f64));
+        match self.env.borrow_mut().assign(var.clone(), &Object::Num(counter as f64)) {
+            Ok(()) => (),
+            Err(err) => return Some(err)
+        };
         loop {
             match self.eval_loopblock_statement(block.clone()) {
                 Some(o) => if Self::is_error(&o) {
@@ -409,7 +456,10 @@ impl Evaluator {
                             return Some(Object::Continue(n - 1));
                         } else {
                             counter += step;
-                            self.env.borrow_mut().set(var.clone(), &Object::Num(counter as f64));
+                            match self.env.borrow_mut().assign(var.clone(), &Object::Num(counter as f64)) {
+                                Ok(()) => (),
+                                Err(err) => return Some(err)
+                            };
                             if step > 0 && counter > counter_end || step < 0 && counter < counter_end {
                                 break;
                             }
@@ -426,7 +476,10 @@ impl Evaluator {
                 _ => ()
             };
             counter += step;
-            self.env.borrow_mut().set(var.clone(), &Object::Num(counter as f64));
+            match self.env.borrow_mut().assign(var.clone(), &Object::Num(counter as f64)) {
+                Ok(()) => (),
+                Err(err) => return Some(err)
+            };
             if step > 0 && counter > counter_end || step < 0 && counter < counter_end {
                 break;
             }
@@ -451,7 +504,10 @@ impl Evaluator {
         };
 
         for o in col_obj {
-            self.env.borrow_mut().set(var.clone(), &o);
+            match self.env.borrow_mut().assign(var.clone(), &o) {
+                Ok(()) => (),
+                Err(err) => return Some(err)
+            };
             match self.eval_loopblock_statement(block.clone()) {
                 Some(Object::Error(m)) => return Some(Self::error(m)),
                 Some(Object::Continue(n)) => if n > 1 {
@@ -547,6 +603,63 @@ impl Evaluator {
         None
     }
 
+    fn eval_funtcion_definition_statement(&mut self, name: &String, params: Vec<Identifier>, body: Vec<Statement>, is_proc: bool, module_name: Option<&String>) -> Object {
+        for statement in body.clone() {
+            match statement {
+                Statement::Public(_, _) | Statement::Const(_, _) => {
+                    match self.eval_statement(statement) {
+                        Some(Object::Error(msg)) => return Self::error(msg),
+                        _ => {},
+                    };
+                },
+                Statement::Function{name: _, params: _, body: _} |
+                Statement::Procedure{name: _, params: _, body: _} => {
+                    return Self::error(format!("nested definition of function/procedure is not allowed"));
+                },
+                _ => {},
+            };
+        }
+        let func = match module_name {
+            Some(s) => if is_proc {
+                Object::ModuleProcedure(s.clone(), name.clone(), params, body, Rc::clone(&self.env))
+            } else {
+                Object::ModuleFunction(s.clone(), name.clone(), params, body, Rc::clone(&self.env))
+            },
+            None => if is_proc {
+                Object::Procedure(name.clone(), params, body, Rc::clone(&self.env))
+            } else {
+                Object::Function(name.clone(), params, body, Rc::clone(&self.env))
+            }
+        };
+        func
+    }
+
+    fn eval_module_statement(&mut self, name: &String, block: BlockStatement, is_class: bool) -> Object {
+        let mut private = HashMap::new();
+        for statement in block {
+            match statement {
+                Statement::Dim(i, e) => {
+                    let Identifier(member_name) = i;
+                    let value = match self.eval_expression(e) {
+                        Some(o) => if Self::is_error(&o) {
+                            return o
+                        } else {
+                            o
+                        },
+                        None => Object::Empty
+                    };
+                    private.insert(member_name, value);
+                },
+                _ => return Self::error(format!("invalid statement"))
+            }
+        }
+        if is_class {
+            Self::error(format!("class is not supported"))
+        } else {
+            Object::Module(name.clone(), private)
+        }
+    }
+
     fn eval_expression(&mut self, expression: Expression) -> Option<Object> {
         match expression {
             Expression::Identifier(i) => Some(self.eval_identifier(i)),
@@ -617,11 +730,11 @@ impl Evaluator {
                 };
                 Some(self.eval_index_expression(left, index))
             },
-            Expression::Function {params, body} => {
-                Some(Object::Function(params, body, Rc::clone(&self.env)))
+            Expression::AnonymusFunction {params, body} => {
+                Some(Object::AnonFunc(params, body, Rc::clone(&self.env)))
             },
-            Expression::Procedure {params, body} => {
-                Some(Object::Procedure(params, body, Rc::clone(&self.env)))
+            Expression::AnonymusProcedure {params, body} => {
+                Some(Object::AnonProc(params, body, Rc::clone(&self.env)))
             },
             Expression::FuncCall {func, args} => {
                 Some(self.eval_function_call_expression(func, args))
@@ -666,35 +779,24 @@ impl Evaluator {
             Expression::Ternary {condition, consequence, alternative} => {
                 self.eval_ternary_expression(*condition, *consequence, *alternative)
             },
-            Expression::DotCall(l, m) => {
-                let left = match self.eval_expression(*l) {
-                    Some(o) => if Self::is_error(&o) {
-                        return Some(o);
-                    } else {
-                        o
-                    },
-                    None => return None
-                };
-                let member = match self.eval_expression(*m) {
-                    Some(o) => if Self::is_error(&o) {
-                        return Some(o);
-                    } else {
-                        o
-                    },
-                    None => return None
-                };
-
-                Some(Self::error(format!(". operator not supported: {}.{}", left, member)))
+            Expression::DotCall(l, r) => {
+                Some(self.eval_dotcall_expression(*l, *r))
             },
         }
     }
 
     fn eval_identifier(&mut self, identifier: Identifier) -> Object {
         let Identifier(name) = identifier;
-
-        match self.env.borrow_mut().get(name.clone()) {
+        let mut env = self.env.borrow_mut();
+        match env.get_variable(&name) {
             Some(o) => o,
-            None => Object::Error(String::from(format!("identifier not found: {}", name)))
+            None => match env.get_func(&name) {
+                Some(o) => o,
+                None => match env.get_module(&name) {
+                    Some(o) => o,
+                    None => Object::Error(String::from(format!("identifier not found: {}", name)))
+                }
+            }
         }
     }
 
@@ -773,7 +875,7 @@ impl Evaluator {
                     None => Object::Empty
                 }
             },
-            _ => Self::error(format!("3 unknown operator: {} {}", left, index))
+            _ => Self::error(format!("not array or hashtable: {}", left))
         }
     }
 
@@ -794,8 +896,10 @@ impl Evaluator {
         match left {
             Expression::Identifier(i) => {
                 let Identifier(name) = i;
-                self.env.borrow_mut().set(name, &value);
-                None
+                match self.env.borrow_mut().assign(name, &value) {
+                    Ok(()) => None,
+                    Err(err) => Some(err)
+                }
             },
             Expression::Index(n, i) => {
                 let name = match *n {
@@ -810,7 +914,7 @@ impl Evaluator {
                     None => return None
                 };
                 let mut env = self.env.borrow_mut();
-                match env.get(name.clone()) {
+                match env.get_variable(&name) {
                     Some(o) => {
                         match o {
                             Object::Array(a) => {
@@ -820,7 +924,10 @@ impl Evaluator {
                                         let i = n as usize;
                                         if i < arr.len() {
                                             arr[i] = value;
-                                            env.set(name, &Object::Array(arr));
+                                            match env.assign(name, &Object::Array(arr)) {
+                                                Ok(()) => (),
+                                                Err(err) => return Some(err)
+                                            };
                                         }
                                     },
                                     _ => return Some(Self::error(format!("invalid index: {}", index)))
@@ -839,7 +946,10 @@ impl Evaluator {
                                 };
                                 let mut hash = h.clone();
                                 hash.entry(key).or_insert_with(|| value);
-                                env.set(name, &Object::Hash(hash, casecare));
+                                match env.assign(name, &Object::Hash(hash, casecare)) {
+                                    Ok(()) => (),
+                                    Err(err) => return Some(err)
+                                };
                             },
                             Object::SortedHash(h, casecare) => {
                                 let key = match index {
@@ -854,7 +964,10 @@ impl Evaluator {
                                 };
                                 let mut hash = h.clone();
                                 hash.entry(key).or_insert_with(|| value);
-                                env.set(name, &Object::SortedHash(hash, casecare));
+                                match env.assign(name, &Object::SortedHash(hash, casecare)) {
+                                    Ok(()) => (),
+                                    Err(err) => return Some(err)
+                                };
                             },
                             _ => return Some(Self::error(format!("not an array or hashtable: {}", name)))
                         };
@@ -868,6 +981,11 @@ impl Evaluator {
     }
 
     fn eval_infix_expression(&mut self, infix: Infix, left: Object, right: Object) -> Object {
+        match infix {
+            Infix::Equal => return Object::Bool(left == right),
+            Infix::NotEqual => return Object::Bool(left != right),
+            _ => (),
+        }
         match left {
             Object::Num(l) => {
                 match right {
@@ -925,6 +1043,7 @@ impl Evaluator {
     fn eval_infix_string_expression(&mut self, infix: Infix, left: Object, right: Object) -> Object {
         match infix {
             Infix::Plus => Object::String(format!("{}{}", left, right)),
+            Infix::Equal => Object::Bool(left == right),
             _ => Self::error(format!("bad operator: {} {} {}", left, infix, right))
         }
     }
@@ -957,15 +1076,54 @@ impl Evaluator {
         )
     }
 
+    fn eval_expression_for_func_call(&mut self, expression: Expression) -> Option<Object> {
+        // 関数定義から探してなかったら変数を見る
+        match expression {
+            Expression::Identifier(i) => {
+                let Identifier(name) = i;
+                let mut env = self.env.borrow_mut();
+                match env.get_func(&name) {
+                    Some(o) => Some(o),
+                    None => match env.get_variable(&name) {
+                        Some(o) => Some(o),
+                        None => Some(Object::Error(format!("function or procedure not found: {}", name)))
+                    }
+                }
+            },
+            _ => self.eval_expression(expression)
+        }
+    }
+
     fn eval_function_call_expression(&mut self, func: Box<Expression>, args: Vec<Expression>) -> Object {
         let args = args.iter().map(
             |e| self.eval_expression(e.clone()).unwrap()
         ).collect::<Vec<_>>();
 
         let mut is_proc = false;
-        let (params, body, env) = match self.eval_expression(*func) {
-            Some(Object::Function(p, b, e)) => (p, b, e),
-            Some(Object::Procedure(p, b, e)) => {
+        let mut copy_scope = false;
+        let mut module_name = String::new();
+        let obj = self.eval_expression_for_func_call(*func);
+        let (params, body, env) = match obj {
+            Some(Object::Function(_, p, b, e)) => (p, b, e),
+            Some(Object::Procedure(_, p, b, e)) => {
+                is_proc = true;
+                (p, b, e)
+            },
+            Some(Object::ModuleFunction(m, _, p, b, e)) => {
+                module_name = m;
+                (p, b, e)
+            },
+            Some(Object::ModuleProcedure(m, _, p, b, e)) => {
+                module_name = m;
+                is_proc = true;
+                (p, b, e)
+            },
+            Some(Object::AnonFunc(p, b, e)) => {
+                copy_scope = true;
+                (p, b, e)
+            },
+            Some(Object::AnonProc(p, b, e)) => {
+                copy_scope = true;
                 is_proc = true;
                 (p, b, e)
             },
@@ -989,6 +1147,12 @@ impl Evaluator {
                                 None => Object::Empty
                             }
                         },
+                        Object::Debug(t) => match t {
+                            DebugType::PrintEnv(s) => {
+                                self.env.borrow_mut().print_env(s);
+                                Object::Empty
+                            },
+                        },
                         _ => func_result
                     };
                 } else {
@@ -998,6 +1162,7 @@ impl Evaluator {
                     ));
                 }
             },
+            Some(Object::Error(err)) => return Object::Error(err),
             Some(o) => return Self::error(format!(
                 "{} is not a function", o
             )),
@@ -1013,11 +1178,19 @@ impl Evaluator {
         }
 
         let current_env = Rc::clone(&self.env);
-        let mut scoped_env = Env::new_with_outer(Rc::clone(&env));
+        let mut scoped_env = if copy_scope {
+            Env::copy_scope(Rc::clone(&env))
+        } else {
+            Env::new_scope(Rc::clone(&env))
+        };
         let list = params.iter().zip(args.iter());
         for (_, (identifier, o)) in list.enumerate() {
             let Identifier(name) = identifier.clone();
-            scoped_env.set(name, o);
+            scoped_env.set_function_params(name, o);
+        }
+
+        if module_name.len() > 0 {
+            scoped_env.set_module_private_member(&module_name);
         }
 
         self.env = Rc::new(RefCell::new(scoped_env));
@@ -1025,13 +1198,33 @@ impl Evaluator {
         let result = if is_proc {
             Object::Empty
         } else {
-            match self.env.borrow_mut().get("result".to_string()) {
+            match self.env.borrow_mut().get_variable(&"result".to_string()) {
                 Some(o) => o,
                 None => Object::Empty
             }
         };
-
+        let updated_public = self.env.borrow_mut().get_public_scope();
+        let mut new = HashMap::new();
+        if module_name.len() > 0 {
+            let mut env = self.env.borrow_mut();
+            match env.get_module(&module_name) {
+                Some(Object::Module(_, map)) => {
+                    for (k, _) in map {
+                        match env.get_variable(&k) {
+                            Some(o) => new.insert(k, o),
+                            None => None,
+                        };
+                    }
+                },
+                _ => (),
+            };
+        };
         self.env = current_env;
+        self.env.borrow_mut().set_public_scope(updated_public);
+        // update module private members
+        if new.len() > 0 {
+            self.env.borrow_mut().update_module(&module_name, &Object::Module(module_name.clone(), new));
+        }
 
         match object {
             Some(o) => if Self::is_error(&o) {
@@ -1058,6 +1251,45 @@ impl Evaluator {
         }
     }
 
+    fn eval_dotcall_expression(&mut self, left: Expression, right: Expression) -> Object {
+        let instance = match left {
+            Expression::Identifier(_) |
+            Expression::Index(_, _) |
+            Expression::FuncCall{func:_, args:_} |
+            Expression::DotCall(_, _)=> {
+                self.eval_expression(left)
+            },
+            _ => return Self::error(format!("bad operator"))
+        };
+        match instance {
+            Some(o) => match o {
+                Object::Module(name, map) => {
+                    match right {
+                        Expression::Identifier(i) => {
+                            let Identifier(member) = i;
+                            match self.eval_expression(Expression::Identifier(Identifier(format!("{}.{}", name, member)))) {
+                                Some(o) => if Self::is_error(&o) {
+                                    if map.contains_key(&member) {
+                                        Self::error(format!("you can not access to {}.{}", name, member))
+                                    } else {
+                                        o
+                                    }
+                                } else {
+                                    o
+                                },
+                                None => Self::error(format!(". operator: syntax error"))
+                            }
+                        },
+                        _ => Self::error(format!("member does not exist."))
+                    }
+                },
+                Object::Error(_) => return o,
+                _ => Self::error(format!(". operator not supported"))
+            },
+            None => Self::error(format!(". operator: syntax error"))
+        }
+    }
+
 }
 
 #[cfg(test)]
@@ -1072,8 +1304,9 @@ mod tests {
     }
 
     fn eval(input: &str, ast: bool) -> Option<Object> {
+        let (f, c) = init_builtins();
         let mut e = Evaluator::new(Rc::new(
-            RefCell::new(Env::from(init_builtins()))
+            RefCell::new(Env::from_builtin(f, c))
         ));
         let program = Parser::new(Lexer::new(input)).parse();
         if ast {
@@ -1082,6 +1315,24 @@ mod tests {
         let result = e.eval(program);
         result
     }
+
+    // 変数とか関数とか予め定義しておく
+    fn eval_env(input: &str) -> Evaluator {
+        let (f, c) = init_builtins();
+        let mut e = Evaluator::new(Rc::new(
+            RefCell::new(Env::from_builtin(f, c))
+        ));
+        let program = Parser::new(Lexer::new(input)).parse();
+        e.eval(program);
+        e
+    }
+
+    //
+    fn eval_test_with_env(e: &mut Evaluator, input: &str, expected: Option<Object>) {
+        let program = Parser::new(Lexer::new(input)).parse();
+        assert_eq!(e.eval(program), expected)
+    }
+
 
     #[test]
     fn test_num_expression() {
@@ -1115,7 +1366,7 @@ mod tests {
     }
 
     #[test]
-    fn test_string_concat() {
+    fn test_string_infix() {
         let test_cases = vec![
             (r#""hoge" + "fuga""#, Some(Object::String("hogefuga".to_string()))),
             (r#""hoge" + 100"#, Some(Object::String("hoge100".to_string()))),
@@ -1123,6 +1374,14 @@ mod tests {
             (r#""hoge" + TRUE"#, Some(Object::String("hogeTrue".to_string()))),
             (r#""hoge" + FALSE"#, Some(Object::String("hogeFalse".to_string()))),
             (r#"TRUE + "hoge""#, Some(Object::String("Truehoge".to_string()))),
+            (r#""hoge" = "hoge""#, Some(Object::Bool(true))),
+            (r#""hoge" == "hoge""#, Some(Object::Bool(true))),
+            (r#""hoge" == "fuga""#, Some(Object::Bool(false))),
+            (r#""hoge" == "HOGE""#, Some(Object::Bool(false))),
+            (r#""hoge" == 1"#, Some(Object::Bool(false))),
+            (r#""hoge" != 1"#, Some(Object::Bool(true))),
+            (r#""hoge" <> 1"#, Some(Object::Bool(true))),
+            (r#""hoge" <> "hoge"#, Some(Object::Bool(false))),
         ];
         for (input, expected) in test_cases {
             eval_test(input, expected, false);
@@ -1146,6 +1405,13 @@ dim HOGE = 2
 hoge
                 "#,
                 Some(Object::Num(2.0))
+            ),
+            (
+                r#"
+dim hoge = 2
+dim hoge = 3
+                "#,
+                Some(Object::Error("HOGE is already defined.".to_string()))
             ),
         ];
         for (input, expected) in test_cases {
@@ -1794,7 +2060,7 @@ a
             (
                 r#"
 a = hoge(1, 2)
-// print a
+a
 
 function hoge(x, y)
 　result = x + fuga(y)
@@ -1802,47 +2068,41 @@ fend
 function fuga(n)
 　result = n * 2
 fend
-
-a
                 "#,
                 Some(Object::Num(5.0))
             ),
             (
                 r#"
-a = hoge(5)
+hoge(5)
 
 function hoge(n)
     // no result
 fend
-
-a
                 "#,
                 Some(Object::Empty)
             ),
             (
                 r#"
 a = hoge(5)
+a == 5
 
 procedure hoge(n)
     result = n
 fend
-
-a
                 "#,
-                Some(Object::Empty)
+                Some(Object::Bool(false))
             ),
             (
                 r#"
-a = 1
+a = 'should not be over written'
 hoge(5)
+a
 
 procedure hoge(n)
-    a = a + 10
+    a = n
 fend
-
-a
                 "#,
-                Some(Object::Num(1.0))
+                Some(Object::String("should not be over written".to_string()))
             ),
             (
                 r#"
@@ -1865,6 +2125,46 @@ p(5, 10)
 a
                 "#,
                 Some(Object::Num(1.0))
+            ),
+            (
+                r#"
+closure = test_closure("testing ")
+closure("closure")
+
+function test_closure(s)
+    result = function(s2)
+        result = s + s2
+    fend
+fend
+                "#,
+                Some(Object::String("testing closure".to_string()))
+            ),
+            (
+                r#"
+recursive(5)
+
+function recursive(n)
+    if n = 0 then
+        result = "done"
+    else
+        result = recursive(n - 1)
+    endif
+fend
+                "#,
+                Some(Object::String("done".to_string()))
+            ),
+            (
+                r#"
+hoge(2, fuga)
+
+function hoge(x, func)
+    result = func(x)
+fend
+function fuga(n)
+    result = n * 2
+fend
+                "#,
+                Some(Object::Num(4.0))
             ),
         ];
         for (input, expected) in test_cases {
@@ -1893,32 +2193,47 @@ a
         let test_cases = vec![
             (
                 r#"
-dim a = 1
-dim a = 2
+dim dim_and_dim = 1
+dim dim_and_dim = 2
                 "#,
-                Some(Object::Error("a is already defined".to_string()))
+                Some(Object::Error("DIM_AND_DIM is already defined.".to_string()))
             ),
             (
                 r#"
-public a = 1
-dim a = 2
+public pub_and_const = 1
+const pub_and_const = 2
                 "#,
-                Some(Object::Error("a is already defined".to_string()))
+                Some(Object::Error("PUB_AND_CONST is already defined.".to_string()))
             ),
             (
                 r#"
-hashtbl a
-hashtbl a
+const const_and_const = 1
+const const_and_const = 2
                 "#,
-                Some(Object::Error("a is already defined".to_string()))
+                Some(Object::Error("CONST_AND_CONST is already defined.".to_string()))
             ),
             (
                 r#"
-hashtbl a
-function a()
+public public_and_public = 1
+public public_and_public = 2
+                "#,
+                None
+            ),
+            (
+                r#"
+hashtbl hash_and_hash
+hashtbl hash_and_hash
+                "#,
+                Some(Object::Error("HASH_AND_HASH is already defined.".to_string()))
+            ),
+            (
+                r#"
+function func_and_func()
+fend
+function func_and_func()
 fend
                 "#,
-                Some(Object::Error("a is already defined".to_string()))
+                Some(Object::Error("FUNC_AND_FUNC is already defined.".to_string()))
             ),
         ];
         for (input, expected) in test_cases {
@@ -1988,5 +2303,91 @@ fend
 hoge
         "#;
         eval_test(input, Some(Object::Num(11.0)), false)
+    }
+
+    #[test]
+    fn test_module() {
+        let definition = r#"
+module Hoge
+    dim a = 1
+    public b = 1
+    const c = 1
+
+    procedure Hoge(n)
+        this.a = n
+    fend
+
+    function f(x, y)
+        result = x + _f(y)
+    fend
+
+    private function _f(z)
+        result = z + 1
+    fend
+
+    procedure p(n)
+        b += n
+    fend
+
+    procedure length(s)
+        global.length(s)
+    fend
+endmodule
+        "#;
+        let mut e = eval_env(definition);
+        let test_cases = vec![
+            (
+                "Hoge.b",
+                Some(Object::Num(1.0))
+            ),
+            (
+                r#"
+                Hoge.b = 5
+                Hoge.b
+                "#,
+                Some(Object::Num(5.0))
+            ),
+            (
+                r#"
+                Hoge.p(10)
+                Hoge.b
+                "#,
+                Some(Object::Num(15.0))
+            ),
+            (
+                "Hoge.f(3, 4)",
+                Some(Object::Num(8.0))
+            ),
+            (
+                "Hoge.length('abcde')",
+                Some(Object::Num(5.0))
+            ),
+        ];
+        for (input, expected) in test_cases {
+            eval_test_with_env(&mut e, input, expected);
+        }
+    }
+
+    #[test]
+    fn test_hoge() {
+        let input1 = r#"
+function hoge(n)
+    result = n
+fend
+        "#;
+        let mut e = eval_env(input1);
+        let test_cases = vec![
+            (
+                "hoge(3)",
+                Some(Object::Num(3.0))
+            ),
+            (
+                "hoge('abc')",
+                Some(Object::String("abc".to_string()))
+            ),
+        ];
+        for (input, expected) in test_cases {
+            eval_test_with_env(&mut e, input, expected);
+        }
     }
 }

@@ -5,7 +5,9 @@ use std::fmt;
 
 pub enum ParseErrorKind {
     UnexpectedToken,
-    BlockNotClosedCorrectly
+    BlockNotClosedCorrectly,
+    InvalidModuleStatement,
+    ValueMustBeDefined,
 }
 
 #[derive(Debug, Clone)]
@@ -19,6 +21,8 @@ impl fmt::Display for ParseErrorKind {
         match *self {
             ParseErrorKind::UnexpectedToken => write!(f, "Unexpected Token"),
             ParseErrorKind::BlockNotClosedCorrectly => write!(f, "Block is not closing correctly"),
+            ParseErrorKind::InvalidModuleStatement => write!(f, "Unexpected statement in module definition"),
+            ParseErrorKind::ValueMustBeDefined => write!(f, "constant must define value"),
         }
     }
 }
@@ -27,6 +31,8 @@ impl fmt::Debug for ParseErrorKind {
         match *self {
             ParseErrorKind::UnexpectedToken => write!(f, "Unexpected Token"),
             ParseErrorKind::BlockNotClosedCorrectly => write!(f, "Block is not closing correctly"),
+            ParseErrorKind::InvalidModuleStatement => write!(f, "Unexpected statement in module definition"),
+            ParseErrorKind::ValueMustBeDefined => write!(f, "constant must define value"),
         }
     }
 }
@@ -35,7 +41,9 @@ impl Clone for ParseErrorKind {
     fn clone(&self) -> Self {
         match *self {
             ParseErrorKind::UnexpectedToken => ParseErrorKind::UnexpectedToken,
-            ParseErrorKind::BlockNotClosedCorrectly => ParseErrorKind::BlockNotClosedCorrectly
+            ParseErrorKind::BlockNotClosedCorrectly => ParseErrorKind::BlockNotClosedCorrectly,
+            ParseErrorKind::InvalidModuleStatement => ParseErrorKind::InvalidModuleStatement,
+            ParseErrorKind::ValueMustBeDefined => ParseErrorKind::ValueMustBeDefined,
         }
     }
 }
@@ -243,6 +251,64 @@ impl Parser {
                         program.insert(pub_counter + func_counter, s);
                         func_counter += 1;
                     },
+                    Statement::Module(i, block) => {
+                        let Identifier(module_name) = i.clone();
+                        // モジュールのプライベートメンバを格納する
+                        let mut private = vec![];
+
+                        for statement in block {
+                            match statement {
+                                Statement::Public(i, v) => {
+                                    let Identifier(member) = i;
+                                    program.insert(pub_counter, Statement::Public(
+                                        Identifier(format!("{}.{}", module_name.clone(), member)),
+                                        v
+                                    ));
+                                    pub_counter += 1;
+                                },
+                                Statement::Const(i, v) => {
+                                    let Identifier(member) = i;
+                                    program.insert(pub_counter, Statement::Const(
+                                        Identifier(format!("{}.{}", module_name.clone(), member)),
+                                        v
+                                    ));
+                                    pub_counter += 1;
+                                },
+                                Statement::Function{name, params, body} => {
+                                    let Identifier(member) = name;
+                                    program.insert(pub_counter + func_counter, Statement::ModuleFunction {
+                                        module_name: module_name.clone(),
+                                        name: member,
+                                        params, body
+                                    });
+                                    func_counter += 1;
+                                },
+                                Statement::Procedure{name, params, body} => {
+                                    let Identifier(member) = name;
+                                    program.insert(pub_counter + func_counter, Statement::ModuleProcedure {
+                                        module_name: module_name.clone(),
+                                        name: member,
+                                        params, body
+                                    });
+                                    func_counter += 1;
+                                },
+                                Statement::Dim(_, _) => {
+                                    private.push(statement)
+                                },
+                                _ => {
+                                    self.errors.push(ParseError::new(
+                                        ParseErrorKind::InvalidModuleStatement,
+                                        format!("bad statement")
+                                    ));
+                                },
+                            }
+                        }
+                        program.insert(
+                            pub_counter + func_counter,
+                            Statement::Module(i, private)
+                        );
+                        func_counter += 1;
+                    },
                     _ => program.push(s)
                 },
                 None => {}
@@ -281,7 +347,6 @@ impl Parser {
             Token::Repeat => self.parse_repeat_statement(),
             Token::Continue => self.parse_continue_statement(),
             Token::Break => self.parse_break_statement(),
-            Token::Blank => Some(Statement::Blank),
             Token::Call(_) => self.parse_special_statement(),
             Token::DefDll(_) => self.parse_special_statement(),
             Token::HashTable => self.parse_hashtable_statement(),
@@ -289,12 +354,11 @@ impl Parser {
             Token::Procedure => self.parse_function_statement(true),
             Token::Exit => Some(Statement::Exit),
             Token::Module => self.parse_module_statement(),
-            Token::Private => self.parse_private_statement(),
             _ => self.parse_expression_statement(),
         }
     }
 
-    fn parse_variable_definition(&mut self) -> Option<Expression> {
+    fn parse_variable_definition(&mut self) -> Result<Option<Expression>, ()> {
         let expression: Expression;
 
         if self.is_next_token(&Token::Lbracket) {
@@ -306,11 +370,11 @@ impl Parser {
                 self.bump();
                 match self.parse_expression(Precedence::Lowest, false) {
                     Some(e) => e,
-                    None => return None
+                    None => return Err(())
                 }
             };
             if ! self.is_next_token_expected(Token::Rbracket) {
-                return None;
+                return Err(());
             };
             expression = if ! self.is_next_token(&Token::EqualOrAssign) {
                 // 代入演算子がなければ配列宣言のみ
@@ -319,7 +383,7 @@ impl Parser {
                 self.bump();
                 let list = match self.parse_expression_list(Token::Eol) {
                     Some(vec_e) => vec_e,
-                    None => return None
+                    None => return Err(())
                 };
                 Expression::Array(list, Box::new(index))
             };
@@ -327,13 +391,13 @@ impl Parser {
             // 変数定義
             // 代入演算子がなければ変数宣言のみ
             expression = if ! self.is_next_token(&Token::EqualOrAssign) {
-                Expression::Literal(Literal::Empty)
+                return Ok(None)
             } else {
                 self.bump();
                 self.bump();
                 match self.parse_expression(Precedence::Lowest, false) {
                     Some(e) => e,
-                    None => return None
+                    None => return Err(())
                 }
             };
             if self.is_next_token(&Token::Semicolon) || self.is_next_token(&Token::Eol) {
@@ -341,7 +405,7 @@ impl Parser {
             }
         }
 
-        Some(expression)
+        Ok(Some(expression))
     }
 
     fn parse_public_statement(&mut self) -> Option<Statement> {
@@ -355,8 +419,9 @@ impl Parser {
             None => return None
         };
         match self.parse_variable_definition() {
-            Some(e) => Some(Statement::Public(var_name, e)),
-            None => None
+            Ok(Some(e)) => Some(Statement::Public(var_name, e)),
+            Ok(None) => Some(Statement::Public(var_name, Expression::Literal(Literal::Empty))),
+            Err(()) => None
         }
     }
 
@@ -371,8 +436,9 @@ impl Parser {
             None => return None
         };
         match self.parse_variable_definition() {
-            Some(e) => Some(Statement::Dim(var_name, e)),
-            None => None
+            Ok(Some(e)) => Some(Statement::Dim(var_name, e)),
+            Ok(None) => Some(Statement::Dim(var_name, Expression::Literal(Literal::Empty))),
+            Err(()) => None
         }
     }
 
@@ -387,8 +453,15 @@ impl Parser {
             None => return None
         };
         match self.parse_variable_definition() {
-            Some(e) => Some(Statement::Const(var_name, e)),
-            None => None
+            Ok(Some(e)) => Some(Statement::Const(var_name, e)),
+            Ok(None) => {
+                self.errors.push(ParseError::new(
+                    ParseErrorKind::ValueMustBeDefined,
+                    format!("{} has no value.", var_name)
+                ));
+                None
+            },
+            Err(()) => None
         }
     }
 
@@ -1012,13 +1085,14 @@ impl Parser {
             },
         };
 
-        if ! self.is_next_token_expected(Token::Lparen) {
-            return None;
-        }
-
-        let params = match self.parse_function_parameters() {
-            Some(p) => p,
-            None => return None
+        let params = if self.is_next_token(&Token::Lparen) {
+            self.bump();
+            match self.parse_function_parameters() {
+                Some(p) => p,
+                None => return None
+            }
+        } else {
+            vec![]
         };
 
         self.bump();
@@ -1035,18 +1109,9 @@ impl Parser {
         }
     }
 
-    fn parse_private_statement(&mut self) -> Option<Statement> {
-        self.bump();
-        let statement = match self.parse_statement() {
-            Some(s) => s,
-            None => return None
-        };
-        Some(Statement::Private(Box::new(statement)))
-    }
-
     fn parse_module_statement(&mut self) -> Option<Statement> {
         self.bump();
-        let name = match self.parse_identifier() {
+        let identifier = match self.parse_identifier() {
             Some(i) => i,
             None => {
                 self.error_token_is_not_identifier();
@@ -1058,7 +1123,7 @@ impl Parser {
         while ! self.is_current_token(&Token::EndModule) {
             if self.is_current_token(&Token::Eof) {
                 self.errors.push(ParseError::new(
-                    ParseErrorKind::UnexpectedToken,
+                    ParseErrorKind::BlockNotClosedCorrectly,
                     format!(
                         "module should be closed by endmodule.",
                     )
@@ -1071,7 +1136,7 @@ impl Parser {
             }
             self.bump();
         }
-        Some(Statement::Module(name, block))
+        Some(Statement::Module(identifier, block))
     }
 
     fn parse_ternary_operator_expression(&mut self, left: Expression) -> Option<Expression> {
@@ -1116,9 +1181,9 @@ impl Parser {
         }
 
         if is_proc {
-            Some(Expression::Procedure {params, body})
+            Some(Expression::AnonymusProcedure {params, body})
         } else {
-            Some(Expression::Function {params, body})
+            Some(Expression::AnonymusFunction {params, body})
         }
     }
 
@@ -2632,7 +2697,7 @@ fend
                 vec![
                     Statement::Expression(Expression::Assign(
                         Box::new(Expression::Identifier(Identifier("hoge".to_string()))),
-                        Box::new(Expression::Function{
+                        Box::new(Expression::AnonymusFunction{
                             params: vec![
                                 Identifier("a".to_string()),
                             ],
@@ -2655,7 +2720,7 @@ fend
                 vec![
                     Statement::Expression(Expression::Assign(
                         Box::new(Expression::Identifier(Identifier("hoge".to_string()))),
-                        Box::new(Expression::Procedure{
+                        Box::new(Expression::AnonymusProcedure{
                             params: vec![
                                 Identifier("a".to_string()),
                             ],
@@ -2833,70 +2898,69 @@ module Hoge
     public b = 1
     const c = 1
 
-    procedure Hoge(n)
-        this.a = n
+    procedure Hoge()
+        this.a = c
     fend
 
     function f(x, y)
         result = x + _f(y)
     fend
 
-    private function _f(z)
+    dim _f = function(z)
         result = z + 1
-    fend
-
-    procedure msgbox(s)
-        global.msgbox(s)
     fend
 endmodule
         "#;
         parser_test(input, vec![
+            Statement::Public(Identifier("Hoge.b".to_string()), Expression::Literal(Literal::Num(1.0))),
+            Statement::Const(Identifier("Hoge.c".to_string()), Expression::Literal(Literal::Num(1.0))),
+            Statement::ModuleProcedure {
+                module_name: "Hoge".to_string(),
+                name: "Hoge".to_string(),
+                params: vec![],
+                body: vec![
+                    Statement::Expression(Expression::Assign(
+                        Box::new(Expression::DotCall(
+                            Box::new(Expression::Identifier(Identifier("this".to_string()))),
+                            Box::new(Expression::Identifier(Identifier("a".to_string()))),
+                        )),
+                        Box::new(Expression::Identifier(Identifier("c".to_string()))),
+                    ))
+                ]
+            },
+            Statement::ModuleFunction {
+                module_name: "Hoge".to_string(),
+                name: "f".to_string(),
+                params: vec![
+                    Identifier("x".to_string()),
+                    Identifier("y".to_string())
+                ],
+                body: vec![
+                    Statement::Expression(Expression::Assign(
+                        Box::new(Expression::Identifier(Identifier("result".to_string()))),
+                        Box::new(Expression::Infix(
+                            Infix::Plus,
+                            Box::new(Expression::Identifier(Identifier("x".to_string()))),
+                            Box::new(Expression::FuncCall{
+                                func: Box::new(Expression::Identifier(Identifier("_f".to_string()))),
+                                args: vec![
+                                    Expression::Identifier(Identifier("y".to_string()))
+                                ]
+                            }),
+                        )),
+                    ))
+                ]
+            },
             Statement::Module(
                 Identifier("Hoge".to_string()),
                 vec![
-                    Statement::Dim(Identifier("a".to_string()), Expression::Literal(Literal::Num(1.0))),
-                    Statement::Public(Identifier("b".to_string()), Expression::Literal(Literal::Num(1.0))),
-                    Statement::Const(Identifier("c".to_string()), Expression::Literal(Literal::Num(1.0))),
-                    Statement::Procedure {
-                        name: Identifier("Hoge".to_string()),
-                        params: vec![
-                            Identifier("n".to_string()),
-                        ],
-                        body: vec![
-                            Statement::Expression(Expression::Assign(
-                                Box::new(Expression::DotCall(
-                                    Box::new(Expression::Identifier(Identifier("this".to_string()))),
-                                    Box::new(Expression::Identifier(Identifier("a".to_string()))),
-                                )),
-                                Box::new(Expression::Identifier(Identifier("n".to_string()))),
-                            ))
-                        ],
-                    },
-                    Statement::Function {
-                        name: Identifier("f".to_string()),
-                        params: vec![
-                            Identifier("x".to_string()),
-                            Identifier("y".to_string()),
-                        ],
-                        body: vec![
-                            Statement::Expression(Expression::Assign(
-                                Box::new(Expression::Identifier(Identifier("result".to_string()))),
-                                Box::new(Expression::Infix(
-                                    Infix::Plus,
-                                    Box::new(Expression::Identifier(Identifier("x".to_string()))),
-                                    Box::new(Expression::FuncCall{
-                                        func: Box::new(Expression::Identifier(Identifier("_f".to_string()))),
-                                        args: vec![
-                                            Expression::Identifier(Identifier("y".to_string()))
-                                        ],
-                                    }),
-                                )),
-                            ))
-                        ],
-                    },
-                    Statement::Private(
-                        Box::new(Statement::Function {
-                            name: Identifier("_f".to_string()),
+                    Statement::Dim(
+                        Identifier("a".to_string()),
+                        Expression::Literal(Literal::Num(1.0))
+                    ),
+                    Statement::Dim(
+                        Identifier("_f".to_string()),
+                        Expression::AnonymusFunction {
                             params: vec![
                                 Identifier("z".to_string()),
                             ],
@@ -2908,29 +2972,12 @@ endmodule
                                         Box::new(Expression::Identifier(Identifier("z".to_string()))),
                                         Box::new(Expression::Literal(Literal::Num(1.0))),
                                     )),
-                                ))
-                            ],
-                        })
-                    ),
-                    Statement::Procedure {
-                        name: Identifier("msgbox".to_string()),
-                        params: vec![
-                            Identifier("s".to_string()),
-                        ],
-                        body: vec![
-                            Statement::Expression(Expression::FuncCall{
-                                func: Box::new(Expression::DotCall(
-                                    Box::new(Expression::Identifier(Identifier("global".to_string()))),
-                                    Box::new(Expression::Identifier(Identifier("msgbox".to_string()))),
                                 )),
-                                args: vec![
-                                    Expression::Identifier(Identifier("s".to_string()))
-                                ]
-                            })
-                        ],
-                    },
-                ]
-            )
+                            ]
+                        }
+                    ),
+                ],
+            ),
         ]);
     }
 

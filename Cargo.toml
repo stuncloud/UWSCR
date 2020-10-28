@@ -2,6 +2,12 @@
 authors = ["stuncloud <stuncloud@gmail.com>"]
 edition = "2018"
 name = "uwscr"
-version = "0.0.2"
+version = "0.0.3"
+build = "build.rs"
+
 [dependencies]
 structopt = "0.3.18"
+
+[build-dependencies]
+winres = "0.1"
+

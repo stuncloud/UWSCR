@@ -18,18 +18,23 @@ pub enum Object {
     Array(Vec<Object>),
     Hash(HashMap<String, Object>, bool),
     SortedHash(BTreeMap<String, Object>, bool),
-    Function(Vec<Identifier>, BlockStatement, Rc<RefCell<Env>>),
-    Procedure(Vec<Identifier>, BlockStatement, Rc<RefCell<Env>>),
+    AnonFunc(Vec<Identifier>, BlockStatement, Rc<RefCell<Env>>),
+    AnonProc(Vec<Identifier>, BlockStatement, Rc<RefCell<Env>>),
+    Function(String, Vec<Identifier>, BlockStatement, Rc<RefCell<Env>>),
+    Procedure(String, Vec<Identifier>, BlockStatement, Rc<RefCell<Env>>),
+    ModuleFunction(String, String, Vec<Identifier>, BlockStatement, Rc<RefCell<Env>>),
+    ModuleProcedure(String, String, Vec<Identifier>, BlockStatement, Rc<RefCell<Env>>),
     BuiltinFunction(i32, BuiltinFunction),
+    Module(String, HashMap<String, Object>),
     Null,
     Empty,
     Nothing,
     Continue(u32),
     Break(u32),
-    Result(Box<Object>),
     Error(String),
     Eval(String),
     Exit,
+    Debug(DebugType),
 }
 
 impl fmt::Display for Object {
@@ -71,7 +76,7 @@ impl fmt::Display for Object {
                 }
                 write!(f, "{{{}}}", result)
             },
-            Object::Function(ref params, _, _) => {
+            Object::Function(ref name, ref params, _, _) => {
                 let mut result = String::new();
                 for (i, Identifier(ref s)) in params.iter().enumerate() {
                     if i < 1 {
@@ -80,9 +85,9 @@ impl fmt::Display for Object {
                         result.push_str(&format!(", {}", s))
                     }
                 }
-                write!(f, "_func_({})", result)
+                write!(f, "{}({})", name, result)
             },
-            Object::Procedure(ref params, _, _) => {
+            Object::Procedure(ref name, ref params, _, _) => {
                 let mut result = String::new();
                 for (i, Identifier(ref s)) in params.iter().enumerate() {
                     if i < 1 {
@@ -91,7 +96,51 @@ impl fmt::Display for Object {
                         result.push_str(&format!(", {}", s))
                     }
                 }
-                write!(f, "_proc_({})", result)
+                write!(f, "{}({})", name, result)
+            },
+            Object::ModuleFunction(ref module_name, ref name, ref params, _, _) => {
+                let mut result = String::new();
+                for (i, Identifier(ref s)) in params.iter().enumerate() {
+                    if i < 1 {
+                        result.push_str(&format!("{}", s))
+                    } else {
+                        result.push_str(&format!(", {}", s))
+                    }
+                }
+                write!(f, "{}.{}({})", module_name, name, result)
+            },
+            Object::ModuleProcedure(ref module_name, ref name, ref params, _, _) => {
+                let mut result = String::new();
+                for (i, Identifier(ref s)) in params.iter().enumerate() {
+                    if i < 1 {
+                        result.push_str(&format!("{}", s))
+                    } else {
+                        result.push_str(&format!(", {}", s))
+                    }
+                }
+                write!(f, "{}.{}({})", module_name, name, result)
+            },
+            Object::AnonFunc(ref params, _, _) => {
+                let mut result = String::new();
+                for (i, Identifier(ref s)) in params.iter().enumerate() {
+                    if i < 1 {
+                        result.push_str(&format!("{}", s))
+                    } else {
+                        result.push_str(&format!(", {}", s))
+                    }
+                }
+                write!(f, "_function_({})", result)
+            },
+            Object::AnonProc(ref params, _, _) => {
+                let mut result = String::new();
+                for (i, Identifier(ref s)) in params.iter().enumerate() {
+                    if i < 1 {
+                        result.push_str(&format!("{}", s))
+                    } else {
+                        result.push_str(&format!(", {}", s))
+                    }
+                }
+                write!(f, "_procedure_({})", result)
             },
             Object::BuiltinFunction(_, _) => write!(f, "[builtin function]"),
             Object::Null => write!(f, "NULL"),
@@ -100,9 +149,10 @@ impl fmt::Display for Object {
             Object::Continue(ref n) => write!(f, "Continue {}", n),
             Object::Break(ref n) => write!(f, "Break {}", n),
             Object::Exit => write!(f, "Exit"),
-            Object::Result(ref value) => write!(f, "{}", value),
             Object::Eval(ref value) => write!(f, "{}", value),
             Object::Error(ref value) => write!(f, "{}", value),
+            Object::Debug(_) => write!(f, "debug"),
+            Object::Module(ref name, _) => write!(f, "module {}", name),
         }
     }
 }
@@ -120,4 +170,9 @@ impl Hash for Object {
             _ => "".hash(state),
         }
     }
+}
+
+#[derive(PartialEq, Clone, Debug)]
+pub enum DebugType {
+    PrintEnv(String),
 }
