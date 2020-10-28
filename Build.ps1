@@ -46,6 +46,6 @@ if ($Release) {
     }
     $exe64 | Copy-Item -Destination $x64path
     $exe86 | Copy-Item -Destination $x86path
-    $outzip = $verpath | Join-Path -ChildPath uwscr.zip
+    $outzip = Join-Path -Path $verpath -ChildPath uwscr.zip
     Get-ChildItem $verpath | Compress-Archive -DestinationPath $outzip -PassThru -Force
 }
