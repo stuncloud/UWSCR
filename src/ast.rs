@@ -116,7 +116,7 @@ pub enum Statement {
     Dim(Identifier, Expression),
     Public(Identifier, Expression),
     Const(Identifier, Expression),
-    HashTbl(Identifier, Option<Expression>),
+    HashTbl(Identifier, Option<Expression>, bool),
     Print(Expression),
     Call(String),
     DefDll(String),

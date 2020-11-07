@@ -113,7 +113,6 @@ pub enum Token {
     EndModule,
     Class,
     EndClass,
-    Private,
 
     // その他
     Option(String),

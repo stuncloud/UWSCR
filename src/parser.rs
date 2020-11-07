@@ -253,10 +253,8 @@ impl Parser {
                     },
                     Statement::Module(i, block) => {
                         let Identifier(module_name) = i.clone();
-                        // モジュールのプライベートメンバを格納する
-                        let mut private = vec![];
 
-                        for statement in block {
+                        for statement in block.clone() {
                             match statement {
                                 Statement::Public(i, v) => {
                                     let Identifier(member) = i;
@@ -292,9 +290,7 @@ impl Parser {
                                     });
                                     func_counter += 1;
                                 },
-                                Statement::Dim(_, _) => {
-                                    private.push(statement)
-                                },
+                                Statement::Dim(_, _) => {},
                                 _ => {
                                     self.errors.push(ParseError::new(
                                         ParseErrorKind::InvalidModuleStatement,
@@ -305,7 +301,7 @@ impl Parser {
                         }
                         program.insert(
                             pub_counter + func_counter,
-                            Statement::Module(i, private)
+                            Statement::Module(i, block)
                         );
                         func_counter += 1;
                     },
@@ -349,7 +345,7 @@ impl Parser {
             Token::Break => self.parse_break_statement(),
             Token::Call(_) => self.parse_special_statement(),
             Token::DefDll(_) => self.parse_special_statement(),
-            Token::HashTable => self.parse_hashtable_statement(),
+            Token::HashTable => self.parse_hashtable_statement(false),
             Token::Function => self.parse_function_statement(false),
             Token::Procedure => self.parse_function_statement(true),
             Token::Exit => Some(Statement::Exit),
@@ -411,8 +407,13 @@ impl Parser {
     fn parse_public_statement(&mut self) -> Option<Statement> {
         match &self.next_token {
             Token::Identifier(_) => self.bump(),
+            Token::HashTable => {
+                self.bump();
+                return self.parse_hashtable_statement(true);
+            },
             _ => return None,
         }
+
         // 変数名
         let var_name = match self.parse_identifier() {
             Some(e) => e,
@@ -465,7 +466,7 @@ impl Parser {
         }
     }
 
-    fn parse_hashtable_statement(&mut self) -> Option<Statement> {
+    fn parse_hashtable_statement(&mut self, is_public: bool) -> Option<Statement> {
         // hashtbl hoge
         // hashtbl hoge = HASH_CASECARE
         // hashtbl hoge = HASH_SORT
@@ -484,7 +485,7 @@ impl Parser {
         } else {
             None
         };
-        Some(Statement::HashTbl(identifier, hash_option))
+        Some(Statement::HashTbl(identifier, hash_option, is_public))
     }
 
     fn parse_print_statement(&mut self) -> Option<Statement> {
@@ -2563,7 +2564,7 @@ until (a == b) and (c >= d)
                 vec![
                     Statement::HashTbl(
                         Identifier(String::from("hoge")),
-                        None
+                        None, false
                     )
                 ]
             ),
@@ -2572,7 +2573,8 @@ until (a == b) and (c >= d)
                 vec![
                     Statement::HashTbl(
                         Identifier(String::from("hoge")),
-                        Some(Expression::Identifier(Identifier("HASH_CASECARE".to_string())))
+                        Some(Expression::Identifier(Identifier("HASH_CASECARE".to_string()))),
+                        false
                     )
                 ]
             ),
@@ -2581,7 +2583,17 @@ until (a == b) and (c >= d)
                 vec![
                     Statement::HashTbl(
                         Identifier(String::from("hoge")),
-                        Some(Expression::Identifier(Identifier("HASH_SORT".to_string())))
+                        Some(Expression::Identifier(Identifier("HASH_SORT".to_string()))),
+                        false
+                    )
+                ]
+            ),
+            (
+                "public hashtbl hoge",
+                vec![
+                    Statement::HashTbl(
+                        Identifier(String::from("hoge")),
+                        None, true
                     )
                 ]
             ),
@@ -2804,10 +2816,7 @@ a /= 1
 print hoge.a
                 "#,
                 vec![
-                    Statement::Print(Expression::DotCall(
-                        Box::new(Expression::Identifier(Identifier("hoge".to_string()))),
-                        Box::new(Expression::Identifier(Identifier("a".to_string()))),
-                    ))
+                    Statement::Print(Expression::Identifier(Identifier("hoge.a".to_string())))
                 ]
             ),
             (
@@ -2816,10 +2825,7 @@ print hoge.b()
                 "#,
                 vec![
                     Statement::Print(Expression::FuncCall{
-                        func: Box::new(Expression::DotCall(
-                            Box::new(Expression::Identifier(Identifier("hoge".to_string()))),
-                            Box::new(Expression::Identifier(Identifier("b".to_string()))),
-                        )),
+                        func: Box::new(Expression::Identifier(Identifier("hoge.b".to_string()))),
                         args: vec![]
                     })
                 ]
@@ -2830,10 +2836,7 @@ hoge.a = 1
                 "#,
                 vec![
                     Statement::Expression(Expression::Assign(
-                        Box::new(Expression::DotCall(
-                            Box::new(Expression::Identifier(Identifier("hoge".to_string()))),
-                            Box::new(Expression::Identifier(Identifier("a".to_string()))),
-                        )),
+                        Box::new(Expression::Identifier(Identifier("hoge.a".to_string()))),
                         Box::new(Expression::Literal(Literal::Num(1.0))),
                     ))
                 ]
@@ -2920,10 +2923,7 @@ endmodule
                 params: vec![],
                 body: vec![
                     Statement::Expression(Expression::Assign(
-                        Box::new(Expression::DotCall(
-                            Box::new(Expression::Identifier(Identifier("this".to_string()))),
-                            Box::new(Expression::Identifier(Identifier("a".to_string()))),
-                        )),
+                        Box::new(Expression::Identifier(Identifier("this.a".to_string()))),
                         Box::new(Expression::Identifier(Identifier("c".to_string()))),
                     ))
                 ]
@@ -2958,6 +2958,46 @@ endmodule
                         Identifier("a".to_string()),
                         Expression::Literal(Literal::Num(1.0))
                     ),
+                    Statement::Public(
+                        Identifier("b".to_string()),
+                        Expression::Literal(Literal::Num(1.0))
+                    ),
+                    Statement::Const(
+                        Identifier("c".to_string()),
+                        Expression::Literal(Literal::Num(1.0))
+                    ),
+                    Statement::Procedure {
+                        name: Identifier("Hoge".to_string()),
+                        params: vec![],
+                        body: vec![
+                            Statement::Expression(Expression::Assign(
+                                Box::new(Expression::Identifier(Identifier("this.a".to_string()))),
+                                Box::new(Expression::Identifier(Identifier("c".to_string()))),
+                            ))
+                        ]
+                    },
+                    Statement::Function {
+                        name: Identifier("f".to_string()),
+                        params: vec![
+                            Identifier("x".to_string()),
+                            Identifier("y".to_string())
+                        ],
+                        body: vec![
+                            Statement::Expression(Expression::Assign(
+                                Box::new(Expression::Identifier(Identifier("result".to_string()))),
+                                Box::new(Expression::Infix(
+                                    Infix::Plus,
+                                    Box::new(Expression::Identifier(Identifier("x".to_string()))),
+                                    Box::new(Expression::FuncCall{
+                                        func: Box::new(Expression::Identifier(Identifier("_f".to_string()))),
+                                        args: vec![
+                                            Expression::Identifier(Identifier("y".to_string()))
+                                        ]
+                                    }),
+                                )),
+                            ))
+                        ]
+                    },
                     Statement::Dim(
                         Identifier("_f".to_string()),
                         Expression::AnonymusFunction {

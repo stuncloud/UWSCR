@@ -1,11 +1,14 @@
 use crate::ast::*;
 use crate::evaluator::env::*;
+
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::collections::BTreeMap;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
+
+use winapi::shared::windef::HWND;
 
 pub type BuiltinFunction = fn(Vec<Object>) -> Object;
 
@@ -24,7 +27,9 @@ pub enum Object {
     Procedure(String, Vec<Identifier>, BlockStatement, Rc<RefCell<Env>>),
     ModuleFunction(String, String, Vec<Identifier>, BlockStatement, Rc<RefCell<Env>>),
     ModuleProcedure(String, String, Vec<Identifier>, BlockStatement, Rc<RefCell<Env>>),
+    GlobalMember(String),
     BuiltinFunction(i32, BuiltinFunction),
+    BuiltinConst(Box<Object>),
     Module(String, HashMap<String, Object>),
     Null,
     Empty,
@@ -33,6 +38,7 @@ pub enum Object {
     Break(u32),
     Error(String),
     Eval(String),
+    Handle(HWND),
     Exit,
     Debug(DebugType),
 }
@@ -142,7 +148,9 @@ impl fmt::Display for Object {
                 }
                 write!(f, "_procedure_({})", result)
             },
-            Object::BuiltinFunction(_, _) => write!(f, "[builtin function]"),
+            Object::BuiltinFunction(_, _) => write!(f, "builtin_function()"),
+            Object::BuiltinConst(ref o) => write!(f, "builtin constant: {}", o),
+            Object::GlobalMember(ref name) => write!(f, "global: {}", name),
             Object::Null => write!(f, "NULL"),
             Object::Empty => write!(f, ""),
             Object::Nothing => write!(f, "NOTHING"),
@@ -153,6 +161,7 @@ impl fmt::Display for Object {
             Object::Error(ref value) => write!(f, "{}", value),
             Object::Debug(_) => write!(f, "debug"),
             Object::Module(ref name, _) => write!(f, "module {}", name),
+            Object::Handle(h) => write!(f, "{:?}", h),
         }
     }
 }

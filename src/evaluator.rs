@@ -15,6 +15,7 @@ use std::rc::Rc;
 
 const HASH_CASECARE: u32 = 0x1000;
 const HASH_SORT: u32 = 0x2000;
+const MODULE_FUNC_PREFIX: &str = "`";
 
 #[derive(Debug)]
 pub struct  Evaluator {
@@ -31,7 +32,10 @@ impl Evaluator {
             Object::Empty | Object::Bool(false) => false,
             Object::Num(n) => {
                 n != 0.0
-            }
+            },
+            Object::Handle(h) => {
+                h != std::ptr::null_mut()
+            },
             _ => true
         }
     }
@@ -150,14 +154,21 @@ impl Evaluator {
                     }
                 }
             },
-            Statement::HashTbl(i, hashopt) => {
+            Statement::HashTbl(i, hashopt, is_public) => {
                 let (name, hashtbl) = self.eval_hahtbl_definition_statement(i, hashopt);
                 if Self::is_error(&hashtbl) {
                     return Some(hashtbl);
                 }
-                match self.env.borrow_mut().define_local(name, &hashtbl) {
-                    Ok(()) => None,
-                    Err(err) => Some(err),
+                if is_public {
+                    match self.env.borrow_mut().define_public(name, &hashtbl) {
+                        Ok(()) => None,
+                        Err(err) => Some(err),
+                    }
+                } else {
+                    match self.env.borrow_mut().define_local(name, &hashtbl) {
+                        Ok(()) => None,
+                        Err(err) => Some(err),
+                    }
                 }
             },
             Statement::Print(e) => {
@@ -635,7 +646,7 @@ impl Evaluator {
     }
 
     fn eval_module_statement(&mut self, name: &String, block: BlockStatement, is_class: bool) -> Object {
-        let mut private = HashMap::new();
+        let mut members = HashMap::new();
         for statement in block {
             match statement {
                 Statement::Dim(i, e) => {
@@ -648,7 +659,23 @@ impl Evaluator {
                         },
                         None => Object::Empty
                     };
-                    private.insert(member_name, value);
+                    members.insert(member_name.clone(), value.clone());
+                    members.insert(format!("this.{}", &member_name), value.clone());
+                    members.insert(format!("{}.{}", name, &member_name), value);
+                },
+                Statement::Public(i, _) |
+                Statement::Const(i, _)  => {
+                    let Identifier(member_name) = i;
+                    let global_name = format!("{}.{}", name, member_name);
+                    members.insert(member_name.clone(), Object::GlobalMember(global_name.clone()));
+                    members.insert(format!("this.{}", member_name), Object::GlobalMember(global_name));
+                },
+                Statement::Function{name: i, params: _, body: _} |
+                Statement::Procedure{name: i, params: _, body: _} => {
+                    let Identifier(member_name) = i;
+                    let global_name = format!("{}.{}", name, member_name);
+                    members.insert(format!("{}{}", MODULE_FUNC_PREFIX, &member_name), Object::GlobalMember(global_name.clone()));
+                    members.insert(format!("{}this.{}", MODULE_FUNC_PREFIX, &member_name), Object::GlobalMember(global_name));
                 },
                 _ => return Self::error(format!("invalid statement"))
             }
@@ -656,12 +683,12 @@ impl Evaluator {
         if is_class {
             Self::error(format!("class is not supported"))
         } else {
-            Object::Module(name.clone(), private)
+            Object::Module(name.clone(), members)
         }
     }
 
     fn eval_expression(&mut self, expression: Expression) -> Option<Object> {
-        match expression {
+        let some_obj = match expression {
             Expression::Identifier(i) => Some(self.eval_identifier(i)),
             Expression::Array(v, s) => {
                 let capacity = match self.eval_expression(*s) {
@@ -782,6 +809,12 @@ impl Evaluator {
             Expression::DotCall(l, r) => {
                 Some(self.eval_dotcall_expression(*l, *r))
             },
+        };
+        match some_obj {
+            Some(Object::GlobalMember(s)) => {
+                self.eval_expression(Expression::Identifier(Identifier(s)))
+            },
+            _ => some_obj
         }
     }
 
@@ -789,7 +822,10 @@ impl Evaluator {
         let Identifier(name) = identifier;
         let mut env = self.env.borrow_mut();
         match env.get_variable(&name) {
-            Some(o) => o,
+            Some(o) => match o {
+                Object::BuiltinConst(bc) => *bc,
+                _ => o
+            },
             None => match env.get_func(&name) {
                 Some(o) => o,
                 None => match env.get_module(&name) {
@@ -1082,11 +1118,18 @@ impl Evaluator {
             Expression::Identifier(i) => {
                 let Identifier(name) = i;
                 let mut env = self.env.borrow_mut();
-                match env.get_func(&name) {
+                // モジュールローカルから関数を探す
+                match env.get_variable(&format!("{}{}", MODULE_FUNC_PREFIX, &name)) {
                     Some(o) => Some(o),
-                    None => match env.get_variable(&name) {
+                    None => match env.get_func(&name.replace("global.", "")) {
                         Some(o) => Some(o),
-                        None => Some(Object::Error(format!("function or procedure not found: {}", name)))
+                        None => match env.get_func(&name) {
+                            Some(o) => Some(o),
+                            None => match env.get_variable(&name) {
+                                Some(o) => Some(o),
+                                None => Some(Object::Error(format!("function not found: {}", name)))
+                            }
+                        }
                     }
                 }
             },
@@ -1094,86 +1137,98 @@ impl Evaluator {
         }
     }
 
+    fn builtin_func_result(&mut self, result: Object) -> Object {
+        match result {
+            Object::Eval(s) => {
+                let mut parser = Parser::new(Lexer::new(&s));
+                let program = parser.parse();
+                let errors = parser.get_errors();
+                if errors.len() > 0 {
+                    let mut eval_parse_error = format!("eval parse error[{}]:", errors.len());
+                    for err in errors {
+                        eval_parse_error = format!("{}, {}", eval_parse_error, err);
+                    }
+                    return Self::error(eval_parse_error);
+                }
+                match self.eval(program) {
+                    Some(o) => o,
+                    None => Object::Empty
+                }
+            },
+            Object::Debug(t) => match t {
+                DebugType::PrintEnv(s) => {
+                    self.env.borrow_mut().print_env(s);
+                    Object::Empty
+                },
+            },
+            _ => result
+        }
+    }
+
     fn eval_function_call_expression(&mut self, func: Box<Expression>, args: Vec<Expression>) -> Object {
-        let args = args.iter().map(
+        let arguments = args.iter().map(
             |e| self.eval_expression(e.clone()).unwrap()
         ).collect::<Vec<_>>();
 
         let mut is_proc = false;
         let mut copy_scope = false;
         let mut module_name = String::new();
-        let obj = self.eval_expression_for_func_call(*func);
-        let (params, body, env) = match obj {
-            Some(Object::Function(_, p, b, e)) => (p, b, e),
-            Some(Object::Procedure(_, p, b, e)) => {
-                is_proc = true;
-                (p, b, e)
+        let (params, body, env) = match self.eval_expression_for_func_call(*func) {
+            Some(o) => match o {
+
+                Object::Function(_, p, b, e) => (p, b, e),
+                Object::Procedure(_, p, b, e) => {
+                    is_proc = true;
+                    (p, b, e)
+                },
+                Object::ModuleFunction(m, _, p, b, e) => {
+                    module_name = m;
+                    (p, b, e)
+                },
+                Object::ModuleProcedure(m, _, p, b, e) => {
+                    module_name = m;
+                    is_proc = true;
+                    (p, b, e)
+                },
+                Object::AnonFunc(p, b, e) => {
+                    copy_scope = true;
+                    (p, b, e)
+                },
+                Object::AnonProc(p, b, e) => {
+                    copy_scope = true;
+                    is_proc = true;
+                    (p, b, e)
+                },
+                Object::BuiltinFunction(expected_param_len, f) => {
+                    if expected_param_len > 0 || expected_param_len <= arguments.len() as i32 {
+                        let func_result = f(arguments);
+                        return self.builtin_func_result(func_result);
+                    } else {
+                        return Self::error(format!(
+                            "too much arguments ({}). max count of arguments should be {}",
+                            arguments.len(), expected_param_len
+                        ));
+                    }
+                },
+                Object::GlobalMember(s) => {
+                    return self.eval_function_call_expression(
+                        Box::new(Expression::Identifier(Identifier(s))),
+                        args
+                    );
+                },
+                Object::Error(err) => return Object::Error(err),
+                _ => return Self::error(format!(
+                    "{} is not a function", o
+                )),
             },
-            Some(Object::ModuleFunction(m, _, p, b, e)) => {
-                module_name = m;
-                (p, b, e)
-            },
-            Some(Object::ModuleProcedure(m, _, p, b, e)) => {
-                module_name = m;
-                is_proc = true;
-                (p, b, e)
-            },
-            Some(Object::AnonFunc(p, b, e)) => {
-                copy_scope = true;
-                (p, b, e)
-            },
-            Some(Object::AnonProc(p, b, e)) => {
-                copy_scope = true;
-                is_proc = true;
-                (p, b, e)
-            },
-            Some(Object::BuiltinFunction(expected_param_len, f)) => {
-                if expected_param_len > 0 || expected_param_len <= args.len() as i32 {
-                    let func_result = f(args);
-                    return match func_result {
-                        Object::Eval(s) => {
-                            let mut parser = Parser::new(Lexer::new(&s));
-                            let program = parser.parse();
-                            let errors = parser.get_errors();
-                            if errors.len() > 0 {
-                                let mut eval_parse_error = format!("eval parse error[{}]:", errors.len());
-                                for err in errors {
-                                    eval_parse_error = format!("{} {}", eval_parse_error, err);
-                                }
-                                return Self::error(eval_parse_error);
-                            }
-                            match self.eval(program) {
-                                Some(o) => o,
-                                None => Object::Empty
-                            }
-                        },
-                        Object::Debug(t) => match t {
-                            DebugType::PrintEnv(s) => {
-                                self.env.borrow_mut().print_env(s);
-                                Object::Empty
-                            },
-                        },
-                        _ => func_result
-                    };
-                } else {
-                    return Self::error(format!(
-                        "too much arguments ({}). max count of arguments should be {}",
-                        args.len(), expected_param_len
-                    ));
-                }
-            },
-            Some(Object::Error(err)) => return Object::Error(err),
-            Some(o) => return Self::error(format!(
-                "{} is not a function", o
-            )),
             None => return Object::Empty,
         };
 
-        if params.len() != args.len() {
+        if params.len() != arguments.len() {
             return Self::error(format!(
                 "length of arguments should be {}, not {}",
                 params.len(),
-                args.len()
+                arguments.len()
             ));
         }
 
@@ -1183,7 +1238,7 @@ impl Evaluator {
         } else {
             Env::new_scope(Rc::clone(&env))
         };
-        let list = params.iter().zip(args.iter());
+        let list = params.iter().zip(arguments.iter());
         for (_, (identifier, o)) in list.enumerate() {
             let Identifier(name) = identifier.clone();
             scoped_env.set_function_params(name, o);
@@ -1478,6 +1533,19 @@ next
 a
                 "#,
                 Some(Object::String("cdba".to_string()))
+            ),
+            (
+                r#"
+public hashtbl hoge
+hoge["a"] = "hoge"
+
+function f(key)
+    result = hoge[key]
+fend
+
+f("a")
+                "#,
+                Some(Object::String("hoge".to_string()))
             ),
         ];
         for (input, expected) in test_cases {
@@ -2306,61 +2374,159 @@ hoge
     }
 
     #[test]
-    fn test_module() {
+    fn test_scope() {
         let definition = r#"
-module Hoge
-    dim a = 1
-    public b = 1
-    const c = 1
+dim v = "script local"
+public p = "public"
+public p2 = "public 2"
+const c = "const"
 
-    procedure Hoge(n)
-        this.a = n
+dim f = "variable"
+function f()
+    result = "function"
+fend
+
+function func()
+    result = "function"
+fend
+
+function get_p()
+    result = p
+fend
+
+function get_c()
+    result = c
+fend
+
+function get_v()
+    result = v
+fend
+
+module M
+    dim v = "module local"
+    public p = "module public"
+    const c = "module const"
+
+    function func()
+        result = "module function"
     fend
 
-    function f(x, y)
-        result = x + _f(y)
+    function get_v()
+        result = v
     fend
 
-    private function _f(z)
-        result = z + 1
+    function get_this_v()
+        result = this.v
     fend
 
-    procedure p(n)
-        b += n
+    function get_p()
+        result = p
     fend
 
-    procedure length(s)
-        global.length(s)
+    function get_outer_p2()
+        result = p2
+    fend
+
+    function inner_func()
+        result = func()
+    fend
+
+    function outer_func()
+        result = global.func()
     fend
 endmodule
         "#;
         let mut e = eval_env(definition);
         let test_cases = vec![
             (
-                "Hoge.b",
-                Some(Object::Num(1.0))
+                "v",
+                Some(Object::String("script local".to_string()))
             ),
             (
                 r#"
-                Hoge.b = 5
-                Hoge.b
+                v += " 1"
+                v
                 "#,
-                Some(Object::Num(5.0))
+                Some(Object::String("script local 1".to_string()))
+            ),
+            (
+                "p",
+                Some(Object::String("public".to_string()))
             ),
             (
                 r#"
-                Hoge.p(10)
-                Hoge.b
+                p += " 1"
+                p
                 "#,
-                Some(Object::Num(15.0))
+                Some(Object::String("public 1".to_string()))
             ),
             (
-                "Hoge.f(3, 4)",
-                Some(Object::Num(8.0))
+                "c",
+                Some(Object::String("const".to_string()))
             ),
             (
-                "Hoge.length('abcde')",
-                Some(Object::Num(5.0))
+                "func()",
+                Some(Object::String("function".to_string()))
+            ),
+            (
+                "f",
+                Some(Object::String("variable".to_string()))
+            ),
+            (
+                "f()",
+                Some(Object::String("function".to_string()))
+            ),
+            (
+                "get_p()",
+                Some(Object::String("public 1".to_string()))
+            ),
+            (
+                "get_c()",
+                Some(Object::String("const".to_string()))
+            ),
+            (
+                "get_v()",
+                Some(Object::Error("identifier not found: v".to_string()))
+            ),
+            (
+                "M.v",
+                Some(Object::Error("identifier not found: M.v".to_string()))
+            ),
+            (
+                "M.p",
+                Some(Object::String("module public".to_string()))
+            ),
+            (
+                "M.c",
+                Some(Object::String("module const".to_string()))
+            ),
+            (
+                "M.func()",
+                Some(Object::String("module function".to_string()))
+            ),
+            (
+                "M.get_v()",
+                Some(Object::String("module local".to_string()))
+            ),
+            (
+                "M.get_this_v()",
+                Some(Object::String("module local".to_string()))
+            ),
+            (
+                "M.get_p()",
+                Some(Object::String("module public".to_string()))
+            ),
+            (
+                "M.get_outer_p2()",
+                Some(Object::String("public 2".to_string()))
+            ),
+            (
+                "M.inner_func()",
+                Some(Object::String("module function".to_string()))
+            ),
+            (
+                "M.outer_func()",
+                Some(Object::String("function".to_string()))
             ),
         ];
         for (input, expected) in test_cases {

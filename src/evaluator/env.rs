@@ -65,11 +65,21 @@ impl Env {
 
     pub fn print_env(&mut self, member: String) {
         match member.to_ascii_lowercase().as_str() {
-            "local" => println!("{:?}", self.local.keys()),
-            "constant" => println!("{:?}", self.constant.keys()),
-            "public" => println!("{:?}", self.public.keys()),
-            "function" => println!("{:?}", self.function.keys()),
+            "local" => Self::print_key_value(self.local.clone()),
+            "constant" => Self::print_key_value(self.constant.clone()),
+            "public" => Self::print_key_value(self.public.clone()),
+            "function" => Self::print_key_value(self.function.clone()),
             _ => ()
+        }
+    }
+
+    fn print_key_value(map: HashMap<String, Object>) {
+        for (k, v) in map {
+            match v {
+                Object::BuiltinFunction(_, _) |
+                Object::BuiltinConst(_) => (),
+                _ => println!("{}: {}", k, v)
+            }
         }
     }
 
@@ -140,8 +150,17 @@ impl Env {
             // 定数が存在する場合エラーを返す
             return Err(Object::Error(format!("you can not assign to constant: {}", key)));
         } if self.local.contains_key(&key) {
-            // ローカル変数が存在する場合、ローカル変数を上書き
-            self.local.insert(key, value.clone());
+            // ローカル変数が存在する場合
+            // 元の値がGlobalMemberならpublicを上書き
+            // それ以外ならlocalを上書き
+            match self.local.get(&key) {
+                Some(Object::GlobalMember(s)) => {
+                    self.public.insert(s.to_ascii_uppercase(), value.clone());
+                },
+                _ => {
+                    self.local.insert(key, value.clone());
+                }
+            }
         } else if self.public.contains_key(&key) {
             // ローカル変数が存在せず、グローバル変数が存在する場合、グローバル変数を上書き
             self.public.insert(key, value.clone());
@@ -157,9 +176,10 @@ impl Env {
         self.local.insert(name.to_ascii_uppercase(), value.clone());
     }
 
+    // module関数呼び出し時にメンバをローカル変数としてセット
     pub fn set_module_private_member(&mut self, name: &String) {
         let map = match self.get_module(name) {
-            Some(Object::Module(_, map)) => map,
+            Some(Object::Module(_, h)) => h,
             _ => return
         };
         for (k, v) in map {
