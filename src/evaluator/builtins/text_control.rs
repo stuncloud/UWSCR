@@ -1,6 +1,20 @@
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::builtin_func_error;
 
+use std::collections::HashMap;
+
+pub fn set_builtin_functions(map: &mut HashMap<String, Object>) {
+    let funcs : Vec<(&str, i32, fn(Vec<Object>)->Object)> = vec![
+        ("copy", 5, copy),
+        ("length", 1, length),
+        ("lengthb", 1, lengthb),
+        ("as_string", 1, as_string),
+    ];
+    for (name, arg_len, func) in funcs {
+        map.insert(name.to_ascii_uppercase(), Object::BuiltinFunction(arg_len, func));
+    }
+}
+
 pub fn copy(args: Vec<Object>) -> Object {
     Object::String(format!("{}", args.len()))
 }

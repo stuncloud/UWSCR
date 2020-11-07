@@ -274,7 +274,6 @@ impl Lexer {
             "endmodule" => Token::EndModule,
             "class" => Token::Class,
             "endclass" => Token::EndClass,
-            "private" => Token::Private,
             "dim" => Token::Dim,
             "public" => Token::Public,
             "const" => Token::Const,

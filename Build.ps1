@@ -5,6 +5,12 @@ param(
     [switch] $Release
 )
 
+# リリースビルドの場合vcのライブラリをスタティックリンクする
+if ($Release) {
+    $env:RUSTFLAGS='-C target-feature=+crt-static'
+} else {
+    $env:RUSTFLAGS=''
+}
 # build x64 exe
 $cmd = 'cargo build {0}' -f $(if ($Release) {'--release'})
 Invoke-Expression -Command $cmd
@@ -13,6 +19,8 @@ $cmd = 'cargo build --target=i686-pc-windows-msvc {0}' -f $(if ($Release) {'--re
 Invoke-Expression -Command $cmd
 
 if ($Release) {
+    $env:RUSTFLAGS=''
+
     $exe64 = '.\target\release\uwscr.exe'
     $exe86 = '.\target\i686-pc-windows-msvc\release\uwscr.exe'
     if (! (Test-Path $exe64)) {
