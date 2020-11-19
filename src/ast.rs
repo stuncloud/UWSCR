@@ -113,9 +113,9 @@ pub enum Literal {
 
 #[derive(PartialEq, Clone, Debug)]
 pub enum Statement {
-    Dim(Identifier, Expression),
-    Public(Identifier, Expression),
-    Const(Identifier, Expression),
+    Dim(Vec<(Identifier, Expression)>),
+    Public(Vec<(Identifier, Expression)>),
+    Const(Vec<(Identifier, Expression)>),
     HashTbl(Identifier, Option<Expression>, bool),
     Print(Expression),
     Call(String),

@@ -39,6 +39,7 @@ pub enum Object {
     Error(String),
     Eval(String),
     Handle(HWND),
+    RegEx(String),
     Exit,
     Debug(DebugType),
 }
@@ -162,6 +163,7 @@ impl fmt::Display for Object {
             Object::Debug(_) => write!(f, "debug"),
             Object::Module(ref name, _) => write!(f, "module {}", name),
             Object::Handle(h) => write!(f, "{:?}", h),
+            Object::RegEx(ref re) => write!(f, "regex: {}", re)
         }
     }
 }

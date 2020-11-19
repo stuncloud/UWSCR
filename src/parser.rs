@@ -215,6 +215,16 @@ impl Parser {
         ))
     }
 
+    fn error_got_unexpected_next_token(&mut self) {
+        self.errors.push(ParseError::new(
+            ParseErrorKind::UnexpectedToken,
+            format!(
+                "unexpected token: {:?}.",
+                self.next_token
+            )
+        ))
+    }
+
     fn current_token_precedence(&mut self) -> Precedence {
         Self::token_to_precedence(&self.current_token)
     }
@@ -241,8 +251,8 @@ impl Parser {
         while ! self.is_current_token(&Token::Eof) {
             match self.parse_statement() {
                 Some(s) => match s {
-                    Statement::Public(_, _) |
-                    Statement::Const(_, _) => {
+                    Statement::Public(_) |
+                    Statement::Const(_) => {
                         program.insert(pub_counter, s);
                         pub_counter += 1;
                     },
@@ -256,20 +266,22 @@ impl Parser {
 
                         for statement in block.clone() {
                             match statement {
-                                Statement::Public(i, v) => {
-                                    let Identifier(member) = i;
-                                    program.insert(pub_counter, Statement::Public(
-                                        Identifier(format!("{}.{}", module_name.clone(), member)),
-                                        v
-                                    ));
+                                Statement::Public(vec) => {
+                                    let mut p = vec![];
+                                    for (i, e) in vec {
+                                        let Identifier(member) = i;
+                                        p.push((Identifier(format!("{}.{}", module_name.clone(), member)), e));
+                                    }
+                                    program.insert(pub_counter, Statement::Public(p));
                                     pub_counter += 1;
                                 },
-                                Statement::Const(i, v) => {
-                                    let Identifier(member) = i;
-                                    program.insert(pub_counter, Statement::Const(
-                                        Identifier(format!("{}.{}", module_name.clone(), member)),
-                                        v
-                                    ));
+                                Statement::Const(vec) => {
+                                    let mut c = vec![];
+                                    for (i, e) in vec {
+                                        let Identifier(member) = i;
+                                        c.push((Identifier(format!("{}.{}", module_name.clone(), member)), e));
+                                    }
+                                    program.insert(pub_counter, Statement::Const(c));
                                     pub_counter += 1;
                                 },
                                 Statement::Function{name, params, body} => {
@@ -290,7 +302,7 @@ impl Parser {
                                     });
                                     func_counter += 1;
                                 },
-                                Statement::Dim(_, _) => {},
+                                Statement::Dim(_) => {},
                                 _ => {
                                     self.errors.push(ParseError::new(
                                         ParseErrorKind::InvalidModuleStatement,
@@ -354,54 +366,80 @@ impl Parser {
         }
     }
 
-    fn parse_variable_definition(&mut self) -> Result<Option<Expression>, ()> {
-        let expression: Expression;
+    fn parse_variable_definition(&mut self, value_required: bool) -> Result<Vec<(Identifier, Expression)>, ()> {
+        let mut expressions = vec![];
 
-        if self.is_next_token(&Token::Lbracket) {
-            self.bump();
-            let index = if self.is_next_token(&Token::Rbracket) {
-                // 添字省略
-                Expression::Literal(Literal::Empty)
-            } else {
-                self.bump();
-                match self.parse_expression(Precedence::Lowest, false) {
-                    Some(e) => e,
-                    None => return Err(())
-                }
+        loop {
+            let var_name = match self.parse_identifier() {
+                Some(e) => e,
+                None => return Err(())
             };
-            if ! self.is_next_token_expected(Token::Rbracket) {
-                return Err(());
-            };
-            expression = if ! self.is_next_token(&Token::EqualOrAssign) {
-                // 代入演算子がなければ配列宣言のみ
-                Expression::Array(Vec::new(), Box::new(index))
-            } else {
+            let expression = if self.is_next_token(&Token::Lbracket) {
                 self.bump();
-                let list = match self.parse_expression_list(Token::Eol) {
-                    Some(vec_e) => vec_e,
-                    None => return Err(())
+                let index = if self.is_next_token(&Token::Rbracket) {
+                    // 添字省略
+                    Expression::Literal(Literal::Empty)
+                } else {
+                    self.bump();
+                    match self.parse_expression(Precedence::Lowest, false) {
+                        Some(e) => e,
+                        None => return Err(())
+                    }
                 };
-                Expression::Array(list, Box::new(index))
-            };
-        } else {
-            // 変数定義
-            // 代入演算子がなければ変数宣言のみ
-            expression = if ! self.is_next_token(&Token::EqualOrAssign) {
-                return Ok(None)
+                if ! self.is_next_token_expected(Token::Rbracket) {
+                    return Err(());
+                };
+                if ! self.is_next_token(&Token::EqualOrAssign) {
+                    // 代入演算子がなければ配列宣言のみ
+                    if value_required {
+                        self.errors.push(ParseError::new(
+                            ParseErrorKind::ValueMustBeDefined,
+                            format!("{} has no value.", var_name)
+                        ));
+                        return Err(());
+                    } else {
+                        Expression::Array(Vec::new(), Box::new(index))
+                    }
+                } else {
+                    self.bump();
+                    let list = match self.parse_expression_list(Token::Eol) {
+                        Some(vec_e) => vec_e,
+                        None => return Err(())
+                    };
+                    Expression::Array(list, Box::new(index))
+                }
             } else {
-                self.bump();
-                self.bump();
-                match self.parse_expression(Precedence::Lowest, false) {
-                    Some(e) => e,
-                    None => return Err(())
+                // 変数定義
+                // 代入演算子がなければ変数宣言のみ
+                if ! self.is_next_token(&Token::EqualOrAssign) {
+                    if value_required {
+                        self.errors.push(ParseError::new(
+                            ParseErrorKind::ValueMustBeDefined,
+                            format!("{} has no value.", var_name)
+                        ));
+                        return Err(());
+                    } else {
+                        Expression::Literal(Literal::Empty)
+                    }
+                } else {
+                    self.bump();
+                    self.bump();
+                    match self.parse_expression(Precedence::Lowest, false) {
+                        Some(e) => e,
+                        None => return Err(())
+                    }
                 }
             };
-            if self.is_next_token(&Token::Semicolon) || self.is_next_token(&Token::Eol) {
+            expressions.push((var_name, expression));
+            if self.is_next_token(&Token::Comma) {
                 self.bump();
+                self.bump();
+            } else{
+                break;
             }
         }
 
-        Ok(Some(expression))
+        Ok(expressions)
     }
 
     fn parse_public_statement(&mut self) -> Option<Statement> {
@@ -413,15 +451,8 @@ impl Parser {
             },
             _ => return None,
         }
-
-        // 変数名
-        let var_name = match self.parse_identifier() {
-            Some(e) => e,
-            None => return None
-        };
-        match self.parse_variable_definition() {
-            Ok(Some(e)) => Some(Statement::Public(var_name, e)),
-            Ok(None) => Some(Statement::Public(var_name, Expression::Literal(Literal::Empty))),
+        match self.parse_variable_definition(false) {
+            Ok(v) => Some(Statement::Public(v)),
             Err(()) => None
         }
     }
@@ -431,14 +462,8 @@ impl Parser {
             Token::Identifier(_) => self.bump(),
             _ => return None,
         }
-        // 変数名
-        let var_name = match self.parse_identifier() {
-            Some(e) => e,
-            None => return None
-        };
-        match self.parse_variable_definition() {
-            Ok(Some(e)) => Some(Statement::Dim(var_name, e)),
-            Ok(None) => Some(Statement::Dim(var_name, Expression::Literal(Literal::Empty))),
+        match self.parse_variable_definition(false) {
+            Ok(v) => Some(Statement::Dim(v)),
             Err(()) => None
         }
     }
@@ -448,20 +473,8 @@ impl Parser {
             Token::Identifier(_) => self.bump(),
             _ => return None,
         }
-        // 変数名
-        let var_name = match self.parse_identifier() {
-            Some(e) => e,
-            None => return None
-        };
-        match self.parse_variable_definition() {
-            Ok(Some(e)) => Some(Statement::Const(var_name, e)),
-            Ok(None) => {
-                self.errors.push(ParseError::new(
-                    ParseErrorKind::ValueMustBeDefined,
-                    format!("{} has no value.", var_name)
-                ));
-                None
-            },
+        match self.parse_variable_definition(true) {
+            Ok(v) => Some(Statement::Const(v)),
             Err(()) => None
         }
     }
@@ -833,8 +846,15 @@ impl Parser {
             }
         }
 
-        if ! self.is_next_token_expected(end) {
-            return None;
+        if end == Token::Eol {
+            if ! self.is_next_token(&end) && ! self.is_next_token(&Token::Eof) {
+                self.error_got_unexpected_next_token();
+                return None;
+            }
+        } else {
+            if ! self.is_next_token_expected(end) {
+                return None;
+            }
         }
 
         Some(list)
@@ -1283,47 +1303,117 @@ print 2
 
     #[test]
     fn test_dim_statement() {
-        let input = r#"
-dim hoge = 1
-dim fuga
-dim piyo = EMPTY
-dim arr1[] = 1, 3, 5, 7, 9
-dim arr2[4]
-        "#;
-        parser_test(input, vec![
-            Statement::Dim(
-                Identifier(String::from("hoge")),
-                Expression::Literal(Literal::Num(1 as f64))
+        let testcases = vec![
+            (
+                "dim hoge = 1", vec![
+                    Statement::Dim(
+                        vec![
+                            (
+                                Identifier(String::from("hoge")),
+                                Expression::Literal(Literal::Num(1 as f64))
+                            ),
+                        ]
+                    ),
+                ]
             ),
-            Statement::Dim(
-                Identifier(String::from("fuga")),
-                Expression::Literal(Literal::Empty)
+            (
+                "dim fuga", vec![
+                    Statement::Dim(
+                        vec![
+                            (
+                                Identifier(String::from("fuga")),
+                                Expression::Literal(Literal::Empty)
+                            )
+                        ]
+                    ),
+                ]
             ),
-            Statement::Dim(
-                Identifier(String::from("piyo")),
-                Expression::Literal(Literal::Empty)
+            (
+                "dim piyo = EMPTY", vec![
+                    Statement::Dim(
+                        vec![
+                            (
+                                Identifier(String::from("piyo")),
+                                Expression::Literal(Literal::Empty)
+                            )
+                        ]
+                    ),
+                ]
             ),
-            Statement::Dim(
-                Identifier(String::from("arr1")),
-                Expression::Array(
-                    vec![
-                        Expression::Literal(Literal::Num(1 as f64)),
-                        Expression::Literal(Literal::Num(3 as f64)),
-                        Expression::Literal(Literal::Num(5 as f64)),
-                        Expression::Literal(Literal::Num(7 as f64)),
-                        Expression::Literal(Literal::Num(9 as f64)),
-                    ],
-                    Box::new(Expression::Literal(Literal::Empty)),
-                )
+            (
+                "dim arr1[] = 1, 3, 5, 7, 9", vec![
+                    Statement::Dim(
+                        vec![
+                            (
+                                Identifier(String::from("arr1")),
+                                Expression::Array(
+                                    vec![
+                                        Expression::Literal(Literal::Num(1 as f64)),
+                                        Expression::Literal(Literal::Num(3 as f64)),
+                                        Expression::Literal(Literal::Num(5 as f64)),
+                                        Expression::Literal(Literal::Num(7 as f64)),
+                                        Expression::Literal(Literal::Num(9 as f64)),
+                                    ],
+                                    Box::new(Expression::Literal(Literal::Empty)),
+                                )
+                            )
+                        ]
+                    ),
+                ]
             ),
-            Statement::Dim(
-                Identifier(String::from("arr2")),
-                Expression::Array(
-                    vec![],
-                    Box::new(Expression::Literal(Literal::Num(4 as f64))),
-                )
+            (
+                "dim arr2[4]", vec![
+                    Statement::Dim(
+                        vec![
+                            (
+                                Identifier(String::from("arr2")),
+                                Expression::Array(
+                                    vec![],
+                                    Box::new(Expression::Literal(Literal::Num(4 as f64))),
+                                )
+                            )
+                        ]
+                    ),
+                ]
             ),
-        ]);
+            (
+                "dim a = 1, b, c[1], d[] = 1,2", vec![
+                    Statement::Dim(
+                        vec![
+                            (
+                                Identifier(String::from("a")),
+                                Expression::Literal(Literal::Num(1.0))
+                            ),
+                            (
+                                Identifier(String::from("b")),
+                                Expression::Literal(Literal::Empty)
+                            ),
+                            (
+                                Identifier(String::from("c")),
+                                Expression::Array(
+                                    vec![],
+                                    Box::new(Expression::Literal(Literal::Num(1.0))),
+                                )
+                            ),
+                            (
+                                Identifier(String::from("d")),
+                                Expression::Array(
+                                    vec![
+                                        Expression::Literal(Literal::Num(1.0)),
+                                        Expression::Literal(Literal::Num(2.0)),
+                                    ],
+                                    Box::new(Expression::Literal(Literal::Empty)),
+                                )
+                            )
+                        ]
+                    ),
+                ]
+            ),
+        ];
+        for (input, expected) in testcases {
+            println!("{}", &input);
+            parser_test(input, expected);
+        }
     }
 
     #[test]
@@ -2868,11 +2958,21 @@ fend
 public p3 = 1
         "#;
         parser_test(input, vec![
-            Statement::Public(Identifier("p1".to_string()), Expression::Literal(Literal::Num(1.0))),
-            Statement::Const(Identifier("c1".to_string()), Expression::Literal(Literal::Num(1.0))),
-            Statement::Const(Identifier("c2".to_string()), Expression::Literal(Literal::Num(1.0))),
-            Statement::Public(Identifier("p2".to_string()), Expression::Literal(Literal::Num(1.0))),
-            Statement::Public(Identifier("p3".to_string()), Expression::Literal(Literal::Num(1.0))),
+            Statement::Public(vec![
+                (Identifier("p1".to_string()), Expression::Literal(Literal::Num(1.0)))
+            ]),
+            Statement::Const(vec![
+                (Identifier("c1".to_string()), Expression::Literal(Literal::Num(1.0)))
+            ]),
+            Statement::Const(vec![
+                (Identifier("c2".to_string()), Expression::Literal(Literal::Num(1.0)))
+            ]),
+            Statement::Public(vec![
+                (Identifier("p2".to_string()), Expression::Literal(Literal::Num(1.0)))
+            ]),
+            Statement::Public(
+                vec![(Identifier("p3".to_string()), Expression::Literal(Literal::Num(1.0)))]
+            ),
             Statement::Function {
                 name: Identifier("f1".to_string()),
                 params: vec![],
@@ -2888,8 +2988,12 @@ public p3 = 1
                 params: vec![],
                 body: vec![],
             },
-            Statement::Dim(Identifier("d1".to_string()), Expression::Literal(Literal::Num(1.0))),
-            Statement::Dim(Identifier("d2".to_string()), Expression::Literal(Literal::Num(1.0))),
+            Statement::Dim(vec![
+                (Identifier("d1".to_string()), Expression::Literal(Literal::Num(1.0)))
+            ]),
+            Statement::Dim(vec![
+                (Identifier("d2".to_string()), Expression::Literal(Literal::Num(1.0)))
+            ]),
         ]);
     }
 
@@ -2915,8 +3019,12 @@ module Hoge
 endmodule
         "#;
         parser_test(input, vec![
-            Statement::Public(Identifier("Hoge.b".to_string()), Expression::Literal(Literal::Num(1.0))),
-            Statement::Const(Identifier("Hoge.c".to_string()), Expression::Literal(Literal::Num(1.0))),
+            Statement::Public(vec![
+                (Identifier("Hoge.b".to_string()), Expression::Literal(Literal::Num(1.0)))
+            ]),
+            Statement::Const(vec![
+                (Identifier("Hoge.c".to_string()), Expression::Literal(Literal::Num(1.0)))
+            ]),
             Statement::ModuleProcedure {
                 module_name: "Hoge".to_string(),
                 name: "Hoge".to_string(),
@@ -2954,18 +3062,15 @@ endmodule
             Statement::Module(
                 Identifier("Hoge".to_string()),
                 vec![
-                    Statement::Dim(
-                        Identifier("a".to_string()),
-                        Expression::Literal(Literal::Num(1.0))
-                    ),
-                    Statement::Public(
-                        Identifier("b".to_string()),
-                        Expression::Literal(Literal::Num(1.0))
-                    ),
-                    Statement::Const(
-                        Identifier("c".to_string()),
-                        Expression::Literal(Literal::Num(1.0))
-                    ),
+                    Statement::Dim(vec![
+                        (Identifier("a".to_string()), Expression::Literal(Literal::Num(1.0)))
+                    ]),
+                    Statement::Public(vec![
+                        (Identifier("b".to_string()), Expression::Literal(Literal::Num(1.0)))
+                    ]),
+                    Statement::Const(vec![
+                        (Identifier("c".to_string()), Expression::Literal(Literal::Num(1.0)))
+                    ]),
                     Statement::Procedure {
                         name: Identifier("Hoge".to_string()),
                         params: vec![],
@@ -2998,24 +3103,26 @@ endmodule
                             ))
                         ]
                     },
-                    Statement::Dim(
-                        Identifier("_f".to_string()),
-                        Expression::AnonymusFunction {
-                            params: vec![
-                                Identifier("z".to_string()),
-                            ],
-                            body: vec![
-                                Statement::Expression(Expression::Assign(
-                                    Box::new(Expression::Identifier(Identifier("result".to_string()))),
-                                    Box::new(Expression::Infix(
-                                        Infix::Plus,
-                                        Box::new(Expression::Identifier(Identifier("z".to_string()))),
-                                        Box::new(Expression::Literal(Literal::Num(1.0))),
+                    Statement::Dim(vec![
+                        (
+                            Identifier("_f".to_string()),
+                            Expression::AnonymusFunction {
+                                params: vec![
+                                    Identifier("z".to_string()),
+                                ],
+                                body: vec![
+                                    Statement::Expression(Expression::Assign(
+                                        Box::new(Expression::Identifier(Identifier("result".to_string()))),
+                                        Box::new(Expression::Infix(
+                                            Infix::Plus,
+                                            Box::new(Expression::Identifier(Identifier("z".to_string()))),
+                                            Box::new(Expression::Literal(Literal::Num(1.0))),
+                                        )),
                                     )),
-                                )),
-                            ]
-                        }
-                    ),
+                                ]
+                            }
+                        )
+                    ]),
                 ],
             ),
         ]);

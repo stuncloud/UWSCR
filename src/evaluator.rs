@@ -56,12 +56,14 @@ impl Evaluator {
 
         for statement in program {
             match self.eval_statement(statement) {
-                Some(Object::Exit) => return Some(Object::Exit),
-                Some(Object::Error(msg)) => return Some(Object::Error(msg)),
-                obj => result = obj,
+                Some(o) => match o {
+                    Object::Exit => return Some(Object::Exit),
+                    Object::Error(msg) => return Some(Object::Error(msg)),
+                    _ => result = Some(o),
+                },
+                None => ()
             }
         }
-
         result
     }
 
@@ -121,38 +123,47 @@ impl Evaluator {
 
     fn eval_statement(&mut self, statement: Statement) -> Option<Object> {
         match statement {
-            Statement::Dim(i, e) => {
-                let (name, value) = self.eval_definition_statement(i, e);
-                if Self::is_error(&value) {
-                    Some(value)
-                } else {
-                    match self.env.borrow_mut().define_local(name, &value) {
-                        Ok(()) => None,
-                        Err(err) => Some(err),
+            Statement::Dim(vec) => {
+                for (i, e) in vec {
+                    let (name, value) = self.eval_definition_statement(i, e);
+                    if Self::is_error(&value) {
+                        return Some(value);
+                    } else {
+                        match self.env.borrow_mut().define_local(name, &value) {
+                            Ok(()) => (),
+                            Err(err) => return Some(err),
+                        }
                     }
                 }
+                None
             },
-            Statement::Public(i, e) => {
-                let (name, value) = self.eval_definition_statement(i, e);
-                if Self::is_error(&value) {
-                    Some(value)
-                } else {
-                    match self.env.borrow_mut().define_public(name, &value) {
-                        Ok(()) => None,
-                        Err(err) => Some(err),
+            Statement::Public(vec) => {
+                for (i, e) in vec {
+                    let (name, value) = self.eval_definition_statement(i, e);
+                    if Self::is_error(&value) {
+                        return Some(value);
+                    } else {
+                        match self.env.borrow_mut().define_public(name, &value) {
+                            Ok(()) => (),
+                            Err(err) => return Some(err),
+                        }
                     }
                 }
+                None
             },
-            Statement::Const(i, e) => {
-                let (name, value) = self.eval_definition_statement(i, e);
-                if Self::is_error(&value) {
-                    Some(value)
-                } else {
-                    match self.env.borrow_mut().define_const(name, &value) {
-                        Ok(()) => None,
-                        Err(err) => Some(err),
+            Statement::Const(vec) => {
+                for (i, e) in vec {
+                    let (name, value) = self.eval_definition_statement(i, e);
+                    if Self::is_error(&value) {
+                        return Some(value);
+                    } else {
+                        match self.env.borrow_mut().define_const(name, &value) {
+                            Ok(()) => (),
+                            Err(err) => return Some(err),
+                        }
                     }
                 }
+                None
             },
             Statement::HashTbl(i, hashopt, is_public) => {
                 let (name, hashtbl) = self.eval_hahtbl_definition_statement(i, hashopt);
@@ -173,7 +184,9 @@ impl Evaluator {
             },
             Statement::Print(e) => {
                 match self.eval_expression(e) {
-                    Some(o) => {
+                    Some(o) => if Self::is_error(&o) {
+                        return Some(o);
+                    } else {
                         println!("{}", o);
                         None
                     },
@@ -617,7 +630,7 @@ impl Evaluator {
     fn eval_funtcion_definition_statement(&mut self, name: &String, params: Vec<Identifier>, body: Vec<Statement>, is_proc: bool, module_name: Option<&String>) -> Object {
         for statement in body.clone() {
             match statement {
-                Statement::Public(_, _) | Statement::Const(_, _) => {
+                Statement::Public(_) | Statement::Const(_) => {
                     match self.eval_statement(statement) {
                         Some(Object::Error(msg)) => return Self::error(msg),
                         _ => {},
@@ -649,26 +662,30 @@ impl Evaluator {
         let mut members = HashMap::new();
         for statement in block {
             match statement {
-                Statement::Dim(i, e) => {
-                    let Identifier(member_name) = i;
-                    let value = match self.eval_expression(e) {
-                        Some(o) => if Self::is_error(&o) {
-                            return o
-                        } else {
-                            o
-                        },
-                        None => Object::Empty
-                    };
-                    members.insert(member_name.clone(), value.clone());
-                    members.insert(format!("this.{}", &member_name), value.clone());
-                    members.insert(format!("{}.{}", name, &member_name), value);
+                Statement::Dim(vec) => {
+                    for (i, e) in vec {
+                        let Identifier(member_name) = i;
+                        let value = match self.eval_expression(e) {
+                            Some(o) => if Self::is_error(&o) {
+                                return o
+                            } else {
+                                o
+                            },
+                            None => Object::Empty
+                        };
+                        members.insert(member_name.clone(), value.clone());
+                        members.insert(format!("this.{}", &member_name), value.clone());
+                        members.insert(format!("{}.{}", name, &member_name), value);
+                    }
                 },
-                Statement::Public(i, _) |
-                Statement::Const(i, _)  => {
-                    let Identifier(member_name) = i;
-                    let global_name = format!("{}.{}", name, member_name);
-                    members.insert(member_name.clone(), Object::GlobalMember(global_name.clone()));
-                    members.insert(format!("this.{}", member_name), Object::GlobalMember(global_name));
+                Statement::Public(vec) |
+                Statement::Const(vec)  => {
+                    for (i, _) in vec {
+                        let Identifier(member_name) = i;
+                        let global_name = format!("{}.{}", name, member_name);
+                        members.insert(member_name.clone(), Object::GlobalMember(global_name.clone()));
+                        members.insert(format!("this.{}", member_name), Object::GlobalMember(global_name));
+                    }
                 },
                 Statement::Function{name: i, params: _, body: _} |
                 Statement::Procedure{name: i, params: _, body: _} => {
@@ -1200,13 +1217,14 @@ impl Evaluator {
                     (p, b, e)
                 },
                 Object::BuiltinFunction(expected_param_len, f) => {
-                    if expected_param_len > 0 || expected_param_len <= arguments.len() as i32 {
+                    if expected_param_len >= arguments.len() as i32 {
                         let func_result = f(arguments);
                         return self.builtin_func_result(func_result);
                     } else {
+                        let l = arguments.len();
                         return Self::error(format!(
-                            "too much arguments ({}). max count of arguments should be {}",
-                            arguments.len(), expected_param_len
+                            "{} argument{} were given, should be {}{}",
+                            l, if l > 1 {"s"} else {""}, expected_param_len, if l > 1 {" (or less)"} else {""}
                         ));
                     }
                 },
