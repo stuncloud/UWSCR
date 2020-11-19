@@ -24,6 +24,7 @@ pub fn init_builtins() -> (HashMap<String, Object>, HashMap<String, Object>) {
     key_codes::set_builtin_constant(&mut builtins_consts);
     window_control::set_builtin_constant(&mut builtins_consts);
     window_low::set_builtin_constant(&mut builtins_consts);
+    text_control::set_builtin_constant(&mut builtins_consts);
 
     (builtins_funcs, builtins_consts)
 }
@@ -67,23 +68,26 @@ pub fn builtin_func_error(name: &str,msg: &str)-> Object {
     Object::Error(format!("builtin function error [{}]: {}", name, msg))
 }
 
-pub fn get_non_float_argument_value<T>(args: &Vec<Object>, i: usize, default: T) -> Result<T, String>
+// ビルトイン関数の引数を受け取るための関数群
+// i: 引数のインデックス
+// default: 省略可能な引数のデフォルト値、必須引数ならNoneを渡す
+// 引数が省略されていた場合はdefaultの値を返す
+// 引数が必須なのになかったらエラーを返す
+
+pub fn get_non_float_argument_value<T>(args: &Vec<Object>, i: usize, default: Option<T>) -> Result<T, String>
     where T: cast::From<f64, Output=Result<T, cast::Error>>,
 {
     if args.len() >= i + 1 {
         match args[i] {
-            Object::Num(n) => match T::cast(n) {
-                Ok(t) => Ok(t),
-                Err(_) => Err("cast error".to_string())
-            },
+            Object::Num(n) => T::cast(n).or(Err("cast error".to_string())),
             _ => Err(format!("bad argument: {}", args[i]))
         }
     } else {
-        Ok(default)
+        default.ok_or(format!("argument {} required", i + 1))
     }
 }
 
-pub fn get_num_argument_value<T>(args: &Vec<Object>, i: usize, default: T) -> Result<T, String>
+pub fn get_num_argument_value<T>(args: &Vec<Object>, i: usize, default: Option<T>) -> Result<T, String>
     where T: cast::From<f64, Output=T>,
 {
     if args.len() >= i + 1 {
@@ -92,17 +96,29 @@ pub fn get_num_argument_value<T>(args: &Vec<Object>, i: usize, default: T) -> Re
             _ => Err(format!("bad argument: {}", args[i]))
         }
     } else {
-        Ok(default)
+        default.ok_or(format!("argument {} required", i + 1))
     }
 }
 
-pub fn get_string_argument_value(args: &Vec<Object>, i: usize, default: String) -> Result<String, String> {
+pub fn get_string_argument_value(args: &Vec<Object>, i: usize, default: Option<String>) -> Result<String, String> {
     if args.len() >= i + 1 {
         match &args[i] {
             Object::String(s) => Ok(s.clone()),
+            Object::RegEx(re) => Ok(re.clone()),
             _ => Err(format!("bad argument: {}", args[i]))
         }
     } else {
-        Ok(default)
+        default.ok_or(format!("argument {} required", i + 1))
+    }
+}
+
+pub fn get_bool_argument_value(args: &Vec<Object>, i: usize, default: Option<bool>) -> Result<bool, String> {
+    if args.len() >= i + 1 {
+        match args[i] {
+            Object::Bool(b) => Ok(b),
+            _ => Err(format!("bad argument: {}", args[i]))
+        }
+    } else {
+        default.ok_or(format!("argument {} required", i + 1))
     }
 }

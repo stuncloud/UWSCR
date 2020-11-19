@@ -1,7 +1,9 @@
 use std::path::PathBuf;
 use std::error::Error;
-use structopt::{clap::ArgGroup, StructOpt};
 use std::fs;
+
+use structopt::{clap::ArgGroup, StructOpt};
+use encoding_rs::{UTF_8, SHIFT_JIS};
 
 use uwscr::script;
 use uwscr::repl;
@@ -34,7 +36,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
     match opt.file {
         Some(path) => {
-            let script = fs::read_to_string(path)?;
+            let bytes = fs::read(path)?;
+            let script = match get_utf8(&bytes) {
+                Ok(utf8) => utf8,
+                Err(()) => {
+                    eprintln!("failed to decode file");
+                    return Ok(())
+                }
+            };
             if opt.ast {
                 script::out_ast(script);
                 return Ok(());
@@ -57,3 +66,15 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 }
 
+fn get_utf8(bytes: &Vec<u8>) -> Result<String, ()> {
+    let (cow, _, err) = UTF_8.decode(bytes);
+    if ! err {
+        return Ok(cow.to_string());
+    } else {
+        let (cow, _, err) = SHIFT_JIS.decode(bytes);
+        if ! err {
+            return Ok(cow.to_string());
+        }
+    }
+    Err(())
+}

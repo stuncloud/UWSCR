@@ -32,7 +32,7 @@ uwscr --version
 
 [Wiki](https://github.com/stuncloud/UWSCR/wiki)のヘルプを参照してください
 
-ビルドの仕方
+ビルド方法
 ----
 
 自分でソースからビルドしてみたい方向け
@@ -85,6 +85,14 @@ Windows 10 x64環境での手順を記載します
    - x86版
      - `.\target\i686-pc-windows-msvc\debug\uwscr.exe`
 
+
+お問い合わせ
+----
+
+UWSCRに関する問い合わせはこちら
+
+- [Discord](https://discord.gg/Y9VtAMZ)
+- [UWSC仮掲示板](http://www3.rocketbbs.com/601/siromasa.html)
 
 開発支援
 ----

@@ -58,15 +58,15 @@ const DOWN: i32 = 1;
 const UP: i32 = 2;
 
 pub fn mmv(args: Vec<Object>) -> Object {
-    let x = match get_num_argument_value(&args, 0, 0.0) {
+    let x = match get_num_argument_value(&args, 0, Some(0.0)) {
         Ok(n) => n as i32,
         Err(e) => return builtin_func_error("mmv", e.as_str())
     };
-    let y = match get_num_argument_value(&args, 1, 0.0) {
+    let y = match get_num_argument_value(&args, 1, Some(0.0)) {
         Ok(n) => n as i32,
         Err(e) => return builtin_func_error("mmv", e.as_str())
     };
-    let ms = match get_num_argument_value(&args, 2, 0.0) {
+    let ms = match get_num_argument_value(&args, 2, Some(0.0)) {
         Ok(n) => n as u64,
         Err(_) => 0
     };
@@ -78,7 +78,7 @@ pub fn mmv(args: Vec<Object>) -> Object {
 
 pub fn btn(args: Vec<Object>) -> Object {
     let mut enigo = Enigo::new();
-    let arg1 = match get_non_float_argument_value::<i32>(&args, 1, CLICK) {
+    let arg1 = match get_non_float_argument_value::<i32>(&args, 1, Some(CLICK)) {
         Ok(n) => n,
         Err(e) => return builtin_func_error("btn", e.as_str())
     };
@@ -86,16 +86,16 @@ pub fn btn(args: Vec<Object>) -> Object {
         Ok(p) => (p.x, p.y),
         Err(err) => return err
     };
-    let x = match get_non_float_argument_value(&args, 2, cur_x) {
+    let x = match get_non_float_argument_value(&args, 2, Some(cur_x)) {
         Ok(n) => n,
         Err(e) => return builtin_func_error("btn", e.as_str())
     };
-    let y = match get_non_float_argument_value(&args, 3, cur_y) {
+    let y = match get_non_float_argument_value(&args, 3, Some(cur_y)) {
         Ok(n) => n,
         Err(e) => return builtin_func_error("btn", e.as_str())
 
     };
-    let ms= match get_non_float_argument_value::<u64>(&args, 4, 0) {
+    let ms= match get_non_float_argument_value::<u64>(&args, 4, Some(0)) {
         Ok(n) => n,
         Err(e) => return builtin_func_error("btn", e.as_str())
     };
@@ -149,7 +149,7 @@ pub fn get_current_pos() -> Result<POINT, Object>{
 
 pub fn kbd(args: Vec<Object>) -> Object {
     let mut enigo = Enigo::new();
-    let ms= match get_non_float_argument_value::<u64>(&args, 2, 0) {
+    let ms= match get_non_float_argument_value::<u64>(&args, 2, Some(0)) {
         Ok(n) => n,
         Err(e) => return builtin_func_error("btn", e.as_str())
     };
