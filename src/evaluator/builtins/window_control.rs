@@ -796,7 +796,7 @@ fn get_status_result(hwnd: HWND, st: u8) -> Object {
 }
 
 fn get_all_status(hwnd: HWND) -> Object {
-    let mut stats = HashMap::new();
+    let mut stats = BTreeMap::new();
     stats.insert(ST_TITLE.to_string(), get_window_text(hwnd));
     stats.insert(ST_CLASS.to_string(), get_class_name(hwnd));
     let rect = get_window_size(hwnd);
@@ -820,7 +820,7 @@ fn get_all_status(hwnd: HWND) -> Object {
     stats.insert(ST_PATH.to_string(), get_process_path_from_hwnd(hwnd));
     stats.insert(ST_PROCESS.to_string(), Object::Num(get_process_id_from_hwnd(hwnd) as f64));
     stats.insert(ST_MONITOR.to_string(), get_monitor_index_from_hwnd(hwnd));
-    Object::Hash(stats, false)
+    Object::SortedHash(stats, false)
 }
 
 pub fn status(args: Vec<Object>) -> Object {

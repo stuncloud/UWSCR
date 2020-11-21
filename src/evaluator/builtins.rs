@@ -25,6 +25,7 @@ pub fn init_builtins() -> (HashMap<String, Object>, HashMap<String, Object>) {
     window_control::set_builtin_constant(&mut builtins_consts);
     window_low::set_builtin_constant(&mut builtins_consts);
     text_control::set_builtin_constant(&mut builtins_consts);
+    system_controls::set_builtin_constant(&mut builtins_consts);
 
     (builtins_funcs, builtins_consts)
 }
