@@ -1,6 +1,7 @@
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
 use crate::evaluator::builtins::window_low::get_current_pos;
+use crate::evaluator::builtins::system_controls::is_64bit_os;
 
 use std::fmt;
 use std::collections::HashMap;
@@ -714,8 +715,9 @@ fn get_process_id_from_hwnd(hwnd: HWND) -> u32 {
     }
 }
 
-fn is_pprocess_64bit(hwnd: HWND) -> Object {
-    if std::env::consts::ARCH == "x86" {
+fn is_process_64bit(hwnd: HWND) -> Object {
+    if ! is_64bit_os().unwrap_or(true) {
+        // 32bit OSなら必ずfalse
         return Object::Bool(false);
     }
     let h = get_process_handle_from_hwnd(hwnd);
@@ -784,7 +786,7 @@ fn get_status_result(hwnd: HWND, st: u8) -> Object {
         ST_ISID => unsafe {
             Object::Bool(winuser::IsWindow(hwnd) == TRUE)
         },
-        ST_WIN64 => is_pprocess_64bit(hwnd),
+        ST_WIN64 => is_process_64bit(hwnd),
         ST_PATH => get_process_path_from_hwnd(hwnd),
         ST_PROCESS => Object::Num(get_process_id_from_hwnd(hwnd) as f64),
         ST_MONITOR => get_monitor_index_from_hwnd(hwnd),
@@ -813,7 +815,7 @@ fn get_all_status(hwnd: HWND) -> Object {
     stats.insert(ST_ACTIVE.to_string(), is_active_window(hwnd));
     stats.insert(ST_BUSY.to_string(), unsafe{ Object::Bool(winuser::IsHungAppWindow(hwnd) == TRUE) });
     stats.insert(ST_ISID.to_string(), unsafe{ Object::Bool(winuser::IsWindow(hwnd) == TRUE) });
-    stats.insert(ST_WIN64.to_string(), is_pprocess_64bit(hwnd));
+    stats.insert(ST_WIN64.to_string(), is_process_64bit(hwnd));
     stats.insert(ST_PATH.to_string(), get_process_path_from_hwnd(hwnd));
     stats.insert(ST_PROCESS.to_string(), Object::Num(get_process_id_from_hwnd(hwnd) as f64));
     stats.insert(ST_MONITOR.to_string(), get_monitor_index_from_hwnd(hwnd));
