@@ -122,3 +122,22 @@ pub fn get_bool_argument_value(args: &Vec<Object>, i: usize, default: Option<boo
         default.ok_or(format!("argument {} required", i + 1))
     }
 }
+
+pub fn get_bool_or_int_argument_value<T>(args: &Vec<Object>, i: usize, default: Option<T>) -> Result<T, String>
+    where T: cast::From<f64, Output=Result<T, cast::Error>>,
+{
+    if args.len() >= i + 1 {
+        let err = "cast error".to_string();
+        match args[i] {
+            Object::Bool(b) => if b {
+                T::cast(1.0).or(Err(err))
+            } else {
+                T::cast(0.0).or(Err(err))
+            },
+            Object::Num(n) => T::cast(n).or(Err(err)),
+            _ => Err(format!("bad argument: {}", args[i]))
+        }
+    } else {
+        default.ok_or(format!("argument {} required", i + 1))
+    }
+}

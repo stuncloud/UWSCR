@@ -5,6 +5,7 @@ use crate::evaluator::builtins::system_controls::is_64bit_os;
 
 use std::fmt;
 use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex, Once};
 use std::time::{Duration, Instant};
@@ -830,7 +831,7 @@ pub fn status(args: Vec<Object>) -> Object {
     if args.len() > 2 {
         let mut i = 1;
         // let mut stats = vec![Object::Empty; 22];
-        let mut stats = HashMap::new();
+        let mut stats = BTreeMap::new();
         while i < args.len() {
             let (cmd, value) = get_non_float_argument_value::<u8>(&args, i, None).map_or_else(
                 |e| (0, Object::Error(e)),
@@ -842,7 +843,7 @@ pub fn status(args: Vec<Object>) -> Object {
             };
             i += 1;
         }
-        Object::Hash(stats, false)
+        Object::SortedHash(stats, false)
     } else {
         get_non_float_argument_value::<u8>(&args, 1, None).map_or_else(
             |e| Object::Error(e),
@@ -956,7 +957,7 @@ pub fn monitor(args: Vec<Object>) -> Object {
         Ok(mon) => {
             let value = match mon {
                 MON_ALL => {
-                    let mut map = HashMap::new();
+                    let mut map = BTreeMap::new();
                     map.insert(MON_X.to_string(), Object::Num(miex.rcMonitor.left.into()));
                     map.insert(MON_Y.to_string(), Object::Num(miex.rcMonitor.top.into()));
                     map.insert(MON_WIDTH.to_string(), Object::Num((miex.rcMonitor.right - miex.rcMonitor.left).into()));
@@ -967,7 +968,7 @@ pub fn monitor(args: Vec<Object>) -> Object {
                     map.insert(MON_WORK_Y.to_string(), Object::Num(miex.rcWork.top.into()));
                     map.insert(MON_WORK_WIDTH.to_string(), Object::Num((miex.rcWork.right - miex.rcWork.left).into()));
                     map.insert(MON_WORK_HEIGHT.to_string(), Object::Num((miex.rcWork.bottom - miex.rcWork.top).into()));
-                    return Object::Hash(map, false);
+                    return Object::SortedHash(map, false);
                 },
                 MON_X => miex.rcMonitor.left,
                 MON_Y => miex.rcMonitor.top,

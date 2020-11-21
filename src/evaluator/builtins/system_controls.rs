@@ -46,6 +46,10 @@ pub fn set_builtin_constant(map: &mut HashMap<String, Object>) {
         ("OS_WINSRV2012R2", OS_WINSRV2012R2),
         ("OS_WIN10", OS_WIN10),
         ("OS_WINSRV2016", OS_WINSRV2016),
+        ("OSVER_MAJOR", OSVER_MAJOR),
+        ("OSVER_MINOR", OSVER_MINOR),
+        ("OSVER_BUILD", OSVER_BUILD),
+        ("OSVER_PLATFORM", OSVER_PLATFORM),
     ];
     for (key, value) in num_constant {
         map.insert(
@@ -96,68 +100,81 @@ const OS_WINSRV2012R2 :u8 = 26;
 const OS_WIN10        :u8 = 30;
 const OS_WINSRV2016   :u8 = 31;
 
-pub fn get_os_num() -> Object {
+const OSVER_MAJOR    : u8 = 2;
+const OSVER_MINOR    : u8 = 3;
+const OSVER_BUILD    : u8 = 4;
+const OSVER_PLATFORM : u8 = 5;
+
+pub fn get_os_num() -> Vec<f64> {
     let mut info: winnt::OSVERSIONINFOEXW = unsafe{std::mem::zeroed()};
     info.dwOSVersionInfoSize = std::mem::size_of::<winnt::OSVERSIONINFOEXW>() as u32;
     let p_info = <*mut _>::cast(&mut info);
     unsafe {
         sysinfoapi::GetVersionExW(p_info);
     }
-    match info.dwMajorVersion {
+    let mut res = vec![];
+    let num = match info.dwMajorVersion {
         10 => if info.wProductType == winnt::VER_NT_WORKSTATION {
-            Object::Num(OS_WIN10.into())
+            OS_WIN10
         } else {
-            Object::Num(OS_WINSRV2016.into())
+            OS_WINSRV2016
         },
         6 => match info.dwMinorVersion {
             3 => if info.wProductType == winnt::VER_NT_WORKSTATION {
-                Object::Num(OS_WIN81.into())
+                OS_WIN81
             } else {
-                Object::Num(OS_WINSRV2012R2.into())
+                OS_WINSRV2012R2
             },
             2 => if info.wProductType == winnt::VER_NT_WORKSTATION {
-                Object::Num(OS_WIN8.into())
+                OS_WIN8
             } else {
-                Object::Num(OS_WINSRV2012.into())
+                OS_WINSRV2012
             },
             1 => if info.wProductType == winnt::VER_NT_WORKSTATION {
-                Object::Num(OS_WIN7.into())
+                OS_WIN7
             } else {
-                Object::Num(OS_WINSRV2008R2.into())
+                OS_WINSRV2008R2
             },
             0 => if info.wProductType == winnt::VER_NT_WORKSTATION {
-                Object::Num(OS_WINVISTA.into())
+                OS_WINVISTA
             } else {
-                Object::Num(OS_WINSRV2008.into())
+                OS_WINSRV2008
             },
-            _ => Object::Num(0.0)
+            _ => 0
         },
         5 => match info.dwMinorVersion {
             2 => if unsafe{winuser::GetSystemMetrics(winuser::SM_SERVERR2)} != 0 {
-                Object::Num(OS_WINSRV2003R2.into())
+                OS_WINSRV2003R2
             } else {
-                Object::Num(OS_WINSRV2003.into())
+                OS_WINSRV2003
             },
-            1 => Object::Num(OS_WINXP.into()),
-            0 => Object::Num(OS_WIN2000.into()),
-            _ => Object::Num(0.0)
+            1 => OS_WINXP,
+            0 => OS_WIN2000,
+            _ => 0
         },
-        _ => Object::Num(0.0)
-    }
+        _ => 0
+    };
+    res.push(num.into());
+    res.push(info.dwMajorVersion.into());
+    res.push(info.dwMinorVersion.into());
+    res.push(info.dwBuildNumber.into());
+    res.push(info.dwPlatformId.into());
+    res
 }
 
 pub fn kindofos(args: Vec<Object>) -> Object {
-    let flg = match get_bool_argument_value(&args, 0, Some(false)) {
-        Ok(b) => b,
-        Err(e) => return builtin_func_error("kindofos", e.as_str())
-    };
-    if flg {
-        is_64bit_os().map_or_else(
+    let t = get_bool_or_int_argument_value::<u8>(&args, 0, Some(0)).unwrap_or(0);
+    let osnum = get_os_num();
+    match t {
+        1 => is_64bit_os().map_or_else(
             |e| builtin_func_error("kindofos", format!("Architecture: {}", e).as_str()),
             |b| Object::Bool(b)
-        )
-    } else {
-        get_os_num()
+        ),
+        OSVER_MAJOR => Object::Num(osnum[1]),
+        OSVER_MINOR => Object::Num(osnum[2]),
+        OSVER_BUILD => Object::Num(osnum[3]),
+        OSVER_PLATFORM => Object::Num(osnum[4]),
+        _ => Object::Num(osnum[0]),
     }
 }
 
