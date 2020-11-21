@@ -25,6 +25,7 @@ features = [
     "handleapi",
     "wingdi",
     "wow64apiset",
+    "sysinfoapi",
 ]
 
 [build-dependencies]
