@@ -79,7 +79,9 @@ pub fn get_non_float_argument_value<T>(args: &Vec<Object>, i: usize, default: Op
 {
     if args.len() >= i + 1 {
         match args[i] {
-            Object::Num(n) => T::cast(n).or(Err("cast error".to_string())),
+            Object::Num(n) => T::cast(n).or(Err(
+                format!("unable to cast {} to {}", n, std::any::type_name::<T>())
+            )),
             _ => Err(format!("bad argument: {}", args[i]))
         }
     } else {
@@ -134,7 +136,9 @@ pub fn get_bool_or_int_argument_value<T>(args: &Vec<Object>, i: usize, default: 
             } else {
                 T::cast(0.0).or(Err(err))
             },
-            Object::Num(n) => T::cast(n).or(Err(err)),
+            Object::Num(n) => T::cast(n).or(Err(
+                format!("unable to cast {} to {}", n, std::any::type_name::<T>())
+            )),
             _ => Err(format!("bad argument: {}", args[i]))
         }
     } else {
