@@ -299,46 +299,58 @@ fn buffer_to_string( buffer: &[u16] ) -> Result<String, String> {
         )
 }
 
-fn find_window(title: String, class_name: String, timeout: f64) -> Result<HWND, String> {
-    static mut TITLE: String = String::new();
-    static mut CLASSNAME: String = String::new();
-    static mut HANDLE: HWND = null_mut();
-    static mut ERR: Option<String> = None;
-    unsafe {
-        TITLE = title.to_ascii_lowercase();
-        CLASSNAME = class_name.to_ascii_lowercase();
+struct TargetWindow {
+    hwnd: HWND,
+    title: String,
+    class_name: String,
+    found: bool,
+    err: Option<String>,
+}
+
+unsafe extern "system"
+fn enum_window_proc(hwnd: HWND, lparam: LPARAM) -> BOOL {
+    let mut title_buffer = [0; MAX_NAME_SIZE];
+    let mut class_buffer = [0; MAX_NAME_SIZE];
+    let target = &mut *(lparam as *mut TargetWindow) as &mut TargetWindow;
+    winuser::GetWindowTextW(hwnd, title_buffer.as_mut_ptr(), title_buffer.len() as i32);
+    match buffer_to_string(&title_buffer) {
+        Ok(t) => match t.to_ascii_lowercase().find(target.title.to_ascii_lowercase().as_str()) {
+            Some(_) => {
+                winuser::GetClassNameW(hwnd, class_buffer.as_mut_ptr(), class_buffer.len() as i32);
+                match buffer_to_string(&class_buffer) {
+                    Ok(c) => match c.to_ascii_lowercase().find(target.class_name.to_ascii_lowercase().as_str()) {
+                        Some(_) => {
+                            target.title = t;
+                            target.class_name = c;
+                            target.hwnd = hwnd;
+                            target.found = true;
+                            return FALSE;
+                        },
+                        None => ()
+                    },
+                    Err(e) => {
+                        target.err = Some(e);
+                        return FALSE; // 終わる
+                    },
+                }
+            },
+            None => ()
+        },
+        Err(e) => {
+            target.err = Some(e);
+            return FALSE; // 終わる
+        },
     }
-    unsafe extern "system"
-    fn enum_window_proc(hwnd: HWND, _lparam: LPARAM) -> BOOL {
-        let mut title_buffer = [0; MAX_NAME_SIZE];
-        let mut class_buffer = [0; MAX_NAME_SIZE];
-        winuser::GetWindowTextW(hwnd, title_buffer.as_mut_ptr(), title_buffer.len() as i32);
-        match buffer_to_string(&title_buffer) {
-            Ok(t) => match t.to_ascii_lowercase().find(TITLE.as_str()) {
-                Some(_) => {
-                    winuser::GetClassNameW(hwnd, class_buffer.as_mut_ptr(), class_buffer.len() as i32);
-                    match buffer_to_string(&class_buffer) {
-                        Ok(c) => match c.to_ascii_lowercase().find(CLASSNAME.as_str()) {
-                            Some(_) => {
-                                HANDLE = hwnd;
-                                return FALSE;
-                            },
-                            None => ()
-                        },
-                        Err(e) => {
-                            ERR = Some(e);
-                            return FALSE; // 終わる
-                        },
-                    }
-                },
-                None => ()
-            },
-            Err(e) => {
-                ERR = Some(e);
-                return FALSE; // 終わる
-            },
-        }
-        TRUE // 次のウィンドウへ
+    TRUE // 次のウィンドウへ
+}
+
+fn find_window(title: String, class_name: String, timeout: f64) -> Result<HWND, String> {
+    let mut target = TargetWindow {
+        hwnd: null_mut(),
+        title,
+        class_name,
+        found: false,
+        err: None
     };
     let now = Instant::now();
     let limit = if timeout < 0.0 {
@@ -354,18 +366,17 @@ fn find_window(title: String, class_name: String, timeout: f64) -> Result<HWND, 
     };
     unsafe {
         loop {
-            HANDLE = null_mut();
-            winuser::EnumWindows(Some(enum_window_proc), 0);
-            if HANDLE != null_mut() {
+            winuser::EnumWindows(Some(enum_window_proc), &mut target as *mut TargetWindow as LPARAM);
+            if target.found {
                 break
             }
             if limit.is_some() && now.elapsed() >= limit.unwrap() {
                 break;
             }
         }
-        match &ERR {
+        match target.err {
             Some(e) => return Err(e.clone()),
-            None => Ok(HANDLE)
+            None => Ok(target.hwnd)
         }
     }
 }
@@ -870,55 +881,63 @@ const MON_WORK_WIDTH: u8  = 12;
 const MON_WORK_HEIGHT: u8 = 13;
 const MON_ALL: u8         = 20;
 
+struct Monitor {
+    count: usize,
+    handle: HMONITOR,
+    index: usize,
+}
+
 // nullを渡すと全モニタ数、モニタのハンドルを渡すとそのインデックスを返す
-fn get_monitor_count(h: HMONITOR) -> Object {
-    static mut COUNT: i32 = 0;
-    static mut HANDLE: HMONITOR = null_mut();
+fn get_monitor_count(handle: HMONITOR) -> Object {
     unsafe extern "system"
-    fn monitor_enum_proc(h: HMONITOR, _: HDC, _: LPRECT, _: LPARAM) -> BOOL {
-        if HANDLE == h {
+    fn monitor_enum_proc(h: HMONITOR, _: HDC, _: LPRECT, lparam: LPARAM) -> BOOL {
+        let m = &mut *(lparam as *mut Monitor) as &mut Monitor;
+        if m.handle == h {
             return FALSE;
         }
-        COUNT += 1;
+        m.count += 1;
         TRUE
     }
     unsafe {
-        COUNT = 0;
-        HANDLE = h;
+        let mut monitor = Monitor {
+            count: 0,
+            handle,
+            index: 0,
+        };
         winuser::EnumDisplayMonitors(
             null_mut(),
             null_mut(),
             Some(monitor_enum_proc),
-            0
+            &mut monitor as *mut Monitor as LPARAM
         );
-        Object::Num(COUNT as f64)
+        Object::Num(monitor.count as f64)
     }
 }
 
 fn get_monitor_handle_by_index(i: usize) -> HMONITOR {
-    static mut HANDLE: HMONITOR = null_mut();
-    static mut COUNT: usize = 0;
-    static mut INDEX: usize = 0;
     unsafe extern "system"
-    fn monitor_enum_proc(h: HMONITOR, _: HDC, _: LPRECT, _: LPARAM) -> BOOL {
-        if COUNT == INDEX {
-            HANDLE = h;
+    fn monitor_enum_proc(h: HMONITOR, _: HDC, _: LPRECT, lparam: LPARAM) -> BOOL {
+        let m = &mut *(lparam as *mut Monitor) as &mut Monitor;
+        if m.count == m.index {
+            m.handle = h;
             return FALSE;
         }
-        COUNT += 1;
+        m.count += 1;
         TRUE
     }
     unsafe {
-        INDEX = i;
-        HANDLE = null_mut();
-        COUNT = 0;
+        let mut monitor = Monitor {
+            count: 0,
+            handle: null_mut(),
+            index: i,
+        };
         winuser::EnumDisplayMonitors(
             null_mut(),
             null_mut(),
             Some(monitor_enum_proc),
-            0
+            &mut monitor as *mut Monitor as LPARAM
         );
-        HANDLE
+        monitor.handle
     }
 }
 
