@@ -1034,42 +1034,67 @@ impl Evaluator {
     }
 
     fn eval_infix_expression(&mut self, infix: Infix, left: Object, right: Object) -> Object {
-        match infix {
-            Infix::Equal => return Object::Bool(left == right),
-            Infix::NotEqual => return Object::Bool(left != right),
-            _ => (),
-        }
-        match left {
-            Object::Num(l) => {
+        match left.clone() {
+            Object::Num(n1) => {
                 match right {
                     Object::Num(n) => {
-                        self.eval_infix_number_expression(infix, l, n)
+                        self.eval_infix_number_expression(infix, n1, n)
                     },
-                    Object::String(_) | Object::Empty => {
-                        self.eval_infix_string_expression(infix, left, right)
+                    Object::String(s) => {
+                        if infix == Infix::Plus {
+                            self.eval_infix_string_expression(infix, n1.to_string(), s.clone())
+                        } else {
+                            match s.parse::<f64>() {
+                                Ok(n2) => self.eval_infix_number_expression(infix, n1, n2),
+                                Err(_) => self.eval_infix_string_expression(infix, n1.to_string(), s.clone())
+                            }
+                        }
                     },
-                    Object::Bool(b) => {
-                        self.eval_infix_number_expression(infix, l, b as i64 as f64)
-                    },
-                    _ => {
-                        Self::error(format!("mismatched type: {} {} {}", left, infix, right))
-                    }
+                    Object::Empty => self.eval_infix_number_expression(infix, n1, 0.0),
+                    Object::Bool(b) => self.eval_infix_number_expression(infix, n1, b as i64 as f64),
+                    _ => self.eval_infix_misc_expression(infix, left, right),
                 }
             },
-            Object::String(_) => {
+            Object::String(s1) => {
                 match right {
-                    Object::Num(_) | Object::String(_) | Object::Bool(_) | Object::Empty => (),
-                    _ => return Self::error(format!("mismatched type: {} {} {}", left, infix, right))
-                };
-                self.eval_infix_string_expression(infix, left, right)
+                    Object::String(s2) => self.eval_infix_string_expression(infix, s1.clone(), s2.clone()),
+                    Object::Num(n) => {
+                        if infix == Infix::Plus {
+                            self.eval_infix_string_expression(infix, s1.clone(), n.to_string())
+                        } else {
+                            match s1.parse::<f64>() {
+                                Ok(n2) => self.eval_infix_number_expression(infix, n2, n),
+                                Err(_) => self.eval_infix_string_expression(infix, s1.clone(), n.to_string())
+                            }
+                        }
+                    },
+                    Object::Bool(b) => self.eval_infix_string_expression(infix, s1.clone(), b.to_string()),
+                    Object::Empty => self.eval_infix_empty_expression(infix, left, right),
+                    _ => self.eval_infix_misc_expression(infix, left, right)
+                }
             },
             Object::Bool(l) => match right {
                 Object::Bool(b) => self.eval_infix_logical_operator_expression(infix, l, b),
-                Object::String(_) | Object::Empty => self.eval_infix_string_expression(infix, left, right),
+                Object::String(s) => self.eval_infix_string_expression(infix, l.to_string(), s.clone()),
+                Object::Empty => self.eval_infix_empty_expression(infix, left, right),
                 Object::Num(n) => self.eval_infix_number_expression(infix, l as i64 as f64, n),
-                _ => Self::error(format!("mismatched type: {} {} {}", left, infix, right))
+                _ => self.eval_infix_misc_expression(infix, left, right)
             },
-            _ => Self::error(format!("bad operator: {} {} {}", left, infix, right))
+            Object::Empty => match right {
+                Object::Num(n) => self.eval_infix_number_expression(infix, 0.0, n),
+                Object::String(_) => self.eval_infix_empty_expression(infix, left, right),
+                Object::Empty => self.eval_infix_empty_expression(infix, left, right),
+                _ => self.eval_infix_misc_expression(infix, left, right)
+            }
+            _ => self.eval_infix_misc_expression(infix, left, right)
+        }
+    }
+
+    fn eval_infix_misc_expression(&mut self, infix: Infix, left: Object, right: Object) -> Object {
+        match infix {
+            Infix::Equal => Object::Bool(left == right),
+            Infix::NotEqual => Object::Bool(left != right),
+            _ => Self::error(format!("mismatched type: {} {} {}", left, infix, right)),
         }
     }
 
@@ -1093,10 +1118,20 @@ impl Evaluator {
         }
     }
 
-    fn eval_infix_string_expression(&mut self, infix: Infix, left: Object, right: Object) -> Object {
+    fn eval_infix_string_expression(&mut self, infix: Infix, left: String, right: String) -> Object {
         match infix {
             Infix::Plus => Object::String(format!("{}{}", left, right)),
             Infix::Equal => Object::Bool(left == right),
+            Infix::NotEqual => Object::Bool(left != right),
+            _ => Self::error(format!("bad operator: {} {} {}", left, infix, right))
+        }
+    }
+
+    fn eval_infix_empty_expression(&mut self, infix: Infix, left: Object, right: Object) -> Object {
+        match infix {
+            Infix::Plus => Object::String(format!("{}{}", left, right)),
+            Infix::Equal => Object::Bool(left == right),
+            Infix::NotEqual => Object::Bool(left != right),
             _ => Self::error(format!("bad operator: {} {} {}", left, infix, right))
         }
     }
