@@ -36,7 +36,8 @@ fn set_builtins(vec: &mut Vec<NamedObject>) {
     }
     let funcs: Vec<(&str, i32, fn(Vec<Object>)->Object)> = vec![
         ("eval", 1, builtin_eval),
-        ("get_env", 0, get_env),
+        ("list_env", 0, list_env),
+        ("list_module_member", 1, list_module_member),
     ];
     for (name, arg_len, func) in funcs {
         vec.push(NamedObject::new_builtin_func(name.to_ascii_uppercase(), Object::BuiltinFunction(arg_len, func)));
@@ -51,8 +52,15 @@ pub fn builtin_eval(args: Vec<Object>) -> Object {
     }
 }
 
-pub fn get_env(_args: Vec<Object>) -> Object {
+pub fn list_env(_args: Vec<Object>) -> Object {
     Object::Debug(DebugType::GetEnv)
+}
+
+pub fn list_module_member(args: Vec<Object>) -> Object {
+    match get_string_argument_value(&args, 0, None) {
+        Ok(s) => Object::Debug(DebugType::ListModuleMember(s)),
+        Err(err) => return Object::Error(err),
+    }
 }
 
 pub fn builtin_func_error(name: &str,msg: &str)-> Object {

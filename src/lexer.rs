@@ -220,7 +220,7 @@ impl Lexer {
         let start_pos = self.pos;
         loop {
             match self.ch {
-                'a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '.' | '#' => {
+                'a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '#' => {
                     self.read_char();
                 },
                 '\0'..=' ' | '　' => {

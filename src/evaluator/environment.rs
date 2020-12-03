@@ -28,6 +28,107 @@ impl fmt::Display for Scope {
 }
 
 #[derive(PartialEq, Clone, Debug)]
+pub struct Module {
+    name: String,
+    members: Vec<NamedObject>
+}
+
+impl Module {
+    pub fn new(name: String) -> Self {
+        Module{name, members: Vec::new()}
+    }
+
+    pub fn new_with_members(name: String, members: Vec<NamedObject>) -> Self {
+        Module{name, members}
+    }
+
+    pub fn name(&self) -> String {
+        self.name.clone()
+    }
+
+    pub fn get_members(&self) -> Vec<NamedObject> {
+        self.members.clone()
+    }
+
+    pub fn has_constructor(&self) -> bool {
+        let name = self.name().to_ascii_uppercase();
+        self.contains(&name, Scope::Function)
+    }
+
+    pub fn add(&mut self, name: String, object: Object, scope: Scope) {
+        self.members.push(NamedObject::new(name.to_ascii_uppercase(), object, scope))
+    }
+
+    fn contains(&self, name: &String, scope: Scope) -> bool {
+        let key = name.to_ascii_uppercase();
+        self.members.clone().into_iter().any(|obj| obj.name == key && scope == obj.scope)
+    }
+
+    fn get(&self, name: &String, scope: Scope) -> Option<Object> {
+        let key = name.to_ascii_uppercase();
+        self.members.clone().into_iter().find(
+            |o| o.name == key && o.scope == scope
+        ).map(|o| o.object)
+    }
+
+    fn set(&mut self, name: &String, value: Object, scope: Scope) {
+        let key = name.to_ascii_uppercase();
+        for obj in self.members.iter_mut() {
+            if obj.name == key && obj.scope == scope {
+                obj.object = value;
+                break;
+            }
+        }
+    }
+
+    pub fn get_public_member(&self, name: &String) -> Object {
+        match self.get(name, Scope::Public) {
+            Some(o) => o,
+            None => match self.get(name, Scope::Const) {
+                Some(o) => o,
+                None => Object::Error(format!("{}.{} is not defined", self.name, name))
+            }
+        }
+    }
+
+    pub fn get_function(&self, name: &String) -> Object {
+        self.get(name, Scope::Function).unwrap_or(Object::Error(format!("{}.{}() is not defined", self.name, name)))
+    }
+
+    pub fn assign(&mut self, name: &String, value: Object) -> Result<(), Object> {
+        if self.contains(name, Scope::Const) {
+            // 同名の定数がある場合はエラー
+            return Err(Object::Error(format!("you can not assign to constant: {}.{}", self.name(), name)));
+        } else if self.contains(name, Scope::Local) {
+            // 同名ローカル変数があれば上書き
+            self.set(name, value, Scope::Local)
+        } else if self.contains(name, Scope::Public) {
+            // 同名パブリック変数があれば上書き
+            self.set(name, value, Scope::Public)
+        } else {
+            // いずれもなければローカルに新たな変数をセット
+            self.add(name.to_string(), value, Scope::Local)
+        }
+        Ok(())
+    }
+
+    pub fn assign_public(&mut self, name: &String, value: Object) -> Result<(), Object> {
+        let key = name.to_ascii_uppercase();
+        if self.contains(&key, Scope::Public) {
+            self.set(&name, value, Scope::Public);
+            Ok(())
+        } else {
+            Err(Object::Error(format!("{}.{} is not defined or not public", self.name, name)))
+        }
+    }
+
+    pub fn is_local_member(&self, name: &String) -> bool {
+        let key = name.to_ascii_uppercase();
+        self.contains(&key, Scope::Local)
+    }
+}
+
+#[derive(PartialEq, Clone, Debug)]
 pub struct NamedObject {
     name: String,
     object: Object,
@@ -56,6 +157,7 @@ impl fmt::Display for NamedObject {
 pub struct Layer {
     local: Vec<NamedObject>,
     outer: Option<Box<Layer>>,
+    module_name: Option<String>
 }
 
 #[derive(PartialEq, Clone, Debug)]
@@ -69,17 +171,19 @@ impl Environment {
         Environment {
             current: Layer {
                 local: Vec::new(),
-                outer: None
+                outer: None,
+                module_name: None,
             },
             global: init_builtins()
         }
     }
 
-    pub fn new_scope(&mut self) {
-        let backup = Some(Box::new(self.current.clone()));
+    pub fn new_scope(&mut self, module_name: Option<String>) {
+        let outer = Some(Box::new(self.current.clone()));
         self.current = Layer {
             local: Vec::new(),
-            outer: backup
+            outer,
+            module_name
         }
     }
 
@@ -87,17 +191,22 @@ impl Environment {
         self.current.local.clone()
     }
 
-    pub fn copy_scope(&mut self, outer_local: Vec<NamedObject>) {
-        let backup = Some(Box::new(self.current.clone()));
+    pub fn copy_scope(&mut self, outer_local: Vec<NamedObject>, module_name: Option<String>) {
+        let outer = Some(Box::new(self.current.clone()));
         self.current = Layer {
             local: outer_local,
-            outer: backup
+            outer,
+            module_name
         }
     }
 
     pub fn restore_scope(&mut self) {
-        let backup = *self.current.outer.clone().unwrap();
-        self.current = backup;
+        let outer = *self.current.outer.clone().unwrap();
+        self.current = outer;
+    }
+
+    pub fn get_current_module_name(&self) -> Option<String> {
+        self.current.module_name.clone()
     }
 
     pub fn get_env(&self) -> Object {
@@ -109,6 +218,23 @@ impl Environment {
             if obj.scope != Scope::BuiltinConst && obj.scope != Scope::BuiltinFunc {
                 arr.push(Object::String(format!("global: {}", obj)));
             }
+        }
+        Object::Array(arr)
+    }
+
+    pub fn get_module_member(&self, name: &String) -> Object {
+        let mut arr = Vec::new();
+        match self.get_module(name) {
+            Some(o) => match o {
+                Object::Module(m) => {
+                    let module = m.borrow();
+                    for obj in module.get_members().into_iter() {
+                        arr.push(Object::String(format!("{}: {}", module.name(), obj)))
+                    }
+                },
+                _ => ()
+            },
+            None => ()
         }
         Object::Array(arr)
     }
@@ -147,7 +273,7 @@ impl Environment {
         ).map(|o| o.object)
     }
 
-    fn get_from_global(&mut self, name: &String, scope: Scope) -> Option<Object> {
+    fn get_from_global(&self, name: &String, scope: Scope) -> Option<Object> {
         let key = name.to_ascii_uppercase();
         self.global.clone().into_iter().find(
             |o| o.name == key && o.scope == scope
@@ -155,17 +281,22 @@ impl Environment {
     }
 
     // 変数評価の際に呼ばれる
-    // 参照順は local -> const -> public -> builtin
     pub fn get_variable(&mut self, name: &String) -> Option<Object> {
         match self.get(&name, Scope::Local) {
             Some(value) => Some(value),
-            None => match self.get_from_global(&name, Scope::Const) {
+            None => match self.get(&name, Scope::Const) { // module関数から呼ばれた場合のみ
                 Some(value) => Some(value),
-                None => match self.get_from_global(&name, Scope::Public) {
+                None => match self.get(&name, Scope::Public) { // module関数から呼ばれた場合のみ
                     Some(value) => Some(value),
-                    None => match self.get_from_global(&name, Scope::BuiltinConst) {
+                    None => match self.get_from_global(&name, Scope::Const) {
                         Some(value) => Some(value),
-                        None => None
+                        None => match self.get_from_global(&name, Scope::Public) {
+                            Some(value) => Some(value),
+                            None => match self.get_from_global(&name, Scope::BuiltinConst) {
+                                Some(value) => Some(value),
+                                None => None
+                            }
+                        }
                     }
                 }
             }
@@ -173,16 +304,19 @@ impl Environment {
     }
 
     pub fn get_function(&mut self, name: &String) -> Option<Object> {
-        match self.get_from_global(&name, Scope::Function) {
+        match self.get(&name, Scope::Function) { // module関数から呼ばれた場合のみ
             Some(func) => Some(func),
-            None => match self.get_from_global(&name, Scope::BuiltinFunc) {
+            None =>  match self.get_from_global(&name, Scope::Function) {
                 Some(func) => Some(func),
-                None => None
+                None => match self.get_from_global(&name, Scope::BuiltinFunc) {
+                    Some(func) => Some(func),
+                    None => None
+                }
             }
         }
     }
 
-    pub fn get_module(&mut self, name: &String) -> Option<Object> {
+    pub fn get_module(&self, name: &String) -> Option<Object> {
         match self.get_from_global(&name, Scope::Module) {
             Some(module) => Some(module),
             None => None
@@ -292,16 +426,12 @@ impl Environment {
 
     // module関数呼び出し時にメンバをローカル変数としてセット
     pub fn set_module_private_member(&mut self, name: &String) {
-        let map = match self.get_module(name) {
-            Some(Object::Module(_, h)) => h,
+        let vec = match self.get_module(name) {
+            Some(Object::Module(m)) => m.borrow().get_members(),
             _ => return
         };
-        for (k, v) in map {
-            self.add(NamedObject {
-                name: k.clone(),
-                object: v.clone(),
-                scope: Scope::Local
-            }, false)
+        for obj in vec {
+            self.add(obj, false)
         }
     }
 

@@ -273,52 +273,8 @@ impl Parser {
                         });
                         func_counter += 1;
                     },
-                    Statement::Module(i, block) => {
-                        let Identifier(module_name) = i.clone();
-
-                        for statement in block.clone() {
-                            match statement {
-                                Statement::Public(vec) => {
-                                    let mut p = vec![];
-                                    for (i, e) in vec {
-                                        let Identifier(member) = i;
-                                        p.push((Identifier(format!("{}.{}", module_name.clone(), member)), e));
-                                    }
-                                    program.insert(pub_counter, Statement::Public(p));
-                                    pub_counter += 1;
-                                },
-                                Statement::Const(vec) => {
-                                    let mut c = vec![];
-                                    for (i, e) in vec {
-                                        let Identifier(member) = i;
-                                        c.push((Identifier(format!("{}.{}", module_name.clone(), member)), e));
-                                    }
-                                    program.insert(pub_counter, Statement::Const(c));
-                                    pub_counter += 1;
-                                },
-                                Statement::Function{name, params, body, is_proc} => {
-                                    let Identifier(member) = name;
-                                    program.insert(pub_counter + func_counter, Statement::ModuleFunction {
-                                        module_name: module_name.clone(),
-                                        name: member,
-                                        params, body,
-                                        is_proc
-                                    });
-                                    func_counter += 1;
-                                },
-                                Statement::Dim(_) => {},
-                                _ => {
-                                    self.errors.push(ParseError::new(
-                                        ParseErrorKind::InvalidModuleStatement,
-                                        format!("bad statement")
-                                    ));
-                                },
-                            }
-                        }
-                        program.insert(
-                            pub_counter + func_counter,
-                            Statement::Module(i, block)
-                        );
+                    Statement::Module(_, _) => {
+                        program.insert(pub_counter + func_counter, s);
                         func_counter += 1;
                     },
                     _ => program.push(s)
@@ -3029,9 +2985,8 @@ endmodule
             Statement::Const(vec![
                 (Identifier("Hoge.c".to_string()), Expression::Literal(Literal::Num(1.0)))
             ]),
-            Statement::ModuleFunction {
-                module_name: "Hoge".to_string(),
-                name: "Hoge".to_string(),
+            Statement::Function {
+                name: Identifier("Hoge".to_string()),
                 params: vec![],
                 body: vec![
                     Statement::Expression(Expression::Assign(
@@ -3041,9 +2996,8 @@ endmodule
                 ],
                 is_proc: true,
             },
-            Statement::ModuleFunction {
-                module_name: "Hoge".to_string(),
-                name: "f".to_string(),
+            Statement::Function {
+                name: Identifier("f".to_string()),
                 params: vec![
                     Identifier("x".to_string()),
                     Identifier("y".to_string())

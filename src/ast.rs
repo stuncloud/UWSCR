@@ -160,15 +160,8 @@ pub enum Statement {
         body: BlockStatement,
         is_proc: bool,
     },
-    ModuleFunction {
-        module_name: String,
-        name: String,
-        params: Vec<Identifier>,
-        body: BlockStatement,
-        is_proc: bool,
-    },
     Exit,
-    Module(Identifier, BlockStatement), // public, private
+    Module(Identifier, BlockStatement),
 }
 
 pub type BlockStatement = Vec<Statement>;

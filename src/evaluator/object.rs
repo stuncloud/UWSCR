@@ -1,10 +1,12 @@
 use crate::ast::*;
-use crate::evaluator::environment::NamedObject;
+use crate::evaluator::environment::{NamedObject, Module};
 
 use std::collections::HashMap;
 use std::collections::BTreeMap;
 use std::fmt;
 use std::hash::{Hash, Hasher};
+use std::rc::Rc;
+use std::cell::RefCell;
 
 use winapi::shared::windef::HWND;
 
@@ -20,11 +22,9 @@ pub enum Object {
     Hash(HashMap<String, Object>, bool),
     SortedHash(BTreeMap<String, Object>, bool),
     AnonFunc(Vec<Identifier>, BlockStatement, Vec<NamedObject>, bool),
-    Function(String, Vec<Identifier>, BlockStatement, bool),
-    ModuleFunction(String, String, Vec<Identifier>, BlockStatement, bool),
-    GlobalMember(String),
+    Function(String, Vec<Identifier>, BlockStatement, bool, Option<Box<Object>>),
     BuiltinFunction(i32, BuiltinFunction),
-    Module(String, HashMap<String, Object>),
+    Module(Rc<RefCell<Module>>),
     Null,
     Empty,
     Nothing,
@@ -77,8 +77,15 @@ impl fmt::Display for Object {
                 }
                 write!(f, "{{{}}}", result)
             },
-            Object::Function(ref name, ref params, _, is_proc) => {
+            Object::Function(ref name, ref params, _, is_proc, ref instance) => {
                 let mut arguments = String::new();
+                let func_name = match instance {
+                    Some(obj) => match &**obj {
+                        Object::Module(m) => format!("{}.{}", m.borrow().name(), name),
+                        _ => name.to_string()
+                    },
+                    None => name.to_string()
+                };
                 for (i, Identifier(ref s)) in params.iter().enumerate() {
                     if i < 1 {
                         arguments.push_str(&format!("{}", s))
@@ -87,24 +94,9 @@ impl fmt::Display for Object {
                     }
                 }
                 if is_proc {
-                    write!(f, "procedure: {}({})", name, arguments)
+                    write!(f, "procedure: {}({})", func_name, arguments)
                 } else {
-                    write!(f, "function: {}({})", name, arguments)
-                }
-            },
-            Object::ModuleFunction(ref module_name, ref name, ref params, _, is_proc) => {
-                let mut arguments = String::new();
-                for (i, Identifier(ref s)) in params.iter().enumerate() {
-                    if i < 1 {
-                        arguments.push_str(&format!("{}", s))
-                    } else {
-                        arguments.push_str(&format!(", {}", s))
-                    }
-                }
-                if is_proc {
-                    write!(f, "procedure: {}.{}({})", module_name, name, arguments)
-                } else {
-                    write!(f, "function: {}.{}({})", module_name, name, arguments)
+                    write!(f, "function: {}({})", func_name, arguments)
                 }
             },
             Object::AnonFunc(ref params, _, _, is_proc) => {
@@ -123,7 +115,6 @@ impl fmt::Display for Object {
                 }
             },
             Object::BuiltinFunction(_, _) => write!(f, "builtin_function()"),
-            Object::GlobalMember(ref name) => write!(f, "global: {}", name),
             Object::Null => write!(f, "NULL"),
             Object::Empty => write!(f, ""),
             Object::Nothing => write!(f, "NOTHING"),
@@ -133,7 +124,7 @@ impl fmt::Display for Object {
             Object::Eval(ref value) => write!(f, "{}", value),
             Object::Error(ref value) => write!(f, "{}", value),
             Object::Debug(_) => write!(f, "debug"),
-            Object::Module(ref name, _) => write!(f, "module {}", name),
+            Object::Module(ref m) => write!(f, "module: {}", m.borrow().name()),
             Object::Handle(h) => write!(f, "{:?}", h),
             Object::RegEx(ref re) => write!(f, "regex: {}", re)
         }
@@ -158,4 +149,5 @@ impl Hash for Object {
 #[derive(PartialEq, Clone, Debug)]
 pub enum DebugType {
     GetEnv,
+    ListModuleMember(String),
 }

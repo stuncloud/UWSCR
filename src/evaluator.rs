@@ -17,7 +17,6 @@ use std::rc::Rc;
 
 const HASH_CASECARE: u32 = 0x1000;
 const HASH_SORT: u32 = 0x2000;
-const MODULE_FUNC_PREFIX: &str = "`";
 
 #[derive(Debug)]
 pub struct  Evaluator {
@@ -228,21 +227,11 @@ impl Evaluator {
             },
             Statement::Function {name, params, body, is_proc} => {
                 let Identifier(fname) = name;
-                let func = self.eval_funtcion_definition_statement(&fname, params, body, is_proc, None);
+                let func = self.eval_funtcion_definition_statement(&fname, params, body, is_proc);
                 if Self::is_error(&func) {
                     return Some(func);
                 }
                 match self.env.borrow_mut().define_function(fname, func) {
-                    Ok(()) => None,
-                    Err(err) => Some(err),
-                }
-            },
-            Statement::ModuleFunction {module_name, name, params, body, is_proc} => {
-                let func = self.eval_funtcion_definition_statement(&name, params, body, is_proc, Some(&module_name));
-                if Self::is_error(&func) {
-                    return Some(func);
-                }
-                match self.env.borrow_mut().define_function(format!("{}.{}", module_name, name), func) {
                     Ok(()) => None,
                     Err(err) => Some(err),
                 }
@@ -256,19 +245,27 @@ impl Evaluator {
                 let result = self.env.borrow_mut().define_module(name.clone(), module);
                 match result {
                     Ok(()) => {
-                        let constructor_name = format!("{}.{}", name.clone(), name.clone());
-                        if ! self.env.borrow_mut().has_function(&constructor_name) {
-                            return None;
+                        let module = self.env.borrow().get_module(&name);
+                        if module.is_some() {
+                            match module {
+                                Some(Object::Module(m)) => {
+                                    if m.borrow().has_constructor() {
+                                        let constructor = self.eval_function_call_expression(
+                                            Box::new(Expression::DotCall(
+                                                Box::new(Expression::Identifier(Identifier(name.clone()))),
+                                                Box::new(Expression::Identifier(Identifier(name))),
+                                            )),
+                                            vec![]
+                                        );
+                                        if Self::is_error(&constructor) {
+                                            return Some(constructor)
+                                        }
+                                    }
+                                },
+                                _ => ()
+                            }
                         }
-                        let constructor = self.eval_function_call_expression(
-                            Box::new(Expression::Identifier(Identifier(constructor_name))),
-                            vec![]
-                        );
-                        if Self::is_error(&constructor) {
-                            Some(constructor)
-                        } else {
-                            None
-                        }
+                        None
                     },
                     Err(err) => Some(err),
                 }
@@ -608,30 +605,20 @@ impl Evaluator {
         None
     }
 
-    fn eval_funtcion_definition_statement(&mut self, name: &String, params: Vec<Identifier>, body: Vec<Statement>, is_proc: bool, module_name: Option<&String>) -> Object {
+    fn eval_funtcion_definition_statement(&mut self, name: &String, params: Vec<Identifier>, body: Vec<Statement>, is_proc: bool) -> Object {
         for statement in body.clone() {
             match statement {
-                Statement::Public(_) | Statement::Const(_) => {
-                    match self.eval_statement(statement) {
-                        Some(Object::Error(msg)) => return Self::error(msg),
-                        _ => {},
-                    };
-                },
                 Statement::Function{name: _, params: _, body: _, is_proc: _}  => {
                     return Self::error(format!("nested definition of function/procedure is not allowed"));
                 },
                 _ => {},
             };
         }
-        let func = match module_name {
-            Some(s) => Object::ModuleFunction(s.clone(), name.clone(), params, body, is_proc),
-            None => Object::Function(name.clone(), params, body, is_proc),
-        };
-        func
+        Object::Function(name.clone(), params, body, is_proc, None)
     }
 
-    fn eval_module_statement(&mut self, name: &String, block: BlockStatement, is_class: bool) -> Object {
-        let mut members = HashMap::new();
+    fn eval_module_statement(&mut self, module_name: &String, block: BlockStatement, is_class: bool) -> Object {
+        let mut module = Module::new(module_name.to_string());
         for statement in block {
             match statement {
                 Statement::Dim(vec) => {
@@ -645,25 +632,88 @@ impl Evaluator {
                             },
                             None => Object::Empty
                         };
-                        members.insert(member_name.clone(), value.clone());
-                        members.insert(format!("this.{}", &member_name), value.clone());
-                        members.insert(format!("{}.{}", name, &member_name), value);
+                        module.add(member_name, value, Scope::Local);
                     }
                 },
-                Statement::Public(vec) |
-                Statement::Const(vec)  => {
-                    for (i, _) in vec {
+                Statement::Public(vec) => {
+                    for (i, e) in vec {
                         let Identifier(member_name) = i;
-                        let global_name = format!("{}.{}", name, member_name);
-                        members.insert(member_name.clone(), Object::GlobalMember(global_name.clone()));
-                        members.insert(format!("this.{}", member_name), Object::GlobalMember(global_name));
+                        let value = match self.eval_expression(e) {
+                            Some(o) => if Self::is_error(&o) {
+                                return o
+                            } else {
+                                o
+                            },
+                            None => Object::Empty
+                        };
+                        module.add(member_name, value, Scope::Public);
                     }
                 },
-                Statement::Function{name: i, params: _, body: _, is_proc: _} => {
-                    let Identifier(member_name) = i;
-                    let global_name = format!("{}.{}", name, member_name);
-                    members.insert(format!("{}{}", MODULE_FUNC_PREFIX, &member_name), Object::GlobalMember(global_name.clone()));
-                    members.insert(format!("{}this.{}", MODULE_FUNC_PREFIX, &member_name), Object::GlobalMember(global_name));
+                Statement::Const(vec)  => {
+                    for (i, e) in vec {
+                        let Identifier(member_name) = i;
+                        let value = match self.eval_expression(e) {
+                            Some(o) => if Self::is_error(&o) {
+                                return o
+                            } else {
+                                o
+                            },
+                            None => return Self::error(format!("value required for const: {}.{}", module_name, member_name))
+                        };
+                        module.add(member_name, value, Scope::Const);
+                    }
+                },
+                Statement::Function{name: i, params, body, is_proc} => {
+                    let Identifier(func_name) = i;
+                    let mut new_body = Vec::new();
+                    for statement in body.clone() {
+                        match statement {
+                            Statement::Public(vec) => {
+                                for (i, e) in vec {
+                                    let Identifier(member_name) = i;
+                                    let value = match self.eval_expression(e) {
+                                        Some(o) => if Self::is_error(&o) {
+                                            return o
+                                        } else {
+                                            o
+                                        },
+                                        None => Object::Empty
+                                    };
+                                    module.add(member_name, value, Scope::Public);
+                                }
+                            },
+                            Statement::Const(vec) => {
+                                for (i, e) in vec {
+                                    let Identifier(member_name) = i;
+                                    let value = match self.eval_expression(e) {
+                                        Some(o) => if Self::is_error(&o) {
+                                            return o
+                                        } else {
+                                            o
+                                        },
+                                        None => return Self::error(format!("value required for const: {}.{}", module_name, member_name))
+                                    };
+                                    module.add(member_name, value, Scope::Const);
+                                }
+                            },
+                            Statement::Function{name: _, params: _, body: _, is_proc: _}  => {
+                                return Self::error(format!("nested definition of function/procedure is not allowed"));
+                            },
+                            _ => new_body.push(statement),
+                        };
+                    }
+                    module.add(
+                        func_name.clone(),
+                        Object::Function(
+                            func_name, params, new_body, is_proc,
+                            Some(Box::new(Object::Module(
+                                Rc::new(RefCell::new(
+                                    Module::new(module.name())))
+                                ))
+                            )
+                        ),
+                        Scope::Function,
+                    );
                 },
                 _ => return Self::error(format!("invalid statement"))
             }
@@ -671,7 +721,7 @@ impl Evaluator {
         if is_class {
             Self::error(format!("class is not supported"))
         } else {
-            Object::Module(name.clone(), members)
+            Object::Module(Rc::new(RefCell::new(module)))
         }
     }
 
@@ -793,15 +843,10 @@ impl Evaluator {
                 self.eval_ternary_expression(*condition, *consequence, *alternative)
             },
             Expression::DotCall(l, r) => {
-                Some(self.eval_dotcall_expression(*l, *r))
+                Some(self.eval_dotcall_expression(*l, *r, false))
             },
         };
-        match some_obj {
-            Some(Object::GlobalMember(s)) => {
-                self.eval_expression(Expression::Identifier(Identifier(s)))
-            },
-            _ => some_obj
-        }
+        some_obj
     }
 
     fn eval_identifier(&mut self, identifier: Identifier) -> Object {
@@ -911,14 +956,25 @@ impl Evaluator {
     }
 
     fn eval_assign_expression(&mut self, left: Expression, value: Object) -> Option<Object> {
-
         match left {
             Expression::Identifier(i) => {
                 let Identifier(name) = i;
-                match self.env.borrow_mut().assign(name, value) {
-                    Ok(()) => None,
-                    Err(err) => Some(err)
+                let mut env = self.env.borrow_mut();
+                let m_result = match env.get_current_module_name() {
+                    Some(m_name) => {
+                        match env.get_module(&m_name).unwrap() {
+                            Object::Module(module) => {
+                                module.borrow_mut().assign(&name, value.clone()).map_or_else(|err| Some(err), |_| None)
+                            },
+                            _ => None // should neve hapen
+                        }
+                    },
+                    None => None
+                };
+                if m_result.is_some() {
+                    return m_result;
                 }
+                env.assign(name, value).map_or_else(|err| Some(err), |_| None)
             },
             Expression::Index(n, i) => {
                 let name = match *n {
@@ -994,6 +1050,24 @@ impl Evaluator {
                     None => return None
                 };
                 None
+            },
+            Expression::DotCall(left, right) => {
+                match self.eval_expression(*left) {
+                    Some(o) => match o {
+                        Object::Error(_) => Some(o),
+                        Object::Module(m) => {
+                            match *right {
+                                Expression::Identifier(i) => {
+                                    let Identifier(member_name) = i;
+                                    m.borrow_mut().assign_public(&member_name, value).map_or_else(|o| Some(o), |_| None)
+                                },
+                                _ => Some(Self::error(format!("syntax error on assignment")))
+                            }
+                        },
+                        _ => Some(Self::error(format!("")))
+                    },
+                    None => Some(Self::error(format!("syntax error on assignment")))
+                }
             },
             _ => None
         }
@@ -1136,21 +1210,20 @@ impl Evaluator {
             Expression::Identifier(i) => {
                 let Identifier(name) = i;
                 let mut env = self.env.borrow_mut();
-                // モジュールローカルから関数を探す
-                match env.get_variable(&format!("{}{}", MODULE_FUNC_PREFIX, &name)) {
+                match env.get_function(&name.replace("global.", "")) {
                     Some(o) => Some(o),
-                    None => match env.get_function(&name.replace("global.", "")) {
+                    None => match env.get_function(&name) {
                         Some(o) => Some(o),
-                        None => match env.get_function(&name) {
+                        None => match env.get_variable(&name) {
                             Some(o) => Some(o),
-                            None => match env.get_variable(&name) {
-                                Some(o) => Some(o),
-                                None => Some(Object::Error(format!("function not found: {}", name)))
-                            }
+                            None => Some(Object::Error(format!("function not found: {}", name)))
                         }
                     }
                 }
             },
+            Expression::DotCall(left, right) => Some(
+                self.eval_dotcall_expression(*left, *right, true)
+            ),
             _ => self.eval_expression(expression)
         }
     }
@@ -1175,7 +1248,10 @@ impl Evaluator {
             },
             Object::Debug(t) => match t {
                 DebugType::GetEnv => {
-                    self.env.borrow_mut().get_env()
+                    self.env.borrow().get_env()
+                },
+                DebugType::ListModuleMember(name) => {
+                    self.env.borrow_mut().get_module_member(&name)
                 },
             },
             _ => result
@@ -1192,12 +1268,10 @@ impl Evaluator {
             body,
             is_proc,
             anon_outer,
-            module_name
+            left_of_dot
         ) = match self.eval_expression_for_func_call(*func) {
             Some(o) => match o {
-
-                Object::Function(_, p, b, is_proc) => (p, b, is_proc, None, None),
-                Object::ModuleFunction(m, _, p, b, is_proc) =>  (p, b, is_proc, None, Some(m)),
+                Object::Function(_, p, b, is_proc, obj) => (p, b, is_proc, None, obj),
                 Object::AnonFunc(p, b, o, is_proc) =>  (p, b, is_proc, Some(o), None),
                 Object::BuiltinFunction(expected_param_len, f) => {
                     if expected_param_len >= arguments.len() as i32 {
@@ -1210,12 +1284,6 @@ impl Evaluator {
                             l, if l > 1 {"s"} else {""}, expected_param_len, if l > 1 {" (or less)"} else {""}
                         ));
                     }
-                },
-                Object::GlobalMember(s) => {
-                    return self.eval_function_call_expression(
-                        Box::new(Expression::Identifier(Identifier(s))),
-                        args
-                    );
                 },
                 Object::Error(err) => return Object::Error(err),
                 _ => return Self::error(format!(
@@ -1233,10 +1301,18 @@ impl Evaluator {
             ));
         }
 
+        let module_name = match left_of_dot.clone() {
+            Some(obj) => match *obj {
+                Object::Module(m) => Some(m.borrow().name()),
+                _ => None
+            }
+            None => None
+        };
+
         if anon_outer.is_some() {
-            self.env.borrow_mut().copy_scope(anon_outer.unwrap());
+            self.env.borrow_mut().copy_scope(anon_outer.unwrap(), module_name);
         } else {
-            self.env.borrow_mut().new_scope();
+            self.env.borrow_mut().new_scope(module_name);
         }
         let list = params.iter().zip(arguments.iter());
         for (_, (identifier, o)) in list.enumerate() {
@@ -1247,12 +1323,18 @@ impl Evaluator {
             };
         }
 
-        match module_name {
-            Some(name) => self.env.borrow_mut().set_module_private_member(&name),
+        match left_of_dot {
+            Some(obj) => match *obj {
+                Object::Module(m) => self.env.borrow_mut().set_module_private_member(&m.borrow().name()),
+                _ => ()
+            }
             None => ()
         }
 
+        // 関数実行
         let object = self.eval_block_statement(body);
+
+        // 戻り値
         let result = if is_proc {
             Object::Empty
         } else {
@@ -1288,7 +1370,7 @@ impl Evaluator {
         }
     }
 
-    fn eval_dotcall_expression(&mut self, left: Expression, right: Expression) -> Object {
+    fn eval_dotcall_expression(&mut self, left: Expression, right: Expression, is_func: bool) -> Object {
         let instance = match left {
             Expression::Identifier(_) |
             Expression::Index(_, _) |
@@ -1300,21 +1382,17 @@ impl Evaluator {
         };
         match instance {
             Some(o) => match o {
-                Object::Module(name, map) => {
+                Object::Module(m) => {
+                    let module = m.borrow();
                     match right {
                         Expression::Identifier(i) => {
-                            let Identifier(member) = i;
-                            match self.eval_expression(Expression::Identifier(Identifier(format!("{}.{}", name, member)))) {
-                                Some(o) => if Self::is_error(&o) {
-                                    if map.contains_key(&member) {
-                                        Self::error(format!("you can not access to {}.{}", name, member))
-                                    } else {
-                                        o
-                                    }
-                                } else {
-                                    o
-                                },
-                                None => Self::error(format!(". operator: syntax error"))
+                            let Identifier(member_name) = i;
+                            if module.is_local_member(&member_name) {
+                                Self::error(format!("you can not access to {}.{}", module.name(), member_name))
+                            } else if is_func {
+                                module.get_function(&member_name)
+                            } else {
+                                module.get_public_member(&member_name)
                             }
                         },
                         _ => Self::error(format!("member does not exist."))
