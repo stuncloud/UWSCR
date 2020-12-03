@@ -256,8 +256,21 @@ impl Parser {
                         program.insert(pub_counter, s);
                         pub_counter += 1;
                     },
-                    Statement::Function{name: _, params: _, body: _, is_proc: _} => {
-                        program.insert(pub_counter + func_counter, s);
+                    Statement::Function{name, params, body, is_proc} => {
+                        let mut new_body = Vec::new();
+                        for statement in body {
+                            match statement {
+                                Statement::Public(_) |
+                                Statement::Const(_) => {
+                                    program.insert(pub_counter, statement);
+                                    pub_counter += 1;
+                                },
+                                _ => new_body.push(statement)
+                            }
+                        }
+                        program.insert(pub_counter + func_counter, Statement::Function {
+                            name, params, body: new_body, is_proc
+                        });
                         func_counter += 1;
                     },
                     Statement::Module(i, block) => {
