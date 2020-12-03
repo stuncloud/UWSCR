@@ -1,11 +1,10 @@
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
-
-use std::collections::HashMap;
+use crate::evaluator::environment::NamedObject;
 
 use regex::Regex;
 
-pub fn set_builtin_functions(map: &mut HashMap<String, Object>) {
+pub fn set_builtins(vec: &mut Vec<NamedObject>) {
     let funcs : Vec<(&str, i32, fn(Vec<Object>)->Object)> = vec![
         ("copy", 5, copy),
         ("length", 1, length),
@@ -19,20 +18,14 @@ pub fn set_builtin_functions(map: &mut HashMap<String, Object>) {
         ("chgmoj", 4, replace),
     ];
     for (name, arg_len, func) in funcs {
-        map.insert(name.to_ascii_uppercase(), Object::BuiltinFunction(arg_len, func));
+        vec.push(NamedObject::new_builtin_func(name.to_ascii_uppercase(), Object::BuiltinFunction(arg_len, func)));
     }
-}
-
-pub fn set_builtin_constant(map: &mut HashMap<String, Object>) {
     let num_constant = vec![
         ("REGEX_TEST" , REGEX_TEST),
         ("REGEX_MATCH", REGEX_MATCH),
     ];
     for (key, value) in num_constant {
-        map.insert(
-            key.to_ascii_uppercase(),
-            Object::BuiltinConst(Box::new(Object::Num(value.into())))
-        );
+        vec.push(NamedObject::new_builtin_const(key.to_ascii_uppercase(), Object::Num(value.into())));
     }
 }
 

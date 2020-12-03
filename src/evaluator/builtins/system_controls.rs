@@ -1,7 +1,7 @@
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
+use crate::evaluator::environment::NamedObject;
 
-use std::collections::HashMap;
 use std::{thread, time};
 
 use winapi::{
@@ -19,18 +19,15 @@ use winapi::{
     }
 };
 
-pub fn set_builtin_functions(map: &mut HashMap<String, Object>) {
+pub fn set_builtins(vec: &mut Vec<NamedObject>) {
     let funcs: Vec<(&str, i32, fn(Vec<Object>)->Object)> = vec![
         ("sleep", 1, sleep),
         ("kindofos", 1, kindofos),
         ("env", 1, env),
     ];
     for (name, arg_len, func) in funcs {
-        map.insert(name.to_ascii_uppercase(), Object::BuiltinFunction(arg_len, func));
+        vec.push(NamedObject::new_builtin_func(name.to_ascii_uppercase(), Object::BuiltinFunction(arg_len, func)));
     }
-}
-
-pub fn set_builtin_constant(map: &mut HashMap<String, Object>) {
     let num_constant = vec![
         ("OS_WIN2000", OS_WIN2000),
         ("OS_WINXP", OS_WINXP),
@@ -52,10 +49,7 @@ pub fn set_builtin_constant(map: &mut HashMap<String, Object>) {
         ("OSVER_PLATFORM", OSVER_PLATFORM),
     ];
     for (key, value) in num_constant {
-        map.insert(
-            key.to_ascii_uppercase(),
-            Object::BuiltinConst(Box::new(Object::Num(value.into())))
-        );
+        vec.push(NamedObject::new_builtin_const(key.to_ascii_uppercase(), Object::Num(value.into())));
     }
 }
 

@@ -5,51 +5,44 @@ pub mod system_controls;
 pub mod key_codes;
 
 use crate::evaluator::object::*;
-use std::collections::HashMap;
+use crate::evaluator::environment::NamedObject;
 
 use cast;
 
-pub fn init_builtins() -> (HashMap<String, Object>, HashMap<String, Object>) {
-    // Builtin function
-    let mut builtins_funcs = HashMap::new();
-    set_builtin_functions(&mut builtins_funcs);
-    window_control::set_builtin_functions(&mut builtins_funcs);
-    window_low::set_builtin_functions(&mut builtins_funcs);
-    text_control::set_builtin_functions(&mut builtins_funcs);
-    system_controls::set_builtin_functions(&mut builtins_funcs);
-
-    // Builtin Constant
-    let mut builtins_consts = HashMap::new();
-    set_builtin_constant(&mut builtins_consts);
-    key_codes::set_builtin_constant(&mut builtins_consts);
-    window_control::set_builtin_constant(&mut builtins_consts);
-    window_low::set_builtin_constant(&mut builtins_consts);
-    text_control::set_builtin_constant(&mut builtins_consts);
-    system_controls::set_builtin_constant(&mut builtins_consts);
-
-    (builtins_funcs, builtins_consts)
+pub fn init_builtins() -> Vec<NamedObject> {
+    let mut vec = Vec::new();
+    set_builtins(&mut vec);
+    window_control::set_builtins(&mut vec);
+    window_low::set_builtins(&mut vec);
+    system_controls::set_builtins(&mut vec);
+    text_control::set_builtins(&mut vec);
+    key_codes::set_builtins(&mut vec);
+    vec
 }
 
-fn set_builtin_constant(map: &mut HashMap<String, Object>) {
+fn set_builtins(vec: &mut Vec<NamedObject>) {
     let num_constant = vec![
         ("HASH_CASECARE", 0x00001000),
         ("HASH_SORT", 0x00002000),
     ];
     for (name, value) in num_constant {
-        map.insert(name.to_ascii_uppercase(), Object::BuiltinConst(Box::new(Object::Num(value as f64))));
+        vec.push(NamedObject::new_builtin_const(name.to_ascii_uppercase(), Object::Num(value as f64)));
     }
-    map.insert("GET_UWSC_PRO".to_string(), Object::BuiltinConst(Box::new(Object::Bool(false))));
-}
-
-pub fn set_builtin_functions(map: &mut HashMap<String, Object>) {
+    let bool_constant = vec![
+        ("GET_UWSC_PRO", false),
+    ];
+    for (name, value) in bool_constant {
+        vec.push(NamedObject::new_builtin_const(name.to_ascii_uppercase(), Object::Bool(value)));
+    }
     let funcs: Vec<(&str, i32, fn(Vec<Object>)->Object)> = vec![
         ("eval", 1, builtin_eval),
-        ("print_env", 1, print_env),
+        ("get_env", 0, get_env),
     ];
     for (name, arg_len, func) in funcs {
-        map.insert(name.to_ascii_uppercase(), Object::BuiltinFunction(arg_len, func));
+        vec.push(NamedObject::new_builtin_func(name.to_ascii_uppercase(), Object::BuiltinFunction(arg_len, func)));
     }
 }
+
 
 pub fn builtin_eval(args: Vec<Object>) -> Object {
     match &args[0] {
@@ -58,11 +51,8 @@ pub fn builtin_eval(args: Vec<Object>) -> Object {
     }
 }
 
-pub fn print_env(args: Vec<Object>) -> Object {
-    match &args[0] {
-        Object::String(s) => Object::Debug(DebugType::PrintEnv(s.to_string())),
-        _ => Object::Empty
-    }
+pub fn get_env(_args: Vec<Object>) -> Object {
+    Object::Debug(DebugType::GetEnv)
 }
 
 pub fn builtin_func_error(name: &str,msg: &str)-> Object {

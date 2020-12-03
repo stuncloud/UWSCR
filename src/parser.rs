@@ -256,8 +256,7 @@ impl Parser {
                         program.insert(pub_counter, s);
                         pub_counter += 1;
                     },
-                    Statement::Function{name: _, params: _, body: _} |
-                    Statement::Procedure{name: _, params: _, body: _} => {
+                    Statement::Function{name: _, params: _, body: _, is_proc: _} => {
                         program.insert(pub_counter + func_counter, s);
                         func_counter += 1;
                     },
@@ -284,21 +283,13 @@ impl Parser {
                                     program.insert(pub_counter, Statement::Const(c));
                                     pub_counter += 1;
                                 },
-                                Statement::Function{name, params, body} => {
+                                Statement::Function{name, params, body, is_proc} => {
                                     let Identifier(member) = name;
                                     program.insert(pub_counter + func_counter, Statement::ModuleFunction {
                                         module_name: module_name.clone(),
                                         name: member,
-                                        params, body
-                                    });
-                                    func_counter += 1;
-                                },
-                                Statement::Procedure{name, params, body} => {
-                                    let Identifier(member) = name;
-                                    program.insert(pub_counter + func_counter, Statement::ModuleProcedure {
-                                        module_name: module_name.clone(),
-                                        name: member,
-                                        params, body
+                                        params, body,
+                                        is_proc
                                     });
                                     func_counter += 1;
                                 },
@@ -1123,11 +1114,7 @@ impl Parser {
             self.error_got_invalid_close_token(Token::Fend);
             return None;
         }
-        if is_proc {
-            Some(Statement::Procedure{name, params, body})
-        } else {
-            Some(Statement::Function{name, params, body})
-        }
+        Some(Statement::Function{name, params, body, is_proc})
     }
 
     fn parse_module_statement(&mut self) -> Option<Statement> {
@@ -1201,11 +1188,7 @@ impl Parser {
             return None;
         }
 
-        if is_proc {
-            Some(Expression::AnonymusProcedure {params, body})
-        } else {
-            Some(Expression::AnonymusFunction {params, body})
-        }
+        Some(Expression::AnonymusFunction {params, body, is_proc})
     }
 
     fn parse_function_parameters(&mut self) -> Option<Vec<Identifier>> {
@@ -2726,6 +2709,7 @@ fend
                                 )
                             )
                         ],
+                        is_proc: false,
                     }
                 ]
             ),
@@ -2736,7 +2720,7 @@ procedure hoge(foo, bar, baz)
 fend
                 "#,
                 vec![
-                    Statement::Procedure {
+                    Statement::Function {
                         name: Identifier("hoge".to_string()),
                         params: vec![
                             Identifier("foo".to_string()),
@@ -2756,6 +2740,7 @@ fend
                                 ),
                             )
                         ],
+                        is_proc: true,
                     }
                 ]
             ),
@@ -2781,6 +2766,7 @@ fend
                                 )
                             )
                         ],
+                        is_proc: false,
                     },
                     Statement::Print(Expression::FuncCall{
                         func: Box::new(Expression::Identifier(Identifier("hoge".to_string()))),
@@ -2808,7 +2794,8 @@ fend
                                     Box::new(Expression::Identifier(Identifier("result".to_string()))),
                                     Box::new(Expression::Identifier(Identifier("a".to_string())))
                                 ))
-                            ]
+                            ],
+                            is_proc: false
                         }),
                     ))
                 ]
@@ -2822,7 +2809,7 @@ fend
                 vec![
                     Statement::Expression(Expression::Assign(
                         Box::new(Expression::Identifier(Identifier("hoge".to_string()))),
-                        Box::new(Expression::AnonymusProcedure{
+                        Box::new(Expression::AnonymusFunction{
                             params: vec![
                                 Identifier("a".to_string()),
                             ],
@@ -2830,7 +2817,8 @@ fend
                                 Statement::Print(
                                     Expression::Identifier(Identifier("a".to_string()))
                                 )
-                            ]
+                            ],
+                            is_proc: true,
                         }),
                     ))
                 ]
@@ -2977,16 +2965,19 @@ public p3 = 1
                 name: Identifier("f1".to_string()),
                 params: vec![],
                 body: vec![],
+                is_proc: false,
             },
-            Statement::Procedure {
+            Statement::Function {
                 name: Identifier("p1".to_string()),
                 params: vec![],
                 body: vec![],
+                is_proc: true,
             },
             Statement::Function {
                 name: Identifier("f2".to_string()),
                 params: vec![],
                 body: vec![],
+                is_proc: false,
             },
             Statement::Dim(vec![
                 (Identifier("d1".to_string()), Expression::Literal(Literal::Num(1.0)))
@@ -3025,7 +3016,7 @@ endmodule
             Statement::Const(vec![
                 (Identifier("Hoge.c".to_string()), Expression::Literal(Literal::Num(1.0)))
             ]),
-            Statement::ModuleProcedure {
+            Statement::ModuleFunction {
                 module_name: "Hoge".to_string(),
                 name: "Hoge".to_string(),
                 params: vec![],
@@ -3034,7 +3025,8 @@ endmodule
                         Box::new(Expression::Identifier(Identifier("this.a".to_string()))),
                         Box::new(Expression::Identifier(Identifier("c".to_string()))),
                     ))
-                ]
+                ],
+                is_proc: true,
             },
             Statement::ModuleFunction {
                 module_name: "Hoge".to_string(),
@@ -3057,7 +3049,8 @@ endmodule
                             }),
                         )),
                     ))
-                ]
+                ],
+                is_proc: false,
             },
             Statement::Module(
                 Identifier("Hoge".to_string()),
@@ -3071,7 +3064,7 @@ endmodule
                     Statement::Const(vec![
                         (Identifier("c".to_string()), Expression::Literal(Literal::Num(1.0)))
                     ]),
-                    Statement::Procedure {
+                    Statement::Function {
                         name: Identifier("Hoge".to_string()),
                         params: vec![],
                         body: vec![
@@ -3079,7 +3072,8 @@ endmodule
                                 Box::new(Expression::Identifier(Identifier("this.a".to_string()))),
                                 Box::new(Expression::Identifier(Identifier("c".to_string()))),
                             ))
-                        ]
+                        ],
+                        is_proc: true,
                     },
                     Statement::Function {
                         name: Identifier("f".to_string()),
@@ -3101,7 +3095,8 @@ endmodule
                                     }),
                                 )),
                             ))
-                        ]
+                        ],
+                        is_proc: false,
                     },
                     Statement::Dim(vec![
                         (
@@ -3119,7 +3114,8 @@ endmodule
                                             Box::new(Expression::Literal(Literal::Num(1.0))),
                                         )),
                                     )),
-                                ]
+                                ],
+                                is_proc: false
                             }
                         )
                     ]),

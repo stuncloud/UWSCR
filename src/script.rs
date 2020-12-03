@@ -1,8 +1,7 @@
 use std::rc::Rc;
 use std::cell::RefCell;
 
-use crate::evaluator::builtins::init_builtins;
-use crate::evaluator::env::Env;
+use crate::evaluator::environment::Environment;
 use crate::evaluator::object::Object;
 use crate::evaluator::Evaluator;
 use crate::parser::Parser;
@@ -11,8 +10,7 @@ use crate::lexer::Lexer;
 
 pub fn run(script: String) -> Result<(), Vec<ParseError>> {
 
-    let (f, c) = init_builtins();
-    let env = Env::from_builtin(f, c);
+    let env = Environment::new();
     let mut evaluator = Evaluator::new(Rc::new(RefCell::new(env)));
     let mut parser = Parser::new(Lexer::new(&script));
     let program = parser.parse();

@@ -1,7 +1,7 @@
 use crate::evaluator::object::*;
-use std::collections::HashMap;
+use crate::evaluator::environment::NamedObject;
 
-pub fn set_builtin_constant(map: &mut HashMap<String, Object>) {
+pub fn set_builtins(vec: &mut Vec<NamedObject>) {
     let num_constant = vec![
         ("VK_A"                   , VK_A),
         ("VK_B"                   , VK_B),
@@ -145,10 +145,7 @@ pub fn set_builtin_constant(map: &mut HashMap<String, Object>) {
         ("VK_OEM_PA1"             , VK_OEM_PA1),
     ];
     for (key, value) in num_constant {
-        map.insert(
-            key.to_ascii_uppercase(),
-            Object::BuiltinConst(Box::new(Object::Num(value.into())))
-        );
+        vec.push(NamedObject::new_builtin_const(key.to_ascii_uppercase(), Object::Num(value.into())));
     }
 }
 

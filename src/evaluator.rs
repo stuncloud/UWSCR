@@ -1,9 +1,11 @@
 pub mod object;
-pub mod env;
+// pub mod env;
+pub mod environment;
 pub mod builtins;
 
 use crate::ast::*;
-use crate::evaluator::env::*;
+// use crate::evaluator::env::*;
+use crate::evaluator::environment::*;
 use crate::evaluator::object::*;
 use crate::parser::Parser;
 use crate::lexer::Lexer;
@@ -19,11 +21,11 @@ const MODULE_FUNC_PREFIX: &str = "`";
 
 #[derive(Debug)]
 pub struct  Evaluator {
-    env: Rc<RefCell<Env>>,
+    env: Rc<RefCell<Environment>>,
 }
 
 impl Evaluator {
-    pub fn new(env: Rc<RefCell<Env>>) -> Self {
+    pub fn new(env: Rc<RefCell<Environment>>) -> Self {
         Evaluator {env}
     }
 
@@ -129,7 +131,7 @@ impl Evaluator {
                     if Self::is_error(&value) {
                         return Some(value);
                     } else {
-                        match self.env.borrow_mut().define_local(name, &value) {
+                        match self.env.borrow_mut().define_local(name, value) {
                             Ok(()) => (),
                             Err(err) => return Some(err),
                         }
@@ -143,7 +145,7 @@ impl Evaluator {
                     if Self::is_error(&value) {
                         return Some(value);
                     } else {
-                        match self.env.borrow_mut().define_public(name, &value) {
+                        match self.env.borrow_mut().define_public(name, value) {
                             Ok(()) => (),
                             Err(err) => return Some(err),
                         }
@@ -157,7 +159,7 @@ impl Evaluator {
                     if Self::is_error(&value) {
                         return Some(value);
                     } else {
-                        match self.env.borrow_mut().define_const(name, &value) {
+                        match self.env.borrow_mut().define_const(name, value) {
                             Ok(()) => (),
                             Err(err) => return Some(err),
                         }
@@ -171,12 +173,12 @@ impl Evaluator {
                     return Some(hashtbl);
                 }
                 if is_public {
-                    match self.env.borrow_mut().define_public(name, &hashtbl) {
+                    match self.env.borrow_mut().define_public(name, hashtbl) {
                         Ok(()) => None,
                         Err(err) => Some(err),
                     }
                 } else {
-                    match self.env.borrow_mut().define_local(name, &hashtbl) {
+                    match self.env.borrow_mut().define_local(name, hashtbl) {
                         Ok(()) => None,
                         Err(err) => Some(err),
                     }
@@ -224,44 +226,23 @@ impl Evaluator {
             Statement::Select {expression, cases, default} => {
                 self.eval_select_statement(expression, cases, default)
             },
-            Statement::Function {name, params, body} => {
+            Statement::Function {name, params, body, is_proc} => {
                 let Identifier(fname) = name;
-                let func = self.eval_funtcion_definition_statement(&fname, params, body, false, None);
+                let func = self.eval_funtcion_definition_statement(&fname, params, body, is_proc, None);
                 if Self::is_error(&func) {
                     return Some(func);
                 }
-                match self.env.borrow_mut().define_function(fname, &func) {
+                match self.env.borrow_mut().define_function(fname, func) {
                     Ok(()) => None,
                     Err(err) => Some(err),
                 }
             },
-            Statement::Procedure {name, params, body} => {
-                let Identifier(pname) = name;
-                let func = self.eval_funtcion_definition_statement(&pname, params, body, true, None);
+            Statement::ModuleFunction {module_name, name, params, body, is_proc} => {
+                let func = self.eval_funtcion_definition_statement(&name, params, body, is_proc, Some(&module_name));
                 if Self::is_error(&func) {
                     return Some(func);
                 }
-                match self.env.borrow_mut().define_function(pname, &func) {
-                    Ok(()) => None,
-                    Err(err) => Some(err),
-                }
-            },
-            Statement::ModuleFunction {module_name, name, params, body} => {
-                let func = self.eval_funtcion_definition_statement(&name, params, body, false, Some(&module_name));
-                if Self::is_error(&func) {
-                    return Some(func);
-                }
-                match self.env.borrow_mut().define_function(format!("{}.{}", module_name, name), &func) {
-                    Ok(()) => None,
-                    Err(err) => Some(err),
-                }
-            },
-            Statement::ModuleProcedure {module_name, name, params, body} => {
-                let func = self.eval_funtcion_definition_statement(&name, params, body, true, Some(&module_name));
-                if Self::is_error(&func) {
-                    return Some(func);
-                }
-                match self.env.borrow_mut().define_function(format!("{}.{}", module_name, name), &func) {
+                match self.env.borrow_mut().define_function(format!("{}.{}", module_name, name), func) {
                     Ok(()) => None,
                     Err(err) => Some(err),
                 }
@@ -272,11 +253,11 @@ impl Evaluator {
                 if Self::is_error(&module) {
                     return Some(module);
                 }
-                let result = self.env.borrow_mut().define_module(name.clone(), &module);
+                let result = self.env.borrow_mut().define_module(name.clone(), module);
                 match result {
                     Ok(()) => {
                         let constructor_name = format!("{}.{}", name.clone(), name.clone());
-                        if ! self.env.borrow_mut().does_function_exists(&constructor_name) {
+                        if ! self.env.borrow_mut().has_function(&constructor_name) {
                             return None;
                         }
                         let constructor = self.eval_function_call_expression(
@@ -466,7 +447,7 @@ impl Evaluator {
             },
             None => 1
         };
-        match self.env.borrow_mut().assign(var.clone(), &Object::Num(counter as f64)) {
+        match self.env.borrow_mut().assign(var.clone(), Object::Num(counter as f64)) {
             Ok(()) => (),
             Err(err) => return Some(err)
         };
@@ -480,7 +461,7 @@ impl Evaluator {
                             return Some(Object::Continue(n - 1));
                         } else {
                             counter += step;
-                            match self.env.borrow_mut().assign(var.clone(), &Object::Num(counter as f64)) {
+                            match self.env.borrow_mut().assign(var.clone(), Object::Num(counter as f64)) {
                                 Ok(()) => (),
                                 Err(err) => return Some(err)
                             };
@@ -500,7 +481,7 @@ impl Evaluator {
                 _ => ()
             };
             counter += step;
-            match self.env.borrow_mut().assign(var.clone(), &Object::Num(counter as f64)) {
+            match self.env.borrow_mut().assign(var.clone(), Object::Num(counter as f64)) {
                 Ok(()) => (),
                 Err(err) => return Some(err)
             };
@@ -528,7 +509,7 @@ impl Evaluator {
         };
 
         for o in col_obj {
-            match self.env.borrow_mut().assign(var.clone(), &o) {
+            match self.env.borrow_mut().assign(var.clone(), o) {
                 Ok(()) => (),
                 Err(err) => return Some(err)
             };
@@ -636,24 +617,15 @@ impl Evaluator {
                         _ => {},
                     };
                 },
-                Statement::Function{name: _, params: _, body: _} |
-                Statement::Procedure{name: _, params: _, body: _} => {
+                Statement::Function{name: _, params: _, body: _, is_proc: _}  => {
                     return Self::error(format!("nested definition of function/procedure is not allowed"));
                 },
                 _ => {},
             };
         }
         let func = match module_name {
-            Some(s) => if is_proc {
-                Object::ModuleProcedure(s.clone(), name.clone(), params, body, Rc::clone(&self.env))
-            } else {
-                Object::ModuleFunction(s.clone(), name.clone(), params, body, Rc::clone(&self.env))
-            },
-            None => if is_proc {
-                Object::Procedure(name.clone(), params, body, Rc::clone(&self.env))
-            } else {
-                Object::Function(name.clone(), params, body, Rc::clone(&self.env))
-            }
+            Some(s) => Object::ModuleFunction(s.clone(), name.clone(), params, body, is_proc),
+            None => Object::Function(name.clone(), params, body, is_proc),
         };
         func
     }
@@ -687,8 +659,7 @@ impl Evaluator {
                         members.insert(format!("this.{}", member_name), Object::GlobalMember(global_name));
                     }
                 },
-                Statement::Function{name: i, params: _, body: _} |
-                Statement::Procedure{name: i, params: _, body: _} => {
+                Statement::Function{name: i, params: _, body: _, is_proc: _} => {
                     let Identifier(member_name) = i;
                     let global_name = format!("{}.{}", name, member_name);
                     members.insert(format!("{}{}", MODULE_FUNC_PREFIX, &member_name), Object::GlobalMember(global_name.clone()));
@@ -774,11 +745,9 @@ impl Evaluator {
                 };
                 Some(self.eval_index_expression(left, index))
             },
-            Expression::AnonymusFunction {params, body} => {
-                Some(Object::AnonFunc(params, body, Rc::clone(&self.env)))
-            },
-            Expression::AnonymusProcedure {params, body} => {
-                Some(Object::AnonProc(params, body, Rc::clone(&self.env)))
+            Expression::AnonymusFunction {params, body, is_proc} => {
+                let outer_local = self.env.borrow_mut().get_local_copy();
+                Some(Object::AnonFunc(params, body, outer_local, is_proc))
             },
             Expression::FuncCall {func, args} => {
                 Some(self.eval_function_call_expression(func, args))
@@ -839,11 +808,8 @@ impl Evaluator {
         let Identifier(name) = identifier;
         let mut env = self.env.borrow_mut();
         match env.get_variable(&name) {
-            Some(o) => match o {
-                Object::BuiltinConst(bc) => *bc,
-                _ => o
-            },
-            None => match env.get_func(&name) {
+            Some(o) => o,
+            None => match env.get_function(&name) {
                 Some(o) => o,
                 None => match env.get_module(&name) {
                     Some(o) => o,
@@ -949,7 +915,7 @@ impl Evaluator {
         match left {
             Expression::Identifier(i) => {
                 let Identifier(name) = i;
-                match self.env.borrow_mut().assign(name, &value) {
+                match self.env.borrow_mut().assign(name, value) {
                     Ok(()) => None,
                     Err(err) => Some(err)
                 }
@@ -977,7 +943,7 @@ impl Evaluator {
                                         let i = n as usize;
                                         if i < arr.len() {
                                             arr[i] = value;
-                                            match env.assign(name, &Object::Array(arr)) {
+                                            match env.assign(name, Object::Array(arr)) {
                                                 Ok(()) => (),
                                                 Err(err) => return Some(err)
                                             };
@@ -999,7 +965,7 @@ impl Evaluator {
                                 };
                                 let mut hash = h.clone();
                                 hash.entry(key).or_insert_with(|| value);
-                                match env.assign(name, &Object::Hash(hash, casecare)) {
+                                match env.assign(name, Object::Hash(hash, casecare)) {
                                     Ok(()) => (),
                                     Err(err) => return Some(err)
                                 };
@@ -1017,7 +983,7 @@ impl Evaluator {
                                 };
                                 let mut hash = h.clone();
                                 hash.entry(key).or_insert_with(|| value);
-                                match env.assign(name, &Object::SortedHash(hash, casecare)) {
+                                match env.assign(name, Object::SortedHash(hash, casecare)) {
                                     Ok(()) => (),
                                     Err(err) => return Some(err)
                                 };
@@ -1173,9 +1139,9 @@ impl Evaluator {
                 // モジュールローカルから関数を探す
                 match env.get_variable(&format!("{}{}", MODULE_FUNC_PREFIX, &name)) {
                     Some(o) => Some(o),
-                    None => match env.get_func(&name.replace("global.", "")) {
+                    None => match env.get_function(&name.replace("global.", "")) {
                         Some(o) => Some(o),
-                        None => match env.get_func(&name) {
+                        None => match env.get_function(&name) {
                             Some(o) => Some(o),
                             None => match env.get_variable(&name) {
                                 Some(o) => Some(o),
@@ -1208,9 +1174,8 @@ impl Evaluator {
                 }
             },
             Object::Debug(t) => match t {
-                DebugType::PrintEnv(s) => {
-                    self.env.borrow_mut().print_env(s);
-                    Object::Empty
+                DebugType::GetEnv => {
+                    self.env.borrow_mut().get_env()
                 },
             },
             _ => result
@@ -1222,35 +1187,18 @@ impl Evaluator {
             |e| self.eval_expression(e.clone()).unwrap()
         ).collect::<Vec<_>>();
 
-        let mut is_proc = false;
-        let mut copy_scope = false;
-        let mut module_name = String::new();
-        let (params, body, env) = match self.eval_expression_for_func_call(*func) {
+        let (
+            params,
+            body,
+            is_proc,
+            anon_outer,
+            module_name
+        ) = match self.eval_expression_for_func_call(*func) {
             Some(o) => match o {
 
-                Object::Function(_, p, b, e) => (p, b, e),
-                Object::Procedure(_, p, b, e) => {
-                    is_proc = true;
-                    (p, b, e)
-                },
-                Object::ModuleFunction(m, _, p, b, e) => {
-                    module_name = m;
-                    (p, b, e)
-                },
-                Object::ModuleProcedure(m, _, p, b, e) => {
-                    module_name = m;
-                    is_proc = true;
-                    (p, b, e)
-                },
-                Object::AnonFunc(p, b, e) => {
-                    copy_scope = true;
-                    (p, b, e)
-                },
-                Object::AnonProc(p, b, e) => {
-                    copy_scope = true;
-                    is_proc = true;
-                    (p, b, e)
-                },
+                Object::Function(_, p, b, is_proc) => (p, b, is_proc, None, None),
+                Object::ModuleFunction(m, _, p, b, is_proc) =>  (p, b, is_proc, None, Some(m)),
+                Object::AnonFunc(p, b, o, is_proc) =>  (p, b, is_proc, Some(o), None),
                 Object::BuiltinFunction(expected_param_len, f) => {
                     if expected_param_len >= arguments.len() as i32 {
                         let func_result = f(arguments);
@@ -1285,23 +1233,25 @@ impl Evaluator {
             ));
         }
 
-        let current_env = Rc::clone(&self.env);
-        let mut scoped_env = if copy_scope {
-            Env::copy_scope(Rc::clone(&env))
+        if anon_outer.is_some() {
+            self.env.borrow_mut().copy_scope(anon_outer.unwrap());
         } else {
-            Env::new_scope(Rc::clone(&env))
-        };
+            self.env.borrow_mut().new_scope();
+        }
         let list = params.iter().zip(arguments.iter());
         for (_, (identifier, o)) in list.enumerate() {
             let Identifier(name) = identifier.clone();
-            scoped_env.set_function_params(name, o);
+            match self.env.borrow_mut().define_local(name, o.clone()) {
+                Ok(()) => (),
+                Err(e) => return e
+            };
         }
 
-        if module_name.len() > 0 {
-            scoped_env.set_module_private_member(&module_name);
+        match module_name {
+            Some(name) => self.env.borrow_mut().set_module_private_member(&name),
+            None => ()
         }
 
-        self.env = Rc::new(RefCell::new(scoped_env));
         let object = self.eval_block_statement(body);
         let result = if is_proc {
             Object::Empty
@@ -1311,28 +1261,7 @@ impl Evaluator {
                 None => Object::Empty
             }
         };
-        let updated_public = self.env.borrow_mut().get_public_scope();
-        let mut new = HashMap::new();
-        if module_name.len() > 0 {
-            let mut env = self.env.borrow_mut();
-            match env.get_module(&module_name) {
-                Some(Object::Module(_, map)) => {
-                    for (k, _) in map {
-                        match env.get_variable(&k) {
-                            Some(o) => new.insert(k, o),
-                            None => None,
-                        };
-                    }
-                },
-                _ => (),
-            };
-        };
-        self.env = current_env;
-        self.env.borrow_mut().set_public_scope(updated_public);
-        // update module private members
-        if new.len() > 0 {
-            self.env.borrow_mut().update_module(&module_name, &Object::Module(module_name.clone(), new));
-        }
+        self.env.borrow_mut().restore_scope();
 
         match object {
             Some(o) => if Self::is_error(&o) {
@@ -1402,7 +1331,6 @@ impl Evaluator {
 
 #[cfg(test)]
 mod tests {
-    use crate::evaluator::builtins::init_builtins;
     use crate::evaluator::*;
     use crate::lexer::Lexer;
     use crate::parser::Parser;
@@ -1412,10 +1340,9 @@ mod tests {
     }
 
     fn eval(input: &str, ast: bool) -> Option<Object> {
-        let (f, c) = init_builtins();
-        let mut e = Evaluator::new(Rc::new(
-            RefCell::new(Env::from_builtin(f, c))
-        ));
+        let mut e = Evaluator::new(Rc::new(RefCell::new(
+            Environment::new()
+        )));
         let program = Parser::new(Lexer::new(input)).parse();
         if ast {
             println!("{:?}", program);
@@ -1426,10 +1353,9 @@ mod tests {
 
     // 変数とか関数とか予め定義しておく
     fn eval_env(input: &str) -> Evaluator {
-        let (f, c) = init_builtins();
-        let mut e = Evaluator::new(Rc::new(
-            RefCell::new(Env::from_builtin(f, c))
-        ));
+        let mut e = Evaluator::new(Rc::new(RefCell::new(
+            Environment::new()
+        )));
         let program = Parser::new(Lexer::new(input)).parse();
         e.eval(program);
         e
@@ -2487,6 +2413,15 @@ module M
     function outer_func()
         result = global.func()
     fend
+
+    dim a = 1
+    function get_a()
+        result = a
+    fend
+    function set_a(n)
+        a = n
+        result = get_a()
+    fend
 endmodule
         "#;
         let mut e = eval_env(definition);
@@ -2580,6 +2515,10 @@ endmodule
             (
                 "M.outer_func()",
                 Some(Object::String("function".to_string()))
+            ),
+            (
+                "M.set_a(5)",
+                Some(Object::Num(0.0))
             ),
         ];
         for (input, expected) in test_cases {

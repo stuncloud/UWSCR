@@ -2,6 +2,7 @@ use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
 use crate::evaluator::builtins::window_low::get_current_pos;
 use crate::evaluator::builtins::system_controls::is_64bit_os;
+use crate::evaluator::environment::NamedObject;
 
 use std::fmt;
 use std::collections::HashMap;
@@ -93,7 +94,20 @@ impl fmt::Display for Window {
     }
 }
 
-pub fn set_builtin_constant(map: &mut HashMap<String, Object>) {
+pub fn set_builtins(vec: &mut Vec<NamedObject>) {
+    let funcs: Vec<(&str, i32, fn(Vec<Object>)->Object)> = vec![
+        ("getid", 4, getid),
+        ("idtohnd", 1, idtohnd),
+        ("hndtoid", 1, hndtoid),
+        ("clkitem", 5, clkitem),
+        ("ctrlwin", 2, ctrlwin),
+        ("status", 22, status),
+        ("acw", 5, acw),
+        ("monitor", 2, monitor),
+    ];
+    for (name, arg_len, func) in funcs {
+        vec.push(NamedObject::new_builtin_func(name.to_ascii_uppercase(), Object::BuiltinFunction(arg_len, func)));
+    }
     let str_constant = vec![
         ("GET_ACTIVE_WIN"    , GET_ACTIVE_WIN),
         ("GET_FROMPOINT_WIN" , GET_FROMPOINT_WIN),
@@ -108,10 +122,7 @@ pub fn set_builtin_constant(map: &mut HashMap<String, Object>) {
         ("GET_STOPFORM_WIN"  , GET_STOPFORM_WIN),
     ];
     for (key, value) in str_constant {
-        map.insert(
-            key.to_ascii_uppercase(),
-            Object::BuiltinConst(Box::new(Object::String(value.to_string())))
-        );
+        vec.push(NamedObject::new_builtin_const(key.to_ascii_uppercase(), Object::String(value.to_string())));
     }
     let num_constant = vec![
         // ctrlwin
@@ -163,26 +174,7 @@ pub fn set_builtin_constant(map: &mut HashMap<String, Object>) {
         ("MON_ALL", MON_ALL),
     ];
     for (key, value) in num_constant {
-        map.insert(
-            key.to_ascii_uppercase(),
-            Object::BuiltinConst(Box::new(Object::Num(value.into())))
-        );
-    }
-}
-
-pub fn set_builtin_functions(map: &mut HashMap<String, Object>) {
-    let funcs: Vec<(&str, i32, fn(Vec<Object>)->Object)> = vec![
-        ("getid", 4, getid),
-        ("idtohnd", 1, idtohnd),
-        ("hndtoid", 1, hndtoid),
-        ("clkitem", 5, clkitem),
-        ("ctrlwin", 2, ctrlwin),
-        ("status", 22, status),
-        ("acw", 5, acw),
-        ("monitor", 2, monitor),
-    ];
-    for (name, arg_len, func) in funcs {
-        map.insert(name.to_ascii_uppercase(), Object::BuiltinFunction(arg_len, func));
+        vec.push(NamedObject::new_builtin_const(key.to_ascii_uppercase(), Object::Num(value.into())));
     }
 }
 

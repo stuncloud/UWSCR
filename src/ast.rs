@@ -78,11 +78,8 @@ pub enum Expression {
     Index(Box<Expression>, Box<Expression>),
     AnonymusFunction {
         params: Vec<Identifier>,
-        body: BlockStatement
-    },
-    AnonymusProcedure {
-        params: Vec<Identifier>,
-        body: BlockStatement
+        body: BlockStatement,
+        is_proc: bool,
     },
     FuncCall {
         func: Box<Expression>,
@@ -160,24 +157,15 @@ pub enum Statement {
     Function {
         name: Identifier,
         params: Vec<Identifier>,
-        body: BlockStatement
-    },
-    Procedure {
-        name: Identifier,
-        params: Vec<Identifier>,
-        body: BlockStatement
+        body: BlockStatement,
+        is_proc: bool,
     },
     ModuleFunction {
         module_name: String,
         name: String,
         params: Vec<Identifier>,
-        body: BlockStatement
-    },
-    ModuleProcedure {
-        module_name: String,
-        name: String,
-        params: Vec<Identifier>,
-        body: BlockStatement
+        body: BlockStatement,
+        is_proc: bool,
     },
     Exit,
     Module(Identifier, BlockStatement), // public, private

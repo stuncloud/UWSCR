@@ -76,8 +76,7 @@ impl Env {
     fn print_key_value(map: HashMap<String, Object>) {
         for (k, v) in map {
             match v {
-                Object::BuiltinFunction(_, _) |
-                Object::BuiltinConst(_) => (),
+                Object::BuiltinFunction(_, _) => (),
                 _ => println!("{}: {}", k, v)
             }
         }
