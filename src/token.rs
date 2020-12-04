@@ -117,4 +117,8 @@ pub enum Token {
     // その他
     Option(String),
     Comment, // // ※文末扱い
+
+    // 引数関連
+    Ref,
+    Variadic(String), // 可変長引数
 }

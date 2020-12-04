@@ -77,7 +77,7 @@ pub enum Expression {
     Infix(Infix, Box<Expression>, Box<Expression>),
     Index(Box<Expression>, Box<Expression>),
     AnonymusFunction {
-        params: Vec<Identifier>,
+        params: Vec<Expression>,
         body: BlockStatement,
         is_proc: bool,
     },
@@ -93,6 +93,7 @@ pub enum Expression {
         alternative: Box<Expression>,
     },
     DotCall(Box<Expression>, Box<Expression>), // hoge.fuga hoge.piyo()
+    Params(Params),
 }
 
 #[derive(PartialEq, Clone, Debug)]
@@ -156,7 +157,7 @@ pub enum Statement {
     },
     Function {
         name: Identifier,
-        params: Vec<Identifier>,
+        params: Vec<Expression>,
         body: BlockStatement,
         is_proc: bool,
     },
@@ -181,4 +182,27 @@ pub enum Precedence {
     FuncCall,       // myfunc(x)
     Index,          // array[index]
     DotCall,        // hoge.fuga
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub enum Params {
+    Identifier(Identifier), // 通常の引数
+    Reference(Identifier), // var引数
+    ForceArray(Identifier), // 引数[] (配列矯正)
+    WithDefault(Identifier, Box<Expression>), // デフォルト値
+    Variadic(Identifier), // 可変長引数
+    VariadicDummy, // 可変長引数用ダミーー
+}
+
+impl fmt::Display for Params {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Params::Identifier(ref i) => write!(f, "{}", i),
+            Params::Reference(ref i) => write!(f, "var {}", i),
+            Params::ForceArray(ref i) => write!(f, "{}[]", i),
+            Params::WithDefault(ref i, _) => write!(f, "{} = [default]", i),
+            Params::Variadic(ref i) => write!(f, "&{}", i),
+            _ => write!(f, "")
+        }
+    }
 }

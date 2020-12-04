@@ -3,11 +3,13 @@ use crate::lexer::Lexer;
 use crate::token::Token;
 use std::fmt;
 
+#[derive(Debug, Clone)]
 pub enum ParseErrorKind {
     UnexpectedToken,
     BlockNotClosedCorrectly,
     InvalidModuleStatement,
     ValueMustBeDefined,
+    BadParameter,
 }
 
 #[derive(Debug, Clone)]
@@ -23,27 +25,7 @@ impl fmt::Display for ParseErrorKind {
             ParseErrorKind::BlockNotClosedCorrectly => write!(f, "Block is not closing correctly"),
             ParseErrorKind::InvalidModuleStatement => write!(f, "Unexpected statement in module definition"),
             ParseErrorKind::ValueMustBeDefined => write!(f, "constant must define value"),
-        }
-    }
-}
-impl fmt::Debug for ParseErrorKind {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            ParseErrorKind::UnexpectedToken => write!(f, "Unexpected Token"),
-            ParseErrorKind::BlockNotClosedCorrectly => write!(f, "Block is not closing correctly"),
-            ParseErrorKind::InvalidModuleStatement => write!(f, "Unexpected statement in module definition"),
-            ParseErrorKind::ValueMustBeDefined => write!(f, "constant must define value"),
-        }
-    }
-}
-
-impl Clone for ParseErrorKind {
-    fn clone(&self) -> Self {
-        match *self {
-            ParseErrorKind::UnexpectedToken => ParseErrorKind::UnexpectedToken,
-            ParseErrorKind::BlockNotClosedCorrectly => ParseErrorKind::BlockNotClosedCorrectly,
-            ParseErrorKind::InvalidModuleStatement => ParseErrorKind::InvalidModuleStatement,
-            ParseErrorKind::ValueMustBeDefined => ParseErrorKind::ValueMustBeDefined,
+            ParseErrorKind::BadParameter => write!(f, "bad parameter"),
         }
     }
 }
@@ -179,8 +161,8 @@ impl Parser {
         self.errors.push(ParseError::new(
             ParseErrorKind::BlockNotClosedCorrectly,
             format!(
-                "this block requires {:?} to close.",
-                token
+                "this block requires {:?} to close but got {:?}",
+                token, self.current_token
             )
         ))
     }
@@ -222,6 +204,13 @@ impl Parser {
                 "unexpected token: {:?}.",
                 self.next_token
             )
+        ))
+    }
+
+    fn error_got_bad_parameter(&mut self, msg: String) {
+        self.errors.push(ParseError::new(
+            ParseErrorKind::BadParameter,
+            msg
         ))
     }
 
@@ -1160,33 +1149,100 @@ impl Parser {
         Some(Expression::AnonymusFunction {params, body, is_proc})
     }
 
-    fn parse_function_parameters(&mut self) -> Option<Vec<Identifier>> {
+    fn parse_function_parameters(&mut self) -> Option<Vec<Expression>> {
         let mut params = vec![];
         if self.is_next_token(&Token::Rparen) {
             self.bump();
             return Some(params);
         }
-
+        let mut with_default_flg = false;
+        let mut variadic_flg = false;
         self.bump();
-        match self.parse_identifier() {
-            Some(i) => params.push(i),
-            None => return None
-        }
-
-        while self.is_next_token(&Token::Comma) {
-            self.bump();
-            self.bump();
-            match self.parse_identifier() {
-                Some(i) => params.push(i),
+        loop {
+            match self.parse_param() {
+                Some(param) => {
+                    match param.clone() {
+                        Params::Identifier(i) |
+                        Params::Reference(i) |
+                        Params::ForceArray(i) => if with_default_flg {
+                            self.error_got_bad_parameter(format!("{}: only argument with default is allowed after argument with default", i));
+                            return None;
+                        } else if variadic_flg {
+                            self.error_got_bad_parameter(format!("{}: no arguments are allowed after variadic argument", i));
+                            return None;
+                        },
+                        Params::WithDefault(i, _) => if variadic_flg {
+                            self.error_got_bad_parameter(format!("{}: no arguments are allowed after variadic argument", i));
+                            return None;
+                        } else {
+                            with_default_flg = true;
+                        },
+                        Params::Variadic(i) => if with_default_flg {
+                            self.error_got_bad_parameter(format!("&{}: variadic argument is not allowed after argument with default value", i));
+                            return None;
+                        } else if variadic_flg {
+                            self.error_got_bad_parameter(format!("&{}: no arguments are allowed after variadic argument", i));
+                            return None;
+                        } else {
+                            variadic_flg = true;
+                        },
+                        Params::VariadicDummy => continue
+                    }
+                    params.push(Expression::Params(param))
+                },
                 None => return None
             }
+            if self.is_next_token(&Token::Comma) {
+                self.bump();
+                self.bump();
+            } else {
+                break;
+            }
         }
-
         if ! self.is_next_token_expected(Token::Rparen) {
+            // self.error_got_invalid_close_token(Token::Rparen);
             return None;
         }
 
         Some(params)
+    }
+
+    fn parse_param(&mut self) -> Option<Params> {
+        match &self.current_token {
+            Token::Identifier(_) => {
+                let i = self.parse_identifier().unwrap();
+                if self.is_next_token(&Token::Lbracket) {
+                    self.bump();
+                    if self.is_next_token(&Token::Rbracket) {
+                        self.bump();
+                        return Some(Params::ForceArray(i));
+                    }
+                } else if self.is_next_token(&Token::EqualOrAssign) {
+                    self.bump();
+                    self.bump();
+                    match self.parse_expression(Precedence::Lowest, false) {
+                        Some(e) => return Some(Params::WithDefault(i, Box::new(e))),
+                        None => {}
+                    };
+                } else {
+                    return Some(Params::Identifier(i));
+                }
+            },
+            Token::Ref => {
+                match self.next_token {
+                    Token::Identifier(_) => {
+                        self.bump();
+                        let i = self.parse_identifier().unwrap();
+                        return Some(Params::Reference(i));
+                    }
+                    _ =>{}
+                }
+            },
+            Token::Variadic(s) => return Some(Params::Variadic(Identifier(s.clone()))),
+            _ => {}
+        }
+        self.error_got_bad_parameter(format!("unexpected token: {:?}", self.current_token));
+        None
     }
 
     fn parse_function_call_expression(&mut self, func: Expression) -> Option<Expression> {
@@ -2658,9 +2714,9 @@ fend
                     Statement::Function {
                         name: Identifier("hoge".to_string()),
                         params: vec![
-                            Identifier("foo".to_string()),
-                            Identifier("bar".to_string()),
-                            Identifier("baz".to_string()),
+                            Expression::Params(Params::Identifier(Identifier("foo".to_string()))),
+                            Expression::Params(Params::Identifier(Identifier("bar".to_string()))),
+                            Expression::Params(Params::Identifier(Identifier("baz".to_string()))),
                         ],
                         body: vec![
                             Statement::Expression(
@@ -2684,31 +2740,23 @@ fend
             ),
             (
                 r#"
-procedure hoge(foo, bar, baz)
-    print foo + bar + baz
+procedure hoge(foo, var bar, baz[], qux = 1, &quux)
 fend
                 "#,
                 vec![
                     Statement::Function {
                         name: Identifier("hoge".to_string()),
                         params: vec![
-                            Identifier("foo".to_string()),
-                            Identifier("bar".to_string()),
-                            Identifier("baz".to_string()),
+                            Expression::Params(Params::Identifier(Identifier("foo".to_string()))),
+                            Expression::Params(Params::Reference(Identifier("bar".to_string()))),
+                            Expression::Params(Params::ForceArray(Identifier("baz".to_string()))),
+                            Expression::Params(Params::WithDefault(
+                                Identifier("qux".to_string()),
+                                Box::new(Expression::Literal(Literal::Num(1.0))),
+                            )),
+                            Expression::Params(Params::Variadic(Identifier("quux".to_string())))
                         ],
-                        body: vec![
-                            Statement::Print(
-                                Expression::Infix(
-                                    Infix::Plus,
-                                    Box::new(Expression::Infix(
-                                        Infix::Plus,
-                                        Box::new(Expression::Identifier(Identifier("foo".to_string()))),
-                                        Box::new(Expression::Identifier(Identifier("bar".to_string()))),
-                                    )),
-                                    Box::new(Expression::Identifier(Identifier("baz".to_string()))),
-                                ),
-                            )
-                        ],
+                        body: vec![],
                         is_proc: true,
                     }
                 ]
@@ -2725,7 +2773,7 @@ fend
                     Statement::Function {
                         name: Identifier("hoge".to_string()),
                         params: vec![
-                            Identifier("a".to_string()),
+                            Expression::Params(Params::Identifier(Identifier("a".to_string()))),
                         ],
                         body: vec![
                             Statement::Expression(
@@ -2756,7 +2804,7 @@ fend
                         Box::new(Expression::Identifier(Identifier("hoge".to_string()))),
                         Box::new(Expression::AnonymusFunction{
                             params: vec![
-                                Identifier("a".to_string()),
+                                Expression::Params(Params::Identifier(Identifier("a".to_string()))),
                             ],
                             body: vec![
                                 Statement::Expression(Expression::Assign(
@@ -2780,7 +2828,7 @@ fend
                         Box::new(Expression::Identifier(Identifier("hoge".to_string()))),
                         Box::new(Expression::AnonymusFunction{
                             params: vec![
-                                Identifier("a".to_string()),
+                                Expression::Params(Params::Identifier(Identifier("a".to_string()))),
                             ],
                             body: vec![
                                 Statement::Print(
@@ -2999,8 +3047,8 @@ endmodule
             Statement::Function {
                 name: Identifier("f".to_string()),
                 params: vec![
-                    Identifier("x".to_string()),
-                    Identifier("y".to_string())
+                    Expression::Params(Params::Identifier(Identifier("x".to_string()))),
+                    Expression::Params(Params::Identifier(Identifier("y".to_string())))
                 ],
                 body: vec![
                     Statement::Expression(Expression::Assign(
@@ -3045,8 +3093,8 @@ endmodule
                     Statement::Function {
                         name: Identifier("f".to_string()),
                         params: vec![
-                            Identifier("x".to_string()),
-                            Identifier("y".to_string())
+                            Expression::Params(Params::Identifier(Identifier("x".to_string()))),
+                            Expression::Params(Params::Identifier(Identifier("y".to_string())))
                         ],
                         body: vec![
                             Statement::Expression(Expression::Assign(
@@ -3070,7 +3118,7 @@ endmodule
                             Identifier("_f".to_string()),
                             Expression::AnonymusFunction {
                                 params: vec![
-                                    Identifier("z".to_string()),
+                                    Expression::Params(Params::Identifier(Identifier("z".to_string()))),
                                 ],
                                 body: vec![
                                     Statement::Expression(Expression::Assign(

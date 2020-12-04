@@ -242,27 +242,27 @@ impl Evaluator {
                 if Self::is_error(&module) {
                     return Some(module);
                 }
-                let result = self.env.borrow_mut().define_module(name.clone(), module);
-                match result {
+                // コンストラクタがあれば実行する
+                let r = self.env.borrow_mut().define_module(name.clone(), module);
+                match r {
                     Ok(()) => {
                         let module = self.env.borrow().get_module(&name);
                         if module.is_some() {
-                            match module {
-                                Some(Object::Module(m)) => {
-                                    if m.borrow().has_constructor() {
-                                        let constructor = self.eval_function_call_expression(
-                                            Box::new(Expression::DotCall(
-                                                Box::new(Expression::Identifier(Identifier(name.clone()))),
-                                                Box::new(Expression::Identifier(Identifier(name))),
-                                            )),
-                                            vec![]
-                                        );
-                                        if Self::is_error(&constructor) {
-                                            return Some(constructor)
-                                        }
-                                    }
-                                },
-                                _ => ()
+                            let m = match module.unwrap() {
+                                Object::Module(m) => m,
+                                _ => return Some(Self::error("unknown error".into()))
+                            };
+                            if m.borrow().has_constructor() {
+                                let constructor = self.eval_function_call_expression(
+                                    Box::new(Expression::DotCall(
+                                        Box::new(Expression::Identifier(Identifier(name.clone()))),
+                                        Box::new(Expression::Identifier(Identifier(name))),
+                                    )),
+                                    vec![]
+                                );
+                                if Self::is_error(&constructor) {
+                                    return Some(constructor)
+                                }
                             }
                         }
                         None
@@ -605,7 +605,7 @@ impl Evaluator {
         None
     }
 
-    fn eval_funtcion_definition_statement(&mut self, name: &String, params: Vec<Identifier>, body: Vec<Statement>, is_proc: bool) -> Object {
+    fn eval_funtcion_definition_statement(&mut self, name: &String, params: Vec<Expression>, body: Vec<Statement>, is_proc: bool) -> Object {
         for statement in body.clone() {
             match statement {
                 Statement::Function{name: _, params: _, body: _, is_proc: _}  => {
@@ -845,6 +845,7 @@ impl Evaluator {
             Expression::DotCall(l, r) => {
                 Some(self.eval_dotcall_expression(*l, *r, false))
             },
+            Expression::Params(p) => Some(Self::error(format!("bad expression: {}", p)))
         };
         some_obj
     }
@@ -1259,12 +1260,16 @@ impl Evaluator {
     }
 
     fn eval_function_call_expression(&mut self, func: Box<Expression>, args: Vec<Expression>) -> Object {
-        let arguments = args.iter().map(
+        type Argument = (Option<Expression>, Object);
+        let mut arguments = args.iter().map(
+            |e| (Some(e.clone()), self.eval_expression(e.clone()).unwrap())
+        ).collect::<Vec<Argument>>();
+        let bi_arguments = args.iter().map(
             |e| self.eval_expression(e.clone()).unwrap()
         ).collect::<Vec<_>>();
 
         let (
-            params,
+            mut params,
             body,
             is_proc,
             anon_outer,
@@ -1275,7 +1280,7 @@ impl Evaluator {
                 Object::AnonFunc(p, b, o, is_proc) =>  (p, b, is_proc, Some(o), None),
                 Object::BuiltinFunction(expected_param_len, f) => {
                     if expected_param_len >= arguments.len() as i32 {
-                        let func_result = f(arguments);
+                        let func_result = f(bi_arguments);
                         return self.builtin_func_result(func_result);
                     } else {
                         let l = arguments.len();
@@ -1292,13 +1297,11 @@ impl Evaluator {
             },
             None => return Object::Empty,
         };
-
-        if params.len() != arguments.len() {
-            return Self::error(format!(
-                "length of arguments should be {}, not {}",
-                params.len(),
-                arguments.len()
-            ));
+        let org_param_len = params.len();
+        if params.len() > arguments.len() {
+            arguments.resize(params.len(), (None, Object::Empty));
+        } else if params.len() < arguments.len() {
+            params.resize(arguments.len(), Expression::Params(Params::VariadicDummy));
         }
 
         let module_name = match left_of_dot.clone() {
@@ -1314,10 +1317,76 @@ impl Evaluator {
         } else {
             self.env.borrow_mut().new_scope(module_name);
         }
-        let list = params.iter().zip(arguments.iter());
-        for (_, (identifier, o)) in list.enumerate() {
-            let Identifier(name) = identifier.clone();
-            match self.env.borrow_mut().define_local(name, o.clone()) {
+        let list = params.into_iter().zip(arguments.into_iter());
+        let mut variadic = vec![];
+        let mut variadic_name = String::new();
+        let mut reference = vec![];
+        for (_, (e, (arg_e, o))) in list.enumerate() {
+            let param = match e {
+                Expression::Params(p) => p,
+                _ => return Self::error(format!("bad parameter: {:?}", e))
+            };
+            let (name, value) = match param {
+                Params::Identifier(i) => {
+                    let Identifier(name) = i;
+                    (name, o.clone())
+                },
+                Params::Reference(i) => {
+                    let Identifier(name) = i.clone();
+                    let arg_name = match arg_e.unwrap() {
+                        Expression::Identifier(Identifier(s)) => s.clone(),
+                        _ => return Self::error(format!("reference to {} should be Identifier", name))
+                    };
+                    reference.push((name.clone(), arg_name));
+                    (name, o.clone())
+                },
+                Params::ForceArray(i) => {
+                    let Identifier(name) = i;
+                    match o {
+                        Object::Array(_) |
+                        Object::Hash(_, _) |
+                        Object::SortedHash(_, _) => (name, o.clone()),
+                        _ => return Self::error(format!("{} is not array", name))
+                    }
+                },
+                Params::WithDefault(i, default) => {
+                    let Identifier(name) = i;
+                    if o == Object::Empty {
+                        match self.eval_expression(*default) {
+                            Some(o) => if Self::is_error(&o) {
+                                return o;
+                            } else {
+                                (name, o)
+                            },
+                            None => return Self::error(format!("syntax err on {}'s default value", name))
+                        }
+                    } else {
+                        (name, o.clone())
+                    }
+                },
+                Params::Variadic(i) => {
+                    let Identifier(name) = i;
+                    variadic_name = name.clone();
+                    variadic.push(o.clone());
+                    continue;
+                },
+                Params::VariadicDummy => {
+                    if variadic.len() < 1 {
+                        return Self::error(format!("too many arguments, should be less than or equal to {}", org_param_len))
+                    }
+                    variadic.push(o.clone());
+                    continue;
+                }
+            };
+            if variadic.len() == 0 {
+                match self.env.borrow_mut().define_local(name, value) {
+                    Ok(()) => (),
+                    Err(e) => return e
+                };
+            }
+        }
+        if variadic.len() > 0 {
+            match self.env.borrow_mut().define_local(variadic_name, Object::Array(variadic)) {
                 Ok(()) => (),
                 Err(e) => return e
             };
@@ -1343,7 +1412,27 @@ impl Evaluator {
                 None => Object::Empty
             }
         };
+        // 参照渡し
+        let ref_values = if reference.len() > 0 {
+            let mut vec = vec![];
+            for (p_name, _) in reference.clone() {
+                vec.push(
+                    self.env.borrow_mut().get_variable(&p_name).unwrap()
+                )
+            }
+            vec
+        } else {
+            vec![]
+        };
+
         self.env.borrow_mut().restore_scope();
+
+        for ((_, a), o) in reference.iter().zip(ref_values.iter()) {
+            match self.env.borrow_mut().assign(a.clone(), o.clone()) {
+                Ok(()) => {},
+                Err(e) => return e
+            };
+        };
 
         match object {
             Some(o) => if Self::is_error(&o) {

@@ -44,6 +44,14 @@ impl Lexer {
         self.nextch() == ch
     }
 
+    fn ch_after_is(&mut self, n: usize, ch: char) -> bool {
+        if self.pos + n >= self.input.len() {
+            false
+        } else {
+            self.input[self.pos + n] == ch
+        }
+    }
+
     fn skip_whitespace(&mut self) {
         loop {
             match self.ch {
@@ -147,7 +155,18 @@ impl Lexer {
             ':' => Token::Colon,
             ';' => Token::Semicolon,
             ',' => Token::Comma,
-            '.' => Token::Period,
+            '.' => if self.nextch_is('.') && self.ch_after_is(2, '.') {
+                self.read_char();
+                self.read_char();
+                self.read_char();
+                let t = self.next_token();
+                match t {
+                    Token::Identifier(s) => return Token::Variadic(s),
+                    _ => t
+                }
+            } else {
+                Token::Period
+            },
             '_' => {
                 if self.nextch_is('\n') {
                     Token::LineContinue
@@ -184,7 +203,6 @@ impl Lexer {
                 return self.consume_identifier();
             },
         };
-
         self.read_char();
 
         return token;
@@ -287,6 +305,7 @@ impl Lexer {
             "null" => Token::Null,
             "empty" => Token::Empty,
             "nothing" => Token::Nothing,
+            "var" | "ref" => Token::Ref,
             _ => Token::Identifier(literal.to_string()),
         }
     }

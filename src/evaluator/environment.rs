@@ -157,7 +157,7 @@ impl fmt::Display for NamedObject {
 pub struct Layer {
     local: Vec<NamedObject>,
     outer: Option<Box<Layer>>,
-    module_name: Option<String>
+    module_name: Option<String>,
 }
 
 #[derive(PartialEq, Clone, Debug)]
@@ -183,7 +183,7 @@ impl Environment {
         self.current = Layer {
             local: Vec::new(),
             outer,
-            module_name
+            module_name,
         }
     }
 
@@ -196,7 +196,7 @@ impl Environment {
         self.current = Layer {
             local: outer_local,
             outer,
-            module_name
+            module_name,
         }
     }
 

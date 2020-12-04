@@ -21,8 +21,8 @@ pub enum Object {
     Array(Vec<Object>),
     Hash(HashMap<String, Object>, bool),
     SortedHash(BTreeMap<String, Object>, bool),
-    AnonFunc(Vec<Identifier>, BlockStatement, Vec<NamedObject>, bool),
-    Function(String, Vec<Identifier>, BlockStatement, bool, Option<Box<Object>>),
+    AnonFunc(Vec<Expression>, BlockStatement, Vec<NamedObject>, bool),
+    Function(String, Vec<Expression>, BlockStatement, bool, Option<Box<Object>>),
     BuiltinFunction(i32, BuiltinFunction),
     Module(Rc<RefCell<Module>>),
     Null,
@@ -86,11 +86,14 @@ impl fmt::Display for Object {
                     },
                     None => name.to_string()
                 };
-                for (i, Identifier(ref s)) in params.iter().enumerate() {
-                    if i < 1 {
-                        arguments.push_str(&format!("{}", s))
-                    } else {
-                        arguments.push_str(&format!(", {}", s))
+                for (i, e) in params.iter().enumerate() {
+                    match e {
+                        Expression::Params(ref p) => if i < 1 {
+                            arguments.push_str(&format!("{}", p))
+                        } else {
+                            arguments.push_str(&format!(", {}", p))
+                        },
+                        _ => ()
                     }
                 }
                 if is_proc {
@@ -101,11 +104,14 @@ impl fmt::Display for Object {
             },
             Object::AnonFunc(ref params, _, _, is_proc) => {
                 let mut arguments = String::new();
-                for (i, Identifier(ref s)) in params.iter().enumerate() {
-                    if i < 1 {
-                        arguments.push_str(&format!("{}", s))
-                    } else {
-                        arguments.push_str(&format!(", {}", s))
+                for (i, e) in params.iter().enumerate() {
+                    match e {
+                        Expression::Params(ref p) => if i < 1 {
+                            arguments.push_str(&format!("{}", p))
+                        } else {
+                            arguments.push_str(&format!(", {}", p))
+                        },
+                        _ => ()
                     }
                 }
                 if is_proc {
@@ -126,7 +132,7 @@ impl fmt::Display for Object {
             Object::Debug(_) => write!(f, "debug"),
             Object::Module(ref m) => write!(f, "module: {}", m.borrow().name()),
             Object::Handle(h) => write!(f, "{:?}", h),
-            Object::RegEx(ref re) => write!(f, "regex: {}", re)
+            Object::RegEx(ref re) => write!(f, "regex: {}", re),
         }
     }
 }
