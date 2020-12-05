@@ -1,5 +1,5 @@
 use crate::ast::*;
-use crate::lexer::Lexer;
+use crate::lexer::{Lexer, Position, TokenWithPos};
 use crate::token::Token;
 use std::fmt;
 
@@ -16,6 +16,7 @@ pub enum ParseErrorKind {
 pub struct ParseError {
     kind: ParseErrorKind,
     msg: String,
+    pos: Position,
 }
 
 impl fmt::Display for ParseErrorKind {
@@ -31,8 +32,8 @@ impl fmt::Display for ParseErrorKind {
 }
 
 impl ParseError {
-    fn new(kind: ParseErrorKind, msg: String) -> Self {
-        ParseError {kind, msg}
+    fn new(kind: ParseErrorKind, msg: String, pos: Position) -> Self {
+        ParseError {kind, msg,pos}
     }
 
     pub fn get_kind(self) -> ParseErrorKind {
@@ -42,7 +43,7 @@ impl ParseError {
 
 impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}: {}", self.kind, self.msg)
+        write!(f, "{} [{}]: {}", self.kind, self.pos, self.msg)
     }
 }
 
@@ -50,8 +51,8 @@ pub type PareseErrors = Vec<ParseError>;
 
 pub struct Parser {
     lexer: Lexer,
-    current_token: Token,
-    next_token: Token,
+    current_token: TokenWithPos,
+    next_token: TokenWithPos,
     errors: PareseErrors,
 }
 
@@ -59,8 +60,8 @@ impl Parser {
     pub fn new(lexer: Lexer) -> Self {
         let mut parser = Parser {
             lexer,
-            current_token: Token::Eof,
-            next_token: Token::Eof,
+            current_token: TokenWithPos::new(Token::Eof),
+            next_token: TokenWithPos::new(Token::Eof),
             errors: vec![],
         };
         parser.bump();
@@ -96,11 +97,11 @@ impl Parser {
     }
 
     fn is_current_token(&mut self, token: &Token) -> bool {
-        self.current_token == *token
+        self.current_token.token == *token
     }
 
     fn is_current_token_in(&mut self, tokens: Vec<Token>) -> bool {
-        tokens.contains(&self.current_token)
+        tokens.contains(&self.current_token.token)
     }
 
     fn is_current_token_end_of_block(&mut self) -> bool {
@@ -125,7 +126,7 @@ impl Parser {
     }
 
     fn is_next_token(&mut self, token: &Token) -> bool {
-        self.next_token == *token
+        self.next_token.token == *token
     }
 
     fn is_next_token_expected(&mut self, token: Token) -> bool {
@@ -152,8 +153,9 @@ impl Parser {
             ParseErrorKind::UnexpectedToken,
             format!(
                 "expected token was {:?}, but got {:?} instead.",
-                token, self.next_token
-            )
+                token, self.next_token.token,
+            ),
+            self.next_token.pos.clone()
         ))
     }
 
@@ -162,8 +164,9 @@ impl Parser {
             ParseErrorKind::BlockNotClosedCorrectly,
             format!(
                 "this block requires {:?} to close but got {:?}",
-                token, self.current_token
-            )
+                token, self.current_token.token
+            ),
+            self.current_token.pos.clone()
         ))
     }
 
@@ -182,8 +185,9 @@ impl Parser {
             ParseErrorKind::UnexpectedToken,
             format!(
                 "expected token was Identifier, but got {:?} instead.",
-                self.current_token
-            )
+                self.current_token.token
+            ),
+            self.current_token.pos.clone()
         ))
     }
 
@@ -192,8 +196,9 @@ impl Parser {
             ParseErrorKind::UnexpectedToken,
             format!(
                 "unexpected token: {:?}.",
-                self.current_token
-            )
+                self.current_token.token
+            ),
+            self.current_token.pos.clone()
         ))
     }
 
@@ -202,24 +207,26 @@ impl Parser {
             ParseErrorKind::UnexpectedToken,
             format!(
                 "unexpected token: {:?}.",
-                self.next_token
-            )
+                self.next_token.token
+            ),
+            self.next_token.pos.clone()
         ))
     }
 
     fn error_got_bad_parameter(&mut self, msg: String) {
         self.errors.push(ParseError::new(
             ParseErrorKind::BadParameter,
-            msg
+            msg,
+            self.current_token.pos.clone()
         ))
     }
 
     fn current_token_precedence(&mut self) -> Precedence {
-        Self::token_to_precedence(&self.current_token)
+        Self::token_to_precedence(&self.current_token.token)
     }
 
     fn next_token_precedence(&mut self) -> Precedence {
-        Self::token_to_precedence(&self.next_token)
+        Self::token_to_precedence(&self.next_token.token)
     }
 
     fn error_no_prefix_parser(&mut self) {
@@ -227,8 +234,9 @@ impl Parser {
             ParseErrorKind::UnexpectedToken,
             format!(
                 "no prefix parser found for \"{:?}\"",
-                self.current_token
-            )
+                self.current_token.token
+            ),
+            self.current_token.pos.clone()
         ))
     }
 
@@ -292,7 +300,7 @@ impl Parser {
     }
 
     fn parse_statement(&mut self) -> Option<Statement> {
-        match self.current_token {
+        match self.current_token.token {
             Token::Dim => self.parse_dim_statement(),
             Token::Public => self.parse_public_statement(),
             Token::Const => self.parse_const_statement(),
@@ -343,7 +351,8 @@ impl Parser {
                     if value_required {
                         self.errors.push(ParseError::new(
                             ParseErrorKind::ValueMustBeDefined,
-                            format!("{} has no value.", var_name)
+                            format!("{} has no value.", var_name),
+                            self.next_token.pos.clone()
                         ));
                         return Err(());
                     } else {
@@ -364,7 +373,8 @@ impl Parser {
                     if value_required {
                         self.errors.push(ParseError::new(
                             ParseErrorKind::ValueMustBeDefined,
-                            format!("{} has no value.", var_name)
+                            format!("{} has no value.", var_name),
+                            self.next_token.pos.clone()
                         ));
                         return Err(());
                     } else {
@@ -392,7 +402,7 @@ impl Parser {
     }
 
     fn parse_public_statement(&mut self) -> Option<Statement> {
-        match &self.next_token {
+        match &self.next_token.token {
             Token::Identifier(_) => self.bump(),
             Token::HashTable => {
                 self.bump();
@@ -407,7 +417,7 @@ impl Parser {
     }
 
     fn parse_dim_statement(&mut self) -> Option<Statement> {
-        match &self.next_token {
+        match &self.next_token.token {
             Token::Identifier(_) => self.bump(),
             _ => return None,
         }
@@ -418,7 +428,7 @@ impl Parser {
     }
 
     fn parse_const_statement(&mut self) -> Option<Statement> {
-        match &self.next_token {
+        match &self.next_token.token {
             Token::Identifier(_) => self.bump(),
             _ => return None,
         }
@@ -462,7 +472,7 @@ impl Parser {
     }
 
     fn parse_special_statement(&mut self) -> Option<Statement> {
-        match self.current_token {
+        match self.current_token.token {
             Token::Call(ref mut s) => {
                 Some(Statement::Call(s.clone()))
             },
@@ -500,7 +510,7 @@ impl Parser {
                 return None;
             }
         };
-        match self.next_token {
+        match self.next_token.token {
             Token::EqualOrAssign => {
                 // for
                 self.bump();
@@ -608,11 +618,11 @@ impl Parser {
 
     fn parse_expression(&mut self, precedence: Precedence, is_sol: bool) -> Option<Expression> {
         // prefix
-        let mut left = match self.current_token {
+        let mut left = match self.current_token.token {
             Token::Identifier(_) => {
                 let identifier = self.parse_identifier_expression();
                 if is_sol {
-                    match self.next_token {
+                    match self.next_token.token {
                         Token::EqualOrAssign => return self.parse_assign_expression(identifier.unwrap()),
                         Token::AddAssign => return self.parse_compound_assign_expression(identifier.unwrap(), Token::AddAssign),
                         Token::SubtractAssign => return self.parse_compound_assign_expression(identifier.unwrap(), Token::SubtractAssign),
@@ -649,7 +659,7 @@ impl Parser {
             ! self.is_next_token(&Token::Semicolon)
             || ! self.is_next_token(&Token::Eol)
         ) && precedence < self.next_token_precedence() {
-            match self.next_token {
+            match self.next_token.token {
                 Token::Plus
                 | Token::Minus
                 | Token::Slash
@@ -676,7 +686,7 @@ impl Parser {
                     left = {
                         let index = self.parse_index_expression(left.unwrap());
                         if is_sol {
-                            match self.next_token {
+                            match self.next_token.token {
                                 Token::EqualOrAssign => return self.parse_assign_expression(index.unwrap()),
                                 Token::AddAssign => return self.parse_compound_assign_expression(index.unwrap(), Token::AddAssign),
                                 Token::SubtractAssign => return self.parse_compound_assign_expression(index.unwrap(), Token::SubtractAssign),
@@ -701,7 +711,7 @@ impl Parser {
                     left = {
                         let dotcall = self.parse_dotcall_expression(left.unwrap());
                         if is_sol {
-                            match self.next_token {
+                            match self.next_token.token {
                                 Token::EqualOrAssign => return self.parse_assign_expression(dotcall.unwrap()),
                                 Token::AddAssign => return self.parse_compound_assign_expression(dotcall.unwrap(), Token::AddAssign),
                                 Token::SubtractAssign => return self.parse_compound_assign_expression(dotcall.unwrap(), Token::SubtractAssign),
@@ -721,7 +731,7 @@ impl Parser {
     }
 
     fn parse_identifier(&mut self) -> Option<Identifier> {
-        match self.current_token {
+        match self.current_token.token {
             Token::Identifier(ref mut i) => Some(Identifier(i.clone())),
             _ => None,
         }
@@ -735,7 +745,7 @@ impl Parser {
     }
 
     fn parse_number_expression(&mut self) -> Option<Expression> {
-        match self.current_token {
+        match self.current_token.token {
             Token::Num(ref mut num) => Some(
                 Expression::Literal(Literal::Num(num.clone()))
             ),
@@ -744,7 +754,7 @@ impl Parser {
     }
 
     fn parse_string_expression(&mut self) -> Option<Expression> {
-        match self.current_token {
+        match self.current_token.token {
             Token::String(ref mut s) => Some(
                 Expression::Literal(Literal::String(s.clone()))
             ),
@@ -753,7 +763,7 @@ impl Parser {
     }
 
     fn parse_bool_expression(&mut self) -> Option<Expression> {
-        match self.current_token {
+        match self.current_token.token {
             Token::Bool(v) => Some(
                 Expression::Literal(Literal::Bool(v == true))
             ),
@@ -840,7 +850,7 @@ impl Parser {
     }
 
     fn parse_prefix_expression(&mut self) -> Option<Expression> {
-        let prefix = match self.current_token {
+        let prefix = match self.current_token.token {
             Token::Bang => Prefix::Not,
             Token::Minus => Prefix::Minus,
             Token::Plus => Prefix::Plus,
@@ -855,7 +865,7 @@ impl Parser {
     }
 
     fn parse_infix_expression(&mut self, left: Expression) -> Option<Expression> {
-        let infix = match self.current_token {
+        let infix = match self.current_token.token {
             Token::Plus => Infix::Plus,
             Token::Minus => Infix::Minus,
             Token::Slash => Infix::Divide,
@@ -1023,7 +1033,7 @@ impl Parser {
         self.bump();
         self.bump();
         while self.is_current_token_in(vec![Token::Case, Token::Default]) {
-            match self.current_token {
+            match self.current_token.token {
                 Token::Case => {
                     let case_values = match self.parse_expression_list(Token::Eol) {
                         Some(list) => list,
@@ -1095,7 +1105,8 @@ impl Parser {
                     ParseErrorKind::BlockNotClosedCorrectly,
                     format!(
                         "module should be closed by endmodule.",
-                    )
+                    ),
+                    self.current_token.pos.clone()
                 ));
                 return None;
             }
@@ -1211,7 +1222,7 @@ impl Parser {
     }
 
     fn parse_param(&mut self) -> Option<Params> {
-        match &self.current_token {
+        match &self.current_token.token {
             Token::Identifier(_) => {
                 let i = self.parse_identifier().unwrap();
                 if self.is_next_token(&Token::Lbracket) {
@@ -1232,7 +1243,7 @@ impl Parser {
                 }
             },
             Token::Ref => {
-                match self.next_token {
+                match self.next_token.token {
                     Token::Identifier(_) => {
                         self.bump();
                         let i = self.parse_identifier().unwrap();

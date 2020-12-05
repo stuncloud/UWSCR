@@ -1,12 +1,51 @@
 use crate::token::Token;
 use std::i64;
 use std::f64;
+use std::fmt;
+
+#[derive(Debug,Clone)]
+pub struct Position {
+    pub row: usize,
+    pub column: usize,
+}
+
+impl fmt::Display for Position {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f,"{}, {}",self.row, self.column)
+    }
+}
+
+impl Position {
+    pub fn new() -> Self {
+        Position{row: 0, column: 0}
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct TokenWithPos {
+    pub token: Token,
+    pub pos: Position,
+}
+
+impl TokenWithPos {
+    pub fn new(token: Token) -> Self {
+        TokenWithPos {
+            token,
+            pos: Position::new()
+        }
+    }
+    pub fn new_with_pos(token: Token, pos: Position) -> Self {
+        TokenWithPos{token, pos}
+    }
+}
 
 pub struct Lexer {
     input: Vec<char>,
     pos: usize,
     next_pos: usize,
     ch: char,
+    position: Position,
+    position_before: Position,
 }
 
 impl Lexer {
@@ -16,10 +55,18 @@ impl Lexer {
             pos: 0,
             next_pos: 0,
             ch: '\0',
+            position: Position {row: 1, column: 0},
+            position_before: Position{row: 0, column:0},
         };
         lexer.read_char();
 
         lexer
+    }
+
+    fn to_next_row(&mut self) {
+        self.position_before = self.position.clone();
+        self.position.row += 1;
+        self.position.column = 0;
     }
 
     fn read_char(&mut self) {
@@ -30,6 +77,7 @@ impl Lexer {
         }
         self.pos = self.next_pos;
         self.next_pos += 1;
+        self.position.column += 1;
     }
 
     fn nextch(&mut self) -> char {
@@ -65,8 +113,9 @@ impl Lexer {
         }
     }
 
-    pub fn next_token(&mut self) -> Token {
+    pub fn next_token(&mut self) -> TokenWithPos {
         self.skip_whitespace();
+        let p: Position = self.position.clone();
 
         let token: Token = match self.ch {
             '=' => {
@@ -95,6 +144,7 @@ impl Lexer {
                     while ! self.nextch_is('\0') {
                         self.read_char();
                         if self.nextch_is('\r') {
+                            self.read_char();
                             if self.nextch_is('\n'){
                                 self.read_char();
                             }
@@ -104,6 +154,7 @@ impl Lexer {
                             break;
                         }
                     }
+                    self.to_next_row();
                     Token::Eol
                 } else if self.nextch_is('=') {
                     self.read_char();
@@ -160,10 +211,10 @@ impl Lexer {
                 self.read_char();
                 self.read_char();
                 let t = self.next_token();
-                match t {
-                    Token::Identifier(s) => return Token::Variadic(s),
-                    _ => t
+                if let Token::Identifier(s) = t.token {
+                    return TokenWithPos::new_with_pos(Token::Variadic(s), p);
                 }
+                t.token
             } else {
                 Token::Period
             },
@@ -171,41 +222,43 @@ impl Lexer {
                 if self.nextch_is('\n') {
                     Token::LineContinue
                 } else {
-                    return self.consume_identifier();
+                    return TokenWithPos::new_with_pos(self.consume_identifier(), p);
                 }
             },
             '\\' => Token::BackSlash,
             'a'..='z' | 'A'..='Z' | '#' => {
-                return self.consume_identifier();
+                return TokenWithPos::new_with_pos(self.consume_identifier(), p);
             },
             '0'..='9' => {
-                return self.consume_number();
+                return TokenWithPos::new_with_pos(self.consume_number(), p);
             },
             '$' => {
-                return self.consume_hexadecimal();
+                return TokenWithPos::new_with_pos(self.consume_hexadecimal(), p);
             },
             '"' => {
-                return self.consume_string();
+                return TokenWithPos::new_with_pos(self.consume_string(), p);
             },
-            '\'' => return self.consume_single_quote_string(),
+            '\'' => return TokenWithPos::new_with_pos(self.consume_single_quote_string(), p),
             '\n' => {
+                self.to_next_row();
                 Token::Eol
             },
             '\r' => {
                 if self.nextch_is('\n') {
                     self.read_char();
                 }
+                self.to_next_row();
                 Token::Eol
             },
             '\0' => Token::Eof,
             '\x01'..=' ' => Token::Illegal(self.ch),
             _ => {
-                return self.consume_identifier();
+                return TokenWithPos::new_with_pos(self.consume_identifier(), p);
             },
         };
         self.read_char();
 
-        return token;
+        return TokenWithPos::new_with_pos(token, p);
     }
 
 
@@ -398,7 +451,7 @@ mod test {
         let mut  lexer = Lexer::new(input);
         for expected_token in expected_tokens {
             let t = lexer.next_token();
-            assert_eq!(t, expected_token);
+            assert_eq!(t.token, expected_token);
         }
     }
 
