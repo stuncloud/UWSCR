@@ -909,7 +909,10 @@ impl Parser {
         self.bump();
         let member = match self.parse_identifier_expression() {
             Some(e) => e,
-            None => return None
+            None => {
+                self.error_token_is_not_identifier();
+                return None;
+            }
         };
         Some(Expression::DotCall(Box::new(left), Box::new(member)))
     }

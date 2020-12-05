@@ -852,7 +852,7 @@ impl Evaluator {
 
     fn eval_identifier(&mut self, identifier: Identifier) -> Object {
         let Identifier(name) = identifier;
-        let mut env = self.env.borrow_mut();
+        let env = self.env.borrow();
         match env.get_variable(&name) {
             Some(o) => o,
             None => match env.get_function(&name) {
@@ -1210,15 +1210,12 @@ impl Evaluator {
         match expression {
             Expression::Identifier(i) => {
                 let Identifier(name) = i;
-                let mut env = self.env.borrow_mut();
-                match env.get_function(&name.replace("global.", "")) {
+                let env = self.env.borrow();
+                match env.get_function(&name) {
                     Some(o) => Some(o),
-                    None => match env.get_function(&name) {
+                    None => match env.get_variable(&name) {
                         Some(o) => Some(o),
-                        None => match env.get_variable(&name) {
-                            Some(o) => Some(o),
-                            None => Some(Object::Error(format!("function not found: {}", name)))
-                        }
+                        None => Some(Object::Error(format!("function not found: {}", name)))
                     }
                 }
             },
@@ -1394,7 +1391,11 @@ impl Evaluator {
 
         match left_of_dot {
             Some(obj) => match *obj {
-                Object::Module(m) => self.env.borrow_mut().set_module_private_member(&m.borrow().name()),
+                Object::Module(m) => {
+                    self.env.borrow_mut().set_module_private_member(&m.borrow().name());
+                    // add global and this
+                    self.env.borrow_mut().define_module_special_member();
+                },
                 _ => ()
             }
             None => ()
@@ -1487,13 +1488,45 @@ impl Evaluator {
                         _ => Self::error(format!("member does not exist."))
                     }
                 },
+                Object::This => {
+                    let env = self.env.borrow();
+                    match env.get_current_module_name() {
+                        Some(name) => {
+                            match env.get_module(&name) {
+                                Some(o) => if let Object::Module(m) = o {
+                                    let module = m.borrow();
+                                    if let Expression::Identifier(i) = right {
+                                        let Identifier(member_name) = i;
+                                        if is_func {
+                                            module.get_function(&member_name)
+                                        } else {
+                                            module.get_member(&member_name)
+                                        }
+                                    } else {
+                                        Self::error(format!("module member not found on {}", &name))
+                                    }
+                                } else {
+                                    Self::error(format!("module {} not found", name))
+                                },
+                                None => Self::error(format!("module {} not found", name))
+                            }
+                        },
+                        None => Self::error(format!("THIS can not be called from out side of module"))
+                    }
+                },
+                Object::Global => {
+                    if let Expression::Identifier(Identifier(g_name)) = right {
+                        self.env.borrow().get_global(&g_name, is_func)
+                    } else {
+                        Self::error(format!("global: not an identifier ({:?})", right))
+                    }
+                },
                 Object::Error(_) => return o,
                 _ => Self::error(format!(". operator not supported"))
             },
             None => Self::error(format!(". operator: syntax error"))
         }
     }
-
 }
 
 #[cfg(test)]

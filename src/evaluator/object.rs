@@ -36,6 +36,8 @@ pub enum Object {
     RegEx(String),
     Exit,
     Debug(DebugType),
+    Global, // globalを示す
+    This,   // thisを示す
 }
 
 impl fmt::Display for Object {
@@ -133,6 +135,8 @@ impl fmt::Display for Object {
             Object::Module(ref m) => write!(f, "module: {}", m.borrow().name()),
             Object::Handle(h) => write!(f, "{:?}", h),
             Object::RegEx(ref re) => write!(f, "regex: {}", re),
+            Object::Global => write!(f, "GLOBAL"),
+            Object::This => write!(f, "THIS"),
         }
     }
 }
