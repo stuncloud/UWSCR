@@ -120,5 +120,5 @@ pub enum Token {
 
     // 引数関連
     Ref,
-    Variadic(String), // 可変長引数
+    Variadic, // 可変長引数
 }

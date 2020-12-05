@@ -206,18 +206,7 @@ impl Lexer {
             ':' => Token::Colon,
             ';' => Token::Semicolon,
             ',' => Token::Comma,
-            '.' => if self.nextch_is('.') && self.ch_after_is(2, '.') {
-                self.read_char();
-                self.read_char();
-                self.read_char();
-                let t = self.next_token();
-                if let Token::Identifier(s) = t.token {
-                    return TokenWithPos::new_with_pos(Token::Variadic(s), p);
-                }
-                t.token
-            } else {
-                Token::Period
-            },
+            '.' => Token::Period,
             '_' => {
                 if self.nextch_is('\n') {
                     Token::LineContinue
@@ -359,6 +348,7 @@ impl Lexer {
             "empty" => Token::Empty,
             "nothing" => Token::Nothing,
             "var" | "ref" => Token::Ref,
+            "args" | "prms" => Token::Variadic,
             _ => Token::Identifier(literal.to_string()),
         }
     }
