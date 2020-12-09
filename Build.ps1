@@ -2,7 +2,8 @@
 param(
     [Parameter(Mandatory=$false)]
     [string] $Version,
-    [switch] $Release
+    [switch] $Release,
+    [string] $OutDir = '.\.release'
 )
 
 # リリースビルドの場合vcのライブラリをスタティックリンクする
@@ -23,15 +24,12 @@ if ($Release) {
 
     $exe64 = '.\target\release\uwscr.exe'
     $exe86 = '.\target\i686-pc-windows-msvc\release\uwscr.exe'
-    if (! (Test-Path $exe64)) {
-        Write-Error 'x64版uwscr.exeがない'
-        break
+    $exe64, $exe86 | % {
+        if (! (Test-Path $_)) {
+            Write-Error "$($_) が見つかりません"
+            break
+        }
     }
-    if (! (Test-Path $exe86)) {
-        Write-Error 'x86版uwscr.exeがない'
-        break
-    }
-    $outdir = '.\target\github-release\'
     if (! $Version) {
         if (('{0} --version' -f $exe64 | Invoke-Expression) -match '\d+\.\d+\.\d+') {
             $Version = $Matches[0]
@@ -40,10 +38,10 @@ if ($Release) {
             break
         }
     }
-    if (! (Test-Path($outdir))) {
-        mkdir $outdir | Out-Null
+    if (! (Test-Path($OutDir))) {
+        mkdir $OutDir | Out-Null
     }
-    $verpath = Join-Path -Path $outdir -ChildPath $Version
+    $verpath = Join-Path -Path $OutDir -ChildPath $Version
     $x64path = Join-Path -Path $verpath -ChildPath 'x64'
     $x86path = Join-Path -Path $verpath -ChildPath 'x86'
     if (! (Test-Path $verpath)) {
