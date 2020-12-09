@@ -92,7 +92,7 @@ impl Lexer {
         self.nextch() == ch
     }
 
-    fn ch_after_is(&mut self, n: usize, ch: char) -> bool {
+    fn _ch_after_is(&mut self, n: usize, ch: char) -> bool {
         if self.pos + n >= self.input.len() {
             false
         } else {

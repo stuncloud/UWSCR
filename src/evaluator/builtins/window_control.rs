@@ -2,7 +2,7 @@ use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
 use crate::evaluator::builtins::window_low::get_current_pos;
 use crate::evaluator::builtins::system_controls::is_64bit_os;
-use crate::evaluator::environment::NamedObject;
+use crate::evaluator::UError;
 
 use std::fmt;
 use std::collections::HashMap;
@@ -38,6 +38,9 @@ use winapi::{
         },
     },
 };
+use strum_macros::{EnumString, EnumVariantNames};
+use num_derive::{ToPrimitive, FromPrimitive};
+use num_traits::FromPrimitive;
 
 #[derive(Clone)]
 struct WindowControl {
@@ -94,177 +97,73 @@ impl fmt::Display for Window {
     }
 }
 
-pub fn set_builtins(vec: &mut Vec<NamedObject>) {
-    let funcs: Vec<(&str, i32, fn(Vec<Object>)->Object)> = vec![
-        ("getid", 4, getid),
-        ("idtohnd", 1, idtohnd),
-        ("hndtoid", 1, hndtoid),
-        ("clkitem", 5, clkitem),
-        ("ctrlwin", 2, ctrlwin),
-        ("status", 22, status),
-        ("acw", 5, acw),
-        ("monitor", 2, monitor),
-    ];
-    for (name, arg_len, func) in funcs {
-        vec.push(NamedObject::new_builtin_func(name.to_ascii_uppercase(), Object::BuiltinFunction(arg_len, func)));
-    }
-    let str_constant = vec![
-        ("GET_ACTIVE_WIN"    , GET_ACTIVE_WIN),
-        ("GET_FROMPOINT_WIN" , GET_FROMPOINT_WIN),
-        ("GET_FROMPOINT_OBJ" , GET_FROMPOINT_OBJ),
-        ("GET_THISUWSC_WIN"  , GET_THISUWSC_WIN),
-        ("GET_LOGPRINT_WIN"  , GET_LOGPRINT_WIN),
-        ("GET_BALLOON_WIN"   , GET_BALLOON_WIN),
-        ("GET_FUKIDASI_WIN"  , GET_FUKIDASI_WIN),
-        ("GET_FORM_WIN"      , GET_FORM_WIN),
-        ("GET_FORM_WIN2"     , GET_FORM_WIN2),
-        ("GET_SCHEDULE_WIN"  , GET_SCHEDULE_WIN),
-        ("GET_STOPFORM_WIN"  , GET_STOPFORM_WIN),
-    ];
-    for (key, value) in str_constant {
-        vec.push(NamedObject::new_builtin_const(key.to_ascii_uppercase(), Object::String(value.to_string())));
-    }
-    let num_constant = vec![
-        // ctrlwin
-        ("CLOSE", CLOSE),
-        ("CLOSE2", CLOSE2),
-        ("ACTIVATE", ACTIVATE),
-        ("HIDE", HIDE),
-        ("SHOW", SHOW),
-        ("MIN", MIN),
-        ("MAX", MAX),
-        ("NORMAL", NORMAL),
-        ("TOPMOST", TOPMOST),
-        ("NOTOPMOST", NOTOPMOST),
-        ("TOPNOACTV", TOPNOACTV),
-        // status
-        ("ST_ALL", ST_ALL),
-        ("ST_TITLE", ST_TITLE),
-        ("ST_CLASS", ST_CLASS),
-        ("ST_X", ST_X),
-        ("ST_Y", ST_Y),
-        ("ST_WIDTH", ST_WIDTH),
-        ("ST_HEIGHT", ST_HEIGHT),
-        ("ST_CLX", ST_CLX),
-        ("ST_CLY", ST_CLY),
-        ("ST_CLWIDTH", ST_CLWIDTH),
-        ("ST_CLHEIGHT", ST_CLHEIGHT),
-        ("ST_PARENT", ST_PARENT),
-        ("ST_ICON", ST_ICON),
-        ("ST_MAXIMIZED", ST_MAXIMIZED),
-        ("ST_VISIBLE", ST_VISIBLE),
-        ("ST_ACTIVE", ST_ACTIVE),
-        ("ST_BUSY", ST_BUSY),
-        ("ST_ISID", ST_ISID),
-        ("ST_WIN64", ST_WIN64),
-        ("ST_PATH", ST_PATH),
-        ("ST_PROCESS", ST_PROCESS),
-        ("ST_MONITOR", ST_MONITOR),
-        // monitor
-        ("MON_X", MON_X),
-        ("MON_Y", MON_Y),
-        ("MON_WIDTH", MON_WIDTH),
-        ("MON_HEIGHT", MON_HEIGHT),
-        ("MON_NAME", MON_NAME),
-        ("MON_ISMAIN", MON_ISMAIN),
-        ("MON_WORK_X", MON_WORK_X),
-        ("MON_WORK_Y", MON_WORK_Y),
-        ("MON_WORK_WIDTH", MON_WORK_WIDTH),
-        ("MON_WORK_HEIGHT", MON_WORK_HEIGHT),
-        ("MON_ALL", MON_ALL),
-    ];
-    for (key, value) in num_constant {
-        vec.push(NamedObject::new_builtin_const(key.to_ascii_uppercase(), Object::Num(value.into())));
-    }
+pub fn builtin_func_sets() -> BuiltinFunctionSets {
+    let mut sets = BuiltinFunctionSets::new();
+    sets.add("getid", 4, getid);
+    sets.add("idtohnd", 1, idtohnd);
+    sets.add("hndtoid", 1, hndtoid);
+    sets.add("clkitem", 5, clkitem);
+    sets.add("ctrlwin", 2, ctrlwin);
+    sets.add("status", 22, status);
+    sets.add("acw", 5, acw);
+    sets.add("monitor", 2, monitor);
+    sets
 }
 
 // GETID
-const GET_ACTIVE_WIN: &str    = "__GET_ACTIVE_WIN__";
-const GET_FROMPOINT_WIN: &str = "__GET_FROMPOINT_WIN__";
-const GET_FROMPOINT_OBJ: &str = "__GET_FROMPOINT_OBJ__";
-const GET_THISUWSC_WIN: &str  = "__GET_THISUWSC_WIN__";
-const GET_LOGPRINT_WIN: &str  = "__GET_LOGPRINT_WIN__";
-const GET_BALLOON_WIN: &str   = "__GET_FUKIDASI_WIN__";
-const GET_FUKIDASI_WIN: &str  = "__GET_FUKIDASI_WIN__";
-const GET_FORM_WIN: &str      = "__GET_FORM_WIN__";
-const GET_FORM_WIN2: &str     = "__GET_FORM_WIN2__";
-const GET_SCHEDULE_WIN: &str  = "__GET_SCHEDULE_WIN__";
-const GET_STOPFORM_WIN: &str  = "__GET_STOPFORM_WIN__";
+#[allow(non_camel_case_types)]
+#[derive(Debug, EnumVariantNames)]
+pub enum SpecialWindowId {
+    GET_ACTIVE_WIN,    // __GET_ACTIVE_WIN__
+    GET_FROMPOINT_WIN, // __GET_FROMPOINT_WIN__
+    GET_FROMPOINT_OBJ, // __GET_FROMPOINT_OBJ__
+    GET_THISUWSC_WIN,  // __GET_THISUWSC_WIN__
+    GET_LOGPRINT_WIN,  // __GET_LOGPRINT_WIN__
+    GET_BALLOON_WIN,   // __GET_BALLOON_WIN__
+    GET_FUKIDASI_WIN,  // __GET_FUKIDASI_WIN__
+    GET_FORM_WIN,      // __GET_FORM_WIN__
+    GET_FORM_WIN2,     // __GET_FORM_WIN2__
+    GET_SCHEDULE_WIN,  // __GET_SCHEDULE_WIN__
+    GET_STOPFORM_WIN,  // __GET_STOPFORM_WIN__
+}
 
-pub fn getid(args: Vec<Object>) -> Object {
-    let hwnd = match args[0].clone() {
-        Object::String(title) => {
-            match title.as_str() {
-                GET_ACTIVE_WIN => {
-                    unsafe {
-                        winuser::GetForegroundWindow()
-                    }
-                },
-                GET_FROMPOINT_WIN => match get_hwnd_from_mouse_point(true) {
-                    Ok(h) => h,
-                    Err(Object::Error(err)) => return builtin_func_error("getid", err.as_str()),
-                    Err(_) => return builtin_func_error("getid", "unknown error"),
-                },
-                GET_FROMPOINT_OBJ => match get_hwnd_from_mouse_point(false) {
-                        Ok(h) => h,
-                        Err(Object::Error(err)) => return builtin_func_error("getid", err.as_str()),
-                        Err(_) => return builtin_func_error("getid", "unknown error"),
-                },
-                GET_THISUWSC_WIN => {
-                    null_mut()
-                },
-                GET_LOGPRINT_WIN => {
-                    null_mut()
-                },
-                GET_BALLOON_WIN => {
-                    null_mut()
-                },
-                GET_FORM_WIN => {
-                    null_mut()
-                },
-                GET_FORM_WIN2 => {
-                    null_mut()
-                },
-                GET_SCHEDULE_WIN => {
-                    null_mut()
-                },
-                GET_STOPFORM_WIN => {
-                    null_mut()
-                },
-                _ => {
-                    let class_name =if args.len() >= 2 {
-                        match &args[1] {
-                            Object::String(name) => name.clone(),
-                            Object::Num(n) => n.to_string(),
-                            _ => return Object::Num(-1.0)
-                        }
-                    } else {
-                        "".to_string()
-                    };
-                    let wait = if args.len() >= 3 {
-                        match args[2] {
-                            Object::Num(sec) => sec,
-                            _ => 0.0 // uwscの初期値
-                        }
-                    } else {
-                        0.0 // uwscの初期値
-                    };
-                    let _mdi_title = if args.len() >= 4 {
-                        match &args[3] {
-                            Object::String(mdi) => Some(mdi.clone()),
-                            _ => None
-                        }
-                    } else {
-                        None
-                    };
-                    match find_window(title, class_name, wait) {
-                        Ok(h) => h,
-                        Err(e) => return Object::Error(e)
-                    }
-                },
+pub fn getid(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let title = get_string_argument_value(&args, 0, None)?;
+    let hwnd = match title.as_str() {
+        "__GET_ACTIVE_WIN__" => {
+            unsafe {
+                winuser::GetForegroundWindow()
             }
         },
-        _ => return Object::Error(format!("string required for title"))
+        "__GET_FROMPOINT_WIN__" => get_hwnd_from_mouse_point(true, "getid")?,
+        "__GET_FROMPOINT_OBJ__" => get_hwnd_from_mouse_point(false, "getid")?,
+        "__GET_THISUWSC_WIN__" => {
+            null_mut()
+        },
+        "__GET_LOGPRINT_WIN__" => {
+            null_mut()
+        },
+        "__GET_BALLOON_WIN__" => {
+            null_mut()
+        },
+        "__GET_FORM_WIN__" => {
+            null_mut()
+        },
+        "__GET_FORM_WIN2__" => {
+            null_mut()
+        },
+        "__GET_SCHEDULE_WIN__" => {
+            null_mut()
+        },
+        "__GET_STOPFORM_WIN__" => {
+            null_mut()
+        },
+        _ => {
+            let class_name = get_string_argument_value(&args, 1, Some("".into()))?;
+            let wait = get_num_argument_value(&args, 2, Some(0.0))?;
+            let _mdi_title = get_string_argument_value(&args, 3, Some("".into()))?;
+            find_window(title, class_name, wait, args.name())?
+        },
     };
     if hwnd != null_mut() {
         let mut id = get_id_from_hwnd(hwnd);
@@ -273,9 +172,9 @@ pub fn getid(args: Vec<Object>) -> Object {
             set_new_window(new_id, hwnd);
             id = new_id as f64;
         }
-        return Object::Num(id)
+        return Ok(Object::Num(id))
     } else {
-        return Object::Num(-1.0)
+        return Ok(Object::Num(-1.0))
     }
 }
 
@@ -336,7 +235,7 @@ fn enum_window_proc(hwnd: HWND, lparam: LPARAM) -> BOOL {
     TRUE // 次のウィンドウへ
 }
 
-fn find_window(title: String, class_name: String, timeout: f64) -> Result<HWND, String> {
+fn find_window(title: String, class_name: String, timeout: f64, name: &str) -> Result<HWND, UError> {
     let mut target = TargetWindow {
         hwnd: null_mut(),
         title,
@@ -367,18 +266,15 @@ fn find_window(title: String, class_name: String, timeout: f64) -> Result<HWND, 
             }
         }
         match target.err {
-            Some(e) => return Err(e.clone()),
+            Some(e) => return Err(builtin_func_error(name, e)),
             None => Ok(target.hwnd)
         }
     }
 }
 
-fn get_hwnd_from_mouse_point(toplevel: bool) -> Result<HWND, Object> {
+fn get_hwnd_from_mouse_point(toplevel: bool, name: &str) -> Result<HWND, UError> {
     unsafe {
-        let point = match get_current_pos() {
-            Ok(p) => p,
-            Err(err) => return Err(err)
-        };
+        let point = get_current_pos(name)?;
         let mut hwnd = winuser::WindowFromPoint(point);
         if toplevel {
             loop {
@@ -395,27 +291,20 @@ fn get_hwnd_from_mouse_point(toplevel: bool) -> Result<HWND, Object> {
 }
 
 // IDTOHND
-pub fn idtohnd(args: Vec<Object>) -> Object {
-    match args[0] {
-        Object::Num(id) => {
-            if id < 0.0 {
-                return Object::Num(0.0);
-            }
-            let h = get_hwnd_from_id(id as i32);
-            if h == null_mut() {
-                Object::Num(0.0)
-            } else {
-                unsafe {
-                    if winuser::IsWindow(h) != 0 {
-                        Object::Num(h as i32 as f64)
-                    } else {
-                        Object::Num(0.0)
-                    }
-                }
-            }
-        },
-        _ => builtin_func_error("idtohnd", "invalid argumant")
+pub fn idtohnd(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let id = get_non_float_argument_value::<i32>(&args, 0, None)?;
+    if id < 0 {
+        return Ok(Object::Num(0.0));
     }
+    let h = get_hwnd_from_id(id);
+    if h != null_mut() {
+        unsafe {
+            if winuser::IsWindow(h) != 0 {
+                return Ok(Object::Num(h as i32 as f64));
+            }
+        }
+    }
+    Ok(Object::Num(0.0))
 }
 
 fn get_hwnd_from_id(id: i32) -> HWND {
@@ -428,15 +317,11 @@ fn get_hwnd_from_id(id: i32) -> HWND {
 }
 
 // HNDTOID
-pub fn hndtoid(args: Vec<Object>) -> Object {
-    match args[0] {
-        Object::Num(h) => {
-            let hwnd = h as i32 as HWND;
-            let id = get_id_from_hwnd(hwnd);
-            Object::Num(id)
-        },
-        _ => builtin_func_error("hndtoid", "invalid argumant")
-    }
+pub fn hndtoid(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let h = get_non_float_argument_value::<i32>(&args, 0, None)?;
+    let hwnd = h as i32 as HWND;
+    let id = get_id_from_hwnd(hwnd);
+    Ok(Object::Num(id))
 }
 
 fn get_id_from_hwnd(hwnd: HWND) -> f64 {
@@ -452,93 +337,82 @@ fn get_id_from_hwnd(hwnd: HWND) -> f64 {
 }
 
 // ACW
-pub fn acw(args: Vec<Object>) -> Object {
+pub fn acw(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let s = window_singlton();
     let list = s.windows.lock().unwrap();
-    let hwnd = match args[0] {
-        Object::Num(n) => {
-            let id = n as i32;
-            match list.get(&id) {
-                Some(h) => *h,
-                None => return Object::Empty
-            }
-        },
-        _ => return builtin_func_error("acw", format!("bad argument: {}", args[0]).as_str())
+    let id = get_non_float_argument_value::<i32>(&args, 0, None)?;
+    let hwnd = match list.get(&id) {
+        Some(h) => *h,
+        None => return Ok(Object::Empty)
     };
     let rect = get_window_size(hwnd);
-    let x = get_non_float_argument_value(&args, 1, Some(*rect.get(&ST_X).unwrap())).unwrap_or(0);
-    let y = get_non_float_argument_value(&args, 2, Some(*rect.get(&ST_Y).unwrap())).unwrap_or(0);
-    let w = get_non_float_argument_value(&args, 3, Some(*rect.get(&ST_WIDTH).unwrap())).unwrap_or(0);
-    let h = get_non_float_argument_value(&args, 4, Some(*rect.get(&ST_HEIGHT).unwrap())).unwrap_or(0);
+    let x = get_non_float_argument_value(&args, 1, Some(*rect.get(&(StatusEnum::ST_X as u8)).unwrap())).unwrap_or(0);
+    let y = get_non_float_argument_value(&args, 2, Some(*rect.get(&(StatusEnum::ST_Y as u8)).unwrap())).unwrap_or(0);
+    let w = get_non_float_argument_value(&args, 3, Some(*rect.get(&(StatusEnum::ST_WIDTH as u8)).unwrap())).unwrap_or(0);
+    let h = get_non_float_argument_value(&args, 4, Some(*rect.get(&(StatusEnum::ST_HEIGHT as u8)).unwrap())).unwrap_or(0);
     let ms= get_non_float_argument_value(&args, 5, Some(0)).unwrap_or(0);
     thread::sleep(Duration::from_millis(ms));
     set_window_size(hwnd, x, y, w, h);
-    Object::Empty
+    Ok(Object::Empty)
 }
 
 
 // CLKITEM
-pub fn clkitem(args: Vec<Object>) -> Object {
-    Object::Bool(args.len() > 0)
+pub fn clkitem(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    Ok(Object::Bool(args.len() > 0))
 }
 
 // CTRLWIN
+#[allow(non_camel_case_types)]
+#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive)]
+pub enum CtrlWinCmd {
+    CLOSE     = 2,
+    CLOSE2    = 3,
+    ACTIVATE  = 1,
+    HIDE      = 4,
+    SHOW      = 5,
+    MIN       = 6,
+    MAX       = 7,
+    NORMAL    = 8,
+    TOPMOST   = 9,
+    NOTOPMOST = 10,
+    TOPNOACTV = 11,
+    UNKNOWN_CTRLWIN_CMD = -1,
+}
 
-const CLOSE: u8     = 2;
-const CLOSE2: u8    = 3;
-const ACTIVATE: u8  = 1;
-const HIDE: u8      = 4;
-const SHOW: u8      = 5;
-const MIN: u8       = 6;
-const MAX: u8       = 7;
-const NORMAL: u8    = 8;
-const TOPMOST: u8   = 9;
-const NOTOPMOST: u8 = 10;
-const TOPNOACTV: u8 = 11;
-
-pub fn ctrlwin(args: Vec<Object>) -> Object {
-    let id = match get_non_float_argument_value(&args, 0, Some(-2)) {
-        Ok(n) => n,
-        Err(err) => return builtin_func_error("ctrlwin", err.as_str())
-    };
-    if id == -2 {
-        return builtin_func_error("ctrlwin", "id required")
-    }
+pub fn ctrlwin(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let id = get_non_float_argument_value(&args, 0, None)?;
     let hwnd = get_hwnd_from_id(id);
     if hwnd == null_mut() {
-        return Object::Empty;
+        return Ok(Object::Empty);
     }
-    let cmd = match get_non_float_argument_value::<u8>(&args, 1, Some(0)) {
-        Ok(n) => n,
-        Err(err) => return builtin_func_error("ctrlwin", err.as_str())
-    };
-    match cmd {
-        0 => return builtin_func_error("ctrlwin", "command required"),
-        CLOSE => unsafe {
+    let cmd = get_non_float_argument_value(&args, 1, None)?;
+    match FromPrimitive::from_i32(cmd).unwrap_or(CtrlWinCmd::UNKNOWN_CTRLWIN_CMD) {
+        CtrlWinCmd::CLOSE => unsafe {
             winuser::PostMessageA(hwnd, winuser::WM_CLOSE, 0, 0);
         },
-        CLOSE2 => unsafe {
+        CtrlWinCmd::CLOSE2 => unsafe {
             winuser::PostMessageA(hwnd, winuser::WM_DESTROY, 0, 0);
         },
-        ACTIVATE => unsafe {
+        CtrlWinCmd::ACTIVATE => unsafe {
             winuser::SetForegroundWindow(hwnd);
         },
-        HIDE => unsafe {
+        CtrlWinCmd::HIDE => unsafe {
             winuser::ShowWindow(hwnd, winuser::SW_HIDE);
         },
-        SHOW => unsafe {
+        CtrlWinCmd::SHOW => unsafe {
             winuser::ShowWindow(hwnd, winuser::SW_SHOW);
         },
-        MIN => unsafe {
+        CtrlWinCmd::MIN => unsafe {
             winuser::ShowWindow(hwnd, winuser::SW_MINIMIZE);
         },
-        MAX => unsafe {
+        CtrlWinCmd::MAX => unsafe {
             winuser::ShowWindow(hwnd, winuser::SW_MAXIMIZE);
         },
-        NORMAL => unsafe {
+        CtrlWinCmd::NORMAL => unsafe {
             winuser::ShowWindow(hwnd, winuser::SW_SHOWNORMAL);
         },
-        TOPMOST => unsafe {
+        CtrlWinCmd::TOPMOST => unsafe {
             winuser::SetWindowPos(
                 hwnd,
                 winuser::HWND_TOPMOST,
@@ -546,7 +420,7 @@ pub fn ctrlwin(args: Vec<Object>) -> Object {
                 winuser::SWP_NOMOVE | winuser::SWP_NOSIZE
             );
         },
-        NOTOPMOST => unsafe {
+        CtrlWinCmd::NOTOPMOST => unsafe {
             winuser::SetWindowPos(
                 hwnd,
                 winuser::HWND_NOTOPMOST,
@@ -554,7 +428,7 @@ pub fn ctrlwin(args: Vec<Object>) -> Object {
                 winuser::SWP_NOMOVE | winuser::SWP_NOSIZE
             );
         },
-        TOPNOACTV => unsafe {
+        CtrlWinCmd::TOPNOACTV => unsafe {
             for h in vec![winuser::HWND_TOPMOST, winuser::HWND_NOTOPMOST] {
                 winuser::SetWindowPos(
                     hwnd,
@@ -566,33 +440,37 @@ pub fn ctrlwin(args: Vec<Object>) -> Object {
         },
         _ => (),
     };
-    Object::Empty
+    Ok(Object::Empty)
 }
 
 // STATUS
-
-const ST_ALL       :u8 = 0;
-const ST_TITLE     :u8 = 9;
-const ST_CLASS     :u8 = 14;
-const ST_X         :u8 = 1;
-const ST_Y         :u8 = 2;
-const ST_WIDTH     :u8 = 3;
-const ST_HEIGHT    :u8 = 4;
-const ST_CLX       :u8 = 5;
-const ST_CLY       :u8 = 6;
-const ST_CLWIDTH   :u8 = 7;
-const ST_CLHEIGHT  :u8 = 8;
-const ST_PARENT    :u8 = 16;
-const ST_ICON      :u8 = 10;
-const ST_MAXIMIZED :u8 = 11;
-const ST_VISIBLE   :u8 = 12;
-const ST_ACTIVE    :u8 = 13;
-const ST_BUSY      :u8 = 15;
-const ST_ISID      :u8 = 21;
-const ST_WIN64     :u8 = 19;
-const ST_PATH      :u8 = 17;
-const ST_PROCESS   :u8 = 18;
-const ST_MONITOR   :u8 = 20;
+#[allow(non_camel_case_types)]
+#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive)]
+pub enum StatusEnum {
+    ST_ALL       = 0,
+    ST_TITLE     = 9,
+    ST_CLASS     = 14,
+    ST_X         = 1,
+    ST_Y         = 2,
+    ST_WIDTH     = 3,
+    ST_HEIGHT    = 4,
+    ST_CLX       = 5,
+    ST_CLY       = 6,
+    ST_CLWIDTH   = 7,
+    ST_CLHEIGHT  = 8,
+    ST_PARENT    = 16,
+    ST_ICON      = 10,
+    ST_MAXIMIZED = 11,
+    ST_VISIBLE   = 12,
+    ST_ACTIVE    = 13,
+    ST_BUSY      = 15,
+    ST_ISID      = 21,
+    ST_WIN64     = 19,
+    ST_PATH      = 17,
+    ST_PROCESS   = 18,
+    ST_MONITOR   = 20,
+    UNKNOWN_STATUS = -1,
+}
 
 fn get_window_size(h: HWND) -> HashMap<u8, i32> {
     let mut rect = RECT {left: 0, top: 0, right: 0, bottom: 0};
@@ -612,10 +490,10 @@ fn get_window_size(h: HWND) -> HashMap<u8, i32> {
             );
         };
     }
-    ret.insert(ST_X, rect.left);
-    ret.insert(ST_Y, rect.top);
-    ret.insert(ST_WIDTH, rect.right - rect.left);
-    ret.insert(ST_HEIGHT, rect.bottom - rect.top);
+    ret.insert(StatusEnum::ST_X as u8, rect.left);
+    ret.insert(StatusEnum::ST_Y as u8, rect.top);
+    ret.insert(StatusEnum::ST_WIDTH as u8, rect.right - rect.left);
+    ret.insert(StatusEnum::ST_HEIGHT as u8, rect.bottom - rect.top);
     ret
 }
 
@@ -653,32 +531,32 @@ fn get_client_size(h: HWND) -> HashMap<u8, i32> {
         winuser::GetClientRect(h, &mut rect);
         let mut point = POINT {x: rect.left, y: rect.top};
         winuser::MapWindowPoints(h, null_mut(), &mut point, 1);
-        ret.insert(ST_CLX, point.x);
-        ret.insert(ST_CLY, point.y);
-        ret.insert(ST_CLWIDTH, rect.right - rect.left);
-        ret.insert(ST_CLHEIGHT, rect.bottom - rect.top);
+        ret.insert(StatusEnum::ST_CLX as u8, point.x);
+        ret.insert(StatusEnum::ST_CLY as u8, point.y);
+        ret.insert(StatusEnum::ST_CLWIDTH as u8, rect.right - rect.left);
+        ret.insert(StatusEnum::ST_CLHEIGHT as u8, rect.bottom - rect.top);
     }
     ret
 }
 
-fn get_window_text(hwnd: HWND) -> Object {
+fn get_window_text(hwnd: HWND) -> BuiltinFuncResult {
     unsafe {
         let mut buffer = [0; MAX_NAME_SIZE];
         winuser::GetWindowTextW(hwnd, buffer.as_mut_ptr(), buffer.len() as i32);
         buffer_to_string(&buffer).map_or_else(
-            |e| builtin_func_error("status", e.as_str()),
-            |s| Object::String(s)
+            |e| Err(builtin_func_error("status", e)),
+            |s| Ok(Object::String(s))
         )
     }
 }
 
-fn get_class_name(hwnd: HWND) -> Object {
+fn get_class_name(hwnd: HWND) -> BuiltinFuncResult {
     unsafe {
         let mut buffer = [0; MAX_NAME_SIZE];
         winuser::GetClassNameW(hwnd, buffer.as_mut_ptr(), buffer.len() as i32);
         buffer_to_string(&buffer).map_or_else(
-            |e| builtin_func_error("status", e.as_str()),
-            |s| Object::String(s)
+            |e| Err(builtin_func_error("status", e)),
+            |s| Ok(Object::String(s))
         )
     }
 }
@@ -720,7 +598,7 @@ fn get_process_id_from_hwnd(hwnd: HWND) -> u32 {
 }
 
 fn is_process_64bit(hwnd: HWND) -> Object {
-    if ! is_64bit_os().unwrap_or(true) {
+    if ! is_64bit_os("status").unwrap_or(true) {
         // 32bit OSなら必ずfalse
         return Object::Bool(false);
     }
@@ -742,7 +620,7 @@ fn get_process_handle_from_hwnd(hwnd: HWND) -> HANDLE {
     }
 }
 
-fn get_process_path_from_hwnd(hwnd: HWND) -> Object {
+fn get_process_path_from_hwnd(hwnd: HWND) -> BuiltinFuncResult {
     let mut buffer = [0; MAX_PATH];
     unsafe {
         let handle = get_process_handle_from_hwnd(hwnd);
@@ -750,8 +628,8 @@ fn get_process_path_from_hwnd(hwnd: HWND) -> Object {
         handleapi::CloseHandle(handle);
     }
     buffer_to_string(&buffer).map_or_else(
-        |e| builtin_func_error("status", e.as_str()),
-        |s| Object::String(s)
+        |e| Err(builtin_func_error("status", e)),
+        |s| Ok(Object::String(s))
     )
 }
 
@@ -763,115 +641,112 @@ fn get_monitor_index_from_hwnd(hwnd: HWND) -> Object {
 }
 
 
-fn get_status_result(hwnd: HWND, st: u8) -> Object {
-    match st {
-        ST_TITLE => get_window_text(hwnd),
-        ST_CLASS => get_class_name(hwnd),
-        ST_X |
-        ST_Y |
-        ST_WIDTH |
-        ST_HEIGHT => Object::Num(*get_window_size(hwnd).get(&st).unwrap_or(&0) as f64),
-        ST_CLX |
-        ST_CLY |
-        ST_CLWIDTH |
-        ST_CLHEIGHT => Object::Num(*get_client_size(hwnd).get(&st).unwrap_or(&0) as f64),
-        ST_PARENT => get_parent(hwnd),
-        ST_ICON => unsafe {
+fn get_status_result(hwnd: HWND, st: u8) -> BuiltinFuncResult {
+    let obj = match FromPrimitive::from_u8(st).unwrap_or(StatusEnum::UNKNOWN_STATUS) {
+        StatusEnum::ST_TITLE => get_window_text(hwnd)?,
+        StatusEnum::ST_CLASS => get_class_name(hwnd)?,
+        StatusEnum::ST_X |
+        StatusEnum::ST_Y |
+        StatusEnum::ST_WIDTH |
+        StatusEnum::ST_HEIGHT => Object::Num(*get_window_size(hwnd).get(&st).unwrap_or(&0) as f64),
+        StatusEnum::ST_CLX |
+        StatusEnum::ST_CLY |
+        StatusEnum::ST_CLWIDTH |
+        StatusEnum::ST_CLHEIGHT => Object::Num(*get_client_size(hwnd).get(&st).unwrap_or(&0) as f64),
+        StatusEnum::ST_PARENT => get_parent(hwnd),
+        StatusEnum::ST_ICON => unsafe {
             Object::Bool(winuser::IsIconic(hwnd) == TRUE)
         },
-        ST_MAXIMIZED => is_maximized(hwnd),
-        ST_VISIBLE => unsafe {
+        StatusEnum::ST_MAXIMIZED => is_maximized(hwnd),
+        StatusEnum::ST_VISIBLE => unsafe {
             Object::Bool(winuser::IsWindowVisible(hwnd) == TRUE)
         },
-        ST_ACTIVE => is_active_window(hwnd),
-        ST_BUSY => unsafe {
+        StatusEnum::ST_ACTIVE => is_active_window(hwnd),
+        StatusEnum::ST_BUSY => unsafe {
             Object::Bool(winuser::IsHungAppWindow(hwnd) == TRUE)
         },
-        ST_ISID => unsafe {
+        StatusEnum::ST_ISID => unsafe {
             Object::Bool(winuser::IsWindow(hwnd) == TRUE)
         },
-        ST_WIN64 => is_process_64bit(hwnd),
-        ST_PATH => get_process_path_from_hwnd(hwnd),
-        ST_PROCESS => Object::Num(get_process_id_from_hwnd(hwnd) as f64),
-        ST_MONITOR => get_monitor_index_from_hwnd(hwnd),
+        StatusEnum::ST_WIN64 => is_process_64bit(hwnd),
+        StatusEnum::ST_PATH => get_process_path_from_hwnd(hwnd)?,
+        StatusEnum::ST_PROCESS => Object::Num(get_process_id_from_hwnd(hwnd) as f64),
+        StatusEnum::ST_MONITOR => get_monitor_index_from_hwnd(hwnd),
         _ => Object::Bool(false) // 定数以外を受けた場合false
-    }
-}
-
-fn get_all_status(hwnd: HWND) -> Object {
-    let mut stats = BTreeMap::new();
-    stats.insert(ST_TITLE.to_string(), get_window_text(hwnd));
-    stats.insert(ST_CLASS.to_string(), get_class_name(hwnd));
-    let rect = get_window_size(hwnd);
-    stats.insert(ST_X.to_string(), Object::Num(*rect.get(&ST_X).unwrap_or(&0) as f64));
-    stats.insert(ST_Y.to_string(), Object::Num(*rect.get(&ST_Y).unwrap_or(&0) as f64));
-    stats.insert(ST_WIDTH.to_string(), Object::Num(*rect.get(&ST_WIDTH).unwrap_or(&0) as f64));
-    stats.insert(ST_HEIGHT.to_string(), Object::Num(*rect.get(&ST_HEIGHT).unwrap_or(&0) as f64));
-    let crect = get_client_size(hwnd);
-    stats.insert(ST_CLX.to_string(), Object::Num(*crect.get(&ST_CLX).unwrap_or(&0) as f64));
-    stats.insert(ST_CLY.to_string(), Object::Num(*crect.get(&ST_CLY).unwrap_or(&0) as f64));
-    stats.insert(ST_CLWIDTH.to_string(), Object::Num(*crect.get(&ST_CLWIDTH).unwrap_or(&0) as f64));
-    stats.insert(ST_CLHEIGHT.to_string(), Object::Num(*crect.get(&ST_CLHEIGHT).unwrap_or(&0) as f64));
-    stats.insert(ST_PARENT.to_string(), get_parent(hwnd));
-    stats.insert(ST_ICON.to_string(), unsafe{ Object::Bool(winuser::IsIconic(hwnd) == TRUE) });
-    stats.insert(ST_MAXIMIZED.to_string(), is_maximized(hwnd));
-    stats.insert(ST_VISIBLE.to_string(), unsafe{ Object::Bool(winuser::IsWindowVisible(hwnd) == TRUE) });
-    stats.insert(ST_ACTIVE.to_string(), is_active_window(hwnd));
-    stats.insert(ST_BUSY.to_string(), unsafe{ Object::Bool(winuser::IsHungAppWindow(hwnd) == TRUE) });
-    stats.insert(ST_ISID.to_string(), unsafe{ Object::Bool(winuser::IsWindow(hwnd) == TRUE) });
-    stats.insert(ST_WIN64.to_string(), is_process_64bit(hwnd));
-    stats.insert(ST_PATH.to_string(), get_process_path_from_hwnd(hwnd));
-    stats.insert(ST_PROCESS.to_string(), Object::Num(get_process_id_from_hwnd(hwnd) as f64));
-    stats.insert(ST_MONITOR.to_string(), get_monitor_index_from_hwnd(hwnd));
-    Object::SortedHash(stats, false)
-}
-
-pub fn status(args: Vec<Object>) -> Object {
-    let hwnd = match get_non_float_argument_value(&args, 0, None) {
-        Ok(id) => get_hwnd_from_id(id),
-        Err(e) => return Object::Error(e)
     };
+    Ok(obj)
+}
+
+fn get_all_status(hwnd: HWND) -> BuiltinFuncResult {
+    let mut stats = BTreeMap::new();
+    stats.insert((StatusEnum::ST_TITLE as u8).to_string(), get_window_text(hwnd)?);
+    stats.insert((StatusEnum::ST_CLASS as u8).to_string(), get_class_name(hwnd)?);
+    let rect = get_window_size(hwnd);
+    stats.insert((StatusEnum::ST_X as u8).to_string(), Object::Num(*rect.get(&(StatusEnum::ST_X as u8)).unwrap_or(&0) as f64));
+    stats.insert((StatusEnum::ST_Y as u8).to_string(), Object::Num(*rect.get(&(StatusEnum::ST_Y as u8)).unwrap_or(&0) as f64));
+    stats.insert((StatusEnum::ST_WIDTH as u8).to_string(), Object::Num(*rect.get(&(StatusEnum::ST_WIDTH as u8)).unwrap_or(&0) as f64));
+    stats.insert((StatusEnum::ST_HEIGHT as u8).to_string(), Object::Num(*rect.get(&(StatusEnum::ST_HEIGHT as u8)).unwrap_or(&0) as f64));
+    let crect = get_client_size(hwnd);
+    stats.insert((StatusEnum::ST_CLX as u8).to_string(), Object::Num(*crect.get(&(StatusEnum::ST_CLX as u8)).unwrap_or(&0) as f64));
+    stats.insert((StatusEnum::ST_CLY as u8).to_string(), Object::Num(*crect.get(&(StatusEnum::ST_CLY as u8)).unwrap_or(&0) as f64));
+    stats.insert((StatusEnum::ST_CLWIDTH as u8).to_string(), Object::Num(*crect.get(&(StatusEnum::ST_CLWIDTH as u8)).unwrap_or(&0) as f64));
+    stats.insert((StatusEnum::ST_CLHEIGHT as u8).to_string(), Object::Num(*crect.get(&(StatusEnum::ST_CLHEIGHT as u8)).unwrap_or(&0) as f64));
+    stats.insert((StatusEnum::ST_PARENT as u8).to_string(), get_parent(hwnd));
+    stats.insert((StatusEnum::ST_ICON as u8).to_string(), unsafe{ Object::Bool(winuser::IsIconic(hwnd) == TRUE) });
+    stats.insert((StatusEnum::ST_MAXIMIZED as u8).to_string(), is_maximized(hwnd));
+    stats.insert((StatusEnum::ST_VISIBLE as u8).to_string(), unsafe{ Object::Bool(winuser::IsWindowVisible(hwnd) == TRUE) });
+    stats.insert((StatusEnum::ST_ACTIVE as u8).to_string(), is_active_window(hwnd));
+    stats.insert((StatusEnum::ST_BUSY as u8).to_string(), unsafe{ Object::Bool(winuser::IsHungAppWindow(hwnd) == TRUE) });
+    stats.insert((StatusEnum::ST_ISID as u8).to_string(), unsafe{ Object::Bool(winuser::IsWindow(hwnd) == TRUE) });
+    stats.insert((StatusEnum::ST_WIN64 as u8).to_string(), is_process_64bit(hwnd));
+    stats.insert((StatusEnum::ST_PATH as u8).to_string(), get_process_path_from_hwnd(hwnd)?);
+    stats.insert((StatusEnum::ST_PROCESS as u8).to_string(), Object::Num(get_process_id_from_hwnd(hwnd) as f64));
+    stats.insert((StatusEnum::ST_MONITOR as u8).to_string(), get_monitor_index_from_hwnd(hwnd));
+    Ok(Object::SortedHash(stats, false))
+}
+
+pub fn status(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let hwnd = get_hwnd_from_id(
+        get_non_float_argument_value(&args, 0, None)?
+    );
     if args.len() > 2 {
         let mut i = 1;
         // let mut stats = vec![Object::Empty; 22];
         let mut stats = BTreeMap::new();
         while i < args.len() {
-            let (cmd, value) = get_non_float_argument_value::<u8>(&args, i, None).map_or_else(
-                |e| (0, Object::Error(e)),
-                |cmd| (cmd, get_status_result(hwnd, cmd))
-            );
-            match value {
-                Object::Error(_) => return value,
-                _ => stats.insert(cmd.to_string(), value)
-            };
+            let cmd = get_non_float_argument_value::<u8>(&args, i, None)?;
+            let value = get_status_result(hwnd, cmd)?;
+            stats.insert(cmd.to_string(), value);
             i += 1;
         }
-        Object::SortedHash(stats, false)
+        Ok(Object::SortedHash(stats, false))
     } else {
-        get_non_float_argument_value::<u8>(&args, 1, None).map_or_else(
-            |e| Object::Error(e),
-            |cmd| if cmd == ST_ALL {
-                get_all_status(hwnd)
-            } else {
-                get_status_result(hwnd, cmd)
-            }
-        )
+        let cmd = get_non_float_argument_value::<u8>(&args, 1, None)?;
+        if cmd == StatusEnum::ST_ALL as u8 {
+            Ok(get_all_status(hwnd)?)
+        } else {
+            Ok(get_status_result(hwnd, cmd)?)
+        }
     }
 }
 
 // monitor
-
-const MON_X: u8           = 0;
-const MON_Y: u8           = 1;
-const MON_WIDTH: u8       = 2;
-const MON_HEIGHT: u8      = 3;
-const MON_NAME: u8        = 5;
-const MON_ISMAIN: u8      = 7;
-const MON_WORK_X: u8      = 10;
-const MON_WORK_Y: u8      = 11;
-const MON_WORK_WIDTH: u8  = 12;
-const MON_WORK_HEIGHT: u8 = 13;
-const MON_ALL: u8         = 20;
+#[allow(non_camel_case_types)]
+#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive)]
+pub enum MonitorEnum {
+    MON_X           = 0,
+    MON_Y           = 1,
+    MON_WIDTH       = 2,
+    MON_HEIGHT      = 3,
+    MON_NAME        = 5,
+    MON_ISMAIN      = 7,
+    MON_WORK_X      = 10,
+    MON_WORK_Y      = 11,
+    MON_WORK_WIDTH  = 12,
+    MON_WORK_HEIGHT = 13,
+    MON_ALL         = 20,
+    UNKNOWN_MONITOR_CMD = -1,
+}
 
 struct Monitor {
     count: usize,
@@ -944,57 +819,50 @@ fn get_monitor_name(name: &[u16]) -> Object {
     )
 }
 
-pub fn monitor(args: Vec<Object>) -> Object {
+pub fn monitor(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     if args.len() == 0 {
-        return get_monitor_count(null_mut());
+        return Ok(get_monitor_count(null_mut()));
     }
-    let index = match get_non_float_argument_value::<usize>(&args, 0, None) {
-        Ok(n) => n,
-        Err(e) => return builtin_func_error("monitor", e.as_str())
-    };
+    let index = get_non_float_argument_value::<usize>(&args, 0, None)?;
     let h = get_monitor_handle_by_index(index);
     if h == null_mut() {
-        return Object::Bool(false);
+        return Ok(Object::Bool(false));
     };
     let mut miex: winuser::MONITORINFOEXW = unsafe {mem::zeroed()};
     miex.cbSize = mem::size_of::<winuser::MONITORINFOEXW>() as u32;
     let p_miex = <*mut _>::cast(&mut miex);
     unsafe {
         if winuser::GetMonitorInfoW(h, p_miex) == FALSE {
-            return builtin_func_error("monitor", "failed to get monitor information");
+            return Err(builtin_func_error("monitor", "failed to get monitor information"));
         }
     }
-    match get_non_float_argument_value::<u8>(&args, 1, Some(MON_ALL)) {
-        Ok(mon) => {
-            let value = match mon {
-                MON_ALL => {
-                    let mut map = BTreeMap::new();
-                    map.insert(MON_X.to_string(), Object::Num(miex.rcMonitor.left.into()));
-                    map.insert(MON_Y.to_string(), Object::Num(miex.rcMonitor.top.into()));
-                    map.insert(MON_WIDTH.to_string(), Object::Num((miex.rcMonitor.right - miex.rcMonitor.left).into()));
-                    map.insert(MON_HEIGHT.to_string(), Object::Num((miex.rcMonitor.bottom - miex.rcMonitor.top).into()));
-                    map.insert(MON_NAME.to_string(), get_monitor_name(&miex.szDevice));
-                    map.insert(MON_ISMAIN.to_string(), Object::Bool(miex.dwFlags == winuser::MONITORINFOF_PRIMARY));
-                    map.insert(MON_WORK_X.to_string(), Object::Num(miex.rcWork.left.into()));
-                    map.insert(MON_WORK_Y.to_string(), Object::Num(miex.rcWork.top.into()));
-                    map.insert(MON_WORK_WIDTH.to_string(), Object::Num((miex.rcWork.right - miex.rcWork.left).into()));
-                    map.insert(MON_WORK_HEIGHT.to_string(), Object::Num((miex.rcWork.bottom - miex.rcWork.top).into()));
-                    return Object::SortedHash(map, false);
-                },
-                MON_X => miex.rcMonitor.left,
-                MON_Y => miex.rcMonitor.top,
-                MON_WIDTH => miex.rcMonitor.right - miex.rcMonitor.left,
-                MON_HEIGHT => miex.rcMonitor.bottom - miex.rcMonitor.top,
-                MON_NAME => return get_monitor_name(&miex.szDevice),
-                MON_ISMAIN => return Object::Bool(miex.dwFlags == winuser::MONITORINFOF_PRIMARY),
-                MON_WORK_X => miex.rcWork.left,
-                MON_WORK_Y => miex.rcWork.top,
-                MON_WORK_WIDTH => miex.rcWork.right - miex.rcWork.left,
-                MON_WORK_HEIGHT => miex.rcWork.bottom - miex.rcWork.top,
-                _ => return Object::Bool(false)
-            };
-            Object::Num(value as f64)
+    let cmd = get_non_float_argument_value::<u8>(&args, 1, Some(MonitorEnum::MON_ALL as u8))?;
+    let value = match FromPrimitive::from_u8(cmd).unwrap_or(MonitorEnum::UNKNOWN_MONITOR_CMD) {
+        MonitorEnum::MON_ALL => {
+            let mut map = BTreeMap::new();
+            map.insert((MonitorEnum::MON_X as u8).to_string(), Object::Num(miex.rcMonitor.left.into()));
+            map.insert((MonitorEnum::MON_Y as u8).to_string(), Object::Num(miex.rcMonitor.top.into()));
+            map.insert((MonitorEnum::MON_WIDTH as u8).to_string(), Object::Num((miex.rcMonitor.right - miex.rcMonitor.left).into()));
+            map.insert((MonitorEnum::MON_HEIGHT as u8).to_string(), Object::Num((miex.rcMonitor.bottom - miex.rcMonitor.top).into()));
+            map.insert((MonitorEnum::MON_NAME as u8).to_string(), get_monitor_name(&miex.szDevice));
+            map.insert((MonitorEnum::MON_ISMAIN as u8).to_string(), Object::Bool(miex.dwFlags == winuser::MONITORINFOF_PRIMARY));
+            map.insert((MonitorEnum::MON_WORK_X as u8).to_string(), Object::Num(miex.rcWork.left.into()));
+            map.insert((MonitorEnum::MON_WORK_Y as u8).to_string(), Object::Num(miex.rcWork.top.into()));
+            map.insert((MonitorEnum::MON_WORK_WIDTH as u8).to_string(), Object::Num((miex.rcWork.right - miex.rcWork.left).into()));
+            map.insert((MonitorEnum::MON_WORK_HEIGHT as u8).to_string(), Object::Num((miex.rcWork.bottom - miex.rcWork.top).into()));
+            return Ok(Object::SortedHash(map, false));
         },
-        Err(e) => builtin_func_error("monitor", e.as_str())
-    }
+        MonitorEnum::MON_X => miex.rcMonitor.left,
+        MonitorEnum::MON_Y => miex.rcMonitor.top,
+        MonitorEnum::MON_WIDTH => miex.rcMonitor.right - miex.rcMonitor.left,
+        MonitorEnum::MON_HEIGHT => miex.rcMonitor.bottom - miex.rcMonitor.top,
+        MonitorEnum::MON_NAME => return Ok(get_monitor_name(&miex.szDevice)),
+        MonitorEnum::MON_ISMAIN => return Ok(Object::Bool(miex.dwFlags == winuser::MONITORINFOF_PRIMARY)),
+        MonitorEnum::MON_WORK_X => miex.rcWork.left,
+        MonitorEnum::MON_WORK_Y => miex.rcWork.top,
+        MonitorEnum::MON_WORK_WIDTH => miex.rcWork.right - miex.rcWork.left,
+        MonitorEnum::MON_WORK_HEIGHT => miex.rcWork.bottom - miex.rcWork.top,
+        _ => return Ok(Object::Bool(false))
+    };
+    Ok(Object::Num(value as f64))
 }

@@ -1,6 +1,5 @@
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
-use crate::evaluator::environment::NamedObject;
 
 use std::{thread, time};
 
@@ -14,162 +13,126 @@ use winapi::{
         minwindef::{FALSE},
     },
 };
+use strum_macros::{EnumString, EnumVariantNames};
+use num_derive::{ToPrimitive, FromPrimitive};
+use num_traits::FromPrimitive;
 
-
-pub fn set_builtins(vec: &mut Vec<NamedObject>) {
-    let funcs: Vec<(&str, i32, fn(Vec<Object>)->Object)> = vec![
-        ("mmv", 3, mmv),
-        ("btn", 5, btn),
-        ("kbd", 3, kbd),
-    ];
-    for (name, arg_len, func) in funcs {
-        vec.push(NamedObject::new_builtin_func(name.to_ascii_uppercase(), Object::BuiltinFunction(arg_len, func)));
-    }
-    let num_constant = vec![
-        ("LEFT"   , LEFT),
-        ("RIGHT"  , RIGHT),
-        ("MIDDLE" , MIDDLE),
-        ("WHEEL"  , WHEEL),
-        ("WHEEL2" , WHEEL2),
-        ("TOUCH"  , TOUCH),
-        ("CLICK"  , CLICK),
-        ("DOWN"   , DOWN),
-        ("UP"     , UP),
-    ];
-    for (key, value) in num_constant {
-        vec.push(NamedObject::new_builtin_const(key.to_ascii_uppercase(), Object::Num(value.into())));
-    }
+pub fn builtin_func_sets() -> BuiltinFunctionSets {
+    let mut sets = BuiltinFunctionSets::new();
+    sets.add("mmv", 3, mmv);
+    sets.add("btn", 5, btn);
+    sets.add("kbd", 3, kbd);
+    sets
 }
 
-const LEFT: i32 = 0;
-const RIGHT: i32 = 1;
-const MIDDLE: i32 = 2;
-const WHEEL: i32 = 5;
-const WHEEL2: i32 = 6;
-const TOUCH: i32 = 7;
-const CLICK: i32 = 0;
-const DOWN: i32 = 1;
-const UP: i32 = 2;
+#[allow(non_camel_case_types)]
+#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive)]
+pub enum MouseButtonEnum {
+    LEFT = 0,
+    RIGHT = 1,
+    MIDDLE = 2,
+    WHEEL = 5,
+    WHEEL2 = 6,
+    TOUCH = 7,
+    UNKNOWN_MOUSE_BUTTON = -1,
+}
 
-pub fn mmv(args: Vec<Object>) -> Object {
-    let x = match get_num_argument_value(&args, 0, Some(0.0)) {
-        Ok(n) => n as i32,
-        Err(e) => return builtin_func_error("mmv", e.as_str())
-    };
-    let y = match get_num_argument_value(&args, 1, Some(0.0)) {
-        Ok(n) => n as i32,
-        Err(e) => return builtin_func_error("mmv", e.as_str())
-    };
-    let ms = match get_num_argument_value(&args, 2, Some(0.0)) {
-        Ok(n) => n as u64,
-        Err(_) => 0
-    };
+#[allow(non_camel_case_types)]
+#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive)]
+pub enum KeyActionEnum {
+    CLICK = 0,
+    DOWN = 1,
+    UP = 2,
+    UNKNOWN_ACTION = -1,
+}
+
+pub fn mmv(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let x = get_non_float_argument_value(&args, 0, Some(0))?;
+    let y = get_non_float_argument_value(&args, 1, Some(0))?;
+    let ms = get_non_float_argument_value::<u64>(&args, 2, Some(0))?;
     let mut enigo = Enigo::new();
     thread::sleep(time::Duration::from_millis(ms));
     enigo.mouse_move_to(x, y);
-    Object::Empty
+    Ok(Object::Empty)
 }
 
-pub fn btn(args: Vec<Object>) -> Object {
+pub fn btn(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let mut enigo = Enigo::new();
-    let arg1 = match get_non_float_argument_value::<i32>(&args, 1, Some(CLICK)) {
-        Ok(n) => n,
-        Err(e) => return builtin_func_error("btn", e.as_str())
-    };
-    let (cur_x, cur_y) = match get_current_pos() {
-        Ok(p) => (p.x, p.y),
-        Err(err) => return err
-    };
-    let x = match get_non_float_argument_value(&args, 2, Some(cur_x)) {
-        Ok(n) => n,
-        Err(e) => return builtin_func_error("btn", e.as_str())
-    };
-    let y = match get_non_float_argument_value(&args, 3, Some(cur_y)) {
-        Ok(n) => n,
-        Err(e) => return builtin_func_error("btn", e.as_str())
-
-    };
-    let ms= match get_non_float_argument_value::<u64>(&args, 4, Some(0)) {
-        Ok(n) => n,
-        Err(e) => return builtin_func_error("btn", e.as_str())
-    };
-    let button = match args[0] {
-        Object::Num(n) => {
-            match n as i32 {
-                LEFT => MouseButton::Left,
-                RIGHT => MouseButton::Right,
-                MIDDLE => MouseButton::Middle,
-                WHEEL => {
-                    thread::sleep(time::Duration::from_millis(ms));
-                    enigo.mouse_move_to(x, y);
-                    enigo.mouse_scroll_y(arg1);
-                    return Object::Empty;
-                },
-                WHEEL2 => {
-                    thread::sleep(time::Duration::from_millis(ms));
-                    enigo.mouse_move_to(x, y);
-                    enigo.mouse_scroll_x(arg1);
-                    return Object::Empty;
-                },
-                TOUCH => {
-                    return builtin_func_error("btn", "TOUCH is not yet supported.")
-                },
-                _ => return builtin_func_error("btn", format!("bad argument: {}", n).as_str())
-            }
+    let arg1 = get_non_float_argument_value::<i32>(&args, 1, Some(KeyActionEnum::CLICK as i32))?;
+    let p = get_current_pos(args.name())?;
+    let (cur_x, cur_y) = (p.x, p.y);
+    let x = get_non_float_argument_value(&args, 2, Some(cur_x))?;
+    let y = get_non_float_argument_value(&args, 3, Some(cur_y))?;
+    let ms= get_non_float_argument_value::<u64>(&args, 4, Some(0))?;
+    let btn = get_non_float_argument_value::<i32>(&args, 0, None)?;
+    let button = match FromPrimitive::from_i32(btn).unwrap_or(MouseButtonEnum::UNKNOWN_MOUSE_BUTTON) {
+        MouseButtonEnum::LEFT => MouseButton::Left,
+        MouseButtonEnum::RIGHT => MouseButton::Right,
+        MouseButtonEnum::MIDDLE => MouseButton::Middle,
+        MouseButtonEnum::WHEEL => {
+            thread::sleep(time::Duration::from_millis(ms));
+            enigo.mouse_move_to(x, y);
+            enigo.mouse_scroll_y(arg1);
+            return Ok(Object::Empty);
         },
-        _ => return builtin_func_error("btn", format!("bad argument: {}", args[0]).as_str())
+        MouseButtonEnum::WHEEL2 => {
+            thread::sleep(time::Duration::from_millis(ms));
+            enigo.mouse_move_to(x, y);
+            enigo.mouse_scroll_x(arg1);
+            return Ok(Object::Empty);
+        },
+        MouseButtonEnum::TOUCH => {
+            return Err(builtin_func_error(args.name(), "TOUCH is not yet supported."));
+        },
+        _ => return Ok(Object::Empty)
     };
 
     thread::sleep(time::Duration::from_millis(ms));
     enigo.mouse_move_to(x, y);
-    match arg1 {
-        CLICK => enigo.mouse_click(button),
-        DOWN => enigo.mouse_down(button),
-        UP => enigo.mouse_up(button),
-        _ => return builtin_func_error("btn", format!("bad argument: {}", arg1).as_str())
+    match FromPrimitive::from_i32(arg1).unwrap_or(KeyActionEnum::CLICK) {
+        KeyActionEnum::CLICK => enigo.mouse_click(button),
+        KeyActionEnum::DOWN => enigo.mouse_down(button),
+        KeyActionEnum::UP => enigo.mouse_up(button),
+        _ => return Err(builtin_func_error(args.name(), format!("bad argument: {}", arg1)))
     }
-    Object::Empty
+    Ok(Object::Empty)
 }
 
-pub fn get_current_pos() -> Result<POINT, Object>{
+pub fn get_current_pos(name: &str) -> Result<POINT, UError>{
     let mut point = POINT {x: 0, y: 0};
     unsafe {
         if winuser::GetCursorPos(&mut point) == FALSE {
-            return Err(Object::Error("failed to get cursor position".to_string()))
+            return Err(builtin_func_error("failed to get cursor position".into(), name));
         };
     }
     Ok(point)
 }
 
-pub fn kbd(args: Vec<Object>) -> Object {
+pub fn kbd(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let mut enigo = Enigo::new();
-    let ms= match get_non_float_argument_value::<u64>(&args, 2, Some(0)) {
-        Ok(n) => n,
-        Err(e) => return builtin_func_error("btn", e.as_str())
-    };
-    let key = match &args[0] {
-        Object::Num(n) => Key::Raw(*n as u16),
+    let ms= get_non_float_argument_value::<u64>(&args, 2, Some(0))?;
+    let obj = get_any_argument_value(&args, 0, None)?;
+    let key = match obj {
+        Object::Num(n) => Key::Raw(n as u16),
         Object::String(s) => {
             thread::sleep(time::Duration::from_millis(ms));
             enigo.key_sequence(s.as_str());
-            return Object::Empty;
+            return Ok(Object::Empty);
         }
-        _ => return builtin_func_error("kbd", format!("bad argument: {}", args[0]).as_str())
+        _ => return Err(builtin_func_error(args.name(), format!("bad argument: {}", obj)))
     };
     if args.len() >= 2 {
         thread::sleep(time::Duration::from_millis(ms));
-        match args[1] {
-            Object::Num(n) => match n as i32 {
-                CLICK => enigo.key_click(key),
-                DOWN => enigo.key_down(key),
-                UP => enigo.key_up(key),
-                _ => return builtin_func_error("kbd", format!("bad argument: {}", args[1]).as_str())
-            },
-            _ => return builtin_func_error("kbd", format!("bad argument: {}", args[1]).as_str())
+        let action = get_non_float_argument_value::<i32>(&args, 1, Some(0))?;
+        match FromPrimitive::from_i32(action).unwrap_or(KeyActionEnum::UNKNOWN_ACTION) {
+            KeyActionEnum::CLICK => enigo.key_click(key),
+            KeyActionEnum::DOWN => enigo.key_down(key),
+            KeyActionEnum::UP => enigo.key_up(key),
+            _ => (),
         };
     } else {
         thread::sleep(time::Duration::from_millis(ms));
         enigo.key_click(key);
     }
-    Object::Empty
+    Ok(Object::Empty)
 }

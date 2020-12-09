@@ -108,36 +108,6 @@ impl Environment {
         self.current.module_name.clone()
     }
 
-    pub fn get_env(&self) -> Object {
-        let mut arr = Vec::new();
-        for obj in self.current.local.clone().into_iter() {
-            arr.push(Object::String(format!("current: {}", obj)));
-        }
-        for obj in self.global.clone().into_iter() {
-            if obj.scope != Scope::BuiltinConst && obj.scope != Scope::BuiltinFunc {
-                arr.push(Object::String(format!("global: {}", obj)));
-            }
-        }
-        Object::Array(arr)
-    }
-
-    pub fn get_module_member(&self, name: &String) -> Object {
-        let mut arr = Vec::new();
-        match self.get_module(name) {
-            Some(o) => match o {
-                Object::Module(m) => {
-                    let module = m.borrow();
-                    for obj in module.get_members().into_iter() {
-                        arr.push(Object::String(format!("{}: {}", module.name(), obj)))
-                    }
-                },
-                _ => ()
-            },
-            None => ()
-        }
-        Object::Array(arr)
-    }
-
     fn add(&mut self, obj: NamedObject, to_global: bool) {
         if to_global {
             self.global.push(obj);
@@ -376,6 +346,38 @@ impl Environment {
     pub fn has_function(&mut self, name: &String) -> bool {
         let key = name.to_ascii_uppercase();
         self.contains(&key, Scope::Function)
+    }
+
+    // for builtin debug fungtions
+
+    pub fn get_env(&self) -> Object {
+        let mut arr = Vec::new();
+        for obj in self.current.local.clone().into_iter() {
+            arr.push(Object::String(format!("current: {}", obj)));
+        }
+        for obj in self.global.clone().into_iter() {
+            if obj.scope != Scope::BuiltinConst && obj.scope != Scope::BuiltinFunc {
+                arr.push(Object::String(format!("global: {}", obj)));
+            }
+        }
+        Object::Array(arr)
+    }
+
+    pub fn get_module_member(&self, name: &String) -> Object {
+        let mut arr = Vec::new();
+        match self.get_module(name) {
+            Some(o) => match o {
+                Object::Module(m) => {
+                    let module = m.borrow();
+                    for obj in module.get_members().into_iter() {
+                        arr.push(Object::String(format!("{}: {}", module.name(), obj)))
+                    }
+                },
+                _ => ()
+            },
+            None => ()
+        }
+        Object::Array(arr)
     }
 }
 

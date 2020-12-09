@@ -11,6 +11,10 @@ enigo = "*"
 cast = "0.2.3"
 encoding_rs = "0.8.26"
 regex = "1"
+strum = "0.20"
+strum_macros = "0.20"
+num-traits = "0.2"
+num-derive = "0.3"
 
 [dependencies.winapi]
 version = "0.3.9"

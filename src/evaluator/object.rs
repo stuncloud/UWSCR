@@ -1,5 +1,7 @@
 use crate::ast::*;
 use crate::evaluator::environment::{NamedObject, Module};
+use crate::evaluator::builtins::BuiltinFunction;
+use crate::evaluator::UError;
 
 use std::collections::HashMap;
 use std::collections::BTreeMap;
@@ -10,7 +12,6 @@ use std::cell::RefCell;
 
 use winapi::shared::windef::HWND;
 
-pub type BuiltinFunction = fn(Vec<Object>) -> Object;
 
 #[derive(PartialEq, Clone, Debug)]
 pub enum Object {
@@ -23,7 +24,7 @@ pub enum Object {
     SortedHash(BTreeMap<String, Object>, bool),
     AnonFunc(Vec<Expression>, BlockStatement, Vec<NamedObject>, bool),
     Function(String, Vec<Expression>, BlockStatement, bool, Option<Box<Object>>),
-    BuiltinFunction(i32, BuiltinFunction),
+    BuiltinFunction(String, i32, BuiltinFunction),
     Module(Rc<RefCell<Module>>),
     Null,
     Empty,
@@ -31,6 +32,7 @@ pub enum Object {
     Continue(u32),
     Break(u32),
     Error(String),
+    UError(UError),
     Eval(String),
     Handle(HWND),
     RegEx(String),
@@ -122,7 +124,7 @@ impl fmt::Display for Object {
                     write!(f, "anonymous_func({})", arguments)
                 }
             },
-            Object::BuiltinFunction(_, _) => write!(f, "builtin_function()"),
+            Object::BuiltinFunction(ref name, _, _) => write!(f, "builtin: {}()", name),
             Object::Null => write!(f, "NULL"),
             Object::Empty => write!(f, ""),
             Object::Nothing => write!(f, "NOTHING"),
@@ -131,6 +133,7 @@ impl fmt::Display for Object {
             Object::Exit => write!(f, "Exit"),
             Object::Eval(ref value) => write!(f, "{}", value),
             Object::Error(ref value) => write!(f, "{}", value),
+            Object::UError(ref value) => write!(f, "{}", value),
             Object::Debug(_) => write!(f, "debug"),
             Object::Module(ref m) => write!(f, "module: {}", m.borrow().name()),
             Object::Handle(h) => write!(f, "{:?}", h),

@@ -1252,7 +1252,12 @@ impl Parser {
                     _ =>{}
                 }
             },
-            Token::Variadic(s) => return Some(Params::Variadic(Identifier(s.clone()))),
+            Token::Variadic => {
+                if let Token::Identifier(s) = self.next_token.token.clone() {
+                    self.bump();
+                    return Some(Params::Variadic(Identifier(s.clone())))
+                }
+            },
             _ => {}
         }
         self.error_got_bad_parameter(format!("unexpected token: {:?}", self.current_token));

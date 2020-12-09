@@ -1,6 +1,5 @@
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
-use crate::evaluator::environment::NamedObject;
 
 use std::{thread, time};
 
@@ -18,54 +17,28 @@ use winapi::{
         }
     }
 };
+use strum_macros::{EnumString, EnumVariantNames};
+use num_derive::{ToPrimitive, FromPrimitive};
+use num_traits::FromPrimitive;
 
-pub fn set_builtins(vec: &mut Vec<NamedObject>) {
-    let funcs: Vec<(&str, i32, fn(Vec<Object>)->Object)> = vec![
-        ("sleep", 1, sleep),
-        ("kindofos", 1, kindofos),
-        ("env", 1, env),
-    ];
-    for (name, arg_len, func) in funcs {
-        vec.push(NamedObject::new_builtin_func(name.to_ascii_uppercase(), Object::BuiltinFunction(arg_len, func)));
-    }
-    let num_constant = vec![
-        ("OS_WIN2000", OS_WIN2000),
-        ("OS_WINXP", OS_WINXP),
-        ("OS_WINSRV2003", OS_WINSRV2003),
-        ("OS_WINSRV2003R2", OS_WINSRV2003R2),
-        ("OS_WINVISTA", OS_WINVISTA),
-        ("OS_WINSRV2008", OS_WINSRV2008),
-        ("OS_WIN7", OS_WIN7),
-        ("OS_WINSRV2008R2", OS_WINSRV2008R2),
-        ("OS_WIN8", OS_WIN8),
-        ("OS_WINSRV2012", OS_WINSRV2012),
-        ("OS_WIN81", OS_WIN81),
-        ("OS_WINSRV2012R2", OS_WINSRV2012R2),
-        ("OS_WIN10", OS_WIN10),
-        ("OS_WINSRV2016", OS_WINSRV2016),
-        ("OSVER_MAJOR", OSVER_MAJOR),
-        ("OSVER_MINOR", OSVER_MINOR),
-        ("OSVER_BUILD", OSVER_BUILD),
-        ("OSVER_PLATFORM", OSVER_PLATFORM),
-    ];
-    for (key, value) in num_constant {
-        vec.push(NamedObject::new_builtin_const(key.to_ascii_uppercase(), Object::Num(value.into())));
-    }
+
+pub fn builtin_func_sets() -> BuiltinFunctionSets {
+    let mut sets = BuiltinFunctionSets::new();
+    sets.add("sleep", 1, sleep);
+    sets.add("kindofos", 1, kindofos);
+    sets.add("env", 1, env);
+    sets
 }
 
-pub fn sleep(args: Vec<Object>) -> Object {
-    match args[0] {
-        Object::Num(n) => {
-            if n > 0.0 {
-                thread::sleep(time::Duration::from_secs_f64(n));
-            }
-        },
-        _ => return builtin_func_error("sleep", format!("bad argument: {}", args[0]).as_str())
+pub fn sleep(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let sec = get_num_argument_value(&args, 0, None)?;
+    if sec >= 0.0 {
+        thread::sleep(time::Duration::from_secs_f64(sec));
     }
-    Object::Empty
+    Ok(Object::Empty)
 }
 
-pub fn is_64bit_os() -> Result<bool, String> {
+pub fn is_64bit_os(f_name: &str) -> Result<bool, UError> {
     let arch = std::env::var("PROCESSOR_ARCHITECTURE").unwrap_or("unknown".to_string());
     match arch.as_str() {
         "AMD64" => Ok(true),
@@ -76,28 +49,40 @@ pub fn is_64bit_os() -> Result<bool, String> {
             }
             Ok(b != FALSE)
         },
-        _ => Err(arch)
+        _ => Err(builtin_func_error(f_name, format!("unknown architecture: {}", arch)))
     }
 }
-const OS_WIN2000      :u8 = 12;
-const OS_WINXP        :u8 = 13;
-const OS_WINSRV2003   :u8 = 14;
-const OS_WINSRV2003R2 :u8 = 15;
-const OS_WINVISTA     :u8 = 20;
-const OS_WINSRV2008   :u8 = 21;
-const OS_WIN7         :u8 = 22;
-const OS_WINSRV2008R2 :u8 = 27;
-const OS_WIN8         :u8 = 23;
-const OS_WINSRV2012   :u8 = 24;
-const OS_WIN81        :u8 = 25;
-const OS_WINSRV2012R2 :u8 = 26;
-const OS_WIN10        :u8 = 30;
-const OS_WINSRV2016   :u8 = 31;
 
-const OSVER_MAJOR    : u8 = 2;
-const OSVER_MINOR    : u8 = 3;
-const OSVER_BUILD    : u8 = 4;
-const OSVER_PLATFORM : u8 = 5;
+#[allow(non_camel_case_types)]
+#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive)]
+pub enum OsNumber {
+    OS_WIN2000      = 12,
+    OS_WINXP        = 13,
+    OS_WINSRV2003   = 14,
+    OS_WINSRV2003R2 = 15,
+    OS_WINVISTA     = 20,
+    OS_WINSRV2008   = 21,
+    OS_WIN7         = 22,
+    OS_WINSRV2008R2 = 27,
+    OS_WIN8         = 23,
+    OS_WINSRV2012   = 24,
+    OS_WIN81        = 25,
+    OS_WINSRV2012R2 = 26,
+    OS_WIN10        = 30,
+    OS_WINSRV2016   = 31,
+    OS_UNKNOWN      = 0,
+}
+#[allow(non_camel_case_types)]
+#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive)]
+pub enum KindOfOsResultType {
+    KIND_OF_OS     = 0,
+    IS_64BIT_OS    = 1,
+    OSVER_MAJOR    = 2,
+    OSVER_MINOR    = 3,
+    OSVER_BUILD    = 4,
+    OSVER_PLATFORM = 5,
+}
+
 
 pub fn get_os_num() -> Vec<f64> {
     let mut info: winnt::OSVERSIONINFOEXW = unsafe{std::mem::zeroed()};
@@ -109,44 +94,44 @@ pub fn get_os_num() -> Vec<f64> {
     let mut res = vec![];
     let num = match info.dwMajorVersion {
         10 => if info.wProductType == winnt::VER_NT_WORKSTATION {
-            OS_WIN10
+            OsNumber::OS_WIN10 as u8 as f64
         } else {
-            OS_WINSRV2016
+            OsNumber::OS_WINSRV2016 as u8 as f64
         },
         6 => match info.dwMinorVersion {
             3 => if info.wProductType == winnt::VER_NT_WORKSTATION {
-                OS_WIN81
+                OsNumber::OS_WIN81 as u8 as f64
             } else {
-                OS_WINSRV2012R2
+                OsNumber::OS_WINSRV2012R2 as u8 as f64
             },
             2 => if info.wProductType == winnt::VER_NT_WORKSTATION {
-                OS_WIN8
+                OsNumber::OS_WIN8 as u8 as f64
             } else {
-                OS_WINSRV2012
+                OsNumber::OS_WINSRV2012 as u8 as f64
             },
             1 => if info.wProductType == winnt::VER_NT_WORKSTATION {
-                OS_WIN7
+                OsNumber::OS_WIN7 as u8 as f64
             } else {
-                OS_WINSRV2008R2
+                OsNumber::OS_WINSRV2008R2 as u8 as f64
             },
             0 => if info.wProductType == winnt::VER_NT_WORKSTATION {
-                OS_WINVISTA
+                OsNumber::OS_WINVISTA as u8 as f64
             } else {
-                OS_WINSRV2008
+                OsNumber::OS_WINSRV2008 as u8 as f64
             },
-            _ => 0
+            _ => 0.0
         },
         5 => match info.dwMinorVersion {
             2 => if unsafe{winuser::GetSystemMetrics(winuser::SM_SERVERR2)} != 0 {
-                OS_WINSRV2003R2
+                OsNumber::OS_WINSRV2003R2 as u8 as f64
             } else {
-                OS_WINSRV2003
+                OsNumber::OS_WINSRV2003 as u8 as f64
             },
-            1 => OS_WINXP,
-            0 => OS_WIN2000,
-            _ => 0
+            1 => OsNumber::OS_WINXP as u8 as f64,
+            0 => OsNumber::OS_WIN2000 as u8 as f64,
+            _ => 0.0
         },
-        _ => 0
+        _ => 0.0
     };
     res.push(num.into());
     res.push(info.dwMajorVersion.into());
@@ -156,25 +141,20 @@ pub fn get_os_num() -> Vec<f64> {
     res
 }
 
-pub fn kindofos(args: Vec<Object>) -> Object {
-    let t = get_bool_or_int_argument_value::<u8>(&args, 0, Some(0)).unwrap_or(0);
+pub fn kindofos(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let t = get_bool_or_int_argument_value(&args, 0, Some(0)).unwrap_or(0);
     let osnum = get_os_num();
-    match t {
-        1 => is_64bit_os().map_or_else(
-            |e| builtin_func_error("kindofos", format!("Architecture: {}", e).as_str()),
-            |b| Object::Bool(b)
-        ),
-        OSVER_MAJOR => Object::Num(osnum[1]),
-        OSVER_MINOR => Object::Num(osnum[2]),
-        OSVER_BUILD => Object::Num(osnum[3]),
-        OSVER_PLATFORM => Object::Num(osnum[4]),
-        _ => Object::Num(osnum[0]),
+    match FromPrimitive::from_i32(t).unwrap_or(KindOfOsResultType::KIND_OF_OS) {
+        KindOfOsResultType::IS_64BIT_OS => Ok(Object::Bool(is_64bit_os(args.name())?)),
+        KindOfOsResultType::OSVER_MAJOR => Ok(Object::Num(osnum[1])),
+        KindOfOsResultType::OSVER_MINOR => Ok(Object::Num(osnum[2])),
+        KindOfOsResultType::OSVER_BUILD => Ok(Object::Num(osnum[3])),
+        KindOfOsResultType::OSVER_PLATFORM => Ok(Object::Num(osnum[4])),
+        KindOfOsResultType::KIND_OF_OS => Ok(Object::Num(osnum[0])),
     }
 }
 
-pub fn env(args: Vec<Object>) -> Object {
-    match get_string_argument_value(&args, 0, None) {
-        Ok(s) => Object::String(std::env::var(s).unwrap_or("".to_string())),
-        Err(e) => builtin_func_error("env", e.as_str())
-    }
+pub fn env(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let env_var = get_string_argument_value(&args, 0, None)?;
+    Ok(Object::String(std::env::var(env_var).unwrap_or("".to_string())))
 }

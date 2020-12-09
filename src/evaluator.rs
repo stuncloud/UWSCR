@@ -7,16 +7,68 @@ use crate::ast::*;
 // use crate::evaluator::env::*;
 use crate::evaluator::environment::*;
 use crate::evaluator::object::*;
+use crate::evaluator::builtins::*;
 use crate::parser::Parser;
 use crate::lexer::Lexer;
 
+use std::fmt;
+use std::rc::Rc;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::collections::BTreeMap;
-use std::rc::Rc;
 
-const HASH_CASECARE: u32 = 0x1000;
-const HASH_SORT: u32 = 0x2000;
+use strum_macros::{EnumString, EnumVariantNames};
+use num_derive::ToPrimitive;
+
+// const HASH_CASECARE: u32 = 0x1000;
+// const HASH_SORT: u32 = 0x2000;
+
+#[allow(non_camel_case_types)]
+#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive)]
+pub enum HashTblEnum {
+    HASH_CASECARE = 0x1000,
+    HASH_SORT = 0x2000,
+    HASH_EXISTS = -103,
+    HASH_REMOVE = -104,
+    HASH_KEY = -101,
+    HASH_VAL = -102,
+    HASH_REMOVEALL = -109,
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub struct UError {
+    //pos: Position
+    title: String,
+    msg: String,
+    sub_msg: Option<String>
+}
+
+impl UError {
+    pub fn new(title: String, msg: String, sub_msg: Option<String>) -> Self {
+        UError{title, msg, sub_msg}
+    }
+}
+
+impl From<BuiltinError> for UError {
+    fn from(e: BuiltinError) -> Self {
+        match e {
+            BuiltinError::FunctionError(m, s) => UError::new("function error".into(), m, s),
+            BuiltinError::ArgumentError(m, s) => UError::new("argument error".into(), m, s),
+        }
+    }
+}
+
+impl fmt::Display for UError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if self.sub_msg.is_some() {
+            // write!(f, "[{}] {}: {} ({})", self.pos, self.title, self.msg, self.sub_msg.clone().unwrap())
+            write!(f, "{}: {} ({})", self.title, self.msg, self.sub_msg.clone().unwrap())
+        } else {
+            // write!(f, "[{}] {}: {})", self.pos, self.title, self.msg)
+            write!(f, "{}: {}", self.title, self.msg)
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct  Evaluator {
@@ -111,8 +163,8 @@ impl Evaluator {
             },
             None => 0
         };
-        let casecare = (opt & HASH_CASECARE) > 0;
-        let obj = if (opt & HASH_SORT) > 0 {
+        let casecare = (opt & HashTblEnum::HASH_CASECARE as u32) > 0;
+        let obj = if (opt & HashTblEnum::HASH_SORT as u32) > 0 {
             let hash = BTreeMap::new();
             Object::SortedHash(hash, casecare)
         } else {
@@ -1261,7 +1313,7 @@ impl Evaluator {
         let mut arguments = args.iter().map(
             |e| (Some(e.clone()), self.eval_expression(e.clone()).unwrap())
         ).collect::<Vec<Argument>>();
-        let bi_arguments = args.iter().map(
+        let bi_args = args.iter().map(
             |e| self.eval_expression(e.clone()).unwrap()
         ).collect::<Vec<_>>();
 
@@ -1275,10 +1327,12 @@ impl Evaluator {
             Some(o) => match o {
                 Object::Function(_, p, b, is_proc, obj) => (p, b, is_proc, None, obj),
                 Object::AnonFunc(p, b, o, is_proc) =>  (p, b, is_proc, Some(o), None),
-                Object::BuiltinFunction(expected_param_len, f) => {
+                Object::BuiltinFunction(name, expected_param_len, f) => {
                     if expected_param_len >= arguments.len() as i32 {
-                        let func_result = f(bi_arguments);
-                        return self.builtin_func_result(func_result);
+                        match f(BuiltinFuncArgs::new(name, bi_args)) {
+                            Ok(o) => return self.builtin_func_result(o),
+                            Err(e) => return Object::UError(e)
+                        }
                     } else {
                         let l = arguments.len();
                         return Self::error(format!(
