@@ -75,7 +75,7 @@ pub enum Expression {
     Literal(Literal),
     Prefix(Prefix, Box<Expression>),
     Infix(Infix, Box<Expression>, Box<Expression>),
-    Index(Box<Expression>, Box<Expression>),
+    Index(Box<Expression>, Box<Expression>, Box<Option<Expression>>), // optionはhashtblの2つ目の添字
     AnonymusFunction {
         params: Vec<Expression>,
         body: BlockStatement,

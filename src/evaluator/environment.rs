@@ -300,11 +300,27 @@ impl Environment {
         ), false);
     }
 
+    fn hash_remove_all(&mut self, name: &String) -> bool {
+        if let Object::HashTbl(h) = self.get_variable(name).unwrap_or(Object::Empty) {
+            h.borrow_mut().clear();
+            return true;
+        }
+        false
+    }
+
     pub fn assign(&mut self, name: String, value: Object) -> Result<(), Object> {
         let key = name.to_ascii_uppercase();
         if self.is_reserved(&key) {
             // ビルトイン定数には代入できない
             return Err(Object::Error(format!("{} is reserved identifier.", key)))
+        }
+        // HASH_REMOVEALL
+        if let Object::Num(n) = value {
+            if n == -109.0 {
+                if self.hash_remove_all(&key) {
+                    return Ok(())
+                }
+            }
         }
         if self.contains(&key, Scope::Const) {
             // 同名の定数がある場合エラー

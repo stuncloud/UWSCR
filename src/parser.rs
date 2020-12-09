@@ -898,11 +898,21 @@ impl Parser {
             Some(e) => e,
             None => return None
         };
+        let hash_enum = if self.is_next_token(&Token::Comma) {
+            self.bump();
+            self.bump();
+            match self.parse_expression(Precedence::Lowest, false) {
+                Some(e) => Some(e),
+                None => return None
+            }
+        } else {
+            None
+        };
         if ! self.is_next_token_expected(Token::Rbracket) {
             return None;
         }
 
-        Some(Expression::Index(Box::new(left), Box::new(index)))
+        Some(Expression::Index(Box::new(left), Box::new(index), Box::new(hash_enum)))
     }
 
     fn parse_grouped_expression(&mut self) -> Option<Expression> {

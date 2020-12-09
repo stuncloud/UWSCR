@@ -6,12 +6,13 @@ use crate::evaluator::UError;
 
 use std::fmt;
 use std::collections::HashMap;
-use std::collections::BTreeMap;
 use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex, Once};
 use std::time::{Duration, Instant};
 use std::thread;
 use std::mem;
+use std::rc::Rc;
+use std::cell::RefCell;
 
 use std::ptr::{null_mut};
 
@@ -678,7 +679,7 @@ fn get_status_result(hwnd: HWND, st: u8) -> BuiltinFuncResult {
 }
 
 fn get_all_status(hwnd: HWND) -> BuiltinFuncResult {
-    let mut stats = BTreeMap::new();
+    let mut stats = HashTbl::new(true, false);
     stats.insert((StatusEnum::ST_TITLE as u8).to_string(), get_window_text(hwnd)?);
     stats.insert((StatusEnum::ST_CLASS as u8).to_string(), get_class_name(hwnd)?);
     let rect = get_window_size(hwnd);
@@ -702,7 +703,7 @@ fn get_all_status(hwnd: HWND) -> BuiltinFuncResult {
     stats.insert((StatusEnum::ST_PATH as u8).to_string(), get_process_path_from_hwnd(hwnd)?);
     stats.insert((StatusEnum::ST_PROCESS as u8).to_string(), Object::Num(get_process_id_from_hwnd(hwnd) as f64));
     stats.insert((StatusEnum::ST_MONITOR as u8).to_string(), get_monitor_index_from_hwnd(hwnd));
-    Ok(Object::SortedHash(stats, false))
+    Ok(Object::HashTbl(Rc::new(RefCell::new(stats))))
 }
 
 pub fn status(args: BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -712,14 +713,14 @@ pub fn status(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     if args.len() > 2 {
         let mut i = 1;
         // let mut stats = vec![Object::Empty; 22];
-        let mut stats = BTreeMap::new();
+        let mut stats = HashTbl::new(true, false);
         while i < args.len() {
             let cmd = get_non_float_argument_value::<u8>(&args, i, None)?;
             let value = get_status_result(hwnd, cmd)?;
             stats.insert(cmd.to_string(), value);
             i += 1;
         }
-        Ok(Object::SortedHash(stats, false))
+        Ok(Object::HashTbl(Rc::new(RefCell::new(stats))))
     } else {
         let cmd = get_non_float_argument_value::<u8>(&args, 1, None)?;
         if cmd == StatusEnum::ST_ALL as u8 {
@@ -839,7 +840,7 @@ pub fn monitor(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let cmd = get_non_float_argument_value::<u8>(&args, 1, Some(MonitorEnum::MON_ALL as u8))?;
     let value = match FromPrimitive::from_u8(cmd).unwrap_or(MonitorEnum::UNKNOWN_MONITOR_CMD) {
         MonitorEnum::MON_ALL => {
-            let mut map = BTreeMap::new();
+            let mut map = HashTbl::new(false, true);
             map.insert((MonitorEnum::MON_X as u8).to_string(), Object::Num(miex.rcMonitor.left.into()));
             map.insert((MonitorEnum::MON_Y as u8).to_string(), Object::Num(miex.rcMonitor.top.into()));
             map.insert((MonitorEnum::MON_WIDTH as u8).to_string(), Object::Num((miex.rcMonitor.right - miex.rcMonitor.left).into()));
@@ -850,7 +851,7 @@ pub fn monitor(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             map.insert((MonitorEnum::MON_WORK_Y as u8).to_string(), Object::Num(miex.rcWork.top.into()));
             map.insert((MonitorEnum::MON_WORK_WIDTH as u8).to_string(), Object::Num((miex.rcWork.right - miex.rcWork.left).into()));
             map.insert((MonitorEnum::MON_WORK_HEIGHT as u8).to_string(), Object::Num((miex.rcWork.bottom - miex.rcWork.top).into()));
-            return Ok(Object::SortedHash(map, false));
+            return Ok(Object::HashTbl(Rc::new(RefCell::new(map))));
         },
         MonitorEnum::MON_X => miex.rcMonitor.left,
         MonitorEnum::MON_Y => miex.rcMonitor.top,

@@ -14,26 +14,8 @@ use crate::lexer::Lexer;
 use std::fmt;
 use std::rc::Rc;
 use std::cell::RefCell;
-use std::collections::HashMap;
-use std::collections::BTreeMap;
 
-use strum_macros::{EnumString, EnumVariantNames};
-use num_derive::ToPrimitive;
-
-// const HASH_CASECARE: u32 = 0x1000;
-// const HASH_SORT: u32 = 0x2000;
-
-#[allow(non_camel_case_types)]
-#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive)]
-pub enum HashTblEnum {
-    HASH_CASECARE = 0x1000,
-    HASH_SORT = 0x2000,
-    HASH_EXISTS = -103,
-    HASH_REMOVE = -104,
-    HASH_KEY = -101,
-    HASH_VAL = -102,
-    HASH_REMOVEALL = -109,
-}
+use num_traits::FromPrimitive;
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct UError {
@@ -163,15 +145,10 @@ impl Evaluator {
             },
             None => 0
         };
+        let sort = (opt & HashTblEnum::HASH_SORT as u32) > 0;
         let casecare = (opt & HashTblEnum::HASH_CASECARE as u32) > 0;
-        let obj = if (opt & HashTblEnum::HASH_SORT as u32) > 0 {
-            let hash = BTreeMap::new();
-            Object::SortedHash(hash, casecare)
-        } else {
-            let hash = HashMap::new();
-            Object::Hash(hash, casecare)
-        };
-        (name, obj)
+        let hashtbl = HashTbl::new(sort, casecare);
+        (name, Object::HashTbl(Rc::new(RefCell::new(hashtbl))))
     }
 
     fn eval_statement(&mut self, statement: Statement) -> Option<Object> {
@@ -549,8 +526,7 @@ impl Evaluator {
                     Object::Error(m) => return Some(Self::error(m)),
                     Object::Array(a) => a,
                     Object::String(s) => s.chars().map(|c| Object::String(c.to_string())).collect::<Vec<Object>>(),
-                    Object::Hash(h, _) => h.keys().map(|key| Object::String(key.clone())).collect::<Vec<Object>>(),
-                    Object::SortedHash(h, _) => h.keys().map(|key| Object::String(key.clone())).collect::<Vec<Object>>(),
+                    Object::HashTbl(h) => h.borrow().keys(),
                     _ => return Some(Self::error(format!("for-in requires array, hashtable, string, or collection")))
                 }
             },
@@ -828,7 +804,7 @@ impl Evaluator {
                 };
                 Some(self.eval_infix_expression(i, left, right))
             },
-            Expression::Index(l, i) => {
+            Expression::Index(l, i, h) => {
                 let left = match self.eval_expression(*l) {
                     Some(o) => if Self::is_error(&o) {
                         return Some(o);
@@ -845,7 +821,15 @@ impl Evaluator {
                     },
                     None => return None
                 };
-                Some(self.eval_index_expression(left, index))
+                let hash_enum = if h.is_some() {
+                    match self.eval_expression(h.unwrap()) {
+                        Some(o) => Some(o),
+                        None => return None,
+                    }
+                } else {
+                    None
+                };
+                Some(self.eval_index_expression(left, index, hash_enum))
             },
             Expression::AnonymusFunction {params, body, is_proc} => {
                 let outer_local = self.env.borrow_mut().get_local_copy();
@@ -951,45 +935,46 @@ impl Evaluator {
         }
     }
 
-    fn eval_index_expression(&mut self, left: Object, index: Object) -> Object {
-        match left {
-            Object::Array(ref a) => if let Object::Num(i) = index {
+    fn eval_index_expression(&mut self, left: Object, index: Object, hash_enum: Option<Object>) -> Object {
+        match left.clone() {
+            Object::Array(ref a) => if hash_enum.is_some() {
+                return Self::error(format!("imvalid index: {}[{}, {}]", left, index, hash_enum.unwrap()))
+            } else if let Object::Num(i) = index {
                 self.eval_array_index_expression(a.clone(), i as i64)
             } else {
                 Self::error(format!("imvalid index: {}[{}]", left, index))
             },
-            Object::Hash(ref h, casecare) => {
-                let key = match index {
-                    Object::Num(n) => n.to_string(),
-                    Object::Bool(b) => b.to_string(),
-                    Object::String(s) => if casecare {
-                        s
-                    } else {
-                        s.to_ascii_uppercase()
-                    },
+            Object::HashTbl(h) => {
+                let mut hash = h.borrow_mut();
+                let (key, i) = match index.clone(){
+                    Object::Num(n) => (n.to_string(), Some(n as usize)),
+                    Object::Bool(b) => (b.to_string(), None),
+                    Object::String(s) => (s, None),
                     Object::Error(_) => return index,
                     _ => return Self::error(format!("invalid hash key:{}", index))
                 };
-                match h.get(&key) {
-                    Some(o) => o.clone(),
-                    None => Object::Empty
-                }
-            },
-            Object::SortedHash(ref h, casecare) => {
-                let key = match index {
-                    Object::Num(n) => n.to_string(),
-                    Object::Bool(b) => b.to_string(),
-                    Object::String(s) => if casecare {
-                        s
+                if hash_enum.is_some() {
+                    if let Object::Num(n) = hash_enum.clone().unwrap() {
+                        match FromPrimitive::from_f64(n).unwrap_or(HashTblEnum::HASH_UNKNOWN) {
+                            HashTblEnum::HASH_EXISTS => hash.check(key),
+                            HashTblEnum::HASH_REMOVE => hash.remove(key),
+                            HashTblEnum::HASH_KEY => if i.is_some() {
+                                hash.get_key(i.unwrap())
+                            } else {
+                                Self::error(format!("invalid index: {}[{}, {}]", left, key, n))
+                            },
+                            HashTblEnum::HASH_VAL => if i.is_some() {
+                                hash.get_value(i.unwrap())
+                            } else {
+                                Self::error(format!("invalid index: {}[{}, {}]", left, key, n))
+                            },
+                            _ => Self::error(format!("invalid index: {}[{}, {}]", left, index, n))
+                        }
                     } else {
-                        s.to_ascii_uppercase()
-                    },
-                    Object::Error(_) => return index,
-                    _ => return Self::error(format!("invalid hash key:{}", index))
-                };
-                match h.get(&key) {
-                    Some(o) => o.clone(),
-                    None => Object::Empty
+                        Self::error(format!("invalid index: {}[{}, {}]", left, index, hash_enum.unwrap()))
+                    }
+                } else {
+                    hash.get(key)
                 }
             },
             _ => Self::error(format!("not array or hashtable: {}", left))
@@ -1029,7 +1014,10 @@ impl Evaluator {
                 }
                 env.assign(name, value).map_or_else(|err| Some(err), |_| None)
             },
-            Expression::Index(n, i) => {
+            Expression::Index(n, i, h) => {
+                if h.is_some() {
+                    return Some(Self::error(format!("syntax error on assignment: comma on index")));
+                }
                 let name = match *n {
                     Expression::Identifier(i) => {
                         let Identifier(n) = i;
@@ -1061,41 +1049,15 @@ impl Evaluator {
                                     _ => return Some(Self::error(format!("invalid index: {}", index)))
                                 };
                             },
-                            Object::Hash(h, casecare) => {
+                            Object::HashTbl(h) => {
                                 let key = match index {
                                     Object::Num(n) => n.to_string(),
                                     Object::Bool(b) => b.to_string(),
-                                    Object::String(s) => if casecare {
-                                        s
-                                    } else {
-                                        s.to_ascii_uppercase()
-                                    },
+                                    Object::String(s) => s,
                                     _ => return Some(Self::error(format!("invalid hash key: {}", index)))
                                 };
-                                let mut hash = h.clone();
-                                hash.entry(key).or_insert_with(|| value);
-                                match env.assign(name, Object::Hash(hash, casecare)) {
-                                    Ok(()) => (),
-                                    Err(err) => return Some(err)
-                                };
-                            },
-                            Object::SortedHash(h, casecare) => {
-                                let key = match index {
-                                    Object::Num(n) => n.to_string(),
-                                    Object::Bool(b) => b.to_string(),
-                                    Object::String(s) => if casecare {
-                                        s
-                                    } else {
-                                        s.to_ascii_uppercase()
-                                    },
-                                    _ => return Some(Self::error(format!("invalid hash key: {}", index)))
-                                };
-                                let mut hash = h.clone();
-                                hash.entry(key).or_insert_with(|| value);
-                                match env.assign(name, Object::SortedHash(hash, casecare)) {
-                                    Ok(()) => (),
-                                    Err(err) => return Some(err)
-                                };
+                                let mut hash = h.borrow_mut();
+                                hash.insert(key, value);
                             },
                             _ => return Some(Self::error(format!("not an array or hashtable: {}", name)))
                         };
@@ -1395,8 +1357,7 @@ impl Evaluator {
                     let Identifier(name) = i;
                     match o {
                         Object::Array(_) |
-                        Object::Hash(_, _) |
-                        Object::SortedHash(_, _) => (name, o.clone()),
+                        Object::HashTbl(_) => (name, o.clone()),
                         _ => return Self::error(format!("{} is not array", name))
                     }
                 },
@@ -1517,7 +1478,7 @@ impl Evaluator {
     fn eval_dotcall_expression(&mut self, left: Expression, right: Expression, is_func: bool) -> Object {
         let instance = match left {
             Expression::Identifier(_) |
-            Expression::Index(_, _) |
+            Expression::Index(_, _, _) |
             Expression::FuncCall{func:_, args:_} |
             Expression::DotCall(_, _)=> {
                 self.eval_expression(left)

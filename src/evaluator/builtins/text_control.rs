@@ -32,8 +32,7 @@ pub fn length(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         Object::Num(n) => n.to_string().len(),
         Object::Array(v) => v.len(),
         Object::Bool(b) => b.to_string().len(),
-        Object::Hash(h, _) => h.len(),
-        Object::SortedHash(t, _) => t.len(),
+        Object::HashTbl(h) => h.borrow().len(),
         Object::Empty => 0,
         Object::Null => 1,
         _ => return Err(builtin_func_error("length", "given value is not countable"))

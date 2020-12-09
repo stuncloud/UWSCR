@@ -5,7 +5,6 @@ pub mod system_controls;
 pub mod key_codes;
 
 use crate::evaluator::UError;
-use crate::evaluator::HashTblEnum;
 use crate::evaluator::object::*;
 use crate::evaluator::environment::NamedObject;
 
@@ -89,7 +88,7 @@ pub fn init_builtins() -> Vec<NamedObject> {
     let mut vec = Vec::new();
     // builtin debug functions
     builtin_func_sets().set(&mut vec);
-    // evaluator
+    // hashtbl
     set_builtin_consts::<HashTblEnum>(&mut vec);
     // window_low
     window_low::builtin_func_sets().set(&mut vec);
