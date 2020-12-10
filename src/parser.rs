@@ -2285,7 +2285,8 @@ selend
                                     Infix::Multiply,
                                     Box::new(Expression::Identifier(Identifier(String::from("b")))),
                                     Box::new(Expression::Identifier(Identifier(String::from("c")))),
-                                ))
+                                )),
+                                Box::new(None)
                             ))
                         )),
                         Box::new(Expression::Identifier(Identifier(String::from("d")))),
@@ -2303,12 +2304,14 @@ selend
                                 Box::new(Expression::Identifier(Identifier(String::from("a")))),
                                 Box::new(Expression::Index(
                                     Box::new(Expression::Identifier(Identifier(String::from("b")))),
-                                    Box::new(Expression::Literal(Literal::Num(2 as f64)))
+                                    Box::new(Expression::Literal(Literal::Num(2 as f64))),
+                                    Box::new(None)
                                 ))
                             ),
                             Expression::Index(
                                 Box::new(Expression::Identifier(Identifier(String::from("b")))),
-                                Box::new(Expression::Literal(Literal::Num(1 as f64)))
+                                Box::new(Expression::Literal(Literal::Num(1 as f64))),
+                                Box::new(None),
                             ),
                             Expression::Infix(
                                 Infix::Multiply,
@@ -2320,7 +2323,8 @@ selend
                                             Expression::Literal(Literal::Num(2 as f64)),
                                         ]
                                     ))),
-                                    Box::new(Expression::Literal(Literal::Num(1 as f64)))
+                                    Box::new(Expression::Literal(Literal::Num(1 as f64))),
+                                    Box::new(None)
                                 ))
                             )
                         ]
@@ -2425,7 +2429,8 @@ endif
                     Statement::Expression(Expression::Assign(
                         Box::new(Expression::Index(
                             Box::new(Expression::Identifier(Identifier(String::from("a")))),
-                            Box::new(Expression::Literal(Literal::Num(0 as f64)))
+                            Box::new(Expression::Literal(Literal::Num(0 as f64))),
+                            Box::new(None)
                         )),
                         Box::new(Expression::Literal(Literal::Num(1 as f64)))
                     ))
@@ -2633,7 +2638,8 @@ until (a == b) and (c >= d)
                             condition: Box::new(Expression::Identifier(Identifier(String::from("a")))),
                             consequence: Box::new(Expression::Identifier(Identifier(String::from("b")))),
                             alternative: Box::new(Expression::Identifier(Identifier(String::from("c")))),
-                        })
+                        }),
+                        Box::new(None)
                     ))
                 ]
             ),
@@ -2769,7 +2775,7 @@ fend
             ),
             (
                 r#"
-procedure hoge(foo, var bar, baz[], qux = 1, &quux)
+procedure hoge(foo, var bar, baz[], qux = 1)
 fend
                 "#,
                 vec![
@@ -2783,7 +2789,23 @@ fend
                                 Identifier("qux".to_string()),
                                 Box::new(Expression::Literal(Literal::Num(1.0))),
                             )),
-                            Expression::Params(Params::Variadic(Identifier("quux".to_string())))
+                        ],
+                        body: vec![],
+                        is_proc: true,
+                    }
+                ]
+            ),
+            (
+                r#"
+procedure hoge(ref foo, args bar)
+fend
+                "#,
+                vec![
+                    Statement::Function {
+                        name: Identifier("hoge".to_string()),
+                        params: vec![
+                            Expression::Params(Params::Reference(Identifier("foo".to_string()))),
+                            Expression::Params(Params::Variadic(Identifier("bar".to_string()))),
                         ],
                         body: vec![],
                         is_proc: true,
@@ -2940,7 +2962,10 @@ a /= 1
 print hoge.a
                 "#,
                 vec![
-                    Statement::Print(Expression::Identifier(Identifier("hoge.a".to_string())))
+                    Statement::Print(Expression::DotCall(
+                        Box::new(Expression::Identifier(Identifier("hoge".into()))),
+                        Box::new(Expression::Identifier(Identifier("a".into()))),
+                    ))
                 ]
             ),
             (
@@ -2949,7 +2974,10 @@ print hoge.b()
                 "#,
                 vec![
                     Statement::Print(Expression::FuncCall{
-                        func: Box::new(Expression::Identifier(Identifier("hoge.b".to_string()))),
+                        func: Box::new(Expression::DotCall(
+                            Box::new(Expression::Identifier(Identifier("hoge".into()))),
+                            Box::new(Expression::Identifier(Identifier("b".into()))),
+                        )),
                         args: vec![]
                     })
                 ]
@@ -2960,7 +2988,10 @@ hoge.a = 1
                 "#,
                 vec![
                     Statement::Expression(Expression::Assign(
-                        Box::new(Expression::Identifier(Identifier("hoge.a".to_string()))),
+                        Box::new(Expression::DotCall(
+                            Box::new(Expression::Identifier(Identifier("hoge".into()))),
+                            Box::new(Expression::Identifier(Identifier("a".into()))),
+                        )),
                         Box::new(Expression::Literal(Literal::Num(1.0))),
                     ))
                 ]
@@ -3056,46 +3087,6 @@ module Hoge
 endmodule
         "#;
         parser_test(input, vec![
-            Statement::Public(vec![
-                (Identifier("Hoge.b".to_string()), Expression::Literal(Literal::Num(1.0)))
-            ]),
-            Statement::Const(vec![
-                (Identifier("Hoge.c".to_string()), Expression::Literal(Literal::Num(1.0)))
-            ]),
-            Statement::Function {
-                name: Identifier("Hoge".to_string()),
-                params: vec![],
-                body: vec![
-                    Statement::Expression(Expression::Assign(
-                        Box::new(Expression::Identifier(Identifier("this.a".to_string()))),
-                        Box::new(Expression::Identifier(Identifier("c".to_string()))),
-                    ))
-                ],
-                is_proc: true,
-            },
-            Statement::Function {
-                name: Identifier("f".to_string()),
-                params: vec![
-                    Expression::Params(Params::Identifier(Identifier("x".to_string()))),
-                    Expression::Params(Params::Identifier(Identifier("y".to_string())))
-                ],
-                body: vec![
-                    Statement::Expression(Expression::Assign(
-                        Box::new(Expression::Identifier(Identifier("result".to_string()))),
-                        Box::new(Expression::Infix(
-                            Infix::Plus,
-                            Box::new(Expression::Identifier(Identifier("x".to_string()))),
-                            Box::new(Expression::FuncCall{
-                                func: Box::new(Expression::Identifier(Identifier("_f".to_string()))),
-                                args: vec![
-                                    Expression::Identifier(Identifier("y".to_string()))
-                                ]
-                            }),
-                        )),
-                    ))
-                ],
-                is_proc: false,
-            },
             Statement::Module(
                 Identifier("Hoge".to_string()),
                 vec![
@@ -3113,7 +3104,10 @@ endmodule
                         params: vec![],
                         body: vec![
                             Statement::Expression(Expression::Assign(
-                                Box::new(Expression::Identifier(Identifier("this.a".to_string()))),
+                                Box::new(Expression::DotCall(
+                                    Box::new(Expression::Identifier(Identifier("this".to_string()))),
+                                    Box::new(Expression::Identifier(Identifier("a".to_string()))),
+                                )),
                                 Box::new(Expression::Identifier(Identifier("c".to_string()))),
                             ))
                         ],

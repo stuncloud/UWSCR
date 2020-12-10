@@ -1123,14 +1123,14 @@ impl Evaluator {
                             }
                         }
                     },
-                    Object::Bool(b) => self.eval_infix_string_expression(infix, s1.clone(), b.to_string()),
+                    Object::Bool(_) => self.eval_infix_string_expression(infix, s1.clone(), format!("{}", right)),
                     Object::Empty => self.eval_infix_empty_expression(infix, left, right),
                     _ => self.eval_infix_misc_expression(infix, left, right)
                 }
             },
             Object::Bool(l) => match right {
                 Object::Bool(b) => self.eval_infix_logical_operator_expression(infix, l, b),
-                Object::String(s) => self.eval_infix_string_expression(infix, l.to_string(), s.clone()),
+                Object::String(s) => self.eval_infix_string_expression(infix, format!("{}", left), s.clone()),
                 Object::Empty => self.eval_infix_empty_expression(infix, left, right),
                 Object::Num(n) => self.eval_infix_number_expression(infix, l as i64 as f64, n),
                 _ => self.eval_infix_misc_expression(infix, left, right)
@@ -2693,7 +2693,7 @@ endmodule
             ),
             (
                 "M.v",
-                Some(Object::Error("identifier not found: M.v".to_string()))
+                Some(Object::Error("you can not access to M.v".to_string()))
             ),
             (
                 "M.p",
@@ -2733,7 +2733,7 @@ endmodule
             ),
             (
                 "M.set_a(5)",
-                Some(Object::Num(0.0))
+                Some(Object::Num(5.0))
             ),
         ];
         for (input, expected) in test_cases {
