@@ -12,6 +12,7 @@ pub enum Token {
     Num(f64),
     Hex(String),
     String(String),
+    ExpandableString(String),
     Bool(bool),
     Null,
     Empty,

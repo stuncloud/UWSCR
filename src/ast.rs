@@ -101,6 +101,7 @@ pub enum Literal {
     // Int(i64),
     Num(f64),
     String(String),
+    ExpandableString(String),
     Bool(bool),
     Array(Vec<Expression>),
     // Path(String),

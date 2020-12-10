@@ -16,6 +16,7 @@ use std::rc::Rc;
 use std::cell::RefCell;
 
 use num_traits::FromPrimitive;
+use regex::Regex;
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct UError {
@@ -1203,12 +1204,33 @@ impl Evaluator {
         match literal {
             Literal::Num(value) => Object::Num(value),
             Literal::String(value) => Object::String(value),
+            Literal::ExpandableString(value) => self.expand_string(value),
             Literal::Bool(value) => Object::Bool(value),
             Literal::Array(objects) => self.eval_array_literal(objects),
             Literal::Empty => Object::Empty,
             Literal::Null => Object::Null,
             Literal::Nothing => Object::Nothing,
         }
+    }
+
+    fn expand_string(&self, string: String) -> Object {
+        let re = Regex::new("<#([^>]+)>").unwrap();
+        let mut new_string = string.clone();
+        for cap in re.captures_iter(string.as_str()) {
+            let expandable = cap.get(1).unwrap().as_str().to_ascii_uppercase();
+            new_string = match expandable.as_str() {
+                "CR" => re.replace_all(new_string.as_str(), "\r\n").to_string(),
+                "TAB" => re.replace_all(new_string.as_str(), "\t").to_string(),
+                "DBL" => re.replace_all(new_string.as_str(), "\"").to_string(),
+                _ => match self.env.borrow().get_variable(&expandable) {
+                    Some(o) => {
+                        re.replace_all(new_string.as_str(), format!("{}", o).as_str()).to_string()
+                    },
+                    None => new_string,
+                }
+            }
+        }
+        Object::String(new_string.to_string())
     }
 
     fn eval_array_literal(&mut self, objects: Vec<Expression>) -> Object {

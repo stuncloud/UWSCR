@@ -405,7 +405,7 @@ impl Lexer {
                 '"' | '\0' => {
                     let literal: &String = &self.input[start_pos..self.pos].into_iter().collect();
                     self.read_char();
-                    return Token::String(literal.to_string());
+                    return Token::ExpandableString(literal.to_string());
                 },
                 _ => {
                     self.read_char();

@@ -637,6 +637,7 @@ impl Parser {
             Token::Null => Some(Expression::Literal(Literal::Null)),
             Token::Nothing => Some(Expression::Literal(Literal::Nothing)),
             Token::Num(_) => self.parse_number_expression(),
+            Token::ExpandableString(_) |
             Token::String(_) => self.parse_string_expression(),
             Token::Bool(_) => self.parse_bool_expression(),
             Token::Lbracket => self.parse_array_expression(),
@@ -755,8 +756,11 @@ impl Parser {
 
     fn parse_string_expression(&mut self) -> Option<Expression> {
         match self.current_token.token {
-            Token::String(ref mut s) => Some(
+            Token::String(ref s) => Some(
                 Expression::Literal(Literal::String(s.clone()))
+            ),
+            Token::ExpandableString(ref s) => Some(
+                Expression::Literal(Literal::ExpandableString(s.clone()))
             ),
             _ => None
         }
