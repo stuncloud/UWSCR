@@ -1368,19 +1368,32 @@ impl Evaluator {
                 },
                 Params::Reference(i) => {
                     let Identifier(name) = i.clone();
-                    let arg_name = match arg_e.unwrap() {
-                        Expression::Identifier(Identifier(s)) => s.clone(),
-                        _ => return Self::error(format!("reference to {} should be Identifier", name))
+                    let e = arg_e.unwrap();
+                    match e {
+                        Expression::Array(_, _) |
+                        Expression::Assign(_, _) |
+                        Expression::CompoundAssign(_, _, _) |
+                        Expression::Params(_) => return Self::error(format!("invalid argument for {}", name)),
+                        _ => reference.push((name.clone(), e))
                     };
-                    reference.push((name.clone(), arg_name));
                     (name, o.clone())
                 },
-                Params::ForceArray(i) => {
+                Params::Array(i, b) => {
                     let Identifier(name) = i;
-                    match o {
-                        Object::Array(_) |
-                        Object::HashTbl(_) => (name, o.clone()),
-                        _ => return Self::error(format!("{} is not array", name))
+                    let e = arg_e.unwrap();
+                    match e {
+                        Expression::Identifier(_) |
+                        Expression::Index(_, _, _) |
+                        Expression::DotCall(_, _) => {
+                            if b {
+                                reference.push((name.clone(), e));
+                            }
+                            (name, o.clone())
+                        },
+                        Expression::Literal(Literal::Array(_)) => {
+                            (name, o.clone())
+                        },
+                        _ => return Self::error(format!("bad argument for {}: {:?}", name, e))
                     }
                 },
                 Params::WithDefault(i, default) => {
@@ -1451,25 +1464,25 @@ impl Evaluator {
             }
         };
         // 参照渡し
-        let ref_values = if reference.len() > 0 {
-            let mut vec = vec![];
-            for (p_name, _) in reference.clone() {
-                vec.push(
-                    self.env.borrow_mut().get_variable(&p_name).unwrap()
-                )
-            }
-            vec
-        } else {
-            vec![]
-        };
+        let mut ref_values = vec![];
+        for (p_name, _) in reference.clone() {
+            ref_values.push(
+                self.env.borrow_mut().get_variable(&p_name).unwrap()
+            )
+        }
 
         self.env.borrow_mut().restore_scope();
 
-        for ((_, a), o) in reference.iter().zip(ref_values.iter()) {
-            match self.env.borrow_mut().assign(a.clone(), o.clone()) {
-                Ok(()) => {},
-                Err(e) => return e
-            };
+        for ((_, e), o) in reference.iter().zip(ref_values.iter()) {
+            // Expressionが代入可能な場合のみ代入処理を行う
+            match e {
+                Expression::Identifier(_) |
+                Expression::Index(_, _, _) |
+                Expression::DotCall(_, _) => if let Some(Object::Error(err)) = self.eval_assign_expression(e.clone(), o.clone()) {
+                    return Self::error(err);
+                },
+                _ => {},
+            }
         };
 
         match object {

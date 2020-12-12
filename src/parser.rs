@@ -1192,7 +1192,7 @@ impl Parser {
                     match param.clone() {
                         Params::Identifier(i) |
                         Params::Reference(i) |
-                        Params::ForceArray(i) => if with_default_flg {
+                        Params::Array(i, _) => if with_default_flg {
                             self.error_got_bad_parameter(format!("{}: only argument with default is allowed after argument with default", i));
                             return None;
                         } else if variadic_flg {
@@ -1241,9 +1241,10 @@ impl Parser {
                 let i = self.parse_identifier().unwrap();
                 if self.is_next_token(&Token::Lbracket) {
                     self.bump();
-                    if self.is_next_token(&Token::Rbracket) {
-                        self.bump();
-                        return Some(Params::ForceArray(i));
+                    if self.is_next_token_expected(Token::Rbracket) {
+                        return Some(Params::Array(i, false));
+                    } else {
+                        return None;
                     }
                 } else if self.is_next_token(&Token::EqualOrAssign) {
                     self.bump();
@@ -1261,7 +1262,16 @@ impl Parser {
                     Token::Identifier(_) => {
                         self.bump();
                         let i = self.parse_identifier().unwrap();
-                        return Some(Params::Reference(i));
+                        if self.is_next_token(&Token::Lbracket) {
+                            self.bump();
+                            if self.is_next_token_expected(Token::Rbracket) {
+                                return Some(Params::Array(i, true));
+                            } else {
+                                return None;
+                            }
+                        } else {
+                            return Some(Params::Reference(i));
+                        }
                     }
                     _ =>{}
                 }
@@ -2788,7 +2798,7 @@ fend
                         params: vec![
                             Expression::Params(Params::Identifier(Identifier("foo".to_string()))),
                             Expression::Params(Params::Reference(Identifier("bar".to_string()))),
-                            Expression::Params(Params::ForceArray(Identifier("baz".to_string()))),
+                            Expression::Params(Params::Array(Identifier("baz".to_string()), false)),
                             Expression::Params(Params::WithDefault(
                                 Identifier("qux".to_string()),
                                 Box::new(Expression::Literal(Literal::Num(1.0))),

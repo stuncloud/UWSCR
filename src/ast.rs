@@ -189,7 +189,7 @@ pub enum Precedence {
 pub enum Params {
     Identifier(Identifier), // 通常の引数
     Reference(Identifier), // var引数
-    ForceArray(Identifier), // 引数[] (配列矯正)
+    Array(Identifier, bool), // 引数[] (変数強制), bool はrefかどうか
     WithDefault(Identifier, Box<Expression>), // デフォルト値
     Variadic(Identifier), // 可変長引数
     VariadicDummy, // 可変長引数用ダミーー
@@ -199,8 +199,12 @@ impl fmt::Display for Params {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Params::Identifier(ref i) => write!(f, "{}", i),
-            Params::Reference(ref i) => write!(f, "var {}", i),
-            Params::ForceArray(ref i) => write!(f, "{}[]", i),
+            Params::Reference(ref i) => write!(f, "ref {}", i),
+            Params::Array(ref i, b) => if b {
+                write!(f, "ref {}[]", i)
+            } else {
+                write!(f, "{}[]", i)
+            },
             Params::WithDefault(ref i, _) => write!(f, "{} = [default]", i),
             Params::Variadic(ref i) => write!(f, "&{}", i),
             _ => write!(f, "")
