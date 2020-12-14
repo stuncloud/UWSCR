@@ -6,7 +6,6 @@ version = "0.1.0"
 build = "build.rs"
 
 [dependencies]
-structopt = "0.3.18"
 enigo = "*"
 cast = "0.2.3"
 encoding_rs = "0.8.26"
@@ -31,6 +30,7 @@ features = [
     "wingdi",
     "wow64apiset",
     "sysinfoapi",
+    "shellapi",
 ]
 
 [build-dependencies]

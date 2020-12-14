@@ -1,7 +1,7 @@
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
 
-use std::{thread, time};
+use std::{ptr::null_mut, thread, time};
 
 use winapi::{
     um::{
@@ -10,6 +10,7 @@ use winapi::{
         processthreadsapi,
         sysinfoapi,
         winnt,
+        shellapi,
     },
     shared::{
         minwindef::{
@@ -157,4 +158,28 @@ pub fn kindofos(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 pub fn env(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let env_var = get_string_argument_value(&args, 0, None)?;
     Ok(Object::String(std::env::var(env_var).unwrap_or("".to_string())))
+}
+
+pub fn to_wide_string(str: &str) -> Vec<u16> {
+    use std::ffi::OsStr;
+    use std::os::windows::ffi::OsStrExt;
+    OsStr::new(str).encode_wide().chain(Some(0).into_iter()).collect()
+}
+
+pub fn shell_execute(cmd: String, params: Option<String>) -> bool {
+    unsafe {
+        let hinstance = shellapi::ShellExecuteW(
+            null_mut(),
+            to_wide_string("open").as_ptr(),
+            to_wide_string(cmd.as_str()).as_ptr(),
+            if params.is_some() {
+                to_wide_string(params.unwrap().as_str()).as_ptr()
+            } else {
+                null_mut()
+            },
+            null_mut(),
+            winuser::SW_SHOWNORMAL
+        );
+        hinstance as i32 > 32
+    }
 }

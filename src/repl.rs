@@ -9,9 +9,30 @@ use crate::parser::Parser;
 use crate::parser::ParseErrorKind;
 use crate::lexer::Lexer;
 
-pub fn run() {
+pub fn run(script: Option<String>) {
     let env = Environment::new();
     let mut evaluator = Evaluator::new(Rc::new(RefCell::new(env)));
+    if script.is_some() {
+        println!("loading script...");
+        let mut parser = Parser::new(Lexer::new(&script.unwrap()));
+        let program = parser.parse();
+        let errors = parser.get_errors();
+        if errors.len() > 0 {
+            for error in errors {
+                eprintln!("{}", error);
+            }
+            return;
+        } else {
+            match evaluator.eval(program) {
+                Some(Object::Error(e)) => {
+                    eprintln!("{}",e);
+                    return;
+                },
+                _ => {}
+            }
+            println!("script loaded.");
+        }
+    }
     let mut require_newline = false;
     let mut multiline = String::new();
     loop {
