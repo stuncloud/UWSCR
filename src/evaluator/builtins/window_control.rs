@@ -115,7 +115,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("clkitem", 5, clkitem);
     sets.add("ctrlwin", 2, ctrlwin);
     sets.add("status", 22, status);
-    sets.add("acw", 5, acw);
+    sets.add("acw", 6, acw);
     sets.add("monitor", 2, monitor);
     sets
 }
@@ -348,13 +348,11 @@ fn get_id_from_hwnd(hwnd: HWND) -> f64 {
 
 // ACW
 pub fn acw(args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let s = window_singlton();
-    let list = s.windows.lock().unwrap();
     let id = get_non_float_argument_value::<i32>(&args, 0, None)?;
-    let hwnd = match list.get(&id) {
-        Some(h) => *h,
-        None => return Ok(Object::Empty)
-    };
+    let hwnd = get_hwnd_from_id(id);
+    if hwnd == null_mut() {
+        return Ok(Object::Empty);
+    }
     let x = get_non_float_argument_value(&args, 1, None).ok();
     let y = get_non_float_argument_value(&args, 2, None).ok();
     let w = get_non_float_argument_value(&args, 3, None).ok();
