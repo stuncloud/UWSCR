@@ -14,6 +14,7 @@ use crate::lexer::Lexer;
 use std::fmt;
 use std::rc::Rc;
 use std::cell::RefCell;
+use std::borrow::Cow;
 
 use num_traits::FromPrimitive;
 use regex::Regex;
@@ -1230,25 +1231,16 @@ impl Evaluator {
         let re = Regex::new("<#([^>]+)>").unwrap();
         let mut new_string = string.clone();
         for cap in re.captures_iter(string.as_str()) {
-            let expandable = cap.get(1).unwrap().as_str().to_ascii_uppercase();
-            new_string = match expandable.as_str() {
-                "CR" => new_string.replace("<#CR>", "\r\n"),
-                //  Regex::new("<#CR>").unwrap().replace_all(new_string.as_str(), "\r\n").to_string(),
-                "TAB" => new_string.replace("<#TAB>", "\t"),
-                "DBL" => new_string.replace("<#DBL>", "\""),
-                _ => match self.env.borrow().get_variable(&expandable) {
-                    Some(o) => {
-                        let re = match Regex::new(format!("(?i)<#{}>", expandable).as_str()) {
-                            Ok(re) => re,
-                            Err(e) => return Self::error(format!("{}", e))
-                        };
-                        re.replace_all(new_string.as_str(), format!("{}", o).as_str()).to_string()
-                    },
-                    None => new_string,
-                }
-            }
+            let expandable = cap.get(1).unwrap().as_str();
+            let rep_to: Option<Cow<str>> = match expandable.to_ascii_uppercase().as_str() {
+                "CR" => Some("\r\n".into()),
+                "TAB" => Some("\t".into()),
+                "DBL" => Some("\"".into()),
+                _ => self.env.borrow().get_variable(&expandable.into()).map(|o| format!("{}", o).into()),
+            };
+            new_string = rep_to.map_or(new_string.clone(), |to| new_string.replace(format!("<#{}>", expandable).as_str(), to.as_ref()));
         }
-        Object::String(new_string.to_string())
+        Object::String(new_string)
     }
 
     fn eval_array_literal(&mut self, objects: Vec<Expression>) -> Object {
