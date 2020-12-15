@@ -248,7 +248,8 @@ impl Parser {
             match self.parse_statement() {
                 Some(s) => match s {
                     Statement::Public(_) |
-                    Statement::Const(_) => {
+                    Statement::Const(_) |
+                    Statement::TextBlock(_, _) => {
                         program.insert(pub_counter, s);
                         pub_counter += 1;
                     },
@@ -257,7 +258,8 @@ impl Parser {
                         for statement in body {
                             match statement {
                                 Statement::Public(_) |
-                                Statement::Const(_) => {
+                                Statement::Const(_) |
+                                Statement::TextBlock(_, _) => {
                                     program.insert(pub_counter, statement);
                                     pub_counter += 1;
                                 },
@@ -319,7 +321,7 @@ impl Parser {
             Token::Exit => Some(Statement::Exit),
             Token::Module => self.parse_module_statement(),
             Token::TextBlock(ref name, ref body) => {
-                name.clone().map(|s| Statement::TextBlock(Identifier(s), body.clone()))
+                name.clone().map(|s| Statement::TextBlock(Identifier(s), Literal::ExpandableString(body.clone())))
             },
             _ => self.parse_expression_statement(),
         }

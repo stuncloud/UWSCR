@@ -198,7 +198,8 @@ impl Evaluator {
             },
             Statement::TextBlock(i, s) => {
                 let Identifier(name) = i;
-                match self.env.borrow_mut().define_const(name, Object::String(s)) {
+                let value = self.eval_literal(s);
+                match self.env.borrow_mut().define_const(name, value) {
                     Ok(()) => None,
                     Err(o) => Some(o),
                 }
@@ -698,6 +699,11 @@ impl Evaluator {
                         };
                         module.add(member_name, value, Scope::Const);
                     }
+                },
+                Statement::TextBlock(i, s) => {
+                    let Identifier(name) = i;
+                    let value = self.eval_literal(s);
+                    module.add(name, value, Scope::Const);
                 },
                 Statement::Function{name: i, params, body, is_proc} => {
                     let Identifier(func_name) = i;
