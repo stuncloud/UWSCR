@@ -1226,11 +1226,16 @@ impl Evaluator {
         for cap in re.captures_iter(string.as_str()) {
             let expandable = cap.get(1).unwrap().as_str().to_ascii_uppercase();
             new_string = match expandable.as_str() {
-                "CR" => re.replace_all(new_string.as_str(), "\r\n").to_string(),
-                "TAB" => re.replace_all(new_string.as_str(), "\t").to_string(),
-                "DBL" => re.replace_all(new_string.as_str(), "\"").to_string(),
+                "CR" => new_string.replace("<#CR>", "\r\n"),
+                //  Regex::new("<#CR>").unwrap().replace_all(new_string.as_str(), "\r\n").to_string(),
+                "TAB" => new_string.replace("<#TAB>", "\t"),
+                "DBL" => new_string.replace("<#DBL>", "\""),
                 _ => match self.env.borrow().get_variable(&expandable) {
                     Some(o) => {
+                        let re = match Regex::new(format!("(?i)<#{}>", expandable).as_str()) {
+                            Ok(re) => re,
+                            Err(e) => return Self::error(format!("{}", e))
+                        };
                         re.replace_all(new_string.as_str(), format!("{}", o).as_str()).to_string()
                     },
                     None => new_string,
