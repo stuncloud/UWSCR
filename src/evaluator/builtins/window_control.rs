@@ -277,7 +277,12 @@ fn find_window(title: String, class_name: String, timeout: f64, name: &str) -> R
         }
         match target.err {
             Some(e) => return Err(builtin_func_error(name, e)),
-            None => Ok(target.hwnd)
+            None => {
+                let h = get_process_handle_from_hwnd(target.hwnd);
+                winuser::WaitForInputIdle(h, 1000); // 入力可能になるまで最大1秒待つ
+                handleapi::CloseHandle(h);
+                Ok(target.hwnd)
+            }
         }
     }
 }
