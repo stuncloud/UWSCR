@@ -116,7 +116,6 @@ impl Parser {
             Token::Until,
             Token::Next,
             Token::EndWith,
-            Token::EndTextBlock,
             Token::Fend,
             Token::EndModule,
             Token::EndClass,
@@ -319,6 +318,9 @@ impl Parser {
             Token::Procedure => self.parse_function_statement(true),
             Token::Exit => Some(Statement::Exit),
             Token::Module => self.parse_module_statement(),
+            Token::TextBlock(ref name, ref body) => {
+                name.clone().map(|s| Statement::TextBlock(Identifier(s), body.clone()))
+            },
             _ => self.parse_expression_statement(),
         }
     }

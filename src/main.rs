@@ -3,6 +3,7 @@ use std::fs;
 use std::env;
 
 use encoding_rs::{UTF_8, SHIFT_JIS};
+use regex::Regex;
 
 use uwscr::script;
 use uwscr::repl;
@@ -157,13 +158,11 @@ fn get_script(path: PathBuf) -> Result<String, String> {
         Ok(b) => b,
         Err(e) => return Err(format!("{}", e))
     };
-    match get_utf8(&bytes) {
-        Ok(utf8) => Ok(utf8),
-        Err(_)=> Err(format!("failed to load file."))
-    }
+    let re = Regex::new("(\r\n|\r|\n)").unwrap();
+    get_utf8(&bytes).map(|s| re.replace_all(s.as_str(), "\r\n").to_string())
 }
 
-fn get_utf8(bytes: &Vec<u8>) -> Result<String, ()> {
+fn get_utf8(bytes: &Vec<u8>) -> Result<String, String> {
     let (cow, _, err) = UTF_8.decode(bytes);
     if ! err {
         return Ok(cow.to_string());
@@ -173,5 +172,5 @@ fn get_utf8(bytes: &Vec<u8>) -> Result<String, ()> {
             return Ok(cow.to_string());
         }
     }
-    Err(())
+    Err("unsupported encoding".into())
 }

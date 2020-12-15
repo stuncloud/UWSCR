@@ -324,7 +324,7 @@ impl Lexer {
             "break" => Token::Break,
             "with" => Token::With,
             "endwith" => Token::EndWith,
-            "textblock" => Token::TextBlock,
+            "textblock" => self.consume_textblock(),
             "endtextblock" => Token::EndTextBlock,
             "function" => Token::Function,
             "procedure" => Token::Procedure,
@@ -429,6 +429,38 @@ impl Lexer {
                 }
             }
         }
+    }
+
+    fn consume_textblock(&mut self) -> Token {
+        // eolまで進める
+        let mut name = None;
+        loop {
+            let t = self.next_token();
+            match t.token {
+                Token::Eol => break,
+                Token::Identifier(s) => {
+                    name = Some(s);
+                }
+                _ => {},
+            }
+        }
+        let start_tb = self.pos;
+        let mut end_tb = self.pos;
+        loop {
+            let t = self.next_token();
+            if t.token == Token::EndTextBlock {
+                break;
+            }
+            loop {
+                end_tb = self.pos;
+                let t = self.next_token();
+                if t.token == Token::Eol {
+                    break;
+                }
+            }
+        }
+        let body: String = self.input[start_tb..end_tb].into_iter().collect();
+        Token::TextBlock(name, body)
     }
 }
 
@@ -662,5 +694,44 @@ def_dll hogefunc(int, int):int: hoge.dll
         for (input, expected) in test_cases {
             test_next_token(input, expected);
         }
+    }
+
+    #[test]
+    fn text_textblock() {
+        let test_cases = vec![
+            (
+r#"textblock
+hoge
+endtextblock"#,
+                vec![
+                    Token::TextBlock(None, "hoge".into())
+                ]
+            ),
+            (
+r#"textblock hoge
+hoge
+fuga
+endtextblock"#,
+                vec![
+                    Token::TextBlock(Some("hoge".into()), "hoge\nfuga".into())
+                ]
+            ),
+            (
+r#"
+        textblock hoge
+        hoge
+        fuga
+        endtextblock
+"#,
+                vec![
+                    Token::Eol,
+                    Token::TextBlock(Some("hoge".into()), "        hoge\n        fuga".into())
+                ]
+            ),
+        ];
+        for (input, expected) in test_cases {
+            test_next_token(input, expected);
+        }
+
     }
 }

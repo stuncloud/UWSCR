@@ -101,7 +101,7 @@ pub enum Token {
     With,
     EndWith,
 
-    TextBlock,
+    TextBlock(Option<String>, String),
     EndTextBlock,
 
     Function,

@@ -164,6 +164,7 @@ pub enum Statement {
     },
     Exit,
     Module(Identifier, BlockStatement),
+    TextBlock(Identifier, String),
 }
 
 pub type BlockStatement = Vec<Statement>;

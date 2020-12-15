@@ -196,6 +196,13 @@ impl Evaluator {
                 }
                 None
             },
+            Statement::TextBlock(i, s) => {
+                let Identifier(name) = i;
+                match self.env.borrow_mut().define_const(name, Object::String(s)) {
+                    Ok(()) => None,
+                    Err(o) => Some(o),
+                }
+            },
             Statement::HashTbl(i, hashopt, is_public) => {
                 let (name, hashtbl) = self.eval_hahtbl_definition_statement(i, hashopt);
                 if Self::is_error(&hashtbl) {
