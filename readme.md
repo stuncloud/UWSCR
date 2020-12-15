@@ -10,20 +10,21 @@ UWSCスクリプトを読み取り実行させるためのツールです
 
 ### スクリプトの実行
 
-```
+```powershell
 uwscr path\to\script.uws
 ```
 
 ### REPL
 
-```
+```powershell
 uwscr -r
 uwscr --repl
+uwscr --repl path\to\script.uws # スクリプトの事前読み込み
 ```
 
 ### バージョン確認
 
-```
+```powershell
 uwscr --version
 ```
 
