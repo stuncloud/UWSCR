@@ -44,12 +44,12 @@ use num_derive::{ToPrimitive, FromPrimitive};
 use num_traits::FromPrimitive;
 
 #[derive(Clone)]
-struct WindowControl {
+pub struct WindowControl {
     next_id: Arc<Mutex<i32>>,
     windows: Arc<Mutex<HashMap<i32, HWND>>>
 }
 
-fn window_singlton() -> Box<WindowControl> {
+pub fn window_singlton() -> Box<WindowControl> {
     static mut SINGLETON: Option<Box<WindowControl>> = None;
     static ONCE: Once = Once::new();
 
@@ -65,7 +65,7 @@ fn window_singlton() -> Box<WindowControl> {
     }
 }
 
-fn get_next_id() -> i32 {
+pub fn get_next_id() -> i32 {
     let s = window_singlton();
     let mut next_id = s.next_id.lock().unwrap();
     let id = next_id.clone();
@@ -74,10 +74,19 @@ fn get_next_id() -> i32 {
     id
 }
 
-fn set_new_window(key:i32, handle: HWND) {
+pub fn set_new_window(id: i32, handle: HWND, to_zero: bool) {
     let s = window_singlton();
     let mut list = s.windows.lock().unwrap();
-    list.insert(key, handle);
+    list.insert(id, handle);
+    if to_zero {
+        list.insert(0, handle);
+    }
+}
+
+fn set_id_zero(hwnd: HWND) {
+    let s = window_singlton();
+    let mut list = s.windows.lock().unwrap();
+    list.insert(0, hwnd);
 }
 
 #[derive(PartialEq, Clone, Debug)]
@@ -170,7 +179,7 @@ pub fn getid(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         let mut id = get_id_from_hwnd(hwnd);
         if id == -1.0 {
             let new_id = get_next_id();
-            set_new_window(new_id, hwnd);
+            set_new_window(new_id, hwnd, false);
             id = new_id as f64;
         }
         return Ok(Object::Num(id))
@@ -346,14 +355,14 @@ pub fn acw(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         Some(h) => *h,
         None => return Ok(Object::Empty)
     };
-    let rect = get_window_size(hwnd);
-    let x = get_non_float_argument_value(&args, 1, Some(*rect.get(&(StatusEnum::ST_X as u8)).unwrap())).unwrap_or(0);
-    let y = get_non_float_argument_value(&args, 2, Some(*rect.get(&(StatusEnum::ST_Y as u8)).unwrap())).unwrap_or(0);
-    let w = get_non_float_argument_value(&args, 3, Some(*rect.get(&(StatusEnum::ST_WIDTH as u8)).unwrap())).unwrap_or(0);
-    let h = get_non_float_argument_value(&args, 4, Some(*rect.get(&(StatusEnum::ST_HEIGHT as u8)).unwrap())).unwrap_or(0);
+    let x = get_non_float_argument_value(&args, 1, None).ok();
+    let y = get_non_float_argument_value(&args, 2, None).ok();
+    let w = get_non_float_argument_value(&args, 3, None).ok();
+    let h = get_non_float_argument_value(&args, 4, None).ok();
     let ms= get_non_float_argument_value(&args, 5, Some(0)).unwrap_or(0);
     thread::sleep(Duration::from_millis(ms));
     set_window_size(hwnd, x, y, w, h);
+    set_id_zero(hwnd);
     Ok(Object::Empty)
 }
 
@@ -441,6 +450,7 @@ pub fn ctrlwin(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         },
         _ => (),
     };
+    set_id_zero(hwnd);
     Ok(Object::Empty)
 }
 
@@ -498,7 +508,12 @@ fn get_window_size(h: HWND) -> HashMap<u8, i32> {
     ret
 }
 
-fn set_window_size(hwnd: HWND, x: i32, y: i32, w: i32, h: i32) {
+pub fn set_window_size(hwnd: HWND, x: Option<i32>, y: Option<i32>, w: Option<i32>, h: Option<i32>) {
+    let default_rect = get_window_size(hwnd);
+    let x = x.unwrap_or(*default_rect.get(&(StatusEnum::ST_X as u8)).unwrap());
+    let y = y.unwrap_or(*default_rect.get(&(StatusEnum::ST_Y as u8)).unwrap());
+    let w = w.unwrap_or(*default_rect.get(&(StatusEnum::ST_WIDTH as u8)).unwrap());
+    let h = h.unwrap_or(*default_rect.get(&(StatusEnum::ST_HEIGHT as u8)).unwrap());
     unsafe {
         let mut rect1: RECT= mem::zeroed();
         let mut rect2: RECT= mem::zeroed();

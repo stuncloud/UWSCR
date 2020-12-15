@@ -31,6 +31,8 @@ features = [
     "wow64apiset",
     "sysinfoapi",
     "shellapi",
+    "winbase",
+    "synchapi",
 ]
 
 [build-dependencies]

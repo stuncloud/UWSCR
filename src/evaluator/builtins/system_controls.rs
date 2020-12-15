@@ -2,6 +2,7 @@ use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
 
 use std::{ptr::null_mut, thread, time};
+use std::mem;
 
 use winapi::{
     um::{
@@ -11,10 +12,14 @@ use winapi::{
         sysinfoapi,
         winnt,
         shellapi,
+        winbase,
+        handleapi,
+        synchapi,
     },
     shared::{
+        windef::{HWND},
         minwindef::{
-            FALSE
+            DWORD, BOOL, TRUE, FALSE, LPARAM
         }
     }
 };
@@ -28,6 +33,8 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("sleep", 1, sleep);
     sets.add("kindofos", 1, kindofos);
     sets.add("env", 1, env);
+    sets.add("exec", 6, exec);
+    sets.add("shexec", 2, shexec);
     sets
 }
 
@@ -182,4 +189,93 @@ pub fn shell_execute(cmd: String, params: Option<String>) -> bool {
         );
         hinstance as i32 > 32
     }
+}
+
+fn create_process(cmd: String, name: &str) -> Result<processthreadsapi::PROCESS_INFORMATION, UError> {
+    unsafe {
+        let mut si: processthreadsapi::STARTUPINFOW = mem::zeroed();
+        si.cb = mem::size_of::<processthreadsapi::STARTUPINFOW>() as u32;
+        si.dwFlags = winbase::STARTF_USESHOWWINDOW;
+        si.wShowWindow = winuser::SW_SHOW as u16;
+        let mut pi: processthreadsapi::PROCESS_INFORMATION = mem::zeroed();
+        let mut command = to_wide_string(cmd.as_str());
+
+        let r: BOOL = processthreadsapi::CreateProcessW(
+            null_mut(),
+            command.as_mut_ptr(),
+            null_mut(),
+            null_mut(),
+            FALSE,
+            winbase::NORMAL_PRIORITY_CLASS,
+            null_mut(),
+            null_mut(),
+            &mut si,
+            &mut pi
+        );
+        if r == TRUE {
+            winuser::WaitForInputIdle(pi.hProcess, 1000);
+            Ok(pi)
+        } else {
+            Err(builtin_func_error(name, "failed to create process"))
+        }
+    }
+}
+
+struct ProcessHwnd {
+    pid: DWORD,
+    hwnd: HWND,
+}
+
+unsafe extern "system"
+fn enum_window_proc(hwnd: HWND, lparam: LPARAM) -> BOOL {
+    let ph = &mut *(lparam as *mut ProcessHwnd) as &mut ProcessHwnd;
+    let mut pid: DWORD = 0;
+    winuser::GetWindowThreadProcessId(hwnd, &mut pid);
+    if pid == ph.pid {
+        ph.hwnd = hwnd;
+        FALSE
+    } else {
+        TRUE
+    }
+}
+
+pub fn exec(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let cmd = get_string_argument_value(&args, 0, None)?;
+    let sync = get_bool_argument_value(&args, 1, Some(false))?;
+    let pi = create_process(cmd, args.name())?;
+    unsafe{
+        let mut ph = ProcessHwnd{pid: pi.dwProcessId, hwnd: null_mut()};
+        winuser::EnumWindows(Some(enum_window_proc), &mut ph as *mut ProcessHwnd as LPARAM);
+        let x = get_non_float_argument_value(&args, 2, None).ok();
+        let y = get_non_float_argument_value(&args, 3, None).ok();
+        let w = get_non_float_argument_value(&args, 4, None).ok();
+        let h = get_non_float_argument_value(&args, 5, None).ok();
+        window_control::set_window_size(ph.hwnd, x, y, w, h);
+        if sync {
+            // 同期する場合は終了コード
+            let mut exit: u32 = 0;
+            synchapi::WaitForSingleObject(pi.hProcess, winbase::INFINITE);
+            processthreadsapi::GetExitCodeProcess(pi.hProcess, &mut exit);
+            handleapi::CloseHandle(pi.hThread);
+            handleapi::CloseHandle(pi.hProcess);
+            Ok(Object::Num(exit.into()))
+        } else {
+            // idを返す
+            handleapi::CloseHandle(pi.hThread);
+            handleapi::CloseHandle(pi.hProcess);
+            if ph.hwnd != null_mut() {
+                let id = window_control::get_next_id();
+                window_control::set_new_window(id, ph.hwnd, true);
+                Ok(Object::Num(id.into()))
+            } else {
+                Ok(Object::Num(-1.0))
+            }
+        }
+    }
+}
+
+pub fn shexec(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let cmd = get_string_argument_value(&args, 0, None)?;
+    let params = get_string_argument_value(&args, 1, None).map_or(None, |s| Some(s));
+    Ok(Object::Bool(shell_execute(cmd, params)))
 }
