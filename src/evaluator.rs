@@ -1538,7 +1538,11 @@ impl Evaluator {
                         Expression::Identifier(i) => {
                             let Identifier(member_name) = i;
                             if module.is_local_member(&member_name) {
-                                Self::error(format!("you can not access to {}.{}", module.name(), member_name))
+                                if module.name() == self.env.borrow().get_current_module_name().unwrap_or("".to_string()) {
+                                    module.get_member(&member_name)
+                                } else {
+                                    Self::error(format!("you can not access to {}.{}", module.name(), member_name))
+                                }
                             } else if is_func {
                                 module.get_function(&member_name)
                             } else {
@@ -2658,6 +2662,10 @@ module M
         result = this.v
     fend
 
+    function get_m_v()
+        result = M.v
+    fend
+
     function get_p()
         result = p
     fend
@@ -2758,6 +2766,10 @@ endmodule
             ),
             (
                 "M.get_this_v()",
+                Some(Object::String("module local".to_string()))
+            ),
+            (
+                "M.get_m_v()",
                 Some(Object::String("module local".to_string()))
             ),
             (
