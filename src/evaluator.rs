@@ -108,9 +108,9 @@ impl Evaluator {
         for statement in block {
             match self.eval_statement(statement) {
                 Some(o) => match o {
-                    Object::Error(_) |
                     Object::Continue(_) |
                     Object::Break(_) |
+                    Object::Error(_) |
                     Object::Exit => return Some(o),
                     _ => (),
                 },
@@ -309,6 +309,7 @@ impl Evaluator {
                     Err(err) => Some(err),
                 }
             },
+            Statement::With(block) => self.eval_block_statement(block),
             Statement::Exit => Some(Object::Exit),
         }
     }

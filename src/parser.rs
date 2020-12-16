@@ -10,6 +10,7 @@ pub enum ParseErrorKind {
     InvalidModuleStatement,
     ValueMustBeDefined,
     BadParameter,
+    OutOfWith
 }
 
 #[derive(Debug, Clone)]
@@ -27,6 +28,7 @@ impl fmt::Display for ParseErrorKind {
             ParseErrorKind::InvalidModuleStatement => write!(f, "Unexpected statement in module definition"),
             ParseErrorKind::ValueMustBeDefined => write!(f, "constant must define value"),
             ParseErrorKind::BadParameter => write!(f, "bad parameter"),
+            ParseErrorKind::OutOfWith => write!(f, "Not in WITH block"),
         }
     }
 }
@@ -54,6 +56,7 @@ pub struct Parser {
     current_token: TokenWithPos,
     next_token: TokenWithPos,
     errors: PareseErrors,
+    with: Option<Expression>
 }
 
 impl Parser {
@@ -63,6 +66,7 @@ impl Parser {
             current_token: TokenWithPos::new(Token::Eof),
             next_token: TokenWithPos::new(Token::Eof),
             errors: vec![],
+            with: None,
         };
         parser.bump();
         parser.bump();
@@ -94,6 +98,14 @@ impl Parser {
     fn bump(&mut self) {
         self.current_token = self.next_token.clone();
         self.next_token = self.lexer.next_token();
+    }
+
+    fn get_current_with(&self) -> Option<Expression> {
+        self.with.clone()
+    }
+
+    fn set_with(&mut self, opt_exp: Option<Expression>) {
+        self.with = opt_exp;
     }
 
     fn is_current_token(&mut self, token: &Token) -> bool {
@@ -323,6 +335,7 @@ impl Parser {
             Token::TextBlock(ref name, ref body) => {
                 name.clone().map(|s| Statement::TextBlock(Identifier(s), Literal::ExpandableString(body.clone())))
             },
+            Token::With => self.parse_with_statement(),
             _ => self.parse_expression_statement(),
         }
     }
@@ -608,6 +621,23 @@ impl Parser {
         Some(Statement::Repeat(expression, block))
     }
 
+    fn parse_with_statement(&mut self) -> Option<Statement> {
+        self.bump();
+        let expression = match self.parse_expression(Precedence::Lowest, false) {
+            Some(e) => e,
+            None => return None,
+        };
+        let current_with = self.get_current_with();
+        self.set_with(Some(expression));
+        let block = self.parse_block_statement();
+        if ! self.is_current_token(&Token::EndWith) {
+            self.error_got_invalid_close_token(Token::EndWith);
+            return None;
+        }
+        self.set_with(current_with);
+        Some(Statement::With(block))
+    }
+
     fn parse_expression_statement(&mut self) -> Option<Statement> {
         match self.parse_expression(Precedence::Lowest, true) {
             Some(e) => {
@@ -650,6 +680,7 @@ impl Parser {
             Token::Function => self.parse_function_expression(false),
             Token::Procedure => self.parse_function_expression(true),
             Token::Then | Token::Eol => return None,
+            Token::Period => self.parse_with_dot_expression(),
             _ => {
                 self.error_no_prefix_parser();
                 return None;
@@ -747,6 +778,21 @@ impl Parser {
             Some(i) => Some(Expression::Identifier(i)),
             None => None
         }
+    }
+
+    fn parse_with_dot_expression(&mut self) -> Option<Expression> {
+        match self.get_current_with() {
+            Some(e) => self.parse_dotcall_expression(e),
+            None => {
+                self.errors.push(ParseError::new(
+                    ParseErrorKind::OutOfWith,
+                    format!(""),
+                    self.current_token.pos.clone()
+                ));
+                return None;
+            }
+        }
+
     }
 
     fn parse_number_expression(&mut self) -> Option<Expression> {
