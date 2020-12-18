@@ -110,6 +110,7 @@ pub fn init_builtins() -> Vec<NamedObject> {
     // key codes
     set_builtin_consts::<key_codes::VirtualKeyCodes>(&mut vec);
     set_builtin_consts::<key_codes::VirtualKeyCodeDups>(&mut vec);
+    set_builtin_consts::<key_codes::VirtualMouseButton>(&mut vec);
 
     vec.push(NamedObject::new_builtin_const("GET_UWSC_PRO".to_ascii_uppercase(), Object::Bool(false)));
     vec

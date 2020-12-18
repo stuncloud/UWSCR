@@ -141,9 +141,18 @@ pub enum VirtualKeyCodes {
     VK_OEM_MINUS           = 189,
     VK_OEM_PERIOD          = 190,
     VK_OEM_1               = 186,
+    VK_OEM_2               = 191,
+    VK_OEM_3               = 192,
+    VK_OEM_4               = 219,
+    VK_OEM_5               = 220,
+    VK_OEM_6               = 221,
+    VK_OEM_7               = 222,
+    VK_OEM_8               = 223,
     VK_OEM_RESET           = 233,
     VK_OEM_JUMP            = 234,
     VK_OEM_PA1             = 235,
+    VK_OEM_PA2             = 236,
+    VK_OEM_PA3             = 237,
 }
 
 #[allow(non_camel_case_types)]
@@ -154,4 +163,12 @@ pub enum VirtualKeyCodeDups {
     VK_RWIN = VirtualKeyCodes::VK_START as isize,
     VK_MENU = VirtualKeyCodes::VK_ALT as isize,
     VK_CONTROL = VirtualKeyCodes::VK_CTRL as isize,
+}
+
+#[allow(non_camel_case_types)]
+#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive)]
+pub enum VirtualMouseButton {
+    VK_LBUTTON = 1,
+    VK_RBUTTON = 2,
+    VK_MBUTTON = 4,
 }
