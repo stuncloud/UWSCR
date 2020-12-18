@@ -10,7 +10,8 @@ pub enum ParseErrorKind {
     InvalidModuleStatement,
     ValueMustBeDefined,
     BadParameter,
-    OutOfWith
+    OutOfWith,
+    OutOfLoop,
 }
 
 #[derive(Debug, Clone)]
@@ -29,6 +30,7 @@ impl fmt::Display for ParseErrorKind {
             ParseErrorKind::ValueMustBeDefined => write!(f, "constant must define value"),
             ParseErrorKind::BadParameter => write!(f, "bad parameter"),
             ParseErrorKind::OutOfWith => write!(f, "Not in WITH block"),
+            ParseErrorKind::OutOfLoop => write!(f, "Not in Loop block"),
         }
     }
 }
@@ -56,7 +58,8 @@ pub struct Parser {
     current_token: TokenWithPos,
     next_token: TokenWithPos,
     errors: PareseErrors,
-    with: Option<Expression>
+    with: Option<Expression>,
+    in_loop: bool,
 }
 
 impl Parser {
@@ -67,6 +70,7 @@ impl Parser {
             next_token: TokenWithPos::new(Token::Eof),
             errors: vec![],
             with: None,
+            in_loop: false,
         };
         parser.bump();
         parser.bump();
@@ -501,6 +505,14 @@ impl Parser {
     }
 
     fn parse_continue_statement(&mut self) -> Option<Statement> {
+        if ! self.in_loop {
+            self.errors.push(ParseError::new(
+                ParseErrorKind::OutOfLoop,
+                "continue is not allowd.".into(),
+                self.current_token.pos.clone()
+            ));
+            return None;
+        }
         self.bump();
         match self.parse_number_expression() {
             Some(Expression::Literal(Literal::Num(n))) => Some(Statement::Continue(n as u32)),
@@ -510,12 +522,30 @@ impl Parser {
     }
 
     fn parse_break_statement(&mut self) -> Option<Statement> {
+        if ! self.in_loop {
+            self.errors.push(ParseError::new(
+                ParseErrorKind::OutOfLoop,
+                "break is not allowd.".into(),
+                self.current_token.pos.clone()
+            ));
+            return None;
+        }
         self.bump();
         match self.parse_number_expression() {
             Some(Expression::Literal(Literal::Num(n))) => Some(Statement::Break(n as u32)),
             Some(_) => None,
             None => Some(Statement::Break(1)),
         }
+    }
+
+    fn parse_loop_block_statement(&mut self) -> BlockStatement {
+        let is_in_loop = self.in_loop;
+        self.in_loop = true;
+        let block = self.parse_block_statement();
+        if ! is_in_loop {
+            self.in_loop = false;
+        }
+        block
     }
 
     fn parse_for_statement(&mut self) -> Option<Statement> {
@@ -555,7 +585,7 @@ impl Parser {
                     None
                 };
                 self.bump();
-                let block = self.parse_block_statement();
+                let block = self.parse_loop_block_statement();
 
                 if ! self.is_current_token(&Token::Next) {
                     self.error_got_invalid_close_token(Token::Next);
@@ -574,7 +604,7 @@ impl Parser {
                     None => return None
                 };
                 self.bump();
-                let block = self.parse_block_statement();
+                let block = self.parse_loop_block_statement();
 
                 if ! self.is_current_token(&Token::Next) {
                     self.error_got_invalid_close_token(Token::Next);
@@ -587,8 +617,6 @@ impl Parser {
                 return None;
             }
         }
-
-
     }
 
     fn parse_while_statement(&mut self) -> Option<Statement> {
@@ -597,7 +625,7 @@ impl Parser {
             Some(e) => e,
             None => return None
         };
-        let block = self.parse_block_statement();
+        let block = self.parse_loop_block_statement();
         if ! self.is_current_token(&Token::Wend) {
             self.error_got_invalid_close_token(Token::Wend);
             return None;
@@ -607,7 +635,7 @@ impl Parser {
 
     fn parse_repeat_statement(&mut self) -> Option<Statement> {
         self.bump();
-        let block = self.parse_block_statement();
+        let block = self.parse_loop_block_statement();
         if ! self.is_current_token(&Token::Until) {
             self.error_got_invalid_close_token(Token::Until);
             return None;
