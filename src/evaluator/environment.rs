@@ -149,6 +149,13 @@ impl Environment {
         ).map(|o| o.object.clone())
     }
 
+    pub fn get_name_of_builtin_consts(&self, name: &String) -> Object {
+        let key = name.to_ascii_uppercase();
+        self.global.clone().into_iter()
+        .find(|o| o.name == key && o.scope == Scope::BuiltinConst)
+        .map_or(Object::Empty, |o| Object::String(o.name))
+    }
+
     // 変数評価の際に呼ばれる
     pub fn get_variable(&self, name: &String) -> Option<Object> {
         match self.get(&name, Scope::Local) {

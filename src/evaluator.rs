@@ -1303,6 +1303,13 @@ impl Evaluator {
                 DebugType::ListModuleMember(name) => {
                     self.env.borrow_mut().get_module_member(&name)
                 },
+                DebugType::BuiltinConstName(e) => {
+                    if let Some(Expression::Identifier(Identifier(name))) = e {
+                        self.env.borrow().get_name_of_builtin_consts(&name)
+                    } else {
+                        Object::Empty
+                    }
+                }
             },
             _ => result
         }
@@ -1313,9 +1320,6 @@ impl Evaluator {
         let mut arguments = args.iter().map(
             |e| (Some(e.clone()), self.eval_expression(e.clone()).unwrap())
         ).collect::<Vec<Argument>>();
-        let bi_args = args.iter().map(
-            |e| self.eval_expression(e.clone()).unwrap()
-        ).collect::<Vec<_>>();
 
         let (
             mut params,
@@ -1329,7 +1333,7 @@ impl Evaluator {
                 Object::AnonFunc(p, b, o, is_proc) =>  (p, b, is_proc, Some(o), None),
                 Object::BuiltinFunction(name, expected_param_len, f) => {
                     if expected_param_len >= arguments.len() as i32 {
-                        match f(BuiltinFuncArgs::new(name, bi_args)) {
+                        match f(BuiltinFuncArgs::new(name, arguments)) {
                             Ok(o) => return self.builtin_func_result(o),
                             Err(e) => return Object::UError(e)
                         }

@@ -151,6 +151,7 @@ impl Hash for Object {
 pub enum DebugType {
     GetEnv,
     ListModuleMember(String),
+    BuiltinConstName(Option<Expression>),
 }
 
 // hashtbl

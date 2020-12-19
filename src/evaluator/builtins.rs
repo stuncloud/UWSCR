@@ -7,6 +7,7 @@ pub mod key_codes;
 use crate::evaluator::UError;
 use crate::evaluator::object::*;
 use crate::evaluator::environment::NamedObject;
+use crate::ast::Expression;
 
 use cast;
 use strum::VariantNames;
@@ -18,12 +19,21 @@ pub type BuiltinFuncResult = Result<Object, UError>;
 #[derive(PartialEq, Debug, Clone)]
 pub struct BuiltinFuncArgs {
     func_name: String,
-    args: Vec<Object>
+    arg_exprs: Vec<Option<Expression>>,
+    args: Vec<Object>,
 }
 
 impl BuiltinFuncArgs {
-    pub fn new(func_name: String, args: Vec<Object>) -> Self {
-        BuiltinFuncArgs {func_name, args}
+    pub fn new(func_name: String, arguments: Vec<(Option<Expression>, Object)>) -> Self {
+        let mut arg_exprs = Vec::new();
+        let mut args = Vec::new();
+        for (e, o) in arguments {
+            arg_exprs.push(e);
+            args.push(o);
+        }
+        BuiltinFuncArgs {
+            func_name, arg_exprs, args
+        }
     }
     pub fn item(&self, i: usize) -> Option<Object> {
         self.args.get(i).map(|o| o.clone())
@@ -36,6 +46,9 @@ impl BuiltinFuncArgs {
     }
     pub fn name(&self) -> &str {
         self.func_name.as_str()
+    }
+    pub fn get_expr(&self, i: usize) -> Option<Expression> {
+        self.arg_exprs.get(i).map_or(None,|e| e.clone())
     }
 }
 
@@ -138,6 +151,7 @@ fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("eval", 1, builtin_eval);
     sets.add("list_env", 0, list_env);
     sets.add("list_module_member", 1, list_module_member);
+    sets.add("name_of", 1, name_of);
     sets
 }
 
@@ -153,6 +167,10 @@ pub fn list_env(_args: BuiltinFuncArgs) -> BuiltinFuncResult {
 pub fn list_module_member(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let s = get_string_argument_value(&args, 0, None)?;
     Ok(Object::Debug(DebugType::ListModuleMember(s)))
+}
+
+pub fn name_of(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    Ok(Object::Debug(DebugType::BuiltinConstName(args.get_expr(0))))
 }
 
 pub fn builtin_func_error<S: Into<String>>(name: &str, msg: S)-> UError {
