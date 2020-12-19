@@ -1141,7 +1141,7 @@ impl Evaluator {
                     },
                     Object::Bool(_) => self.eval_infix_string_expression(infix, s1.clone(), format!("{}", right)),
                     Object::Empty => self.eval_infix_empty_expression(infix, left, right),
-                    _ => self.eval_infix_misc_expression(infix, left, right)
+                    _ => self.eval_infix_string_expression(infix, s1.clone(), format!("{}", right))
                 }
             },
             Object::Bool(l) => match right {
@@ -1163,6 +1163,11 @@ impl Evaluator {
 
     fn eval_infix_misc_expression(&mut self, infix: Infix, left: Object, right: Object) -> Object {
         match infix {
+            Infix::Plus => if let Object::String(s) = right {
+                Object::String(format!("{}{}", left, s.clone()))
+            } else {
+                Self::error(format!("mismatched type: {} {} {}", left, infix, right))
+            },
             Infix::Equal => Object::Bool(left == right),
             Infix::NotEqual => Object::Bool(left != right),
             _ => Self::error(format!("mismatched type: {} {} {}", left, infix, right)),
