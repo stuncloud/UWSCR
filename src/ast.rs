@@ -164,6 +164,7 @@ pub enum Statement {
     },
     Exit,
     Module(Identifier, BlockStatement),
+    Class(Identifier, BlockStatement),
     TextBlock(Identifier, Literal),
     With(BlockStatement),
 }

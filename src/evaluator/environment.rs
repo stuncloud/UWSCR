@@ -1,6 +1,9 @@
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::init_builtins;
 use std::fmt;
+use std::rc::Rc;
+use std::cell::RefCell;
+
 
 #[derive(PartialEq, Clone, Debug)]
 pub enum Scope {
@@ -9,6 +12,7 @@ pub enum Scope {
     Const,
     Function,
     Module,
+    Class,
     BuiltinConst,
     BuiltinFunc,
 }
@@ -21,6 +25,7 @@ impl fmt::Display for Scope {
             Scope::Const => write!(f,"Const"),
             Scope::Function => write!(f,"Function"),
             Scope::Module => write!(f,"Module"),
+            Scope::Class => write!(f,"Class"),
             Scope::BuiltinConst => write!(f,"BuiltinConst"),
             Scope::BuiltinFunc => write!(f,"BuiltinFunc"),
         }
@@ -217,10 +222,11 @@ impl Environment {
     }
 
     pub fn get_module(&self, name: &String) -> Option<Object> {
-        match self.get_from_global(&name, Scope::Module) {
-            Some(module) => Some(module),
-            None => None
-        }
+        self.get_from_global(&name, Scope::Module)
+    }
+
+    pub fn get_class(&self, name: &String) -> Option<Object> {
+        self.get_from_global(&name, Scope::Class)
     }
 
     // 予約語チェック
@@ -294,17 +300,12 @@ impl Environment {
         self.define(key, object, Scope::Module, true)
     }
 
-    pub fn define_module_special_member(&mut self) {
-        self.add(NamedObject::new(
-            "THIS".into(),
-            Object::This,
-            Scope::Local
-        ), false);
-        self.add(NamedObject::new(
-            "GLOBAL".into(),
-            Object::Global,
-            Scope::Local
-        ), false);
+    pub fn define_class(&mut self, name: String, object: Object) -> Result<(), Object> {
+        let key = name.to_ascii_uppercase();
+        if self.contains(&key, Scope::Class) {
+            return Err(Object::Error(format!("{} is already defined.", key)))
+        }
+        self.define(key, object, Scope::Class, true)
     }
 
     fn hash_remove_all(&mut self, name: &String) -> bool {
@@ -346,6 +347,33 @@ impl Environment {
         Ok(())
     }
 
+    pub fn assign_public(&mut self, name: String, value: Object) -> Result<(), Object> {
+        let key = name.to_ascii_uppercase();
+        if self.is_reserved(&key) {
+            // ビルトイン定数には代入できない
+            return Err(Object::Error(format!("{} is reserved identifier.", key)))
+        }
+        // HASH_REMOVEALL
+        if let Object::Num(n) = value {
+            if n == -109.0 {
+                if self.hash_remove_all(&key) {
+                    return Ok(())
+                }
+            }
+        }
+        if self.contains(&key, Scope::Const) {
+            // 同名の定数がある場合エラー
+            return Err(Object::Error(format!("you can not assign to constant: {}", key)));
+        } else if self.contains(&key, Scope::Public) {
+            // 同名のグローバル変数が存在する場合は値を上書き
+            self.set(&key, Scope::Public, value, true);
+        } else {
+            // 同名のグローバル変数が存在しない場合はエラー
+            return Err(Object::Error(format!("public variable not found: {}", key)));
+        }
+        Ok(())
+    }
+
     pub fn set_func_params_to_local(&mut self, name: String, value: &Object) {
         let key = name.to_ascii_uppercase();
         self.add(NamedObject {
@@ -356,14 +384,22 @@ impl Environment {
     }
 
     // module関数呼び出し時にメンバをローカル変数としてセット
-    pub fn set_module_private_member(&mut self, name: &String) {
-        let vec = match self.get_module(name) {
-            Some(Object::Module(m)) => m.borrow().get_members(),
-            _ => return
-        };
+    pub fn set_module_private_member(&mut self, module: &Rc<RefCell<Module>>) {
+        let vec = module.borrow().get_members();
         for obj in vec {
             self.add(obj, false)
         }
+        // thisとglobalも定義
+        self.add(NamedObject::new(
+            "THIS".into(),
+            Object::This(Rc::clone(module)),
+            Scope::Local
+        ), false);
+        self.add(NamedObject::new(
+            "GLOBAL".into(),
+            Object::Global,
+            Scope::Local
+        ), false);
     }
 
     pub fn has_function(&mut self, name: &String) -> bool {
@@ -515,6 +551,16 @@ impl Module {
     pub fn is_local_member(&self, name: &String) -> bool {
         let key = name.to_ascii_uppercase();
         self.contains(&key, Scope::Local)
+    }
+
+    pub fn set_rc_to_functions(&mut self, rc: Rc<RefCell<Module>>) {
+        for  o in self.members.iter_mut() {
+            if o.scope == Scope::Function {
+                if let Object::Function(n, p, b, i, _) = o.object.clone() {
+                    o.object = Object::Function(n, p, b, i, Some(Rc::clone(&rc)))
+                }
+            }
+        }
     }
 }
 

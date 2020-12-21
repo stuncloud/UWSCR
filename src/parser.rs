@@ -7,11 +7,12 @@ use std::fmt;
 pub enum ParseErrorKind {
     UnexpectedToken,
     BlockNotClosedCorrectly,
-    InvalidModuleStatement,
     ValueMustBeDefined,
     BadParameter,
     OutOfWith,
     OutOfLoop,
+    InvalidStatement,
+    ClassHasNoConstructor
 }
 
 #[derive(Debug, Clone)]
@@ -26,11 +27,12 @@ impl fmt::Display for ParseErrorKind {
         match *self {
             ParseErrorKind::UnexpectedToken => write!(f, "Unexpected Token"),
             ParseErrorKind::BlockNotClosedCorrectly => write!(f, "Block is not closing correctly"),
-            ParseErrorKind::InvalidModuleStatement => write!(f, "Unexpected statement in module definition"),
             ParseErrorKind::ValueMustBeDefined => write!(f, "constant must define value"),
             ParseErrorKind::BadParameter => write!(f, "bad parameter"),
             ParseErrorKind::OutOfWith => write!(f, "Not in WITH block"),
             ParseErrorKind::OutOfLoop => write!(f, "Not in Loop block"),
+            ParseErrorKind::InvalidStatement => write!(f, "Invalid Statement"),
+            ParseErrorKind::ClassHasNoConstructor => write!(f, "Constructor required"),
         }
     }
 }
@@ -287,7 +289,8 @@ impl Parser {
                         });
                         func_counter += 1;
                     },
-                    Statement::Module(_, _) => {
+                    Statement::Module(_, _) |
+                    Statement::Class(_, _) => {
                         program.insert(pub_counter + func_counter, s);
                         func_counter += 1;
                     },
@@ -336,6 +339,7 @@ impl Parser {
             Token::Procedure => self.parse_function_statement(true),
             Token::Exit => Some(Statement::Exit),
             Token::Module => self.parse_module_statement(),
+            Token::Class => self.parse_class_statement(),
             Token::TextBlock(ref name, ref body) => {
                 name.clone().map(|s| Statement::TextBlock(Identifier(s), Literal::ExpandableString(body.clone())))
             },
@@ -1209,6 +1213,67 @@ impl Parser {
             self.bump();
         }
         Some(Statement::Module(identifier, block))
+    }
+
+    fn parse_class_statement(&mut self) -> Option<Statement> {
+        let class_statement_pos = self.current_token.pos.clone();
+        self.bump();
+        let identifier = match self.parse_identifier() {
+            Some(i) => i,
+            None => {
+                self.error_token_is_not_identifier();
+                return None;
+            },
+        };
+        self.bump();
+        let mut block = vec![];
+        let mut has_constructor = false;
+        while ! self.is_current_token(&Token::EndClass) {
+            if self.is_current_token(&Token::Eof) {
+                self.errors.push(ParseError::new(
+                    ParseErrorKind::BlockNotClosedCorrectly,
+                    format!(
+                        "class should be closed by endclass.",
+                    ),
+                    self.current_token.pos.clone()
+                ));
+                return None;
+            }
+            let cur_pos = self.current_token.pos.clone();
+            match self.parse_statement() {
+                Some(s) => match s {
+                    Statement::Dim(_) |
+                    Statement::Public(_) |
+                    Statement::Const(_) |
+                    Statement::TextBlock(_, _)=> block.push(s),
+                    Statement::Function{ref name, params: _, body: _, is_proc: _} => {
+                        if name == &identifier {
+                            has_constructor = true;
+                        }
+                        block.push(s);
+                    },
+                    _ => {
+                        self.errors.push(ParseError::new(
+                            ParseErrorKind::InvalidStatement,
+                            format!("you can not define {:?} in Class", s),
+                            cur_pos
+                        ));
+                        return None;
+                    },
+                },
+                None => ()
+            }
+            self.bump();
+        }
+        if ! has_constructor {
+            self.errors.push(ParseError::new(
+                ParseErrorKind::ClassHasNoConstructor,
+                format!("procedure {}() must be defined", identifier),
+                class_statement_pos
+            ));
+            return None;
+        }
+        Some(Statement::Class(identifier, block))
     }
 
     fn parse_ternary_operator_expression(&mut self, left: Expression) -> Option<Expression> {

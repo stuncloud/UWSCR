@@ -310,6 +310,17 @@ impl Evaluator {
                     Err(err) => Some(err),
                 }
             },
+            Statement::Class(i, block) => {
+                let Identifier(name) = i;
+                let class = self.eval_module_statement(&name, block, true);
+                if Self::is_error(&class) {
+                    return Some(class);
+                }
+                self.env.borrow_mut().define_class(name.clone(), class).map_or_else(
+                    |err| Some(err),
+                    |_| None
+                )
+            },
             Statement::With(block) => self.eval_block_statement(block),
             Statement::Exit => Some(Object::Exit),
         }
@@ -659,6 +670,7 @@ impl Evaluator {
 
     fn eval_module_statement(&mut self, module_name: &String, block: BlockStatement, is_class: bool) -> Object {
         let mut module = Module::new(module_name.to_string());
+        let mut class_constructor = None;
         for statement in block {
             match statement {
                 Statement::Dim(vec) => {
@@ -747,15 +759,16 @@ impl Evaluator {
                             _ => new_body.push(statement),
                         };
                     }
+                    if is_class && &func_name == module_name {
+                        class_constructor = Some(Object::Function(
+                            func_name.clone(), params.clone(), new_body.clone(), is_proc, None
+                        ))
+                    };
                     module.add(
                         func_name.clone(),
                         Object::Function(
                             func_name, params, new_body, is_proc,
-                            Some(Box::new(Object::Module(
-                                Rc::new(RefCell::new(
-                                    Module::new(module.name())))
-                                ))
-                            )
+                            None
                         ),
                         Scope::Function,
                     );
@@ -763,10 +776,20 @@ impl Evaluator {
                 _ => return Self::error(format!("invalid statement"))
             }
         }
+        let rc = Rc::new(RefCell::new(module.clone()));
+        rc.borrow_mut().set_rc_to_functions(Rc::clone(&rc));
         if is_class {
-            Self::error(format!("class is not supported"))
+            // Self::error(format!("class is not supported"))
+            if class_constructor.is_some() {
+                Object::Class {
+                    constructor: Box::new(class_constructor.unwrap()),
+                    members: module
+                }
+            } else {
+                Self::error(format!("{} has no constructor", module_name))
+            }
         } else {
-            Object::Module(Rc::new(RefCell::new(module)))
+            Object::Module(Rc::clone(&rc))
         }
     }
 
@@ -912,7 +935,10 @@ impl Evaluator {
                 Some(o) => o,
                 None => match env.get_module(&name) {
                     Some(o) => o,
-                    None => Object::Error(String::from(format!("identifier not found: {}", name)))
+                    None => match env.get_class(&name) {
+                        Some(o) => o,
+                        None => Object::Error(String::from(format!("identifier not found: {}", name)))
+                    }
                 }
             }
         }
@@ -1017,11 +1043,10 @@ impl Evaluator {
                 let mut env = self.env.borrow_mut();
                 let m_result = match env.get_current_module_name() {
                     Some(m_name) => {
-                        match env.get_module(&m_name).unwrap() {
-                            Object::Module(module) => {
-                                module.borrow_mut().assign(&name, value.clone()).map_or_else(|err| Some(err), |_| None)
-                            },
-                            _ => None // should neve hapen
+                        if let Some(Object::Module(m)) = env.get_module(&m_name) {
+                            m.borrow_mut().assign(&name, value.clone()).map_or_else(|err| Some(err), |_| None)
+                        } else {
+                            None
                         }
                     },
                     None => None
@@ -1087,7 +1112,8 @@ impl Evaluator {
                 match self.eval_expression(*left) {
                     Some(o) => match o {
                         Object::Error(_) => Some(o),
-                        Object::Module(m) => {
+                        Object::Module(m) |
+                        Object::Instance(m) => {
                             match *right {
                                 Expression::Identifier(i) => {
                                     let Identifier(member_name) = i;
@@ -1096,7 +1122,21 @@ impl Evaluator {
                                 _ => Some(Self::error(format!("syntax error on assignment")))
                             }
                         },
-                        _ => Some(Self::error(format!("")))
+                        Object::This(m) => {
+                            let mut module = m.borrow_mut();
+                            if let Expression::Identifier(Identifier(member)) = *right {
+                                module.assign(&member, value).map_or_else(|o| Some(o), |_| None)
+                            } else {
+                                Some(Self::error(format!("member not found on {}", module.name())))
+                            }
+                        },
+                        Object::Global => match *right {
+                            Expression::Identifier(Identifier(name)) => {
+                                self.env.borrow_mut().assign_public(name, value).map_or_else(|err| Some(err), |_| None)
+                            },
+                            _ => Some(Self::error(format!("global: error on assignment")))
+                        },
+                        _ => Some(Self::error(format!("not module or object: {}", o)))
                     },
                     None => Some(Self::error(format!("syntax error on assignment")))
                 }
@@ -1268,7 +1308,10 @@ impl Evaluator {
                     Some(o) => Some(o),
                     None => match env.get_variable(&name) {
                         Some(o) => Some(o),
-                        None => Some(Object::Error(format!("function not found: {}", name)))
+                        None => match env.get_class(&name) {
+                            Some(o) => Some(o),
+                            None => Some(Object::Error(format!("function not found: {}", name)))
+                        }
                     }
                 }
             },
@@ -1327,11 +1370,12 @@ impl Evaluator {
             body,
             is_proc,
             anon_outer,
-            left_of_dot
+            rc_module,
+            is_class_constructor
         ) = match self.eval_expression_for_func_call(*func) {
             Some(o) => match o {
-                Object::Function(_, p, b, is_proc, obj) => (p, b, is_proc, None, obj),
-                Object::AnonFunc(p, b, o, is_proc) =>  (p, b, is_proc, Some(o), None),
+                Object::Function(_, p, b, is_proc, obj) => (p, b, is_proc, None, obj, false),
+                Object::AnonFunc(p, b, o, is_proc) =>  (p, b, is_proc, Some(o), None, false),
                 Object::BuiltinFunction(name, expected_param_len, f) => {
                     if expected_param_len >= arguments.len() as i32 {
                         match f(BuiltinFuncArgs::new(name, arguments)) {
@@ -1347,6 +1391,14 @@ impl Evaluator {
                     }
                 },
                 Object::Error(err) => return Object::Error(err),
+                // class constructor
+                Object::Class{constructor, members} => if let Object::Function(_, p, b, is_proc, _) = *constructor {
+                    let rc = Rc::new(RefCell::new(members));
+                    rc.borrow_mut().set_rc_to_functions(Rc::clone(&rc));
+                    (p, b, is_proc, None, Some(rc), true)
+                } else {
+                    return Self::error(format!("Invalid class constructor"));
+                },
                 _ => return Self::error(format!(
                     "{} is not a function", o
                 )),
@@ -1360,11 +1412,8 @@ impl Evaluator {
             params.resize(arguments.len(), Expression::Params(Params::VariadicDummy));
         }
 
-        let module_name = match left_of_dot.clone() {
-            Some(obj) => match *obj {
-                Object::Module(m) => Some(m.borrow().name()),
-                _ => None
-            }
+        let module_name = match rc_module {
+            Some(ref m) => Some(m.borrow().name()),
             None => None
         };
 
@@ -1460,23 +1509,23 @@ impl Evaluator {
             };
         }
 
-        match left_of_dot {
-            Some(obj) => match *obj {
-                Object::Module(m) => {
-                    self.env.borrow_mut().set_module_private_member(&m.borrow().name());
-                    // add global and this
-                    self.env.borrow_mut().define_module_special_member();
-                },
-                _ => ()
-            }
-            None => ()
-        }
+        match rc_module {
+            Some(ref m) => {
+                self.env.borrow_mut().set_module_private_member(m);
+            },
+            None => {},
+        };
 
         // 関数実行
         let object = self.eval_block_statement(body);
 
         // 戻り値
-        let result = if is_proc {
+        let result =  if is_class_constructor {
+            match rc_module {
+                Some(m) => Object::Instance(m),
+                None => return Self::error("constructor is not valid".into())
+            }
+        } else if is_proc {
             Object::Empty
         } else {
             match self.env.borrow_mut().get_variable(&"result".to_string()) {
@@ -1543,7 +1592,8 @@ impl Evaluator {
         };
         match instance {
             Some(o) => match o {
-                Object::Module(m) => {
+                Object::Module(m) |
+                Object::Instance(m) => {
                     let module = m.borrow();
                     match right {
                         Expression::Identifier(i) => {
@@ -1563,30 +1613,17 @@ impl Evaluator {
                         _ => Self::error(format!("member does not exist."))
                     }
                 },
-                Object::This => {
-                    let env = self.env.borrow();
-                    match env.get_current_module_name() {
-                        Some(name) => {
-                            match env.get_module(&name) {
-                                Some(o) => if let Object::Module(m) = o {
-                                    let module = m.borrow();
-                                    if let Expression::Identifier(i) = right {
-                                        let Identifier(member_name) = i;
-                                        if is_func {
-                                            module.get_function(&member_name)
-                                        } else {
-                                            module.get_member(&member_name)
-                                        }
-                                    } else {
-                                        Self::error(format!("module member not found on {}", &name))
-                                    }
-                                } else {
-                                    Self::error(format!("module {} not found", name))
-                                },
-                                None => Self::error(format!("module {} not found", name))
-                            }
-                        },
-                        None => Self::error(format!("THIS can not be called from out side of module"))
+                Object::This(m) => {
+                    let module = m.borrow();
+                    if let Expression::Identifier(i) = right {
+                        let Identifier(member_name) = i;
+                        if is_func {
+                            module.get_function(&member_name)
+                        } else {
+                            module.get_member(&member_name)
+                        }
+                    } else {
+                        Self::error(format!("member not found on {}", module.name()))
                     }
                 },
                 Object::Global => {
@@ -1597,6 +1634,7 @@ impl Evaluator {
                     }
                 },
                 Object::Error(_) => return o,
+                Object::Class{constructor:_, ref members} => Self::error(format!("class {0} can not be called directly; try {0}() to create instance", members.name())),
                 _ => Self::error(format!(". operator not supported"))
             },
             None => Self::error(format!(". operator: syntax error"))

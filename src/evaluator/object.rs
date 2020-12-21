@@ -22,9 +22,14 @@ pub enum Object {
     Array(Vec<Object>),
     HashTbl(Rc<RefCell<HashTbl>>),
     AnonFunc(Vec<Expression>, BlockStatement, Vec<NamedObject>, bool),
-    Function(String, Vec<Expression>, BlockStatement, bool, Option<Box<Object>>),
+    Function(String, Vec<Expression>, BlockStatement, bool, Option<Rc<RefCell<Module>>>),
     BuiltinFunction(String, i32, BuiltinFunction),
     Module(Rc<RefCell<Module>>),
+    Class{
+        constructor: Box<Object>,
+        members: Module
+    },
+    Instance(Rc<RefCell<Module>>),
     Null,
     Empty,
     Nothing,
@@ -38,7 +43,7 @@ pub enum Object {
     Exit,
     Debug(DebugType),
     Global, // globalを示す
-    This,   // thisを示す
+    This(Rc<RefCell<Module>>),   // thisを示す
 }
 
 impl fmt::Display for Object {
@@ -71,12 +76,10 @@ impl fmt::Display for Object {
             },
             Object::Function(ref name, ref params, _, is_proc, ref instance) => {
                 let mut arguments = String::new();
-                let func_name = match instance {
-                    Some(obj) => match &**obj {
-                        Object::Module(m) => format!("{}.{}", m.borrow().name(), name),
-                        _ => name.to_string()
-                    },
-                    None => name.to_string()
+                let func_name = if instance.is_some() {
+                    instance.clone().unwrap().borrow().name()
+                } else {
+                    name.to_string()
                 };
                 for (i, e) in params.iter().enumerate() {
                     match e {
@@ -124,10 +127,12 @@ impl fmt::Display for Object {
             Object::UError(ref value) => write!(f, "{}", value),
             Object::Debug(_) => write!(f, "debug"),
             Object::Module(ref m) => write!(f, "module: {}", m.borrow().name()),
+            Object::Class{constructor: _, ref members} => write!(f, "class: {}", members.name()),
+            Object::Instance(ref m) => write!(f, "instance of {}", m.borrow().name()),
             Object::Handle(h) => write!(f, "{:?}", h),
             Object::RegEx(ref re) => write!(f, "regex: {}", re),
             Object::Global => write!(f, "GLOBAL"),
-            Object::This => write!(f, "THIS"),
+            Object::This(ref m) => write!(f, "THIS ({})", m.borrow().name()),
         }
     }
 }

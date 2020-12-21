@@ -126,6 +126,7 @@ pub fn init_builtins() -> Vec<NamedObject> {
     set_builtin_consts::<key_codes::VirtualMouseButton>(&mut vec);
 
     vec.push(NamedObject::new_builtin_const("GET_UWSC_PRO".to_ascii_uppercase(), Object::Bool(false)));
+    vec.push(NamedObject::new_builtin_const("GET_UWSC_VER".to_ascii_uppercase(), Object::String(env!("CARGO_PKG_VERSION").into())));
     vec
 }
 
@@ -152,8 +153,11 @@ fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("list_env", 0, list_env);
     sets.add("list_module_member", 1, list_module_member);
     sets.add("name_of", 1, name_of);
+    sets.add("assert_equal", 2, assert_equal);
     sets
 }
+
+// デバッグ用ビルトイン関数の実体
 
 pub fn builtin_eval(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let s = get_string_argument_value(&args, 0, None)?;
@@ -172,6 +176,18 @@ pub fn list_module_member(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 pub fn name_of(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(Object::Debug(DebugType::BuiltinConstName(args.get_expr(0))))
 }
+
+pub fn assert_equal(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let arg1 = get_any_argument_value(&args,0, None)?;
+    let arg2 = get_any_argument_value(&args,1, None)?;
+    if arg1 == arg2 {
+        Ok(Object::Empty)
+    } else {
+        Err(UError::new("assertion error".into(), format!("left: {}, right: {}", arg1, arg2), None))
+    }
+}
+
+// エラー出力用関数
 
 pub fn builtin_func_error<S: Into<String>>(name: &str, msg: S)-> UError {
     UError::new("builtin function error".into(), msg.into(), Some(name.into()))
