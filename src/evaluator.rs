@@ -1041,18 +1041,12 @@ impl Evaluator {
             Expression::Identifier(i) => {
                 let Identifier(name) = i;
                 let mut env = self.env.borrow_mut();
-                let m_result = match env.get_current_module_name() {
-                    Some(m_name) => {
-                        if let Some(Object::Module(m)) = env.get_module(&m_name) {
-                            m.borrow_mut().assign(&name, value.clone()).map_or_else(|err| Some(err), |_| None)
-                        } else {
-                            None
-                        }
-                    },
-                    None => None
-                };
-                if m_result.is_some() {
-                    return m_result;
+                if let Some(Object::This(m)) = env.get_variable(&"this".into()) {
+                    // moudele/classメンバであればその値を更新する
+                    let e =  m.borrow_mut().assign(&name, value.clone()).map_or_else(|e| Some(e), |_| None);
+                    if e.is_some() {
+                        return e;
+                    }
                 }
                 env.assign(name, value).map_or_else(|err| Some(err), |_| None)
             },
