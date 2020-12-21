@@ -20,6 +20,7 @@ pub fn run(script: String) -> Result<(), Vec<ParseError>> {
     }
     match evaluator.eval(program) {
         Some(Object::Error(msg)) => eprintln!("evaluator error: {}", msg),
+        Some(Object::UError(err)) => eprintln!("{}", err),
         _ => ()
     }
 

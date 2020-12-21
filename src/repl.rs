@@ -28,6 +28,10 @@ pub fn run(script: Option<String>) {
                     eprintln!("{}",e);
                     return;
                 },
+                Some(Object::UError(err)) => {
+                    eprintln!("{}", err);
+                    return;
+                },
                 _ => {}
             }
             println!("script loaded.");

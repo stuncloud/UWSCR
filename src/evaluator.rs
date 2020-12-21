@@ -95,7 +95,8 @@ impl Evaluator {
             match self.eval_statement(statement) {
                 Some(o) => match o {
                     Object::Exit => return Some(Object::Exit),
-                    Object::Error(msg) => return Some(Object::Error(msg)),
+                    Object::Error(_) |
+                    Object::UError(_) => return Some(o),
                     _ => result = Some(o),
                 },
                 None => ()
