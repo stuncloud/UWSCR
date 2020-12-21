@@ -1505,6 +1505,13 @@ impl Evaluator {
             None => {},
         };
 
+        if ! is_proc {
+            // resultにEMPTYを入れておく
+            if let Err(e) = self.env.borrow_mut().define_local("result".into(), Object::Empty) {
+                return e;
+            }
+        }
+
         // 関数実行
         let object = self.eval_block_statement(body);
 
