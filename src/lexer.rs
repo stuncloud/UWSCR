@@ -447,16 +447,16 @@ impl Lexer {
         let start_tb = self.pos;
         let mut end_tb = self.pos;
         loop {
-            let t = self.next_token();
-            if t.token == Token::EndTextBlock {
+            if self.next_token().token == Token::EndTextBlock {
                 break;
             }
             loop {
                 end_tb = self.pos;
-                let t = self.next_token();
-                if t.token == Token::Eol {
-                    break;
-                }
+                match self.next_token().token {
+                    Token::Eol => break,
+                    Token::Eof => return Token::NoEndTextBlock,
+                    _ => {},
+                };
             }
         }
         let body: String = self.input[start_tb..end_tb].into_iter().collect();

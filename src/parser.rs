@@ -343,6 +343,14 @@ impl Parser {
             Token::TextBlock(ref name, ref body) => {
                 name.clone().map(|s| Statement::TextBlock(Identifier(s), Literal::ExpandableString(body.clone())))
             },
+            Token::NoEndTextBlock => {
+                self.errors.push(ParseError::new(
+                    ParseErrorKind::BlockNotClosedCorrectly,
+                    format!("endtextblock required"),
+                    self.current_token.pos.clone()
+                ));
+                None
+            },
             Token::With => self.parse_with_statement(),
             _ => self.parse_expression_statement(),
         }

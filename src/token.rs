@@ -103,6 +103,7 @@ pub enum Token {
 
     TextBlock(Option<String>, String),
     EndTextBlock,
+    NoEndTextBlock,
 
     Function,
     Procedure,
