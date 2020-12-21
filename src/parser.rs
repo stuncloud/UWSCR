@@ -1391,6 +1391,10 @@ impl Parser {
                     }
                 } else if self.is_next_token(&Token::EqualOrAssign) {
                     self.bump();
+                    if self.is_next_token(&Token::Comma) || self.is_next_token(&Token::Rparen) {
+                        // 代入する値を省略した場合はEmptyが入る
+                        return Some(Params::WithDefault(i, Box::new(Expression::Literal(Literal::Empty))));
+                    }
                     self.bump();
                     match self.parse_expression(Precedence::Lowest, false) {
                         Some(e) => return Some(Params::WithDefault(i, Box::new(e))),
