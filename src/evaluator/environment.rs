@@ -61,7 +61,6 @@ impl fmt::Display for NamedObject {
 pub struct Layer {
     local: Vec<NamedObject>,
     outer: Option<Box<Layer>>,
-    module_name: Option<String>,
 }
 
 #[derive(PartialEq, Clone, Debug)]
@@ -76,18 +75,16 @@ impl Environment {
             current: Layer {
                 local: Vec::new(),
                 outer: None,
-                module_name: None,
             },
             global: init_builtins()
         }
     }
 
-    pub fn new_scope(&mut self, module_name: Option<String>) {
+    pub fn new_scope(&mut self) {
         let outer = Some(Box::new(self.current.clone()));
         self.current = Layer {
             local: Vec::new(),
             outer,
-            module_name,
         }
     }
 
@@ -95,22 +92,17 @@ impl Environment {
         self.current.local.clone()
     }
 
-    pub fn copy_scope(&mut self, outer_local: Vec<NamedObject>, module_name: Option<String>) {
+    pub fn copy_scope(&mut self, outer_local: Vec<NamedObject>) {
         let outer = Some(Box::new(self.current.clone()));
         self.current = Layer {
             local: outer_local,
             outer,
-            module_name,
         }
     }
 
     pub fn restore_scope(&mut self) {
         let outer = *self.current.outer.clone().unwrap();
         self.current = outer;
-    }
-
-    pub fn get_current_module_name(&self) -> Option<String> {
-        self.current.module_name.clone()
     }
 
     fn add(&mut self, obj: NamedObject, to_global: bool) {

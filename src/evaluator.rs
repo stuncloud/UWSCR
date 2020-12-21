@@ -1406,15 +1406,10 @@ impl Evaluator {
             params.resize(arguments.len(), Expression::Params(Params::VariadicDummy));
         }
 
-        let module_name = match rc_module {
-            Some(ref m) => Some(m.borrow().name()),
-            None => None
-        };
-
         if anon_outer.is_some() {
-            self.env.borrow_mut().copy_scope(anon_outer.unwrap(), module_name);
+            self.env.borrow_mut().copy_scope(anon_outer.unwrap());
         } else {
-            self.env.borrow_mut().new_scope(module_name);
+            self.env.borrow_mut().new_scope();
         }
         let list = params.into_iter().zip(arguments.into_iter());
         let mut variadic = vec![];
@@ -1593,11 +1588,12 @@ impl Evaluator {
                         Expression::Identifier(i) => {
                             let Identifier(member_name) = i;
                             if module.is_local_member(&member_name) {
-                                if module.name() == self.env.borrow().get_current_module_name().unwrap_or("".to_string()) {
-                                    module.get_member(&member_name)
-                                } else {
-                                    Self::error(format!("you can not access to {}.{}", module.name(), member_name))
+                                if let Some(Object::This(m)) = self.env.borrow().get_variable(&"this".into()) {
+                                    if module.name() == m.borrow().name() {
+                                        return module.get_member(&member_name);
+                                    }
                                 }
+                                Self::error(format!("you can not access to {}.{}", module.name(), member_name))
                             } else if is_func {
                                 module.get_function(&member_name)
                             } else {
