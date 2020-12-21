@@ -531,9 +531,6 @@ impl Module {
         } else if self.contains(name, Scope::Public) {
             // 同名パブリック変数があれば上書き
             self.set(name, value, Scope::Public)
-        } else {
-            // いずれもなければローカルに新たな変数をセット
-            self.add(name.to_string(), value, Scope::Local)
         }
         Ok(())
     }
