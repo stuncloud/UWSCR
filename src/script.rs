@@ -33,13 +33,14 @@ pub fn out_ast(script: String) {
     let program = parser.parse();
     let errors = parser.get_errors();
     if errors.len() > 0 {
-        eprintln!("got {} parse error[s]", errors.len());
+        eprintln!("got {} parse error{}", errors.len(), if errors.len()>1 {"s"} else {""});
         for err in errors {
             eprintln!("{}", err);
         }
         eprintln!("");
-    }
-    for statement in program {
-        println!("{:?}", statement);
+    } else {
+        for statement in program {
+            println!("{:?}", statement);
+        }
     }
 }

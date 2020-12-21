@@ -24,7 +24,7 @@ fn main() {
                     Ok(s) => match script::run(s) {
                         Ok(_) => {},
                         Err(errors) => {
-                            eprintln!("parser had {} error[s]", errors.len());
+                            eprintln!("parser had {} error{}", errors.len(), if errors.len()>1 {"s"} else {""});
                             for err in errors {
                                 eprintln!("{}", err);
                             }
