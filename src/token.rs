@@ -17,6 +17,8 @@ pub enum Token {
     Null,
     Empty,
     Nothing,
+    UObject(String),
+    UObjectNotClosing,
 
     // Statements
     Print,

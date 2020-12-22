@@ -1,11 +1,14 @@
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
 
+use std::rc::Rc;
+use std::cell::RefCell;
+
 use regex::Regex;
 use strum_macros::{EnumString, EnumVariantNames};
 use num_derive::{ToPrimitive, FromPrimitive};
 use num_traits::FromPrimitive;
-
+use serde_json;
 
 pub fn builtin_func_sets() -> BuiltinFunctionSets {
     let mut sets = BuiltinFunctionSets::new();
@@ -19,6 +22,8 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("match", 2, regexmatch);
     sets.add("replace", 4, replace);
     sets.add("chgmoj", 4, replace);
+    sets.add("tojson", 2, tojson);
+    sets.add("fromjson", 1, fromjson);
     sets
 }
 
@@ -175,4 +180,30 @@ pub fn replace(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             target.replace(&pattern, replace_to.as_str())
         ))
     }
+}
+
+pub fn tojson(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let prettify = get_bool_argument_value(&args, 1, Some(false))?;
+    let f = if prettify {serde_json::to_string_pretty} else {serde_json::to_string};
+    let obj = match get_uobject_argument_value(&args, 0, None)? {
+        Object::UObject(u) => {
+            u.borrow().clone()
+        },
+        Object::UChild(u, p) => {
+            u.borrow().pointer(p.as_str()).unwrap().clone()
+        },
+        _ => return Err(builtin_func_error(args.name(), "UObject required"))
+    };
+    f(&obj).map_or_else(
+        |e| Err(builtin_func_error(args.name(), e.to_string())),
+        |s| Ok(Object::String(s))
+    )
+}
+
+pub fn fromjson(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let json = get_string_argument_value(&args, 0, None)?;
+    serde_json::from_str::<serde_json::Value>(json.as_str()).map_or_else(
+        |_| Ok(Object::Empty),
+        |v| Ok(Object::UObject(Rc::new(RefCell::new(v))))
+    )
 }

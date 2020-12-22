@@ -1,4 +1,5 @@
 use std::fmt;
+use serde_json;
 
 #[derive(PartialEq, Clone, Debug)]
 pub struct Identifier(pub String);
@@ -94,6 +95,7 @@ pub enum Expression {
     },
     DotCall(Box<Expression>, Box<Expression>), // hoge.fuga hoge.piyo()
     Params(Params),
+    UObject(serde_json::Value),
 }
 
 #[derive(PartialEq, Clone, Debug)]

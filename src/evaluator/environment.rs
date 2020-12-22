@@ -513,24 +513,61 @@ impl Module {
         self.get(name, Scope::Function).unwrap_or(Object::Error(format!("{}.{}() is not defined", self.name, name)))
     }
 
-    pub fn assign(&mut self, name: &String, value: Object) -> Result<(), Object> {
-        if self.contains(name, Scope::Const) {
-            // 同名の定数がある場合はエラー
-            return Err(Object::Error(format!("you can not assign to constant: {}.{}", self.name(), name)));
-        } else if self.contains(name, Scope::Local) {
-            // 同名ローカル変数があれば上書き
-            self.set(name, value, Scope::Local)
-        } else if self.contains(name, Scope::Public) {
-            // 同名パブリック変数があれば上書き
-            self.set(name, value, Scope::Public)
+    fn assign_index(&mut self, name: &String, value: Object, index: Object, scope: Scope) -> Result<(), Object> {
+        match self.get_member(name) {
+            Object::Array(mut a) => {
+                if let Object::Num(n) = index {
+                    a[n as usize] = value;
+                    self.set(name, Object::Array(a), scope);
+                } else {
+                    return Err(Object::Error(format!("invalid index: {}", index)))
+                }
+            },
+            Object::HashTbl(h) => {
+                let key = match index {
+                    Object::Num(n) => n.to_string(),
+                    Object::Bool(b) => b.to_string(),
+                    Object::String(s) => s,
+                    _ => return Err(Object::Error(format!("invalid hash key: {}", index)))
+                };
+                h.borrow_mut().insert(key, value);
+            },
+            Object::Error(e) => return Err(Object::Error(e)),
+            _ => return Err(Object::Error(format!("{} is neither array nor hashtbl", name)))
         }
         Ok(())
     }
 
-    pub fn assign_public(&mut self, name: &String, value: Object) -> Result<(), Object> {
-        let key = name.to_ascii_uppercase();
-        if self.contains(&key, Scope::Public) {
-            self.set(&name, value, Scope::Public);
+    pub fn assign(&mut self, name: &String, value: Object, index: Option<Object>) -> Result<(), Object> {
+        let scope = if self.contains(name, Scope::Const) {
+            // 同名の定数がある場合はエラー
+            return Err(Object::Error(format!("you can not assign to constant: {}.{}", self.name(), name)));
+        } else if self.contains(name, Scope::Local) {
+            // 同名ローカル変数があれば上書き
+            Scope::Local
+        } else if self.contains(name, Scope::Public) {
+            // 同名パブリック変数があれば上書き
+            Scope::Public
+        } else {
+            return Ok(());
+        };
+        match index {
+            Some(i) => {
+                return self.assign_index(name, value, i, scope)
+            },
+            None => self.set(name, value, scope)
+        }
+        Ok(())
+    }
+
+    pub fn assign_public(&mut self, name: &String, value: Object, index: Option<Object>) -> Result<(), Object> {
+        if self.contains(&name, Scope::Public) {
+            match index {
+                Some(i) => {
+                    return self.assign_index(name, value, i, Scope::Public)
+                },
+                None => self.set(name, value, Scope::Public)
+            }
             Ok(())
         } else {
             Err(Object::Error(format!("{}.{} is not defined or not public", self.name, name)))

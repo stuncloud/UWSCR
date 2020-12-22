@@ -3,6 +3,8 @@ use crate::lexer::{Lexer, Position, TokenWithPos};
 use crate::token::Token;
 use std::fmt;
 
+use serde_json;
+
 #[derive(Debug, Clone)]
 pub enum ParseErrorKind {
     UnexpectedToken,
@@ -12,7 +14,8 @@ pub enum ParseErrorKind {
     OutOfWith,
     OutOfLoop,
     InvalidStatement,
-    ClassHasNoConstructor
+    ClassHasNoConstructor,
+    InvalidJson,
 }
 
 #[derive(Debug, Clone)]
@@ -33,6 +36,7 @@ impl fmt::Display for ParseErrorKind {
             ParseErrorKind::OutOfLoop => write!(f, "Not in Loop block"),
             ParseErrorKind::InvalidStatement => write!(f, "Invalid Statement"),
             ParseErrorKind::ClassHasNoConstructor => write!(f, "Constructor required"),
+            ParseErrorKind::InvalidJson => write!(f, "Invalid json format"),
         }
     }
 }
@@ -356,13 +360,13 @@ impl Parser {
         }
     }
 
-    fn parse_variable_definition(&mut self, value_required: bool) -> Result<Vec<(Identifier, Expression)>, ()> {
+    fn parse_variable_definition(&mut self, value_required: bool) -> Option<Vec<(Identifier, Expression)>> {
         let mut expressions = vec![];
 
         loop {
             let var_name = match self.parse_identifier() {
-                Some(e) => e,
-                None => return Err(())
+                Some(i) => i,
+                None => return None
             };
             let expression = if self.is_next_token(&Token::Lbracket) {
                 self.bump();
@@ -373,11 +377,11 @@ impl Parser {
                     self.bump();
                     match self.parse_expression(Precedence::Lowest, false) {
                         Some(e) => e,
-                        None => return Err(())
+                        None => return None
                     }
                 };
                 if ! self.is_next_token_expected(Token::Rbracket) {
-                    return Err(());
+                    return None;
                 };
                 if ! self.is_next_token(&Token::EqualOrAssign) {
                     // 代入演算子がなければ配列宣言のみ
@@ -387,7 +391,7 @@ impl Parser {
                             format!("{} has no value.", var_name),
                             self.next_token.pos.clone()
                         ));
-                        return Err(());
+                        return None;
                     } else {
                         Expression::Array(Vec::new(), Box::new(index))
                     }
@@ -395,7 +399,7 @@ impl Parser {
                     self.bump();
                     let list = match self.parse_expression_list(Token::Eol) {
                         Some(vec_e) => vec_e,
-                        None => return Err(())
+                        None => return None
                     };
                     Expression::Array(list, Box::new(index))
                 }
@@ -409,7 +413,7 @@ impl Parser {
                             format!("{} has no value.", var_name),
                             self.next_token.pos.clone()
                         ));
-                        return Err(());
+                        return None;
                     } else {
                         Expression::Literal(Literal::Empty)
                     }
@@ -418,7 +422,7 @@ impl Parser {
                     self.bump();
                     match self.parse_expression(Precedence::Lowest, false) {
                         Some(e) => e,
-                        None => return Err(())
+                        None => return None
                     }
                 }
             };
@@ -431,7 +435,7 @@ impl Parser {
             }
         }
 
-        Ok(expressions)
+        Some(expressions)
     }
 
     fn parse_public_statement(&mut self) -> Option<Statement> {
@@ -444,8 +448,8 @@ impl Parser {
             _ => return None,
         }
         match self.parse_variable_definition(false) {
-            Ok(v) => Some(Statement::Public(v)),
-            Err(()) => None
+            Some(v) => Some(Statement::Public(v)),
+            None => None
         }
     }
 
@@ -455,8 +459,8 @@ impl Parser {
             _ => return None,
         }
         match self.parse_variable_definition(false) {
-            Ok(v) => Some(Statement::Dim(v)),
-            Err(()) => None
+            Some(v) => Some(Statement::Dim(v)),
+            None => None
         }
     }
 
@@ -466,8 +470,8 @@ impl Parser {
             _ => return None,
         }
         match self.parse_variable_definition(true) {
-            Ok(v) => Some(Statement::Const(v)),
-            Err(()) => None
+            Some(v) => Some(Statement::Const(v)),
+            None => None
         }
     }
 
@@ -721,6 +725,27 @@ impl Parser {
             Token::Procedure => self.parse_function_expression(true),
             Token::Then | Token::Eol => return None,
             Token::Period => self.parse_with_dot_expression(),
+            Token::UObject(ref s) => {
+                match serde_json::from_str::<serde_json::Value>(s.as_str()) {
+                    Ok(v) => Some(Expression::UObject(v)),
+                    Err(e) => {
+                        self.errors.push(ParseError::new(
+                            ParseErrorKind::InvalidJson,
+                            format!("{}", e),
+                            self.current_token.pos.clone()
+                        ));
+                        return None;
+                    }
+                }
+            },
+            Token::UObjectNotClosing => {
+                self.errors.push(ParseError::new(
+                    ParseErrorKind::BlockNotClosedCorrectly,
+                    format!("}} required"),
+                    self.current_token.pos.clone()
+                ));
+                return None
+            },
             _ => {
                 self.error_no_prefix_parser();
                 return None;

@@ -18,6 +18,7 @@ use std::borrow::Cow;
 
 use num_traits::FromPrimitive;
 use regex::Regex;
+use serde_json;
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct UError {
@@ -921,7 +922,8 @@ impl Evaluator {
             Expression::DotCall(l, r) => {
                 Some(self.eval_dotcall_expression(*l, *r, false))
             },
-            Expression::Params(p) => Some(Self::error(format!("bad expression: {}", p)))
+            Expression::Params(p) => Some(Self::error(format!("bad expression: {}", p))),
+            Expression::UObject(v) => Some(Object::UObject(Rc::new(RefCell::new(v)))),
         };
         some_obj
     }
@@ -1020,6 +1022,17 @@ impl Evaluator {
                     hash.get(key)
                 }
             },
+            Object::UChild(u, p) => if hash_enum.is_some() {
+                return Self::error(format!("imvalid index: {}[{}, {}]", left, index, hash_enum.unwrap()))
+            } else if let Object::Num(n) = index {
+                let i = n as usize;
+                match u.borrow().pointer(p.as_str()).unwrap().get(i) {
+                    Some(v) => Self::eval_uobject(v, Rc::clone(&u), format!("{}/{}", p, i)),
+                    None => Self::error(format!("imvalid out of bound: {}[{}]", left, i))
+                }
+            } else {
+                Self::error(format!("imvalid index: {}[{}]", left, index))
+            },
             _ => Self::error(format!("not array or hashtable: {}", left))
         }
     }
@@ -1043,62 +1056,120 @@ impl Evaluator {
                 let mut env = self.env.borrow_mut();
                 if let Some(Object::This(m)) = env.get_variable(&"this".into()) {
                     // moudele/classメンバであればその値を更新する
-                    let e =  m.borrow_mut().assign(&name, value.clone()).map_or_else(|e| Some(e), |_| None);
+                    let e =  m.borrow_mut().assign(&name, value.clone(), None).map_or_else(|e| Some(e), |_| None);
                     if e.is_some() {
                         return e;
                     }
                 }
                 env.assign(name, value).map_or_else(|err| Some(err), |_| None)
             },
-            Expression::Index(n, i, h) => {
+            Expression::Index(arr, i, h) => {
                 if h.is_some() {
                     return Some(Self::error(format!("syntax error on assignment: comma on index")));
                 }
-                let name = match *n {
-                    Expression::Identifier(i) => {
-                        let Identifier(n) = i;
-                        n
-                    },
-                    _ => return None
-                };
                 let index = match self.eval_expression(*i) {
                     Some(o) => o,
                     None => return None
                 };
-                let mut env = self.env.borrow_mut();
-                match env.get_variable(&name) {
-                    Some(o) => {
-                        match o {
-                            Object::Array(a) => {
-                                let mut arr = a.clone();
-                                match index {
-                                    Object::Num(n) => {
-                                        let i = n as usize;
-                                        if i < arr.len() {
-                                            arr[i] = value;
-                                            match env.assign(name, Object::Array(arr)) {
-                                                Ok(()) => (),
-                                                Err(err) => return Some(err)
-                                            };
-                                        }
+                match *arr {
+                    Expression::Identifier(i) => {
+                        let Identifier(name) = i;
+                        let mut env = self.env.borrow_mut();
+                        match env.get_variable(&name) {
+                            Some(o) => {
+                                match o {
+                                    Object::Array(a) => {
+                                        let mut arr = a.clone();
+                                        match index {
+                                            Object::Num(n) => {
+                                                let i = n as usize;
+                                                if let Some(Object::This(m)) = env.get_variable(&"this".into()) {
+                                                    // moudele/classメンバであればその値を更新する
+                                                    let e =  m.borrow_mut().assign(&name, value.clone(), Some(index)).map_or_else(|e| Some(e), |_| None);
+                                                    if e.is_some() {
+                                                        return e;
+                                                    }
+                                                }
+                                                if i < arr.len() {
+                                                    arr[i] = value;
+                                                    match env.assign(name, Object::Array(arr)) {
+                                                        Ok(()) => (),
+                                                        Err(err) => return Some(err)
+                                                    };
+                                                }
+                                            },
+                                            _ => return Some(Self::error(format!("invalid index: {}", index)))
+                                        };
                                     },
-                                    _ => return Some(Self::error(format!("invalid index: {}", index)))
+                                    Object::HashTbl(h) => {
+                                        let key = match index {
+                                            Object::Num(n) => n.to_string(),
+                                            Object::Bool(b) => b.to_string(),
+                                            Object::String(s) => s,
+                                            _ => return Some(Self::error(format!("invalid hash key: {}", index)))
+                                        };
+                                        let mut hash = h.borrow_mut();
+                                        hash.insert(key, value);
+                                    },
+                                    _ => return Some(Self::error(format!("not an array or hashtable: {}", name)))
                                 };
                             },
-                            Object::HashTbl(h) => {
-                                let key = match index {
-                                    Object::Num(n) => n.to_string(),
-                                    Object::Bool(b) => b.to_string(),
-                                    Object::String(s) => s,
-                                    _ => return Some(Self::error(format!("invalid hash key: {}", index)))
-                                };
-                                let mut hash = h.borrow_mut();
-                                hash.insert(key, value);
-                            },
-                            _ => return Some(Self::error(format!("not an array or hashtable: {}", name)))
+                            None => return None
                         };
                     },
-                    None => return None
+                    Expression::DotCall(left, right) => {
+                        match self.eval_expression(*left).unwrap_or(Self::error(format!("syntax error on assignment"))) {
+                            Object::Module(m) |
+                            Object::Instance(m) |
+                            Object::This(m) => {
+                                match *right {
+                                    Expression::Identifier(Identifier(name)) => {
+                                        return m.borrow_mut().assign(&name, value, Some(index)).map_or_else(|e| Some(e), |_| None)
+                                    },
+                                    _ => return Some(Self::error(format!("syntax error on assignment")))
+                                }
+                            },
+                            // Value::Array
+                            Object::UObject(v) => if let Object::Num(n) = index {
+                                if let Expression::Identifier(Identifier(name)) = *right {
+                                    let i = n as usize;
+                                    match v.borrow_mut().get_mut(name.as_str()) {
+                                        Some(serde_json::Value::Array(a)) => *a.get_mut(i).unwrap() = match Self::object_to_serde_value(value) {
+                                            Ok(v) => v,
+                                            Err(e) => return Some(Self::error(e))
+                                        },
+                                        Some(_) => return Some(Self::error(format!("UObject: {} is not an array", name))),
+                                        None => return Some(Self::error(format!("UObject: {} not found", name)))
+                                    };
+                                    return None
+                                }
+                            } else {
+                                return Some(Self::error(format!("invalid index: {}", index)))
+                            },
+                            Object::UChild(u, p) => if let Object::Num(n) = index {
+                                if let Expression::Identifier(Identifier(name)) = *right {
+                                    let i = n as usize;
+                                    match u.borrow_mut().pointer_mut(p.as_str()).unwrap().get_mut(name.as_str()) {
+                                        Some(serde_json::Value::Array(a)) => *a.get_mut(i).unwrap() = match Self::object_to_serde_value(value) {
+                                            Ok(v) => v,
+                                            Err(e) => return Some(Self::error(e))
+                                        },
+                                        Some(_) => return Some(Self::error(format!("UObject: {} is not an array", name))),
+                                        None => return Some(Self::error(format!("UObject: {} not found", name)))
+                                    };
+                                    return None
+                                }
+                            } else {
+                                return Some(Self::error(format!("invalid index: {}", index)))
+                            },
+                            o => if Self::is_error(&o) {
+                                return Some(o)
+                            } else {
+                                return Some(Self::error(format!("not module or object: {}", o)))
+                            }
+                        }
+                    },
+                    _ => return Some(Self::error(format!("syntax error on assignment: {:?}", *arr)))
                 };
                 None
             },
@@ -1111,7 +1182,7 @@ impl Evaluator {
                             match *right {
                                 Expression::Identifier(i) => {
                                     let Identifier(member_name) = i;
-                                    m.borrow_mut().assign_public(&member_name, value).map_or_else(|o| Some(o), |_| None)
+                                    m.borrow_mut().assign_public(&member_name, value, None).map_or_else(|o| Some(o), |_| None)
                                 },
                                 _ => Some(Self::error(format!("syntax error on assignment")))
                             }
@@ -1119,7 +1190,7 @@ impl Evaluator {
                         Object::This(m) => {
                             let mut module = m.borrow_mut();
                             if let Expression::Identifier(Identifier(member)) = *right {
-                                module.assign(&member, value).map_or_else(|o| Some(o), |_| None)
+                                module.assign(&member, value, None).map_or_else(|o| Some(o), |_| None)
                             } else {
                                 Some(Self::error(format!("member not found on {}", module.name())))
                             }
@@ -1129,6 +1200,30 @@ impl Evaluator {
                                 self.env.borrow_mut().assign_public(name, value).map_or_else(|err| Some(err), |_| None)
                             },
                             _ => Some(Self::error(format!("global: error on assignment")))
+                        },
+                        Object::UObject(v) => if let Expression::Identifier(Identifier(name)) = *right {
+                            match v.borrow_mut().get_mut(name.as_str()) {
+                                Some(mut_v) => *mut_v = match Self::object_to_serde_value(value) {
+                                    Ok(new_v) => new_v,
+                                    Err(e) => return Some(Self::error(e))
+                                },
+                                None => return Some(Self::error(format!("UObject: {} not found", name)))
+                            }
+                            None
+                        } else {
+                            Some(Self::error(format!("uobject: error on assignment")))
+                        },
+                        Object::UChild(u, p) => if let Expression::Identifier(Identifier(name)) = *right {
+                            match u.borrow_mut().pointer_mut(p.as_str()).unwrap().get_mut(name.as_str()) {
+                                Some(mut_v) => *mut_v = match Self::object_to_serde_value(value) {
+                                    Ok(new_v) => new_v,
+                                    Err(e) => return Some(Self::error(e))
+                                },
+                                None => return Some(Self::error(format!("UObject: {} not found", name)))
+                            }
+                            None
+                        } else {
+                            Some(Self::error(format!("uobject: error on assignment")))
                         },
                         _ => Some(Self::error(format!("not module or object: {}", o)))
                     },
@@ -1581,7 +1676,8 @@ impl Evaluator {
             Expression::Identifier(_) |
             Expression::Index(_, _, _) |
             Expression::FuncCall{func:_, args:_} |
-            Expression::DotCall(_, _)=> {
+            Expression::DotCall(_, _) |
+            Expression::UObject(_) => {
                 self.eval_expression(left)
             },
             _ => return Self::error(format!("bad operator"))
@@ -1632,10 +1728,51 @@ impl Evaluator {
                 },
                 Object::Error(_) => return o,
                 Object::Class{constructor:_, ref members} => Self::error(format!("class {0} can not be called directly; try {0}() to create instance", members.name())),
-                _ => Self::error(format!(". operator not supported"))
+                Object::UObject(u) => if let Expression::Identifier(Identifier(key)) = right {
+                    match u.borrow().get(key.as_str()) {
+                        Some(v) => Self::eval_uobject(v, Rc::clone(&u), format!("/{}", key)),
+                        None => Self::error(format!("UObject: {} not found", key))
+                    }
+                } else {
+                    Self::error(format!("not an identifier ({:?})", right))
+                },
+                Object::UChild(u,p) => if let Expression::Identifier(Identifier(key)) = right {
+                    match u.borrow().pointer(p.as_str()).unwrap().get(key.as_str()) {
+                        Some(v) => Self::eval_uobject(v, Rc::clone(&u), format!("{}/{}", p, key)),
+                        None => Self::error(format!("UObject: {} not found", key))
+                    }
+                } else {
+                    Self::error(format!("not an identifier ({:?})", right))
+                },
+                _ => Self::error(format!(". operator not supported")),
             },
             None => Self::error(format!(". operator: syntax error"))
         }
+    }
+
+    // UObject
+    fn eval_uobject(v: &serde_json::Value, top: Rc<RefCell<serde_json::Value>>, pointer: String) -> Object {
+        match v {
+            serde_json::Value::Null => Object::Null,
+            serde_json::Value::Bool(b) => Object::Bool(*b),
+            serde_json::Value::Number(n) => Object::Num(n.as_f64().unwrap_or(0.0)),
+            serde_json::Value::String(s) => Object::String(s.clone()),
+            serde_json::Value::Array(_) |
+            serde_json::Value::Object(_) => Object::UChild(top, pointer),
+        }
+    }
+
+    fn object_to_serde_value(o: Object) -> Result<serde_json::Value, String> {
+        let v = match o {
+            Object::Null => serde_json::Value::Null,
+            Object::Bool(b) => serde_json::Value::Bool(b),
+            Object::Num(n) => serde_json::Value::Number(serde_json::Number::from_f64(n).unwrap()),
+            Object::String(ref s) => serde_json::Value::String(s.clone()),
+            Object::UObject(u) => u.borrow().clone(),
+            Object::UChild(u, p) => u.borrow().pointer(p.as_str()).unwrap().clone(),
+            _ => return Err(format!("can not convert {} to uobject", o))
+        };
+        Ok(v)
     }
 }
 

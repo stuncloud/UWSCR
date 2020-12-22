@@ -198,7 +198,12 @@ impl Lexer {
             },
             '(' => Token::Lparen,
             ')' => Token::Rparen,
-            '{' => Token::Lbrace,
+            '{' => if self.nextch_is('{') {
+                self.read_char();
+                self.consume_uobject()
+            } else {
+                Token::Lbrace
+            },
             '}' => Token::Rbrace,
             '[' => Token::Lbracket,
             ']' => Token::Rbracket,
@@ -461,6 +466,24 @@ impl Lexer {
         }
         let body: String = self.input[start_tb..end_tb].into_iter().collect();
         Token::TextBlock(name, body)
+    }
+
+    fn consume_uobject(&mut self) -> Token {
+        let start_uo = self.pos;
+        loop {
+            match self.next_token().token {
+                Token::Rbrace => {
+                    if self.ch == '}' {
+                        break;
+                    }
+                },
+                Token::Eof => return Token::UObjectNotClosing,
+                _ => {},
+            };
+        }
+        let json: String = self.input[start_uo..self.pos].into_iter().collect();
+        self.read_char();
+        Token::UObject(json)
     }
 }
 

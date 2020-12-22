@@ -292,3 +292,16 @@ pub fn get_bool_or_int_argument_value<T>(args: &BuiltinFuncArgs, i: usize, defau
         default.ok_or(builtin_arg_error(format!("argument {} required", i + 1), args.name()))
     }
 }
+
+pub fn get_uobject_argument_value(args: &BuiltinFuncArgs, i: usize, default: Option<Object>) -> Result<Object, BuiltinError> {
+    if args.len() >= i + 1 {
+        let arg = args.item(i).unwrap();
+        match arg {
+            Object::UObject(_) |
+            Object::UChild(_, _) => Ok(arg),
+            _ => Err(builtin_arg_error(format!("bad argument: {}", arg), args.name()))
+        }
+    } else {
+        default.ok_or(builtin_arg_error(format!("argument {} required", i + 1), args.name()))
+    }
+}

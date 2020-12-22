@@ -12,6 +12,7 @@ use winapi::shared::windef::HWND;
 use indexmap::IndexMap;
 use strum_macros::{EnumString, EnumVariantNames};
 use num_derive::{ToPrimitive, FromPrimitive};
+use serde_json;
 
 #[derive(PartialEq, Clone, Debug)]
 pub enum Object {
@@ -44,6 +45,8 @@ pub enum Object {
     Debug(DebugType),
     Global, // globalを示す
     This(Rc<RefCell<Module>>),   // thisを示す
+    UObject(Rc<RefCell<serde_json::Value>>),
+    UChild(Rc<RefCell<serde_json::Value>>, String),
 }
 
 impl fmt::Display for Object {
@@ -133,6 +136,14 @@ impl fmt::Display for Object {
             Object::RegEx(ref re) => write!(f, "regex: {}", re),
             Object::Global => write!(f, "GLOBAL"),
             Object::This(ref m) => write!(f, "THIS ({})", m.borrow().name()),
+            Object::UObject(ref v) => {
+                let value = v.borrow();
+                write!(f, "UObject: {}", serde_json::to_string(&value.clone()).map_or_else(|e| format!("{}", e), |j| j))
+            },
+            Object::UChild(ref u, ref p) => {
+                let v = u.borrow().pointer(p.as_str()).unwrap().clone();
+                write!(f, "UObject: {}", serde_json::to_string(&v).map_or_else(|e| format!("{}", e), |j| j))
+            },
         }
     }
 }
