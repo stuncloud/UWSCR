@@ -1278,7 +1278,8 @@ impl Parser {
                     Statement::Dim(_) |
                     Statement::Public(_) |
                     Statement::Const(_) |
-                    Statement::TextBlock(_, _)=> block.push(s),
+                    Statement::TextBlock(_, _) |
+                    Statement::HashTbl(_, _, _) => block.push(s),
                     Statement::Function{ref name, params: _, body: _, is_proc: _} => {
                         if name == &identifier {
                             has_constructor = true;

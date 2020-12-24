@@ -721,6 +721,14 @@ impl Evaluator {
                     let value = self.eval_literal(s);
                     module.add(name, value, Scope::Const);
                 },
+                Statement::HashTbl(i, opt, is_pub) => {
+                    let (name, hashtbl) = self.eval_hahtbl_definition_statement(i, opt);
+                    if Self::is_error(&hashtbl) {
+                        return hashtbl;
+                    }
+                    let scope = if is_pub {Scope::Public} else {Scope::Local};
+                    module.add(name, hashtbl, scope);
+                },
                 Statement::Function{name: i, params, body, is_proc} => {
                     let Identifier(func_name) = i;
                     let mut new_body = Vec::new();
@@ -752,6 +760,15 @@ impl Evaluator {
                                         None => return Self::error(format!("value required for const: {}.{}", module_name, member_name))
                                     };
                                     module.add(member_name, value, Scope::Const);
+                                }
+                            },
+                            Statement::HashTbl(i, opt, is_pub) => {
+                                if is_pub {
+                                    let (name, hashtbl) = self.eval_hahtbl_definition_statement(i, opt);
+                                    if Self::is_error(&hashtbl) {
+                                        return hashtbl;
+                                    }
+                                    module.add(name, hashtbl, Scope::Public);
                                 }
                             },
                             Statement::Function{name: _, params: _, body: _, is_proc: _}  => {
