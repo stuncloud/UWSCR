@@ -26,11 +26,8 @@ pub enum Object {
     Function(String, Vec<Expression>, BlockStatement, bool, Option<Rc<RefCell<Module>>>),
     BuiltinFunction(String, i32, BuiltinFunction),
     Module(Rc<RefCell<Module>>),
-    Class{
-        constructor: Box<Object>,
-        members: Module
-    },
-    Instance(Rc<RefCell<Module>>),
+    Class(String, BlockStatement), // class定義
+    Instance(Rc<RefCell<Module>>), // classインスタンス
     Null,
     Empty,
     Nothing,
@@ -130,7 +127,7 @@ impl fmt::Display for Object {
             Object::UError(ref value) => write!(f, "{}", value),
             Object::Debug(_) => write!(f, "debug"),
             Object::Module(ref m) => write!(f, "module: {}", m.borrow().name()),
-            Object::Class{constructor: _, ref members} => write!(f, "class: {}", members.name()),
+            Object::Class(ref name, _) => write!(f, "class: {}", name),
             Object::Instance(ref m) => write!(f, "instance of {}", m.borrow().name()),
             Object::Handle(h) => write!(f, "{:?}", h),
             Object::RegEx(ref re) => write!(f, "regex: {}", re),

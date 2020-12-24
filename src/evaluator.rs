@@ -313,10 +313,7 @@ impl Evaluator {
             },
             Statement::Class(i, block) => {
                 let Identifier(name) = i;
-                let class = self.eval_module_statement(&name, block, true);
-                if Self::is_error(&class) {
-                    return Some(class);
-                }
+                let class = Object::Class(name.clone(), block);
                 self.env.borrow_mut().define_class(name.clone(), class).map_or_else(
                     |err| Some(err),
                     |_| None
@@ -669,9 +666,8 @@ impl Evaluator {
         Object::Function(name.clone(), params, body, is_proc, None)
     }
 
-    fn eval_module_statement(&mut self, module_name: &String, block: BlockStatement, is_class: bool) -> Object {
+    fn eval_module_statement(&mut self, module_name: &String, block: BlockStatement, is_instance: bool) -> Object {
         let mut module = Module::new(module_name.to_string());
-        let mut class_constructor = None;
         for statement in block {
             match statement {
                 Statement::Dim(vec) => {
@@ -777,11 +773,6 @@ impl Evaluator {
                             _ => new_body.push(statement),
                         };
                     }
-                    if is_class && &func_name == module_name {
-                        class_constructor = Some(Object::Function(
-                            func_name.clone(), params.clone(), new_body.clone(), is_proc, None
-                        ))
-                    };
                     module.add(
                         func_name.clone(),
                         Object::Function(
@@ -794,18 +785,10 @@ impl Evaluator {
                 _ => return Self::error(format!("invalid statement"))
             }
         }
-        let rc = Rc::new(RefCell::new(module.clone()));
+        let rc = Rc::new(RefCell::new(module));
         rc.borrow_mut().set_rc_to_functions(Rc::clone(&rc));
-        if is_class {
-            // Self::error(format!("class is not supported"))
-            if class_constructor.is_some() {
-                Object::Class {
-                    constructor: Box::new(class_constructor.unwrap()),
-                    members: module
-                }
-            } else {
-                Self::error(format!("{} has no constructor", module_name))
-            }
+        if is_instance {
+            Object::Instance(Rc::clone(&rc))
         } else {
             Object::Module(Rc::clone(&rc))
         }
@@ -1477,7 +1460,7 @@ impl Evaluator {
             is_proc,
             anon_outer,
             rc_module,
-            is_class_constructor
+            is_class_instance,
         ) = match self.eval_expression_for_func_call(*func) {
             Some(o) => match o {
                 Object::Function(_, p, b, is_proc, obj) => (p, b, is_proc, None, obj, false),
@@ -1498,12 +1481,21 @@ impl Evaluator {
                 },
                 Object::Error(err) => return Object::Error(err),
                 // class constructor
-                Object::Class{constructor, members} => if let Object::Function(_, p, b, is_proc, _) = *constructor {
-                    let rc = Rc::new(RefCell::new(members));
-                    rc.borrow_mut().set_rc_to_functions(Rc::clone(&rc));
-                    (p, b, is_proc, None, Some(rc), true)
-                } else {
-                    return Self::error(format!("Invalid class constructor"));
+                Object::Class(name, block) => {
+                    let instance = self.eval_module_statement(&name, block, true);
+                    if let Object::Instance(rc) = instance {
+                        let constructor = rc.borrow().get_function(&name);
+                        if Self::is_error(&constructor) {
+                            return Self::error(format!("constructor not found in class {}", &name));
+                        }
+                        if let Object::Function(_, p, b, _, _) = constructor {
+                            (p, b, false, None, Some(Rc::clone(&rc)), true)
+                        } else {
+                            return Self::error(format!("unknown error on constructor] {}", &name));
+                        }
+                    } else {
+                        return instance; // error
+                    }
                 },
                 _ => return Self::error(format!(
                     "{} is not a function", o
@@ -1628,10 +1620,10 @@ impl Evaluator {
         let object = self.eval_block_statement(body);
 
         // 戻り値
-        let result =  if is_class_constructor {
+        let result = if is_class_instance {
             match rc_module {
-                Some(m) => Object::Instance(m),
-                None => return Self::error("constructor is not valid".into())
+                Some(ref rc) => Object::Instance(Rc::clone(rc)),
+                None => Self::error("no instance found".into()),
             }
         } else if is_proc {
             Object::Empty
@@ -1744,7 +1736,7 @@ impl Evaluator {
                     }
                 },
                 Object::Error(_) => return o,
-                Object::Class{constructor:_, ref members} => Self::error(format!("class {0} can not be called directly; try {0}() to create instance", members.name())),
+                Object::Class(name, _) => Self::error(format!("class {0} can not be called directly; try {0}() to create instance", name)),
                 Object::UObject(u) => if let Expression::Identifier(Identifier(key)) = right {
                     match u.borrow().get(key.as_str()) {
                         Some(v) => Self::eval_uobject(v, Rc::clone(&u), format!("/{}", key)),
