@@ -168,7 +168,7 @@ pub enum Statement {
     Module(Identifier, BlockStatement),
     Class(Identifier, BlockStatement),
     TextBlock(Identifier, Literal),
-    With(BlockStatement),
+    With(Option<Expression>, BlockStatement),
 }
 
 pub type BlockStatement = Vec<Statement>;

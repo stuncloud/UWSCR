@@ -116,6 +116,10 @@ impl Environment {
         }
     }
 
+    pub fn remove_variable(&mut self, name: String) {
+        self.current.local.retain(|o| o.name != name.to_ascii_uppercase());
+    }
+
     fn set(&mut self, name: &String, scope: Scope, value: Object, to_global: bool) {
         let key = name.to_ascii_uppercase();
         if to_global {

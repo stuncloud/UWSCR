@@ -239,7 +239,16 @@ impl Evaluator {
                 self.env.borrow_mut().define_class(name.clone(), class)?;
                 Ok(None)
             },
-            Statement::With(block) => self.eval_block_statement(block),
+            Statement::With(o_e, block) => if let Some(e) = o_e {
+                let s = self.eval_block_statement(block);
+                self.eval_destructor(&e, &Object::Nothing)?;
+                if let Expression::Identifier(Identifier(name)) = e {
+                    self.env.borrow_mut().remove_variable(name);
+                }
+                s
+            } else {
+                self.eval_block_statement(block)
+            },
             Statement::Exit => Ok(Some(Object::Exit)),
         }
     }
@@ -1282,9 +1291,9 @@ impl Evaluator {
                 let env = self.env.borrow();
                 match env.get_function(&name) {
                     Some(o) => Ok(o),
-                    None => match env.get_variable(&name) {
+                    None => match env.get_class(&name) {
                         Some(o) => Ok(o),
-                        None => match env.get_class(&name) {
+                        None => match env.get_variable(&name) {
                             Some(o) => Ok(o),
                             None => return Err(UError::new(
                                 "Invalid Identifier".into(),
@@ -1743,17 +1752,23 @@ impl Evaluator {
             Ok(o) => o,
             Err(_) => return Ok(())
         };
-        if let Object::Instance(ref m) = old_value {
+        if let Object::Instance(ref m1) = old_value {
             // 自身と同じインスタンスでなければデストラクタを実行しdispose()
             // デストラクタがない場合もdispose()はする
-            if &old_value != new_value {
+            let name1 = m1.borrow().name();
+            let name2 = if let Object::Instance(ref m2) = new_value {
+                m2.borrow().name()
+            } else {
+                String::new()
+            };
+            if name1 != name2 {
                 let destructor = Expression::DotCall(
                     Box::new(left.clone()),
-                    Box::new(Expression::Identifier(Identifier(format!("_{}_", m.borrow().name())))),
+                    Box::new(Expression::Identifier(Identifier(format!("_{}_", name1)))),
                 );
                 self.eval_function_call_expression(Box::new(destructor), vec![])?;
+                m1.borrow_mut().dispose();
             }
-            m.borrow_mut().dispose();
         }
         Ok(())
     }

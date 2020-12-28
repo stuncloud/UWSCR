@@ -65,6 +65,7 @@ pub struct Parser {
     next_token: TokenWithPos,
     errors: PareseErrors,
     with: Option<Expression>,
+    with_count: usize,
     in_loop: bool,
 }
 
@@ -76,6 +77,7 @@ impl Parser {
             next_token: TokenWithPos::new(Token::Eof),
             errors: vec![],
             with: None,
+            with_count: 0,
             in_loop: false,
         };
         parser.bump();
@@ -665,21 +667,37 @@ impl Parser {
         Some(Statement::Repeat(expression, block))
     }
 
+    fn get_with_temp_name(&mut self) -> String {
+        self.with_count += 1;
+        format!("@with_tmp_{}", self.with_count)
+    }
+
     fn parse_with_statement(&mut self) -> Option<Statement> {
         self.bump();
+        let mut with_temp_assignment = None;
         let expression = match self.parse_expression(Precedence::Lowest, false) {
-            Some(e) => e,
+            Some(e) => match e {
+                Expression::FuncCall{func:_, args:_} => {
+                    let with_temp = Expression::Identifier(Identifier(self.get_with_temp_name()));
+                    with_temp_assignment = Some(Statement::Expression(Expression::Assign(Box::new(with_temp.clone()), Box::new(e))));
+                    with_temp
+                },
+                _ => e
+            },
             None => return None,
         };
         let current_with = self.get_current_with();
-        self.set_with(Some(expression));
-        let block = self.parse_block_statement();
+        self.set_with(Some(expression.clone()));
+        let mut block = self.parse_block_statement();
+        if with_temp_assignment.is_some() {
+            block.insert(0, with_temp_assignment.unwrap());
+        }
         if ! self.is_current_token(&Token::EndWith) {
             self.error_got_invalid_close_token(Token::EndWith);
             return None;
         }
         self.set_with(current_with);
-        Some(Statement::With(block))
+        Some(Statement::With(Some(expression), block))
     }
 
     fn parse_expression_statement(&mut self) -> Option<Statement> {
