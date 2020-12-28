@@ -1752,22 +1752,16 @@ impl Evaluator {
             Ok(o) => o,
             Err(_) => return Ok(())
         };
-        if let Object::Instance(ref m1) = old_value {
+        if let Object::Instance(ref m) = old_value {
             // 自身と同じインスタンスでなければデストラクタを実行しdispose()
             // デストラクタがない場合もdispose()はする
-            let name1 = m1.borrow().name();
-            let name2 = if let Object::Instance(ref m2) = new_value {
-                m2.borrow().name()
-            } else {
-                String::new()
-            };
-            if name1 != name2 {
+            if &old_value != new_value {
                 let destructor = Expression::DotCall(
                     Box::new(left.clone()),
-                    Box::new(Expression::Identifier(Identifier(format!("_{}_", name1)))),
+                    Box::new(Expression::Identifier(Identifier(format!("_{}_", m.borrow().name())))),
                 );
                 self.eval_function_call_expression(Box::new(destructor), vec![])?;
-                m1.borrow_mut().dispose();
+                m.borrow_mut().dispose();
             }
         }
         Ok(())

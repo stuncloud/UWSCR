@@ -483,10 +483,16 @@ fn check_special_assignment(obj1: &Object, obj2: &Object) -> bool {
     }
 }
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct Module {
     name: String,
     members: Vec<NamedObject>,
+}
+
+impl PartialEq for Module {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
 }
 
 impl Module {
