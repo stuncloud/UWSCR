@@ -1754,6 +1754,10 @@ impl Evaluator {
             Err(_) => return Ok(())
         };
         if let Object::Instance(ref m) = old_value {
+            // 既に破棄されてたらなんもしない
+            if m.borrow().is_disposed() {
+                return Ok(());
+            }
             // 自身と同じインスタンスでなければデストラクタを実行しdispose()
             // デストラクタがない場合もdispose()はする
             if &old_value != new_value {
