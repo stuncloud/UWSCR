@@ -1356,9 +1356,10 @@ impl Evaluator {
 
     fn eval_function_call_expression(&mut self, func: Box<Expression>, args: Vec<Expression>) -> EvalResult<Object> {
         type Argument = (Option<Expression>, Object);
-        let mut arguments = args.iter().map(
-            |e| (Some(e.clone()), self.eval_expression(e.clone()).unwrap())
-        ).collect::<Vec<Argument>>();
+        let mut arguments: Vec<Argument> = vec![];
+        for arg in args {
+            arguments.push((Some(arg.clone()), self.eval_expression(arg)?));
+        }
 
         let (
             mut params,
