@@ -1,7 +1,6 @@
 use crate::ast::*;
 use crate::evaluator::environment::{NamedObject, Module};
 use crate::evaluator::builtins::BuiltinFunction;
-use crate::evaluator::UError;
 
 use std::fmt;
 use std::hash::{Hash, Hasher};
@@ -27,14 +26,13 @@ pub enum Object {
     BuiltinFunction(String, i32, BuiltinFunction),
     Module(Rc<RefCell<Module>>),
     Class(String, BlockStatement), // class定義
-    Instance(Rc<RefCell<Module>>), // classインスタンス
+    Instance(Rc<RefCell<Module>>), // classインスタンス, デストラクタが呼ばれたらNoneになる
+    DestructorNotFound, // デストラクタがなかった場合に返る、これが来たらエラーにせず終了する
     Null,
     Empty,
     Nothing,
     Continue(u32),
     Break(u32),
-    Error(String),
-    UError(UError),
     Eval(String),
     Handle(HWND),
     RegEx(String),
@@ -123,12 +121,18 @@ impl fmt::Display for Object {
             Object::Break(ref n) => write!(f, "Break {}", n),
             Object::Exit => write!(f, "Exit"),
             Object::Eval(ref value) => write!(f, "{}", value),
-            Object::Error(ref value) => write!(f, "{}", value),
-            Object::UError(ref value) => write!(f, "{}", value),
             Object::Debug(_) => write!(f, "debug"),
             Object::Module(ref m) => write!(f, "module: {}", m.borrow().name()),
             Object::Class(ref name, _) => write!(f, "class: {}", name),
-            Object::Instance(ref m) => write!(f, "instance of {}", m.borrow().name()),
+            Object::Instance(ref m) => {
+                let ins = m.borrow();
+                if ins.is_disposed() {
+                    write!(f, "disposed instance: {}", ins.name())
+                } else {
+                    write!(f, "instance of {}", ins.name())
+                }
+            },
+            Object::DestructorNotFound => write!(f, "no destructor"),
             Object::Handle(h) => write!(f, "{:?}", h),
             Object::RegEx(ref re) => write!(f, "regex: {}", re),
             Object::Global => write!(f, "GLOBAL"),

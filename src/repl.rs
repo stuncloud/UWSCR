@@ -24,15 +24,11 @@ pub fn run(script: Option<String>) {
             return;
         } else {
             match evaluator.eval(program) {
-                Some(Object::Error(e)) => {
-                    eprintln!("{}",e);
+                Err(e) => {
+                    eprintln!("{}", e);
                     return;
                 },
-                Some(Object::UError(err)) => {
-                    eprintln!("{}", err);
-                    return;
-                },
-                _ => {}
+                _ => ()
             }
             println!("script loaded.");
         }
@@ -72,12 +68,13 @@ pub fn run(script: Option<String>) {
             }
         } else {
             match evaluator.eval(program) {
-                Some(Object::Exit) => {
+                Ok(Some(Object::Exit)) => {
                     println!("bye!");
                     break;
                 },
-                Some(o) => println!("{}", o),
-                None => ()
+                Ok(Some(o)) => println!("{}", o),
+                Ok(None) => (),
+                Err(e) => println!("{}", e),
             }
         }
     }

@@ -1676,8 +1676,8 @@ print 1.23
 print $12AB
 print true
 print false
-print "文字列リテラル"
-print ["配", "列", "リ", "テ", "ラ", "ル"]
+print "展開可能文字列リテラル"
+print ['配', '列', 'リ', 'テ', 'ラ', 'ル']
 print []
 "#;
         parser_test(input, vec![
@@ -1689,7 +1689,7 @@ print []
             Statement::Print(Expression::Literal(Literal::Bool(true))),
             Statement::Print(Expression::Literal(Literal::Bool(false))),
             Statement::Print(Expression::Literal(
-                Literal::String(String::from("文字列リテラル"))
+                Literal::ExpandableString(String::from("展開可能文字列リテラル"))
             )),
             Statement::Print(Expression::Literal(
                 Literal::Array(

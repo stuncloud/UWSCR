@@ -1,8 +1,11 @@
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::init_builtins;
+
 use std::fmt;
 use std::rc::Rc;
 use std::cell::RefCell;
+
+use super::{EvalResult, UError};
 
 
 #[derive(PartialEq, Clone, Debug)]
@@ -118,14 +121,18 @@ impl Environment {
         if to_global {
             for obj in self.global.iter_mut() {
                 if obj.name == key && obj.scope == scope {
-                    obj.object = value;
+                    if check_special_assignment(&obj.object, &value) {
+                        obj.object = value;
+                    }
                     break;
                 }
             }
         } else {
             for obj in self.current.local.iter_mut() {
                 if obj.name == key && obj.scope == scope {
-                    obj.object = value;
+                    if check_special_assignment(&obj.object, &value) {
+                        obj.object = value;
+                    }
                     break;
                 }
             }
@@ -190,23 +197,31 @@ impl Environment {
     }
 
     // global.hoge
-    pub fn get_global(&self, name: &String, is_func: bool) -> Object {
+    pub fn get_global(&self, name: &String, is_func: bool) -> EvalResult<Object> {
         if is_func {
             match self.get_from_global(name, Scope::Function) {
-                Some(o) => o,
+                Some(o) => Ok(o),
                 None => match self.get_from_global(name, Scope::BuiltinFunc) {
-                    Some(o) => o,
-                    None => Object::Error(format!("global: function not found"))
+                    Some(o) => Ok(o),
+                    None => Err(UError::new(
+                        "Global".into(),
+                        "function not found".into(),
+                        None
+                    ))
                 }
             }
         } else {
             match self.get_from_global(name, Scope::Public) {
-                Some(o) => o,
+                Some(o) => Ok(o),
                 None => match self.get_from_global(name, Scope::Const) {
-                    Some(o) => o,
+                    Some(o) => Ok(o),
                     None => match self.get_from_global(name, Scope::BuiltinConst) {
-                        Some(o) => o,
-                        None => Object::Error(format!("global: vaariable not found"))
+                        Some(o) => Ok(o),
+                        None => Err(UError::new(
+                            "Global".into(),
+                            "vaariable not found".into(),
+                            None
+                        ))
                     }
                 }
             }
@@ -236,39 +251,59 @@ impl Environment {
         store.into_iter().any(|obj| obj.name == *name && scope == obj.scope)
     }
 
-    fn define(&mut self, name: String, object: Object, scope: Scope, to_global: bool) -> Result<(), Object> {
+    fn define(&mut self, name: String, object: Object, scope: Scope, to_global: bool) -> Result<(), UError> {
         if self.is_reserved(&name) {
-            return Err(Object::Error(format!("{} is reserved identifier.", name)))
+            return Err(UError::new(
+                "Error on definition".into(),
+                format!("{} is reserved identifier.", name),
+                None
+            ))
         }
         let obj = NamedObject {name, object, scope};
         self.add(obj, to_global);
         Ok(())
     }
 
-    pub fn define_local(&mut self, name: String, object: Object) -> Result<(), Object> {
+    pub fn define_local(&mut self, name: String, object: Object) -> Result<(), UError> {
         let key = name.to_ascii_uppercase();
         if self.contains(&key, Scope::Local) || self.contains(&key, Scope::Const) {
-            return Err(Object::Error(format!("{} is already defined.", key)))
+            return Err(UError::new(
+                "Error on definition".into(),
+                format!("{} is already defined.", key),
+                None
+            ))
         }
         self.define(key, object, Scope::Local, false)
     }
 
-    pub fn define_public(&mut self, name: String, object: Object) -> Result<(), Object> {
+    pub fn define_public(&mut self, name: String, object: Object) -> Result<(), UError> {
         let key = name.to_ascii_uppercase();
         if self.contains(&key, Scope::Const) {
-            return Err(Object::Error(format!("{} is already defined.", key)))
+            return Err(UError::new(
+                "Error on definition".into(),
+                format!("{} is already defined.", key),
+                None
+            ))
         }
         self.define(key, object, Scope::Public, true)
     }
 
-    pub fn define_const(&mut self, name: String, object: Object) -> Result<(), Object> {
+    pub fn define_const(&mut self, name: String, object: Object) -> Result<(), UError> {
         let key = name.to_ascii_uppercase();
         if self.contains(&key, Scope::Local) || self.contains(&key, Scope::Public) {
-            return Err(Object::Error(format!("{} is already defined.", key)))
+            return Err(UError::new(
+                "Error on definition".into(),
+                format!("{} is already defined.", key),
+                None
+            ))
         } else if self.contains(&key, Scope::Const) {
             // const定義済みで値が異なればエラー、同じなら何もしないでOk返す
             if self.get(&key, Scope::Const).unwrap_or(Object::Empty) != object {
-                return Err(Object::Error(format!("{} is already defined.", key)))
+                return Err(UError::new(
+                "Error on definition".into(),
+                format!("{} is already defined.", key),
+                None
+            ))
             }else {
                 return Ok(())
             }
@@ -276,94 +311,89 @@ impl Environment {
         self.define(key, object, Scope::Const, true)
     }
 
-    pub fn define_function(&mut self, name: String, object: Object) -> Result<(), Object> {
+    pub fn define_function(&mut self, name: String, object: Object) -> Result<(), UError> {
         let key = name.to_ascii_uppercase();
         if self.contains(&key, Scope::Function) {
-            return Err(Object::Error(format!("{} is already defined.", key)))
+            return Err(UError::new(
+                "Function defining error".into(),
+                format!("{} is already defined.", key),
+                None
+            ));
         }
         self.define(key, object, Scope::Function, true)
     }
 
-    pub fn define_module(&mut self, name: String, object: Object) -> Result<(), Object> {
+    pub fn define_module(&mut self, name: String, object: Object) -> Result<(), UError> {
         let key = name.to_ascii_uppercase();
         if self.contains(&key, Scope::Module) {
-            return Err(Object::Error(format!("{} is already defined.", key)))
+            return Err(UError::new(
+                "Module defining error".into(),
+                format!("{} is already defined.", key),
+                None
+            ));
         }
         self.define(key, object, Scope::Module, true)
     }
 
-    pub fn define_class(&mut self, name: String, object: Object) -> Result<(), Object> {
+    pub fn define_class(&mut self, name: String, object: Object) -> Result<(), UError> {
         let key = name.to_ascii_uppercase();
         if self.contains(&key, Scope::Class) {
-            return Err(Object::Error(format!("{} is already defined.", key)))
+            return Err(UError::new(
+                "Class defining error".into(),
+                format!("{} is already defined.", key),
+                None
+            ));
         }
         self.define(key, object, Scope::Class, true)
     }
 
-    fn hash_remove_all(&mut self, name: &String) -> bool {
-        if let Object::HashTbl(h) = self.get_variable(name).unwrap_or(Object::Empty) {
-            h.borrow_mut().clear();
-            return true;
-        }
-        false
-    }
-
-    pub fn assign(&mut self, name: String, value: Object) -> Result<(), Object> {
+    fn assignment(&mut self, name: String, value: Object, include_local: bool) -> EvalResult<()> {
         let key = name.to_ascii_uppercase();
         if self.is_reserved(&key) {
             // ビルトイン定数には代入できない
-            return Err(Object::Error(format!("{} is reserved identifier.", key)))
-        }
-        // HASH_REMOVEALL
-        if let Object::Num(n) = value {
-            if n == -109.0 {
-                if self.hash_remove_all(&key) {
-                    return Ok(())
-                }
-            }
+            return Err(UError::new(
+                "Assignment Error".into(),
+                format!("{} is reserved identifier.", key),
+                None
+            ))
         }
         if self.contains(&key, Scope::Const) {
             // 同名の定数がある場合エラー
-            return Err(Object::Error(format!("you can not assign to constant: {}", key)));
-        } else if self.contains(&key, Scope::Local) {
+            return Err(UError::new(
+                "Assignment Error".into(),
+                format!("you can not assign to constant: {}", key),
+                None
+            ))
+        } else if self.contains(&key, Scope::Local) && include_local {
+            // ローカル代入許可の場合のみ
             // 同名のローカル変数が存在する場合は値を上書き
             self.set(&key, Scope::Local, value, false);
         } else if self.contains(&key, Scope::Public) {
             // 同名のグローバル変数が存在する場合は値を上書き
             self.set(&key, Scope::Public, value, true);
-        } else {
+        } else if include_local {
+            // ローカル代入許可の場合のみ
             // 同名の変数が存在しない場合は新たなローカル変数を定義
             // Option Explicitの場合は無効 (未実装)
-            return self.define_local(key, value);
-        }
+            self.define_local(key, value)?;
+        } else {
+            // ローカル代入不許可
+            // 同名のグローバル変数が存在しない場合はエラー
+            return Err(UError::new(
+                "Assignment Error".into(),
+                format!("public variable not found: {}", key),
+                None
+            ))
+        };
         Ok(())
     }
 
-    pub fn assign_public(&mut self, name: String, value: Object) -> Result<(), Object> {
-        let key = name.to_ascii_uppercase();
-        if self.is_reserved(&key) {
-            // ビルトイン定数には代入できない
-            return Err(Object::Error(format!("{} is reserved identifier.", key)))
-        }
-        // HASH_REMOVEALL
-        if let Object::Num(n) = value {
-            if n == -109.0 {
-                if self.hash_remove_all(&key) {
-                    return Ok(())
-                }
-            }
-        }
-        if self.contains(&key, Scope::Const) {
-            // 同名の定数がある場合エラー
-            return Err(Object::Error(format!("you can not assign to constant: {}", key)));
-        } else if self.contains(&key, Scope::Public) {
-            // 同名のグローバル変数が存在する場合は値を上書き
-            self.set(&key, Scope::Public, value, true);
-        } else {
-            // 同名のグローバル変数が存在しない場合はエラー
-            return Err(Object::Error(format!("public variable not found: {}", key)));
-        }
-        Ok(())
+    pub fn assign(&mut self, name: String, value: Object) -> EvalResult<()> {
+        self.assignment(name, value, true)
+    }
+
+    pub fn assign_public(&mut self, name: String, value: Object) -> EvalResult<()> {
+        self.assignment(name, value, false)
     }
 
     pub fn set_func_params_to_local(&mut self, name: String, value: &Object) {
@@ -432,10 +462,27 @@ impl Environment {
     }
 }
 
+// 特殊な代入に対する処理
+// falseを返したら代入は行わない
+fn check_special_assignment(obj1: &Object, obj2: &Object) -> bool {
+    match obj1 {
+        // HASH_REMOVEALL
+        Object::HashTbl(h) => {
+            if let Object::Num(n) = obj2 {
+                if n == &109.0 {
+                    h.borrow_mut().clear();
+                }
+            }
+            false
+        },
+        _ => true
+    }
+}
+
 #[derive(PartialEq, Clone, Debug)]
 pub struct Module {
     name: String,
-    members: Vec<NamedObject>
+    members: Vec<NamedObject>,
 }
 
 impl Module {
@@ -456,7 +503,12 @@ impl Module {
     }
 
     pub fn has_constructor(&self) -> bool {
-        let name = self.name().to_ascii_uppercase();
+        let name = self.name();
+        self.contains(&name, Scope::Function)
+    }
+
+    pub fn has_destructor(&self) -> bool {
+        let name = format!("_{}_", self.name());
         self.contains(&name, Scope::Function)
     }
 
@@ -480,47 +532,81 @@ impl Module {
         let key = name.to_ascii_uppercase();
         for obj in self.members.iter_mut() {
             if obj.name == key && obj.scope == scope {
-                obj.object = value;
+                if check_special_assignment(&obj.object, &value) {
+                    obj.object = value;
+                }
                 break;
             }
         }
     }
 
-    pub fn get_member(&self, name: &String) -> Object {
+    pub fn get_member(&self, name: &String) -> EvalResult<Object> {
         match self.get(name, Scope::Local) {
-            Some(o) => o,
+            Some(o) => Ok(o),
             None => match self.get(name, Scope::Public) {
-                Some(o) => o,
+                Some(o) => Ok(o),
                 None => match self.get(name, Scope::Const) {
-                    Some(o) => o,
-                    None => Object::Error(format!("{}.{} is not defined", self.name, name))
+                    Some(o) => Ok(o),
+                    None => Err(UError::new(
+                        "Member not found".into(),
+                        format!("{}.{} is not defined", self.name, name),
+                        None
+                    ))
                 }
             }
         }
     }
 
-    pub fn get_public_member(&self, name: &String) -> Object {
+    pub fn get_public_member(&self, name: &String) -> EvalResult<Object> {
         match self.get(name, Scope::Public) {
-            Some(o) => o,
+            Some(o) => Ok(o),
             None => match self.get(name, Scope::Const) {
-                Some(o) => o,
-                None => Object::Error(format!("{}.{} is not defined", self.name, name))
+                Some(o) => Ok(o),
+                None => Err(UError::new(
+                    "Public member not found".into(),
+                    format!("{}.{}() is not defined", self.name, name),
+                    None
+                ))
             }
         }
     }
 
-    pub fn get_function(&self, name: &String) -> Object {
-        self.get(name, Scope::Function).unwrap_or(Object::Error(format!("{}.{}() is not defined", self.name, name)))
+    pub fn get_function(&self, name: &String) -> EvalResult<Object> {
+        match self.get(name, Scope::Function) {
+            Some(o) => Ok(o),
+            None => if ! self.has_destructor() {
+                Ok(Object::DestructorNotFound)
+            } else {
+                Err(UError::new(
+                    "Function not found".into(),
+                    format!("{}.{}() is not defined", self.name, name),
+                    None
+                ))
+            },
+        }
     }
 
-    fn assign_index(&mut self, name: &String, value: Object, index: Object, scope: Scope) -> Result<(), Object> {
-        match self.get_member(name) {
+    fn assign_index(&mut self, name: &String, value: Object, index: Object, scope: Scope) -> Result<(), UError> {
+        match self.get_member(name)? {
             Object::Array(mut a) => {
                 if let Object::Num(n) = index {
-                    a[n as usize] = value;
-                    self.set(name, Object::Array(a), scope);
+                    let i = n as usize;
+                    if i < a.len() {
+                        a[i] = value;
+                        self.set(name, Object::Array(a), scope);
+                    } else {
+                        return Err(UError::new(
+                            "Invalid Index".into(),
+                            format!("index out of bound: {}", i),
+                            None
+                        ))
+                    }
                 } else {
-                    return Err(Object::Error(format!("invalid index: {}", index)))
+                    return Err(UError::new(
+                        "Invalid Index".into(),
+                        format!("{} is not a valid index", index),
+                        None
+                    ))
                 }
             },
             Object::HashTbl(h) => {
@@ -528,20 +614,31 @@ impl Module {
                     Object::Num(n) => n.to_string(),
                     Object::Bool(b) => b.to_string(),
                     Object::String(s) => s,
-                    _ => return Err(Object::Error(format!("invalid hash key: {}", index)))
+                    _ => return Err(UError::new(
+                        "Invalid key".into(),
+                        format!("{} is not a valid key", index),
+                        None
+                    ))
                 };
                 h.borrow_mut().insert(key, value);
             },
-            Object::Error(e) => return Err(Object::Error(e)),
-            _ => return Err(Object::Error(format!("{} is neither array nor hashtbl", name)))
+            _ => return Err(UError::new(
+                "Invalid index call".into(),
+                format!("{} is neither array nor hashtbl", name),
+                None
+            ))
         }
         Ok(())
     }
 
-    pub fn assign(&mut self, name: &String, value: Object, index: Option<Object>) -> Result<(), Object> {
+    pub fn assign(&mut self, name: &String, value: Object, index: Option<Object>) -> Result<(), UError> {
         let scope = if self.contains(name, Scope::Const) {
             // 同名の定数がある場合はエラー
-            return Err(Object::Error(format!("you can not assign to constant: {}.{}", self.name(), name)));
+            return Err(UError::new(
+                "Member already exists".into(),
+                format!("you can not assign to constant: {}.{}", self.name(), name),
+                None
+            ))
         } else if self.contains(name, Scope::Local) {
             // 同名ローカル変数があれば上書き
             Scope::Local
@@ -560,7 +657,7 @@ impl Module {
         Ok(())
     }
 
-    pub fn assign_public(&mut self, name: &String, value: Object, index: Option<Object>) -> Result<(), Object> {
+    pub fn assign_public(&mut self, name: &String, value: Object, index: Option<Object>) -> Result<(), UError> {
         if self.contains(&name, Scope::Public) {
             match index {
                 Some(i) => {
@@ -568,10 +665,14 @@ impl Module {
                 },
                 None => self.set(name, value, Scope::Public)
             }
-            Ok(())
         } else {
-            Err(Object::Error(format!("{}.{} is not defined or not public", self.name, name)))
+            return Err(UError::new(
+                "Public member not found".into(),
+                format!("{}.{} is not public", self.name, name),
+                None
+            ))
         }
+        Ok(())
     }
 
     pub fn is_local_member(&self, name: &String) -> bool {
@@ -587,6 +688,14 @@ impl Module {
                 }
             }
         }
+    }
+
+    pub fn is_disposed(&self) -> bool {
+        self.members.len() == 0
+    }
+
+    pub fn dispose(&mut self) {
+        self.members = vec![];
     }
 }
 

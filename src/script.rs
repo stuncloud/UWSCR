@@ -2,7 +2,6 @@ use std::rc::Rc;
 use std::cell::RefCell;
 
 use crate::evaluator::environment::Environment;
-use crate::evaluator::object::Object;
 use crate::evaluator::Evaluator;
 use crate::parser::Parser;
 use crate::parser::ParseError;
@@ -19,8 +18,7 @@ pub fn run(script: String) -> Result<(), Vec<ParseError>> {
         return Err(errors);
     }
     match evaluator.eval(program) {
-        Some(Object::Error(msg)) => eprintln!("evaluator error: {}", msg),
-        Some(Object::UError(err)) => eprintln!("{}", err),
+        Err(e) => eprintln!("{}", e),
         _ => ()
     }
 

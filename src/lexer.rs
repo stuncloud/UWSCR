@@ -586,7 +586,7 @@ print 123.456
         let input = "print \"あいうえお\"";
         test_next_token(input, vec![
             Token::Print,
-            Token::String(String::from("あいうえお"))
+            Token::ExpandableString(String::from("あいうえお"))
         ]);
     }
 
@@ -595,7 +595,7 @@ print 123.456
         let input = "print　\"全角スペースはホワイトスペース\"";
         test_next_token(input, vec![
             Token::Print,
-            Token::String(String::from("全角スペースはホワイトスペース"))
+            Token::ExpandableString(String::from("全角スペースはホワイトスペース"))
         ]);
     }
 

@@ -152,7 +152,6 @@ pub fn regex(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         },
         Object::String(s) |
         Object::RegEx(s) => replace_regex(target, pattern, s.clone(), args.name()),
-        Object::Error(e) => Ok(Object::Error(e.clone())),
         Object::Empty => test_regex(target, pattern, args.name()),
         _ => Err(builtin_func_error(args.name(), format!("bad argument: {}", args.item(2).unwrap())))
     }
