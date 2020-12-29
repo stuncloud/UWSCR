@@ -482,7 +482,6 @@ impl Lexer {
             };
         }
         let json: String = self.input[start_uo..self.pos].into_iter().collect();
-        self.read_char();
         Token::UObject(json)
     }
 }
