@@ -73,13 +73,13 @@ pub struct Environment {
 }
 
 impl Environment {
-    pub fn new() -> Self {
+    pub fn new(params: Vec<String>) -> Self {
         Environment {
             current: Layer {
                 local: Vec::new(),
                 outer: None,
             },
-            global: init_builtins()
+            global: init_builtins(params)
         }
     }
 

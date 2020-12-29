@@ -21,7 +21,7 @@ fn main() {
             },
             Mode::Script(p) => {
                 match get_script(p) {
-                    Ok(s) => match script::run(s) {
+                    Ok(s) => match script::run(s, args.get_param_str()) {
                         Ok(_) => {},
                         Err(errors) => {
                             eprintln!("parser had {} error{}", errors.len(), if errors.len()>1 {"s"} else {""});
@@ -120,6 +120,11 @@ impl Args {
         }
     }
 
+    pub fn get_param_str(&self) -> Vec<String> {
+        let mut args = self.args.clone();
+        args.drain(2..).collect()
+    }
+
     pub fn help(&self, err: Option<&str>) {
         if err.is_some() {
             println!("error: {}", err.unwrap());
@@ -130,6 +135,9 @@ impl Args {
         }
         println!("Usage:");
         println!("  uwscr FILE                   : スクリプトの実行");
+        println!("  uwscr FILE [params]          : パラメータ付きスクリプトの実行");
+        println!("                                 半角スペース区切りで複数指定可能");
+        println!("                                 スクリプトからはPARAM_STRで値を取得");
         println!("  uwscr [(-r|--repl) [FILE]]   : Replを起動 (スクリプトを指定するとそれを実行してから起動)");
         println!("  uwscr (-a|--ast) FILE        : スクリプトの構文木を出力");
         // println!("  uwscr (-s|--server) [PORT]   : Language Serverとして起動、デフォルトポートはxxx");

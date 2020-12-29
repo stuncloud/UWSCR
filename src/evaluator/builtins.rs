@@ -97,7 +97,7 @@ impl BuiltinFunctionSets {
     }
 }
 
-pub fn init_builtins() -> Vec<NamedObject> {
+pub fn init_builtins(params: Vec<String>) -> Vec<NamedObject> {
     let mut vec = Vec::new();
     // builtin debug functions
     builtin_func_sets().set(&mut vec);
@@ -124,6 +124,10 @@ pub fn init_builtins() -> Vec<NamedObject> {
     set_builtin_consts::<key_codes::VirtualKeyCodes>(&mut vec);
     set_builtin_consts::<key_codes::VirtualKeyCodeDups>(&mut vec);
     set_builtin_consts::<key_codes::VirtualMouseButton>(&mut vec);
+
+    // param_str
+    let param_str = params.iter().map(|s| Object::String(s.into())).collect::<Vec<Object>>();
+    vec.push(NamedObject::new_builtin_const("PARAM_STR".into(), Object::Array(param_str)));
 
     vec.push(NamedObject::new_builtin_const("GET_UWSC_PRO".to_ascii_uppercase(), Object::Bool(false)));
     vec.push(NamedObject::new_builtin_const("GET_UWSC_VER".to_ascii_uppercase(), Object::String(env!("CARGO_PKG_VERSION").into())));

@@ -10,7 +10,7 @@ use crate::parser::ParseErrorKind;
 use crate::lexer::Lexer;
 
 pub fn run(script: Option<String>) {
-    let env = Environment::new();
+    let env = Environment::new(vec![]);
     let mut evaluator = Evaluator::new(Rc::new(RefCell::new(env)));
     if script.is_some() {
         println!("loading script...");

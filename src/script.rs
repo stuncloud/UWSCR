@@ -7,9 +7,9 @@ use crate::parser::Parser;
 use crate::parser::ParseError;
 use crate::lexer::Lexer;
 
-pub fn run(script: String) -> Result<(), Vec<ParseError>> {
+pub fn run(script: String, params: Vec<String>) -> Result<(), Vec<ParseError>> {
 
-    let env = Environment::new();
+    let env = Environment::new(params);
     let mut evaluator = Evaluator::new(Rc::new(RefCell::new(env)));
     let mut parser = Parser::new(Lexer::new(&script));
     let program = parser.parse();
