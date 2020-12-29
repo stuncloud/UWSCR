@@ -1796,7 +1796,7 @@ mod tests {
 
     fn eval(input: &str, ast: bool) -> EvalResult<Option<Object>> {
         let mut e = Evaluator::new(Rc::new(RefCell::new(
-            Environment::new()
+            Environment::new(vec![])
         )));
         let program = Parser::new(Lexer::new(input)).parse();
         if ast {
@@ -1808,7 +1808,7 @@ mod tests {
     // 変数とか関数とか予め定義しておく
     fn eval_env(input: &str) -> Evaluator {
         let mut e = Evaluator::new(Rc::new(RefCell::new(
-            Environment::new()
+            Environment::new(vec![])
         )));
         let program = Parser::new(Lexer::new(input)).parse();
         match e.eval(program) {

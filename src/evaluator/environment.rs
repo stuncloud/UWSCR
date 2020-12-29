@@ -719,7 +719,7 @@ mod tests {
 
     #[test]
     fn test_define_local() {
-        let mut env = Environment::new();
+        let mut env = Environment::new(vec![]);
         assert_eq!(
             env.define_local("hoge".into(),Object::Num(1.1)),
             Ok(())
