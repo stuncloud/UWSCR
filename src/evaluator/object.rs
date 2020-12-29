@@ -26,7 +26,7 @@ pub enum Object {
     BuiltinFunction(String, i32, BuiltinFunction),
     Module(Rc<RefCell<Module>>),
     Class(String, BlockStatement), // class定義
-    Instance(Rc<RefCell<Module>>), // classインスタンス, デストラクタが呼ばれたらNoneになる
+    Instance(Rc<RefCell<Module>>, u32), // classインスタンス, デストラクタが呼ばれたらNoneになる
     DestructorNotFound, // デストラクタがなかった場合に返る、これが来たらエラーにせず終了する
     Null,
     Empty,
@@ -124,7 +124,7 @@ impl fmt::Display for Object {
             Object::Debug(_) => write!(f, "debug"),
             Object::Module(ref m) => write!(f, "module: {}", m.borrow().name()),
             Object::Class(ref name, _) => write!(f, "class: {}", name),
-            Object::Instance(ref m) => {
+            Object::Instance(ref m, _) => {
                 let ins = m.borrow();
                 if ins.is_disposed() {
                     write!(f, "disposed instance: {}", ins.name())

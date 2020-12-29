@@ -60,11 +60,12 @@ type EvalResult<T> = Result<T, UError>;
 #[derive(Debug)]
 pub struct  Evaluator {
     env: Rc<RefCell<Environment>>,
+    instance_id: u32,
 }
 
 impl Evaluator {
     pub fn new(env: Rc<RefCell<Environment>>) -> Self {
-        Evaluator {env}
+        Evaluator {env, instance_id: 0}
     }
 
     fn is_truthy(obj: Object) -> bool {
@@ -78,6 +79,11 @@ impl Evaluator {
             },
             _ => true
         }
+    }
+
+    fn new_instance_id(&mut self) -> u32 {
+        self.instance_id += 1;
+        self.instance_id
     }
 
     pub fn eval(&mut self, program: Program) -> EvalResult<Option<Object>> {
@@ -608,7 +614,7 @@ impl Evaluator {
         let rc = Rc::new(RefCell::new(module));
         rc.borrow_mut().set_rc_to_functions(Rc::clone(&rc));
         if is_instance {
-            Ok(Object::Instance(Rc::clone(&rc)))
+            Ok(Object::Instance(Rc::clone(&rc), 0))
         } else {
             Ok(Object::Module(Rc::clone(&rc)))
         }
@@ -946,7 +952,7 @@ impl Evaluator {
                     Expression::DotCall(left, right) => {
                         match self.eval_expression(*left)? {
                             Object::Module(m) |
-                            Object::Instance(m) |
+                            Object::Instance(m, _) |
                             Object::This(m) => {
                                 match *right {
                                     Expression::Identifier(Identifier(name)) => {
@@ -1024,7 +1030,7 @@ impl Evaluator {
             },
             Expression::DotCall(left, right) => match self.eval_expression(*left)? {
                 Object::Module(m) |
-                Object::Instance(m) => {
+                Object::Instance(m, _) => {
                     match *right {
                         Expression::Identifier(i) => {
                             let Identifier(member_name) = i;
@@ -1391,7 +1397,7 @@ impl Evaluator {
             // class constructor
             Object::Class(name, block) => {
                 let instance = self.eval_module_statement(&name, block, true)?;
-                if let Object::Instance(rc) = instance {
+                if let Object::Instance(rc, _) = instance {
                     let constructor = match rc.borrow().get_function(&name) {
                         Ok(o) => o,
                         Err(_) => return Err(UError::new(
@@ -1543,7 +1549,7 @@ impl Evaluator {
         // 戻り値
         let result = if is_class_instance {
             match rc_module {
-                Some(ref rc) => Object::Instance(Rc::clone(rc)),
+                Some(ref rc) => Object::Instance(Rc::clone(rc), self.new_instance_id()),
                 None => return Err(UError::new(
                     "Syntax error".into(),
                     "failed to create new instance".into(),
@@ -1609,7 +1615,7 @@ impl Evaluator {
         };
         match instance {
             Object::Module(m) |
-            Object::Instance(m) => {
+            Object::Instance(m, _) => {
                 let module = m.borrow();
                 match right {
                     Expression::Identifier(i) => {
@@ -1753,7 +1759,7 @@ impl Evaluator {
             Ok(o) => o,
             Err(_) => return Ok(())
         };
-        if let Object::Instance(ref m) = old_value {
+        if let Object::Instance(ref m, _) = old_value {
             // 既に破棄されてたらなんもしない
             if m.borrow().is_disposed() {
                 return Ok(());
