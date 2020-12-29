@@ -12,6 +12,7 @@ fn main() {
         };
         res.set("FileDescription", &desc);
         res.set("LegalCopyright", "Joey Takahashi a.k.a. stuncloud");
+        res.set_icon(r#".\icons\UWSC\ico\MAINICON_0016-0256_light.ico"#);
         res.set_manifest(r#"
 <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
     <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">
