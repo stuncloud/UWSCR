@@ -21,7 +21,7 @@ fn main() {
             },
             Mode::Script(p) => {
                 match get_script(p) {
-                    Ok(s) => match script::run(s, args.get_param_str()) {
+                    Ok(s) => match script::run(s, args.get_args()) {
                         Ok(_) => {},
                         Err(errors) => {
                             eprintln!("parser had {} error{}", errors.len(), if errors.len()>1 {"s"} else {""});
@@ -120,9 +120,8 @@ impl Args {
         }
     }
 
-    pub fn get_param_str(&self) -> Vec<String> {
-        let mut args = self.args.clone();
-        args.drain(2..).collect()
+    pub fn get_args(&self) -> Vec<String> {
+        self.args.clone()
     }
 
     pub fn help(&self, err: Option<&str>) {

@@ -152,9 +152,13 @@ impl Environment {
 
     fn get_from_global(&self, name: &String, scope: Scope) -> Option<Object> {
         let key = name.to_ascii_uppercase();
-        self.global.clone().into_iter().find(
+        let obj = self.global.clone().into_iter().find(
             |o| o.name == key && o.scope == scope
-        ).map(|o| o.object.clone())
+        ).map(|o| o.object.clone());
+        match obj {
+            Some(Object::DynamicVar(f)) => Some(f()),
+            o => o
+        }
     }
 
     pub fn get_name_of_builtin_consts(&self, name: &String) -> Object {

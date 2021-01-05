@@ -3,6 +3,7 @@ use crate::evaluator::builtins::*;
 use crate::evaluator::builtins::window_low::get_current_pos;
 use crate::evaluator::builtins::system_controls::is_64bit_os;
 use crate::evaluator::UError;
+use crate::winapi_util::buffer_to_string;
 
 use std::fmt;
 use std::collections::HashMap;
@@ -189,16 +190,6 @@ pub fn getid(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 }
 
 const MAX_NAME_SIZE: usize = 512;
-
-fn buffer_to_string( buffer: &[u16] ) -> Result<String, String> {
-    buffer.iter()
-        .position(|wch| wch == &0)
-        .ok_or("String : Can't find zero terminator !".to_owned())
-        .and_then(
-            |ix| String::from_utf16( &buffer[..ix] )
-            .map_err(|e| e.to_string())
-        )
-}
 
 struct TargetWindow {
     hwnd: HWND,

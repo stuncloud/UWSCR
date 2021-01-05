@@ -16,6 +16,7 @@ pub enum ParseErrorKind {
     InvalidStatement,
     ClassHasNoConstructor,
     InvalidJson,
+    InvalidFilePath,
 }
 
 #[derive(Debug, Clone)]
@@ -37,13 +38,14 @@ impl fmt::Display for ParseErrorKind {
             ParseErrorKind::InvalidStatement => write!(f, "Invalid Statement"),
             ParseErrorKind::ClassHasNoConstructor => write!(f, "Constructor required"),
             ParseErrorKind::InvalidJson => write!(f, "Invalid json format"),
+            ParseErrorKind::InvalidFilePath => write!(f, "Invalid file path"),
         }
     }
 }
 
 impl ParseError {
-    fn new(kind: ParseErrorKind, msg: String, pos: Position) -> Self {
-        ParseError {kind, msg,pos}
+    pub fn new<S: Into<String>>(kind: ParseErrorKind, msg: S, pos: Position) -> Self {
+        ParseError {kind, msg: msg.into(), pos}
     }
 
     pub fn get_kind(self) -> ParseErrorKind {
@@ -526,7 +528,7 @@ impl Parser {
         if ! self.in_loop {
             self.errors.push(ParseError::new(
                 ParseErrorKind::OutOfLoop,
-                "continue is not allowd.".into(),
+                "continue is not allowd.",
                 self.current_token.pos.clone()
             ));
             return None;
@@ -543,7 +545,7 @@ impl Parser {
         if ! self.in_loop {
             self.errors.push(ParseError::new(
                 ParseErrorKind::OutOfLoop,
-                "break is not allowd.".into(),
+                "break is not allowd.",
                 self.current_token.pos.clone()
             ));
             return None;

@@ -5,3 +5,4 @@ pub mod parser;
 pub mod evaluator;
 pub mod script;
 pub mod repl;
+pub mod winapi_util;

@@ -5,9 +5,19 @@ pub mod system_controls;
 pub mod key_codes;
 
 use crate::evaluator::UError;
+use crate::winapi_util::{
+    get_windows_directory,
+    get_system_directory,
+    get_special_directory,
+    get_screen_width,
+    get_screen_height,
+    get_color_depth,
+};
 use crate::evaluator::object::*;
 use crate::evaluator::environment::NamedObject;
 use crate::ast::Expression;
+
+use std::env;
 
 use cast;
 use strum::VariantNames;
@@ -128,9 +138,8 @@ pub fn init_builtins(params: Vec<String>) -> Vec<NamedObject> {
     // param_str
     let param_str = params.iter().map(|s| Object::String(s.into())).collect::<Vec<Object>>();
     vec.push(NamedObject::new_builtin_const("PARAM_STR".into(), Object::Array(param_str)));
+    set_special_variables(&mut vec);
 
-    vec.push(NamedObject::new_builtin_const("GET_UWSC_PRO".to_ascii_uppercase(), Object::Bool(false)));
-    vec.push(NamedObject::new_builtin_const("GET_UWSC_VER".to_ascii_uppercase(), Object::String(env!("CARGO_PKG_VERSION").into())));
     vec
 }
 
@@ -159,6 +168,67 @@ fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("name_of", 1, name_of);
     sets.add("assert_equal", 2, assert_equal);
     sets
+}
+
+fn set_special_variables(vec: &mut Vec<NamedObject>) {
+    // 特殊変数
+    vec.push(NamedObject::new_builtin_const("GET_UWSC_PRO".into(), Object::Bool(false)));
+    vec.push(NamedObject::new_builtin_const("GET_UWSC_VER".into(), Object::String(env!("CARGO_PKG_VERSION").into())));
+    let uwscr_dir = match env::var("GET_UWSC_DIR") {
+        Ok(s) => s,
+        Err(_) => match env::current_dir() {
+            Ok(p) => p.into_os_string().into_string().unwrap(),
+            Err(_) => "".to_string()
+        }
+    };
+    vec.push(NamedObject::new_builtin_const("GET_UWSC_DIR".into(), Object::String(uwscr_dir.clone())));
+    vec.push(NamedObject::new_builtin_const("GET_UWSCR_DIR".into(), Object::String(uwscr_dir)));
+    vec.push(NamedObject::new_builtin_const("GET_UWSC_NAME".into(), Object::String(
+        env::var("GET_UWSC_NAME").unwrap_or("".into())
+    )));
+    vec.push(NamedObject::new_builtin_const("GET_WIN_DIR".into(), Object::String(
+        get_windows_directory()
+    )));
+    vec.push(NamedObject::new_builtin_const("GET_SYS_DIR".into(), Object::String(
+        get_system_directory()
+    )));
+    vec.push(NamedObject::new_builtin_const("GET_APPDATA_DIR".into(), Object::String(
+        get_special_directory(winapi::um::shlobj::CSIDL_APPDATA)
+    )));
+
+    vec.push(NamedObject::new_builtin_const("GET_CUR_DIR".into(), Object::DynamicVar(
+        || Object::String(
+            match env::current_dir() {
+                Ok(p) => p.into_os_string().into_string().unwrap(),
+                Err(_) => "".into()
+            }
+        )
+    )));
+    vec.push(NamedObject::new_builtin_const("G_MOUSE_X".into(), Object::DynamicVar(
+        || Object::Num(
+            match window_low::get_current_pos("") {
+                Ok(p) => p.x as f64,
+                Err(_) => -999999.0
+            }
+        )
+    )));
+    vec.push(NamedObject::new_builtin_const("G_MOUSE_Y".into(), Object::DynamicVar(
+        || Object::Num(
+            match window_low::get_current_pos("") {
+                Ok(p) => p.y as f64,
+                Err(_) => -999999.0
+            }
+        )
+    )));
+    vec.push(NamedObject::new_builtin_const("G_SCREEN_W".into(), Object::DynamicVar(
+        || Object::Num(get_screen_width() as f64)
+    )));
+    vec.push(NamedObject::new_builtin_const("G_SCREEN_H".into(), Object::DynamicVar(
+        || Object::Num(get_screen_height() as f64)
+    )));
+    vec.push(NamedObject::new_builtin_const("G_SCREEN_C".into(), Object::DynamicVar(
+        || Object::Num(get_color_depth() as f64)
+    )));
 }
 
 // デバッグ用ビルトイン関数の実体

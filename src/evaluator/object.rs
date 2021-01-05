@@ -42,6 +42,7 @@ pub enum Object {
     This(Rc<RefCell<Module>>),   // thisを示す
     UObject(Rc<RefCell<serde_json::Value>>),
     UChild(Rc<RefCell<serde_json::Value>>, String),
+    DynamicVar(fn()->Object), // 特殊変数とか
 }
 
 impl fmt::Display for Object {
@@ -145,6 +146,7 @@ impl fmt::Display for Object {
                 let v = u.borrow().pointer(p.as_str()).unwrap().clone();
                 write!(f, "UObject: {}", serde_json::to_string(&v).map_or_else(|e| format!("{}", e), |j| j))
             },
+            Object::DynamicVar(func) => write!(f, "{}", func()),
         }
     }
 }
