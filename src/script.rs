@@ -19,31 +19,37 @@ pub fn run(script: String, mut args: Vec<String>) -> Result<(), Vec<ParseError>>
     let params = args.drain(2..).collect();
     let uwscr_dir = match get_parent_full_path(&args[0]) {
         Ok(s) => s,
-        Err(_) => {
-            return Err(vec![
-                ParseError::new(
-                    ParseErrorKind::InvalidFilePath,
-                    "unable to get uwscr path",
-                    Position {row: 0, column: 0}
-                )
-            ]);
-        }
+        Err(_) => return Err(vec![
+            ParseError::new(
+                ParseErrorKind::InvalidFilePath,
+                "unable to get uwscr path",
+                Position {row: 0, column: 0}
+            )
+        ])
     };
     let script_dir = match get_parent_full_path(&args[1]) {
         Ok(s) => s,
-        Err(_) => {
-            return Err(vec![
-                ParseError::new(
-                    ParseErrorKind::InvalidFilePath,
-                    "unable to get script path",
-                    Position {row: 0, column: 0}
-                )
-            ]);
-        }
+        Err(_) => return Err(vec![
+            ParseError::new(
+                ParseErrorKind::InvalidFilePath,
+                "unable to get script path",
+                Position {row: 0, column: 0}
+            )
+        ])
     };
     env::set_var("GET_UWSC_DIR", uwscr_dir.to_str().unwrap());
     env::set_var("GET_SCRIPT_DIR", script_dir.to_str().unwrap());
     env::set_var("GET_UWSC_NAME", get_script_name(&args[1]));
+    match env::set_current_dir(&script_dir) {
+        Err(_)=> return Err(vec![
+            ParseError::new(
+                ParseErrorKind::InvalidFilePath,
+                "unable to set current directory",
+                Position {row: 0, column: 0}
+            )
+        ]),
+        _ => {}
+    };
     let env = Environment::new(params);
     let mut evaluator = Evaluator::new(Rc::new(RefCell::new(env)));
     let mut parser = Parser::new(Lexer::new(&script));

@@ -186,6 +186,9 @@ fn set_special_variables(vec: &mut Vec<NamedObject>) {
     vec.push(NamedObject::new_builtin_const("GET_UWSC_NAME".into(), Object::String(
         env::var("GET_UWSC_NAME").unwrap_or("".into())
     )));
+    vec.push(NamedObject::new_builtin_const("GET_UWSCR_NAME".into(), Object::String(
+        env::var("GET_UWSC_NAME").unwrap_or("".into())
+    )));
     vec.push(NamedObject::new_builtin_const("GET_WIN_DIR".into(), Object::String(
         get_windows_directory()
     )));
