@@ -772,14 +772,15 @@ impl Parser {
             },
         };
 
-        // #[cfg(test)]
-        // println!("test:parse_expression left: {:?}, next token: {:?}", left, self.next_token);
 
         // infix
         while (
             ! self.is_next_token(&Token::Semicolon)
             || ! self.is_next_token(&Token::Eol)
         ) && precedence < self.next_token_precedence() {
+            if left.is_none() {
+                return None;
+            }
             match self.next_token.token {
                 Token::Plus
                 | Token::Minus

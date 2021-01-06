@@ -10,6 +10,7 @@ use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
 use crate::parser::Parser;
 use crate::lexer::Lexer;
+use crate::logging::out_log;
 
 use std::fmt;
 use std::rc::Rc;
@@ -141,6 +142,13 @@ impl Evaluator {
         Ok((name, Object::HashTbl(Rc::new(RefCell::new(hashtbl)))))
     }
 
+    fn eval_print_statement(&mut self, expression: Expression) -> EvalResult<Option<Object>> {
+        let obj = self.eval_expression(expression)?;
+        out_log(&format!("[PRINT] {}", obj));
+        println!("{}", obj);
+        Ok(None)
+    }
+
     fn eval_statement(&mut self, statement: Statement) -> EvalResult<Option<Object>> {
         match statement {
             Statement::Dim(vec) => {
@@ -179,10 +187,7 @@ impl Evaluator {
                 }
                 Ok(None)
             },
-            Statement::Print(e) => {
-                println!("{}", self.eval_expression(e)?);
-                Ok(None)
-            },
+            Statement::Print(e) => self.eval_print_statement(e),
             Statement::Call(s) => {
                 println!("{}", s);
                 Ok(None)

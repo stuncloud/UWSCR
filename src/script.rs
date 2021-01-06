@@ -7,46 +7,36 @@ use std::env;
 use crate::evaluator::environment::Environment;
 use crate::evaluator::Evaluator;
 use crate::parser::*;
-use crate::lexer::{Lexer, Position};
+use crate::lexer::Lexer;
 use crate::winapi_util::{buffer_to_string, to_wide_string};
+use crate::logging;
 
 use winapi::{
     um::fileapi::{GetFullPathNameW, },
     shared::minwindef::MAX_PATH,
 };
 
-pub fn run(script: String, mut args: Vec<String>) -> Result<(), Vec<ParseError>> {
+pub fn run(script: String, mut args: Vec<String>) -> Result<(), Vec<String>> {
     let params = args.drain(2..).collect();
     let uwscr_dir = match get_parent_full_path(&args[0]) {
         Ok(s) => s,
         Err(_) => return Err(vec![
-            ParseError::new(
-                ParseErrorKind::InvalidFilePath,
-                "unable to get uwscr path",
-                Position {row: 0, column: 0}
-            )
+            "unable to get uwscr path".into()
         ])
     };
     let script_dir = match get_parent_full_path(&args[1]) {
         Ok(s) => s,
         Err(_) => return Err(vec![
-            ParseError::new(
-                ParseErrorKind::InvalidFilePath,
-                "unable to get script path",
-                Position {row: 0, column: 0}
-            )
+            "unable to get script path".into()
         ])
     };
+    logging::init(&script_dir);
     env::set_var("GET_UWSC_DIR", uwscr_dir.to_str().unwrap());
     env::set_var("GET_SCRIPT_DIR", script_dir.to_str().unwrap());
     env::set_var("GET_UWSC_NAME", get_script_name(&args[1]));
     match env::set_current_dir(&script_dir) {
         Err(_)=> return Err(vec![
-            ParseError::new(
-                ParseErrorKind::InvalidFilePath,
-                "unable to set current directory",
-                Position {row: 0, column: 0}
-            )
+            "unable to set current directory".into()
         ]),
         _ => {}
     };
@@ -56,13 +46,11 @@ pub fn run(script: String, mut args: Vec<String>) -> Result<(), Vec<ParseError>>
     let program = parser.parse();
     let errors = parser.get_errors();
     if errors.len() > 0 {
-        return Err(errors);
+        return Err(errors.into_iter().map(|e| format!("{}", e)).collect());
     }
-    match evaluator.eval(program) {
-        Err(e) => eprintln!("{}", e),
-        _ => ()
+    if let Err(e) = evaluator.eval(program) {
+        return Err(vec![format!("{}", e)])
     }
-
     Ok(())
 }
 
