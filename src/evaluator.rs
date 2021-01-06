@@ -1130,6 +1130,7 @@ impl Evaluator {
                     },
                     Object::Empty => self.eval_infix_number_expression(infix, n1, 0.0),
                     Object::Bool(b) => self.eval_infix_number_expression(infix, n1, b as i64 as f64),
+                    Object::Version(v) => self.eval_infix_number_expression(infix, n1, v.parse()),
                     _ => self.eval_infix_misc_expression(infix, left, right),
                 }
             },
@@ -1148,6 +1149,7 @@ impl Evaluator {
                     },
                     Object::Bool(_) => self.eval_infix_string_expression(infix, s1.clone(), format!("{}", right)),
                     Object::Empty => self.eval_infix_empty_expression(infix, left, right),
+                    Object::Version(v) => self.eval_infix_string_expression(infix, s1, v.to_string()),
                     _ => self.eval_infix_string_expression(infix, s1.clone(), format!("{}", right))
                 }
             },
@@ -1163,7 +1165,13 @@ impl Evaluator {
                 Object::String(_) => self.eval_infix_empty_expression(infix, left, right),
                 Object::Empty => self.eval_infix_empty_expression(infix, left, right),
                 _ => self.eval_infix_misc_expression(infix, left, right)
-            }
+            },
+            Object::Version(v1) => match right {
+                Object::Version(v2) => self.eval_infix_number_expression(infix, v1.parse(), v2.parse()),
+                Object::Num(n) => self.eval_infix_number_expression(infix, v1.parse(), n),
+                Object::String(s) => self.eval_infix_string_expression(infix, v1.to_string(), s.clone()),
+                _ => self.eval_infix_misc_expression(infix, left, right)
+            },
             _ => self.eval_infix_misc_expression(infix, left, right)
         }
     }

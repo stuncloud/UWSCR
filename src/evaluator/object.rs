@@ -6,6 +6,7 @@ use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 use std::cell::RefCell;
+use std::str::FromStr;
 
 use winapi::shared::windef::HWND;
 use indexmap::IndexMap;
@@ -13,7 +14,7 @@ use strum_macros::{EnumString, EnumVariantNames};
 use num_derive::{ToPrimitive, FromPrimitive};
 use serde_json;
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Object {
     // Int(i64),
     Num(f64),
@@ -43,6 +44,7 @@ pub enum Object {
     UObject(Rc<RefCell<serde_json::Value>>),
     UChild(Rc<RefCell<serde_json::Value>>, String),
     DynamicVar(fn()->Object), // 特殊変数とか
+    Version(Version),
 }
 
 impl fmt::Display for Object {
@@ -147,6 +149,7 @@ impl fmt::Display for Object {
                 write!(f, "UObject: {}", serde_json::to_string(&v).map_or_else(|e| format!("{}", e), |j| j))
             },
             Object::DynamicVar(func) => write!(f, "{}", func()),
+            Object::Version(ref v) => write!(f, "{}", v),
         }
     }
 }
@@ -258,5 +261,61 @@ impl HashTbl {
     // hash = hash_removeall
     pub fn clear(&mut self) {
         self.map.clear();
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Version {
+    major: u32,
+    minor: u32,
+    patch: u32,
+}
+
+impl fmt::Display for Version {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}.{}.{}", self.major, self.minor, self.patch)
+    }
+}
+
+impl Version {
+    pub fn new(major: u32, minor: u32, patch: u32) -> Self {
+        Version{major, minor, patch}
+    }
+    pub fn parse(&self) -> f64 {
+        format!("{}.{}{}", self.major, self.minor, self.patch).parse().unwrap_or(0.0)
+    }
+    pub fn to_string(&self) -> String {
+        format!("{}.{}.{}", self.major, self.minor, self.patch)
+    }
+}
+
+impl FromStr for Version {
+    type Err = std::num::ParseIntError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let v = s.split('.').collect::<Vec<&str>>();
+        let major = v[0].parse::<u32>()?;
+        let minor = v[1].parse::<u32>()?;
+        let patch = v[2].parse::<u32>()?;
+        Ok(Version{major, minor, patch})
+    }
+}
+
+impl PartialEq for Version {
+    fn eq(&self, other: &Self) -> bool {
+        self.major == other.major &&
+        self.minor == other.minor &&
+        self.patch == other.patch
+    }
+}
+
+impl PartialEq<String> for Version {
+    fn eq(&self, other: &String) -> bool {
+        self.to_string() == *other
+    }
+}
+
+impl PartialEq<f64> for Version {
+    fn eq(&self, other: &f64) -> bool {
+        self.parse() == *other
     }
 }
