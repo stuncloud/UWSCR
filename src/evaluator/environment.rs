@@ -4,8 +4,10 @@ use crate::evaluator::builtins::init_builtins;
 use std::fmt;
 use std::rc::Rc;
 use std::cell::RefCell;
+use std::borrow::Cow;
 
 use super::{EvalResult, UError};
+use regex::Regex;
 
 
 #[derive(PartialEq, Clone, Debug)]
@@ -152,13 +154,9 @@ impl Environment {
 
     fn get_from_global(&self, name: &String, scope: Scope) -> Option<Object> {
         let key = name.to_ascii_uppercase();
-        let obj = self.global.clone().into_iter().find(
+        self.global.clone().into_iter().find(
             |o| o.name == key && o.scope == scope
-        ).map(|o| o.object.clone());
-        match obj {
-            Some(Object::DynamicVar(f)) => Some(f()),
-            o => o
-        }
+        ).map(|o| o.object.clone())
     }
 
     pub fn get_name_of_builtin_consts(&self, name: &String) -> Object {
@@ -170,7 +168,7 @@ impl Environment {
 
     // 変数評価の際に呼ばれる
     pub fn get_variable(&self, name: &String) -> Option<Object> {
-        match self.get(&name, Scope::Local) {
+        let obj = match self.get(&name, Scope::Local) {
             Some(value) => Some(value),
             None => match self.get(&name, Scope::Const) { // module関数から呼ばれた場合のみ
                 Some(value) => Some(value),
@@ -188,6 +186,11 @@ impl Environment {
                     }
                 }
             }
+        };
+        match obj {
+            Some(Object::DynamicVar(f)) => Some(f()),
+            Some(Object::ExpandableTB(text)) => Some(self.expand_string(text)),
+            o => o
         }
     }
 
@@ -467,6 +470,22 @@ impl Environment {
             None => ()
         }
         Object::Array(arr)
+    }
+
+    fn expand_string(&self, string: String) -> Object {
+        let re = Regex::new("<#([^>]+)>").unwrap();
+        let mut new_string = string.clone();
+        for cap in re.captures_iter(string.as_str()) {
+            let expandable = cap.get(1).unwrap().as_str();
+            let rep_to: Option<Cow<str>> = match expandable.to_ascii_uppercase().as_str() {
+                "CR" => Some("\r\n".into()),
+                "TAB" => Some("\t".into()),
+                "DBL" => Some("\"".into()),
+                text =>  self.get_variable(&text.into()).map(|o| format!("{}", o).into()),
+            };
+            new_string = rep_to.map_or(new_string.clone(), |to| new_string.replace(format!("<#{}>", expandable).as_str(), to.as_ref()));
+        }
+        Object::String(new_string)
     }
 }
 

@@ -1269,16 +1269,21 @@ impl Evaluator {
         match literal {
             Literal::Num(value) => Object::Num(value),
             Literal::String(value) => Object::String(value),
-            Literal::ExpandableString(value) => self.expand_string(value),
+            Literal::ExpandableString(value) => self.expand_string(value, true),
             Literal::Bool(value) => Object::Bool(value),
             Literal::Array(objects) => self.eval_array_literal(objects),
             Literal::Empty => Object::Empty,
             Literal::Null => Object::Null,
             Literal::Nothing => Object::Nothing,
+            Literal::TextBlock(text, is_ex) => if is_ex {
+                Object::ExpandableTB(text)
+            } else {
+                self.expand_string(text, false)
+            },
         }
     }
 
-    fn expand_string(&self, string: String) -> Object {
+    fn expand_string(&self, string: String, expand_var: bool) -> Object {
         let re = Regex::new("<#([^>]+)>").unwrap();
         let mut new_string = string.clone();
         for cap in re.captures_iter(string.as_str()) {
@@ -1287,7 +1292,11 @@ impl Evaluator {
                 "CR" => Some("\r\n".into()),
                 "TAB" => Some("\t".into()),
                 "DBL" => Some("\"".into()),
-                _ => self.env.borrow().get_variable(&expandable.into()).map(|o| format!("{}", o).into()),
+                text => if expand_var {
+                    self.env.borrow().get_variable(&text.into()).map(|o| format!("{}", o).into())
+                } else {
+                    continue;
+                },
             };
             new_string = rep_to.map_or(new_string.clone(), |to| new_string.replace(format!("<#{}>", expandable).as_str(), to.as_ref()));
         }
@@ -1647,7 +1656,10 @@ impl Evaluator {
                         } else if is_func {
                             module.get_function(&member_name)
                         } else {
-                            module.get_public_member(&member_name)
+                            match module.get_public_member(&member_name) {
+                                Ok(Object::ExpandableTB(text)) => Ok(self.expand_string(text, true)),
+                                res => res
+                            }
                         }
                     },
                     _ => Err(UError::new(
@@ -1664,7 +1676,10 @@ impl Evaluator {
                     if is_func {
                         module.get_function(&member_name)
                     } else {
-                        module.get_member(&member_name)
+                        match module.get_member(&member_name) {
+                            Ok(Object::ExpandableTB(text)) => Ok(self.expand_string(text, true)),
+                            res => res
+                        }
                     }
                 } else {
                     Err(UError::new(

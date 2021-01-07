@@ -348,8 +348,8 @@ impl Parser {
             Token::Exit => Some(Statement::Exit),
             Token::Module => self.parse_module_statement(),
             Token::Class => self.parse_class_statement(),
-            Token::TextBlock(ref name, ref body) => {
-                name.clone().map(|s| Statement::TextBlock(Identifier(s), Literal::ExpandableString(body.clone())))
+            Token::TextBlock(ref name, ref body, is_ex) => {
+                name.clone().map(|s| Statement::TextBlock(Identifier(s), Literal::TextBlock(body.clone(), is_ex)))
             },
             Token::NoEndTextBlock => {
                 self.errors.push(ParseError::new(

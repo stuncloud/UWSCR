@@ -329,7 +329,8 @@ impl Lexer {
             "break" => Token::Break,
             "with" => Token::With,
             "endwith" => Token::EndWith,
-            "textblock" => self.consume_textblock(),
+            "textblock" => self.consume_textblock(false),
+            "textblockex" => self.consume_textblock(true),
             "endtextblock" => Token::EndTextBlock,
             "function" => Token::Function,
             "procedure" => Token::Procedure,
@@ -436,7 +437,7 @@ impl Lexer {
         }
     }
 
-    fn consume_textblock(&mut self) -> Token {
+    fn consume_textblock(&mut self, is_ex: bool) -> Token {
         // eolまで進める
         let mut name = None;
         loop {
@@ -465,7 +466,7 @@ impl Lexer {
             }
         }
         let body: String = self.input[start_tb..end_tb].into_iter().collect();
-        Token::TextBlock(name, body)
+        Token::TextBlock(name, body, is_ex)
     }
 
     fn consume_uobject(&mut self) -> Token {
@@ -726,7 +727,7 @@ r#"textblock
 hoge
 endtextblock"#,
                 vec![
-                    Token::TextBlock(None, "hoge".into())
+                    Token::TextBlock(None, "hoge".into(), false)
                 ]
             ),
             (
@@ -735,19 +736,19 @@ hoge
 fuga
 endtextblock"#,
                 vec![
-                    Token::TextBlock(Some("hoge".into()), "hoge\nfuga".into())
+                    Token::TextBlock(Some("hoge".into()), "hoge\nfuga".into(), false)
                 ]
             ),
             (
 r#"
-        textblock hoge
+        textblockex hoge
         hoge
         fuga
         endtextblock
 "#,
                 vec![
                     Token::Eol,
-                    Token::TextBlock(Some("hoge".into()), "        hoge\n        fuga".into())
+                    Token::TextBlock(Some("hoge".into()), "        hoge\n        fuga".into(), true)
                 ]
             ),
         ];

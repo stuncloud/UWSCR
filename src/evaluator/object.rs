@@ -45,6 +45,7 @@ pub enum Object {
     UChild(Rc<RefCell<serde_json::Value>>, String),
     DynamicVar(fn()->Object), // 特殊変数とか
     Version(Version),
+    ExpandableTB(String),
 }
 
 impl fmt::Display for Object {
@@ -150,6 +151,7 @@ impl fmt::Display for Object {
             },
             Object::DynamicVar(func) => write!(f, "{}", func()),
             Object::Version(ref v) => write!(f, "{}", v),
+            Object::ExpandableTB(_) => write!(f, "expandable textblock"),
         }
     }
 }
