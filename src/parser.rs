@@ -354,7 +354,8 @@ impl Parser {
             Token::Dim => self.parse_dim_statement(),
             Token::Public => self.parse_public_statement(),
             Token::Const => self.parse_const_statement(),
-            Token::If => self.parse_if_statement(),
+            Token::If |
+            Token::IfB => self.parse_if_statement(),
             Token::Select => self.parse_select_statement(),
             Token::Print => self.parse_print_statement(),
             Token::For => self.parse_for_statement(),
