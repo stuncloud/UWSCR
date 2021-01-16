@@ -4,7 +4,7 @@ pub enum Token {
     Illegal(char),
     Blank, // 空行
     Eof,
-    Eol, // 行末、コメント開始も行末として扱う
+    Eol, // 行末, コメント開始も行末として扱う
 
     // Identifiers + literals
     Identifier(String),
@@ -28,7 +28,7 @@ pub enum Token {
     Thread,
     HashTable,
     Call(String),
-    DefDll(String),
+    DefDll,
 
     // 演算子
     Plus, // +
@@ -71,6 +71,7 @@ pub enum Token {
     Rbracket, // ]
     LineContinue, // _
     BackSlash, // \ ファイルパス用
+    ColonBackSlash, // :\ ファイルパス用
 
     // ブロック構文
     If,

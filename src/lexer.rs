@@ -208,7 +208,12 @@ impl Lexer {
             '[' => Token::Lbracket,
             ']' => Token::Rbracket,
             '?' => Token::Question,
-            ':' => Token::Colon,
+            ':' => if self.nextch_is('\\') {
+                self.read_char();
+                Token::ColonBackSlash
+            } else {
+                Token::Colon
+            },
             ';' => Token::Semicolon,
             ',' => Token::Comma,
             '.' => Token::Period,
@@ -261,7 +266,7 @@ impl Lexer {
         let start_pos = self.pos;
         loop {
             match self.ch {
-                '\n' => {
+                '\n' | '\r' | '\0' => {
                     break;
                 },
                 '/' => {
@@ -313,9 +318,7 @@ impl Lexer {
             "call" => {
                 Token::Call(self.consume_special_statement())
             },
-            "def_dll" => {
-                Token::DefDll(self.consume_special_statement())
-            },
+            "def_dll" => Token::DefDll,
             "while" => Token::While,
             "wend" => Token::Wend,
             "repeat" => Token::Repeat,
@@ -484,6 +487,16 @@ impl Lexer {
         }
         let json: String = self.input[start_uo..self.pos].into_iter().collect();
         Token::UObject(json)
+    }
+
+    fn _consume_path(&mut self) -> String {
+        self.skip_whitespace();
+        let start_pos = self.pos;
+        while self.ch != '\r' && self.ch != '\n' && self.ch != '/' && self.ch != '\0' {
+            self.read_char()
+        }
+        let path: String = self.input[start_pos..self.pos].into_iter().collect();
+        path.trim().to_string()
     }
 }
 
@@ -657,16 +670,71 @@ fend
 
     #[test]
     fn test_special_statement() {
-        let input = r#"
-call C:\hoge\fuga\test.uws
-def_dll hogefunc(int, int):int: hoge.dll
-"#;
+        let input = r#"call C:\hoge\fuga\test.uws"#;
         test_next_token(input, vec![
-            Token::Eol,
             Token::Call(String::from(r"C:\hoge\fuga\test.uws")),
-            Token::Eol,
-            Token::DefDll(String::from(r"hogefunc(int, int):int: hoge.dll")),
         ]);
+    }
+
+    #[test]
+    fn test_def_dll() {
+        let testcases = vec![
+            (
+                "def_dll hogefunc(int, var long):bool: hoge.dll",
+                vec![
+                    Token::DefDll,
+                    Token::Identifier("hogefunc".into()),
+                    Token::Lparen,
+                    Token::Identifier("int".into()),
+                    Token::Comma,
+                    Token::Ref,
+                    Token::Identifier("long".into()),
+                    Token::Rparen,
+                    Token::Colon,
+                    Token::Identifier("bool".into()),
+                    Token::Colon,
+                    Token::Identifier("hoge".into()),
+                    Token::Period,
+                    Token::Identifier("dll".into()),
+                ]
+            ),
+            (
+                r#"def_dll hogefunc():C:\hoge.dll"#,
+                vec![
+                    Token::DefDll,
+                    Token::Identifier("hogefunc".into()),
+                    Token::Lparen,
+                    Token::Rparen,
+                    Token::Colon,
+                    Token::Identifier("C".into()),
+                    Token::ColonBackSlash,
+                    Token::Identifier("hoge".into()),
+                    Token::Period,
+                    Token::Identifier("dll".into()),
+                ]
+            ),
+            (
+                r#"def_dll hogefunc()::C:\hoge\hoge.dll"#,
+                vec![
+                    Token::DefDll,
+                    Token::Identifier("hogefunc".into()),
+                    Token::Lparen,
+                    Token::Rparen,
+                    Token::Colon,
+                    Token::Colon,
+                    Token::Identifier("C".into()),
+                    Token::ColonBackSlash,
+                    Token::Identifier("hoge".into()),
+                    Token::BackSlash,
+                    Token::Identifier("hoge".into()),
+                    Token::Period,
+                    Token::Identifier("dll".into()),
+                ]
+            ),
+        ];
+        for (input, expected) in testcases {
+            test_next_token(input, expected);
+        }
     }
 
     #[test]

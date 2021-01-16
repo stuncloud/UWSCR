@@ -1,4 +1,6 @@
 use std::fmt;
+use std::str::FromStr;
+
 use serde_json;
 
 #[derive(PartialEq, Clone, Debug)]
@@ -121,7 +123,12 @@ pub enum Statement {
     HashTbl(Identifier, Option<Expression>, bool),
     Print(Expression),
     Call(String),
-    DefDll(String),
+    DefDll {
+        name: String,
+        params: Vec<DefDllParam>,
+        ret_type: DllType,
+        path: String,
+    },
     Expression(Expression),
     For {
         loopvar: Identifier,
@@ -216,4 +223,69 @@ impl fmt::Display for Params {
             _ => write!(f, "")
         }
     }
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub enum DefDllParam {
+    Param(DllType),
+    Var(DllType),
+    Array(DllType, Option<usize>),
+    VarArray(DllType, Option<usize>),
+    Struct(Vec<DefDllParam>),
+}
+
+
+impl FromStr for DllType {
+    type Err = std::string::ParseError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let t = match s.to_ascii_lowercase().as_str() {
+            "int" => DllType::Int,
+            "long" => DllType::Long,
+            "bool" => DllType::Bool,
+            "uint" => DllType::Uint,
+            "hwnd" => DllType::Hwnd,
+            "string" => DllType::String,
+            "wstring" => DllType::Wstring,
+            "float" => DllType::Float,
+            "double" => DllType::Double,
+            "word" => DllType::Word,
+            "dword" => DllType::Dword,
+            "byte" => DllType::Byte,
+            "char" => DllType::Char,
+            "pchar" => DllType::Pchar,
+            "wchar" => DllType::Wchar,
+            "pwchar" => DllType::PWchar,
+            "boolean" => DllType::Boolean,
+            "longlong" => DllType::Longlong,
+            "safearray" => DllType::SafeArray,
+            "void" => DllType::Void,
+            unknown => DllType::Unknown(unknown.to_string()),
+        };
+        Ok(t)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum DllType {
+    Int,
+    Long,
+    Bool,
+    Uint,
+    Hwnd,
+    String,
+    Wstring,
+    Float,
+    Double,
+    Word,
+    Dword,
+    Byte,
+    Char,
+    Pchar,
+    Wchar,
+    PWchar,
+    Boolean,
+    Longlong,
+    SafeArray,
+    Void,
+    Unknown(String),
 }

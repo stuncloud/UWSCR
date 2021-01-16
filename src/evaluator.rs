@@ -192,8 +192,7 @@ impl Evaluator {
                 println!("{}", s);
                 Ok(None)
             },
-            Statement::DefDll(s) => {
-                println!("{}", s);
+            Statement::DefDll{name: _, params:_, ret_type: _, path: _} => {
                 Ok(None)
             },
             Statement::Expression(e) => Ok(Some(self.eval_expression(e)?)),
