@@ -8,7 +8,7 @@ use regex::Regex;
 use uwscr::script;
 use uwscr::repl;
 use uwscr::evaluator::builtins::system_controls::shell_execute;
-use uwscr::logging::out_log;
+use uwscr::logging::{out_log, LogType};
 
 
 fn main() {
@@ -27,7 +27,7 @@ fn main() {
                         Err(errors) => {
                             eprintln!("parser had {} error{}", errors.len(), if errors.len()>1 {"s"} else {""});
                             for err in errors {
-                                out_log(&err);
+                                out_log(&err, LogType::Error);
                                 eprintln!("{}", err);
                             }
                         }
