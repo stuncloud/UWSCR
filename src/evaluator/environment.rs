@@ -76,13 +76,16 @@ pub struct Environment {
 
 impl Environment {
     pub fn new(params: Vec<String>) -> Self {
-        Environment {
+        let mut env = Environment {
             current: Layer {
                 local: Vec::new(),
                 outer: None,
             },
-            global: init_builtins(params)
-        }
+            global: init_builtins()
+        };
+        let param_str = params.iter().map(|s| Object::String(s.into())).collect::<Vec<Object>>();
+        env.define("PARAM_STR".into(), Object::Array(param_str), Scope::Local, false).unwrap();
+        env
     }
 
     pub fn new_scope(&mut self) {

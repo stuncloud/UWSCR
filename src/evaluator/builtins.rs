@@ -107,7 +107,7 @@ impl BuiltinFunctionSets {
     }
 }
 
-pub fn init_builtins(params: Vec<String>) -> Vec<NamedObject> {
+pub fn init_builtins() -> Vec<NamedObject> {
     let mut vec = Vec::new();
     // builtin debug functions
     builtin_func_sets().set(&mut vec);
@@ -135,9 +135,7 @@ pub fn init_builtins(params: Vec<String>) -> Vec<NamedObject> {
     set_builtin_consts::<key_codes::VirtualKeyCodeDups>(&mut vec);
     set_builtin_consts::<key_codes::VirtualMouseButton>(&mut vec);
 
-    // param_str
-    let param_str = params.iter().map(|s| Object::String(s.into())).collect::<Vec<Object>>();
-    vec.push(NamedObject::new_builtin_const("PARAM_STR".into(), Object::Array(param_str)));
+    // 特殊変数
     set_special_variables(&mut vec);
 
     vec
