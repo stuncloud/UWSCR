@@ -28,6 +28,20 @@ uwscr --repl path\to\script.uws # スクリプトの事前読み込み
 uwscr --version
 ```
 
+### ヘルプ表示
+
+```powershell
+uwscr -h
+uwscr --help
+```
+
+### オンラインヘルプ (wiki)
+
+```powershell
+uwscr -o
+uwscr --online-help
+```
+
 詳細な使い方
 ----
 
