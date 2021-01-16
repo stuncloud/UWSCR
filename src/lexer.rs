@@ -218,10 +218,17 @@ impl Lexer {
             ',' => Token::Comma,
             '.' => Token::Period,
             '_' => {
-                if self.nextch_is('\n') {
-                    Token::LineContinue
-                } else {
-                    return TokenWithPos::new_with_pos(self.consume_identifier(), p);
+                self.read_char();
+                let mut tp;
+                loop {
+                    tp = self.next_token();
+                    if tp.token != Token::Eol {
+                        break;
+                    }
+                }
+                match tp.token {
+                    Token::Identifier(i) => return TokenWithPos::new_with_pos(Token::Identifier(format!("_{}", i)), p),
+                    _ => return tp
                 }
             },
             '\\' => Token::BackSlash,
