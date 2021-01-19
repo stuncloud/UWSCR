@@ -1668,6 +1668,12 @@ impl Parser {
                 if self.is_next_token(&Token::Lbracket) {
                     self.bump();
                     if self.is_next_token_expected(Token::Rbracket) {
+                        while self.is_next_token(&Token::Lbracket) {
+                            self.bump();
+                            if !self.is_next_token_expected(Token::Rbracket) {
+                                return None;
+                            }
+                        }
                         return Some(Params::Array(i, false));
                     } else {
                         return None;
@@ -1695,6 +1701,12 @@ impl Parser {
                         if self.is_next_token(&Token::Lbracket) {
                             self.bump();
                             if self.is_next_token_expected(Token::Rbracket) {
+                                while self.is_next_token(&Token::Lbracket) {
+                                    self.bump();
+                                    if ! self.is_next_token_expected(Token::Rbracket) {
+                                        return None;
+                                    }
+                                }
                                 return Some(Params::Array(i, true));
                             } else {
                                 return None;
