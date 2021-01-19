@@ -193,6 +193,11 @@ impl Environment {
         match obj {
             Some(Object::DynamicVar(f)) => Some(f()),
             Some(Object::ExpandableTB(text)) => Some(self.expand_string(text)),
+            Some(Object::Instance(ref rc,_)) => if rc.borrow().is_disposed() {
+                Some(Object::Nothing)
+            } else {
+                obj
+            },
             o => o
         }
     }
@@ -361,8 +366,9 @@ impl Environment {
         self.define(key, object, Scope::Class, true)
     }
 
-    fn assignment(&mut self, name: String, value: Object, include_local: bool) -> EvalResult<()> {
+    fn assignment(&mut self, name: String, value: Object, include_local: bool) -> EvalResult<bool> {
         let key = name.to_ascii_uppercase();
+        let mut is_public = false;
         if self.is_reserved(&key) {
             // ビルトイン定数には代入できない
             return Err(UError::new(
@@ -385,6 +391,7 @@ impl Environment {
         } else if self.contains(&key, Scope::Public) {
             // 同名のグローバル変数が存在する場合は値を上書き
             self.set(&key, Scope::Public, value, true);
+            is_public = true;
         } else if include_local {
             // ローカル代入許可の場合のみ
             // 同名の変数が存在しない場合は新たなローカル変数を定義
@@ -399,14 +406,14 @@ impl Environment {
                 None
             ))
         };
-        Ok(())
+        Ok(is_public)
     }
 
-    pub fn assign(&mut self, name: String, value: Object) -> EvalResult<()> {
+    pub fn assign(&mut self, name: String, value: Object) -> EvalResult<bool> {
         self.assignment(name, value, true)
     }
 
-    pub fn assign_public(&mut self, name: String, value: Object) -> EvalResult<()> {
+    pub fn assign_public(&mut self, name: String, value: Object) -> EvalResult<bool> {
         self.assignment(name, value, false)
     }
 
@@ -489,6 +496,28 @@ impl Environment {
             new_string = rep_to.map_or(new_string.clone(), |to| new_string.replace(format!("<#{}>", expandable).as_str(), to.as_ref()));
         }
         Object::String(new_string)
+    }
+
+    pub fn set_instances(&mut self, instance: Rc<RefCell<Module>>, id: u32) {
+        let var_name = "@INSTANCES".to_string();
+        let ins_name = format!("@INSTANCE{}", id);
+        if let Object::Instances(mut v) = self.get(&var_name, Scope::Local).unwrap_or(Object::Empty) {
+            v.push((ins_name, Rc::clone(&instance)));
+            self.set(&var_name, Scope::Local, Object::Instances(v), false);
+        } else {
+            let v = vec![(ins_name, Rc::clone(&instance))];
+            self.add(NamedObject::new(var_name, Object::Instances(v), Scope::Local), false);
+        };
+        self.add(NamedObject::new(format!("@INSTANCE{}", id), Object::Instance(Rc::clone(&instance), id), Scope::Local), false);
+    }
+
+    pub fn get_instances(&mut self) -> Vec<(String, Rc<RefCell<Module>>)> {
+        let name = "@INSTANCES".to_string();
+        if let Object::Instances(v) = self.get(&name, Scope::Local).unwrap_or(Object::Empty) {
+            v
+        } else {
+            vec![]
+        }
     }
 }
 
