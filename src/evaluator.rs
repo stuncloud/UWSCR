@@ -1498,6 +1498,13 @@ impl Evaluator {
             let (name, value) = match param {
                 Params::Identifier(i) => {
                     let Identifier(name) = i;
+                    if arg_e.is_none() {
+                        return Err(UError::new(
+                            "argument required".into(),
+                            format!("{}", name),
+                            None
+                        ));
+                    }
                     (name, o.clone())
                 },
                 Params::Reference(i) => {
