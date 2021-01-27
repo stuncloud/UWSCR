@@ -102,7 +102,7 @@ impl Evaluator {
                 None => ()
             }
         }
-        self.dispose_local_instances(vec![]);
+        self.auto_dispose_instances(vec![], true);
         Ok(result)
     }
 
@@ -887,7 +887,7 @@ impl Evaluator {
 
     fn eval_assign_expression(&mut self, left: Expression, value: Object) -> EvalResult<Object> {
         self.eval_instance_assignment(&left, &value)?;
-        let mut is_in_local_scope = true;
+        let mut is_in_scope_auto_disposable = true;
         let instance = match value {
             Object::Instance(_, _) => Some(value.clone()),
             _ => None,
@@ -895,14 +895,13 @@ impl Evaluator {
         match left {
             Expression::Identifier(ident) => {
                 let Identifier(name) = ident;
-                is_in_local_scope = name.to_ascii_lowercase().as_str() != "result";
                 let mut env = self.env.borrow_mut();
                 if let Some(Object::This(m)) = env.get_variable(&"this".into()) {
                     // moudele/classメンバであればその値を更新する
                     m.borrow_mut().assign(&name, value.clone(), None)?;
-                    is_in_local_scope = false;
+                    is_in_scope_auto_disposable = false;
                 }
-                is_in_local_scope = ! env.assign(name, value)? && is_in_local_scope;
+                is_in_scope_auto_disposable = ! env.assign(name, value)? && is_in_scope_auto_disposable;
             },
             Expression::Index(arr, i, h) => {
                 if h.is_some() {
@@ -928,11 +927,11 @@ impl Evaluator {
                                                 if let Some(Object::This(m)) = self.env.borrow().get_variable(&"this".into()) {
                                                     // moudele/classメンバであればその値を更新する
                                                     m.borrow_mut().assign(&name, value.clone(), Some(index))?;
-                                                    is_in_local_scope = false;
+                                                    is_in_scope_auto_disposable = false;
                                                 }
                                                 if i < arr.len() {
                                                     arr[i] = value;
-                                                    is_in_local_scope =  ! self.env.borrow_mut().assign(name, Object::Array(arr))?;
+                                                    is_in_scope_auto_disposable = ! self.env.borrow_mut().assign(name, Object::Array(arr))?;
                                                 }
                                             },
                                             _ => return Err(UError::new(
@@ -974,7 +973,7 @@ impl Evaluator {
                                 match *right {
                                     Expression::Identifier(Identifier(name)) => {
                                         m.borrow_mut().assign(&name, value, Some(index))?;
-                                        is_in_local_scope = false;
+                                        is_in_scope_auto_disposable = false;
                                     },
                                     _ => return Err(UError::new(
                                         "Error on assignment".into(),
@@ -1053,7 +1052,7 @@ impl Evaluator {
                         Expression::Identifier(i) => {
                             let Identifier(member_name) = i;
                             m.borrow_mut().assign_public(&member_name, value, None)?;
-                            is_in_local_scope = false;
+                            is_in_scope_auto_disposable = false;
                         },
                         _ => return Err(UError::new(
                             "Assignment error".into(),
@@ -1075,7 +1074,7 @@ impl Evaluator {
                     }
                 },
                 Object::Global => if let Expression::Identifier(Identifier(name)) = *right {
-                    is_in_local_scope =  ! self.env.borrow_mut().assign_public(name, value)?;
+                    is_in_scope_auto_disposable = ! self.env.borrow_mut().assign_public(name, value)?;
                 } else {
                     return Err(UError::new(
                         "Error on assignment".into(),
@@ -1127,9 +1126,12 @@ impl Evaluator {
                 None
             ))
         }
-        if is_in_local_scope {
+        if ! is_in_scope_auto_disposable {
+            // スコープ内自動破棄対象じゃないインスタンスはグローバルに移す
             if let Some(Object::Instance(ref rc, id)) = instance {
-                self.env.borrow_mut().set_instances(Rc::clone(rc), id);
+                self.env.borrow_mut().set_instances(Rc::clone(rc), id, true);
+                self.env.borrow_mut().remove_variable(format!("@INSTANCE{}", id));
+                self.env.borrow_mut().remove_from_instances(id);
             }
         }
         Ok(Object::Empty)
@@ -1614,19 +1616,24 @@ impl Evaluator {
         };
         // 参照渡し
         let mut ref_values = vec![];
-        let mut ref_instances = vec![];
+        let mut do_not_dispose = vec![];
         for (p_name, _) in reference.clone() {
             let obj = self.env.borrow_mut().get_variable(&p_name).unwrap();
             match obj {
-                Object::Instance(_, id) => ref_instances.push(format!("@INSTANCE{}", id)),
+                Object::Instance(_, id) => do_not_dispose.push(format!("@INSTANCE{}", id)),
                 _ => {},
             }
             ref_values.push(obj);
         }
+        match result {
+            Object::Instance(_, id) => do_not_dispose.push(format!("@INSTANCE{}", id)),
+            _ => {},
+        }
 
         // このスコープのインスタンスを破棄
-        self.dispose_local_instances(ref_instances);
+        self.auto_dispose_instances(do_not_dispose, false);
 
+        // 関数スコープを抜ける
         self.env.borrow_mut().restore_scope();
 
         for ((_, e), o) in reference.iter().zip(ref_values.iter()) {
@@ -1636,24 +1643,56 @@ impl Evaluator {
                 Expression::Index(_, _, _) |
                 Expression::DotCall(_, _) => {
                     self.eval_assign_expression(e.clone(), o.clone())?;
+                    // 参照渡しでインスタンスを帰す場合は自動破棄対象とする
+                    match o {
+                        Object::Instance(ref rc, id) => {
+                            self.env.borrow_mut().set_instances(Rc::clone(rc), *id, false);
+                        },
+                        _ => {},
+                    }
                 },
                 _ => {},
             };
         };
 
+        // 戻り値がインスタンスなら自動破棄されるようにしておく
+        match result {
+            Object::Instance(ref rc, id) => {
+                self.env.borrow_mut().set_instances(Rc::clone(rc), id, false);
+            },
+            _ => {},
+        }
+
         Ok(result)
     }
 
-    fn dispose_local_instances(&mut self, refs: Vec<String>) {
+    fn auto_dispose_instances(&mut self, refs: Vec<String>, include_global: bool) {
         let ins_list = self.env.borrow_mut().get_instances();
-        for (ins_name, ins) in ins_list {
+        for ins_name in ins_list {
             if ! refs.contains(&ins_name) {
-                let destructor = Expression::DotCall(
-                    Box::new(Expression::Identifier(Identifier(ins_name))),
-                    Box::new(Expression::Identifier(Identifier(format!("_{}_", ins.borrow().name())))),
-                );
-                self.eval_function_call_expression(Box::new(destructor), vec![]).ok();
-                ins.borrow_mut().dispose();
+                let obj = self.env.borrow_mut().get_tmp_instance(&ins_name, false).unwrap_or(Object::Empty);
+                if let Object::Instance(ins, _) = obj {
+                    let destructor = Expression::DotCall(
+                        Box::new(Expression::Identifier(Identifier(ins_name))),
+                        Box::new(Expression::Identifier(Identifier(format!("_{}_", ins.borrow().name())))),
+                    );
+                    self.eval_function_call_expression(Box::new(destructor), vec![]).ok();
+                    ins.borrow_mut().dispose();
+                }
+            }
+        }
+        if include_global {
+            let ins_list = self.env.borrow_mut().get_global_instances();
+            for ins_name in ins_list {
+                let obj = self.env.borrow_mut().get_tmp_instance(&ins_name, false).unwrap_or(Object::Empty);
+                if let Object::Instance(ins, _) = obj {
+                    let destructor = Expression::DotCall(
+                        Box::new(Expression::Identifier(Identifier(ins_name))),
+                        Box::new(Expression::Identifier(Identifier(format!("_{}_", ins.borrow().name())))),
+                    );
+                    self.eval_function_call_expression(Box::new(destructor), vec![]).ok();
+                    ins.borrow_mut().dispose();
+                }
             }
         }
     }

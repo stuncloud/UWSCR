@@ -28,7 +28,7 @@ pub enum Object {
     Module(Rc<RefCell<Module>>),
     Class(String, BlockStatement), // class定義
     Instance(Rc<RefCell<Module>>, u32), // classインスタンス, デストラクタが呼ばれたらNoneになる
-    Instances(Vec<(String, Rc<RefCell<Module>>)>), // ローカルのインスタンス参照リスト
+    Instances(Vec<String>), // ローカルのインスタンス参照リスト
     DestructorNotFound, // デストラクタがなかった場合に返る、これが来たらエラーにせず終了する
     Null,
     Empty,
@@ -129,15 +129,15 @@ impl fmt::Display for Object {
             Object::Debug(_) => write!(f, "debug"),
             Object::Module(ref m) => write!(f, "module: {}", m.borrow().name()),
             Object::Class(ref name, _) => write!(f, "class: {}", name),
-            Object::Instance(ref m, _) => {
+            Object::Instance(ref m, id) => {
                 let ins = m.borrow();
                 if ins.is_disposed() {
                     write!(f, "NOTHING")
                 } else {
-                    write!(f, "instance of {}", ins.name())
+                    write!(f, "instance of {} [{}]", ins.name(), id)
                 }
             },
-            Object::Instances(ref v) => write!(f, "local instances: {}", v.len()),
+            Object::Instances(ref v) => write!(f, "auto disposable instances: {}", v.len()),
             Object::DestructorNotFound => write!(f, "no destructor"),
             Object::Handle(h) => write!(f, "{:?}", h),
             Object::RegEx(ref re) => write!(f, "regex: {}", re),

@@ -183,7 +183,10 @@ impl Environment {
                             Some(value) => Some(value),
                             None => match self.get_from_global(&name, Scope::BuiltinConst) {
                                 Some(value) => Some(value),
-                                None => None
+                                None => match self.get_from_global(&name, Scope::Local) { // インスタンス自動破棄
+                                    Some(value) => Some(value),
+                                    None => None
+                                }
                             }
                         }
                     }
@@ -199,6 +202,14 @@ impl Environment {
                 obj
             },
             o => o
+        }
+    }
+
+    pub fn get_tmp_instance(&self, name: &String, from_global: bool) -> Option<Object> {
+        if from_global {
+            self.get_from_global(&name, Scope::Local)
+        } else {
+            self.get(name, Scope::Local)
         }
     }
 
@@ -498,22 +509,46 @@ impl Environment {
         Object::String(new_string)
     }
 
-    pub fn set_instances(&mut self, instance: Rc<RefCell<Module>>, id: u32) {
+    pub fn set_instances(&mut self, instance: Rc<RefCell<Module>>, id: u32, to_global: bool) {
         let var_name = "@INSTANCES".to_string();
         let ins_name = format!("@INSTANCE{}", id);
-        if let Object::Instances(mut v) = self.get(&var_name, Scope::Local).unwrap_or(Object::Empty) {
-            v.push((ins_name, Rc::clone(&instance)));
-            self.set(&var_name, Scope::Local, Object::Instances(v), false);
+        let obj = if to_global {
+            self.get_from_global(&var_name, Scope::Local).unwrap_or(Object::Empty)
         } else {
-            let v = vec![(ins_name, Rc::clone(&instance))];
-            self.add(NamedObject::new(var_name, Object::Instances(v), Scope::Local), false);
+            self.get(&var_name, Scope::Local).unwrap_or(Object::Empty)
         };
-        self.add(NamedObject::new(format!("@INSTANCE{}", id), Object::Instance(Rc::clone(&instance), id), Scope::Local), false);
+        if let Object::Instances(mut v) = obj {
+            v.push(ins_name);
+            self.set(&var_name, Scope::Local, Object::Instances(v), to_global);
+        } else {
+            let v = vec![ins_name];
+            self.add(NamedObject::new(var_name, Object::Instances(v), Scope::Local), to_global);
+        };
+        self.add(NamedObject::new(format!("@INSTANCE{}", id), Object::Instance(Rc::clone(&instance), id), Scope::Local), to_global);
     }
 
-    pub fn get_instances(&mut self) -> Vec<(String, Rc<RefCell<Module>>)> {
+    pub fn remove_from_instances(&mut self, id: u32) {
+        let name = "@INSTANCES".to_string();
+        let ins_name = format!("@INSTANCE{}", id);
+        let obj = self.get(&name, Scope::Local).unwrap_or(Object::Empty);
+        if let Object::Instances(mut v) = obj {
+            v.retain(|n| n != &ins_name);
+            self.set(&name, Scope::Local, Object::Instances(v), false);
+        }
+    }
+
+    pub fn get_instances(&mut self) -> Vec<String> {
         let name = "@INSTANCES".to_string();
         if let Object::Instances(v) = self.get(&name, Scope::Local).unwrap_or(Object::Empty) {
+            v
+        } else {
+            vec![]
+        }
+    }
+
+    pub fn get_global_instances(&mut self) -> Vec<String> {
+        let name = "@INSTANCES".to_string();
+        if let Object::Instances(v) = self.get_from_global(&name, Scope::Local).unwrap_or(Object::Empty) {
             v
         } else {
             vec![]
@@ -760,6 +795,7 @@ impl Module {
     }
 
     pub fn dispose(&mut self) {
+        println!("debugg: {}.dispose()", self.name());
         self.members = vec![];
     }
 }
