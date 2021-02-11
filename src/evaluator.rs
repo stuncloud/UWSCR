@@ -235,14 +235,11 @@ impl Evaluator {
                 // コンストラクタがあれば実行する
                 let module = self.env.borrow().get_module(&name);
                 if let Some(Object::Module(m)) = module {
-                    if m.borrow().has_constructor() {
-                        self.eval_function_call_expression(
-                            Box::new(Expression::DotCall(
-                                Box::new(Expression::Identifier(Identifier(name.clone()))),
-                                Box::new(Expression::Identifier(Identifier(name))),
-                            )),
-                            vec![]
-                        )?;
+                    match m.borrow().get_constructor() {
+                        Some(o) => {
+                            self.invoke_functionn_object(o, vec![])?;
+                        },
+                        None => {}
                     }
                 };
                 Ok(None)
@@ -1410,14 +1407,6 @@ impl Evaluator {
             arguments.push((Some(arg.clone()), self.eval_expression(arg)?));
         }
 
-        // let (
-        //     mut params,
-        //     body,
-        //     is_proc,
-        //     anon_outer,
-        //     rc_module,
-        //     is_class_instance,
-        // ) =
         match self.eval_expression_for_func_call(*func)? {
             Object::DestructorNotFound => return Ok(Object::Empty),
             Object::Function(_, params, body, is_proc, obj) => return self.invoke_user_function(params, arguments, body, is_proc, None, obj, false),
@@ -1698,11 +1687,10 @@ impl Evaluator {
             if ! refs.contains(&ins_name) {
                 let obj = self.env.borrow_mut().get_tmp_instance(&ins_name, false).unwrap_or(Object::Empty);
                 if let Object::Instance(ins, _) = obj {
-                    let destructor = Expression::DotCall(
-                        Box::new(Expression::Identifier(Identifier(ins_name))),
-                        Box::new(Expression::Identifier(Identifier(format!("_{}_", ins.borrow().name())))),
-                    );
-                    self.eval_function_call_expression(Box::new(destructor), vec![]).ok();
+                    let destructor = ins.borrow_mut().get_destructor();
+                    if destructor.is_some() {
+                        self.invoke_functionn_object(destructor.unwrap(), vec![]).ok();
+                    }
                     ins.borrow_mut().dispose();
                 }
             }
@@ -1710,13 +1698,12 @@ impl Evaluator {
         if include_global {
             let ins_list = self.env.borrow_mut().get_global_instances();
             for ins_name in ins_list {
-                let obj = self.env.borrow_mut().get_tmp_instance(&ins_name, false).unwrap_or(Object::Empty);
+                let obj = self.env.borrow_mut().get_tmp_instance(&ins_name, true).unwrap_or(Object::Empty);
                 if let Object::Instance(ins, _) = obj {
-                    let destructor = Expression::DotCall(
-                        Box::new(Expression::Identifier(Identifier(ins_name))),
-                        Box::new(Expression::Identifier(Identifier(format!("_{}_", ins.borrow().name())))),
-                    );
-                    self.eval_function_call_expression(Box::new(destructor), vec![]).ok();
+                    let destructor = ins.borrow_mut().get_destructor();
+                    if destructor.is_some() {
+                        self.invoke_functionn_object(destructor.unwrap(), vec![]).ok();
+                    }
                     ins.borrow_mut().dispose();
                 }
             }
@@ -1906,11 +1893,10 @@ impl Evaluator {
             }
             // Nothingが代入される場合は明示的にデストラクタを実行及びdispose()
             if new_value == &Object::Nothing {
-                let destructor = Expression::DotCall(
-                    Box::new(left.clone()),
-                    Box::new(Expression::Identifier(Identifier(format!("_{}_", m.borrow().name())))),
-                );
-                self.eval_function_call_expression(Box::new(destructor), vec![])?;
+                let destructor = m.borrow_mut().get_destructor();
+                if destructor.is_some() {
+                    self.invoke_functionn_object(destructor.unwrap(), vec![])?;
+                }
                 m.borrow_mut().dispose();
             }
         }

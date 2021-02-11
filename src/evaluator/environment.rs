@@ -602,14 +602,18 @@ impl Module {
         self.members.clone()
     }
 
-    pub fn has_constructor(&self) -> bool {
-        let name = self.name();
-        self.contains(&name, Scope::Function)
+    pub fn get_constructor(&self) -> Option<Object> {
+        self.get(&self.name, Scope::Function)
     }
 
     pub fn has_destructor(&self) -> bool {
         let name = format!("_{}_", self.name());
         self.contains(&name, Scope::Function)
+    }
+
+    pub fn get_destructor(&self) -> Option<Object> {
+        let name = format!("_{}_", self.name());
+        self.get(&name, Scope::Function)
     }
 
     pub fn add(&mut self, name: String, object: Object, scope: Scope) {
@@ -795,7 +799,6 @@ impl Module {
     }
 
     pub fn dispose(&mut self) {
-        println!("debugg: {}.dispose()", self.name());
         self.members = vec![];
     }
 }
