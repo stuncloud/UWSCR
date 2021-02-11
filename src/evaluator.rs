@@ -1410,17 +1410,18 @@ impl Evaluator {
             arguments.push((Some(arg.clone()), self.eval_expression(arg)?));
         }
 
-        let (
-            mut params,
-            body,
-            is_proc,
-            anon_outer,
-            rc_module,
-            is_class_instance,
-        ) = match self.eval_expression_for_func_call(*func)? {
+        // let (
+        //     mut params,
+        //     body,
+        //     is_proc,
+        //     anon_outer,
+        //     rc_module,
+        //     is_class_instance,
+        // ) =
+        match self.eval_expression_for_func_call(*func)? {
             Object::DestructorNotFound => return Ok(Object::Empty),
-            Object::Function(_, p, b, is_proc, obj) => (p, b, is_proc, None, obj, false),
-            Object::AnonFunc(p, b, o, is_proc) =>  (p, b, is_proc, Some(o), None, false),
+            Object::Function(_, params, body, is_proc, obj) => return self.invoke_user_function(params, arguments, body, is_proc, None, obj, false),
+            Object::AnonFunc(params, body, o, is_proc) => return self.invoke_user_function(params, arguments, body, is_proc, Some(o), None, false),
             Object::BuiltinFunction(name, expected_param_len, f) => {
                 if expected_param_len >= arguments.len() as i32 {
                     let res = f(BuiltinFuncArgs::new(name, arguments))?;
@@ -1449,8 +1450,8 @@ impl Evaluator {
                             None
                         ))
                     };
-                    if let Object::Function(_, p, b, _, _) = constructor {
-                        (p, b, false, None, Some(Rc::clone(&rc)), true)
+                    if let Object::Function(_, params, body, _, _) = constructor {
+                        return self.invoke_user_function(params, arguments, body, true, None, Some(Rc::clone(&rc)), true);
                     } else {
                         return Err(UError::new(
                             "Syntax Error".into(),
@@ -1472,6 +1473,31 @@ impl Evaluator {
                 None
             )),
         };
+    }
+
+    fn invoke_functionn_object(&mut self, object: Object, arguments: Vec<(Option<Expression>, Object)>) -> EvalResult<Object> {
+        match object {
+            Object::Function(_, params, body, is_proc, rc_module) => {
+                return self.invoke_user_function(params, arguments, body, is_proc, None, rc_module, false);
+            },
+            o => Err(UError::new(
+                "Syntax Error".into(),
+                format!("not a function: {}", o),
+                None
+            ))
+        }
+    }
+
+    fn invoke_user_function(
+        &mut self,
+        mut params: Vec<Expression>,
+        mut arguments: Vec<(Option<Expression>, Object)>,
+        body: Vec<Statement>,
+        is_proc: bool,
+        anon_outer: Option<Vec<NamedObject>>,
+        rc_module: Option<Rc<RefCell<Module>>>,
+        is_class_instance: bool
+    ) -> EvalResult<Object> {
         let org_param_len = params.len();
         if params.len() > arguments.len() {
             arguments.resize(params.len(), (None, Object::Empty));
