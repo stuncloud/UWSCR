@@ -22,12 +22,12 @@ pub fn out_log(log: &String, log_type: LogType) {
     let mut file = OpenOptions::new().create(true).write(true).append(true).open(path).unwrap();
     if log_type == LogType::Print {
         let lines = log.lines().collect::<Vec<&str>>();
-        writeln!(file, "{} {}  {}", Local::now().format("%Y-%m-%d %H:%M:%S"), log_type, lines[0]).expect("Unable to write log file");
+        write!(file, "{} {}  {}\r\n", Local::now().format("%Y-%m-%d %H:%M:%S"), log_type, lines[0]).expect("Unable to write log file");
         for i in 1..(lines.len()) {
-            writeln!(file, "                    {}  {}", log_type, lines[i]).expect("Unable to write log file");
+            write!(file, "                    {}  {}\r\n", log_type, lines[i]).expect("Unable to write log file");
         }
     } else {
-        writeln!(file, "{} {}  {}", Local::now().format("%Y-%m-%d %H:%M:%S"), log_type, log).expect("Unable to write log file");
+        write!(file, "{} {}  {}\r\n", Local::now().format("%Y-%m-%d %H:%M:%S"), log_type, log).expect("Unable to write log file");
     }
 }
 
