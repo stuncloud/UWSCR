@@ -15,6 +15,9 @@ pub fn init(dir: &PathBuf) {
 }
 
 pub fn out_log(log: &String, log_type: LogType) {
+    if log.len() == 0 {
+        return;
+    }
     let path = match env::var("UWSCR_LOG_FILE") {
         Ok(s) => s,
         Err(_) => return
