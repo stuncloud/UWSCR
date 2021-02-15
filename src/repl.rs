@@ -63,7 +63,11 @@ pub fn run(script: Option<String>) {
                         require_newline = true;
                         continue;
                     },
-                    _ => eprintln!("{}", error)
+                    _ => {
+                        eprintln!("{}", error);
+                        require_newline = false;
+                        break;
+                    }
                 }
             }
         } else {
