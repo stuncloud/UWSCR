@@ -13,7 +13,7 @@ use crate::winapi_util::{
     get_screen_height,
     get_color_depth,
 };
-use crate::evaluator::object::{Object, Version, HashTblEnum, DebugType};
+use crate::evaluator::object::{Object, Version, HashTblEnum, SpecialFuncResultType};
 use crate::evaluator::environment::NamedObject;
 use crate::ast::Expression;
 
@@ -165,6 +165,7 @@ fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("list_module_member", 1, list_module_member);
     sets.add("name_of", 1, name_of);
     sets.add("assert_equal", 2, assert_equal);
+    sets.add("raise", 2, raise);
     sets
 }
 
@@ -237,7 +238,7 @@ fn set_special_variables(vec: &mut Vec<NamedObject>) {
     )));
 }
 
-// デバッグ用ビルトイン関数の実体
+// 特殊ビルトイン関数の実体
 
 pub fn builtin_eval(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let s = get_string_argument_value(&args, 0, None)?;
@@ -245,16 +246,22 @@ pub fn builtin_eval(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 }
 
 pub fn list_env(_args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    Ok(Object::Debug(DebugType::GetEnv))
+    Ok(Object::SpecialFuncResult(SpecialFuncResultType::GetEnv))
 }
 
 pub fn list_module_member(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let s = get_string_argument_value(&args, 0, None)?;
-    Ok(Object::Debug(DebugType::ListModuleMember(s)))
+    Ok(Object::SpecialFuncResult(SpecialFuncResultType::ListModuleMember(s)))
 }
 
 pub fn name_of(args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    Ok(Object::Debug(DebugType::BuiltinConstName(args.get_expr(0))))
+    Ok(Object::SpecialFuncResult(SpecialFuncResultType::BuiltinConstName(args.get_expr(0))))
+}
+
+pub fn raise(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let msg = get_string_argument_value(&args, 0, None)?;
+    let title = get_string_argument_value(&args, 1, Some("User defined error".into()))?;
+    Err(UError::new(title, msg, None))
 }
 
 pub fn assert_equal(args: BuiltinFuncArgs) -> BuiltinFuncResult {

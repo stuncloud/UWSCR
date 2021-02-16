@@ -39,7 +39,7 @@ pub enum Object {
     Handle(HWND),
     RegEx(String),
     Exit,
-    Debug(DebugType),
+    SpecialFuncResult(SpecialFuncResultType),
     Global, // globalを示す
     This(Rc<RefCell<Module>>),   // thisを示す
     UObject(Rc<RefCell<serde_json::Value>>),
@@ -126,7 +126,7 @@ impl fmt::Display for Object {
             Object::Break(ref n) => write!(f, "Break {}", n),
             Object::Exit => write!(f, "Exit"),
             Object::Eval(ref value) => write!(f, "{}", value),
-            Object::Debug(_) => write!(f, "debug"),
+            Object::SpecialFuncResult(_) => write!(f, "特殊関数の戻り値"),
             Object::Module(ref m) => write!(f, "module: {}", m.borrow().name()),
             Object::Class(ref name, _) => write!(f, "class: {}", name),
             Object::Instance(ref m, id) => {
@@ -174,7 +174,7 @@ impl Hash for Object {
 }
 
 #[derive(PartialEq, Clone, Debug)]
-pub enum DebugType {
+pub enum SpecialFuncResultType {
     GetEnv,
     ListModuleMember(String),
     BuiltinConstName(Option<Expression>),

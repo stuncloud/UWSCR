@@ -1380,14 +1380,14 @@ impl Evaluator {
                 }
                 self.eval(program)?.map_or(Object::Empty, |o| o)
             },
-            Object::Debug(t) => match t {
-                DebugType::GetEnv => {
+            Object::SpecialFuncResult(t) => match t {
+                SpecialFuncResultType::GetEnv => {
                     self.env.borrow().get_env()
                 },
-                DebugType::ListModuleMember(name) => {
+                SpecialFuncResultType::ListModuleMember(name) => {
                     self.env.borrow_mut().get_module_member(&name)
                 },
-                DebugType::BuiltinConstName(e) => {
+                SpecialFuncResultType::BuiltinConstName(e) => {
                     if let Some(Expression::Identifier(Identifier(name))) = e {
                         self.env.borrow().get_name_of_builtin_consts(&name)
                     } else {
