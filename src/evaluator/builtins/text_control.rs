@@ -73,7 +73,7 @@ pub enum RegexEnum {
 pub fn newre(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let mut pattern = get_string_argument_value(&args, 0, None)?;
     let mut opt = String::new();
-    if ! get_bool_argument_value(&args, 1, Some(true))? {
+    if ! get_bool_argument_value(&args, 1, Some(false))? {
         opt = format!("{}{}", opt, "i");
     };
 
@@ -175,9 +175,20 @@ pub fn replace(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     if is_regex {
         replace_regex(target, pattern, replace_to, args.name())
     } else {
-        Ok(Object::String(
-            target.replace(&pattern, replace_to.as_str())
-        ))
+        let mut out = target.clone();
+        let mut lower = target.to_ascii_lowercase();
+        let pat_lower = pattern.to_ascii_lowercase();
+        let len = pat_lower.len();
+        let r = replace_to.as_str();
+        loop {
+            let pos = match lower.find(pat_lower.as_str()) {
+                Some(n) => n,
+                None => break,
+            };
+            lower.replace_range(pos..(pos+len), r);
+            out.replace_range(pos..(pos+len), r);
+        }
+        Ok(Object::String(out))
     }
 }
 
