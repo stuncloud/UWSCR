@@ -235,7 +235,8 @@ impl Evaluator {
                 // コンストラクタがあれば実行する
                 let module = self.env.borrow().get_module(&name);
                 if let Some(Object::Module(m)) = module {
-                    match m.borrow().get_constructor() {
+                    let constructor = m.borrow().get_constructor();
+                    match constructor {
                         Some(o) => {
                             self.invoke_functionn_object(o, vec![])?;
                         },
