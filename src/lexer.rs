@@ -214,7 +214,7 @@ impl Lexer {
             } else {
                 Token::Colon
             },
-            ';' => Token::Semicolon,
+            ';' => Token::Eol,
             ',' => Token::Comma,
             '.' => Token::Period,
             '_' => {
