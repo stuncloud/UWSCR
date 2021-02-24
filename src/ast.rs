@@ -177,6 +177,11 @@ pub enum Statement {
     Class(Identifier, BlockStatement),
     TextBlock(Identifier, Literal),
     With(Option<Expression>, BlockStatement),
+    Try {
+        trys: BlockStatement,
+        except: Option<BlockStatement>,
+        finally: Option<BlockStatement>,
+    },
 }
 
 pub type BlockStatement = Vec<Statement>;

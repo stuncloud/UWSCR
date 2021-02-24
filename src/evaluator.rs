@@ -261,6 +261,7 @@ impl Evaluator {
             } else {
                 self.eval_block_statement(block)
             },
+            Statement::Try {trys, except, finally} => self.eval_try_statement(trys, except, finally),
             Statement::Exit => Ok(Some(Object::Exit)),
         }
     }
@@ -624,6 +625,27 @@ impl Evaluator {
         } else {
             Ok(Object::Module(Rc::clone(&rc)))
         }
+    }
+
+    fn eval_try_statement(&mut self, trys: BlockStatement, except: Option<BlockStatement>, finnaly: Option<BlockStatement>) -> EvalResult<Option<Object>> {
+        let mut obj = match self.eval_block_statement(trys) {
+            Ok(opt) => opt,
+            Err(e) => {
+                self.env.borrow_mut().set_try_error_messages(
+                    format!("{}", e),
+                    format!("")
+                );
+                if except.is_some() {
+                    self.eval_block_statement(except.unwrap())?
+                } else {
+                    None
+                }
+            },
+        };
+        if finnaly.is_some() {
+            obj = self.eval_block_statement(finnaly.unwrap())?;
+        }
+        Ok(obj)
     }
 
     fn eval_expression(&mut self, expression: Expression) -> EvalResult<Object> {

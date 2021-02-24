@@ -3,7 +3,7 @@ use std::i64;
 use std::f64;
 use std::fmt;
 
-#[derive(Debug,Clone)]
+#[derive(Debug,Clone,Copy)]
 pub struct Position {
     pub row: usize,
     pub column: usize,
@@ -339,6 +339,10 @@ impl Lexer {
             "break" => Token::Break,
             "with" => Token::With,
             "endwith" => Token::EndWith,
+            "try" => Token::Try,
+            "except" => Token::Except,
+            "finally" => Token::Finally,
+            "endtry" => Token::EndTry,
             "textblock" => self.consume_textblock(false),
             "textblockex" => self.consume_textblock(true),
             "endtextblock" => Token::EndTextBlock,

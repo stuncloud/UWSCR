@@ -151,6 +151,9 @@ impl Parser {
             Token::EndModule,
             Token::EndClass,
             Token::Rbrace,
+            Token::Except,
+            Token::Finally,
+            Token::EndTry,
         ];
         self.is_current_token_in(eobtokens)
     }
@@ -383,6 +386,7 @@ impl Parser {
                 None
             },
             Token::With => self.parse_with_statement(),
+            Token::Try => self.parse_try_statement(),
             _ => self.parse_expression_statement(),
         }
     }
@@ -928,6 +932,77 @@ impl Parser {
         }
         self.set_with(current_with);
         Some(Statement::With(Some(expression), block))
+    }
+
+    fn parse_try_statement(&mut self) -> Option<Statement> {
+        self.bump();
+        let trys = self.parse_block_statement();
+        let mut except = None;
+        let mut finally = None;
+        match self.current_token.token.clone() {
+            Token::Except => {
+                self.bump();
+                except = Some(self.parse_block_statement());
+            },
+            Token::Finally => {},
+            t => {
+                self.errors.push(ParseError::new(
+                    ParseErrorKind::UnexpectedToken,
+                    format!("should have except or finally, but got {:?}", t),
+                    self.current_token.pos
+                ));
+                return None;
+            },
+        }
+        match self.current_token.token.clone() {
+            Token::Finally => {
+                self.bump();
+                finally = match self.parse_finally_block_statement() {
+                    Ok(b) => Some(b),
+                    Err(s) => {
+                        self.errors.push(ParseError::new(
+                            ParseErrorKind::InvalidStatement,
+                            format!("you can not use {} in finally", s),
+                            self.current_token.pos
+                        ));
+                        return None;
+                    }
+                };
+            },
+            Token::EndTry => {},
+            t => {
+                self.errors.push(ParseError::new(
+                    ParseErrorKind::BlockNotClosedCorrectly,
+                    format!("should have finally or endtry, but got {:?}", t),
+                    self.current_token.pos
+                ));
+                return None;
+            },
+        }
+        if ! self.is_current_token(&Token::EndTry) {
+            self.error_got_invalid_close_token(Token::EndTry);
+            return None;
+        }
+
+        Some(Statement::Try {trys, except, finally})
+    }
+
+    fn parse_finally_block_statement(&mut self) -> Result<BlockStatement, String> {
+        self.bump();
+        let mut block: BlockStatement  = vec![];
+
+        while ! self.is_current_token_end_of_block() && ! self.is_current_token(&Token::Eof) {
+            match self.parse_statement() {
+                Some(Statement::Exit) => return Err("exit".into()),
+                Some(Statement::Continue(_)) => return Err("continue".into()),
+                Some(Statement::Break(_)) => return Err("break".into()),
+                Some(s) => block.push(s),
+                None => ()
+            }
+            self.bump();
+        }
+
+        Ok(block)
     }
 
     fn parse_expression_statement(&mut self) -> Option<Statement> {

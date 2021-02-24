@@ -85,6 +85,12 @@ impl Environment {
         };
         let param_str = params.iter().map(|s| Object::String(s.into())).collect::<Vec<Object>>();
         env.define("PARAM_STR".into(), Object::Array(param_str), Scope::Local, false).unwrap();
+        env.add(NamedObject::new(
+            "TRY_ERRLINE".into(), Object::Empty, Scope::Local
+        ), false);
+        env.add(NamedObject::new(
+            "TRY_ERRMSG".into(), Object::Empty, Scope::Local
+        ), false);
         env
     }
 
@@ -93,7 +99,13 @@ impl Environment {
         self.current = Layer {
             local: Vec::new(),
             outer,
-        }
+        };
+        self.add(NamedObject::new(
+            "TRY_ERRLINE".into(), Object::Empty, Scope::Local
+        ), false);
+        self.add(NamedObject::new(
+            "TRY_ERRMSG".into(), Object::Empty, Scope::Local
+        ), false);
     }
 
     pub fn get_local_copy(&mut self) -> Vec<NamedObject> {
@@ -269,7 +281,12 @@ impl Environment {
     // 予約語チェック
     fn is_reserved(&mut self, name: &String) -> bool {
         self.global.clone().into_iter().any(|obj| obj.name == *name && obj.scope == Scope::BuiltinConst) ||
-        vec!["GLOBAL","THIS"].iter().any(|s| s.to_string() == *name)
+        vec![
+            "GLOBAL",
+            "THIS",
+            "TRY_ERRLINE",
+            "TRY_ERRMSG"
+        ].iter().any(|s| s.to_string() == *name)
     }
 
     fn contains(&mut self, name: &String, scope: Scope) -> bool {
@@ -553,6 +570,11 @@ impl Environment {
         } else {
             vec![]
         }
+    }
+
+    pub fn set_try_error_messages(&mut self, message: String, line: String) {
+        self.set(&"TRY_ERRMSG".into(), Scope::Local, Object::String(message), false);
+        self.set(&"TRY_ERRLINE".into(), Scope::Local, Object::String(line), false);
     }
 }
 

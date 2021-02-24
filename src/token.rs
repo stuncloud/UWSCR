@@ -104,6 +104,11 @@ pub enum Token {
     With,
     EndWith,
 
+    Try,
+    Except,
+    Finally,
+    EndTry,
+
     TextBlock(Option<String>, String, bool),
     EndTextBlock,
     NoEndTextBlock,
