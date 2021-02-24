@@ -628,7 +628,7 @@ impl Evaluator {
     }
 
     fn eval_try_statement(&mut self, trys: BlockStatement, except: Option<BlockStatement>, finnaly: Option<BlockStatement>) -> EvalResult<Option<Object>> {
-        let mut obj = match self.eval_block_statement(trys) {
+        let obj = match self.eval_block_statement(trys) {
             Ok(opt) => opt,
             Err(e) => {
                 self.env.borrow_mut().set_try_error_messages(
@@ -643,7 +643,7 @@ impl Evaluator {
             },
         };
         if finnaly.is_some() {
-            obj = self.eval_block_statement(finnaly.unwrap())?;
+            self.eval_block_statement(finnaly.unwrap())?;
         }
         Ok(obj)
     }
