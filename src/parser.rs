@@ -3250,39 +3250,47 @@ until (a == b) and (c >= d)
             (
                 "hashtbl hoge",
                 vec![
-                    Statement::HashTbl(
-                        Identifier(String::from("hoge")),
-                        None, false
-                    )
+                    Statement::HashTbl(vec![
+                        (
+                            Identifier(String::from("hoge")),
+                            None, false
+                        )
+                    ])
                 ]
             ),
             (
                 "hashtbl hoge = HASH_CASECARE",
                 vec![
-                    Statement::HashTbl(
-                        Identifier(String::from("hoge")),
-                        Some(Expression::Identifier(Identifier("HASH_CASECARE".to_string()))),
-                        false
-                    )
+                    Statement::HashTbl(vec![
+                        (
+                            Identifier(String::from("hoge")),
+                            Some(Expression::Identifier(Identifier("HASH_CASECARE".to_string()))),
+                            false
+                        )
+                    ])
                 ]
             ),
             (
                 "hashtbl hoge = HASH_SORT",
                 vec![
-                    Statement::HashTbl(
-                        Identifier(String::from("hoge")),
-                        Some(Expression::Identifier(Identifier("HASH_SORT".to_string()))),
-                        false
-                    )
+                    Statement::HashTbl(vec![
+                        (
+                            Identifier(String::from("hoge")),
+                            Some(Expression::Identifier(Identifier("HASH_SORT".to_string()))),
+                            false
+                        )
+                    ])
                 ]
             ),
             (
                 "public hashtbl hoge",
                 vec![
-                    Statement::HashTbl(
-                        Identifier(String::from("hoge")),
-                        None, true
-                    )
+                    Statement::HashTbl(vec![
+                        (
+                            Identifier(String::from("hoge")),
+                            None, true
+                        )
+                    ])
                 ]
             ),
         ];
