@@ -186,12 +186,14 @@ impl Evaluator {
                 self.env.borrow_mut().define_const(name, value)?;
                 Ok(None)
             },
-            Statement::HashTbl(i, hashopt, is_public) => {
-                let (name, hashtbl) = self.eval_hashtbl_definition_statement(i, hashopt)?;
-                if is_public {
-                    self.env.borrow_mut().define_public(name, hashtbl)?;
-                } else {
-                    self.env.borrow_mut().define_local(name, hashtbl)?;
+            Statement::HashTbl(v) => {
+                for (i, hashopt, is_public) in v {
+                    let (name, hashtbl) = self.eval_hashtbl_definition_statement(i, hashopt)?;
+                    if is_public {
+                        self.env.borrow_mut().define_public(name, hashtbl)?;
+                    } else {
+                        self.env.borrow_mut().define_local(name, hashtbl)?;
+                    }
                 }
                 Ok(None)
             },
@@ -565,10 +567,12 @@ impl Evaluator {
                     let value = self.eval_literal(s);
                     module.add(name, value, Scope::Const);
                 },
-                Statement::HashTbl(i, opt, is_pub) => {
-                    let (name, hashtbl) = self.eval_hashtbl_definition_statement(i, opt)?;
-                    let scope = if is_pub {Scope::Public} else {Scope::Local};
-                    module.add(name, hashtbl, scope);
+                Statement::HashTbl(v) => {
+                    for (i, opt, is_pub) in v {
+                        let (name, hashtbl) = self.eval_hashtbl_definition_statement(i, opt)?;
+                        let scope = if is_pub {Scope::Public} else {Scope::Local};
+                        module.add(name, hashtbl, scope);
+                    }
                 },
                 Statement::Function{name: i, params, body, is_proc} => {
                     let Identifier(func_name) = i;
@@ -589,10 +593,12 @@ impl Evaluator {
                                     module.add(member_name, value, Scope::Const);
                                 }
                             },
-                            Statement::HashTbl(i, opt, is_pub) => {
-                                if is_pub {
-                                    let (name, hashtbl) = self.eval_hashtbl_definition_statement(i, opt)?;
-                                    module.add(name, hashtbl, Scope::Public);
+                            Statement::HashTbl(v) => {
+                                for (i, opt, is_pub) in v {
+                                    if is_pub {
+                                        let (name, hashtbl) = self.eval_hashtbl_definition_statement(i, opt)?;
+                                        module.add(name, hashtbl, Scope::Public);
+                                    }
                                 }
                             },
                             Statement::Function{name: _, params: _, body: _, is_proc: is_proc2}  => {

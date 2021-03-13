@@ -120,7 +120,7 @@ pub enum Statement {
     Dim(Vec<(Identifier, Expression)>),
     Public(Vec<(Identifier, Expression)>),
     Const(Vec<(Identifier, Expression)>),
-    HashTbl(Identifier, Option<Expression>, bool),
+    HashTbl(Vec<(Identifier, Option<Expression>, bool)>),
     Print(Expression),
     Call(String),
     DefDll {

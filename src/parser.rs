@@ -509,25 +509,33 @@ impl Parser {
     }
 
     fn parse_hashtable_statement(&mut self, is_public: bool) -> Option<Statement> {
-        // hashtbl hoge
-        // hashtbl hoge = HASH_CASECARE
-        // hashtbl hoge = HASH_SORT
         self.bump();
-        let identifier = match self.parse_identifier() {
-            Some(i) => i,
-            None => return None
-        };
-        let hash_option = if self.is_next_token(&Token::EqualOrAssign) {
-            self.bump();
-            self.bump();
-            match self.parse_expression(Precedence::Lowest, false) {
-                Some(e) => Some(e),
+        let mut expressions = vec![];
+
+        loop {
+            let identifier = match self.parse_identifier() {
+                Some(i) => i,
                 None => return None
+            };
+            let hash_option = if self.is_next_token(&Token::EqualOrAssign) {
+                self.bump();
+                self.bump();
+                match self.parse_expression(Precedence::Lowest, false) {
+                    Some(e) => Some(e),
+                    None => return None
+                }
+            } else {
+                None
+            };
+            expressions.push((identifier, hash_option, is_public));
+            if self.is_next_token(&Token::Comma) {
+                self.bump();
+                self.bump();
+            } else {
+                break;
             }
-        } else {
-            None
-        };
-        Some(Statement::HashTbl(identifier, hash_option, is_public))
+        }
+        Some(Statement::HashTbl(expressions))
     }
 
     fn parse_print_statement(&mut self) -> Option<Statement> {
@@ -1623,7 +1631,7 @@ impl Parser {
                     Statement::Public(_) |
                     Statement::Const(_) |
                     Statement::TextBlock(_, _) |
-                    Statement::HashTbl(_, _, _) => block.push(s),
+                    Statement::HashTbl(_) => block.push(s),
                     Statement::Function{ref name, params: _, body: _, is_proc: _} => {
                         if name == &identifier {
                             has_constructor = true;
