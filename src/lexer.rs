@@ -350,6 +350,7 @@ impl Lexer {
             "procedure" => Token::Procedure,
             "fend" => Token::Fend,
             "exit" => Token::Exit,
+            "exitexit" => Token::ExitExit,
             "module" => Token::Module,
             "endmodule" => Token::EndModule,
             "class" => Token::Class,

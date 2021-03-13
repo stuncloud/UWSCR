@@ -118,6 +118,7 @@ pub enum Token {
     Fend,
 
     Exit,
+    ExitExit,
 
     Module,
     EndModule,

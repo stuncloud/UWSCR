@@ -173,6 +173,7 @@ pub enum Statement {
         is_proc: bool,
     },
     Exit,
+    ExitExit(i32),
     Module(Identifier, BlockStatement),
     Class(Identifier, BlockStatement),
     TextBlock(Identifier, Literal),

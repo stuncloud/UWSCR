@@ -97,6 +97,9 @@ impl Evaluator {
                         result = Some(Object::Exit);
                         break;
                     },
+                    Object::ExitExit(n) => {
+                        std::process::exit(n);
+                    },
                     _ => result = Some(o),
                 },
                 None => ()
@@ -112,7 +115,8 @@ impl Evaluator {
                 Some(o) => match o {
                     Object::Continue(_) |
                     Object::Break(_) |
-                    Object::Exit => return Ok(Some(o)),
+                    Object::Exit |
+                    Object::ExitExit(_) => return Ok(Some(o)),
                     _ => (),
                 },
                 None => (),
@@ -263,6 +267,7 @@ impl Evaluator {
             },
             Statement::Try {trys, except, finally} => self.eval_try_statement(trys, except, finally),
             Statement::Exit => Ok(Some(Object::Exit)),
+            Statement::ExitExit(n) => Ok(Some(Object::ExitExit(n))),
         }
     }
 
@@ -642,6 +647,9 @@ impl Evaluator {
                 }
             },
         };
+        if let Some(Object::ExitExit(_)) = obj {
+            return Ok(obj);
+        }
         if finnaly.is_some() {
             self.eval_block_statement(finnaly.unwrap())?;
         }

@@ -372,6 +372,7 @@ impl Parser {
             Token::Function => self.parse_function_statement(false),
             Token::Procedure => self.parse_function_statement(true),
             Token::Exit => Some(Statement::Exit),
+            Token::ExitExit => self.parse_exitexit_statement(),
             Token::Module => self.parse_module_statement(),
             Token::Class => self.parse_class_statement(),
             Token::TextBlock(ref name, ref body, is_ex) => {
@@ -1003,6 +1004,22 @@ impl Parser {
         }
 
         Ok(block)
+    }
+
+    fn parse_exitexit_statement(&mut self) -> Option<Statement> {
+        self.bump();
+        if let Token::Num(n) = self.current_token.token {
+            Some(Statement::ExitExit(n as i32))
+        } else if self.is_current_token_in(vec![Token::Eol, Token::Eof]) {
+            Some(Statement::ExitExit(0))
+        } else {
+            self.errors.push(ParseError::new(
+                ParseErrorKind::UnexpectedToken,
+                format!("Exit code should be number"),
+                self.current_token.pos
+            ));
+            None
+        }
     }
 
     fn parse_expression_statement(&mut self) -> Option<Statement> {

@@ -39,6 +39,7 @@ pub enum Object {
     Handle(HWND),
     RegEx(String),
     Exit,
+    ExitExit(i32),
     SpecialFuncResult(SpecialFuncResultType),
     Global, // globalを示す
     This(Rc<RefCell<Module>>),   // thisを示す
@@ -125,6 +126,7 @@ impl fmt::Display for Object {
             Object::Continue(ref n) => write!(f, "Continue {}", n),
             Object::Break(ref n) => write!(f, "Break {}", n),
             Object::Exit => write!(f, "Exit"),
+            Object::ExitExit(ref n) => write!(f, "ExitExit ({})", n),
             Object::Eval(ref value) => write!(f, "{}", value),
             Object::SpecialFuncResult(_) => write!(f, "特殊関数の戻り値"),
             Object::Module(ref m) => write!(f, "module: {}", m.borrow().name()),
