@@ -182,7 +182,7 @@ impl Evaluator {
             },
             Statement::TextBlock(i, s) => {
                 let Identifier(name) = i;
-                let value = self.eval_literal(s);
+                let value = self.eval_literal(s)?;
                 self.env.borrow_mut().define_const(name, value)?;
                 Ok(None)
             },
@@ -564,7 +564,7 @@ impl Evaluator {
                 },
                 Statement::TextBlock(i, s) => {
                     let Identifier(name) = i;
-                    let value = self.eval_literal(s);
+                    let value = self.eval_literal(s)?;
                     module.add(name, value, Scope::Const);
                 },
                 Statement::HashTbl(v) => {
@@ -684,7 +684,7 @@ impl Evaluator {
                 }
                 Object::Array(array)
             },
-            Expression::Literal(l) => self.eval_literal(l),
+            Expression::Literal(l) => self.eval_literal(l)?,
             Expression::Prefix(p, r) => {
                 let right = self.eval_expression(*r)?;
                 self.eval_prefix_expression(p, right)?
@@ -1321,13 +1321,13 @@ impl Evaluator {
         Ok(obj)
     }
 
-    fn eval_literal(&mut self, literal: Literal) -> Object {
-        match literal {
+    fn eval_literal(&mut self, literal: Literal) -> EvalResult<Object> {
+        let obj = match literal {
             Literal::Num(value) => Object::Num(value),
             Literal::String(value) => Object::String(value),
             Literal::ExpandableString(value) => self.expand_string(value, true),
             Literal::Bool(value) => Object::Bool(value),
-            Literal::Array(objects) => self.eval_array_literal(objects),
+            Literal::Array(objects) => self.eval_array_literal(objects)?,
             Literal::Empty => Object::Empty,
             Literal::Null => Object::Null,
             Literal::Nothing => Object::Nothing,
@@ -1336,7 +1336,8 @@ impl Evaluator {
             } else {
                 self.expand_string(text, false)
             },
-        }
+        };
+        Ok(obj)
     }
 
     fn expand_string(&self, string: String, expand_var: bool) -> Object {
@@ -1359,12 +1360,12 @@ impl Evaluator {
         Object::String(new_string)
     }
 
-    fn eval_array_literal(&mut self, objects: Vec<Expression>) -> Object {
-        Object::Array(
-            objects.iter().map(
-                |e| self.eval_expression(e.clone()).unwrap()
-            ).collect::<Vec<_>>()
-        )
+    fn eval_array_literal(&mut self, objects: Vec<Expression>) -> EvalResult<Object> {
+        let mut arr = vec![];
+        for e in objects {
+            arr.push(self.eval_expression(e.clone())?);
+        }
+        Ok(Object::Array(arr))
     }
 
     fn eval_expression_for_func_call(&mut self, expression: Expression) -> EvalResult<Object> {
