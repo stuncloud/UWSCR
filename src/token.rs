@@ -47,7 +47,7 @@ pub enum Token {
     MultiplyAssign, // *=,
     DivideAssign, // /=,
 
-    // Assign, // = (代入)
+    Assign, // :=
     EqualOrAssign, // 代入または等式r
     Equal, // =, ==
     NotEqual, // <>, !=

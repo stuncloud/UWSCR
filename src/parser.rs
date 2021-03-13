@@ -106,6 +106,7 @@ impl Parser {
             Token::And => Precedence::And,
             Token::Or | Token::Xor => Precedence::Or,
             Token::Question => Precedence::Ternary,
+            Token::Assign => Precedence::Assign,
             _ => Precedence::Lowest,
         }
     }
@@ -1123,6 +1124,7 @@ impl Parser {
                     self.bump();
                     left = self.parse_infix_expression(left.unwrap());
                 },
+                Token::Assign => left = self.parse_assign_expression(left.unwrap()),
                 Token::Lbracket => {
                     self.bump();
                     left = {
@@ -1341,6 +1343,7 @@ impl Parser {
             Token::Or => Infix::Or,
             Token::Xor => Infix::Xor,
             Token::Mod => Infix::Mod,
+            Token::Assign => Infix::Assign,
             _ => return None
         };
         let precedence = self.current_token_precedence();

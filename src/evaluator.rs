@@ -914,6 +914,7 @@ impl Evaluator {
     }
 
     fn eval_assign_expression(&mut self, left: Expression, value: Object) -> EvalResult<Object> {
+        let assigned_value = value.clone();
         self.eval_instance_assignment(&left, &value)?;
         let mut is_in_scope_auto_disposable = true;
         let instance = match value {
@@ -1162,7 +1163,7 @@ impl Evaluator {
                 self.env.borrow_mut().remove_from_instances(id);
             }
         }
-        Ok(Object::Empty)
+        Ok(assigned_value)
     }
 
     fn eval_infix_expression(&mut self, infix: Infix, left: Object, right: Object) -> EvalResult<Object> {
@@ -2196,7 +2197,7 @@ hoge
 hoge = "print test"
 print hoge
         "#;
-        eval_test(input, Some(Object::Empty), false);
+        eval_test(input, Some(Object::String("print test".into())), false);
     }
 
     #[test]

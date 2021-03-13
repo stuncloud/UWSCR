@@ -66,7 +66,7 @@ impl fmt::Display for Infix {
             Infix::Or => write!(f, "or"),
             Infix::Xor => write!(f, "xor"),
             Infix::Mod => write!(f, "mod"),
-            Infix::Assign => write!(f, "="),
+            Infix::Assign => write!(f, ":="),
         }
     }
 }
@@ -191,6 +191,7 @@ pub type Program = BlockStatement;
 #[derive(PartialEq, PartialOrd, Debug, Clone)]
 pub enum Precedence {
     Lowest,
+    Assign,         // :=
     Ternary,        // ?:
     Or,             // or xor
     And,            // and

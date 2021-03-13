@@ -211,6 +211,9 @@ impl Lexer {
             ':' => if self.nextch_is('\\') {
                 self.read_char();
                 Token::ColonBackSlash
+            } else if self.nextch_is('=') {
+                self.read_char();
+                Token::Assign
             } else {
                 Token::Colon
             },
