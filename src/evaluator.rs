@@ -1264,7 +1264,10 @@ impl Evaluator {
             Infix::Plus => Object::Num(left + right),
             Infix::Minus => Object::Num(left - right),
             Infix::Multiply => Object::Num(left * right),
-            Infix::Divide => Object::Num(left / right),
+            Infix::Divide => match right as i64 {
+                0 => Object::Num(0.0), // 0除算は0を返す
+                _ => Object::Num(left / right),
+            },
             Infix::Mod => Object::Num(left % right),
             Infix::LessThan => Object::Bool(left < right),
             Infix::LessThanEqual => Object::Bool(left <= right),
@@ -1281,7 +1284,19 @@ impl Evaluator {
                 None
             ))
         };
-        Ok(obj)
+        match obj {
+            Object::Num(n) => if ! n.is_finite() {
+                // 無限またはNaNはエラーにする
+                Err(UError::new(
+                    "calculation error".into(),
+                    format!("result value is not valid number: {}", n),
+                    None
+                ))
+            } else {
+                Ok(Object::Num(n))
+            },
+            o => Ok(o)
+        }
     }
 
     fn eval_infix_string_expression(&mut self, infix: Infix, left: String, right: String) -> EvalResult<Object> {
