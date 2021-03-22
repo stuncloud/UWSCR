@@ -259,9 +259,11 @@ impl Evaluator {
             },
             Statement::With(o_e, block) => if let Some(e) = o_e {
                 let s = self.eval_block_statement(block);
-                self.eval_instance_assignment(&e, &Object::Nothing)?;
                 if let Expression::Identifier(Identifier(name)) = e {
-                    self.env.borrow_mut().remove_variable(name);
+                    if name.find("@with_tmp_").is_some() {
+                        self.eval_instance_assignment(&Expression::Identifier(Identifier(name.clone())), &Object::Nothing)?;
+                        self.env.borrow_mut().remove_variable(name);
+                    }
                 }
                 s
             } else {
