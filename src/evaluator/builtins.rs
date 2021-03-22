@@ -2,6 +2,7 @@ pub mod window_control;
 pub mod window_low;
 pub mod text_control;
 pub mod system_controls;
+pub mod math;
 pub mod key_codes;
 
 use crate::evaluator::UError;
@@ -130,6 +131,8 @@ pub fn init_builtins() -> Vec<NamedObject> {
     system_controls::builtin_func_sets().set(&mut vec);
     set_builtin_consts::<system_controls::OsNumber>(&mut vec);
     set_builtin_consts::<system_controls::KindOfOsResultType>(&mut vec);
+    // math
+    math::builtin_func_sets().set(&mut vec);
     // key codes
     set_builtin_consts::<key_codes::VirtualKeyCodes>(&mut vec);
     set_builtin_consts::<key_codes::VirtualKeyCodeDups>(&mut vec);

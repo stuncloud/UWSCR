@@ -1346,6 +1346,7 @@ impl Evaluator {
             Literal::Empty => Object::Empty,
             Literal::Null => Object::Null,
             Literal::Nothing => Object::Nothing,
+            Literal::NaN => Object::Num(f64::NAN),
             Literal::TextBlock(text, is_ex) => if is_ex {
                 Object::ExpandableTB(text)
             } else {

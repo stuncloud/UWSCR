@@ -113,6 +113,7 @@ pub enum Literal {
     Empty,
     Null,
     Nothing,
+    NaN,
 }
 
 #[derive(PartialEq, Clone, Debug)]

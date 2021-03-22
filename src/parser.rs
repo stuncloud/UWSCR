@@ -1063,6 +1063,7 @@ impl Parser {
             Token::Empty => Some(Expression::Literal(Literal::Empty)),
             Token::Null => Some(Expression::Literal(Literal::Null)),
             Token::Nothing => Some(Expression::Literal(Literal::Nothing)),
+            Token::NaN => Some(Expression::Literal(Literal::NaN)),
             Token::Num(_) => self.parse_number_expression(),
             Token::ExpandableString(_) |
             Token::String(_) => self.parse_string_expression(),

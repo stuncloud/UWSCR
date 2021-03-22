@@ -371,6 +371,7 @@ impl Lexer {
             "null" => Token::Null,
             "empty" => Token::Empty,
             "nothing" => Token::Nothing,
+            "nan" => Token::NaN,
             "var" | "ref" => Token::Ref,
             "args" | "prms" => Token::Variadic,
             _ => Token::Identifier(literal.to_string()),

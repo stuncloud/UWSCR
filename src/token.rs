@@ -19,6 +19,7 @@ pub enum Token {
     Nothing,
     UObject(String),
     UObjectNotClosing,
+    NaN,
 
     // Statements
     Print,
