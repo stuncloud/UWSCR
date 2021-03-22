@@ -221,17 +221,16 @@ impl Lexer {
             ',' => Token::Comma,
             '.' => Token::Period,
             '_' => {
-                self.read_char();
-                let mut tp;
-                loop {
-                    tp = self.next_token();
-                    if tp.token != Token::Eol {
-                        break;
-                    }
-                }
-                match tp.token {
-                    Token::Identifier(i) => return TokenWithPos::new_with_pos(Token::Identifier(format!("_{}", i)), p),
-                    _ => return tp
+                match self.nextch() {
+                    'a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '#' => self.consume_identifier(),
+                    _ => {
+                        self.read_char();
+                        let tp = self.next_token();
+                        match tp.clone().token {
+                            Token::Eol => return self.next_token(),
+                            _ => return tp,
+                        }
+                    },
                 }
             },
             '\\' => Token::BackSlash,
