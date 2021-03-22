@@ -9,6 +9,9 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
 
 
 pub fn isnan(args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let n = get_num_argument_value::<f64>(&args, 0, None)?;
-    Ok(Object::Bool(n.is_nan()))
+    if let Ok(n) = get_num_argument_value::<f64>(&args, 0, None) {
+        Ok(Object::Bool(n.is_nan()))
+    } else {
+        Ok(Object::Bool(false))
+    }
 }
