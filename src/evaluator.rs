@@ -885,7 +885,7 @@ impl Evaluator {
             } else if let Object::Num(n) = index {
                 let i = n as usize;
                 match u.borrow().pointer(p.as_str()).unwrap().get(i) {
-                    Some(v) => Self::eval_uobject(v, Rc::clone(&u), format!("{}/{}", p, i))?,
+                    Some(v) => self.eval_uobject(v, Rc::clone(&u), format!("{}/{}", p, i))?,
                     None => return Err(UError::new(
                         "Index out of bound".into(),
                         format!("{}[{}]", left, i),
@@ -1863,7 +1863,7 @@ impl Evaluator {
             )),
             Object::UObject(u) => if let Expression::Identifier(Identifier(key)) = right {
                 match u.borrow().get(key.as_str()) {
-                    Some(v) => Self::eval_uobject(v, Rc::clone(&u), format!("/{}", key)),
+                    Some(v) => self.eval_uobject(v, Rc::clone(&u), format!("/{}", key)),
                     None => Err(UError::new(
                         "UObject".into(),
                         format!("{} not found", key),
@@ -1879,7 +1879,7 @@ impl Evaluator {
             },
             Object::UChild(u,p) => if let Expression::Identifier(Identifier(key)) = right {
                 match u.borrow().pointer(p.as_str()).unwrap().get(key.as_str()) {
-                    Some(v) => Self::eval_uobject(v, Rc::clone(&u), format!("{}/{}", p, key)),
+                    Some(v) => self.eval_uobject(v, Rc::clone(&u), format!("{}/{}", p, key)),
                     None => Err(UError::new(
                         "UObject".into(),
                         format!("{} not found", key),
@@ -1902,7 +1902,7 @@ impl Evaluator {
     }
 
     // UObject
-    fn eval_uobject(v: &serde_json::Value, top: Rc<RefCell<serde_json::Value>>, pointer: String) -> EvalResult<Object> {
+    fn eval_uobject(&self, v: &serde_json::Value, top: Rc<RefCell<serde_json::Value>>, pointer: String) -> EvalResult<Object> {
         let o = match v {
             serde_json::Value::Null => Object::Null,
             serde_json::Value::Bool(b) => Object::Bool(*b),
@@ -1914,7 +1914,9 @@ impl Evaluator {
                     None
                 )),
             },
-            serde_json::Value::String(s) => Object::String(s.clone()),
+            serde_json::Value::String(s) => {
+                self.expand_string(s.clone(), true)
+            },
             serde_json::Value::Array(_) |
             serde_json::Value::Object(_) => Object::UChild(top, pointer),
         };
