@@ -417,8 +417,10 @@ impl Lexer {
         }
         let literal: &String = &self.input[start_pos..self.pos].into_iter().collect();
         // Token::Hex(literal.to_string())
-        let parsed = i64::from_str_radix(literal, 16).unwrap();
-        Token::Num(parsed as f64)
+        match i64::from_str_radix(literal, 16) {
+            Ok(n) => Token::Num(n as f64),
+            Err(_) => Token::Illegal('$')
+        }
     }
 
     fn consume_string(&mut self) -> Token {
