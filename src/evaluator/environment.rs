@@ -633,6 +633,10 @@ impl Module {
         self.contains(&name, Scope::Function)
     }
 
+    pub fn is_destructor_name(&self, name: &String) -> bool {
+        name.to_string() == format!("_{}_", self.name())
+    }
+
     pub fn get_destructor(&self) -> Option<Object> {
         let name = format!("_{}_", self.name());
         self.get(&name, Scope::Function)
@@ -700,14 +704,23 @@ impl Module {
     pub fn get_function(&self, name: &String) -> EvalResult<Object> {
         match self.get(name, Scope::Function) {
             Some(o) => Ok(o),
-            None => if ! self.has_destructor() {
+            None => if self.is_destructor_name(name) && ! self.has_destructor() {
                 Ok(Object::DestructorNotFound)
             } else {
-                Err(UError::new(
+                let e = UError::new(
                     "Function not found".into(),
                     format!("{}.{}() is not defined", self.name, name),
                     None
-                ))
+                );
+                match self.get_public_member(name) {
+                    Ok(o) => match o {
+                        Object::AnonFunc(_,_,_,_) |
+                        Object::Function(_,_,_,_,_) |
+                        Object::BuiltinFunction(_,_,_) => Ok(o),
+                        _ => Err(e)
+                    },
+                    Err(_) => Err(e)
+                }
             },
         }
     }
