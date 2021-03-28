@@ -748,14 +748,19 @@ pub enum MonitorEnum {
     MON_Y           = 1,
     MON_WIDTH       = 2,
     MON_HEIGHT      = 3,
+    MON_PRIMARY     = 4,
     MON_NAME        = 5,
-    MON_ISMAIN      = 7,
     MON_WORK_X      = 10,
     MON_WORK_Y      = 11,
     MON_WORK_WIDTH  = 12,
     MON_WORK_HEIGHT = 13,
     MON_ALL         = 20,
     UNKNOWN_MONITOR_CMD = -1,
+}
+#[allow(non_camel_case_types)]
+#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive)]
+pub enum MonitorEnumAlias {
+    MON_ISMAIN     = 4,
 }
 
 struct Monitor {
@@ -855,7 +860,7 @@ pub fn monitor(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             map.insert((MonitorEnum::MON_WIDTH as u8).to_string(), Object::Num((miex.rcMonitor.right - miex.rcMonitor.left).into()));
             map.insert((MonitorEnum::MON_HEIGHT as u8).to_string(), Object::Num((miex.rcMonitor.bottom - miex.rcMonitor.top).into()));
             map.insert((MonitorEnum::MON_NAME as u8).to_string(), get_monitor_name(&miex.szDevice));
-            map.insert((MonitorEnum::MON_ISMAIN as u8).to_string(), Object::Bool(miex.dwFlags == winuser::MONITORINFOF_PRIMARY));
+            map.insert((MonitorEnum::MON_PRIMARY as u8).to_string(), Object::Bool(miex.dwFlags == winuser::MONITORINFOF_PRIMARY));
             map.insert((MonitorEnum::MON_WORK_X as u8).to_string(), Object::Num(miex.rcWork.left.into()));
             map.insert((MonitorEnum::MON_WORK_Y as u8).to_string(), Object::Num(miex.rcWork.top.into()));
             map.insert((MonitorEnum::MON_WORK_WIDTH as u8).to_string(), Object::Num((miex.rcWork.right - miex.rcWork.left).into()));
@@ -867,7 +872,7 @@ pub fn monitor(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         MonitorEnum::MON_WIDTH => miex.rcMonitor.right - miex.rcMonitor.left,
         MonitorEnum::MON_HEIGHT => miex.rcMonitor.bottom - miex.rcMonitor.top,
         MonitorEnum::MON_NAME => return Ok(get_monitor_name(&miex.szDevice)),
-        MonitorEnum::MON_ISMAIN => return Ok(Object::Bool(miex.dwFlags == winuser::MONITORINFOF_PRIMARY)),
+        MonitorEnum::MON_PRIMARY => return Ok(Object::Bool(miex.dwFlags == winuser::MONITORINFOF_PRIMARY)),
         MonitorEnum::MON_WORK_X => miex.rcWork.left,
         MonitorEnum::MON_WORK_Y => miex.rcWork.top,
         MonitorEnum::MON_WORK_WIDTH => miex.rcWork.right - miex.rcWork.left,

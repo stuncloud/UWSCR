@@ -124,6 +124,7 @@ pub fn init_builtins() -> Vec<NamedObject> {
     set_builtin_consts::<window_control::CtrlWinCmd>(&mut vec);
     set_builtin_consts::<window_control::StatusEnum>(&mut vec);
     set_builtin_consts::<window_control::MonitorEnum>(&mut vec);
+    set_builtin_consts::<window_control::MonitorEnumAlias>(&mut vec);
     // text control
     text_control::builtin_func_sets().set(&mut vec);
     set_builtin_consts::<text_control::RegexEnum>(&mut vec);
