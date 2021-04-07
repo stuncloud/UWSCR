@@ -20,6 +20,7 @@ pub enum ParseErrorKind {
     InvalidFilePath,
     InvalidDllType,
     DllPathNonFound,
+    InvalidIdentifier,
 }
 
 #[derive(Debug, Clone)]
@@ -44,6 +45,7 @@ impl fmt::Display for ParseErrorKind {
             ParseErrorKind::InvalidFilePath => write!(f, "Invalid file path"),
             ParseErrorKind::InvalidDllType => write!(f, "Invalid dll type"),
             ParseErrorKind::DllPathNonFound => write!(f, "Dll path not found"),
+            ParseErrorKind::InvalidIdentifier => write!(f, "Invalid identifier"),
         }
     }
 }
@@ -284,7 +286,7 @@ impl Parser {
         self.errors.push(ParseError::new(
             ParseErrorKind::UnexpectedToken,
             format!(
-                "no prefix parser found for \"{:?}\"",
+                "no prefix parser found for Token::{:?}",
                 self.current_token.token
             ),
             self.current_token.pos.clone()
@@ -1110,9 +1112,16 @@ impl Parser {
                 ));
                 return None
             },
-            _ => {
-                self.error_no_prefix_parser();
-                return None;
+            _ => match self.parse_identifier_expression() {
+                Some(e) => {
+                    if is_sol {
+                        if let Some(e) = self.parse_assignment(self.next_token.token.clone(), e.clone()) {
+                            return Some(e);
+                        }
+                    }
+                    Some(e)
+                },
+                None => return None
             },
         };
 
@@ -1188,9 +1197,10 @@ impl Parser {
     }
 
     fn parse_identifier(&mut self) -> Option<Identifier> {
-        match self.current_token.token {
-            Token::Identifier(ref mut i) => Some(Identifier(i.clone())),
-            _ => None,
+        let token = self.current_token.token.clone();
+        match &token {
+            Token::Identifier(ref i) => Some(Identifier(i.clone())),
+            t => self.token_to_identifier(&t),
         }
     }
 
@@ -1199,6 +1209,79 @@ impl Parser {
             Some(i) => Some(Expression::Identifier(i)),
             None => None
         }
+    }
+
+    fn token_to_identifier(&mut self, token: &Token) -> Option<Identifier> {
+        let identifier = match token {
+            Token::Call(_) |
+            Token::Mod |
+            Token::And |
+            Token::Or |
+            Token::Xor |
+            Token::Bool(_) |
+            Token::Null |
+            Token::Empty |
+            Token::Nothing |
+            Token::NaN => {
+                self.errors.push(ParseError::new(
+                    ParseErrorKind::InvalidIdentifier,
+                    format!("{:?} is reserved", token),
+                    self.current_token.pos
+                ));
+                return None;
+            },
+            Token::Blank |
+            Token::Eof |
+            Token::Eol |
+            Token::Num(_) |
+            Token::Hex(_) |
+            Token::String(_) |
+            Token::ExpandableString(_) |
+            Token::UObject(_) |
+            Token::UObjectNotClosing |
+            Token::Plus |
+            Token::Minus |
+            Token::Bang |
+            Token::Asterisk |
+            Token::Slash |
+            Token::AddAssign |
+            Token::SubtractAssign |
+            Token::MultiplyAssign |
+            Token::DivideAssign |
+            Token::Assign |
+            Token::EqualOrAssign |
+            Token::Equal |
+            Token::NotEqual |
+            Token::LessThan |
+            Token::LessThanEqual |
+            Token::GreaterThan |
+            Token::GreaterThanEqual |
+            Token::Question |
+            Token::Comma |
+            Token::Period |
+            Token::Colon |
+            Token::Semicolon |
+            Token::Lparen |
+            Token::Rparen |
+            Token::Lbrace |
+            Token::Rbrace |
+            Token::Lbracket |
+            Token::Rbracket |
+            Token::LineContinue |
+            Token::BackSlash |
+            Token::ColonBackSlash |
+            Token::Option(_) |
+            Token::Comment |
+            Token::Ref |
+            Token::Variadic |
+            Token::Illegal(_) => {
+                self.error_no_prefix_parser();
+                return None;
+            },
+            Token::Identifier(ref i) => Identifier(i.clone()),
+            _ => Identifier(format!("{:?}", token))
+        };
+        Some(identifier)
     }
 
     fn parse_with_dot_expression(&mut self) -> Option<Expression> {
@@ -1871,7 +1954,7 @@ mod tests {
             }
         }
 
-        panic!(msg);
+        panic!("{}", msg);
     }
 
     fn parser_test(input: &str, expected: Vec<Statement>) {
