@@ -411,8 +411,18 @@ impl Evaluator {
             },
             None => 1
         };
+        if step == 0 {
+            return Err(UError::new(
+                "Syntax error on For".into(),
+                "step can not be 0".into(),
+                None
+            ));
+        }
         self.env.borrow_mut().assign(var.clone(), Object::Num(counter as f64))?;
         loop {
+            if step > 0 && counter > counter_end || step < 0 && counter < counter_end {
+                break;
+            }
             match self.eval_loopblock_statement(block.clone())? {
                 Some(o) => match o {
                         Object::Continue(n) => if n > 1 {
@@ -420,9 +430,6 @@ impl Evaluator {
                         } else {
                             counter += step;
                             self.env.borrow_mut().assign(var.clone(), Object::Num(counter as f64))?;
-                            if step > 0 && counter > counter_end || step < 0 && counter < counter_end {
-                                break;
-                            }
                             continue;
                         },
                         Object::Break(n) => if n > 1 {
@@ -436,9 +443,6 @@ impl Evaluator {
             };
             counter += step;
             self.env.borrow_mut().assign(var.clone(), Object::Num(counter as f64))?;
-            if step > 0 && counter > counter_end || step < 0 && counter < counter_end {
-                break;
-            }
         }
         Ok(None)
     }
