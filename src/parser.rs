@@ -1043,19 +1043,25 @@ impl Parser {
         }
     }
 
+    fn parse_assignment(&mut self, token: Token, expression: Expression) -> Option<Expression> {
+        match token {
+            Token::EqualOrAssign => return self.parse_assign_expression(expression),
+            Token::AddAssign => return self.parse_compound_assign_expression(expression, Token::AddAssign),
+            Token::SubtractAssign => return self.parse_compound_assign_expression(expression, Token::SubtractAssign),
+            Token::MultiplyAssign => return self.parse_compound_assign_expression(expression, Token::MultiplyAssign),
+            Token::DivideAssign => return self.parse_compound_assign_expression(expression, Token::DivideAssign),
+            _ => None
+        }
+    }
+
     fn parse_expression(&mut self, precedence: Precedence, is_sol: bool) -> Option<Expression> {
         // prefix
         let mut left = match self.current_token.token {
             Token::Identifier(_) => {
                 let identifier = self.parse_identifier_expression();
                 if is_sol {
-                    match self.next_token.token {
-                        Token::EqualOrAssign => return self.parse_assign_expression(identifier.unwrap()),
-                        Token::AddAssign => return self.parse_compound_assign_expression(identifier.unwrap(), Token::AddAssign),
-                        Token::SubtractAssign => return self.parse_compound_assign_expression(identifier.unwrap(), Token::SubtractAssign),
-                        Token::MultiplyAssign => return self.parse_compound_assign_expression(identifier.unwrap(), Token::MultiplyAssign),
-                        Token::DivideAssign => return self.parse_compound_assign_expression(identifier.unwrap(), Token::DivideAssign),
-                        _ => ()
+                    if let Some(e) = self.parse_assignment(self.next_token.token.clone(), identifier.clone().unwrap()) {
+                        return Some(e);
                     }
                 }
                 identifier
@@ -1074,7 +1080,15 @@ impl Parser {
             Token::Function => self.parse_function_expression(false),
             Token::Procedure => self.parse_function_expression(true),
             Token::Then | Token::Eol => return None,
-            Token::Period => self.parse_with_dot_expression(),
+            Token::Period => {
+                let e = self.parse_with_dot_expression();
+                if is_sol && e.is_some() {
+                    if let Some(e) = self.parse_assignment(self.next_token.token.clone(), e.clone().unwrap()) {
+                        return Some(e);
+                    }
+                }
+                e
+            },
             Token::UObject(ref s) => {
                 match serde_json::from_str::<serde_json::Value>(s.as_str()) {
                     Ok(v) => Some(Expression::UObject(v)),
@@ -1139,13 +1153,8 @@ impl Parser {
                     left = {
                         let index = self.parse_index_expression(left.unwrap());
                         if is_sol {
-                            match self.next_token.token {
-                                Token::EqualOrAssign => return self.parse_assign_expression(index.unwrap()),
-                                Token::AddAssign => return self.parse_compound_assign_expression(index.unwrap(), Token::AddAssign),
-                                Token::SubtractAssign => return self.parse_compound_assign_expression(index.unwrap(), Token::SubtractAssign),
-                                Token::MultiplyAssign => return self.parse_compound_assign_expression(index.unwrap(), Token::MultiplyAssign),
-                                Token::DivideAssign => return self.parse_compound_assign_expression(index.unwrap(), Token::DivideAssign),
-                                _ => ()
+                            if let Some(e) = self.parse_assignment(self.next_token.token.clone(), index.clone().unwrap()) {
+                                return Some(e);
                             }
                         }
                         index
@@ -1164,13 +1173,8 @@ impl Parser {
                     left = {
                         let dotcall = self.parse_dotcall_expression(left.unwrap());
                         if is_sol {
-                            match self.next_token.token {
-                                Token::EqualOrAssign => return self.parse_assign_expression(dotcall.unwrap()),
-                                Token::AddAssign => return self.parse_compound_assign_expression(dotcall.unwrap(), Token::AddAssign),
-                                Token::SubtractAssign => return self.parse_compound_assign_expression(dotcall.unwrap(), Token::SubtractAssign),
-                                Token::MultiplyAssign => return self.parse_compound_assign_expression(dotcall.unwrap(), Token::MultiplyAssign),
-                                Token::DivideAssign => return self.parse_compound_assign_expression(dotcall.unwrap(), Token::DivideAssign),
-                                _ => ()
+                            if let Some(e) = self.parse_assignment(self.next_token.token.clone(), dotcall.clone().unwrap()) {
+                                return Some(e);
                             }
                         }
                         dotcall
