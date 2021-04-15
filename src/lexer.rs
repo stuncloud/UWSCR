@@ -1,5 +1,4 @@
 use crate::token::Token;
-use std::i64;
 use std::f64;
 use std::fmt;
 
@@ -416,11 +415,7 @@ impl Lexer {
             }
         }
         let literal: &String = &self.input[start_pos..self.pos].into_iter().collect();
-        // Token::Hex(literal.to_string())
-        match i64::from_str_radix(literal, 16) {
-            Ok(n) => Token::Num(n as f64),
-            Err(_) => Token::Illegal('$')
-        }
+        Token::Hex(literal.to_string())
     }
 
     fn consume_string(&mut self) -> Token {

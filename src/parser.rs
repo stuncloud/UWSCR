@@ -21,6 +21,7 @@ pub enum ParseErrorKind {
     InvalidDllType,
     DllPathNonFound,
     InvalidIdentifier,
+    InvalidHexNumber,
 }
 
 #[derive(Debug, Clone)]
@@ -46,6 +47,7 @@ impl fmt::Display for ParseErrorKind {
             ParseErrorKind::InvalidDllType => write!(f, "Invalid dll type"),
             ParseErrorKind::DllPathNonFound => write!(f, "Dll path not found"),
             ParseErrorKind::InvalidIdentifier => write!(f, "Invalid identifier"),
+            ParseErrorKind::InvalidHexNumber => write!(f, "Invalid hex number"),
         }
     }
 }
@@ -1073,6 +1075,7 @@ impl Parser {
             Token::Nothing => Some(Expression::Literal(Literal::Nothing)),
             Token::NaN => Some(Expression::Literal(Literal::NaN)),
             Token::Num(_) => self.parse_number_expression(),
+            Token::Hex(_) => self.parse_hex_expression(),
             Token::ExpandableString(_) |
             Token::String(_) => self.parse_string_expression(),
             Token::Bool(_) => self.parse_bool_expression(),
@@ -1296,7 +1299,6 @@ impl Parser {
                 return None;
             }
         }
-
     }
 
     fn parse_number_expression(&mut self) -> Option<Expression> {
@@ -1305,6 +1307,24 @@ impl Parser {
                 Expression::Literal(Literal::Num(num.clone()))
             ),
             _ => None
+        }
+    }
+
+    fn parse_hex_expression(&mut self) -> Option<Expression> {
+        if let Token::Hex(ref s) = self.current_token.token {
+            match u64::from_str_radix(s.as_str(), 16) {
+                Ok(u) => Some(Expression::Literal(Literal::Num(u as i64 as f64))),
+                Err(_) => {
+                    self.errors.push(ParseError::new(
+                        ParseErrorKind::InvalidHexNumber,
+                        format!("${}", s),
+                        self.current_token.pos
+                    ));
+                    None
+                }
+            }
+        } else {
+            None
         }
     }
 
