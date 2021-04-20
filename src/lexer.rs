@@ -121,6 +121,9 @@ impl Lexer {
                 if self.nextch_is('=') {
                     self.read_char();
                     Token::Equal
+                } else if self.nextch_is('>') {
+                    self.read_char();
+                    Token::Arrow
                 } else {
                     Token::EqualOrAssign
                 }
@@ -245,6 +248,7 @@ impl Lexer {
             '"' => {
                 return TokenWithPos::new_with_pos(self.consume_string(), p);
             },
+            '|' => Token::Pipeline,
             '\'' => return TokenWithPos::new_with_pos(self.consume_single_quote_string(), p),
             '\n' => {
                 self.to_next_row();

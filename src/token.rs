@@ -133,4 +133,8 @@ pub enum Token {
     // 引数関連
     Ref,
     Variadic, // 可変長引数
+
+    // 無名関数
+    Pipeline,
+    Arrow,
 }

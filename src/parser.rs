@@ -1115,6 +1115,7 @@ impl Parser {
                 ));
                 return None
             },
+            Token::Pipeline => self.parse_lambda_function_expression(),
             _ => match self.parse_identifier_expression() {
                 Some(e) => {
                     if is_sol {
@@ -1277,6 +1278,8 @@ impl Parser {
             Token::Comment |
             Token::Ref |
             Token::Variadic |
+            Token::Pipeline |
+            Token::Arrow |
             Token::Illegal(_) => {
                 self.error_no_prefix_parser();
                 return None;
@@ -1659,7 +1662,7 @@ impl Parser {
 
         let params = if self.is_next_token(&Token::Lparen) {
             self.bump();
-            match self.parse_function_parameters() {
+            match self.parse_function_parameters(Token::Rparen) {
                 Some(p) => p,
                 None => return None
             }
@@ -1799,7 +1802,7 @@ impl Parser {
             return None;
         }
 
-        let params = match self.parse_function_parameters() {
+        let params = match self.parse_function_parameters(Token::Rparen) {
             Some(p) => p,
             None => return None
         };
@@ -1814,7 +1817,51 @@ impl Parser {
         Some(Expression::AnonymusFunction {params, body, is_proc})
     }
 
-    fn parse_function_parameters(&mut self) -> Option<Vec<Expression>> {
+    fn parse_lambda_function_expression(&mut self) -> Option<Expression> {
+        let params = if self.is_next_token(&Token::Arrow) {
+            // 引数なし
+            self.bump();
+            vec![]
+        } else {
+            match self.parse_function_parameters(Token::Arrow) {
+                Some(p) => p,
+                None => return None,
+            }
+        };
+        self.bump(); // skip =>
+
+        let mut body = vec![];
+        loop {
+            let es = self.parse_expression(Precedence::Lowest, true);
+            if es.is_none() {
+                return None;
+            }
+
+            if self.is_next_token(&Token::Pipeline) {
+                // let e = if let Statement::Expression(e) = es.unwrap() {
+                //     e
+                // } else {
+                //     Expression::Literal(Literal::Empty)
+                // };
+                let e = es.unwrap();
+                let assign = Expression::Assign(
+                    Box::new(Expression::Identifier(Identifier("result".into()))),
+                    Box::new(e)
+                );
+                body.push(Statement::Expression(assign));
+                break;
+            } else {
+                // body.push(es.unwrap());
+                body.push(Statement::Expression(es.unwrap()));
+            }
+            self.bump();
+            self.bump();
+        }
+        self.bump();
+        Some(Expression::AnonymusFunction {params, body, is_proc: false})
+    }
+
+    fn parse_function_parameters(&mut self, end_token: Token) -> Option<Vec<Expression>> {
         let mut params = vec![];
         if self.is_next_token(&Token::Rparen) {
             self.bump();
@@ -1864,11 +1911,10 @@ impl Parser {
                 break;
             }
         }
-        if ! self.is_next_token_expected(Token::Rparen) {
+        if ! self.is_next_token_expected(end_token) {
             // self.error_got_invalid_close_token(Token::Rparen);
             return None;
         }
-
         Some(params)
     }
 
@@ -1937,7 +1983,7 @@ impl Parser {
             },
             _ => {}
         }
-        self.error_got_bad_parameter(format!("unexpected token: {:?}", self.current_token));
+        self.error_got_bad_parameter(format!("unexpected token: {:?}", self.current_token.token));
         None
     }
 
