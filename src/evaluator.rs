@@ -1670,7 +1670,19 @@ impl Evaluator {
         }
 
         // 関数実行
-        self.eval_block_statement(body)?;
+        match self.eval_block_statement(body) {
+            Ok(_) => {},
+            Err(e) => {
+                // 関数ブロックでエラーが発生した場合は、関数の実行事態ががなかったことになる
+                // - 戻り値を返さない
+                // - 参照渡しされた変数は更新されない
+                // - 関数内で作られたインスタンスを自動破棄しない
+
+                // スコープを戻す
+                self.env.borrow_mut().restore_scope();
+                return Err(e);
+            }
+        }
 
         // 戻り値
         let result = if is_class_instance {
