@@ -312,6 +312,14 @@ pub fn get_non_float_argument_value<T>(args: &BuiltinFuncArgs, i: usize, default
             Object::Num(n) => T::cast(n).or(Err(builtin_arg_error(
                 format!("unable to cast {} to {}", n, std::any::type_name::<T>()), args.name())
             )),
+            Object::String(ref s) => match s.parse::<f64>() {
+                Ok(n) => T::cast(n).or(Err(builtin_arg_error(
+                    format!("unable to cast {} to {}", n, std::any::type_name::<T>()), args.name())
+                )),
+                Err(_) => Err(builtin_arg_error(
+                    format!("bad argument: {}", arg), args.name())
+                )
+            },
             _ => Err(builtin_arg_error(
                 format!("bad argument: {}", arg), args.name())
             )
@@ -328,6 +336,12 @@ pub fn get_num_argument_value<T>(args: &BuiltinFuncArgs, i: usize, default: Opti
         let arg = args.item(i).unwrap();
         match arg {
             Object::Num(n) => Ok(T::cast(n)),
+            Object::String(ref s) => match s.parse::<f64>() {
+                Ok(n) => Ok(T::cast(n)),
+                Err(_) => Err(builtin_arg_error(
+                    format!("bad argument: {}", arg), args.name())
+                )
+            },
             _ => Err(builtin_arg_error(
                 format!("bad argument: {}", arg), args.name())
             )
@@ -343,7 +357,7 @@ pub fn get_string_argument_value(args: &BuiltinFuncArgs, i: usize, default: Opti
         match &arg {
             Object::String(s) => Ok(s.clone()),
             Object::RegEx(re) => Ok(re.clone()),
-            _ => Err(builtin_arg_error(format!("bad argument: {}", arg), args.name()))
+            o => Ok(format!("{}", o)),
         }
     } else {
         default.ok_or(builtin_arg_error(format!("argument {} required", i + 1), args.name()))
