@@ -644,7 +644,7 @@ impl Evaluator {
         }
     }
 
-    fn eval_try_statement(&mut self, trys: BlockStatement, except: Option<BlockStatement>, finnaly: Option<BlockStatement>) -> EvalResult<Option<Object>> {
+    fn eval_try_statement(&mut self, trys: BlockStatement, except: Option<BlockStatement>, finally: Option<BlockStatement>) -> EvalResult<Option<Object>> {
         let obj = match self.eval_block_statement(trys) {
             Ok(opt) => opt,
             Err(e) => {
@@ -662,8 +662,8 @@ impl Evaluator {
         if let Some(Object::ExitExit(_)) = obj {
             return Ok(obj);
         }
-        if finnaly.is_some() {
-            self.eval_block_statement(finnaly.unwrap())?;
+        if finally.is_some() {
+            self.eval_block_statement(finally.unwrap())?;
         }
         Ok(obj)
     }
@@ -1238,6 +1238,10 @@ impl Evaluator {
                 Object::Num(n) => self.eval_infix_number_expression(infix, v1.parse(), n),
                 Object::String(s) => self.eval_infix_string_expression(infix, v1.to_string(), s.clone()),
                 _ => self.eval_infix_misc_expression(infix, left, right)
+            },
+            Object::Array(mut a) => {
+                a.push(right);
+                Ok(Object::Array(a))
             },
             _ => self.eval_infix_misc_expression(infix, left, right)
         }
