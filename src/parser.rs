@@ -1832,27 +1832,24 @@ impl Parser {
 
         let mut body = vec![];
         loop {
-            let es = self.parse_expression(Precedence::Lowest, true);
-            if es.is_none() {
+            let optexpr = self.parse_expression(Precedence::Lowest, true);
+            if optexpr.is_none() {
                 return None;
             }
 
             if self.is_next_token(&Token::Pipeline) {
-                // let e = if let Statement::Expression(e) = es.unwrap() {
-                //     e
-                // } else {
-                //     Expression::Literal(Literal::Empty)
-                // };
-                let e = es.unwrap();
+                let e = optexpr.unwrap();
                 let assign = Expression::Assign(
                     Box::new(Expression::Identifier(Identifier("result".into()))),
                     Box::new(e)
                 );
                 body.push(Statement::Expression(assign));
                 break;
+            } else if self.is_next_token(&Token::Eol) {
+                body.push(Statement::Expression(optexpr.unwrap()));
             } else {
-                // body.push(es.unwrap());
-                body.push(Statement::Expression(es.unwrap()));
+                self.error_got_unexpected_next_token();
+                return None
             }
             self.bump();
             self.bump();
