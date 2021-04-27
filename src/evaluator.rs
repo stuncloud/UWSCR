@@ -338,6 +338,8 @@ impl Evaluator {
         for statement in block {
             if let Some(o) = self.eval_statement(statement)? {
                 match o {
+                    Object::Exit |
+                    Object::ExitExit(_) |
                     Object::Continue(_)|
                     Object::Break(_) => return Ok(Some(o)),
                     _ => ()
@@ -437,7 +439,7 @@ impl Evaluator {
                         } else {
                             break;
                         },
-                        _ => ()
+                        o => return Ok(Some(o))
                 },
                 _ => ()
             };
@@ -473,7 +475,7 @@ impl Evaluator {
                 } else {
                     break;
                 },
-                _ => ()
+                o => return Ok(o),
             }
         }
         Ok(None)
@@ -498,7 +500,8 @@ impl Evaluator {
                 } else {
                     break;
                 },
-                _ => ()
+                None => {},
+                o => return Ok(o),
             };
             flg = self.eval_loop_flg_expression(expression.clone())?;
         }
@@ -518,7 +521,8 @@ impl Evaluator {
                 } else {
                     break;
                 },
-                _ => ()
+                None => {},
+                o => return Ok(o),
             };
             if self.eval_loop_flg_expression(expression.clone())? {
                 break;
