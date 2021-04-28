@@ -120,7 +120,22 @@ impl Environment {
         }
     }
 
-    pub fn restore_scope(&mut self) {
+    pub fn restore_scope(&mut self, anon_outer: Option<Rc<RefCell<Vec<NamedObject>>>>) {
+        match anon_outer {
+            // 無名関数が保持する値を更新する
+            Some(rc) => {
+                let mut anon_outer = rc.borrow_mut();
+                for anon_obj in anon_outer.iter_mut() {
+                    for local_obj in self.current.local.iter() {
+                        if local_obj.name == anon_obj.name {
+                            anon_obj.object = local_obj.object.clone();
+                            break;
+                        }
+                    }
+                }
+            },
+            None => {}
+        }
         let outer = *self.current.outer.clone().unwrap();
         self.current = outer;
     }

@@ -22,7 +22,7 @@ pub enum Object {
     Bool(bool),
     Array(Vec<Object>),
     HashTbl(Rc<RefCell<HashTbl>>),
-    AnonFunc(Vec<Expression>, BlockStatement, Vec<NamedObject>, bool),
+    AnonFunc(Vec<Expression>, BlockStatement, Rc<RefCell<Vec<NamedObject>>>, bool),
     Function(String, Vec<Expression>, BlockStatement, bool, Option<Rc<RefCell<Module>>>),
     BuiltinFunction(String, i32, BuiltinFunction),
     Module(Rc<RefCell<Module>>),

@@ -716,7 +716,7 @@ impl Evaluator {
             },
             Expression::AnonymusFunction {params, body, is_proc} => {
                 let outer_local = self.env.borrow_mut().get_local_copy();
-                Object::AnonFunc(params, body, outer_local, is_proc)
+                Object::AnonFunc(params, body, Rc::new(RefCell::new(outer_local)), is_proc)
             },
             Expression::FuncCall {func, args} => {
                 self.eval_function_call_expression(func, args)?
@@ -1552,7 +1552,7 @@ impl Evaluator {
         mut arguments: Vec<(Option<Expression>, Object)>,
         body: Vec<Statement>,
         is_proc: bool,
-        anon_outer: Option<Vec<NamedObject>>,
+        anon_outer: Option<Rc<RefCell<Vec<NamedObject>>>>,
         rc_module: Option<Rc<RefCell<Module>>>,
         is_class_instance: bool
     ) -> EvalResult<Object> {
@@ -1564,7 +1564,7 @@ impl Evaluator {
         }
 
         if anon_outer.is_some() {
-            self.env.borrow_mut().copy_scope(anon_outer.unwrap());
+            self.env.borrow_mut().copy_scope(anon_outer.clone().unwrap().borrow().clone());
         } else {
             self.env.borrow_mut().new_scope();
         }
@@ -1687,7 +1687,7 @@ impl Evaluator {
                 // - 関数内で作られたインスタンスを自動破棄しない
 
                 // スコープを戻す
-                self.env.borrow_mut().restore_scope();
+                self.env.borrow_mut().restore_scope(None);
                 return Err(e);
             }
         }
@@ -1730,7 +1730,7 @@ impl Evaluator {
         self.auto_dispose_instances(do_not_dispose, false);
 
         // 関数スコープを抜ける
-        self.env.borrow_mut().restore_scope();
+        self.env.borrow_mut().restore_scope(anon_outer);
 
         for ((_, e), o) in reference.iter().zip(ref_values.iter()) {
             // Expressionが代入可能な場合のみ代入処理を行う
