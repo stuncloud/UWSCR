@@ -110,9 +110,9 @@ pub enum Token {
     Finally,
     EndTry,
 
-    TextBlock(Option<String>, String, bool),
+    TextBlock(bool),
     EndTextBlock,
-    NoEndTextBlock,
+    TextBlockBody(String),
 
     Function,
     Procedure,
