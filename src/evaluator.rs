@@ -750,7 +750,7 @@ impl Evaluator {
     fn eval_identifier(&mut self, identifier: Identifier) -> EvalResult<Object> {
         let Identifier(name) = identifier;
         let env = self.env.borrow();
-        let obj = match env.get_variable(&name) {
+        let obj = match env.get_variable(&name, true) {
             Some(o) => o,
             None => match env.get_function(&name) {
                 Some(o) => o,
@@ -941,7 +941,7 @@ impl Evaluator {
             Expression::Identifier(ident) => {
                 let Identifier(name) = ident;
                 let mut env = self.env.borrow_mut();
-                if let Some(Object::This(m)) = env.get_variable(&"this".into()) {
+                if let Some(Object::This(m)) = env.get_variable(&"this".into(), true) {
                     // moudele/classメンバであればその値を更新する
                     m.borrow_mut().assign(&name, value.clone(), None)?;
                     is_in_scope_auto_disposable = false;
@@ -960,7 +960,7 @@ impl Evaluator {
                 match *arr {
                     Expression::Identifier(ident) => {
                         let Identifier(name) = ident;
-                        let obj = self.env.borrow().get_variable(&name);
+                        let obj = self.env.borrow().get_variable(&name, true);
                         match obj {
                             Some(o) => {
                                 match o {
@@ -969,7 +969,7 @@ impl Evaluator {
                                         match index {
                                             Object::Num(n) => {
                                                 let i = n as usize;
-                                                if let Some(Object::This(m)) = self.env.borrow().get_variable(&"this".into()) {
+                                                if let Some(Object::This(m)) = self.env.borrow().get_variable(&"this".into(), true) {
                                                     // moudele/classメンバであればその値を更新する
                                                     m.borrow_mut().assign(&name, value.clone(), Some(index))?;
                                                     is_in_scope_auto_disposable = false;
@@ -1380,7 +1380,7 @@ impl Evaluator {
                 "TAB" => Some("\t".into()),
                 "DBL" => Some("\"".into()),
                 text => if expand_var {
-                    self.env.borrow().get_variable(&text.into()).map(|o| format!("{}", o).into())
+                    self.env.borrow().get_variable(&text.into(), false).map(|o| format!("{}", o).into())
                 } else {
                     continue;
                 },
@@ -1408,7 +1408,7 @@ impl Evaluator {
                     Some(o) => Ok(o),
                     None => match env.get_class(&name) {
                         Some(o) => Ok(o),
-                        None => match env.get_variable(&name) {
+                        None => match env.get_variable(&name, true) {
                             Some(o) => Ok(o),
                             None => return Err(UError::new(
                                 "Invalid Identifier".into(),
@@ -1705,7 +1705,7 @@ impl Evaluator {
         } else if is_proc {
             Object::Empty
         } else {
-            match self.env.borrow_mut().get_variable(&"result".to_string()) {
+            match self.env.borrow_mut().get_variable(&"result".to_string(), true) {
                 Some(o) => o,
                 None => Object::Empty
             }
@@ -1714,7 +1714,7 @@ impl Evaluator {
         let mut ref_values = vec![];
         let mut do_not_dispose = vec![];
         for (p_name, _) in reference.clone() {
-            let obj = self.env.borrow_mut().get_variable(&p_name).unwrap();
+            let obj = self.env.borrow_mut().get_variable(&p_name, true).unwrap();
             match obj {
                 Object::Instance(_, id) => do_not_dispose.push(format!("@INSTANCE{}", id)),
                 _ => {},
@@ -1823,7 +1823,7 @@ impl Evaluator {
                     Expression::Identifier(i) => {
                         let Identifier(member_name) = i;
                         if module.is_local_member(&member_name) {
-                            if let Some(Object::This(m)) = self.env.borrow().get_variable(&"this".into()) {
+                            if let Some(Object::This(m)) = self.env.borrow().get_variable(&"this".into(), true) {
                                 if module.name() == m.borrow().name() {
                                     return module.get_member(&member_name);
                                 }

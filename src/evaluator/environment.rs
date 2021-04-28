@@ -197,7 +197,7 @@ impl Environment {
     }
 
     // 変数評価の際に呼ばれる
-    pub fn get_variable(&self, name: &String) -> Option<Object> {
+    pub fn get_variable(&self, name: &String, expand: bool) -> Option<Object> {
         let obj = match self.get(&name, Scope::Local) {
             Some(value) => Some(value),
             None => match self.get(&name, Scope::Const) { // module関数から呼ばれた場合のみ
@@ -222,7 +222,11 @@ impl Environment {
         };
         match obj {
             Some(Object::DynamicVar(f)) => Some(f()),
-            Some(Object::ExpandableTB(text)) => Some(self.expand_string(text)),
+            Some(Object::ExpandableTB(text)) => if expand {
+                Some(self.expand_string(text))
+            } else {
+                Some(Object::String(text))
+            },
             Some(Object::Instance(ref rc,_)) => if rc.borrow().is_disposed() {
                 Some(Object::Nothing)
             } else {
@@ -534,7 +538,7 @@ impl Environment {
                 "CR" => Some("\r\n".into()),
                 "TAB" => Some("\t".into()),
                 "DBL" => Some("\"".into()),
-                text =>  self.get_variable(&text.into()).map(|o| format!("{}", o).into()),
+                text =>  self.get_variable(&text.into(), false).map(|o| format!("{}", o).into()),
             };
             new_string = rep_to.map_or(new_string.clone(), |to| new_string.replace(format!("<#{}>", expandable).as_str(), to.as_ref()));
         }
