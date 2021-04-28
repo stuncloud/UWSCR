@@ -45,6 +45,8 @@ pub struct Lexer {
     ch: char,
     position: Position,
     position_before: Position,
+    textblock_flg: bool,
+    is_textblock: bool,
 }
 
 impl Lexer {
@@ -56,6 +58,8 @@ impl Lexer {
             ch: '\0',
             position: Position {row: 1, column: 0},
             position_before: Position{row: 0, column:0},
+            textblock_flg: false,
+            is_textblock: false,
         };
         lexer.read_char();
 
@@ -113,6 +117,11 @@ impl Lexer {
     }
 
     pub fn next_token(&mut self) -> TokenWithPos {
+        if self.is_textblock {
+            let p = self.position.clone();
+            let body = self.get_textblock_body();
+            return TokenWithPos::new_with_pos(Token::TextBlockBody(body), p);
+        }
         self.skip_whitespace();
         let p: Position = self.position.clone();
 
@@ -267,8 +276,11 @@ impl Lexer {
                 return TokenWithPos::new_with_pos(self.consume_identifier(), p);
             },
         };
+        if token == Token::Eol && self.textblock_flg {
+            self.is_textblock = true;
+            self.textblock_flg = false;
+        };
         self.read_char();
-
         return TokenWithPos::new_with_pos(token, p);
     }
 
@@ -348,8 +360,14 @@ impl Lexer {
             "except" => Token::Except,
             "finally" => Token::Finally,
             "endtry" => Token::EndTry,
-            "textblock" => self.consume_textblock(false),
-            "textblockex" => self.consume_textblock(true),
+            "textblock" => {
+                self.textblock_flg = true;
+                Token::TextBlock(false)
+            },
+            "textblockex" => {
+                self.textblock_flg = true;
+                Token::TextBlock(true)
+            },
             "endtextblock" => Token::EndTextBlock,
             "function" => Token::Function,
             "procedure" => Token::Procedure,
@@ -456,38 +474,6 @@ impl Lexer {
         }
     }
 
-    fn consume_textblock(&mut self, is_ex: bool) -> Token {
-        // eolまで進める
-        let mut name = None;
-        loop {
-            let t = self.next_token();
-            match t.token {
-                Token::Eol => break,
-                Token::Identifier(s) => {
-                    name = Some(s);
-                }
-                _ => {},
-            }
-        }
-        let start_tb = self.pos;
-        let mut end_tb = self.pos;
-        loop {
-            if self.next_token().token == Token::EndTextBlock {
-                break;
-            }
-            loop {
-                end_tb = self.pos;
-                match self.next_token().token {
-                    Token::Eol => break,
-                    Token::Eof => return Token::NoEndTextBlock,
-                    _ => {},
-                };
-            }
-        }
-        let body: String = self.input[start_tb..end_tb].into_iter().collect();
-        Token::TextBlock(name, body, is_ex)
-    }
-
     fn consume_uobject(&mut self) -> Token {
         let start_uo = self.pos;
         loop {
@@ -514,6 +500,74 @@ impl Lexer {
         let path: String = self.input[start_pos..self.pos].into_iter().collect();
         path.trim().to_string()
     }
+    fn is_endtextblock(&mut self) -> bool {
+        let pos = self.pos;
+        let len = 12; // length of "endtextblock"
+        self.skip_whitespace();
+        let result = if self.ch == 'e' {
+            match self.input[self.pos..(self.pos + len)].into_iter().collect::<String>().to_ascii_lowercase().as_str() {
+                "endtextblock" => {
+                    true
+                },
+                _ => {
+                    false
+                }
+            }
+        } else {
+            false
+        };
+        self.pos = pos;
+        self.next_pos = pos + 1;
+        self.ch = if self.input.len() > pos {
+            self.input[pos]
+        } else {
+            self.input[self.input.len()- 1]
+        };
+        result
+    }
+
+    fn get_textblock_body(&mut self) -> String {
+        /*
+        textblock hoge // parserはToken::Textblock後のEoLに来たらこれを呼ぶ
+        hoge
+        fuga
+        piyo           // endtextblock前のEoLまでを返す
+        endtextblock
+        */
+        let start_pos = self.pos;
+        let mut end_pos = self.pos;
+
+        // 即endtextblockで閉じられているかどうか
+        if self.is_endtextblock() {
+            self.is_textblock = false;
+            return "".to_string();
+        }
+        loop {
+            match self.nextch() {
+                // 行末が来たら次がendtextblockかどうかを見る
+                '\r' | '\n' => {
+                    end_pos = self.pos + 1;
+                    self.read_char();
+                    if self.nextch_is('\n') {
+                        self.read_char();
+                    }
+                    self.read_char();
+                    self.position.row += 1;
+                    if self.is_endtextblock() {
+                        break;
+                    } else {
+                        continue;
+                    }
+                },
+                '\0' => break,
+                _ => self.read_char()
+            };
+        }
+        self.position.column = 0;
+        self.is_textblock = false;
+        let body: String = self.input[start_pos..end_pos].into_iter().collect();
+        body
+    }
 }
 
 #[cfg(test)]
@@ -525,6 +579,7 @@ mod test {
         let mut  lexer = Lexer::new(input);
         for expected_token in expected_tokens {
             let t = lexer.next_token();
+            println!("debug: {:?}", &t);
             assert_eq!(t.token, expected_token);
         }
     }
@@ -808,10 +863,37 @@ fend
         let test_cases = vec![
             (
 r#"textblock
-hoge
+comment
 endtextblock"#,
                 vec![
-                    Token::TextBlock(None, "hoge".into(), false)
+                    Token::TextBlock(false),
+                    Token::Eol,
+                    Token::TextBlockBody("comment".into()),
+                    Token::EndTextBlock,
+                ]
+            ),
+            (
+r#"
+    textblock
+    endtextblock
+"#,
+                vec![
+                    Token::Eol,
+                    Token::TextBlock(false),
+                    Token::Eol,
+                    Token::TextBlockBody("".into()),
+                    Token::EndTextBlock,
+                    Token::Eol,
+                ]
+            ),
+            (
+r#"textblock
+endtextblock"#,
+                vec![
+                    Token::TextBlock(false),
+                    Token::Eol,
+                    Token::TextBlockBody("".into()),
+                    Token::EndTextBlock,
                 ]
             ),
             (
@@ -820,19 +902,51 @@ hoge
 fuga
 endtextblock"#,
                 vec![
-                    Token::TextBlock(Some("hoge".into()), "hoge\nfuga".into(), false)
+                    Token::TextBlock(false),
+                    Token::Identifier("hoge".into()),
+                    Token::Eol,
+                    Token::TextBlockBody("hoge\nfuga".into()),
+                    Token::EndTextBlock,
                 ]
             ),
             (
 r#"
-        textblockex hoge
-        hoge
-        fuga
-        endtextblock
+    textblock hoge
+    hoge
+    fuga
+    endtextblock
 "#,
                 vec![
                     Token::Eol,
-                    Token::TextBlock(Some("hoge".into()), "        hoge\n        fuga".into(), true)
+                    Token::TextBlock(false),
+                    Token::Identifier("hoge".into()),
+                    Token::Eol,
+                    Token::TextBlockBody("    hoge\n    fuga".into()),
+                    Token::EndTextBlock,
+                    Token::Eol,
+                ]
+            ),
+            (
+r#"textblockex foo
+bar
+baz
+endtextblock"#,
+                vec![
+                    Token::TextBlock(true),
+                    Token::Identifier("foo".into()),
+                    Token::Eol,
+                    Token::TextBlockBody("bar\nbaz".into()),
+                    Token::EndTextBlock,
+                ]
+            ),
+            (
+                "textblockex foo\r\nbar\r\nbaz\r\nendtextblock",
+                vec![
+                    Token::TextBlock(true),
+                    Token::Identifier("foo".into()),
+                    Token::Eol,
+                    Token::TextBlockBody("bar\r\nbaz".into()),
+                    Token::EndTextBlock,
                 ]
             ),
         ];

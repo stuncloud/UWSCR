@@ -380,17 +380,7 @@ impl Parser {
             Token::ExitExit => self.parse_exitexit_statement(),
             Token::Module => self.parse_module_statement(),
             Token::Class => self.parse_class_statement(),
-            Token::TextBlock(ref name, ref body, is_ex) => {
-                name.clone().map(|s| Statement::TextBlock(Identifier(s), Literal::TextBlock(body.clone(), is_ex)))
-            },
-            Token::NoEndTextBlock => {
-                self.errors.push(ParseError::new(
-                    ParseErrorKind::BlockNotClosedCorrectly,
-                    format!("endtextblock required"),
-                    self.current_token.pos.clone()
-                ));
-                None
-            },
+            Token::TextBlock(is_ex) => self.parse_textblock_statement(is_ex),
             Token::With => self.parse_with_statement(),
             Token::Try => self.parse_try_statement(),
             _ => self.parse_expression_statement(),
@@ -1031,6 +1021,51 @@ impl Parser {
                 format!("Exit code should be number"),
                 self.current_token.pos
             ));
+            None
+        }
+    }
+
+    fn parse_textblock_statement(&mut self, is_ex: bool) -> Option<Statement> {
+        self.bump();
+        let name = match self.current_token.token {
+            Token::Identifier(ref name) => {
+                Some(Identifier(name.clone()))
+            },
+            Token::Eol => None,
+            _ => {
+                self.error_got_unexpected_token();
+                return None;
+            },
+        };
+        if name.is_some() {
+            self.bump();
+        }
+        self.bump();
+        let body = if let Token::TextBlockBody(ref body) = self.current_token.token {
+            body.clone()
+        } else {
+            self.errors.push(ParseError::new(
+                ParseErrorKind::UnexpectedToken,
+                "missing textblock body",
+                self.current_token.pos
+            ));
+            return None;
+        };
+        if self.is_next_token(&Token::EndTextBlock) {
+            self.bump()
+        } else {
+            self.errors.push(ParseError::new(
+                ParseErrorKind::BlockNotClosedCorrectly,
+                format!("endtextblock required"),
+                self.current_token.pos.clone()
+            ));
+            return None;
+        }
+        self.bump();
+        if name.is_some() {
+            Some(Statement::TextBlock(name.unwrap(), Literal::TextBlock(body, is_ex)))
+        } else {
+            // コメントtextblock
             None
         }
     }
