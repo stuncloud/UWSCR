@@ -123,7 +123,7 @@ pub enum Statement {
     Const(Vec<(Identifier, Expression)>),
     HashTbl(Vec<(Identifier, Option<Expression>, bool)>),
     Print(Expression),
-    Call(String),
+    Call(BlockStatement, Vec<Expression>), // スクリプトの実行部分、引数(param_str)
     DefDll {
         name: String,
         params: Vec<DefDllParam>,

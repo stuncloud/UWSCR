@@ -47,6 +47,7 @@ pub struct Lexer {
     position_before: Position,
     textblock_flg: bool,
     is_textblock: bool,
+    is_call: bool,
 }
 
 impl Lexer {
@@ -60,6 +61,7 @@ impl Lexer {
             position_before: Position{row: 0, column:0},
             textblock_flg: false,
             is_textblock: false,
+            is_call: false,
         };
         lexer.read_char();
 
@@ -124,6 +126,12 @@ impl Lexer {
         }
         self.skip_whitespace();
         let p: Position = self.position.clone();
+
+        if self.is_call {
+            self.is_call = false;
+            let token = self.consume_call_path();
+            return TokenWithPos::new_with_pos(token, p);
+        }
 
         let token: Token = match self.ch {
             '=' => {
@@ -279,35 +287,57 @@ impl Lexer {
         if token == Token::Eol && self.textblock_flg {
             self.is_textblock = true;
             self.textblock_flg = false;
-        };
+        }
         self.read_char();
         return TokenWithPos::new_with_pos(token, p);
     }
 
 
-    fn consume_special_statement(&mut self) -> String {
-        self.skip_whitespace();
+    fn consume_call_path(&mut self) -> Token {
+        // パスの解析
+        // 現在地から行末までに \ (バックスラッシュ)がなければファイル名とする
+        // ファイル名部分の最後に ( があればその直前までをパスとする
+        // ( からはまたnext_tokenさせる
         let start_pos = self.pos;
+        let mut back_slash_pos: usize = 0;
+        let mut lparen_pos: usize = 0;
+
         loop {
-            match self.ch {
-                '\n' | '\r' | '\0' => {
+            match self.nextch() {
+                '\r' | '\n' | '\0' | '/' => {
                     break;
                 },
-                '/' => {
-                    if self.nextch_is('/') {
-                        break;
-                    } else {
-                        self.read_char();
-                    }
-                },
-                _ => {
-                    self.read_char();
-                }
+                '\\' => back_slash_pos = self.pos + 1,
+                '(' => lparen_pos = self.pos + 1,
+                _ => {}
             }
+            self.read_char();
         }
+        let end_pos = if lparen_pos > 0 {
+            lparen_pos
+        } else {
+            self.pos + 1
+        };
+        let (dir, name) = if back_slash_pos > 0 {
+            (
+                Some(self.input[start_pos..back_slash_pos].into_iter().collect::<String>()),
+                self.input[(back_slash_pos + 1)..end_pos].into_iter().collect::<String>()
+            )
+        } else {
+            (
+                None,
+                self.input[start_pos..end_pos].into_iter().collect::<String>()
+            )
+        };
 
-        let sp_statement = self.input[start_pos..self.pos].into_iter().collect();
-        sp_statement
+        self.pos = end_pos;
+        self.next_pos = end_pos + 1;
+        self.ch = if self.input.len() > end_pos {
+            self.input[end_pos]
+        } else {
+            self.input[self.input.len()- 1]
+        };
+        Token::Path(dir, name)
     }
 
     fn consume_identifier(&mut self) -> Token {
@@ -340,7 +370,8 @@ impl Lexer {
             "selend" => Token::Selend,
             "print" => Token::Print,
             "call" => {
-                Token::Call(self.consume_special_statement())
+                self.is_call = true;
+                Token::Call
             },
             "def_dll" => Token::DefDll,
             "while" => Token::While,
@@ -491,15 +522,6 @@ impl Lexer {
         Token::UObject(json)
     }
 
-    fn _consume_path(&mut self) -> String {
-        self.skip_whitespace();
-        let start_pos = self.pos;
-        while self.ch != '\r' && self.ch != '\n' && self.ch != '/' && self.ch != '\0' {
-            self.read_char()
-        }
-        let path: String = self.input[start_pos..self.pos].into_iter().collect();
-        path.trim().to_string()
-    }
     fn is_endtextblock(&mut self) -> bool {
         let pos = self.pos;
         let len = 12; // length of "endtextblock"
@@ -579,7 +601,7 @@ mod test {
         let mut  lexer = Lexer::new(input);
         for expected_token in expected_tokens {
             let t = lexer.next_token();
-            println!("debug: {:?}", &t);
+            println!("debug output on test: {:?}", &t);
             assert_eq!(t.token, expected_token);
         }
     }
@@ -737,14 +759,6 @@ fend
             Token::Fend,
         ];
         test_next_token(input, tokens);
-    }
-
-    #[test]
-    fn test_special_statement() {
-        let input = r#"call C:\hoge\fuga\test.uws"#;
-        test_next_token(input, vec![
-            Token::Call(String::from(r"C:\hoge\fuga\test.uws")),
-        ]);
     }
 
     #[test]
@@ -955,4 +969,48 @@ endtextblock"#,
         }
 
     }
+
+    #[test]
+    fn test_call() {
+        let test_cases = vec![
+            (
+                "call hoge.uws",
+                vec![
+                    Token::Call,
+                    Token::Path(None, "hoge.uws".into())
+                ],
+            ),
+            (
+                "call c:\\test\\hoge.uws",
+                vec![
+                    Token::Call,
+                    Token::Path(Some("c:\\test".into()), "hoge.uws".into())
+                ],
+            ),
+            (
+                "call .\\hoge.uws",
+                vec![
+                    Token::Call,
+                    Token::Path(Some(".".into()), "hoge.uws".into())
+                ],
+            ),
+            (
+                "call hoge.uws(1, 2)",
+                vec![
+                    Token::Call,
+                    Token::Path(None, "hoge.uws".into()),
+                    Token::Lparen,
+                    Token::Num(1.0),
+                    Token::Comma,
+                    Token::Num(2.0),
+                    Token::Rparen
+                ],
+            ),
+        ];
+        for (input, expected) in test_cases {
+            test_next_token(input, expected);
+        }
+
+    }
+
 }

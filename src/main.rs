@@ -1,14 +1,11 @@
 use std::path::PathBuf;
-use std::fs;
 use std::env;
-
-use encoding_rs::{UTF_8, SHIFT_JIS};
-use regex::Regex;
 
 use uwscr::script;
 use uwscr::repl;
 use uwscr::evaluator::builtins::system_controls::shell_execute;
 use uwscr::logging::{out_log, LogType};
+use uwscr::get_script;
 
 
 fn main() {
@@ -21,7 +18,7 @@ fn main() {
                 shell_execute("https://github.com/stuncloud/UWSCR/wiki".into(), None);
             },
             Mode::Script(p) => {
-                match get_script(p) {
+                match get_script(&p) {
                     Ok(s) => match script::run(s, args.get_args()) {
                         Ok(_) => {},
                         Err(errors) => {
@@ -38,7 +35,7 @@ fn main() {
             },
             Mode::Repl(p) => {
                 if p.is_some() {
-                    match get_script(p.unwrap()) {
+                    match get_script(&p.unwrap()) {
                         Ok(s) => repl::run(Some(s)),
                         Err(e) => {
                             eprintln!("{}", e)
@@ -49,8 +46,9 @@ fn main() {
                 }
             },
             Mode::Ast(p) => {
-                match get_script(p) {
-                    Ok(s) => script::out_ast(s),
+                let path = p.clone().into_os_string().into_string().unwrap();
+                match get_script(&p) {
+                    Ok(s) => script::out_ast(s, &path),
                     Err(e) => {
                         eprintln!("{}", e)
                     }
@@ -161,24 +159,3 @@ enum Mode {
     OnlineHelp,
 }
 
-fn get_script(path: PathBuf) -> Result<String, String> {
-    let bytes = match fs::read(path) {
-        Ok(b) => b,
-        Err(e) => return Err(format!("{}", e))
-    };
-    let re = Regex::new("(\r\n|\r|\n)").unwrap();
-    get_utf8(&bytes).map(|s| re.replace_all(s.as_str(), "\r\n").to_string())
-}
-
-fn get_utf8(bytes: &Vec<u8>) -> Result<String, String> {
-    let (cow, _, err) = UTF_8.decode(bytes);
-    if ! err {
-        return Ok(cow.to_string());
-    } else {
-        let (cow, _, err) = SHIFT_JIS.decode(bytes);
-        if ! err {
-            return Ok(cow.to_string());
-        }
-    }
-    Err("unsupported encoding".into())
-}

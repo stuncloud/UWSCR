@@ -28,7 +28,8 @@ pub enum Token {
     Const,
     Thread,
     HashTable,
-    Call(String),
+    Call,
+    Path(Option<String>, String), // directory, filename
     DefDll,
 
     // 演算子

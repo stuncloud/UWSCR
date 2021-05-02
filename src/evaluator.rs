@@ -198,9 +198,23 @@ impl Evaluator {
                 Ok(None)
             },
             Statement::Print(e) => self.eval_print_statement(e),
-            Statement::Call(s) => {
-                println!("{}", s);
-                Ok(None)
+            Statement::Call(block, args) => {
+                let params_str = Expression::Literal(Literal::Array(args));
+                let arguments = vec![
+                    (Some(params_str.clone()), self.eval_expression(params_str)?)
+                ];
+                let call_res = self.invoke_user_function(
+                    vec![
+                        Expression::Params(Params::Identifier(Identifier("PARAM_STR".into())))
+                    ],
+                    arguments,
+                    block,
+                    true,
+                    None,
+                    None,
+                    false
+                )?;
+                Ok(Some(call_res))
             },
             Statement::DefDll{name: _, params:_, ret_type: _, path: _} => {
                 Ok(None)
@@ -475,6 +489,7 @@ impl Evaluator {
                 } else {
                     break;
                 },
+                None => {},
                 o => return Ok(o),
             }
         }

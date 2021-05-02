@@ -54,7 +54,23 @@ pub fn run(script: String, mut args: Vec<String>) -> Result<(), Vec<String>> {
     Ok(())
 }
 
-pub fn out_ast(script: String) {
+pub fn out_ast(script: String, path: &String) {
+
+    let script_dir = match get_parent_full_path(path) {
+        Ok(s) => s,
+        Err(_) => {
+            eprintln!("unable to get script path");
+            return;
+        },
+    };
+    logging::init(&script_dir);
+    match env::set_current_dir(&script_dir) {
+        Err(_)=> {
+            eprintln!("unable to set current directory");
+            return;
+        },
+        _ => {}
+    };
 
     let mut parser = Parser::new(Lexer::new(&script));
     let program = parser.parse();
