@@ -69,7 +69,11 @@ impl ParseError {
 
 impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} [{}]: {}", self.kind, self.pos, self.msg)
+        if self.script.is_none() {
+            write!(f, "{} [{}]: {}", self.kind, self.pos, self.msg)
+        } else {
+            write!(f, "{} [{}({})]: {}", self.kind, self.script.clone().unwrap(), self.pos, self.msg)
+        }
     }
 }
 
