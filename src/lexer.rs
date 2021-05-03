@@ -315,10 +315,16 @@ impl Lexer {
             }
             self.read_char();
         }
+        self.read_char();
         let end_pos = if lparen_pos > 0 {
+            // ( がある場合は現在地を戻す
+            self.pos = lparen_pos;
+            self.next_pos = lparen_pos + 1;
+            self.ch = self.input[lparen_pos];
             lparen_pos
         } else {
-            self.pos + 1
+            self.read_char();
+            self.pos - 1
         };
         let (dir, name) = if back_slash_pos > 0 {
             (
@@ -332,13 +338,6 @@ impl Lexer {
             )
         };
 
-        self.pos = end_pos;
-        self.next_pos = end_pos + 1;
-        self.ch = if self.input.len() > end_pos {
-            self.input[end_pos]
-        } else {
-            self.input[self.input.len()- 1]
-        };
         Token::Path(dir, name)
     }
 
