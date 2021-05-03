@@ -45,10 +45,10 @@ fn main() {
                     repl::run(None)
                 }
             },
-            Mode::Ast(p) => {
+            Mode::Ast(p, b) => {
                 let path = p.clone().into_os_string().into_string().unwrap();
                 match get_script(&p) {
-                    Ok(s) => script::out_ast(s, &path),
+                    Ok(s) => script::out_ast(s, &path, b),
                     Err(e) => {
                         eprintln!("{}", e)
                     }
@@ -87,7 +87,12 @@ impl Args {
             "-o"| "--online-help" => Ok(Mode::OnlineHelp),
             "-r" | "--repl" => self.get_path().map(|p| Mode::Repl(p)),
             "-a" | "--ast" => match self.get_path() {
-                Ok(Some(p)) => Ok(Mode::Ast(p)),
+                Ok(Some(p)) => Ok(Mode::Ast(p, false)),
+                Ok(None) => Err("FILE is required".to_string()),
+                Err(e) => Err(e)
+            },
+            "--ast-force" => match self.get_path() {
+                Ok(Some(p)) => Ok(Mode::Ast(p, true)),
                 Ok(None) => Err("FILE is required".to_string()),
                 Err(e) => Err(e)
             },
@@ -152,7 +157,7 @@ impl Args {
 enum Mode {
     Script(PathBuf),
     Repl(Option<PathBuf>),
-    Ast(PathBuf),
+    Ast(PathBuf, bool),
     Server(Option<u16>),
     Help,
     Version,

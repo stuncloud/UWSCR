@@ -344,7 +344,6 @@ impl Lexer {
 
     fn consume_identifier(&mut self) -> Token {
         let start_pos = self.pos;
-
         loop {
             match self.ch {
                 'a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '#' => {
@@ -359,7 +358,6 @@ impl Lexer {
             }
         }
         let literal: &String = &self.input[start_pos..self.pos].into_iter().collect();
-        println!("debug: {} {}:{} ch:{}", literal, start_pos, self.pos, self.ch);
 
         match literal.to_ascii_lowercase().as_str() {
             "if" => Token::If,

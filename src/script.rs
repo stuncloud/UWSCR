@@ -54,7 +54,7 @@ pub fn run(script: String, mut args: Vec<String>) -> Result<(), Vec<String>> {
     Ok(())
 }
 
-pub fn out_ast(script: String, path: &String) {
+pub fn out_ast(script: String, path: &String, force: bool) {
 
     let script_dir = match get_parent_full_path(path) {
         Ok(s) => s,
@@ -81,10 +81,12 @@ pub fn out_ast(script: String, path: &String) {
             eprintln!("{}", err);
         }
         eprintln!("");
-    } else {
-        for statement in program {
-            println!("{:?}", statement);
+        if ! force {
+            return;
         }
+    }
+    for statement in program {
+        println!("{:?}", statement);
     }
 }
 
