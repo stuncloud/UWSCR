@@ -23,6 +23,7 @@ use std::env;
 use cast;
 use strum::VariantNames;
 use num_traits::ToPrimitive;
+use strum_macros::{ToString, EnumVariantNames};
 
 pub type BuiltinFunction = fn(BuiltinFuncArgs) -> BuiltinFuncResult;
 pub type BuiltinFuncResult = Result<Object, UError>;
@@ -112,6 +113,7 @@ pub fn init_builtins() -> Vec<NamedObject> {
     let mut vec = Vec::new();
     // builtin debug functions
     builtin_func_sets().set(&mut vec);
+    set_builtin_str_consts::<VariableType>(&mut vec, "", "");
     // hashtbl
     set_builtin_consts::<HashTblEnum>(&mut vec);
     // window_low
@@ -120,7 +122,7 @@ pub fn init_builtins() -> Vec<NamedObject> {
     set_builtin_consts::<window_low::KeyActionEnum>(&mut vec);
     // window_control
     window_control::builtin_func_sets().set(&mut vec);
-    set_builtin_str_consts::<window_control::SpecialWindowId>(&mut vec);
+    set_builtin_str_consts::<window_control::SpecialWindowId>(&mut vec, "__", "__");
     set_builtin_consts::<window_control::CtrlWinCmd>(&mut vec);
     set_builtin_consts::<window_control::StatusEnum>(&mut vec);
     set_builtin_consts::<window_control::MonitorEnum>(&mut vec);
@@ -155,10 +157,10 @@ pub fn set_builtin_consts<E: std::str::FromStr + VariantNames + ToPrimitive>(vec
     }
 }
 
-pub fn set_builtin_str_consts<E: VariantNames>(vec: &mut Vec<NamedObject>) {
+pub fn set_builtin_str_consts<E: VariantNames>(vec: &mut Vec<NamedObject>, prefix: &str, suffix: &str) {
     for name in E::VARIANTS {
         let ucase_name = name.to_ascii_uppercase();
-        vec.push(NamedObject::new_builtin_const(ucase_name.clone(), Object::String(format!("__{}__", ucase_name))));
+        vec.push(NamedObject::new_builtin_const(ucase_name.clone(), Object::String(format!("{}{}{}", prefix, ucase_name, suffix))));
     }
 }
 
@@ -170,6 +172,7 @@ fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("name_of", 1, name_of);
     sets.add("assert_equal", 2, assert_equal);
     sets.add("raise", 2, raise);
+    sets.add("type_of", 2, type_of);
     sets
 }
 
@@ -266,6 +269,60 @@ pub fn raise(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let msg = get_string_argument_value(&args, 0, None)?;
     let title = get_string_argument_value(&args, 1, Some("User defined error".into()))?;
     Err(UError::new(title, msg, None))
+}
+
+#[allow(non_camel_case_types)]
+#[derive(Debug, EnumVariantNames, ToString)]
+pub enum VariableType {
+    TYPE_NUMBER,
+    TYPE_STRING,
+    TYPE_BOOL,
+    TYPE_ARRAY,
+    TYPE_HASHTBL,
+    TYPE_ANONYMOUS_FUNCTION,
+    TYPE_FUNCTION,
+    TYPE_BUILTIN_FUNCTION,
+    TYPE_MODULE,
+    TYPE_CLASS,
+    TYPE_CLASS_INSTANCE,
+    TYPE_NULL,
+    TYPE_EMPTY,
+    TYPE_NOTHING,
+    TYPE_HWND,
+    TYPE_REGEX,
+    TYPE_UOBJECT,
+    TYPE_VERSION,
+    TYPE_THIS,
+    TYPE_OTHER,
+}
+
+pub fn type_of(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let arg = get_any_argument_value(&args, 0, None)?;
+    let t = match arg {
+        Object::Num(_) => VariableType::TYPE_NUMBER,
+        Object::String(_) => VariableType::TYPE_STRING,
+        Object::Bool(_) => VariableType::TYPE_BOOL,
+        Object::Array(_) => VariableType::TYPE_ARRAY,
+        Object::HashTbl(_) => VariableType::TYPE_HASHTBL,
+        Object::AnonFunc(_,_,_,_) => VariableType::TYPE_ANONYMOUS_FUNCTION,
+        Object::Function(_,_,_,_,_) => VariableType::TYPE_FUNCTION,
+        Object::BuiltinFunction(_,_,_) => VariableType::TYPE_BUILTIN_FUNCTION,
+        Object::Module(_) => VariableType::TYPE_MODULE,
+        Object::Class(_,_) => VariableType::TYPE_CLASS,
+        Object::Instance(_,_) => VariableType::TYPE_CLASS_INSTANCE,
+        Object::Null => VariableType::TYPE_NULL,
+        Object::Empty => VariableType::TYPE_EMPTY,
+        Object::Nothing => VariableType::TYPE_NOTHING,
+        Object::Handle(_) => VariableType::TYPE_HWND,
+        Object::RegEx(_) => VariableType::TYPE_REGEX,
+        Object::This(_) => VariableType::TYPE_THIS,
+        Object::UObject(_) |
+        Object::UChild(_, _) => VariableType::TYPE_UOBJECT,
+        Object::Version(_) => VariableType::TYPE_VERSION,
+        Object::ExpandableTB(_) => VariableType::TYPE_STRING,
+        _ => VariableType::TYPE_OTHER
+    };
+    Ok(Object::String(t.to_string()))
 }
 
 pub fn assert_equal(args: BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -404,6 +461,18 @@ pub fn get_uobject_argument_value(args: &BuiltinFuncArgs, i: usize, default: Opt
         match arg {
             Object::UObject(_) |
             Object::UChild(_, _) => Ok(arg),
+            _ => Err(builtin_arg_error(format!("bad argument: {}", arg), args.name()))
+        }
+    } else {
+        default.ok_or(builtin_arg_error(format!("argument {} required", i + 1), args.name()))
+    }
+}
+
+pub fn get_array_argument_value(args: &BuiltinFuncArgs, i: usize, default: Option<Object>) -> Result<Object, BuiltinError> {
+    if args.len() >= i + 1 {
+        let arg = args.item(i).unwrap();
+        match arg {
+            Object::Array(_) => Ok(arg),
             _ => Err(builtin_arg_error(format!("bad argument: {}", arg), args.name()))
         }
     } else {
