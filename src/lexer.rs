@@ -241,7 +241,9 @@ impl Lexer {
             '.' => Token::Period,
             '_' => {
                 match self.nextch() {
-                    'a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '#' => self.consume_identifier(),
+                    'a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '#' => {
+                        return TokenWithPos::new_with_pos(self.consume_identifier(), p);
+                    },
                     _ => {
                         self.read_char();
                         let tp = self.next_token();
@@ -342,6 +344,7 @@ impl Lexer {
 
     fn consume_identifier(&mut self) -> Token {
         let start_pos = self.pos;
+
         loop {
             match self.ch {
                 'a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '#' => {
@@ -356,6 +359,7 @@ impl Lexer {
             }
         }
         let literal: &String = &self.input[start_pos..self.pos].into_iter().collect();
+        println!("debug: {} {}:{} ch:{}", literal, start_pos, self.pos, self.ch);
 
         match literal.to_ascii_lowercase().as_str() {
             "if" => Token::If,
@@ -666,7 +670,6 @@ mod test {
 
     #[test]
     fn test_numeric() {
-        use std::i64;
 
         let input = r#"print 123
 print $1234AB
@@ -677,8 +680,7 @@ print 123.456
             Token::Num(123 as f64),
             Token::Eol,
             Token::Print,
-            // Token::Hex("$1234AB".to_string()),
-            Token::Num(i64::from_str_radix("1234AB", 16).unwrap() as f64),
+            Token::Hex("1234AB".to_string()),
             Token::Eol,
             Token::Print,
             Token::Num(123.456),
