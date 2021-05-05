@@ -1,6 +1,7 @@
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::io::{stdin, stdout, Write};
+use std::env;
 
 use crate::evaluator::environment::Environment;
 use crate::evaluator::object::Object;
@@ -8,8 +9,34 @@ use crate::evaluator::Evaluator;
 use crate::parser::Parser;
 use crate::parser::ParseErrorKind;
 use crate::lexer::Lexer;
+use crate::script::{get_parent_full_path, get_script_name};
 
-pub fn run(script: Option<String>) {
+pub fn run(script: Option<String>, exe_path: String, script_path: Option<String>) {
+    match get_parent_full_path(&exe_path) {
+        Ok(s) => {
+            env::set_var("GET_UWSC_DIR", s.to_str().unwrap());
+        },
+        Err(e) => {
+            eprintln!("failed to get uwscr.exe path ({})", e);
+            return;
+        }
+    };
+    if script_path.is_some() {
+        match get_script_name(&script_path.clone().unwrap()) {
+            Some(s) =>env::set_var("GET_UWSC_NAME", s.as_str()),
+            None => {}
+        }
+        match get_parent_full_path(&script_path.unwrap()) {
+            Ok(s) => {
+                env::set_var("GET_SCRIPT_DIR", s.to_str().unwrap());
+            },
+            Err(e) => {
+                eprintln!("failed to get script path ({})", e);
+                return;
+            },
+        };
+    }
+
     let env = Environment::new(vec![]);
     let mut evaluator = Evaluator::new(Rc::new(RefCell::new(env)));
     if script.is_some() {

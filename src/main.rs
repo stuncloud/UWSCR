@@ -34,15 +34,16 @@ fn main() {
                 }
             },
             Mode::Repl(p) => {
+                let exe_path = args.args[0].clone();
                 if p.is_some() {
                     match get_script(&p.unwrap()) {
-                        Ok(s) => repl::run(Some(s)),
+                        Ok(s) => repl::run(Some(s), exe_path, Some(args.args[2].clone())),
                         Err(e) => {
                             eprintln!("{}", e)
                         }
                     }
                 } else {
-                    repl::run(None)
+                    repl::run(None, exe_path, None)
                 }
             },
             Mode::Ast(p, b) => {

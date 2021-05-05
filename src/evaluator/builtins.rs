@@ -185,21 +185,18 @@ fn set_special_variables(vec: &mut Vec<NamedObject>) {
     vec.push(NamedObject::new_builtin_const("GET_UWSCR_VER".into(), Object::Version(
         env!("CARGO_PKG_VERSION").parse::<Version>().unwrap_or(Version::new(0,0,0))
     )));
-    let uwscr_dir = match env::var("GET_UWSC_DIR") {
-        Ok(s) => s,
-        Err(_) => match env::current_dir() {
-            Ok(p) => p.into_os_string().into_string().unwrap(),
-            Err(_) => "".to_string()
-        }
-    };
-    vec.push(NamedObject::new_builtin_const("GET_UWSC_DIR".into(), Object::String(uwscr_dir.clone())));
-    vec.push(NamedObject::new_builtin_const("GET_UWSCR_DIR".into(), Object::String(uwscr_dir)));
-    vec.push(NamedObject::new_builtin_const("GET_UWSC_NAME".into(), Object::String(
-        env::var("GET_UWSC_NAME").unwrap_or("".into())
-    )));
-    vec.push(NamedObject::new_builtin_const("GET_UWSCR_NAME".into(), Object::String(
-        env::var("GET_UWSC_NAME").unwrap_or("".into())
-    )));
+    vec.push(NamedObject::new_builtin_const("GET_UWSC_DIR".into(),
+        env::var("GET_UWSC_DIR").map_or(Object::Empty, |path| Object::String(path))
+    ));
+    vec.push(NamedObject::new_builtin_const("GET_UWSCR_DIR".into(),
+        env::var("GET_UWSC_DIR").map_or(Object::Empty, |path| Object::String(path))
+    ));
+    vec.push(NamedObject::new_builtin_const("GET_UWSC_NAME".into(),
+        env::var("GET_UWSC_NAME").map_or(Object::Empty, |path| Object::String(path))
+    ));
+    vec.push(NamedObject::new_builtin_const("GET_UWSCR_NAME".into(),
+        env::var("GET_UWSC_NAME").map_or(Object::Empty, |path| Object::String(path))
+    ));
     vec.push(NamedObject::new_builtin_const("GET_WIN_DIR".into(), Object::String(
         get_windows_directory()
     )));

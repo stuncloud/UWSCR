@@ -33,7 +33,10 @@ pub fn run(script: String, mut args: Vec<String>) -> Result<(), Vec<String>> {
     logging::init(&script_dir);
     env::set_var("GET_UWSC_DIR", uwscr_dir.to_str().unwrap());
     env::set_var("GET_SCRIPT_DIR", script_dir.to_str().unwrap());
-    env::set_var("GET_UWSC_NAME", get_script_name(&args[1]));
+    match get_script_name(&args[1]) {
+        Some(s) => env::set_var("GET_UWSC_NAME", s.as_str()),
+        None => {}
+    }
     match env::set_current_dir(&script_dir) {
         Err(_)=> return Err(vec![
             "unable to set current directory".into()
@@ -90,7 +93,7 @@ pub fn out_ast(script: String, path: &String, force: bool) {
     }
 }
 
-fn get_parent_full_path(path: &String) -> Result<PathBuf, String> {
+pub fn get_parent_full_path(path: &String) -> Result<PathBuf, String> {
     let mut buffer = [0; MAX_PATH];
     let file = to_wide_string(path);
     unsafe {
@@ -100,6 +103,6 @@ fn get_parent_full_path(path: &String) -> Result<PathBuf, String> {
     Ok(Path::new(full_path.as_str()).parent().unwrap().to_owned())
 }
 
-fn get_script_name(path: &String) -> String {
-    Path::new(path.as_str()).file_name().unwrap().to_os_string().into_string().unwrap_or("".into())
+pub fn get_script_name(path: &String) -> Option<String> {
+    Path::new(path.as_str()).file_name().unwrap().to_os_string().into_string().ok()
 }
