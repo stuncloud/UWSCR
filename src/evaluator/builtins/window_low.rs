@@ -108,12 +108,66 @@ pub fn get_current_pos(name: &str) -> Result<POINT, UError>{
     Ok(point)
 }
 
+fn send_win_key(vk: u8, action: KeyActionEnum, wait: u64) -> BuiltinFuncResult {
+    thread::sleep(time::Duration::from_millis(wait));
+    unsafe {
+        let dw_flags = winuser::KEYEVENTF_SCANCODE | winuser::KEYEVENTF_EXTENDEDKEY;
+        let scancode = winuser::MapVirtualKeyW(vk as u32, 0) as u8;
+        match action {
+            KeyActionEnum::CLICK => {
+                winuser::keybd_event(
+                    0,
+                    scancode,
+                    dw_flags,
+                    0
+                );
+                // enigoと同様に20ms待つ
+                thread::sleep(time::Duration::from_millis(20));
+                winuser::keybd_event(
+                    0,
+                    scancode,
+                    winuser::KEYEVENTF_KEYUP | dw_flags,
+                    0
+                );
+            },
+            KeyActionEnum::DOWN => {
+                winuser::keybd_event(
+                    0,
+                    scancode,
+                    dw_flags,
+                    0
+                );
+            },
+            KeyActionEnum::UP => {
+                winuser::keybd_event(
+                    0,
+                    scancode,
+                    winuser::KEYEVENTF_KEYUP | dw_flags,
+                    0
+                );
+            },
+            _ => {},
+        }
+    }
+    Ok(Object::Empty)
+}
+
 pub fn kbd(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let mut enigo = Enigo::new();
-    let ms= get_non_float_argument_value::<u64>(&args, 2, Some(0))?;
+
     let obj = get_any_argument_value(&args, 0, None)?;
+    let action = get_non_float_argument_value::<i32>(&args, 1, Some(0))?;
+    let key_action = FromPrimitive::from_i32(action).unwrap_or(KeyActionEnum::UNKNOWN_ACTION);
+    let ms= get_non_float_argument_value::<u64>(&args, 2, Some(0))?;
+
+    let vk_win = key_codes::VirtualKeyCodes::VK_WIN as isize as f64;
+    let vk_rwin = key_codes::VirtualKeyCodes::VK_START as isize as f64;
     let key = match obj {
-        Object::Num(n) => Key::Raw(n as u16),
+        Object::Num(n) => if n == vk_win || n == vk_rwin {
+            return send_win_key(n as u8, key_action, ms)
+        } else {
+            Key::Raw(n as u16)
+        },
         Object::String(s) => {
             thread::sleep(time::Duration::from_millis(ms));
             enigo.key_sequence(s.as_str());
@@ -121,18 +175,12 @@ pub fn kbd(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         }
         _ => return Err(builtin_func_error(args.name(), format!("bad argument: {}", obj)))
     };
-    if args.len() >= 2 {
-        thread::sleep(time::Duration::from_millis(ms));
-        let action = get_non_float_argument_value::<i32>(&args, 1, Some(0))?;
-        match FromPrimitive::from_i32(action).unwrap_or(KeyActionEnum::UNKNOWN_ACTION) {
-            KeyActionEnum::CLICK => enigo.key_click(key),
-            KeyActionEnum::DOWN => enigo.key_down(key),
-            KeyActionEnum::UP => enigo.key_up(key),
-            _ => (),
-        };
-    } else {
-        thread::sleep(time::Duration::from_millis(ms));
-        enigo.key_click(key);
-    }
+    thread::sleep(time::Duration::from_millis(ms));
+    match key_action {
+        KeyActionEnum::CLICK => enigo.key_click(key),
+        KeyActionEnum::DOWN => enigo.key_down(key),
+        KeyActionEnum::UP => enigo.key_up(key),
+        _ => (),
+    };
     Ok(Object::Empty)
 }
