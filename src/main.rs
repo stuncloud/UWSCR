@@ -180,6 +180,8 @@ impl Args {
         println!("                                 スクリプトからはPARAM_STRで値を取得");
         println!("  uwscr [(-r|--repl) [FILE]]   : Replを起動 (スクリプトを指定するとそれを実行してから起動)");
         println!("  uwscr (-a|--ast) FILE        : スクリプトの構文木を出力");
+        println!("  uwscr --ast-force FILE       : 構文エラーでも構文木を出力");
+        println!("  uwscr (-l|--lib) FILE        : スクリプトをバイナリにする");
         // println!("  uwscr (-s|--server) [PORT]   : Language Serverとして起動、デフォルトポートはxxx");
         println!("  uwscr (-h|--help)            : このヘルプを表示");
         println!("  uwscr (-v|--version)         : UWSCRのバージョンを表示");
