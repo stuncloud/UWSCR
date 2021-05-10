@@ -56,8 +56,20 @@ fn main() {
                     }
                 }
             },
-            Mode::Lib(mut p) => {
+            Mode::Lib(p) => {
                 let path = p.clone();
+                let mut script_fullpath = if p.is_absolute() {
+                    p.clone()
+                } else {
+                    match env::current_dir() {
+                        Ok(cur) => cur.join(&p),
+                        Err(e) => {
+                            eprintln!("--lib: {}", e);
+                            return;
+                        }
+                    }
+                };
+
                 let dir = match path.parent() {
                     Some(p) => p,
                     None => {
@@ -72,17 +84,17 @@ fn main() {
                     },
                     _ => {},
                 };
-                match get_script(&p) {
+                match get_script(&script_fullpath) {
                     Ok(s) => match serializer::serialize(s) {
                         Some(bin) => {
                             // uwslファイルとして保存
-                            p.set_extension("uwsl");
-                            serializer::save(p, bin);
+                            script_fullpath.set_extension("uwsl");
+                            serializer::save(script_fullpath, bin);
                         },
                         None => {},
                     },
                     Err(e) => {
-                        eprintln!("{}", e)
+                        eprintln!("--lib: {}", e)
                     }
                 }
             },
