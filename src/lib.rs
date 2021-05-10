@@ -7,6 +7,7 @@ pub mod script;
 pub mod repl;
 pub mod winapi_util;
 pub mod logging;
+pub mod serializer;
 // pub mod settings;
 
 

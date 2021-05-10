@@ -1,9 +1,10 @@
 use std::fmt;
 use std::str::FromStr;
 
+use serde::{Serialize, Deserialize};
 use serde_json;
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub struct Identifier(pub String);
 
 impl fmt::Display for Identifier {
@@ -13,7 +14,7 @@ impl fmt::Display for Identifier {
     }
 }
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub enum Prefix {
     Plus,
     Minus,
@@ -30,7 +31,7 @@ impl fmt::Display for Prefix {
     }
 }
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub enum Infix {
     Plus,
     Minus,
@@ -71,7 +72,7 @@ impl fmt::Display for Infix {
     }
 }
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub enum Expression {
     Identifier(Identifier),
     Array(Vec<Expression>, Box<Expression>), // 配列、配列宣言時の添字
@@ -100,7 +101,7 @@ pub enum Expression {
     UObject(serde_json::Value),
 }
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub enum Literal {
     // Int(i64),
     Num(f64),
@@ -116,7 +117,7 @@ pub enum Literal {
     NaN,
 }
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub enum Statement {
     Dim(Vec<(Identifier, Expression)>),
     Public(Vec<(Identifier, Expression)>),
@@ -206,7 +207,7 @@ pub enum Precedence {
     DotCall,        // hoge.fuga
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub enum Params {
     Identifier(Identifier), // 通常の引数
     Reference(Identifier), // var引数
@@ -233,7 +234,7 @@ impl fmt::Display for Params {
     }
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub enum DefDllParam {
     Param(DllType),
     Var(DllType),
@@ -273,7 +274,7 @@ impl FromStr for DllType {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum DllType {
     Int,
     Long,

@@ -17,6 +17,9 @@ num-derive = "0.3"
 indexmap = "1.6.0"
 serde_json = "1.0"
 chrono = "0.4"
+bincode = "1"
+serde = { version = "1.0", features = ["derive"] }
+serde_derive = "1.0"
 
 [dependencies.winapi]
 version = "0.3.9"

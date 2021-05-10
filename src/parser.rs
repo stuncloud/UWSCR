@@ -2,8 +2,9 @@ use crate::ast::*;
 use crate::lexer::{Lexer, Position, TokenWithPos};
 use crate::token::Token;
 use crate::get_script;
+use crate::serializer;
 
-use std::{ffi::OsStr, fmt};
+use std::fmt;
 use std::path::PathBuf;
 
 use serde_json;
@@ -389,9 +390,11 @@ impl Parser {
                                 _ => new_block.push(statement)
                             }
                         }
-                        program.push(
-                            Statement::Call(new_block, params)
-                        );
+                        if new_block.len() > 0 {
+                            program.push(
+                                Statement::Call(new_block, params)
+                            );
+                        }
                     },
                     _ => program.push(s)
                 },
@@ -633,27 +636,57 @@ impl Parser {
             path.push(dir.unwrap());
         }
         path.push(&name);
+        match path.extension() {
+            Some(os_str) => {
+                if let Some(ext) = os_str.to_str() {
+                    // uwslファイルならデシリアライズして返す
+                    if ext.to_ascii_lowercase().as_str() == "uwsl" {
+                        match serializer::load(&path) {
+                            Ok(bin) => match serializer::deserialize(bin){
+                                Ok(program) => {
+                                    return Some(Statement::Call(program, args));
+                                },
+                                Err(e) => {
+                                    self.errors.push(ParseError::new(
+                                        ParseErrorKind::CanNotCallScript,
+                                        format!("{:?} [{}]", path, e),
+                                        self.current_token.pos,
+                                        self.script.clone()
+                                    ));
+                                }
+                            },
+                            Err(e) => {
+                                self.errors.push(ParseError::new(
+                                    ParseErrorKind::CanNotCallScript,
+                                    format!("{:?} [{}]", path, e),
+                                    self.current_token.pos,
+                                    self.script.clone()
+                                ));
+                            }
+                        }
+                    }
+                }
+            },
+            _ => {
+                path.set_extension("uws");
+            },
+        }
         let script;
         loop {
             script = match get_script(&path) {
                 Ok(s) => s,
                 Err(e) => {
                     if e.kind() == std::io::ErrorKind::NotFound {
-                        match path.extension().unwrap_or(OsStr::new("")).to_os_string().into_string().unwrap().to_ascii_lowercase().as_str() {
-                            "uwsr" => {
-                                path.set_extension("uws");
-                                continue;
-                            },
-                            "uws" => {},
-                            _ => {
-                                path.set_extension("uwsr");
-                                continue;
-                            }
+                        let ext = path.extension();
+                        // 拡張子がない場合は.uwsを付けて再挑戦
+                        if ext.is_none() {
+                            path.set_extension("uws");
+                            continue;
                         }
                     }
                     self.errors.push(ParseError::new(
                         ParseErrorKind::CanNotCallScript,
-                        format!("{} [{}]", path.file_name().unwrap().to_os_string().into_string().unwrap(), e),
+                        format!("{:?} [{}]", path, e),
                         self.current_token.pos,
                         self.script.clone()
                     ));

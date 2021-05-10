@@ -6,6 +6,7 @@ use uwscr::repl;
 use uwscr::evaluator::builtins::system_controls::shell_execute;
 use uwscr::logging::{out_log, LogType};
 use uwscr::get_script;
+use uwscr::serializer;
 
 
 fn main() {
@@ -55,6 +56,36 @@ fn main() {
                     }
                 }
             },
+            Mode::Lib(mut p) => {
+                let path = p.clone();
+                let dir = match path.parent() {
+                    Some(p) => p,
+                    None => {
+                        eprintln!("faild to get script directory.");
+                        return;
+                    },
+                };
+                match std::env::set_current_dir(dir) {
+                    Err(e) => {
+                        eprintln!("{}", e);
+                        return;
+                    },
+                    _ => {},
+                };
+                match get_script(&p) {
+                    Ok(s) => match serializer::serialize(s) {
+                        Some(bin) => {
+                            // uwslファイルとして保存
+                            p.set_extension("uwsl");
+                            serializer::save(p, bin);
+                        },
+                        None => {},
+                    },
+                    Err(e) => {
+                        eprintln!("{}", e)
+                    }
+                }
+            },
             Mode::Server(_p) => {
                 println!("Language serverは未実装です");
             },
@@ -94,6 +125,11 @@ impl Args {
             },
             "--ast-force" => match self.get_path() {
                 Ok(Some(p)) => Ok(Mode::Ast(p, true)),
+                Ok(None) => Err("FILE is required".to_string()),
+                Err(e) => Err(e)
+            },
+            "-l" | "--lib" => match self.get_path() {
+                Ok(Some(p)) => Ok(Mode::Lib(p)),
                 Ok(None) => Err("FILE is required".to_string()),
                 Err(e) => Err(e)
             },
@@ -159,6 +195,7 @@ enum Mode {
     Script(PathBuf),
     Repl(Option<PathBuf>),
     Ast(PathBuf, bool),
+    Lib(PathBuf),
     Server(Option<u16>),
     Help,
     Version,
