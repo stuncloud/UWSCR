@@ -26,6 +26,7 @@ pub enum ParseErrorKind {
     InvalidIdentifier,
     InvalidHexNumber,
     CanNotCallScript,
+    CanNotLoadUwsl,
 }
 
 #[derive(Debug, Clone)]
@@ -54,6 +55,7 @@ impl fmt::Display for ParseErrorKind {
             ParseErrorKind::InvalidIdentifier => write!(f, "Invalid identifier"),
             ParseErrorKind::InvalidHexNumber => write!(f, "Invalid hex number"),
             ParseErrorKind::CanNotCallScript => write!(f, "Failed to load script"),
+            ParseErrorKind::CanNotLoadUwsl => write!(f, "Failed to load uwsl file"),
         }
     }
 }
@@ -648,7 +650,7 @@ impl Parser {
                                 },
                                 Err(e) => {
                                     self.errors.push(ParseError::new(
-                                        ParseErrorKind::CanNotCallScript,
+                                        ParseErrorKind::CanNotLoadUwsl,
                                         format!("{:?} [{}]", path, e),
                                         self.current_token.pos,
                                         self.script.clone()
@@ -657,13 +659,14 @@ impl Parser {
                             },
                             Err(e) => {
                                 self.errors.push(ParseError::new(
-                                    ParseErrorKind::CanNotCallScript,
+                                    ParseErrorKind::CanNotLoadUwsl,
                                     format!("{:?} [{}]", path, e),
                                     self.current_token.pos,
                                     self.script.clone()
                                 ));
                             }
                         }
+                        return None;
                     }
                 }
             },
