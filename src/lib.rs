@@ -8,7 +8,8 @@ pub mod repl;
 pub mod winapi_util;
 pub mod logging;
 pub mod serializer;
-// pub mod settings;
+// pub mod settings
+pub mod winapi;
 
 
 use encoding_rs::{UTF_8, SHIFT_JIS};

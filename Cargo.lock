@@ -59,6 +59,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "const-sha1"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fb58b6451e8c2a812ad979ed1d83378caa5e927eef2622017a45f251457c2c9d"
+
+[[package]]
 name = "core-foundation"
 version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -413,6 +419,7 @@ dependencies = [
  "strum",
  "strum_macros",
  "winapi",
+ "windows",
  "winres",
 ]
 
@@ -443,6 +450,36 @@ name = "winapi-x86_64-pc-windows-gnu"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
+
+[[package]]
+name = "windows"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "361f3533a83ee1a28c9be59683f40043db02dbedf6479ce8795657386195c97f"
+dependencies = [
+ "const-sha1",
+ "windows_gen",
+ "windows_macros",
+]
+
+[[package]]
+name = "windows_gen"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "54154dbc515d58723f6b6053c12f1065da7389f733660581b2391bd1af480452"
+dependencies = [
+ "syn",
+]
+
+[[package]]
+name = "windows_macros"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0f7794c652845dc466cb8dc1b86c08345707c8144bc53e9086430047c7d33b76"
+dependencies = [
+ "syn",
+ "windows_gen",
+]
 
 [[package]]
 name = "winres"
