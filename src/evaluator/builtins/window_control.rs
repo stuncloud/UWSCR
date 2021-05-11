@@ -212,12 +212,14 @@ fn enum_window_proc(hwnd: HWND, lparam: LPARAM) -> BOOL {
     let mut class_buffer = [0; MAX_NAME_SIZE];
     // let target = &mut *(lparam as *mut TargetWindow) as &mut TargetWindow;
     let target = &mut *(lparam.0 as *mut TargetWindow);
-    GetWindowTextW(hwnd, PWSTR(title_buffer.as_mut_ptr()), title_buffer.len() as i32);
-    let title = String::from_utf16_lossy(&title_buffer);
+
+    let len = GetWindowTextW(hwnd, PWSTR(title_buffer.as_mut_ptr()), title_buffer.len() as i32);
+    let title = String::from_utf16_lossy(&title_buffer[..len as usize]);
     match title.to_ascii_lowercase().find(target.title.to_ascii_lowercase().as_str()) {
         Some(_) => {
-            GetClassNameW(hwnd, PWSTR(class_buffer.as_mut_ptr()), class_buffer.len() as i32);
-            let class = String::from_utf16_lossy(&class_buffer);
+            let len = GetClassNameW(hwnd, PWSTR(class_buffer.as_mut_ptr()), class_buffer.len() as i32);
+            let class = String::from_utf16_lossy(&class_buffer[..len as usize]);
+
             match class.to_ascii_lowercase().find(target.class_name.to_ascii_lowercase().as_str()) {
                 Some(_) => {
                     target.title = title;
@@ -348,7 +350,7 @@ pub fn acw(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let h = get_non_float_argument_value(&args, 4, None).ok();
     let ms= get_non_float_argument_value(&args, 5, Some(0)).unwrap_or(0);
     thread::sleep(Duration::from_millis(ms));
-    set_window_size(hwnd, x, y, w, h)?;
+    set_window_size(hwnd, x, y, w, h);
     set_id_zero(hwnd);
     Ok(Object::Empty)
 }
@@ -470,33 +472,34 @@ pub enum StatusEnum {
     UNKNOWN_STATUS = -1,
 }
 
-fn get_window_size(h: HWND) -> Result<HashMap<u8, i32>, UError> {
+fn get_window_size(h: HWND) -> HashMap<u8, i32> {
     let mut rect = RECT {left: 0, top: 0, right: 0, bottom: 0};
     let mut ret = HashMap::new();
     unsafe {
         let mut aero_enabled = false.into();
-        DwmIsCompositionEnabled(&mut aero_enabled).ok()?;
+        let _ = DwmIsCompositionEnabled(&mut aero_enabled);
         if ! aero_enabled.as_bool() {
             // AEROがオフならGetWindowRect
             GetWindowRect(h, &mut rect);
         } else {
-            DwmGetWindowAttribute(
+            let _ = DwmGetWindowAttribute(
                 h,
                 DWMWINDOWATTRIBUTE::DWMWA_EXTENDED_FRAME_BOUNDS.0 as u32,
                 &mut rect as *mut _ as *mut c_void,
                 mem::size_of::<RECT>() as u32
-            ).ok()?;
+            );
         };
     }
     ret.insert(StatusEnum::ST_X as u8, rect.left);
     ret.insert(StatusEnum::ST_Y as u8, rect.top);
     ret.insert(StatusEnum::ST_WIDTH as u8, rect.right - rect.left);
     ret.insert(StatusEnum::ST_HEIGHT as u8, rect.bottom - rect.top);
-    Ok(ret)
+    ret
 }
 
-pub fn set_window_size(hwnd: HWND, x: Option<i32>, y: Option<i32>, w: Option<i32>, h: Option<i32>) -> Result<(), UError> {
-    let default_rect = get_window_size(hwnd)?;
+pub fn set_window_size(hwnd: HWND, x: Option<i32>, y: Option<i32>, w: Option<i32>, h: Option<i32>) {
+    let default_rect = get_window_size(hwnd);
+
     let x = x.unwrap_or(*default_rect.get(&(StatusEnum::ST_X as u8)).unwrap());
     let y = y.unwrap_or(*default_rect.get(&(StatusEnum::ST_Y as u8)).unwrap());
     let w = w.unwrap_or(*default_rect.get(&(StatusEnum::ST_WIDTH as u8)).unwrap());
@@ -509,14 +512,16 @@ pub fn set_window_size(hwnd: HWND, x: Option<i32>, y: Option<i32>, w: Option<i32
         let mut dw = 0;
         let mut dh = 0;
         let mut aero_enabled = false.into();
-        DwmIsCompositionEnabled(&mut aero_enabled).ok()?;
+        let _ = DwmIsCompositionEnabled(&mut aero_enabled);
+
         if aero_enabled.as_bool() {
-            DwmGetWindowAttribute(
+            let _ = DwmGetWindowAttribute(
                 hwnd,
                 DWMWINDOWATTRIBUTE::DWMWA_EXTENDED_FRAME_BOUNDS.0 as u32,
                 &mut rect1 as *mut _ as *mut c_void,
                 mem::size_of::<RECT>() as u32
-            ).ok()?;
+            );
+
             GetWindowRect(hwnd, &mut rect2);
             dx = rect2.left - rect1.left;
             dy = rect2.top - rect1.top;
@@ -524,7 +529,6 @@ pub fn set_window_size(hwnd: HWND, x: Option<i32>, y: Option<i32>, w: Option<i32
             dh = -dy + rect2.bottom - rect1.bottom;
         };
         MoveWindow(hwnd, x + dx, y + dy, w + dw, h + dh, true);
-        Ok(())
     }
 }
 
@@ -546,11 +550,9 @@ fn get_client_size(h: HWND) -> HashMap<u8, i32> {
 fn get_window_text(hwnd: HWND) -> BuiltinFuncResult {
     unsafe {
         let mut buffer = [0; MAX_NAME_SIZE];
-        GetWindowTextW(hwnd, PWSTR(buffer.as_mut_ptr()), buffer.len() as i32);
-        buffer_to_string(&buffer).map_or_else(
-            |e| Err(builtin_func_error("status", e)),
-            |s| Ok(Object::String(s))
-        )
+        let len = GetWindowTextW(hwnd, PWSTR(buffer.as_mut_ptr()), buffer.len() as i32);
+        let s = String::from_utf16_lossy(&buffer[..len as usize]);
+        Ok(Object::String(s))
     }
 }
 
@@ -650,7 +652,7 @@ fn get_status_result(hwnd: HWND, st: u8) -> BuiltinFuncResult {
         StatusEnum::ST_X |
         StatusEnum::ST_Y |
         StatusEnum::ST_WIDTH |
-        StatusEnum::ST_HEIGHT => Object::Num(*get_window_size(hwnd)?.get(&st).unwrap_or(&0) as f64),
+        StatusEnum::ST_HEIGHT => Object::Num(*get_window_size(hwnd).get(&st).unwrap_or(&0) as f64),
         StatusEnum::ST_CLX |
         StatusEnum::ST_CLY |
         StatusEnum::ST_CLWIDTH |
@@ -683,7 +685,7 @@ fn get_all_status(hwnd: HWND) -> BuiltinFuncResult {
     let mut stats = HashTbl::new(true, false);
     stats.insert((StatusEnum::ST_TITLE as u8).to_string(), get_window_text(hwnd)?);
     stats.insert((StatusEnum::ST_CLASS as u8).to_string(), get_class_name(hwnd)?);
-    let rect = get_window_size(hwnd)?;
+    let rect = get_window_size(hwnd);
     stats.insert((StatusEnum::ST_X as u8).to_string(), Object::Num(*rect.get(&(StatusEnum::ST_X as u8)).unwrap_or(&0) as f64));
     stats.insert((StatusEnum::ST_Y as u8).to_string(), Object::Num(*rect.get(&(StatusEnum::ST_Y as u8)).unwrap_or(&0) as f64));
     stats.insert((StatusEnum::ST_WIDTH as u8).to_string(), Object::Num(*rect.get(&(StatusEnum::ST_WIDTH as u8)).unwrap_or(&0) as f64));
