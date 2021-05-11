@@ -33,4 +33,16 @@ fn main() {
         "#);
         res.compile().unwrap();
     }
+    // windows-rs
+    windows::build!(
+        Windows::Win32::KeyboardAndMouseInput::{
+            keybd_event, KEYBD_EVENT_FLAGS, MapVirtualKeyW,
+        },
+        Windows::Win32::WindowsAndMessaging::{
+            GetCursorPos,
+        },
+        Windows::Win32::DisplayDevices::{
+            POINT
+        },
+    )
 }

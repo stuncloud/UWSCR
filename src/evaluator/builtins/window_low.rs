@@ -4,18 +4,16 @@ use crate::evaluator::builtins::*;
 use std::{thread, time};
 
 use enigo::*;
-use winapi::{
-    um::{
-        winuser,
-    },
-    shared::{
-        windef::{POINT},
-        minwindef::{FALSE},
-    },
-};
 use strum_macros::{EnumString, EnumVariantNames};
 use num_derive::{ToPrimitive, FromPrimitive};
 use num_traits::FromPrimitive;
+use crate::winapi::bindings::{
+    Windows::Win32::KeyboardAndMouseInput::{
+        keybd_event, KEYBD_EVENT_FLAGS, MapVirtualKeyW
+    },
+    Windows::Win32::WindowsAndMessaging::GetCursorPos,
+    Windows::Win32::DisplayDevices::POINT,
+};
 
 pub fn builtin_func_sets() -> BuiltinFunctionSets {
     let mut sets = BuiltinFunctionSets::new();
@@ -101,7 +99,7 @@ pub fn btn(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 pub fn get_current_pos(name: &str) -> Result<POINT, UError>{
     let mut point = POINT {x: 0, y: 0};
     unsafe {
-        if winuser::GetCursorPos(&mut point) == FALSE {
+        if GetCursorPos(&mut point).as_bool() == false {
             return Err(builtin_func_error("failed to get cursor position".into(), name));
         };
     }
@@ -111,11 +109,11 @@ pub fn get_current_pos(name: &str) -> Result<POINT, UError>{
 fn send_win_key(vk: u8, action: KeyActionEnum, wait: u64) -> BuiltinFuncResult {
     thread::sleep(time::Duration::from_millis(wait));
     unsafe {
-        let dw_flags = winuser::KEYEVENTF_SCANCODE | winuser::KEYEVENTF_EXTENDEDKEY;
-        let scancode = winuser::MapVirtualKeyW(vk as u32, 0) as u8;
+        let dw_flags = KEYBD_EVENT_FLAGS::KEYEVENTF_SCANCODE | KEYBD_EVENT_FLAGS::KEYEVENTF_EXTENDEDKEY;
+        let scancode = MapVirtualKeyW(vk as u32, 0) as u8;
         match action {
             KeyActionEnum::CLICK => {
-                winuser::keybd_event(
+                keybd_event(
                     0,
                     scancode,
                     dw_flags,
@@ -123,15 +121,15 @@ fn send_win_key(vk: u8, action: KeyActionEnum, wait: u64) -> BuiltinFuncResult {
                 );
                 // enigoと同様に20ms待つ
                 thread::sleep(time::Duration::from_millis(20));
-                winuser::keybd_event(
+                keybd_event(
                     0,
                     scancode,
-                    winuser::KEYEVENTF_KEYUP | dw_flags,
+                    KEYBD_EVENT_FLAGS::KEYEVENTF_KEYUP | dw_flags,
                     0
                 );
             },
             KeyActionEnum::DOWN => {
-                winuser::keybd_event(
+                keybd_event(
                     0,
                     scancode,
                     dw_flags,
@@ -139,10 +137,10 @@ fn send_win_key(vk: u8, action: KeyActionEnum, wait: u64) -> BuiltinFuncResult {
                 );
             },
             KeyActionEnum::UP => {
-                winuser::keybd_event(
+                keybd_event(
                     0,
                     scancode,
-                    winuser::KEYEVENTF_KEYUP | dw_flags,
+                    KEYBD_EVENT_FLAGS::KEYEVENTF_KEYUP | dw_flags,
                     0
                 );
             },
