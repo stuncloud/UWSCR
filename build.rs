@@ -35,14 +35,40 @@ fn main() {
     }
     // windows-rs
     windows::build!(
+        Windows::Win32::WindowsProgramming::{
+            CloseHandle,
+        },
+        Windows::Win32::SystemServices::{
+            NULL, PWSTR, BOOL, HANDLE, MAX_PATH,
+            PROCESS_ACCESS_RIGHTS,
+            WaitForInputIdle, OpenProcess, IsWow64Process,
+        },
         Windows::Win32::KeyboardAndMouseInput::{
             keybd_event, KEYBD_EVENT_FLAGS, MapVirtualKeyW,
         },
         Windows::Win32::WindowsAndMessaging::{
+            HWND, WPARAM, LPARAM, WM_CLOSE, WM_DESTROY, HWND_TOPMOST, HWND_NOTOPMOST,
+            SHOW_WINDOW_CMD, SET_WINDOW_POS_FLAGS, WINDOWPLACEMENT, WINDOWPLACEMENT_FLAGS,
+            MONITORINFOF_PRIMARY,
             GetCursorPos,
+            WindowFromPoint, GetParent, IsWindowVisible, GetClientRect,
+            GetForegroundWindow, GetWindowTextW, GetClassNameW, EnumWindows,
+            IsWindow, PostMessageW, SetForegroundWindow, ShowWindow,
+            SetWindowPos, GetWindowRect, MoveWindow, GetWindowPlacement,
+            GetWindowThreadProcessId, IsIconic, IsWindowVisible, IsHungAppWindow,
         },
         Windows::Win32::DisplayDevices::{
-            POINT
+            POINT, RECT,
+        },
+        Windows::Win32::ProcessStatus::K32GetModuleFileNameExW,
+        Windows::Win32::Gdi::{
+            MONITOR_FROM_FLAGS, HMONITOR, HDC, DISPLAY_DEVICEW, MONITORINFOEXW, MONITORINFO,
+            MapWindowPoints, MonitorFromWindow, EnumDisplayMonitors,
+            EnumDisplayDevicesW, GetMonitorInfoW,
+        },
+        Windows::Win32::Dwm::{
+            DWMWINDOWATTRIBUTE,
+            DwmIsCompositionEnabled, DwmGetWindowAttribute,
         },
     )
 }

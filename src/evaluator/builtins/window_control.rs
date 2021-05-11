@@ -1,11 +1,45 @@
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
-use crate::evaluator::builtins::window_low::get_current_pos;
+use crate::evaluator::builtins::window_low;
 use crate::evaluator::builtins::system_controls::is_64bit_os;
 use crate::evaluator::UError;
 use crate::winapi_util::buffer_to_string;
+use crate::winapi::bindings::{
+    Windows::Win32::WindowsProgramming::{
+        CloseHandle,
+    },
+    Windows::Win32::SystemServices:: {
+        PWSTR, BOOL, HANDLE, PROCESS_ACCESS_RIGHTS,
+        MAX_PATH,
+        WaitForInputIdle, OpenProcess, IsWow64Process,
+    },
+    Windows::Win32::DisplayDevices::{
+        POINT, RECT
+    },
+    Windows::Win32::WindowsAndMessaging::{
+        HWND, WPARAM, LPARAM, SHOW_WINDOW_CMD, SET_WINDOW_POS_FLAGS,
+        WINDOWPLACEMENT, WINDOWPLACEMENT_FLAGS,
+        WM_CLOSE, WM_DESTROY, HWND_TOPMOST, HWND_NOTOPMOST,
+        MONITORINFOF_PRIMARY,
+        WindowFromPoint, GetParent, IsWindowVisible, GetClientRect,
+        GetForegroundWindow, GetWindowTextW, GetClassNameW, EnumWindows,
+        IsWindow, PostMessageW, SetForegroundWindow, ShowWindow,
+        SetWindowPos, GetWindowRect, MoveWindow, GetWindowPlacement,
+        GetWindowThreadProcessId, IsIconic, IsHungAppWindow,
+    },
+    Windows::Win32::ProcessStatus::K32GetModuleFileNameExW,
+    Windows::Win32::Gdi::{
+        MONITOR_FROM_FLAGS, HMONITOR, HDC, DISPLAY_DEVICEW, MONITORINFOEXW, MONITORINFO,
+        MapWindowPoints, MonitorFromWindow, EnumDisplayMonitors,
+        EnumDisplayDevicesW, GetMonitorInfoW,
+    },
+    Windows::Win32::Dwm::{
+        DWMWINDOWATTRIBUTE,
+        DwmIsCompositionEnabled, DwmGetWindowAttribute,
+    },
+};
 
-use std::fmt;
+use std::{ffi::c_void, fmt};
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex, Once};
@@ -17,29 +51,6 @@ use std::cell::RefCell;
 
 use std::ptr::{null_mut};
 
-use winapi::{
-    um::{
-        winuser,
-        dwmapi,
-        processthreadsapi,
-        // libloaderapi,
-        handleapi,
-        psapi,
-        winnt::{
-            PROCESS_QUERY_INFORMATION,
-            PROCESS_VM_READ,
-            HANDLE
-        },
-        wingdi,
-        wow64apiset,
-    },
-    shared::{
-        windef::{HWND, RECT, POINT, HMONITOR, HDC, LPRECT, },
-        minwindef::{
-            LPARAM, BOOL, TRUE, FALSE, LPVOID, DWORD, MAX_PATH
-        },
-    },
-};
 use strum_macros::{EnumString, EnumVariantNames};
 use num_derive::{ToPrimitive, FromPrimitive};
 use num_traits::FromPrimitive;
@@ -141,33 +152,31 @@ pub enum SpecialWindowId {
 pub fn getid(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let title = get_string_argument_value(&args, 0, None)?;
     let hwnd = match title.as_str() {
-        "__GET_ACTIVE_WIN__" => {
-            unsafe {
-                winuser::GetForegroundWindow()
-            }
+        "__GET_ACTIVE_WIN__" => unsafe {
+            GetForegroundWindow()
         },
         "__GET_FROMPOINT_WIN__" => get_hwnd_from_mouse_point(true, "getid")?,
         "__GET_FROMPOINT_OBJ__" => get_hwnd_from_mouse_point(false, "getid")?,
         "__GET_THISUWSC_WIN__" => {
-            null_mut()
+            HWND::NULL
         },
         "__GET_LOGPRINT_WIN__" => {
-            null_mut()
+            HWND::NULL
         },
         "__GET_BALLOON_WIN__" => {
-            null_mut()
+            HWND::NULL
         },
         "__GET_FORM_WIN__" => {
-            null_mut()
+            HWND::NULL
         },
         "__GET_FORM_WIN2__" => {
-            null_mut()
+            HWND::NULL
         },
         "__GET_SCHEDULE_WIN__" => {
-            null_mut()
+            HWND::NULL
         },
         "__GET_STOPFORM_WIN__" => {
-            null_mut()
+            HWND::NULL
         },
         _ => {
             let class_name = get_string_argument_value(&args, 1, Some("".into()))?;
@@ -176,7 +185,7 @@ pub fn getid(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             find_window(title, class_name, wait, args.name())?
         },
     };
-    if hwnd != null_mut() {
+    if ! hwnd.is_null() {
         let mut id = get_id_from_hwnd(hwnd);
         if id == -1.0 {
             let new_id = get_next_id();
@@ -191,58 +200,48 @@ pub fn getid(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 
 const MAX_NAME_SIZE: usize = 512;
 
+#[derive(Debug)]
 struct TargetWindow {
     hwnd: HWND,
     title: String,
     class_name: String,
     found: bool,
-    err: Option<String>,
 }
 
 unsafe extern "system"
 fn enum_window_proc(hwnd: HWND, lparam: LPARAM) -> BOOL {
     let mut title_buffer = [0; MAX_NAME_SIZE];
     let mut class_buffer = [0; MAX_NAME_SIZE];
-    let target = &mut *(lparam as *mut TargetWindow) as &mut TargetWindow;
-    winuser::GetWindowTextW(hwnd, title_buffer.as_mut_ptr(), title_buffer.len() as i32);
-    match buffer_to_string(&title_buffer) {
-        Ok(t) => match t.to_ascii_lowercase().find(target.title.to_ascii_lowercase().as_str()) {
-            Some(_) => {
-                winuser::GetClassNameW(hwnd, class_buffer.as_mut_ptr(), class_buffer.len() as i32);
-                match buffer_to_string(&class_buffer) {
-                    Ok(c) => match c.to_ascii_lowercase().find(target.class_name.to_ascii_lowercase().as_str()) {
-                        Some(_) => {
-                            target.title = t;
-                            target.class_name = c;
-                            target.hwnd = hwnd;
-                            target.found = true;
-                            return FALSE;
-                        },
-                        None => ()
-                    },
-                    Err(e) => {
-                        target.err = Some(e);
-                        return FALSE; // 終わる
-                    },
-                }
-            },
-            None => ()
+    // let target = &mut *(lparam as *mut TargetWindow) as &mut TargetWindow;
+    let mut target = *(lparam.0 as *mut TargetWindow);
+    GetWindowTextW(hwnd, PWSTR(title_buffer.as_mut_ptr()), title_buffer.len() as i32);
+    let title = String::from_utf16_lossy(&title_buffer);
+    match title.to_ascii_lowercase().find(target.title.to_ascii_lowercase().as_str()) {
+        Some(_) => {
+            GetClassNameW(hwnd, PWSTR(class_buffer.as_mut_ptr()), class_buffer.len() as i32);
+            let class = String::from_utf16_lossy(&class_buffer);
+            match class.to_ascii_lowercase().find(target.class_name.to_ascii_lowercase().as_str()) {
+                Some(_) => {
+                    target.title = title;
+                    target.class_name = class;
+                    target.hwnd = hwnd;
+                    target.found = true;
+                    return false.into();
+                },
+                None => ()
+            }
         },
-        Err(e) => {
-            target.err = Some(e);
-            return FALSE; // 終わる
-        },
+        None => ()
     }
-    TRUE // 次のウィンドウへ
+    true.into() // 次のウィンドウへ
 }
 
 fn find_window(title: String, class_name: String, timeout: f64, name: &str) -> Result<HWND, UError> {
     let mut target = TargetWindow {
-        hwnd: null_mut(),
+        hwnd: HWND::NULL,
         title,
         class_name,
         found: false,
-        err: None
     };
     let now = Instant::now();
     let limit = if timeout < 0.0 {
@@ -257,8 +256,9 @@ fn find_window(title: String, class_name: String, timeout: f64, name: &str) -> R
         Some(Duration::from_secs_f64(timeout))
     };
     unsafe {
+        let lparam = &mut target as *mut TargetWindow as isize;
         loop {
-            winuser::EnumWindows(Some(enum_window_proc), &mut target as *mut TargetWindow as LPARAM);
+            EnumWindows(Some(enum_window_proc), LPARAM(lparam));
             if target.found {
                 break
             }
@@ -266,26 +266,21 @@ fn find_window(title: String, class_name: String, timeout: f64, name: &str) -> R
                 break;
             }
         }
-        match target.err {
-            Some(e) => return Err(builtin_func_error(name, e)),
-            None => {
-                let h = get_process_handle_from_hwnd(target.hwnd);
-                winuser::WaitForInputIdle(h, 1000); // 入力可能になるまで最大1秒待つ
-                handleapi::CloseHandle(h);
-                Ok(target.hwnd)
-            }
-        }
+        let h = get_process_handle_from_hwnd(target.hwnd);
+        WaitForInputIdle(h, 1000); // 入力可能になるまで最大1秒待つ
+        CloseHandle(h);
+        Ok(target.hwnd)
     }
 }
 
 fn get_hwnd_from_mouse_point(toplevel: bool, name: &str) -> Result<HWND, UError> {
     unsafe {
-        let point = get_current_pos(name)?;
-        let mut hwnd = winuser::WindowFromPoint(point);
+        let point = window_low::get_current_pos(name)?;
+        let mut hwnd = WindowFromPoint(point);
         if toplevel {
             loop {
-                let parent = winuser::GetParent(hwnd);
-                if parent == null_mut() || winuser::IsWindowVisible(parent) == FALSE{
+                let parent = GetParent(hwnd);
+                if parent.is_null() || ! IsWindowVisible(parent).as_bool(){
                     break;
                 } else {
                     hwnd = parent;
@@ -303,10 +298,10 @@ pub fn idtohnd(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         return Ok(Object::Num(0.0));
     }
     let h = get_hwnd_from_id(id);
-    if h != null_mut() {
+    if ! h.is_null() {
         unsafe {
-            if winuser::IsWindow(h) != 0 {
-                return Ok(Object::Num(h as i32 as f64));
+            if IsWindow(h).as_bool() {
+                return Ok(Object::Num(h.0 as f64));
             }
         }
     }
@@ -318,14 +313,14 @@ fn get_hwnd_from_id(id: i32) -> HWND {
     let list = s.windows.lock().unwrap();
     match list.get(&id) {
         Some(h) => *h,
-        None => null_mut()
+        None => HWND::NULL
     }
 }
 
 // HNDTOID
 pub fn hndtoid(args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let h = get_non_float_argument_value::<i32>(&args, 0, None)?;
-    let hwnd = h as i32 as HWND;
+    let h = get_non_float_argument_value::<isize>(&args, 0, None)?;
+    let hwnd = HWND(h);
     let id = get_id_from_hwnd(hwnd);
     Ok(Object::Num(id))
 }
@@ -346,7 +341,7 @@ fn get_id_from_hwnd(hwnd: HWND) -> f64 {
 pub fn acw(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = get_non_float_argument_value::<i32>(&args, 0, None)?;
     let hwnd = get_hwnd_from_id(id);
-    if hwnd == null_mut() {
+    if hwnd.is_null() {
         return Ok(Object::Empty);
     }
     let x = get_non_float_argument_value(&args, 1, None).ok();
@@ -387,58 +382,58 @@ pub enum CtrlWinCmd {
 pub fn ctrlwin(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = get_non_float_argument_value(&args, 0, None)?;
     let hwnd = get_hwnd_from_id(id);
-    if hwnd == null_mut() {
+    if hwnd.is_null() {
         return Ok(Object::Empty);
     }
     let cmd = get_non_float_argument_value(&args, 1, None)?;
     match FromPrimitive::from_i32(cmd).unwrap_or(CtrlWinCmd::UNKNOWN_CTRLWIN_CMD) {
         CtrlWinCmd::CLOSE => unsafe {
-            winuser::PostMessageA(hwnd, winuser::WM_CLOSE, 0, 0);
+            PostMessageW(hwnd, WM_CLOSE, WPARAM(0), LPARAM(0));
         },
         CtrlWinCmd::CLOSE2 => unsafe {
-            winuser::PostMessageA(hwnd, winuser::WM_DESTROY, 0, 0);
+            PostMessageW(hwnd, WM_DESTROY, WPARAM(0), LPARAM(0));
         },
         CtrlWinCmd::ACTIVATE => unsafe {
-            winuser::SetForegroundWindow(hwnd);
+            SetForegroundWindow(hwnd);
         },
         CtrlWinCmd::HIDE => unsafe {
-            winuser::ShowWindow(hwnd, winuser::SW_HIDE);
+            ShowWindow(hwnd, SHOW_WINDOW_CMD::SW_HIDE);
         },
         CtrlWinCmd::SHOW => unsafe {
-            winuser::ShowWindow(hwnd, winuser::SW_SHOW);
+            ShowWindow(hwnd, SHOW_WINDOW_CMD::SW_SHOW);
         },
         CtrlWinCmd::MIN => unsafe {
-            winuser::ShowWindow(hwnd, winuser::SW_MINIMIZE);
+            ShowWindow(hwnd, SHOW_WINDOW_CMD::SW_MINIMIZE);
         },
         CtrlWinCmd::MAX => unsafe {
-            winuser::ShowWindow(hwnd, winuser::SW_MAXIMIZE);
+            ShowWindow(hwnd, SHOW_WINDOW_CMD::SW_MAXIMIZE);
         },
         CtrlWinCmd::NORMAL => unsafe {
-            winuser::ShowWindow(hwnd, winuser::SW_SHOWNORMAL);
+            ShowWindow(hwnd, SHOW_WINDOW_CMD::SW_SHOWNORMAL);
         },
         CtrlWinCmd::TOPMOST => unsafe {
-            winuser::SetWindowPos(
+            SetWindowPos(
                 hwnd,
-                winuser::HWND_TOPMOST,
+                HWND_TOPMOST,
                 0, 0, 0, 0,
-                winuser::SWP_NOMOVE | winuser::SWP_NOSIZE
+                SET_WINDOW_POS_FLAGS::SWP_NOMOVE | SET_WINDOW_POS_FLAGS::SWP_NOSIZE
             );
         },
         CtrlWinCmd::NOTOPMOST => unsafe {
-            winuser::SetWindowPos(
+            SetWindowPos(
                 hwnd,
-                winuser::HWND_NOTOPMOST,
+                HWND_NOTOPMOST,
                 0, 0, 0, 0,
-                winuser::SWP_NOMOVE | winuser::SWP_NOSIZE
+                SET_WINDOW_POS_FLAGS::SWP_NOMOVE | SET_WINDOW_POS_FLAGS::SWP_NOSIZE
             );
         },
         CtrlWinCmd::TOPNOACTV => unsafe {
-            for h in vec![winuser::HWND_TOPMOST, winuser::HWND_NOTOPMOST] {
-                winuser::SetWindowPos(
+            for h in vec![HWND_TOPMOST, HWND_NOTOPMOST] {
+                SetWindowPos(
                     hwnd,
                     h,
                     0, 0, 0, 0,
-                    winuser::SWP_NOMOVE | winuser::SWP_NOSIZE | winuser::SWP_NOACTIVATE
+                    SET_WINDOW_POS_FLAGS::SWP_NOMOVE | SET_WINDOW_POS_FLAGS::SWP_NOSIZE | SET_WINDOW_POS_FLAGS::SWP_NOACTIVATE
                 );
             }
         },
@@ -481,16 +476,16 @@ fn get_window_size(h: HWND) -> HashMap<u8, i32> {
     let mut rect = RECT {left: 0, top: 0, right: 0, bottom: 0};
     let mut ret = HashMap::new();
     unsafe {
-        let mut aero_enabled = FALSE;
-        dwmapi::DwmIsCompositionEnabled(&mut aero_enabled);
-        if aero_enabled == FALSE {
+        let mut aero_enabled = false.into();
+        DwmIsCompositionEnabled(&mut aero_enabled);
+        if ! aero_enabled.as_bool() {
             // AEROがオフならGetWindowRect
-            winuser::GetWindowRect(h, &mut rect);
+            GetWindowRect(h, &mut rect);
         } else {
-            dwmapi::DwmGetWindowAttribute(
+            DwmGetWindowAttribute(
                 h,
-                dwmapi::DWMWA_EXTENDED_FRAME_BOUNDS,
-                &mut rect as *mut RECT as LPVOID,
+                DWMWINDOWATTRIBUTE::DWMWA_EXTENDED_FRAME_BOUNDS.0 as u32,
+                &mut rect as *mut _ as *mut c_void,
                 mem::size_of::<RECT>() as u32
             );
         };
@@ -515,22 +510,22 @@ pub fn set_window_size(hwnd: HWND, x: Option<i32>, y: Option<i32>, w: Option<i32
         let mut dy = 0;
         let mut dw = 0;
         let mut dh = 0;
-        let mut aero_enabled = FALSE;
-        dwmapi::DwmIsCompositionEnabled(&mut aero_enabled);
-        if aero_enabled == TRUE {
-            dwmapi::DwmGetWindowAttribute(
+        let mut aero_enabled = false.into();
+        DwmIsCompositionEnabled(&mut aero_enabled);
+        if aero_enabled.as_bool() {
+            DwmGetWindowAttribute(
                 hwnd,
-                dwmapi::DWMWA_EXTENDED_FRAME_BOUNDS,
-                &mut rect1 as *mut RECT as LPVOID,
+                DWMWINDOWATTRIBUTE::DWMWA_EXTENDED_FRAME_BOUNDS.0 as u32,
+                &mut rect1 as *mut _ as *mut c_void,
                 mem::size_of::<RECT>() as u32
             );
-            winuser::GetWindowRect(hwnd, &mut rect2);
+            GetWindowRect(hwnd, &mut rect2);
             dx = rect2.left - rect1.left;
             dy = rect2.top - rect1.top;
             dw = -dx + rect2.right - rect1.right;
             dh = -dy + rect2.bottom - rect1.bottom;
         };
-        winuser::MoveWindow(hwnd, x + dx, y + dy, w + dw, h + dh, TRUE);
+        MoveWindow(hwnd, x + dx, y + dy, w + dw, h + dh, true);
     }
 }
 
@@ -538,9 +533,9 @@ fn get_client_size(h: HWND) -> HashMap<u8, i32> {
     let mut rect = RECT {left: 0, top: 0, right: 0, bottom: 0};
     let mut ret = HashMap::new();
     unsafe {
-        winuser::GetClientRect(h, &mut rect);
+        GetClientRect(h, &mut rect);
         let mut point = POINT {x: rect.left, y: rect.top};
-        winuser::MapWindowPoints(h, null_mut(), &mut point, 1);
+        MapWindowPoints(h, HWND::NULL, &mut point, 1);
         ret.insert(StatusEnum::ST_CLX as u8, point.x);
         ret.insert(StatusEnum::ST_CLY as u8, point.y);
         ret.insert(StatusEnum::ST_CLWIDTH as u8, rect.right - rect.left);
@@ -552,7 +547,7 @@ fn get_client_size(h: HWND) -> HashMap<u8, i32> {
 fn get_window_text(hwnd: HWND) -> BuiltinFuncResult {
     unsafe {
         let mut buffer = [0; MAX_NAME_SIZE];
-        winuser::GetWindowTextW(hwnd, buffer.as_mut_ptr(), buffer.len() as i32);
+        GetWindowTextW(hwnd, PWSTR(buffer.as_mut_ptr()), buffer.len() as i32);
         buffer_to_string(&buffer).map_or_else(
             |e| Err(builtin_func_error("status", e)),
             |s| Ok(Object::String(s))
@@ -563,7 +558,7 @@ fn get_window_text(hwnd: HWND) -> BuiltinFuncResult {
 fn get_class_name(hwnd: HWND) -> BuiltinFuncResult {
     unsafe {
         let mut buffer = [0; MAX_NAME_SIZE];
-        winuser::GetClassNameW(hwnd, buffer.as_mut_ptr(), buffer.len() as i32);
+        GetClassNameW(hwnd, PWSTR(buffer.as_mut_ptr()), buffer.len() as i32);
         buffer_to_string(&buffer).map_or_else(
             |e| Err(builtin_func_error("status", e)),
             |s| Ok(Object::String(s))
@@ -573,36 +568,36 @@ fn get_class_name(hwnd: HWND) -> BuiltinFuncResult {
 
 fn get_parent(hwnd: HWND) -> Object {
     unsafe {
-        let parent = winuser::GetParent(hwnd);
+        let parent = GetParent(hwnd);
         Object::Num(get_id_from_hwnd(parent))
     }
 }
 
 fn is_maximized(hwnd: HWND)-> Object {
-    let mut wp = winuser::WINDOWPLACEMENT {
+    let mut wp = WINDOWPLACEMENT {
         length: 0,
-        flags: 0,
-        showCmd: 0,
+        flags: WINDOWPLACEMENT_FLAGS(0),
+        showCmd: SHOW_WINDOW_CMD(0),
         ptMinPosition: POINT {x: 0, y: 0},
         ptMaxPosition: POINT {x: 0, y: 0},
         rcNormalPosition: RECT {left: 0, top: 0, right: 0, bottom: 0},
     };
     unsafe {
-        winuser::GetWindowPlacement(hwnd, &mut wp);
-        Object::Bool(wp.showCmd == winuser::SW_MAXIMIZE as u32)
+        GetWindowPlacement(hwnd, &mut wp);
+        Object::Bool(wp.showCmd == SHOW_WINDOW_CMD::SW_MAXIMIZE)
     }
 }
 
 fn is_active_window(hwnd: HWND) -> Object {
     unsafe {
-        Object::Bool(winuser::GetForegroundWindow() == hwnd)
+        Object::Bool(GetForegroundWindow() == hwnd)
     }
 }
 
 fn get_process_id_from_hwnd(hwnd: HWND) -> u32 {
-    let mut pid: DWORD = 0;
+    let mut pid = 0;
     unsafe {
-        winuser::GetWindowThreadProcessId(hwnd, &mut pid);
+        GetWindowThreadProcessId(hwnd, &mut pid);
         pid
     }
 }
@@ -613,39 +608,37 @@ fn is_process_64bit(hwnd: HWND) -> Object {
         return Object::Bool(false);
     }
     let h = get_process_handle_from_hwnd(hwnd);
-    let mut b = FALSE;
+    let mut b = false.into();
     unsafe {
-        wow64apiset::IsWow64Process(h, &mut b);
-        Object::Bool(b == FALSE)
+        IsWow64Process(h, &mut b);
+        Object::Bool(b.into())
     }
 }
 
 fn get_process_handle_from_hwnd(hwnd: HWND) -> HANDLE {
     let pid = get_process_id_from_hwnd(hwnd);
     unsafe {
-        processthreadsapi::OpenProcess(
-            PROCESS_QUERY_INFORMATION | PROCESS_VM_READ,
-            FALSE, pid
+        OpenProcess(
+            PROCESS_ACCESS_RIGHTS::PROCESS_QUERY_INFORMATION | PROCESS_ACCESS_RIGHTS::PROCESS_VM_READ,
+            false, pid
         )
     }
 }
 
 fn get_process_path_from_hwnd(hwnd: HWND) -> BuiltinFuncResult {
-    let mut buffer = [0; MAX_PATH];
+    let mut buffer = [0; MAX_PATH as usize];
     unsafe {
         let handle = get_process_handle_from_hwnd(hwnd);
-        psapi::GetModuleFileNameExW(handle, null_mut(), buffer.as_mut_ptr(), MAX_PATH as u32);
-        handleapi::CloseHandle(handle);
+        K32GetModuleFileNameExW(handle, 0, PWSTR(buffer.as_mut_ptr()), MAX_PATH);
+        CloseHandle(handle);
     }
-    buffer_to_string(&buffer).map_or_else(
-        |e| Err(builtin_func_error("status", e)),
-        |s| Ok(Object::String(s))
-    )
+    let path = String::from_utf16_lossy(&buffer);
+    Ok(Object::String(path))
 }
 
 fn get_monitor_index_from_hwnd(hwnd: HWND) -> Object {
     let h = unsafe {
-        winuser::MonitorFromWindow(hwnd, winuser::MONITOR_DEFAULTTONEAREST)
+        MonitorFromWindow(hwnd, MONITOR_FROM_FLAGS::MONITOR_DEFAULTTONEAREST)
     };
     get_monitor_count(h)
 }
@@ -665,18 +658,18 @@ fn get_status_result(hwnd: HWND, st: u8) -> BuiltinFuncResult {
         StatusEnum::ST_CLHEIGHT => Object::Num(*get_client_size(hwnd).get(&st).unwrap_or(&0) as f64),
         StatusEnum::ST_PARENT => get_parent(hwnd),
         StatusEnum::ST_ICON => unsafe {
-            Object::Bool(winuser::IsIconic(hwnd) == TRUE)
+            Object::Bool(IsIconic(hwnd).as_bool())
         },
         StatusEnum::ST_MAXIMIZED => is_maximized(hwnd),
         StatusEnum::ST_VISIBLE => unsafe {
-            Object::Bool(winuser::IsWindowVisible(hwnd) == TRUE)
+            Object::Bool(IsWindowVisible(hwnd).as_bool())
         },
         StatusEnum::ST_ACTIVE => is_active_window(hwnd),
         StatusEnum::ST_BUSY => unsafe {
-            Object::Bool(winuser::IsHungAppWindow(hwnd) == TRUE)
+            Object::Bool(IsHungAppWindow(hwnd).as_bool())
         },
         StatusEnum::ST_ISID => unsafe {
-            Object::Bool(winuser::IsWindow(hwnd) == TRUE)
+            Object::Bool(IsWindow(hwnd).as_bool())
         },
         StatusEnum::ST_WIN64 => is_process_64bit(hwnd),
         StatusEnum::ST_PATH => get_process_path_from_hwnd(hwnd)?,
@@ -702,12 +695,12 @@ fn get_all_status(hwnd: HWND) -> BuiltinFuncResult {
     stats.insert((StatusEnum::ST_CLWIDTH as u8).to_string(), Object::Num(*crect.get(&(StatusEnum::ST_CLWIDTH as u8)).unwrap_or(&0) as f64));
     stats.insert((StatusEnum::ST_CLHEIGHT as u8).to_string(), Object::Num(*crect.get(&(StatusEnum::ST_CLHEIGHT as u8)).unwrap_or(&0) as f64));
     stats.insert((StatusEnum::ST_PARENT as u8).to_string(), get_parent(hwnd));
-    stats.insert((StatusEnum::ST_ICON as u8).to_string(), unsafe{ Object::Bool(winuser::IsIconic(hwnd) == TRUE) });
+    stats.insert((StatusEnum::ST_ICON as u8).to_string(), unsafe{ Object::Bool(IsIconic(hwnd).as_bool()) });
     stats.insert((StatusEnum::ST_MAXIMIZED as u8).to_string(), is_maximized(hwnd));
-    stats.insert((StatusEnum::ST_VISIBLE as u8).to_string(), unsafe{ Object::Bool(winuser::IsWindowVisible(hwnd) == TRUE) });
+    stats.insert((StatusEnum::ST_VISIBLE as u8).to_string(), unsafe{ Object::Bool(IsWindowVisible(hwnd).as_bool()) });
     stats.insert((StatusEnum::ST_ACTIVE as u8).to_string(), is_active_window(hwnd));
-    stats.insert((StatusEnum::ST_BUSY as u8).to_string(), unsafe{ Object::Bool(winuser::IsHungAppWindow(hwnd) == TRUE) });
-    stats.insert((StatusEnum::ST_ISID as u8).to_string(), unsafe{ Object::Bool(winuser::IsWindow(hwnd) == TRUE) });
+    stats.insert((StatusEnum::ST_BUSY as u8).to_string(), unsafe{ Object::Bool(IsHungAppWindow(hwnd).as_bool()) });
+    stats.insert((StatusEnum::ST_ISID as u8).to_string(), unsafe{ Object::Bool(IsWindow(hwnd).as_bool()) });
     stats.insert((StatusEnum::ST_WIN64 as u8).to_string(), is_process_64bit(hwnd));
     stats.insert((StatusEnum::ST_PATH as u8).to_string(), get_process_path_from_hwnd(hwnd)?);
     stats.insert((StatusEnum::ST_PROCESS as u8).to_string(), Object::Num(get_process_id_from_hwnd(hwnd) as f64));
@@ -769,85 +762,88 @@ struct Monitor {
     index: usize,
 }
 
+unsafe extern "system"
+fn monitor_enum_for_get_monitor_count(h: HMONITOR, _: HDC, _: *mut RECT, lparam: LPARAM) -> BOOL {
+    let m = &mut *(lparam.0 as *mut Monitor);
+    if m.handle == h {
+        return false.into();
+    }
+    m.count += 1;
+    true.into()
+}
 // nullを渡すと全モニタ数、モニタのハンドルを渡すとそのインデックスを返す
 fn get_monitor_count(handle: HMONITOR) -> Object {
-    unsafe extern "system"
-    fn monitor_enum_proc(h: HMONITOR, _: HDC, _: LPRECT, lparam: LPARAM) -> BOOL {
-        let m = &mut *(lparam as *mut Monitor) as &mut Monitor;
-        if m.handle == h {
-            return FALSE;
-        }
-        m.count += 1;
-        TRUE
-    }
     unsafe {
         let mut monitor = Monitor {
             count: 0,
             handle,
             index: 0,
         };
-        winuser::EnumDisplayMonitors(
-            null_mut(),
-            null_mut(),
-            Some(monitor_enum_proc),
-            &mut monitor as *mut Monitor as LPARAM
+        EnumDisplayMonitors(
+            HDC(0),
+            &mut RECT::default(),
+            Some(monitor_enum_for_get_monitor_count),
+            LPARAM(&mut monitor as *mut Monitor as isize)
         );
         Object::Num(monitor.count as f64)
     }
 }
 
-fn get_monitor_handle_by_index(i: usize) -> HMONITOR {
-    unsafe extern "system"
-    fn monitor_enum_proc(h: HMONITOR, _: HDC, _: LPRECT, lparam: LPARAM) -> BOOL {
-        let m = &mut *(lparam as *mut Monitor) as &mut Monitor;
-        if m.count == m.index {
-            m.handle = h;
-            return FALSE;
-        }
-        m.count += 1;
-        TRUE
+unsafe extern "system"
+fn monitor_enum_proc_for_get_monitor_handle_by_index(h: HMONITOR, _: HDC, _: *mut RECT, lparam: LPARAM) -> BOOL {
+    let m = &mut *(lparam.0 as *mut Monitor);
+    if m.count == m.index {
+        m.handle = h;
+        return false.into();
     }
+    m.count += 1;
+    true.into()
+}
+
+fn get_monitor_handle_by_index(i: usize) -> HMONITOR {
     unsafe {
         let mut monitor = Monitor {
             count: 0,
-            handle: null_mut(),
+            handle: HMONITOR::NULL,
             index: i,
         };
-        winuser::EnumDisplayMonitors(
-            null_mut(),
-            null_mut(),
-            Some(monitor_enum_proc),
-            &mut monitor as *mut Monitor as LPARAM
+        EnumDisplayMonitors(
+            HDC(0),
+            &mut RECT::default(),
+            Some(monitor_enum_proc_for_get_monitor_handle_by_index),
+            LPARAM(&mut monitor as *mut Monitor as isize)
         );
         monitor.handle
     }
 }
 
 fn get_monitor_name(name: &[u16]) -> Object {
-    let mut dd: wingdi::DISPLAY_DEVICEW = unsafe {mem::zeroed()};
-    dd.cb = mem::size_of::<wingdi::DISPLAY_DEVICEW>() as u32;
+    let mut dd: DISPLAY_DEVICEW = unsafe {mem::zeroed()};
+    dd.cb = mem::size_of::<DISPLAY_DEVICEW>() as u32;
     unsafe {
-        winuser::EnumDisplayDevicesW(name.as_ptr(), 0, &mut dd, 0);
+        EnumDisplayDevicesW(PWSTR(name.as_mut_ptr()), 0, &mut dd, 0);
     }
     Object::String(
-        buffer_to_string(&dd.DeviceString).map_or("".to_string(), |s| s)
+        String::from_utf16_lossy(&dd.DeviceString)
     )
 }
 
 pub fn monitor(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     if args.len() == 0 {
-        return Ok(get_monitor_count(null_mut()));
+        return Ok(get_monitor_count(HMONITOR::NULL));
     }
     let index = get_non_float_argument_value::<usize>(&args, 0, None)?;
     let h = get_monitor_handle_by_index(index);
-    if h == null_mut() {
+    if h.is_null() {
         return Ok(Object::Bool(false));
     };
-    let mut miex: winuser::MONITORINFOEXW = unsafe {mem::zeroed()};
-    miex.cbSize = mem::size_of::<winuser::MONITORINFOEXW>() as u32;
-    let p_miex = <*mut _>::cast(&mut miex);
+    let mut miex: MONITORINFOEXW = unsafe {mem::zeroed()};
+    let mut mi = miex.__AnonymousBase_winuser_L13558_C43;
+    mi.cbSize = mem::size_of::<MONITORINFO>() as u32;
+    // let p_miex = <*mut _>::cast(&mut miex);
+    let p_miex = &mut miex as *mut _ as *mut MONITORINFO;
     unsafe {
-        if winuser::GetMonitorInfoW(h, p_miex) == FALSE {
+        if ! GetMonitorInfoW(h, p_miex).as_bool() {
             return Err(builtin_func_error("monitor", "failed to get monitor information"));
         }
     }
@@ -855,28 +851,28 @@ pub fn monitor(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let value = match FromPrimitive::from_u8(cmd).unwrap_or(MonitorEnum::UNKNOWN_MONITOR_CMD) {
         MonitorEnum::MON_ALL => {
             let mut map = HashTbl::new(false, true);
-            map.insert((MonitorEnum::MON_X as u8).to_string(), Object::Num(miex.rcMonitor.left.into()));
-            map.insert((MonitorEnum::MON_Y as u8).to_string(), Object::Num(miex.rcMonitor.top.into()));
-            map.insert((MonitorEnum::MON_WIDTH as u8).to_string(), Object::Num((miex.rcMonitor.right - miex.rcMonitor.left).into()));
-            map.insert((MonitorEnum::MON_HEIGHT as u8).to_string(), Object::Num((miex.rcMonitor.bottom - miex.rcMonitor.top).into()));
+            map.insert((MonitorEnum::MON_X as u8).to_string(), Object::Num(mi.rcMonitor.left.into()));
+            map.insert((MonitorEnum::MON_Y as u8).to_string(), Object::Num(mi.rcMonitor.top.into()));
+            map.insert((MonitorEnum::MON_WIDTH as u8).to_string(), Object::Num((mi.rcMonitor.right - mi.rcMonitor.left).into()));
+            map.insert((MonitorEnum::MON_HEIGHT as u8).to_string(), Object::Num((mi.rcMonitor.bottom - mi.rcMonitor.top).into()));
             map.insert((MonitorEnum::MON_NAME as u8).to_string(), get_monitor_name(&miex.szDevice));
-            map.insert((MonitorEnum::MON_PRIMARY as u8).to_string(), Object::Bool(miex.dwFlags == winuser::MONITORINFOF_PRIMARY));
-            map.insert((MonitorEnum::MON_WORK_X as u8).to_string(), Object::Num(miex.rcWork.left.into()));
-            map.insert((MonitorEnum::MON_WORK_Y as u8).to_string(), Object::Num(miex.rcWork.top.into()));
-            map.insert((MonitorEnum::MON_WORK_WIDTH as u8).to_string(), Object::Num((miex.rcWork.right - miex.rcWork.left).into()));
-            map.insert((MonitorEnum::MON_WORK_HEIGHT as u8).to_string(), Object::Num((miex.rcWork.bottom - miex.rcWork.top).into()));
+            map.insert((MonitorEnum::MON_PRIMARY as u8).to_string(), Object::Bool(mi.dwFlags == MONITORINFOF_PRIMARY));
+            map.insert((MonitorEnum::MON_WORK_X as u8).to_string(), Object::Num(mi.rcWork.left.into()));
+            map.insert((MonitorEnum::MON_WORK_Y as u8).to_string(), Object::Num(mi.rcWork.top.into()));
+            map.insert((MonitorEnum::MON_WORK_WIDTH as u8).to_string(), Object::Num((mi.rcWork.right - mi.rcWork.left).into()));
+            map.insert((MonitorEnum::MON_WORK_HEIGHT as u8).to_string(), Object::Num((mi.rcWork.bottom - mi.rcWork.top).into()));
             return Ok(Object::HashTbl(Rc::new(RefCell::new(map))));
         },
-        MonitorEnum::MON_X => miex.rcMonitor.left,
-        MonitorEnum::MON_Y => miex.rcMonitor.top,
-        MonitorEnum::MON_WIDTH => miex.rcMonitor.right - miex.rcMonitor.left,
-        MonitorEnum::MON_HEIGHT => miex.rcMonitor.bottom - miex.rcMonitor.top,
+        MonitorEnum::MON_X => mi.rcMonitor.left,
+        MonitorEnum::MON_Y => mi.rcMonitor.top,
+        MonitorEnum::MON_WIDTH => mi.rcMonitor.right - mi.rcMonitor.left,
+        MonitorEnum::MON_HEIGHT => mi.rcMonitor.bottom - mi.rcMonitor.top,
         MonitorEnum::MON_NAME => return Ok(get_monitor_name(&miex.szDevice)),
-        MonitorEnum::MON_PRIMARY => return Ok(Object::Bool(miex.dwFlags == winuser::MONITORINFOF_PRIMARY)),
-        MonitorEnum::MON_WORK_X => miex.rcWork.left,
-        MonitorEnum::MON_WORK_Y => miex.rcWork.top,
-        MonitorEnum::MON_WORK_WIDTH => miex.rcWork.right - miex.rcWork.left,
-        MonitorEnum::MON_WORK_HEIGHT => miex.rcWork.bottom - miex.rcWork.top,
+        MonitorEnum::MON_PRIMARY => return Ok(Object::Bool(mi.dwFlags == MONITORINFOF_PRIMARY)),
+        MonitorEnum::MON_WORK_X => mi.rcWork.left,
+        MonitorEnum::MON_WORK_Y => mi.rcWork.top,
+        MonitorEnum::MON_WORK_WIDTH => mi.rcWork.right - mi.rcWork.left,
+        MonitorEnum::MON_WORK_HEIGHT => mi.rcWork.bottom - mi.rcWork.top,
         _ => return Ok(Object::Bool(false))
     };
     Ok(Object::Num(value as f64))
