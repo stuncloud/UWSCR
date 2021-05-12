@@ -36,12 +36,18 @@ fn main() {
     // windows-rs
     windows::build!(
         Windows::Win32::WindowsProgramming::{
-            CloseHandle,
+            INFINITE,
+            PROCESS_CREATION_FLAGS, OSVERSIONINFOEXW,
+            CloseHandle, GetVersionExW,
         },
         Windows::Win32::SystemServices::{
             NULL, PWSTR, BOOL, HANDLE, MAX_PATH,
-            PROCESS_ACCESS_RIGHTS,
-            WaitForInputIdle, OpenProcess, IsWow64Process,
+            PROCESS_ACCESS_RIGHTS, SECURITY_ATTRIBUTES,
+            STARTUPINFOW, PROCESS_INFORMATION, STARTUPINFOW_FLAGS,
+            VER_NT_WORKSTATION,
+            WaitForInputIdle, OpenProcess, IsWow64Process, CreateProcessW,
+            WaitForSingleObject, GetExitCodeProcess, IsWow64Process,
+            GetCurrentProcess,
         },
         Windows::Win32::KeyboardAndMouseInput::{
             keybd_event, KEYBD_EVENT_FLAGS, MapVirtualKeyW,
@@ -49,13 +55,17 @@ fn main() {
         Windows::Win32::WindowsAndMessaging::{
             HWND, WPARAM, LPARAM, WM_CLOSE, WM_DESTROY, HWND_TOPMOST, HWND_NOTOPMOST,
             SHOW_WINDOW_CMD, SET_WINDOW_POS_FLAGS, WINDOWPLACEMENT, WINDOWPLACEMENT_FLAGS,
-            MONITORINFOF_PRIMARY,
+            MONITORINFOF_PRIMARY, SYSTEM_METRICS_INDEX,
             GetCursorPos,
             WindowFromPoint, GetParent, IsWindowVisible, GetClientRect,
             GetForegroundWindow, GetWindowTextW, GetClassNameW, EnumWindows,
             IsWindow, PostMessageW, SetForegroundWindow, ShowWindow,
             SetWindowPos, GetWindowRect, MoveWindow, GetWindowPlacement,
             GetWindowThreadProcessId, IsIconic, IsWindowVisible, IsHungAppWindow,
+            GetSystemMetrics,
+        },
+        Windows::Win32::Shell::{
+            ShellExecuteW,
         },
         Windows::Win32::DisplayDevices::{
             POINT, RECT,

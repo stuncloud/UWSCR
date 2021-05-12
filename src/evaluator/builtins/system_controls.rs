@@ -1,28 +1,30 @@
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
+use crate::winapi::bindings::{
+    Windows::Win32::WindowsProgramming::{
+        INFINITE,
+        PROCESS_CREATION_FLAGS, OSVERSIONINFOEXW,
+        CloseHandle, GetVersionExW,
+    },
+    Windows::Win32::SystemServices::{
+        BOOL, PWSTR,
+        SECURITY_ATTRIBUTES, STARTUPINFOW, PROCESS_INFORMATION, STARTUPINFOW_FLAGS,
+        VER_NT_WORKSTATION,
+        CreateProcessW, WaitForInputIdle, WaitForSingleObject, GetExitCodeProcess,
+        IsWow64Process, GetCurrentProcess,
+    },
+    Windows::Win32::WindowsAndMessaging::{
+        HWND, LPARAM, SHOW_WINDOW_CMD, SYSTEM_METRICS_INDEX,
+        EnumWindows, GetWindowThreadProcessId, GetSystemMetrics,
+    },
+    Windows::Win32::Shell::{
+        ShellExecuteW,
+    },
+};
 
 use std::{ptr::null_mut, thread, time};
 use std::mem;
 
-use winapi::{
-    um::{
-        winuser,
-        wow64apiset,
-        processthreadsapi,
-        sysinfoapi,
-        winnt,
-        shellapi,
-        winbase,
-        handleapi,
-        synchapi,
-    },
-    shared::{
-        windef::{HWND},
-        minwindef::{
-            DWORD, BOOL, TRUE, FALSE, LPARAM
-        }
-    }
-};
 use strum_macros::{EnumString, EnumVariantNames};
 use num_derive::{ToPrimitive, FromPrimitive};
 use num_traits::FromPrimitive;
@@ -51,11 +53,11 @@ pub fn is_64bit_os(f_name: &str) -> Result<bool, UError> {
     match arch.as_str() {
         "AMD64" => Ok(true),
         "x86" => {
-            let mut b = FALSE;
+            let mut b = false.into();
             unsafe {
-                wow64apiset::IsWow64Process(processthreadsapi::GetCurrentProcess(), &mut b);
+                IsWow64Process(GetCurrentProcess(), &mut b);
             }
-            Ok(b != FALSE)
+            Ok(b.as_bool())
         },
         _ => Err(builtin_func_error(f_name, format!("unknown architecture: {}", arch)))
     }
@@ -93,36 +95,36 @@ pub enum KindOfOsResultType {
 
 
 pub fn get_os_num() -> Vec<f64> {
-    let mut info: winnt::OSVERSIONINFOEXW = unsafe{std::mem::zeroed()};
-    info.dwOSVersionInfoSize = std::mem::size_of::<winnt::OSVERSIONINFOEXW>() as u32;
+    let mut info: OSVERSIONINFOEXW = unsafe{std::mem::zeroed()};
+    info.dwOSVersionInfoSize = std::mem::size_of::<OSVERSIONINFOEXW>() as u32;
     let p_info = <*mut _>::cast(&mut info);
     unsafe {
-        sysinfoapi::GetVersionExW(p_info);
+        GetVersionExW(p_info);
     }
     let mut res = vec![];
     let num = match info.dwMajorVersion {
-        10 => if info.wProductType == winnt::VER_NT_WORKSTATION {
+        10 => if info.wProductType == VER_NT_WORKSTATION as u8 {
             OsNumber::OS_WIN10 as u8 as f64
         } else {
             OsNumber::OS_WINSRV2016 as u8 as f64
         },
         6 => match info.dwMinorVersion {
-            3 => if info.wProductType == winnt::VER_NT_WORKSTATION {
+            3 => if info.wProductType == VER_NT_WORKSTATION as u8 {
                 OsNumber::OS_WIN81 as u8 as f64
             } else {
                 OsNumber::OS_WINSRV2012R2 as u8 as f64
             },
-            2 => if info.wProductType == winnt::VER_NT_WORKSTATION {
+            2 => if info.wProductType == VER_NT_WORKSTATION as u8 {
                 OsNumber::OS_WIN8 as u8 as f64
             } else {
                 OsNumber::OS_WINSRV2012 as u8 as f64
             },
-            1 => if info.wProductType == winnt::VER_NT_WORKSTATION {
+            1 => if info.wProductType == VER_NT_WORKSTATION as u8 {
                 OsNumber::OS_WIN7 as u8 as f64
             } else {
                 OsNumber::OS_WINSRV2008R2 as u8 as f64
             },
-            0 => if info.wProductType == winnt::VER_NT_WORKSTATION {
+            0 => if info.wProductType == VER_NT_WORKSTATION as u8 {
                 OsNumber::OS_WINVISTA as u8 as f64
             } else {
                 OsNumber::OS_WINSRV2008 as u8 as f64
@@ -130,7 +132,7 @@ pub fn get_os_num() -> Vec<f64> {
             _ => 0.0
         },
         5 => match info.dwMinorVersion {
-            2 => if unsafe{winuser::GetSystemMetrics(winuser::SM_SERVERR2)} != 0 {
+            2 => if unsafe{GetSystemMetrics(SYSTEM_METRICS_INDEX::SM_SERVERR2)} != 0 {
                 OsNumber::OS_WINSRV2003R2 as u8 as f64
             } else {
                 OsNumber::OS_WINSRV2003 as u8 as f64
@@ -175,45 +177,45 @@ pub fn to_wide_string(str: &str) -> Vec<u16> {
 
 pub fn shell_execute(cmd: String, params: Option<String>) -> bool {
     unsafe {
-        let hinstance = shellapi::ShellExecuteW(
-            null_mut(),
-            to_wide_string("open").as_ptr(),
-            to_wide_string(cmd.as_str()).as_ptr(),
+        let hinstance = ShellExecuteW(
+            HWND::NULL,
+            PWSTR(to_wide_string("open").as_mut_ptr()),
+            PWSTR(to_wide_string(cmd.as_str()).as_mut_ptr()),
             if params.is_some() {
-                to_wide_string(params.unwrap().as_str()).as_ptr()
+                PWSTR(to_wide_string(params.unwrap().as_str()).as_mut_ptr())
             } else {
-                null_mut()
+                PWSTR::NULL
             },
-            null_mut(),
-            winuser::SW_SHOWNORMAL
+            PWSTR::NULL,
+            SHOW_WINDOW_CMD::SW_SHOWNORMAL.0 as i32
         );
-        hinstance as i32 > 32
+        hinstance.0 > 32
     }
 }
 
-fn create_process(cmd: String, name: &str) -> Result<processthreadsapi::PROCESS_INFORMATION, UError> {
+fn create_process(cmd: String, name: &str) -> Result<PROCESS_INFORMATION, UError> {
     unsafe {
-        let mut si: processthreadsapi::STARTUPINFOW = mem::zeroed();
-        si.cb = mem::size_of::<processthreadsapi::STARTUPINFOW>() as u32;
-        si.dwFlags = winbase::STARTF_USESHOWWINDOW;
-        si.wShowWindow = winuser::SW_SHOW as u16;
-        let mut pi: processthreadsapi::PROCESS_INFORMATION = mem::zeroed();
+        let mut si: STARTUPINFOW = mem::zeroed();
+        si.cb = mem::size_of::<STARTUPINFOW>() as u32;
+        si.dwFlags = STARTUPINFOW_FLAGS::STARTF_USESHOWWINDOW;
+        si.wShowWindow = SHOW_WINDOW_CMD::SW_SHOW.0 as u16;
+        let mut pi: PROCESS_INFORMATION = mem::zeroed();
         let mut command = to_wide_string(cmd.as_str());
 
-        let r: BOOL = processthreadsapi::CreateProcessW(
+        let r = CreateProcessW(
+            PWSTR::NULL,
+            PWSTR(command.as_mut_ptr()),
+            &mut SECURITY_ATTRIBUTES::default(),
+            &mut SECURITY_ATTRIBUTES::default(),
+            false,
+            PROCESS_CREATION_FLAGS::NORMAL_PRIORITY_CLASS,
             null_mut(),
-            command.as_mut_ptr(),
-            null_mut(),
-            null_mut(),
-            FALSE,
-            winbase::NORMAL_PRIORITY_CLASS,
-            null_mut(),
-            null_mut(),
+            PWSTR::NULL,
             &mut si,
             &mut pi
         );
-        if r == TRUE {
-            winuser::WaitForInputIdle(pi.hProcess, 1000);
+        if r.as_bool() {
+            WaitForInputIdle(pi.hProcess, 1000);
             Ok(pi)
         } else {
             Err(builtin_func_error(name, "failed to create process"))
@@ -222,30 +224,34 @@ fn create_process(cmd: String, name: &str) -> Result<processthreadsapi::PROCESS_
 }
 
 struct ProcessHwnd {
-    pid: DWORD,
+    pid: u32,
     hwnd: HWND,
 }
 
 unsafe extern "system"
 fn enum_window_proc(hwnd: HWND, lparam: LPARAM) -> BOOL {
-    let ph = &mut *(lparam as *mut ProcessHwnd) as &mut ProcessHwnd;
-    let mut pid: DWORD = 0;
-    winuser::GetWindowThreadProcessId(hwnd, &mut pid);
+    let ph = &mut *(lparam.0 as *mut ProcessHwnd);
+    let mut pid = 0;
+    GetWindowThreadProcessId(hwnd, &mut pid);
     if pid == ph.pid {
         ph.hwnd = hwnd;
-        FALSE
+        false.into()
     } else {
-        TRUE
+        true.into()
     }
 }
 
 pub fn exec(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let cmd = get_string_argument_value(&args, 0, None)?;
     let sync = get_bool_argument_value(&args, 1, Some(false))?;
-    let pi = create_process(cmd, args.name())?;
+    let process = create_process(cmd, args.name());
+    if process.is_err() {
+        return Ok(Object::Num(-1.0));
+    }
+    let pi = process.unwrap();
     unsafe{
-        let mut ph = ProcessHwnd{pid: pi.dwProcessId, hwnd: null_mut()};
-        winuser::EnumWindows(Some(enum_window_proc), &mut ph as *mut ProcessHwnd as LPARAM);
+        let mut ph = ProcessHwnd{pid: pi.dwProcessId, hwnd: HWND::NULL};
+        EnumWindows(Some(enum_window_proc), LPARAM(&mut ph as *mut ProcessHwnd as isize));
         let x = get_non_float_argument_value(&args, 2, None).ok();
         let y = get_non_float_argument_value(&args, 3, None).ok();
         let w = get_non_float_argument_value(&args, 4, None).ok();
@@ -254,16 +260,16 @@ pub fn exec(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         if sync {
             // 同期する場合は終了コード
             let mut exit: u32 = 0;
-            synchapi::WaitForSingleObject(pi.hProcess, winbase::INFINITE);
-            processthreadsapi::GetExitCodeProcess(pi.hProcess, &mut exit);
-            handleapi::CloseHandle(pi.hThread);
-            handleapi::CloseHandle(pi.hProcess);
+            WaitForSingleObject(pi.hProcess, INFINITE);
+            GetExitCodeProcess(pi.hProcess, &mut exit);
+            CloseHandle(pi.hThread);
+            CloseHandle(pi.hProcess);
             Ok(Object::Num(exit.into()))
         } else {
             // idを返す
-            handleapi::CloseHandle(pi.hThread);
-            handleapi::CloseHandle(pi.hProcess);
-            if ph.hwnd != null_mut() {
+            CloseHandle(pi.hThread);
+            CloseHandle(pi.hProcess);
+            if ! ph.hwnd.is_null() {
                 let id = window_control::get_next_id();
                 window_control::set_new_window(id, ph.hwnd, true);
                 Ok(Object::Num(id.into()))
