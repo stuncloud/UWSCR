@@ -29,6 +29,12 @@ fn main() {
             <supportedOS Id="{e2011457-1546-43c5-a5fe-008deee3d3f0}"/>
         </application>
     </compatibility>
+    <asmv3:application>
+        <asmv3:windowsSettings>
+            <dpiAware xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">true/pm</dpiAware> <!-- legacy -->
+            <dpiAwareness xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">permonitorv2,permonitor</dpiAwareness> <!-- falls back to pm if pmv2 is not available -->
+        </asmv3:windowsSettings>
+    </asmv3:application>
 </assembly>
         "#);
         res.compile().unwrap();
@@ -79,6 +85,9 @@ fn main() {
         Windows::Win32::Dwm::{
             DWMWINDOWATTRIBUTE,
             DwmIsCompositionEnabled, DwmGetWindowAttribute,
+        },
+        Windows::Win32::HiDpi::{
+            GetDpiForWindow,
         },
     )
 }

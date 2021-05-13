@@ -20,7 +20,7 @@ chrono = "0.4"
 bincode = "1"
 serde = { version = "1.0", features = ["derive"] }
 serde_derive = "1.0"
-windows = "0.9.1"
+windows = "0.9"
 
 [dependencies.winapi]
 version = "0.3.9"

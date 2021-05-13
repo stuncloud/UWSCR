@@ -10,7 +10,7 @@ impl From<windows::Error> for UError {
         UError::new(
             "Windows Api Error".into(),
             e.message(),
-            Some(format!("{:?}", e.code()))
+            Some(format!("{}", e.code().0))
         )
     }
 }

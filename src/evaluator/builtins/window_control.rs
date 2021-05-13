@@ -37,6 +37,9 @@ use crate::winapi::bindings::{
         DWMWINDOWATTRIBUTE,
         DwmIsCompositionEnabled, DwmGetWindowAttribute,
     },
+    Windows::Win32::HiDpi::{
+        GetDpiForWindow,
+    },
 };
 
 use std::{ffi::c_void, fmt};
@@ -469,12 +472,31 @@ pub enum StatusEnum {
     ST_PATH      = 17,
     ST_PROCESS   = 18,
     ST_MONITOR   = 20,
+    ST_WX        = 101,
+    ST_WY        = 102,
+    ST_WWIDTH    = 103,
+    ST_WHEIGHT   = 104,
     UNKNOWN_STATUS = -1,
 }
 
-fn get_window_size(h: HWND) -> HashMap<u8, i32> {
+struct WindowSize(i32, i32, i32, i32); // x, y, with, height
+impl WindowSize {
+    fn x(&self) -> i32 {
+        self.0
+    }
+    fn y(&self) -> i32 {
+        self.1
+    }
+    fn width(&self) -> i32 {
+        self.2
+    }
+    fn height(&self) -> i32 {
+        self.3
+    }
+}
+
+fn get_window_size(h: HWND) -> WindowSize {
     let mut rect = RECT {left: 0, top: 0, right: 0, bottom: 0};
-    let mut ret = HashMap::new();
     unsafe {
         let mut aero_enabled = false.into();
         let _ = DwmIsCompositionEnabled(&mut aero_enabled);
@@ -490,61 +512,87 @@ fn get_window_size(h: HWND) -> HashMap<u8, i32> {
             );
         };
     }
-    ret.insert(StatusEnum::ST_X as u8, rect.left);
-    ret.insert(StatusEnum::ST_Y as u8, rect.top);
-    ret.insert(StatusEnum::ST_WIDTH as u8, rect.right - rect.left);
-    ret.insert(StatusEnum::ST_HEIGHT as u8, rect.bottom - rect.top);
-    ret
+    WindowSize(rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top)
+}
+
+fn get_window_rect(h: HWND) -> WindowSize {
+    let mut rect = RECT {left: 0, top: 0, right: 0, bottom: 0};
+    unsafe {
+        GetWindowRect(h, &mut rect);
+    }
+    WindowSize(rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top)
 }
 
 pub fn set_window_size(hwnd: HWND, x: Option<i32>, y: Option<i32>, w: Option<i32>, h: Option<i32>) {
     let default_rect = get_window_size(hwnd);
 
-    let x = x.unwrap_or(*default_rect.get(&(StatusEnum::ST_X as u8)).unwrap());
-    let y = y.unwrap_or(*default_rect.get(&(StatusEnum::ST_Y as u8)).unwrap());
-    let w = w.unwrap_or(*default_rect.get(&(StatusEnum::ST_WIDTH as u8)).unwrap());
-    let h = h.unwrap_or(*default_rect.get(&(StatusEnum::ST_HEIGHT as u8)).unwrap());
+    let x = x.unwrap_or(default_rect.x());
+    let y = y.unwrap_or(default_rect.y());
+    let w = w.unwrap_or(default_rect.width());
+    let h = h.unwrap_or(default_rect.height());
     unsafe {
-        let mut rect1: RECT= mem::zeroed();
-        let mut rect2: RECT= mem::zeroed();
-        let mut dx = 0;
-        let mut dy = 0;
-        let mut dw = 0;
-        let mut dh = 0;
         let mut aero_enabled = false.into();
         let _ = DwmIsCompositionEnabled(&mut aero_enabled);
 
         if aero_enabled.as_bool() {
+            let mut drect: RECT= mem::zeroed();
+            let mut wrect: RECT= mem::zeroed();
+
+            // 一旦移動する
+            MoveWindow(hwnd, x, y, w, h, false);
+
+            // ウィンドウのDPIを得る
+            let w_dpi = GetDpiForWindow(&hwnd);
+            let dpi_factor = w_dpi as f64 / 96.0;
+
+            // 見た目のRectを取る
             let _ = DwmGetWindowAttribute(
                 hwnd,
                 DWMWINDOWATTRIBUTE::DWMWA_EXTENDED_FRAME_BOUNDS.0 as u32,
-                &mut rect1 as *mut _ as *mut c_void,
+                &mut drect as *mut _ as *mut c_void,
                 mem::size_of::<RECT>() as u32
             );
+            // 実際のRectを取る
+            GetWindowRect(hwnd, &mut wrect);
 
-            GetWindowRect(hwnd, &mut rect2);
-            dx = rect2.left - rect1.left;
-            dy = rect2.top - rect1.top;
-            dw = -dx + rect2.right - rect1.right;
-            dh = -dy + rect2.bottom - rect1.bottom;
-        };
-        MoveWindow(hwnd, x + dx, y + dy, w + dw, h + dh, true);
+            let fix= |o, v| {
+                let d = dpi_factor * 100.0;
+                let t = ((v as f64 / d) * 100.0).round();
+                o - t as i32
+            };
+            let new_x = fix(x, drect.left - wrect.left);
+            let new_y = fix(y, drect.top - wrect.top);
+            let new_w = fix(w, (drect.right - drect.left) - (wrect.right - wrect.left));
+            let new_h = fix(h, (drect.bottom - drect.top) - (wrect.bottom - wrect.top));
+
+            // 移動し直し
+            MoveWindow(hwnd,
+                new_x as i32,
+                new_y as i32,
+                new_w as i32,
+                new_h as i32,
+                true
+            );
+        } else {
+            MoveWindow(hwnd, x, y, w, h, true);
+        }
     }
 }
 
-fn get_client_size(h: HWND) -> HashMap<u8, i32> {
+
+fn get_client_size(h: HWND) -> WindowSize {
     let mut rect = RECT {left: 0, top: 0, right: 0, bottom: 0};
-    let mut ret = HashMap::new();
     unsafe {
         GetClientRect(h, &mut rect);
         let mut point = POINT {x: rect.left, y: rect.top};
         MapWindowPoints(h, HWND::NULL, &mut point, 1);
-        ret.insert(StatusEnum::ST_CLX as u8, point.x);
-        ret.insert(StatusEnum::ST_CLY as u8, point.y);
-        ret.insert(StatusEnum::ST_CLWIDTH as u8, rect.right - rect.left);
-        ret.insert(StatusEnum::ST_CLHEIGHT as u8, rect.bottom - rect.top);
+        WindowSize(
+            point.x,
+            point.y,
+            rect.right - rect.left,
+            rect.bottom - rect.top
+        )
     }
-    ret
 }
 
 fn get_window_text(hwnd: HWND) -> BuiltinFuncResult {
@@ -646,17 +694,36 @@ fn get_monitor_index_from_hwnd(hwnd: HWND) -> Object {
 
 
 fn get_status_result(hwnd: HWND, st: u8) -> BuiltinFuncResult {
-    let obj = match FromPrimitive::from_u8(st).unwrap_or(StatusEnum::UNKNOWN_STATUS) {
+    let stat = FromPrimitive::from_u8(st).unwrap_or(StatusEnum::UNKNOWN_STATUS);
+    let obj = match stat {
         StatusEnum::ST_TITLE => get_window_text(hwnd)?,
         StatusEnum::ST_CLASS => get_class_name(hwnd)?,
         StatusEnum::ST_X |
         StatusEnum::ST_Y |
         StatusEnum::ST_WIDTH |
-        StatusEnum::ST_HEIGHT => Object::Num(*get_window_size(hwnd).get(&st).unwrap_or(&0) as f64),
+        StatusEnum::ST_HEIGHT => {
+            let wsize = get_window_size(hwnd);
+            match stat {
+                StatusEnum::ST_X => Object::Num(wsize.x() as f64),
+                StatusEnum::ST_Y => Object::Num(wsize.y() as f64),
+                StatusEnum::ST_WIDTH => Object::Num(wsize.width() as f64),
+                StatusEnum::ST_HEIGHT => Object::Num(wsize.height() as f64),
+                _ => Object::Empty
+            }
+        },
         StatusEnum::ST_CLX |
         StatusEnum::ST_CLY |
         StatusEnum::ST_CLWIDTH |
-        StatusEnum::ST_CLHEIGHT => Object::Num(*get_client_size(hwnd).get(&st).unwrap_or(&0) as f64),
+        StatusEnum::ST_CLHEIGHT => {
+            let csize = get_client_size(hwnd);
+            match stat {
+                StatusEnum::ST_CLX => Object::Num(csize.x() as f64),
+                StatusEnum::ST_CLY => Object::Num(csize.y() as f64),
+                StatusEnum::ST_CLWIDTH => Object::Num(csize.width() as f64),
+                StatusEnum::ST_CLHEIGHT => Object::Num(csize.height() as f64),
+                _ => Object::Empty
+            }
+        },
         StatusEnum::ST_PARENT => get_parent(hwnd),
         StatusEnum::ST_ICON => unsafe {
             Object::Bool(IsIconic(hwnd).as_bool())
@@ -676,6 +743,19 @@ fn get_status_result(hwnd: HWND, st: u8) -> BuiltinFuncResult {
         StatusEnum::ST_PATH => get_process_path_from_hwnd(hwnd)?,
         StatusEnum::ST_PROCESS => Object::Num(get_process_id_from_hwnd(hwnd) as f64),
         StatusEnum::ST_MONITOR => get_monitor_index_from_hwnd(hwnd),
+        StatusEnum::ST_WX |
+        StatusEnum::ST_WY |
+        StatusEnum::ST_WWIDTH |
+        StatusEnum::ST_WHEIGHT => {
+            let size = get_window_rect(hwnd);
+            match stat {
+                StatusEnum::ST_WX => Object::Num(size.x() as f64),
+                StatusEnum::ST_WY => Object::Num(size.y() as f64),
+                StatusEnum::ST_WWIDTH => Object::Num(size.width() as f64),
+                StatusEnum::ST_WHEIGHT => Object::Num(size.height() as f64),
+                _ => Object::Empty
+            }
+        },
         _ => Object::Bool(false) // 定数以外を受けた場合false
     };
     Ok(obj)
@@ -685,16 +765,16 @@ fn get_all_status(hwnd: HWND) -> BuiltinFuncResult {
     let mut stats = HashTbl::new(true, false);
     stats.insert((StatusEnum::ST_TITLE as u8).to_string(), get_window_text(hwnd)?);
     stats.insert((StatusEnum::ST_CLASS as u8).to_string(), get_class_name(hwnd)?);
-    let rect = get_window_size(hwnd);
-    stats.insert((StatusEnum::ST_X as u8).to_string(), Object::Num(*rect.get(&(StatusEnum::ST_X as u8)).unwrap_or(&0) as f64));
-    stats.insert((StatusEnum::ST_Y as u8).to_string(), Object::Num(*rect.get(&(StatusEnum::ST_Y as u8)).unwrap_or(&0) as f64));
-    stats.insert((StatusEnum::ST_WIDTH as u8).to_string(), Object::Num(*rect.get(&(StatusEnum::ST_WIDTH as u8)).unwrap_or(&0) as f64));
-    stats.insert((StatusEnum::ST_HEIGHT as u8).to_string(), Object::Num(*rect.get(&(StatusEnum::ST_HEIGHT as u8)).unwrap_or(&0) as f64));
-    let crect = get_client_size(hwnd);
-    stats.insert((StatusEnum::ST_CLX as u8).to_string(), Object::Num(*crect.get(&(StatusEnum::ST_CLX as u8)).unwrap_or(&0) as f64));
-    stats.insert((StatusEnum::ST_CLY as u8).to_string(), Object::Num(*crect.get(&(StatusEnum::ST_CLY as u8)).unwrap_or(&0) as f64));
-    stats.insert((StatusEnum::ST_CLWIDTH as u8).to_string(), Object::Num(*crect.get(&(StatusEnum::ST_CLWIDTH as u8)).unwrap_or(&0) as f64));
-    stats.insert((StatusEnum::ST_CLHEIGHT as u8).to_string(), Object::Num(*crect.get(&(StatusEnum::ST_CLHEIGHT as u8)).unwrap_or(&0) as f64));
+    let wsize = get_window_size(hwnd);
+    stats.insert((StatusEnum::ST_X as u8).to_string(), Object::Num(wsize.x() as f64));
+    stats.insert((StatusEnum::ST_Y as u8).to_string(), Object::Num(wsize.y() as f64));
+    stats.insert((StatusEnum::ST_WIDTH as u8).to_string(), Object::Num(wsize.width() as f64));
+    stats.insert((StatusEnum::ST_HEIGHT as u8).to_string(), Object::Num(wsize.height() as f64));
+    let csize = get_client_size(hwnd);
+    stats.insert((StatusEnum::ST_CLX as u8).to_string(), Object::Num(csize.x() as f64));
+    stats.insert((StatusEnum::ST_CLY as u8).to_string(), Object::Num(csize.y() as f64));
+    stats.insert((StatusEnum::ST_CLWIDTH as u8).to_string(), Object::Num(csize.width() as f64));
+    stats.insert((StatusEnum::ST_CLHEIGHT as u8).to_string(), Object::Num(csize.height() as f64));
     stats.insert((StatusEnum::ST_PARENT as u8).to_string(), get_parent(hwnd));
     stats.insert((StatusEnum::ST_ICON as u8).to_string(), unsafe{ Object::Bool(IsIconic(hwnd).as_bool()) });
     stats.insert((StatusEnum::ST_MAXIMIZED as u8).to_string(), is_maximized(hwnd));
