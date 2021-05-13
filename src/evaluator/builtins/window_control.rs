@@ -566,13 +566,7 @@ pub fn set_window_size(hwnd: HWND, x: Option<i32>, y: Option<i32>, w: Option<i32
             let new_h = fix(h, (drect.bottom - drect.top) - (wrect.bottom - wrect.top));
 
             // 移動し直し
-            MoveWindow(hwnd,
-                new_x as i32,
-                new_y as i32,
-                new_w as i32,
-                new_h as i32,
-                true
-            );
+            MoveWindow(hwnd, new_x, new_y, new_w, new_h, true);
         } else {
             MoveWindow(hwnd, x, y, w, h, true);
         }
