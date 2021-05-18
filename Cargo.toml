@@ -45,4 +45,4 @@ features = [
 
 [build-dependencies]
 winres = "0.1"
-windows = "0.9.1"
+windows = "0.9"

@@ -44,7 +44,7 @@ fn main() {
         Windows::Win32::WindowsProgramming::{
             INFINITE,
             PROCESS_CREATION_FLAGS, OSVERSIONINFOEXW,
-            CloseHandle, GetVersionExW,
+            CloseHandle, GetVersionExW, GetSystemDirectoryW, GetWindowsDirectoryW,
         },
         Windows::Win32::SystemServices::{
             NULL, PWSTR, BOOL, HANDLE, MAX_PATH,
@@ -71,7 +71,10 @@ fn main() {
             GetSystemMetrics,
         },
         Windows::Win32::Shell::{
-            ShellExecuteW,
+            ShellExecuteW, SHGetSpecialFolderPathW,
+        },
+        Windows::Win32::FileSystem::{
+            GetFullPathNameW
         },
         Windows::Win32::DisplayDevices::{
             POINT, RECT,
@@ -79,8 +82,9 @@ fn main() {
         Windows::Win32::ProcessStatus::K32GetModuleFileNameExW,
         Windows::Win32::Gdi::{
             MONITOR_FROM_FLAGS, HMONITOR, HDC, DISPLAY_DEVICEW, MONITORINFOEXW, MONITORINFO,
+            GET_DEVICE_CAPS_INDEX,
             MapWindowPoints, MonitorFromWindow, EnumDisplayMonitors,
-            EnumDisplayDevicesW, GetMonitorInfoW,
+            EnumDisplayDevicesW, GetMonitorInfoW, GetDC, GetDeviceCaps,
         },
         Windows::Win32::Dwm::{
             DWMWINDOWATTRIBUTE,

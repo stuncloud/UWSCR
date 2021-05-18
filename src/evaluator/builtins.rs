@@ -6,7 +6,7 @@ pub mod math;
 pub mod key_codes;
 
 use crate::evaluator::UError;
-use crate::winapi_util::{
+use crate::winapi::{
     get_windows_directory,
     get_system_directory,
     get_special_directory,

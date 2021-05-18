@@ -1,5 +1,4 @@
 use std::path::{Path, PathBuf};
-use std::ptr::null_mut;
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::env;
@@ -8,13 +7,22 @@ use crate::evaluator::environment::Environment;
 use crate::evaluator::Evaluator;
 use crate::parser::*;
 use crate::lexer::Lexer;
-use crate::winapi_util::{buffer_to_string, to_wide_string};
-use crate::logging;
-
-use winapi::{
-    um::fileapi::{GetFullPathNameW, },
-    shared::minwindef::MAX_PATH,
+use crate::winapi::{
+    to_wide_string,
+    bindings::{
+        Windows::{
+            Win32::{
+                SystemServices::{
+                    MAX_PATH, PWSTR,
+                },
+                FileSystem::{
+                    GetFullPathNameW,
+                }
+            }
+        },
+    },
 };
+use crate::logging;
 
 pub fn run(script: String, mut args: Vec<String>) -> Result<(), Vec<String>> {
     let params = args.drain(2..).collect();
@@ -94,12 +102,13 @@ pub fn out_ast(script: String, path: &String, force: bool) {
 }
 
 pub fn get_parent_full_path(path: &String) -> Result<PathBuf, String> {
-    let mut buffer = [0; MAX_PATH];
-    let file = to_wide_string(path);
+    let mut buffer = [0; MAX_PATH as usize];
+    let mut file = to_wide_string(path);
+    let mut filepart = PWSTR::NULL;
     unsafe {
-        GetFullPathNameW(file.as_ptr(), buffer.len() as u32, buffer.as_mut_ptr(), null_mut());
+        GetFullPathNameW(PWSTR(file.as_mut_ptr()), buffer.len() as u32, PWSTR(buffer.as_mut_ptr()), &mut filepart);
     }
-    let full_path = buffer_to_string(&buffer)?;
+    let full_path = String::from_utf16_lossy(&buffer);
     Ok(Path::new(full_path.as_str()).parent().unwrap().to_owned())
 }
 

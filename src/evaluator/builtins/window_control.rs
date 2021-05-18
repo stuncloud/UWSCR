@@ -3,7 +3,6 @@ use crate::evaluator::builtins::*;
 use crate::evaluator::builtins::window_low;
 use crate::evaluator::builtins::system_controls::is_64bit_os;
 use crate::evaluator::UError;
-use crate::winapi_util::buffer_to_string;
 use crate::winapi::bindings::{
     Windows::Win32::WindowsProgramming::{
         CloseHandle,
@@ -602,10 +601,8 @@ fn get_class_name(hwnd: HWND) -> BuiltinFuncResult {
     unsafe {
         let mut buffer = [0; MAX_NAME_SIZE];
         GetClassNameW(hwnd, PWSTR(buffer.as_mut_ptr()), buffer.len() as i32);
-        buffer_to_string(&buffer).map_or_else(
-            |e| Err(builtin_func_error("status", e)),
-            |s| Ok(Object::String(s))
-        )
+        let name = String::from_utf16_lossy(&buffer);
+        Ok(Object::String(name))
     }
 }
 
