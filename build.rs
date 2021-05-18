@@ -41,27 +41,34 @@ fn main() {
     }
     // windows-rs
     windows::build!(
-        Windows::Win32::WindowsProgramming::{
-            INFINITE,
-            PROCESS_CREATION_FLAGS, OSVERSIONINFOEXW,
+        Windows::Win32::System::WindowsProgramming::{
+            INFINITE, OSVERSIONINFOEXW,
             CloseHandle, GetVersionExW, GetSystemDirectoryW, GetWindowsDirectoryW,
         },
-        Windows::Win32::SystemServices::{
-            NULL, PWSTR, BOOL, HANDLE, MAX_PATH,
-            PROCESS_ACCESS_RIGHTS, SECURITY_ATTRIBUTES,
-            STARTUPINFOW, PROCESS_INFORMATION, STARTUPINFOW_FLAGS,
-            VER_NT_WORKSTATION,
-            WaitForInputIdle, OpenProcess, IsWow64Process, CreateProcessW,
-            WaitForSingleObject, GetExitCodeProcess, IsWow64Process,
-            GetCurrentProcess,
+        Windows::Win32::System::Threading::{
+            PROCESS_CREATION_FLAGS, PROCESS_ACCESS_RIGHTS, STARTUPINFOW, PROCESS_INFORMATION,
+            PROCESS_QUERY_INFORMATION, PROCESS_VM_READ,
+            STARTUPINFOW_FLAGS, STARTF_USESHOWWINDOW,
+            NORMAL_PRIORITY_CLASS,
+            OpenProcess, CreateProcessW, WaitForSingleObject, GetExitCodeProcess, GetCurrentProcess,
         },
-        Windows::Win32::KeyboardAndMouseInput::{
-            keybd_event, KEYBD_EVENT_FLAGS, MapVirtualKeyW,
+        Windows::Win32::System::SystemServices::{
+            NULL, PWSTR, BOOL, HANDLE, MAX_PATH, HINSTANCE,
+            SECURITY_ATTRIBUTES, VER_NT_WORKSTATION,
+            WaitForInputIdle, IsWow64Process,
         },
-        Windows::Win32::WindowsAndMessaging::{
+        Windows::Win32::System::ProcessStatus::K32GetModuleFileNameExW,
+        Windows::Win32::UI::KeyboardAndMouseInput::{
+            KEYBD_EVENT_FLAGS, KEYEVENTF_SCANCODE, KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP,
+            keybd_event, MapVirtualKeyW,
+        },
+        Windows::Win32::UI::WindowsAndMessaging::{
             HWND, WPARAM, LPARAM, WM_CLOSE, WM_DESTROY, HWND_TOPMOST, HWND_NOTOPMOST,
             SHOW_WINDOW_CMD, SET_WINDOW_POS_FLAGS, WINDOWPLACEMENT, WINDOWPLACEMENT_FLAGS,
-            MONITORINFOF_PRIMARY, SYSTEM_METRICS_INDEX,
+            MONITORINFOF_PRIMARY, SYSTEM_METRICS_INDEX, SM_SERVERR2,
+            SW_SHOWNORMAL, SW_SHOW, SW_HIDE, SW_MINIMIZE, SW_MAXIMIZE,
+            SWP_NOMOVE, SWP_NOSIZE, SWP_NOACTIVATE,
+            SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN,
             GetCursorPos,
             WindowFromPoint, GetParent, IsWindowVisible, GetClientRect,
             GetForegroundWindow, GetWindowTextW, GetClassNameW, EnumWindows,
@@ -70,29 +77,29 @@ fn main() {
             GetWindowThreadProcessId, IsIconic, IsWindowVisible, IsHungAppWindow,
             GetSystemMetrics,
         },
-        Windows::Win32::Shell::{
+        Windows::Win32::UI::Shell::{
             CSIDL_APPDATA,
             ShellExecuteW, SHGetSpecialFolderPathW,
         },
-        Windows::Win32::FileSystem::{
-            GetFullPathNameW
-        },
-        Windows::Win32::DisplayDevices::{
+        Windows::Win32::UI::DisplayDevices::{
             POINT, RECT,
         },
-        Windows::Win32::ProcessStatus::K32GetModuleFileNameExW,
-        Windows::Win32::Gdi::{
+        Windows::Win32::UI::HiDpi::{
+            GetDpiForWindow,
+        },
+        Windows::Win32::Storage::FileSystem::{
+            GetFullPathNameW
+        },
+        Windows::Win32::Graphics::Gdi::{
             MONITOR_FROM_FLAGS, HMONITOR, HDC, DISPLAY_DEVICEW, MONITORINFOEXW, MONITORINFO,
             GET_DEVICE_CAPS_INDEX,
+            MONITOR_DEFAULTTONEAREST,
             MapWindowPoints, MonitorFromWindow, EnumDisplayMonitors,
             EnumDisplayDevicesW, GetMonitorInfoW, GetDC, GetDeviceCaps,
         },
-        Windows::Win32::Dwm::{
-            DWMWINDOWATTRIBUTE,
+        Windows::Win32::Graphics::Dwm::{
+            DWMWINDOWATTRIBUTE, DWMWA_EXTENDED_FRAME_BOUNDS,
             DwmIsCompositionEnabled, DwmGetWindowAttribute,
-        },
-        Windows::Win32::HiDpi::{
-            GetDpiForWindow,
         },
     )
 }

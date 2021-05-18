@@ -13,7 +13,7 @@ use crate::winapi::{
     get_screen_width,
     get_screen_height,
     get_color_depth,
-    bindings::Windows::Win32::Shell::CSIDL_APPDATA,
+    bindings::Windows::Win32::UI::Shell::CSIDL_APPDATA,
 };
 use crate::evaluator::object::{Object, Version, HashTblEnum, SpecialFuncResultType};
 use crate::evaluator::environment::NamedObject;

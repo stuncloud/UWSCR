@@ -5,22 +5,28 @@ pub mod bindings {
 use bindings::{
     Windows::{
         Win32::{
-            SystemServices::{
-                MAX_PATH, PWSTR
+            System::{
+                SystemServices::{
+                    MAX_PATH, PWSTR
+                },
+                WindowsProgramming::{
+                    GetSystemDirectoryW, GetWindowsDirectoryW
+                },
             },
-            WindowsProgramming::{
-                GetSystemDirectoryW, GetWindowsDirectoryW
+            UI::{
+                WindowsAndMessaging::{
+                    HWND, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN,
+                    GetSystemMetrics,
+                },
+                Shell::{
+                    SHGetSpecialFolderPathW,
+                },
             },
-            WindowsAndMessaging::{
-                HWND, SYSTEM_METRICS_INDEX,
-                GetSystemMetrics,
-            },
-            Shell::{
-                SHGetSpecialFolderPathW,
-            },
-            Gdi::{
-                GET_DEVICE_CAPS_INDEX,
-                GetDC, GetDeviceCaps,
+            Graphics::{
+                Gdi::{
+                    GET_DEVICE_CAPS_INDEX,
+                    GetDC, GetDeviceCaps,
+                },
             },
         }
     }
@@ -61,13 +67,13 @@ pub fn get_special_directory(csidl: i32) -> String {
 
 pub fn get_screen_width() -> i32 {
     unsafe {
-        GetSystemMetrics(SYSTEM_METRICS_INDEX::SM_CXVIRTUALSCREEN)
+        GetSystemMetrics(SM_CXVIRTUALSCREEN)
     }
 }
 
 pub fn get_screen_height() -> i32 {
     unsafe {
-        GetSystemMetrics(SYSTEM_METRICS_INDEX::SM_CYVIRTUALSCREEN)
+        GetSystemMetrics(SM_CYVIRTUALSCREEN)
     }
 }
 

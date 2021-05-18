@@ -4,40 +4,57 @@ use crate::evaluator::builtins::window_low;
 use crate::evaluator::builtins::system_controls::is_64bit_os;
 use crate::evaluator::UError;
 use crate::winapi::bindings::{
-    Windows::Win32::WindowsProgramming::{
-        CloseHandle,
-    },
-    Windows::Win32::SystemServices:: {
-        PWSTR, BOOL, HANDLE, PROCESS_ACCESS_RIGHTS,
-        MAX_PATH,
-        WaitForInputIdle, OpenProcess, IsWow64Process,
-    },
-    Windows::Win32::DisplayDevices::{
-        POINT, RECT
-    },
-    Windows::Win32::WindowsAndMessaging::{
-        HWND, WPARAM, LPARAM, SHOW_WINDOW_CMD, SET_WINDOW_POS_FLAGS,
-        WINDOWPLACEMENT, WINDOWPLACEMENT_FLAGS,
-        WM_CLOSE, WM_DESTROY, HWND_TOPMOST, HWND_NOTOPMOST,
-        MONITORINFOF_PRIMARY,
-        WindowFromPoint, GetParent, IsWindowVisible, GetClientRect,
-        GetForegroundWindow, GetWindowTextW, GetClassNameW, EnumWindows,
-        IsWindow, PostMessageW, SetForegroundWindow, ShowWindow,
-        SetWindowPos, GetWindowRect, MoveWindow, GetWindowPlacement,
-        GetWindowThreadProcessId, IsIconic, IsHungAppWindow,
-    },
-    Windows::Win32::ProcessStatus::K32GetModuleFileNameExW,
-    Windows::Win32::Gdi::{
-        MONITOR_FROM_FLAGS, HMONITOR, HDC, DISPLAY_DEVICEW, MONITORINFOEXW, MONITORINFO,
-        MapWindowPoints, MonitorFromWindow, EnumDisplayMonitors,
-        EnumDisplayDevicesW, GetMonitorInfoW,
-    },
-    Windows::Win32::Dwm::{
-        DWMWINDOWATTRIBUTE,
-        DwmIsCompositionEnabled, DwmGetWindowAttribute,
-    },
-    Windows::Win32::HiDpi::{
-        GetDpiForWindow,
+    Windows::{
+        Win32::{
+            System::{
+                WindowsProgramming::{
+                    CloseHandle,
+                },
+                SystemServices:: {
+                    PWSTR, BOOL, HANDLE, HINSTANCE,
+                    MAX_PATH,
+                    WaitForInputIdle, IsWow64Process,
+                },
+                Threading::{
+                    PROCESS_QUERY_INFORMATION, PROCESS_VM_READ,
+                    OpenProcess,
+                },
+                ProcessStatus::K32GetModuleFileNameExW,
+            },
+            UI::{
+                DisplayDevices::{
+                    POINT, RECT
+                },
+                WindowsAndMessaging::{
+                    HWND, WPARAM, LPARAM,
+                    SWP_NOMOVE, SWP_NOSIZE, SWP_NOACTIVATE,
+                    SW_SHOWNORMAL, SW_SHOW, SW_HIDE, SW_MINIMIZE, SW_MAXIMIZE,
+                    WINDOWPLACEMENT,
+                    WM_CLOSE, WM_DESTROY, HWND_TOPMOST, HWND_NOTOPMOST,
+                    MONITORINFOF_PRIMARY,
+                    WindowFromPoint, GetParent, IsWindowVisible, GetClientRect,
+                    GetForegroundWindow, GetWindowTextW, GetClassNameW, EnumWindows,
+                    IsWindow, PostMessageW, SetForegroundWindow, ShowWindow,
+                    SetWindowPos, GetWindowRect, MoveWindow, GetWindowPlacement,
+                    GetWindowThreadProcessId, IsIconic, IsHungAppWindow,
+                },
+                HiDpi::{
+                    GetDpiForWindow,
+                },
+            },
+            Graphics::{
+                Gdi::{
+                    HMONITOR, HDC, DISPLAY_DEVICEW, MONITORINFOEXW, MONITORINFO,
+                    MONITOR_DEFAULTTONEAREST,
+                    MapWindowPoints, MonitorFromWindow, EnumDisplayMonitors,
+                    EnumDisplayDevicesW, GetMonitorInfoW,
+                },
+                Dwm::{
+                    DWMWA_EXTENDED_FRAME_BOUNDS,
+                    DwmIsCompositionEnabled, DwmGetWindowAttribute,
+                },
+            }
+        },
     },
 };
 
@@ -399,26 +416,26 @@ pub fn ctrlwin(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             SetForegroundWindow(hwnd);
         },
         CtrlWinCmd::HIDE => unsafe {
-            ShowWindow(hwnd, SHOW_WINDOW_CMD::SW_HIDE);
+            ShowWindow(hwnd, SW_HIDE);
         },
         CtrlWinCmd::SHOW => unsafe {
-            ShowWindow(hwnd, SHOW_WINDOW_CMD::SW_SHOW);
+            ShowWindow(hwnd, SW_SHOW);
         },
         CtrlWinCmd::MIN => unsafe {
-            ShowWindow(hwnd, SHOW_WINDOW_CMD::SW_MINIMIZE);
+            ShowWindow(hwnd, SW_MINIMIZE);
         },
         CtrlWinCmd::MAX => unsafe {
-            ShowWindow(hwnd, SHOW_WINDOW_CMD::SW_MAXIMIZE);
+            ShowWindow(hwnd, SW_MAXIMIZE);
         },
         CtrlWinCmd::NORMAL => unsafe {
-            ShowWindow(hwnd, SHOW_WINDOW_CMD::SW_SHOWNORMAL);
+            ShowWindow(hwnd, SW_SHOWNORMAL);
         },
         CtrlWinCmd::TOPMOST => unsafe {
             SetWindowPos(
                 hwnd,
                 HWND_TOPMOST,
                 0, 0, 0, 0,
-                SET_WINDOW_POS_FLAGS::SWP_NOMOVE | SET_WINDOW_POS_FLAGS::SWP_NOSIZE
+                SWP_NOMOVE | SWP_NOSIZE
             );
         },
         CtrlWinCmd::NOTOPMOST => unsafe {
@@ -426,7 +443,7 @@ pub fn ctrlwin(args: BuiltinFuncArgs) -> BuiltinFuncResult {
                 hwnd,
                 HWND_NOTOPMOST,
                 0, 0, 0, 0,
-                SET_WINDOW_POS_FLAGS::SWP_NOMOVE | SET_WINDOW_POS_FLAGS::SWP_NOSIZE
+                SWP_NOMOVE | SWP_NOSIZE
             );
         },
         CtrlWinCmd::TOPNOACTV => unsafe {
@@ -435,7 +452,7 @@ pub fn ctrlwin(args: BuiltinFuncArgs) -> BuiltinFuncResult {
                     hwnd,
                     h,
                     0, 0, 0, 0,
-                    SET_WINDOW_POS_FLAGS::SWP_NOMOVE | SET_WINDOW_POS_FLAGS::SWP_NOSIZE | SET_WINDOW_POS_FLAGS::SWP_NOACTIVATE
+                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE
                 );
             }
         },
@@ -505,7 +522,7 @@ fn get_window_size(h: HWND) -> WindowSize {
         } else {
             let _ = DwmGetWindowAttribute(
                 h,
-                DWMWINDOWATTRIBUTE::DWMWA_EXTENDED_FRAME_BOUNDS.0 as u32,
+                DWMWA_EXTENDED_FRAME_BOUNDS.0 as u32,
                 &mut rect as *mut _ as *mut c_void,
                 mem::size_of::<RECT>() as u32
             );
@@ -547,7 +564,7 @@ pub fn set_window_size(hwnd: HWND, x: Option<i32>, y: Option<i32>, w: Option<i32
             // 見た目のRectを取る
             let _ = DwmGetWindowAttribute(
                 hwnd,
-                DWMWINDOWATTRIBUTE::DWMWA_EXTENDED_FRAME_BOUNDS.0 as u32,
+                DWMWA_EXTENDED_FRAME_BOUNDS.0 as u32,
                 &mut drect as *mut _ as *mut c_void,
                 mem::size_of::<RECT>() as u32
             );
@@ -614,17 +631,10 @@ fn get_parent(hwnd: HWND) -> Object {
 }
 
 fn is_maximized(hwnd: HWND)-> Object {
-    let mut wp = WINDOWPLACEMENT {
-        length: 0,
-        flags: WINDOWPLACEMENT_FLAGS(0),
-        showCmd: SHOW_WINDOW_CMD(0),
-        ptMinPosition: POINT {x: 0, y: 0},
-        ptMaxPosition: POINT {x: 0, y: 0},
-        rcNormalPosition: RECT {left: 0, top: 0, right: 0, bottom: 0},
-    };
+    let mut wp = WINDOWPLACEMENT::default();
     unsafe {
         GetWindowPlacement(hwnd, &mut wp);
-        Object::Bool(wp.showCmd == SHOW_WINDOW_CMD::SW_MAXIMIZE)
+        Object::Bool(wp.showCmd == SW_MAXIMIZE)
     }
 }
 
@@ -659,7 +669,7 @@ fn get_process_handle_from_hwnd(hwnd: HWND) -> HANDLE {
     let pid = get_process_id_from_hwnd(hwnd);
     unsafe {
         OpenProcess(
-            PROCESS_ACCESS_RIGHTS::PROCESS_QUERY_INFORMATION | PROCESS_ACCESS_RIGHTS::PROCESS_VM_READ,
+            PROCESS_QUERY_INFORMATION | PROCESS_VM_READ,
             false, pid
         )
     }
@@ -669,7 +679,7 @@ fn get_process_path_from_hwnd(hwnd: HWND) -> BuiltinFuncResult {
     let mut buffer = [0; MAX_PATH as usize];
     unsafe {
         let handle = get_process_handle_from_hwnd(hwnd);
-        K32GetModuleFileNameExW(handle, 0, PWSTR(buffer.as_mut_ptr()), MAX_PATH);
+        K32GetModuleFileNameExW(handle, HINSTANCE::NULL, PWSTR(buffer.as_mut_ptr()), MAX_PATH);
         CloseHandle(handle);
     }
     let path = String::from_utf16_lossy(&buffer);
@@ -678,7 +688,7 @@ fn get_process_path_from_hwnd(hwnd: HWND) -> BuiltinFuncResult {
 
 fn get_monitor_index_from_hwnd(hwnd: HWND) -> Object {
     let h = unsafe {
-        MonitorFromWindow(hwnd, MONITOR_FROM_FLAGS::MONITOR_DEFAULTTONEAREST)
+        MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST)
     };
     get_monitor_count(h)
 }
@@ -828,6 +838,7 @@ pub enum MonitorEnumAlias {
     MON_ISMAIN     = 4,
 }
 
+#[derive(Debug)]
 struct Monitor {
     count: usize,
     handle: HMONITOR,
@@ -837,10 +848,12 @@ struct Monitor {
 unsafe extern "system"
 fn monitor_enum_for_get_monitor_count(h: HMONITOR, _: HDC, _: *mut RECT, lparam: LPARAM) -> BOOL {
     let m = &mut *(lparam.0 as *mut Monitor);
+    println!("[debug] monitor: {:?}", m);
     if m.handle == h {
         return false.into();
     }
     m.count += 1;
+
     true.into()
 }
 // nullを渡すと全モニタ数、モニタのハンドルを渡すとそのインデックスを返す
@@ -851,11 +864,14 @@ fn get_monitor_count(handle: HMONITOR) -> Object {
             handle,
             index: 0,
         };
+        let lparam = &mut monitor as *mut Monitor as isize;
+        let mut rect = RECT::default();
+
         EnumDisplayMonitors(
-            HDC(0),
-            &mut RECT::default(),
+            HDC::NULL,
+            &mut rect,
             Some(monitor_enum_for_get_monitor_count),
-            LPARAM(&mut monitor as *mut Monitor as isize)
+            LPARAM(lparam)
         );
         Object::Num(monitor.count as f64)
     }
@@ -880,7 +896,7 @@ fn get_monitor_handle_by_index(i: usize) -> HMONITOR {
             index: i,
         };
         EnumDisplayMonitors(
-            HDC(0),
+            HDC::NULL,
             &mut RECT::default(),
             Some(monitor_enum_proc_for_get_monitor_handle_by_index),
             LPARAM(&mut monitor as *mut Monitor as isize)
@@ -923,7 +939,7 @@ pub fn monitor(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let cmd = get_non_float_argument_value::<u8>(&args, 1, Some(MonitorEnum::MON_ALL as u8))?;
     let value = match FromPrimitive::from_u8(cmd).unwrap_or(MonitorEnum::UNKNOWN_MONITOR_CMD) {
         MonitorEnum::MON_ALL => {
-            let mut map = HashTbl::new(false, true);
+            let mut map = HashTbl::new(true, false);
             map.insert((MonitorEnum::MON_X as u8).to_string(), Object::Num(mi.rcMonitor.left.into()));
             map.insert((MonitorEnum::MON_Y as u8).to_string(), Object::Num(mi.rcMonitor.top.into()));
             map.insert((MonitorEnum::MON_WIDTH as u8).to_string(), Object::Num((mi.rcMonitor.right - mi.rcMonitor.left).into()));

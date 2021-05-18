@@ -12,11 +12,15 @@ use crate::winapi::{
     bindings::{
         Windows::{
             Win32::{
-                SystemServices::{
-                    MAX_PATH, PWSTR,
+                System::{
+                    SystemServices::{
+                        MAX_PATH, PWSTR,
+                    },
                 },
-                FileSystem::{
-                    GetFullPathNameW,
+                Storage::{
+                    FileSystem::{
+                        GetFullPathNameW,
+                    }
                 }
             }
         },

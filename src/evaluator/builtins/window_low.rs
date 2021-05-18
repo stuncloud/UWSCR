@@ -8,11 +8,18 @@ use strum_macros::{EnumString, EnumVariantNames};
 use num_derive::{ToPrimitive, FromPrimitive};
 use num_traits::FromPrimitive;
 use crate::winapi::bindings::{
-    Windows::Win32::KeyboardAndMouseInput::{
-        keybd_event, KEYBD_EVENT_FLAGS, MapVirtualKeyW
+    Windows::{
+        Win32::{
+            UI::{
+                KeyboardAndMouseInput::{
+                    KEYEVENTF_SCANCODE, KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP,
+                    keybd_event, MapVirtualKeyW
+                },
+                WindowsAndMessaging::GetCursorPos,
+                DisplayDevices::POINT,
+            },
+        },
     },
-    Windows::Win32::WindowsAndMessaging::GetCursorPos,
-    Windows::Win32::DisplayDevices::POINT,
 };
 
 pub fn builtin_func_sets() -> BuiltinFunctionSets {
@@ -109,7 +116,7 @@ pub fn get_current_pos(name: &str) -> Result<POINT, UError>{
 fn send_win_key(vk: u8, action: KeyActionEnum, wait: u64) -> BuiltinFuncResult {
     thread::sleep(time::Duration::from_millis(wait));
     unsafe {
-        let dw_flags = KEYBD_EVENT_FLAGS::KEYEVENTF_SCANCODE | KEYBD_EVENT_FLAGS::KEYEVENTF_EXTENDEDKEY;
+        let dw_flags = KEYEVENTF_SCANCODE | KEYEVENTF_EXTENDEDKEY;
         let scancode = MapVirtualKeyW(vk as u32, 0) as u8;
         match action {
             KeyActionEnum::CLICK => {
@@ -124,7 +131,7 @@ fn send_win_key(vk: u8, action: KeyActionEnum, wait: u64) -> BuiltinFuncResult {
                 keybd_event(
                     0,
                     scancode,
-                    KEYBD_EVENT_FLAGS::KEYEVENTF_KEYUP | dw_flags,
+                    KEYEVENTF_KEYUP | dw_flags,
                     0
                 );
             },
@@ -140,7 +147,7 @@ fn send_win_key(vk: u8, action: KeyActionEnum, wait: u64) -> BuiltinFuncResult {
                 keybd_event(
                     0,
                     scancode,
-                    KEYBD_EVENT_FLAGS::KEYEVENTF_KEYUP | dw_flags,
+                    KEYEVENTF_KEYUP | dw_flags,
                     0
                 );
             },

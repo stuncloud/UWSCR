@@ -1,24 +1,36 @@
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
 use crate::winapi::bindings::{
-    Windows::Win32::WindowsProgramming::{
-        INFINITE,
-        PROCESS_CREATION_FLAGS, OSVERSIONINFOEXW,
-        CloseHandle, GetVersionExW,
-    },
-    Windows::Win32::SystemServices::{
-        BOOL, PWSTR,
-        SECURITY_ATTRIBUTES, STARTUPINFOW, PROCESS_INFORMATION, STARTUPINFOW_FLAGS,
-        VER_NT_WORKSTATION,
-        CreateProcessW, WaitForInputIdle, WaitForSingleObject, GetExitCodeProcess,
-        IsWow64Process, GetCurrentProcess,
-    },
-    Windows::Win32::WindowsAndMessaging::{
-        HWND, LPARAM, SHOW_WINDOW_CMD, SYSTEM_METRICS_INDEX,
-        EnumWindows, GetWindowThreadProcessId, GetSystemMetrics,
-    },
-    Windows::Win32::Shell::{
-        ShellExecuteW,
+    Windows::{
+        Win32::{
+            System::{
+                WindowsProgramming::{
+                        INFINITE,
+                        OSVERSIONINFOEXW,
+                        CloseHandle, GetVersionExW,
+                },
+                Threading::{
+                    STARTUPINFOW, PROCESS_INFORMATION,
+                    STARTF_USESHOWWINDOW, NORMAL_PRIORITY_CLASS,
+                    CreateProcessW, WaitForSingleObject, GetExitCodeProcess,
+                    GetCurrentProcess,
+                },
+                SystemServices::{
+                    BOOL, PWSTR, SECURITY_ATTRIBUTES, VER_NT_WORKSTATION,
+                    WaitForInputIdle, IsWow64Process,
+                }
+            },
+            UI::{
+                WindowsAndMessaging::{
+                    HWND, LPARAM, SM_SERVERR2,
+                    SW_SHOWNORMAL, SW_SHOW,
+                    EnumWindows, GetWindowThreadProcessId, GetSystemMetrics,
+                },
+                Shell::{
+                    ShellExecuteW,
+                }
+            }
+        }
     },
 };
 
@@ -132,7 +144,7 @@ pub fn get_os_num() -> Vec<f64> {
             _ => 0.0
         },
         5 => match info.dwMinorVersion {
-            2 => if unsafe{GetSystemMetrics(SYSTEM_METRICS_INDEX::SM_SERVERR2)} != 0 {
+            2 => if unsafe{GetSystemMetrics(SM_SERVERR2)} != 0 {
                 OsNumber::OS_WINSRV2003R2 as u8 as f64
             } else {
                 OsNumber::OS_WINSRV2003 as u8 as f64
@@ -187,7 +199,7 @@ pub fn shell_execute(cmd: String, params: Option<String>) -> bool {
                 PWSTR::NULL
             },
             PWSTR::NULL,
-            SHOW_WINDOW_CMD::SW_SHOWNORMAL.0 as i32
+            SW_SHOWNORMAL.0 as i32
         );
         hinstance.0 > 32
     }
@@ -197,8 +209,8 @@ fn create_process(cmd: String, name: &str) -> Result<PROCESS_INFORMATION, UError
     unsafe {
         let mut si: STARTUPINFOW = mem::zeroed();
         si.cb = mem::size_of::<STARTUPINFOW>() as u32;
-        si.dwFlags = STARTUPINFOW_FLAGS::STARTF_USESHOWWINDOW;
-        si.wShowWindow = SHOW_WINDOW_CMD::SW_SHOW.0 as u16;
+        si.dwFlags = STARTF_USESHOWWINDOW;
+        si.wShowWindow = SW_SHOW.0 as u16;
         let mut pi: PROCESS_INFORMATION = mem::zeroed();
         let mut command = to_wide_string(cmd.as_str());
 
@@ -208,7 +220,7 @@ fn create_process(cmd: String, name: &str) -> Result<PROCESS_INFORMATION, UError
             &mut SECURITY_ATTRIBUTES::default(),
             &mut SECURITY_ATTRIBUTES::default(),
             false,
-            PROCESS_CREATION_FLAGS::NORMAL_PRIORITY_CLASS,
+            NORMAL_PRIORITY_CLASS,
             null_mut(),
             PWSTR::NULL,
             &mut si,
