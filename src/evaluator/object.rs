@@ -1,6 +1,7 @@
 use crate::ast::*;
 use crate::evaluator::environment::{NamedObject, Module};
 use crate::evaluator::builtins::BuiltinFunction;
+use crate::winapi::bindings::Windows::Win32::WindowsAndMessaging::HWND;
 
 use std::fmt;
 use std::hash::{Hash, Hasher};
@@ -8,7 +9,6 @@ use std::rc::Rc;
 use std::cell::RefCell;
 use std::str::FromStr;
 
-use winapi::shared::windef::HWND;
 use indexmap::IndexMap;
 use strum_macros::{EnumString, EnumVariantNames};
 use num_derive::{ToPrimitive, FromPrimitive};

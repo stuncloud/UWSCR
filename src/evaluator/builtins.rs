@@ -13,6 +13,7 @@ use crate::winapi::{
     get_screen_width,
     get_screen_height,
     get_color_depth,
+    bindings::Windows::Win32::Shell::CSIDL_APPDATA,
 };
 use crate::evaluator::object::{Object, Version, HashTblEnum, SpecialFuncResultType};
 use crate::evaluator::environment::NamedObject;
@@ -204,7 +205,7 @@ fn set_special_variables(vec: &mut Vec<NamedObject>) {
         get_system_directory()
     )));
     vec.push(NamedObject::new_builtin_const("GET_APPDATA_DIR".into(), Object::String(
-        get_special_directory(winapi::um::shlobj::CSIDL_APPDATA)
+        get_special_directory(CSIDL_APPDATA as i32)
     )));
 
     vec.push(NamedObject::new_builtin_const("GET_CUR_DIR".into(), Object::DynamicVar(

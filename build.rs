@@ -71,6 +71,7 @@ fn main() {
             GetSystemMetrics,
         },
         Windows::Win32::Shell::{
+            CSIDL_APPDATA,
             ShellExecuteW, SHGetSpecialFolderPathW,
         },
         Windows::Win32::FileSystem::{

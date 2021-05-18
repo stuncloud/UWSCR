@@ -75,9 +75,7 @@ impl Evaluator {
             Object::Num(n) => {
                 n != 0.0
             },
-            Object::Handle(h) => {
-                h != std::ptr::null_mut()
-            },
+            Object::Handle(h) => ! h.is_null(),
             _ => true
         }
     }
