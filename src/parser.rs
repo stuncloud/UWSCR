@@ -1,5 +1,5 @@
 use crate::ast::*;
-use crate::lexer::{Lexer, Position, TokenWithPos};
+use crate::lexer::{Lexer, Position, TokenInfo};
 use crate::token::Token;
 use crate::get_script;
 use crate::serializer;
@@ -27,6 +27,7 @@ pub enum ParseErrorKind {
     InvalidHexNumber,
     CanNotCallScript,
     CanNotLoadUwsl,
+    WhitespaceRequired,
 }
 
 #[derive(Debug, Clone)]
@@ -56,6 +57,7 @@ impl fmt::Display for ParseErrorKind {
             ParseErrorKind::InvalidHexNumber => write!(f, "Invalid hex number"),
             ParseErrorKind::CanNotCallScript => write!(f, "Failed to load script"),
             ParseErrorKind::CanNotLoadUwsl => write!(f, "Failed to load uwsl file"),
+            ParseErrorKind::WhitespaceRequired => write!(f, "Missing whitespace"),
         }
     }
 }
@@ -84,8 +86,8 @@ pub type PareseErrors = Vec<ParseError>;
 
 pub struct Parser {
     lexer: Lexer,
-    current_token: TokenWithPos,
-    next_token: TokenWithPos,
+    current_token: TokenInfo,
+    next_token: TokenInfo,
     errors: PareseErrors,
     with: Option<Expression>,
     with_count: usize,
@@ -97,8 +99,8 @@ impl Parser {
     pub fn new(lexer: Lexer) -> Self {
         let mut parser = Parser {
             lexer,
-            current_token: TokenWithPos::new(Token::Eof),
-            next_token: TokenWithPos::new(Token::Eof),
+            current_token: TokenInfo::new(Token::Eof),
+            next_token: TokenInfo::new(Token::Eof),
             errors: vec![],
             with: None,
             with_count: 0,
@@ -114,8 +116,8 @@ impl Parser {
     pub fn call(lexer: Lexer, script: String) -> Self {
         let mut parser = Parser {
             lexer,
-            current_token: TokenWithPos::new(Token::Eof),
-            next_token: TokenWithPos::new(Token::Eof),
+            current_token: TokenInfo::new(Token::Eof),
+            next_token: TokenInfo::new(Token::Eof),
             errors: vec![],
             with: None,
             with_count: 0,
@@ -602,7 +604,15 @@ impl Parser {
 
     fn parse_print_statement(&mut self) -> Option<Statement> {
         self.bump();
-
+        if ! self.current_token.skipped_whitespace {
+            self.errors.push(ParseError::new(
+                ParseErrorKind::WhitespaceRequired,
+                "space is required after 'print'",
+                self.current_token.pos,
+                self.script.clone()
+            ));
+            return None;
+        }
         let expression = match self.parse_expression(Precedence::Lowest, false) {
             Some(e) => e,
             None => Expression::Literal(Literal::String("".to_string()))

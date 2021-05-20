@@ -21,20 +21,22 @@ impl Position {
 }
 
 #[derive(Debug, Clone)]
-pub struct TokenWithPos {
+pub struct TokenInfo {
     pub token: Token,
     pub pos: Position,
+    pub skipped_whitespace: bool,
 }
 
-impl TokenWithPos {
+impl TokenInfo {
     pub fn new(token: Token) -> Self {
-        TokenWithPos {
+        TokenInfo {
             token,
-            pos: Position::new()
+            pos: Position::new(),
+            skipped_whitespace: false,
         }
     }
-    pub fn new_with_pos(token: Token, pos: Position) -> Self {
-        TokenWithPos{token, pos}
+    pub fn new_with_pos(token: Token, pos: Position, skipped_whitespace: bool) -> Self {
+        TokenInfo{token, pos, skipped_whitespace}
     }
 }
 
@@ -105,32 +107,35 @@ impl Lexer {
         }
     }
 
-    fn skip_whitespace(&mut self) {
+    fn skip_whitespace(&mut self) -> bool {
+        let mut skipped = false;
         loop {
             match self.ch {
                 ' ' | '\t' | '　' => {
                     self.read_char();
+                    skipped = true;
                 },
                 _ => {
                     break;
                 }
             }
         }
+        skipped
     }
 
-    pub fn next_token(&mut self) -> TokenWithPos {
+    pub fn next_token(&mut self) -> TokenInfo {
         if self.is_textblock {
             let p = self.position.clone();
             let body = self.get_textblock_body();
-            return TokenWithPos::new_with_pos(Token::TextBlockBody(body), p);
+            return TokenInfo::new_with_pos(Token::TextBlockBody(body), p, false);
         }
-        self.skip_whitespace();
+        let skipped = self.skip_whitespace();
         let p: Position = self.position.clone();
 
         if self.is_call {
             self.is_call = false;
             let token = self.consume_call_path();
-            return TokenWithPos::new_with_pos(token, p);
+            return TokenInfo::new_with_pos(token, p, skipped);
         }
 
         let token: Token = match self.ch {
@@ -242,7 +247,7 @@ impl Lexer {
             '_' => {
                 match self.nextch() {
                     'a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '#' => {
-                        return TokenWithPos::new_with_pos(self.consume_identifier(), p);
+                        return TokenInfo::new_with_pos(self.consume_identifier(), p, skipped);
                     },
                     _ => {
                         self.read_char();
@@ -256,19 +261,19 @@ impl Lexer {
             },
             '\\' => Token::BackSlash,
             'a'..='z' | 'A'..='Z' | '#' => {
-                return TokenWithPos::new_with_pos(self.consume_identifier(), p);
+                return TokenInfo::new_with_pos(self.consume_identifier(), p, skipped);
             },
             '0'..='9' => {
-                return TokenWithPos::new_with_pos(self.consume_number(), p);
+                return TokenInfo::new_with_pos(self.consume_number(), p, skipped);
             },
             '$' => {
-                return TokenWithPos::new_with_pos(self.consume_hexadecimal(), p);
+                return TokenInfo::new_with_pos(self.consume_hexadecimal(), p, skipped);
             },
             '"' => {
-                return TokenWithPos::new_with_pos(self.consume_string(), p);
+                return TokenInfo::new_with_pos(self.consume_string(), p, skipped);
             },
             '|' => Token::Pipeline,
-            '\'' => return TokenWithPos::new_with_pos(self.consume_single_quote_string(), p),
+            '\'' => return TokenInfo::new_with_pos(self.consume_single_quote_string(), p, skipped),
             '\n' => {
                 self.to_next_row();
                 Token::Eol
@@ -283,7 +288,7 @@ impl Lexer {
             '\0' => Token::Eof,
             '\x01'..=' ' => Token::Illegal(self.ch),
             _ => {
-                return TokenWithPos::new_with_pos(self.consume_identifier(), p);
+                return TokenInfo::new_with_pos(self.consume_identifier(), p, skipped);
             },
         };
         if token == Token::Eol && self.textblock_flg {
@@ -291,7 +296,7 @@ impl Lexer {
             self.textblock_flg = false;
         }
         self.read_char();
-        return TokenWithPos::new_with_pos(token, p);
+        return TokenInfo::new_with_pos(token, p, skipped);
     }
 
 
