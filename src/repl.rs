@@ -10,8 +10,13 @@ use crate::parser::Parser;
 use crate::parser::ParseErrorKind;
 use crate::lexer::Lexer;
 use crate::script::{get_parent_full_path, get_script_name};
+use crate::settings::load_settings;
 
 pub fn run(script: Option<String>, exe_path: String, script_path: Option<String>) {
+    // 設定ファイルを読み込む
+    // 失敗したらデフォルト設定が適用される
+    load_settings().ok();
+
     match get_parent_full_path(&exe_path) {
         Ok(s) => {
             env::set_var("GET_UWSC_DIR", s.to_str().unwrap());

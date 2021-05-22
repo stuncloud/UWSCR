@@ -1,5 +1,10 @@
-use crate::evaluator::object::*;
-use crate::evaluator::builtins::init_builtins;
+use crate::{
+    evaluator::{
+        object::*,
+        builtins::init_builtins,
+    },
+    settings::usettings_singleton,
+};
 
 use std::fmt;
 use std::rc::Rc;
@@ -442,7 +447,17 @@ impl Environment {
         } else if include_local {
             // ローカル代入許可の場合のみ
             // 同名の変数が存在しない場合は新たなローカル変数を定義
-            // Option Explicitの場合は無効 (未実装)
+            // Option Explicitの場合はエラーになる
+            let singleton = usettings_singleton(None);
+            let usettings = singleton.0.lock().unwrap();
+            if usettings.options.explicit {
+                return Err(UError::new(
+                    "Explicit error".into(),
+                    format!("dim is required for {}", key),
+                    None
+                ));
+            }
+
             self.define_local(key, value)?;
         } else {
             // ローカル代入不許可

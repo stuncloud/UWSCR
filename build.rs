@@ -101,5 +101,5 @@ fn main() {
             DWMWINDOWATTRIBUTE, DWMWA_EXTENDED_FRAME_BOUNDS,
             DwmIsCompositionEnabled, DwmGetWindowAttribute,
         },
-    )
+    );
 }

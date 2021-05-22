@@ -62,7 +62,7 @@ pub fn get_special_directory(csidl: i32) -> String {
     unsafe {
         SHGetSpecialFolderPathW(HWND::NULL, PWSTR(buffer.as_mut_ptr()), csidl, false);
     }
-    String::from_utf16_lossy(&buffer)
+    String::from_utf16_lossy(&buffer).trim_matches(char::from(0)).to_string()
 }
 
 pub fn get_screen_width() -> i32 {

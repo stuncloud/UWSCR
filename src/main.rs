@@ -7,6 +7,7 @@ use uwscr::evaluator::builtins::system_controls::shell_execute;
 use uwscr::logging::{out_log, LogType};
 use uwscr::get_script;
 use uwscr::serializer;
+use uwscr::settings::out_default_setting_file;
 
 
 fn main() {
@@ -98,6 +99,12 @@ fn main() {
                     }
                 }
             },
+            Mode::Settings => {
+                match out_default_setting_file() {
+                    Ok(s) => println!("{}", s),
+                    Err(e) => eprintln!("{}", e)
+                }
+            }
             Mode::Server(_p) => {
                 println!("Language serverは未実装です");
             },
@@ -145,7 +152,8 @@ impl Args {
                 Ok(None) => Err("FILE is required".to_string()),
                 Err(e) => Err(e)
             },
-            "-s" | "--server" => self.get_port().map(|p| Mode::Server(p)),
+            "-s" | "--settings" => Ok(Mode::Settings),
+            "--language-server" => self.get_port().map(|p| Mode::Server(p)),
             _ => {
                 Ok(Mode::Script(PathBuf::from(self.args[1].clone())))
             },
@@ -193,8 +201,9 @@ impl Args {
         println!("  uwscr [(-r|--repl) [FILE]]   : Replを起動 (スクリプトを指定するとそれを実行してから起動)");
         println!("  uwscr (-a|--ast) FILE        : スクリプトの構文木を出力");
         println!("  uwscr --ast-force FILE       : 構文エラーでも構文木を出力");
-        println!("  uwscr (-l|--lib) FILE        : スクリプトをバイナリにする");
-        // println!("  uwscr (-s|--server) [PORT]   : Language Serverとして起動、デフォルトポートはxxx");
+        println!("  uwscr (-l|--lib) FILE        : スクリプトからuwslファイルを生成する");
+        println!("  uwscr (-s|--settings)        : 設定ファイル(settings.json)を開く");
+        // println!("  uwscr --language-server [PORT]   : Language Serverとして起動、デフォルトポートはxxx");
         println!("  uwscr (-h|--help)            : このヘルプを表示");
         println!("  uwscr (-v|--version)         : UWSCRのバージョンを表示");
         println!("  uwscr (-o|--online-help)     : オンラインヘルプを表示");
@@ -213,6 +222,7 @@ enum Mode {
     Server(Option<u16>),
     Help,
     Version,
+    Settings,
     OnlineHelp,
 }
 

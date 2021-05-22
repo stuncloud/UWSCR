@@ -6,6 +6,7 @@ pub mod math;
 pub mod key_codes;
 
 use crate::evaluator::UError;
+use crate::settings::usettings_singleton;
 use crate::winapi::{
     get_windows_directory,
     get_system_directory,
@@ -174,6 +175,7 @@ fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("assert_equal", 2, assert_equal);
     sets.add("raise", 2, raise);
     sets.add("type_of", 2, type_of);
+    sets.add("get_settings", 0, get_settings);
     sets
 }
 
@@ -261,6 +263,13 @@ pub fn list_module_member(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 
 pub fn name_of(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(Object::SpecialFuncResult(SpecialFuncResultType::BuiltinConstName(args.get_expr(0))))
+}
+
+pub fn get_settings(_args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let singleton = usettings_singleton(None);
+    let s = singleton.0.lock().unwrap();
+    let json = s.get_current_settings_as_json();
+    Ok(Object::String(json))
 }
 
 pub fn raise(args: BuiltinFuncArgs) -> BuiltinFuncResult {

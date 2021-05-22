@@ -7,7 +7,7 @@ pub mod script;
 pub mod repl;
 pub mod logging;
 pub mod serializer;
-// pub mod settings
+pub mod settings;
 pub mod winapi;
 
 

@@ -7,6 +7,7 @@ use crate::evaluator::environment::Environment;
 use crate::evaluator::Evaluator;
 use crate::parser::*;
 use crate::lexer::Lexer;
+use crate::settings::load_settings;
 use crate::winapi::{
     to_wide_string,
     bindings::{
@@ -29,6 +30,10 @@ use crate::winapi::{
 use crate::logging;
 
 pub fn run(script: String, mut args: Vec<String>) -> Result<(), Vec<String>> {
+    // 設定ファイルを読み込む
+    // 失敗したらデフォルト設定が適用される
+    load_settings().ok();
+
     let params = args.drain(2..).collect();
     let uwscr_dir = match get_parent_full_path(&args[0]) {
         Ok(s) => s,
