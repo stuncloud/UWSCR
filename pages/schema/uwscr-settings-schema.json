@@ -1,0 +1,94 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "description": "",
+  "type": "object",
+  "properties": {
+    "options": {
+      "type": "object",
+      "properties": {
+        "opt_finally": {
+          "type": "boolean"
+        },
+        "explicit": {
+          "type": "boolean"
+        },
+        "dlg_title": {
+          "type": "string"
+        },
+        "log_file": {
+          "type": "boolean"
+        },
+        "log_lines": {
+          "type": "number"
+        },
+        "log_path": {
+          "type": "string"
+        },
+        "position": {
+          "type": "object",
+          "properties": {
+            "left": {
+              "type": "number"
+            },
+            "top": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "left",
+            "top"
+          ]
+        },
+        "default_font": {
+          "type": "object",
+          "properties": {
+            "font": {
+              "type": "string",
+              "minLength": 1
+            },
+            "size": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "font",
+            "size"
+          ]
+        },
+        "fix_balloon": {
+          "type": "boolean"
+        },
+        "no_stop_hot_key": {
+          "type": "boolean"
+        },
+        "short_circuit": {
+          "type": "boolean"
+        },
+        "opt_public": {
+          "type": "boolean"
+        },
+        "same_str": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "opt_finally",
+        "explicit",
+        "dlg_title",
+        "log_file",
+        "log_lines",
+        "log_path",
+        "position",
+        "default_font",
+        "fix_balloon",
+        "no_stop_hot_key",
+        "short_circuit",
+        "opt_public",
+        "same_str"
+      ]
+    }
+  },
+  "required": [
+    "options"
+  ]
+}
