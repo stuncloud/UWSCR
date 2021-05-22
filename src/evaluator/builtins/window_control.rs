@@ -78,7 +78,7 @@ pub struct WindowControl {
     windows: Arc<Mutex<HashMap<i32, HWND>>>
 }
 
-pub fn window_singlton() -> Box<WindowControl> {
+pub fn window_singleton() -> Box<WindowControl> {
     static mut SINGLETON: Option<Box<WindowControl>> = None;
     static ONCE: Once = Once::new();
 
@@ -95,7 +95,7 @@ pub fn window_singlton() -> Box<WindowControl> {
 }
 
 pub fn get_next_id() -> i32 {
-    let s = window_singlton();
+    let s = window_singleton();
     let mut next_id = s.next_id.lock().unwrap();
     let id = next_id.clone();
     *next_id += 1;
@@ -104,7 +104,7 @@ pub fn get_next_id() -> i32 {
 }
 
 pub fn set_new_window(id: i32, handle: HWND, to_zero: bool) {
-    let s = window_singlton();
+    let s = window_singleton();
     let mut list = s.windows.lock().unwrap();
     list.insert(id, handle);
     if to_zero {
@@ -113,7 +113,7 @@ pub fn set_new_window(id: i32, handle: HWND, to_zero: bool) {
 }
 
 fn set_id_zero(hwnd: HWND) {
-    let s = window_singlton();
+    let s = window_singleton();
     let mut list = s.windows.lock().unwrap();
     list.insert(0, hwnd);
 }
@@ -328,7 +328,7 @@ pub fn idtohnd(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 }
 
 fn get_hwnd_from_id(id: i32) -> HWND {
-    let s = window_singlton();
+    let s = window_singleton();
     let list = s.windows.lock().unwrap();
     match list.get(&id) {
         Some(h) => *h,
@@ -345,7 +345,7 @@ pub fn hndtoid(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 }
 
 fn get_id_from_hwnd(hwnd: HWND) -> f64 {
-    let s = window_singlton();
+    let s = window_singleton();
     let list = s.windows.lock().unwrap();
     list.iter().find_map(
         |(key, &val)| if val == hwnd {
