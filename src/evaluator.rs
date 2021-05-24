@@ -186,17 +186,23 @@ impl Evaluator {
                     if path.is_dir() {
                         path.push("uwscr.log");
                     }
-                    env::set_var("UWSCR_LOG_FILE", path.as_os_str())
+                    env::set_var("UWSCR_LOG_FILE", path.as_os_str());
+                    usettings.options.log_path = Some(s);
                 }
             },
-            OptionSetting::Loglines(n) => env::set_var("UWSCR_LOG_LINES", &n.to_string()),
+            OptionSetting::Loglines(n) => {
+                env::set_var("UWSCR_LOG_LINES", &n.to_string());
+                usettings.options.log_lines = n as u32;
+            },
             OptionSetting::Logfile(n) => {
                 let n = if n < 0 || n > 4 {1} else {n};
-                env::set_var("UWSCR_LOG_TYPE", n.to_string())
+                env::set_var("UWSCR_LOG_TYPE", n.to_string());
+                usettings.options.log_file = n as u8;
             },
             OptionSetting::Dlgtitle(ref s) => {
                 if let Object::String(ref s) = self.expand_string(s.clone(), true) {
                     env::set_var("UWSCR_DEFAULT_TITLE", s.as_str());
+                    usettings.options.dlg_title = Some(s.to_string());
                 }
             },
         }
