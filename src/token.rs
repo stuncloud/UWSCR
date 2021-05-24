@@ -127,8 +127,25 @@ pub enum Token {
     Class,
     EndClass,
 
+    // Option
+    Option,
+    Explicit,
+    SameStr,
+    OptPublic,
+    OptFinally,
+    SpecialChar,
+    ShortCircuit,
+    NoStopHotkey,
+    TopStopform,
+    FixBalloon,
+    Defaultfont,
+    Position,
+    Logpath,
+    Loglines,
+    Logfile,
+    Dlgtitle,
+
     // その他
-    Option(String),
     Comment, // // ※文末扱い
 
     // 引数関連
@@ -138,4 +155,8 @@ pub enum Token {
     // 無名関数
     Pipeline,
     Arrow,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum OptionSetting {
 }

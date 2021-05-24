@@ -28,8 +28,13 @@ pub fn run(script: Option<String>, exe_path: String, script_path: Option<String>
     };
     if script_path.is_some() {
         match get_script_name(&script_path.clone().unwrap()) {
-            Some(s) =>env::set_var("GET_UWSC_NAME", s.as_str()),
-            None => {}
+            Some(s) =>{
+                env::set_var("GET_UWSC_NAME", s.as_str());
+                env::set_var("UWSCR_DEFAULT_TITLE", format!("UWSCR - {}", s.clone()).as_str())
+            },
+            None => {
+                env::set_var("UWSCR_DEFAULT_TITLE", format!("UWSCR - REPL").as_str())
+            }
         }
         match get_parent_full_path(&script_path.unwrap()) {
             Ok(s) => {

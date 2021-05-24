@@ -32,7 +32,10 @@ use crate::logging;
 pub fn run(script: String, mut args: Vec<String>) -> Result<(), Vec<String>> {
     // 設定ファイルを読み込む
     // 失敗したらデフォルト設定が適用される
-    load_settings().ok();
+    match load_settings() {
+        Ok(()) => {},
+        Err(e) => eprintln!("failed to load settings: {}", e),
+    }
 
     let params = args.drain(2..).collect();
     let uwscr_dir = match get_parent_full_path(&args[0]) {
@@ -51,7 +54,11 @@ pub fn run(script: String, mut args: Vec<String>) -> Result<(), Vec<String>> {
     env::set_var("GET_UWSC_DIR", uwscr_dir.to_str().unwrap());
     env::set_var("GET_SCRIPT_DIR", script_dir.to_str().unwrap());
     match get_script_name(&args[1]) {
-        Some(s) => env::set_var("GET_UWSC_NAME", s.as_str()),
+        Some(ref s) => {
+            env::set_var("GET_UWSC_NAME", s.as_str());
+            // デフォルトダイアログタイトルを設定
+            env::set_var("UWSCR_DEFAULT_TITLE", format!("UWSCR - {}", s.clone()).as_str())
+        },
         None => {}
     }
     match env::set_current_dir(&script_dir) {

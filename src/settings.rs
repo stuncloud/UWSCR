@@ -26,8 +26,9 @@ pub struct SingletonSettings(pub Arc<Mutex<USettings>>);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct USettings {
+    #[serde(default)]
     pub options: UOption,
-    #[serde(rename(serialize = "$schema"))]
+    #[serde(skip_deserializing, rename(serialize = "$schema"))]
     pub schema: String,
 }
 
@@ -49,34 +50,49 @@ impl Default for USettings {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UOption {
     // finally部を必ず実行する
+    #[serde(default)]
     pub opt_finally: bool,
     // 変数宣言必須
+    #[serde(default)]
     pub explicit: bool,
     // ダイアログタイトル
+    #[serde(default)]
     pub dlg_title: Option<String>,
-    // ログファイルの出力有無
-    pub log_file: bool,
+    // ログファイルの出力有無など
+    #[serde(default)]
+    pub log_file: u8,
     // ログの行数
+    #[serde(default)]
     pub log_lines: u32,
     // ログファイルの出力先
+    #[serde(default)]
     pub log_path: Option<String>,
     // メインGUIの座標
+    #[serde(default)]
     pub position: UPosition,
     // ダイアログなどのフォント
-    pub default_font: UFont,
+    #[serde(default)]
+    pub default_font: String,
     // 吹き出しを仮想デスクトップにも出すかどうか
+    #[serde(default)]
     pub fix_balloon: bool,
     // // stopボタン最前面に固定するかどうか (非対応)
+    // #[serde(default)]
     // pub top_stop_form: bool
     // 停止ホットキー無効
+    #[serde(default)]
     pub no_stop_hot_key: bool,
     // 短絡評価の有無
+    #[serde(default)]
     pub short_circuit: bool,
     // // 特殊文字を展開しない (非対応)
+    // #[serde(default)]
     // pub special_char: bool
     // publicの重複定義を禁止
+    #[serde(default)]
     pub opt_public: bool,
     // 大文字小文字を区別する
+    #[serde(default)]
     pub same_str: bool,
 }
 
@@ -86,11 +102,11 @@ impl Default for UOption {
             opt_finally: false,
             explicit: false,
             dlg_title: None,
-            log_file: true,
+            log_file: 1,
             log_lines: 400,
             log_path: None,
             position: UPosition::default(),
-            default_font: UFont::default(),
+            default_font: "MS Gothic,12".into(),
             fix_balloon: false,
             no_stop_hot_key: false,
             short_circuit: true,
@@ -101,24 +117,11 @@ impl Default for UOption {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UFont {
-    font: String,
-    size: u32,
-}
-
-impl Default for UFont {
-    fn default() -> Self {
-        UFont {
-            font: "gothic".into(),
-            size: 12,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UPosition {
-    left: i32,
-    top: i32,
+    #[serde(default)]
+    pub left: i32,
+    #[serde(default)]
+    pub top: i32,
 }
 
 impl Default for UPosition {

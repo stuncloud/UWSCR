@@ -341,11 +341,26 @@ impl Parser {
     pub fn parse(&mut self) -> Program {
         let mut program: Program = vec![];
         let mut pub_counter = 0;
+        let mut opt_counter = 0;
         let mut func_counter = 0;
+
+        /*
+            グローバル定義をASTの上に移動する
+            1. 変数・定数
+            2. OPTION
+            3. 関数
+            4. module・class
+            5. call (定義部分のみ)
+         */
+
 
         while ! self.is_current_token(&Token::Eof) {
             match self.parse_statement() {
                 Some(s) => match s {
+                    Statement::Option(_) => {
+                        program.insert(pub_counter + opt_counter, s);
+                        opt_counter += 1;
+                    },
                     Statement::Public(_) |
                     Statement::Const(_) |
                     Statement::TextBlock(_, _) => {
@@ -365,20 +380,24 @@ impl Parser {
                                 _ => new_body.push(statement)
                             }
                         }
-                        program.insert(pub_counter + func_counter, Statement::Function {
+                        program.insert(pub_counter + opt_counter + func_counter, Statement::Function {
                             name, params, body: new_body, is_proc
                         });
                         func_counter += 1;
                     },
                     Statement::Module(_, _) |
                     Statement::Class(_, _) => {
-                        program.insert(pub_counter + func_counter, s);
+                        program.insert(pub_counter + opt_counter + func_counter, s);
                         func_counter += 1;
                     },
                     Statement::Call(block, params) => {
                         let mut new_block = vec![];
                         for statement in block {
                             match statement {
+                                Statement::Option(_) => {
+                                    program.insert(pub_counter + opt_counter, statement);
+                                    opt_counter += 1;
+                                },
                                 Statement::Public(_) |
                                 Statement::Const(_) |
                                 Statement::TextBlock(_, _) => {
@@ -388,7 +407,7 @@ impl Parser {
                                 Statement::Function{name:_,params:_,body:_,is_proc:_} |
                                 Statement::Module(_, _) |
                                 Statement::Class(_, _) => {
-                                    program.insert(pub_counter + func_counter, statement);
+                                    program.insert(pub_counter + opt_counter + func_counter, statement);
                                     func_counter += 1;
                                 },
                                 _ => new_block.push(statement)
@@ -451,6 +470,7 @@ impl Parser {
             Token::TextBlock(is_ex) => self.parse_textblock_statement(is_ex),
             Token::With => self.parse_with_statement(),
             Token::Try => self.parse_try_statement(),
+            Token::Option => self.parse_option_statement(),
             _ => self.parse_expression_statement(),
         }
     }
@@ -1259,6 +1279,225 @@ impl Parser {
         }
     }
 
+    fn parse_option_statement(&mut self) -> Option<Statement> {
+        self.bump();
+        let statement = match self.current_token.token {
+            Token::Explicit => {
+                if ! self.is_next_token(&Token::EqualOrAssign) {
+                    Statement::Option(OptionSetting::Explicit(true))
+                } else {
+                    self.bump();
+                    self.bump();
+                    if let Token::Bool(b) = self.current_token.token {
+                        Statement::Option(OptionSetting::Explicit(b))
+                    } else {
+                        self.error_got_unexpected_token();
+                        return None;
+                    }
+                }
+            },
+            Token::SameStr => {
+                if ! self.is_next_token(&Token::EqualOrAssign) {
+                    Statement::Option(OptionSetting::SameStr(true))
+                } else {
+                    self.bump();
+                    self.bump();
+                    if let Token::Bool(b) = self.current_token.token {
+                        Statement::Option(OptionSetting::SameStr(b))
+                    } else {
+                        self.error_got_unexpected_token();
+                        return None;
+                    }
+                }
+            },
+            Token::OptPublic => {
+                if ! self.is_next_token(&Token::EqualOrAssign) {
+                    Statement::Option(OptionSetting::OptPublic(true))
+                } else {
+                    self.bump();
+                    self.bump();
+                    if let Token::Bool(b) = self.current_token.token {
+                        Statement::Option(OptionSetting::OptPublic(b))
+                    } else {
+                        self.error_got_unexpected_token();
+                        return None;
+                    }
+                }
+            },
+            Token::OptFinally => {
+                if ! self.is_next_token(&Token::EqualOrAssign) {
+                    Statement::Option(OptionSetting::OptFinally(true))
+                } else {
+                    self.bump();
+                    self.bump();
+                    if let Token::Bool(b) = self.current_token.token {
+                        Statement::Option(OptionSetting::OptFinally(b))
+                    } else {
+                        self.error_got_unexpected_token();
+                        return None;
+                    }
+                }
+            },
+            Token::SpecialChar => {
+                if ! self.is_next_token(&Token::EqualOrAssign) {
+                    Statement::Option(OptionSetting::SpecialChar(true))
+                } else {
+                    self.bump();
+                    self.bump();
+                    if let Token::Bool(b) = self.current_token.token {
+                        Statement::Option(OptionSetting::SpecialChar(b))
+                    } else {
+                        self.error_got_unexpected_token();
+                        return None;
+                    }
+                }
+            },
+            Token::ShortCircuit => {
+                if ! self.is_next_token(&Token::EqualOrAssign) {
+                    Statement::Option(OptionSetting::ShortCircuit(true))
+                } else {
+                    self.bump();
+                    self.bump();
+                    if let Token::Bool(b) = self.current_token.token {
+                        Statement::Option(OptionSetting::ShortCircuit(b))
+                    } else {
+                        self.error_got_unexpected_token();
+                        return None;
+                    }
+                }
+            },
+            Token::NoStopHotkey => {
+                if ! self.is_next_token(&Token::EqualOrAssign) {
+                    Statement::Option(OptionSetting::NoStopHotkey(true))
+                } else {
+                    self.bump();
+                    self.bump();
+                    if let Token::Bool(b) = self.current_token.token {
+                        Statement::Option(OptionSetting::NoStopHotkey(b))
+                    } else {
+                        self.error_got_unexpected_token();
+                        return None;
+                    }
+                }
+            },
+            Token::TopStopform => {
+                if ! self.is_next_token(&Token::EqualOrAssign) {
+                    Statement::Option(OptionSetting::TopStopform(true))
+                } else {
+                    self.bump();
+                    self.bump();
+                    if let Token::Bool(b) = self.current_token.token {
+                        Statement::Option(OptionSetting::TopStopform(b))
+                    } else {
+                        self.error_got_unexpected_token();
+                        return None;
+                    }
+                }
+            },
+            Token::FixBalloon => {
+                if ! self.is_next_token(&Token::EqualOrAssign) {
+                    Statement::Option(OptionSetting::FixBalloon(true))
+                } else {
+                    self.bump();
+                    self.bump();
+                    if let Token::Bool(b) = self.current_token.token {
+                        Statement::Option(OptionSetting::FixBalloon(b))
+                    } else {
+                        self.error_got_unexpected_token();
+                        return None;
+                    }
+                }
+            },
+            Token::Defaultfont => {
+                if ! self.is_next_token_expected(Token::EqualOrAssign) {
+                    return None;
+                }
+                self.bump();
+                if let Token::String(ref s) = self.current_token.token {
+                    Statement::Option(OptionSetting::Defaultfont(s.clone()))
+                } else if let Token::ExpandableString(ref s) = self.current_token.token {
+                    Statement::Option(OptionSetting::Defaultfont(s.clone()))
+                } else {
+                    self.error_got_unexpected_token();
+                    return None;
+                }
+            },
+            Token::Position => {
+                if ! self.is_next_token_expected(Token::EqualOrAssign) {
+                    return None;
+                }
+                self.bump();
+                if let Token::Num(n1) = self.current_token.token {
+                    if ! self.is_next_token_expected(Token::Comma) {
+                        return None;
+                    }
+                    if let Token::Num(n2) = self.current_token.token {
+                        return Some(Statement::Option(OptionSetting::Position(n1 as i32, n2 as i32)));
+                    }
+                }
+                self.error_got_unexpected_token();
+                return None;
+            },
+            Token::Logpath => {
+                if ! self.is_next_token_expected(Token::EqualOrAssign) {
+                    return None;
+                }
+                self.bump();
+                if let Token::String(ref s) = self.current_token.token {
+                    Statement::Option(OptionSetting::Logpath(s.clone()))
+                } else if let Token::ExpandableString(ref s) = self.current_token.token {
+                    Statement::Option(OptionSetting::Logpath(s.clone()))
+                } else {
+                    self.error_got_unexpected_token();
+                    return None;
+                }
+            },
+            Token::Loglines => {
+                if ! self.is_next_token_expected(Token::EqualOrAssign) {
+                    return None;
+                }
+                self.bump();
+                if let Token::Num(n) = self.current_token.token {
+                    Statement::Option(OptionSetting::Loglines(n as i32))
+                } else {
+                    self.error_got_unexpected_token();
+                    return None;
+                }
+            },
+            Token::Logfile => {
+                if ! self.is_next_token_expected(Token::EqualOrAssign) {
+                    return None;
+                }
+                self.bump();
+                if let Token::Num(n) = self.current_token.token {
+                    Statement::Option(OptionSetting::Logfile(n as i32))
+                } else {
+                    self.error_got_unexpected_token();
+                    return None;
+                }
+            },
+            Token::Dlgtitle => {
+                if ! self.is_next_token_expected(Token::EqualOrAssign) {
+                    return None;
+                }
+                self.bump();
+                if let Token::String(ref s) = self.current_token.token {
+                    Statement::Option(OptionSetting::Dlgtitle(s.clone()))
+                } else if let Token::ExpandableString(ref s) = self.current_token.token {
+                    Statement::Option(OptionSetting::Dlgtitle(s.clone()))
+                } else {
+                    self.error_got_unexpected_token();
+                    return None;
+                }
+            },
+            _ => {
+                self.error_got_unexpected_token();
+                return None;
+            },
+        };
+        Some(statement)
+    }
+
     fn parse_assignment(&mut self, token: Token, expression: Expression) -> Option<Expression> {
         match token {
             Token::EqualOrAssign => return self.parse_assign_expression(expression),
@@ -1489,7 +1728,7 @@ impl Parser {
             Token::LineContinue |
             Token::BackSlash |
             Token::ColonBackSlash |
-            Token::Option(_) |
+            Token::Option |
             Token::Comment |
             Token::Ref |
             Token::Variadic |

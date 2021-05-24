@@ -185,6 +185,7 @@ pub enum Statement {
         except: Option<BlockStatement>,
         finally: Option<BlockStatement>,
     },
+    Option(OptionSetting),
 }
 
 pub type BlockStatement = Vec<Statement>;
@@ -297,4 +298,23 @@ pub enum DllType {
     SafeArray,
     Void,
     Unknown(String),
+}
+
+#[derive(Debug,Clone,PartialEq,Serialize,Deserialize)]
+pub enum OptionSetting {
+    Explicit(bool),
+    SameStr(bool),
+    OptPublic(bool),
+    OptFinally(bool),
+    SpecialChar(bool),
+    ShortCircuit(bool),
+    NoStopHotkey(bool),
+    TopStopform(bool),
+    FixBalloon(bool),
+    Defaultfont(String),
+    Position(i32, i32),
+    Logpath(String),
+    Loglines(i32),
+    Logfile(i32),
+    Dlgtitle(String),
 }

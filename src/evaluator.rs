@@ -11,11 +11,14 @@ use crate::evaluator::builtins::*;
 use crate::parser::Parser;
 use crate::lexer::Lexer;
 use crate::logging::{out_log, LogType};
+use crate::settings::usettings_singleton;
 
 use std::fmt;
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::borrow::Cow;
+use std::env;
+use std::path::PathBuf;
 
 use num_traits::FromPrimitive;
 use regex::Regex;
@@ -155,8 +158,56 @@ impl Evaluator {
         Ok(None)
     }
 
+    fn set_option_settings(&self, opt: OptionSetting) {
+        let singleton = usettings_singleton(None);
+        let mut usettings = singleton.0.lock().unwrap();
+        match opt {
+            OptionSetting::Explicit(b) => usettings.options.explicit = b,
+            OptionSetting::SameStr(b) => usettings.options.same_str = b,
+            OptionSetting::OptPublic(b) => usettings.options.opt_public = b,
+            OptionSetting::OptFinally(b) => usettings.options.opt_finally = b,
+            OptionSetting::SpecialChar(_) => {},
+            OptionSetting::ShortCircuit(b) => usettings.options.short_circuit = b,
+            OptionSetting::NoStopHotkey(b) => usettings.options.no_stop_hot_key = b,
+            OptionSetting::TopStopform(_) => {},
+            OptionSetting::FixBalloon(b) => usettings.options.fix_balloon = b,
+            OptionSetting::Defaultfont(ref s) => {
+                if let Object::String(s) = self.expand_string(s.clone(), true) {
+                    usettings.options.default_font = s.clone()
+                }
+            },
+            OptionSetting::Position(x, y) => {
+                usettings.options.position.left = x;
+                usettings.options.position.top = y;
+            },
+            OptionSetting::Logpath(ref s) => {
+                if let Object::String(s) = self.expand_string(s.clone(), true) {
+                    let mut path = PathBuf::from(&s);
+                    if path.is_dir() {
+                        path.push("uwscr.log");
+                    }
+                    env::set_var("UWSCR_LOG_FILE", path.as_os_str())
+                }
+            },
+            OptionSetting::Loglines(n) => env::set_var("UWSCR_LOG_LINES", &n.to_string()),
+            OptionSetting::Logfile(n) => {
+                let n = if n < 0 || n > 4 {1} else {n};
+                env::set_var("UWSCR_LOG_TYPE", n.to_string())
+            },
+            OptionSetting::Dlgtitle(ref s) => {
+                if let Object::String(ref s) = self.expand_string(s.clone(), true) {
+                    env::set_var("UWSCR_DEFAULT_TITLE", s.as_str());
+                }
+            },
+        }
+    }
+
     fn eval_statement(&mut self, statement: Statement) -> EvalResult<Option<Object>> {
         match statement {
+            Statement::Option(opt) => {
+                self.set_option_settings(opt);
+                Ok(None)
+            },
             Statement::Dim(vec) => {
                 for (i, e) in vec {
                     let (name, value) = self.eval_definition_statement(i, e)?;
