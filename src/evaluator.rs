@@ -822,7 +822,21 @@ impl Evaluator {
                 format!("bad expression: {}", p),
                 None
             )),
-            Expression::UObject(v) => Object::UObject(Rc::new(RefCell::new(v))),
+            Expression::UObject(json) => {
+                // 文字列展開する
+                if let Object::String(s) = self.expand_string(json, true) {
+                    match serde_json::from_str::<serde_json::Value>(s.as_str()) {
+                        Ok(v) => Object::UObject(Rc::new(RefCell::new(v))),
+                        Err(e) => return Err(UError::new(
+                            "Json parse error".into(),
+                            format!("{}", s),
+                            Some(format!("Error message: {}", e))
+                        )),
+                    }
+                } else {
+                    Object::Empty
+                }
+            },
         };
         Ok(obj)
     }
@@ -964,28 +978,71 @@ impl Evaluator {
                     hash.get(key)
                 }
             },
+            Object::UObject(u) => if hash_enum.is_some() {
+                return Err(UError::new(
+                    "Invalid index".into(),
+                    format!("{}[{}, {}]", left, index, hash_enum.unwrap()),
+                    None
+                ));
+            } else {
+                let v = u.borrow().clone();
+                let (value, pointer) = match index {
+                    Object::String(ref s) => {
+                        (v.get(s), format!("/{}", s))
+                    },
+                    Object::Num(n) => {
+                        (v.get(n as usize), format!("/{}", n))
+                    },
+                    _ => {
+                        return Err(UError::new(
+                            "Invalid index".into(),
+                            format!("{}[{}]", left, index),
+                            None
+                        ));
+                    }
+                };
+                if value.is_some() {
+                    self.eval_uobject(&value.unwrap(), Rc::clone(&u), pointer)?
+                } else {
+                    return Err(UError::new(
+                        "Index out of bound".into(),
+                        format!("{}[{}]", left, index),
+                        None
+                    ));
+                }
+            },
             Object::UChild(u, p) => if hash_enum.is_some() {
                 return Err(UError::new(
                     "Invalid index".into(),
-                    format!("imvalid index: {}[{}, {}]", left, index, hash_enum.unwrap()),
+                    format!("{}[{}, {}]", left, index, hash_enum.unwrap()),
                     None
                 ));
-            } else if let Object::Num(n) = index {
-                let i = n as usize;
-                match u.borrow().pointer(p.as_str()).unwrap().get(i) {
-                    Some(v) => self.eval_uobject(v, Rc::clone(&u), format!("{}/{}", p, i))?,
-                    None => return Err(UError::new(
-                        "Index out of bound".into(),
-                        format!("{}[{}]", left, i),
-                        None
-                    ))
-                }
             } else {
-                return Err(UError::new(
-                    "Invalid index".into(),
-                    format!("imvalid index: {}[{}]", left, index),
-                    None
-                ));
+                let v = u.borrow().pointer(p.as_str()).unwrap_or(&serde_json::Value::Null).clone();
+                let (value, pointer) = match index {
+                    Object::String(ref s) => {
+                        (v.get(s), format!("{}/{}", p, s))
+                    },
+                    Object::Num(n) => {
+                        (v.get(n as usize), format!("{}/{}", p, n))
+                    },
+                    _ => {
+                        return Err(UError::new(
+                            "Invalid index".into(),
+                            format!("{}[{}]", left, index),
+                            None
+                        ));
+                    }
+                };
+                if value.is_some() {
+                    self.eval_uobject(&value.unwrap(), Rc::clone(&u), pointer)?
+                } else {
+                    return Err(UError::new(
+                        "Index out of bound".into(),
+                        format!("{}[{}]", left, index),
+                        None
+                    ));
+                }
             },
             o => return Err(UError::new(
                 "Not an Array or Hashtable".into(),
@@ -1326,6 +1383,16 @@ impl Evaluator {
             Object::Array(mut a) => {
                 a.push(right);
                 Ok(Object::Array(a))
+            },
+            Object::UObject(v) => {
+                let value = v.borrow().clone();
+                let left = self.eval_uobject(&value, Rc::clone(&v), "/".into())?;
+                self.eval_infix_expression(infix, left, right)
+            },
+            Object::UChild(v, p) => {
+                let value = v.borrow().pointer(p.as_str()).unwrap_or(&serde_json::Value::Null).clone();
+                let left = self.eval_uobject(&value, Rc::clone(&v), p)?;
+                self.eval_infix_expression(infix, left, right)
             },
             _ => self.eval_infix_misc_expression(infix, left, right)
         }

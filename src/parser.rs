@@ -7,8 +7,6 @@ use crate::serializer;
 use std::fmt;
 use std::path::PathBuf;
 
-use serde_json;
-
 #[derive(Debug, Clone)]
 pub enum ParseErrorKind {
     UnexpectedToken,
@@ -1546,23 +1544,12 @@ impl Parser {
                 e
             },
             Token::UObject(ref s) => {
-                match serde_json::from_str::<serde_json::Value>(s.as_str()) {
-                    Ok(v) => Some(Expression::UObject(v)),
-                    Err(e) => {
-                        self.errors.push(ParseError::new(
-                            ParseErrorKind::InvalidJson,
-                            format!("{}", e),
-                            self.current_token.pos,
-                            self.script.clone()
-                        ));
-                        return None;
-                    }
-                }
+                Some(Expression::UObject(s.clone()))
             },
             Token::UObjectNotClosing => {
                 self.errors.push(ParseError::new(
                     ParseErrorKind::BlockNotClosedCorrectly,
-                    format!("}} required"),
+                    format!("@ is required"),
                     self.current_token.pos,
                     self.script.clone()
                 ));

@@ -150,7 +150,7 @@ impl fmt::Display for Object {
                 write!(f, "UObject: {}", serde_json::to_string(&value.clone()).map_or_else(|e| format!("{}", e), |j| j))
             },
             Object::UChild(ref u, ref p) => {
-                let v = u.borrow().pointer(p.as_str()).unwrap().clone();
+                let v = u.borrow().pointer(p.as_str()).unwrap_or(&serde_json::Value::Null).clone();
                 write!(f, "UObject: {}", serde_json::to_string(&v).map_or_else(|e| format!("{}", e), |j| j))
             },
             Object::DynamicVar(func) => write!(f, "{}", func()),

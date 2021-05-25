@@ -222,12 +222,7 @@ impl Lexer {
             },
             '(' => Token::Lparen,
             ')' => Token::Rparen,
-            '{' => if self.nextch_is('{') {
-                self.read_char();
-                self.consume_uobject()
-            } else {
-                Token::Lbrace
-            },
+            '{' => Token::Lbrace,
             '}' => Token::Rbrace,
             '[' => Token::Lbracket,
             ']' => Token::Rbracket,
@@ -259,6 +254,7 @@ impl Lexer {
                     },
                 }
             },
+            '@' => self.consume_uobject(),
             '\\' => Token::BackSlash,
             'a'..='z' | 'A'..='Z' | '#' => {
                 return TokenInfo::new_with_pos(self.consume_identifier(), p, skipped);
@@ -528,19 +524,47 @@ impl Lexer {
     }
 
     fn consume_uobject(&mut self) -> Token {
-        let start_uo = self.pos;
+        // jsonじゃなさそうならIllegal
+        let start_char = self.nextch();
+        match start_char {
+            '{' | '[' => self.read_char(),
+            _ => return Token::Illegal('@'),
+        };
+        let start_pos = self.pos;
         loop {
-            match self.next_token().token {
-                Token::Rbrace => {
-                    if self.ch == '}' {
-                        break;
+            match self.nextch() {
+                '"' => {
+                    self.read_char();
+                    while ! ['"', '\0'].contains(&self.nextch()) {
+                        // 文字列が閉じられるか、文末まで進める
+                        self.read_char();
                     }
                 },
-                Token::Eof => return Token::UObjectNotClosing,
+                '/' => {
+                    if self.input[self.pos + 2] == '/' {
+                        // コメントなので行末まで消す
+                        while ! ['\r', '\n', '\0'].contains(&self.nextch()) {
+                            self.input.remove(self.pos);
+                        }
+                        self.input.remove(self.pos);
+                    }
+                },
+                '}' | ']' => {
+
+                    self.read_char();
+                    if self.nextch_is('@') {
+                        break;
+                    }
+                    continue;
+                },
+                // 文末まで来てしまった場合
+                '\0' => return Token::UObjectNotClosing,
                 _ => {},
-            };
+            }
+            self.read_char();
         }
-        let json: String = self.input[start_uo..self.pos].into_iter().collect();
+        self.read_char();
+        let json: String = self.input[start_pos..self.pos].into_iter().collect();
         Token::UObject(json)
     }
 

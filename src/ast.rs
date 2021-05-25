@@ -2,7 +2,6 @@ use std::fmt;
 use std::str::FromStr;
 
 use serde::{Serialize, Deserialize};
-use serde_json;
 
 #[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub struct Identifier(pub String);
@@ -98,7 +97,7 @@ pub enum Expression {
     },
     DotCall(Box<Expression>, Box<Expression>), // hoge.fuga hoge.piyo()
     Params(Params),
-    UObject(serde_json::Value),
+    UObject(String),
 }
 
 #[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
