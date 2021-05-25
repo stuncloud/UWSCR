@@ -733,8 +733,18 @@ impl Evaluator {
                 }
             },
         };
-        if let Some(Object::ExitExit(_)) = obj {
-            return Ok(obj);
+        let opt_finally = {
+            let singleton = usettings_singleton(None);
+            let usettings = singleton.0.lock().unwrap();
+            usettings.options.opt_finally
+        };
+        if ! opt_finally {
+            // OPTFINALLYでない場合でexit、exitexitなら終了する
+            match obj {
+                Some(Object::Exit) |
+                Some(Object::ExitExit(_)) => return Ok(obj),
+                _ => {}
+            }
         }
         if finally.is_some() {
             self.eval_block_statement(finally.unwrap())?;
