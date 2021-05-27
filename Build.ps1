@@ -24,7 +24,7 @@ if ($Release) {
 
     $exe64 = '.\target\release\uwscr.exe'
     $exe86 = '.\target\i686-pc-windows-msvc\release\uwscr.exe'
-    $exe64, $exe86 | % {
+    $exe64, $exe86 | ForEach-Object {
         if (! (Test-Path $_)) {
             Write-Error "$($_) が見つかりません"
             break
@@ -52,9 +52,10 @@ if ($Release) {
     }
     $exe64 | Copy-Item -Destination $x64path
     $exe86 | Copy-Item -Destination $x86path
-    $outzip = Join-Path -Path $verpath -ChildPath uwscr.zip
-    Get-ChildItem $verpath -Directory | Compress-Archive -DestinationPath $outzip -Force
-    if (Test-Path $outzip) {
-        gi $outzip
-    }
+    $64zip = Join-Path -Path $verpath -ChildPath UWSCRx64.zip
+    $86zip = Join-Path -Path $verpath -ChildPath UWSCRx86.zip
+    Get-ChildItem $exe64 | Compress-Archive -DestinationPath $64zip -Force
+    Get-Item $64zip
+    Get-ChildItem $exe86 | Compress-Archive -DestinationPath $86zip -Force
+    Get-Item $86zip
 }
