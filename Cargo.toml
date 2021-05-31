@@ -25,3 +25,9 @@ windows = "0.10"
 [build-dependencies]
 winres = "0.1"
 windows = "0.10"
+
+[package.metadata.wix]
+compiler-args = ["-nologo"]
+culture = "ja-JP"
+linker-args = ["-nologo"]
+no-build = true

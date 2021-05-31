@@ -3,7 +3,10 @@ param(
     [Parameter(Mandatory=$false)]
     [string] $Version,
     [switch] $Release,
-    [string] $OutDir = '.\.release'
+    [string] $OutDir = '.\.release',
+    [switch] $Installer,
+    [ValidateSet("both","x64","x86")]
+    [string] $Arch = "both"
 )
 
 # リリースビルドの場合vcのライブラリをスタティックリンクする
@@ -12,12 +15,15 @@ if ($Release) {
 } else {
     $env:RUSTFLAGS=''
 }
-# build x64 exe
-$cmd = 'cargo build {0}' -f $(if ($Release) {'--release'})
-Invoke-Expression -Command $cmd
-# build x86 exe
-$cmd = 'cargo build --target=i686-pc-windows-msvc {0}' -f $(if ($Release) {'--release'})
-Invoke-Expression -Command $cmd
+
+if (! $Installer -or ($Release -and $Installer)) {
+    # build x64 exe
+    $cmd = 'cargo build {0}' -f $(if ($Release) {'--release'})
+    Invoke-Expression -Command $cmd
+    # build x86 exe
+    $cmd = 'cargo build --target=i686-pc-windows-msvc {0}' -f $(if ($Release) {'--release'})
+    Invoke-Expression -Command $cmd
+}
 
 if ($Release) {
     $env:RUSTFLAGS=''
@@ -58,4 +64,46 @@ if ($Release) {
     Get-Item $64zip
     Get-ChildItem $exe86 | Compress-Archive -DestinationPath $86zip -Force
     Get-Item $86zip
+}
+
+# msi installer
+if ($Installer) {
+    # requires wix toolset
+    if (! (Get-Command candle,light -ea SilentlyContinue | Where-Object Source -Match 'WiX Toolset')) {
+        Write-Warning "WiX Toolsets not found"
+        break;
+    }
+
+    $exe64 = '.\target\release\uwscr.exe'
+    $exe86 = '.\target\i686-pc-windows-msvc\release\uwscr.exe'
+    $exe64, $exe86 | ForEach-Object {
+        if (! (Test-Path $_)) {
+            Write-Error "$($_) が見つかりません"
+            break
+        }
+    }
+    # x64 for default
+    if ($Arch -in @("both","x64")) {
+        if (('{0} --version' -f $exe64 | Invoke-Expression) -match '\d+\.\d+\.\d+') {
+            $Version = $Matches[0]
+        } else {
+            Write-Error "uwscrのバージョンが不明"
+            break
+        }
+        # cargo wix --nocapture
+        candle -dProfile=release -dVersion="${Version}" -dPlatform=x64 -ext WixUtilExtension -o target/wix/x64.wixobj wix/x64.wxs -nologo
+        light -spdb -ext WixUIExtension -ext WixUtilExtension -cultures:ja-JP -out "target/wix/uwscr-${Version}-x64.msi" target/wix/x64.wixobj -nologo
+    }
+    # x86
+    if ($Arch -in @("both","x86")) {
+        if (('{0} --version' -f $exe86 | Invoke-Expression) -match '\d+\.\d+\.\d+') {
+            $Version = $Matches[0]
+        } else {
+            Write-Error "uwscrのバージョンが不明"
+            break
+        }
+        # cargo wix --compiler-arg "-dProfile=i686-pc-windows-msvc\release -dPlatform=x86" --nocapture
+        candle -dProfile=i686-pc-windows-msvc\release -dVersion="${Version}" -dPlatform=x86 -ext WixUtilExtension -o target/wix/x86.wixobj wix/x86.wxs -nologo
+        light -spdb -ext WixUIExtension -ext WixUtilExtension -cultures:ja-JP -out "target/wix/uwscr-${Version}-x86.msi" target/wix/x86.wixobj -nologo
+    }
 }
