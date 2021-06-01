@@ -823,14 +823,7 @@ impl Evaluator {
                                 a * b
                             }
                         }).unwrap();
-                        let empties = if l > acutual_size {
-                            0
-                        } else {
-                            acutual_size - l
-                        };
-                        for _ in 0..empties {
-                            array.push(Object::Empty)
-                        }
+                        array.resize(acutual_size, Object::Empty);
                         sizes.reverse();
                         for size in sizes {
                             // 低い方から処理
