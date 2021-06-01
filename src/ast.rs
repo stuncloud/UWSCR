@@ -74,7 +74,7 @@ impl fmt::Display for Infix {
 #[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub enum Expression {
     Identifier(Identifier),
-    Array(Vec<Expression>, Box<Expression>), // 配列、配列宣言時の添字
+    Array(Vec<Expression>, Vec<Expression>), // 配列、配列宣言時の添字リスト(多次元定義時のそれぞれの添字)
     Literal(Literal),
     Prefix(Prefix, Box<Expression>),
     Infix(Infix, Box<Expression>, Box<Expression>),

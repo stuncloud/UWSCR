@@ -755,24 +755,107 @@ impl Evaluator {
     fn eval_expression(&mut self, expression: Expression) -> EvalResult<Object> {
         let obj: Object = match expression {
             Expression::Identifier(i) => self.eval_identifier(i)?,
-            Expression::Array(v, s) => {
-                let capacity = match self.eval_expression(*s)? {
-                    Object::Num(n) => n as usize + 1,
-                    Object::Empty => v.len(),
-                    o => return Err(UError::new(
-                        "Array error".into(),
-                        format!("invalid index: {}", o),
-                        None
-                    )),
-                };
-                let mut array = Vec::with_capacity(capacity);
-                for e in v {
-                    array.push(self.eval_expression(e)?);
+            Expression::Array(v, index_list) => {
+                match index_list.len() {
+                    0 => {
+                        return Err(UError::new(
+                            "Array Error".into(),
+                            "Size or dimension must be specified".into(),
+                            None
+                        ));
+                    },
+                    1 => {
+                        let e = index_list[0].clone();
+                        let capacity = match self.eval_expression(e)? {
+                            Object::Num(n) => n as usize + 1,
+                            Object::Empty => v.len(),
+                            o => return Err(UError::new(
+                                "Array error".into(),
+                                format!("invalid index: {}", o),
+                                None
+                            )),
+                        };
+                        let mut array = Vec::with_capacity(capacity);
+                        for e in v {
+                            array.push(self.eval_expression(e)?);
+                        }
+                        while array.len() < capacity {
+                            array.push(Object::Empty);
+                        }
+                        Object::Array(array)
+                    },
+                    _ => {
+                        // 2次元以上
+                        let mut array = vec![];
+                        let mut sizes = vec![];
+                        let mut i = 1;
+                        for index in index_list {
+                            match self.eval_expression(index)? {
+                                Object::Num(n) => sizes.push(n as usize),
+                                Object::Empty => if i > 1 {
+                                    return Err(UError::new(
+                                        "Array error".into(),
+                                        "no array size can be omitted except for the first []".into(),
+                                        None
+                                    ));
+                                } else {
+                                    sizes.push(usize::MAX);
+                                },
+                                o => return Err(UError::new(
+                                    "Array error".into(),
+                                    format!("invalid index: {}", o),
+                                    None
+                                )),
+                            }
+                            i += 1;
+                        }
+                        for e in v {
+                            array.push(self.eval_expression(e)?);
+                        }
+                        let l = array.len();
+                        let acutual_size = sizes.clone().into_iter().map(
+                            |n| if n == usize::MAX {n} else {n+ 1}
+                        ).reduce(|a, b| {
+                            if b == usize::MAX {
+                                let b = (l / a) as usize + (if l % a == 0 {0} else {1});
+                                a * b
+                            } else {
+                                a * b
+                            }
+                        }).unwrap();
+                        let empties = if l > acutual_size {
+                            0
+                        } else {
+                            acutual_size - l
+                        };
+                        for _ in 0..empties {
+                            array.push(Object::Empty)
+                        }
+                        sizes.reverse();
+                        for size in sizes {
+                            // 低い方から処理
+                            let mut tmp = array;
+                            tmp.reverse();
+                            array = vec![];
+                            loop {
+                                let mut dimension = vec![];
+                                for _ in 0..=size {
+                                    let o = tmp.pop();
+                                    if o.is_some() {
+                                        dimension.push(o.unwrap());
+                                    } else {
+                                        break;
+                                    }
+                                }
+                                array.push(Object::Array(dimension));
+                                if tmp.len() == 0 {
+                                    break;
+                                }
+                            }
+                        }
+                        array.pop().unwrap()
+                    },
                 }
-                while array.len() < capacity {
-                    array.push(Object::Empty);
-                }
-                Object::Array(array)
             },
             Expression::Literal(l) => self.eval_literal(l)?,
             Expression::Prefix(p, r) => {
@@ -2377,16 +2460,241 @@ hoge
 
     #[test]
     fn test_array_definition() {
-        let input = r#"
-dim hoge[3] = 1, 2
-hoge
-        "#;
-        eval_test(input, Some(Object::Array(vec![
-            Object::Num(1.0),
-            Object::Num(2.0),
-            Object::Empty,
-            Object::Empty,
-        ])), false);
+        let test_cases = vec![
+            (
+                r#"
+                dim hoge[3] = 1,2
+                hoge
+                "#,
+                Some(Object::Array(vec![
+                    Object::Num(1.0),
+                    Object::Num(2.0),
+                    Object::Empty,
+                    Object::Empty,
+                ]))
+            ),
+            (
+                r#"
+                dim hoge[2][2] = 1,2,3, 4,5,6, 7
+                hoge
+                "#,
+                Some(Object::Array(vec![
+                    Object::Array(vec![
+                        Object::Num(1.0),
+                        Object::Num(2.0),
+                        Object::Num(3.0),
+                    ]),
+                    Object::Array(vec![
+                        Object::Num(4.0),
+                        Object::Num(5.0),
+                        Object::Num(6.0),
+                    ]),
+                    Object::Array(vec![
+                        Object::Num(7.0),
+                        Object::Empty,
+                        Object::Empty,
+                    ]),
+                ]))
+            ),
+            (
+                r#"
+                dim hoge[2, 2] = 1,2,3, 4,5,6, 7
+                hoge
+                "#,
+                Some(Object::Array(vec![
+                    Object::Array(vec![
+                        Object::Num(1.0),
+                        Object::Num(2.0),
+                        Object::Num(3.0),
+                    ]),
+                    Object::Array(vec![
+                        Object::Num(4.0),
+                        Object::Num(5.0),
+                        Object::Num(6.0),
+                    ]),
+                    Object::Array(vec![
+                        Object::Num(7.0),
+                        Object::Empty,
+                        Object::Empty,
+                    ]),
+                ]))
+            ),
+            (
+                r#"
+                // 省略
+                dim hoge[, 2] = 1,2,3, 4,5,6, 7
+                hoge
+                "#,
+                Some(Object::Array(vec![
+                    Object::Array(vec![
+                        Object::Num(1.0),
+                        Object::Num(2.0),
+                        Object::Num(3.0),
+                    ]),
+                    Object::Array(vec![
+                        Object::Num(4.0),
+                        Object::Num(5.0),
+                        Object::Num(6.0),
+                    ]),
+                    Object::Array(vec![
+                        Object::Num(7.0),
+                        Object::Empty,
+                        Object::Empty,
+                    ]),
+                ]))
+            ),
+            (
+                r#"
+                // 多次元
+                dim hoge[1][1][1] = 0,1, 2,3, 4,5, 6,7
+                hoge
+                "#,
+                Some(Object::Array(vec![
+                    Object::Array(vec![
+                        Object::Array(
+                            vec![
+                                Object::Num(0.0),
+                                Object::Num(1.0),
+                            ]
+                        ),
+                        Object::Array(
+                            vec![
+                                Object::Num(2.0),
+                                Object::Num(3.0),
+                            ]
+                        ),
+                    ]),
+                    Object::Array(vec![
+                        Object::Array(
+                            vec![
+                                Object::Num(4.0),
+                                Object::Num(5.0),
+                            ]
+                        ),
+                        Object::Array(
+                            vec![
+                                Object::Num(6.0),
+                                Object::Num(7.0),
+                            ]
+                        ),
+                    ]),
+                ]))
+            ),
+            (
+                r#"
+                // 省略
+                dim hoge[][1][1] = 0,1, 2,3, 4,5, 6,7
+                hoge
+                "#,
+                Some(Object::Array(vec![
+                    Object::Array(vec![
+                        Object::Array(
+                            vec![
+                                Object::Num(0.0),
+                                Object::Num(1.0),
+                            ]
+                        ),
+                        Object::Array(
+                            vec![
+                                Object::Num(2.0),
+                                Object::Num(3.0),
+                            ]
+                        ),
+                    ]),
+                    Object::Array(vec![
+                        Object::Array(
+                            vec![
+                                Object::Num(4.0),
+                                Object::Num(5.0),
+                            ]
+                        ),
+                        Object::Array(
+                            vec![
+                                Object::Num(6.0),
+                                Object::Num(7.0),
+                            ]
+                        ),
+                    ]),
+                ]))
+            ),
+            (
+                r#"
+                // EMPTY埋め
+                dim hoge[1][1][1] = 0,1, 2,3, 4
+                hoge
+                "#,
+                Some(Object::Array(vec![
+                    Object::Array(vec![
+                        Object::Array(
+                            vec![
+                                Object::Num(0.0),
+                                Object::Num(1.0),
+                            ]
+                        ),
+                        Object::Array(
+                            vec![
+                                Object::Num(2.0),
+                                Object::Num(3.0),
+                            ]
+                        ),
+                    ]),
+                    Object::Array(vec![
+                        Object::Array(
+                            vec![
+                                Object::Num(4.0),
+                                Object::Empty,
+                            ]
+                        ),
+                        Object::Array(
+                            vec![
+                                Object::Empty,
+                                Object::Empty,
+                            ]
+                        ),
+                    ]),
+                ]))
+            ),
+            (
+                r#"
+                // 省略+EMPTY埋め
+                dim hoge[][1][1] = 0,1, 2,3, 4,5, 6
+                hoge
+                "#,
+                Some(Object::Array(vec![
+                    Object::Array(vec![
+                        Object::Array(
+                            vec![
+                                Object::Num(0.0),
+                                Object::Num(1.0),
+                            ]
+                        ),
+                        Object::Array(
+                            vec![
+                                Object::Num(2.0),
+                                Object::Num(3.0),
+                            ]
+                        ),
+                    ]),
+                    Object::Array(vec![
+                        Object::Array(
+                            vec![
+                                Object::Num(4.0),
+                                Object::Num(5.0),
+                            ]
+                        ),
+                        Object::Array(
+                            vec![
+                                Object::Num(6.0),
+                                Object::Empty,
+                            ]
+                        ),
+                    ]),
+                ]))
+            ),
+        ];
+        for (input, expected) in test_cases {
+            eval_test(input, expected, false)
+        }
     }
 
     #[test]

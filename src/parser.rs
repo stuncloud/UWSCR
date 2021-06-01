@@ -26,6 +26,7 @@ pub enum ParseErrorKind {
     CanNotCallScript,
     CanNotLoadUwsl,
     WhitespaceRequired,
+    SizeRequired,
 }
 
 #[derive(Debug, Clone)]
@@ -56,6 +57,7 @@ impl fmt::Display for ParseErrorKind {
             ParseErrorKind::CanNotCallScript => write!(f, "Failed to load script"),
             ParseErrorKind::CanNotLoadUwsl => write!(f, "Failed to load uwsl file"),
             ParseErrorKind::WhitespaceRequired => write!(f, "Missing whitespace"),
+            ParseErrorKind::SizeRequired => write!(f, "Missing array size"),
         }
     }
 }
@@ -316,6 +318,15 @@ impl Parser {
         ))
     }
 
+    fn error_missing_array_size(&mut self) {
+        self.errors.push(ParseError::new(
+            ParseErrorKind::SizeRequired,
+            "Size is required for multidimensional array",
+            self.current_token.pos,
+            self.script.clone()
+        ));
+    }
+
     fn current_token_precedence(&mut self) -> Precedence {
         Self::token_to_precedence(&self.current_token.token)
     }
@@ -482,20 +493,99 @@ impl Parser {
                 None => return None
             };
             let expression = if self.is_next_token(&Token::Lbracket) {
+                // 配列定義
+                // 多次元配列定義の表記は
+                // hoge[1][1][1]
+                // hoge[][][1]   // 最後以外は省略可能
+                // hoge[1, 1, 1] // カンマ区切り
                 self.bump();
-                let index = if self.is_next_token(&Token::Rbracket) {
-                    // 添字省略
-                    Expression::Literal(Literal::Empty)
-                } else {
-                    self.bump();
-                    match self.parse_expression(Precedence::Lowest, false) {
-                        Some(e) => e,
-                        None => return None
+                let mut index_list = vec![];
+                let mut is_multidimensional = false;
+                let mut is_comma = false;
+                loop {
+                    if is_comma {
+                        is_comma = false;
+                        self.bump();
+                        loop {
+                            match self.next_token.token {
+                                Token::Rbracket => {
+                                    // 添字なしで閉じるのはダメ
+                                    self.error_missing_array_size();
+                                    return None;
+                                },
+                                Token::Comma => {
+                                    // 添字なし
+                                    if self.is_current_token(&Token::Comma) {
+                                        index_list.push(Expression::Literal(Literal::Empty));
+                                    }
+                                    self.bump();
+                                },
+                                _ => {
+                                    self.bump();
+                                    match self.parse_expression(Precedence::Lowest, false) {
+                                        Some(e) => index_list.push(e),
+                                        None => return None,
+                                    }
+                                    match self.next_token.token {
+                                        Token::Comma => continue,
+                                        Token::Rbracket => {
+                                            break;
+                                        },
+                                        _ => {
+                                            self.error_got_unexpected_next_token();
+                                            return None;
+                                        },
+                                    }
+                                }
+                            }
+                        }
                     }
-                };
-                if ! self.is_next_token_expected(Token::Rbracket) {
-                    return None;
-                };
+                    match self.next_token.token {
+                        Token::Rbracket => {
+                            // ] の直前が [ なら空
+                            let is_empty = self.is_current_token(&Token::Lbracket);
+                            self.bump();
+                            if ! self.is_next_token(&Token::Lbracket) && is_multidimensional && is_empty {
+                                // 多次元で最後の[]が添字なしはダメ
+                                self.error_missing_array_size();
+                                return None;
+                            } else {
+                                if is_empty {
+                                    index_list.push(Expression::Literal(Literal::Empty));
+                                }
+                                // 次の [ があったら多次元
+                                if self.is_next_token(&Token::Lbracket) {
+                                    is_multidimensional = true;
+                                    self.bump();
+                                } else {
+                                    // なければ終了
+                                    break;
+                                }
+                            }
+                        },
+                        Token::Comma => {
+                            // カンマの直前が [ なら空
+                            if self.is_current_token(&Token::Lbracket) {
+                                index_list.push(Expression::Literal(Literal::Empty));
+                            }
+                            is_comma = true;
+                        },
+                        _ => {
+                            // 添字
+                            self.bump();
+                            match self.parse_expression(Precedence::Lowest, false) {
+                                Some(e) => index_list.push(e),
+                                None => return None,
+                            }
+                            if self.is_next_token(&Token::Comma) {
+                                // カンマ区切り形式
+                                is_comma = true;
+                                continue;
+                            }
+                        }
+                    }
+                }
+
                 if ! self.is_next_token(&Token::EqualOrAssign) {
                     // 代入演算子がなければ配列宣言のみ
                     if value_required {
@@ -507,7 +597,7 @@ impl Parser {
                         ));
                         return None;
                     } else {
-                        Expression::Array(Vec::new(), Box::new(index))
+                        Expression::Array(Vec::new(), index_list)
                     }
                 } else {
                     self.bump();
@@ -515,7 +605,7 @@ impl Parser {
                         Some(vec_e) => vec_e,
                         None => return None
                     };
-                    Expression::Array(list, Box::new(index))
+                    Expression::Array(list, index_list)
                 }
             } else {
                 // 変数定義
@@ -2548,7 +2638,9 @@ print 2
                                         Expression::Literal(Literal::Num(7 as f64)),
                                         Expression::Literal(Literal::Num(9 as f64)),
                                     ],
-                                    Box::new(Expression::Literal(Literal::Empty)),
+                                    vec![
+                                        Expression::Literal(Literal::Empty),
+                                    ],
                                 )
                             )
                         ]
@@ -2563,7 +2655,65 @@ print 2
                                 Identifier(String::from("arr2")),
                                 Expression::Array(
                                     vec![],
-                                    Box::new(Expression::Literal(Literal::Num(4 as f64))),
+                                    vec![
+                                        Expression::Literal(Literal::Num(4.0)),
+                                    ],
+                                )
+                            )
+                        ]
+                    ),
+                ]
+            ),
+            (
+                "dim arr2[1, 2]", vec![
+                    Statement::Dim(
+                        vec![
+                            (
+                                Identifier(String::from("arr2")),
+                                Expression::Array(
+                                    vec![],
+                                    vec![
+                                        Expression::Literal(Literal::Num(1.0)),
+                                        Expression::Literal(Literal::Num(2.0)),
+                                    ],
+                                )
+                            )
+                        ]
+                    ),
+                ]
+            ),
+            (
+                "dim arr2[,, 1]", vec![
+                    Statement::Dim(
+                        vec![
+                            (
+                                Identifier(String::from("arr2")),
+                                Expression::Array(
+                                    vec![],
+                                    vec![
+                                        Expression::Literal(Literal::Empty),
+                                        Expression::Literal(Literal::Empty),
+                                        Expression::Literal(Literal::Num(1.0)),
+                                    ],
+                                )
+                            )
+                        ]
+                    ),
+                ]
+            ),
+            (
+                "dim arr2[1,1,1]", vec![
+                    Statement::Dim(
+                        vec![
+                            (
+                                Identifier(String::from("arr2")),
+                                Expression::Array(
+                                    vec![],
+                                    vec![
+                                        Expression::Literal(Literal::Num(1.0)),
+                                        Expression::Literal(Literal::Num(1.0)),
+                                        Expression::Literal(Literal::Num(1.0)),
+                                    ],
                                 )
                             )
                         ]
@@ -2586,7 +2736,9 @@ print 2
                                 Identifier(String::from("c")),
                                 Expression::Array(
                                     vec![],
-                                    Box::new(Expression::Literal(Literal::Num(1.0))),
+                                    vec![
+                                        Expression::Literal(Literal::Num(1.0))
+                                    ],
                                 )
                             ),
                             (
@@ -2596,7 +2748,9 @@ print 2
                                         Expression::Literal(Literal::Num(1.0)),
                                         Expression::Literal(Literal::Num(2.0)),
                                     ],
-                                    Box::new(Expression::Literal(Literal::Empty)),
+                                    vec![
+                                        Expression::Literal(Literal::Empty)
+                                    ],
                                 )
                             )
                         ]
