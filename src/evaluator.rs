@@ -2229,18 +2229,25 @@ mod tests {
     use crate::lexer::Lexer;
     use crate::parser::Parser;
 
-    fn eval_test(input: &str, expected: Option<Object>, ast: bool) {
-        match eval(input, ast) {
-            Ok(o) => assert_eq!(o, expected),
-            Err(err) => panic!("{}\n{}", err, input)
+    fn eval_test<S: Into<String> + Clone>(input: S, expected: Result<Option<Object>, UError>, ast: bool) {
+        match eval(input.clone(), ast) {
+            Ok(o) => match expected {
+                Ok(expected) => assert_eq!(o, expected),
+                Err(_) => panic!("this test should be ok:\n{}", input.into()),
+            },
+            Err(err) => match expected {
+                Err(expected) => assert_eq!(err, expected),
+                Ok(_) => panic!("this test should occure error:\n{}", input.into()),
+            }
         }
     }
 
-    fn eval(input: &str, ast: bool) -> EvalResult<Option<Object>> {
+    fn eval<S: Into<String>>(input: S, ast: bool) -> EvalResult<Option<Object>> {
         let mut e = Evaluator::new(Rc::new(RefCell::new(
             Environment::new(vec![])
         )));
-        let program = Parser::new(Lexer::new(input)).parse();
+        let code = input.into();
+        let program = Parser::new(Lexer::new(code.as_str())).parse();
         if ast {
             println!("{:?}", program);
         }
@@ -2272,28 +2279,28 @@ mod tests {
     #[test]
     fn test_num_expression() {
         let test_cases = vec![
-            ("5", Some(Object::Num(5.0))),
-            ("10", Some(Object::Num(10.0))),
-            ("-5", Some(Object::Num(-5.0))),
-            ("-10", Some(Object::Num(-10.0))),
-            ("1.23", Some(Object::Num(1.23))),
-            ("-1.23", Some(Object::Num(-1.23))),
-            ("+(-5)", Some(Object::Num(-5.0))),
-            ("1 + 2 + 3 - 4", Some(Object::Num(2.0))),
-            ("2 * 3 * 4", Some(Object::Num(24.0))),
-            ("-3 + 3 * 2 + -3", Some(Object::Num(0.0))),
-            ("5 + 3 * -2", Some(Object::Num(-1.0))),
-            ("6 / 3 * 2 + 1", Some(Object::Num(5.0))),
-            ("1.2 + 2.4", Some(Object::Num(3.5999999999999996))),
-            ("1.2 * 3", Some(Object::Num(3.5999999999999996))),
-            ("2 * (5 + 10)", Some(Object::Num(30.0))),
-            ("3 * 3 * 3 + 10", Some(Object::Num(37.0))),
-            ("3 * (3 * 3) + 10", Some(Object::Num(37.0))),
-            ("(5 + 10 * 2 + 15 / 3) * 2 + -10", Some(Object::Num(50.0))),
-            ("1 + TRUE", Some(Object::Num(2.0))),
-            ("1 + false", Some(Object::Num(1.0))),
-            ("TRUE + 1", Some(Object::Num(2.0))),
-            ("5 mod 3", Some(Object::Num(2.0))),
+            ("5", Ok(Some(Object::Num(5.0)))),
+            ("10", Ok(Some(Object::Num(10.0)))),
+            ("-5", Ok(Some(Object::Num(-5.0)))),
+            ("-10", Ok(Some(Object::Num(-10.0)))),
+            ("1.23", Ok(Some(Object::Num(1.23)))),
+            ("-1.23", Ok(Some(Object::Num(-1.23)))),
+            ("+(-5)", Ok(Some(Object::Num(-5.0)))),
+            ("1 + 2 + 3 - 4", Ok(Some(Object::Num(2.0)))),
+            ("2 * 3 * 4", Ok(Some(Object::Num(24.0)))),
+            ("-3 + 3 * 2 + -3", Ok(Some(Object::Num(0.0)))),
+            ("5 + 3 * -2", Ok(Some(Object::Num(-1.0)))),
+            ("6 / 3 * 2 + 1", Ok(Some(Object::Num(5.0)))),
+            ("1.2 + 2.4", Ok(Some(Object::Num(3.5999999999999996)))),
+            ("1.2 * 3", Ok(Some(Object::Num(3.5999999999999996)))),
+            ("2 * (5 + 10)", Ok(Some(Object::Num(30.0)))),
+            ("3 * 3 * 3 + 10", Ok(Some(Object::Num(37.0)))),
+            ("3 * (3 * 3) + 10", Ok(Some(Object::Num(37.0)))),
+            ("(5 + 10 * 2 + 15 / 3) * 2 + -10", Ok(Some(Object::Num(50.0)))),
+            ("1 + TRUE", Ok(Some(Object::Num(2.0)))),
+            ("1 + false", Ok(Some(Object::Num(1.0)))),
+            ("TRUE + 1", Ok(Some(Object::Num(2.0)))),
+            ("5 mod 3", Ok(Some(Object::Num(2.0)))),
         ];
         for (input, expected) in test_cases {
             eval_test(input, expected, false);
@@ -2303,20 +2310,20 @@ mod tests {
     #[test]
     fn test_string_infix() {
         let test_cases = vec![
-            (r#""hoge" + "fuga""#, Some(Object::String("hogefuga".to_string()))),
-            (r#""hoge" + 100"#, Some(Object::String("hoge100".to_string()))),
-            (r#"400 + "fuga""#, Some(Object::String("400fuga".to_string()))),
-            (r#""hoge" + TRUE"#, Some(Object::String("hogeTrue".to_string()))),
-            (r#""hoge" + FALSE"#, Some(Object::String("hogeFalse".to_string()))),
-            (r#"TRUE + "hoge""#, Some(Object::String("Truehoge".to_string()))),
-            (r#""hoge" = "hoge""#, Some(Object::Bool(true))),
-            (r#""hoge" == "hoge""#, Some(Object::Bool(true))),
-            (r#""hoge" == "fuga""#, Some(Object::Bool(false))),
-            (r#""hoge" == "HOGE""#, Some(Object::Bool(false))),
-            (r#""hoge" == 1"#, Some(Object::Bool(false))),
-            (r#""hoge" != 1"#, Some(Object::Bool(true))),
-            (r#""hoge" <> 1"#, Some(Object::Bool(true))),
-            (r#""hoge" <> "hoge"#, Some(Object::Bool(false))),
+            (r#""hoge" + "fuga""#, Ok(Some(Object::String("hogefuga".to_string())))),
+            (r#""hoge" + 100"#, Ok(Some(Object::String("hoge100".to_string())))),
+            (r#"400 + "fuga""#, Ok(Some(Object::String("400fuga".to_string())))),
+            (r#""hoge" + TRUE"#, Ok(Some(Object::String("hogeTrue".to_string())))),
+            (r#""hoge" + FALSE"#, Ok(Some(Object::String("hogeFalse".to_string())))),
+            (r#"TRUE + "hoge""#, Ok(Some(Object::String("Truehoge".to_string())))),
+            (r#""hoge" = "hoge""#, Ok(Some(Object::Bool(true)))),
+            (r#""hoge" == "hoge""#, Ok(Some(Object::Bool(true)))),
+            (r#""hoge" == "fuga""#, Ok(Some(Object::Bool(false)))),
+            (r#""hoge" == "HOGE""#, Ok(Some(Object::Bool(false)))),
+            (r#""hoge" == 1"#, Ok(Some(Object::Bool(false)))),
+            (r#""hoge" != 1"#, Ok(Some(Object::Bool(true)))),
+            (r#""hoge" <> 1"#, Ok(Some(Object::Bool(true)))),
+            (r#""hoge" <> "hoge"#, Ok(Some(Object::Bool(false)))),
         ];
         for (input, expected) in test_cases {
             eval_test(input, expected, false);
@@ -2332,22 +2339,26 @@ dim hoge = 1
 hoge = 2
 hoge
                 "#,
-                Some(Object::Num(2.0))
+                Ok(Some(Object::Num(2.0)))
             ),
             (
                 r#"
 dim HOGE = 2
 hoge
                 "#,
-                Some(Object::Num(2.0))
+                Ok(Some(Object::Num(2.0)))
             ),
-//             (
-//                 r#"
-// dim hoge = 2
-// dim hoge = 3
-//                 "#,
-//                 Some(Object::Error("HOGE is already defined.".to_string()))
-//             ),
+            (
+                r#"
+dim hoge = 2
+dim hoge = 3
+                "#,
+                Err(UError::new(
+                    "Error on definition".into(),
+                    format!("hoge is already defined."),
+                    None
+                ))
+            ),
         ];
         for (input, expected) in test_cases {
             eval_test(input, expected, false);
@@ -2363,7 +2374,7 @@ hashtbl hoge
 hoge["test"] = 2
 hoge["test"]
                 "#,
-                Some(Object::Num(2.0))
+                Ok(Some(Object::Num(2.0)))
             ),
             (
                 r#"
@@ -2371,7 +2382,7 @@ hashtbl hoge
 hoge["test"] = 2
 hoge["TEST"]
                 "#,
-                Some(Object::Num(2.0))
+                Ok(Some(Object::Num(2.0)))
             ),
             (
                 r#"
@@ -2379,7 +2390,7 @@ hashtbl hoge
 hoge[1.23] = 2
 hoge[1.23]
                 "#,
-                Some(Object::Num(2.0))
+                Ok(Some(Object::Num(2.0)))
             ),
             (
                 r#"
@@ -2387,7 +2398,7 @@ hashtbl hoge
 hoge[FALSE] = 2
 hoge[FALSE]
                 "#,
-                Some(Object::Num(2.0))
+                Ok(Some(Object::Num(2.0)))
             ),
             (
                 r#"
@@ -2396,7 +2407,7 @@ hoge["abc"] = 1
 hoge["ABC"] = 2
 hoge["abc"] + hoge["ABC"]
                 "#,
-                Some(Object::Num(3.0))
+                Ok(Some(Object::Num(3.0)))
             ),
             (
                 r#"
@@ -2412,7 +2423,7 @@ for key in hoge
 next
 a
                 "#,
-                Some(Object::String("cdba".to_string()))
+                Ok(Some(Object::String("cdba".to_string())))
             ),
             (
                 r#"
@@ -2425,7 +2436,7 @@ fend
 
 f("a")
                 "#,
-                Some(Object::String("hoge".to_string()))
+                Ok(Some(Object::String("hoge".to_string())))
             ),
         ];
         for (input, expected) in test_cases {
@@ -2440,7 +2451,7 @@ dim hoge[] = 1,3,5
 hoge[0] = "hoge"
 hoge[0]
         "#;
-        eval_test(input, Some(Object::String("hoge".to_string())), false);
+        eval_test(input, Ok(Some(Object::String("hoge".to_string()))), false);
     }
 
     #[test]
@@ -2450,7 +2461,7 @@ hoge = [1,3,5]
 hoge[0] = 2
 hoge[0]
         "#;
-        eval_test(input, Some(Object::Num(2.0)), false);
+        eval_test(input, Ok(Some(Object::Num(2.0))), false);
     }
 
     #[test]
@@ -2459,7 +2470,7 @@ hoge[0]
 public hoge = 1
 hoge
         "#;
-        eval_test(input, Some(Object::Num(1.0)), false);
+        eval_test(input, Ok(Some(Object::Num(1.0))), false);
     }
 
     #[test]
@@ -2470,19 +2481,19 @@ hoge
                 dim hoge[3] = 1,2
                 hoge
                 "#,
-                Some(Object::Array(vec![
+                Ok(Some(Object::Array(vec![
                     Object::Num(1.0),
                     Object::Num(2.0),
                     Object::Empty,
                     Object::Empty,
-                ]))
+                ])))
             ),
             (
                 r#"
                 dim hoge[2][2] = 1,2,3, 4,5,6, 7
                 hoge
                 "#,
-                Some(Object::Array(vec![
+                Ok(Some(Object::Array(vec![
                     Object::Array(vec![
                         Object::Num(1.0),
                         Object::Num(2.0),
@@ -2498,14 +2509,14 @@ hoge
                         Object::Empty,
                         Object::Empty,
                     ]),
-                ]))
+                ])))
             ),
             (
                 r#"
                 dim hoge[2, 2] = 1,2,3, 4,5,6, 7
                 hoge
                 "#,
-                Some(Object::Array(vec![
+                Ok(Some(Object::Array(vec![
                     Object::Array(vec![
                         Object::Num(1.0),
                         Object::Num(2.0),
@@ -2521,7 +2532,7 @@ hoge
                         Object::Empty,
                         Object::Empty,
                     ]),
-                ]))
+                ])))
             ),
             (
                 r#"
@@ -2529,7 +2540,7 @@ hoge
                 dim hoge[, 2] = 1,2,3, 4,5,6, 7
                 hoge
                 "#,
-                Some(Object::Array(vec![
+                Ok(Some(Object::Array(vec![
                     Object::Array(vec![
                         Object::Num(1.0),
                         Object::Num(2.0),
@@ -2545,7 +2556,7 @@ hoge
                         Object::Empty,
                         Object::Empty,
                     ]),
-                ]))
+                ])))
             ),
             (
                 r#"
@@ -2553,7 +2564,7 @@ hoge
                 dim hoge[1][1][1] = 0,1, 2,3, 4,5, 6,7
                 hoge
                 "#,
-                Some(Object::Array(vec![
+                Ok(Some(Object::Array(vec![
                     Object::Array(vec![
                         Object::Array(
                             vec![
@@ -2582,7 +2593,7 @@ hoge
                             ]
                         ),
                     ]),
-                ]))
+                ])))
             ),
             (
                 r#"
@@ -2590,7 +2601,7 @@ hoge
                 dim hoge[][1][1] = 0,1, 2,3, 4,5, 6,7
                 hoge
                 "#,
-                Some(Object::Array(vec![
+                Ok(Some(Object::Array(vec![
                     Object::Array(vec![
                         Object::Array(
                             vec![
@@ -2619,7 +2630,7 @@ hoge
                             ]
                         ),
                     ]),
-                ]))
+                ])))
             ),
             (
                 r#"
@@ -2627,7 +2638,7 @@ hoge
                 dim hoge[1][1][1] = 0,1, 2,3, 4
                 hoge
                 "#,
-                Some(Object::Array(vec![
+                Ok(Some(Object::Array(vec![
                     Object::Array(vec![
                         Object::Array(
                             vec![
@@ -2656,7 +2667,7 @@ hoge
                             ]
                         ),
                     ]),
-                ]))
+                ])))
             ),
             (
                 r#"
@@ -2664,7 +2675,7 @@ hoge
                 dim hoge[][1][1] = 0,1, 2,3, 4,5, 6
                 hoge
                 "#,
-                Some(Object::Array(vec![
+                Ok(Some(Object::Array(vec![
                     Object::Array(vec![
                         Object::Array(
                             vec![
@@ -2693,10 +2704,27 @@ hoge
                             ]
                         ),
                     ]),
-                ]))
+                ])))
+            ),
+        ];
+        let error_cases = vec![
+            (
+                format!(r#"
+                // usize超え
+                dim hoge[{}][1]
+                hoge
+                "#, usize::MAX),
+                Err(UError::new(
+                    "Array error".into(),
+                    "total size of array is out of bounds".into(),
+                    None
+                ))
             ),
         ];
         for (input, expected) in test_cases {
+            eval_test(input, expected, false)
+        }
+        for (input, expected) in error_cases {
             eval_test(input, expected, false)
         }
     }
@@ -2707,7 +2735,7 @@ hoge
 hoge = "print test"
 print hoge
         "#;
-        eval_test(input, Some(Object::String("print test".into())), false);
+        eval_test(input, Ok(Some(Object::String("print test".into()))), false);
     }
 
     #[test]
@@ -2719,7 +2747,7 @@ for i = 0 to 3
 next
 i
                 "#,
-                Some(Object::Num(4.0))
+Ok(                Some(Object::Num(4.0)))
             ),
             (
                 r#"
@@ -2728,7 +2756,7 @@ for i = 0 to 2
 next
 i
                 "#,
-                Some(Object::Num(3.0))
+                Ok(Some(Object::Num(3.0)))
             ),
             (
                 r#"
@@ -2736,7 +2764,7 @@ for i = 0 to 5 step 2
 next
 i
                 "#,
-                Some(Object::Num(6.0))
+                Ok(Some(Object::Num(6.0)))
             ),
             (
                 r#"
@@ -2744,7 +2772,7 @@ for i = 5 to 0 step -2
 next
 i
                 "#,
-                Some(Object::Num(-1.0))
+                Ok(Some(Object::Num(-1.0)))
             ),
             (
                 r#"
@@ -2752,15 +2780,19 @@ for i = "0" to "5" step "2"
 next
 i
                 "#,
-                Some(Object::Num(6.0))
+                Ok(Some(Object::Num(6.0)))
             ),
-//             (
-//                 r#"
-// for i = 0 to "5s"
-// next
-//                 "#,
-//                 Some(Object::Error("syntax error: for i = 0 to 5s".to_string()))
-//             ),
+            (
+                r#"
+for i = 0 to "5s"
+next
+                "#,
+                Err(UError::new(
+                    "Syntax error on For".into(),
+                    format!("for i = 0 to \"5s\""),
+                    None
+                ))
+            ),
             (
                 r#"
 a = 1
@@ -2770,7 +2802,7 @@ for i = 0 to 3
 next
 a
                 "#,
-                Some(Object::Num(1.0))
+                Ok(Some(Object::Num(1.0)))
             ),
             (
                 r#"
@@ -2781,7 +2813,7 @@ for i = 0 to 20
 next
 a
                 "#,
-                Some(Object::Num(1.0))
+                Ok(Some(Object::Num(1.0)))
             ),
         ];
         for (input, expected) in test_cases {
@@ -2802,7 +2834,7 @@ for n in hoge
 next
 a
                 "#,
-                Some(Object::Num(15.0))
+Ok(                Some(Object::Num(15.0)))
             ),
             (
                 r#"
@@ -2812,7 +2844,7 @@ for c in "hoge"
 next
 a
                 "#,
-                Some(Object::String("egoh".to_string()))
+                Ok(Some(Object::String("egoh".to_string())))
             ),
             (
                 r#"
@@ -2826,7 +2858,7 @@ for key in hoge
 next
 a
                 "#,
-                Some(Object::Num(6.0))
+                Ok(Some(Object::Num(6.0)))
             ),
             (
                 r#"
@@ -2838,7 +2870,7 @@ for n in hoge
 next
 a
                 "#,
-                Some(Object::Num(6.0))
+                Ok(Some(Object::Num(6.0)))
             ),
             (
                 r#"
@@ -2850,7 +2882,7 @@ for n in hoge
 next
 a
                 "#,
-                Some(Object::Num(0.0))
+                Ok(Some(Object::Num(0.0)))
             ),
         ];
         for (input, expected) in test_cases {
@@ -2870,7 +2902,7 @@ while a > 0
 wend
 a
                 "#,
-                Some(Object::Num(0.0))
+                Ok(Some(Object::Num(0.0)))
             ),
             (
                 r#"
@@ -2887,7 +2919,7 @@ while true
 wend
 a
                 "#,
-                Some(Object::Num(4.0))
+                Ok(Some(Object::Num(4.0)))
             ),
         ];
         for (input, expected) in test_cases {
@@ -2906,7 +2938,7 @@ repeat
 until a < 1
 a
                 "#,
-                Some(Object::Num(0.0))
+                Ok(Some(Object::Num(0.0)))
             ),
             (
                 r#"
@@ -2917,7 +2949,7 @@ repeat
 until false
 a
                 "#,
-                Some(Object::Num(-1.0))
+                Ok(Some(Object::Num(-1.0)))
             ),
         ];
         for (input, expected) in test_cases {
@@ -2933,20 +2965,20 @@ a
 if true then a = "a is true" else a = "a is false"
 a
                 "#,
-                Some(Object::String("a is true".to_string()))
+                Ok(Some(Object::String("a is true".to_string())))
             ),
             (
                 r#"
 if 1 < 0 then a = "a is true" else a = "a is false"
 a
                 "#,
-                Some(Object::String("a is false".to_string()))
+                Ok(Some(Object::String("a is false".to_string())))
             ),
             (
                 r#"
 if true then print "test sucseed!" else print "should not be printed"
                 "#,
-                None
+                Ok(None)
             ),
             (
                 r#"
@@ -2954,7 +2986,7 @@ a = 1
 if false then a = 5
 a
                 "#,
-                Some(Object::Num(1.0))
+                Ok(Some(Object::Num(1.0)))
             ),
         ];
         for (input, expected) in test_cases {
@@ -2974,7 +3006,7 @@ else
 endif
 a
                 "#,
-                Some(Object::String("a is true".to_string()))
+Ok(                Some(Object::String("a is true".to_string())))
             ),
             (
                 r#"
@@ -2985,7 +3017,7 @@ else
 endif
 a
                 "#,
-                Some(Object::String("a is false".to_string()))
+                Ok(Some(Object::String("a is false".to_string())))
             ),
             (
                 r#"
@@ -2996,7 +3028,7 @@ else
 endif
 a
                 "#,
-                Some(Object::String("test sucseed!".to_string()))
+                Ok(Some(Object::String("test sucseed!".to_string())))
             ),
             (
                 r#"
@@ -3006,7 +3038,7 @@ if false then
 endif
 a
                 "#,
-                Some(Object::Num(1.0))
+                Ok(Some(Object::Num(1.0)))
             ),
         ];
         for (input, expected) in test_cases {
@@ -3026,7 +3058,7 @@ elseif true then
 endif
 a
                 "#,
-                Some(Object::String("test1 sucseed!".to_string()))
+                Ok(Some(Object::String("test1 sucseed!".to_string())))
             ),
             (
                 r#"
@@ -3039,7 +3071,7 @@ elseif true then
 endif
 a
                 "#,
-                Some(Object::String("test2 sucseed!".to_string()))
+                Ok(Some(Object::String("test2 sucseed!".to_string())))
             ),
             (
                 r#"
@@ -3052,7 +3084,7 @@ else
 endif
 a
                 "#,
-                Some(Object::String("test3 sucseed!".to_string()))
+                Ok(Some(Object::String("test3 sucseed!".to_string())))
             ),
             (
                 r#"
@@ -3065,7 +3097,7 @@ else
 endif
 a
                 "#,
-                Some(Object::String("test4 sucseed!".to_string()))
+                Ok(Some(Object::String("test4 sucseed!".to_string())))
             ),
         ];
         for (input, expected) in test_cases {
@@ -3088,7 +3120,7 @@ select 1
 selend
 a
                 "#,
-                Some(Object::String("test1 sucseed!".to_string()))
+                Ok(Some(Object::String("test1 sucseed!".to_string())))
             ),
             (
                 r#"
@@ -3102,7 +3134,7 @@ select 3
 selend
 a
                 "#,
-                Some(Object::String("test2 sucseed!".to_string()))
+                Ok(Some(Object::String("test2 sucseed!".to_string())))
             ),
             (
                 r#"
@@ -3116,7 +3148,7 @@ select 6
 selend
 a
                 "#,
-                Some(Object::String("test3 sucseed!".to_string()))
+                Ok(Some(Object::String("test3 sucseed!".to_string())))
             ),
             (
                 r#"
@@ -3126,7 +3158,7 @@ select 6
 selend
 a
                 "#,
-                Some(Object::String("test4 sucseed!".to_string()))
+                Ok(Some(Object::String("test4 sucseed!".to_string())))
             ),
             (
                 r#"
@@ -3138,7 +3170,7 @@ select true
 selend
 a
                 "#,
-                Some(Object::String("test5 sucseed!".to_string()))
+                Ok(Some(Object::String("test5 sucseed!".to_string())))
             ),
         ];
         for (input, expected) in test_cases {
@@ -3164,7 +3196,7 @@ while true
 wend
 a
                 "#,
-                Some(Object::Num(5.0))
+                Ok(Some(Object::Num(5.0)))
             ),
             (
                 r#"
@@ -3180,7 +3212,7 @@ while true
 wend
 a
                 "#,
-                Some(Object::Num(5.0))
+                Ok(Some(Object::Num(5.0)))
             ),
             (
                 r#"
@@ -3193,7 +3225,7 @@ while a < 5
 wend
 a
                 "#,
-                Some(Object::Num(5.0))
+                Ok(Some(Object::Num(5.0)))
             ),
             (
                 r#"
@@ -3206,7 +3238,7 @@ for i = 0 to 5
 next
 a
                 "#,
-                Some(Object::Num(7.0))
+                Ok(Some(Object::Num(7.0)))
             ),
             (
                 r#"
@@ -3219,7 +3251,7 @@ repeat
 until false
 a
                 "#,
-                Some(Object::Num(2.0))
+                Ok(Some(Object::Num(2.0)))
             ),
         ];
         for (input, expected) in test_cases {
@@ -3242,7 +3274,7 @@ function fuga(n)
 　result = n * 2
 fend
                 "#,
-                Some(Object::Num(5.0))
+                Ok(Some(Object::Num(5.0)))
             ),
             (
                 r#"
@@ -3252,7 +3284,7 @@ function hoge(n)
     // no result
 fend
                 "#,
-                Some(Object::Empty)
+                Ok(Some(Object::Empty))
             ),
             (
                 r#"
@@ -3263,7 +3295,7 @@ procedure hoge(n)
     result = n
 fend
                 "#,
-                Some(Object::Bool(false))
+                Ok(Some(Object::Bool(false)))
             ),
             (
                 r#"
@@ -3275,7 +3307,7 @@ procedure hoge(n)
     a = n
 fend
                 "#,
-                Some(Object::String("should not be over written".to_string()))
+                Ok(Some(Object::String("should not be over written".to_string())))
             ),
             (
                 r#"
@@ -3285,7 +3317,7 @@ fend
 
 f(5, 10)
                 "#,
-                Some(Object::Num(15.0))
+                Ok(Some(Object::Num(15.0)))
             ),
             (
                 r#"
@@ -3297,7 +3329,7 @@ fend
 p(5, 10)
 a
                 "#,
-                Some(Object::Num(1.0))
+                Ok(Some(Object::Num(1.0)))
             ),
             (
                 r#"
@@ -3310,7 +3342,7 @@ function test_closure(s)
     fend
 fend
                 "#,
-                Some(Object::String("testing closure".to_string()))
+                Ok(Some(Object::String("testing closure".to_string())))
             ),
             (
                 r#"
@@ -3324,7 +3356,7 @@ function recursive(n)
     endif
 fend
                 "#,
-                Some(Object::String("done".to_string()))
+                Ok(Some(Object::String("done".to_string())))
             ),
             (
                 r#"
@@ -3337,7 +3369,7 @@ function fuga(n)
     result = n * 2
 fend
                 "#,
-                Some(Object::Num(4.0))
+                Ok(Some(Object::Num(4.0)))
             ),
         ];
         for (input, expected) in test_cases {
@@ -3353,7 +3385,7 @@ a = 1
 // a = a + 2
 a
                 "#,
-                Some(Object::Num(1.0))
+                Ok(Some(Object::Num(1.0)))
             ),
         ];
         for (input, expected) in test_cases {
@@ -3364,50 +3396,70 @@ a
     #[test]
     fn test_multiple_definitions() {
         let test_cases = vec![
-//             (
-//                 r#"
-// dim dim_and_dim = 1
-// dim dim_and_dim = 2
-//                 "#,
-//                 Some(Object::Error("DIM_AND_DIM is already defined.".to_string()))
-//             ),
-//             (
-//                 r#"
-// public pub_and_const = 1
-// const pub_and_const = 2
-//                 "#,
-//                 Some(Object::Error("PUB_AND_CONST is already defined.".to_string()))
-//             ),
-//             (
-//                 r#"
-// const const_and_const = 1
-// const const_and_const = 2
-//                 "#,
-//                 Some(Object::Error("CONST_AND_CONST is already defined.".to_string()))
-//             ),
+            (
+                r#"
+dim dim_and_dim = 1
+dim dim_and_dim = 2
+                "#,
+                Err(UError::new(
+                    "Error on definition".into(),
+                    format!("DIM_AND_DIM is already defined."),
+                    None
+                ))
+            ),
+            (
+                r#"
+public pub_and_const = 1
+const pub_and_const = 2
+                "#,
+                Err(UError::new(
+                    "Error on definition".into(),
+                    format!("PUB_AND_CONST is already defined."),
+                    None
+                ))
+            ),
+            (
+                r#"
+const const_and_const = 1
+const const_and_const = 2
+                "#,
+                Err(UError::new(
+                    "Error on definition".into(),
+                    format!("CONST_AND_CONST is already defined."),
+                    None
+                ))
+            ),
             (
                 r#"
 public public_and_public = 1
 public public_and_public = 2
                 "#,
-                None
+                Ok(None)
             ),
-//             (
-//                 r#"
-// hashtbl hash_and_hash
-// hashtbl hash_and_hash
-//                 "#,
-//                 Some(Object::Error("HASH_AND_HASH is already defined.".to_string()))
-//             ),
-//             (
-//                 r#"
-// function func_and_func()
-// fend
-// function func_and_func()
-// fend
-//                 "#,
-//                 Some(Object::Error("FUNC_AND_FUNC is already defined.".to_string()))
-//             ),
+            (
+                r#"
+hashtbl hash_and_hash
+hashtbl hash_and_hash
+                "#,
+                Err(UError::new(
+                    "Error on definition".into(),
+                    format!("HASH_AND_HASH is already defined."),
+                    None
+                ))
+            ),
+            (
+                r#"
+function func_and_func()
+fend
+function func_and_func()
+fend
+                "#,
+                Err(UError::new(
+                    "Error on definition".into(),
+                    format!("FUNC_AND_FUNC is already defined."),
+                    None
+                ))
+            ),
         ];
         for (input, expected) in test_cases {
             eval_test(input, expected, false);
@@ -3423,7 +3475,7 @@ a = 1
 a += 1
 a
                 "#,
-                Some(Object::Num(2.0))
+                Ok(Some(Object::Num(2.0)))
             ),
             (
                 r#"
@@ -3431,7 +3483,7 @@ a = "hoge"
 a += "fuga"
 a
                 "#,
-                Some(Object::String("hogefuga".to_string()))
+                Ok(Some(Object::String("hogefuga".to_string())))
             ),
             (
                 r#"
@@ -3439,7 +3491,7 @@ a = 5
 a -= 3
 a
                 "#,
-                Some(Object::Num(2.0))
+                Ok(Some(Object::Num(2.0)))
             ),
             (
                 r#"
@@ -3447,7 +3499,7 @@ a = 2
 a *= 5
 a
                 "#,
-                Some(Object::Num(10.0))
+                Ok(Some(Object::Num(10.0)))
             ),
             (
                 r#"
@@ -3455,7 +3507,7 @@ a = 10
 a /= 5
 a
                 "#,
-                Some(Object::Num(2.0))
+                Ok(Some(Object::Num(2.0)))
             ),
         ];
         for (input, expected) in test_cases {
@@ -3475,7 +3527,7 @@ fend
 
 hoge
         "#;
-        eval_test(input, Some(Object::Num(11.0)), false)
+        eval_test(input, Ok(Some(Object::Num(11.0))), false)
     }
 
     #[test]
