@@ -766,7 +766,7 @@ impl Evaluator {
                     },
                     1 => {
                         let e = index_list[0].clone();
-                        let capacity = match self.eval_expression(e)? {
+                        let size = match self.eval_expression(e)? {
                             Object::Num(n) => n as usize + 1,
                             Object::Empty => v.len(),
                             o => return Err(UError::new(
@@ -775,13 +775,11 @@ impl Evaluator {
                                 None
                             )),
                         };
-                        let mut array = Vec::with_capacity(capacity);
+                        let mut array = vec![];
                         for e in v {
                             array.push(self.eval_expression(e)?);
                         }
-                        while array.len() < capacity {
-                            array.push(Object::Empty);
-                        }
+                        array.resize(size, Object::Empty);
                         Object::Array(array)
                     },
                     _ => {
@@ -812,19 +810,32 @@ impl Evaluator {
                         for e in v {
                             array.push(self.eval_expression(e)?);
                         }
+                        // 各次元サイズを格納した配列の順序を反転
+                        sizes.reverse();
+
                         let l = array.len();
-                        let acutual_size = sizes.clone().into_iter().map(
-                            |n| if n == usize::MAX {n} else {n+ 1}
-                        ).reduce(|a, b| {
+                        let actual_size = sizes.clone().into_iter().map(
+                            // 最大添字を配列サイズにする
+                            |n| if n == usize::MAX {n} else {n + 1}
+                        ).reduce(|a, mut b| {
                             if b == usize::MAX {
-                                let b = (l / a) as usize + (if l % a == 0 {0} else {1});
-                                a * b
-                            } else {
-                                a * b
+                                // 値が省略された場合は実際のサイズを算出
+                                b = (l / a) as usize + (if l % a == 0 {0} else {1});
+                            }
+                            match a.checked_mul(b) {
+                                Some(n) => n,
+                                None => 0,
                             }
                         }).unwrap();
-                        array.resize(acutual_size, Object::Empty);
-                        sizes.reverse();
+
+                        if actual_size == 0 {
+                            return Err(UError::new(
+                                "Array error".into(),
+                                "total size of array is out of bounds".into(),
+                                None
+                            ));
+                        }
+                        array.resize(actual_size, Object::Empty);
                         for size in sizes {
                             // 低い方から処理
                             let mut tmp = array;
