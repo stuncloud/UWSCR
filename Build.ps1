@@ -91,8 +91,10 @@ if ($Installer) {
             break
         }
         # cargo wix --nocapture
-        candle -dProfile=release -dVersion="${Version}" -dPlatform=x64 -ext WixUtilExtension -o target/wix/x64.wixobj wix/x64.wxs -nologo
-        light -spdb -ext WixUIExtension -ext WixUtilExtension -cultures:ja-JP -out "target/wix/uwscr-${Version}-x64.msi" target/wix/x64.wixobj -nologo
+        candle -dProfile=release -dVersion="${Version}" -dPlatform=x64 -ext WixUtilExtension -o target/wix/x64.wixobj wix/x64.wxs -nologo | Out-Null
+        $msipath = ".release/${Version}/uwscr-${Version}-x64.msi"
+        light -spdb -ext WixUIExtension -ext WixUtilExtension -cultures:ja-JP -out $msipath target/wix/x64.wixobj -nologo | Out-Null
+        Get-Item $msipath
     }
     # x86
     if ($Arch -in @("both","x86")) {
@@ -103,7 +105,9 @@ if ($Installer) {
             break
         }
         # cargo wix --compiler-arg "-dProfile=i686-pc-windows-msvc\release -dPlatform=x86" --nocapture
-        candle -dProfile=i686-pc-windows-msvc\release -dVersion="${Version}" -dPlatform=x86 -ext WixUtilExtension -o target/wix/x86.wixobj wix/x86.wxs -nologo
-        light -spdb -ext WixUIExtension -ext WixUtilExtension -cultures:ja-JP -out "target/wix/uwscr-${Version}-x86.msi" target/wix/x86.wixobj -nologo
+        candle -dProfile=i686-pc-windows-msvc\release -dVersion="${Version}" -dPlatform=x86 -ext WixUtilExtension -o target/wix/x86.wixobj wix/x86.wxs -nologo | Out-Null
+        $msipath = ".release/${Version}/uwscr-${Version}-x86.msi"
+        light -spdb -ext WixUIExtension -ext WixUtilExtension -cultures:ja-JP -out $msipath target/wix/x86.wixobj -nologo | Out-Null
+        Get-Item $msipath
     }
 }
