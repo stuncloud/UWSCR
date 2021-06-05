@@ -2378,7 +2378,7 @@ dim hoge = 3
                 "#,
                 Err(UError::new(
                     "Error on definition".into(),
-                    format!("hoge is already defined."),
+                    format!("HOGE is already defined."),
                     None
                 ))
             ),
@@ -2812,7 +2812,7 @@ next
                 "#,
                 Err(UError::new(
                     "Syntax error on For".into(),
-                    format!("for i = 0 to \"5s\""),
+                    format!("for i = 0 to 5s"),
                     None
                 ))
             ),
@@ -3478,7 +3478,7 @@ function func_and_func()
 fend
                 "#,
                 Err(UError::new(
-                    "Error on definition".into(),
+                    "Function defining error".into(),
                     format!("FUNC_AND_FUNC is already defined."),
                     None
                 ))
