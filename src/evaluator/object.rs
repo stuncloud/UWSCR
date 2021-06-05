@@ -48,6 +48,7 @@ pub enum Object {
     DynamicVar(fn()->Object), // 特殊変数とか
     Version(Version),
     ExpandableTB(String),
+    Enum(UEnum),
 }
 
 impl fmt::Display for Object {
@@ -156,6 +157,7 @@ impl fmt::Display for Object {
             Object::DynamicVar(func) => write!(f, "{}", func()),
             Object::Version(ref v) => write!(f, "{}", v),
             Object::ExpandableTB(_) => write!(f, "expandable textblock"),
+            Object::Enum(ref e) => write!(f, "Enum {}", e.name)
         }
     }
 }

@@ -27,6 +27,8 @@ pub enum ParseErrorKind {
     CanNotLoadUwsl,
     WhitespaceRequired,
     SizeRequired,
+    ShouldBeNumber,
+    EnumMemberDuplicated,
 }
 
 #[derive(Debug, Clone)]
@@ -58,6 +60,8 @@ impl fmt::Display for ParseErrorKind {
             ParseErrorKind::CanNotLoadUwsl => write!(f, "Failed to load uwsl file"),
             ParseErrorKind::WhitespaceRequired => write!(f, "Missing whitespace"),
             ParseErrorKind::SizeRequired => write!(f, "Missing array size"),
+            ParseErrorKind::ShouldBeNumber => write!(f, "Value should be number literal"),
+            ParseErrorKind::EnumMemberDuplicated => write!(f, "Duplicated member found"),
         }
     }
 }
@@ -192,6 +196,7 @@ impl Parser {
             Token::Except,
             Token::Finally,
             Token::EndTry,
+            Token::EndEnum,
         ];
         self.is_current_token_in(eobtokens)
     }
@@ -215,6 +220,15 @@ impl Parser {
             return true;
         } else {
             self.error_got_invalid_token(token);
+            return false;
+        }
+    }
+
+    fn is_expected_close_token(&mut self, current_token: Token) -> bool {
+        if self.is_current_token(&current_token) {
+            return true;
+        } else {
+            self.error_got_invalid_close_token(current_token);
             return false;
         }
     }
@@ -480,6 +494,7 @@ impl Parser {
             Token::With => self.parse_with_statement(),
             Token::Try => self.parse_try_statement(),
             Token::Option => self.parse_option_statement(),
+            Token::Enum => self.parse_enum_statement(),
             _ => self.parse_expression_statement(),
         }
     }
@@ -1584,6 +1599,76 @@ impl Parser {
             },
         };
         Some(statement)
+    }
+
+    fn parse_enum_statement(&mut self) -> Option<Statement> {
+        self.bump();
+        let name = if let Some(Identifier(name)) = self.parse_identifier() {
+            name
+        } else {
+            self.error_token_is_not_identifier();
+            return None;
+        };
+        self.bump();
+        self.bump();
+        let mut u_enum = UEnum::new(&name);
+        let mut next = 0.0;
+        loop {
+            if let Some(Identifier(id)) = self.parse_identifier() {
+                if self.is_next_token(&Token::EqualOrAssign) {
+                    self.bump();
+                    self.bump();
+                    let n = match self.parse_expression(Precedence::Lowest, false) {
+                        Some(e) => match e {
+                            Expression::Literal(Literal::Num(n)) => n,
+                            _ => {
+                                self.errors.push(ParseError::new(
+                                    ParseErrorKind::ShouldBeNumber,
+                                    format!("{}.{}", name, id),
+                                    self.current_token.pos,
+                                    self.script.clone()
+                                ));
+                                return None;
+                            },
+                        },
+                        None => {
+                            self.errors.push(ParseError::new(
+                                ParseErrorKind::ValueMustBeDefined,
+                                format!("missing value definition for {}.{}", name, id),
+                                self.current_token.pos,
+                                self.script.clone()
+                            ));
+                            return None;
+                        },
+                    };
+                    next = n;
+                }
+                if u_enum.add(&id, next).is_err() {
+                    self.errors.push(ParseError::new(
+                        ParseErrorKind::EnumMemberDuplicated,
+                        format!("{} already has {}", name, id),
+                        self.current_token.pos,
+                        self.script.clone()
+                    ));
+                    return None;
+                }
+                if ! self.is_next_token_expected(Token::Eol) {
+                    return None;
+                }
+                self.bump();
+                if self.is_current_token_end_of_block() {
+                    break;
+                }
+                next += 1.0;
+            } else {
+                self.error_token_is_not_identifier();
+                return None;
+            }
+        }
+        if ! self.is_expected_close_token(Token::EndEnum) {
+            return None;
+        }
+        Some(Statement::Enum(name, u_enum))
     }
 
     fn parse_assignment(&mut self, token: Token, expression: Expression) -> Option<Expression> {

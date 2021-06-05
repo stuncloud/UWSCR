@@ -185,6 +185,37 @@ pub enum Statement {
         finally: Option<BlockStatement>,
     },
     Option(OptionSetting),
+    Enum(String, UEnum),
+}
+#[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
+pub struct UEnum {
+    pub name: String,
+    members: Vec<UEnumMember>
+}
+pub type UEnumMember = (String, f64);
+impl UEnum {
+    pub fn new(name: &String) -> Self {
+        UEnum {
+            name: name.to_string(),
+            members: Vec::new()
+        }
+    }
+    pub fn get(&self, id: &String) -> Option<f64> {
+        let value = self.members.iter().find(
+            |m| &m.0 == id
+        ).map(
+            |m| m.1
+        );
+        value
+    }
+    pub fn add(&mut self, id: &String, value: f64) -> Result<(), ()> {
+        if self.members.iter().find(|m| &m.0 == id).is_some() {
+            Err(())
+        } else {
+            self.members.push((id.to_string(), value));
+            Ok(())
+        }
+    }
 }
 
 pub type BlockStatement = Vec<Statement>;

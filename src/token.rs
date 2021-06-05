@@ -127,6 +127,9 @@ pub enum Token {
     Class,
     EndClass,
 
+    Enum,
+    EndEnum,
+
     // Option
     Option,
     Explicit,

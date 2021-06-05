@@ -338,6 +338,7 @@ impl Evaluator {
             } else {
                 self.eval_block_statement(block)
             },
+            Statement::Enum(name, uenum) => self.eval_enum_statement(name, uenum),
             Statement::Try {trys, except, finally} => self.eval_try_statement(trys, except, finally),
             Statement::Exit => Ok(Some(Object::Exit)),
             Statement::ExitExit(n) => Ok(Some(Object::ExitExit(n))),
@@ -750,6 +751,11 @@ impl Evaluator {
             self.eval_block_statement(finally.unwrap())?;
         }
         Ok(obj)
+    }
+
+    fn eval_enum_statement(&mut self, name: String, uenum: UEnum) -> EvalResult<Option<Object>> {
+        self.env.borrow_mut().define_const(name, Object::Enum(uenum))?;
+        Ok(None)
     }
 
     fn eval_expression(&mut self, expression: Expression) -> EvalResult<Object> {
@@ -2147,6 +2153,23 @@ impl Evaluator {
             } else {
                 Err(UError::new(
                     "UObject".into(),
+                    format!("not an identifier ({:?})", right),
+                    None
+                ))
+            },
+            Object::Enum(e) => if let Expression::Identifier(Identifier(member)) = right {
+                if let Some(n) = e.get(&member) {
+                    Ok(Object::Num(n))
+                } else {
+                    Err(UError::new(
+                        "Invalid Enum member".into(),
+                        format!("{}.{} is not defined for", &e.name, member),
+                        None
+                    ))
+                }
+            } else {
+                Err(UError::new(
+                    "Invalid Enum member".into(),
                     format!("not an identifier ({:?})", right),
                     None
                 ))

@@ -402,6 +402,8 @@ impl Lexer {
                 Token::TextBlock(true)
             },
             "endtextblock" => Token::EndTextBlock,
+            "enum" => Token::Enum,
+            "endenum" => Token::EndEnum,
             "function" => Token::Function,
             "procedure" => Token::Procedure,
             "fend" => Token::Fend,
