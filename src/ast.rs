@@ -209,7 +209,7 @@ impl UEnum {
         value
     }
     pub fn add(&mut self, id: &String, value: f64) -> Result<(), ()> {
-        if self.members.iter().find(|m| &m.0 == id).is_some() {
+        if self.members.iter().find(|(m, n)| m == id || n == &value).is_some() {
             Err(())
         } else {
             self.members.push((id.to_string(), value));

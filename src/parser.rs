@@ -27,8 +27,9 @@ pub enum ParseErrorKind {
     CanNotLoadUwsl,
     WhitespaceRequired,
     SizeRequired,
-    ShouldBeNumber,
+    EnumMemberShouldBeNumber,
     EnumMemberDuplicated,
+    InvalidEnumMemberValue,
 }
 
 #[derive(Debug, Clone)]
@@ -60,8 +61,9 @@ impl fmt::Display for ParseErrorKind {
             ParseErrorKind::CanNotLoadUwsl => write!(f, "Failed to load uwsl file"),
             ParseErrorKind::WhitespaceRequired => write!(f, "Missing whitespace"),
             ParseErrorKind::SizeRequired => write!(f, "Missing array size"),
-            ParseErrorKind::ShouldBeNumber => write!(f, "Value should be number literal"),
+            ParseErrorKind::EnumMemberShouldBeNumber => write!(f, "Value should be number literal"),
             ParseErrorKind::EnumMemberDuplicated => write!(f, "Duplicated member found"),
+            ParseErrorKind::InvalidEnumMemberValue => write!(f, "Invalid Enum value"),
         }
     }
 }
@@ -1623,7 +1625,7 @@ impl Parser {
                             Expression::Literal(Literal::Num(n)) => n,
                             _ => {
                                 self.errors.push(ParseError::new(
-                                    ParseErrorKind::ShouldBeNumber,
+                                    ParseErrorKind::EnumMemberShouldBeNumber,
                                     format!("{}.{}", name, id),
                                     self.current_token.pos,
                                     self.script.clone()
@@ -1641,12 +1643,22 @@ impl Parser {
                             return None;
                         },
                     };
+                    // next以下の数値が指定されたらエラー
+                    if n < next {
+                        self.errors.push(ParseError::new(
+                            ParseErrorKind::InvalidEnumMemberValue,
+                            format!("value for {}.{} should be greater then {}", name, id, next),
+                            self.current_token.pos,
+                            self.script.clone()
+                        ));
+                        return None;
+                    }
                     next = n;
                 }
                 if u_enum.add(&id, next).is_err() {
                     self.errors.push(ParseError::new(
                         ParseErrorKind::EnumMemberDuplicated,
-                        format!("{} already has {}", name, id),
+                        format!("name or value for {}.{} is duplicated", name, id),
                         self.current_token.pos,
                         self.script.clone()
                     ));
