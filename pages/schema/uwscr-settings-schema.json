@@ -12,14 +12,18 @@
         "explicit": {
           "type": "boolean"
         },
-        "dlg_title": {},
+        "dlg_title": {
+          "type": ["null", "string"]
+        },
         "log_file": {
           "type": "number"
         },
         "log_lines": {
           "type": "number"
         },
-        "log_path": {},
+        "log_path": {
+          "type": ["null", "string"]
+        },
         "position": {
           "type": "object",
           "properties": {
