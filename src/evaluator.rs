@@ -1465,9 +1465,11 @@ impl Evaluator {
                 Object::String(s) => self.eval_infix_string_expression(infix, v1.to_string(), s.clone()),
                 _ => self.eval_infix_misc_expression(infix, left, right)
             },
-            Object::Array(mut a) => {
+            Object::Array(mut a) => if infix == Infix::Plus {
                 a.push(right);
                 Ok(Object::Array(a))
+            } else {
+                self.eval_infix_misc_expression(infix, left, right)
             },
             Object::UObject(v) => {
                 let value = v.borrow().clone();
