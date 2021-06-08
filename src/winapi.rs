@@ -91,8 +91,8 @@ impl From<windows::Error> for UError {
     fn from(e: windows::Error) -> Self {
         UError::new(
             "Windows Api Error".into(),
-            e.message(),
-            Some(format!("{}", e.code().0))
+            &e.message(),
+            Some(&format!("{}", e.code().0))
         )
     }
 }

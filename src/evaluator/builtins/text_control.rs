@@ -94,7 +94,7 @@ fn test_regex(target: String, pattern: String, f_name: &str) -> Result<Object, U
         Ok(re) => Ok(Object::Bool(
             re.is_match(target.as_str())
         )),
-        Err(_) => Err(builtin_func_error(f_name, "bad regex".to_string()))
+        Err(_) => Err(builtin_func_error(f_name, "bad regex"))
     }
 }
 
@@ -119,7 +119,7 @@ fn match_regex(target: String, pattern: String, f_name: &str) -> Result<Object, 
             }
             Ok(Object::Array(matches))
         },
-        Err(_) => Err(builtin_func_error(f_name, "bad regex".to_string()))
+        Err(_) => Err(builtin_func_error(f_name, "bad regex"))
     }
 }
 
@@ -130,7 +130,7 @@ fn replace_regex(target: String, pattern: String, replace_to: String, f_name: &s
                 re.replace_all(target.as_str(), replace_to.as_str()).to_string()
             ))
         },
-        Err(_) => Err(builtin_func_error(f_name, "bad regex".to_string()))
+        Err(_) => Err(builtin_func_error(f_name, "bad regex"))
     }
 }
 
@@ -153,7 +153,7 @@ pub fn regex(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         Object::String(s) |
         Object::RegEx(s) => replace_regex(target, pattern, s.clone(), args.name()),
         Object::Empty => test_regex(target, pattern, args.name()),
-        _ => Err(builtin_func_error(args.name(), format!("bad argument: {}", args.item(2).unwrap())))
+        _ => Err(builtin_func_error(args.name(), &format!("bad argument: {}", args.item(2).unwrap())))
     }
 }
 
@@ -168,7 +168,7 @@ pub fn replace(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let (pattern, is_regex) = match get_any_argument_value(&args, 1, None)? {
         Object::String(s) => (s.clone(), get_bool_argument_value(&args, 3, Some(false))?),
         Object::RegEx(re) => (re.clone(), true),
-        _ => return Err(builtin_func_error(args.name(), format!("bad argument: {}", args.item(1).unwrap())))
+        _ => return Err(builtin_func_error(args.name(), &format!("bad argument: {}", args.item(1).unwrap())))
     };
     let replace_to = get_string_argument_value(&args, 2, None)?;
 
@@ -205,7 +205,7 @@ pub fn tojson(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         _ => return Err(builtin_func_error(args.name(), "UObject required"))
     };
     f(&obj).map_or_else(
-        |e| Err(builtin_func_error(args.name(), e.to_string())),
+        |e| Err(builtin_func_error(args.name(), &e.to_string())),
         |s| Ok(Object::String(s))
     )
 }

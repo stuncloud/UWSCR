@@ -71,7 +71,7 @@ pub fn is_64bit_os(f_name: &str) -> Result<bool, UError> {
             }
             Ok(b.as_bool())
         },
-        _ => Err(builtin_func_error(f_name, format!("unknown architecture: {}", arch)))
+        _ => Err(builtin_func_error(f_name, &format!("unknown architecture: {}", arch)))
     }
 }
 

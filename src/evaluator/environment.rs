@@ -325,8 +325,8 @@ impl Environment {
     fn define(&mut self, name: String, object: Object, scope: Scope, to_global: bool) -> Result<(), UError> {
         if self.is_reserved(&name) {
             return Err(UError::new(
-                "Error on definition".into(),
-                format!("{} is reserved identifier.", name),
+                "Error on definition",
+                &format!("{} is reserved identifier.", name),
                 None
             ))
         }
@@ -339,8 +339,8 @@ impl Environment {
         let key = name.to_ascii_uppercase();
         if self.contains(&key, Scope::Local) || self.contains(&key, Scope::Const) {
             return Err(UError::new(
-                "Error on definition".into(),
-                format!("{} is already defined.", key),
+                "Error on definition",
+                &format!("{} is already defined.", key),
                 None
             ))
         }
@@ -351,8 +351,8 @@ impl Environment {
         let key = name.to_ascii_uppercase();
         if self.contains(&key, Scope::Const) {
             return Err(UError::new(
-                "Error on definition".into(),
-                format!("{} is already defined.", key),
+                "Error on definition",
+                &format!("{} is already defined.", key),
                 None
             ))
         }
@@ -363,16 +363,16 @@ impl Environment {
         let key = name.to_ascii_uppercase();
         if self.contains(&key, Scope::Local) || self.contains(&key, Scope::Public) {
             return Err(UError::new(
-                "Error on definition".into(),
-                format!("{} is already defined.", key),
+                "Error on definition",
+                &format!("{} is already defined.", key),
                 None
             ))
         } else if self.contains(&key, Scope::Const) {
             // const定義済みで値が異なればエラー、同じなら何もしないでOk返す
             if self.get(&key, Scope::Const).unwrap_or(Object::Empty) != object {
                 return Err(UError::new(
-                "Error on definition".into(),
-                format!("{} is already defined.", key),
+                "Error on definition",
+                &format!("{} is already defined.", key),
                 None
             ))
             }else {
@@ -386,8 +386,8 @@ impl Environment {
         let key = name.to_ascii_uppercase();
         if self.contains(&key, Scope::Function) {
             return Err(UError::new(
-                "Function defining error".into(),
-                format!("{} is already defined.", key),
+                "Function defining error",
+                &format!("{} is already defined.", key),
                 None
             ));
         }
@@ -398,8 +398,8 @@ impl Environment {
         let key = name.to_ascii_uppercase();
         if self.contains(&key, Scope::Module) {
             return Err(UError::new(
-                "Module defining error".into(),
-                format!("{} is already defined.", key),
+                "Module defining error",
+                &format!("{} is already defined.", key),
                 None
             ));
         }
@@ -410,8 +410,8 @@ impl Environment {
         let key = name.to_ascii_uppercase();
         if self.contains(&key, Scope::Class) {
             return Err(UError::new(
-                "Class defining error".into(),
-                format!("{} is already defined.", key),
+                "Class defining error",
+                &format!("{} is already defined.", key),
                 None
             ));
         }
@@ -424,16 +424,16 @@ impl Environment {
         if self.is_reserved(&key) {
             // ビルトイン定数には代入できない
             return Err(UError::new(
-                "Assignment Error".into(),
-                format!("{} is reserved identifier.", key),
+                "Assignment Error",
+                &format!("{} is reserved identifier.", key),
                 None
             ))
         }
         if self.contains(&key, Scope::Const) {
             // 同名の定数がある場合エラー
             return Err(UError::new(
-                "Assignment Error".into(),
-                format!("you can not assign to constant: {}", key),
+                "Assignment Error",
+                &format!("you can not assign to constant: {}", key),
                 None
             ))
         } else if self.contains(&key, Scope::Local) && include_local {
@@ -452,8 +452,8 @@ impl Environment {
             let usettings = singleton.0.lock().unwrap();
             if usettings.options.explicit {
                 return Err(UError::new(
-                    "Explicit error".into(),
-                    format!("dim is required for {}", key),
+                    "Explicit error",
+                    &format!("dim is required for {}", key),
                     None
                 ));
             }
@@ -463,8 +463,8 @@ impl Environment {
             // ローカル代入不許可
             // 同名のグローバル変数が存在しない場合はエラー
             return Err(UError::new(
-                "Assignment Error".into(),
-                format!("public variable not found: {}", key),
+                "Assignment Error",
+                &format!("public variable not found: {}", key),
                 None
             ))
         };
@@ -712,8 +712,8 @@ impl Module {
                 None => match self.get(name, Scope::Const) {
                     Some(o) => Ok(o),
                     None => Err(UError::new(
-                        "Member not found".into(),
-                        format!("{}.{} is not defined", self.name, name),
+                        "Member not found",
+                        &format!("{}.{} is not defined", self.name, name),
                         None
                     ))
                 }
@@ -727,8 +727,8 @@ impl Module {
             None => match self.get(name, Scope::Const) {
                 Some(o) => Ok(o),
                 None => Err(UError::new(
-                    "Public member not found".into(),
-                    format!("{}.{}() is not defined", self.name, name),
+                    "Public member not found",
+                    &format!("{}.{}() is not defined", self.name, name),
                     None
                 ))
             }
@@ -742,8 +742,8 @@ impl Module {
                 Ok(Object::DestructorNotFound)
             } else {
                 let e = UError::new(
-                    "Function not found".into(),
-                    format!("{}.{}() is not defined", self.name, name),
+                    "Function not found",
+                    &format!("{}.{}() is not defined", self.name, name),
                     None
                 );
                 match self.get_public_member(name) {
@@ -769,15 +769,15 @@ impl Module {
                         self.set(name, Object::Array(a), scope);
                     } else {
                         return Err(UError::new(
-                            "Invalid Index".into(),
-                            format!("index out of bound: {}", i),
+                            "Invalid Index",
+                            &format!("index out of bound: {}", i),
                             None
                         ))
                     }
                 } else {
                     return Err(UError::new(
-                        "Invalid Index".into(),
-                        format!("{} is not a valid index", index),
+                        "Invalid Index",
+                        &format!("{} is not a valid index", index),
                         None
                     ))
                 }
@@ -788,16 +788,16 @@ impl Module {
                     Object::Bool(b) => b.to_string(),
                     Object::String(s) => s,
                     _ => return Err(UError::new(
-                        "Invalid key".into(),
-                        format!("{} is not a valid key", index),
+                        "Invalid key",
+                        &format!("{} is not a valid key", index),
                         None
                     ))
                 };
                 h.borrow_mut().insert(key, value);
             },
             _ => return Err(UError::new(
-                "Invalid index call".into(),
-                format!("{} is neither array nor hashtbl", name),
+                "Invalid index call",
+                &format!("{} is neither array nor hashtbl", name),
                 None
             ))
         }
@@ -808,8 +808,8 @@ impl Module {
         let scope = if self.contains(name, Scope::Const) {
             // 同名の定数がある場合はエラー
             return Err(UError::new(
-                "Member already exists".into(),
-                format!("you can not assign to constant: {}.{}", self.name(), name),
+                "Member already exists",
+                &format!("you can not assign to constant: {}.{}", self.name(), name),
                 None
             ))
         } else if self.contains(name, Scope::Local) {
@@ -840,8 +840,8 @@ impl Module {
             }
         } else {
             return Err(UError::new(
-                "Public member not found".into(),
-                format!("{}.{} is not public", self.name, name),
+                "Public member not found",
+                &format!("{}.{} is not public", self.name, name),
                 None
             ))
         }

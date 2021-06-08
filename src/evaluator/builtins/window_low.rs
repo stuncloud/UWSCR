@@ -98,7 +98,7 @@ pub fn btn(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         KeyActionEnum::CLICK => enigo.mouse_click(button),
         KeyActionEnum::DOWN => enigo.mouse_down(button),
         KeyActionEnum::UP => enigo.mouse_up(button),
-        _ => return Err(builtin_func_error(args.name(), format!("bad argument: {}", arg1)))
+        _ => return Err(builtin_func_error(args.name(), &format!("bad argument: {}", arg1)))
     }
     Ok(Object::Empty)
 }
@@ -178,7 +178,7 @@ pub fn kbd(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             enigo.key_sequence(s.as_str());
             return Ok(Object::Empty);
         }
-        _ => return Err(builtin_func_error(args.name(), format!("bad argument: {}", obj)))
+        _ => return Err(builtin_func_error(args.name(), &format!("bad argument: {}", obj)))
     };
     thread::sleep(time::Duration::from_millis(ms));
     match key_action {

@@ -69,7 +69,7 @@ impl fmt::Display for ParseErrorKind {
 }
 
 impl ParseError {
-    pub fn new<S: Into<String>>(kind: ParseErrorKind, msg: S, pos: Position, script: Option<String>) -> Self {
+    pub fn new(kind: ParseErrorKind, msg: &str, pos: Position, script: Option<String>) -> Self {
         ParseError {kind, msg: msg.into(), pos, script}
     }
 
@@ -238,7 +238,7 @@ impl Parser {
     fn error_got_invalid_next_token(&mut self, token: Token) {
         self.errors.push(ParseError::new(
             ParseErrorKind::UnexpectedToken,
-            format!(
+            &format!(
                 "expected token was {:?}, but got {:?} instead.",
                 token, self.next_token.token,
             ),
@@ -250,7 +250,7 @@ impl Parser {
     fn error_got_invalid_close_token(&mut self, token: Token) {
         self.errors.push(ParseError::new(
             ParseErrorKind::BlockNotClosedCorrectly,
-            format!(
+            &format!(
                 "this block requires {:?} to close but got {:?}",
                 token, self.current_token.token
             ),
@@ -262,7 +262,7 @@ impl Parser {
     fn error_got_invalid_token(&mut self, token: Token) {
         self.errors.push(ParseError::new(
             ParseErrorKind::UnexpectedToken,
-            format!(
+            &format!(
                 "expected token was {:?}, but got {:?} instead.",
                 token, self.current_token.token
             ),
@@ -274,7 +274,7 @@ impl Parser {
     fn error_token_is_not_identifier(&mut self) {
         self.errors.push(ParseError::new(
             ParseErrorKind::UnexpectedToken,
-            format!(
+            &format!(
                 "expected token was Identifier, but got {:?} instead.",
                 self.current_token.token
             ),
@@ -286,7 +286,7 @@ impl Parser {
     fn error_got_unexpected_token(&mut self) {
         self.errors.push(ParseError::new(
             ParseErrorKind::UnexpectedToken,
-            format!(
+            &format!(
                 "unexpected token: {:?}.",
                 self.current_token.token
             ),
@@ -298,7 +298,7 @@ impl Parser {
     fn error_got_unexpected_next_token(&mut self) {
         self.errors.push(ParseError::new(
             ParseErrorKind::UnexpectedToken,
-            format!(
+            &format!(
                 "unexpected token: {:?}.",
                 self.next_token.token
             ),
@@ -307,7 +307,7 @@ impl Parser {
         ))
     }
 
-    fn error_got_bad_parameter(&mut self, msg: String) {
+    fn error_got_bad_parameter(&mut self, msg: &str) {
         self.errors.push(ParseError::new(
             ParseErrorKind::BadParameter,
             msg,
@@ -319,7 +319,7 @@ impl Parser {
     fn error_got_invalid_dlltype(&mut self, name: String) {
         self.errors.push(ParseError::new(
             ParseErrorKind::InvalidDllType,
-            format!("{} is not valid dll type", name),
+            &format!("{} is not valid dll type", name),
             self.current_token.pos,
             self.script.clone()
         ))
@@ -354,7 +354,7 @@ impl Parser {
     fn error_no_prefix_parser(&mut self) {
         self.errors.push(ParseError::new(
             ParseErrorKind::UnexpectedToken,
-            format!(
+            &format!(
                 "no prefix parser found for Token::{:?}",
                 self.current_token.token
             ),
@@ -608,7 +608,7 @@ impl Parser {
                     if value_required {
                         self.errors.push(ParseError::new(
                             ParseErrorKind::ValueMustBeDefined,
-                            format!("{} has no value.", var_name),
+                            &format!("{} has no value.", var_name),
                             self.next_token.pos,
                             self.script.clone()
                         ));
@@ -631,7 +631,7 @@ impl Parser {
                     if value_required {
                         self.errors.push(ParseError::new(
                             ParseErrorKind::ValueMustBeDefined,
-                            format!("{} has no value.", var_name),
+                            &format!("{} has no value.", var_name),
                             self.next_token.pos,
                             self.script.clone()
                         ));
@@ -786,7 +786,7 @@ impl Parser {
                                 Err(e) => {
                                     self.errors.push(ParseError::new(
                                         ParseErrorKind::CanNotLoadUwsl,
-                                        format!("{:?} [{}]", path, e),
+                                        &format!("{:?} [{}]", path, e),
                                         self.current_token.pos,
                                         self.script.clone()
                                     ));
@@ -795,7 +795,7 @@ impl Parser {
                             Err(e) => {
                                 self.errors.push(ParseError::new(
                                     ParseErrorKind::CanNotLoadUwsl,
-                                    format!("{:?} [{}]", path, e),
+                                    &format!("{:?} [{}]", path, e),
                                     self.current_token.pos,
                                     self.script.clone()
                                 ));
@@ -824,7 +824,7 @@ impl Parser {
                     }
                     self.errors.push(ParseError::new(
                         ParseErrorKind::CanNotCallScript,
-                        format!("{:?} [{}]", path, e),
+                        &format!("{:?} [{}]", path, e),
                         self.current_token.pos,
                         self.script.clone()
                     ));
@@ -1248,7 +1248,7 @@ impl Parser {
             t => {
                 self.errors.push(ParseError::new(
                     ParseErrorKind::UnexpectedToken,
-                    format!("should have except or finally, but got {:?}", t),
+                    &format!("should have except or finally, but got {:?}", t),
                     self.current_token.pos,
                     self.script.clone()
             ));
@@ -1263,7 +1263,7 @@ impl Parser {
                     Err(s) => {
                         self.errors.push(ParseError::new(
                             ParseErrorKind::InvalidStatement,
-                            format!("you can not use {} in finally", s),
+                            &format!("you can not use {} in finally", s),
                             self.current_token.pos,
                             self.script.clone()
                         ));
@@ -1275,7 +1275,7 @@ impl Parser {
             t => {
                 self.errors.push(ParseError::new(
                     ParseErrorKind::BlockNotClosedCorrectly,
-                    format!("should have finally or endtry, but got {:?}", t),
+                    &format!("should have finally or endtry, but got {:?}", t),
                     self.current_token.pos,
                     self.script.clone()
                 ));
@@ -1317,7 +1317,7 @@ impl Parser {
         } else {
             self.errors.push(ParseError::new(
                 ParseErrorKind::UnexpectedToken,
-                format!("Exit code should be number"),
+                &format!("Exit code should be number"),
                 self.current_token.pos,
                 self.script.clone()
             ));
@@ -1357,7 +1357,7 @@ impl Parser {
         } else {
             self.errors.push(ParseError::new(
                 ParseErrorKind::BlockNotClosedCorrectly,
-                format!("endtextblock required"),
+                &format!("endtextblock required"),
                 self.current_token.pos,
                 self.script.clone()
             ));
@@ -1626,7 +1626,7 @@ impl Parser {
                             _ => {
                                 self.errors.push(ParseError::new(
                                     ParseErrorKind::EnumMemberShouldBeNumber,
-                                    format!("{}.{}", name, id),
+                                    &format!("{}.{}", name, id),
                                     self.current_token.pos,
                                     self.script.clone()
                                 ));
@@ -1636,7 +1636,7 @@ impl Parser {
                         None => {
                             self.errors.push(ParseError::new(
                                 ParseErrorKind::ValueMustBeDefined,
-                                format!("missing value definition for {}.{}", name, id),
+                                &format!("missing value definition for {}.{}", name, id),
                                 self.current_token.pos,
                                 self.script.clone()
                             ));
@@ -1647,7 +1647,7 @@ impl Parser {
                     if n < next {
                         self.errors.push(ParseError::new(
                             ParseErrorKind::InvalidEnumMemberValue,
-                            format!("value for {}.{} should be greater then {}", name, id, next),
+                            &format!("value for {}.{} should be greater then {}", name, id, next),
                             self.current_token.pos,
                             self.script.clone()
                         ));
@@ -1658,7 +1658,7 @@ impl Parser {
                 if u_enum.add(&id, next).is_err() {
                     self.errors.push(ParseError::new(
                         ParseErrorKind::EnumMemberDuplicated,
-                        format!("name or value for {}.{} is duplicated", name, id),
+                        &format!("name or value for {}.{} is duplicated", name, id),
                         self.current_token.pos,
                         self.script.clone()
                     ));
@@ -1736,7 +1736,7 @@ impl Parser {
             Token::UObjectNotClosing => {
                 self.errors.push(ParseError::new(
                     ParseErrorKind::BlockNotClosedCorrectly,
-                    format!("@ is required"),
+                    &format!("@ is required"),
                     self.current_token.pos,
                     self.script.clone()
                 ));
@@ -1856,7 +1856,7 @@ impl Parser {
             Token::NaN => {
                 self.errors.push(ParseError::new(
                     ParseErrorKind::InvalidIdentifier,
-                    format!("{:?} is reserved", token),
+                    &format!("{:?} is reserved", token),
                     self.current_token.pos,
                     self.script.clone()
                 ));
@@ -1924,7 +1924,7 @@ impl Parser {
             None => {
                 self.errors.push(ParseError::new(
                     ParseErrorKind::OutOfWith,
-                    format!(""),
+                    &format!(""),
                     self.current_token.pos,
                     self.script.clone()
                 ));
@@ -1949,7 +1949,7 @@ impl Parser {
                 Err(_) => {
                     self.errors.push(ParseError::new(
                         ParseErrorKind::InvalidHexNumber,
-                        format!("${}", s),
+                        &format!("${}", s),
                         self.current_token.pos,
                         self.script.clone()
                     ));
@@ -2325,7 +2325,7 @@ impl Parser {
             if self.is_current_token(&Token::Eof) {
                 self.errors.push(ParseError::new(
                     ParseErrorKind::BlockNotClosedCorrectly,
-                    format!(
+                    &format!(
                         "module should be closed by endmodule.",
                     ),
                     self.current_token.pos,
@@ -2359,7 +2359,7 @@ impl Parser {
             if self.is_current_token(&Token::Eof) {
                 self.errors.push(ParseError::new(
                     ParseErrorKind::BlockNotClosedCorrectly,
-                    format!(
+                    &format!(
                         "class should be closed by endclass.",
                     ),
                     self.current_token.pos,
@@ -2384,7 +2384,7 @@ impl Parser {
                     _ => {
                         self.errors.push(ParseError::new(
                             ParseErrorKind::InvalidStatement,
-                            format!("you can not define {:?} in Class", s),
+                            &format!("you can not define {:?} in Class", s),
                             cur_pos,
                             self.script.clone()
                         ));
@@ -2398,7 +2398,7 @@ impl Parser {
         if ! has_constructor {
             self.errors.push(ParseError::new(
                 ParseErrorKind::ClassHasNoConstructor,
-                format!("procedure {}() must be defined", identifier),
+                &format!("procedure {}() must be defined", identifier),
                 class_statement_pos,
                 self.script.clone()
             ));
@@ -2508,23 +2508,23 @@ impl Parser {
                         Params::Identifier(i) |
                         Params::Reference(i) |
                         Params::Array(i, _) => if with_default_flg {
-                            self.error_got_bad_parameter(format!("{}: only argument with default is allowed after argument with default", i));
+                            self.error_got_bad_parameter(&format!("{}: only argument with default is allowed after argument with default", i));
                             return None;
                         } else if variadic_flg {
-                            self.error_got_bad_parameter(format!("{}: no arguments are allowed after variadic argument", i));
+                            self.error_got_bad_parameter(&format!("{}: no arguments are allowed after variadic argument", i));
                             return None;
                         },
                         Params::WithDefault(i, _) => if variadic_flg {
-                            self.error_got_bad_parameter(format!("{}: no arguments are allowed after variadic argument", i));
+                            self.error_got_bad_parameter(&format!("{}: no arguments are allowed after variadic argument", i));
                             return None;
                         } else {
                             with_default_flg = true;
                         },
                         Params::Variadic(i) => if with_default_flg {
-                            self.error_got_bad_parameter(format!("&{}: variadic argument is not allowed after argument with default value", i));
+                            self.error_got_bad_parameter(&format!("&{}: variadic argument is not allowed after argument with default value", i));
                             return None;
                         } else if variadic_flg {
-                            self.error_got_bad_parameter(format!("&{}: no arguments are allowed after variadic argument", i));
+                            self.error_got_bad_parameter(&format!("&{}: no arguments are allowed after variadic argument", i));
                             return None;
                         } else {
                             variadic_flg = true;
@@ -2614,7 +2614,7 @@ impl Parser {
             },
             _ => {}
         }
-        self.error_got_bad_parameter(format!("unexpected token: {:?}", self.current_token.token));
+        self.error_got_bad_parameter(&format!("unexpected token: {:?}", self.current_token.token));
         None
     }
 

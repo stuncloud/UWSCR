@@ -33,28 +33,20 @@ pub struct UError {
 }
 
 impl UError {
-    pub fn new(title: String, msg: String, sub_msg: Option<String>) -> Self {
-        UError{title, msg, sub_msg}
-    }
-}
-
-impl From<BuiltinError> for UError {
-    fn from(e: BuiltinError) -> Self {
-        match e {
-            BuiltinError::FunctionError(m, s) => UError::new("function error".into(), m, s),
-            BuiltinError::ArgumentError(m, s) => UError::new("argument error".into(), m, s),
+    pub fn new(title: &str, msg: &str, sub_msg: Option<&str>) -> Self {
+        UError{
+            title: title.to_string(),
+            msg: msg.to_string(),
+            sub_msg: sub_msg.map(|s| s.to_string())
         }
     }
 }
 
 impl fmt::Display for UError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if self.sub_msg.is_some() {
-            // write!(f, "[{}] {}: {} ({})", self.pos, self.title, self.msg, self.sub_msg.clone().unwrap())
-            write!(f, "{}: {} ({})", self.title, self.msg, self.sub_msg.clone().unwrap())
-        } else {
-            // write!(f, "[{}] {}: {})", self.pos, self.title, self.msg)
-            write!(f, "{}: {}", self.title, self.msg)
+        match self.sub_msg {
+            Some(ref sub) => write!(f, "{}: {} [{}]", self.title, self.msg, sub),
+            None => write!(f, "{}: {}", self.title, self.msg)
         }
     }
 }
@@ -138,8 +130,8 @@ impl Evaluator {
             Some(e) => match self.eval_expression(e)? {
                 Object::Num(n) => n as u32,
                 o => return Err(UError::new(
-                    "Error on hashtbl definition".into(),
-                    format!("invalid hashtbl option: {}", o),
+                    "Error on hashtbl definition",
+                    &format!("invalid hashtbl option: {}", o),
                     None
                 ))
             },
@@ -428,15 +420,15 @@ impl Evaluator {
                 match s.parse::<i64>() {
                     Ok(i) => i,
                     Err(_) => return Err(UError::new(
-                        "Syntax error on For".into(),
-                        format!("for {} = {}", var, s),
+                        "Syntax error on For",
+                        &format!("for {} = {}", var, s),
                         None
                     ))
                 }
             },
             o => return Err(UError::new(
-                "Syntax error on For".into(),
-                format!("for {} = {}", var, o),
+                "Syntax error on For",
+                &format!("for {} = {}", var, o),
                 None
             )),
         };
@@ -447,15 +439,15 @@ impl Evaluator {
                 match s.parse::<i64>() {
                     Ok(i) => i,
                     Err(_) => return Err(UError::new(
-                        "Syntax error on For".into(),
-                        format!("for {} = {} to {}", var, counter, s),
+                        "Syntax error on For",
+                        &format!("for {} = {} to {}", var, counter, s),
                         None
                     ))
                 }
             },
             o => return Err(UError::new(
-                "Syntax error on For".into(),
-                format!("for {} = {} to {}", var, counter, o),
+                "Syntax error on For",
+                &format!("for {} = {} to {}", var, counter, o),
                 None
             )),
         };
@@ -468,15 +460,15 @@ impl Evaluator {
                         match s.parse::<i64>() {
                             Ok(i) => i,
                             Err(_) => return Err(UError::new(
-                                "Syntax error on For".into(),
-                                format!("for {} = {} to {} step {}", var, counter, counter_end, s),
+                                "Syntax error on For",
+                                &format!("for {} = {} to {} step {}", var, counter, counter_end, s),
                                 None
                             ))
                         }
                     },
                     o => return Err(UError::new(
-                        "Syntax error on For".into(),
-                        format!("for {} = {} to {} step {}", var, counter, counter_end, o),
+                        "Syntax error on For",
+                        &format!("for {} = {} to {} step {}", var, counter, counter_end, o),
                         None
                     )),
                 }
@@ -526,8 +518,8 @@ impl Evaluator {
             Object::String(s) => s.chars().map(|c| Object::String(c.to_string())).collect::<Vec<Object>>(),
             Object::HashTbl(h) => h.borrow().keys(),
             _ => return Err(UError::new(
-                "For-In error".into(),
-                format!("for-in requires array, hashtable, string, or collection"),
+                "For-In error",
+                &format!("for-in requires array, hashtable, string, or collection"),
                 None
             ))
         };
@@ -607,8 +599,8 @@ impl Evaluator {
             match statement {
                 Statement::Function{name: _, params: _, body: _, is_proc: _}  => {
                     return Err(UError::new(
-                        "Function defining error".into(),
-                        format!("nested definition of function/procedure is not allowed"),
+                        "Function defining error",
+                        &format!("nested definition of function/procedure is not allowed"),
                         None
                     ))
                 },
@@ -686,8 +678,8 @@ impl Evaluator {
                                 let in_func = if is_proc2{"procedure"}else{"function"};
                                 let out_func = if is_proc{"procedure"}else{"function"};
                                 return Err(UError::new(
-                                    format!("Nested {}", in_func),
-                                    format!("you can not define {} in {}", in_func, out_func),
+                                    &format!("Nested {}", in_func),
+                                    &format!("you can not define {} in {}", in_func, out_func),
                                     None
                                 ));
                             },
@@ -776,8 +768,8 @@ impl Evaluator {
                             Object::Num(n) => n as usize + 1,
                             Object::Empty => v.len(),
                             o => return Err(UError::new(
-                                "Array error".into(),
-                                format!("invalid index: {}", o),
+                                "Array error",
+                                &format!("invalid index: {}", o),
                                 None
                             )),
                         };
@@ -806,8 +798,8 @@ impl Evaluator {
                                     sizes.push(usize::MAX);
                                 },
                                 o => return Err(UError::new(
-                                    "Array error".into(),
-                                    format!("invalid index: {}", o),
+                                    "Array error",
+                                    &format!("invalid index: {}", o),
                                     None
                                 )),
                             }
@@ -911,8 +903,8 @@ impl Evaluator {
                 self.eval_dotcall_expression(*l, *r, false)?
             },
             Expression::Params(p) => return Err(UError::new(
-                "Expression evaluation error".into(),
-                format!("bad expression: {}", p),
+                "Expression evaluation error",
+                &format!("bad expression: {}", p),
                 None
             )),
             Expression::UObject(json) => {
@@ -921,9 +913,9 @@ impl Evaluator {
                     match serde_json::from_str::<serde_json::Value>(s.as_str()) {
                         Ok(v) => Object::UObject(Rc::new(RefCell::new(v))),
                         Err(e) => return Err(UError::new(
-                            "Json parse error".into(),
-                            format!("{}", s),
-                            Some(format!("Error message: {}", e))
+                            "Json parse error",
+                            &format!("{}", s),
+                            Some(&format!("Error message: {}", e))
                         )),
                     }
                 } else {
@@ -946,8 +938,8 @@ impl Evaluator {
                     None => match env.get_class(&name) {
                         Some(o) => o,
                         None => return Err(UError::new(
-                            "Identifier not found".into(),
-                            format!("{}", name),
+                            "Identifier not found",
+                            &format!("{}", name),
                             None
                         ))
                     }
@@ -983,8 +975,8 @@ impl Evaluator {
             Ok(Object::Num(-n))
         } else {
             Err(UError::new(
-                "Prefix - error".into(),
-                format!("Not an number {}", right),
+                "Prefix - error",
+                &format!("Not an number {}", right),
                 None
             ))
         }
@@ -995,8 +987,8 @@ impl Evaluator {
             Ok(Object::Num(n))
         } else {
             Err(UError::new(
-                "Prefix + error".into(),
-                format!("Not an number {}", right),
+                "Prefix + error",
+                &format!("Not an number {}", right),
                 None
             ))
         }
@@ -1006,16 +998,16 @@ impl Evaluator {
         let obj = match left.clone() {
             Object::Array(ref a) => if hash_enum.is_some() {
                 return Err(UError::new(
-                    "Invalid index".into(),
-                    format!("{}[{}, {}]", left, index, hash_enum.unwrap()),
+                    "Invalid index",
+                    &format!("{}[{}, {}]", left, index, hash_enum.unwrap()),
                     None
                 ));
             } else if let Object::Num(i) = index {
                 self.eval_array_index_expression(a.clone(), i as i64)?
             } else {
                 return Err(UError::new(
-                    "Invalid index".into(),
-                    format!("{}[{}]", left, index),
+                    "Invalid index",
+                    &format!("{}[{}]", left, index),
                     None
                 ))
             },
@@ -1026,8 +1018,8 @@ impl Evaluator {
                     Object::Bool(b) => (b.to_string(), None),
                     Object::String(s) => (s, None),
                     _ => return Err(UError::new(
-                        "Invalid key".into(),
-                        format!("{}", index),
+                        "Invalid key",
+                        &format!("{}", index),
                         None
                     ))
                 };
@@ -1040,8 +1032,8 @@ impl Evaluator {
                                 hash.get_key(i.unwrap())
                             } else {
                                 return Err(UError::new(
-                                    "Invalid index".into(),
-                                    format!("{}[{}, {}]", left, key, n),
+                                    "Invalid index",
+                                    &format!("{}[{}, {}]", left, key, n),
                                     None
                                 ));
                             },
@@ -1049,21 +1041,21 @@ impl Evaluator {
                                 hash.get_value(i.unwrap())
                             } else {
                                 return Err(UError::new(
-                                    "Invalid index".into(),
-                                    format!("{}[{}, {}]", left, key, n),
+                                    "Invalid index",
+                                    &format!("{}[{}, {}]", left, key, n),
                                     None
                                 ));
                             },
                             _ => return Err(UError::new(
-                                "Invalid index".into(),
-                                format!("{}[{}, {}]", left, index, n),
+                                "Invalid index",
+                                &format!("{}[{}, {}]", left, index, n),
                                 None
                             ))
                         }
                     } else {
                         return Err(UError::new(
-                            "Invalid index".into(),
-                            format!("invalid index: {}[{}, {}]", left, index, hash_enum.unwrap()),
+                            "Invalid index",
+                            &format!("invalid index: {}[{}, {}]", left, index, hash_enum.unwrap()),
                             None
                         ));
                     }
@@ -1073,8 +1065,8 @@ impl Evaluator {
             },
             Object::UObject(u) => if hash_enum.is_some() {
                 return Err(UError::new(
-                    "Invalid index".into(),
-                    format!("{}[{}, {}]", left, index, hash_enum.unwrap()),
+                    "Invalid index",
+                    &format!("{}[{}, {}]", left, index, hash_enum.unwrap()),
                     None
                 ));
             } else {
@@ -1088,8 +1080,8 @@ impl Evaluator {
                     },
                     _ => {
                         return Err(UError::new(
-                            "Invalid index".into(),
-                            format!("{}[{}]", left, index),
+                            "Invalid index",
+                            &format!("{}[{}]", left, index),
                             None
                         ));
                     }
@@ -1098,16 +1090,16 @@ impl Evaluator {
                     self.eval_uobject(&value.unwrap(), Rc::clone(&u), pointer)?
                 } else {
                     return Err(UError::new(
-                        "Index out of bound".into(),
-                        format!("{}[{}]", left, index),
+                        "Index out of bound",
+                        &format!("{}[{}]", left, index),
                         None
                     ));
                 }
             },
             Object::UChild(u, p) => if hash_enum.is_some() {
                 return Err(UError::new(
-                    "Invalid index".into(),
-                    format!("{}[{}, {}]", left, index, hash_enum.unwrap()),
+                    "Invalid index",
+                    &format!("{}[{}, {}]", left, index, hash_enum.unwrap()),
                     None
                 ));
             } else {
@@ -1121,8 +1113,8 @@ impl Evaluator {
                     },
                     _ => {
                         return Err(UError::new(
-                            "Invalid index".into(),
-                            format!("{}[{}]", left, index),
+                            "Invalid index",
+                            &format!("{}[{}]", left, index),
                             None
                         ));
                     }
@@ -1131,15 +1123,15 @@ impl Evaluator {
                     self.eval_uobject(&value.unwrap(), Rc::clone(&u), pointer)?
                 } else {
                     return Err(UError::new(
-                        "Index out of bound".into(),
-                        format!("{}[{}]", left, index),
+                        "Index out of bound",
+                        &format!("{}[{}]", left, index),
                         None
                     ));
                 }
             },
             o => return Err(UError::new(
-                "Not an Array or Hashtable".into(),
-                format!("{}", o),
+                "Not an Array or Hashtable",
+                &format!("{}", o),
                 None
             ))
         };
@@ -1150,8 +1142,8 @@ impl Evaluator {
         let max = (array.len() as i64) - 1;
         if index < 0 || index > max {
             return Err(UError::new(
-                "Index out of bound".into(),
-                format!("{}", index),
+                "Index out of bound",
+                &format!("{}", index),
                 None
             ));
         }
@@ -1210,8 +1202,8 @@ impl Evaluator {
                                                 }
                                             },
                                             _ => return Err(UError::new(
-                                                "Invalid index".into(),
-                                                format!("{} is not valid index", index),
+                                                "Invalid index",
+                                                &format!("{} is not valid index", index),
                                                 None
                                             ))
                                         };
@@ -1222,8 +1214,8 @@ impl Evaluator {
                                             Object::Bool(b) => b.to_string(),
                                             Object::String(s) => s,
                                             _ => return Err(UError::new(
-                                                "Invalid key".into(),
-                                                format!("{} is not valid key", index),
+                                                "Invalid key",
+                                                &format!("{} is not valid key", index),
                                                 None
                                             ))
                                         };
@@ -1231,8 +1223,8 @@ impl Evaluator {
                                         hash.insert(key, value);
                                     },
                                     _ => return Err(UError::new(
-                                        "Invalid index call".into(),
-                                        format!("{} is neither array nor hashtbl", name),
+                                        "Invalid index call",
+                                        &format!("{} is neither array nor hashtbl", name),
                                         None
                                     ))
                                 };
@@ -1264,21 +1256,21 @@ impl Evaluator {
                                     match v.borrow_mut().get_mut(name.as_str()) {
                                         Some(serde_json::Value::Array(a)) => *a.get_mut(i).unwrap() = Self::object_to_serde_value(value)?,
                                         Some(_) => return Err(UError::new(
-                                            "UObject error".into(),
-                                            format!("{} is not an array", name),
+                                            "UObject error",
+                                            &format!("{} is not an array", name),
                                             None
                                         )),
                                         None => return Err(UError::new(
-                                            "UObject error".into(),
-                                            format!("{} not found", name),
+                                            "UObject error",
+                                            &format!("{} not found", name),
                                             None
                                         )),
                                     };
                                 }
                             } else {
                                 return Err(UError::new(
-                                    "UObject error".into(),
-                                    format!("invalid index: {}", index),
+                                    "UObject error",
+                                    &format!("invalid index: {}", index),
                                     None
                                 ));
                             },
@@ -1288,34 +1280,34 @@ impl Evaluator {
                                     match u.borrow_mut().pointer_mut(p.as_str()).unwrap().get_mut(name.as_str()) {
                                         Some(serde_json::Value::Array(a)) => *a.get_mut(i).unwrap() = Self::object_to_serde_value(value)?,
                                         Some(_) => return Err(UError::new(
-                                            "UObject error".into(),
-                                            format!("{} is not an array", name),
+                                            "UObject error",
+                                            &format!("{} is not an array", name),
                                             None
                                         )),
                                         None => return Err(UError::new(
-                                            "UObject error".into(),
-                                            format!("{} not found", name),
+                                            "UObject error",
+                                            &format!("{} not found", name),
                                             None
                                         )),
                                     };
                                 }
                             } else {
                                 return Err(UError::new(
-                                    "UObject error".into(),
-                                    format!("invalid index: {}", index),
+                                    "UObject error",
+                                    &format!("invalid index: {}", index),
                                     None
                                 ));
                             },
                             o => return Err(UError::new(
-                                "Error on . operator".into(),
-                                format!("not module or object: {}", o),
+                                "Error on . operator",
+                                &format!("not module or object: {}", o),
                                 None
                             ))
                         }
                     },
                     _ => return Err(UError::new(
-                        "Assignment error".into(),
-                        format!("syntax error on assignment: {:?}", *arr),
+                        "Assignment error",
+                        &format!("syntax error on assignment: {:?}", *arr),
                         None
                     ))
                 };
@@ -1330,8 +1322,8 @@ impl Evaluator {
                             is_in_scope_auto_disposable = false;
                         },
                         _ => return Err(UError::new(
-                            "Assignment error".into(),
-                            format!("syntax error on assignment"),
+                            "Assignment error",
+                            &format!("syntax error on assignment"),
                             None
                         )),
                     }
@@ -1342,8 +1334,8 @@ impl Evaluator {
                         module.assign(&member, value, None)?;
                     } else {
                         return Err(UError::new(
-                            "Invalid member call".into(),
-                            format!("member not found on {}", module.name()),
+                            "Invalid member call",
+                            &format!("member not found on {}", module.name()),
                             None
                         ));
                     }
@@ -1352,8 +1344,8 @@ impl Evaluator {
                     is_in_scope_auto_disposable = ! self.env.borrow_mut().assign_public(name, value)?;
                 } else {
                     return Err(UError::new(
-                        "Error on assignment".into(),
-                        "global variable not found".into(),
+                        "Error on assignment",
+                        "global variable not found",
                         None
                     ))
                 },
@@ -1361,15 +1353,15 @@ impl Evaluator {
                     match v.borrow_mut().get_mut(name.as_str()) {
                         Some(mut_v) => *mut_v = Self::object_to_serde_value(value)?,
                         None => return Err(UError::new(
-                            "UObject".into(),
-                            format!("{} not found", name),
+                            "UObject",
+                            &format!("{} not found", name),
                             None
                         ))
                     }
                 } else {
                     return Err(UError::new(
-                        "UObject".into(),
-                        format!("error on assignment"),
+                        "UObject",
+                        &format!("error on assignment"),
                         None
                     ));
                 },
@@ -1377,27 +1369,27 @@ impl Evaluator {
                     match u.borrow_mut().pointer_mut(p.as_str()).unwrap().get_mut(name.as_str()) {
                         Some(mut_v) => *mut_v = Self::object_to_serde_value(value)?,
                         None => return Err(UError::new(
-                            "UObject".into(),
-                            format!("{} not found", name),
+                            "UObject",
+                            &format!("{} not found", name),
                             None
                         ))
                     }
                 } else {
                     return Err(UError::new(
-                        "UObject".into(),
-                        format!("error on assignment"),
+                        "UObject",
+                        &format!("error on assignment"),
                         None
                     ));
                 },
                 o => return Err(UError::new(
-                    "Error on . operator".into(),
-                    format!("not module or object: {}", o),
+                    "Error on . operator",
+                    &format!("not module or object: {}", o),
                     None
                 ))
             },
             _ => return Err(UError::new(
-                "Invalid assignment".into(),
-                format!("not an variable: {:?}", left),
+                "Invalid assignment",
+                &format!("not an variable: {:?}", left),
                 None
             ))
         }
@@ -1497,16 +1489,16 @@ impl Evaluator {
                 Object::String(format!("{}{}", left, s.clone()))
             } else {
                 return Err(UError::new(
-                    "Infix error".into(),
-                    format!("mismatched type: {} {} {}", left, infix, right),
+                    "Infix error",
+                    &format!("mismatched type: {} {} {}", left, infix, right),
                     None
                 ))
             },
             Infix::Equal => Object::Bool(left == right),
             Infix::NotEqual => Object::Bool(left != right),
             _ => return Err(UError::new(
-                "Infix error".into(),
-                format!("mismatched type: {} {} {}", left, infix, right),
+                "Infix error",
+                &format!("mismatched type: {} {} {}", left, infix, right),
                 None
             ))
         };
@@ -1533,8 +1525,8 @@ impl Evaluator {
             Infix::Or => Object::Num((left as i64 | right as i64) as f64),
             Infix::Xor => Object::Num((left as i64 ^ right as i64) as f64),
             Infix::Assign => return Err(UError::new(
-                "Infix error".into(),
-                format!("you can not assign variable in expression: {} {} {}", left, infix, right),
+                "Infix error",
+                &format!("you can not assign variable in expression: {} {} {}", left, infix, right),
                 None
             ))
         };
@@ -1542,8 +1534,8 @@ impl Evaluator {
             Object::Num(n) => if ! n.is_finite() {
                 // 無限またはNaNはエラーにする
                 Err(UError::new(
-                    "calculation error".into(),
-                    format!("result value is not valid number: {}", n),
+                    "calculation error",
+                    &format!("result value is not valid number: {}", n),
                     None
                 ))
             } else {
@@ -1559,8 +1551,8 @@ impl Evaluator {
             Infix::Equal => Object::Bool(left == right),
             Infix::NotEqual => Object::Bool(left != right),
             _ => return Err(UError::new(
-                "Infix error".into(),
-                format!("bad operator: {} {} {}", left, infix, right),
+                "Infix error",
+                &format!("bad operator: {} {} {}", left, infix, right),
                 None
             ))
         };
@@ -1573,8 +1565,8 @@ impl Evaluator {
             Infix::Equal => Object::Bool(left == right),
             Infix::NotEqual => Object::Bool(left != right),
             _ => return Err(UError::new(
-                "Infix error".into(),
-                format!("bad operator: {} {} {}", left, infix, right),
+                "Infix error",
+                &format!("bad operator: {} {} {}", left, infix, right),
                 None
             ))
         };
@@ -1651,8 +1643,8 @@ impl Evaluator {
                         None => match env.get_variable(&name, true) {
                             Some(o) => Ok(o),
                             None => return Err(UError::new(
-                                "Invalid Identifier".into(),
-                                format!("function not found: {}", &name),
+                                "Invalid Identifier",
+                                &format!("function not found: {}", &name),
                                 None
                             )),
                         }
@@ -1682,8 +1674,8 @@ impl Evaluator {
                         }
                     }
                     return Err(UError::new(
-                        format!("Eval parse error[{}]:", &errors.len()),
-                        parse_errors,
+                        &format!("Eval parse error[{}]:", &errors.len()),
+                        &parse_errors,
                         None
                     ));
                 }
@@ -1727,8 +1719,8 @@ impl Evaluator {
                 } else {
                     let l = arguments.len();
                     return Err(UError::new(
-                        "Too many arguments".into(),
-                        format!(
+                        "Too many arguments",
+                        &format!(
                             "{} argument{} were given, should be {}{}",
                             l, if l > 1 {"s"} else {""}, expected_param_len, if l > 1 {" (or less)"} else {""}
                         ),
@@ -1743,8 +1735,8 @@ impl Evaluator {
                     let constructor = match rc.borrow().get_function(&name) {
                         Ok(o) => o,
                         Err(_) => return Err(UError::new(
-                            "Constructor not found".into(),
-                            format!("you must define procedure {}()", &name),
+                            "Constructor not found",
+                            &format!("you must define procedure {}()", &name),
                             None
                         ))
                     };
@@ -1752,22 +1744,22 @@ impl Evaluator {
                         return self.invoke_user_function(params, arguments, body, true, None, Some(Rc::clone(&rc)), true);
                     } else {
                         return Err(UError::new(
-                            "Syntax Error".into(),
-                            format!("{} is not valid constructor", &name),
+                            "Syntax Error",
+                            &format!("{} is not valid constructor", &name),
                             None
                         ));
                     }
                 } else {
                     return Err(UError::new(
-                        "Syntax Error".into(),
-                        format!("{} is not a class", &name),
+                        "Syntax Error",
+                        &format!("{} is not a class", &name),
                         None
                     ));
                 }
             },
             o => return Err(UError::new(
-                "Not a function".into(),
-                format!("{}", o),
+                "Not a function",
+                &format!("{}", o),
                 None
             )),
         };
@@ -1779,8 +1771,8 @@ impl Evaluator {
                 return self.invoke_user_function(params, arguments, body, is_proc, None, rc_module, false);
             },
             o => Err(UError::new(
-                "Syntax Error".into(),
-                format!("not a function: {}", o),
+                "Syntax Error",
+                &format!("not a function: {}", o),
                 None
             ))
         }
@@ -1816,8 +1808,8 @@ impl Evaluator {
             let param = match e {
                 Expression::Params(p) => p,
                 _ => return Err(UError::new(
-                    "Invalid parameter".into(),
-                    format!("bad parameter: {:?}", e),
+                    "Invalid parameter",
+                    &format!("bad parameter: {:?}", e),
                     None
                 ))
             };
@@ -1826,8 +1818,8 @@ impl Evaluator {
                     let Identifier(name) = i;
                     if arg_e.is_none() {
                         return Err(UError::new(
-                            "argument required".into(),
-                            format!("{}", name),
+                            "argument required",
+                            &format!("{}", name),
                             None
                         ));
                     }
@@ -1841,8 +1833,8 @@ impl Evaluator {
                         Expression::Assign(_, _) |
                         Expression::CompoundAssign(_, _, _) |
                         Expression::Params(_) => return Err(UError::new(
-                            "Invalid argument".into(),
-                            format!("{}", name),
+                            "Invalid argument",
+                            &format!("{}", name),
                             None
                         )),
                         _ => reference.push((name.clone(), e))
@@ -1865,8 +1857,8 @@ impl Evaluator {
                             (name, o.clone())
                         },
                         _ => return Err(UError::new(
-                            "Invalid argument".into(),
-                            format!("{}", name),
+                            "Invalid argument",
+                            &format!("{}", name),
                             None
                         )),
                     }
@@ -1888,8 +1880,8 @@ impl Evaluator {
                 Params::VariadicDummy => {
                     if variadic.len() < 1 {
                         return Err(UError::new(
-                            "Too many arguments".into(),
-                            format!("should be less than or equal to {}", org_param_len),
+                            "Too many arguments",
+                            &format!("should be less than or equal to {}", org_param_len),
                             None
                         ))
                     }
@@ -2050,8 +2042,8 @@ impl Evaluator {
                 self.eval_expression(left)?
             },
             _ => return Err(UError::new(
-                "Error on . operator".into(),
-                format!("invalid expression: {:?}", left),
+                "Error on . operator",
+                &format!("invalid expression: {:?}", left),
                 None
             )),
         };
@@ -2069,8 +2061,8 @@ impl Evaluator {
                                 }
                             }
                             Err(UError::new(
-                                "Access denied".into(),
-                                format!("you can not access to {}.{}", module.name(), member_name),
+                                "Access denied",
+                                &format!("you can not access to {}.{}", module.name(), member_name),
                                 None
                             ))
                         } else if is_func {
@@ -2083,8 +2075,8 @@ impl Evaluator {
                         }
                     },
                     _ => Err(UError::new(
-                        "Error on . operator".into(),
-                        "member does not exist".into(),
+                        "Error on . operator",
+                        "member does not exist",
                         None
                     )),
                 }
@@ -2103,8 +2095,8 @@ impl Evaluator {
                     }
                 } else {
                     Err(UError::new(
-                        "Function not found".into(),
-                        format!("member not found on {}", module.name()),
+                        "Function not found",
+                        &format!("member not found on {}", module.name()),
                         None
                     ))
                 }
@@ -2114,30 +2106,30 @@ impl Evaluator {
                     self.env.borrow().get_global(&g_name, is_func)
                 } else {
                     Err(UError::new(
-                        "Global".into(),
-                        format!("not an identifier ({:?})", right),
+                        "Global",
+                        &format!("not an identifier ({:?})", right),
                         None
                     ))
                 }
             },
             Object::Class(name, _) => Err(UError::new(
-                "Invalid Class call".into(),
-                format!("{0} can not be called directly; try {0}() to create instance", name),
+                "Invalid Class call",
+                &format!("{0} can not be called directly; try {0}() to create instance", name),
                 None
             )),
             Object::UObject(u) => if let Expression::Identifier(Identifier(key)) = right {
                 match u.borrow().get(key.as_str()) {
                     Some(v) => self.eval_uobject(v, Rc::clone(&u), format!("/{}", key)),
                     None => Err(UError::new(
-                        "UObject".into(),
-                        format!("{} not found", key),
+                        "UObject",
+                        &format!("{} not found", key),
                         None
                     )),
                 }
             } else {
                 Err(UError::new(
-                    "UObject".into(),
-                    format!("not an identifier ({:?})", right),
+                    "UObject",
+                    &format!("not an identifier ({:?})", right),
                     None
                 ))
             },
@@ -2145,15 +2137,15 @@ impl Evaluator {
                 match u.borrow().pointer(p.as_str()).unwrap().get(key.as_str()) {
                     Some(v) => self.eval_uobject(v, Rc::clone(&u), format!("{}/{}", p, key)),
                     None => Err(UError::new(
-                        "UObject".into(),
-                        format!("{} not found", key),
+                        "UObject",
+                        &format!("{} not found", key),
                         None
                     ))
                 }
             } else {
                 Err(UError::new(
-                    "UObject".into(),
-                    format!("not an identifier ({:?})", right),
+                    "UObject",
+                    &format!("not an identifier ({:?})", right),
                     None
                 ))
             },
@@ -2162,21 +2154,21 @@ impl Evaluator {
                     Ok(Object::Num(n))
                 } else {
                     Err(UError::new(
-                        "Invalid Enum member".into(),
-                        format!("{}.{} is not defined for", &e.name, member),
+                        "Invalid Enum member",
+                        &format!("{}.{} is not defined for", &e.name, member),
                         None
                     ))
                 }
             } else {
                 Err(UError::new(
-                    "Invalid Enum member".into(),
-                    format!("not an identifier ({:?})", right),
+                    "Invalid Enum member",
+                    &format!("not an identifier ({:?})", right),
                     None
                 ))
             },
             o => Err(UError::new(
-                ". operator not supported".into(),
-                format!("{}", o),
+                ". operator not supported",
+                &format!("{}", o),
                 None
             )),
         }
@@ -2190,8 +2182,8 @@ impl Evaluator {
             serde_json::Value::Number(n) => match n.as_f64() {
                 Some(f) => Object::Num(f),
                 None => return Err(UError::new(
-                    "UObject error".into(),
-                    format!("can not convert {} to number", n),
+                    "UObject error",
+                    &format!("can not convert {} to number", n),
                     None
                 )),
             },
@@ -2213,8 +2205,8 @@ impl Evaluator {
             Object::UObject(u) => u.borrow().clone(),
             Object::UChild(u, p) => u.borrow().pointer(p.as_str()).unwrap().clone(),
             _ => return Err(UError::new(
-                "UObject error".into(),
-                format!("can not convert {} to uobject", o),
+                "UObject error",
+                &format!("can not convert {} to uobject", o),
                 None
             )),
         };
@@ -2377,8 +2369,8 @@ dim hoge = 2
 dim hoge = 3
                 "#,
                 Err(UError::new(
-                    "Error on definition".into(),
-                    format!("HOGE is already defined."),
+                    "Error on definition",
+                    &format!("HOGE is already defined."),
                     None
                 ))
             ),
@@ -2811,8 +2803,8 @@ for i = 0 to "5s"
 next
                 "#,
                 Err(UError::new(
-                    "Syntax error on For".into(),
-                    format!("for i = 0 to 5s"),
+                    "Syntax error on For",
+                    &format!("for i = 0 to 5s"),
                     None
                 ))
             ),
@@ -3425,8 +3417,8 @@ dim dim_and_dim = 1
 dim dim_and_dim = 2
                 "#,
                 Err(UError::new(
-                    "Error on definition".into(),
-                    format!("DIM_AND_DIM is already defined."),
+                    "Error on definition",
+                    &format!("DIM_AND_DIM is already defined."),
                     None
                 ))
             ),
@@ -3436,8 +3428,8 @@ public pub_and_const = 1
 const pub_and_const = 2
                 "#,
                 Err(UError::new(
-                    "Error on definition".into(),
-                    format!("PUB_AND_CONST is already defined."),
+                    "Error on definition",
+                    &format!("PUB_AND_CONST is already defined."),
                     None
                 ))
             ),
@@ -3447,8 +3439,8 @@ const const_and_const = 1
 const const_and_const = 2
                 "#,
                 Err(UError::new(
-                    "Error on definition".into(),
-                    format!("CONST_AND_CONST is already defined."),
+                    "Error on definition",
+                    &format!("CONST_AND_CONST is already defined."),
                     None
                 ))
             ),
@@ -3465,8 +3457,8 @@ hashtbl hash_and_hash
 hashtbl hash_and_hash
                 "#,
                 Err(UError::new(
-                    "Error on definition".into(),
-                    format!("HASH_AND_HASH is already defined."),
+                    "Error on definition",
+                    &format!("HASH_AND_HASH is already defined."),
                     None
                 ))
             ),
@@ -3478,8 +3470,8 @@ function func_and_func()
 fend
                 "#,
                 Err(UError::new(
-                    "Function defining error".into(),
-                    format!("FUNC_AND_FUNC is already defined."),
+                    "Function defining error",
+                    &format!("FUNC_AND_FUNC is already defined."),
                     None
                 ))
             ),
