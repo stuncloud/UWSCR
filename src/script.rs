@@ -1,6 +1,4 @@
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
-use std::cell::RefCell;
 use std::env;
 
 use crate::evaluator::environment::Environment;
@@ -68,7 +66,7 @@ pub fn run(script: String, mut args: Vec<String>) -> Result<(), Vec<String>> {
         _ => {}
     };
     let env = Environment::new(params);
-    let mut evaluator = Evaluator::new(Rc::new(RefCell::new(env)));
+    let mut evaluator = Evaluator::new(env);
     let mut parser = Parser::new(Lexer::new(&script));
     let program = parser.parse();
     let errors = parser.get_errors();

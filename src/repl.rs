@@ -1,5 +1,3 @@
-use std::rc::Rc;
-use std::cell::RefCell;
 use std::io::{stdin, stdout, Write};
 use std::env;
 
@@ -48,7 +46,7 @@ pub fn run(script: Option<String>, exe_path: String, script_path: Option<String>
     }
 
     let env = Environment::new(vec![]);
-    let mut evaluator = Evaluator::new(Rc::new(RefCell::new(env)));
+    let mut evaluator = Evaluator::new(env);
     if script.is_some() {
         println!("loading script...");
         let mut parser = Parser::new(Lexer::new(&script.unwrap()));

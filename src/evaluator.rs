@@ -14,11 +14,11 @@ use crate::logging::{out_log, LogType};
 use crate::settings::usettings_singleton;
 
 use std::fmt;
-use std::rc::Rc;
-use std::cell::RefCell;
 use std::borrow::Cow;
 use std::env;
 use std::path::PathBuf;
+use std::thread;
+use std::sync::{Arc, Mutex};
 
 use num_traits::FromPrimitive;
 use regex::Regex;
@@ -55,13 +55,13 @@ type EvalResult<T> = Result<T, UError>;
 
 #[derive(Debug)]
 pub struct  Evaluator {
-    env: Rc<RefCell<Environment>>,
-    instance_id: u32,
+    env: Environment,
+    instance_id: Arc<Mutex<u32>>,
 }
 
 impl Evaluator {
-    pub fn new(env: Rc<RefCell<Environment>>) -> Self {
-        Evaluator {env, instance_id: 0}
+    pub fn new(env: Environment) -> Self {
+        Evaluator {env, instance_id: Arc::new(Mutex::new(0))}
     }
 
     fn is_truthy(obj: Object) -> bool {
@@ -76,8 +76,9 @@ impl Evaluator {
     }
 
     fn new_instance_id(&mut self) -> u32 {
-        self.instance_id += 1;
-        self.instance_id
+        let mut instance_id = self.instance_id.lock().unwrap();
+        *instance_id += 1;
+        instance_id.clone()
     }
 
     pub fn eval(&mut self, program: Program) -> EvalResult<Option<Object>> {
@@ -140,7 +141,7 @@ impl Evaluator {
         let sort = (opt & HashTblEnum::HASH_SORT as u32) > 0;
         let casecare = (opt & HashTblEnum::HASH_CASECARE as u32) > 0;
         let hashtbl = HashTbl::new(sort, casecare);
-        Ok((name, Object::HashTbl(Rc::new(RefCell::new(hashtbl)))))
+        Ok((name, Object::HashTbl(Arc::new(Mutex::new(hashtbl)))))
     }
 
     fn eval_print_statement(&mut self, expression: Expression) -> EvalResult<Option<Object>> {
@@ -209,37 +210,37 @@ impl Evaluator {
             Statement::Dim(vec) => {
                 for (i, e) in vec {
                     let (name, value) = self.eval_definition_statement(i, e)?;
-                    self.env.borrow_mut().define_local(name, value)?;
+                    self.env.define_local(name, value)?;
                 }
                 Ok(None)
             },
             Statement::Public(vec) => {
                 for (i, e) in vec {
                     let (name, value) = self.eval_definition_statement(i, e)?;
-                    self.env.borrow_mut().define_public(name, value)?;
+                    self.env.define_public(name, value)?;
                 }
                 Ok(None)
             },
             Statement::Const(vec) => {
                 for (i, e) in vec {
                     let (name, value) = self.eval_definition_statement(i, e)?;
-                    self.env.borrow_mut().define_const(name, value)?;
+                    self.env.define_const(name, value)?;
                 }
                 Ok(None)
             },
             Statement::TextBlock(i, s) => {
                 let Identifier(name) = i;
                 let value = self.eval_literal(s)?;
-                self.env.borrow_mut().define_const(name, value)?;
+                self.env.define_const(name, value)?;
                 Ok(None)
             },
             Statement::HashTbl(v) => {
                 for (i, hashopt, is_public) in v {
                     let (name, hashtbl) = self.eval_hashtbl_definition_statement(i, hashopt)?;
                     if is_public {
-                        self.env.borrow_mut().define_public(name, hashtbl)?;
+                        self.env.define_public(name, hashtbl)?;
                     } else {
-                        self.env.borrow_mut().define_local(name, hashtbl)?;
+                        self.env.define_local(name, hashtbl)?;
                     }
                 }
                 Ok(None)
@@ -292,17 +293,17 @@ impl Evaluator {
             Statement::Function {name, params, body, is_proc} => {
                 let Identifier(fname) = name;
                 let func = self.eval_funtcion_definition_statement(&fname, params, body, is_proc)?;
-                self.env.borrow_mut().define_function(fname, func)?;
+                self.env.define_function(fname, func)?;
                 Ok(None)
             },
             Statement::Module(i, block) => {
                 let Identifier(name) = i;
                 let module = self.eval_module_statement(&name, block, false)?;
-                self.env.borrow_mut().define_module(name.clone(), module)?;
+                self.env.define_module(name.clone(), module)?;
                 // コンストラクタがあれば実行する
-                let module = self.env.borrow().get_module(&name);
+                let module = self.env.get_module(&name);
                 if let Some(Object::Module(m)) = module {
-                    let constructor = m.borrow().get_constructor();
+                    let constructor = m.lock().unwrap().get_constructor();
                     match constructor {
                         Some(o) => {
                             self.invoke_functionn_object(o, vec![])?;
@@ -315,7 +316,7 @@ impl Evaluator {
             Statement::Class(i, block) => {
                 let Identifier(name) = i;
                 let class = Object::Class(name.clone(), block);
-                self.env.borrow_mut().define_class(name.clone(), class)?;
+                self.env.define_class(name.clone(), class)?;
                 Ok(None)
             },
             Statement::With(o_e, block) => if let Some(e) = o_e {
@@ -323,7 +324,7 @@ impl Evaluator {
                 if let Expression::Identifier(Identifier(name)) = e {
                     if name.find("@with_tmp_").is_some() {
                         self.eval_instance_assignment(&Expression::Identifier(Identifier(name.clone())), &Object::Nothing)?;
-                        self.env.borrow_mut().remove_variable(name);
+                        self.env.remove_variable(name);
                     }
                 }
                 s
@@ -331,6 +332,7 @@ impl Evaluator {
                 self.eval_block_statement(block)
             },
             Statement::Enum(name, uenum) => self.eval_enum_statement(name, uenum),
+            Statement::Thread(e) => self.eval_thread_statement(e),
             Statement::Try {trys, except, finally} => self.eval_try_statement(trys, except, finally),
             Statement::Exit => Ok(Some(Object::Exit)),
             Statement::ExitExit(n) => Ok(Some(Object::ExitExit(n))),
@@ -385,7 +387,8 @@ impl Evaluator {
         let select_obj = self.eval_expression(expression)?;
         for (case_exp, block) in cases {
             for e in case_exp {
-                if self.eval_expression(e)? == select_obj {
+                let case_obj = self.eval_expression(e)?;
+                if self.is_equal(&case_obj, &select_obj)? {
                     return self.eval_block_statement(block);
                 }
             }
@@ -482,7 +485,7 @@ impl Evaluator {
                 None
             ));
         }
-        self.env.borrow_mut().assign(var.clone(), Object::Num(counter as f64))?;
+        self.env.assign(var.clone(), Object::Num(counter as f64))?;
         loop {
             if step > 0 && counter > counter_end || step < 0 && counter < counter_end {
                 break;
@@ -493,7 +496,7 @@ impl Evaluator {
                             return Ok(Some(Object::Continue(n - 1)));
                         } else {
                             counter += step;
-                            self.env.borrow_mut().assign(var.clone(), Object::Num(counter as f64))?;
+                            self.env.assign(var.clone(), Object::Num(counter as f64))?;
                             continue;
                         },
                         Object::Break(n) => if n > 1 {
@@ -506,7 +509,7 @@ impl Evaluator {
                 _ => ()
             };
             counter += step;
-            self.env.borrow_mut().assign(var.clone(), Object::Num(counter as f64))?;
+            self.env.assign(var.clone(), Object::Num(counter as f64))?;
         }
         Ok(None)
     }
@@ -516,7 +519,7 @@ impl Evaluator {
         let col_obj = match self.eval_expression(collection)? {
             Object::Array(a) => a,
             Object::String(s) => s.chars().map(|c| Object::String(c.to_string())).collect::<Vec<Object>>(),
-            Object::HashTbl(h) => h.borrow().keys(),
+            Object::HashTbl(h) => h.lock().unwrap().keys(),
             _ => return Err(UError::new(
                 "For-In error",
                 &format!("for-in requires array, hashtable, string, or collection"),
@@ -525,7 +528,7 @@ impl Evaluator {
         };
 
         for o in col_obj {
-            self.env.borrow_mut().assign(var.clone(), o)?;
+            self.env.assign(var.clone(), o)?;
             match self.eval_loopblock_statement(block.clone())? {
                 Some(Object::Continue(n)) => if n > 1 {
                     return Ok(Some(Object::Continue(n - 1)));
@@ -702,12 +705,12 @@ impl Evaluator {
                 ))
             }
         }
-        let rc = Rc::new(RefCell::new(module));
-        rc.borrow_mut().set_rc_to_functions(Rc::clone(&rc));
+        let m = Arc::new(Mutex::new(module));
+        m.lock().unwrap().set_module_reference_to_member_functions(Arc::clone(&m));
         if is_instance {
-            Ok(Object::Instance(Rc::clone(&rc), 0))
+            Ok(Object::Instance(Arc::clone(&m), 0))
         } else {
-            Ok(Object::Module(Rc::clone(&rc)))
+            Ok(Object::Module(Arc::clone(&m)))
         }
     }
 
@@ -715,7 +718,7 @@ impl Evaluator {
         let obj = match self.eval_block_statement(trys) {
             Ok(opt) => opt,
             Err(e) => {
-                self.env.borrow_mut().set_try_error_messages(
+                self.env.set_try_error_messages(
                     format!("{}", e),
                     format!("")
                 );
@@ -746,9 +749,32 @@ impl Evaluator {
     }
 
     fn eval_enum_statement(&mut self, name: String, uenum: UEnum) -> EvalResult<Option<Object>> {
-        self.env.borrow_mut().define_const(name, Object::Enum(uenum))?;
+        self.env.define_const(name, Object::Enum(uenum))?;
         Ok(None)
     }
+
+    fn eval_thread_statement(&mut self, expression: Expression) -> EvalResult<Option<Object>> {
+        if let Expression::FuncCall{func, args} = expression {
+            let mut thread_self = Evaluator {
+                env: Environment {
+                    current: Arc::new(Mutex::new(Layer {
+                        local: Vec::new(),
+                        outer: None,
+                    })),
+                    global: Arc::clone(&self.env.global)
+                },
+                instance_id: Arc::clone(&self.instance_id),
+            };
+            // let (tx, rx) = mpsc::channel();
+            thread::spawn(move || {
+                let _ = thread_self.eval_function_call_expression(func, args);
+                // tx.send(r).unwrap();
+            });
+            // let _ = rx.recv().unwrap()?; // thread関数の結果を受け取る // これやるとロックされちゃう
+        }
+        Ok(None)
+    }
+
 
     fn eval_expression(&mut self, expression: Expression) -> EvalResult<Object> {
         let obj: Object = match expression {
@@ -757,8 +783,8 @@ impl Evaluator {
                 match index_list.len() {
                     0 => {
                         return Err(UError::new(
-                            "Array Error".into(),
-                            "Size or dimension must be specified".into(),
+                            "Array Error",
+                            "Size or dimension must be specified",
                             None
                         ));
                     },
@@ -790,8 +816,8 @@ impl Evaluator {
                                 Object::Num(n) => sizes.push(n as usize),
                                 Object::Empty => if i > 1 {
                                     return Err(UError::new(
-                                        "Array error".into(),
-                                        "no array size can be omitted except for the first []".into(),
+                                        "Array error",
+                                        "no array size can be omitted except for the first []",
                                         None
                                     ));
                                 } else {
@@ -828,8 +854,8 @@ impl Evaluator {
 
                         if actual_size == 0 {
                             return Err(UError::new(
-                                "Array error".into(),
-                                "total size of array is out of bounds".into(),
+                                "Array error",
+                                "total size of array is out of bounds",
                                 None
                             ));
                         }
@@ -880,8 +906,8 @@ impl Evaluator {
                 self.eval_index_expression(left, index, hash_enum)?
             },
             Expression::AnonymusFunction {params, body, is_proc} => {
-                let outer_local = self.env.borrow_mut().get_local_copy();
-                Object::AnonFunc(params, body, Rc::new(RefCell::new(outer_local)), is_proc)
+                let outer_local = self.env.get_local_copy();
+                Object::AnonFunc(params, body, Arc::new(Mutex::new(outer_local)), is_proc)
             },
             Expression::FuncCall {func, args} => {
                 self.eval_function_call_expression(func, args)?
@@ -911,7 +937,7 @@ impl Evaluator {
                 // 文字列展開する
                 if let Object::String(s) = self.expand_string(json, true) {
                     match serde_json::from_str::<serde_json::Value>(s.as_str()) {
-                        Ok(v) => Object::UObject(Rc::new(RefCell::new(v))),
+                        Ok(v) => Object::UObject(Arc::new(Mutex::new(v))),
                         Err(e) => return Err(UError::new(
                             "Json parse error",
                             &format!("{}", s),
@@ -928,14 +954,14 @@ impl Evaluator {
 
     fn eval_identifier(&mut self, identifier: Identifier) -> EvalResult<Object> {
         let Identifier(name) = identifier;
-        let env = self.env.borrow();
-        let obj = match env.get_variable(&name, true) {
+        // let env = self.env.lock().unwrap();
+        let obj = match self.env.get_variable(&name, true) {
             Some(o) => o,
-            None => match env.get_function(&name) {
+            None => match self.env.get_function(&name) {
                 Some(o) => o,
-                None => match env.get_module(&name) {
+                None => match self.env.get_module(&name) {
                     Some(o) => o,
-                    None => match env.get_class(&name) {
+                    None => match self.env.get_class(&name) {
                         Some(o) => o,
                         None => return Err(UError::new(
                             "Identifier not found",
@@ -1012,7 +1038,7 @@ impl Evaluator {
                 ))
             },
             Object::HashTbl(h) => {
-                let mut hash = h.borrow_mut();
+                let mut hash = h.lock().unwrap();
                 let (key, i) = match index.clone(){
                     Object::Num(n) => (n.to_string(), Some(n as usize)),
                     Object::Bool(b) => (b.to_string(), None),
@@ -1070,7 +1096,7 @@ impl Evaluator {
                     None
                 ));
             } else {
-                let v = u.borrow().clone();
+                let v = u.lock().unwrap().clone();
                 let (value, pointer) = match index {
                     Object::String(ref s) => {
                         (v.get(s), format!("/{}", s))
@@ -1087,7 +1113,7 @@ impl Evaluator {
                     }
                 };
                 if value.is_some() {
-                    self.eval_uobject(&value.unwrap(), Rc::clone(&u), pointer)?
+                    self.eval_uobject(&value.unwrap(), Arc::clone(&u), pointer)?
                 } else {
                     return Err(UError::new(
                         "Index out of bound",
@@ -1103,7 +1129,7 @@ impl Evaluator {
                     None
                 ));
             } else {
-                let v = u.borrow().pointer(p.as_str()).unwrap_or(&serde_json::Value::Null).clone();
+                let v = u.lock().unwrap().pointer(p.as_str()).unwrap_or(&serde_json::Value::Null).clone();
                 let (value, pointer) = match index {
                     Object::String(ref s) => {
                         (v.get(s), format!("{}/{}", p, s))
@@ -1120,7 +1146,7 @@ impl Evaluator {
                     }
                 };
                 if value.is_some() {
-                    self.eval_uobject(&value.unwrap(), Rc::clone(&u), pointer)?
+                    self.eval_uobject(&value.unwrap(), Arc::clone(&u), pointer)?
                 } else {
                     return Err(UError::new(
                         "Index out of bound",
@@ -1162,13 +1188,13 @@ impl Evaluator {
         match left {
             Expression::Identifier(ident) => {
                 let Identifier(name) = ident;
-                let mut env = self.env.borrow_mut();
-                if let Some(Object::This(m)) = env.get_variable(&"this".into(), true) {
+                // let mut env = self.env.lock().unwrap();
+                if let Some(Object::This(m)) = self.env.get_variable(&"this".into(), true) {
                     // moudele/classメンバであればその値を更新する
-                    m.borrow_mut().assign(&name, value.clone(), None)?;
+                    m.lock().unwrap().assign(&name, value.clone(), None)?;
                     is_in_scope_auto_disposable = false;
                 }
-                is_in_scope_auto_disposable = ! env.assign(name, value)? && is_in_scope_auto_disposable;
+                is_in_scope_auto_disposable = ! self.env.assign(name, value)? && is_in_scope_auto_disposable;
             },
             Expression::Index(arr, i, h) => {
                 if h.is_some() {
@@ -1182,7 +1208,7 @@ impl Evaluator {
                 match *arr {
                     Expression::Identifier(ident) => {
                         let Identifier(name) = ident;
-                        let obj = self.env.borrow().get_variable(&name, true);
+                        let obj = self.env.get_variable(&name, true);
                         match obj {
                             Some(o) => {
                                 match o {
@@ -1191,14 +1217,14 @@ impl Evaluator {
                                         match index {
                                             Object::Num(n) => {
                                                 let i = n as usize;
-                                                if let Some(Object::This(m)) = self.env.borrow().get_variable(&"this".into(), true) {
+                                                if let Some(Object::This(m)) = self.env.get_variable(&"this".into(), true) {
                                                     // moudele/classメンバであればその値を更新する
-                                                    m.borrow_mut().assign(&name, value.clone(), Some(index))?;
+                                                    m.lock().unwrap().assign(&name, value.clone(), Some(index))?;
                                                     is_in_scope_auto_disposable = false;
                                                 }
                                                 if i < arr.len() {
                                                     arr[i] = value;
-                                                    is_in_scope_auto_disposable = ! self.env.borrow_mut().assign(name, Object::Array(arr))?;
+                                                    is_in_scope_auto_disposable = ! self.env.assign(name, Object::Array(arr))?;
                                                 }
                                             },
                                             _ => return Err(UError::new(
@@ -1219,7 +1245,7 @@ impl Evaluator {
                                                 None
                                             ))
                                         };
-                                        let mut hash = h.borrow_mut();
+                                        let mut hash = h.lock().unwrap();
                                         hash.insert(key, value);
                                     },
                                     _ => return Err(UError::new(
@@ -1239,7 +1265,7 @@ impl Evaluator {
                             Object::This(m) => {
                                 match *right {
                                     Expression::Identifier(Identifier(name)) => {
-                                        m.borrow_mut().assign(&name, value, Some(index))?;
+                                        m.lock().unwrap().assign(&name, value, Some(index))?;
                                         is_in_scope_auto_disposable = false;
                                     },
                                     _ => return Err(UError::new(
@@ -1253,7 +1279,7 @@ impl Evaluator {
                             Object::UObject(v) => if let Object::Num(n) = index {
                                 if let Expression::Identifier(Identifier(name)) = *right {
                                     let i = n as usize;
-                                    match v.borrow_mut().get_mut(name.as_str()) {
+                                    match v.lock().unwrap().get_mut(name.as_str()) {
                                         Some(serde_json::Value::Array(a)) => *a.get_mut(i).unwrap() = Self::object_to_serde_value(value)?,
                                         Some(_) => return Err(UError::new(
                                             "UObject error",
@@ -1277,7 +1303,7 @@ impl Evaluator {
                             Object::UChild(u, p) => if let Object::Num(n) = index {
                                 if let Expression::Identifier(Identifier(name)) = *right {
                                     let i = n as usize;
-                                    match u.borrow_mut().pointer_mut(p.as_str()).unwrap().get_mut(name.as_str()) {
+                                    match u.lock().unwrap().pointer_mut(p.as_str()).unwrap().get_mut(name.as_str()) {
                                         Some(serde_json::Value::Array(a)) => *a.get_mut(i).unwrap() = Self::object_to_serde_value(value)?,
                                         Some(_) => return Err(UError::new(
                                             "UObject error",
@@ -1318,7 +1344,7 @@ impl Evaluator {
                     match *right {
                         Expression::Identifier(i) => {
                             let Identifier(member_name) = i;
-                            m.borrow_mut().assign_public(&member_name, value, None)?;
+                            m.lock().unwrap().assign_public(&member_name, value, None)?;
                             is_in_scope_auto_disposable = false;
                         },
                         _ => return Err(UError::new(
@@ -1329,7 +1355,7 @@ impl Evaluator {
                     }
                 },
                 Object::This(m) => {
-                    let mut module = m.borrow_mut();
+                    let mut module = m.lock().unwrap();
                     if let Expression::Identifier(Identifier(member)) = *right {
                         module.assign(&member, value, None)?;
                     } else {
@@ -1341,7 +1367,7 @@ impl Evaluator {
                     }
                 },
                 Object::Global => if let Expression::Identifier(Identifier(name)) = *right {
-                    is_in_scope_auto_disposable = ! self.env.borrow_mut().assign_public(name, value)?;
+                    is_in_scope_auto_disposable = ! self.env.assign_public(name, value)?;
                 } else {
                     return Err(UError::new(
                         "Error on assignment",
@@ -1350,7 +1376,7 @@ impl Evaluator {
                     ))
                 },
                 Object::UObject(v) => if let Expression::Identifier(Identifier(name)) = *right {
-                    match v.borrow_mut().get_mut(name.as_str()) {
+                    match v.lock().unwrap().get_mut(name.as_str()) {
                         Some(mut_v) => *mut_v = Self::object_to_serde_value(value)?,
                         None => return Err(UError::new(
                             "UObject",
@@ -1366,7 +1392,7 @@ impl Evaluator {
                     ));
                 },
                 Object::UChild(u, p) => if let Expression::Identifier(Identifier(name)) = *right {
-                    match u.borrow_mut().pointer_mut(p.as_str()).unwrap().get_mut(name.as_str()) {
+                    match u.lock().unwrap().pointer_mut(p.as_str()).unwrap().get_mut(name.as_str()) {
                         Some(mut_v) => *mut_v = Self::object_to_serde_value(value)?,
                         None => return Err(UError::new(
                             "UObject",
@@ -1395,10 +1421,10 @@ impl Evaluator {
         }
         if ! is_in_scope_auto_disposable {
             // スコープ内自動破棄対象じゃないインスタンスはグローバルに移す
-            if let Some(Object::Instance(ref rc, id)) = instance {
-                self.env.borrow_mut().set_instances(Rc::clone(rc), id, true);
-                self.env.borrow_mut().remove_variable(format!("@INSTANCE{}", id));
-                self.env.borrow_mut().remove_from_instances(id);
+            if let Some(Object::Instance(ref ins, id)) = instance {
+                self.env.set_instances(Arc::clone(ins), id, true);
+                self.env.remove_variable(format!("@INSTANCE{}", id));
+                self.env.remove_from_instances(id);
             }
         }
         Ok(assigned_value)
@@ -1472,13 +1498,13 @@ impl Evaluator {
                 self.eval_infix_misc_expression(infix, left, right)
             },
             Object::UObject(v) => {
-                let value = v.borrow().clone();
-                let left = self.eval_uobject(&value, Rc::clone(&v), "/".into())?;
+                let value = v.lock().unwrap().clone();
+                let left = self.eval_uobject(&value, Arc::clone(&v), "/".into())?;
                 self.eval_infix_expression(infix, left, right)
             },
             Object::UChild(v, p) => {
-                let value = v.borrow().pointer(p.as_str()).unwrap_or(&serde_json::Value::Null).clone();
-                let left = self.eval_uobject(&value, Rc::clone(&v), p)?;
+                let value = v.lock().unwrap().pointer(p.as_str()).unwrap_or(&serde_json::Value::Null).clone();
+                let left = self.eval_uobject(&value, Arc::clone(&v), p)?;
                 self.eval_infix_expression(infix, left, right)
             },
             _ => self.eval_infix_misc_expression(infix, left, right)
@@ -1496,8 +1522,8 @@ impl Evaluator {
                     None
                 ))
             },
-            Infix::Equal => Object::Bool(left == right),
-            Infix::NotEqual => Object::Bool(left != right),
+            Infix::Equal => Object::Bool(format!("{}", left) == format!("{}", right)),
+            Infix::NotEqual => Object::Bool(format!("{}", left) != format!("{}", right)),
             _ => return Err(UError::new(
                 "Infix error",
                 &format!("mismatched type: {} {} {}", left, infix, right),
@@ -1564,8 +1590,8 @@ impl Evaluator {
     fn eval_infix_empty_expression(&mut self, infix: Infix, left: Object, right: Object) -> EvalResult<Object> {
         let obj = match infix {
             Infix::Plus => Object::String(format!("{}{}", left, right)),
-            Infix::Equal => Object::Bool(left == right),
-            Infix::NotEqual => Object::Bool(left != right),
+            Infix::Equal => Object::Bool(self.is_equal(&left, &right)?),
+            Infix::NotEqual => Object::Bool(! self.is_equal(&left, &right)?),
             _ => return Err(UError::new(
                 "Infix error",
                 &format!("bad operator: {} {} {}", left, infix, right),
@@ -1614,7 +1640,7 @@ impl Evaluator {
                 "TAB" => Some("\t".into()),
                 "DBL" => Some("\"".into()),
                 text => if expand_var {
-                    self.env.borrow().get_variable(&text.into(), false).map(|o| format!("{}", o).into())
+                    self.env.get_variable(&text.into(), false).map(|o| format!("{}", o).into())
                 } else {
                     continue;
                 },
@@ -1637,12 +1663,11 @@ impl Evaluator {
         match expression {
             Expression::Identifier(i) => {
                 let Identifier(name) = i;
-                let env = self.env.borrow();
-                match env.get_function(&name) {
+                match self.env.get_function(&name) {
                     Some(o) => Ok(o),
-                    None => match env.get_class(&name) {
+                    None => match self.env.get_class(&name) {
                         Some(o) => Ok(o),
-                        None => match env.get_variable(&name, true) {
+                        None => match self.env.get_variable(&name, true) {
                             Some(o) => Ok(o),
                             None => return Err(UError::new(
                                 "Invalid Identifier",
@@ -1685,14 +1710,14 @@ impl Evaluator {
             },
             Object::SpecialFuncResult(t) => match t {
                 SpecialFuncResultType::GetEnv => {
-                    self.env.borrow().get_env()
+                    self.env.get_env()
                 },
                 SpecialFuncResultType::ListModuleMember(name) => {
-                    self.env.borrow_mut().get_module_member(&name)
+                    self.env.get_module_member(&name)
                 },
                 SpecialFuncResultType::BuiltinConstName(e) => {
                     if let Some(Expression::Identifier(Identifier(name))) = e {
-                        self.env.borrow().get_name_of_builtin_consts(&name)
+                        self.env.get_name_of_builtin_consts(&name)
                     } else {
                         Object::Empty
                     }
@@ -1733,8 +1758,8 @@ impl Evaluator {
             // class constructor
             Object::Class(name, block) => {
                 let instance = self.eval_module_statement(&name, block, true)?;
-                if let Object::Instance(rc, _) = instance {
-                    let constructor = match rc.borrow().get_function(&name) {
+                if let Object::Instance(ins, _) = instance {
+                    let constructor = match ins.lock().unwrap().get_function(&name) {
                         Ok(o) => o,
                         Err(_) => return Err(UError::new(
                             "Constructor not found",
@@ -1743,7 +1768,7 @@ impl Evaluator {
                         ))
                     };
                     if let Object::Function(_, params, body, _, _) = constructor {
-                        return self.invoke_user_function(params, arguments, body, true, None, Some(Rc::clone(&rc)), true);
+                        return self.invoke_user_function(params, arguments, body, true, None, Some(Arc::clone(&ins)), true);
                     } else {
                         return Err(UError::new(
                             "Syntax Error",
@@ -1769,8 +1794,8 @@ impl Evaluator {
 
     fn invoke_functionn_object(&mut self, object: Object, arguments: Vec<(Option<Expression>, Object)>) -> EvalResult<Object> {
         match object {
-            Object::Function(_, params, body, is_proc, rc_module) => {
-                return self.invoke_user_function(params, arguments, body, is_proc, None, rc_module, false);
+            Object::Function(_, params, body, is_proc, module_reference) => {
+                return self.invoke_user_function(params, arguments, body, is_proc, None, module_reference, false);
             },
             o => Err(UError::new(
                 "Syntax Error",
@@ -1786,8 +1811,8 @@ impl Evaluator {
         mut arguments: Vec<(Option<Expression>, Object)>,
         body: Vec<Statement>,
         is_proc: bool,
-        anon_outer: Option<Rc<RefCell<Vec<NamedObject>>>>,
-        rc_module: Option<Rc<RefCell<Module>>>,
+        anon_outer: Option<Arc<Mutex<Vec<NamedObject>>>>,
+        module_reference: Option<Arc<Mutex<Module>>>,
         is_class_instance: bool
     ) -> EvalResult<Object> {
         let org_param_len = params.len();
@@ -1798,9 +1823,11 @@ impl Evaluator {
         }
 
         if anon_outer.is_some() {
-            self.env.borrow_mut().copy_scope(anon_outer.clone().unwrap().borrow().clone());
+            let clone_outer = anon_outer.clone().unwrap();
+            let outer_local = clone_outer.lock().unwrap();
+            self.env.copy_scope(outer_local.clone());
         } else {
-            self.env.borrow_mut().new_scope();
+            self.env.new_scope();
         }
         let list = params.into_iter().zip(arguments.into_iter());
         let mut variadic = vec![];
@@ -1867,10 +1894,10 @@ impl Evaluator {
                 },
                 Params::WithDefault(i, default) => {
                     let Identifier(name) = i;
-                    if o == Object::Empty {
+                    if self.is_equal(&o, &Object::Empty)? {
                         (name, self.eval_expression(*default)?)
                     } else {
-                        (name, o.clone())
+                        (name, o)
                     }
                 },
                 Params::Variadic(i) => {
@@ -1892,23 +1919,23 @@ impl Evaluator {
                 }
             };
             if variadic.len() == 0 {
-                self.env.borrow_mut().define_local(name, value)?;
+                self.env.define_local(name, value)?;
             }
         }
         if variadic.len() > 0 {
-            self.env.borrow_mut().define_local(variadic_name, Object::Array(variadic))?;
+            self.env.define_local(variadic_name, Object::Array(variadic))?;
         }
 
-        match rc_module {
+        match module_reference {
             Some(ref m) => {
-                self.env.borrow_mut().set_module_private_member(m);
+                self.env.set_module_private_member(m);
             },
             None => {},
         };
 
         if ! is_proc {
             // resultにEMPTYを入れておく
-            self.env.borrow_mut().assign("result".into(), Object::Empty)?;
+            self.env.assign("result".into(), Object::Empty)?;
         }
 
         // 関数実行
@@ -1921,15 +1948,15 @@ impl Evaluator {
                 // - 関数内で作られたインスタンスを自動破棄しない
 
                 // スコープを戻す
-                self.env.borrow_mut().restore_scope(None);
+                self.env.restore_scope(None);
                 return Err(e);
             }
         }
 
         // 戻り値
         let result = if is_class_instance {
-            match rc_module {
-                Some(ref rc) => Object::Instance(Rc::clone(rc), self.new_instance_id()),
+            match module_reference {
+                Some(ref m) => Object::Instance(Arc::clone(m), self.new_instance_id()),
                 None => return Err(UError::new(
                     "Syntax error".into(),
                     "failed to create new instance".into(),
@@ -1939,7 +1966,7 @@ impl Evaluator {
         } else if is_proc {
             Object::Empty
         } else {
-            match self.env.borrow_mut().get_variable(&"result".to_string(), true) {
+            match self.env.get_variable(&"result".to_string(), true) {
                 Some(o) => o,
                 None => Object::Empty
             }
@@ -1948,7 +1975,7 @@ impl Evaluator {
         let mut ref_values = vec![];
         let mut do_not_dispose = vec![];
         for (p_name, _) in reference.clone() {
-            let obj = self.env.borrow_mut().get_variable(&p_name, true).unwrap();
+            let obj = self.env.get_variable(&p_name, true).unwrap();
             match obj {
                 Object::Instance(_, id) => do_not_dispose.push(format!("@INSTANCE{}", id)),
                 _ => {},
@@ -1964,7 +1991,9 @@ impl Evaluator {
         self.auto_dispose_instances(do_not_dispose, false);
 
         // 関数スコープを抜ける
-        self.env.borrow_mut().restore_scope(anon_outer);
+        {
+            self.env.restore_scope(anon_outer);
+        }
 
         for ((_, e), o) in reference.iter().zip(ref_values.iter()) {
             // Expressionが代入可能な場合のみ代入処理を行う
@@ -1975,8 +2004,8 @@ impl Evaluator {
                     self.eval_assign_expression(e.clone(), o.clone())?;
                     // 参照渡しでインスタンスを帰す場合は自動破棄対象とする
                     match o {
-                        Object::Instance(ref rc, id) => {
-                            self.env.borrow_mut().set_instances(Rc::clone(rc), *id, false);
+                        Object::Instance(ref ins, id) => {
+                            self.env.set_instances(Arc::clone(ins), *id, false);
                         },
                         _ => {},
                     }
@@ -1987,8 +2016,8 @@ impl Evaluator {
 
         // 戻り値がインスタンスなら自動破棄されるようにしておく
         match result {
-            Object::Instance(ref rc, id) => {
-                self.env.borrow_mut().set_instances(Rc::clone(rc), id, false);
+            Object::Instance(ref ins, id) => {
+                self.env.set_instances(Arc::clone(ins), id, false);
             },
             _ => {},
         }
@@ -1997,29 +2026,31 @@ impl Evaluator {
     }
 
     fn auto_dispose_instances(&mut self, refs: Vec<String>, include_global: bool) {
-        let ins_list = self.env.borrow_mut().get_instances();
+        let ins_list = self.env.get_instances();
         for ins_name in ins_list {
             if ! refs.contains(&ins_name) {
-                let obj = self.env.borrow_mut().get_tmp_instance(&ins_name, false).unwrap_or(Object::Empty);
+                let obj = self.env.get_tmp_instance(&ins_name, false).unwrap_or(Object::Empty);
                 if let Object::Instance(ins, _) = obj {
-                    let destructor = ins.borrow_mut().get_destructor();
+                    let destructor = ins.lock().unwrap().get_destructor();
                     if destructor.is_some() {
                         self.invoke_functionn_object(destructor.unwrap(), vec![]).ok();
                     }
-                    ins.borrow_mut().dispose();
+                    ins.lock().unwrap().dispose();
                 }
             }
         }
         if include_global {
-            let ins_list = self.env.borrow_mut().get_global_instances();
+            let ins_list = self.env.get_global_instances();
             for ins_name in ins_list {
-                let obj = self.env.borrow_mut().get_tmp_instance(&ins_name, true).unwrap_or(Object::Empty);
+                let obj = self.env.get_tmp_instance(&ins_name, true).unwrap_or(Object::Empty);
                 if let Object::Instance(ins, _) = obj {
-                    let destructor = ins.borrow_mut().get_destructor();
-                    if destructor.is_some() {
-                        self.invoke_functionn_object(destructor.unwrap(), vec![]).ok();
+                    {
+                        let destructor = ins.lock().unwrap().get_destructor();
+                        if destructor.is_some() {
+                            self.invoke_functionn_object(destructor.unwrap(), vec![]).ok();
+                        }
                     }
-                    ins.borrow_mut().dispose();
+                    ins.lock().unwrap().dispose();
                 }
             }
         }
@@ -2052,13 +2083,15 @@ impl Evaluator {
         match instance {
             Object::Module(m) |
             Object::Instance(m, _) => {
-                let module = m.borrow();
+                let module = m.lock().unwrap(); // Mutex<Module>をロック
                 match right {
                     Expression::Identifier(i) => {
                         let Identifier(member_name) = i;
                         if module.is_local_member(&member_name) {
-                            if let Some(Object::This(m)) = self.env.borrow().get_variable(&"this".into(), true) {
-                                if module.name() == m.borrow().name() {
+                            if let Some(Object::This(this)) = self.env.get_variable(&"this".into(), true) {
+                                if this.try_lock().is_err() {
+                                    // ロックに失敗した場合、上でロックしているMutexと同じだと判断
+                                    // なので自分のモジュールメンバの値を返す
                                     return module.get_member(&member_name);
                                 }
                             }
@@ -2084,7 +2117,7 @@ impl Evaluator {
                 }
             },
             Object::This(m) => {
-                let module = m.borrow();
+                let module = m.lock().unwrap();
                 if let Expression::Identifier(i) = right {
                     let Identifier(member_name) = i;
                     if is_func {
@@ -2105,7 +2138,7 @@ impl Evaluator {
             },
             Object::Global => {
                 if let Expression::Identifier(Identifier(g_name)) = right {
-                    self.env.borrow().get_global(&g_name, is_func)
+                    self.env.get_global(&g_name, is_func)
                 } else {
                     Err(UError::new(
                         "Global",
@@ -2120,8 +2153,8 @@ impl Evaluator {
                 None
             )),
             Object::UObject(u) => if let Expression::Identifier(Identifier(key)) = right {
-                match u.borrow().get(key.as_str()) {
-                    Some(v) => self.eval_uobject(v, Rc::clone(&u), format!("/{}", key)),
+                match u.lock().unwrap().get(key.as_str()) {
+                    Some(v) => self.eval_uobject(v, Arc::clone(&u), format!("/{}", key)),
                     None => Err(UError::new(
                         "UObject",
                         &format!("{} not found", key),
@@ -2136,8 +2169,8 @@ impl Evaluator {
                 ))
             },
             Object::UChild(u,p) => if let Expression::Identifier(Identifier(key)) = right {
-                match u.borrow().pointer(p.as_str()).unwrap().get(key.as_str()) {
-                    Some(v) => self.eval_uobject(v, Rc::clone(&u), format!("{}/{}", p, key)),
+                match u.lock().unwrap().pointer(p.as_str()).unwrap().get(key.as_str()) {
+                    Some(v) => self.eval_uobject(v, Arc::clone(&u), format!("{}/{}", p, key)),
                     None => Err(UError::new(
                         "UObject",
                         &format!("{} not found", key),
@@ -2177,7 +2210,7 @@ impl Evaluator {
     }
 
     // UObject
-    fn eval_uobject(&self, v: &serde_json::Value, top: Rc<RefCell<serde_json::Value>>, pointer: String) -> EvalResult<Object> {
+    fn eval_uobject(&self, v: &serde_json::Value, top: Arc<Mutex<serde_json::Value>>, pointer: String) -> EvalResult<Object> {
         let o = match v {
             serde_json::Value::Null => Object::Null,
             serde_json::Value::Bool(b) => Object::Bool(*b),
@@ -2204,8 +2237,8 @@ impl Evaluator {
             Object::Bool(b) => serde_json::Value::Bool(b),
             Object::Num(n) => serde_json::Value::Number(serde_json::Number::from_f64(n).unwrap()),
             Object::String(ref s) => serde_json::Value::String(s.clone()),
-            Object::UObject(u) => u.borrow().clone(),
-            Object::UChild(u, p) => u.borrow().pointer(p.as_str()).unwrap().clone(),
+            Object::UObject(u) => u.lock().unwrap().clone(),
+            Object::UChild(u, p) => u.lock().unwrap().pointer(p.as_str()).unwrap().clone(),
             _ => return Err(UError::new(
                 "UObject error",
                 &format!("can not convert {} to uobject", o),
@@ -2222,19 +2255,28 @@ impl Evaluator {
         };
         if let Object::Instance(ref m, _) = old_value {
             // 既に破棄されてたらなんもしない
-            if m.borrow().is_disposed() {
+            if m.lock().unwrap().is_disposed() {
                 return Ok(());
             }
             // Nothingが代入される場合は明示的にデストラクタを実行及びdispose()
-            if new_value == &Object::Nothing {
-                let destructor = m.borrow_mut().get_destructor();
-                if destructor.is_some() {
-                    self.invoke_functionn_object(destructor.unwrap(), vec![])?;
-                }
-                m.borrow_mut().dispose();
+            match new_value {
+                Object::Nothing => {
+                    let mut ins = m.lock().unwrap();
+                    let destructor = ins.get_destructor();
+                    if destructor.is_some() {
+                        self.invoke_functionn_object(destructor.unwrap(), vec![])?;
+                    }
+                    ins.dispose();
+                },
+                _ => {},
             }
         }
         Ok(())
+    }
+
+    fn is_equal(&mut self, obj1: &Object, obj2: &Object) -> EvalResult<bool> {
+        let r = self.eval_infix_expression(Infix::Equal, obj1.clone(), obj2.clone())?;
+        Ok(Self::is_truthy(r))
     }
 }
 
@@ -2246,36 +2288,38 @@ mod tests {
     use crate::lexer::Lexer;
     use crate::parser::Parser;
 
-    fn eval_test<S: Into<String> + Clone>(input: S, expected: Result<Option<Object>, UError>, ast: bool) {
-        match eval(input.clone(), ast) {
-            Ok(o) => match expected {
-                Ok(expected) => assert_eq!(o, expected),
-                Err(_) => panic!("this test should be ok:\n{}", input.into()),
-            },
-            Err(err) => match expected {
-                Err(expected) => assert_eq!(err, expected),
-                Ok(_) => panic!("this test should occure error:\n{}", input.into()),
-            }
-        }
-    }
-
-    fn eval<S: Into<String>>(input: S, ast: bool) -> EvalResult<Option<Object>> {
-        let mut e = Evaluator::new(Rc::new(RefCell::new(
-            Environment::new(vec![])
-        )));
-        let code = input.into();
-        let program = Parser::new(Lexer::new(code.as_str())).parse();
+    fn eval_test(input: &str, expected: Result<Option<Object>, UError>, ast: bool) {
+        let mut e = Evaluator::new(Environment::new(vec![]));
+        let program = Parser::new(Lexer::new(input)).parse();
         if ast {
             println!("{:?}", program);
         }
-        e.eval(program)
+        let result = e.eval(program);
+        match expected {
+            Ok(expected_obj) => match result {
+                Ok(result_obj) => if result_obj.is_some() && expected_obj.is_some() {
+                    let left = result_obj.unwrap();
+                    let right = expected_obj.unwrap();
+                    if ! left.is_equal(&right) {
+                        panic!("\nresult: {:?}\nexpected: {:?}\n\n{}", left, right, input);
+                    }
+                } else if result_obj.is_some() || expected_obj.is_some() {
+                    // どちらかがNone
+                    panic!("\nresult: {:?}\nexpected: {:?}\n\n{}", result_obj, expected_obj, input);
+                },
+                Err(_) => panic!("this test should be ok:\n{}", input),
+            },
+            Err(expected_err) => match result {
+                Ok(_) => panic!("this test should occure error:\n{}", input),
+                Err(result_err) => assert_eq!(result_err, expected_err),
+            },
+        }
     }
+
 
     // 変数とか関数とか予め定義しておく
     fn eval_env(input: &str) -> Evaluator {
-        let mut e = Evaluator::new(Rc::new(RefCell::new(
-            Environment::new(vec![])
-        )));
+        let mut e = Evaluator::new(Environment::new(vec![]));
         let program = Parser::new(Lexer::new(input)).parse();
         match e.eval(program) {
             Ok(_) => e,
@@ -2284,11 +2328,27 @@ mod tests {
     }
 
     //
-    fn eval_test_with_env(e: &mut Evaluator, input: &str, expected: Option<Object>) {
+    fn eval_test_with_env(e: &mut Evaluator, input: &str, expected: Result<Option<Object>, UError>) {
         let program = Parser::new(Lexer::new(input)).parse();
-        match e.eval(program) {
-            Ok(o) => assert_eq!(o, expected),
-            Err(err) => panic!("{}", err)
+        let result = e.eval(program);
+        match expected {
+            Ok(expected_obj) => match result {
+                Ok(result_obj) => if result_obj.is_some() && expected_obj.is_some() {
+                    let left = result_obj.unwrap();
+                    let right = expected_obj.unwrap();
+                    if ! left.is_equal(&right) {
+                        panic!("\nresult: {:?}\nexpected: {:?}\n\n{}", left, right, input);
+                    }
+                } else if result_obj.is_some() || expected_obj.is_some() {
+                    // どちらかがNone
+                    panic!("\nresult: {:?}\nexpected: {:?}\n\n{}", result_obj, expected_obj, input);
+                },
+                Err(_) => panic!("this test should be ok:\n{}", input),
+            },
+            Err(expected_err) => match result {
+                Ok(_) => panic!("this test should occure error:\n{}", input),
+                Err(result_err) => assert_eq!(result_err, expected_err),
+            },
         }
     }
 
@@ -2742,7 +2802,7 @@ hoge
             eval_test(input, expected, false)
         }
         for (input, expected) in error_cases {
-            eval_test(input, expected, false)
+            eval_test(&input, expected, false)
         }
     }
 
@@ -3346,7 +3406,7 @@ fend
 p(5, 10)
 a
                 "#,
-                Ok(Some(Object::Num(1.0)))
+                Ok(Some(Object::Num(15.0)))
             ),
             (
                 r#"
@@ -3627,101 +3687,101 @@ endmodule
         let test_cases = vec![
             (
                 "v",
-                Some(Object::String("script local".to_string()))
+                Ok(Some(Object::String("script local".to_string())))
             ),
             (
                 r#"
                 v += " 1"
                 v
                 "#,
-                Some(Object::String("script local 1".to_string()))
+                Ok(Some(Object::String("script local 1".to_string())))
             ),
             (
                 "p",
-                Some(Object::String("public".to_string()))
+                Ok(Some(Object::String("public".to_string())))
             ),
             (
                 r#"
                 p += " 1"
                 p
                 "#,
-                Some(Object::String("public 1".to_string()))
+                Ok(Some(Object::String("public 1".to_string())))
             ),
             (
                 "c",
-                Some(Object::String("const".to_string()))
+                Ok(Some(Object::String("const".to_string())))
             ),
             (
                 "func()",
-                Some(Object::String("function".to_string()))
+                Ok(Some(Object::String("function".to_string())))
             ),
             (
                 "f",
-                Some(Object::String("variable".to_string()))
+                Ok(Some(Object::String("variable".to_string())))
             ),
             (
                 "f()",
-                Some(Object::String("function".to_string()))
+                Ok(Some(Object::String("function".to_string())))
             ),
             (
                 "get_p()",
-                Some(Object::String("public 1".to_string()))
+                Ok(Some(Object::String("public 1".to_string())))
             ),
             (
                 "get_c()",
-                Some(Object::String("const".to_string()))
+                Ok(Some(Object::String("const".to_string())))
             ),
-            // (
-            //     "get_v()",
-            //     Some(Object::Error("identifier not found: v".to_string()))
-            // ),
-            // (
-            //     "M.v",
-            //     Some(Object::Error("you can not access to M.v".to_string()))
-            // ),
+            (
+                "get_v()",
+                Err(UError::new("Identifier not found","v",None))
+            ),
+            (
+                "M.v",
+                Err(UError::new("Access denied","you can not access to M.v",None))
+            ),
             (
                 "M.p",
-                Some(Object::String("module public".to_string()))
+                Ok(Some(Object::String("module public".to_string())))
             ),
             (
                 "M.c",
-                Some(Object::String("module const".to_string()))
+                Ok(Some(Object::String("module const".to_string())))
             ),
             (
                 "M.func()",
-                Some(Object::String("module function".to_string()))
+                Ok(Some(Object::String("module function".to_string())))
             ),
             (
                 "M.get_v()",
-                Some(Object::String("module local".to_string()))
+                Ok(Some(Object::String("module local".to_string())))
             ),
             (
                 "M.get_this_v()",
-                Some(Object::String("module local".to_string()))
+                Ok(Some(Object::String("module local".to_string())))
             ),
             (
                 "M.get_m_v()",
-                Some(Object::String("module local".to_string()))
+                Ok(Some(Object::String("module local".to_string())))
             ),
             (
                 "M.get_p()",
-                Some(Object::String("module public".to_string()))
+                Ok(Some(Object::String("module public".to_string())))
             ),
             (
                 "M.get_outer_p2()",
-                Some(Object::String("public 2".to_string()))
+                Ok(Some(Object::String("public 2".to_string())))
             ),
             (
                 "M.inner_func()",
-                Some(Object::String("module function".to_string()))
+                Ok(Some(Object::String("module function".to_string())))
             ),
             (
                 "M.outer_func()",
-                Some(Object::String("function".to_string()))
+                Ok(Some(Object::String("function".to_string())))
             ),
             (
                 "M.set_a(5)",
-                Some(Object::Num(5.0))
+                Ok(Some(Object::Num(5.0)))
             ),
         ];
         for (input, expected) in test_cases {
@@ -3740,11 +3800,11 @@ fend
         let test_cases = vec![
             (
                 "hoge(3)",
-                Some(Object::Num(3.0))
+                Ok(Some(Object::Num(3.0)))
             ),
             (
                 "hoge('abc')",
-                Some(Object::String("abc".to_string()))
+                Ok(Some(Object::String("abc".to_string())))
             ),
         ];
         for (input, expected) in test_cases {

@@ -445,6 +445,7 @@ impl Lexer {
             "loglines" => Token::Loglines,
             "logfile" => Token::Logfile,
             "dlgtitle" => Token::Dlgtitle,
+            "thread" => Token::Thread,
             _ => Token::Identifier(literal.to_string()),
         }
     }

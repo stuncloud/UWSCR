@@ -30,7 +30,7 @@ use strum_macros::{ToString, EnumVariantNames};
 pub type BuiltinFunction = fn(BuiltinFuncArgs) -> BuiltinFuncResult;
 pub type BuiltinFuncResult = Result<Object, UError>;
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct BuiltinFuncArgs {
     func_name: String,
     arg_exprs: Vec<Option<Expression>>,
@@ -330,7 +330,7 @@ pub fn type_of(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 pub fn assert_equal(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let arg1 = get_any_argument_value(&args,0, None)?;
     let arg2 = get_any_argument_value(&args,1, None)?;
-    if arg1 == arg2 {
+    if arg1.is_equal(&arg2) {
         Ok(Object::Empty)
     } else {
         Err(UError::new("assertion error", &format!("left: {}, right: {}", arg1, arg2), None))

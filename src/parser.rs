@@ -30,6 +30,7 @@ pub enum ParseErrorKind {
     EnumMemberShouldBeNumber,
     EnumMemberDuplicated,
     InvalidEnumMemberValue,
+    InvalidThreadCall,
 }
 
 #[derive(Debug, Clone)]
@@ -64,6 +65,7 @@ impl fmt::Display for ParseErrorKind {
             ParseErrorKind::EnumMemberShouldBeNumber => write!(f, "Value should be number literal"),
             ParseErrorKind::EnumMemberDuplicated => write!(f, "Duplicated member found"),
             ParseErrorKind::InvalidEnumMemberValue => write!(f, "Invalid Enum value"),
+            ParseErrorKind::InvalidThreadCall => write!(f, "Thread syntax error"),
         }
     }
 }
@@ -497,6 +499,7 @@ impl Parser {
             Token::Try => self.parse_try_statement(),
             Token::Option => self.parse_option_statement(),
             Token::Enum => self.parse_enum_statement(),
+            Token::Thread => self.parse_thread_statement(),
             _ => self.parse_expression_statement(),
         }
     }
@@ -1681,6 +1684,23 @@ impl Parser {
             return None;
         }
         Some(Statement::Enum(name, u_enum))
+    }
+
+    fn parse_thread_statement(&mut self) -> Option<Statement> {
+        self.bump();
+        let expression = self.parse_expression(Precedence::Lowest, false);
+        match expression {
+            Some(Expression::FuncCall{func:_,args:_}) => Some(Statement::Thread(expression.unwrap())),
+            _ => {
+                self.errors.push(ParseError::new(
+                    ParseErrorKind::InvalidThreadCall,
+                    "you must call function to run thread",
+                    self.current_token.pos,
+                    self.script.clone()
+                ));
+                None
+            }
+        }
     }
 
     fn parse_assignment(&mut self, token: Token, expression: Expression) -> Option<Expression> {

@@ -1,8 +1,7 @@
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
 
-use std::rc::Rc;
-use std::cell::RefCell;
+use std::sync::{Arc, Mutex};
 
 use regex::Regex;
 use strum_macros::{EnumString, EnumVariantNames};
@@ -37,7 +36,7 @@ pub fn length(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         Object::Num(n) => n.to_string().len(),
         Object::Array(v) => v.len(),
         Object::Bool(b) => b.to_string().len(),
-        Object::HashTbl(h) => h.borrow().len(),
+        Object::HashTbl(h) => h.lock().unwrap().len(),
         Object::Empty => 0,
         Object::Null => 1,
         _ => return Err(builtin_func_error("length", "given value is not countable"))
@@ -197,10 +196,10 @@ pub fn tojson(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let f = if prettify {serde_json::to_string_pretty} else {serde_json::to_string};
     let obj = match get_uobject_argument_value(&args, 0, None)? {
         Object::UObject(u) => {
-            u.borrow().clone()
+            u.lock().unwrap().clone()
         },
         Object::UChild(u, p) => {
-            u.borrow().pointer(p.as_str()).unwrap().clone()
+            u.lock().unwrap().pointer(p.as_str()).unwrap().clone()
         },
         _ => return Err(builtin_func_error(args.name(), "UObject required"))
     };
@@ -214,6 +213,6 @@ pub fn fromjson(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let json = get_string_argument_value(&args, 0, None)?;
     serde_json::from_str::<serde_json::Value>(json.as_str()).map_or_else(
         |_| Ok(Object::Empty),
-        |v| Ok(Object::UObject(Rc::new(RefCell::new(v))))
+        |v| Ok(Object::UObject(Arc::new(Mutex::new(v))))
     )
 }

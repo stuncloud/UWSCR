@@ -5,8 +5,7 @@ use crate::winapi::bindings::Windows::Win32::UI::WindowsAndMessaging::HWND;
 
 use std::fmt;
 use std::hash::{Hash, Hasher};
-use std::rc::Rc;
-use std::cell::RefCell;
+use std::sync::{Arc, Mutex};
 use std::str::FromStr;
 
 use indexmap::IndexMap;
@@ -14,20 +13,20 @@ use strum_macros::{EnumString, EnumVariantNames};
 use num_derive::{ToPrimitive, FromPrimitive};
 use serde_json;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub enum Object {
     // Int(i64),
     Num(f64),
     String(String),
     Bool(bool),
     Array(Vec<Object>),
-    HashTbl(Rc<RefCell<HashTbl>>),
-    AnonFunc(Vec<Expression>, BlockStatement, Rc<RefCell<Vec<NamedObject>>>, bool),
-    Function(String, Vec<Expression>, BlockStatement, bool, Option<Rc<RefCell<Module>>>),
+    HashTbl(Arc<Mutex<HashTbl>>),
+    AnonFunc(Vec<Expression>, BlockStatement, Arc<Mutex<Vec<NamedObject>>>, bool),
+    Function(String, Vec<Expression>, BlockStatement, bool, Option<Arc<Mutex<Module>>>),
     BuiltinFunction(String, i32, BuiltinFunction),
-    Module(Rc<RefCell<Module>>),
+    Module(Arc<Mutex<Module>>),
     Class(String, BlockStatement), // class定義
-    Instance(Rc<RefCell<Module>>, u32), // classインスタンス, デストラクタが呼ばれたらNoneになる
+    Instance(Arc<Mutex<Module>>, u32), // classインスタンス, デストラクタが呼ばれたらNoneになる
     Instances(Vec<String>), // ローカルのインスタンス参照リスト
     DestructorNotFound, // デストラクタがなかった場合に返る、これが来たらエラーにせず終了する
     Null,
@@ -42,9 +41,9 @@ pub enum Object {
     ExitExit(i32),
     SpecialFuncResult(SpecialFuncResultType),
     Global, // globalを示す
-    This(Rc<RefCell<Module>>),   // thisを示す
-    UObject(Rc<RefCell<serde_json::Value>>),
-    UChild(Rc<RefCell<serde_json::Value>>, String),
+    This(Arc<Mutex<Module>>),   // thisを示す
+    UObject(Arc<Mutex<serde_json::Value>>),
+    UChild(Arc<Mutex<serde_json::Value>>, String),
     DynamicVar(fn()->Object), // 特殊変数とか
     Version(Version),
     ExpandableTB(String),
@@ -70,7 +69,7 @@ impl fmt::Display for Object {
             },
             Object::HashTbl(ref hash) => {
                 let mut key_values = String::new();
-                for (i, (k, v)) in hash.borrow().map().iter().enumerate() {
+                for (i, (k, v)) in hash.lock().unwrap().map().iter().enumerate() {
                     if i < 1 {
                         key_values.push_str(&format!("\"{}\": {}", k, v))
                     } else {
@@ -82,7 +81,7 @@ impl fmt::Display for Object {
             Object::Function(ref name, ref params, _, is_proc, ref instance) => {
                 let mut arguments = String::new();
                 let func_name = if instance.is_some() {
-                    instance.clone().unwrap().borrow().name()
+                    instance.clone().unwrap().lock().unwrap().name()
                 } else {
                     name.to_string()
                 };
@@ -130,10 +129,10 @@ impl fmt::Display for Object {
             Object::ExitExit(ref n) => write!(f, "ExitExit ({})", n),
             Object::Eval(ref value) => write!(f, "{}", value),
             Object::SpecialFuncResult(_) => write!(f, "特殊関数の戻り値"),
-            Object::Module(ref m) => write!(f, "module: {}", m.borrow().name()),
+            Object::Module(ref m) => write!(f, "module: {}", m.lock().unwrap().name()),
             Object::Class(ref name, _) => write!(f, "class: {}", name),
             Object::Instance(ref m, id) => {
-                let ins = m.borrow();
+                let ins = m.lock().unwrap();
                 if ins.is_disposed() {
                     write!(f, "NOTHING")
                 } else {
@@ -145,13 +144,13 @@ impl fmt::Display for Object {
             Object::Handle(h) => write!(f, "{:?}", h),
             Object::RegEx(ref re) => write!(f, "regex: {}", re),
             Object::Global => write!(f, "GLOBAL"),
-            Object::This(ref m) => write!(f, "THIS ({})", m.borrow().name()),
+            Object::This(ref m) => write!(f, "THIS ({})", m.lock().unwrap().name()),
             Object::UObject(ref v) => {
-                let value = v.borrow();
+                let value = v.lock().unwrap();
                 write!(f, "UObject: {}", serde_json::to_string(&value.clone()).map_or_else(|e| format!("{}", e), |j| j))
             },
             Object::UChild(ref u, ref p) => {
-                let v = u.borrow().pointer(p.as_str()).unwrap_or(&serde_json::Value::Null).clone();
+                let v = u.lock().unwrap().pointer(p.as_str()).unwrap_or(&serde_json::Value::Null).clone();
                 write!(f, "UObject: {}", serde_json::to_string(&v).map_or_else(|e| format!("{}", e), |j| j))
             },
             Object::DynamicVar(func) => write!(f, "{}", func()),
@@ -162,7 +161,14 @@ impl fmt::Display for Object {
     }
 }
 
-impl Eq for Object {}
+impl Object {
+    pub fn is_equal(&self, other: &Object) -> bool {
+        format!("{}", self) == format!("{}", other)
+    }
+}
+
+// impl Eq for Object {}
+
 
 impl Hash for Object {
     fn hash<H: Hasher>(&self, state: &mut H) {
@@ -176,6 +182,20 @@ impl Hash for Object {
         }
     }
 }
+
+// impl<T: Eq> PartialEq for Mutex<T> {
+//     fn eq(&self, other: &Self) -> bool {
+//         if ::core::ptr::eq(&self, &other) {
+//             true
+//         } else {
+//             other.lock().unwrap().deref() == self.lock().unwrap().deref()
+//         }
+//     }
+
+//     fn ne(&self, other: &Self) -> bool {
+//         !std::cmp.eq(other)
+//     }
+// }
 
 #[derive(PartialEq, Clone, Debug)]
 pub enum SpecialFuncResultType {
@@ -199,7 +219,7 @@ pub enum HashTblEnum {
     HASH_UNKNOWN = 0,
 }
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct HashTbl {
     map: IndexMap<String, Object>,
     sort: bool,

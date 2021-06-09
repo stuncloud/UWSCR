@@ -6,9 +6,13 @@ use crate::{
     settings::usettings_singleton,
 };
 
-use std::fmt;
-use std::rc::Rc;
-use std::cell::RefCell;
+use std::{
+    fmt,
+    sync::{
+        Arc,
+        Mutex
+    }
+};
 use std::borrow::Cow;
 
 use super::{EvalResult, UError};
@@ -42,7 +46,7 @@ impl fmt::Display for Scope {
     }
 }
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct NamedObject {
     name: String,
     object: Object,
@@ -67,26 +71,26 @@ impl fmt::Display for NamedObject {
     }
 }
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct Layer {
-    local: Vec<NamedObject>,
-    outer: Option<Box<Layer>>,
+    pub local: Vec<NamedObject>,
+    pub outer: Option<Arc<Mutex<Layer>>>,
 }
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct Environment {
-    current: Layer,
-    global: Vec<NamedObject>
+    pub current: Arc<Mutex<Layer>>,
+    pub global: Arc<Mutex<Vec<NamedObject>>>
 }
 
 impl Environment {
     pub fn new(params: Vec<String>) -> Self {
         let mut env = Environment {
-            current: Layer {
+            current: Arc::new(Mutex::new(Layer {
                 local: Vec::new(),
                 outer: None,
-            },
-            global: init_builtins()
+            })),
+            global: Arc::new(Mutex::new(init_builtins()))
         };
         let param_str = params.iter().map(|s| Object::String(s.into())).collect::<Vec<Object>>();
         env.define("PARAM_STR".into(), Object::Array(param_str), Scope::Local, false).unwrap();
@@ -100,11 +104,11 @@ impl Environment {
     }
 
     pub fn new_scope(&mut self) {
-        let outer = Some(Box::new(self.current.clone()));
-        self.current = Layer {
+        let outer = Some(Arc::clone(&self.current));
+        self.current = Arc::new(Mutex::new(Layer {
             local: Vec::new(),
             outer,
-        };
+        }));
         self.add(NamedObject::new(
             "TRY_ERRLINE".into(), Object::Empty, Scope::Local
         ), false);
@@ -114,24 +118,25 @@ impl Environment {
     }
 
     pub fn get_local_copy(&mut self) -> Vec<NamedObject> {
-        self.current.local.clone()
+        self.current.lock().unwrap().local.clone()
     }
 
     pub fn copy_scope(&mut self, outer_local: Vec<NamedObject>) {
-        let outer = Some(Box::new(self.current.clone()));
-        self.current = Layer {
+        let outer = Some(Arc::clone(&self.current));
+        let mut current = self.current.lock().unwrap();
+        *current = Layer {
             local: outer_local,
             outer,
         }
     }
 
-    pub fn restore_scope(&mut self, anon_outer: Option<Rc<RefCell<Vec<NamedObject>>>>) {
+    pub fn restore_scope(&mut self, anon_outer: Option<Arc<Mutex<Vec<NamedObject>>>>) {
         match anon_outer {
             // 無名関数が保持する値を更新する
-            Some(rc) => {
-                let mut anon_outer = rc.borrow_mut();
+            Some(r) => {
+                let mut anon_outer = r.lock().unwrap();
                 for anon_obj in anon_outer.iter_mut() {
-                    for local_obj in self.current.local.iter() {
+                    for local_obj in self.current.lock().unwrap().local.iter() {
                         if local_obj.name == anon_obj.name {
                             anon_obj.object = local_obj.object.clone();
                             break;
@@ -141,26 +146,27 @@ impl Environment {
             },
             None => {}
         }
-        let outer = *self.current.outer.clone().unwrap();
+        // let outer = *self.current.outer.clone().unwrap();
+        let outer = self.current.lock().unwrap().outer.clone().unwrap();
         self.current = outer;
     }
 
     fn add(&mut self, obj: NamedObject, to_global: bool) {
         if to_global {
-            self.global.push(obj);
+            self.global.lock().unwrap().push(obj);
         } else {
-            self.current.local.push(obj);
+            self.current.lock().unwrap().local.push(obj);
         }
     }
 
     pub fn remove_variable(&mut self, name: String) {
-        self.current.local.retain(|o| o.name != name.to_ascii_uppercase());
+        self.current.lock().unwrap().local.retain(|o| o.name != name.to_ascii_uppercase());
     }
 
     fn set(&mut self, name: &String, scope: Scope, value: Object, to_global: bool) {
         let key = name.to_ascii_uppercase();
         if to_global {
-            for obj in self.global.iter_mut() {
+            for obj in self.global.lock().unwrap().iter_mut() {
                 if obj.name == key && obj.scope == scope {
                     if check_special_assignment(&obj.object, &value) {
                         obj.object = value;
@@ -169,7 +175,7 @@ impl Environment {
                 }
             }
         } else {
-            for obj in self.current.local.iter_mut() {
+            for obj in self.current.lock().unwrap().local.iter_mut() {
                 if obj.name == key && obj.scope == scope {
                     if check_special_assignment(&obj.object, &value) {
                         obj.object = value;
@@ -182,23 +188,23 @@ impl Environment {
 
     fn get(&self, name: &String, scope: Scope) -> Option<Object> {
         let key = name.to_ascii_uppercase();
-        self.current.local.clone().into_iter().find(
+        self.current.lock().unwrap().local.iter().find(
             |o| o.name == key && o.scope == scope
-        ).map(|o| o.object)
+        ).map(|o| o.object.clone())
     }
 
     fn get_from_global(&self, name: &String, scope: Scope) -> Option<Object> {
         let key = name.to_ascii_uppercase();
-        self.global.clone().into_iter().find(
+        self.global.lock().unwrap().iter().find(
             |o| o.name == key && o.scope == scope
         ).map(|o| o.object.clone())
     }
 
     pub fn get_name_of_builtin_consts(&self, name: &String) -> Object {
         let key = name.to_ascii_uppercase();
-        self.global.clone().into_iter()
+        self.global.lock().unwrap().iter()
         .find(|o| o.name == key && o.scope == Scope::BuiltinConst)
-        .map_or(Object::Empty, |o| Object::String(o.name))
+        .map_or(Object::Empty, |o| Object::String(o.name.to_string()))
     }
 
     // 変数評価の際に呼ばれる
@@ -232,7 +238,7 @@ impl Environment {
             } else {
                 Some(Object::String(text))
             },
-            Some(Object::Instance(ref rc,_)) => if rc.borrow().is_disposed() {
+            Some(Object::Instance(ref ins,_)) => if ins.lock().unwrap().is_disposed() {
                 Some(Object::Nothing)
             } else {
                 obj
@@ -304,7 +310,7 @@ impl Environment {
 
     // 予約語チェック
     fn is_reserved(&mut self, name: &String) -> bool {
-        self.global.clone().into_iter().any(|obj| obj.name == *name && obj.scope == Scope::BuiltinConst) ||
+        self.global.lock().unwrap().iter().any(|obj| obj.name == *name && obj.scope == Scope::BuiltinConst) ||
         vec![
             "GLOBAL",
             "THIS",
@@ -314,12 +320,11 @@ impl Environment {
     }
 
     fn contains(&mut self, name: &String, scope: Scope) -> bool {
-        let store = if scope == Scope::Local {
-            self.current.local.clone()
+        if scope == Scope::Local {
+            self.current.lock().unwrap().local.iter().any(|obj| obj.name == *name && scope == obj.scope)
         } else {
-            self.global.clone()
-        };
-        store.into_iter().any(|obj| obj.name == *name && scope == obj.scope)
+            self.global.lock().unwrap().iter().any(|obj| obj.name == *name && scope == obj.scope)
+        }
     }
 
     fn define(&mut self, name: String, object: Object, scope: Scope, to_global: bool) -> Result<(), UError> {
@@ -369,14 +374,17 @@ impl Environment {
             ))
         } else if self.contains(&key, Scope::Const) {
             // const定義済みで値が異なればエラー、同じなら何もしないでOk返す
-            if self.get(&key, Scope::Const).unwrap_or(Object::Empty) != object {
+            let const_value = self.get_from_global(&key, Scope::Const).unwrap_or(Object::Empty);
+            println!("[debug] value: {} new_value: {}", &const_value, &object);
+
+            if ! object.is_equal(&const_value) {
                 return Err(UError::new(
                 "Error on definition",
                 &format!("{} is already defined.", key),
                 None
-            ))
+                ));
             }else {
-                return Ok(())
+                return Ok(());
             }
         }
         self.define(key, object, Scope::Const, true)
@@ -489,15 +497,15 @@ impl Environment {
     }
 
     // module関数呼び出し時にメンバをローカル変数としてセット
-    pub fn set_module_private_member(&mut self, module: &Rc<RefCell<Module>>) {
-        let vec = module.borrow().get_members();
+    pub fn set_module_private_member(&mut self, module: &Arc<Mutex<Module>>) {
+        let vec = module.lock().unwrap().get_members();
         for obj in vec {
             self.add(obj, false)
         }
         // thisとglobalも定義
         self.add(NamedObject::new(
             "THIS".into(),
-            Object::This(Rc::clone(module)),
+            Object::This(Arc::clone(module)),
             Scope::Local
         ), false);
         self.add(NamedObject::new(
@@ -516,10 +524,10 @@ impl Environment {
 
     pub fn get_env(&self) -> Object {
         let mut arr = Vec::new();
-        for obj in self.current.local.clone().into_iter() {
+        for obj in self.current.lock().unwrap().local.iter() {
             arr.push(Object::String(format!("current: {}", obj)));
         }
-        for obj in self.global.clone().into_iter() {
+        for obj in self.global.lock().unwrap().iter() {
             if obj.scope != Scope::BuiltinConst && obj.scope != Scope::BuiltinFunc {
                 arr.push(Object::String(format!("global: {}", obj)));
             }
@@ -532,7 +540,7 @@ impl Environment {
         match self.get_module(name) {
             Some(o) => match o {
                 Object::Module(m) => {
-                    let module = m.borrow();
+                    let module = m.lock().unwrap();
                     for obj in module.get_members().into_iter() {
                         arr.push(Object::String(format!("{}: {}", module.name(), obj)))
                     }
@@ -560,7 +568,7 @@ impl Environment {
         Object::String(new_string)
     }
 
-    pub fn set_instances(&mut self, instance: Rc<RefCell<Module>>, id: u32, to_global: bool) {
+    pub fn set_instances(&mut self, instance: Arc<Mutex<Module>>, id: u32, to_global: bool) {
         let var_name = "@INSTANCES".to_string();
         let ins_name = format!("@INSTANCE{}", id);
         let obj = if to_global {
@@ -575,7 +583,7 @@ impl Environment {
             let v = vec![ins_name];
             self.add(NamedObject::new(var_name, Object::Instances(v), Scope::Local), to_global);
         };
-        self.add(NamedObject::new(format!("@INSTANCE{}", id), Object::Instance(Rc::clone(&instance), id), Scope::Local), to_global);
+        self.add(NamedObject::new(format!("@INSTANCE{}", id), Object::Instance(Arc::clone(&instance), id), Scope::Local), to_global);
     }
 
     pub fn remove_from_instances(&mut self, id: u32) {
@@ -620,7 +628,7 @@ fn check_special_assignment(obj1: &Object, obj2: &Object) -> bool {
         Object::HashTbl(h) => {
             if let Object::Num(n) = obj2 {
                 if n == &109.0 {
-                    h.borrow_mut().clear();
+                    h.lock().unwrap().clear();
                 }
             }
             false
@@ -793,7 +801,7 @@ impl Module {
                         None
                     ))
                 };
-                h.borrow_mut().insert(key, value);
+                h.lock().unwrap().insert(key, value);
             },
             _ => return Err(UError::new(
                 "Invalid index call",
@@ -853,11 +861,11 @@ impl Module {
         self.contains(&key, Scope::Local)
     }
 
-    pub fn set_rc_to_functions(&mut self, rc: Rc<RefCell<Module>>) {
+    pub fn set_module_reference_to_member_functions(&mut self, m: Arc<Mutex<Module>>) {
         for  o in self.members.iter_mut() {
             if o.scope == Scope::Function {
                 if let Object::Function(n, p, b, i, _) = o.object.clone() {
-                    o.object = Object::Function(n, p, b, i, Some(Rc::clone(&rc)))
+                    o.object = Object::Function(n, p, b, i, Some(Arc::clone(&m)))
                 }
             }
         }

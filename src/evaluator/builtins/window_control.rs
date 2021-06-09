@@ -65,8 +65,6 @@ use std::sync::{Arc, Mutex, Once};
 use std::time::{Duration, Instant};
 use std::thread;
 use std::mem;
-use std::rc::Rc;
-use std::cell::RefCell;
 
 use strum_macros::{EnumString, EnumVariantNames};
 use num_derive::{ToPrimitive, FromPrimitive};
@@ -787,7 +785,7 @@ fn get_all_status(hwnd: HWND) -> BuiltinFuncResult {
     stats.insert((StatusEnum::ST_PATH as u8).to_string(), get_process_path_from_hwnd(hwnd)?);
     stats.insert((StatusEnum::ST_PROCESS as u8).to_string(), Object::Num(get_process_id_from_hwnd(hwnd) as f64));
     stats.insert((StatusEnum::ST_MONITOR as u8).to_string(), get_monitor_index_from_hwnd(hwnd));
-    Ok(Object::HashTbl(Rc::new(RefCell::new(stats))))
+    Ok(Object::HashTbl(Arc::new(Mutex::new(stats))))
 }
 
 pub fn status(args: BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -804,7 +802,7 @@ pub fn status(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             stats.insert(cmd.to_string(), value);
             i += 1;
         }
-        Ok(Object::HashTbl(Rc::new(RefCell::new(stats))))
+        Ok(Object::HashTbl(Arc::new(Mutex::new(stats))))
     } else {
         let cmd = get_non_float_argument_value::<u8>(&args, 1, None)?;
         if cmd == StatusEnum::ST_ALL as u8 {
@@ -950,7 +948,7 @@ pub fn monitor(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             map.insert((MonitorEnum::MON_WORK_Y as u8).to_string(), Object::Num(mi.rcWork.top.into()));
             map.insert((MonitorEnum::MON_WORK_WIDTH as u8).to_string(), Object::Num((mi.rcWork.right - mi.rcWork.left).into()));
             map.insert((MonitorEnum::MON_WORK_HEIGHT as u8).to_string(), Object::Num((mi.rcWork.bottom - mi.rcWork.top).into()));
-            return Ok(Object::HashTbl(Rc::new(RefCell::new(map))));
+            return Ok(Object::HashTbl(Arc::new(Mutex::new(map))));
         },
         MonitorEnum::MON_X => mi.rcMonitor.left,
         MonitorEnum::MON_Y => mi.rcMonitor.top,

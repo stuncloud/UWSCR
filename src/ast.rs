@@ -186,6 +186,7 @@ pub enum Statement {
     },
     Option(OptionSetting),
     Enum(String, UEnum),
+    Thread(Expression),
 }
 #[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub struct UEnum {
