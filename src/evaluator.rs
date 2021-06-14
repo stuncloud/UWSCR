@@ -1817,7 +1817,7 @@ impl Evaluator {
     ) -> EvalResult<Object> {
         let org_param_len = params.len();
         if params.len() > arguments.len() {
-            arguments.resize(params.len(), (None, Object::Empty));
+            arguments.resize(params.len(), (None, Object::EmptyParam));
         } else if params.len() < arguments.len() {
             params.resize(arguments.len(), Expression::Params(Params::VariadicDummy));
         }
@@ -1894,7 +1894,7 @@ impl Evaluator {
                 },
                 Params::WithDefault(i, default) => {
                     let Identifier(name) = i;
-                    if self.is_equal(&o, &Object::Empty)? {
+                    if Object::EmptyParam.is_equal(&o) {
                         (name, self.eval_expression(*default)?)
                     } else {
                         (name, o)

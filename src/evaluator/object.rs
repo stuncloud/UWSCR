@@ -31,6 +31,7 @@ pub enum Object {
     DestructorNotFound, // デストラクタがなかった場合に返る、これが来たらエラーにせず終了する
     Null,
     Empty,
+    EmptyParam,
     Nothing,
     Continue(u32),
     Break(u32),
@@ -122,6 +123,7 @@ impl fmt::Display for Object {
             Object::BuiltinFunction(ref name, _, _) => write!(f, "builtin: {}()", name),
             Object::Null => write!(f, "NULL"),
             Object::Empty => write!(f, ""),
+            Object::EmptyParam => write!(f, "__EMPTYPARAM__"),
             Object::Nothing => write!(f, "NOTHING"),
             Object::Continue(ref n) => write!(f, "Continue {}", n),
             Object::Break(ref n) => write!(f, "Break {}", n),
