@@ -770,12 +770,22 @@ impl Evaluator {
                 },
                 instance_id: Arc::clone(&self.instance_id),
             };
-            // let (tx, rx) = mpsc::channel();
             thread::spawn(move || {
-                let _ = thread_self.eval_function_call_expression(func, args, false);
-                // tx.send(r).unwrap();
+                std::panic::set_hook(Box::new(|panic_info|{
+                    let mut e = panic_info.to_string();
+                    let v = e.rmatch_indices("', s").collect::<Vec<_>>();
+                    if v.len() > 0 {
+                        let i = v[0].0;
+                        e.truncate(i);
+                    }
+                    e = e.replace("panicked at '", "");
+                    eprintln!("Error occured on thread> {}", e);
+                }));
+                let result = thread_self.eval_function_call_expression(func, args, false);
+                if result.is_err() {
+                    panic!("{}", result.unwrap_err());
+                }
             });
-            // let _ = rx.recv().unwrap()?; // thread関数の結果を受け取る // これやるとロックされちゃう
         }
         Ok(None)
     }
