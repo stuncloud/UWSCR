@@ -49,6 +49,8 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("env", 1, env);
     sets.add("exec", 6, exec);
     sets.add("shexec", 2, shexec);
+    sets.add("task", 21, task);
+    sets.add("waittask", 1, wait_task);
     sets
 }
 
@@ -296,4 +298,32 @@ pub fn shexec(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let cmd = get_string_argument_value(&args, 0, None)?;
     let params = get_string_argument_value(&args, 1, None).map_or(None, |s| Some(s));
     Ok(Object::Bool(shell_execute(cmd, params)))
+}
+
+pub fn task(mut args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let obj = get_any_argument_value(&args, 0, None)?;
+    let arguments = args.get_args_from(1);
+    match obj {
+        Object::Function(_, _, _, _, _) |
+        Object::AsyncFunction(_, _, _, _, _) => Ok(Object::SpecialFuncResult(
+            SpecialFuncResultType::Task(Box::new(obj), arguments)
+        )),
+        _ => Err(builtin_func_error(args.name(), "argument should be user defined function"))
+    }
+}
+
+pub fn wait_task(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let task = get_task_argument_value(&args, 0)?;
+    let mut handle = task.handle.lock().unwrap();
+    let result = match handle.take().unwrap().join() {
+        Ok(res) => res,
+        Err(e) => {
+            Err(UError::new(
+                "Task error",
+                "task ended incorrectly",
+                Some(&format!("{:?}", e))
+            ))
+        }
+    };
+    result
 }

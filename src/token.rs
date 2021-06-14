@@ -27,6 +27,8 @@ pub enum Token {
     Public,
     Const,
     Thread,
+    Async,
+    Await,
     HashTable,
     Call,
     Path(Option<String>, String), // directory, filename

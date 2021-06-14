@@ -87,6 +87,7 @@ pub enum Expression {
     FuncCall {
         func: Box<Expression>,
         args: Vec<Expression>,
+        is_await: bool,
     },
     Assign(Box<Expression>, Box<Expression>),
     CompoundAssign(Box<Expression>, Box<Expression>, Infix), // += -= *= /=
@@ -172,6 +173,7 @@ pub enum Statement {
         params: Vec<Expression>,
         body: BlockStatement,
         is_proc: bool,
+        is_async: bool,
     },
     Exit,
     ExitExit(i32),

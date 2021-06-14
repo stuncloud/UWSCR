@@ -16,7 +16,7 @@ use crate::winapi::{
     get_color_depth,
     bindings::Windows::Win32::UI::Shell::CSIDL_APPDATA,
 };
-use crate::evaluator::object::{Object, Version, HashTblEnum, SpecialFuncResultType};
+use crate::evaluator::object::{Object, Version, HashTblEnum, SpecialFuncResultType, UTask};
 use crate::evaluator::environment::NamedObject;
 use crate::ast::Expression;
 
@@ -33,36 +33,44 @@ pub type BuiltinFuncResult = Result<Object, UError>;
 #[derive(Debug, Clone)]
 pub struct BuiltinFuncArgs {
     func_name: String,
-    arg_exprs: Vec<Option<Expression>>,
-    args: Vec<Object>,
+    // arg_exprs: Vec<Option<Expression>>,
+    // args: Vec<Object>,
+    arguments: Vec<(Option<Expression>, Object)>,
 }
 
 impl BuiltinFuncArgs {
     pub fn new(func_name: String, arguments: Vec<(Option<Expression>, Object)>) -> Self {
-        let mut arg_exprs = Vec::new();
-        let mut args = Vec::new();
-        for (e, o) in arguments {
-            arg_exprs.push(e);
-            args.push(o);
-        }
+        // let mut arg_exprs = Vec::new();
+        // let mut args = Vec::new();
+        // for (e, o) in arguments {
+        //     arg_exprs.push(e);
+        //     args.push(o);
+        // }
         BuiltinFuncArgs {
-            func_name, arg_exprs, args
+            // func_name, arg_exprs, args
+            func_name,
+            arguments
         }
     }
     pub fn item(&self, i: usize) -> Option<Object> {
-        self.args.get(i).map(|o| o.clone())
-    }
-    pub fn get(&self) -> Vec<Object> {
-        self.args.clone()
+        self.arguments.get(i).map(|o| o.1.clone())
     }
     pub fn len(&self) -> usize {
-        self.args.len()
+        self.arguments.len()
     }
     pub fn name(&self) -> &str {
         self.func_name.as_str()
     }
     pub fn get_expr(&self, i: usize) -> Option<Expression> {
-        self.arg_exprs.get(i).map_or(None,|e| e.clone())
+        self.arguments.get(i).map_or(None,|e| e.0.clone())
+    }
+    pub fn get_objects_from(&mut self, index: usize) -> Vec<Object> {
+        let rest = self.arguments.split_off(index);
+        rest.into_iter().map(|a| a.1.clone()).collect()
+    }
+    pub fn get_args_from(&mut self, index: usize) -> Vec<(Option<Expression>, Object)> {
+        let rest = self.arguments.split_off(index);
+        rest.into_iter().map(|a| a.clone()).collect()
     }
 }
 
@@ -479,5 +487,17 @@ pub fn get_array_argument_value(args: &BuiltinFuncArgs, i: usize, default: Optio
         }
     } else {
         default.ok_or(builtin_arg_error(&format!("argument {} required", i + 1), args.name()))
+    }
+}
+
+pub fn get_task_argument_value(args: &BuiltinFuncArgs, i: usize) -> Result<UTask, UError> {
+    if args.len() >= i + 1 {
+        let arg = args.item(i).unwrap();
+        match arg {
+            Object::Task(utask) => Ok(utask),
+            _ => Err(builtin_arg_error(&format!("bad argument: {}", arg), args.name()))
+        }
+    } else {
+        Err(builtin_arg_error(&format!("argument {} required", i + 1), args.name()))
     }
 }

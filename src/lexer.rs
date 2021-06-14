@@ -446,6 +446,8 @@ impl Lexer {
             "logfile" => Token::Logfile,
             "dlgtitle" => Token::Dlgtitle,
             "thread" => Token::Thread,
+            "async" => Token::Async,
+            "await" => Token::Await,
             _ => Token::Identifier(literal.to_string()),
         }
     }

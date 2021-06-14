@@ -9,6 +9,7 @@ use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
 pub enum ParseErrorKind {
+    SyntaxError,
     UnexpectedToken,
     BlockNotClosedCorrectly,
     ValueMustBeDefined,
@@ -44,6 +45,7 @@ pub struct ParseError {
 impl fmt::Display for ParseErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
+            ParseErrorKind::SyntaxError => write!(f, "Syntax Error"),
             ParseErrorKind::UnexpectedToken => write!(f, "Unexpected Token"),
             ParseErrorKind::BlockNotClosedCorrectly => write!(f, "Block is not closing correctly"),
             ParseErrorKind::ValueMustBeDefined => write!(f, "constant must define value"),
@@ -394,7 +396,7 @@ impl Parser {
                         program.insert(pub_counter, s);
                         pub_counter += 1;
                     },
-                    Statement::Function{name, params, body, is_proc} => {
+                    Statement::Function{name, params, body, is_proc, is_async} => {
                         let mut new_body = Vec::new();
                         for statement in body {
                             match statement {
@@ -408,7 +410,7 @@ impl Parser {
                             }
                         }
                         program.insert(pub_counter + opt_counter + func_counter, Statement::Function {
-                            name, params, body: new_body, is_proc
+                            name, params, body: new_body, is_proc, is_async
                         });
                         func_counter += 1;
                     },
@@ -431,7 +433,7 @@ impl Parser {
                                     program.insert(pub_counter, statement);
                                     pub_counter += 1;
                                 },
-                                Statement::Function{name:_,params:_,body:_,is_proc:_} |
+                                Statement::Function{name:_,params:_,body:_,is_proc:_,is_async:_} |
                                 Statement::Module(_, _) |
                                 Statement::Class(_, _) => {
                                     program.insert(pub_counter + opt_counter + func_counter, statement);
@@ -488,8 +490,9 @@ impl Parser {
             Token::Call => self.parse_call_statement(),
             Token::DefDll => self.parse_def_dll_statemennt(),
             Token::HashTable => self.parse_hashtable_statement(false),
-            Token::Function => self.parse_function_statement(false),
-            Token::Procedure => self.parse_function_statement(true),
+            Token::Function => self.parse_function_statement(false, false),
+            Token::Procedure => self.parse_function_statement(true, false),
+            Token::Async => self.parse_async_function_statement(),
             Token::Exit => Some(Statement::Exit),
             Token::ExitExit => self.parse_exitexit_statement(),
             Token::Module => self.parse_module_statement(),
@@ -1214,7 +1217,7 @@ impl Parser {
         let mut with_temp_assignment = None;
         let expression = match self.parse_expression(Precedence::Lowest, false) {
             Some(e) => match e {
-                Expression::FuncCall{func:_, args:_} => {
+                Expression::FuncCall{func:_, args:_,is_await:_} => {
                     let with_temp = Expression::Identifier(Identifier(self.get_with_temp_name()));
                     with_temp_assignment = Some(Statement::Expression(Expression::Assign(Box::new(with_temp.clone()), Box::new(e))));
                     with_temp
@@ -1690,7 +1693,7 @@ impl Parser {
         self.bump();
         let expression = self.parse_expression(Precedence::Lowest, false);
         match expression {
-            Some(Expression::FuncCall{func:_,args:_}) => Some(Statement::Thread(expression.unwrap())),
+            Some(Expression::FuncCall{func:_,args:_,is_await:_}) => Some(Statement::Thread(expression.unwrap())),
             _ => {
                 self.errors.push(ParseError::new(
                     ParseErrorKind::InvalidThreadCall,
@@ -1740,6 +1743,7 @@ impl Parser {
             Token::Lparen => self.parse_grouped_expression(),
             Token::Function => self.parse_function_expression(false),
             Token::Procedure => self.parse_function_expression(true),
+            Token::Await => return self.parse_await_func_call_expression(),
             Token::Then | Token::Eol => return None,
             Token::Period => {
                 let e = self.parse_with_dot_expression();
@@ -1822,7 +1826,7 @@ impl Parser {
                 },
                 Token::Lparen => {
                     self.bump();
-                    left = self.parse_function_call_expression(left.unwrap());
+                    left = self.parse_function_call_expression(left.unwrap(), false);
                 },
                 Token::Question => {
                     self.bump();
@@ -1873,6 +1877,8 @@ impl Parser {
             Token::Null |
             Token::Empty |
             Token::Nothing |
+            Token::Async |
+            Token::Await |
             Token::NaN => {
                 self.errors.push(ParseError::new(
                     ParseErrorKind::InvalidIdentifier,
@@ -2300,7 +2306,24 @@ impl Parser {
         Some(Statement::Select {expression, cases, default})
     }
 
-    fn parse_function_statement(&mut self, is_proc: bool) -> Option<Statement> {
+    fn parse_async_function_statement(&mut self) -> Option<Statement> {
+        self.bump();
+        match self.current_token.token {
+            Token::Function => self.parse_function_statement(false, true),
+            Token::Procedure => self.parse_function_statement(true, true),
+            _ => {
+                self.errors.push(ParseError::new(
+                    ParseErrorKind::UnexpectedToken,
+                    "function or procedure is required after async keyword",
+                    self.current_token.pos,
+                    self.script.clone(),
+                ));
+                return None;
+            },
+        }
+    }
+
+    fn parse_function_statement(&mut self, is_proc: bool, is_async: bool) -> Option<Statement> {
         self.bump();
         let name = match self.parse_identifier() {
             Some(i) => i,
@@ -2327,7 +2350,7 @@ impl Parser {
             self.error_got_invalid_close_token(Token::Fend);
             return None;
         }
-        Some(Statement::Function{name, params, body, is_proc})
+        Some(Statement::Function{name, params, body, is_proc, is_async})
     }
 
     fn parse_module_statement(&mut self) -> Option<Statement> {
@@ -2395,7 +2418,7 @@ impl Parser {
                     Statement::Const(_) |
                     Statement::TextBlock(_, _) |
                     Statement::HashTbl(_) => block.push(s),
-                    Statement::Function{ref name, params: _, body: _, is_proc: _} => {
+                    Statement::Function{ref name, params: _, body: _, is_proc: _, is_async:_} => {
                         if name == &identifier {
                             has_constructor = true;
                         }
@@ -2638,7 +2661,26 @@ impl Parser {
         None
     }
 
-    fn parse_function_call_expression(&mut self, func: Expression) -> Option<Expression> {
+    fn parse_await_func_call_expression(&mut self) -> Option<Expression> {
+        self.bump();
+        let pos = self.current_token.pos;
+        match self.parse_expression(Precedence::Lowest, false) {
+            Some(Expression::FuncCall{func,args,is_await:_}) => {
+                Some(Expression::FuncCall{func,args,is_await:true})
+            },
+            _ => {
+                self.errors.push(ParseError::new(
+                    ParseErrorKind::SyntaxError,
+                    "function call is required after await keyword",
+                    pos,
+                    self.script.clone()
+                ));
+                None
+            }
+        }
+    }
+
+    fn parse_function_call_expression(&mut self, func: Expression, is_await: bool) -> Option<Expression> {
         let args = match self.parse_expression_list(Token::Rparen) {
             Some(a) => a,
             None => return None
@@ -2646,7 +2688,8 @@ impl Parser {
 
         Some(Expression::FuncCall {
             func: Box::new(func),
-            args
+            args,
+            is_await,
         })
     }
 
@@ -3631,7 +3674,8 @@ selend
                                         Box::new(Expression::Identifier(Identifier(String::from("b")))),
                                         Box::new(Expression::Identifier(Identifier(String::from("c")))),
                                     )
-                                ]
+                                ],
+                                is_await: false
                             })
                         )),
                         Box::new(Expression::Identifier(Identifier(String::from("d")))),
@@ -3666,9 +3710,11 @@ selend
                                         Box::new(Expression::Literal(Literal::Num(7 as f64))),
                                         Box::new(Expression::Literal(Literal::Num(8 as f64))),
                                     )
-                                ]
+                                ],
+                                is_await: false,
                             }
-                        ]
+                        ],
+                        is_await: false,
                     })
                 ]
             ),
@@ -3735,7 +3781,8 @@ selend
                                     Box::new(None)
                                 ))
                             )
-                        ]
+                        ],
+                        is_await: false,
                     })
                 ]
             ),
@@ -3972,7 +4019,8 @@ wend
                 vec![
                     Statement::Expression(Expression::FuncCall {
                         func: Box::new(Expression::Identifier(Identifier(String::from("dosomething")))),
-                        args: vec![]
+                        args: vec![],
+                        is_await: false,
                     })
                 ]
             )
@@ -4004,7 +4052,8 @@ until (a == b) and (c >= d)
                 vec![
                     Statement::Expression(Expression::FuncCall {
                         func: Box::new(Expression::Identifier(Identifier(String::from("dosomething")))),
-                        args: vec![]
+                        args: vec![],
+                        is_await: false,
                     })
                 ]
             )
@@ -4186,6 +4235,7 @@ fend
                             )
                         ],
                         is_proc: false,
+                        is_async: false
                     }
                 ]
             ),
@@ -4208,6 +4258,7 @@ fend
                         ],
                         body: vec![],
                         is_proc: true,
+                        is_async: false,
                     }
                 ]
             ),
@@ -4225,6 +4276,7 @@ fend
                         ],
                         body: vec![],
                         is_proc: true,
+                        is_async: false,
                     }
                 ]
             ),
@@ -4251,12 +4303,14 @@ fend
                             )
                         ],
                         is_proc: false,
+                        is_async: false,
                     },
                     Statement::Print(Expression::FuncCall{
                         func: Box::new(Expression::Identifier(Identifier("hoge".to_string()))),
                         args: vec![
                             Expression::Literal(Literal::Num(1.0)),
                         ],
+                        is_await: false,
                     })
                 ]
             ),
@@ -4394,7 +4448,8 @@ print hoge.b()
                             Box::new(Expression::Identifier(Identifier("hoge".into()))),
                             Box::new(Expression::Identifier(Identifier("b".into()))),
                         )),
-                        args: vec![]
+                        args: vec![],
+                        is_await: false,
                     })
                 ]
             ),
@@ -4517,18 +4572,21 @@ public p3 = 1
                 params: vec![],
                 body: vec![],
                 is_proc: false,
+                is_async: false,
             },
             Statement::Function {
                 name: Identifier("p1".to_string()),
                 params: vec![],
                 body: vec![],
                 is_proc: true,
+                is_async: false,
             },
             Statement::Function {
                 name: Identifier("f2".to_string()),
                 params: vec![],
                 body: vec![],
                 is_proc: false,
+                is_async: false,
             },
             Statement::Dim(vec![
                 (Identifier("d1".to_string()), Expression::Literal(Literal::Num(1.0)))
@@ -4586,6 +4644,7 @@ endmodule
                             ))
                         ],
                         is_proc: true,
+                        is_async: false,
                     },
                     Statement::Function {
                         name: Identifier("f".to_string()),
@@ -4603,12 +4662,14 @@ endmodule
                                         func: Box::new(Expression::Identifier(Identifier("_f".to_string()))),
                                         args: vec![
                                             Expression::Identifier(Identifier("y".to_string()))
-                                        ]
+                                        ],
+                                        is_await: false,
                                     }),
                                 )),
                             ))
                         ],
                         is_proc: false,
+                        is_async: false,
                     },
                     Statement::Dim(vec![
                         (

@@ -1,12 +1,14 @@
 use crate::ast::*;
 use crate::evaluator::environment::{NamedObject, Module};
 use crate::evaluator::builtins::BuiltinFunction;
+use crate::evaluator::{EvalResult};
 use crate::winapi::bindings::Windows::Win32::UI::WindowsAndMessaging::HWND;
 
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex};
 use std::str::FromStr;
+use std::thread::JoinHandle;
 
 use indexmap::IndexMap;
 use strum_macros::{EnumString, EnumVariantNames};
@@ -23,6 +25,7 @@ pub enum Object {
     HashTbl(Arc<Mutex<HashTbl>>),
     AnonFunc(Vec<Expression>, BlockStatement, Arc<Mutex<Vec<NamedObject>>>, bool),
     Function(String, Vec<Expression>, BlockStatement, bool, Option<Arc<Mutex<Module>>>),
+    AsyncFunction(String, Vec<Expression>, BlockStatement, bool, Option<Arc<Mutex<Module>>>),
     BuiltinFunction(String, i32, BuiltinFunction),
     Module(Arc<Mutex<Module>>),
     Class(String, BlockStatement), // class定義
@@ -49,6 +52,7 @@ pub enum Object {
     Version(Version),
     ExpandableTB(String),
     Enum(UEnum),
+    Task(UTask),
 }
 
 impl fmt::Display for Object {
@@ -100,6 +104,29 @@ impl fmt::Display for Object {
                     write!(f, "procedure: {}({})", func_name, arguments)
                 } else {
                     write!(f, "function: {}({})", func_name, arguments)
+                }
+            },
+            Object::AsyncFunction(ref name, ref params, _, is_proc, ref instance) => {
+                let mut arguments = String::new();
+                let func_name = if instance.is_some() {
+                    instance.clone().unwrap().lock().unwrap().name()
+                } else {
+                    name.to_string()
+                };
+                for (i, e) in params.iter().enumerate() {
+                    match e {
+                        Expression::Params(ref p) => if i < 1 {
+                            arguments.push_str(&format!("{}", p))
+                        } else {
+                            arguments.push_str(&format!(", {}", p))
+                        },
+                        _ => ()
+                    }
+                }
+                if is_proc {
+                    write!(f, "async procedure: {}({})", func_name, arguments)
+                } else {
+                    write!(f, "async function: {}({})", func_name, arguments)
                 }
             },
             Object::AnonFunc(ref params, _, _, is_proc) => {
@@ -158,7 +185,8 @@ impl fmt::Display for Object {
             Object::DynamicVar(func) => write!(f, "{}", func()),
             Object::Version(ref v) => write!(f, "{}", v),
             Object::ExpandableTB(_) => write!(f, "expandable textblock"),
-            Object::Enum(ref e) => write!(f, "Enum {}", e.name)
+            Object::Enum(ref e) => write!(f, "Enum {}", e.name),
+            Object::Task(ref t) => write!(f, "Task [{}]", t),
         }
     }
 }
@@ -168,9 +196,6 @@ impl Object {
         format!("{}", self) == format!("{}", other)
     }
 }
-
-// impl Eq for Object {}
-
 
 impl Hash for Object {
     fn hash<H: Hasher>(&self, state: &mut H) {
@@ -185,25 +210,12 @@ impl Hash for Object {
     }
 }
 
-// impl<T: Eq> PartialEq for Mutex<T> {
-//     fn eq(&self, other: &Self) -> bool {
-//         if ::core::ptr::eq(&self, &other) {
-//             true
-//         } else {
-//             other.lock().unwrap().deref() == self.lock().unwrap().deref()
-//         }
-//     }
-
-//     fn ne(&self, other: &Self) -> bool {
-//         !std::cmp.eq(other)
-//     }
-// }
-
-#[derive(PartialEq, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub enum SpecialFuncResultType {
     GetEnv,
     ListModuleMember(String),
     BuiltinConstName(Option<Expression>),
+    Task(Box<Object>, Vec<(Option<Expression>, Object)>),
 }
 
 // hashtbl
@@ -347,5 +359,17 @@ impl PartialEq<String> for Version {
 impl PartialEq<f64> for Version {
     fn eq(&self, other: &f64) -> bool {
         self.parse() == *other
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct UTask {
+    pub handle: Arc<Mutex<Option<JoinHandle<EvalResult<Object>>>>>,
+}
+
+impl fmt::Display for UTask {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let flag = self.handle.lock().unwrap().is_none();
+        write!(f, "{}", if flag {"done"} else {"running"})
     }
 }

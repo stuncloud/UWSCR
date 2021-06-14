@@ -53,7 +53,7 @@ impl fmt::Display for UError {
 
 type EvalResult<T> = Result<T, UError>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct  Evaluator {
     env: Environment,
     instance_id: Arc<Mutex<u32>>,
@@ -290,9 +290,9 @@ impl Evaluator {
             Statement::Select {expression, cases, default} => {
                 self.eval_select_statement(expression, cases, default)
             },
-            Statement::Function {name, params, body, is_proc} => {
+            Statement::Function {name, params, body, is_proc, is_async} => {
                 let Identifier(fname) = name;
-                let func = self.eval_funtcion_definition_statement(&fname, params, body, is_proc)?;
+                let func = self.eval_funtcion_definition_statement(&fname, params, body, is_proc, is_async)?;
                 self.env.define_function(fname, func)?;
                 Ok(None)
             },
@@ -306,7 +306,7 @@ impl Evaluator {
                     let constructor = m.lock().unwrap().get_constructor();
                     match constructor {
                         Some(o) => {
-                            self.invoke_functionn_object(o, vec![])?;
+                            self.invoke_function_object(o, vec![])?;
                         },
                         None => {}
                     }
@@ -597,10 +597,10 @@ impl Evaluator {
         Ok(None)
     }
 
-    fn eval_funtcion_definition_statement(&mut self, name: &String, params: Vec<Expression>, body: Vec<Statement>, is_proc: bool) -> EvalResult<Object> {
+    fn eval_funtcion_definition_statement(&mut self, name: &String, params: Vec<Expression>, body: Vec<Statement>, is_proc: bool, is_async: bool) -> EvalResult<Object> {
         for statement in body.clone() {
             match statement {
-                Statement::Function{name: _, params: _, body: _, is_proc: _}  => {
+                Statement::Function{name: _, params: _, body: _, is_proc: _, is_async: _}  => {
                     return Err(UError::new(
                         "Function defining error",
                         &format!("nested definition of function/procedure is not allowed"),
@@ -610,7 +610,11 @@ impl Evaluator {
                 _ => {},
             };
         }
-        Ok(Object::Function(name.clone(), params, body, is_proc, None))
+        if is_async {
+            Ok(Object::AsyncFunction(name.clone(), params, body, is_proc, None))
+        } else {
+            Ok(Object::Function(name.clone(), params, body, is_proc, None))
+        }
     }
 
     fn eval_module_statement(&mut self, module_name: &String, block: BlockStatement, is_instance: bool) -> EvalResult<Object> {
@@ -650,7 +654,7 @@ impl Evaluator {
                         module.add(name, hashtbl, scope);
                     }
                 },
-                Statement::Function{name: i, params, body, is_proc} => {
+                Statement::Function{name: i, params, body, is_proc, is_async} => {
                     let Identifier(func_name) = i;
                     let mut new_body = Vec::new();
                     for statement in body.clone() {
@@ -677,7 +681,7 @@ impl Evaluator {
                                     }
                                 }
                             },
-                            Statement::Function{name: _, params: _, body: _, is_proc: is_proc2}  => {
+                            Statement::Function{name: _, params: _, body: _, is_proc: is_proc2, is_async: _}  => {
                                 let in_func = if is_proc2{"procedure"}else{"function"};
                                 let out_func = if is_proc{"procedure"}else{"function"};
                                 return Err(UError::new(
@@ -691,10 +695,11 @@ impl Evaluator {
                     }
                     module.add(
                         func_name.clone(),
-                        Object::Function(
-                            func_name, params, new_body, is_proc,
-                            None
-                        ),
+                        if is_async {
+                            Object::AsyncFunction(func_name, params, new_body, is_proc, None)
+                        } else {
+                            Object::Function(func_name, params, new_body, is_proc, None)
+                        },
                         Scope::Function,
                     );
                 },
@@ -754,7 +759,7 @@ impl Evaluator {
     }
 
     fn eval_thread_statement(&mut self, expression: Expression) -> EvalResult<Option<Object>> {
-        if let Expression::FuncCall{func, args} = expression {
+        if let Expression::FuncCall{func, args, is_await: _} = expression {
             let mut thread_self = Evaluator {
                 env: Environment {
                     current: Arc::new(Mutex::new(Layer {
@@ -767,7 +772,7 @@ impl Evaluator {
             };
             // let (tx, rx) = mpsc::channel();
             thread::spawn(move || {
-                let _ = thread_self.eval_function_call_expression(func, args);
+                let _ = thread_self.eval_function_call_expression(func, args, false);
                 // tx.send(r).unwrap();
             });
             // let _ = rx.recv().unwrap()?; // thread関数の結果を受け取る // これやるとロックされちゃう
@@ -909,8 +914,8 @@ impl Evaluator {
                 let outer_local = self.env.get_local_copy();
                 Object::AnonFunc(params, body, Arc::new(Mutex::new(outer_local)), is_proc)
             },
-            Expression::FuncCall {func, args} => {
-                self.eval_function_call_expression(func, args)?
+            Expression::FuncCall {func, args, is_await} => {
+                self.eval_function_call_expression(func, args, is_await)?
             },
             Expression::Assign(l, r) => {
                 let value = self.eval_expression(*r)?;
@@ -1685,6 +1690,28 @@ impl Evaluator {
         }
     }
 
+    fn invoke_task(&mut self, func: Object, arguments: Vec<(Option<Expression>, Object)>) -> Object {
+        // task用のselfを作る
+        let mut task_self = Evaluator {
+            env: Environment {
+                current: Arc::new(Mutex::new(Layer {
+                    local: Vec::new(),
+                    outer: None,
+                })),
+                global: Arc::clone(&self.env.global)
+            },
+            instance_id: Arc::clone(&self.instance_id),
+        };
+        // 関数を非同期実行し、UTaskを返す
+        let handle = thread::spawn(move || {
+            task_self.invoke_function_object(func, arguments)
+        });
+        let task = UTask {
+            handle: Arc::new(Mutex::new(Some(handle))),
+        };
+        Object::Task(task)
+    }
+
     fn builtin_func_result(&mut self, result: Object) -> EvalResult<Object> {
         let obj = match result {
             Object::Eval(s) => {
@@ -1721,23 +1748,50 @@ impl Evaluator {
                     } else {
                         Object::Empty
                     }
-                }
+                },
+                SpecialFuncResultType::Task(func, arguments) => {
+                    self.invoke_task(*func, arguments)
+                },
             },
             _ => result
         };
         Ok(obj)
     }
 
-    fn eval_function_call_expression(&mut self, func: Box<Expression>, args: Vec<Expression>) -> EvalResult<Object> {
+    fn eval_function_call_expression(&mut self, func: Box<Expression>, args: Vec<Expression>, is_await: bool) -> EvalResult<Object> {
         type Argument = (Option<Expression>, Object);
         let mut arguments: Vec<Argument> = vec![];
         for arg in args {
             arguments.push((Some(arg.clone()), self.eval_expression(arg)?));
         }
 
-        match self.eval_expression_for_func_call(*func)? {
+        let func_object = self.eval_expression_for_func_call(*func)?;
+        match func_object {
             Object::DestructorNotFound => return Ok(Object::Empty),
             Object::Function(_, params, body, is_proc, obj) => return self.invoke_user_function(params, arguments, body, is_proc, None, obj, false),
+            Object::AsyncFunction(_, _,_, _, _) => {
+                let task = self.invoke_task(func_object, arguments);
+                let result = if is_await {
+                    if let Object::Task(t) = task {
+                        let mut handle = t.handle.lock().unwrap();
+                        match handle.take().unwrap().join() {
+                            Ok(res) => res,
+                            Err(e) => {
+                                Err(UError::new(
+                                    "Task error",
+                                    "task ended incorrectly",
+                                    Some(&format!("{:?}", e))
+                                ))
+                            }
+                        }
+                    } else {
+                        Ok(task)
+                    }
+                } else {
+                    Ok(task)
+                };
+                return result;
+            },
             Object::AnonFunc(params, body, o, is_proc) => return self.invoke_user_function(params, arguments, body, is_proc, Some(o), None, false),
             Object::BuiltinFunction(name, expected_param_len, f) => {
                 if expected_param_len >= arguments.len() as i32 {
@@ -1792,9 +1846,10 @@ impl Evaluator {
         };
     }
 
-    fn invoke_functionn_object(&mut self, object: Object, arguments: Vec<(Option<Expression>, Object)>) -> EvalResult<Object> {
+    fn invoke_function_object(&mut self, object: Object, arguments: Vec<(Option<Expression>, Object)>) -> EvalResult<Object> {
         match object {
-            Object::Function(_, params, body, is_proc, module_reference) => {
+            Object::Function(_, params, body, is_proc, module_reference) |
+            Object::AsyncFunction(_, params, body, is_proc, module_reference)=> {
                 return self.invoke_user_function(params, arguments, body, is_proc, None, module_reference, false);
             },
             o => Err(UError::new(
@@ -2033,7 +2088,7 @@ impl Evaluator {
                 if let Object::Instance(ins, _) = obj {
                     let destructor = ins.lock().unwrap().get_destructor();
                     if destructor.is_some() {
-                        self.invoke_functionn_object(destructor.unwrap(), vec![]).ok();
+                        self.invoke_function_object(destructor.unwrap(), vec![]).ok();
                     }
                     ins.lock().unwrap().dispose();
                 }
@@ -2047,7 +2102,7 @@ impl Evaluator {
                     {
                         let destructor = ins.lock().unwrap().get_destructor();
                         if destructor.is_some() {
-                            self.invoke_functionn_object(destructor.unwrap(), vec![]).ok();
+                            self.invoke_function_object(destructor.unwrap(), vec![]).ok();
                         }
                     }
                     ins.lock().unwrap().dispose();
@@ -2069,7 +2124,7 @@ impl Evaluator {
         let instance = match left {
             Expression::Identifier(_) |
             Expression::Index(_, _, _) |
-            Expression::FuncCall{func:_, args:_} |
+            Expression::FuncCall{func:_, args:_, is_await:_} |
             Expression::DotCall(_, _) |
             Expression::UObject(_) => {
                 self.eval_expression(left)?
@@ -2264,7 +2319,7 @@ impl Evaluator {
                     let mut ins = m.lock().unwrap();
                     let destructor = ins.get_destructor();
                     if destructor.is_some() {
-                        self.invoke_functionn_object(destructor.unwrap(), vec![])?;
+                        self.invoke_function_object(destructor.unwrap(), vec![])?;
                     }
                     ins.dispose();
                 },
