@@ -42,7 +42,7 @@ impl Default for USettings {
     fn default() -> Self {
         USettings {
             options: UOption::default(),
-            schema: "https://stuncloud.github.io/UWSCR/schema/uwscr-settings-schema.json".into(),
+            schema: "https://github.com/stuncloud/UWSCR/releases/download/0.1.7/uwscr-settings-schema.json".into(),
         }
     }
 }
