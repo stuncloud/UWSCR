@@ -1700,7 +1700,7 @@ impl Evaluator {
         }
     }
 
-    fn invoke_task(&mut self, func: Object, arguments: Vec<(Option<Expression>, Object)>) -> Object {
+    fn new_task(&mut self, func: Object, arguments: Vec<(Option<Expression>, Object)>) -> UTask {
         // task用のselfを作る
         let mut task_self = Evaluator {
             env: Environment {
@@ -1719,10 +1719,25 @@ impl Evaluator {
         let task = UTask {
             handle: Arc::new(Mutex::new(Some(handle))),
         };
-        Object::Task(task)
+        // Object::Task(task)
+        task
     }
 
-    fn builtin_func_result(&mut self, result: Object) -> EvalResult<Object> {
+    fn await_task(&mut self, task: UTask) -> EvalResult<Object> {
+        let mut handle = task.handle.lock().unwrap();
+        match handle.take().unwrap().join() {
+            Ok(res) => res,
+            Err(e) => {
+                Err(UError::new(
+                    "Task error",
+                    "task ended incorrectly",
+                    Some(&format!("{:?}", e))
+                ))
+            }
+        }
+    }
+
+    fn builtin_func_result(&mut self, result: Object, is_await: bool) -> EvalResult<Object> {
         let obj = match result {
             Object::Eval(s) => {
                 let mut parser = Parser::new(Lexer::new(&s));
@@ -1760,7 +1775,12 @@ impl Evaluator {
                     }
                 },
                 SpecialFuncResultType::Task(func, arguments) => {
-                    self.invoke_task(*func, arguments)
+                    let task = self.new_task(*func, arguments);
+                    if is_await {
+                        self.await_task(task)?
+                    } else {
+                        Object::Task(task)
+                    }
                 },
             },
             _ => result
@@ -1780,25 +1800,11 @@ impl Evaluator {
             Object::DestructorNotFound => return Ok(Object::Empty),
             Object::Function(_, params, body, is_proc, obj) => return self.invoke_user_function(params, arguments, body, is_proc, None, obj, false),
             Object::AsyncFunction(_, _,_, _, _) => {
-                let task = self.invoke_task(func_object, arguments);
+                let task = self.new_task(func_object, arguments);
                 let result = if is_await {
-                    if let Object::Task(t) = task {
-                        let mut handle = t.handle.lock().unwrap();
-                        match handle.take().unwrap().join() {
-                            Ok(res) => res,
-                            Err(e) => {
-                                Err(UError::new(
-                                    "Task error",
-                                    "task ended incorrectly",
-                                    Some(&format!("{:?}", e))
-                                ))
-                            }
-                        }
-                    } else {
-                        Ok(task)
-                    }
+                    self.await_task(task)
                 } else {
-                    Ok(task)
+                    Ok(Object::Task(task))
                 };
                 return result;
             },
@@ -1806,7 +1812,7 @@ impl Evaluator {
             Object::BuiltinFunction(name, expected_param_len, f) => {
                 if expected_param_len >= arguments.len() as i32 {
                     let res = f(BuiltinFuncArgs::new(name, arguments))?;
-                    return self.builtin_func_result(res);
+                    return self.builtin_func_result(res, is_await);
                 } else {
                     let l = arguments.len();
                     return Err(UError::new(
