@@ -123,11 +123,10 @@ impl Environment {
 
     pub fn copy_scope(&mut self, outer_local: Vec<NamedObject>) {
         let outer = Some(Arc::clone(&self.current));
-        let mut current = self.current.lock().unwrap();
-        *current = Layer {
+        self.current = Arc::new(Mutex::new(Layer {
             local: outer_local,
             outer,
-        }
+        }));
     }
 
     pub fn restore_scope(&mut self, anon_outer: Option<Arc<Mutex<Vec<NamedObject>>>>) {

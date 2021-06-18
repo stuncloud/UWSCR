@@ -2062,9 +2062,7 @@ impl Evaluator {
         self.auto_dispose_instances(do_not_dispose, false);
 
         // 関数スコープを抜ける
-        {
-            self.env.restore_scope(anon_outer);
-        }
+        self.env.restore_scope(anon_outer);
 
         for ((_, e), o) in reference.iter().zip(ref_values.iter()) {
             // Expressionが代入可能な場合のみ代入処理を行う
