@@ -33,6 +33,7 @@ use crate::winapi::bindings::{
         }
     },
 };
+use crate::winapi::to_wide_string;
 
 use std::{ptr::null_mut, thread, time};
 use std::mem;
@@ -183,20 +184,14 @@ pub fn env(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(Object::String(std::env::var(env_var).unwrap_or("".to_string())))
 }
 
-pub fn to_wide_string(str: &str) -> Vec<u16> {
-    use std::ffi::OsStr;
-    use std::os::windows::ffi::OsStrExt;
-    OsStr::new(str).encode_wide().chain(Some(0).into_iter()).collect()
-}
-
 pub fn shell_execute(cmd: String, params: Option<String>) -> bool {
     unsafe {
         let hinstance = ShellExecuteW(
             HWND::NULL,
             PWSTR(to_wide_string("open").as_mut_ptr()),
-            PWSTR(to_wide_string(cmd.as_str()).as_mut_ptr()),
+            PWSTR(to_wide_string(&cmd).as_mut_ptr()),
             if params.is_some() {
-                PWSTR(to_wide_string(params.unwrap().as_str()).as_mut_ptr())
+                PWSTR(to_wide_string(&params.unwrap()).as_mut_ptr())
             } else {
                 PWSTR::NULL
             },
@@ -214,7 +209,7 @@ fn create_process(cmd: String, name: &str) -> Result<PROCESS_INFORMATION, UError
         si.dwFlags = STARTF_USESHOWWINDOW;
         si.wShowWindow = SW_SHOW.0 as u16;
         let mut pi: PROCESS_INFORMATION = mem::zeroed();
-        let mut command = to_wide_string(cmd.as_str());
+        let mut command = to_wide_string(&cmd);
 
         let r = CreateProcessW(
             PWSTR::NULL,

@@ -37,8 +37,8 @@ use crate::evaluator::UError;
 use std::ffi::OsStr;
 use std::os::windows::ffi::OsStrExt;
 
-pub fn to_wide_string(string: &String) -> Vec<u16> {
-    OsStr::new(string.as_str()).encode_wide().chain(Some(0).into_iter()).collect::<Vec<_>>()
+pub fn to_wide_string(string: &str) -> Vec<u16> {
+    OsStr::new(string).encode_wide().chain(Some(0).into_iter()).collect::<Vec<_>>()
 }
 
 pub fn get_system_directory() -> String {
