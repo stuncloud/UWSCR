@@ -35,6 +35,17 @@ fn main() {
                     }
                 }
             },
+            Mode::Code(c) => {
+                match script::run_code(c) {
+                    Ok(_) => {},
+                    Err(errors) => {
+                        for err in errors {
+                            // out_log(&err, LogType::Error);
+                            eprintln!("{}", err);
+                        }
+                    }
+                }
+            }
             Mode::Repl(p) => {
                 let exe_path = args.args[0].clone();
                 if p.is_some() {
@@ -137,6 +148,12 @@ impl Args {
             "-v"| "--version" => Ok(Mode::Version),
             "-o"| "--online-help" => Ok(Mode::OnlineHelp),
             "-r" | "--repl" => self.get_path().map(|p| Mode::Repl(p)),
+            "-c" | "--code" => if self.args.len() > 2 {
+                let code = self.args.clone().drain(2..).collect::<Vec<_>>();
+                Ok(Mode::Code(code.join(" ")))
+            } else {
+                Err("code is required.".into())
+            },
             "-a" | "--ast" => match self.get_path() {
                 Ok(Some(p)) => Ok(Mode::Ast(p, false)),
                 Ok(None) => Err("FILE is required".to_string()),
@@ -202,6 +219,7 @@ impl Args {
         println!("  uwscr (-a|--ast) FILE        : スクリプトの構文木を出力");
         println!("  uwscr --ast-force FILE       : 構文エラーでも構文木を出力");
         println!("  uwscr (-l|--lib) FILE        : スクリプトからuwslファイルを生成する");
+        println!("  uwscr (-c|--code) CODE       : 渡された文字列を評価して実行する");
         println!("  uwscr (-s|--settings)        : 設定ファイル(settings.json)を開く");
         // println!("  uwscr --language-server [PORT]   : Language Serverとして起動、デフォルトポートはxxx");
         println!("  uwscr (-h|--help)            : このヘルプを表示");
@@ -217,6 +235,7 @@ impl Args {
 enum Mode {
     Script(PathBuf),
     Repl(Option<PathBuf>),
+    Code(String),
     Ast(PathBuf, bool),
     Lib(PathBuf),
     Server(Option<u16>),

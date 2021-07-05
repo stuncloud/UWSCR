@@ -79,6 +79,21 @@ pub fn run(script: String, mut args: Vec<String>) -> Result<(), Vec<String>> {
     Ok(())
 }
 
+pub fn run_code(code: String) -> Result<(), Vec<String>> {
+    let env = Environment::new(vec![]);
+    let mut evaluator = Evaluator::new(env);
+    let mut parser = Parser::new(Lexer::new(&code));
+    let program = parser.parse();
+    let errors = parser.get_errors();
+    if errors.len() > 0 {
+        return Err(errors.into_iter().map(|e| format!("{}", e)).collect());
+    }
+    if let Err(e) = evaluator.eval(program) {
+        return Err(vec![format!("{}", e)])
+    }
+    Ok(())
+}
+
 pub fn out_ast(script: String, path: &String, force: bool) {
 
     let script_dir = match get_parent_full_path(path) {
