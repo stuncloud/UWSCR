@@ -1620,6 +1620,7 @@ impl Evaluator {
         let obj = match infix {
             Infix::And => Object::Bool(left && right),
             Infix::Or => Object::Bool(left || right),
+            Infix::Xor => Object::Bool(left != right),
             _ => self.eval_infix_number_expression(infix, left as i64 as f64, right as i64 as f64)?
         };
         Ok(obj)
