@@ -45,6 +45,12 @@ pub enum Infix {
     And,
     Or,
     Xor,
+    AndL, // logical and
+    OrL, // logical or
+    XorL, // logical xor
+    AndB, // bit and
+    OrB, // bit or
+    XorB, // bit xor
     Mod,
     Assign,
 }
@@ -65,6 +71,12 @@ impl fmt::Display for Infix {
             Infix::And => write!(f, "and"),
             Infix::Or => write!(f, "or"),
             Infix::Xor => write!(f, "xor"),
+            Infix::AndL => write!(f, "andL"),
+            Infix::OrL => write!(f, "orL"),
+            Infix::XorL => write!(f, "xorL"),
+            Infix::AndB => write!(f, "andB"),
+            Infix::OrB => write!(f, "orB"),
+            Infix::XorB => write!(f, "xorB"),
             Infix::Mod => write!(f, "mod"),
             Infix::Assign => write!(f, ":="),
         }

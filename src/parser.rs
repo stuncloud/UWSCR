@@ -150,8 +150,9 @@ impl Parser {
             Token::LessThan | Token::LessThanEqual => Precedence::Relational,
             Token::GreaterThan | Token::GreaterThanEqual => Precedence::Relational,
             Token::Equal | Token::EqualOrAssign | Token::NotEqual => Precedence::Equality,
-            Token::And => Precedence::And,
-            Token::Or | Token::Xor => Precedence::Or,
+            Token::And | Token::AndL | Token::AndB => Precedence::And,
+            Token::Or | Token::OrL | Token::OrB |
+            Token::Xor | Token::XorL | Token::XorB => Precedence::Or,
             Token::Question => Precedence::Ternary,
             Token::Assign => Precedence::Assign,
             _ => Precedence::Lowest,
@@ -1790,24 +1791,30 @@ impl Parser {
                 return None;
             }
             match self.next_token.token {
-                Token::Plus
-                | Token::Minus
-                | Token::Slash
-                | Token::Asterisk
-                | Token::Equal
-                | Token::EqualOrAssign
-                | Token::NotEqual
-                | Token::LessThan
-                | Token::LessThanEqual
-                | Token::GreaterThan
-                | Token::GreaterThanEqual
-                | Token::And
-                | Token::Or
-                | Token::Xor
-                | Token::Mod
-                | Token::To
-                | Token::Step
-                | Token::In => {
+                Token::Plus |
+                Token::Minus |
+                Token::Slash |
+                Token::Asterisk |
+                Token::Equal |
+                Token::EqualOrAssign |
+                Token::NotEqual |
+                Token::LessThan |
+                Token::LessThanEqual |
+                Token::GreaterThan |
+                Token::GreaterThanEqual |
+                Token::And |
+                Token::Or |
+                Token::Xor |
+                Token::AndL |
+                Token::OrL |
+                Token::XorL |
+                Token::AndB |
+                Token::OrB |
+                Token::XorB |
+                Token::Mod |
+                Token::To |
+                Token::Step |
+                Token::In => {
                     self.bump();
                     left = self.parse_infix_expression(left.unwrap());
                 },
@@ -1870,9 +1877,9 @@ impl Parser {
         let identifier = match token {
             Token::Call |
             Token::Mod |
-            Token::And |
-            Token::Or |
-            Token::Xor |
+            Token::And | Token::AndL | Token::AndB |
+            Token::Or | Token::OrL | Token::OrB |
+            Token::Xor | Token::XorL | Token::XorB |
             Token::Bool(_) |
             Token::Null |
             Token::Empty |
@@ -2117,6 +2124,12 @@ impl Parser {
             Token::And => Infix::And,
             Token::Or => Infix::Or,
             Token::Xor => Infix::Xor,
+            Token::AndL => Infix::AndL,
+            Token::OrL => Infix::OrL,
+            Token::XorL => Infix::XorL,
+            Token::AndB => Infix::AndB,
+            Token::OrB => Infix::OrB,
+            Token::XorB => Infix::XorB,
             Token::Mod => Infix::Mod,
             Token::Assign => Infix::Assign,
             _ => return None

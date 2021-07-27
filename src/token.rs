@@ -44,6 +44,12 @@ pub enum Token {
     And, // and
     Or, // or
     Xor, // xor
+    AndL, // logical and
+    OrL, // logical or
+    XorL, // logical xor
+    AndB, // bit and
+    OrB, // bit or
+    XorB, // bit xor
     Mod, // mod
 
     AddAssign, // +=,

@@ -29,7 +29,7 @@ pub enum Object {
     BuiltinFunction(String, i32, BuiltinFunction),
     Module(Arc<Mutex<Module>>),
     Class(String, BlockStatement), // class定義
-    Instance(Arc<Mutex<Module>>, u32), // classインスタンス, デストラクタが呼ばれたらNoneになる
+    Instance(Arc<Mutex<Module>>, u32), // classインスタンス, デストラクタが呼ばれたらNothingになる
     Instances(Vec<String>), // ローカルのインスタンス参照リスト
     DestructorNotFound, // デストラクタがなかった場合に返る、これが来たらエラーにせず終了する
     Null,

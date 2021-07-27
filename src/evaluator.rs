@@ -66,7 +66,16 @@ impl Evaluator {
 
     fn is_truthy(obj: Object) -> bool {
         match obj {
-            Object::Empty | Object::Bool(false) => false,
+            Object::Empty |
+            Object::Bool(false) |
+            Object::Nothing => false,
+            Object::Instance(ref m, _) => {
+                // 破棄されたインスタンスはNOTHING扱い
+                let ins = m.lock().unwrap();
+                ! ins.is_disposed()
+            },
+            Object::String(ref s) => s.len() > 0,
+            Object::Array(ref arr) => arr.len() > 0,
             Object::Num(n) => {
                 n != 0.0
             },
@@ -1445,7 +1454,48 @@ impl Evaluator {
         Ok(assigned_value)
     }
 
+    fn to_number(obj: &Object) -> Option<f64> {
+        match obj {
+            Object::Num(n) => Some(*n),
+            Object::String(s) => match s.parse::<f64>() {
+                Ok(n) => Some(n),
+                Err(_) => None
+            },
+            Object::Empty => Some(0.0),
+            Object::Bool(b) => Some(*b as i32 as f64),
+            Object::Version(v) => Some(v.parse()),
+            _ => None
+        }
+    }
+
     fn eval_infix_expression(&mut self, infix: Infix, left: Object, right: Object) -> EvalResult<Object> {
+        // 論理演算子なら両辺の真性を評価してから演算する
+        // ビット演算子なら両辺を数値とみなして演算する
+        match infix {
+            // 論理演算子
+            Infix::AndL |
+            Infix::OrL |
+            Infix::XorL => return self.eval_infix_logical_operator_expression(
+                infix, Self::is_truthy(left), Self::is_truthy(right)
+            ),
+            // ビット演算子
+            Infix::AndB |
+            Infix::OrB |
+            Infix::XorB => {
+                let n_left = Self::to_number(&left);
+                let n_right = Self::to_number(&right);
+                if n_left.is_some() && n_right.is_some() {
+                    return self.eval_infix_number_expression(infix, n_left.unwrap(), n_right.unwrap());
+                } else {
+                    return Err(UError::new(
+                        "Bit operator error",
+                        "both left and right of bit operator should be a number",
+                        Some(&format!("{} {} {}", left, infix, right))
+                    ));
+                }
+            },
+            _ => ()
+        }
         match left.clone() {
             Object::Num(n1) => {
                 match right {
@@ -1564,14 +1614,19 @@ impl Evaluator {
             Infix::GreaterThanEqual => Object::Bool(left >= right),
             Infix::Equal => Object::Bool(left == right),
             Infix::NotEqual => Object::Bool(left != right),
-            Infix::And => Object::Num((left as i64 & right as i64) as f64),
-            Infix::Or => Object::Num((left as i64 | right as i64) as f64),
-            Infix::Xor => Object::Num((left as i64 ^ right as i64) as f64),
+            Infix::And | Infix::AndB => Object::Num((left as i64 & right as i64) as f64),
+            Infix::Or | Infix::OrB => Object::Num((left as i64 | right as i64) as f64),
+            Infix::Xor | Infix::XorB => Object::Num((left as i64 ^ right as i64) as f64),
             Infix::Assign => return Err(UError::new(
                 "Infix error",
                 &format!("you can not assign variable in expression: {} {} {}", left, infix, right),
                 None
-            ))
+            )),
+            _ => return Err(UError::new(
+                "Infix error",
+                &format!("mismatched type: {} {} {}", left, infix, right),
+                None
+            )),
         };
         match obj {
             Object::Num(n) => if ! n.is_finite() {
@@ -1618,9 +1673,9 @@ impl Evaluator {
 
     fn eval_infix_logical_operator_expression(&mut self, infix: Infix, left: bool, right: bool) -> EvalResult<Object> {
         let obj = match infix {
-            Infix::And => Object::Bool(left && right),
-            Infix::Or => Object::Bool(left || right),
-            Infix::Xor => Object::Bool(left != right),
+            Infix::And | Infix::AndL => Object::Bool(left && right),
+            Infix::Or | Infix::OrL => Object::Bool(left || right),
+            Infix::Xor | Infix::XorL => Object::Bool(left != right),
             _ => self.eval_infix_number_expression(infix, left as i64 as f64, right as i64 as f64)?
         };
         Ok(obj)
