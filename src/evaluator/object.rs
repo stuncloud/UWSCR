@@ -2,7 +2,9 @@ use crate::ast::*;
 use crate::evaluator::environment::{NamedObject, Module};
 use crate::evaluator::builtins::BuiltinFunction;
 use crate::evaluator::{EvalResult};
-use crate::winapi::bindings::Windows::Win32::UI::WindowsAndMessaging::HWND;
+use crate::winapi::{
+    bindings::Windows::Win32::UI::WindowsAndMessaging::HWND
+};
 
 use std::fmt;
 use std::hash::{Hash, Hasher};
@@ -53,6 +55,7 @@ pub enum Object {
     ExpandableTB(String),
     Enum(UEnum),
     Task(UTask),
+    DefDllFunction(String, String, Vec<DefDllParam>, DllType), // 関数名, dllパス, 引数の型, 戻り値の型
 }
 
 impl fmt::Display for Object {
@@ -187,6 +190,7 @@ impl fmt::Display for Object {
             Object::ExpandableTB(_) => write!(f, "expandable textblock"),
             Object::Enum(ref e) => write!(f, "Enum {}", e.name),
             Object::Task(ref t) => write!(f, "Task [{}]", t),
+            Object::DefDllFunction(ref name, _, _, _) => write!(f, "def_dll: {}", name),
         }
     }
 }

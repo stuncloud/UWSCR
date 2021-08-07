@@ -282,10 +282,11 @@ impl fmt::Display for Params {
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub enum DefDllParam {
-    Param(DllType),
-    Var(DllType),
-    Array(DllType, Option<usize>),
-    VarArray(DllType, Option<usize>),
+    Param {
+        dll_type: DllType,
+        is_var: bool,
+        is_array: bool,
+    },
     Struct(Vec<DefDllParam>),
 }
 
@@ -314,6 +315,7 @@ impl FromStr for DllType {
             "longlong" => DllType::Longlong,
             "safearray" => DllType::SafeArray,
             "void" => DllType::Void,
+            "pointer" => DllType::Pointer,
             unknown => DllType::Unknown(unknown.to_string()),
         };
         Ok(t)
@@ -342,7 +344,37 @@ pub enum DllType {
     Longlong,
     SafeArray,
     Void,
+    Pointer,
     Unknown(String),
+}
+
+impl fmt::Display for DllType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            DllType::Int => write!(f, "int"),
+            DllType::Long => write!(f, "long"),
+            DllType::Bool => write!(f, "bool"),
+            DllType::Uint => write!(f, "uint"),
+            DllType::Hwnd => write!(f, "hwnd"),
+            DllType::String => write!(f, "string"),
+            DllType::Wstring => write!(f, "wstring"),
+            DllType::Float => write!(f, "float"),
+            DllType::Double => write!(f, "double"),
+            DllType::Word => write!(f, "word"),
+            DllType::Dword => write!(f, "dword"),
+            DllType::Byte => write!(f, "byte"),
+            DllType::Char => write!(f, "char"),
+            DllType::Pchar => write!(f, "pchar"),
+            DllType::Wchar => write!(f, "wchar"),
+            DllType::PWchar => write!(f, "pwchar"),
+            DllType::Boolean => write!(f, "boolean"),
+            DllType::Longlong => write!(f, "longlong"),
+            DllType::SafeArray => write!(f, "safearray"),
+            DllType::Void => write!(f, "void"),
+            DllType::Pointer => write!(f, "pointer"),
+            DllType::Unknown(ref s) => write!(f, "Unknown({})", s),
+        }
+    }
 }
 
 #[derive(Debug,Clone,PartialEq,Serialize,Deserialize)]

@@ -58,7 +58,7 @@ fn main() {
             OpenProcess, CreateProcessW, WaitForSingleObject, GetExitCodeProcess, GetCurrentProcess,
         },
         Windows::Win32::System::SystemServices::{
-            NULL, PWSTR, BOOL, HANDLE, MAX_PATH, HINSTANCE,
+            NULL, PSTR, PWSTR, BOOL, HANDLE, MAX_PATH, HINSTANCE,
             SECURITY_ATTRIBUTES, VER_NT_WORKSTATION,
             WaitForInputIdle, IsWow64Process,
         },
@@ -105,6 +105,10 @@ fn main() {
         Windows::Win32::Graphics::Dwm::{
             DWMWINDOWATTRIBUTE, DWMWA_EXTENDED_FRAME_BOUNDS,
             DwmIsCompositionEnabled, DwmGetWindowAttribute,
+        },
+        Windows::Win32::Globalization::{
+            CP_ACP, WC_COMPOSITECHECK, MB_PRECOMPOSED,
+            WideCharToMultiByte, MultiByteToWideChar,
         },
     );
 }

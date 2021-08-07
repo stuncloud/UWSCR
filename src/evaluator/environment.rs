@@ -339,7 +339,7 @@ impl Environment {
         Ok(())
     }
 
-    pub fn define_local(&mut self, name: String, object: Object) -> Result<(), UError> {
+    pub fn define_local(&mut self, name: &str, object: Object) -> Result<(), UError> {
         let key = name.to_ascii_uppercase();
         if self.contains(&key, Scope::Local) || self.contains(&key, Scope::Const) {
             return Err(UError::new(
@@ -351,7 +351,7 @@ impl Environment {
         self.define(key, object, Scope::Local, false)
     }
 
-    pub fn define_public(&mut self, name: String, object: Object) -> Result<(), UError> {
+    pub fn define_public(&mut self, name: &str, object: Object) -> Result<(), UError> {
         let key = name.to_ascii_uppercase();
         if self.contains(&key, Scope::Const) {
             return Err(UError::new(
@@ -363,7 +363,7 @@ impl Environment {
         self.define(key, object, Scope::Public, true)
     }
 
-    pub fn define_const(&mut self, name: String, object: Object) -> Result<(), UError> {
+    pub fn define_const(&mut self, name: &str, object: Object) -> Result<(), UError> {
         let key = name.to_ascii_uppercase();
         if self.contains(&key, Scope::Local) || self.contains(&key, Scope::Public) {
             return Err(UError::new(
@@ -389,7 +389,7 @@ impl Environment {
         self.define(key, object, Scope::Const, true)
     }
 
-    pub fn define_function(&mut self, name: String, object: Object) -> Result<(), UError> {
+    pub fn define_function(&mut self, name: &str, object: Object) -> Result<(), UError> {
         let key = name.to_ascii_uppercase();
         if self.contains(&key, Scope::Function) {
             return Err(UError::new(
@@ -401,7 +401,12 @@ impl Environment {
         self.define(key, object, Scope::Function, true)
     }
 
-    pub fn define_module(&mut self, name: String, object: Object) -> Result<(), UError> {
+    pub fn define_dll_function(&mut self, name: &str, object: Object) -> Result<(), UError> {
+        let key = name.to_ascii_uppercase();
+        self.define(key, object, Scope::Function, true)
+    }
+
+    pub fn define_module(&mut self, name: &str, object: Object) -> Result<(), UError> {
         let key = name.to_ascii_uppercase();
         if self.contains(&key, Scope::Module) {
             return Err(UError::new(
@@ -413,7 +418,7 @@ impl Environment {
         self.define(key, object, Scope::Module, true)
     }
 
-    pub fn define_class(&mut self, name: String, object: Object) -> Result<(), UError> {
+    pub fn define_class(&mut self, name: &str, object: Object) -> Result<(), UError> {
         let key = name.to_ascii_uppercase();
         if self.contains(&key, Scope::Class) {
             return Err(UError::new(
@@ -465,7 +470,7 @@ impl Environment {
                 ));
             }
 
-            self.define_local(key, value)?;
+            self.define_local(&key, value)?;
         } else {
             // ローカル代入不許可
             // 同名のグローバル変数が存在しない場合はエラー

@@ -489,7 +489,7 @@ impl Parser {
             Token::Continue => self.parse_continue_statement(),
             Token::Break => self.parse_break_statement(),
             Token::Call => self.parse_call_statement(),
-            Token::DefDll => self.parse_def_dll_statemennt(),
+            Token::DefDll => self.parse_def_dll_statement(),
             Token::HashTable => self.parse_hashtable_statement(false),
             Token::Function => self.parse_function_statement(false, false),
             Token::Procedure => self.parse_function_statement(true, false),
@@ -853,7 +853,7 @@ impl Parser {
         Some(Statement::Call(call_program, args))
     }
 
-    fn parse_def_dll_statemennt(&mut self) -> Option<Statement> {
+    fn parse_def_dll_statement(&mut self) -> Option<Statement> {
         self.bump();
         let name = match self.current_token.token {
             Token::Identifier(ref s) => s.clone(),
@@ -888,9 +888,10 @@ impl Parser {
                 },
                 // 構造体
                 Token::Lbrace => match self.parse_dll_struct() {
-                    Some(p) => params.push(p),
+                    Some(s) => params.push(s),
                     None => return None,
                 },
+                // Token::Lbrace | Token::Rbrace => {},
                 Token::Comma => {},
                 _ => {
                     self.error_got_unexpected_token();
@@ -1019,13 +1020,13 @@ impl Parser {
         Some(path)
     }
 
-    fn parse_dll_param(&mut self, is_ref: bool) -> Option<DefDllParam> {
-        let t = if let Token::Identifier(s) = self.current_token.token.clone() {
+    fn parse_dll_param(&mut self, is_var: bool) -> Option<DefDllParam> {
+        let dll_type = if let Token::Identifier(s) = self.current_token.token.clone() {
             s.parse::<DllType>().unwrap()
         } else {
             return None;
         };
-        if let DllType::Unknown(unknown) = t {
+        if let DllType::Unknown(unknown) = dll_type {
             self.error_got_invalid_dlltype(unknown);
             return None;
         }
@@ -1033,31 +1034,21 @@ impl Parser {
             self.bump();
             self.bump();
             match self.current_token.token {
-                Token::Rbracket => if is_ref {
-                    Some(DefDllParam::VarArray(t, None))
-                } else {
-                    Some(DefDllParam::Array(t, None))
-                },
-                Token::Num(n) => {
-                    if ! self.is_next_token_expected(Token::Rbracket) {
-                        return None;
-                    }
-                    self.bump();
-                    if is_ref {
-                        Some(DefDllParam::VarArray(t, Some(n as usize)))
-                    } else {
-                        Some(DefDllParam::Array(t, Some(n as usize)))
-                    }
-                },
+                Token::Rbracket => Some(DefDllParam::Param{dll_type, is_var, is_array: true}),
+                // Token::Num(n) => {
+                //     if ! self.is_next_token_expected(Token::Rbracket) {
+                //         return None;
+                //     }
+                //     self.bump();
+                //     Some(DefDllParam::Array(t, var_name, Some(n as usize)))
+                // },
                 _ => {
                     self.error_got_unexpected_token();
                     return None;
                 },
             }
-        } else if is_ref {
-            Some(DefDllParam::Var(t))
         } else {
-            Some(DefDllParam::Param(t))
+            Some(DefDllParam::Param{dll_type, is_var, is_array: false})
         }
     }
 
@@ -4491,20 +4482,20 @@ hoge.a = 1
         let tests = vec![
             (
                 r#"
-def_dll hoge(int, dword[], byte[128], var string, var long[], {word,word}):bool:hoge.dll
+def_dll hoge(int, dword[], byte[], var string, var long[], {word,word}):bool:hoge.dll
                 "#,
                 vec![
                     Statement::DefDll {
                         name: "hoge".into(),
                         params: vec![
-                            DefDllParam::Param(DllType::Int),
-                            DefDllParam::Array(DllType::Dword, None),
-                            DefDllParam::Array(DllType::Byte, Some(128)),
-                            DefDllParam::Var(DllType::String),
-                            DefDllParam::VarArray(DllType::Long, None),
+                            DefDllParam::Param{dll_type: DllType::Int, is_var: false, is_array: false},
+                            DefDllParam::Param{dll_type: DllType::Dword, is_var: false, is_array: true},
+                            DefDllParam::Param{dll_type: DllType::Byte, is_var: false, is_array: true},
+                            DefDllParam::Param{dll_type: DllType::String, is_var: true, is_array: false},
+                            DefDllParam::Param{dll_type: DllType::Long, is_var: true, is_array: true},
                             DefDllParam::Struct(vec![
-                                DefDllParam::Param(DllType::Word),
-                                DefDllParam::Param(DllType::Word),
+                                DefDllParam::Param{dll_type: DllType::Word, is_var: false, is_array: false},
+                                DefDllParam::Param{dll_type: DllType::Word, is_var: false, is_array: false},
                             ]),
                         ],
                         ret_type: DllType::Bool,

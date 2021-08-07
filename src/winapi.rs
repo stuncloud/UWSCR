@@ -7,7 +7,7 @@ use bindings::{
         Win32::{
             System::{
                 SystemServices::{
-                    MAX_PATH, PWSTR
+                    MAX_PATH, PWSTR, PSTR
                 },
                 WindowsProgramming::{
                     GetSystemDirectoryW, GetWindowsDirectoryW
@@ -28,17 +28,85 @@ use bindings::{
                     GetDC, GetDeviceCaps,
                 },
             },
+            Globalization::{
+                CP_ACP, WC_COMPOSITECHECK, MB_PRECOMPOSED,
+                WideCharToMultiByte, MultiByteToWideChar,
+            },
         }
     }
 };
 
 use crate::evaluator::UError;
 
-use std::ffi::OsStr;
+use std::{ffi::OsStr};
 use std::os::windows::ffi::OsStrExt;
 
+pub fn to_ansi_bytes(string: &str) -> Vec<u8> {
+    unsafe {
+        let mut wide = to_wide_string(string);
+        let len = WideCharToMultiByte(
+            CP_ACP,
+            WC_COMPOSITECHECK,
+            PWSTR(wide.as_mut_ptr()),
+            wide.len() as i32,
+            PSTR::NULL,
+            0,
+            PSTR::NULL,
+            &mut 0
+        );
+        if len > 0 {
+            let mut result: Vec<u8> = Vec::with_capacity(len as usize);
+            result.set_len(len as usize);
+            WideCharToMultiByte(
+                CP_ACP,
+                WC_COMPOSITECHECK,
+                PWSTR(wide.as_mut_ptr()),
+                wide.len() as i32,
+                PSTR(result.as_mut_ptr()),
+                result.len() as i32,
+                PSTR::NULL,
+                &mut 0
+            );
+            result
+        } else {
+            vec![]
+        }
+    }
+}
+
+pub fn from_ansi_bytes(ansi: &Vec<u8>) -> String {
+    unsafe {
+        let mut ansi = ansi.clone();
+        let ansi_pointer = ansi.as_mut_ptr();
+        let len = MultiByteToWideChar(
+            CP_ACP,
+            MB_PRECOMPOSED,
+            PSTR(ansi_pointer),
+            ansi.len() as i32,
+            PWSTR::NULL,
+            0
+        );
+        if len > 0 {
+            let mut wide: Vec<u16> = Vec::with_capacity(len as usize);
+            wide.set_len(len as usize);
+            MultiByteToWideChar(
+                CP_ACP,
+                MB_PRECOMPOSED,
+                PSTR(ansi_pointer),
+                ansi.len() as i32,
+                PWSTR(wide.as_mut_ptr()),
+                wide.len() as i32
+            );
+            String::from_utf16_lossy(&wide)
+        } else {
+            String::new()
+        }
+    }
+}
+
 pub fn to_wide_string(string: &str) -> Vec<u16> {
-    OsStr::new(string).encode_wide().chain(Some(0).into_iter()).collect::<Vec<_>>()
+    let result = OsStr::new(string).encode_wide().chain(Some(0).into_iter()).collect::<Vec<_>>();
+    result
 }
 
 pub fn get_system_directory() -> String {

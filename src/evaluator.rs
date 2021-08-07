@@ -2,16 +2,21 @@ pub mod object;
 // pub mod env;
 pub mod environment;
 pub mod builtins;
+pub mod def_dll;
 
 use crate::ast::*;
 // use crate::evaluator::env::*;
 use crate::evaluator::environment::*;
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
+use crate::evaluator::def_dll::*;
 use crate::parser::Parser;
 use crate::lexer::Lexer;
 use crate::logging::{out_log, LogType};
 use crate::settings::usettings_singleton;
+// use crate::winapi::{
+//     to_ansi_bytes, from_ansi_bytes, to_wide_string,
+// };
 
 use std::fmt;
 use std::borrow::Cow;
@@ -19,10 +24,12 @@ use std::env;
 use std::path::PathBuf;
 use std::thread;
 use std::sync::{Arc, Mutex};
+use std::ffi::c_void;
 
 use num_traits::FromPrimitive;
 use regex::Regex;
 use serde_json;
+use libffi::middle::{Cif, CodePtr, Type};
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct UError {
@@ -42,12 +49,38 @@ impl UError {
     }
 }
 
+impl Default for UError {
+    fn default() -> Self {
+        Self::new("", "", None)
+    }
+}
+
 impl fmt::Display for UError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.sub_msg {
             Some(ref sub) => write!(f, "{}: {} [{}]", self.title, self.msg, sub),
             None => write!(f, "{}: {}", self.title, self.msg)
         }
+    }
+}
+
+impl From<dlopen::Error> for UError {
+    fn from(e: dlopen::Error) -> Self {
+        UError::new(
+            "Failed to open dll",
+            &e.to_string(),
+            None
+        )
+    }
+}
+
+impl From<cast::Error> for UError {
+    fn from(e: cast::Error) -> Self {
+        UError::new(
+            "Cast error",
+            &format!("{}", e),
+            None
+        )
     }
 }
 
@@ -219,37 +252,37 @@ impl Evaluator {
             Statement::Dim(vec) => {
                 for (i, e) in vec {
                     let (name, value) = self.eval_definition_statement(i, e)?;
-                    self.env.define_local(name, value)?;
+                    self.env.define_local(&name, value)?;
                 }
                 Ok(None)
             },
             Statement::Public(vec) => {
                 for (i, e) in vec {
                     let (name, value) = self.eval_definition_statement(i, e)?;
-                    self.env.define_public(name, value)?;
+                    self.env.define_public(&name, value)?;
                 }
                 Ok(None)
             },
             Statement::Const(vec) => {
                 for (i, e) in vec {
                     let (name, value) = self.eval_definition_statement(i, e)?;
-                    self.env.define_const(name, value)?;
+                    self.env.define_const(&name, value)?;
                 }
                 Ok(None)
             },
             Statement::TextBlock(i, s) => {
                 let Identifier(name) = i;
                 let value = self.eval_literal(s)?;
-                self.env.define_const(name, value)?;
+                self.env.define_const(&name, value)?;
                 Ok(None)
             },
             Statement::HashTbl(v) => {
                 for (i, hashopt, is_public) in v {
                     let (name, hashtbl) = self.eval_hashtbl_definition_statement(i, hashopt)?;
                     if is_public {
-                        self.env.define_public(name, hashtbl)?;
+                        self.env.define_public(&name, hashtbl)?;
                     } else {
-                        self.env.define_local(name, hashtbl)?;
+                        self.env.define_local(&name, hashtbl)?;
                     }
                 }
                 Ok(None)
@@ -273,7 +306,9 @@ impl Evaluator {
                 )?;
                 Ok(Some(call_res))
             },
-            Statement::DefDll{name: _, params:_, ret_type: _, path: _} => {
+            Statement::DefDll{name, params, ret_type, path} => {
+                let func = self.eval_def_dll_statement(&name, &path, params, ret_type)?;
+                self.env.define_dll_function(&name, func)?;
                 Ok(None)
             },
             Statement::Expression(e) => Ok(Some(self.eval_expression(e)?)),
@@ -302,13 +337,13 @@ impl Evaluator {
             Statement::Function {name, params, body, is_proc, is_async} => {
                 let Identifier(fname) = name;
                 let func = self.eval_funtcion_definition_statement(&fname, params, body, is_proc, is_async)?;
-                self.env.define_function(fname, func)?;
+                self.env.define_function(&fname, func)?;
                 Ok(None)
             },
             Statement::Module(i, block) => {
                 let Identifier(name) = i;
                 let module = self.eval_module_statement(&name, block, false)?;
-                self.env.define_module(name.clone(), module)?;
+                self.env.define_module(&name, module)?;
                 // コンストラクタがあれば実行する
                 let module = self.env.get_module(&name);
                 if let Some(Object::Module(m)) = module {
@@ -325,7 +360,7 @@ impl Evaluator {
             Statement::Class(i, block) => {
                 let Identifier(name) = i;
                 let class = Object::Class(name.clone(), block);
-                self.env.define_class(name.clone(), class)?;
+                self.env.define_class(&name, class)?;
                 Ok(None)
             },
             Statement::With(o_e, block) => if let Some(e) = o_e {
@@ -626,6 +661,10 @@ impl Evaluator {
         }
     }
 
+    fn eval_def_dll_statement(&mut self, name: &str, dll_path: &str, params: Vec<DefDllParam>, ret_type: DllType) -> EvalResult<Object> {
+        Ok(Object::DefDllFunction(name.into(), dll_path.into(), params, ret_type))
+    }
+
     fn eval_module_statement(&mut self, module_name: &String, block: BlockStatement, is_instance: bool) -> EvalResult<Object> {
         let mut module = Module::new(module_name.to_string());
         for statement in block {
@@ -763,7 +802,7 @@ impl Evaluator {
     }
 
     fn eval_enum_statement(&mut self, name: String, uenum: UEnum) -> EvalResult<Option<Object>> {
-        self.env.define_const(name, Object::Enum(uenum))?;
+        self.env.define_const(&name, Object::Enum(uenum))?;
         Ok(None)
     }
 
@@ -1910,12 +1949,196 @@ impl Evaluator {
                     ));
                 }
             },
+            Object::DefDllFunction(name, dll_path, params, ret_type) => {
+                return self.invoke_def_dll_function(name, dll_path, params, ret_type, arguments);
+            },
             o => return Err(UError::new(
                 "Not a function",
                 &format!("{}", o),
                 None
             )),
         };
+    }
+
+    fn invoke_def_dll_function(&mut self, name: String, dll_path: String, params: Vec<DefDllParam>, ret_type: DllType, arguments: Vec<(Option<Expression>, Object)>) -> EvalResult<Object> {
+        // dllを開く
+        let lib = dlopen::raw::Library::open(&dll_path)?;
+        unsafe {
+            // 関数のシンボルを得る
+            let f: *const c_void = lib.symbol(&name)?;
+            // cifで使う
+            let mut arg_types = vec![];
+            let mut args = vec![];
+            // 渡された引数のインデックス
+            let mut i = 0;
+            // 引数の実の値を保持するリスト
+            let mut dll_args: Vec<DllArg> = vec![];
+            // varされた場合に値を返す変数のリスト
+            let mut var_list: Vec<(String, usize)> = vec![];
+
+            for param in params {
+                match param {
+                    DefDllParam::Param {dll_type, is_var, is_array} => {
+                        let t = Self::convert_to_libffi_type(&dll_type)?;
+                        let (arg_exp, obj) = match arguments.get(i) {
+                            Some((a, o)) => (a, o),
+                            None => return Err(UError::new(
+                                "Dll function error",
+                                &format!("missing argument of type {} at position {}", &dll_type, i + 1),
+                                None
+                            ))
+                        };
+                        // 引数が変数なら変数名を得ておく
+                        let arg_name = if let Some(Expression::Identifier(Identifier(ref name))) = arg_exp {
+                            Some(name.to_string())
+                        } else {
+                            None
+                        };
+
+                        if is_array {
+                            match obj {
+                                Object::Array(_) => {
+                                    let arr_arg = match DllArg::new_array(obj, &dll_type) {
+                                        Ok(a) => a,
+                                        Err(_) => return Err(UError::new(
+                                            "Dll function error",
+                                            &format!("array contains invalid type value: ({}[] at position {})", &dll_type, i + 1),
+                                            None
+                                        ))
+                                    };
+
+                                    dll_args.push(arr_arg);
+                                    arg_types.push(Type::pointer());
+                                    // 配列はvarの有無に関係なく値を更新する
+                                    if arg_name.is_some() {
+                                        var_list.push((arg_name.unwrap(), i));
+                                    }
+                                },
+                                _ => return Err(UError::new(
+                                    "Dll function error",
+                                    &format!("argument is not an array: ({}[] at position {})", &dll_type, i + 1),
+                                    None
+                                ))
+                            }
+                        } else {
+                            let dllarg = match DllArg::new(obj, &dll_type) {
+                                Ok(a) => a,
+                                Err(e) => return Err(UError::new(
+                                    "Dll function error",
+                                    &format!("unexpected argument type: {}", e),
+                                    Some(&format!("position {} ({})", i+1, &dll_type))
+                                ))
+                            };
+                            match dllarg {
+                                DllArg::Null => arg_types.push(Type::void()),
+                                _ => arg_types.push(t)
+                            }
+                            dll_args.push(dllarg);
+                            if is_var && arg_name.is_some() {
+                                var_list.push((arg_name.unwrap(), i));
+                            }
+                        }
+                        i += 1;
+                    },
+                    DefDllParam::Struct(_vec) => {},
+                }
+            }
+
+            for dll_arg in &dll_args {
+                args.push(dll_arg.to_arg());
+            }
+
+            let cif = Cif::new(arg_types.into_iter(), Self::convert_to_libffi_type(&ret_type)?);
+
+            // 関数実行
+            let result = match ret_type {
+                DllType::Int |
+                DllType::Long |
+                DllType::Bool => {
+                    let result = cif.call::<i32>(CodePtr::from_ptr(f), &args);
+                    Object::Num(result as f64)
+                },
+                DllType::Uint |
+                DllType::Dword => {
+                    let result = cif.call::<u32>(CodePtr::from_ptr(f), &args);
+                    Object::Num(result as f64)
+                },
+                DllType::Hwnd => {
+                    let result = cif.call::<isize>(CodePtr::from_ptr(f), &args);
+                    Object::Num(result as f64)
+                },
+                DllType::Float => {
+                    let result = cif.call::<f32>(CodePtr::from_ptr(f), &args);
+                    Object::Num(result as f64)
+                },
+                DllType::Double => {
+                    let result = cif.call::<f64>(CodePtr::from_ptr(f), &args);
+                    Object::Num(result as f64)
+                },
+                DllType::Word => {
+                    let result = cif.call::<u16>(CodePtr::from_ptr(f), &args);
+                    Object::Num(result as f64)
+                },
+                DllType::Byte |
+                DllType::Char |
+                DllType::Boolean => {
+                    let result = cif.call::<u8>(CodePtr::from_ptr(f), &args);
+                    Object::Num(result as f64)
+                },
+                DllType::Longlong => {
+                    let result = cif.call::<i64>(CodePtr::from_ptr(f), &args);
+                    Object::Num(result as f64)
+                },
+                DllType::Void => {
+                    cif.call::<*mut c_void>(CodePtr::from_ptr(f), &args);
+                    Object::Empty
+                }
+                _ =>  {
+                    let result = cif.call::<*mut c_void>(CodePtr::from_ptr(f), &args);
+                    Object::Num(result as isize as f64)
+                }
+            };
+
+            // varの処理
+            for (name, index) in var_list {
+                let obj = dll_args[index].to_object();
+                self.env.assign(name, obj)?;
+            }
+
+            Ok(result)
+        }
+    }
+
+    fn convert_to_libffi_type(dll_type: &DllType) -> EvalResult<Type> {
+        let t = match dll_type {
+            DllType::Int |
+            DllType::Long |
+            DllType::Bool => Type::i32(),
+            DllType::Uint => Type::u32(),
+            DllType::Hwnd => Type::isize(),
+            DllType::String |
+            DllType::Wstring => Type::pointer(),
+            DllType::Float => Type::f32(),
+            DllType::Double => Type::f64(),
+            DllType::Word => Type::u16(),
+            DllType::Dword => Type::u32(),
+            DllType::Byte => Type::u8(),
+            DllType::Char => Type::u8(),
+            DllType::Pchar => Type::pointer(), // pointer to char
+            DllType::Wchar => Type::u16(), // utf-16
+            DllType::PWchar => Type::pointer(), // pointer to wchar
+            DllType::Boolean => Type::u8(),
+            DllType::Longlong => Type::i64(),
+            DllType::SafeArray => Type::pointer(),
+            DllType::Void => Type::void(),
+            DllType::Pointer => Type::usize(),
+            DllType::Unknown(u) => return Err(UError::new(
+                "Invalid parameter type",
+                &u,
+                None
+            )),
+        };
+        Ok(t)
     }
 
     fn invoke_function_object(&mut self, object: Object, arguments: Vec<(Option<Expression>, Object)>) -> EvalResult<Object> {
@@ -2046,11 +2269,11 @@ impl Evaluator {
                 }
             };
             if variadic.len() == 0 {
-                self.env.define_local(name, value)?;
+                self.env.define_local(&name, value)?;
             }
         }
         if variadic.len() > 0 {
-            self.env.define_local(variadic_name, Object::Array(variadic))?;
+            self.env.define_local(&variadic_name, Object::Array(variadic))?;
         }
 
         match module_reference {
