@@ -138,6 +138,9 @@ pub enum Token {
     Enum,
     EndEnum,
 
+    Struct,
+    EndStruct,
+
     // Option
     Option,
     Explicit,

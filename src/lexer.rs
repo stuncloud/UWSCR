@@ -404,6 +404,8 @@ impl Lexer {
             "endtextblock" => Token::EndTextBlock,
             "enum" => Token::Enum,
             "endenum" => Token::EndEnum,
+            "struct" => Token::Struct,
+            "endstruct" => Token::EndStruct,
             "function" => Token::Function,
             "procedure" => Token::Procedure,
             "fend" => Token::Fend,

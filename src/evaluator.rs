@@ -17,6 +17,7 @@ use crate::settings::usettings_singleton;
 use std::fmt;
 use std::borrow::Cow;
 use std::env;
+use std::mem;
 use std::path::PathBuf;
 use std::thread;
 use std::sync::{Arc, Mutex};
@@ -307,6 +308,12 @@ impl Evaluator {
                 self.env.define_dll_function(&name, func)?;
                 Ok(None)
             },
+            Statement::Struct(identifier, members) => {
+                let name = identifier.0;
+                let s = self.eval_struct_statement(&name, members)?;
+                self.env.define_struct(&name, s)?;
+                Ok(None)
+            }
             Statement::Expression(e) => Ok(Some(self.eval_expression(e)?)),
             Statement::For {loopvar, from, to, step, block} => {
                 self.eval_for_statement(loopvar, from, to, step, block)
@@ -659,6 +666,63 @@ impl Evaluator {
 
     fn eval_def_dll_statement(&mut self, name: &str, dll_path: &str, params: Vec<DefDllParam>, ret_type: DllType) -> EvalResult<Object> {
         Ok(Object::DefDllFunction(name.into(), dll_path.into(), params, ret_type))
+    }
+
+    fn eval_struct_statement(&mut self, name: &str, members: Vec<(String, DllType)>) -> EvalResult<Object> {
+        let mut total_size = 0;
+        for (_, t) in &members {
+            match t {
+                DllType::Int |
+                DllType::Long |
+                DllType::Bool => total_size += mem::size_of::<i32>(),
+                DllType::Uint |
+                DllType::Dword => total_size += mem::size_of::<u32>(),
+                DllType::Word |
+                DllType::Wchar => total_size += mem::size_of::<u16>(),
+                DllType::Byte |
+                DllType::Char => total_size += mem::size_of::<u8>(),
+                DllType::Float => total_size += mem::size_of::<f32>(),
+                DllType::Double => total_size += mem::size_of::<f64>(),
+                DllType::Longlong => total_size += mem::size_of::<i64>(),
+                DllType::Void => {},
+                _ => total_size += mem::size_of::<usize>(),
+            }
+        }
+        Ok(Object::Struct(name.into(), total_size, members))
+    }
+
+    fn new_ustruct(&self, name: &str, size: usize, members: Vec<(String, DllType)>) -> EvalResult<Object> {
+        let mut ustruct = UStruct::new(&name);
+        for (n, t) in members {
+            let o = match &t {
+                DllType::String |
+                DllType::Wstring |
+                DllType::Pchar |
+                DllType::PWchar => Object::Null,
+                DllType::Unknown(s) => {
+                    match self.env.get_struct(s) {
+                        Some(o) => match o {
+                            Object::Struct(name, size, members) => {
+                                self.new_ustruct(&name, size, members)?
+                            },
+                            _ => return Err(UError::new(
+                                "Error",
+                                &format!("should have struct defintion but got [{}] instead.", &o),
+                                None
+                            )),
+                        },
+                        None => return Err(UError::new(
+                            "UStruct error",
+                            &format!("no struct named {} is defined.", s),
+                            None
+                        ))
+                    }
+                },
+                _ => Object::Num(0.0)
+            };
+            ustruct.add(n, o, t)?;
+        }
+        Ok(Object::UStruct(name.to_string(), size, Arc::new(Mutex::new(ustruct))))
     }
 
     fn eval_module_statement(&mut self, module_name: &String, block: BlockStatement, is_instance: bool) -> EvalResult<Object> {
@@ -1466,11 +1530,21 @@ impl Evaluator {
                         None
                     ));
                 },
+                Object::UStruct(_, _, m) => if let Expression::Identifier(Identifier(name)) = *right {
+                    let mut u = m.lock().unwrap();
+                    u.set(name, value)?;
+                } else {
+                    return Err(UError::new(
+                        "UStruct",
+                        &format!("error on assignment"),
+                        None
+                    ));
+                },
                 o => return Err(UError::new(
                     "Error on . operator",
                     &format!("not module or object: {}", o),
                     None
-                ))
+                )),
             },
             _ => return Err(UError::new(
                 "Invalid assignment",
@@ -1773,13 +1847,16 @@ impl Evaluator {
                     Some(o) => Ok(o),
                     None => match self.env.get_class(&name) {
                         Some(o) => Ok(o),
-                        None => match self.env.get_variable(&name, true) {
+                        None => match self.env.get_struct(&name) {
                             Some(o) => Ok(o),
-                            None => return Err(UError::new(
-                                "Invalid Identifier",
-                                &format!("function not found: {}", &name),
-                                None
-                            )),
+                            None => match self.env.get_variable(&name, true) {
+                                Some(o) => Ok(o),
+                                None => return Err(UError::new(
+                                    "Invalid Identifier",
+                                    &format!("function not found: {}", &name),
+                                    None
+                                )),
+                            }
                         }
                     }
                 }
@@ -1944,6 +2021,10 @@ impl Evaluator {
                         None
                     ));
                 }
+            },
+            Object::Struct(name, size, members) => {
+                let ustruct = self.new_ustruct(&name, size, members)?;
+                return Ok(ustruct)
             },
             Object::DefDllFunction(name, dll_path, params, ret_type) => {
                 return self.invoke_def_dll_function(name, dll_path, params, ret_type, arguments);
@@ -2259,6 +2340,8 @@ impl Evaluator {
             DllType::SafeArray => Type::pointer(),
             DllType::Void => Type::void(),
             DllType::Pointer => Type::usize(),
+            DllType::Struct => Type::pointer(),
+            DllType::CallBack => Type::pointer(),
             DllType::Unknown(u) => return Err(UError::new(
                 "Invalid parameter type",
                 &u,
@@ -2672,6 +2755,16 @@ impl Evaluator {
             } else {
                 Err(UError::new(
                     "Invalid Enum member",
+                    &format!("not an identifier ({:?})", right),
+                    None
+                ))
+            },
+            Object::UStruct(_, _, m) => if let Expression::Identifier(Identifier(member)) = right {
+                let u = m.lock().unwrap();
+                u.get(member)
+            } else {
+                Err(UError::new(
+                    "Invalid UStruct member",
                     &format!("not an identifier ({:?})", right),
                     None
                 ))

@@ -206,6 +206,7 @@ impl Parser {
             Token::Finally,
             Token::EndTry,
             Token::EndEnum,
+            Token::EndStruct,
         ];
         self.is_current_token_in(eobtokens)
     }
@@ -378,10 +379,10 @@ impl Parser {
 
         /*
             グローバル定義をASTの上に移動する
-            1. 変数・定数
+            1. 変数, 定数
             2. OPTION
             3. 関数
-            4. module・class
+            4. module, class, struct
             5. call (定義部分のみ)
          */
 
@@ -422,6 +423,10 @@ impl Parser {
                         program.insert(pub_counter + opt_counter + func_counter, s);
                         func_counter += 1;
                     },
+                    Statement::Struct(_, _) => {
+                        program.insert(pub_counter + opt_counter + func_counter, s);
+                        func_counter += 1;
+                    },
                     Statement::Call(block, params) => {
                         let mut new_block = vec![];
                         for statement in block {
@@ -439,6 +444,10 @@ impl Parser {
                                 Statement::Function{name:_,params:_,body:_,is_proc:_,is_async:_} |
                                 Statement::Module(_, _) |
                                 Statement::Class(_, _) => {
+                                    program.insert(pub_counter + opt_counter + func_counter, statement);
+                                    func_counter += 1;
+                                },
+                                Statement::Struct(_, _) => {
                                     program.insert(pub_counter + opt_counter + func_counter, statement);
                                     func_counter += 1;
                                 },
@@ -492,6 +501,7 @@ impl Parser {
             Token::Break => self.parse_break_statement(),
             Token::Call => self.parse_call_statement(),
             Token::DefDll => self.parse_def_dll_statement(),
+            Token::Struct => self.parse_struct_statement(),
             Token::HashTable => self.parse_hashtable_statement(false),
             Token::Function => self.parse_function_statement(false, false),
             Token::Procedure => self.parse_function_statement(true, false),
@@ -1066,6 +1076,57 @@ impl Parser {
         } else {
             Some(DefDllParam::Param{dll_type, is_var, is_array: false})
         }
+    }
+
+    fn parse_struct_statement(&mut self) -> Option<Statement> {
+        self.bump();
+        let name = match self.parse_identifier_expression() {
+            Some(Expression::Identifier(i)) => i,
+            _ => {
+                self.error_token_is_not_identifier();
+                return None;
+            },
+        };
+        self.bump();
+        self.bump();
+
+        let mut struct_definition = vec![];
+        while ! self.is_current_token_end_of_block() {
+            let member = match self.parse_identifier_expression() {
+                Some(Expression::Identifier(Identifier(i))) => i,
+                _ => {
+                    self.error_token_is_not_identifier();
+                    return None;
+                },
+            };
+
+            if ! self.is_next_token_expected(Token::Colon) {
+                return None;
+            }
+            self.bump();
+            let member_type = match self.parse_identifier_expression() {
+                Some(Expression::Identifier(Identifier(s))) => s.parse::<DllType>().unwrap(),
+                _ => {
+                    self.error_token_is_not_identifier();
+                    return None;
+                },
+            };
+            struct_definition.push((member, member_type));
+            self.bump();
+            self.bump();
+        }
+        if ! self.is_current_token(&Token::EndStruct) {
+            self.errors.push(ParseError::new(
+                ParseErrorKind::BlockNotClosedCorrectly,
+                &format!(
+                    "struct block should be closed by endstruct.",
+                ),
+                self.current_token.pos,
+                self.script.clone()
+            ));
+            return None;
+        }
+        Some(Statement::Struct(name, struct_definition))
     }
 
     fn parse_continue_statement(&mut self) -> Option<Statement> {
@@ -4734,6 +4795,22 @@ endmodule
                     ]),
                 ],
             ),
+        ]);
+    }
+
+    #[test]
+    fn test_struct() {
+        let input = r#"
+struct Point
+    x: long
+    y: long
+endstruct
+        "#;
+        parser_test(input, vec![
+            Statement::Struct(Identifier("Point".into()), vec![
+                ("x".into(), DllType::Long),
+                ("y".into(), DllType::Long),
+            ])
         ]);
     }
 

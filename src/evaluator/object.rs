@@ -2,6 +2,7 @@ use crate::ast::*;
 use crate::evaluator::environment::{NamedObject, Module};
 use crate::evaluator::builtins::BuiltinFunction;
 use crate::evaluator::{EvalResult};
+use crate::evaluator::def_dll::DllArg;
 use crate::winapi::{
     bindings::Windows::Win32::UI::WindowsAndMessaging::HWND
 };
@@ -16,6 +17,8 @@ use indexmap::IndexMap;
 use strum_macros::{EnumString, EnumVariantNames};
 use num_derive::{ToPrimitive, FromPrimitive};
 use serde_json;
+
+use super::UError;
 
 #[derive(Clone, Debug)]
 pub enum Object {
@@ -56,6 +59,8 @@ pub enum Object {
     Enum(UEnum),
     Task(UTask),
     DefDllFunction(String, String, Vec<DefDllParam>, DllType), // 関数名, dllパス, 引数の型, 戻り値の型
+    Struct(String, usize, Vec<(String, DllType)>), // 構造体定義: name, size, [(member name, type)]
+    UStruct(String, usize, Arc<Mutex<UStruct>>) // 構造体インスタンス
 }
 
 impl fmt::Display for Object {
@@ -191,6 +196,8 @@ impl fmt::Display for Object {
             Object::Enum(ref e) => write!(f, "Enum {}", e.name),
             Object::Task(ref t) => write!(f, "Task [{}]", t),
             Object::DefDllFunction(ref name, _, _, _) => write!(f, "def_dll: {}", name),
+            Object::Struct(ref name, _, _) => write!(f, "struct: {}", name),
+            Object::UStruct(ref name, _, _) => write!(f, "instance of struct: {}", name),
         }
     }
 }
@@ -375,5 +382,79 @@ impl fmt::Display for UTask {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let flag = self.handle.lock().unwrap().is_none();
         write!(f, "{}", if flag {"done"} else {"running"})
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct UStruct {
+    name: String,
+    members: Vec<UStructMember>
+}
+
+#[derive(Debug, Clone)]
+pub struct UStructMember {
+    name: String,
+    object: Object,
+    dll_type: DllType,
+}
+
+impl UStruct {
+    pub fn new(name: &str) -> Self {
+        Self {
+            name: name.to_string(),
+            members: vec![]
+        }
+    }
+
+    pub fn add(&mut self, name: String, object: Object, dll_type: DllType) -> EvalResult<()> {
+        match DllArg::new(&object, &dll_type) {
+            Ok(_) => {},
+            Err(e) => return Err(UError::new(
+                "UStruct error",
+                &format!("type of {} should be {} but got {}", &name, dll_type, e),
+                None
+            ))
+        };
+        self.members.push(UStructMember {
+            name,
+            object,
+            dll_type
+        });
+        Ok(())
+    }
+
+    pub fn get(&self, name: String) -> EvalResult<Object> {
+        for member in &self.members {
+            if member.name == name {
+                return Ok(member.object.clone())
+            }
+        }
+        Err(UError::new(
+            "UStruct error",
+            &format!("{} has no member named {}", &self.name, &name),
+            None
+        ))
+    }
+
+    pub fn set(&mut self, name: String, object: Object) -> EvalResult<()> {
+        for member in self.members.iter_mut() {
+            if member.name == name {
+                match DllArg::new(&object, &member.dll_type) {
+                    Ok(_) => {},
+                    Err(e) => return Err(UError::new(
+                        "UStruct error",
+                        &format!("type of {} should be {} but got {}", &name, &member.dll_type, e),
+                        None
+                    ))
+                };
+                member.object = object;
+                return Ok(())
+            }
+        }
+        Err(UError::new(
+            "UStruct error",
+            &format!("{} has no member named {}", &self.name, &name),
+            None
+        ))
     }
 }

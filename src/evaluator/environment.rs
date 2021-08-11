@@ -27,6 +27,7 @@ pub enum Scope {
     Function,
     Module,
     Class,
+    Struct,
     BuiltinConst,
     BuiltinFunc,
 }
@@ -40,6 +41,7 @@ impl fmt::Display for Scope {
             Scope::Function => write!(f,"Function"),
             Scope::Module => write!(f,"Module"),
             Scope::Class => write!(f,"Class"),
+            Scope::Struct => write!(f,"Struct"),
             Scope::BuiltinConst => write!(f,"BuiltinConst"),
             Scope::BuiltinFunc => write!(f,"BuiltinFunc"),
         }
@@ -307,6 +309,10 @@ impl Environment {
         self.get_from_global(&name, Scope::Class)
     }
 
+    pub fn get_struct(&self, name: &String) -> Option<Object> {
+        self.get_from_global(&name, Scope::Struct)
+    }
+
     // 予約語チェック
     fn is_reserved(&mut self, name: &String) -> bool {
         self.global.lock().unwrap().iter().any(|obj| obj.name == *name && obj.scope == Scope::BuiltinConst) ||
@@ -428,6 +434,18 @@ impl Environment {
             ));
         }
         self.define(key, object, Scope::Class, true)
+    }
+
+    pub fn define_struct(&mut self, name: &str, object: Object) -> Result<(), UError> {
+        let key = name.to_ascii_uppercase();
+        if self.contains(&key, Scope::Struct) {
+            return Err(UError::new(
+                "Struct definition error",
+                &format!("{} is already defined.", key),
+                None
+            ));
+        }
+        self.define(key, object, Scope::Struct, true)
     }
 
     fn assignment(&mut self, name: String, value: Object, include_local: bool) -> EvalResult<bool> {

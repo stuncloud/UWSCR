@@ -191,6 +191,7 @@ pub enum Statement {
     ExitExit(i32),
     Module(Identifier, BlockStatement),
     Class(Identifier, BlockStatement),
+    Struct(Identifier, Vec<(String, DllType)>),
     TextBlock(Identifier, Literal),
     With(Option<Expression>, BlockStatement),
     Try {
@@ -202,6 +203,7 @@ pub enum Statement {
     Enum(String, UEnum),
     Thread(Expression),
 }
+
 #[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub struct UEnum {
     pub name: String,
@@ -316,6 +318,8 @@ impl FromStr for DllType {
             "safearray" => DllType::SafeArray,
             "void" => DllType::Void,
             "pointer" => DllType::Pointer,
+            "struct" => DllType::Struct,
+            "callback" => DllType::CallBack,
             unknown => DllType::Unknown(unknown.to_string()),
         };
         Ok(t)
@@ -345,6 +349,8 @@ pub enum DllType {
     SafeArray,
     Void,
     Pointer,
+    Struct,
+    CallBack,
     Unknown(String),
 }
 
@@ -372,6 +378,8 @@ impl fmt::Display for DllType {
             DllType::SafeArray => write!(f, "safearray"),
             DllType::Void => write!(f, "void"),
             DllType::Pointer => write!(f, "pointer"),
+            DllType::Struct => write!(f, "struct"),
+            DllType::CallBack => write!(f, "callback"),
             DllType::Unknown(ref s) => write!(f, "Unknown({})", s),
         }
     }
