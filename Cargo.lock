@@ -508,6 +508,7 @@ dependencies = [
  "encoding_rs",
  "enigo",
  "indexmap",
+ "libc",
  "libffi",
  "num-derive",
  "num-traits",

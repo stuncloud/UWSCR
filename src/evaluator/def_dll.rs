@@ -6,7 +6,9 @@ use crate::winapi::{
 };
 use libffi::middle::{Arg, arg};
 use std::ffi::c_void;
+use std::mem;
 use cast;
+use libc;
 
 #[derive(Debug)]
 pub enum DllArg {
@@ -29,7 +31,7 @@ pub enum DllArg {
     String(Vec<u8>, bool), // string, pchar boolはnullで切るかどうか
     WString(Vec<u16>, bool), // wstring, wpchar boolはnullで切るかどうか
     Pointer(usize),
-    Struct(*mut c_void),
+    Struct(*mut c_void, Vec<(Option<String>, usize, DllArg)>), // pointer, [(name, offset, DllArg)]
     SafeArray,
     Null, // null
 }
@@ -200,6 +202,33 @@ impl DllArg {
         Ok(dll_arg)
     }
 
+    pub fn size(&self) -> usize {
+        match self {
+            DllArg::Int(_) => mem::size_of::<i32>(),
+            DllArg::Uint(_) => mem::size_of::<u32>(),
+            DllArg::Hwnd(_) => mem::size_of::<isize>(),
+            DllArg::Float(_) => mem::size_of::<f32>(),
+            DllArg::Double(_) => mem::size_of::<f64>(),
+            DllArg::Word(_) => mem::size_of::<u16>(),
+            DllArg::Byte(_) => mem::size_of::<u8>(),
+            DllArg::LongLong(_) => mem::size_of::<i64>(),
+            DllArg::IntArray(_) |
+            DllArg::UintArray(_) |
+            DllArg::HwndArray(_) |
+            DllArg::FloatArray(_) |
+            DllArg::DoubleArray(_) |
+            DllArg::WordArray(_) |
+            DllArg::ByteArray(_) |
+            DllArg::LongLongArray(_) |
+            DllArg::String(_, _) |
+            DllArg::WString(_, _) |
+            DllArg::Pointer(_) => mem::size_of::<usize>(),
+            DllArg::Struct(_, _) => 0,
+            DllArg::SafeArray=> 0,
+            DllArg::Null => mem::size_of::<usize>(),
+        }
+    }
+
     pub fn to_arg(&self) -> Arg {
         match self {
             DllArg::Int(v) => arg(v),
@@ -220,7 +249,7 @@ impl DllArg {
             DllArg::LongLongArray(v) => arg(v),
             DllArg::String(v, _) => arg(v),
             DllArg::WString(v, _) => arg(v),
-            DllArg::Struct(v) => arg(v),
+            DllArg::Struct(v, _) => arg(v),
             DllArg::Pointer(v) => arg(v),
             DllArg::SafeArray => arg(&0),
             DllArg::Null => arg(&0),
@@ -290,7 +319,7 @@ impl DllArg {
             DllArg::SafeArray => Object::Null,
             DllArg::Null => Object::Null,
             DllArg::Pointer(v) => Object::Num(*v as f64),
-            DllArg::Struct(_) => Object::Null
+            DllArg::Struct(_, _) => Object::Null
         }
     }
 }
@@ -330,4 +359,255 @@ fn object_vec_to_f64_vec(vec: &Vec<Object>) -> EvalResult<Vec<f64>> {
         }
     }
     Ok(result)
+}
+
+pub fn new_dll_structure(size: usize) -> *mut c_void {
+    unsafe {
+        libc::malloc(size)
+    }
+}
+
+pub fn free_dll_structure(p: *mut c_void) {
+    unsafe {
+        libc::free(p)
+    }
+}
+
+
+pub fn set_value_to_structure<T>(structure: *mut c_void, offset: usize, mut value: T) {
+    let p = (structure as usize + offset) as *mut c_void;
+    let p_value = &mut value as *mut T as *mut c_void;
+    let size = mem::size_of::<T>();
+    unsafe {
+        libc::memcpy(p, p_value, size);
+    }
+}
+
+pub fn get_value_from_structure(structure: *mut c_void, offset: usize, arg: &DllArg) -> Object {
+    let p =  (structure as usize + offset) as *mut c_void;
+    match arg {
+        DllArg::Int(_) => {
+            let size = mem::size_of::<i32>();
+            let mut value = 0;
+            let p_value = &mut value as *mut i32 as *mut c_void;
+            unsafe {
+                libc::memcpy(p_value, p, size);
+            }
+            Object::Num(value as f64)
+        },
+        DllArg::Uint(_) => {
+            let size = mem::size_of::<u32>();
+            let mut value: u32 = 0;
+            let p_value = &mut value as *mut u32 as *mut c_void;
+            unsafe {
+                libc::memcpy(p_value, p, size);
+            }
+            Object::Num(value as f64)
+        },
+        DllArg::Hwnd(_) => {
+            let size = mem::size_of::<isize>();
+            let mut value: isize = 0;
+            let p_value = &mut value as *mut isize as *mut c_void;
+            unsafe {
+                libc::memcpy(p_value, p, size);
+            }
+            Object::Num(value as f64)
+        },
+        DllArg::Float(_) => {
+            let size = mem::size_of::<f32>();
+            let mut value: f32 = 0.0;
+            let p_value = &mut value as *mut f32 as *mut c_void;
+            unsafe {
+                libc::memcpy(p_value, p, size);
+            }
+            Object::Num(value as f64)
+        },
+        DllArg::Double(_) => {
+            let size = mem::size_of::<f64>();
+            let mut value: f64 = 0.0;
+            let p_value = &mut value as *mut f64 as *mut c_void;
+            unsafe {
+                libc::memcpy(p_value, p, size);
+            }
+            Object::Num(value)
+        },
+        DllArg::Word(_) => {
+            let size = mem::size_of::<u16>();
+            let mut value: u16 = 0;
+            let p_value = &mut value as *mut u16 as *mut c_void;
+            unsafe {
+                libc::memcpy(p_value, p, size);
+            }
+            Object::Num(value as f64)
+        },
+        DllArg::Byte(_) => {
+            let size = mem::size_of::<u8>();
+            let mut value: u8 = 0;
+            let p_value = &mut value as *mut u8 as *mut c_void;
+            unsafe {
+                libc::memcpy(p_value, p, size);
+            }
+            Object::Num(value as f64)
+        },
+        DllArg::LongLong(_) => {
+            let size = mem::size_of::<i64>();
+            let mut value: i64 = 0;
+            let p_value = &mut value as *mut i64 as *mut c_void;
+            unsafe {
+                libc::memcpy(p_value, p, size);
+            }
+            Object::Num(value as f64)
+        },
+        DllArg::IntArray(a) => {
+            let size = a.len();
+            let mut array: Vec<i32> = Vec::with_capacity(size);
+            unsafe {
+                array.set_len(size);
+            }
+            let p_array = array.as_mut_ptr() as *mut c_void;
+            unsafe {
+                libc::memcpy(p_array, p, size);
+            }
+            let obj = array.into_iter().map(|v| Object::Num(v as f64)).collect::<Vec<Object>>();
+            Object::Array(obj)
+        },
+        DllArg::UintArray(a) => {
+            let size = a.len();
+            let mut array: Vec<u32> = Vec::with_capacity(size);
+            unsafe {
+                array.set_len(size);
+            }
+            let p_array = array.as_mut_ptr() as *mut c_void;
+            unsafe {
+                libc::memcpy(p_array, p, size);
+            }
+            let obj = array.into_iter().map(|v| Object::Num(v as f64)).collect::<Vec<Object>>();
+            Object::Array(obj)
+        },
+        DllArg::HwndArray(a) => {
+            let size = a.len();
+            let mut array: Vec<isize> = Vec::with_capacity(size);
+            unsafe {
+                array.set_len(size);
+            }
+            let p_array = array.as_mut_ptr() as *mut c_void;
+            unsafe {
+                libc::memcpy(p_array, p, size);
+            }
+            let obj = array.into_iter().map(|v| Object::Num(v as f64)).collect::<Vec<Object>>();
+            Object::Array(obj)
+        },
+        DllArg::FloatArray(a) => {
+            let size = a.len();
+            let mut array: Vec<f32> = Vec::with_capacity(size);
+            unsafe {
+                array.set_len(size);
+            }
+            let p_array = array.as_mut_ptr() as *mut c_void;
+            unsafe {
+                libc::memcpy(p_array, p, size);
+            }
+            let obj = array.into_iter().map(|v| Object::Num(v as f64)).collect::<Vec<Object>>();
+            Object::Array(obj)
+        },
+        DllArg::DoubleArray(a) => {
+            let size = a.len();
+            let mut array: Vec<f64> = Vec::with_capacity(size);
+            unsafe {
+                array.set_len(size);
+            }
+            let p_array = array.as_mut_ptr() as *mut c_void;
+            unsafe {
+                libc::memcpy(p_array, p, size);
+            }
+            let obj = array.into_iter().map(|v| Object::Num(v)).collect::<Vec<Object>>();
+            Object::Array(obj)
+        },
+        DllArg::WordArray(a) => {
+            let size = a.len();
+            let mut array: Vec<u16> = Vec::with_capacity(size);
+            unsafe {
+                array.set_len(size);
+            }
+            let p_array = array.as_mut_ptr() as *mut c_void;
+            unsafe {
+                libc::memcpy(p_array, p, size);
+            }
+            let obj = array.into_iter().map(|v| Object::Num(v as f64)).collect::<Vec<Object>>();
+            Object::Array(obj)
+        },
+        DllArg::ByteArray(a) => {
+            let size = a.len();
+            let mut array: Vec<u8> = Vec::with_capacity(size);
+            unsafe {
+                array.set_len(size);
+            }
+            let p_array = array.as_mut_ptr() as *mut c_void;
+            unsafe {
+                libc::memcpy(p_array, p, size);
+            }
+            let obj = array.into_iter().map(|v| Object::Num(v as f64)).collect::<Vec<Object>>();
+            Object::Array(obj)
+        },
+        DllArg::LongLongArray(a) => {
+            let size = a.len();
+            let mut array: Vec<i64> = Vec::with_capacity(size);
+            unsafe {
+                array.set_len(size);
+            }
+            let p_array = array.as_mut_ptr() as *mut c_void;
+            unsafe {
+                libc::memcpy(p_array, p, size);
+            }
+            let obj = array.into_iter().map(|v| Object::Num(v as f64)).collect::<Vec<Object>>();
+            Object::Array(obj)
+        },
+        DllArg::String(a, is_null_end) => {
+            let size = a.len();
+            let mut array: Vec<u8> = Vec::with_capacity(size);
+            unsafe {
+                array.set_len(size);
+            }
+            let p_array = array.as_mut_ptr() as *mut c_void;
+            unsafe {
+                libc::memcpy(p_array, p, size);
+            }
+            let str = from_ansi_bytes(&array);
+            if *is_null_end {
+                let null_end_str = str.split("\0").collect::<Vec<&str>>();
+                Object::String(null_end_str[0].to_string())
+            } else {
+                Object::String(str)
+            }
+        },
+        DllArg::WString(a, is_null_end) => {
+            let size = a.len();
+            let mut array: Vec<u16> = Vec::with_capacity(size);
+            unsafe {
+                array.set_len(size);
+            }
+            let p_array = array.as_mut_ptr() as *mut c_void;
+            unsafe {
+                libc::memcpy(p_array, p, size);
+            }
+            let str = String::from_utf16_lossy(&array);
+            if *is_null_end {
+                let null_end_str = str.split("\0").collect::<Vec<&str>>();
+                Object::String(null_end_str[0].to_string())
+            } else {
+                Object::String(str)
+            }
+        },
+        DllArg::Null => Object::Null,
+        DllArg::Pointer(_) => {
+            let size = mem::size_of::<usize>();
+            let mut value: usize = 0;
+            let p_value = &mut value as *mut usize as *mut c_void;
+            unsafe {
+                libc::memcpy(p_value, p, size);
+            }
+            Object::Num(value as f64)
+        },
+        _ => Object::Empty
+    }
 }

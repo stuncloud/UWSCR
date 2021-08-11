@@ -22,6 +22,7 @@ pub enum ParseErrorKind {
     InvalidFilePath,
     InvalidDllType,
     DllPathNonFound,
+    DllDefinitionError,
     InvalidIdentifier,
     InvalidHexNumber,
     CanNotCallScript,
@@ -58,6 +59,7 @@ impl fmt::Display for ParseErrorKind {
             ParseErrorKind::InvalidFilePath => write!(f, "Invalid file path"),
             ParseErrorKind::InvalidDllType => write!(f, "Invalid dll type"),
             ParseErrorKind::DllPathNonFound => write!(f, "Dll path not found"),
+            ParseErrorKind::DllDefinitionError => write!(f, "de_dll Error"),
             ParseErrorKind::InvalidIdentifier => write!(f, "Invalid identifier"),
             ParseErrorKind::InvalidHexNumber => write!(f, "Invalid hex number"),
             ParseErrorKind::CanNotCallScript => write!(f, "Failed to load script"),
@@ -960,7 +962,8 @@ impl Parser {
     fn parse_dll_struct(&mut self) -> Option<DefDllParam> {
         self.bump();
         let mut s = Vec::new();
-        while ! self.is_current_token_in(vec![Token::Rbrace, Token::Eol, Token::Eof]) {
+        let mut nested = 0;
+        while ! self.is_current_token_in(vec![Token::Eol, Token::Eof]) {
             match self.current_token.token {
                 Token::Identifier(_) => {
                     let def_dll_param = self.parse_dll_param(false);
@@ -979,13 +982,26 @@ impl Parser {
                         s.push(def_dll_param.unwrap());
                     }
                 },
-                Token::Lbrace => match self.parse_dll_struct() {
-                    Some(p) => s.push(p),
-                    None => {
-                        self.error_got_unexpected_token();
-                        return None;
-                    },
-                }
+                // ネスト定義は平で書いたのと同義にする
+                // {long, {long, long}}
+                // ↓
+                // {long, long, long}
+                Token::Lbrace => {
+                    nested += 1;
+                },
+                Token::Rbrace => if nested == 0 {
+                    break;
+                } else if nested < 0 {
+                    self.errors.push(ParseError::new(
+                        ParseErrorKind::DllDefinitionError,
+                        "{ is missing",
+                        self.current_token.pos,
+                        self.script.clone()
+                    ));
+                    return None;
+                } else {
+                    nested -= 1;
+                },
                 Token::Comma => {},
                 _ => {
                     self.error_got_unexpected_token();
@@ -4496,6 +4512,26 @@ def_dll hoge(int, dword[], byte[], var string, var long[], {word,word}):bool:hog
                             DefDllParam::Struct(vec![
                                 DefDllParam::Param{dll_type: DllType::Word, is_var: false, is_array: false},
                                 DefDllParam::Param{dll_type: DllType::Word, is_var: false, is_array: false},
+                            ]),
+                        ],
+                        ret_type: DllType::Bool,
+                        path: "hoge.dll".into()
+                    }
+                ]
+            ),
+            (
+                r#"
+def_dll hoge({long, long, {long, long}}):bool:hoge.dll
+                "#,
+                vec![
+                    Statement::DefDll {
+                        name: "hoge".into(),
+                        params: vec![
+                            DefDllParam::Struct(vec![
+                                DefDllParam::Param{dll_type: DllType::Long, is_var: false, is_array: false},
+                                DefDllParam::Param{dll_type: DllType::Long, is_var: false, is_array: false},
+                                DefDllParam::Param{dll_type: DllType::Long, is_var: false, is_array: false},
+                                DefDllParam::Param{dll_type: DllType::Long, is_var: false, is_array: false},
                             ]),
                         ],
                         ret_type: DllType::Bool,

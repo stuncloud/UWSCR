@@ -2030,17 +2030,132 @@ impl Evaluator {
                                 ))
                             };
                             match dllarg {
+                                // null文字列の場合はvoid型にしておく
                                 DllArg::Null => arg_types.push(Type::void()),
                                 _ => arg_types.push(t)
                             }
                             dll_args.push(dllarg);
                             if is_var && arg_name.is_some() {
-                                var_list.push((arg_name.unwrap(), i));
+                                var_list.push((arg_name.unwrap(), dll_args.len() - 1));
                             }
                         }
                         i += 1;
                     },
-                    DefDllParam::Struct(_vec) => {},
+                    DefDllParam::Struct(params) => {
+                        let mut struct_size: usize = 0;
+                        let mut members: Vec<(Option<String>, usize, DllArg)> = vec![];
+                        // let mut struct_args: Vec<DllArg> = vec![];
+                        for param in params {
+                            match param {
+                                DefDllParam::Param {dll_type, is_var: _, is_array} => {
+                                    let (arg_exp, obj) = match arguments.get(i) {
+                                        Some((a, o)) => (a, o),
+                                        None => return Err(UError::new(
+                                            "Dll function error",
+                                            &format!("missing argument of type {} at position {}", &dll_type, i + 1),
+                                            None
+                                        ))
+                                    };
+                                    // 引数が変数なら変数名を得ておく
+                                    let arg_name = if let Some(Expression::Identifier(Identifier(ref name))) = arg_exp {
+                                        Some(name.to_string())
+                                    } else {
+                                        None
+                                    };
+
+                                    let arg = if is_array {
+                                        match DllArg::new_array(obj, &dll_type) {
+                                            Ok(a) => a,
+                                            Err(_) => return Err(UError::new(
+                                                "Dll function error",
+                                                &format!("array contains invalid type value: ({}[] at position {})", &dll_type, i + 1),
+                                                None
+                                            ))
+                                        }
+                                    } else {
+                                        match DllArg::new(obj, &dll_type) {
+                                            Ok(a) => a,
+                                            Err(e) => return Err(UError::new(
+                                                "Dll function error",
+                                                &format!("unexpected argument type: {}", e),
+                                                Some(&format!("position {} ({})", i+1, &dll_type))
+                                            ))
+                                        }
+                                    };
+                                    let size = arg.size();
+                                    // struct_args.push(arg);
+                                    members.push((arg_name, struct_size, arg));
+                                    struct_size += size;
+                                    i += 1;
+                                },
+                                DefDllParam::Struct(_) => return Err(UError::new(
+                                    "Dll function error",
+                                    "nested struct", None
+                                )),
+                            }
+                        }
+                        let structure = new_dll_structure(struct_size);
+                        for (_, offset, arg) in &members {
+                            match arg {
+                                DllArg::Int(v) => set_value_to_structure(structure, *offset, *v),
+                                DllArg::Uint(v) => set_value_to_structure(structure, *offset, *v),
+                                DllArg::Hwnd(v) => set_value_to_structure(structure, *offset, *v),
+                                DllArg::Float(v) => set_value_to_structure(structure, *offset, *v),
+                                DllArg::Double(v) => set_value_to_structure(structure, *offset, *v),
+                                DllArg::Word(v) => set_value_to_structure(structure, *offset, *v),
+                                DllArg::Byte(v) => set_value_to_structure(structure, *offset, *v),
+                                DllArg::LongLong(v) => set_value_to_structure(structure, *offset, *v),
+                                DllArg::IntArray(v) => {
+                                    let p = *v.as_ptr() as usize;
+                                    set_value_to_structure(structure, *offset, p);
+                                },
+                                DllArg::UintArray(v) => {
+                                    let p = *v.as_ptr() as usize;
+                                    set_value_to_structure(structure, *offset, p);
+                                },
+                                DllArg::HwndArray(v) => {
+                                    let p = *v.as_ptr() as usize;
+                                    set_value_to_structure(structure, *offset, p);
+                                },
+                                DllArg::FloatArray(v) => {
+                                    let p = *v.as_ptr() as usize;
+                                    set_value_to_structure(structure, *offset, p);
+                                },
+                                DllArg::DoubleArray(v) => {
+                                    let p = *v.as_ptr() as usize;
+                                    set_value_to_structure(structure, *offset, p);
+                                },
+                                DllArg::WordArray(v) => {
+                                    let p = *v.as_ptr() as usize;
+                                    set_value_to_structure(structure, *offset, p);
+                                },
+                                DllArg::ByteArray(v) => {
+                                    let p = *v.as_ptr() as usize;
+                                    set_value_to_structure(structure, *offset, p);
+                                },
+                                DllArg::LongLongArray(v) => {
+                                    let p = *v.as_ptr() as usize;
+                                    set_value_to_structure(structure, *offset, p);
+                                },
+                                DllArg::String(v, _) => {
+                                    let p = *v.as_ptr() as usize;
+                                    set_value_to_structure(structure, *offset, p);
+                                },
+                                DllArg::WString(v, _) => {
+                                    let p = *v.as_ptr() as usize;
+                                    set_value_to_structure(structure, *offset, p);
+                                },
+                                DllArg::Pointer(v) => set_value_to_structure(structure, *offset, v),
+                                _ => return Err(UError::new(
+                                    "Dll function error",
+                                    "invalid struct member type", None
+                                )),
+                            }
+                        }
+                        dll_args.push(DllArg::Struct(structure, members));
+                        arg_types.push(Type::pointer());
+                        var_list.push(("".into(), dll_args.len() -1));
+                    },
                 }
             }
 
@@ -2089,6 +2204,10 @@ impl Evaluator {
                     let result = cif.call::<i64>(CodePtr::from_ptr(f), &args);
                     Object::Num(result as f64)
                 },
+                DllType::Pointer => {
+                    let result = cif.call::<usize>(CodePtr::from_ptr(f), &args);
+                    Object::Num(result as f64)
+                },
                 DllType::Void => {
                     cif.call::<*mut c_void>(CodePtr::from_ptr(f), &args);
                     Object::Empty
@@ -2101,8 +2220,19 @@ impl Evaluator {
 
             // varの処理
             for (name, index) in var_list {
-                let obj = dll_args[index].to_object();
-                self.env.assign(name, obj)?;
+                let arg = &dll_args[index];
+                if let DllArg::Struct(p, m) = arg {
+                    for (name, offset, arg) in m {
+                        if name.is_some() {
+                            let obj = get_value_from_structure(*p, *offset, arg);
+                            self.env.assign(name.to_owned().unwrap(), obj)?;
+                        }
+                    }
+                    free_dll_structure(*p);
+                } else {
+                    let obj = arg.to_object();
+                    self.env.assign(name, obj)?;
+                }
             }
 
             Ok(result)
