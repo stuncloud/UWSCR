@@ -5,7 +5,6 @@ pub mod builtins;
 pub mod def_dll;
 
 use crate::ast::*;
-// use crate::evaluator::env::*;
 use crate::evaluator::environment::*;
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
@@ -14,9 +13,6 @@ use crate::parser::Parser;
 use crate::lexer::Lexer;
 use crate::logging::{out_log, LogType};
 use crate::settings::usettings_singleton;
-// use crate::winapi::{
-//     to_ansi_bytes, from_ansi_bytes, to_wide_string,
-// };
 
 use std::fmt;
 use std::borrow::Cow;
@@ -854,7 +850,7 @@ impl Evaluator {
                     1 => {
                         let e = index_list[0].clone();
                         let size = match self.eval_expression(e)? {
-                            Object::Num(n) => n as usize + 1,
+                            Object::Num(n) => (n + 1.0) as usize,
                             Object::Empty => v.len(),
                             o => return Err(UError::new(
                                 "Array error",
@@ -2214,6 +2210,7 @@ impl Evaluator {
                 }
                 _ =>  {
                     let result = cif.call::<*mut c_void>(CodePtr::from_ptr(f), &args);
+                    println!("[warning] {} is not fully supported for return type.", ret_type);
                     Object::Num(result as isize as f64)
                 }
             };
