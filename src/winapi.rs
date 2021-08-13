@@ -74,6 +74,23 @@ pub fn to_ansi_bytes(string: &str) -> Vec<u8> {
     }
 }
 
+pub fn get_ansi_length(string: &str) -> usize {
+    unsafe {
+        let mut wide = to_wide_string(string);
+        let len = WideCharToMultiByte(
+            CP_ACP,
+            WC_COMPOSITECHECK,
+            PWSTR(wide.as_mut_ptr()),
+            wide.len() as i32,
+            PSTR::NULL,
+            0,
+            PSTR::NULL,
+            &mut 0
+        );
+        len as usize - 1
+    }
+}
+
 pub fn from_ansi_bytes(ansi: &Vec<u8>) -> String {
     unsafe {
         let mut ansi = ansi.clone();
