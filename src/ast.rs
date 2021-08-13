@@ -1,5 +1,6 @@
 use std::fmt;
 use std::str::FromStr;
+use std::mem;
 
 use serde::{Serialize, Deserialize};
 
@@ -352,6 +353,37 @@ pub enum DllType {
     Struct,
     CallBack,
     Unknown(String),
+}
+
+impl DllType {
+    pub fn size(&self) -> usize {
+        match self {
+            DllType::Int |
+            DllType::Long |
+            DllType::Bool => mem::size_of::<i32>(),
+            DllType::Uint |
+            DllType::Dword => mem::size_of::<u32>(),
+            DllType::Hwnd => mem::size_of::<isize>(),
+            DllType::Float => mem::size_of::<f32>(),
+            DllType::Double => mem::size_of::<f64>(),
+            DllType::Word |
+            DllType::Wchar => mem::size_of::<u16>(),
+            DllType::Byte |
+            DllType::Boolean |
+            DllType::Char => mem::size_of::<u8>(),
+            DllType::Longlong => mem::size_of::<i64>(),
+            DllType::String |
+            DllType::Wstring |
+            DllType::Pchar |
+            DllType::PWchar |
+            DllType::Pointer |
+            DllType::Struct |
+            DllType::CallBack |
+            DllType::Unknown(_) => mem::size_of::<usize>(),
+            DllType::SafeArray |
+            DllType::Void => 0,
+        }
+    }
 }
 
 impl fmt::Display for DllType {

@@ -7,8 +7,11 @@ use crate::winapi::{
 use libffi::middle::{Arg, arg};
 use std::ffi::c_void;
 use std::mem;
+use std::sync::{Arc, Mutex};
 use cast;
 use libc;
+
+use super::object::UStruct;
 
 #[derive(Debug)]
 pub enum DllArg {
@@ -32,6 +35,7 @@ pub enum DllArg {
     WString(Vec<u16>, bool), // wstring, wpchar boolはnullで切るかどうか
     Pointer(usize),
     Struct(*mut c_void, Vec<(Option<String>, usize, DllArg)>), // pointer, [(name, offset, DllArg)]
+    UStruct(*mut c_void, Arc<Mutex<UStruct>>),
     SafeArray,
     Null, // null
 }
@@ -39,7 +43,7 @@ pub enum DllArg {
 impl DllArg {
     pub fn new(obj: &Object, dll_type: &DllType) -> Result<Self, String> {
         let dll_arg = match obj {
-            Object::Array(_) => return Err("array".into()),
+            Object::Array(_) => return Err("unexpected argument type: array".into()),
             Object::Num(n) => match dll_type {
                 DllType::Int |
                 DllType::Long |
@@ -71,7 +75,7 @@ impl DllArg {
                     Self::WString(s, false)
                 },
                 DllType::Pointer => Self::Pointer(*n as usize),
-                _ => return Err("number".into())
+                _ => return Err("unexpected argument type: number".into())
             },
             Object::Empty => match dll_type {
                 DllType::Int |
@@ -103,7 +107,7 @@ impl DllArg {
                     let s = to_wide_string("");
                     Self::WString(s, false)
                 },
-                _ => return Err("EMPTY".into())
+                _ => return Err("unexpected argument type: EMPTY".into())
             },
             Object::Null => match dll_type {
                 DllType::Int |
@@ -123,7 +127,7 @@ impl DllArg {
                 DllType::Pchar |
                 DllType::Wstring |
                 DllType::PWchar => Self::Null,
-                _ => return Err("NULL".into())
+                _ => return Err("unexpected argument type: NULL".into())
             },
             Object::String(ref s) => match dll_type {
                 DllType::String => {
@@ -142,12 +146,27 @@ impl DllArg {
                     let s = to_wide_string(s);
                     Self::WString(s, false)
                 },
-                _ => return Err("string".into())
+                _ => return Err("unexpected argument type: string".into())
             },
             Object::Bool(b) => match dll_type {
                 DllType::Bool => Self::Int(*b as i32),
                 DllType::Boolean => Self::Byte(*b as u8),
-                _ => return Err("bool".into())
+                _ => return Err("unexpected argument type: bool".into())
+            },
+            Object::UStruct(_, size, members) => match dll_type {
+                DllType::Struct => {
+                    let p = new_dll_structure(*size);
+                    let m = Arc::clone(members);
+                    {
+                        let u = m.lock().unwrap();
+                        match u.to_pointer(p as usize) {
+                            Ok(()) => {},
+                            Err(e) => return Err(format!("{}", e))
+                        }
+                    }
+                    Self::UStruct(p, m)
+                },
+                _ => return Err("unexpected argument type: struct".into())
             },
             o => return Err(format!("{}", o))
         };
@@ -224,6 +243,7 @@ impl DllArg {
             DllArg::WString(_, _) |
             DllArg::Pointer(_) => mem::size_of::<usize>(),
             DllArg::Struct(_, _) => 0,
+            &DllArg::UStruct(_, _) => mem::size_of::<usize>(),
             DllArg::SafeArray=> 0,
             DllArg::Null => mem::size_of::<usize>(),
         }
@@ -250,6 +270,7 @@ impl DllArg {
             DllArg::String(v, _) => arg(v),
             DllArg::WString(v, _) => arg(v),
             DllArg::Struct(v, _) => arg(v),
+            DllArg::UStruct(v, _) => arg(v),
             DllArg::Pointer(v) => arg(v),
             DllArg::SafeArray => arg(&0),
             DllArg::Null => arg(&0),
@@ -319,7 +340,8 @@ impl DllArg {
             DllArg::SafeArray => Object::Null,
             DllArg::Null => Object::Null,
             DllArg::Pointer(v) => Object::Num(*v as f64),
-            DllArg::Struct(_, _) => Object::Null
+            DllArg::Struct(_, _) => Object::Null,
+            DllArg::UStruct(_, _) => Object::Null,
         }
     }
 }

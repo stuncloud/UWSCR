@@ -691,7 +691,7 @@ impl Evaluator {
         Ok(Object::Struct(name.into(), total_size, members))
     }
 
-    fn new_ustruct(&self, name: &str, size: usize, members: Vec<(String, DllType)>) -> EvalResult<Object> {
+    fn new_ustruct(&self, name: &str, size: usize, members: Vec<(String, DllType)>, address: Option<usize>) -> EvalResult<Object> {
         let mut ustruct = UStruct::new(&name);
         for (n, t) in members {
             let o = match &t {
@@ -703,7 +703,9 @@ impl Evaluator {
                     match self.env.get_struct(s) {
                         Some(o) => match o {
                             Object::Struct(name, size, members) => {
-                                self.new_ustruct(&name, size, members)?
+                                let o = self.new_ustruct(&name, size, members, None)?;
+                                ustruct.add_struct(n, o, t);
+                                continue;
                             },
                             _ => return Err(UError::new(
                                 "Error",
@@ -721,6 +723,9 @@ impl Evaluator {
                 _ => Object::Num(0.0)
             };
             ustruct.add(n, o, t)?;
+        }
+        if address.is_some() {
+            ustruct.from_pointer(address.unwrap(), false);
         }
         Ok(Object::UStruct(name.to_string(), size, Arc::new(Mutex::new(ustruct))))
     }
@@ -1086,11 +1091,14 @@ impl Evaluator {
                     Some(o) => o,
                     None => match self.env.get_class(&name) {
                         Some(o) => o,
-                        None => return Err(UError::new(
-                            "Identifier not found",
-                            &format!("{}", name),
-                            None
-                        ))
+                        None => match self.env.get_struct(&name) {
+                            Some(o) => o,
+                            None => return Err(UError::new(
+                                "Identifier not found",
+                                &format!("{}", name),
+                                None
+                            ))
+                        }
                     }
                 }
             }
@@ -2023,7 +2031,18 @@ impl Evaluator {
                 }
             },
             Object::Struct(name, size, members) => {
-                let ustruct = self.new_ustruct(&name, size, members)?;
+                let ustruct =match arguments.len() {
+                    0 => self.new_ustruct(&name, size, members, None)?,
+                    1 => match arguments[0].1 {
+                        Object::Num(n) => self.new_ustruct(&name, size, members, Some(n as usize))?,
+                        _ => return Err(UError::new(
+                            "New struct error", "invalid argument, should be address of structure", Some(&name)
+                        ))
+                    },
+                    _ => return Err(UError::new(
+                        "New struct error", "too many arguments, should be 1 or less", Some(&name)
+                    ))
+                };
                 return Ok(ustruct)
             },
             Object::DefDllFunction(name, dll_path, params, ret_type) => {
@@ -2056,7 +2075,6 @@ impl Evaluator {
             for param in params {
                 match param {
                     DefDllParam::Param {dll_type, is_var, is_array} => {
-                        let t = Self::convert_to_libffi_type(&dll_type)?;
                         let (arg_exp, obj) = match arguments.get(i) {
                             Some((a, o)) => (a, o),
                             None => return Err(UError::new(
@@ -2098,11 +2116,12 @@ impl Evaluator {
                                 ))
                             }
                         } else {
+                            let t = Self::convert_to_libffi_type(&dll_type)?;
                             let dllarg = match DllArg::new(obj, &dll_type) {
                                 Ok(a) => a,
                                 Err(e) => return Err(UError::new(
                                     "Dll function error",
-                                    &format!("unexpected argument type: {}", e),
+                                    &format!("{}", e),
                                     Some(&format!("position {} ({})", i+1, &dll_type))
                                 ))
                             };
@@ -2113,6 +2132,7 @@ impl Evaluator {
                             }
                             dll_args.push(dllarg);
                             if is_var && arg_name.is_some() {
+                                // var/ref が付いていれば後に値を更新
                                 var_list.push((arg_name.unwrap(), dll_args.len() - 1));
                             }
                         }
@@ -2299,18 +2319,39 @@ impl Evaluator {
             // varの処理
             for (name, index) in var_list {
                 let arg = &dll_args[index];
-                if let DllArg::Struct(p, m) = arg {
-                    for (name, offset, arg) in m {
-                        if name.is_some() {
-                            let obj = get_value_from_structure(*p, *offset, arg);
-                            self.env.assign(name.to_owned().unwrap(), obj)?;
+                match arg {
+                    DllArg::Struct(p, m) => {
+                        for (name, offset, arg) in m {
+                            if name.is_some() {
+                                let obj = get_value_from_structure(*p, *offset, arg);
+                                self.env.assign(name.to_owned().unwrap(), obj)?;
+                            }
                         }
-                    }
-                    free_dll_structure(*p);
-                } else {
-                    let obj = arg.to_object();
-                    self.env.assign(name, obj)?;
+                        free_dll_structure(*p);
+                    },
+                    DllArg::UStruct(p, m) => {
+                        // 値をコピーしたらmallocした構造体は用済みなのでfreeする
+                        let mut u = m.lock().unwrap();
+                        u.from_pointer(*p as usize, true);
+                        free_dll_structure(*p);
+                    },
+                    _ => {
+                        let obj = arg.to_object();
+                        self.env.assign(name, obj)?;
+                    },
                 }
+                // if let DllArg::Struct(p, m) = arg {
+                //     for (name, offset, arg) in m {
+                //         if name.is_some() {
+                //             let obj = get_value_from_structure(*p, *offset, arg);
+                //             self.env.assign(name.to_owned().unwrap(), obj)?;
+                //         }
+                //     }
+                //     free_dll_structure(*p);
+                // } else {
+                //     let obj = arg.to_object();
+                //     self.env.assign(name, obj)?;
+                // }
             }
 
             Ok(result)

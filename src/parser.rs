@@ -881,7 +881,8 @@ impl Parser {
         let mut params = Vec::new();
         while ! self.is_current_token_in(vec![Token::Rparen, Token::Eol, Token::Eof]) {
             match self.current_token.token {
-                Token::Identifier(_) => {
+                Token::Identifier(_) |
+                Token::Struct => {
                     let def_dll_param = self.parse_dll_param(false);
                     if def_dll_param.is_none() {
                         return None;
@@ -890,12 +891,19 @@ impl Parser {
                 },
                 Token::Ref => {
                     self.bump();
-                    if let Token::Identifier(_) = self.current_token.token.clone() {
-                        let def_dll_param = self.parse_dll_param(true);
-                        if def_dll_param.is_none() {
+                    match self.current_token.token {
+                        Token::Identifier(_) |
+                        Token::Struct => {
+                            let def_dll_param = self.parse_dll_param(true);
+                            if def_dll_param.is_none() {
+                                return None;
+                            }
+                            params.push(def_dll_param.unwrap());
+                        },
+                        _ => {
+                            self.error_got_unexpected_token();
                             return None;
-                        }
-                        params.push(def_dll_param.unwrap());
+                        },
                     }
                 },
                 // 構造体
@@ -975,7 +983,8 @@ impl Parser {
         let mut nested = 0;
         while ! self.is_current_token_in(vec![Token::Eol, Token::Eof]) {
             match self.current_token.token {
-                Token::Identifier(_) => {
+                Token::Identifier(_) |
+                Token::Struct => {
                     let def_dll_param = self.parse_dll_param(false);
                     if def_dll_param.is_none() {
                         return None;
@@ -984,12 +993,19 @@ impl Parser {
                 },
                 Token::Ref => {
                     self.bump();
-                    if let Token::Identifier(_) = self.current_token.token.clone() {
-                        let def_dll_param = self.parse_dll_param(true);
-                        if def_dll_param.is_none() {
+                    match self.current_token.token {
+                        Token::Identifier(_) |
+                        Token::Struct => {
+                            let def_dll_param = self.parse_dll_param(false);
+                            if def_dll_param.is_none() {
+                                return None;
+                            }
+                            s.push(def_dll_param.unwrap());
+                        },
+                        _ => {
+                            self.error_got_unexpected_token();
                             return None;
-                        }
-                        s.push(def_dll_param.unwrap());
+                        },
                     }
                 },
                 // ネスト定義は平で書いたのと同義にする
@@ -1047,10 +1063,10 @@ impl Parser {
     }
 
     fn parse_dll_param(&mut self, is_var: bool) -> Option<DefDllParam> {
-        let dll_type = if let Token::Identifier(s) = self.current_token.token.clone() {
-            s.parse::<DllType>().unwrap()
-        } else {
-            return None;
+        let dll_type = match &self.current_token.token {
+            Token::Identifier(s) => s.parse::<DllType>().unwrap(),
+            Token::Struct => DllType::Struct,
+            _ => return None,
         };
         if let DllType::Unknown(unknown) = dll_type {
             self.error_got_invalid_dlltype(unknown);
