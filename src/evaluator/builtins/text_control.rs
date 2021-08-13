@@ -1,5 +1,6 @@
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
+use crate::winapi::get_ansi_length;
 
 use std::sync::{Arc, Mutex};
 
@@ -14,6 +15,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("copy", 5, copy);
     sets.add("length", 1, length);
     sets.add("lengthb", 1, lengthb);
+    sets.add("lengthu", 1, lengthu);
     sets.add("as_string", 1, as_string);
     sets.add("newre", 4, newre);
     sets.add("regex", 3, regex);
@@ -37,6 +39,8 @@ pub fn length(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         Object::Array(v) => v.len(),
         Object::Bool(b) => b.to_string().len(),
         Object::HashTbl(h) => h.lock().unwrap().len(),
+        Object::Struct(_, n, _) |
+        Object::UStruct(_, n, _) => n,
         Object::Empty => 0,
         Object::Null => 1,
         _ => return Err(builtin_func_error("length", "given value is not countable"))
@@ -45,6 +49,18 @@ pub fn length(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 }
 
 pub fn lengthb(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let len = match get_any_argument_value(&args, 0, None)? {
+        Object::String(s) => get_ansi_length(&s),
+        Object::Num(n) => n.to_string().len(),
+        Object::Bool(b) => b.to_string().len(),
+        Object::Empty => 0,
+        Object::Null => 1,
+        _ => return Err(builtin_func_error("length", "given value is not countable"))
+    };
+    Ok(Object::Num(len as f64))
+}
+
+pub fn lengthu(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let len = match get_any_argument_value(&args, 0, None)? {
         Object::String(s) => s.as_bytes().len(),
         Object::Num(n) => n.to_string().len(),
