@@ -4015,7 +4015,7 @@ fend
 p(5, 10)
 a
                 "#,
-                Ok(Some(Object::Num(15.0)))
+                Ok(Some(Object::Num(1.0)))
             ),
             (
                 r#"
