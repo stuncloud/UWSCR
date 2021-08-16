@@ -3,33 +3,40 @@ use crate::evaluator::builtins::*;
 use crate::winapi::bindings::{
     Windows::{
         Win32::{
+            Foundation::{
+                BOOL, PWSTR, HWND, LPARAM,
+                CloseHandle
+            },
             System::{
                 WindowsProgramming::{
                         INFINITE,
-                        OSVERSIONINFOEXW,
-                        CloseHandle, GetVersionExW,
+                },
+                SystemInformation::{
+                    OSVERSIONINFOEXW,
+                    GetVersionExW,
                 },
                 Threading::{
                     STARTUPINFOW, PROCESS_INFORMATION,
                     STARTF_USESHOWWINDOW, NORMAL_PRIORITY_CLASS,
                     CreateProcessW, WaitForSingleObject, GetExitCodeProcess,
                     GetCurrentProcess,
+                    WaitForInputIdle, IsWow64Process,
                 },
                 SystemServices::{
-                    BOOL, PWSTR, SECURITY_ATTRIBUTES, VER_NT_WORKSTATION,
-                    WaitForInputIdle, IsWow64Process,
+                    VER_NT_WORKSTATION,
                 }
             },
             UI::{
                 WindowsAndMessaging::{
-                    HWND, LPARAM, SM_SERVERR2,
+                    SM_SERVERR2,
                     SW_SHOWNORMAL, SW_SHOW,
                     EnumWindows, GetWindowThreadProcessId, GetSystemMetrics,
                 },
                 Shell::{
                     ShellExecuteW,
                 }
-            }
+            },
+            Security::SECURITY_ATTRIBUTES,
         }
     },
 };
@@ -265,7 +272,7 @@ pub fn exec(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         let y = get_non_float_argument_value(&args, 3, None).ok();
         let w = get_non_float_argument_value(&args, 4, None).ok();
         let h = get_non_float_argument_value(&args, 5, None).ok();
-        window_control::set_window_size(ph.hwnd, x, y, w, h);
+        window_control::set_window_size(ph.hwnd, x, y, w, h)?;
         if sync {
             // 同期する場合は終了コード
             let mut exit: u32 = 0;

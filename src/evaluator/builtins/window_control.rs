@@ -6,27 +6,21 @@ use crate::evaluator::UError;
 use crate::winapi::bindings::{
     Windows::{
         Win32::{
+            Foundation::{
+                MAX_PATH,
+                PWSTR, BOOL, HANDLE, HINSTANCE,
+                HWND, WPARAM, LPARAM, POINT, RECT,
+                CloseHandle,
+            },
             System::{
-                WindowsProgramming::{
-                    CloseHandle,
-                },
-                SystemServices:: {
-                    PWSTR, BOOL, HANDLE, HINSTANCE,
-                    MAX_PATH,
-                    WaitForInputIdle, IsWow64Process,
-                },
                 Threading::{
                     PROCESS_QUERY_INFORMATION, PROCESS_VM_READ,
-                    OpenProcess,
+                    OpenProcess, WaitForInputIdle, IsWow64Process,
                 },
                 ProcessStatus::K32GetModuleFileNameExW,
             },
             UI::{
-                DisplayDevices::{
-                    POINT, RECT
-                },
                 WindowsAndMessaging::{
-                    HWND, WPARAM, LPARAM,
                     SWP_NOMOVE, SWP_NOSIZE, SWP_NOACTIVATE,
                     SW_SHOWNORMAL, SW_SHOW, SW_HIDE, SW_MINIMIZE, SW_MAXIMIZE,
                     WINDOWPLACEMENT,
@@ -367,7 +361,7 @@ pub fn acw(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let h = get_non_float_argument_value(&args, 4, None).ok();
     let ms= get_non_float_argument_value(&args, 5, Some(0)).unwrap_or(0);
     thread::sleep(Duration::from_millis(ms));
-    set_window_size(hwnd, x, y, w, h);
+    set_window_size(hwnd, x, y, w, h)?;
     set_id_zero(hwnd);
     Ok(Object::Empty)
 }
@@ -509,11 +503,12 @@ impl WindowSize {
     }
 }
 
-fn get_window_size(h: HWND) -> WindowSize {
+fn get_window_size(h: HWND) -> Result<WindowSize, UError> {
     let mut rect = RECT {left: 0, top: 0, right: 0, bottom: 0};
     unsafe {
-        let mut aero_enabled = false.into();
-        let _ = DwmIsCompositionEnabled(&mut aero_enabled);
+        // let mut aero_enabled = false.into();
+        // let _ = DwmIsCompositionEnabled(&mut aero_enabled);
+        let aero_enabled = DwmIsCompositionEnabled()?;
         if ! aero_enabled.as_bool() {
             // AEROがオフならGetWindowRect
             GetWindowRect(h, &mut rect);
@@ -526,7 +521,7 @@ fn get_window_size(h: HWND) -> WindowSize {
             );
         };
     }
-    WindowSize(rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top)
+    Ok(WindowSize(rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top))
 }
 
 fn get_window_rect(h: HWND) -> WindowSize {
@@ -537,16 +532,17 @@ fn get_window_rect(h: HWND) -> WindowSize {
     WindowSize(rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top)
 }
 
-pub fn set_window_size(hwnd: HWND, x: Option<i32>, y: Option<i32>, w: Option<i32>, h: Option<i32>) {
-    let default_rect = get_window_size(hwnd);
+pub fn set_window_size(hwnd: HWND, x: Option<i32>, y: Option<i32>, w: Option<i32>, h: Option<i32>) -> Result<(), UError> {
+    let default_rect = get_window_size(hwnd)?;
 
     let x = x.unwrap_or(default_rect.x());
     let y = y.unwrap_or(default_rect.y());
     let w = w.unwrap_or(default_rect.width());
     let h = h.unwrap_or(default_rect.height());
     unsafe {
-        let mut aero_enabled = false.into();
-        let _ = DwmIsCompositionEnabled(&mut aero_enabled);
+        // let mut aero_enabled = false.into();
+        // let _ = DwmIsCompositionEnabled(&mut aero_enabled);
+        let aero_enabled = DwmIsCompositionEnabled()?;
 
         if aero_enabled.as_bool() {
             let mut drect: RECT= mem::zeroed();
@@ -585,6 +581,7 @@ pub fn set_window_size(hwnd: HWND, x: Option<i32>, y: Option<i32>, w: Option<i32
             MoveWindow(hwnd, x, y, w, h, true);
         }
     }
+    Ok(())
 }
 
 
@@ -701,7 +698,7 @@ fn get_status_result(hwnd: HWND, st: u8) -> BuiltinFuncResult {
         StatusEnum::ST_Y |
         StatusEnum::ST_WIDTH |
         StatusEnum::ST_HEIGHT => {
-            let wsize = get_window_size(hwnd);
+            let wsize = get_window_size(hwnd)?;
             match stat {
                 StatusEnum::ST_X => Object::Num(wsize.x() as f64),
                 StatusEnum::ST_Y => Object::Num(wsize.y() as f64),
@@ -764,7 +761,7 @@ fn get_all_status(hwnd: HWND) -> BuiltinFuncResult {
     let mut stats = HashTbl::new(true, false);
     stats.insert((StatusEnum::ST_TITLE as u8).to_string(), get_window_text(hwnd)?);
     stats.insert((StatusEnum::ST_CLASS as u8).to_string(), get_class_name(hwnd)?);
-    let wsize = get_window_size(hwnd);
+    let wsize = get_window_size(hwnd)?;
     stats.insert((StatusEnum::ST_X as u8).to_string(), Object::Num(wsize.x() as f64));
     stats.insert((StatusEnum::ST_Y as u8).to_string(), Object::Num(wsize.y() as f64));
     stats.insert((StatusEnum::ST_WIDTH as u8).to_string(), Object::Num(wsize.width() as f64));

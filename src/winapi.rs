@@ -5,17 +5,17 @@ pub mod bindings {
 use bindings::{
     Windows::{
         Win32::{
+            Foundation:: {
+                MAX_PATH, PWSTR, PSTR, HWND
+            },
             System::{
-                SystemServices::{
-                    MAX_PATH, PWSTR, PSTR
-                },
-                WindowsProgramming::{
+                SystemInformation::{
                     GetSystemDirectoryW, GetWindowsDirectoryW
                 },
             },
             UI::{
                 WindowsAndMessaging::{
-                    HWND, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN,
+                    SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN,
                     GetSystemMetrics,
                 },
                 Shell::{

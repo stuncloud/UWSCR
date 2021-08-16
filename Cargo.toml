@@ -20,14 +20,14 @@ chrono = "0.4"
 bincode = "1"
 serde = { version = "1.0", features = ["derive"] }
 serde_derive = "1.0"
-windows = "0.10"
+windows = "0.18"
 dlopen = "0.1"
 libffi = "1.0.1"
 libc = "0.2"
 
 [build-dependencies]
 winres = "0.1"
-windows = "0.10"
+windows = "0.18"
 
 [package.metadata.wix]
 compiler-args = ["-nologo"]

@@ -11,10 +11,8 @@ use crate::winapi::{
     bindings::{
         Windows::{
             Win32::{
-                System::{
-                    SystemServices::{
-                        MAX_PATH, PWSTR,
-                    },
+                Foundation::{
+                    MAX_PATH, PWSTR,
                 },
                 Storage::{
                     FileSystem::{

@@ -5,7 +5,7 @@ use crate::evaluator::{EvalResult};
 use crate::evaluator::def_dll::DllArg;
 use crate::winapi::{
     to_ansi_bytes, from_ansi_bytes, to_wide_string,
-    bindings::Windows::Win32::UI::WindowsAndMessaging::HWND
+    bindings::Windows::Win32::Foundation::HWND
 };
 
 use std::fmt;

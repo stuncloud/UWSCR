@@ -10,13 +10,13 @@ use num_traits::FromPrimitive;
 use crate::winapi::bindings::{
     Windows::{
         Win32::{
+            Foundation::POINT,
             UI::{
                 KeyboardAndMouseInput::{
                     KEYEVENTF_SCANCODE, KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP,
                     keybd_event, MapVirtualKeyW
                 },
                 WindowsAndMessaging::GetCursorPos,
-                DisplayDevices::POINT,
             },
         },
     },

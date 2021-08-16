@@ -46,34 +46,36 @@ fn main() {
     }
     // windows-rs
     windows::build!(
+        Windows::Win32::Foundation::{
+            PSTR, PWSTR, BOOL, HANDLE, MAX_PATH, HINSTANCE,
+            HWND, WPARAM, LPARAM, POINT, RECT,
+            CloseHandle,
+        },
         Windows::Win32::System::WindowsProgramming::{
-            INFINITE, OSVERSIONINFOEXW,
-            CloseHandle, GetVersionExW, GetSystemDirectoryW, GetWindowsDirectoryW,
+            INFINITE,
         },
         Windows::Win32::System::Threading::{
             PROCESS_CREATION_FLAGS, PROCESS_ACCESS_RIGHTS, STARTUPINFOW, PROCESS_INFORMATION,
-            PROCESS_QUERY_INFORMATION, PROCESS_VM_READ,
-            STARTUPINFOW_FLAGS, STARTF_USESHOWWINDOW,
-            NORMAL_PRIORITY_CLASS,
+            STARTUPINFOW_FLAGS,
             OpenProcess, CreateProcessW, WaitForSingleObject, GetExitCodeProcess, GetCurrentProcess,
+            WaitForInputIdle, IsWow64Process,
+        },
+        Windows::Win32::System::SystemInformation::{
+            OSVERSIONINFOEXW,
+            GetVersionExW, GetSystemDirectoryW, GetWindowsDirectoryW
         },
         Windows::Win32::System::SystemServices::{
-            NULL, PSTR, PWSTR, BOOL, HANDLE, MAX_PATH, HINSTANCE,
-            SECURITY_ATTRIBUTES, VER_NT_WORKSTATION,
-            WaitForInputIdle, IsWow64Process,
+            VER_NT_WORKSTATION,
         },
         Windows::Win32::System::ProcessStatus::K32GetModuleFileNameExW,
         Windows::Win32::UI::KeyboardAndMouseInput::{
-            KEYBD_EVENT_FLAGS, KEYEVENTF_SCANCODE, KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP,
+            KEYBD_EVENT_FLAGS,
             keybd_event, MapVirtualKeyW,
         },
         Windows::Win32::UI::WindowsAndMessaging::{
-            HWND, WPARAM, LPARAM, WM_CLOSE, WM_DESTROY, HWND_TOPMOST, HWND_NOTOPMOST,
+            WM_CLOSE, WM_DESTROY, HWND_TOPMOST, HWND_NOTOPMOST,
             SHOW_WINDOW_CMD, SET_WINDOW_POS_FLAGS, WINDOWPLACEMENT, WINDOWPLACEMENT_FLAGS,
-            MONITORINFOF_PRIMARY, SYSTEM_METRICS_INDEX, SM_SERVERR2,
-            SW_SHOWNORMAL, SW_SHOW, SW_HIDE, SW_MINIMIZE, SW_MAXIMIZE,
-            SWP_NOMOVE, SWP_NOSIZE, SWP_NOACTIVATE,
-            SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN,
+            MONITORINFOF_PRIMARY, SYSTEM_METRICS_INDEX,
             GetCursorPos,
             WindowFromPoint, GetParent, IsWindowVisible, GetClientRect,
             GetForegroundWindow, GetWindowTextW, GetClassNameW, EnumWindows,
@@ -86,9 +88,6 @@ fn main() {
             CSIDL_APPDATA,
             ShellExecuteW, SHGetSpecialFolderPathW,
         },
-        Windows::Win32::UI::DisplayDevices::{
-            POINT, RECT,
-        },
         Windows::Win32::UI::HiDpi::{
             GetDpiForWindow,
         },
@@ -98,17 +97,19 @@ fn main() {
         Windows::Win32::Graphics::Gdi::{
             MONITOR_FROM_FLAGS, HMONITOR, HDC, DISPLAY_DEVICEW, MONITORINFOEXW, MONITORINFO,
             GET_DEVICE_CAPS_INDEX,
-            MONITOR_DEFAULTTONEAREST,
             MapWindowPoints, MonitorFromWindow, EnumDisplayMonitors,
             EnumDisplayDevicesW, GetMonitorInfoW, GetDC, GetDeviceCaps,
         },
         Windows::Win32::Graphics::Dwm::{
-            DWMWINDOWATTRIBUTE, DWMWA_EXTENDED_FRAME_BOUNDS,
+            DWMWINDOWATTRIBUTE,
             DwmIsCompositionEnabled, DwmGetWindowAttribute,
         },
         Windows::Win32::Globalization::{
-            CP_ACP, WC_COMPOSITECHECK, MB_PRECOMPOSED,
+            CP_ACP, WC_COMPOSITECHECK,
             WideCharToMultiByte, MultiByteToWideChar,
+        },
+        Windows::Win32::Security::{
+            SECURITY_ATTRIBUTES
         },
     );
 }
