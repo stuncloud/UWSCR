@@ -303,6 +303,14 @@ pub enum VariableType {
     TYPE_UOBJECT,
     TYPE_VERSION,
     TYPE_THIS,
+    TYPE_GLOBAL,
+    TYPE_ENUM,
+    TYPE_TASK,
+    TYPE_DLL_FUNCTION,
+    TYPE_STRUCT,
+    TYPE_STRUCT_INSTANCE,
+    TYPE_COM_OBJECT,
+    TYPE_VARIANT,
     TYPE_OTHER,
 }
 
@@ -326,10 +334,18 @@ pub fn type_of(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         Object::Handle(_) => VariableType::TYPE_HWND,
         Object::RegEx(_) => VariableType::TYPE_REGEX,
         Object::This(_) => VariableType::TYPE_THIS,
+        Object::Global => VariableType::TYPE_GLOBAL,
         Object::UObject(_) |
         Object::UChild(_, _) => VariableType::TYPE_UOBJECT,
         Object::Version(_) => VariableType::TYPE_VERSION,
         Object::ExpandableTB(_) => VariableType::TYPE_STRING,
+        Object::Enum(_) => VariableType::TYPE_ENUM,
+        Object::Task(_) => VariableType::TYPE_TASK,
+        Object::DefDllFunction(_,_,_,_) => VariableType::TYPE_DLL_FUNCTION,
+        Object::Struct(_,_,_) => VariableType::TYPE_STRUCT,
+        Object::UStruct(_,_,_) => VariableType::TYPE_STRUCT_INSTANCE,
+        Object::ComObject(_) => VariableType::TYPE_COM_OBJECT,
+        Object::Variant(_) => VariableType::TYPE_VARIANT,
         _ => VariableType::TYPE_OTHER
     };
     Ok(Object::String(t.to_string()))
