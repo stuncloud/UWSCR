@@ -3,9 +3,15 @@ use crate::evaluator::environment::{NamedObject, Module};
 use crate::evaluator::builtins::BuiltinFunction;
 use crate::evaluator::{EvalResult};
 use crate::evaluator::def_dll::DllArg;
+
 use crate::winapi::{
     to_ansi_bytes, from_ansi_bytes, to_wide_string,
-    bindings::Windows::Win32::Foundation::HWND
+    bindings::Windows::Win32::{
+        Foundation::HWND,
+        System::OleAutomation::{
+            VARIANT, SAFEARRAY, IDispatch,
+        },
+    },
 };
 
 use std::fmt;
@@ -64,7 +70,13 @@ pub enum Object {
     Task(UTask),
     DefDllFunction(String, String, Vec<DefDllParam>, DllType), // 関数名, dllパス, 引数の型, 戻り値の型
     Struct(String, usize, Vec<(String, DllType)>), // 構造体定義: name, size, [(member name, type)]
-    UStruct(String, usize, Arc<Mutex<UStruct>>) // 構造体インスタンス
+    UStruct(String, usize, Arc<Mutex<UStruct>>), // 構造体インスタンス
+    ComObject(IDispatch),
+    ComMember(IDispatch, String),
+    Variant(VARIANT),
+    SafeArray(SAFEARRAY),
+    // ComObject(Arc<Mutex<IDispatch>>),
+    // Variant(Arc<Mutex<VARIANT>>),
 }
 
 impl fmt::Display for Object {
@@ -206,6 +218,10 @@ impl fmt::Display for Object {
             //     let u = m.lock().unwrap();
             //     write!(f, "{:?}", u)
             // },
+            Object::ComObject(_) => write!(f, "Com Object"),
+            Object::ComMember(_, _) => write!(f, "Com member"),
+            Object::Variant(_) => write!(f, "Variant"),
+            Object::SafeArray(_) => write!(f, "SafeArray"),
         }
     }
 }

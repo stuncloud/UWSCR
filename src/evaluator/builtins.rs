@@ -4,6 +4,7 @@ pub mod text_control;
 pub mod system_controls;
 pub mod math;
 pub mod key_codes;
+pub mod com_object;
 
 use crate::evaluator::UError;
 use crate::settings::usettings_singleton;
@@ -145,6 +146,9 @@ pub fn init_builtins() -> Vec<NamedObject> {
     set_builtin_consts::<key_codes::VirtualKeyCodes>(&mut vec);
     set_builtin_consts::<key_codes::VirtualKeyCodeDups>(&mut vec);
     set_builtin_consts::<key_codes::VirtualMouseButton>(&mut vec);
+    // com_object
+    com_object::builtin_func_sets().set(&mut vec);
+    set_builtin_consts::<com_object::VarType>(&mut vec);
 
     // 特殊変数
     set_special_variables(&mut vec);
@@ -327,7 +331,14 @@ pub fn type_of(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         Object::BuiltinFunction(_,_,_) => VariableType::TYPE_BUILTIN_FUNCTION,
         Object::Module(_) => VariableType::TYPE_MODULE,
         Object::Class(_,_) => VariableType::TYPE_CLASS,
-        Object::Instance(_,_) => VariableType::TYPE_CLASS_INSTANCE,
+        Object::Instance(ref m,_) => {
+            let ins = m.lock().unwrap();
+            if ins.is_disposed() {
+                VariableType::TYPE_NOTHING
+            } else {
+                VariableType::TYPE_CLASS_INSTANCE
+            }
+        },
         Object::Null => VariableType::TYPE_NULL,
         Object::Empty => VariableType::TYPE_EMPTY,
         Object::Nothing => VariableType::TYPE_NOTHING,

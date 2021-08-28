@@ -48,7 +48,8 @@ fn main() {
     windows::build!(
         Windows::Win32::Foundation::{
             PSTR, PWSTR, BOOL, HANDLE, MAX_PATH, HINSTANCE,
-            HWND, WPARAM, LPARAM, POINT, RECT,
+            HWND, WPARAM, LPARAM, POINT, RECT, BSTR,
+            DISP_E_MEMBERNOTFOUND,
             CloseHandle,
         },
         Windows::Win32::System::WindowsProgramming::{
@@ -110,6 +111,17 @@ fn main() {
         },
         Windows::Win32::Security::{
             SECURITY_ATTRIBUTES
+        },
+        Windows::Win32::System::Com::{
+            COINIT, CLSCTX,
+            CLSIDFromProgID, CoInitializeEx, CoUninitialize, CoCreateInstance,
+        },
+        Windows::Win32::System::OleAutomation::{
+            DISPATCH_PROPERTYGET, DISPATCH_PROPERTYPUT, DISPATCH_METHOD,
+            VARIANT, DISPPARAMS, EXCEPINFO, VARENUM,
+            DISPID_PROPERTYPUT, SAFEARRAY, SAFEARRAYBOUND,
+            IDispatch, VariantChangeType, VariantInit,
+            SafeArrayCreate, SafeArrayGetElement, SafeArrayPutElement,
         },
     );
 }

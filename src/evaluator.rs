@@ -3,16 +3,29 @@ pub mod object;
 pub mod environment;
 pub mod builtins;
 pub mod def_dll;
+pub mod com_object;
 
 use crate::ast::*;
 use crate::evaluator::environment::*;
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
 use crate::evaluator::def_dll::*;
+use crate::evaluator::com_object::*;
 use crate::parser::Parser;
 use crate::lexer::Lexer;
 use crate::logging::{out_log, LogType};
 use crate::settings::usettings_singleton;
+use crate::winapi::bindings::Windows::Win32::{
+    System::{
+        Com::{
+            COINIT_APARTMENTTHREADED,
+            CoInitializeEx, CoUninitialize,
+        },
+        OleAutomation::{
+            IDispatch,
+        }
+    },
+};
 
 use std::fmt;
 use std::borrow::Cow;
@@ -22,6 +35,7 @@ use std::path::PathBuf;
 use std::thread;
 use std::sync::{Arc, Mutex};
 use std::ffi::c_void;
+use std::ptr;
 
 use num_traits::FromPrimitive;
 use regex::Regex;
@@ -33,7 +47,8 @@ pub struct UError {
     //pos: Position
     title: String,
     msg: String,
-    sub_msg: Option<String>
+    sub_msg: Option<String>,
+    pub is_com_error: bool,
 }
 
 impl UError {
@@ -41,7 +56,8 @@ impl UError {
         UError{
             title: title.to_string(),
             msg: msg.to_string(),
-            sub_msg: sub_msg.map(|s| s.to_string())
+            sub_msg: sub_msg.map(|s| s.to_string()),
+            is_com_error: false,
         }
     }
 }
@@ -121,6 +137,11 @@ impl Evaluator {
     }
 
     pub fn eval(&mut self, program: Program) -> EvalResult<Option<Object>> {
+        // このスレッドでのCOMを有効化
+        unsafe {
+            CoInitializeEx(ptr::null_mut() as *mut c_void, COINIT_APARTMENTTHREADED)?;
+        }
+
         let mut result = None;
 
         for statement in program {
@@ -139,6 +160,12 @@ impl Evaluator {
             }
         }
         self.auto_dispose_instances(vec![], true);
+
+        // // COMの解除
+        // unsafe {
+        //     CoUninitialize();
+        // }
+
         Ok(result)
     }
 
@@ -884,6 +911,16 @@ impl Evaluator {
                 instance_id: Arc::clone(&self.instance_id),
             };
             thread::spawn(move || {
+                // このスレッドでのCOMを有効化
+                unsafe {
+                    match CoInitializeEx(ptr::null_mut() as *mut c_void, COINIT_APARTMENTTHREADED) {
+                        Ok(()) => {},
+                        Err(e) => {
+                            panic!("Error returned by CoInitializeEx: {}", e.message());
+                        }
+                    };
+                }
+
                 std::panic::set_hook(Box::new(|panic_info|{
                     let mut e = panic_info.to_string();
                     let v = e.rmatch_indices("', s").collect::<Vec<_>>();
@@ -897,6 +934,9 @@ impl Evaluator {
                 let result = thread_self.eval_function_call_expression(func, args, false);
                 if result.is_err() {
                     panic!("{}", result.unwrap_err());
+                }
+                unsafe {
+                    CoUninitialize();
                 }
             });
         }
@@ -1024,7 +1064,12 @@ impl Evaluator {
                 self.eval_infix_expression(i, left, right)?
             },
             Expression::Index(l, i, h) => {
-                let left = self.eval_expression(*l)?;
+                let left = match *l {
+                    Expression::DotCall(l, r) => {
+                        self.eval_dotcall_expression(*l, *r, false, true)?
+                    },
+                    e => self.eval_expression(e)?
+                };
                 let index = self.eval_expression(*i)?;
                 let hash_enum = if h.is_some() {
                     Some(self.eval_expression(h.unwrap())?)
@@ -1054,7 +1099,7 @@ impl Evaluator {
                 self.eval_ternary_expression(*condition, *consequence, *alternative)?
             },
             Expression::DotCall(l, r) => {
-                self.eval_dotcall_expression(*l, *r, false)?
+                self.eval_dotcall_expression(*l, *r, false, false)?
             },
             Expression::Params(p) => return Err(UError::new(
                 "Expression evaluation error",
@@ -1152,7 +1197,7 @@ impl Evaluator {
     }
 
     fn eval_index_expression(&mut self, left: Object, index: Object, hash_enum: Option<Object>) -> EvalResult<Object> {
-        let obj = match left.clone() {
+        let obj = match &left {
             Object::Array(ref a) => if hash_enum.is_some() {
                 return Err(UError::new(
                     "Invalid index",
@@ -1286,6 +1331,21 @@ impl Evaluator {
                     ));
                 }
             },
+            Object::ComMember(ref disp, ref member) => {
+                let com_index = ComArg::from_object(index)?;
+                let key = com_index.to_variant();
+                let keys = vec![key];
+                let v = disp.get(member, Some(keys))?;
+                Object::from_variant(v)?
+            },
+            Object::ComObject(ref disp) => {
+                // Item(key) の糖衣構文
+                let com_index = ComArg::from_object(index)?;
+                let key = com_index.to_variant();
+                let keys = vec![key];
+                let v = disp.get("Item", Some(keys))?;
+                Object::from_variant(v)?
+            },
             o => return Err(UError::new(
                 "Not an Array or Hashtable",
                 &format!("{}", o),
@@ -1378,6 +1438,16 @@ impl Evaluator {
                                         };
                                         let mut hash = h.lock().unwrap();
                                         hash.insert(key, value);
+                                    },
+                                    Object::ComObject(ref disp) => {
+                                        // Item(key) の糖衣構文
+                                        let com_index = ComArg::from_object(index)?;
+                                        let key = com_index.to_variant();
+                                        let keys = vec![key];
+                                        let com_value = ComArg::from_object(value)?;
+                                        let var_value = com_value.to_variant();
+
+                                        disp.set("Item", var_value, Some(keys))?;
                                     },
                                     _ => return Err(UError::new(
                                         "Invalid index call",
@@ -1544,6 +1614,17 @@ impl Evaluator {
                 } else {
                     return Err(UError::new(
                         "UStruct",
+                        &format!("error on assignment"),
+                        None
+                    ));
+                },
+                Object::ComObject(ref disp) => if let Expression::Identifier(Identifier(name)) = *right {
+                    let com_arg = ComArg::from_object(value)?;
+                    let var_arg = com_arg.to_variant();
+                    disp.set(&name, var_arg, None)?;
+                } else {
+                    return Err(UError::new(
+                        "Com object",
                         &format!("error on assignment"),
                         None
                     ));
@@ -1870,7 +1951,7 @@ impl Evaluator {
                 }
             },
             Expression::DotCall(left, right) => Ok(
-                self.eval_dotcall_expression(*left, *right, true)?
+                self.eval_dotcall_expression(*left, *right, true, false)?
             ),
             _ => Ok(self.eval_expression(expression)?)
         }
@@ -1890,7 +1971,18 @@ impl Evaluator {
         };
         // 関数を非同期実行し、UTaskを返す
         let handle = thread::spawn(move || {
-            task_self.invoke_function_object(func, arguments)
+            // このスレッドでのCOMを有効化
+            unsafe {
+                CoInitializeEx(ptr::null_mut() as *mut c_void, COINIT_APARTMENTTHREADED)?;
+            }
+
+            let ret = task_self.invoke_function_object(func, arguments);
+
+            unsafe {
+                CoUninitialize();
+            }
+
+            ret
         });
         let task = UTask {
             handle: Arc::new(Mutex::new(Some(handle))),
@@ -2047,6 +2139,23 @@ impl Evaluator {
             },
             Object::DefDllFunction(name, dll_path, params, ret_type) => {
                 return self.invoke_def_dll_function(name, dll_path, params, ret_type, arguments);
+            },
+            Object::ComMember(ref disp, name) => return Self::invoke_com_function(disp, &name, arguments),
+            Object::ComObject(ref disp) => {
+                // Item(key)の糖衣構文
+                let mut com_args = vec![];
+                for (_, obj) in arguments {
+                    let com_arg = ComArg::from_object(obj)?;
+                    com_args.push(com_arg);
+                }
+                let mut keys = vec![];
+                for com_arg in com_args.iter() {
+                    let key = com_arg.to_variant();
+                    keys.push(key)
+                }
+                let v = disp.get("Item", Some(keys))?;
+                let obj = Object::from_variant(v)?;
+                return Ok(obj)
             },
             o => return Err(UError::new(
                 "Not a function",
@@ -2624,6 +2733,21 @@ impl Evaluator {
         Ok(result)
     }
 
+    fn invoke_com_function(disp: &IDispatch, name: &str, arguments: Vec<(Option<Expression>, Object)>) -> EvalResult<Object> {
+        let mut com_args = vec![];
+        for (_, arg) in arguments {
+            let com_arg = ComArg::from_object(arg)?;
+            com_args.push(com_arg);
+        }
+        let mut var_args = vec![];
+        for com_arg in com_args.iter() {
+            let v = com_arg.to_variant();
+            var_args.push(v);
+        }
+        let result = disp.run(name, &mut var_args)?;
+        Ok(Object::from_variant(result)?)
+    }
+
     fn auto_dispose_instances(&mut self, refs: Vec<String>, include_global: bool) {
         let ins_list = self.env.get_instances();
         for ins_name in ins_list {
@@ -2664,7 +2788,7 @@ impl Evaluator {
         }
     }
 
-    fn eval_dotcall_expression(&mut self, left: Expression, right: Expression, is_func: bool) -> EvalResult<Object> {
+    fn eval_dotcall_expression(&mut self, left: Expression, right: Expression, is_func: bool, is_com_property: bool) -> EvalResult<Object> {
         let instance = match left {
             Expression::Identifier(_) |
             Expression::Index(_, _, _) |
@@ -2806,6 +2930,21 @@ impl Evaluator {
             } else {
                 Err(UError::new(
                     "Invalid UStruct member",
+                    &format!("not an identifier ({:?})", right),
+                    None
+                ))
+            },
+            Object::ComObject(ref disp) => if let Expression::Identifier(Identifier(member)) = right {
+                let obj = if is_func || is_com_property {
+                    Object::ComMember(disp.clone(), member)
+                } else {
+                    let v = disp.get(&member, None)?;
+                    Object::from_variant(v)?
+                };
+                Ok(obj)
+            } else {
+                Err(UError::new(
+                    "Invalid COM member",
                     &format!("not an identifier ({:?})", right),
                     None
                 ))
