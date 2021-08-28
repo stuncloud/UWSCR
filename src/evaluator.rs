@@ -1446,7 +1446,6 @@ impl Evaluator {
                                         let keys = vec![key];
                                         let com_value = ComArg::from_object(value)?;
                                         let var_value = com_value.to_variant();
-
                                         disp.set("Item", var_value, Some(keys))?;
                                     },
                                     _ => return Err(UError::new(
@@ -1524,6 +1523,16 @@ impl Evaluator {
                                     &format!("invalid index: {}", index),
                                     None
                                 ));
+                            },
+                            Object::ComObject(ref disp) => {
+                                if let Expression::Identifier(Identifier(member)) = *right {
+                                    let com_index = ComArg::from_object(index)?;
+                                    let key = com_index.to_variant();
+                                    let keys = vec![key];
+                                    let com_value = ComArg::from_object(value)?;
+                                    let var_value = com_value.to_variant();
+                                    disp.set(&member, var_value, Some(keys))?;
+                                }
                             },
                             o => return Err(UError::new(
                                 "Error on . operator",
