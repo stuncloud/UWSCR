@@ -119,8 +119,8 @@ impl From<windows::Error> for ComError {
 impl From<ComError> for UError {
     fn from(e: ComError) -> Self {
         let mut uerr = Self::new(
-            "Com Error",
-            &format!("{}({})", e.message, e.code),
+            &format!("Com Error(0x{:08X})", e.code),
+            &e.message,
             match e.description {
             Some(ref s) => Some(s),
             None => None
