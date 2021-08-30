@@ -103,11 +103,18 @@ type EvalResult<T> = Result<T, UError>;
 pub struct  Evaluator {
     env: Environment,
     instance_id: Arc<Mutex<u32>>,
+    pub ignore_com_err: bool,
+    pub com_err_flg: bool,
 }
 
 impl Evaluator {
     pub fn new(env: Environment) -> Self {
-        Evaluator {env, instance_id: Arc::new(Mutex::new(0))}
+        Evaluator {
+            env,
+            instance_id: Arc::new(Mutex::new(0)),
+            ignore_com_err: false,
+            com_err_flg: false
+        }
     }
 
     fn is_truthy(obj: Object) -> bool {
@@ -268,6 +275,23 @@ impl Evaluator {
     }
 
     fn eval_statement(&mut self, statement: Statement) -> EvalResult<Option<Object>> {
+        let result = self.eval_statement_inner(statement);
+        if self.ignore_com_err {
+            match result {
+                Ok(r) => Ok(r),
+                Err(e) => if e.is_com_error {
+                    self.com_err_flg = true;
+                    Ok(None)
+                } else {
+                    Err(e)
+                }
+            }
+        } else {
+            result
+        }
+    }
+
+    fn eval_statement_inner(&mut self, statement: Statement) -> EvalResult<Option<Object>> {
         match statement {
             Statement::Option(opt) => {
                 self.set_option_settings(opt);
@@ -410,6 +434,15 @@ impl Evaluator {
             Statement::Try {trys, except, finally} => self.eval_try_statement(trys, except, finally),
             Statement::Exit => Ok(Some(Object::Exit)),
             Statement::ExitExit(n) => Ok(Some(Object::ExitExit(n))),
+            Statement::ComErrIgn => {
+                self.ignore_com_err = true;
+                self.com_err_flg = false;
+                Ok(None)
+            },
+            Statement::ComErrRet => {
+                self.ignore_com_err = false;
+                Ok(None)
+            },
         }
     }
 
@@ -909,6 +942,8 @@ impl Evaluator {
                     global: Arc::clone(&self.env.global)
                 },
                 instance_id: Arc::clone(&self.instance_id),
+                ignore_com_err: false,
+                com_err_flg: false,
             };
             thread::spawn(move || {
                 // このスレッドでのCOMを有効化
@@ -1121,6 +1156,7 @@ impl Evaluator {
                     Object::Empty
                 }
             },
+            Expression::ComErrFlg => Object::Bool(self.com_err_flg)
         };
         Ok(obj)
     }
@@ -1977,6 +2013,8 @@ impl Evaluator {
                 global: Arc::clone(&self.env.global)
             },
             instance_id: Arc::clone(&self.instance_id),
+            ignore_com_err: false,
+            com_err_flg: false,
         };
         // 関数を非同期実行し、UTaskを返す
         let handle = thread::spawn(move || {

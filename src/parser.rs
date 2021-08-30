@@ -516,6 +516,8 @@ impl Parser {
             Token::Option => self.parse_option_statement(),
             Token::Enum => self.parse_enum_statement(),
             Token::Thread => self.parse_thread_statement(),
+            Token::ComErrIgn => Some(Statement::ComErrIgn),
+            Token::ComErrRet => Some(Statement::ComErrRet),
             _ => self.parse_expression_statement(),
         }
     }
@@ -1852,6 +1854,7 @@ impl Parser {
                 return None
             },
             Token::Pipeline => self.parse_lambda_function_expression(),
+            Token::ComErrFlg => Some(Expression::ComErrFlg),
             _ => match self.parse_identifier_expression() {
                 Some(e) => {
                     if is_sol {

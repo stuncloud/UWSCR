@@ -112,6 +112,7 @@ pub enum Expression {
     DotCall(Box<Expression>, Box<Expression>), // hoge.fuga hoge.piyo()
     Params(Params),
     UObject(String),
+    ComErrFlg,
 }
 
 #[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
@@ -203,6 +204,8 @@ pub enum Statement {
     Option(OptionSetting),
     Enum(String, UEnum),
     Thread(Expression),
+    ComErrIgn,
+    ComErrRet,
 }
 
 #[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]

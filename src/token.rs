@@ -159,6 +159,11 @@ pub enum Token {
     Logfile,
     Dlgtitle,
 
+    // COM
+    ComErrIgn,
+    ComErrRet,
+    ComErrFlg,
+
     // その他
     Comment, // // ※文末扱い
 

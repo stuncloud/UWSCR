@@ -456,6 +456,9 @@ impl Lexer {
             "thread" => Token::Thread,
             "async" => Token::Async,
             "await" => Token::Await,
+            "com_err_ign" => Token::ComErrIgn,
+            "com_err_ret" => Token::ComErrRet,
+            "com_err_flg" => Token::ComErrFlg,
             _ => Token::Identifier(literal.to_string()),
         }
     }
