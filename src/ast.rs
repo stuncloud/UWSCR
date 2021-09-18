@@ -437,4 +437,5 @@ pub enum OptionSetting {
     Loglines(i32),
     Logfile(i32),
     Dlgtitle(String),
+    AllowIEObj(bool),
 }

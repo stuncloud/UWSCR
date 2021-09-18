@@ -122,6 +122,7 @@ fn main() {
             DISPID_PROPERTYPUT, SAFEARRAY, SAFEARRAYBOUND,
             IDispatch, VariantChangeType, VariantInit,
             SafeArrayCreate, SafeArrayGetElement, SafeArrayPutElement,
+            GetActiveObject,
         },
     );
 }

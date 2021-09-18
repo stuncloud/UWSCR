@@ -19,6 +19,7 @@ use crate::winapi::bindings::Windows::Win32::{
     System::{
         Com::{
             COINIT_APARTMENTTHREADED,
+            // COINIT_MULTITHREADED,
             CoInitializeEx, CoUninitialize,
         },
         OleAutomation::{
@@ -271,6 +272,7 @@ impl Evaluator {
                     usettings.options.dlg_title = Some(s.to_string());
                 }
             },
+            OptionSetting::AllowIEObj(b) => usettings.options.allow_ie_object = b,
         }
     }
 
@@ -1712,6 +1714,13 @@ impl Evaluator {
     }
 
     fn eval_infix_expression(&mut self, infix: Infix, left: Object, right: Object) -> EvalResult<Object> {
+        // VARIANT型だったらObjectに戻す
+        if let Object::Variant(variant) = left {
+            return self.eval_infix_expression(infix, Object::from_variant(variant)?, right);
+        }
+        if let Object::Variant(variant) = right {
+            return self.eval_infix_expression(infix, left, Object::from_variant(variant)?);
+        }
         // 論理演算子なら両辺の真性を評価してから演算する
         // ビット演算子なら両辺を数値とみなして演算する
         match infix {
@@ -1739,25 +1748,25 @@ impl Evaluator {
             },
             _ => ()
         }
-        match left.clone() {
+        match &left {
             Object::Num(n1) => {
                 match right {
                     Object::Num(n) => {
-                        self.eval_infix_number_expression(infix, n1, n)
+                        self.eval_infix_number_expression(infix, *n1, n)
                     },
                     Object::String(s) => {
                         if infix == Infix::Plus {
                             self.eval_infix_string_expression(infix, n1.to_string(), s.clone())
                         } else {
                             match s.parse::<f64>() {
-                                Ok(n2) => self.eval_infix_number_expression(infix, n1, n2),
+                                Ok(n2) => self.eval_infix_number_expression(infix, *n1, n2),
                                 Err(_) => self.eval_infix_string_expression(infix, n1.to_string(), s.clone())
                             }
                         }
                     },
-                    Object::Empty => self.eval_infix_number_expression(infix, n1, 0.0),
-                    Object::Bool(b) => self.eval_infix_number_expression(infix, n1, b as i64 as f64),
-                    Object::Version(v) => self.eval_infix_number_expression(infix, n1, v.parse()),
+                    Object::Empty => self.eval_infix_number_expression(infix, *n1, 0.0),
+                    Object::Bool(b) => self.eval_infix_number_expression(infix, *n1, b as i64 as f64),
+                    Object::Version(v) => self.eval_infix_number_expression(infix, *n1, v.parse()),
                     _ => self.eval_infix_misc_expression(infix, left, right),
                 }
             },
@@ -1776,15 +1785,15 @@ impl Evaluator {
                     },
                     Object::Bool(_) => self.eval_infix_string_expression(infix, s1.clone(), format!("{}", right)),
                     Object::Empty => self.eval_infix_empty_expression(infix, left, right),
-                    Object::Version(v) => self.eval_infix_string_expression(infix, s1, v.to_string()),
+                    Object::Version(v) => self.eval_infix_string_expression(infix, s1.to_string(), v.to_string()),
                     _ => self.eval_infix_string_expression(infix, s1.clone(), format!("{}", right))
                 }
             },
             Object::Bool(l) => match right {
-                Object::Bool(b) => self.eval_infix_logical_operator_expression(infix, l, b),
+                Object::Bool(b) => self.eval_infix_logical_operator_expression(infix, *l, b),
                 Object::String(s) => self.eval_infix_string_expression(infix, format!("{}", left), s.clone()),
                 Object::Empty => self.eval_infix_empty_expression(infix, left, right),
-                Object::Num(n) => self.eval_infix_number_expression(infix, l as i64 as f64, n),
+                Object::Num(n) => self.eval_infix_number_expression(infix, *l as i64 as f64, n),
                 _ => self.eval_infix_misc_expression(infix, left, right)
             },
             Object::Empty => match right {
@@ -1799,9 +1808,9 @@ impl Evaluator {
                 Object::String(s) => self.eval_infix_string_expression(infix, v1.to_string(), s.clone()),
                 _ => self.eval_infix_misc_expression(infix, left, right)
             },
-            Object::Array(mut a) => if infix == Infix::Plus {
-                a.push(right);
-                Ok(Object::Array(a))
+            Object::Array(ref a) => if infix == Infix::Plus {
+                a.to_owned().push(right);
+                Ok(Object::Array(a.to_vec()))
             } else {
                 self.eval_infix_misc_expression(infix, left, right)
             },
@@ -1812,7 +1821,7 @@ impl Evaluator {
             },
             Object::UChild(v, p) => {
                 let value = v.lock().unwrap().pointer(p.as_str()).unwrap_or(&serde_json::Value::Null).clone();
-                let left = self.eval_uobject(&value, Arc::clone(&v), p)?;
+                let left = self.eval_uobject(&value, Arc::clone(&v), p.to_string())?;
                 self.eval_infix_expression(infix, left, right)
             },
             _ => self.eval_infix_misc_expression(infix, left, right)

@@ -136,6 +136,7 @@ impl From<ComError> for UError {
 pub enum ComArg {
     Num(f64),
     Bstr(BSTR),
+    Bool(bool),
     Dispatch(IDispatch),
     Variant(VARIANT),
     Empty,
@@ -155,6 +156,7 @@ impl ComArg {
             Object::ComObject(ref d) => Self::Dispatch(d.clone()),
             Object::Variant(ref v) => Self::Variant(v.clone()),
             Object::Null => Self::Null,
+            Object::Bool(b) => Self::Bool(b),
             o => return Err(UError::new(
                 "COM conversion error",
                 &format!("can not convert {} to VARIANT", o),
@@ -169,6 +171,7 @@ impl ComArg {
         match self {
             ComArg::Num(n) => variant.set_double(*n),
             ComArg::Bstr(bstr) => variant.set_bstr(bstr),
+            ComArg::Bool(b) => variant.set_bool(b),
             ComArg::Dispatch(d) => variant.set_idispatch(d),
             ComArg::Variant(v) => variant.set_variant(v),
             ComArg::Empty => {}, // そのまま
@@ -426,6 +429,10 @@ impl VARIANT {
         self.set_vt(VT_BSTR);
         self.Anonymous.Anonymous.Anonymous.bstrVal = bstr.abi();
     }
+    fn set_bool(&mut self, b: &bool) {
+        self.set_vt(VT_BOOL);
+        self.Anonymous.Anonymous.Anonymous.boolVal = if *b {-1} else {0};
+    }
     fn set_idispatch(&mut self, idispatch: &IDispatch) {
         self.set_vt(VT_DISPATCH);
         self.Anonymous.Anonymous.Anonymous.pdispVal = idispatch.abi();
@@ -457,6 +464,13 @@ impl VARIANT {
     fn get_bool(&self) -> bool {
         unsafe {
             self.Anonymous.Anonymous.Anonymous.boolVal != 0
+        }
+    }
+    pub fn change_type(&self, vt: u16) -> ComResult<VARIANT> {
+        unsafe {
+            let mut dest = VARIANT::default();
+            VariantChangeType(&mut dest, self, 0, vt)?;
+            Ok(dest)
         }
     }
 }

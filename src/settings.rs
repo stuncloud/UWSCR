@@ -94,6 +94,9 @@ pub struct UOption {
     // 大文字小文字を区別する
     #[serde(default)]
     pub same_str: bool,
+    // IEオブジェクトを許可 (非公開)
+    #[serde(default, skip_serializing)]
+    pub allow_ie_object: bool,
 }
 
 impl Default for UOption {
@@ -112,6 +115,7 @@ impl Default for UOption {
             short_circuit: true,
             opt_public: false,
             same_str: false,
+            allow_ie_object: false,
         }
     }
 }

@@ -220,7 +220,7 @@ impl fmt::Display for Object {
             // },
             Object::ComObject(_) => write!(f, "Com Object"),
             Object::ComMember(_, _) => write!(f, "Com member"),
-            Object::Variant(_) => write!(f, "Variant"),
+            Object::Variant(ref v) => write!(f, "Variant({})", v.vt()),
             Object::SafeArray(_) => write!(f, "SafeArray"),
         }
     }

@@ -1,5 +1,9 @@
+use crate::evaluator::com_object::ComArg;
+use crate::evaluator::com_object::ObjectHelper;
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
+use crate::evaluator::UError;
+use crate::settings::usettings_singleton;
 use crate::winapi::{
     bindings::Windows::Win32::{
         Foundation::{
@@ -11,21 +15,26 @@ use crate::winapi::{
                 CLSIDFromProgID, CoCreateInstance,
             },
             OleAutomation::{
-                IDispatch
+                IDispatch,
+                GetActiveObject,
             }
         }
     },
     to_wide_string,
 };
 
+use std::{ptr};
+use libc::c_void;
 // use std::sync::{Arc, Mutex};
 use strum_macros::{EnumString, EnumVariantNames};
 use num_derive::{ToPrimitive, FromPrimitive};
-use num_traits::FromPrimitive;
+// use num_traits::FromPrimitive;
+use windows::Interface;
 
 pub fn builtin_func_sets() -> BuiltinFunctionSets {
     let mut sets = BuiltinFunctionSets::new();
     sets.add("createoleobj", 1, createoleobj);
+    sets.add("getactiveoleobj", 1, getactiveoleobj);
     sets.add("vartype", 2, vartype);
     sets
 }
@@ -58,60 +67,95 @@ pub enum VarType {
     VAR_ARRAY    = 0x2000,
 }
 
+fn ignore_ie(prog_id: &str) -> Result<(), UError> {
+    if prog_id.to_ascii_lowercase().contains("internetexplorer.application") {
+        let singleton = usettings_singleton(None);
+        let usettings = singleton.0.lock().unwrap();
+        if ! usettings.options.allow_ie_object {
+            return Err(UError::new(
+                "CreateOleObj Error",
+                "Internet Explorer is not supported",
+                None
+            ));
+        }
+    }
+    Ok(())
+}
+
 fn createoleobj(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let prog_id = get_string_argument_value(&args, 0, None)?;
+    // ignore IE
+    ignore_ie(&prog_id)?;
     let idispatch = create_instance(&prog_id)?;
     Ok(Object::ComObject(idispatch))
-    // Ok(Object::ComObject(Arc::new(Mutex::new(idispatch))))
 }
 
 fn create_instance(prog_id: &str) -> Result<IDispatch, windows::Error> {
     let mut wide = to_wide_string(prog_id);
     let obj: IDispatch = unsafe {
-        let clsid = CLSIDFromProgID(PWSTR(wide.as_mut_ptr()))?;
-        CoCreateInstance(&clsid, None, CLSCTX_ALL)?
+        let rclsid = CLSIDFromProgID(PWSTR(wide.as_mut_ptr()))?;
+        CoCreateInstance(&rclsid, None, CLSCTX_ALL)?
+    };
+    Ok(obj)
+}
+
+fn getactiveoleobj(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let prog_id = get_string_argument_value(&args, 0, None)?;
+    // ignore IE
+    ignore_ie(&prog_id)?;
+    let disp = get_active_object(&prog_id)?;
+    Ok(Object::ComObject(disp))
+}
+
+fn get_active_object(prog_id: &str) -> Result<IDispatch, windows::Error> {
+    let mut wide = to_wide_string(prog_id);
+    let obj = unsafe {
+        let rclsid = CLSIDFromProgID(PWSTR(wide.as_mut_ptr()))?;
+        println!("[debug] wide: {:?}", &wide);
+        println!("[debug] rclsid: {:?}", &rclsid);
+
+        let pvreserved = ptr::null_mut() as *mut c_void;
+        let mut ppunk = None;
+        GetActiveObject(&rclsid, pvreserved, &mut ppunk)?;
+        println!("[debug] ppunk: {:?}", &ppunk);
+        match ppunk {
+            Some(u) => u.cast::<IDispatch>()?,
+            None => return Err(windows::Error::new(
+                windows::HRESULT(0)
+                , "Unknown error on GetActiveObject"
+            ))
+        }
     };
     Ok(obj)
 }
 
 fn vartype(args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let t = get_non_float_argument_value::<i32>(&args, 1, Some(-1))?;
+    let vt = get_non_float_argument_value::<i32>(&args, 1, Some(-1))?;
     let o = get_any_argument_value(&args, 0, None)?;
-    if t < 0 {
-        let vt = match o {
+    if vt < 0 {
+        let n = match o {
             Object::Variant(ref v) => v.vt() as f64,
             _ => VarType::VAR_UWSCR as u32 as f64
         };
-        Ok(Object::Num(vt))
+        Ok(Object::Num(n))
     } else {
+        let _is_array = (vt as u16 | VarType::VAR_ARRAY as u16) > 0;
         // VARIANT型への変換 VAR_UWSCRの場合は通常のObjectに戻す
-        let _is_array = (t as u16 | VarType::VAR_ARRAY as u16) > 0;
-        let vt = FromPrimitive::from_i32(t).unwrap_or(VarType::VAR_UWSCR);
-        match vt {
-            VarType::VAR_EMPTY => {}
-            VarType::VAR_NULL => {}
-            VarType::VAR_SMALLINT => {}
-            VarType::VAR_INTEGER => {}
-            VarType::VAR_SINGLE => {}
-            VarType::VAR_DOUBLE => {}
-            VarType::VAR_CURRENCY => {}
-            VarType::VAR_DATE => {}
-            VarType::VAR_BSTR => {}
-            VarType::VAR_DISPATCH => {}
-            VarType::VAR_ERROR => {}
-            VarType::VAR_BOOLEAN => {}
-            VarType::VAR_VARIANT => {}
-            VarType::VAR_UNKNOWN => {}
-            VarType::VAR_SBYTE => {}
-            VarType::VAR_BYTE => {}
-            VarType::VAR_WORD => {}
-            VarType::VAR_DWORD => {}
-            VarType::VAR_INT64 => {}
-            VarType::VAR_ASTR => {}
-            VarType::VAR_USTR => {}
-            VarType::VAR_UWSCR => {}
-            VarType::VAR_ARRAY => {}
+        if vt == VarType::VAR_UWSCR as i32 {
+            match o {
+                Object::Variant(v) => Ok(Object::from_variant(v)?),
+                o => Ok(o)
+            }
+        } else {
+            let variant = match o {
+                Object::Variant(ref v) => v.change_type(vt as u16)?,
+                o => {
+                    let ca = ComArg::from_object(o)?;
+                    let v = ca.to_variant();
+                    v.change_type(vt as u16)?
+                }
+            };
+            Ok(Object::Variant(variant))
         }
-        Ok(o)
     }
 }

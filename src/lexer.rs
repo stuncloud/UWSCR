@@ -448,6 +448,7 @@ impl Lexer {
             "topstopform" => Token::TopStopform,
             "fixballoon" => Token::FixBalloon,
             "defaultfont" => Token::Defaultfont,
+            "__allow_ie_object__" => Token::AllowIEObj,
             "position" => Token::Position,
             "logpath" => Token::Logpath,
             "loglines" => Token::Loglines,

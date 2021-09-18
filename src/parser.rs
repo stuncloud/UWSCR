@@ -1688,6 +1688,20 @@ impl Parser {
                     return None;
                 }
             },
+            Token::AllowIEObj => {
+                if ! self.is_next_token(&Token::EqualOrAssign) {
+                    Statement::Option(OptionSetting::AllowIEObj(true))
+                } else {
+                    self.bump();
+                    self.bump();
+                    if let Token::Bool(b) = self.current_token.token {
+                        Statement::Option(OptionSetting::AllowIEObj(b))
+                    } else {
+                        self.error_got_unexpected_token();
+                        return None;
+                    }
+                }
+            },
             _ => {
                 self.error_got_unexpected_token();
                 return None;
