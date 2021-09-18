@@ -46,8 +46,8 @@ pub fn length(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         Object::Empty => 0,
         Object::Null => 1,
         Object::SafeArray(ref s) => {
-            let ndim = get_non_float_argument_value(&args, 1, Some(1u32))?;
-            s.len(ndim)?
+            let get_dim = get_bool_argument_value(&args, 1, Some(false))?;
+            s.len(get_dim)?
         },
         _ => return Err(builtin_func_error("length", "given value is not countable"))
     };

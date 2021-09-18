@@ -28,6 +28,8 @@ use strum::VariantNames;
 use num_traits::ToPrimitive;
 use strum_macros::{ToString, EnumVariantNames};
 
+use super::Evaluator;
+
 pub type BuiltinFunction = fn(BuiltinFuncArgs) -> BuiltinFuncResult;
 pub type BuiltinFuncResult = Result<Object, UError>;
 
@@ -461,10 +463,11 @@ pub fn get_string_argument_value(args: &BuiltinFuncArgs, i: usize, default: Opti
 pub fn get_bool_argument_value(args: &BuiltinFuncArgs, i: usize, default: Option<bool>) -> Result<bool, UError> {
     if args.len() >= i + 1 {
         let arg = args.item(i).unwrap();
-        match arg {
-            Object::Bool(b) => Ok(b),
-            _ => Err(builtin_arg_error(&format!("bad argument: {}", arg), args.name()))
-        }
+        let b = match arg {
+            Object::Bool(b) => b,
+            o => Evaluator::is_truthy(o)
+        };
+        Ok(b)
     } else {
         default.ok_or(builtin_arg_error(&format!("argument {} required", i + 1), args.name()))
     }

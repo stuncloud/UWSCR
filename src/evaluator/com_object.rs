@@ -480,12 +480,6 @@ impl VARIANT {
 
 unsafe impl Send for SAFEARRAY {}
 
-pub trait SAFEARRAYHelper {
-    fn new(lbound: i32, size: u32) -> SAFEARRAY;
-    fn get(&mut self, index: i32) -> ComResult<VARIANT>;
-    fn put(&mut self, index: i32, variant: &mut VARIANT) -> ComResult<()>;
-}
-
 impl SAFEARRAY {
     pub fn new(lbound: i32, ubound: i32) -> Self {
         let vt = VT_VARIANT.0 as u16;
@@ -502,8 +496,8 @@ impl SAFEARRAY {
         let vt = VT_VARIANT.0 as u16;
         let cdims = 2;
         let mut rgsabound = vec![
-            SAFEARRAYBOUND::new(lbound, ubound),
             SAFEARRAYBOUND::new(lbound2, ubound2),
+            SAFEARRAYBOUND::new(lbound, ubound),
         ];
         let sa = unsafe {
             let p = SafeArrayCreate(vt, cdims, rgsabound.as_mut_ptr() as *mut SAFEARRAYBOUND);
@@ -533,14 +527,12 @@ impl SAFEARRAY {
         Ok(())
     }
 
-    pub fn len(&self, ndim: u32) -> ComResult<usize> {
+    pub fn len(&self, get_dim: bool) -> ComResult<usize> {
         let psa = self as *const _ as *mut SAFEARRAY;
         let size = unsafe {
-            let dim_size = SafeArrayGetDim(psa);
-            if ndim == 0 {
-                dim_size as usize
-            // } else if dim_size > 1 && ndim == 1 {
-            //     SafeArrayGetElemsize(psa) as usize
+            let ndim = SafeArrayGetDim(psa);
+            if get_dim {
+                ndim as usize
             } else {
                 let lb = SafeArrayGetLBound(psa, ndim)?;
                 let ub = SafeArrayGetUBound(psa, ndim)?;
