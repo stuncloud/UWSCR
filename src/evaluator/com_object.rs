@@ -69,6 +69,7 @@ use crate::winapi::{
                 IDispatch,
                 VariantInit, VariantChangeType,
                 SafeArrayCreate, SafeArrayGetElement, SafeArrayPutElement,
+                SafeArrayGetLBound, SafeArrayGetUBound, SafeArrayGetDim,
             },
         },
     },
@@ -486,10 +487,10 @@ pub trait SAFEARRAYHelper {
 }
 
 impl SAFEARRAY {
-    pub fn new(lbound: i32, size: u32) -> Self {
+    pub fn new(lbound: i32, ubound: i32) -> Self {
         let vt = VT_VARIANT.0 as u16;
         let cdims = 1;
-        let mut rgsabound = SAFEARRAYBOUND::new(lbound, size);
+        let mut rgsabound = SAFEARRAYBOUND::new(lbound, ubound);
         let sa = unsafe {
             let p = SafeArrayCreate(vt, cdims, &mut rgsabound);
             *p
@@ -497,7 +498,21 @@ impl SAFEARRAY {
         sa
     }
 
-    fn get(&mut self, mut index: i32) -> ComResult<VARIANT> {
+    pub fn new2(lbound: i32, ubound: i32, lbound2: i32, ubound2: i32) -> Self {
+        let vt = VT_VARIANT.0 as u16;
+        let cdims = 2;
+        let mut rgsabound = vec![
+            SAFEARRAYBOUND::new(lbound, ubound),
+            SAFEARRAYBOUND::new(lbound2, ubound2),
+        ];
+        let sa = unsafe {
+            let p = SafeArrayCreate(vt, cdims, rgsabound.as_mut_ptr() as *mut SAFEARRAYBOUND);
+            *p
+        };
+        sa
+    }
+
+    pub fn get(&mut self, mut index: i32) -> ComResult<VARIANT> {
         let psa = self as *mut SAFEARRAY;
         let rgindices = &mut index as *mut i32;
         let mut variant = VARIANT::default();
@@ -508,7 +523,7 @@ impl SAFEARRAY {
         Ok(variant)
     }
 
-    fn _put(&mut self, mut index: i32, variant: &mut VARIANT) -> ComResult<()> {
+    pub fn set(&mut self, mut index: i32, variant: &mut VARIANT) -> ComResult<()> {
         let psa = self as *mut SAFEARRAY;
         let rgindices = &mut index as *mut i32;
         let pv = variant as *mut VARIANT as *mut c_void;
@@ -517,12 +532,31 @@ impl SAFEARRAY {
         };
         Ok(())
     }
+
+    pub fn len(&self, ndim: u32) -> ComResult<usize> {
+        let psa = self as *const _ as *mut SAFEARRAY;
+        let size = unsafe {
+            let dim_size = SafeArrayGetDim(psa);
+            if ndim == 0 {
+                dim_size as usize
+            // } else if dim_size > 1 && ndim == 1 {
+            //     SafeArrayGetElemsize(psa) as usize
+            } else {
+                let lb = SafeArrayGetLBound(psa, ndim)?;
+                let ub = SafeArrayGetUBound(psa, ndim)?;
+                (ub - lb + 1) as usize
+            }
+        };
+        Ok(size)
+    }
 }
 
 impl SAFEARRAYBOUND {
-    pub fn new(lbound: i32, size: u32) -> Self {
+    pub fn new(lbound: i32, ubound: i32) -> Self {
+        let size = (ubound - lbound + 1) as u32;
         Self {cElements: size, lLbound: lbound}
     }
+
 }
 
 // // ObjectでVARIANTを表す

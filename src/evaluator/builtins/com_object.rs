@@ -15,7 +15,7 @@ use crate::winapi::{
                 CLSIDFromProgID, CoCreateInstance,
             },
             OleAutomation::{
-                IDispatch,
+                IDispatch, SAFEARRAY,
                 GetActiveObject,
             }
         }
@@ -36,6 +36,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("createoleobj", 1, createoleobj);
     sets.add("getactiveoleobj", 1, getactiveoleobj);
     sets.add("vartype", 2, vartype);
+    sets.add("safearray", 4, safearray);
     sets
 }
 
@@ -158,4 +159,38 @@ fn vartype(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             Ok(Object::Variant(variant))
         }
     }
+}
+
+fn safearray(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let lbound = match get_num_or_array_argument_value(&args, 0, Some(Object::Num(0.0)))? {
+        Object::Num(n) => n as i32,
+        Object::Array(arr) => {
+            let mut sa = SAFEARRAY::new(0, (arr.len() - 1) as i32);
+            let mut i = 0;
+            for obj in arr {
+                let com_arg = ComArg::from_object(obj)?;
+                let mut variant = com_arg.to_variant();
+                sa.set(i, &mut variant)?;
+                i += 1;
+            }
+            return Ok(Object::SafeArray(sa))
+        },
+        _ => 0,
+    };
+    let ubound = get_non_float_argument_value::<i32>(&args, 1, Some(-1))?;
+    let min = i32::min_value();
+    let lbound2 = get_non_float_argument_value::<i32>(&args, 2, Some(min))?;
+    let mut ubound2 = get_non_float_argument_value::<i32>(&args, 3, Some(min))?;
+
+    let safe_array = if lbound2 > min {
+        // 二次元
+        if ubound2 == min {
+            ubound2 = lbound2 - 1;
+        }
+        SAFEARRAY::new2(lbound, ubound, lbound2, ubound2)
+    } else {
+        // 一次元
+        SAFEARRAY::new(lbound, ubound)
+    };
+    Ok(Object::SafeArray(safe_array))
 }

@@ -1,6 +1,8 @@
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
-use crate::winapi::get_ansi_length;
+use crate::winapi::{
+    get_ansi_length,
+};
 
 use std::sync::{Arc, Mutex};
 
@@ -13,7 +15,7 @@ use serde_json;
 pub fn builtin_func_sets() -> BuiltinFunctionSets {
     let mut sets = BuiltinFunctionSets::new();
     sets.add("copy", 5, copy);
-    sets.add("length", 1, length);
+    sets.add("length", 2, length);
     sets.add("lengthb", 1, lengthb);
     sets.add("lengthu", 1, lengthu);
     sets.add("as_string", 1, as_string);
@@ -43,6 +45,10 @@ pub fn length(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         Object::UStruct(_, n, _) => n,
         Object::Empty => 0,
         Object::Null => 1,
+        Object::SafeArray(ref s) => {
+            let ndim = get_non_float_argument_value(&args, 1, Some(1u32))?;
+            s.len(ndim)?
+        },
         _ => return Err(builtin_func_error("length", "given value is not countable"))
     };
     Ok(Object::Num(len as f64))

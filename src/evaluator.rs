@@ -1384,6 +1384,22 @@ impl Evaluator {
                 let v = disp.get("Item", Some(keys))?;
                 Object::from_variant(v)?
             },
+            Object::SafeArray(mut sa) => if hash_enum.is_some() {
+                return Err(UError::new(
+                    "Invalid index",
+                    &format!("{}[{}, {}]", left, index, hash_enum.unwrap()),
+                    None
+                ));
+            } else if let Object::Num(i) = index {
+                let v = sa.get(i as i32)?;
+                Object::from_variant(v)?
+            } else {
+                return Err(UError::new(
+                    "Invalid index",
+                    &format!("{}[{}]", left, index),
+                    None
+                ))
+            },
             o => return Err(UError::new(
                 "Not an Array or Hashtable",
                 &format!("{}", o),
@@ -1485,6 +1501,12 @@ impl Evaluator {
                                         let com_value = ComArg::from_object(value)?;
                                         let var_value = com_value.to_variant();
                                         disp.set("Item", var_value, Some(keys))?;
+                                    },
+                                    Object::SafeArray(mut sa) => if let Object::Num(i) = index {
+                                        let com_value = ComArg::from_object(value)?;
+                                        let mut var_value = com_value.to_variant();
+                                        sa.set(i as i32, &mut var_value)?
+                                    } else {
                                     },
                                     _ => return Err(UError::new(
                                         "Invalid index call",

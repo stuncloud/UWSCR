@@ -517,6 +517,19 @@ pub fn get_array_argument_value(args: &BuiltinFuncArgs, i: usize, default: Optio
     }
 }
 
+pub fn get_num_or_array_argument_value(args: &BuiltinFuncArgs, i: usize, default: Option<Object>) -> Result<Object, UError> {
+    if args.len() >= i + 1 {
+        let arg = args.item(i).unwrap();
+        match arg {
+            Object::Num(_) |
+            Object::Array(_) => Ok(arg),
+            _ => Err(builtin_arg_error(&format!("bad argument: {}", arg), args.name()))
+        }
+    } else {
+        default.ok_or(builtin_arg_error(&format!("argument {} required", i + 1), args.name()))
+    }
+}
+
 pub fn get_task_argument_value(args: &BuiltinFuncArgs, i: usize) -> Result<UTask, UError> {
     if args.len() >= i + 1 {
         let arg = args.item(i).unwrap();
