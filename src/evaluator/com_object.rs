@@ -158,6 +158,8 @@ impl ComArg {
             Object::Variant(ref v) => Self::Variant(v.clone()),
             Object::Null => Self::Null,
             Object::Bool(b) => Self::Bool(b),
+            Object::Empty |
+            Object::EmptyParam => ComArg::Empty,
             o => return Err(UError::new(
                 "COM conversion error",
                 &format!("can not convert {} to VARIANT", o),
@@ -184,12 +186,8 @@ impl ComArg {
 
 
 /* Objectの拡張 */
-pub trait ObjectHelper {
-    fn from_variant(variant: VARIANT) -> EvalResult<Object>;
-}
-
-impl ObjectHelper for Object {
-    fn from_variant(variant: VARIANT) -> EvalResult<Self> {
+impl Object {
+    pub fn from_variant(variant: VARIANT) -> EvalResult<Self> {
         // VT_ARRAYの場合
         let is_array = (variant.vt() & VT_ARRAY.0 as u16) > 0;
         if is_array {
@@ -262,15 +260,8 @@ type ComResult<T> = Result<T, ComError>;
 
 unsafe impl Send for IDispatch {}
 
-pub trait IDispatchHelper {
-    fn get(&self, name: &str, keys: Option<Vec<VARIANT>>) -> ComResult<VARIANT>;
-    fn set(&self, name: &str, value: VARIANT, keys: Option<Vec<VARIANT>>) -> ComResult<VARIANT>;
-    fn run(&self, name: &str, args: &mut Vec<VARIANT>) -> ComResult<VARIANT>;
-    fn invoke_wrapper(&self, name: &str, dp: *mut DISPPARAMS, wflags: u16) -> ComResult<VARIANT>;
-}
-
-impl IDispatchHelper for IDispatch {
-    fn get(&self, name: &str, keys: Option<Vec<VARIANT>>) -> ComResult<VARIANT> {
+impl IDispatch {
+    pub fn get(&self, name: &str, keys: Option<Vec<VARIANT>>) -> ComResult<VARIANT> {
         let mut dp = DISPPARAMS::default();
         if keys.is_some() {
             let mut args = keys.unwrap();
@@ -281,7 +272,7 @@ impl IDispatchHelper for IDispatch {
         self.invoke_wrapper(name, &mut dp, DISPATCH_PROPERTYGET as u16)
     }
 
-    fn set(&self, name: &str, mut value: VARIANT, keys: Option<Vec<VARIANT>>) -> ComResult<VARIANT> {
+    pub fn set(&self, name: &str, mut value: VARIANT, keys: Option<Vec<VARIANT>>) -> ComResult<VARIANT> {
         let mut dp = DISPPARAMS::default();
         if keys.is_some() {
             let mut args = keys.unwrap();
@@ -300,7 +291,7 @@ impl IDispatchHelper for IDispatch {
         self.invoke_wrapper(name, &mut dp, DISPATCH_PROPERTYPUT as u16)
     }
 
-    fn run(&self, name: &str, args: &mut Vec<VARIANT>) -> ComResult<VARIANT> {
+    pub fn run(&self, name: &str, args: &mut Vec<VARIANT>) -> ComResult<VARIANT> {
         let mut dp = DISPPARAMS::default();
         // 引数をセット
         // 引数の入った配列は逆順で渡す
@@ -548,9 +539,4 @@ impl SAFEARRAYBOUND {
         let size = (ubound - lbound + 1) as u32;
         Self {cElements: size, lLbound: lbound}
     }
-
 }
-
-// // ObjectでVARIANTを表す
-// #[derive(Clone, Debug)]
-// pub struct UVariant(pub u16, pub Box<Object>);

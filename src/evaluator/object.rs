@@ -74,9 +74,10 @@ pub enum Object {
     ComObject(IDispatch),
     ComMember(IDispatch, String),
     Variant(VARIANT),
-    SafeArray(SAFEARRAY),
     // ComObject(Arc<Mutex<IDispatch>>),
     // Variant(Arc<Mutex<VARIANT>>),
+    SafeArray(SAFEARRAY),
+    VarArgument(Expression),
 }
 
 impl fmt::Display for Object {
@@ -222,6 +223,7 @@ impl fmt::Display for Object {
             Object::ComMember(_, _) => write!(f, "Com member"),
             Object::Variant(ref v) => write!(f, "Variant({})", v.vt()),
             Object::SafeArray(_) => write!(f, "SafeArray"),
+            Object::VarArgument(_) => write!(f, "var"),
         }
     }
 }

@@ -1158,7 +1158,9 @@ impl Evaluator {
                     Object::Empty
                 }
             },
-            Expression::ComErrFlg => Object::Bool(self.com_err_flg)
+            Expression::ComErrFlg => Object::Bool(self.com_err_flg),
+            Expression::EmptyArgument => Object::EmptyParam,
+            Expression::VarArgument(e) => Object::VarArgument(*e),
         };
         Ok(obj)
     }
@@ -2218,7 +2220,7 @@ impl Evaluator {
             Object::DefDllFunction(name, dll_path, params, ret_type) => {
                 return self.invoke_def_dll_function(name, dll_path, params, ret_type, arguments);
             },
-            Object::ComMember(ref disp, name) => return Self::invoke_com_function(disp, &name, arguments),
+            Object::ComMember(ref disp, name) => return self.invoke_com_function(disp, &name, arguments),
             Object::ComObject(ref disp) => {
                 // Item(key)の糖衣構文
                 let mut com_args = vec![];
@@ -2704,7 +2706,7 @@ impl Evaluator {
                     }
                     variadic.push(o.clone());
                     continue;
-                }
+                },
             };
             if variadic.len() == 0 {
                 self.env.define_local(&name, value)?;
@@ -2811,10 +2813,18 @@ impl Evaluator {
         Ok(result)
     }
 
-    fn invoke_com_function(disp: &IDispatch, name: &str, arguments: Vec<(Option<Expression>, Object)>) -> EvalResult<Object> {
+    fn invoke_com_function(&mut self, disp: &IDispatch, name: &str, arguments: Vec<(Option<Expression>, Object)>) -> EvalResult<Object> {
         let mut com_args = vec![];
-        for (_, arg) in arguments {
-            let com_arg = ComArg::from_object(arg)?;
+        let mut var_index = vec![];
+        for (_, obj) in arguments {
+            let com_arg = if let Object::VarArgument(e) = obj {
+                let o = self.eval_expression(e.clone())?;
+                let i = com_args.len();
+                var_index.push((i, e));
+                ComArg::from_object(o)?
+            } else {
+                ComArg::from_object(obj)?
+            };
             com_args.push(com_arg);
         }
         let mut var_args = vec![];
@@ -2823,6 +2833,14 @@ impl Evaluator {
             var_args.push(v);
         }
         let result = disp.run(name, &mut var_args)?;
+        if var_index.len() > 0 {
+            var_args.reverse();
+            for (i, e) in var_index {
+                let var = var_args[i].to_owned();
+                let o = Object::from_variant(var)?;
+                self.eval_assign_expression(e, o)?;
+            }
+        }
         Ok(Object::from_variant(result)?)
     }
 

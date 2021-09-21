@@ -1,5 +1,4 @@
 use crate::evaluator::com_object::ComArg;
-use crate::evaluator::com_object::ObjectHelper;
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
 use crate::evaluator::UError;

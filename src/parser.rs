@@ -1869,6 +1869,23 @@ impl Parser {
             },
             Token::Pipeline => self.parse_lambda_function_expression(),
             Token::ComErrFlg => Some(Expression::ComErrFlg),
+            Token::Ref => {
+                // COMメソッドの引数にvarが付く場合
+                // var <Identifier> とならなければいけない
+                self.bump();
+                match self.parse_expression(Precedence::Lowest, false) {
+                    Some(e) => return Some(Expression::VarArgument(Box::new(e))),
+                    None => {
+                        self.errors.push(ParseError::new(
+                            ParseErrorKind::SyntaxError,
+                            "Expression is required after 'var'",
+                            self.current_token.pos,
+                            self.script.clone()
+                        ));
+                        return None
+                    }
+                }
+            },
             _ => match self.parse_identifier_expression() {
                 Some(e) => {
                     if is_sol {
@@ -2661,7 +2678,7 @@ impl Parser {
         loop {
             match self.parse_param() {
                 Some(param) => {
-                    match param.clone() {
+                    match &param {
                         Params::Identifier(i) |
                         Params::Reference(i) |
                         Params::Array(i, _) => if with_default_flg {
@@ -2686,7 +2703,7 @@ impl Parser {
                         } else {
                             variadic_flg = true;
                         },
-                        Params::VariadicDummy => continue
+                        Params::VariadicDummy => continue,
                     }
                     params.push(Expression::Params(param))
                 },
@@ -2795,7 +2812,7 @@ impl Parser {
     }
 
     fn parse_function_call_expression(&mut self, func: Expression, is_await: bool) -> Option<Expression> {
-        let args = match self.parse_expression_list(Token::Rparen) {
+        let args = match self.parse_func_arguments() {
             Some(a) => a,
             None => return None
         };
@@ -2805,6 +2822,49 @@ impl Parser {
             args,
             is_await,
         })
+    }
+
+    fn parse_func_arguments(&mut self) -> Option<Vec<Expression>> {
+        let mut list:Vec<Expression> = vec![];
+        let end = Token::Rparen;
+
+        if self.is_next_token(&end) {
+            self.bump();
+            return Some(list);
+        }
+        self.bump();
+
+        if self.is_current_token(&Token::Comma) {
+            list.push(Expression::EmptyArgument);
+            self.bump();
+        } else {
+            match self.parse_expression(Precedence::Lowest, false) {
+                Some(e) => list.push(e),
+                None => return None
+            }
+        }
+
+        while self.is_next_token(&Token::Comma) {
+            self.bump();
+            // コンマが連続するなら空引数
+            if self.is_next_token(&Token::Comma) {
+                list.push(Expression::EmptyArgument);
+                continue;
+            }
+            self.bump();
+
+
+            match self.parse_expression(Precedence::Lowest, false) {
+                Some(e) => list.push(e),
+                None => return None
+            }
+        }
+
+        if ! self.is_next_token_expected(end) {
+            return None;
+        }
+
+        Some(list)
     }
 
 }

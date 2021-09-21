@@ -113,6 +113,8 @@ pub enum Expression {
     Params(Params),
     UObject(String),
     ComErrFlg,
+    VarArgument(Box<Expression>),
+    EmptyArgument,
 }
 
 #[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
