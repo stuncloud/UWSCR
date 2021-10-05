@@ -1,5 +1,6 @@
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
+use crate::error::evaluator::{UErrorMessage, UErrorKind};
 use crate::winapi::bindings::{
     Windows::{
         Win32::{
@@ -70,7 +71,7 @@ pub fn sleep(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(Object::Empty)
 }
 
-pub fn is_64bit_os(f_name: &str) -> Result<bool, UError> {
+pub fn is_64bit_os(f_name: String) -> Result<bool, UError> {
     let arch = std::env::var("PROCESSOR_ARCHITECTURE").unwrap_or("unknown".to_string());
     match arch.as_str() {
         "AMD64" => Ok(true),
@@ -81,7 +82,7 @@ pub fn is_64bit_os(f_name: &str) -> Result<bool, UError> {
             }
             Ok(b.as_bool())
         },
-        _ => Err(builtin_func_error(f_name, &format!("unknown architecture: {}", arch)))
+        _ => Err(builtin_func_error(UErrorMessage::UnknownArchitecture(arch), f_name))
     }
 }
 
@@ -209,7 +210,7 @@ pub fn shell_execute(cmd: String, params: Option<String>) -> bool {
     }
 }
 
-fn create_process(cmd: String, name: &str) -> Result<PROCESS_INFORMATION, UError> {
+fn create_process(cmd: String, name: String) -> Result<PROCESS_INFORMATION, UError> {
     unsafe {
         let mut si: STARTUPINFOW = mem::zeroed();
         si.cb = mem::size_of::<STARTUPINFOW>() as u32;
@@ -234,7 +235,7 @@ fn create_process(cmd: String, name: &str) -> Result<PROCESS_INFORMATION, UError
             WaitForInputIdle(pi.hProcess, 1000);
             Ok(pi)
         } else {
-            Err(builtin_func_error(name, "failed to create process"))
+            Err(builtin_func_error(UErrorMessage::FailedToCreateProcess, name))
         }
     }
 }
@@ -310,7 +311,7 @@ pub fn task(mut args: BuiltinFuncArgs) -> BuiltinFuncResult {
         Object::AsyncFunction(_, _, _, _, _) => Ok(Object::SpecialFuncResult(
             SpecialFuncResultType::Task(Box::new(obj), arguments)
         )),
-        _ => Err(builtin_func_error(args.name(), "argument should be user defined function"))
+        _ => Err(builtin_func_error(UErrorMessage::BuiltinArgIsNotFunction, args.name()))
     }
 }
 
@@ -321,9 +322,8 @@ pub fn wait_task(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         Ok(res) => res,
         Err(e) => {
             Err(UError::new(
-                "Task error",
-                "task ended incorrectly",
-                Some(&format!("{:?}", e))
+                UErrorKind::TaskError,
+                UErrorMessage::TaskEndedIncorrectly(format!("{:?}", e))
             ))
         }
     };

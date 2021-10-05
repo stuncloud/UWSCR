@@ -6,7 +6,6 @@ pub mod math;
 pub mod key_codes;
 pub mod com_object;
 
-use crate::evaluator::UError;
 use crate::settings::usettings_singleton;
 use crate::winapi::{
     get_windows_directory,
@@ -19,11 +18,14 @@ use crate::winapi::{
 };
 use crate::evaluator::object::{Object, Version, HashTblEnum, SpecialFuncResultType, UTask};
 use crate::evaluator::environment::NamedObject;
+use crate::error::evaluator::{UError,UErrorKind,UErrorMessage};
 use crate::ast::Expression;
 
 use std::env;
+use std::sync::{Arc, Mutex};
 
 use cast;
+use serde_json::Value;
 use strum::VariantNames;
 use num_traits::ToPrimitive;
 use strum_macros::{ToString, EnumVariantNames};
@@ -61,8 +63,8 @@ impl BuiltinFuncArgs {
     pub fn len(&self) -> usize {
         self.arguments.len()
     }
-    pub fn name(&self) -> &str {
-        self.func_name.as_str()
+    pub fn name(&self) -> String {
+        self.func_name.clone()
     }
     pub fn get_expr(&self, i: usize) -> Option<Expression> {
         self.arguments.get(i).map_or(None,|e| e.0.clone())
@@ -229,7 +231,7 @@ fn set_special_variables(vec: &mut Vec<NamedObject>) {
     )));
     vec.push(NamedObject::new_builtin_const("G_MOUSE_X".into(), Object::DynamicVar(
         || Object::Num(
-            match window_low::get_current_pos("") {
+            match window_low::get_current_pos("G_MOUSE_X".into()) {
                 Ok(p) => p.x as f64,
                 Err(_) => -999999.0
             }
@@ -237,7 +239,7 @@ fn set_special_variables(vec: &mut Vec<NamedObject>) {
     )));
     vec.push(NamedObject::new_builtin_const("G_MOUSE_Y".into(), Object::DynamicVar(
         || Object::Num(
-            match window_low::get_current_pos("") {
+            match window_low::get_current_pos("G_MOUSE_Y".into()) {
                 Ok(p) => p.y as f64,
                 Err(_) => -999999.0
             }
@@ -283,8 +285,13 @@ pub fn get_settings(_args: BuiltinFuncArgs) -> BuiltinFuncResult {
 
 pub fn raise(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let msg = get_string_argument_value(&args, 0, None)?;
-    let title = get_string_argument_value(&args, 1, Some("User defined error".into()))?;
-    Err(UError::new(&title, &msg, None))
+    let title = get_string_argument_value(&args, 1, Some(String::new()))?;
+    let kind = if title.len() > 0 {
+        UErrorKind::Any(title)
+    } else {
+        UErrorKind::UserDefinedError
+    };
+    Err(UError::new(kind, UErrorMessage::Any(msg)))
 }
 
 #[allow(non_camel_case_types)]
@@ -370,18 +377,17 @@ pub fn assert_equal(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     if arg1.is_equal(&arg2) {
         Ok(Object::Empty)
     } else {
-        Err(UError::new("assertion error", &format!("left: {}, right: {}", arg1, arg2), None))
+        Err(UError::new(
+            UErrorKind::AssertEqError,
+            UErrorMessage::AssertEqLeftAndRight(arg1, arg2)
+        ))
     }
 }
 
 // エラー出力用関数
 
-pub fn builtin_func_error(name: &str, msg: &str)-> UError {
-    UError::new("builtin function error", msg, Some(name))
-}
-
-pub fn builtin_arg_error(msg: &str, name: &str) -> UError {
-    UError::new("builtin function argument error", msg, Some(name))
+pub fn builtin_func_error(msg: UErrorMessage, name: String) -> UError {
+    UError::new(UErrorKind::BuiltinFunctionError(name), msg)
 }
 
 // ビルトイン関数の引数を受け取るための関数群
@@ -395,7 +401,7 @@ pub fn get_any_argument_value(args: &BuiltinFuncArgs, i: usize, default: Option<
         let arg = args.item(i).unwrap();
         Ok(arg)
     } else {
-        default.ok_or(builtin_arg_error(&format!("argument {} required", i + 1), args.name()))
+        default.ok_or(builtin_func_error(UErrorMessage::BuiltinArgRequiredAt(i + 1), args.name()))
     }
 }
 
@@ -405,23 +411,27 @@ pub fn get_non_float_argument_value<T>(args: &BuiltinFuncArgs, i: usize, default
     if args.len() >= i + 1 {
         let arg = args.item(i).unwrap();
         match arg {
-            Object::Num(n) => T::cast(n).or(Err(builtin_arg_error(
-                &format!("unable to cast {} to {}", n, std::any::type_name::<T>()), args.name())
-            )),
+            Object::Num(n) => T::cast(n).or(Err(builtin_func_error(
+                UErrorMessage::BuiltinArgCastError(arg, std::any::type_name::<T>().into()),
+                args.name()
+            ))),
             Object::String(ref s) => match s.parse::<f64>() {
-                Ok(n) => T::cast(n).or(Err(builtin_arg_error(
-                    &format!("unable to cast {} to {}", n, std::any::type_name::<T>()), args.name())
-                )),
-                Err(_) => Err(builtin_arg_error(
-                    &format!("bad argument: {}", arg), args.name())
+                Ok(n) => T::cast(n).or(Err(builtin_func_error(
+                    UErrorMessage::BuiltinArgCastError(arg, std::any::type_name::<T>().into()),
+                    args.name()
+                ))),
+                Err(_) => Err(builtin_func_error(
+                    UErrorMessage::BuiltinArgInvalid(arg),
+                    args.name())
                 )
             },
-            _ => Err(builtin_arg_error(
-                &format!("bad argument: {}", arg), args.name())
+            _ => Err(builtin_func_error(
+                UErrorMessage::BuiltinArgInvalid(arg),
+                args.name())
             )
         }
     } else {
-        default.ok_or(builtin_arg_error(&format!("argument {} required", i + 1), args.name()))
+        default.ok_or(builtin_func_error(UErrorMessage::BuiltinArgRequiredAt(i + 1), args.name()))
     }
 }
 
@@ -434,16 +444,16 @@ pub fn get_num_argument_value<T>(args: &BuiltinFuncArgs, i: usize, default: Opti
             Object::Num(n) => Ok(T::cast(n)),
             Object::String(ref s) => match s.parse::<f64>() {
                 Ok(n) => Ok(T::cast(n)),
-                Err(_) => Err(builtin_arg_error(
-                    &format!("bad argument: {}", arg), args.name())
+                Err(_) => Err(builtin_func_error(
+                    UErrorMessage::BuiltinArgInvalid(arg), args.name())
                 )
             },
-            _ => Err(builtin_arg_error(
-                &format!("bad argument: {}", arg), args.name())
+            _ => Err(builtin_func_error(
+                UErrorMessage::BuiltinArgInvalid(arg), args.name())
             )
         }
     } else {
-        default.ok_or(builtin_arg_error(&format!("argument {} required", i + 1), args.name()))
+        default.ok_or(builtin_func_error(UErrorMessage::BuiltinArgRequiredAt(i + 1), args.name()))
     }
 }
 
@@ -456,7 +466,7 @@ pub fn get_string_argument_value(args: &BuiltinFuncArgs, i: usize, default: Opti
             o => Ok(format!("{}", o)),
         }
     } else {
-        default.ok_or(builtin_arg_error(&format!("argument {} required", i + 1), args.name()))
+        default.ok_or(builtin_func_error(UErrorMessage::BuiltinArgRequiredAt(i + 1), args.name()))
     }
 }
 
@@ -469,7 +479,7 @@ pub fn get_bool_argument_value(args: &BuiltinFuncArgs, i: usize, default: Option
         };
         Ok(b)
     } else {
-        default.ok_or(builtin_arg_error(&format!("argument {} required", i + 1), args.name()))
+        default.ok_or(builtin_func_error(UErrorMessage::BuiltinArgRequiredAt(i + 1), args.name()))
     }
 }
 
@@ -478,33 +488,33 @@ pub fn get_bool_or_int_argument_value<T>(args: &BuiltinFuncArgs, i: usize, defau
 {
     if args.len() >= i + 1 {
         let arg = args.item(i).unwrap();
-        let err = "cast error";
+        let type_name = std::any::type_name::<T>().to_string();
         match arg {
-            Object::Bool(b) => if b {
-                T::cast(1.0).or(Err(builtin_arg_error(err, args.name())))
-            } else {
-                T::cast(0.0).or(Err(builtin_arg_error(err, args.name())))
-            },
-            Object::Num(n) => T::cast(n).or(Err(builtin_arg_error(
-                &format!("unable to cast {} to {}", n, std::any::type_name::<T>()), args.name())
+            Object::Bool(b) => T::cast(b as i32 as f64).or(Err(builtin_func_error(
+                UErrorMessage::BuiltinArgCastError(arg, type_name),
+                args.name()
+            ))),
+            Object::Num(n) => T::cast(n).or(Err(builtin_func_error(
+                UErrorMessage::BuiltinArgCastError(arg, type_name),
+                args.name())
             )),
-            _ => Err(builtin_arg_error(&format!("bad argument: {}", arg), args.name()))
+            _ => Err(builtin_func_error(UErrorMessage::BuiltinArgInvalid(arg), args.name()))
         }
     } else {
-        default.ok_or(builtin_arg_error(&format!("argument {} required", i + 1), args.name()))
+        default.ok_or(builtin_func_error(UErrorMessage::BuiltinArgRequiredAt(i + 1), args.name()))
     }
 }
 
-pub fn get_uobject_argument_value(args: &BuiltinFuncArgs, i: usize, default: Option<Object>) -> Result<Object, UError> {
+pub fn get_uobject_argument_value(args: &BuiltinFuncArgs, i: usize) -> Result<(Arc<Mutex<Value>>, Option<String>), UError> {
     if args.len() >= i + 1 {
         let arg = args.item(i).unwrap();
         match arg {
-            Object::UObject(_) |
-            Object::UChild(_, _) => Ok(arg),
-            _ => Err(builtin_arg_error(&format!("bad argument: {}", arg), args.name()))
+            Object::UObject(ref u) => Ok((Arc::clone(u), None)),
+            Object::UChild(ref u, p) => Ok((Arc::clone(u), Some(p))),
+            _ => Err(builtin_func_error(UErrorMessage::BuiltinArgInvalid(arg), args.name()))
         }
     } else {
-        default.ok_or(builtin_arg_error(&format!("argument {} required", i + 1), args.name()))
+        Err(builtin_func_error(UErrorMessage::BuiltinArgRequiredAt(i + 1), args.name()))
     }
 }
 
@@ -513,10 +523,10 @@ pub fn get_array_argument_value(args: &BuiltinFuncArgs, i: usize, default: Optio
         let arg = args.item(i).unwrap();
         match arg {
             Object::Array(_) => Ok(arg),
-            _ => Err(builtin_arg_error(&format!("bad argument: {}", arg), args.name()))
+            _ => Err(builtin_func_error(UErrorMessage::BuiltinArgInvalid(arg), args.name()))
         }
     } else {
-        default.ok_or(builtin_arg_error(&format!("argument {} required", i + 1), args.name()))
+        default.ok_or(builtin_func_error(UErrorMessage::BuiltinArgRequiredAt(i + 1), args.name()))
     }
 }
 
@@ -526,10 +536,10 @@ pub fn get_num_or_array_argument_value(args: &BuiltinFuncArgs, i: usize, default
         match arg {
             Object::Num(_) |
             Object::Array(_) => Ok(arg),
-            _ => Err(builtin_arg_error(&format!("bad argument: {}", arg), args.name()))
+            _ => Err(builtin_func_error(UErrorMessage::BuiltinArgInvalid(arg), args.name()))
         }
     } else {
-        default.ok_or(builtin_arg_error(&format!("argument {} required", i + 1), args.name()))
+        default.ok_or(builtin_func_error(UErrorMessage::BuiltinArgRequiredAt(i + 1), args.name()))
     }
 }
 
@@ -538,9 +548,9 @@ pub fn get_task_argument_value(args: &BuiltinFuncArgs, i: usize) -> Result<UTask
         let arg = args.item(i).unwrap();
         match arg {
             Object::Task(utask) => Ok(utask),
-            _ => Err(builtin_arg_error(&format!("bad argument: {}", arg), args.name()))
+            _ => Err(builtin_func_error(UErrorMessage::BuiltinArgInvalid(arg), args.name()))
         }
     } else {
-        Err(builtin_arg_error(&format!("argument {} required", i + 1), args.name()))
+        Err(builtin_func_error(UErrorMessage::BuiltinArgRequiredAt(i + 1), args.name()))
     }
 }

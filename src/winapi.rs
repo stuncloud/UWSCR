@@ -36,7 +36,7 @@ use bindings::{
     }
 };
 
-use crate::evaluator::UError;
+use crate::error::evaluator::{UError, UErrorKind, UErrorMessage};
 
 use std::{ffi::OsStr};
 use std::os::windows::ffi::OsStrExt;
@@ -175,9 +175,8 @@ pub fn get_color_depth() -> i32 {
 impl From<windows::Error> for UError {
     fn from(e: windows::Error) -> Self {
         UError::new(
-            "Windows Api Error".into(),
-            &e.message(),
-            Some(&format!("0x{:08X}", e.code().0))
+            UErrorKind::Win32Error(e.code().0),
+            UErrorMessage::Win32Error(e.message()),
         )
     }
 }

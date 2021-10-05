@@ -3,6 +3,7 @@ use crate::evaluator::environment::{NamedObject, Module};
 use crate::evaluator::builtins::BuiltinFunction;
 use crate::evaluator::{EvalResult};
 use crate::evaluator::def_dll::DllArg;
+use crate::error::evaluator::{UError,UErrorKind,UErrorMessage};
 
 use crate::winapi::{
     to_ansi_bytes, from_ansi_bytes, to_wide_string,
@@ -27,8 +28,6 @@ use strum_macros::{EnumString, EnumVariantNames};
 use num_derive::{ToPrimitive, FromPrimitive};
 use serde_json;
 use cast;
-
-use super::UError;
 
 #[derive(Clone, Debug)]
 pub enum Object {
@@ -438,9 +437,8 @@ impl UStruct {
         match DllArg::new(&object, &dll_type) {
             Ok(_) => {},
             Err(e) => return Err(UError::new(
-                "UStruct error",
-                &format!("type of {} should be {} but got {}", &name, dll_type, e),
-                None
+                UErrorKind::UStructError,
+                UErrorMessage::StructGotBadType(name, dll_type, e)
             ))
         };
         self.size += dll_type.size();
@@ -467,9 +465,8 @@ impl UStruct {
             }
         }
         Err(UError::new(
-            "UStruct get error",
-            &format!("{} has no member named {}", &self.name, &name),
-            None
+            UErrorKind::UStructError,
+            UErrorMessage::StructMemberNotFound(self.name.clone(), name)
         ))
     }
 
@@ -482,25 +479,22 @@ impl UStruct {
                             member.object = object;
                         } else {
                             return Err(UError::new(
-                                "UStruct error",
-                                &format!("type of {} should be {} but got {}", &name, t, n),
-                                None
+                                UErrorKind::UStructError,
+                                UErrorMessage::StructMemberNotFound(self.name.clone(), name)
                             ))
                         }
                     } else {
                         return Err(UError::new(
-                            "UStruct error",
-                            &format!("type of {} should be {}", &name, t),
-                            None
+                            UErrorKind::UStructError,
+                            UErrorMessage::StructTypeNotValid(name, t.clone())
                         ))
                     }
                 } else {
                     match DllArg::new(&object, &member.dll_type) {
                         Ok(_) => {},
                         Err(e) => return Err(UError::new(
-                            "UStruct error",
-                            &format!("type of {} should be {} but got {}", &name, &member.dll_type, e),
-                            None
+                            UErrorKind::UStructError,
+                            UErrorMessage::StructGotBadType(name, member.dll_type.clone(), e)
                         ))
                     };
                     member.object = object;
@@ -509,9 +503,8 @@ impl UStruct {
             }
         }
         Err(UError::new(
-            "UStruct set error",
-            &format!("{} has no member named {}", &self.name, &name),
-            None
+            UErrorKind::UStructError,
+            UErrorMessage::StructMemberNotFound(self.name.clone(), name)
         ))
     }
 
@@ -587,9 +580,8 @@ impl UStruct {
                     offset += size;
                 },
                 _ => return Err(UError::new(
-                    "UStruct error",
-                    "type not supported",
-                    Some(&format!("{}", &member.dll_type))
+                    UErrorKind::UStructError,
+                    UErrorMessage::StructTypeUnsupported(member.dll_type.clone())
                 )),
             }
         }
@@ -813,5 +805,16 @@ impl UStruct {
                 }
             }
         }
+    }
+}
+
+impl Into<Object> for String {
+    fn into(self) -> Object {
+        Object::String(self)
+    }
+}
+impl Into<Object> for f64 {
+    fn into(self) -> Object {
+        Object::Num(self)
     }
 }

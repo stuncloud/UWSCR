@@ -87,7 +87,7 @@ pub fn btn(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             return Ok(Object::Empty);
         },
         MouseButtonEnum::TOUCH => {
-            return Err(builtin_func_error(args.name(), "TOUCH is not yet supported."));
+            return Err(builtin_func_error(UErrorMessage::NotYetSupported("TOUCH".into()), args.name()));
         },
         _ => return Ok(Object::Empty)
     };
@@ -98,16 +98,16 @@ pub fn btn(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         KeyActionEnum::CLICK => enigo.mouse_click(button),
         KeyActionEnum::DOWN => enigo.mouse_down(button),
         KeyActionEnum::UP => enigo.mouse_up(button),
-        _ => return Err(builtin_func_error(args.name(), &format!("bad argument: {}", arg1)))
+        _ => return Err(builtin_func_error(UErrorMessage::InvalidArgument((arg1 as f64).into()), args.name()))
     }
     Ok(Object::Empty)
 }
 
-pub fn get_current_pos(name: &str) -> Result<POINT, UError>{
+pub fn get_current_pos(name: String) -> Result<POINT, UError>{
     let mut point = POINT {x: 0, y: 0};
     unsafe {
         if GetCursorPos(&mut point).as_bool() == false {
-            return Err(builtin_func_error("failed to get cursor position".into(), name));
+            return Err(builtin_func_error(UErrorMessage::UnableToGetCursorPosition, name));
         };
     }
     Ok(point)
@@ -178,7 +178,7 @@ pub fn kbd(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             enigo.key_sequence(s.as_str());
             return Ok(Object::Empty);
         }
-        _ => return Err(builtin_func_error(args.name(), &format!("bad argument: {}", obj)))
+        _ => return Err(builtin_func_error(UErrorMessage::InvalidArgument(obj), args.name()))
     };
     thread::sleep(time::Duration::from_millis(ms));
     match key_action {

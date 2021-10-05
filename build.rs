@@ -108,6 +108,7 @@ fn main() {
         Windows::Win32::Globalization::{
             CP_ACP, WC_COMPOSITECHECK,
             WideCharToMultiByte, MultiByteToWideChar,
+            GetUserDefaultUILanguage,
         },
         Windows::Win32::Security::{
             SECURITY_ATTRIBUTES

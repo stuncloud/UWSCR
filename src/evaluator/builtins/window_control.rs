@@ -164,8 +164,8 @@ pub fn getid(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         "__GET_ACTIVE_WIN__" => unsafe {
             GetForegroundWindow()
         },
-        "__GET_FROMPOINT_WIN__" => get_hwnd_from_mouse_point(true, "getid")?,
-        "__GET_FROMPOINT_OBJ__" => get_hwnd_from_mouse_point(false, "getid")?,
+        "__GET_FROMPOINT_WIN__" => get_hwnd_from_mouse_point(true, args.name())?,
+        "__GET_FROMPOINT_OBJ__" => get_hwnd_from_mouse_point(false, args.name())?,
         "__GET_THISUWSC_WIN__" => {
             HWND::NULL
         },
@@ -191,7 +191,7 @@ pub fn getid(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             let class_name = get_string_argument_value(&args, 1, Some("".into()))?;
             let wait = get_num_argument_value(&args, 2, Some(0.0))?;
             let _mdi_title = get_string_argument_value(&args, 3, Some("".into()))?;
-            find_window(title, class_name, wait, args.name())?
+            find_window(title, class_name, wait)
         },
     };
     if ! hwnd.is_null() {
@@ -247,7 +247,7 @@ fn enum_window_proc(hwnd: HWND, lparam: LPARAM) -> BOOL {
     true.into() // 次のウィンドウへ
 }
 
-fn find_window(title: String, class_name: String, timeout: f64, _name: &str) -> Result<HWND, UError> {
+fn find_window(title: String, class_name: String, timeout: f64) -> HWND {
     let mut target = TargetWindow {
         hwnd: HWND::NULL,
         title,
@@ -280,11 +280,11 @@ fn find_window(title: String, class_name: String, timeout: f64, _name: &str) -> 
         let h = get_process_handle_from_hwnd(target.hwnd);
         WaitForInputIdle(h, 1000); // 入力可能になるまで最大1秒待つ
         CloseHandle(h);
-        Ok(target.hwnd)
+        target.hwnd
     }
 }
 
-fn get_hwnd_from_mouse_point(toplevel: bool, name: &str) -> Result<HWND, UError> {
+fn get_hwnd_from_mouse_point(toplevel: bool, name: String) -> Result<HWND, UError> {
     unsafe {
         let point = window_low::get_current_pos(name)?;
         let mut hwnd = WindowFromPoint(point);
@@ -648,7 +648,7 @@ fn get_process_id_from_hwnd(hwnd: HWND) -> u32 {
 }
 
 fn is_process_64bit(hwnd: HWND) -> Object {
-    if ! is_64bit_os("status").unwrap_or(true) {
+    if ! is_64bit_os("status".into()).unwrap_or(true) {
         // 32bit OSなら必ずfalse
         return Object::Bool(false);
     }
@@ -928,7 +928,7 @@ pub fn monitor(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let p_miex = &mut miex as *mut _ as *mut MONITORINFO;
     unsafe {
         if ! GetMonitorInfoW(h, p_miex).as_bool() {
-            return Err(builtin_func_error("monitor", "failed to get monitor information"));
+            return Err(builtin_func_error(UErrorMessage::UnableToGetMonitorInfo, args.name()));
         }
     }
     let cmd = get_non_float_argument_value::<u8>(&args, 1, Some(MonitorEnum::MON_ALL as u8))?;

@@ -49,7 +49,7 @@ pub fn length(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             let get_dim = get_bool_argument_value(&args, 1, Some(false))?;
             s.len(get_dim)?
         },
-        _ => return Err(builtin_func_error("length", "given value is not countable"))
+        o => return Err(builtin_func_error(UErrorMessage::InvalidArgument(o), args.name()))
     };
     Ok(Object::Num(len as f64))
 }
@@ -61,7 +61,7 @@ pub fn lengthb(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         Object::Bool(b) => b.to_string().len(),
         Object::Empty => 0,
         Object::Null => 1,
-        _ => return Err(builtin_func_error("length", "given value is not countable"))
+        o => return Err(builtin_func_error(UErrorMessage::InvalidArgument(o), args.name()))
     };
     Ok(Object::Num(len as f64))
 }
@@ -73,7 +73,7 @@ pub fn lengthu(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         Object::Bool(b) => b.to_string().len(),
         Object::Empty => 0,
         Object::Null => 1,
-        _ => return Err(builtin_func_error("length", "given value is not countable"))
+        o => return Err(builtin_func_error(UErrorMessage::InvalidArgument(o), args.name()))
     };
     Ok(Object::Num(len as f64))
 }
@@ -110,16 +110,16 @@ pub fn newre(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(Object::RegEx(pattern))
 }
 
-fn test_regex(target: String, pattern: String, f_name: &str) -> Result<Object, UError> {
+fn test_regex(target: String, pattern: String, f_name: String) -> Result<Object, UError> {
     match Regex::new(pattern.as_str()) {
         Ok(re) => Ok(Object::Bool(
             re.is_match(target.as_str())
         )),
-        Err(_) => Err(builtin_func_error(f_name, "bad regex"))
+        Err(_) => Err(builtin_func_error(UErrorMessage::InvalidRegexPattern(pattern), f_name))
     }
 }
 
-fn match_regex(target: String, pattern: String, f_name: &str) -> Result<Object, UError> {
+fn match_regex(target: String, pattern: String, f_name: String) -> Result<Object, UError> {
     match Regex::new(pattern.as_str()) {
         Ok(re) => {
             let mut matches = vec![];
@@ -140,18 +140,18 @@ fn match_regex(target: String, pattern: String, f_name: &str) -> Result<Object, 
             }
             Ok(Object::Array(matches))
         },
-        Err(_) => Err(builtin_func_error(f_name, "bad regex"))
+        Err(_) => Err(builtin_func_error(UErrorMessage::InvalidRegexPattern(pattern), f_name))
     }
 }
 
-fn replace_regex(target: String, pattern: String, replace_to: String, f_name: &str) -> Result<Object, UError> {
+fn replace_regex(target: String, pattern: String, replace_to: String, f_name: String) -> Result<Object, UError> {
     match Regex::new(pattern.as_str()) {
         Ok(re) => {
             Ok(Object::String(
                 re.replace_all(target.as_str(), replace_to.as_str()).to_string()
             ))
         },
-        Err(_) => Err(builtin_func_error(f_name, "bad regex"))
+        Err(_) => Err(builtin_func_error(UErrorMessage::InvalidRegexPattern(pattern), f_name))
     }
 }
 
@@ -174,7 +174,7 @@ pub fn regex(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         Object::String(s) |
         Object::RegEx(s) => replace_regex(target, pattern, s.clone(), args.name()),
         Object::Empty => test_regex(target, pattern, args.name()),
-        _ => Err(builtin_func_error(args.name(), &format!("bad argument: {}", args.item(2).unwrap())))
+        o => Err(builtin_func_error(UErrorMessage::InvalidArgument(o), args.name()))
     }
 }
 
@@ -189,7 +189,7 @@ pub fn replace(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let (pattern, is_regex) = match get_any_argument_value(&args, 1, None)? {
         Object::String(s) => (s.clone(), get_bool_argument_value(&args, 3, Some(false))?),
         Object::RegEx(re) => (re.clone(), true),
-        _ => return Err(builtin_func_error(args.name(), &format!("bad argument: {}", args.item(1).unwrap())))
+        o => return Err(builtin_func_error(UErrorMessage::InvalidArgument(o), args.name()))
     };
     let replace_to = get_string_argument_value(&args, 2, None)?;
 
@@ -216,17 +216,17 @@ pub fn replace(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 pub fn tojson(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let prettify = get_bool_argument_value(&args, 1, Some(false))?;
     let f = if prettify {serde_json::to_string_pretty} else {serde_json::to_string};
-    let obj = match get_uobject_argument_value(&args, 0, None)? {
-        Object::UObject(u) => {
+    let (u, p) = get_uobject_argument_value(&args, 0)?;
+    let obj = match p {
+        None => {
             u.lock().unwrap().clone()
         },
-        Object::UChild(u, p) => {
+        Some(p) => {
             u.lock().unwrap().pointer(p.as_str()).unwrap().clone()
-        },
-        _ => return Err(builtin_func_error(args.name(), "UObject required"))
+        }
     };
     f(&obj).map_or_else(
-        |e| Err(builtin_func_error(args.name(), &e.to_string())),
+        |e| Err(builtin_func_error(UErrorMessage::Any(e.to_string()), args.name())),
         |s| Ok(Object::String(s))
     )
 }

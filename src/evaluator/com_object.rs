@@ -76,9 +76,10 @@ use crate::winapi::{
     to_wide_string,
 };
 use crate::evaluator::{
-    UError, EvalResult,
+    EvalResult,
     object::Object,
 };
+use crate::error::evaluator::{UError, UErrorKind, UErrorMessage};
 
 use std::{
     ffi::c_void,
@@ -119,15 +120,10 @@ impl From<windows::Error> for ComError {
 
 impl From<ComError> for UError {
     fn from(e: ComError) -> Self {
-        let mut uerr = Self::new(
-            &format!("Com Error(0x{:08X})", e.code),
-            &e.message,
-            match e.description {
-            Some(ref s) => Some(s),
-            None => None
-        });
-        uerr.is_com_error = true;
-        uerr
+        Self::new_com_error(
+            UErrorKind::ComError(e.code),
+            UErrorMessage::ComError(e.message, e.description)
+        )
     }
 }
 
@@ -161,9 +157,8 @@ impl ComArg {
             Object::Empty |
             Object::EmptyParam => ComArg::Empty,
             o => return Err(UError::new(
-                "COM conversion error",
-                &format!("can not convert {} to VARIANT", o),
-                None
+                UErrorKind::ConversionError,
+                UErrorMessage::ConvertionError(o),
             )),
         };
         Ok(comarg)

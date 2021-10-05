@@ -73,9 +73,8 @@ fn ignore_ie(prog_id: &str) -> Result<(), UError> {
         let usettings = singleton.0.lock().unwrap();
         if ! usettings.options.allow_ie_object {
             return Err(UError::new(
-                "CreateOleObj Error",
-                "Internet Explorer is not supported",
-                None
+                UErrorKind::ProgIdError,
+                UErrorMessage::InternetExplorerNotAllowed
             ));
         }
     }
