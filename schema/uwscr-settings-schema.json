@@ -1,85 +1,128 @@
 {
-  "$schema": "http://json-schema.org/draft-04/schema#",
-  "description": "",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "USettings",
   "type": "object",
   "properties": {
     "options": {
+      "default": {
+        "default_font": "MS Gothic,12",
+        "dlg_title": null,
+        "explicit": false,
+        "fix_balloon": false,
+        "log_file": 1,
+        "log_lines": 400,
+        "log_path": null,
+        "no_stop_hot_key": false,
+        "opt_finally": false,
+        "opt_public": false,
+        "position": {
+          "left": 0,
+          "top": 0
+        },
+        "same_str": false,
+        "short_circuit": true
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/UOption"
+        }
+      ]
+    },
+    "schema": {
+      "default": "",
+      "readOnly": true,
+      "type": "string"
+    }
+  },
+  "definitions": {
+    "UOption": {
       "type": "object",
       "properties": {
-        "opt_finally": {
-          "type": "boolean"
-        },
-        "explicit": {
-          "type": "boolean"
+        "default_font": {
+          "default": "",
+          "type": "string"
         },
         "dlg_title": {
-          "type": ["null", "string"]
-        },
-        "log_file": {
-          "type": "number"
-        },
-        "log_lines": {
-          "type": "number"
-        },
-        "log_path": {
-          "type": ["null", "string"]
-        },
-        "position": {
-          "type": "object",
-          "properties": {
-            "left": {
-              "type": "number"
-            },
-            "top": {
-              "type": "number"
-            }
-          },
-          "required": [
-            "left",
-            "top"
+          "default": null,
+          "type": [
+            "string",
+            "null"
           ]
         },
-        "default_font": {
-          "type": "string",
-          "minLength": 1
+        "explicit": {
+          "default": false,
+          "type": "boolean"
         },
         "fix_balloon": {
+          "default": false,
           "type": "boolean"
+        },
+        "log_file": {
+          "default": 0,
+          "type": "integer",
+          "format": "uint8",
+          "minimum": 0.0
+        },
+        "log_lines": {
+          "default": 0,
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        },
+        "log_path": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "no_stop_hot_key": {
+          "default": false,
           "type": "boolean"
         },
-        "short_circuit": {
+        "opt_finally": {
+          "default": false,
           "type": "boolean"
         },
         "opt_public": {
+          "default": false,
           "type": "boolean"
         },
+        "position": {
+          "default": {
+            "left": 0,
+            "top": 0
+          },
+          "allOf": [
+            {
+              "$ref": "#/definitions/UPosition"
+            }
+          ]
+        },
         "same_str": {
+          "default": false,
+          "type": "boolean"
+        },
+        "short_circuit": {
+          "default": false,
           "type": "boolean"
         }
-      },
-      "required": [
-        "opt_finally",
-        "explicit",
-        "log_file",
-        "log_lines",
-        "position",
-        "default_font",
-        "fix_balloon",
-        "no_stop_hot_key",
-        "short_circuit",
-        "opt_public",
-        "same_str"
-      ]
+      }
     },
-    "$schema": {
-      "type": "string",
-      "minLength": 1
+    "UPosition": {
+      "type": "object",
+      "properties": {
+        "left": {
+          "default": 0,
+          "type": "integer",
+          "format": "int32"
+        },
+        "top": {
+          "default": 0,
+          "type": "integer",
+          "format": "int32"
+        }
+      }
     }
-  },
-  "required": [
-    "options",
-    "$schema"
-  ]
+  }
 }

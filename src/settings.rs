@@ -20,11 +20,12 @@ use std::{
 
 use serde::{Serialize, Deserialize};
 use serde_json;
+use schemars::{schema_for, JsonSchema};
 
 #[derive(Debug, Clone)]
 pub struct SingletonSettings(pub Arc<Mutex<USettings>>);
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct USettings {
     #[serde(default)]
     pub options: UOption,
@@ -40,14 +41,30 @@ impl USettings {
 
 impl Default for USettings {
     fn default() -> Self {
+        let uri = "https://github.com/stuncloud/UWSCR/releases/download/0.1.7/uwscr-settings-schema.json".to_string();
+        let schema = if cfg!(debug_assertions) {
+            match std::env::current_dir() {
+                Ok(mut p) => {
+                    p.push("schema");
+                    p.push("uwscr-settings-schema.json");
+                    match url::Url::from_file_path(p) {
+                        Ok(u) => u.as_str().to_string(),
+                        Err(_) => uri
+                    }
+                },
+                Err(_) => uri
+            }
+        } else {
+            uri
+        };
         USettings {
             options: UOption::default(),
-            schema: "https://github.com/stuncloud/UWSCR/releases/download/0.1.7/uwscr-settings-schema.json".into(),
+            schema
         }
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct UOption {
     // finally部を必ず実行する
     #[serde(default)]
@@ -95,7 +112,8 @@ pub struct UOption {
     #[serde(default)]
     pub same_str: bool,
     // IEオブジェクトを許可 (非公開)
-    #[serde(default, skip_serializing)]
+    #[serde(skip_serializing, default)]
+    #[schemars(skip)]
     pub allow_ie_object: bool,
 }
 
@@ -120,7 +138,7 @@ impl Default for UOption {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct UPosition {
     #[serde(default)]
     pub left: i32,
@@ -219,4 +237,18 @@ pub fn out_default_setting_file() -> Result<String, Error> {
     }
     shell_execute(path.to_str().unwrap().to_string(), None);
     Ok(format!("Opening {}", path.to_str().unwrap()))
+}
+
+pub fn out_json_schema_file(mut path: PathBuf) -> Result<String, Error> {
+    if ! path.exists() {
+        create_dir_all(&path)?
+    }
+    path.push("uwscr-settings-schema.json");
+
+    let schema = schema_for!(USettings);
+    let json = serde_json::to_string_pretty(&schema)?;
+    let mut file = OpenOptions::new().create(true).write(true).open::<&PathBuf>(&path)?;
+    write!(file, "{}", json)?;
+
+    Ok(format!("Created {}", path.to_str().unwrap()))
 }

@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 use std::env;
+use std::str::FromStr;
 
 use uwscr::script;
 use uwscr::repl;
@@ -7,7 +8,9 @@ use uwscr::evaluator::builtins::system_controls::shell_execute;
 use uwscr::logging::{out_log, LogType};
 use uwscr::get_script;
 use uwscr::serializer;
-use uwscr::settings::out_default_setting_file;
+use uwscr::settings::{
+    out_default_setting_file, out_json_schema_file
+};
 
 
 fn main() {
@@ -115,7 +118,23 @@ fn main() {
                     Ok(s) => println!("{}", s),
                     Err(e) => eprintln!("{}", e)
                 }
-            }
+            },
+            Mode::Schema(p) => {
+                let dir = match p {
+                    Some(p) => p,
+                    None => match PathBuf::from_str(".") {
+                        Ok(p) => p,
+                        Err(e) => {
+                            eprintln!("{}", e);
+                            return;
+                        }
+                    }
+                };
+                match out_json_schema_file(dir) {
+                    Ok(s) => println!("{}", s),
+                    Err(e) => eprintln!("{}", e)
+                }
+            },
             Mode::Server(_p) => {
                 println!("Language serverは未実装です");
             },
@@ -144,7 +163,8 @@ impl Args {
             return Ok(Mode::Repl(None))
         }
         match self.args[1].to_ascii_lowercase().as_str() {
-            "-h"| "--help" => Ok(Mode::Help),
+            "-h"| "--help" |
+            "/?" | "-?" => Ok(Mode::Help),
             "-v"| "--version" => Ok(Mode::Version),
             "-o"| "--online-help" => Ok(Mode::OnlineHelp),
             "-r" | "--repl" => self.get_path().map(|p| Mode::Repl(p)),
@@ -167,6 +187,10 @@ impl Args {
             "-l" | "--lib" => match self.get_path() {
                 Ok(Some(p)) => Ok(Mode::Lib(p)),
                 Ok(None) => Err("FILE is required".to_string()),
+                Err(e) => Err(e)
+            },
+            "--schema" => match self.get_path() {
+                Ok(p) => Ok(Mode::Schema(p)),
                 Err(e) => Err(e)
             },
             "-s" | "--settings" => Ok(Mode::Settings),
@@ -221,8 +245,9 @@ impl Args {
         println!("  uwscr (-l|--lib) FILE        : スクリプトからuwslファイルを生成する");
         println!("  uwscr (-c|--code) CODE       : 渡された文字列を評価して実行する");
         println!("  uwscr (-s|--settings)        : 設定ファイル(settings.json)を開く");
+        println!("  uwscr --schema [DIR]         : 設定ディレクトリにjson schemaファイル(uwscr-settings-schema.json)を出力する");
         // println!("  uwscr --language-server [PORT]   : Language Serverとして起動、デフォルトポートはxxx");
-        println!("  uwscr (-h|--help)            : このヘルプを表示");
+        println!("  uwscr (-h|--help|-?|/?)      : このヘルプを表示");
         println!("  uwscr (-v|--version)         : UWSCRのバージョンを表示");
         println!("  uwscr (-o|--online-help)     : オンラインヘルプを表示");
     }
@@ -243,5 +268,6 @@ enum Mode {
     Version,
     Settings,
     OnlineHelp,
+    Schema(Option<PathBuf>)
 }
 

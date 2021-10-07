@@ -24,6 +24,8 @@ windows = "0.18"
 dlopen = "0.1"
 libffi = "1.0.1"
 libc = "0.2"
+schemars = "0.8.6"
+url = "2.2.2"
 
 [build-dependencies]
 winres = "0.1"
