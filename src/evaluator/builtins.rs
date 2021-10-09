@@ -5,6 +5,7 @@ pub mod system_controls;
 pub mod math;
 pub mod key_codes;
 pub mod com_object;
+pub mod browser_control;
 
 use crate::settings::usettings_singleton;
 use crate::winapi::{
@@ -153,6 +154,9 @@ pub fn init_builtins() -> Vec<NamedObject> {
     // com_object
     com_object::builtin_func_sets().set(&mut vec);
     set_builtin_consts::<com_object::VarType>(&mut vec);
+    // browser_control
+    browser_control::builtin_func_sets().set(&mut vec);
+    set_builtin_consts::<browser_control::BcEnum>(&mut vec);
 
     // 特殊変数
     set_special_variables(&mut vec);
@@ -464,6 +468,19 @@ pub fn get_string_argument_value(args: &BuiltinFuncArgs, i: usize, default: Opti
             Object::String(s) => Ok(s.clone()),
             Object::RegEx(re) => Ok(re.clone()),
             o => Ok(format!("{}", o)),
+        }
+    } else {
+        default.ok_or(builtin_func_error(UErrorMessage::BuiltinArgRequiredAt(i + 1), args.name()))
+    }
+}
+
+pub fn get_string_or_empty_argument(args: &BuiltinFuncArgs, i: usize, default: Option<Option<String>>) -> Result<Option<String>, UError> {
+    if args.len() >= i + 1 {
+        let arg = args.item(i).unwrap();
+        match &arg {
+            Object::String(s) => Ok(Some(s.to_string())),
+            Object::Empty => Ok(None),
+            o => Ok(Some(format!("{}", o))),
         }
     } else {
         default.ok_or(builtin_func_error(UErrorMessage::BuiltinArgRequiredAt(i + 1), args.name()))

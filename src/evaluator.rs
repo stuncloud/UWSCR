@@ -4,6 +4,7 @@ pub mod environment;
 pub mod builtins;
 pub mod def_dll;
 pub mod com_object;
+pub mod devtools_protocol;
 
 use crate::ast::*;
 use crate::evaluator::environment::*;
@@ -11,6 +12,7 @@ use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
 use crate::evaluator::def_dll::*;
 use crate::evaluator::com_object::*;
+use crate::evaluator::devtools_protocol::{Browser, Element};
 use crate::error::evaluator::{UError, UErrorKind, UErrorMessage};
 use crate::parser::Parser;
 use crate::lexer::Lexer;
@@ -1506,6 +1508,13 @@ impl Evaluator {
                                     disp.set(&member, var_value, Some(keys))?;
                                 }
                             },
+                            Object::Element(ref e) => {
+                                if let Expression::Identifier(i) = *right {
+                                    let name = i.0;
+                                    let value = Self::object_to_serde_value(value)?;
+                                    e.set_property(&name, value)?
+                                }
+                            },
                             o => return Err(UError::new(
                                 UErrorKind::DotOperatorError,
                                 UErrorMessage::InvalidObject(o),
@@ -2031,28 +2040,27 @@ impl Evaluator {
 
         let func_object = self.eval_expression_for_func_call(*func)?;
         match func_object {
-            Object::DestructorNotFound => return Ok(Object::Empty),
-            Object::Function(_, params, body, is_proc, obj) => return self.invoke_user_function(params, arguments, body, is_proc, None, obj, false),
+            Object::DestructorNotFound => Ok(Object::Empty),
+            Object::Function(_, params, body, is_proc, obj) => self.invoke_user_function(params, arguments, body, is_proc, None, obj, false),
             Object::AsyncFunction(_, _,_, _, _) => {
                 let task = self.new_task(func_object, arguments);
-                let result = if is_await {
+                if is_await {
                     self.await_task(task)
                 } else {
                     Ok(Object::Task(task))
-                };
-                return result;
+                }
             },
-            Object::AnonFunc(params, body, o, is_proc) => return self.invoke_user_function(params, arguments, body, is_proc, Some(o), None, false),
+            Object::AnonFunc(params, body, o, is_proc) => self.invoke_user_function(params, arguments, body, is_proc, Some(o), None, false),
             Object::BuiltinFunction(name, expected_len, f) => {
                 if expected_len >= arguments.len() as i32 {
                     let res = f(BuiltinFuncArgs::new(name, arguments))?;
-                    return self.builtin_func_result(res, is_await);
+                    self.builtin_func_result(res, is_await)
                 } else {
                     let l = arguments.len();
-                    return Err(UError::new(
+                    Err(UError::new(
                         UErrorKind::BuiltinFunctionError(name),
                         UErrorMessage::TooManyArguments(l, expected_len as usize)
-                    ));
+                    ))
                 }
             },
             // class constructor
@@ -2067,18 +2075,18 @@ impl Evaluator {
                         ))
                     };
                     if let Object::Function(_, params, body, _, _) = constructor {
-                        return self.invoke_user_function(params, arguments, body, true, None, Some(Arc::clone(&ins)), true);
+                        self.invoke_user_function(params, arguments, body, true, None, Some(Arc::clone(&ins)), true)
                     } else {
-                        return Err(UError::new(
+                        Err(UError::new(
                             UErrorKind::ClassError,
                             UErrorMessage::ConstructorIsNotValid(name)
-                        ));
+                        ))
                     }
                 } else {
-                    return Err(UError::new(
+                    Err(UError::new(
                         UErrorKind::ClassError,
                         UErrorMessage::NotAClass(name)
-                    ));
+                    ))
                 }
             },
             Object::Struct(name, size, members) => {
@@ -2096,12 +2104,12 @@ impl Evaluator {
                         UErrorMessage::TooManyArguments(n, 1)
                     ))
                 };
-                return Ok(ustruct)
+                Ok(ustruct)
             },
             Object::DefDllFunction(name, dll_path, params, ret_type) => {
-                return self.invoke_def_dll_function(name, dll_path, params, ret_type, arguments);
+                self.invoke_def_dll_function(name, dll_path, params, ret_type, arguments)
             },
-            Object::ComMember(ref disp, name) => return self.invoke_com_function(disp, &name, arguments),
+            Object::ComMember(ref disp, name) => self.invoke_com_function(disp, &name, arguments),
             Object::ComObject(ref disp) => {
                 // Item(key)の糖衣構文
                 let mut com_args = vec![];
@@ -2116,13 +2124,23 @@ impl Evaluator {
                 }
                 let v = disp.get("Item", Some(keys))?;
                 let obj = Object::from_variant(v)?;
-                return Ok(obj)
+                Ok(obj)
             },
-            o => return Err(UError::new(
+            Object::BrowserFunc(ref b, name) => {
+                let args = arguments.into_iter().map(|(_, o)|o).collect();
+                let res =  Self::invoke_browser_function(b.clone(), &name, args)?;
+                Ok(res)
+            },
+            Object::ElementFunc(ref e, name) => {
+                let args = arguments.into_iter().map(|(_, o)|o).collect();
+                let res = Self::invoke_element_function(e.clone(), &name, args)?;
+                Ok(res)
+            }
+            o => Err(UError::new(
                 UErrorKind::EvaluatorError,
                 UErrorMessage::NotAFunction(o),
             )),
-        };
+        }
     }
 
     fn invoke_def_dll_function(&mut self, name: String, dll_path: String, params: Vec<DefDllParam>, ret_type: DllType, arguments: Vec<(Option<Expression>, Object)>) -> EvalResult<Object> {
@@ -2740,6 +2758,153 @@ impl Evaluator {
         }
     }
 
+    fn invoke_browser_function(browser: Browser, name: &str, args: Vec<Object>) -> EvalResult<Object> {
+        let get_arg = |i: usize| args.get(i).unwrap_or(&Object::Empty).to_owned();
+        match name.to_ascii_lowercase().as_str() {
+            "navigate" => {
+                let uri = get_arg(0).to_string();
+                browser.navigate(&uri)?;
+                Ok(Object::Empty)
+            },
+            "execute" => {
+                let script = get_arg(0).to_string();
+                let value = match get_arg(1) {
+                    Object::UObject(v) => {
+                        let v = v.lock().unwrap();
+                        Some(v.clone())
+                    },
+                    Object::UChild(v, p) => {
+                        let v = v.lock().unwrap();
+                        let c = v.pointer(&p).unwrap();
+                        Some(c.clone())
+                    },
+                    Object::Empty => None,
+                    o => Some(Self::object_to_serde_value(o.to_owned())?)
+                };
+                let res = match get_arg(2) {
+                    Object::Empty => browser.execute_script(&script, value, None)?,
+                    o => {
+                        let name = o.to_string();
+                        browser.execute_script(&script, value, Some(name.as_str()))?
+                    }
+                };
+                Ok(res.map_or_else(|| Object::Empty, |v| v.into()))
+            }
+            "reload" => {
+                let ignore_cache = Self::is_truthy(get_arg(0));
+                browser.reload(ignore_cache)?;
+                Ok(Object::Empty)
+            }
+            "close" => {
+                browser.close()?;
+                Ok(Object::Empty)
+            },
+            "gettabs" => {
+                let filter = match get_arg(0) {
+                    Object::Empty => None,
+                    o => Some(o.to_string())
+                };
+                let tabs = browser.get_tabs(filter)?;
+                let arr = tabs.into_iter().map(|t| {
+                    Object::Array(vec![
+                        t.title.into(),
+                        t.url.into(),
+                        t.id.into(),
+                    ])
+                }).collect();
+                Ok(Object::Array(arr))
+            },
+            "newtab" => {
+                let uri = get_arg(0).to_string();
+                let new = browser.new_tab(&uri)?;
+                Ok(Object::Browser(new))
+            },
+            "activate" => {
+                browser.activate()?;
+                Ok(Object::Empty)
+            },
+            _ => Err(UError::new(
+                UErrorKind::BrowserControlError,
+                UErrorMessage::InvalidMember(name.to_string())
+            ))
+        }
+    }
+    fn invoke_element_function(element: Element, name: &str, args: Vec<Object>) -> EvalResult<Object> {
+        let get_arg = |i: usize| args.get(i).unwrap_or(&Object::Empty).to_owned();
+        match name.to_ascii_lowercase().as_str() {
+            "execute" => {
+                let script = get_arg(0).to_string();
+                let value = match get_arg(1) {
+                    Object::UObject(v) => {
+                        let v = v.lock().unwrap();
+                        Some(v.clone())
+                    },
+                    Object::UChild(v, p) => {
+                        let v = v.lock().unwrap();
+                        let c = v.pointer(&p).unwrap();
+                        Some(c.clone())
+                    },
+                    Object::Empty => None,
+                    o => Some(Self::object_to_serde_value(o.to_owned())?)
+                };
+                let res = match get_arg(2) {
+                    Object::Empty => element.execute_script(&script, value, None)?,
+                    o => {
+                        let name = o.to_string();
+                        element.execute_script(&script, value, Some(name.as_str()))?
+                    }
+                };
+                Ok(res.into())
+            },
+            "queryselector" => {
+                let selector = get_arg(0).to_string();
+                let e = element.query_selector(&selector)?;
+                Ok(Object::Element(e))
+            },
+            "queryselectorall" => {
+                let selector = get_arg(0).to_string();
+                let arr = element.query_selector_all(&selector)?
+                    .into_iter()
+                    .map(|e| Object::Element(e))
+                    .collect();
+                Ok(Object::Array(arr))
+            },
+            "focus" => {
+                element.focus()?;
+                Ok(Object::Empty)
+            },
+            "input" => {
+                let input = get_arg(0).to_string();
+                element.input(&input)?;
+                Ok(Object::Empty)
+            },
+            "clear" => {
+                element.clear()?;
+                Ok(Object::Empty)
+            },
+            "setfile" => {
+                let files = match get_arg(0) {
+                    Object::Array(arr) => arr.into_iter().map(|o| o.to_string()).collect(),
+                    o => vec![o.to_string()]
+                };
+                element.set_file_input(files)?;
+                Ok(Object::Empty)
+            },
+            "click" => {
+                element.click()?;
+                Ok(Object::Empty)
+            },
+            "select" => {
+                element.select()?;
+                Ok(Object::Empty)
+            },
+            _ => Err(UError::new(
+                UErrorKind::BrowserControlError,
+                UErrorMessage::InvalidMember(name.to_string())
+            ))
+        }
+    }
+
     fn eval_ternary_expression(&mut self, condition: Expression, consequence: Expression, alternative: Expression) -> EvalResult<Object> {
         let condition = self.eval_expression(condition)?;
         if Self::is_truthy(condition) {
@@ -2763,102 +2928,76 @@ impl Evaluator {
                 UErrorMessage::InvalidExpression(e),
             )),
         };
+        let member = if let Expression::Identifier(i) = right {
+            i.0
+        } else {
+            return Err(UError::new(
+                UErrorKind::DotOperatorError,
+                UErrorMessage::InvalidExpression(right)
+            ));
+        };
         match instance {
             Object::Module(m) |
             Object::Instance(m, _) => {
                 let module = m.lock().unwrap(); // Mutex<Module>をロック
-                match right {
-                    Expression::Identifier(i) => {
-                        let Identifier(member_name) = i;
-                        if module.is_local_member(&member_name) {
-                            if let Some(Object::This(this)) = self.env.get_variable(&"this".into(), true) {
-                                if this.try_lock().is_err() {
-                                    // ロックに失敗した場合、上でロックしているMutexと同じだと判断
-                                    // なので自分のモジュールメンバの値を返す
-                                    return module.get_member(&member_name);
-                                }
-                            }
-                            Err(UError::new(
-                                UErrorKind::DotOperatorError,
-                                UErrorMessage::IsPrivateMember(module.name(), member_name)
-                            ))
-                        } else if is_func {
-                            module.get_function(&member_name)
-                        } else {
-                            match module.get_public_member(&member_name) {
-                                Ok(Object::ExpandableTB(text)) => Ok(self.expand_string(text, true)),
-                                res => res
-                            }
+                if module.is_local_member(&member) {
+                    if let Some(Object::This(this)) = self.env.get_variable(&"this".into(), true) {
+                        if this.try_lock().is_err() {
+                            // ロックに失敗した場合、上でロックしているMutexと同じだと判断
+                            // なので自分のモジュールメンバの値を返す
+                            return module.get_member(&member);
                         }
-                    },
-                    e => Err(UError::new(
+                    }
+                    Err(UError::new(
                         UErrorKind::DotOperatorError,
-                        UErrorMessage::InvalidExpression(e)
-                    )),
+                        UErrorMessage::IsPrivateMember(module.name(), member)
+                    ))
+                } else if is_func {
+                    module.get_function(&member)
+                } else {
+                    match module.get_public_member(&member) {
+                        Ok(Object::ExpandableTB(text)) => Ok(self.expand_string(text, true)),
+                        res => res
+                    }
                 }
             },
             Object::This(m) => {
                 let module = m.lock().unwrap();
-                if let Expression::Identifier(i) = right {
-                    let Identifier(member_name) = i;
-                    if is_func {
-                        module.get_function(&member_name)
-                    } else {
-                        match module.get_member(&member_name) {
-                            Ok(Object::ExpandableTB(text)) => Ok(self.expand_string(text, true)),
-                            res => res
-                        }
-                    }
+                if is_func {
+                    module.get_function(&member)
                 } else {
-                    Err(UError::new(
-                        UErrorKind::DotOperatorError,
-                        UErrorMessage::InvalidExpression(right)
-                    ))
+                    match module.get_member(&member) {
+                        Ok(Object::ExpandableTB(text)) => Ok(self.expand_string(text, true)),
+                        res => res
+                    }
                 }
             },
             Object::Global => {
-                if let Expression::Identifier(Identifier(g_name)) = right {
-                    self.env.get_global(&g_name, is_func)
-                } else {
-                    Err(UError::new(
-                        UErrorKind::DotOperatorError,
-                        UErrorMessage::InvalidExpression(right)
-                    ))
-                }
+                self.env.get_global(&member, is_func)
             },
             Object::Class(name, _) => Err(UError::new(
                 UErrorKind::ClassError,
                 UErrorMessage::ConstructorCannotBeCalledDirectly(name)
             )),
-            Object::UObject(u) => if let Expression::Identifier(Identifier(key)) = right {
-                match u.lock().unwrap().get(key.as_str()) {
-                    Some(v) => self.eval_uobject(v, Arc::clone(&u), format!("/{}", key)),
+            Object::UObject(u) => {
+                match u.lock().unwrap().get(&member) {
+                    Some(v) => self.eval_uobject(v, Arc::clone(&u), format!("/{}", member)),
                     None => Err(UError::new(
                         UErrorKind::UObjectError,
-                        UErrorMessage::MemberNotFound(key)
+                        UErrorMessage::MemberNotFound(member)
                     )),
                 }
-            } else {
-                Err(UError::new(
-                    UErrorKind::UObjectError,
-                    UErrorMessage::InvalidExpression(right)
-                ))
             },
-            Object::UChild(u,p) => if let Expression::Identifier(Identifier(key)) = right {
-                match u.lock().unwrap().pointer(p.as_str()).unwrap().get(key.as_str()) {
-                    Some(v) => self.eval_uobject(v, Arc::clone(&u), format!("{}/{}", p, key)),
+            Object::UChild(u,p) => {
+                match u.lock().unwrap().pointer(p.as_str()).unwrap().get(&member) {
+                    Some(v) => self.eval_uobject(v, Arc::clone(&u), format!("{}/{}", p, member)),
                     None => Err(UError::new(
                         UErrorKind::UObjectError,
-                        UErrorMessage::MemberNotFound(key)
+                        UErrorMessage::MemberNotFound(member)
                     ))
                 }
-            } else {
-                Err(UError::new(
-                    UErrorKind::UObjectError,
-                    UErrorMessage::InvalidExpression(right)
-                ))
             },
-            Object::Enum(e) => if let Expression::Identifier(Identifier(member)) = right {
+            Object::Enum(e) => {
                 if let Some(n) = e.get(&member) {
                     Ok(Object::Num(n))
                 } else {
@@ -2867,22 +3006,12 @@ impl Evaluator {
                         UErrorMessage::MemberNotFound(member)
                     ))
                 }
-            } else {
-                Err(UError::new(
-                    UErrorKind::EnumError,
-                    UErrorMessage::InvalidExpression(right)
-                ))
             },
-            Object::UStruct(_, _, m) => if let Expression::Identifier(Identifier(member)) = right {
+            Object::UStruct(_, _, m) => {
                 let u = m.lock().unwrap();
                 u.get(member)
-            } else {
-                Err(UError::new(
-                    UErrorKind::UStructError,
-                    UErrorMessage::InvalidExpression(right)
-                ))
             },
-            Object::ComObject(ref disp) => if let Expression::Identifier(Identifier(member)) = right {
+            Object::ComObject(ref disp) => {
                 let obj = if is_func || is_com_property {
                     Object::ComMember(disp.clone(), member)
                 } else {
@@ -2890,11 +3019,38 @@ impl Evaluator {
                     Object::from_variant(v)?
                 };
                 Ok(obj)
+            },
+            Object::Browser(ref b) => if is_func {
+                Ok(Object::BrowserFunc(b.clone(), member))
             } else {
-                Err(UError::new(
-                    UErrorKind::DotOperatorError,
-                    UErrorMessage::InvalidExpression(right)
-                ))
+                match member.to_ascii_lowercase().as_str() {
+                    "document" => {
+                        let doc = b.document()?;
+                        Ok(Object::Element(doc))
+                    },
+                    "pageid" => {
+                        let id = b.id.to_string();
+                        Ok(Object::String(id))
+                    }
+                    _ => Err(UError::new(
+                        UErrorKind::BrowserControlError,
+                        UErrorMessage::InvalidMember(member)
+                    ))
+                }
+            },
+            Object::Element(ref e) => if is_func {
+                Ok(Object::ElementFunc(e.clone(), member))
+            } else {
+                // 特定のメンバ名の取得を試みるがなければプロパティ取得に移行
+                match member.to_ascii_lowercase().as_str() {
+                    "url" => match e.url()? {
+                        Some(url) => return Ok(url.into()),
+                        None => {}
+                    }
+                    _ => {}
+                }
+                let v = e.get_property(&member)?;
+                Ok(v.into())
             },
             o => Err(UError::new(
                 UErrorKind::DotOperatorError,

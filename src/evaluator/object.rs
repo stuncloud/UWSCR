@@ -4,6 +4,7 @@ use crate::evaluator::builtins::BuiltinFunction;
 use crate::evaluator::{EvalResult};
 use crate::evaluator::def_dll::DllArg;
 use crate::error::evaluator::{UError,UErrorKind,UErrorMessage};
+use crate::evaluator::devtools_protocol::{Browser, Element};
 
 use crate::winapi::{
     to_ansi_bytes, from_ansi_bytes, to_wide_string,
@@ -26,7 +27,7 @@ use indexmap::IndexMap;
 use libc::{c_void};
 use strum_macros::{EnumString, EnumVariantNames};
 use num_derive::{ToPrimitive, FromPrimitive};
-use serde_json;
+use serde_json::{self, Value};
 use cast;
 
 #[derive(Clone, Debug)]
@@ -77,6 +78,10 @@ pub enum Object {
     // Variant(Arc<Mutex<VARIANT>>),
     SafeArray(SAFEARRAY),
     VarArgument(Expression),
+    Browser(Browser),
+    BrowserFunc(Browser, String),
+    Element(Element),
+    ElementFunc(Element, String),
 }
 
 impl fmt::Display for Object {
@@ -223,6 +228,10 @@ impl fmt::Display for Object {
             Object::Variant(ref v) => write!(f, "Variant({})", v.vt()),
             Object::SafeArray(_) => write!(f, "SafeArray"),
             Object::VarArgument(_) => write!(f, "var"),
+            Object::Browser(ref b) => write!(f, "Browser: {}:{} ({})", b.btype, b.port, b.id),
+            Object::BrowserFunc(_,ref s) => write!(f, "Browser.{}", s),
+            Object::Element(ref e) => write!(f, "Element: {}", e.node_id),
+            Object::ElementFunc(_, ref s) => write!(f, "Element.{}", s),
         }
     }
 }
@@ -816,5 +825,34 @@ impl Into<Object> for String {
 impl Into<Object> for f64 {
     fn into(self) -> Object {
         Object::Num(self)
+    }
+}
+impl Into<Object> for Value {
+    fn into(self) -> Object {
+        match self {
+            serde_json::Value::Null => Object::Null,
+            serde_json::Value::Bool(b) => Object::Bool(b),
+            serde_json::Value::Number(n) => match n.as_f64() {
+                Some(f) => Object::Num(f),
+                None => Object::Num(f64::NAN)
+            },
+            serde_json::Value::String(s) =>Object::String(s),
+            serde_json::Value::Array(_) |
+            serde_json::Value::Object(_) => Object::UObject(Arc::new(Mutex::new(self))),
+        }
+    }
+}
+
+impl Into<i32> for Object {
+    fn into(self) -> i32 {
+        match self {
+            Object::Num(n) => n as i32,
+            Object::Bool(b) => b as i32,
+            Object::String(ref s) => match s.parse::<i32>() {
+                Ok(n) => n,
+                Err(_) => 0
+            },
+            _ => 0
+        }
     }
 }

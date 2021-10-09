@@ -5,6 +5,7 @@ use crate::ast::{Expression, Infix, DllType};
 use crate::evaluator::object::Object;
 use crate::write_locale;
 use super::{locale_singleton, Locale};
+use serde_json::Value;
 
 #[derive(Debug, Clone)]
 pub struct UError {
@@ -90,6 +91,11 @@ pub enum UErrorKind {
     UserDefinedError,
     UStructError,
     Win32Error(u32),
+    WebSocketError,
+    WebRequestError,
+    FileIOError,
+    DevtoolsProtocolError,
+    BrowserControlError,
 }
 
 impl fmt::Display for UErrorKind {
@@ -222,6 +228,26 @@ impl fmt::Display for UErrorKind {
                 "不正なProgID",
                 "Invalid ProgID",
             ),
+            Self::DevtoolsProtocolError => write_locale!(f,
+                "Devtools protocol エラー",
+                "Devtools protocol error",
+            ),
+            Self::WebSocketError => write_locale!(f,
+                "WebSocket エラー",
+                "WebSocket error",
+            ),
+            Self::WebRequestError => write_locale!(f,
+                "HTTPリクエスト エラー",
+                "HTTP request error",
+            ),
+            Self::FileIOError => write_locale!(f,
+                "IO エラー",
+                "IO error",
+            ),
+            Self::BrowserControlError => write_locale!(f,
+                "ブラウザ操作エラー",
+                "Browser control error",
+            ),
         }
     }
 }
@@ -315,6 +341,12 @@ pub enum UErrorMessage {
     UnknownDllType(String),
     VariableNotFound(String),
     Win32Error(String),
+    DTPElementNotFound(String),
+    DTPError(i32, String),
+    DTPInvalidElement(Value),
+    DTPControlablePageNotFound,
+    InvalidMember(String),
+    WebResponseWasNotOk(u16, String),
 }
 
 impl fmt::Display for UErrorMessage {
@@ -716,6 +748,34 @@ impl fmt::Display for UErrorMessage {
             Self::InternetExplorerNotAllowed => write_locale!(f,
                 "InternetExplorer.Applicationの実行は許可されていません",
                 "InternetExplorer.Application is not allowed",
+            ),
+            Self::DTPElementNotFound(selector) =>write_locale!(f,
+                "エレメントが見つかりません ({})",
+                "Element not found: {}",
+                selector
+            ),
+            Self::DTPError(n, msg) =>write!(f,
+                "{}: {}",
+                msg, n
+            ),
+            Self::DTPInvalidElement(v) =>write_locale!(f,
+                "エレメントではありません ({})",
+                "Not a valid element: {}",
+                v.to_string()
+            ),
+            Self::DTPControlablePageNotFound =>write_locale!(f,
+                "操作可能なページが見つかりません",
+                "Target page not found",
+            ),
+            Self::InvalidMember(name) =>write_locale!(f,
+                "{}がありません",
+                "{} is not found",
+                name
+            ),
+            Self::WebResponseWasNotOk(st, msg) =>write_locale!(f,
+                "不正なレスポンス ({} {})",
+                "Bad response: {} {}",
+                st, msg
             ),
         }
     }
