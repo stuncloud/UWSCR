@@ -38,6 +38,9 @@ impl TokenInfo {
     pub fn new_with_pos(token: Token, pos: Position, skipped_whitespace: bool) -> Self {
         TokenInfo{token, pos, skipped_whitespace}
     }
+    pub fn token(&self) -> Token {
+        self.token.clone()
+    }
 }
 
 pub struct Lexer {

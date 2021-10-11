@@ -1,5 +1,6 @@
+use strum_macros::ToString;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, ToString)]
 pub enum Token {
     Illegal(char),
     Blank, // 空行

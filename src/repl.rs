@@ -5,7 +5,7 @@ use crate::evaluator::environment::Environment;
 use crate::evaluator::object::Object;
 use crate::evaluator::Evaluator;
 use crate::parser::Parser;
-use crate::parser::ParseErrorKind;
+use crate::error::parser::ParseErrorKind;
 use crate::lexer::Lexer;
 use crate::script::{get_parent_full_path, get_script_name};
 use crate::settings::load_settings;
@@ -27,11 +27,12 @@ pub fn run(script: Option<String>, exe_path: String, script_path: Option<String>
     if script_path.is_some() {
         match get_script_name(&script_path.clone().unwrap()) {
             Some(s) =>{
-                env::set_var("GET_UWSC_NAME", s.as_str());
-                env::set_var("UWSCR_DEFAULT_TITLE", format!("UWSCR - {}", s.clone()).as_str())
+                env::set_var("GET_UWSC_NAME", &s);
+                env::set_var("UWSCR_DEFAULT_TITLE", &format!("UWSCR - {}", &s))
             },
             None => {
-                env::set_var("UWSCR_DEFAULT_TITLE", format!("UWSCR - REPL").as_str())
+                env::set_var("GET_UWSC_NAME", "");
+                env::set_var("UWSCR_DEFAULT_TITLE", &format!("UWSCR - REPL"))
             }
         }
         match get_parent_full_path(&script_path.unwrap()) {
@@ -93,7 +94,7 @@ pub fn run(script: Option<String>, exe_path: String, script_path: Option<String>
         if errors.len() > 0 {
             for error in errors {
                 match error.clone().get_kind() {
-                    ParseErrorKind::BlockNotClosedCorrectly => {
+                    ParseErrorKind::InvalidBlockEnd(_,_) => {
                         multiline = input.clone();
                         require_newline = true;
                         continue;

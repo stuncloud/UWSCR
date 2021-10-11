@@ -51,9 +51,9 @@ pub fn run(script: String, mut args: Vec<String>) -> Result<(), Vec<String>> {
     env::set_var("GET_SCRIPT_DIR", script_dir.to_str().unwrap());
     match get_script_name(&args[1]) {
         Some(ref s) => {
-            env::set_var("GET_UWSC_NAME", s.as_str());
+            env::set_var("GET_UWSC_NAME", s);
             // デフォルトダイアログタイトルを設定
-            env::set_var("UWSCR_DEFAULT_TITLE", format!("UWSCR - {}", s.clone()).as_str())
+            env::set_var("UWSCR_DEFAULT_TITLE", &format!("UWSCR - {}", s))
         },
         None => {}
     }

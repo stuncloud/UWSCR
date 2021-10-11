@@ -3,96 +3,10 @@ use crate::lexer::{Lexer, Position, TokenInfo};
 use crate::token::Token;
 use crate::get_script;
 use crate::serializer;
+use crate::error::parser::{ParseError, ParseErrorKind};
 
-use std::fmt;
 use std::path::PathBuf;
-
-#[derive(Debug, Clone)]
-pub enum ParseErrorKind {
-    SyntaxError,
-    UnexpectedToken,
-    BlockNotClosedCorrectly,
-    ValueMustBeDefined,
-    BadParameter,
-    OutOfWith,
-    OutOfLoop,
-    InvalidStatement,
-    ClassHasNoConstructor,
-    InvalidJson,
-    InvalidFilePath,
-    InvalidDllType,
-    DllPathNonFound,
-    DllDefinitionError,
-    InvalidIdentifier,
-    InvalidHexNumber,
-    CanNotCallScript,
-    CanNotLoadUwsl,
-    WhitespaceRequired,
-    SizeRequired,
-    EnumMemberShouldBeNumber,
-    EnumMemberDuplicated,
-    InvalidEnumMemberValue,
-    InvalidThreadCall,
-}
-
-#[derive(Debug, Clone)]
-pub struct ParseError {
-    kind: ParseErrorKind,
-    msg: String,
-    pos: Position,
-    script: Option<String>
-}
-
-impl fmt::Display for ParseErrorKind {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            ParseErrorKind::SyntaxError => write!(f, "Syntax Error"),
-            ParseErrorKind::UnexpectedToken => write!(f, "Unexpected Token"),
-            ParseErrorKind::BlockNotClosedCorrectly => write!(f, "Block is not closing correctly"),
-            ParseErrorKind::ValueMustBeDefined => write!(f, "constant must define value"),
-            ParseErrorKind::BadParameter => write!(f, "bad parameter"),
-            ParseErrorKind::OutOfWith => write!(f, "Not in WITH block"),
-            ParseErrorKind::OutOfLoop => write!(f, "Not in Loop block"),
-            ParseErrorKind::InvalidStatement => write!(f, "Invalid Statement"),
-            ParseErrorKind::ClassHasNoConstructor => write!(f, "Constructor required"),
-            ParseErrorKind::InvalidJson => write!(f, "Invalid json format"),
-            ParseErrorKind::InvalidFilePath => write!(f, "Invalid file path"),
-            ParseErrorKind::InvalidDllType => write!(f, "Invalid dll type"),
-            ParseErrorKind::DllPathNonFound => write!(f, "Dll path not found"),
-            ParseErrorKind::DllDefinitionError => write!(f, "de_dll Error"),
-            ParseErrorKind::InvalidIdentifier => write!(f, "Invalid identifier"),
-            ParseErrorKind::InvalidHexNumber => write!(f, "Invalid hex number"),
-            ParseErrorKind::CanNotCallScript => write!(f, "Failed to load script"),
-            ParseErrorKind::CanNotLoadUwsl => write!(f, "Failed to load uwsl file"),
-            ParseErrorKind::WhitespaceRequired => write!(f, "Missing whitespace"),
-            ParseErrorKind::SizeRequired => write!(f, "Missing array size"),
-            ParseErrorKind::EnumMemberShouldBeNumber => write!(f, "Value should be number literal"),
-            ParseErrorKind::EnumMemberDuplicated => write!(f, "Duplicated member found"),
-            ParseErrorKind::InvalidEnumMemberValue => write!(f, "Invalid Enum value"),
-            ParseErrorKind::InvalidThreadCall => write!(f, "Thread syntax error"),
-        }
-    }
-}
-
-impl ParseError {
-    pub fn new(kind: ParseErrorKind, msg: &str, pos: Position, script: Option<String>) -> Self {
-        ParseError {kind, msg: msg.into(), pos, script}
-    }
-
-    pub fn get_kind(self) -> ParseErrorKind {
-        self.kind
-    }
-}
-
-impl fmt::Display for ParseError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if self.script.is_none() {
-            write!(f, "{} [{}]: {}", self.kind, self.pos, self.msg)
-        } else {
-            write!(f, "{} [{}({})]: {}", self.kind, self.script.clone().unwrap(), self.pos, self.msg)
-        }
-    }
-}
+use std::env;
 
 pub type PareseErrors = Vec<ParseError>;
 
@@ -104,11 +18,12 @@ pub struct Parser {
     with: Option<Expression>,
     with_count: usize,
     in_loop: bool,
-    script: Option<String> // callしたスクリプトの名前
+    script_name: String // callしたスクリプトの名前
 }
 
 impl Parser {
     pub fn new(lexer: Lexer) -> Self {
+        let script_name = env::var("GET_UWSC_NAME").unwrap_or(String::new());
         let mut parser = Parser {
             lexer,
             current_token: TokenInfo::new(Token::Eof),
@@ -117,7 +32,7 @@ impl Parser {
             with: None,
             with_count: 0,
             in_loop: false,
-            script: None
+            script_name
         };
         parser.bump();
         parser.bump();
@@ -125,7 +40,7 @@ impl Parser {
         parser
     }
 
-    pub fn call(lexer: Lexer, script: String) -> Self {
+    pub fn call(lexer: Lexer, script_name: String) -> Self {
         let mut parser = Parser {
             lexer,
             current_token: TokenInfo::new(Token::Eof),
@@ -134,12 +49,16 @@ impl Parser {
             with: None,
             with_count: 0,
             in_loop: false,
-            script: Some(script)
+            script_name
         };
         parser.bump();
         parser.bump();
 
         parser
+    }
+
+    pub fn script_name(&self) -> String {
+        self.script_name.clone()
     }
 
     fn token_to_precedence(token: &Token) -> Precedence {
@@ -245,110 +164,90 @@ impl Parser {
 
     fn error_got_invalid_next_token(&mut self, token: Token) {
         self.errors.push(ParseError::new(
-            ParseErrorKind::UnexpectedToken,
-            &format!(
-                "expected token was {:?}, but got {:?} instead.",
-                token, self.next_token.token,
-            ),
+            ParseErrorKind::UnexpectedToken(token, self.next_token.token()),
             self.next_token.pos,
-            self.script.clone()
+            self.script_name()
         ))
     }
 
     fn error_got_invalid_close_token(&mut self, token: Token) {
         self.errors.push(ParseError::new(
-            ParseErrorKind::BlockNotClosedCorrectly,
-            &format!(
-                "this block requires {:?} to close but got {:?}",
-                token, self.current_token.token
-            ),
+            ParseErrorKind::InvalidBlockEnd(token, self.current_token.token()),
             self.current_token.pos,
-            self.script.clone()
+            self.script_name()
         ))
     }
 
     fn error_got_invalid_token(&mut self, token: Token) {
         self.errors.push(ParseError::new(
-            ParseErrorKind::UnexpectedToken,
-            &format!(
-                "expected token was {:?}, but got {:?} instead.",
-                token, self.current_token.token
-            ),
+            ParseErrorKind::UnexpectedToken(token, self.current_token.token()),
             self.current_token.pos,
-            self.script.clone()
+            self.script_name()
         ))
     }
 
     fn error_token_is_not_identifier(&mut self) {
         self.errors.push(ParseError::new(
-            ParseErrorKind::UnexpectedToken,
-            &format!(
-                "expected token was Identifier, but got {:?} instead.",
-                self.current_token.token
-            ),
+            ParseErrorKind::IdentifierExpected(self.current_token.token()),
             self.current_token.pos,
-            self.script.clone()
+            self.script_name()
         ))
     }
 
     fn error_got_unexpected_token(&mut self) {
         self.errors.push(ParseError::new(
-            ParseErrorKind::UnexpectedToken,
-            &format!(
-                "unexpected token: {:?}.",
-                self.current_token.token
-            ),
+            ParseErrorKind::UnexpectedToken2(self.current_token.token()),
             self.current_token.pos,
-            self.script.clone()
+            self.script_name()
         ))
     }
 
     fn error_got_unexpected_next_token(&mut self) {
         self.errors.push(ParseError::new(
-            ParseErrorKind::UnexpectedToken,
-            &format!(
-                "unexpected token: {:?}.",
-                self.next_token.token
-            ),
+            ParseErrorKind::UnexpectedToken2(self.next_token.token()),
             self.next_token.pos,
-            self.script.clone(),
+            self.script_name(),
         ))
     }
 
     fn error_got_bad_parameter(&mut self, msg: &str) {
         self.errors.push(ParseError::new(
-            ParseErrorKind::BadParameter,
-            msg,
+            ParseErrorKind::BadParameter(msg.into()),
             self.current_token.pos,
-            self.script.clone()
+            self.script_name()
         ))
     }
 
     fn error_got_invalid_dlltype(&mut self, name: String) {
         self.errors.push(ParseError::new(
-            ParseErrorKind::InvalidDllType,
-            &format!("{} is not valid dll type", name),
+            ParseErrorKind::InvalidDllType(name),
             self.current_token.pos,
-            self.script.clone()
+            self.script_name()
         ))
     }
 
     fn error_got_invalid_dllpath(&mut self, pos: Position) {
         self.errors.push(ParseError::new(
-            ParseErrorKind::DllPathNonFound,
-            "path to dll is required",
+            ParseErrorKind::DllPathNotFound,
             pos,
-            self.script.clone()
+            self.script_name()
         ))
     }
 
     fn error_missing_array_size(&mut self) {
         self.errors.push(ParseError::new(
             ParseErrorKind::SizeRequired,
-            "Size is required for multidimensional array",
             self.current_token.pos,
-            self.script.clone()
+            self.script_name()
         ));
+    }
+
+    fn error_no_prefix_parser(&mut self) {
+        self.errors.push(ParseError::new(
+            ParseErrorKind::NoPrefixParserFound(self.current_token.token()),
+            self.current_token.pos,
+            self.script_name()
+        ))
     }
 
     fn current_token_precedence(&mut self) -> Precedence {
@@ -357,18 +256,6 @@ impl Parser {
 
     fn next_token_precedence(&mut self) -> Precedence {
         Self::token_to_precedence(&self.next_token.token)
-    }
-
-    fn error_no_prefix_parser(&mut self) {
-        self.errors.push(ParseError::new(
-            ParseErrorKind::UnexpectedToken,
-            &format!(
-                "no prefix parser found for Token::{:?}",
-                self.current_token.token
-            ),
-            self.current_token.pos,
-            self.script.clone()
-        ))
     }
 
     pub fn parse(&mut self) -> Program {
@@ -628,10 +515,9 @@ impl Parser {
                     // 代入演算子がなければ配列宣言のみ
                     if value_required {
                         self.errors.push(ParseError::new(
-                            ParseErrorKind::ValueMustBeDefined,
-                            &format!("{} has no value.", var_name),
+                            ParseErrorKind::ValueMustBeDefined(var_name),
                             self.next_token.pos,
-                            self.script.clone()
+                            self.script_name()
                         ));
                         return None;
                     } else {
@@ -651,10 +537,9 @@ impl Parser {
                 if ! self.is_next_token(&Token::EqualOrAssign) {
                     if value_required {
                         self.errors.push(ParseError::new(
-                            ParseErrorKind::ValueMustBeDefined,
-                            &format!("{} has no value.", var_name),
+                            ParseErrorKind::ValueMustBeDefined(var_name),
                             self.next_token.pos,
-                            self.script.clone()
+                            self.script_name()
                         ));
                         return None;
                     } else {
@@ -752,10 +637,9 @@ impl Parser {
         self.bump();
         if ! self.current_token.skipped_whitespace {
             self.errors.push(ParseError::new(
-                ParseErrorKind::WhitespaceRequired,
-                "space is required after 'print'",
+                ParseErrorKind::WhitespaceRequiredAfter("print".into()),
                 self.current_token.pos,
-                self.script.clone()
+                self.script_name()
             ));
             return None;
         }
@@ -806,19 +690,23 @@ impl Parser {
                                 },
                                 Err(e) => {
                                     self.errors.push(ParseError::new(
-                                        ParseErrorKind::CanNotLoadUwsl,
-                                        &format!("{:?} [{}]", path, e),
+                                        ParseErrorKind::CanNotLoadUwsl(
+                                            path.to_string_lossy().to_string(),
+                                            format!("{}", *e)
+                                        ),
                                         self.current_token.pos,
-                                        self.script.clone()
+                                        self.script_name()
                                     ));
                                 }
                             },
                             Err(e) => {
                                 self.errors.push(ParseError::new(
-                                    ParseErrorKind::CanNotLoadUwsl,
-                                    &format!("{:?} [{}]", path, e),
+                                    ParseErrorKind::CanNotLoadUwsl(
+                                        path.to_string_lossy().to_string(),
+                                        e.to_string()
+                                    ),
                                     self.current_token.pos,
-                                    self.script.clone()
+                                    self.script_name()
                                 ));
                             }
                         }
@@ -844,10 +732,9 @@ impl Parser {
                         }
                     }
                     self.errors.push(ParseError::new(
-                        ParseErrorKind::CanNotCallScript,
-                        &format!("{:?} [{}]", path, e),
+                        ParseErrorKind::CanNotCallScript(path.to_string_lossy().to_string(), e.to_string()),
                         self.current_token.pos,
-                        self.script.clone()
+                        self.script_name()
                     ));
                     return None;
                 },
@@ -1021,10 +908,9 @@ impl Parser {
                     break;
                 } else if nested < 0 {
                     self.errors.push(ParseError::new(
-                        ParseErrorKind::DllDefinitionError,
-                        "{ is missing",
+                        ParseErrorKind::DllDefinitionMissingLeftBrace,
                         self.current_token.pos,
-                        self.script.clone()
+                        self.script_name()
                     ));
                     return None;
                 } else {
@@ -1135,12 +1021,9 @@ impl Parser {
         }
         if ! self.is_current_token(&Token::EndStruct) {
             self.errors.push(ParseError::new(
-                ParseErrorKind::BlockNotClosedCorrectly,
-                &format!(
-                    "struct block should be closed by endstruct.",
-                ),
+                ParseErrorKind::InvalidBlockEnd(Token::EndStruct, self.current_token.token()),
                 self.current_token.pos,
-                self.script.clone()
+                self.script_name()
             ));
             return None;
         }
@@ -1150,10 +1033,9 @@ impl Parser {
     fn parse_continue_statement(&mut self) -> Option<Statement> {
         if ! self.in_loop {
             self.errors.push(ParseError::new(
-                ParseErrorKind::OutOfLoop,
-                "continue is not allowd.",
+                ParseErrorKind::OutOfLoop(Token::Continue),
                 self.current_token.pos,
-                self.script.clone()
+                self.script_name()
             ));
             return None;
         }
@@ -1168,10 +1050,9 @@ impl Parser {
     fn parse_break_statement(&mut self) -> Option<Statement> {
         if ! self.in_loop {
             self.errors.push(ParseError::new(
-                ParseErrorKind::OutOfLoop,
-                "break is not allowd.",
+                ParseErrorKind::OutOfLoop(Token::Break),
                 self.current_token.pos,
-                self.script.clone()
+                self.script_name()
             ));
             return None;
         }
@@ -1340,10 +1221,12 @@ impl Parser {
             Token::Finally => {},
             t => {
                 self.errors.push(ParseError::new(
-                    ParseErrorKind::UnexpectedToken,
-                    &format!("should have except or finally, but got {:?}", t),
+                    ParseErrorKind::UnexpectedToken3(vec![
+                        Token::Except,
+                        Token::Finally
+                    ], t),
                     self.current_token.pos,
-                    self.script.clone()
+                    self.script_name()
             ));
                 return None;
             },
@@ -1355,10 +1238,9 @@ impl Parser {
                     Ok(b) => Some(b),
                     Err(s) => {
                         self.errors.push(ParseError::new(
-                            ParseErrorKind::InvalidStatement,
-                            &format!("you can not use {} in finally", s),
+                            ParseErrorKind::InvalidStatementInFinallyBlock(s),
                             self.current_token.pos,
-                            self.script.clone()
+                            self.script_name()
                         ));
                         return None;
                     }
@@ -1367,10 +1249,12 @@ impl Parser {
             Token::EndTry => {},
             t => {
                 self.errors.push(ParseError::new(
-                    ParseErrorKind::BlockNotClosedCorrectly,
-                    &format!("should have finally or endtry, but got {:?}", t),
+                    ParseErrorKind::UnexpectedToken3(vec![
+                        Token::Finally,
+                        Token::EndTry
+                    ], t),
                     self.current_token.pos,
-                    self.script.clone()
+                    self.script_name()
                 ));
                 return None;
             },
@@ -1409,10 +1293,9 @@ impl Parser {
             Some(Statement::ExitExit(0))
         } else {
             self.errors.push(ParseError::new(
-                ParseErrorKind::UnexpectedToken,
-                &format!("Exit code should be number"),
+                ParseErrorKind::InvalidExitCode,
                 self.current_token.pos,
-                self.script.clone()
+                self.script_name()
             ));
             None
         }
@@ -1438,10 +1321,9 @@ impl Parser {
             body.clone()
         } else {
             self.errors.push(ParseError::new(
-                ParseErrorKind::UnexpectedToken,
-                "missing textblock body",
+                ParseErrorKind::TextBlockBodyIsMissing,
                 self.current_token.pos,
-                self.script.clone()
+                self.script_name()
             ));
             return None;
         };
@@ -1449,10 +1331,9 @@ impl Parser {
             self.bump()
         } else {
             self.errors.push(ParseError::new(
-                ParseErrorKind::BlockNotClosedCorrectly,
-                &format!("endtextblock required"),
+                ParseErrorKind::InvalidBlockEnd(Token::EndTextBlock, self.next_token.token()),
                 self.current_token.pos,
-                self.script.clone()
+                self.script_name()
             ));
             return None;
         }
@@ -1732,20 +1613,18 @@ impl Parser {
                             Expression::Literal(Literal::Num(n)) => n,
                             _ => {
                                 self.errors.push(ParseError::new(
-                                    ParseErrorKind::EnumMemberShouldBeNumber,
-                                    &format!("{}.{}", name, id),
+                                    ParseErrorKind::EnumMemberShouldBeNumber(name, id),
                                     self.current_token.pos,
-                                    self.script.clone()
+                                    self.script_name()
                                 ));
                                 return None;
                             },
                         },
                         None => {
                             self.errors.push(ParseError::new(
-                                ParseErrorKind::ValueMustBeDefined,
-                                &format!("missing value definition for {}.{}", name, id),
+                                ParseErrorKind::EnumValueShouldBeDefined(name, id),
                                 self.current_token.pos,
-                                self.script.clone()
+                                self.script_name()
                             ));
                             return None;
                         },
@@ -1753,10 +1632,9 @@ impl Parser {
                     // next以下の数値が指定されたらエラー
                     if n < next {
                         self.errors.push(ParseError::new(
-                            ParseErrorKind::InvalidEnumMemberValue,
-                            &format!("value for {}.{} should be greater then {}", name, id, next),
+                            ParseErrorKind::EnumValueIsInvalid(name, id, next),
                             self.current_token.pos,
-                            self.script.clone()
+                            self.script_name()
                         ));
                         return None;
                     }
@@ -1764,10 +1642,9 @@ impl Parser {
                 }
                 if u_enum.add(&id, next).is_err() {
                     self.errors.push(ParseError::new(
-                        ParseErrorKind::EnumMemberDuplicated,
-                        &format!("name or value for {}.{} is duplicated", name, id),
+                        ParseErrorKind::EnumMemberDuplicated(name, id),
                         self.current_token.pos,
-                        self.script.clone()
+                        self.script_name()
                     ));
                     return None;
                 }
@@ -1798,9 +1675,8 @@ impl Parser {
             _ => {
                 self.errors.push(ParseError::new(
                     ParseErrorKind::InvalidThreadCall,
-                    "you must call function to run thread",
                     self.current_token.pos,
-                    self.script.clone()
+                    self.script_name()
                 ));
                 None
             }
@@ -1860,10 +1736,9 @@ impl Parser {
             },
             Token::UObjectNotClosing => {
                 self.errors.push(ParseError::new(
-                    ParseErrorKind::BlockNotClosedCorrectly,
-                    &format!("@ is required"),
+                    ParseErrorKind::InvalidUObjectEnd,
                     self.current_token.pos,
-                    self.script.clone()
+                    self.script_name()
                 ));
                 return None
             },
@@ -1877,10 +1752,9 @@ impl Parser {
                     Some(e) => return Some(Expression::VarArgument(Box::new(e))),
                     None => {
                         self.errors.push(ParseError::new(
-                            ParseErrorKind::SyntaxError,
-                            "Expression is required after 'var'",
+                            ParseErrorKind::MissingIdentifierAfterVar,
                             self.current_token.pos,
-                            self.script.clone()
+                            self.script_name()
                         ));
                         return None
                     }
@@ -2006,10 +1880,9 @@ impl Parser {
             Token::Await |
             Token::NaN => {
                 self.errors.push(ParseError::new(
-                    ParseErrorKind::InvalidIdentifier,
-                    &format!("{:?} is reserved", token),
+                    ParseErrorKind::ReservedKeyword(token.clone()),
                     self.current_token.pos,
-                    self.script.clone()
+                    self.script_name()
                 ));
                 return None;
             },
@@ -2075,9 +1948,8 @@ impl Parser {
             None => {
                 self.errors.push(ParseError::new(
                     ParseErrorKind::OutOfWith,
-                    &format!(""),
                     self.current_token.pos,
-                    self.script.clone()
+                    self.script_name()
                 ));
                 return None;
             }
@@ -2095,14 +1967,13 @@ impl Parser {
 
     fn parse_hex_expression(&mut self) -> Option<Expression> {
         if let Token::Hex(ref s) = self.current_token.token {
-            match u64::from_str_radix(s.as_str(), 16) {
+            match u64::from_str_radix(s, 16) {
                 Ok(u) => Some(Expression::Literal(Literal::Num(u as i64 as f64))),
                 Err(_) => {
                     self.errors.push(ParseError::new(
-                        ParseErrorKind::InvalidHexNumber,
-                        &format!("${}", s),
+                        ParseErrorKind::InvalidHexNumber(s.to_string()),
                         self.current_token.pos,
-                        self.script.clone()
+                        self.script_name()
                     ));
                     None
                 }
@@ -2444,10 +2315,9 @@ impl Parser {
             Token::Procedure => self.parse_function_statement(true, true),
             _ => {
                 self.errors.push(ParseError::new(
-                    ParseErrorKind::UnexpectedToken,
-                    "function or procedure is required after async keyword",
+                    ParseErrorKind::FunctionRequiredAfterAsync,
                     self.current_token.pos,
-                    self.script.clone(),
+                    self.script_name(),
                 ));
                 return None;
             },
@@ -2498,12 +2368,9 @@ impl Parser {
         while ! self.is_current_token(&Token::EndModule) {
             if self.is_current_token(&Token::Eof) {
                 self.errors.push(ParseError::new(
-                    ParseErrorKind::BlockNotClosedCorrectly,
-                    &format!(
-                        "module should be closed by endmodule.",
-                    ),
+                    ParseErrorKind::InvalidBlockEnd(Token::EndModule, self.current_token.token.clone()),
                     self.current_token.pos,
-                    self.script.clone()
+                    self.script_name()
                 ));
                 return None;
             }
@@ -2532,12 +2399,9 @@ impl Parser {
         while ! self.is_current_token(&Token::EndClass) {
             if self.is_current_token(&Token::Eof) {
                 self.errors.push(ParseError::new(
-                    ParseErrorKind::BlockNotClosedCorrectly,
-                    &format!(
-                        "class should be closed by endclass.",
-                    ),
+                    ParseErrorKind::InvalidBlockEnd(Token::EndClass, self.current_token.token.clone()),
                     self.current_token.pos,
-                    self.script.clone()
+                    self.script_name()
                 ));
                 return None;
             }
@@ -2557,10 +2421,9 @@ impl Parser {
                     },
                     _ => {
                         self.errors.push(ParseError::new(
-                            ParseErrorKind::InvalidStatement,
-                            &format!("you can not define {:?} in Class", s),
+                            ParseErrorKind::InvalidClassMemberDefinition(s),
                             cur_pos,
-                            self.script.clone()
+                            self.script_name()
                         ));
                         return None;
                     },
@@ -2571,10 +2434,9 @@ impl Parser {
         }
         if ! has_constructor {
             self.errors.push(ParseError::new(
-                ParseErrorKind::ClassHasNoConstructor,
-                &format!("procedure {}() must be defined", identifier),
+                ParseErrorKind::ClassHasNoConstructor(identifier),
                 class_statement_pos,
-                self.script.clone()
+                self.script_name()
             ));
             return None;
         }
@@ -2801,10 +2663,9 @@ impl Parser {
             },
             _ => {
                 self.errors.push(ParseError::new(
-                    ParseErrorKind::SyntaxError,
-                    "function call is required after await keyword",
+                    ParseErrorKind::FunctionCallRequiredAfterAwait,
                     pos,
-                    self.script.clone()
+                    self.script_name()
                 ));
                 None
             }
