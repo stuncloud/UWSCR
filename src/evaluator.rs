@@ -2858,8 +2858,11 @@ impl Evaluator {
             },
             "queryselector" => {
                 let selector = get_arg(0).to_string();
-                let e = element.query_selector(&selector)?;
-                Ok(Object::Element(e))
+                let o = match element.query_selector(&selector)? {
+                    Some(e) => Object::Element(e),
+                    None => Object::Empty
+                };
+                Ok(o)
             },
             "queryselectorall" => {
                 let selector = get_arg(0).to_string();

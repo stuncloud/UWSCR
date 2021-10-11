@@ -336,7 +336,6 @@ impl Browser {
 
     pub fn document(&self) -> DevtoolsProtocolResult<Element> {
         let value = self.dp_send("DOM.getDocument", json!({"depth": 1}))?;
-// println!("[debug] json: {}", serde_json::to_string_pretty(&value)?);
         let element = Element::new(value["root"].to_owned(), Arc::clone(&self.dp))?;
         Ok(element)
     }
@@ -455,12 +454,12 @@ impl Element {
         Ok(uri)
     }
 
-    pub fn query_selector(&self, selector: &str) -> DevtoolsProtocolResult<Element> {
+    pub fn query_selector(&self, selector: &str) -> DevtoolsProtocolResult<Option<Element>> {
         let v = self.dp_send("DOM.querySelector", json!({
             "nodeId": self.node_id,
             "selector": selector
         }))?;
-        let elem = Element::new(v, Arc::clone(&self.dp))?;
+        let elem = Element::new(v, Arc::clone(&self.dp)).ok();
         Ok(elem)
     }
 
@@ -483,12 +482,15 @@ impl Element {
         let now = Instant::now();
         loop {
             match self.query_selector(selector) {
-                Ok(e) => return Ok(e),
-                Err(_) => {sleep(Duration::from_millis(100))}
+                Ok(e) => if e.is_some() {
+                    return Ok(e.unwrap());
+                },
+                Err(_) => {}
             }
             if now.elapsed().as_secs_f64() >= limit {
                 break;
             }
+            sleep(Duration::from_millis(100))
         }
         Err(UError::new(
             UErrorKind::DevtoolsProtocolError,
