@@ -170,7 +170,6 @@ pub fn get_color_depth() -> i32 {
     }
 }
 
-
 // convert windows::Error to UError
 impl From<windows::Error> for UError {
     fn from(e: windows::Error) -> Self {
@@ -180,4 +179,3 @@ impl From<windows::Error> for UError {
         )
     }
 }
-

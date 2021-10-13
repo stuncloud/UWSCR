@@ -259,7 +259,7 @@ impl Parser {
     }
 
     pub fn parse(&mut self) -> Program {
-        let mut program: Program = vec![];
+        let mut program = vec![];
         let mut pub_counter = 0;
         let mut opt_counter = 0;
         let mut func_counter = 0;
@@ -276,7 +276,7 @@ impl Parser {
 
         while ! self.is_current_token(&Token::Eof) {
             match self.parse_statement() {
-                Some(s) => match s {
+                Some(s) => match s.statement {
                     Statement::Option(_) => {
                         program.insert(pub_counter + opt_counter, s);
                         opt_counter += 1;
@@ -289,20 +289,23 @@ impl Parser {
                     },
                     Statement::Function{name, params, body, is_proc, is_async} => {
                         let mut new_body = Vec::new();
-                        for statement in body {
-                            match statement {
+                        for row in body {
+                            match row.statement {
                                 Statement::Public(_) |
                                 Statement::Const(_) |
                                 Statement::TextBlock(_, _) => {
-                                    program.insert(pub_counter, statement);
+                                    program.insert(pub_counter, row);
                                     pub_counter += 1;
                                 },
-                                _ => new_body.push(statement)
+                                _ => new_body.push(row)
                             }
                         }
-                        program.insert(pub_counter + opt_counter + func_counter, Statement::Function {
-                            name, params, body: new_body, is_proc, is_async
-                        });
+                        program.insert(pub_counter + opt_counter + func_counter, StatementWithRow::new(
+                            Statement::Function {
+                                name, params, body: new_body, is_proc, is_async
+                            },
+                            s.row,
+                        ));
                         func_counter += 1;
                     },
                     Statement::Module(_, _) |
@@ -314,10 +317,10 @@ impl Parser {
                         program.insert(pub_counter + opt_counter + func_counter, s);
                         func_counter += 1;
                     },
-                    Statement::Call(block, params) => {
+                    Statement::Call(call_program, params) => {
                         let mut new_block = vec![];
-                        for statement in block {
-                            match statement {
+                        for statement in call_program.0 {
+                            match statement.statement {
                                 Statement::Option(_) => {
                                     program.insert(pub_counter + opt_counter, statement);
                                     opt_counter += 1;
@@ -343,7 +346,10 @@ impl Parser {
                         }
                         if new_block.len() > 0 {
                             program.push(
-                                Statement::Call(new_block, params)
+                                StatementWithRow::new(
+                                    Statement::Call(Program(new_block, call_program.1), params),
+                                    s.row,
+                                )
                             );
                         }
                     },
@@ -354,7 +360,7 @@ impl Parser {
             self.bump();
         }
 
-        program
+        Program(program, self.lexer.lines.to_owned())
     }
 
     fn parse_block_statement(&mut self) -> BlockStatement {
@@ -372,8 +378,9 @@ impl Parser {
         block
     }
 
-    fn parse_statement(&mut self) -> Option<Statement> {
-        match self.current_token.token {
+    fn parse_statement(&mut self) -> Option<StatementWithRow> {
+        let row = self.current_token.pos.row;
+        let statement = match self.current_token.token {
             Token::Dim => self.parse_dim_statement(),
             Token::Public => self.parse_public_statement(),
             Token::Const => self.parse_const_statement(),
@@ -406,6 +413,10 @@ impl Parser {
             Token::ComErrIgn => Some(Statement::ComErrIgn),
             Token::ComErrRet => Some(Statement::ComErrRet),
             _ => self.parse_expression_statement(),
+        };
+        match statement {
+            Some(s) => Some(StatementWithRow::new(s, row)),
+            None => None
         }
     }
 
@@ -934,7 +945,7 @@ impl Parser {
         self.bump();
         let pos = self.current_token.pos;
         let mut path = String::new();
-        while ! self.is_current_token(&Token::Eol) {
+        while ! self.is_current_token_in(vec![Token::Eol, Token::Eof]) {
             match self.current_token.token {
                 Token::Identifier(ref s) => path = format!("{}{}", path, s),
                 Token::ColonBackSlash => path = format!("{}:\\", path),
@@ -1198,7 +1209,9 @@ impl Parser {
         self.set_with(Some(expression.clone()));
         let mut block = self.parse_block_statement();
         if with_temp_assignment.is_some() {
-            block.insert(0, with_temp_assignment.unwrap());
+            block.insert(0, StatementWithRow::new_non_existent_line(
+                with_temp_assignment.unwrap()
+            ));
         }
         if ! self.is_current_token(&Token::EndWith) {
             self.error_got_invalid_close_token(Token::EndWith);
@@ -1273,10 +1286,12 @@ impl Parser {
 
         while ! self.is_current_token_end_of_block() && ! self.is_current_token(&Token::Eof) {
             match self.parse_statement() {
-                Some(Statement::Exit) => return Err("exit".into()),
-                Some(Statement::Continue(_)) => return Err("continue".into()),
-                Some(Statement::Break(_)) => return Err("break".into()),
-                Some(s) => block.push(s),
+                Some(s) => match s.statement {
+                    Statement::Exit => return Err("exit".into()),
+                    Statement::Continue(_) => return Err("continue".into()),
+                    Statement::Break(_) => return Err("break".into()),
+                    _ => block.push(s)
+                }
                 None => ()
             }
             self.bump();
@@ -2407,7 +2422,7 @@ impl Parser {
             }
             let cur_pos = self.current_token.pos;
             match self.parse_statement() {
-                Some(s) => match s {
+                Some(s) => match s.statement {
                     Statement::Dim(_) |
                     Statement::Public(_) |
                     Statement::Const(_) |
@@ -2421,7 +2436,7 @@ impl Parser {
                     },
                     _ => {
                         self.errors.push(ParseError::new(
-                            ParseErrorKind::InvalidClassMemberDefinition(s),
+                            ParseErrorKind::InvalidClassMemberDefinition(s.statement),
                             cur_pos,
                             self.script_name()
                         ));
@@ -2507,16 +2522,23 @@ impl Parser {
                 return None;
             }
 
+            let row = self.next_token.pos.row;
             if self.is_next_token(&Token::Pipeline) {
                 let e = optexpr.unwrap();
                 let assign = Expression::Assign(
                     Box::new(Expression::Identifier(Identifier("result".into()))),
                     Box::new(e)
                 );
-                body.push(Statement::Expression(assign));
+                body.push(StatementWithRow::new(
+                    Statement::Expression(assign),
+                    row,
+                ));
                 break;
             } else if self.is_next_token(&Token::Eol) {
-                body.push(Statement::Expression(optexpr.unwrap()));
+                body.push(StatementWithRow::new(
+                    Statement::Expression(optexpr.unwrap()),
+                    row,
+                ));
             } else {
                 self.error_got_unexpected_next_token();
                 return None
@@ -2752,18 +2774,18 @@ mod tests {
         panic!("{}", msg);
     }
 
-    fn parser_test(input: &str, expected: Vec<Statement>) {
+    fn parser_test(input: &str, expected: Vec<StatementWithRow>) {
         let mut parser = Parser::new(Lexer::new(input));
         let program = parser.parse();
         check_parse_errors(&mut parser, true, String::from("test failed"));
-        assert_eq!(program, expected);
+        assert_eq!(program.0, expected);
     }
 
-    fn parser_panic_test(input: &str, expected: Vec<Statement>, msg: String) {
+    fn parser_panic_test(input: &str, expected: Vec<StatementWithRow>, msg: String) {
         let mut parser = Parser::new(Lexer::new(input));
         let program = parser.parse();
         check_parse_errors(&mut parser, false, msg);
-        assert_eq!(program, expected);
+        assert_eq!(program.0, expected);
     }
 
     #[test]
@@ -2775,8 +2797,14 @@ print 1
 print 2
         "#;
         parser_test(input, vec![
-            Statement::Print(Expression::Literal(Literal::Num(1 as f64))),
-            Statement::Print(Expression::Literal(Literal::Num(2 as f64))),
+            StatementWithRow::new(
+                Statement::Print(Expression::Literal(Literal::Num(1 as f64))),
+                2,
+            ),
+            StatementWithRow::new(
+                Statement::Print(Expression::Literal(Literal::Num(2 as f64))),
+                5,
+            ),
         ])
     }
 
@@ -2785,43 +2813,43 @@ print 2
         let testcases = vec![
             (
                 "dim hoge = 1", vec![
-                    Statement::Dim(
+                    StatementWithRow::new(Statement::Dim(
                         vec![
                             (
                                 Identifier(String::from("hoge")),
                                 Expression::Literal(Literal::Num(1 as f64))
                             ),
                         ]
-                    ),
+                    ), 1)
                 ]
             ),
             (
                 "dim fuga", vec![
-                    Statement::Dim(
+                    StatementWithRow::new(Statement::Dim(
                         vec![
                             (
                                 Identifier(String::from("fuga")),
                                 Expression::Literal(Literal::Empty)
                             )
                         ]
-                    ),
+                    ), 1)
                 ]
             ),
             (
                 "dim piyo = EMPTY", vec![
-                    Statement::Dim(
+                    StatementWithRow::new(Statement::Dim(
                         vec![
                             (
                                 Identifier(String::from("piyo")),
                                 Expression::Literal(Literal::Empty)
                             )
                         ]
-                    ),
+                    ), 1)
                 ]
             ),
             (
                 "dim arr1[] = 1, 3, 5, 7, 9", vec![
-                    Statement::Dim(
+                    StatementWithRow::new(Statement::Dim(
                         vec![
                             (
                                 Identifier(String::from("arr1")),
@@ -2839,12 +2867,12 @@ print 2
                                 )
                             )
                         ]
-                    ),
+                    ), 1)
                 ]
             ),
             (
                 "dim arr2[4]", vec![
-                    Statement::Dim(
+                    StatementWithRow::new(Statement::Dim(
                         vec![
                             (
                                 Identifier(String::from("arr2")),
@@ -2856,12 +2884,12 @@ print 2
                                 )
                             )
                         ]
-                    ),
+                    ), 1),
                 ]
             ),
             (
                 "dim arr2[1, 2]", vec![
-                    Statement::Dim(
+                    StatementWithRow::new(Statement::Dim(
                         vec![
                             (
                                 Identifier(String::from("arr2")),
@@ -2874,12 +2902,12 @@ print 2
                                 )
                             )
                         ]
-                    ),
+                    ), 1),
                 ]
             ),
             (
                 "dim arr2[,, 1]", vec![
-                    Statement::Dim(
+                    StatementWithRow::new(Statement::Dim(
                         vec![
                             (
                                 Identifier(String::from("arr2")),
@@ -2893,12 +2921,12 @@ print 2
                                 )
                             )
                         ]
-                    ),
+                    ), 1),
                 ]
             ),
             (
                 "dim arr2[1,1,1]", vec![
-                    Statement::Dim(
+                    StatementWithRow::new(Statement::Dim(
                         vec![
                             (
                                 Identifier(String::from("arr2")),
@@ -2912,12 +2940,12 @@ print 2
                                 )
                             )
                         ]
-                    ),
+                    ), 1)
                 ]
             ),
             (
                 "dim a = 1, b, c[1], d[] = 1,2", vec![
-                    Statement::Dim(
+                    StatementWithRow::new(Statement::Dim(
                         vec![
                             (
                                 Identifier(String::from("a")),
@@ -2949,7 +2977,7 @@ print 2
                                 )
                             )
                         ]
-                    ),
+                    ), 1),
                 ]
             ),
         ];
@@ -2972,31 +3000,55 @@ print ['配', '列', 'リ', 'テ', 'ラ', 'ル']
 print []
 "#;
         parser_test(input, vec![
-            Statement::Print(Expression::Literal(Literal::Num(1 as f64))),
-            Statement::Print(Expression::Literal(Literal::Num(1.23))),
-            Statement::Print(Expression::Literal(
-                Literal::Num(i64::from_str_radix("12AB", 16).unwrap() as f64)
-            )),
-            Statement::Print(Expression::Literal(Literal::Bool(true))),
-            Statement::Print(Expression::Literal(Literal::Bool(false))),
-            Statement::Print(Expression::Literal(
-                Literal::ExpandableString(String::from("展開可能文字列リテラル"))
-            )),
-            Statement::Print(Expression::Literal(
-                Literal::Array(
-                    vec![
-                        Expression::Literal(Literal::String(String::from("配"))),
-                        Expression::Literal(Literal::String(String::from("列"))),
-                        Expression::Literal(Literal::String(String::from("リ"))),
-                        Expression::Literal(Literal::String(String::from("テ"))),
-                        Expression::Literal(Literal::String(String::from("ラ"))),
-                        Expression::Literal(Literal::String(String::from("ル"))),
-                    ]
-                )
-            )),
-            Statement::Print(Expression::Literal(
-                Literal::Array(vec![])
-            )),
+            StatementWithRow::new(
+                Statement::Print(Expression::Literal(Literal::Num(1 as f64))),
+                2
+            ),
+            StatementWithRow::new(
+                Statement::Print(Expression::Literal(Literal::Num(1.23))),
+                3
+            ),
+            StatementWithRow::new(
+                Statement::Print(Expression::Literal(
+                    Literal::Num(i64::from_str_radix("12AB", 16).unwrap() as f64)
+                )),
+                4
+            ),
+            StatementWithRow::new(
+                Statement::Print(Expression::Literal(Literal::Bool(true))),
+                5
+            ),
+            StatementWithRow::new(
+                Statement::Print(Expression::Literal(Literal::Bool(false))),
+                6
+            ),
+            StatementWithRow::new(
+                Statement::Print(Expression::Literal(
+                    Literal::ExpandableString(String::from("展開可能文字列リテラル"))
+                )),
+                7
+            ),
+            StatementWithRow::new(
+                Statement::Print(Expression::Literal(
+                    Literal::Array(
+                        vec![
+                            Expression::Literal(Literal::String(String::from("配"))),
+                            Expression::Literal(Literal::String(String::from("列"))),
+                            Expression::Literal(Literal::String(String::from("リ"))),
+                            Expression::Literal(Literal::String(String::from("テ"))),
+                            Expression::Literal(Literal::String(String::from("ラ"))),
+                            Expression::Literal(Literal::String(String::from("ル"))),
+                        ]
+                    )
+                )),
+                8
+            ),
+            StatementWithRow::new(
+                Statement::Print(Expression::Literal(
+                    Literal::Array(vec![])
+                )),
+                9
+            ),
         ]);
     }
 
@@ -3010,15 +3062,27 @@ if a then
 endif
 "#;
         parser_test(input, vec![
-            Statement::If {
-                condition: Expression::Identifier(Identifier(String::from("a"))),
-                consequence: vec![
-                    Statement::Expression(Expression::Identifier(Identifier(String::from("statement1")))),
-                    Statement::Expression(Expression::Identifier(Identifier(String::from("statement2")))),
-                    Statement::Expression(Expression::Identifier(Identifier(String::from("statement3")))),
-                ],
-                alternative: None
-            },
+            StatementWithRow::new(
+                Statement::If {
+                    condition: Expression::Identifier(Identifier(String::from("a"))),
+                    consequence: vec![
+                        StatementWithRow::new(
+                            Statement::Expression(Expression::Identifier(Identifier(String::from("statement1")))),
+                            3
+                        ),
+                        StatementWithRow::new(
+                            Statement::Expression(Expression::Identifier(Identifier(String::from("statement2")))),
+                            4
+                        ),
+                        StatementWithRow::new(
+                            Statement::Expression(Expression::Identifier(Identifier(String::from("statement3")))),
+                            5
+                        ),
+                    ],
+                    alternative: None
+                },
+                2
+            ),
         ]);
     }
 
@@ -3028,34 +3092,68 @@ endif
             (
                 "if a then b",
                 vec![
-                    Statement::IfSingleLine {
-                        condition: Expression::Identifier(Identifier(String::from("a"))),
-                        consequence: Box::new(Statement::Expression(Expression::Identifier(Identifier(String::from("b"))))),
-                        alternative: Box::new(None)
-                    }
+                    StatementWithRow::new(
+                        Statement::IfSingleLine {
+                            condition: Expression::Identifier(Identifier(String::from("a"))),
+                            consequence: Box::new(
+                                StatementWithRow::new(
+                                    Statement::Expression(Expression::Identifier(Identifier(String::from("b")))),
+                                    1
+                                )
+                            ),
+                            alternative: Box::new(None)
+                        },
+                        1
+                    ),
                 ]
             ),
             (
                 "if a then b else c",
                 vec![
-                    Statement::IfSingleLine {
-                        condition: Expression::Identifier(Identifier(String::from("a"))),
-                        consequence: Box::new(Statement::Expression(Expression::Identifier(Identifier(String::from("b"))))),
-                        alternative: Box::new(Some(Statement::Expression(Expression::Identifier(Identifier(String::from("c")))))),
-                    }
+                    StatementWithRow::new(
+                        Statement::IfSingleLine {
+                            condition: Expression::Identifier(Identifier(String::from("a"))),
+                            consequence: Box::new(
+                                StatementWithRow::new(
+                                    Statement::Expression(Expression::Identifier(Identifier(String::from("b")))),
+                                    1
+                                )
+                            ),
+                            alternative: Box::new(Some(
+                                StatementWithRow::new(
+                                    Statement::Expression(Expression::Identifier(Identifier(String::from("c")))),
+                                    1
+                                )
+                            )),
+                        },
+                        1
+                    ),
                 ]
             ),
             (
                 "if a then print 1 else b = c",
                 vec![
-                    Statement::IfSingleLine {
-                        condition: Expression::Identifier(Identifier(String::from("a"))),
-                        consequence: Box::new(Statement::Print(Expression::Literal(Literal::Num(1 as f64)))),
-                        alternative: Box::new(Some(Statement::Expression(Expression::Assign(
-                            Box::new(Expression::Identifier(Identifier(String::from("b")))),
-                            Box::new(Expression::Identifier(Identifier(String::from("c")))),
-                        )))),
-                    }
+                    StatementWithRow::new(
+                        Statement::IfSingleLine {
+                            condition: Expression::Identifier(Identifier(String::from("a"))),
+                            consequence: Box::new(
+                                StatementWithRow::new(
+                                    Statement::Print(Expression::Literal(Literal::Num(1 as f64))),
+                                    1
+                                )
+                            ),
+                            alternative: Box::new(Some(
+                                StatementWithRow::new(
+                                    Statement::Expression(Expression::Assign(
+                                        Box::new(Expression::Identifier(Identifier(String::from("b")))),
+                                        Box::new(Expression::Identifier(Identifier(String::from("c")))),
+                                    )),
+                                    1
+                                )
+                            )),
+                        },
+                        1
+                    ),
                 ]
             ),
         ];
@@ -3072,13 +3170,19 @@ if b
 endif
 "#;
         parser_test(input, vec![
-            Statement::If{
-                condition: Expression::Identifier(Identifier(String::from("b"))),
-                consequence: vec![
-                    Statement::Expression(Expression::Identifier(Identifier(String::from("statement1")))),
-                ],
-                alternative: None
-            }
+            StatementWithRow::new(
+                Statement::If{
+                    condition: Expression::Identifier(Identifier(String::from("b"))),
+                    consequence: vec![
+                        StatementWithRow::new(
+                            Statement::Expression(Expression::Identifier(Identifier(String::from("statement1")))),
+                            3
+                        )
+                    ],
+                    alternative: None
+                },
+                2
+            )
         ]);
     }
 
@@ -3093,16 +3197,28 @@ else
 endif
 "#;
         parser_test(input, vec![
-            Statement::If {
-                condition: Expression::Identifier(Identifier(String::from("a"))),
-                consequence: vec![
-                    Statement::Expression(Expression::Identifier(Identifier(String::from("statement1"))))
-                ],
-                alternative: Some(vec![
-                    Statement::Expression(Expression::Identifier(Identifier(String::from("statement2_1")))),
-                    Statement::Expression(Expression::Identifier(Identifier(String::from("statement2_2")))),
-                ])
-            },
+            StatementWithRow::new(
+                Statement::If {
+                    condition: Expression::Identifier(Identifier(String::from("a"))),
+                    consequence: vec![
+                        StatementWithRow::new(
+                            Statement::Expression(Expression::Identifier(Identifier(String::from("statement1")))),
+                            3
+                        ),
+                    ],
+                    alternative: Some(vec![
+                        StatementWithRow::new(
+                            Statement::Expression(Expression::Identifier(Identifier(String::from("statement2_1")))),
+                            5
+                        ),
+                        StatementWithRow::new(
+                            Statement::Expression(Expression::Identifier(Identifier(String::from("statement2_2")))),
+                            6
+                        ),
+                    ])
+                },
+                2
+            )
         ]);
 
     }
@@ -3123,30 +3239,56 @@ else
 endif
 "#;
         parser_test(input, vec![
-            Statement::ElseIf {
-                condition: Expression::Identifier(Identifier(String::from("a"))),
-                consequence: vec![
-                    Statement::Expression(Expression::Identifier(Identifier(String::from("statement1"))))
-                ],
-                alternatives: vec![
-                    (
-                        Some(Expression::Identifier(Identifier(String::from("b")))),
-                        vec![Statement::Expression(Expression::Identifier(Identifier(String::from("statement2"))))],
-                    ),
-                    (
-                        Some(Expression::Identifier(Identifier(String::from("c")))),
-                        vec![Statement::Expression(Expression::Identifier(Identifier(String::from("statement3"))))],
-                    ),
-                    (
-                        Some(Expression::Identifier(Identifier(String::from("d")))),
-                        vec![Statement::Expression(Expression::Identifier(Identifier(String::from("statement4"))))],
-                    ),
-                    (
-                        None,
-                        vec![Statement::Expression(Expression::Identifier(Identifier(String::from("statement5"))))],
-                    ),
-                ]
-            },
+            StatementWithRow::new(
+                Statement::ElseIf {
+                    condition: Expression::Identifier(Identifier(String::from("a"))),
+                    consequence: vec![
+                        StatementWithRow::new(
+                            Statement::Expression(Expression::Identifier(Identifier(String::from("statement1")))),
+                            3
+                        )
+                    ],
+                    alternatives: vec![
+                        (
+                            Some(Expression::Identifier(Identifier(String::from("b")))),
+                            vec![
+                                StatementWithRow::new(
+                                    Statement::Expression(Expression::Identifier(Identifier(String::from("statement2")))),
+                                    5
+                                )
+                            ],
+                        ),
+                        (
+                            Some(Expression::Identifier(Identifier(String::from("c")))),
+                            vec![
+                                StatementWithRow::new(
+                                    Statement::Expression(Expression::Identifier(Identifier(String::from("statement3")))),
+                                    7
+                                )
+                            ],
+                        ),
+                        (
+                            Some(Expression::Identifier(Identifier(String::from("d")))),
+                            vec![
+                                StatementWithRow::new(
+                                    Statement::Expression(Expression::Identifier(Identifier(String::from("statement4")))),
+                                    9
+                                )
+                            ],
+                        ),
+                        (
+                            None,
+                            vec![
+                                StatementWithRow::new(
+                                    Statement::Expression(Expression::Identifier(Identifier(String::from("statement5")))),
+                                    11
+                                )
+                            ],
+                        ),
+                    ]
+                },
+                2
+            )
         ]);
     }
     #[test]
@@ -3159,18 +3301,29 @@ elseif b then
 endif
 "#;
         parser_test(input, vec![
-            Statement::ElseIf {
-                condition: Expression::Identifier(Identifier(String::from("a"))),
-                consequence: vec![
-                    Statement::Expression(Expression::Identifier(Identifier(String::from("statement1"))))
-                ],
-                alternatives: vec![
-                    (
-                        Some(Expression::Identifier(Identifier(String::from("b")))),
-                        vec![Statement::Expression(Expression::Identifier(Identifier(String::from("statement2"))))],
-                    ),
-                ]
-            },
+            StatementWithRow::new(
+                Statement::ElseIf {
+                    condition: Expression::Identifier(Identifier(String::from("a"))),
+                    consequence: vec![
+                        StatementWithRow::new(
+                            Statement::Expression(Expression::Identifier(Identifier(String::from("statement1")))),
+                            3
+                        )
+                    ],
+                    alternatives: vec![
+                        (
+                            Some(Expression::Identifier(Identifier(String::from("b")))),
+                            vec![
+                                StatementWithRow::new(
+                                    Statement::Expression(Expression::Identifier(Identifier(String::from("statement2")))),
+                                    5
+                                )
+                            ],
+                        ),
+                    ]
+                },
+                2
+            )
         ]);
     }
 
@@ -3189,31 +3342,43 @@ select 1
 selend
                 "#,
                 vec![
-                    Statement::Select {
-                        expression: Expression::Literal(Literal::Num(1.0)),
-                        cases: vec![
-                            (
-                                vec![
-                                    Expression::Literal(Literal::Num(1.0)),
-                                    Expression::Literal(Literal::Num(2.0))
-                                ],
-                                vec![
-                                    Statement::Print(Expression::Identifier(Identifier("a".to_string())))
-                                ]
-                            ),
-                            (
-                                vec![
-                                    Expression::Literal(Literal::Num(3.0))
-                                ],
-                                vec![
-                                    Statement::Print(Expression::Identifier(Identifier("b".to_string())))
-                                ]
-                            ),
-                        ],
-                        default: Some(vec![
-                            Statement::Print(Expression::Identifier(Identifier("c".to_string())))
-                        ])
-                    }
+                    StatementWithRow::new(
+                        Statement::Select {
+                            expression: Expression::Literal(Literal::Num(1.0)),
+                            cases: vec![
+                                (
+                                    vec![
+                                        Expression::Literal(Literal::Num(1.0)),
+                                        Expression::Literal(Literal::Num(2.0))
+                                    ],
+                                    vec![
+                                        StatementWithRow::new(
+                                            Statement::Print(Expression::Identifier(Identifier("a".to_string()))),
+                                            4
+                                        )
+                                    ]
+                                ),
+                                (
+                                    vec![
+                                        Expression::Literal(Literal::Num(3.0))
+                                    ],
+                                    vec![
+                                        StatementWithRow::new(
+                                            Statement::Print(Expression::Identifier(Identifier("b".to_string()))),
+                                            6
+                                        )
+                                    ]
+                                ),
+                            ],
+                            default: Some(vec![
+                                StatementWithRow::new(
+                                    Statement::Print(Expression::Identifier(Identifier("c".to_string()))),
+                                    8
+                                )
+                            ])
+                        },
+                        2
+                    )
                 ]
             ),
             (
@@ -3224,13 +3389,19 @@ select 1
 selend
                 "#,
                 vec![
-                    Statement::Select {
-                        expression: Expression::Literal(Literal::Num(1.0)),
-                        cases: vec![],
-                        default: Some(vec![
-                            Statement::Print(Expression::Identifier(Identifier("c".to_string())))
-                        ])
-                    }
+                    StatementWithRow::new(
+                        Statement::Select {
+                            expression: Expression::Literal(Literal::Num(1.0)),
+                            cases: vec![],
+                            default: Some(vec![
+                                StatementWithRow::new(
+                                    Statement::Print(Expression::Identifier(Identifier("c".to_string()))),
+                                    4
+                                )
+                            ])
+                        },
+                        2
+                    )
                 ]
             ),
             (
@@ -3241,20 +3412,25 @@ select 1
 selend
                 "#,
                 vec![
-                    Statement::Select {
-                        expression: Expression::Literal(Literal::Num(1.0)),
-                        cases: vec![
-                            (
-                                vec![
-                                    Expression::Literal(Literal::Num(1.0)),
-                                ],
-                                vec![
-                                    Statement::Print(Expression::Identifier(Identifier("a".to_string())))
-                                ]
-                            ),
-                        ],
-                        default: None
-                    }
+                    StatementWithRow::new(
+                        Statement::Select {
+                            expression: Expression::Literal(Literal::Num(1.0)),
+                            cases: vec![
+                                (
+                                    vec![
+                                        Expression::Literal(Literal::Num(1.0)),
+                                    ],
+                                    vec![
+                                        StatementWithRow::new(
+                                            Statement::Print(Expression::Identifier(Identifier("a".to_string()))),
+                                            4
+                                        )
+                                    ]
+                                ),
+                            ],
+                            default: None
+                        }, 2
+                    )
                 ]
             ),
         ];
@@ -3271,18 +3447,27 @@ selend
 +1
         "#;
         parser_test(input, vec![
-            Statement::Expression(Expression::Prefix(
-                Prefix::Not,
-                Box::new(Expression::Identifier(Identifier(String::from("hoge"))))
-            )),
-            Statement::Expression(Expression::Prefix(
-                Prefix::Minus,
-                Box::new(Expression::Literal(Literal::Num(1 as f64)))
-            )),
-            Statement::Expression(Expression::Prefix(
-                Prefix::Plus,
-                Box::new(Expression::Literal(Literal::Num(1 as f64)))
-            ))
+            StatementWithRow::new(
+                Statement::Expression(Expression::Prefix(
+                    Prefix::Not,
+                    Box::new(Expression::Identifier(Identifier(String::from("hoge"))))
+                )),
+                2
+            ),
+            StatementWithRow::new(
+                Statement::Expression(Expression::Prefix(
+                    Prefix::Minus,
+                    Box::new(Expression::Literal(Literal::Num(1 as f64)))
+                )),
+                3
+            ),
+            StatementWithRow::new(
+                Statement::Expression(Expression::Prefix(
+                    Prefix::Plus,
+                    Box::new(Expression::Literal(Literal::Num(1 as f64)))
+                )),
+                4
+            )
         ]);
     }
 
@@ -3303,66 +3488,102 @@ selend
 3 <= 3
         "#;
         parser_test(input, vec![
-            Statement::Expression(Expression::Infix(
-                Infix::Plus,
-                Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                Box::new(Expression::Literal(Literal::Num(3 as f64))),
-            )),
-            Statement::Expression(Expression::Infix(
-                Infix::Minus,
-                Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                Box::new(Expression::Literal(Literal::Num(3 as f64))),
-            )),
-            Statement::Expression(Expression::Infix(
-                Infix::Multiply,
-                Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                Box::new(Expression::Literal(Literal::Num(3 as f64))),
-            )),
-            Statement::Expression(Expression::Infix(
-                Infix::Divide,
-                Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                Box::new(Expression::Literal(Literal::Num(3 as f64))),
-            )),
-            Statement::Expression(Expression::Infix(
-                Infix::GreaterThan,
-                Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                Box::new(Expression::Literal(Literal::Num(3 as f64))),
-            )),
-            Statement::Expression(Expression::Infix(
-                Infix::LessThan,
-                Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                Box::new(Expression::Literal(Literal::Num(3 as f64))),
-            )),
-            Statement::Expression(Expression::Infix(
-                Infix::Equal,
-                Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                Box::new(Expression::Literal(Literal::Num(3 as f64))),
-            )),
-            Statement::Expression(Expression::Infix(
-                Infix::Equal,
-                Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                Box::new(Expression::Literal(Literal::Num(3 as f64))),
-            )),
-            Statement::Expression(Expression::Infix(
-                Infix::NotEqual,
-                Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                Box::new(Expression::Literal(Literal::Num(3 as f64))),
-            )),
-            Statement::Expression(Expression::Infix(
-                Infix::NotEqual,
-                Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                Box::new(Expression::Literal(Literal::Num(3 as f64))),
-            )),
-            Statement::Expression(Expression::Infix(
-                Infix::GreaterThanEqual,
-                Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                Box::new(Expression::Literal(Literal::Num(3 as f64))),
-            )),
-            Statement::Expression(Expression::Infix(
-                Infix::LessThanEqual,
-                Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                Box::new(Expression::Literal(Literal::Num(3 as f64))),
-            )),
+            StatementWithRow::new(
+                Statement::Expression(Expression::Infix(
+                    Infix::Plus,
+                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                )),
+                2
+            ),
+            StatementWithRow::new(
+                Statement::Expression(Expression::Infix(
+                    Infix::Minus,
+                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                )),
+                3
+            ),
+            StatementWithRow::new(
+                Statement::Expression(Expression::Infix(
+                    Infix::Multiply,
+                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                )),
+                4
+            ),
+            StatementWithRow::new(
+                Statement::Expression(Expression::Infix(
+                    Infix::Divide,
+                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                )),
+                5
+            ),
+            StatementWithRow::new(
+                Statement::Expression(Expression::Infix(
+                    Infix::GreaterThan,
+                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                )),
+                6
+            ),
+            StatementWithRow::new(
+                Statement::Expression(Expression::Infix(
+                    Infix::LessThan,
+                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                )),
+                7
+            ),
+            StatementWithRow::new(
+                Statement::Expression(Expression::Infix(
+                    Infix::Equal,
+                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                )),
+                8
+            ),
+            StatementWithRow::new(
+                Statement::Expression(Expression::Infix(
+                    Infix::Equal,
+                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                )),
+                9
+            ),
+            StatementWithRow::new(
+                Statement::Expression(Expression::Infix(
+                    Infix::NotEqual,
+                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                )),
+                10
+            ),
+            StatementWithRow::new(
+                Statement::Expression(Expression::Infix(
+                    Infix::NotEqual,
+                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                )),
+                11
+            ),
+            StatementWithRow::new(
+                Statement::Expression(Expression::Infix(
+                    Infix::GreaterThanEqual,
+                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                )),
+                12
+            ),
+            StatementWithRow::new(
+                Statement::Expression(Expression::Infix(
+                    Infix::LessThanEqual,
+                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                )),
+                13
+            ),
         ]);
 
     }
@@ -3373,502 +3594,554 @@ selend
             (
                 "-a * b",
                 vec![
-                    Statement::Expression(Expression::Infix(
-                        Infix::Multiply,
-                        Box::new(Expression::Prefix(
-                            Prefix::Minus,
-                            Box::new(Expression::Identifier(Identifier(String::from("a"))))
-                        )),
-                        Box::new(Expression::Identifier(Identifier(String::from("b"))))
-                    ))
+                    StatementWithRow::new(
+                        Statement::Expression(Expression::Infix(
+                            Infix::Multiply,
+                            Box::new(Expression::Prefix(
+                                Prefix::Minus,
+                                Box::new(Expression::Identifier(Identifier(String::from("a"))))
+                            )),
+                            Box::new(Expression::Identifier(Identifier(String::from("b"))))
+                        )), 1
+                    )
                 ]
             ),
             (
                 "!-a",
                 vec![
-                    Statement::Expression(Expression::Prefix(
-                        Prefix::Not,
-                        Box::new(Expression::Prefix(
-                            Prefix::Minus,
-                            Box::new(Expression::Identifier(Identifier(String::from("a"))))
-                        ))
-                    ))
+                    StatementWithRow::new(
+                        Statement::Expression(Expression::Prefix(
+                            Prefix::Not,
+                            Box::new(Expression::Prefix(
+                                Prefix::Minus,
+                                Box::new(Expression::Identifier(Identifier(String::from("a"))))
+                            ))
+                        )), 1
+                    )
                 ]
             ),
             (
                 "a + b + c",
                 vec![
-                    Statement::Expression(Expression::Infix(
-                        Infix::Plus,
-                        Box::new(Expression::Infix(
+                    StatementWithRow::new(
+                        Statement::Expression(Expression::Infix(
                             Infix::Plus,
-                            Box::new(Expression::Identifier(Identifier(String::from("a")))),
-                            Box::new(Expression::Identifier(Identifier(String::from("b"))))
-                        )),
-                        Box::new(Expression::Identifier(Identifier(String::from("c"))))
-                    ))
+                            Box::new(Expression::Infix(
+                                Infix::Plus,
+                                Box::new(Expression::Identifier(Identifier(String::from("a")))),
+                                Box::new(Expression::Identifier(Identifier(String::from("b"))))
+                            )),
+                            Box::new(Expression::Identifier(Identifier(String::from("c"))))
+                        )), 1
+                    )
                 ]
             ),
             (
                 "a + b - c",
                 vec![
-                    Statement::Expression(Expression::Infix(
-                        Infix::Minus,
-                        Box::new(Expression::Infix(
-                            Infix::Plus,
-                            Box::new(Expression::Identifier(Identifier(String::from("a")))),
-                            Box::new(Expression::Identifier(Identifier(String::from("b"))))
-                        )),
-                        Box::new(Expression::Identifier(Identifier(String::from("c"))))
-                    ))
+                    StatementWithRow::new(
+                        Statement::Expression(Expression::Infix(
+                            Infix::Minus,
+                            Box::new(Expression::Infix(
+                                Infix::Plus,
+                                Box::new(Expression::Identifier(Identifier(String::from("a")))),
+                                Box::new(Expression::Identifier(Identifier(String::from("b"))))
+                            )),
+                            Box::new(Expression::Identifier(Identifier(String::from("c"))))
+                        )), 1
+                    )
                 ]
             ),
             (
                 "a * b * c",
                 vec![
-                    Statement::Expression(Expression::Infix(
-                        Infix::Multiply,
-                        Box::new(Expression::Infix(
+                    StatementWithRow::new(
+                        Statement::Expression(Expression::Infix(
                             Infix::Multiply,
-                            Box::new(Expression::Identifier(Identifier(String::from("a")))),
-                            Box::new(Expression::Identifier(Identifier(String::from("b"))))
-                        )),
-                        Box::new(Expression::Identifier(Identifier(String::from("c"))))
-                    ))
+                            Box::new(Expression::Infix(
+                                Infix::Multiply,
+                                Box::new(Expression::Identifier(Identifier(String::from("a")))),
+                                Box::new(Expression::Identifier(Identifier(String::from("b"))))
+                            )),
+                            Box::new(Expression::Identifier(Identifier(String::from("c"))))
+                        )), 1
+                    )
                 ]
             ),
             (
                 "a * b / c",
                 vec![
-                    Statement::Expression(Expression::Infix(
-                        Infix::Divide,
-                        Box::new(Expression::Infix(
-                            Infix::Multiply,
-                            Box::new(Expression::Identifier(Identifier(String::from("a")))),
-                            Box::new(Expression::Identifier(Identifier(String::from("b"))))
-                        )),
-                        Box::new(Expression::Identifier(Identifier(String::from("c"))))
-                    ))
+                    StatementWithRow::new(
+                        Statement::Expression(Expression::Infix(
+                            Infix::Divide,
+                            Box::new(Expression::Infix(
+                                Infix::Multiply,
+                                Box::new(Expression::Identifier(Identifier(String::from("a")))),
+                                Box::new(Expression::Identifier(Identifier(String::from("b"))))
+                            )),
+                            Box::new(Expression::Identifier(Identifier(String::from("c"))))
+                        )), 1
+                    )
                 ]
             ),
             (
                 "a + b / c",
                 vec![
-                    Statement::Expression(Expression::Infix(
-                        Infix::Plus,
-                        Box::new(Expression::Identifier(Identifier(String::from("a")))),
-                        Box::new(Expression::Infix(
-                            Infix::Divide,
-                            Box::new(Expression::Identifier(Identifier(String::from("b")))),
-                            Box::new(Expression::Identifier(Identifier(String::from("c"))))
-                        )),
-                    ))
+                    StatementWithRow::new(
+                        Statement::Expression(Expression::Infix(
+                            Infix::Plus,
+                            Box::new(Expression::Identifier(Identifier(String::from("a")))),
+                            Box::new(Expression::Infix(
+                                Infix::Divide,
+                                Box::new(Expression::Identifier(Identifier(String::from("b")))),
+                                Box::new(Expression::Identifier(Identifier(String::from("c"))))
+                            )),
+                        )), 1
+                    )
                 ]
             ),
             (
                 "a + b * c + d / e - f",
                 vec![
-                    Statement::Expression(Expression::Infix(
-                        Infix::Minus,
-                        Box::new(Expression::Infix(
-                            Infix::Plus,
+                    StatementWithRow::new(
+                        Statement::Expression(Expression::Infix(
+                            Infix::Minus,
                             Box::new(Expression::Infix(
                                 Infix::Plus,
-                                Box::new(Expression::Identifier(Identifier(String::from("a")))),
                                 Box::new(Expression::Infix(
-                                    Infix::Multiply,
-                                    Box::new(Expression::Identifier(Identifier(String::from("b")))),
-                                    Box::new(Expression::Identifier(Identifier(String::from("c")))),
-                                ))
+                                    Infix::Plus,
+                                    Box::new(Expression::Identifier(Identifier(String::from("a")))),
+                                    Box::new(Expression::Infix(
+                                        Infix::Multiply,
+                                        Box::new(Expression::Identifier(Identifier(String::from("b")))),
+                                        Box::new(Expression::Identifier(Identifier(String::from("c")))),
+                                    ))
+                                )),
+                                Box::new(Expression::Infix(
+                                    Infix::Divide,
+                                    Box::new(Expression::Identifier(Identifier(String::from("d")))),
+                                    Box::new(Expression::Identifier(Identifier(String::from("e")))),
+                                )),
                             )),
-                            Box::new(Expression::Infix(
-                                Infix::Divide,
-                                Box::new(Expression::Identifier(Identifier(String::from("d")))),
-                                Box::new(Expression::Identifier(Identifier(String::from("e")))),
-                            )),
-                        )),
-                        Box::new(Expression::Identifier(Identifier(String::from("f"))))
-                    ))
+                            Box::new(Expression::Identifier(Identifier(String::from("f"))))
+                        )), 1
+                    )
                 ]
             ),
             (
                 "5 > 4 == 3 < 4",
                 vec![
-                    Statement::Expression(
-                        Expression::Infix(
-                            Infix::Equal,
-                            Box::new(Expression::Infix(
-                                Infix::GreaterThan,
-                                Box::new(Expression::Literal(Literal::Num(5 as f64))),
-                                Box::new(Expression::Literal(Literal::Num(4 as f64))),
-                            )),
-                            Box::new(Expression::Infix(
-                                Infix::LessThan,
-                                Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                                Box::new(Expression::Literal(Literal::Num(4 as f64))),
-                            )),
-                        )
+                    StatementWithRow::new(
+                        Statement::Expression(
+                            Expression::Infix(
+                                Infix::Equal,
+                                Box::new(Expression::Infix(
+                                    Infix::GreaterThan,
+                                    Box::new(Expression::Literal(Literal::Num(5 as f64))),
+                                    Box::new(Expression::Literal(Literal::Num(4 as f64))),
+                                )),
+                                Box::new(Expression::Infix(
+                                    Infix::LessThan,
+                                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                                    Box::new(Expression::Literal(Literal::Num(4 as f64))),
+                                )),
+                            )
+                        ), 1
                     )
                 ]
             ),
             (
                 "5 < 4 != 3 > 4",
                 vec![
-                    Statement::Expression(
-                        Expression::Infix(
-                            Infix::NotEqual,
-                            Box::new(Expression::Infix(
-                                Infix::LessThan,
-                                Box::new(Expression::Literal(Literal::Num(5 as f64))),
-                                Box::new(Expression::Literal(Literal::Num(4 as f64))),
-                            )),
-                            Box::new(Expression::Infix(
-                                Infix::GreaterThan,
-                                Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                                Box::new(Expression::Literal(Literal::Num(4 as f64))),
-                            )),
-                        )
+                    StatementWithRow::new(
+                        Statement::Expression(
+                            Expression::Infix(
+                                Infix::NotEqual,
+                                Box::new(Expression::Infix(
+                                    Infix::LessThan,
+                                    Box::new(Expression::Literal(Literal::Num(5 as f64))),
+                                    Box::new(Expression::Literal(Literal::Num(4 as f64))),
+                                )),
+                                Box::new(Expression::Infix(
+                                    Infix::GreaterThan,
+                                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                                    Box::new(Expression::Literal(Literal::Num(4 as f64))),
+                                )),
+                            )
+                        ), 1
                     )
                 ]
             ),
             (
                 "5 >= 4 = 3 <= 4",
                 vec![
-                    Statement::Expression(
-                        Expression::Infix(
-                            Infix::Equal,
-                            Box::new(Expression::Infix(
-                                Infix::GreaterThanEqual,
-                                Box::new(Expression::Literal(Literal::Num(5 as f64))),
-                                Box::new(Expression::Literal(Literal::Num(4 as f64))),
-                            )),
-                            Box::new(Expression::Infix(
-                                Infix::LessThanEqual,
-                                Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                                Box::new(Expression::Literal(Literal::Num(4 as f64))),
-                            )),
-                        )
+                    StatementWithRow::new(
+                        Statement::Expression(
+                            Expression::Infix(
+                                Infix::Equal,
+                                Box::new(Expression::Infix(
+                                    Infix::GreaterThanEqual,
+                                    Box::new(Expression::Literal(Literal::Num(5 as f64))),
+                                    Box::new(Expression::Literal(Literal::Num(4 as f64))),
+                                )),
+                                Box::new(Expression::Infix(
+                                    Infix::LessThanEqual,
+                                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                                    Box::new(Expression::Literal(Literal::Num(4 as f64))),
+                                )),
+                            )
+                        ), 1
                     )
                 ]
             ),
             (
                 "3 + 4 * 5 == 3 * 1 + 4 * 5",
                 vec![
-                    Statement::Expression(
-                        Expression::Infix(
-                            Infix::Equal,
-                            Box::new(Expression::Infix(
-                                Infix::Plus,
-                                Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                    StatementWithRow::new(
+                        Statement::Expression(
+                            Expression::Infix(
+                                Infix::Equal,
                                 Box::new(Expression::Infix(
-                                    Infix::Multiply,
-                                    Box::new(Expression::Literal(Literal::Num(4 as f64))),
-                                    Box::new(Expression::Literal(Literal::Num(5 as f64))),
-                                )),
-                            )),
-                            Box::new(Expression::Infix(
-                                Infix::Plus,
-                                Box::new(Expression::Infix(
-                                    Infix::Multiply,
+                                    Infix::Plus,
                                     Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                                    Box::new(Expression::Literal(Literal::Num(1 as f64))),
+                                    Box::new(Expression::Infix(
+                                        Infix::Multiply,
+                                        Box::new(Expression::Literal(Literal::Num(4 as f64))),
+                                        Box::new(Expression::Literal(Literal::Num(5 as f64))),
+                                    )),
                                 )),
                                 Box::new(Expression::Infix(
-                                    Infix::Multiply,
-                                    Box::new(Expression::Literal(Literal::Num(4 as f64))),
-                                    Box::new(Expression::Literal(Literal::Num(5 as f64))),
+                                    Infix::Plus,
+                                    Box::new(Expression::Infix(
+                                        Infix::Multiply,
+                                        Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                                        Box::new(Expression::Literal(Literal::Num(1 as f64))),
+                                    )),
+                                    Box::new(Expression::Infix(
+                                        Infix::Multiply,
+                                        Box::new(Expression::Literal(Literal::Num(4 as f64))),
+                                        Box::new(Expression::Literal(Literal::Num(5 as f64))),
+                                    )),
                                 )),
-                            )),
-                        )
+                            )
+                        ), 1
                     )
                 ]
             ),
             (
                 "3 > 5 == FALSE",
                 vec![
-                    Statement::Expression(
-                        Expression::Infix(
-                            Infix::Equal,
-                            Box::new(Expression::Infix(
-                                Infix::GreaterThan,
-                                Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                                Box::new(Expression::Literal(Literal::Num(5 as f64))),
-                            )),
-                            Box::new(Expression::Literal(Literal::Bool(false))),
-                        )
+                    StatementWithRow::new(
+                        Statement::Expression(
+                            Expression::Infix(
+                                Infix::Equal,
+                                Box::new(Expression::Infix(
+                                    Infix::GreaterThan,
+                                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                                    Box::new(Expression::Literal(Literal::Num(5 as f64))),
+                                )),
+                                Box::new(Expression::Literal(Literal::Bool(false))),
+                            )
+                        ), 1
                     )
                 ]
             ),
             (
                 "3 < 5 = TRUE",
                 vec![
-                    Statement::Expression(
-                        Expression::Infix(
-                            Infix::Equal,
-                            Box::new(Expression::Infix(
-                                Infix::LessThan,
-                                Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                                Box::new(Expression::Literal(Literal::Num(5 as f64))),
-                            )),
-                            Box::new(Expression::Literal(Literal::Bool(true))),
-                        )
+                    StatementWithRow::new(
+                        Statement::Expression(
+                            Expression::Infix(
+                                Infix::Equal,
+                                Box::new(Expression::Infix(
+                                    Infix::LessThan,
+                                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                                    Box::new(Expression::Literal(Literal::Num(5 as f64))),
+                                )),
+                                Box::new(Expression::Literal(Literal::Bool(true))),
+                            )
+                        ), 1
                     )
                 ]
             ),
             (
                 "1 + (2 + 3) + 4",
                 vec![
-                    Statement::Expression(
-                        Expression::Infix(
-                            Infix::Plus,
-                            Box::new(Expression::Infix(
+                    StatementWithRow::new(
+                        Statement::Expression(
+                            Expression::Infix(
                                 Infix::Plus,
-                                Box::new(Expression::Literal(Literal::Num(1 as f64))),
                                 Box::new(Expression::Infix(
                                     Infix::Plus,
-                                    Box::new(Expression::Literal(Literal::Num(2 as f64))),
-                                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                                    Box::new(Expression::Literal(Literal::Num(1 as f64))),
+                                    Box::new(Expression::Infix(
+                                        Infix::Plus,
+                                        Box::new(Expression::Literal(Literal::Num(2 as f64))),
+                                        Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                                    )),
                                 )),
-                            )),
-                            Box::new(Expression::Literal(Literal::Num(4 as f64))),
-                        )
+                                Box::new(Expression::Literal(Literal::Num(4 as f64))),
+                            )
+                        ), 1
                     )
                 ]
             ),
             (
                 "(5 + 5) * 2",
                 vec![
-                    Statement::Expression(
-                        Expression::Infix(
-                            Infix::Multiply,
-                            Box::new(Expression::Infix(
-                                Infix::Plus,
-                                Box::new(Expression::Literal(Literal::Num(5 as f64))),
-                                Box::new(Expression::Literal(Literal::Num(5 as f64))),
-                            )),
-                            Box::new(Expression::Literal(Literal::Num(2 as f64))),
-                        )
+                    StatementWithRow::new(
+                        Statement::Expression(
+                            Expression::Infix(
+                                Infix::Multiply,
+                                Box::new(Expression::Infix(
+                                    Infix::Plus,
+                                    Box::new(Expression::Literal(Literal::Num(5 as f64))),
+                                    Box::new(Expression::Literal(Literal::Num(5 as f64))),
+                                )),
+                                Box::new(Expression::Literal(Literal::Num(2 as f64))),
+                            )
+                        ), 1
                     )
                 ]
             ),
             (
                 "2 / (5 + 5)",
                 vec![
-                    Statement::Expression(
-                        Expression::Infix(
-                            Infix::Divide,
-                            Box::new(Expression::Literal(Literal::Num(2 as f64))),
-                            Box::new(Expression::Infix(
-                                Infix::Plus,
-                                Box::new(Expression::Literal(Literal::Num(5 as f64))),
-                                Box::new(Expression::Literal(Literal::Num(5 as f64))),
-                            )),
-                        )
+                    StatementWithRow::new(
+                        Statement::Expression(
+                            Expression::Infix(
+                                Infix::Divide,
+                                Box::new(Expression::Literal(Literal::Num(2 as f64))),
+                                Box::new(Expression::Infix(
+                                    Infix::Plus,
+                                    Box::new(Expression::Literal(Literal::Num(5 as f64))),
+                                    Box::new(Expression::Literal(Literal::Num(5 as f64))),
+                                )),
+                            )
+                        ), 1
                     )
                 ]
             ),
             (
                 "-(5 + 5)",
                 vec![
-                    Statement::Expression(Expression::Prefix(
-                        Prefix::Minus,
-                        Box::new(Expression::Infix(
-                            Infix::Plus,
-                            Box::new(Expression::Literal(Literal::Num(5 as f64))),
-                            Box::new(Expression::Literal(Literal::Num(5 as f64))),
-                        ))
-                    ))
+                    StatementWithRow::new(
+                        Statement::Expression(Expression::Prefix(
+                            Prefix::Minus,
+                            Box::new(Expression::Infix(
+                                Infix::Plus,
+                                Box::new(Expression::Literal(Literal::Num(5 as f64))),
+                                Box::new(Expression::Literal(Literal::Num(5 as f64))),
+                            ))
+                        )), 1
+                    )
                 ]
             ),
             (
                 "!(5 = 5)",
                 vec![
-                    Statement::Expression(Expression::Prefix(
-                        Prefix::Not,
-                        Box::new(Expression::Infix(
-                            Infix::Equal,
-                            Box::new(Expression::Literal(Literal::Num(5 as f64))),
-                            Box::new(Expression::Literal(Literal::Num(5 as f64))),
-                        ))
-                    ))
+                    StatementWithRow::new(
+                        Statement::Expression(Expression::Prefix(
+                            Prefix::Not,
+                            Box::new(Expression::Infix(
+                                Infix::Equal,
+                                Box::new(Expression::Literal(Literal::Num(5 as f64))),
+                                Box::new(Expression::Literal(Literal::Num(5 as f64))),
+                            ))
+                        )), 1
+                    )
                 ]
             ),
             (
                 "a + add(b * c) + d",
                 vec![
-                    Statement::Expression(Expression::Infix(
-                        Infix::Plus,
-                        Box::new(Expression::Infix(
+                    StatementWithRow::new(
+                        Statement::Expression(Expression::Infix(
                             Infix::Plus,
-                            Box::new(Expression::Identifier(Identifier(String::from("a")))),
-                            Box::new(Expression::FuncCall{
-                                func: Box::new(Expression::Identifier(Identifier(String::from("add")))),
-                                args: vec![
-                                    Expression::Infix(
-                                        Infix::Multiply,
-                                        Box::new(Expression::Identifier(Identifier(String::from("b")))),
-                                        Box::new(Expression::Identifier(Identifier(String::from("c")))),
-                                    )
-                                ],
-                                is_await: false
-                            })
-                        )),
-                        Box::new(Expression::Identifier(Identifier(String::from("d")))),
-                    ))
+                            Box::new(Expression::Infix(
+                                Infix::Plus,
+                                Box::new(Expression::Identifier(Identifier(String::from("a")))),
+                                Box::new(Expression::FuncCall{
+                                    func: Box::new(Expression::Identifier(Identifier(String::from("add")))),
+                                    args: vec![
+                                        Expression::Infix(
+                                            Infix::Multiply,
+                                            Box::new(Expression::Identifier(Identifier(String::from("b")))),
+                                            Box::new(Expression::Identifier(Identifier(String::from("c")))),
+                                        )
+                                    ],
+                                    is_await: false
+                                })
+                            )),
+                            Box::new(Expression::Identifier(Identifier(String::from("d")))),
+                        )), 1
+                    )
                 ]
             ),
             (
                 "add(a, b, 1, 2 * 3, 4 + 5, add(6, 7 * 8))",
                 vec![
-                    Statement::Expression(Expression::FuncCall{
-                        func: Box::new(Expression::Identifier(Identifier(String::from("add")))),
-                        args: vec![
-                            Expression::Identifier(Identifier(String::from("a"))),
-                            Expression::Identifier(Identifier(String::from("b"))),
-                            Expression::Literal(Literal::Num(1 as f64)),
-                            Expression::Infix(
-                                Infix::Multiply,
-                                Box::new(Expression::Literal(Literal::Num(2 as f64))),
-                                Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                            ),
-                            Expression::Infix(
-                                Infix::Plus,
-                                Box::new(Expression::Literal(Literal::Num(4 as f64))),
-                                Box::new(Expression::Literal(Literal::Num(5 as f64))),
-                            ),
-                            Expression::FuncCall{
-                                func: Box::new(Expression::Identifier(Identifier(String::from("add")))),
-                                args: vec![
-                                    Expression::Literal(Literal::Num(6 as f64)),
-                                    Expression::Infix(
-                                        Infix::Multiply,
-                                        Box::new(Expression::Literal(Literal::Num(7 as f64))),
-                                        Box::new(Expression::Literal(Literal::Num(8 as f64))),
-                                    )
-                                ],
-                                is_await: false,
-                            }
-                        ],
-                        is_await: false,
-                    })
+                    StatementWithRow::new(
+                        Statement::Expression(Expression::FuncCall{
+                            func: Box::new(Expression::Identifier(Identifier(String::from("add")))),
+                            args: vec![
+                                Expression::Identifier(Identifier(String::from("a"))),
+                                Expression::Identifier(Identifier(String::from("b"))),
+                                Expression::Literal(Literal::Num(1 as f64)),
+                                Expression::Infix(
+                                    Infix::Multiply,
+                                    Box::new(Expression::Literal(Literal::Num(2 as f64))),
+                                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                                ),
+                                Expression::Infix(
+                                    Infix::Plus,
+                                    Box::new(Expression::Literal(Literal::Num(4 as f64))),
+                                    Box::new(Expression::Literal(Literal::Num(5 as f64))),
+                                ),
+                                Expression::FuncCall{
+                                    func: Box::new(Expression::Identifier(Identifier(String::from("add")))),
+                                    args: vec![
+                                        Expression::Literal(Literal::Num(6 as f64)),
+                                        Expression::Infix(
+                                            Infix::Multiply,
+                                            Box::new(Expression::Literal(Literal::Num(7 as f64))),
+                                            Box::new(Expression::Literal(Literal::Num(8 as f64))),
+                                        )
+                                    ],
+                                    is_await: false,
+                                }
+                            ],
+                            is_await: false,
+                        }), 1
+                    )
                 ]
             ),
             (
                 "a * [1, 2, 3, 4][b * c] * d",
                 vec![
-                    Statement::Expression(Expression::Infix(
-                        Infix::Multiply,
-                        Box::new(Expression::Infix(
+                    StatementWithRow::new(
+                        Statement::Expression(Expression::Infix(
                             Infix::Multiply,
-                            Box::new(Expression::Identifier(Identifier(String::from("a")))),
-                            Box::new(Expression::Index(
-                                Box::new(Expression::Literal(Literal::Array(
-                                    vec![
-                                        Expression::Literal(Literal::Num(1 as f64)),
-                                        Expression::Literal(Literal::Num(2 as f64)),
-                                        Expression::Literal(Literal::Num(3 as f64)),
-                                        Expression::Literal(Literal::Num(4 as f64)),
-                                    ]
-                                ))),
-                                Box::new(Expression::Infix(
-                                    Infix::Multiply,
-                                    Box::new(Expression::Identifier(Identifier(String::from("b")))),
-                                    Box::new(Expression::Identifier(Identifier(String::from("c")))),
-                                )),
-                                Box::new(None)
-                            ))
-                        )),
-                        Box::new(Expression::Identifier(Identifier(String::from("d")))),
-                    ))
-                ]
-            ),
-            (
-                "add(a * b[2], b[1], 2 * [1, 2][1])",
-                vec![
-                    Statement::Expression(Expression::FuncCall{
-                        func: Box::new(Expression::Identifier(Identifier(String::from("add")))),
-                        args: vec![
-                            Expression::Infix(
+                            Box::new(Expression::Infix(
                                 Infix::Multiply,
                                 Box::new(Expression::Identifier(Identifier(String::from("a")))),
-                                Box::new(Expression::Index(
-                                    Box::new(Expression::Identifier(Identifier(String::from("b")))),
-                                    Box::new(Expression::Literal(Literal::Num(2 as f64))),
-                                    Box::new(None)
-                                ))
-                            ),
-                            Expression::Index(
-                                Box::new(Expression::Identifier(Identifier(String::from("b")))),
-                                Box::new(Expression::Literal(Literal::Num(1 as f64))),
-                                Box::new(None),
-                            ),
-                            Expression::Infix(
-                                Infix::Multiply,
-                                Box::new(Expression::Literal(Literal::Num(2 as f64))),
                                 Box::new(Expression::Index(
                                     Box::new(Expression::Literal(Literal::Array(
                                         vec![
                                             Expression::Literal(Literal::Num(1 as f64)),
                                             Expression::Literal(Literal::Num(2 as f64)),
+                                            Expression::Literal(Literal::Num(3 as f64)),
+                                            Expression::Literal(Literal::Num(4 as f64)),
                                         ]
                                     ))),
-                                    Box::new(Expression::Literal(Literal::Num(1 as f64))),
+                                    Box::new(Expression::Infix(
+                                        Infix::Multiply,
+                                        Box::new(Expression::Identifier(Identifier(String::from("b")))),
+                                        Box::new(Expression::Identifier(Identifier(String::from("c")))),
+                                    )),
                                     Box::new(None)
                                 ))
-                            )
-                        ],
-                        is_await: false,
-                    })
+                            )),
+                            Box::new(Expression::Identifier(Identifier(String::from("d")))),
+                        )), 1
+                    )
+                ]
+            ),
+            (
+                "add(a * b[2], b[1], 2 * [1, 2][1])",
+                vec![
+                    StatementWithRow::new(
+                        Statement::Expression(Expression::FuncCall{
+                            func: Box::new(Expression::Identifier(Identifier(String::from("add")))),
+                            args: vec![
+                                Expression::Infix(
+                                    Infix::Multiply,
+                                    Box::new(Expression::Identifier(Identifier(String::from("a")))),
+                                    Box::new(Expression::Index(
+                                        Box::new(Expression::Identifier(Identifier(String::from("b")))),
+                                        Box::new(Expression::Literal(Literal::Num(2 as f64))),
+                                        Box::new(None)
+                                    ))
+                                ),
+                                Expression::Index(
+                                    Box::new(Expression::Identifier(Identifier(String::from("b")))),
+                                    Box::new(Expression::Literal(Literal::Num(1 as f64))),
+                                    Box::new(None),
+                                ),
+                                Expression::Infix(
+                                    Infix::Multiply,
+                                    Box::new(Expression::Literal(Literal::Num(2 as f64))),
+                                    Box::new(Expression::Index(
+                                        Box::new(Expression::Literal(Literal::Array(
+                                            vec![
+                                                Expression::Literal(Literal::Num(1 as f64)),
+                                                Expression::Literal(Literal::Num(2 as f64)),
+                                            ]
+                                        ))),
+                                        Box::new(Expression::Literal(Literal::Num(1 as f64))),
+                                        Box::new(None)
+                                    ))
+                                )
+                            ],
+                            is_await: false,
+                        }), 1
+                    )
                 ]
             ),
             (
                 "a or b and c",
                 vec![
-                    Statement::Expression(Expression::Infix(
-                        Infix::Or,
-                        Box::new(Expression::Identifier(Identifier(String::from("a")))),
-                        Box::new(Expression::Infix(
-                            Infix::And,
-                            Box::new(Expression::Identifier(Identifier(String::from("b")))),
-                            Box::new(Expression::Identifier(Identifier(String::from("c")))),
-                        ))
-                    ))
+                    StatementWithRow::new(
+                        Statement::Expression(Expression::Infix(
+                            Infix::Or,
+                            Box::new(Expression::Identifier(Identifier(String::from("a")))),
+                            Box::new(Expression::Infix(
+                                Infix::And,
+                                Box::new(Expression::Identifier(Identifier(String::from("b")))),
+                                Box::new(Expression::Identifier(Identifier(String::from("c")))),
+                            ))
+                        )), 1
+                    )
                 ]
             ),
             (
                 "1 + 5 mod 3",
                 vec![
-                    Statement::Expression(Expression::Infix(
-                        Infix::Plus,
-                        Box::new(Expression::Literal(Literal::Num(1 as f64))),
-                        Box::new(Expression::Infix(
-                            Infix::Mod,
-                            Box::new(Expression::Literal(Literal::Num(5 as f64))),
-                            Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                        )),
-                    ))
+                    StatementWithRow::new(
+                        Statement::Expression(Expression::Infix(
+                            Infix::Plus,
+                            Box::new(Expression::Literal(Literal::Num(1 as f64))),
+                            Box::new(Expression::Infix(
+                                Infix::Mod,
+                                Box::new(Expression::Literal(Literal::Num(5 as f64))),
+                                Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                            )),
+                        )), 1
+                    )
                 ]
             ),
             (
                 "3 * 2 and 2 xor (2 or 4)",
                 vec![
-                    Statement::Expression(Expression::Infix(
-                        Infix::Xor,
-                        Box::new(Expression::Infix(
-                            Infix::And,
+                    StatementWithRow::new(
+                        Statement::Expression(Expression::Infix(
+                            Infix::Xor,
                             Box::new(Expression::Infix(
-                                Infix::Multiply,
-                                Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                                Infix::And,
+                                Box::new(Expression::Infix(
+                                    Infix::Multiply,
+                                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                                    Box::new(Expression::Literal(Literal::Num(2 as f64))),
+                                )),
                                 Box::new(Expression::Literal(Literal::Num(2 as f64))),
                             )),
-                            Box::new(Expression::Literal(Literal::Num(2 as f64))),
-                        )),
-                        Box::new(Expression::Infix(
-                            Infix::Or,
-                            Box::new(Expression::Literal(Literal::Num(2 as f64))),
-                            Box::new(Expression::Literal(Literal::Num(4 as f64))),
-                        )),
-                    ))
+                            Box::new(Expression::Infix(
+                                Infix::Or,
+                                Box::new(Expression::Literal(Literal::Num(2 as f64))),
+                                Box::new(Expression::Literal(Literal::Num(4 as f64))),
+                            )),
+                        )), 1
+                    )
                 ]
             ),
             (
@@ -3878,21 +4151,26 @@ if a = b = c then
 endif
                 "#,
                 vec![
-                    Statement::If {
-                        condition: Expression::Infix(
-                            Infix::Equal,
-                            Box::new(Expression::Infix(
+                    StatementWithRow::new(
+                        Statement::If {
+                            condition: Expression::Infix(
                                 Infix::Equal,
-                                Box::new(Expression::Identifier(Identifier(String::from("a")))),
-                                Box::new(Expression::Identifier(Identifier(String::from("b")))),
-                            )),
-                            Box::new(Expression::Identifier(Identifier(String::from("c")))),
-                        ),
-                        consequence: vec![
-                            Statement::Print(Expression::Literal(Literal::Num(1 as f64))),
-                        ],
-                        alternative: None
-                    }
+                                Box::new(Expression::Infix(
+                                    Infix::Equal,
+                                    Box::new(Expression::Identifier(Identifier(String::from("a")))),
+                                    Box::new(Expression::Identifier(Identifier(String::from("b")))),
+                                )),
+                                Box::new(Expression::Identifier(Identifier(String::from("c")))),
+                            ),
+                            consequence: vec![
+                                StatementWithRow::new(
+                                    Statement::Print(Expression::Literal(Literal::Num(1 as f64))),
+                                    3
+                                )
+                            ],
+                            alternative: None
+                        }, 2
+                    )
                 ]
             ),
         ];
@@ -3907,36 +4185,42 @@ endif
             (
                 "a = 1",
                 vec![
-                    Statement::Expression(Expression::Assign(
-                        Box::new(Expression::Identifier(Identifier(String::from("a")))),
-                        Box::new(Expression::Literal(Literal::Num(1 as f64)))
-                    ))
+                    StatementWithRow::new(
+                        Statement::Expression(Expression::Assign(
+                            Box::new(Expression::Identifier(Identifier(String::from("a")))),
+                            Box::new(Expression::Literal(Literal::Num(1 as f64)))
+                        )), 1
+                    )
                 ]
             ),
             (
                 "a[0] = 1",
                 vec![
-                    Statement::Expression(Expression::Assign(
-                        Box::new(Expression::Index(
-                            Box::new(Expression::Identifier(Identifier(String::from("a")))),
-                            Box::new(Expression::Literal(Literal::Num(0 as f64))),
-                            Box::new(None)
-                        )),
-                        Box::new(Expression::Literal(Literal::Num(1 as f64)))
-                    ))
+                    StatementWithRow::new(
+                        Statement::Expression(Expression::Assign(
+                            Box::new(Expression::Index(
+                                Box::new(Expression::Identifier(Identifier(String::from("a")))),
+                                Box::new(Expression::Literal(Literal::Num(0 as f64))),
+                                Box::new(None)
+                            )),
+                            Box::new(Expression::Literal(Literal::Num(1 as f64)))
+                        )), 1
+                    )
                 ]
             ),
             (
                 "a = 1 = 2", // a に 1 = 2 を代入
                 vec![
-                    Statement::Expression(Expression::Assign(
-                        Box::new(Expression::Identifier(Identifier(String::from("a")))),
-                        Box::new(Expression::Infix(
-                            Infix::Equal,
-                            Box::new(Expression::Literal(Literal::Num(1 as f64))),
-                            Box::new(Expression::Literal(Literal::Num(2 as f64))),
-                    ))
-                    ))
+                    StatementWithRow::new(
+                        Statement::Expression(Expression::Assign(
+                            Box::new(Expression::Identifier(Identifier(String::from("a")))),
+                            Box::new(Expression::Infix(
+                                Infix::Equal,
+                                Box::new(Expression::Literal(Literal::Num(1 as f64))),
+                                Box::new(Expression::Literal(Literal::Num(2 as f64))),
+                            ))
+                        )), 1
+                    )
                 ]
             ),
         ];
@@ -3955,15 +4239,20 @@ for i = 0 to 5
 next
                 "#,
                 vec![
-                    Statement::For {
-                        loopvar: Identifier(String::from("i")),
-                        from: Expression::Literal(Literal::Num(0 as f64)),
-                        to: Expression::Literal(Literal::Num(5 as f64)),
-                        step: None,
-                        block: vec![
-                            Statement::Print(Expression::Identifier(Identifier(String::from("i"))))
-                        ]
-                    }
+                    StatementWithRow::new(
+                        Statement::For {
+                            loopvar: Identifier(String::from("i")),
+                            from: Expression::Literal(Literal::Num(0 as f64)),
+                            to: Expression::Literal(Literal::Num(5 as f64)),
+                            step: None,
+                            block: vec![
+                                StatementWithRow::new(
+                                    Statement::Print(Expression::Identifier(Identifier(String::from("i")))),
+                                    3
+                                )
+                            ]
+                        }, 2
+                    )
                 ]
             ),
             (
@@ -3973,18 +4262,23 @@ for i = 5 to 0 step -1
 next
                 "#,
                 vec![
-                    Statement::For {
-                        loopvar: Identifier(String::from("i")),
-                        from: Expression::Literal(Literal::Num(5 as f64)),
-                        to: Expression::Literal(Literal::Num(0 as f64)),
-                        step: Some(Expression::Prefix(
-                            Prefix::Minus,
-                            Box::new(Expression::Literal(Literal::Num(1 as f64)))
-                        )),
-                        block: vec![
-                            Statement::Print(Expression::Identifier(Identifier(String::from("i"))))
-                        ]
-                    }
+                    StatementWithRow::new(
+                        Statement::For {
+                            loopvar: Identifier(String::from("i")),
+                            from: Expression::Literal(Literal::Num(5 as f64)),
+                            to: Expression::Literal(Literal::Num(0 as f64)),
+                            step: Some(Expression::Prefix(
+                                Prefix::Minus,
+                                Box::new(Expression::Literal(Literal::Num(1 as f64)))
+                            )),
+                            block: vec![
+                                StatementWithRow::new(
+                                    Statement::Print(Expression::Identifier(Identifier(String::from("i")))),
+                                    3
+                                )
+                            ]
+                        }, 2
+                    )
                 ]
             ),
             (
@@ -3994,13 +4288,18 @@ for item in col
 next
                 "#,
                 vec![
-                    Statement::ForIn {
-                        loopvar: Identifier(String::from("item")),
-                        collection: Expression::Identifier(Identifier(String::from("col"))),
-                        block: vec![
-                            Statement::Print(Expression::Identifier(Identifier(String::from("item"))))
-                        ]
-                    }
+                    StatementWithRow::new(
+                        Statement::ForIn {
+                            loopvar: Identifier(String::from("item")),
+                            collection: Expression::Identifier(Identifier(String::from("col"))),
+                            block: vec![
+                                StatementWithRow::new(
+                                    Statement::Print(Expression::Identifier(Identifier(String::from("item")))),
+                                    3
+                                )
+                            ]
+                        }, 2
+                    )
                 ]
             ),
         ];
@@ -4018,13 +4317,18 @@ for item in col
 fend
         "#;
         let expected = vec![
-            Statement::ForIn {
-                loopvar: Identifier(String::from("item")),
-                collection: Expression::Identifier(Identifier(String::from("col"))),
-                block: vec![
-                    Statement::Print(Expression::Identifier(Identifier(String::from("item"))))
-                ]
-            }
+            StatementWithRow::new(
+                Statement::ForIn {
+                    loopvar: Identifier(String::from("item")),
+                    collection: Expression::Identifier(Identifier(String::from("col"))),
+                    block: vec![
+                        StatementWithRow::new(
+                            Statement::Print(Expression::Identifier(Identifier(String::from("item")))),
+                            3
+                        )
+                    ]
+                }, 2
+            )
         ];
         parser_panic_test(input, expected, String::from("end of block should be NEXT"));
     }
@@ -4037,27 +4341,31 @@ while (a == b) and (c >= d)
 wend
         "#;
         parser_test(input, vec![
-            Statement::While(
-                Expression::Infix(
-                    Infix::And,
-                    Box::new(Expression::Infix(
-                        Infix::Equal,
-                        Box::new(Expression::Identifier(Identifier(String::from("a")))),
-                        Box::new(Expression::Identifier(Identifier(String::from("b")))),
-                    )),
-                    Box::new(Expression::Infix(
-                        Infix::GreaterThanEqual,
-                        Box::new(Expression::Identifier(Identifier(String::from("c")))),
-                        Box::new(Expression::Identifier(Identifier(String::from("d")))),
-                    )),
-                ),
-                vec![
-                    Statement::Expression(Expression::FuncCall {
-                        func: Box::new(Expression::Identifier(Identifier(String::from("dosomething")))),
-                        args: vec![],
-                        is_await: false,
-                    })
-                ]
+            StatementWithRow::new(
+                Statement::While(
+                    Expression::Infix(
+                        Infix::And,
+                        Box::new(Expression::Infix(
+                            Infix::Equal,
+                            Box::new(Expression::Identifier(Identifier(String::from("a")))),
+                            Box::new(Expression::Identifier(Identifier(String::from("b")))),
+                        )),
+                        Box::new(Expression::Infix(
+                            Infix::GreaterThanEqual,
+                            Box::new(Expression::Identifier(Identifier(String::from("c")))),
+                            Box::new(Expression::Identifier(Identifier(String::from("d")))),
+                        )),
+                    ),
+                    vec![
+                        StatementWithRow::new(
+                            Statement::Expression(Expression::FuncCall {
+                                func: Box::new(Expression::Identifier(Identifier(String::from("dosomething")))),
+                                args: vec![],
+                                is_await: false,
+                            }), 3
+                        )
+                    ]
+                ), 2
             )
         ]);
     }
@@ -4070,27 +4378,31 @@ repeat
 until (a == b) and (c >= d)
         "#;
         parser_test(input, vec![
-            Statement::Repeat(
-                Expression::Infix(
-                    Infix::And,
-                    Box::new(Expression::Infix(
-                        Infix::Equal,
-                        Box::new(Expression::Identifier(Identifier(String::from("a")))),
-                        Box::new(Expression::Identifier(Identifier(String::from("b")))),
-                    )),
-                    Box::new(Expression::Infix(
-                        Infix::GreaterThanEqual,
-                        Box::new(Expression::Identifier(Identifier(String::from("c")))),
-                        Box::new(Expression::Identifier(Identifier(String::from("d")))),
-                    )),
-                ),
-                vec![
-                    Statement::Expression(Expression::FuncCall {
-                        func: Box::new(Expression::Identifier(Identifier(String::from("dosomething")))),
-                        args: vec![],
-                        is_await: false,
-                    })
-                ]
+            StatementWithRow::new(
+                Statement::Repeat(
+                    Expression::Infix(
+                        Infix::And,
+                        Box::new(Expression::Infix(
+                            Infix::Equal,
+                            Box::new(Expression::Identifier(Identifier(String::from("a")))),
+                            Box::new(Expression::Identifier(Identifier(String::from("b")))),
+                        )),
+                        Box::new(Expression::Infix(
+                            Infix::GreaterThanEqual,
+                            Box::new(Expression::Identifier(Identifier(String::from("c")))),
+                            Box::new(Expression::Identifier(Identifier(String::from("d")))),
+                        )),
+                    ),
+                    vec![
+                        StatementWithRow::new(
+                            Statement::Expression(Expression::FuncCall {
+                                func: Box::new(Expression::Identifier(Identifier(String::from("dosomething")))),
+                                args: vec![],
+                                is_await: false,
+                            }), 3
+                        )
+                    ]
+                ), 2
             )
         ]);
     }
@@ -4101,78 +4413,88 @@ until (a == b) and (c >= d)
             (
                 "a ? b : c",
                 vec![
-                    Statement::Expression(Expression::Ternary{
-                        condition: Box::new(Expression::Identifier(Identifier(String::from("a")))),
-                        consequence: Box::new(Expression::Identifier(Identifier(String::from("b")))),
-                        alternative: Box::new(Expression::Identifier(Identifier(String::from("c")))),
-                    })
+                    StatementWithRow::new(
+                        Statement::Expression(Expression::Ternary{
+                            condition: Box::new(Expression::Identifier(Identifier(String::from("a")))),
+                            consequence: Box::new(Expression::Identifier(Identifier(String::from("b")))),
+                            alternative: Box::new(Expression::Identifier(Identifier(String::from("c")))),
+                        }), 1
+                    )
                 ]
             ),
             (
                 "x = a ? b : c",
                 vec![
-                    Statement::Expression(Expression::Assign(
-                        Box::new(Expression::Identifier(Identifier(String::from("x")))),
-                        Box::new(Expression::Ternary{
-                            condition: Box::new(Expression::Identifier(Identifier(String::from("a")))),
-                            consequence: Box::new(Expression::Identifier(Identifier(String::from("b")))),
-                            alternative: Box::new(Expression::Identifier(Identifier(String::from("c")))),
-                        })
-                    ))
+                    StatementWithRow::new(
+                        Statement::Expression(Expression::Assign(
+                            Box::new(Expression::Identifier(Identifier(String::from("x")))),
+                            Box::new(Expression::Ternary{
+                                condition: Box::new(Expression::Identifier(Identifier(String::from("a")))),
+                                consequence: Box::new(Expression::Identifier(Identifier(String::from("b")))),
+                                alternative: Box::new(Expression::Identifier(Identifier(String::from("c")))),
+                            })
+                        )), 1
+                    )
                 ]
             ),
             (
                 "hoge[a?b:c]",
                 vec![
-                    Statement::Expression(Expression::Index(
-                        Box::new(Expression::Identifier(Identifier(String::from("hoge")))),
-                        Box::new(Expression::Ternary{
-                            condition: Box::new(Expression::Identifier(Identifier(String::from("a")))),
-                            consequence: Box::new(Expression::Identifier(Identifier(String::from("b")))),
-                            alternative: Box::new(Expression::Identifier(Identifier(String::from("c")))),
-                        }),
-                        Box::new(None)
-                    ))
+                    StatementWithRow::new(
+                        Statement::Expression(Expression::Index(
+                            Box::new(Expression::Identifier(Identifier(String::from("hoge")))),
+                            Box::new(Expression::Ternary{
+                                condition: Box::new(Expression::Identifier(Identifier(String::from("a")))),
+                                consequence: Box::new(Expression::Identifier(Identifier(String::from("b")))),
+                                alternative: Box::new(Expression::Identifier(Identifier(String::from("c")))),
+                            }),
+                            Box::new(None)
+                        )), 1
+                    )
                 ]
             ),
             (
                 "x + y * a ? b + q : c / r",
                 vec![
-                    Statement::Expression(Expression::Ternary{
-                        condition: Box::new(Expression::Infix(
-                            Infix::Plus,
-                            Box::new(Expression::Identifier(Identifier(String::from("x")))),
-                            Box::new(Expression::Infix(
-                                Infix::Multiply,
-                                Box::new(Expression::Identifier(Identifier(String::from("y")))),
-                                Box::new(Expression::Identifier(Identifier(String::from("a")))),
+                    StatementWithRow::new(
+                        Statement::Expression(Expression::Ternary{
+                            condition: Box::new(Expression::Infix(
+                                Infix::Plus,
+                                Box::new(Expression::Identifier(Identifier(String::from("x")))),
+                                Box::new(Expression::Infix(
+                                    Infix::Multiply,
+                                    Box::new(Expression::Identifier(Identifier(String::from("y")))),
+                                    Box::new(Expression::Identifier(Identifier(String::from("a")))),
+                                )),
                             )),
-                        )),
-                        consequence: Box::new(Expression::Infix(
-                            Infix::Plus,
-                            Box::new(Expression::Identifier(Identifier(String::from("b")))),
-                            Box::new(Expression::Identifier(Identifier(String::from("q")))),
-                        )),
-                        alternative: Box::new(Expression::Infix(
-                            Infix::Divide,
-                            Box::new(Expression::Identifier(Identifier(String::from("c")))),
-                            Box::new(Expression::Identifier(Identifier(String::from("r")))),
-                        )),
-                    })
+                            consequence: Box::new(Expression::Infix(
+                                Infix::Plus,
+                                Box::new(Expression::Identifier(Identifier(String::from("b")))),
+                                Box::new(Expression::Identifier(Identifier(String::from("q")))),
+                            )),
+                            alternative: Box::new(Expression::Infix(
+                                Infix::Divide,
+                                Box::new(Expression::Identifier(Identifier(String::from("c")))),
+                                Box::new(Expression::Identifier(Identifier(String::from("r")))),
+                            )),
+                        }), 1
+                    )
                 ]
             ),
             (
                 "a ? b: c ? d: e",
                 vec![
-                    Statement::Expression(Expression::Ternary{
-                        condition: Box::new(Expression::Identifier(Identifier("a".to_string()))),
-                        consequence: Box::new(Expression::Identifier(Identifier("b".to_string()))),
-                        alternative: Box::new(Expression::Ternary{
-                            condition: Box::new(Expression::Identifier(Identifier("c".to_string()))),
-                            consequence: Box::new(Expression::Identifier(Identifier("d".to_string()))),
-                            alternative: Box::new(Expression::Identifier(Identifier("e".to_string())))
-                        })
-                    })
+                    StatementWithRow::new(
+                        Statement::Expression(Expression::Ternary{
+                            condition: Box::new(Expression::Identifier(Identifier("a".to_string()))),
+                            consequence: Box::new(Expression::Identifier(Identifier("b".to_string()))),
+                            alternative: Box::new(Expression::Ternary{
+                                condition: Box::new(Expression::Identifier(Identifier("c".to_string()))),
+                                consequence: Box::new(Expression::Identifier(Identifier("d".to_string()))),
+                                alternative: Box::new(Expression::Identifier(Identifier("e".to_string())))
+                            })
+                        }), 1
+                    )
                 ]
             ),
         ];
@@ -4187,47 +4509,55 @@ until (a == b) and (c >= d)
             (
                 "hashtbl hoge",
                 vec![
-                    Statement::HashTbl(vec![
-                        (
-                            Identifier(String::from("hoge")),
-                            None, false
-                        )
-                    ])
+                    StatementWithRow::new(
+                        Statement::HashTbl(vec![
+                            (
+                                Identifier(String::from("hoge")),
+                                None, false
+                            )
+                        ]), 1
+                    )
                 ]
             ),
             (
                 "hashtbl hoge = HASH_CASECARE",
                 vec![
-                    Statement::HashTbl(vec![
-                        (
-                            Identifier(String::from("hoge")),
-                            Some(Expression::Identifier(Identifier("HASH_CASECARE".to_string()))),
-                            false
-                        )
-                    ])
+                    StatementWithRow::new(
+                        Statement::HashTbl(vec![
+                            (
+                                Identifier(String::from("hoge")),
+                                Some(Expression::Identifier(Identifier("HASH_CASECARE".to_string()))),
+                                false
+                            )
+                        ]), 1
+                    )
                 ]
             ),
             (
                 "hashtbl hoge = HASH_SORT",
                 vec![
-                    Statement::HashTbl(vec![
-                        (
-                            Identifier(String::from("hoge")),
-                            Some(Expression::Identifier(Identifier("HASH_SORT".to_string()))),
-                            false
-                        )
-                    ])
+                    StatementWithRow::new(
+                        Statement::HashTbl(vec![
+                            (
+                                Identifier(String::from("hoge")),
+                                Some(Expression::Identifier(Identifier("HASH_SORT".to_string()))),
+                                false
+                            )
+                        ]), 1
+                    )
                 ]
             ),
             (
                 "public hashtbl hoge",
                 vec![
-                    Statement::HashTbl(vec![
-                        (
-                            Identifier(String::from("hoge")),
-                            None, true
-                        )
-                    ])
+                    StatementWithRow::new(
+                        Statement::HashTbl(vec![
+                            (
+                                Identifier(String::from("hoge")),
+                                None, true
+                            )
+                        ]), 1
+                    )
                 ]
             ),
         ];
@@ -4246,32 +4576,36 @@ function hoge(foo, bar, baz)
 fend
                 "#,
                 vec![
-                    Statement::Function {
-                        name: Identifier("hoge".to_string()),
-                        params: vec![
-                            Expression::Params(Params::Identifier(Identifier("foo".to_string()))),
-                            Expression::Params(Params::Identifier(Identifier("bar".to_string()))),
-                            Expression::Params(Params::Identifier(Identifier("baz".to_string()))),
-                        ],
-                        body: vec![
-                            Statement::Expression(
-                                Expression::Assign(
-                                    Box::new(Expression::Identifier(Identifier("result".to_string()))),
-                                    Box::new(Expression::Infix(
-                                        Infix::Plus,
-                                        Box::new(Expression::Infix(
-                                            Infix::Plus,
-                                            Box::new(Expression::Identifier(Identifier("foo".to_string()))),
-                                            Box::new(Expression::Identifier(Identifier("bar".to_string()))),
-                                        )),
-                                        Box::new(Expression::Identifier(Identifier("baz".to_string()))),
-                                    )),
+                    StatementWithRow::new(
+                        Statement::Function {
+                            name: Identifier("hoge".to_string()),
+                            params: vec![
+                                Expression::Params(Params::Identifier(Identifier("foo".to_string()))),
+                                Expression::Params(Params::Identifier(Identifier("bar".to_string()))),
+                                Expression::Params(Params::Identifier(Identifier("baz".to_string()))),
+                            ],
+                            body: vec![
+                                StatementWithRow::new(
+                                    Statement::Expression(
+                                        Expression::Assign(
+                                            Box::new(Expression::Identifier(Identifier("result".to_string()))),
+                                            Box::new(Expression::Infix(
+                                                Infix::Plus,
+                                                Box::new(Expression::Infix(
+                                                    Infix::Plus,
+                                                    Box::new(Expression::Identifier(Identifier("foo".to_string()))),
+                                                    Box::new(Expression::Identifier(Identifier("bar".to_string()))),
+                                                )),
+                                                Box::new(Expression::Identifier(Identifier("baz".to_string()))),
+                                            )),
+                                        )
+                                    ), 3
                                 )
-                            )
-                        ],
-                        is_proc: false,
-                        is_async: false
-                    }
+                            ],
+                            is_proc: false,
+                            is_async: false
+                        }, 2
+                    )
                 ]
             ),
             (
@@ -4280,21 +4614,23 @@ procedure hoge(foo, var bar, baz[], qux = 1)
 fend
                 "#,
                 vec![
-                    Statement::Function {
-                        name: Identifier("hoge".to_string()),
-                        params: vec![
-                            Expression::Params(Params::Identifier(Identifier("foo".to_string()))),
-                            Expression::Params(Params::Reference(Identifier("bar".to_string()))),
-                            Expression::Params(Params::Array(Identifier("baz".to_string()), false)),
-                            Expression::Params(Params::WithDefault(
-                                Identifier("qux".to_string()),
-                                Box::new(Expression::Literal(Literal::Num(1.0))),
-                            )),
-                        ],
-                        body: vec![],
-                        is_proc: true,
-                        is_async: false,
-                    }
+                    StatementWithRow::new(
+                        Statement::Function {
+                            name: Identifier("hoge".to_string()),
+                            params: vec![
+                                Expression::Params(Params::Identifier(Identifier("foo".to_string()))),
+                                Expression::Params(Params::Reference(Identifier("bar".to_string()))),
+                                Expression::Params(Params::Array(Identifier("baz".to_string()), false)),
+                                Expression::Params(Params::WithDefault(
+                                    Identifier("qux".to_string()),
+                                    Box::new(Expression::Literal(Literal::Num(1.0))),
+                                )),
+                            ],
+                            body: vec![],
+                            is_proc: true,
+                            is_async: false,
+                        }, 2
+                    )
                 ]
             ),
             (
@@ -4303,16 +4639,18 @@ procedure hoge(ref foo, args bar)
 fend
                 "#,
                 vec![
-                    Statement::Function {
-                        name: Identifier("hoge".to_string()),
-                        params: vec![
-                            Expression::Params(Params::Reference(Identifier("foo".to_string()))),
-                            Expression::Params(Params::Variadic(Identifier("bar".to_string()))),
-                        ],
-                        body: vec![],
-                        is_proc: true,
-                        is_async: false,
-                    }
+                    StatementWithRow::new(
+                        Statement::Function {
+                            name: Identifier("hoge".to_string()),
+                            params: vec![
+                                Expression::Params(Params::Reference(Identifier("foo".to_string()))),
+                                Expression::Params(Params::Variadic(Identifier("bar".to_string()))),
+                            ],
+                            body: vec![],
+                            is_proc: true,
+                            is_async: false,
+                        }, 2
+                    )
                 ]
             ),
             (
@@ -4324,29 +4662,35 @@ function hoge(a)
 fend
                 "#,
                 vec![
-                    Statement::Function {
-                        name: Identifier("hoge".to_string()),
-                        params: vec![
-                            Expression::Params(Params::Identifier(Identifier("a".to_string()))),
-                        ],
-                        body: vec![
-                            Statement::Expression(
-                                Expression::Assign(
-                                    Box::new(Expression::Identifier(Identifier("result".to_string()))),
-                                    Box::new(Expression::Identifier(Identifier("a".to_string()))),
+                    StatementWithRow::new(
+                        Statement::Function {
+                            name: Identifier("hoge".to_string()),
+                            params: vec![
+                                Expression::Params(Params::Identifier(Identifier("a".to_string()))),
+                            ],
+                            body: vec![
+                                StatementWithRow::new(
+                                    Statement::Expression(
+                                        Expression::Assign(
+                                            Box::new(Expression::Identifier(Identifier("result".to_string()))),
+                                            Box::new(Expression::Identifier(Identifier("a".to_string()))),
+                                        )
+                                    ), 5
                                 )
-                            )
-                        ],
-                        is_proc: false,
-                        is_async: false,
-                    },
-                    Statement::Print(Expression::FuncCall{
-                        func: Box::new(Expression::Identifier(Identifier("hoge".to_string()))),
-                        args: vec![
-                            Expression::Literal(Literal::Num(1.0)),
-                        ],
-                        is_await: false,
-                    })
+                            ],
+                            is_proc: false,
+                            is_async: false,
+                        }, 4
+                    ),
+                    StatementWithRow::new(
+                        Statement::Print(Expression::FuncCall{
+                            func: Box::new(Expression::Identifier(Identifier("hoge".to_string()))),
+                            args: vec![
+                                Expression::Literal(Literal::Num(1.0)),
+                            ],
+                            is_await: false,
+                        }), 2
+                    )
                 ]
             ),
             (
@@ -4356,21 +4700,25 @@ hoge = function(a)
 fend
                 "#,
                 vec![
-                    Statement::Expression(Expression::Assign(
-                        Box::new(Expression::Identifier(Identifier("hoge".to_string()))),
-                        Box::new(Expression::AnonymusFunction{
-                            params: vec![
-                                Expression::Params(Params::Identifier(Identifier("a".to_string()))),
-                            ],
-                            body: vec![
-                                Statement::Expression(Expression::Assign(
-                                    Box::new(Expression::Identifier(Identifier("result".to_string()))),
-                                    Box::new(Expression::Identifier(Identifier("a".to_string())))
-                                ))
-                            ],
-                            is_proc: false
-                        }),
-                    ))
+                    StatementWithRow::new(
+                        Statement::Expression(Expression::Assign(
+                            Box::new(Expression::Identifier(Identifier("hoge".to_string()))),
+                            Box::new(Expression::AnonymusFunction{
+                                params: vec![
+                                    Expression::Params(Params::Identifier(Identifier("a".to_string()))),
+                                ],
+                                body: vec![
+                                    StatementWithRow::new(
+                                        Statement::Expression(Expression::Assign(
+                                            Box::new(Expression::Identifier(Identifier("result".to_string()))),
+                                            Box::new(Expression::Identifier(Identifier("a".to_string())))
+                                        )), 3
+                                    )
+                                ],
+                                is_proc: false
+                            }),
+                        )), 2
+                    )
                 ]
             ),
             (
@@ -4380,20 +4728,24 @@ hoge = procedure(a)
 fend
                 "#,
                 vec![
-                    Statement::Expression(Expression::Assign(
-                        Box::new(Expression::Identifier(Identifier("hoge".to_string()))),
-                        Box::new(Expression::AnonymusFunction{
-                            params: vec![
-                                Expression::Params(Params::Identifier(Identifier("a".to_string()))),
-                            ],
-                            body: vec![
-                                Statement::Print(
-                                    Expression::Identifier(Identifier("a".to_string()))
-                                )
-                            ],
-                            is_proc: true,
-                        }),
-                    ))
+                    StatementWithRow::new(
+                        Statement::Expression(Expression::Assign(
+                            Box::new(Expression::Identifier(Identifier("hoge".to_string()))),
+                            Box::new(Expression::AnonymusFunction{
+                                params: vec![
+                                    Expression::Params(Params::Identifier(Identifier("a".to_string()))),
+                                ],
+                                body: vec![
+                                    StatementWithRow::new(
+                                        Statement::Print(
+                                            Expression::Identifier(Identifier("a".to_string()))
+                                        ), 3
+                                    )
+                                ],
+                                is_proc: true,
+                            }),
+                        )), 2
+                    )
                 ]
             ),
         ];
@@ -4406,51 +4758,51 @@ fend
     fn test_compound_assign() {
         let tests = vec![
             (
-                r#"
-a += 1
-                "#,
+                "a += 1",
                 vec![
-                    Statement::Expression(Expression::CompoundAssign(
-                        Box::new(Expression::Identifier(Identifier("a".to_string()))),
-                        Box::new(Expression::Literal(Literal::Num(1.0))),
-                        Infix::Plus,
-                    ))
+                    StatementWithRow::new(
+                        Statement::Expression(Expression::CompoundAssign(
+                            Box::new(Expression::Identifier(Identifier("a".to_string()))),
+                            Box::new(Expression::Literal(Literal::Num(1.0))),
+                            Infix::Plus,
+                        )), 1
+                    )
                 ]
             ),
             (
-                r#"
-a -= 1
-                "#,
+                "a -= 1",
                 vec![
-                    Statement::Expression(Expression::CompoundAssign(
-                        Box::new(Expression::Identifier(Identifier("a".to_string()))),
-                        Box::new(Expression::Literal(Literal::Num(1.0))),
-                        Infix::Minus,
-                    ))
+                    StatementWithRow::new(
+                        Statement::Expression(Expression::CompoundAssign(
+                            Box::new(Expression::Identifier(Identifier("a".to_string()))),
+                            Box::new(Expression::Literal(Literal::Num(1.0))),
+                            Infix::Minus,
+                        )), 1
+                    )
                 ]
             ),
             (
-                r#"
-a *= 1
-                "#,
+                "a *= 1",
                 vec![
-                    Statement::Expression(Expression::CompoundAssign(
-                        Box::new(Expression::Identifier(Identifier("a".to_string()))),
-                        Box::new(Expression::Literal(Literal::Num(1.0))),
-                        Infix::Multiply,
-                    ))
+                    StatementWithRow::new(
+                        Statement::Expression(Expression::CompoundAssign(
+                            Box::new(Expression::Identifier(Identifier("a".to_string()))),
+                            Box::new(Expression::Literal(Literal::Num(1.0))),
+                            Infix::Multiply,
+                        )), 1
+                    )
                 ]
             ),
             (
-                r#"
-a /= 1
-                "#,
+                "a /= 1",
                 vec![
-                    Statement::Expression(Expression::CompoundAssign(
-                        Box::new(Expression::Identifier(Identifier("a".to_string()))),
-                        Box::new(Expression::Literal(Literal::Num(1.0))),
-                        Infix::Divide,
-                    ))
+                    StatementWithRow::new(
+                        Statement::Expression(Expression::CompoundAssign(
+                            Box::new(Expression::Identifier(Identifier("a".to_string()))),
+                            Box::new(Expression::Literal(Literal::Num(1.0))),
+                            Infix::Divide,
+                        )), 1
+                    )
                 ]
             ),
         ];
@@ -4463,43 +4815,43 @@ a /= 1
     fn test_dotcall() {
         let tests = vec![
             (
-                r#"
-print hoge.a
-                "#,
+                "print hoge.a",
                 vec![
-                    Statement::Print(Expression::DotCall(
-                        Box::new(Expression::Identifier(Identifier("hoge".into()))),
-                        Box::new(Expression::Identifier(Identifier("a".into()))),
-                    ))
-                ]
-            ),
-            (
-                r#"
-print hoge.b()
-                "#,
-                vec![
-                    Statement::Print(Expression::FuncCall{
-                        func: Box::new(Expression::DotCall(
-                            Box::new(Expression::Identifier(Identifier("hoge".into()))),
-                            Box::new(Expression::Identifier(Identifier("b".into()))),
-                        )),
-                        args: vec![],
-                        is_await: false,
-                    })
-                ]
-            ),
-            (
-                r#"
-hoge.a = 1
-                "#,
-                vec![
-                    Statement::Expression(Expression::Assign(
-                        Box::new(Expression::DotCall(
+                    StatementWithRow::new(
+                        Statement::Print(Expression::DotCall(
                             Box::new(Expression::Identifier(Identifier("hoge".into()))),
                             Box::new(Expression::Identifier(Identifier("a".into()))),
-                        )),
-                        Box::new(Expression::Literal(Literal::Num(1.0))),
-                    ))
+                        )), 1
+                    )
+                ]
+            ),
+            (
+                "print hoge.b()",
+                vec![
+                    StatementWithRow::new(
+                        Statement::Print(Expression::FuncCall{
+                            func: Box::new(Expression::DotCall(
+                                Box::new(Expression::Identifier(Identifier("hoge".into()))),
+                                Box::new(Expression::Identifier(Identifier("b".into()))),
+                            )),
+                            args: vec![],
+                            is_await: false,
+                        }), 1
+                    )
+                ]
+            ),
+            (
+                "hoge.a = 1",
+                vec![
+                    StatementWithRow::new(
+                        Statement::Expression(Expression::Assign(
+                            Box::new(Expression::DotCall(
+                                Box::new(Expression::Identifier(Identifier("hoge".into()))),
+                                Box::new(Expression::Identifier(Identifier("a".into()))),
+                            )),
+                            Box::new(Expression::Literal(Literal::Num(1.0))),
+                        )), 1
+                    )
                 ]
             ),
         ];
@@ -4512,72 +4864,72 @@ hoge.a = 1
     fn test_def_dll() {
         let tests = vec![
             (
-                r#"
-def_dll hoge(int, dword[], byte[], var string, var long[], {word,word}):bool:hoge.dll
-                "#,
+                "def_dll hoge(int, dword[], byte[], var string, var long[], {word,word}):bool:hoge.dll",
                 vec![
-                    Statement::DefDll {
-                        name: "hoge".into(),
-                        params: vec![
-                            DefDllParam::Param{dll_type: DllType::Int, is_var: false, is_array: false},
-                            DefDllParam::Param{dll_type: DllType::Dword, is_var: false, is_array: true},
-                            DefDllParam::Param{dll_type: DllType::Byte, is_var: false, is_array: true},
-                            DefDllParam::Param{dll_type: DllType::String, is_var: true, is_array: false},
-                            DefDllParam::Param{dll_type: DllType::Long, is_var: true, is_array: true},
-                            DefDllParam::Struct(vec![
-                                DefDllParam::Param{dll_type: DllType::Word, is_var: false, is_array: false},
-                                DefDllParam::Param{dll_type: DllType::Word, is_var: false, is_array: false},
-                            ]),
-                        ],
-                        ret_type: DllType::Bool,
-                        path: "hoge.dll".into()
-                    }
+                    StatementWithRow::new(
+                        Statement::DefDll {
+                            name: "hoge".into(),
+                            params: vec![
+                                DefDllParam::Param{dll_type: DllType::Int, is_var: false, is_array: false},
+                                DefDllParam::Param{dll_type: DllType::Dword, is_var: false, is_array: true},
+                                DefDllParam::Param{dll_type: DllType::Byte, is_var: false, is_array: true},
+                                DefDllParam::Param{dll_type: DllType::String, is_var: true, is_array: false},
+                                DefDllParam::Param{dll_type: DllType::Long, is_var: true, is_array: true},
+                                DefDllParam::Struct(vec![
+                                    DefDllParam::Param{dll_type: DllType::Word, is_var: false, is_array: false},
+                                    DefDllParam::Param{dll_type: DllType::Word, is_var: false, is_array: false},
+                                ]),
+                            ],
+                            ret_type: DllType::Bool,
+                            path: "hoge.dll".into()
+                        }, 1
+                    )
                 ]
             ),
             (
-                r#"
-def_dll hoge({long, long, {long, long}}):bool:hoge.dll
-                "#,
+                "def_dll hoge({long, long, {long, long}}):bool:hoge.dll",
                 vec![
-                    Statement::DefDll {
-                        name: "hoge".into(),
-                        params: vec![
-                            DefDllParam::Struct(vec![
-                                DefDllParam::Param{dll_type: DllType::Long, is_var: false, is_array: false},
-                                DefDllParam::Param{dll_type: DllType::Long, is_var: false, is_array: false},
-                                DefDllParam::Param{dll_type: DllType::Long, is_var: false, is_array: false},
-                                DefDllParam::Param{dll_type: DllType::Long, is_var: false, is_array: false},
-                            ]),
-                        ],
-                        ret_type: DllType::Bool,
-                        path: "hoge.dll".into()
-                    }
+                    StatementWithRow::new(
+                        Statement::DefDll {
+                            name: "hoge".into(),
+                            params: vec![
+                                DefDllParam::Struct(vec![
+                                    DefDllParam::Param{dll_type: DllType::Long, is_var: false, is_array: false},
+                                    DefDllParam::Param{dll_type: DllType::Long, is_var: false, is_array: false},
+                                    DefDllParam::Param{dll_type: DllType::Long, is_var: false, is_array: false},
+                                    DefDllParam::Param{dll_type: DllType::Long, is_var: false, is_array: false},
+                                ]),
+                            ],
+                            ret_type: DllType::Bool,
+                            path: "hoge.dll".into()
+                        }, 1
+                    )
                 ]
             ),
             (
-                r#"
-def_dll hoge()::hoge.dll
-                "#,
+                "def_dll hoge()::hoge.dll",
                 vec![
-                    Statement::DefDll {
-                        name: "hoge".into(),
-                        params: vec![],
-                        ret_type: DllType::Void,
-                        path: "hoge.dll".into()
-                    }
+                    StatementWithRow::new(
+                        Statement::DefDll {
+                            name: "hoge".into(),
+                            params: vec![],
+                            ret_type: DllType::Void,
+                            path: "hoge.dll".into()
+                        }, 1
+                    )
                 ]
             ),
             (
-                r#"
-def_dll hoge():hoge.dll
-                "#,
+                "def_dll hoge():hoge.dll",
                 vec![
-                    Statement::DefDll {
-                        name: "hoge".into(),
-                        params: vec![],
-                        ret_type: DllType::Void,
-                        path: "hoge.dll".into()
-                    }
+                    StatementWithRow::new(
+                        Statement::DefDll {
+                            name: "hoge".into(),
+                            params: vec![],
+                            ret_type: DllType::Void,
+                            path: "hoge.dll".into()
+                        }, 1
+                    )
                 ]
             ),
         ];
@@ -4607,48 +4959,68 @@ fend
 public p3 = 1
         "#;
         parser_test(input, vec![
-            Statement::Public(vec![
-                (Identifier("p1".to_string()), Expression::Literal(Literal::Num(1.0)))
-            ]),
-            Statement::Const(vec![
-                (Identifier("c1".to_string()), Expression::Literal(Literal::Num(1.0)))
-            ]),
-            Statement::Const(vec![
-                (Identifier("c2".to_string()), Expression::Literal(Literal::Num(1.0)))
-            ]),
-            Statement::Public(vec![
-                (Identifier("p2".to_string()), Expression::Literal(Literal::Num(1.0)))
-            ]),
-            Statement::Public(
-                vec![(Identifier("p3".to_string()), Expression::Literal(Literal::Num(1.0)))]
+            StatementWithRow::new(
+                Statement::Public(vec![
+                    (Identifier("p1".to_string()), Expression::Literal(Literal::Num(1.0)))
+                ]), 3
             ),
-            Statement::Function {
-                name: Identifier("f1".to_string()),
-                params: vec![],
-                body: vec![],
-                is_proc: false,
-                is_async: false,
-            },
-            Statement::Function {
-                name: Identifier("p1".to_string()),
-                params: vec![],
-                body: vec![],
-                is_proc: true,
-                is_async: false,
-            },
-            Statement::Function {
-                name: Identifier("f2".to_string()),
-                params: vec![],
-                body: vec![],
-                is_proc: false,
-                is_async: false,
-            },
-            Statement::Dim(vec![
-                (Identifier("d1".to_string()), Expression::Literal(Literal::Num(1.0)))
-            ]),
-            Statement::Dim(vec![
-                (Identifier("d2".to_string()), Expression::Literal(Literal::Num(1.0)))
-            ]),
+            StatementWithRow::new(
+                Statement::Const(vec![
+                    (Identifier("c1".to_string()), Expression::Literal(Literal::Num(1.0)))
+                ]), 4
+            ),
+            StatementWithRow::new(
+                Statement::Const(vec![
+                    (Identifier("c2".to_string()), Expression::Literal(Literal::Num(1.0)))
+                ]), 5
+            ),
+            StatementWithRow::new(
+                Statement::Public(vec![
+                    (Identifier("p2".to_string()), Expression::Literal(Literal::Num(1.0)))
+                ]), 6
+            ),
+            StatementWithRow::new(
+                Statement::Public(
+                    vec![(Identifier("p3".to_string()), Expression::Literal(Literal::Num(1.0)))]
+                ), 16
+            ),
+            StatementWithRow::new(
+                Statement::Function {
+                    name: Identifier("f1".to_string()),
+                    params: vec![],
+                    body: vec![],
+                    is_proc: false,
+                    is_async: false,
+                }, 9
+            ),
+            StatementWithRow::new(
+                Statement::Function {
+                    name: Identifier("p1".to_string()),
+                    params: vec![],
+                    body: vec![],
+                    is_proc: true,
+                    is_async: false,
+                }, 11
+            ),
+            StatementWithRow::new(
+                Statement::Function {
+                    name: Identifier("f2".to_string()),
+                    params: vec![],
+                    body: vec![],
+                    is_proc: false,
+                    is_async: false,
+                }, 13
+            ),
+            StatementWithRow::new(
+                Statement::Dim(vec![
+                    (Identifier("d1".to_string()), Expression::Literal(Literal::Num(1.0)))
+                ]), 2
+            ),
+            StatementWithRow::new(
+                Statement::Dim(vec![
+                    (Identifier("d2".to_string()), Expression::Literal(Literal::Num(1.0)))
+                ]), 7
+            ),
         ]);
     }
 
@@ -4674,81 +5046,101 @@ module Hoge
 endmodule
         "#;
         parser_test(input, vec![
-            Statement::Module(
-                Identifier("Hoge".to_string()),
-                vec![
-                    Statement::Dim(vec![
-                        (Identifier("a".to_string()), Expression::Literal(Literal::Num(1.0)))
-                    ]),
-                    Statement::Public(vec![
-                        (Identifier("b".to_string()), Expression::Literal(Literal::Num(1.0)))
-                    ]),
-                    Statement::Const(vec![
-                        (Identifier("c".to_string()), Expression::Literal(Literal::Num(1.0)))
-                    ]),
-                    Statement::Function {
-                        name: Identifier("Hoge".to_string()),
-                        params: vec![],
-                        body: vec![
-                            Statement::Expression(Expression::Assign(
-                                Box::new(Expression::DotCall(
-                                    Box::new(Expression::Identifier(Identifier("this".to_string()))),
-                                    Box::new(Expression::Identifier(Identifier("a".to_string()))),
-                                )),
-                                Box::new(Expression::Identifier(Identifier("c".to_string()))),
-                            ))
-                        ],
-                        is_proc: true,
-                        is_async: false,
-                    },
-                    Statement::Function {
-                        name: Identifier("f".to_string()),
-                        params: vec![
-                            Expression::Params(Params::Identifier(Identifier("x".to_string()))),
-                            Expression::Params(Params::Identifier(Identifier("y".to_string())))
-                        ],
-                        body: vec![
-                            Statement::Expression(Expression::Assign(
-                                Box::new(Expression::Identifier(Identifier("result".to_string()))),
-                                Box::new(Expression::Infix(
-                                    Infix::Plus,
-                                    Box::new(Expression::Identifier(Identifier("x".to_string()))),
-                                    Box::new(Expression::FuncCall{
-                                        func: Box::new(Expression::Identifier(Identifier("_f".to_string()))),
-                                        args: vec![
-                                            Expression::Identifier(Identifier("y".to_string()))
-                                        ],
-                                        is_await: false,
-                                    }),
-                                )),
-                            ))
-                        ],
-                        is_proc: false,
-                        is_async: false,
-                    },
-                    Statement::Dim(vec![
-                        (
-                            Identifier("_f".to_string()),
-                            Expression::AnonymusFunction {
+            StatementWithRow::new(
+                Statement::Module(
+                    Identifier("Hoge".to_string()),
+                    vec![
+                        StatementWithRow::new(
+                            Statement::Dim(vec![
+                                (Identifier("a".to_string()), Expression::Literal(Literal::Num(1.0)))
+                            ]), 3
+                        ),
+                        StatementWithRow::new(
+                            Statement::Public(vec![
+                                (Identifier("b".to_string()), Expression::Literal(Literal::Num(1.0)))
+                            ]), 4
+                        ),
+                        StatementWithRow::new(
+                            Statement::Const(vec![
+                                (Identifier("c".to_string()), Expression::Literal(Literal::Num(1.0)))
+                            ]), 5
+                        ),
+                        StatementWithRow::new(
+                            Statement::Function {
+                                name: Identifier("Hoge".to_string()),
+                                params: vec![],
+                                body: vec![
+                                    StatementWithRow::new(
+                                        Statement::Expression(Expression::Assign(
+                                            Box::new(Expression::DotCall(
+                                                Box::new(Expression::Identifier(Identifier("this".to_string()))),
+                                                Box::new(Expression::Identifier(Identifier("a".to_string()))),
+                                            )),
+                                            Box::new(Expression::Identifier(Identifier("c".to_string()))),
+                                        )), 8
+                                    ),
+                                ],
+                                is_proc: true,
+                                is_async: false,
+                            }, 7
+                        ),
+                        StatementWithRow::new(
+                            Statement::Function {
+                                name: Identifier("f".to_string()),
                                 params: vec![
-                                    Expression::Params(Params::Identifier(Identifier("z".to_string()))),
+                                    Expression::Params(Params::Identifier(Identifier("x".to_string()))),
+                                    Expression::Params(Params::Identifier(Identifier("y".to_string())))
                                 ],
                                 body: vec![
-                                    Statement::Expression(Expression::Assign(
-                                        Box::new(Expression::Identifier(Identifier("result".to_string()))),
-                                        Box::new(Expression::Infix(
-                                            Infix::Plus,
-                                            Box::new(Expression::Identifier(Identifier("z".to_string()))),
-                                            Box::new(Expression::Literal(Literal::Num(1.0))),
-                                        )),
-                                    )),
+                                    StatementWithRow::new(
+                                        Statement::Expression(Expression::Assign(
+                                            Box::new(Expression::Identifier(Identifier("result".to_string()))),
+                                            Box::new(Expression::Infix(
+                                                Infix::Plus,
+                                                Box::new(Expression::Identifier(Identifier("x".to_string()))),
+                                                Box::new(Expression::FuncCall{
+                                                    func: Box::new(Expression::Identifier(Identifier("_f".to_string()))),
+                                                    args: vec![
+                                                        Expression::Identifier(Identifier("y".to_string()))
+                                                    ],
+                                                    is_await: false,
+                                                }),
+                                            )),
+                                        )), 12
+                                    ),
                                 ],
-                                is_proc: false
-                            }
-                        )
-                    ]),
-                ],
-            ),
+                                is_proc: false,
+                                is_async: false,
+                            }, 11
+                        ),
+                        StatementWithRow::new(
+                            Statement::Dim(vec![
+                                (
+                                    Identifier("_f".to_string()),
+                                    Expression::AnonymusFunction {
+                                        params: vec![
+                                            Expression::Params(Params::Identifier(Identifier("z".to_string()))),
+                                        ],
+                                        body: vec![
+                                            StatementWithRow::new(
+                                                Statement::Expression(Expression::Assign(
+                                                    Box::new(Expression::Identifier(Identifier("result".to_string()))),
+                                                    Box::new(Expression::Infix(
+                                                        Infix::Plus,
+                                                        Box::new(Expression::Identifier(Identifier("z".to_string()))),
+                                                        Box::new(Expression::Literal(Literal::Num(1.0))),
+                                                    )),
+                                                )), 16
+                                            ),
+                                        ],
+                                        is_proc: false
+                                    }
+                                )
+                            ]), 15
+                        ),
+                    ],
+                ), 2
+            )
         ]);
     }
 
@@ -4761,10 +5153,12 @@ struct Point
 endstruct
         "#;
         parser_test(input, vec![
-            Statement::Struct(Identifier("Point".into()), vec![
-                ("x".into(), DllType::Long),
-                ("y".into(), DllType::Long),
-            ])
+            StatementWithRow::new(
+                Statement::Struct(Identifier("Point".into()), vec![
+                    ("x".into(), DllType::Long),
+                    ("y".into(), DllType::Long),
+                ]), 2
+            ),
         ]);
     }
 

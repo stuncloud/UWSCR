@@ -45,23 +45,23 @@ use regex::Regex;
 use serde_json;
 use libffi::middle::{Cif, CodePtr, Type};
 
-impl From<dlopen::Error> for UError {
-    fn from(e: dlopen::Error) -> Self {
-        UError::new(
-            UErrorKind::DlopenError,
-            UErrorMessage::DlopenError(e.to_string()),
-        )
-    }
-}
+// impl From<dlopen::Error> for UError {
+//     fn from(e: dlopen::Error) -> Self {
+//         UError::new(
+//             UErrorKind::DlopenError,
+//             UErrorMessage::DlopenError(e.to_string()),
+//         )
+//     }
+// }
 
-impl From<cast::Error> for UError {
-    fn from(e: cast::Error) -> Self {
-        UError::new(
-            UErrorKind::CastError,
-            UErrorMessage::CastError(format!("{}", e)),
-        )
-    }
-}
+// impl From<cast::Error> for UError {
+//     fn from(e: cast::Error) -> Self {
+//         UError::new(
+//             UErrorKind::CastError,
+//             UErrorMessage::CastError(format!("{}", e)),
+//         )
+//     }
+// }
 
 type EvalResult<T> = Result<T, UError>;
 
@@ -71,6 +71,7 @@ pub struct  Evaluator {
     instance_id: Arc<Mutex<u32>>,
     pub ignore_com_err: bool,
     pub com_err_flg: bool,
+    lines: Vec<String>
 }
 
 impl Evaluator {
@@ -79,7 +80,19 @@ impl Evaluator {
             env,
             instance_id: Arc::new(Mutex::new(0)),
             ignore_com_err: false,
-            com_err_flg: false
+            com_err_flg: false,
+            lines: vec![]
+        }
+    }
+
+    pub fn get_line(&self, row: usize) -> EvalResult<String> {
+        if row < 1 || row > self.lines.len(){
+            Err(UError::new(
+                UErrorKind::EvaluatorError,
+                UErrorMessage::InvalidErrorLine(row)
+            ))
+        } else {
+            Ok(self.lines[row - 1].to_string())
         }
     }
 
@@ -114,22 +127,34 @@ impl Evaluator {
         unsafe {
             CoInitializeEx(ptr::null_mut() as *mut c_void, COINIT_APARTMENTTHREADED)?;
         }
-
         let mut result = None;
-
-        for statement in program {
-            match self.eval_statement(statement)? {
-                Some(o) => match o {
-                    Object::Exit => {
-                        result = Some(Object::Exit);
-                        break;
+        let Program(program_block, lines) = program;
+        self.lines = lines;
+        for statement in program_block {
+            let row = statement.row;
+            match self.eval_statement(statement) {
+                Ok(opt) => match opt {
+                    Some(o) => match o {
+                        Object::Exit => {
+                            result = Some(Object::Exit);
+                            break;
+                        },
+                        Object::ExitExit(n) => {
+                            std::process::exit(n);
+                        },
+                        _ => result = Some(o),
                     },
-                    Object::ExitExit(n) => {
-                        std::process::exit(n);
-                    },
-                    _ => result = Some(o),
+                    None => ()
                 },
-                None => ()
+                Err(mut e) => {
+                    let line = self.lines[row - 1].clone();
+                    if e.line.has_row() {
+                        e.line.set_line_if_none(line)
+                    } else {
+                        e.set_line(row, Some(line));
+                    }
+                    return Err(e);
+                }
             }
         }
         self.auto_dispose_instances(vec![], true);
@@ -144,15 +169,22 @@ impl Evaluator {
 
     fn eval_block_statement(&mut self, block: BlockStatement) -> EvalResult<Option<Object>> {
         for statement in block {
-            match self.eval_statement(statement)? {
-                Some(o) => match o {
-                    Object::Continue(_) |
-                    Object::Break(_) |
-                    Object::Exit |
-                    Object::ExitExit(_) => return Ok(Some(o)),
-                    _ => (),
+            let row = statement.row;
+            match self.eval_statement(statement) {
+                Ok(result) => match result {
+                    Some(o) => match o {
+                        Object::Continue(_) |
+                        Object::Break(_) |
+                        Object::Exit |
+                        Object::ExitExit(_) => return Ok(Some(o)),
+                        _ => (),
+                    },
+                    None => (),
                 },
-                None => (),
+                Err(mut e) => {
+                    e.set_line(row, Some(self.get_line(row)?));
+                    return Err(e);
+                }
             };
         }
         Ok(None)
@@ -240,20 +272,33 @@ impl Evaluator {
         }
     }
 
-    fn eval_statement(&mut self, statement: Statement) -> EvalResult<Option<Object>> {
+    fn eval_statement(&mut self, statement: StatementWithRow) -> EvalResult<Option<Object>> {
+        let StatementWithRow { statement, row } = statement;
         let result = self.eval_statement_inner(statement);
         if self.ignore_com_err {
             match result {
                 Ok(r) => Ok(r),
-                Err(e) => if e.is_com_error {
+                Err(mut e) => if e.is_com_error {
                     self.com_err_flg = true;
                     Ok(None)
                 } else {
+                    if ! e.line.has_row() {
+                        e.set_line(row, None);
+                    }
+                    Err(e)
+                }
+
+            }
+        } else {
+            match result {
+                Ok(r) => Ok(r),
+                Err(mut e) => {
+                    if ! e.line.has_row() {
+                        e.set_line(row, None);
+                    }
                     Err(e)
                 }
             }
-        } else {
-            result
         }
     }
 
@@ -303,6 +348,7 @@ impl Evaluator {
             },
             Statement::Print(e) => self.eval_print_statement(e),
             Statement::Call(block, args) => {
+                let Program(body, lines) = block;
                 let params_str = Expression::Literal(Literal::Array(args));
                 let arguments = vec![
                     (Some(params_str.clone()), self.eval_expression(params_str)?)
@@ -312,13 +358,27 @@ impl Evaluator {
                         Expression::Params(Params::Identifier(Identifier("PARAM_STR".into())))
                     ],
                     arguments,
-                    block,
+                    body,
                     true,
                     None,
                     None,
                     false
-                )?;
-                Ok(Some(call_res))
+                );
+                match call_res {
+                    Ok(_) => Ok(None),
+                    Err(mut e) => {
+                        let row = e.line.row;
+                        if row > 1 && row <= lines.len() {
+                            e.line.set_line_if_none(lines[row - 1].clone());
+                        } else {
+                            return Err(UError::new(
+                                UErrorKind::EvaluatorError,
+                                UErrorMessage::InvalidErrorLine(row)
+                            ));
+                        }
+                        Err(e)
+                    }
+                }
             },
             Statement::DefDll{name, params, ret_type, path} => {
                 let func = self.eval_def_dll_statement(&name, &path, params, ret_type)?;
@@ -412,7 +472,7 @@ impl Evaluator {
         }
     }
 
-    fn eval_if_line_statement(&mut self, condition: Expression, consequence: Statement, alternative: Option<Statement>) -> EvalResult<Option<Object>> {
+    fn eval_if_line_statement(&mut self, condition: Expression, consequence: StatementWithRow, alternative: Option<StatementWithRow>) -> EvalResult<Option<Object>> {
         if Self::is_truthy(self.eval_expression(condition)?) {
             self.eval_statement(consequence)
         } else {
@@ -662,9 +722,9 @@ impl Evaluator {
         Ok(None)
     }
 
-    fn eval_funtcion_definition_statement(&mut self, name: &String, params: Vec<Expression>, body: Vec<Statement>, is_proc: bool, is_async: bool) -> EvalResult<Object> {
-        for statement in body.clone() {
-            match statement {
+    fn eval_funtcion_definition_statement(&mut self, name: &String, params: Vec<Expression>, body: BlockStatement, is_proc: bool, is_async: bool) -> EvalResult<Object> {
+        for statement in &body {
+            match statement.statement {
                 Statement::Function{name: _, params: _, body: _, is_proc: _, is_async: _}  => {
                     return Err(UError::new(
                         UErrorKind::FuncDefError,
@@ -748,7 +808,7 @@ impl Evaluator {
     fn eval_module_statement(&mut self, module_name: &String, block: BlockStatement, is_instance: bool) -> EvalResult<Object> {
         let mut module = Module::new(module_name.to_string());
         for statement in block {
-            match statement {
+            match statement.statement {
                 Statement::Dim(vec) => {
                     for (i, e) in vec {
                         let Identifier(member_name) = i;
@@ -785,8 +845,8 @@ impl Evaluator {
                 Statement::Function{name: i, params, body, is_proc, is_async} => {
                     let Identifier(func_name) = i;
                     let mut new_body = Vec::new();
-                    for statement in body.clone() {
-                        match statement {
+                    for statement in body {
+                        match statement.statement {
                             Statement::Public(vec) => {
                                 for (i, e) in vec {
                                     let Identifier(member_name) = i;
@@ -846,10 +906,12 @@ impl Evaluator {
     fn eval_try_statement(&mut self, trys: BlockStatement, except: Option<BlockStatement>, finally: Option<BlockStatement>) -> EvalResult<Option<Object>> {
         let obj = match self.eval_block_statement(trys) {
             Ok(opt) => opt,
-            Err(e) => {
+            Err(mut e) => {
+                let row = e.line.row;
+                e.line.set_line_if_none(self.get_line(row)?);
                 self.env.set_try_error_messages(
-                    format!("{}", e),
-                    format!("")
+                    e.to_string(),
+                    e.get_line().to_string()
                 );
                 if except.is_some() {
                     self.eval_block_statement(except.unwrap())?
@@ -895,6 +957,7 @@ impl Evaluator {
                 instance_id: Arc::clone(&self.instance_id),
                 ignore_com_err: false,
                 com_err_flg: false,
+                lines: self.lines.clone()
             };
             thread::spawn(move || {
                 // このスレッドでのCOMを有効化
@@ -1945,6 +2008,7 @@ impl Evaluator {
             instance_id: Arc::clone(&self.instance_id),
             ignore_com_err: false,
             com_err_flg: false,
+            lines: self.lines.clone(),
         };
         // 関数を非同期実行し、UTaskを返す
         let handle = thread::spawn(move || {
@@ -2488,7 +2552,7 @@ impl Evaluator {
         &mut self,
         mut params: Vec<Expression>,
         mut arguments: Vec<(Option<Expression>, Object)>,
-        body: Vec<Statement>,
+        body: Vec<StatementWithRow>,
         is_proc: bool,
         anon_outer: Option<Arc<Mutex<Vec<NamedObject>>>>,
         module_reference: Option<Arc<Mutex<Module>>>,
@@ -3171,8 +3235,8 @@ mod tests {
 
     // 変数とか関数とか予め定義しておく
     fn eval_env(input: &str) -> Evaluator {
-        let mut e = Evaluator::new(Environment::new(vec![]));
         let program = Parser::new(Lexer::new(input)).parse();
+        let mut e = Evaluator::new(Environment::new(vec![]));
         match e.eval(program) {
             Ok(_) => e,
             Err(err) => panic!("{}", err)

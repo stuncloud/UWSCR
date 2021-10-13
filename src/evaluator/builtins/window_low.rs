@@ -103,7 +103,7 @@ pub fn btn(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(Object::Empty)
 }
 
-pub fn get_current_pos(name: String) -> Result<POINT, UError>{
+pub fn get_current_pos(name: String) -> BuiltInResult<POINT>{
     let mut point = POINT {x: 0, y: 0};
     unsafe {
         if GetCursorPos(&mut point).as_bool() == false {

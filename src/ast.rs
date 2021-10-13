@@ -140,7 +140,7 @@ pub enum Statement {
     Const(Vec<(Identifier, Expression)>),
     HashTbl(Vec<(Identifier, Option<Expression>, bool)>),
     Print(Expression),
-    Call(BlockStatement, Vec<Expression>), // スクリプトの実行部分、引数(param_str)
+    Call(Program, Vec<Expression>), // スクリプトの実行部分、引数(param_str)
     DefDll {
         name: String,
         params: Vec<DefDllParam>,
@@ -166,8 +166,8 @@ pub enum Statement {
     Break(u32),
     IfSingleLine {
         condition: Expression,
-        consequence: Box<Statement>,
-        alternative: Box<Option<Statement>>
+        consequence: Box<StatementWithRow>,
+        alternative: Box<Option<StatementWithRow>>
     },
     If {
         condition: Expression,
@@ -241,8 +241,29 @@ impl UEnum {
     }
 }
 
-pub type BlockStatement = Vec<Statement>;
-pub type Program = BlockStatement;
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+pub struct StatementWithRow {
+    pub statement: Statement,
+    pub row: usize,
+}
+
+impl StatementWithRow {
+    pub fn new(statement: Statement, row: usize) -> Self {
+        Self {statement, row}
+    }
+    // 存在しない行
+    pub fn new_non_existent_line(statement: Statement) -> Self {
+        Self {
+            statement,
+            row: 0,
+        }
+    }
+}
+
+pub type BlockStatement = Vec<StatementWithRow>;
+
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+pub struct Program(pub BlockStatement, pub Vec<String>); // Vec<String>は行情報
 
 #[derive(PartialEq, PartialOrd, Debug, Clone)]
 pub enum Precedence {

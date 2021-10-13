@@ -67,7 +67,7 @@ pub enum VarType {
     VAR_ARRAY    = 0x2000,
 }
 
-fn ignore_ie(prog_id: &str) -> Result<(), UError> {
+fn ignore_ie(prog_id: &str) -> BuiltInResult<()> {
     if prog_id.to_ascii_lowercase().contains("internetexplorer.application") {
         let singleton = usettings_singleton(None);
         let usettings = singleton.0.lock().unwrap();
@@ -89,7 +89,7 @@ fn createoleobj(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(Object::ComObject(idispatch))
 }
 
-fn create_instance(prog_id: &str) -> Result<IDispatch, windows::Error> {
+fn create_instance(prog_id: &str) -> BuiltInResult<IDispatch> {
     let mut wide = to_wide_string(prog_id);
     let obj: IDispatch = unsafe {
         let rclsid = CLSIDFromProgID(PWSTR(wide.as_mut_ptr()))?;

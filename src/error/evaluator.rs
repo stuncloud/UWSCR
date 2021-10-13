@@ -12,14 +12,27 @@ pub struct UError {
     kind: UErrorKind,
     message: UErrorMessage,
     pub is_com_error: bool,
+    pub line: UErrorLine,
 }
 
 impl UError {
     pub fn new(kind: UErrorKind, message: UErrorMessage) -> Self {
-        Self {kind, message, is_com_error: false}
+        Self {
+            kind, message, is_com_error: false,
+            line: UErrorLine::default()
+        }
     }
     pub fn new_com_error(kind: UErrorKind, message: UErrorMessage) -> Self {
-        Self {kind, message, is_com_error: true}
+        Self {
+            kind, message, is_com_error: true,
+            line: UErrorLine::default()
+        }
+    }
+    pub fn set_line(&mut self, row: usize, line: Option<String>) {
+        self.line = UErrorLine::new(row, line)
+    }
+    pub fn get_line(&self) -> UErrorLine {
+        self.line.clone()
     }
 }
 
@@ -28,7 +41,8 @@ impl Default for UError {
         Self {
             kind: UErrorKind::UnknownError,
             message: UErrorMessage::Unknown,
-            is_com_error: false
+            is_com_error: false,
+            line: UErrorLine::default()
         }
     }
 }
@@ -45,17 +59,63 @@ impl fmt::Display for UError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.message {
             UErrorMessage::None => write!(f, "{}", self.kind),
-            _ => write!(f, "[{}] {}", self.kind, self.message)
+            _ => write!(f,
+                "[{}] {}",
+                self.kind,
+                self.message
+            )
         }
     }
 }
 
 impl PartialEq for UError {
     fn eq(&self, other: &Self) -> bool {
-        format!("{}", self) == format!("{}", other)
+        self.to_string() == other.to_string()
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct UErrorLine {
+    pub row: usize,
+    pub line: Option<String>
+}
+
+impl UErrorLine {
+    pub fn new(row: usize, line: Option<String>) -> Self {
+        Self {row, line}
+    }
+    pub fn has_row(&self) -> bool {
+        self.row > 0
+    }
+    pub fn has_line(&self) -> bool {
+        self.line.is_some()
+    }
+    pub fn set_line_if_none(&mut self, line: String) {
+        if self.line.is_none() && self.row > 0 {
+            self.line = Some(line);
+        }
+    }
+}
+
+impl fmt::Display for UErrorLine {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write_locale!(f,
+            "{}行目: {}",
+            "Row {}: {}",
+            self.row,
+            match &self.line {
+                Some(line) => line.clone(),
+                None => "スクリプト外または不明なエラー".into()
+            }
+        )
+    }
+}
+
+impl Default for UErrorLine {
+    fn default() -> Self {
+        Self {row: 0, line: None}
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum UErrorKind {
@@ -347,6 +407,7 @@ pub enum UErrorMessage {
     DTPControlablePageNotFound,
     InvalidMember(String),
     WebResponseWasNotOk(u16, String),
+    InvalidErrorLine(usize),
 }
 
 impl fmt::Display for UErrorMessage {
@@ -777,6 +838,11 @@ impl fmt::Display for UErrorMessage {
                 "Bad response: {} {}",
                 st, msg
             ),
+            Self::InvalidErrorLine(row) =>write_locale!(f,
+                "不正なエラー行指定 ({})",
+                "Invalid error line: {}",
+                row
+            ),
         }
     }
 }
@@ -805,5 +871,23 @@ impl fmt::Display for DefinitionType {
             Self::Struct => write_locale!(f, "構造体", "Struct"),
             Self::Any => write!(f, ""),
         }
+    }
+}
+
+impl From<dlopen::Error> for UError {
+    fn from(e: dlopen::Error) -> Self {
+        Self::new(
+            UErrorKind::DlopenError,
+            UErrorMessage::Any(e.to_string())
+        )
+    }
+}
+
+impl From<cast::Error> for UError {
+    fn from(e: cast::Error) -> Self {
+        Self::new(
+            UErrorKind::DlopenError,
+            UErrorMessage::Any(e.to_string())
+        )
     }
 }

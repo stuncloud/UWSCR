@@ -45,6 +45,7 @@ impl TokenInfo {
 
 pub struct Lexer {
     input: Vec<char>,
+    pub lines: Vec<String>,
     pos: usize,
     next_pos: usize,
     ch: char,
@@ -59,6 +60,7 @@ impl Lexer {
     pub fn new(input: &str) -> Self {
         let mut lexer: Lexer = Lexer {
             input: input.chars().collect::<Vec<char>>(),
+            lines: input.lines().map(|s| s.to_string()).collect(),
             pos: 0,
             next_pos: 0,
             ch: '\0',

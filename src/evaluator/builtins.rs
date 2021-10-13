@@ -35,6 +35,23 @@ use super::Evaluator;
 
 pub type BuiltinFunction = fn(BuiltinFuncArgs) -> BuiltinFuncResult;
 pub type BuiltinFuncResult = Result<Object, UError>;
+pub type BuiltInResult<T> = Result<T, UError>;
+
+// pub struct BuiltinFuncError {
+//     kind: UErrorKind,
+//     message: UErrorMessage
+// }
+// impl BuiltinFuncError {
+//     pub fn new(kind: UErrorKind, message: UErrorMessage) -> Self {
+//         Self {kind, message}
+//     }
+// }
+
+// impl From<BuiltinFuncError> for UError {
+//     fn from(e: BuiltinFuncError) -> Self {
+//         UError::new(e.kind, e.message)
+//     }
+// }
 
 #[derive(Debug, Clone)]
 pub struct BuiltinFuncArgs {
@@ -400,7 +417,7 @@ pub fn builtin_func_error(msg: UErrorMessage, name: String) -> UError {
 // 引数が省略されていた場合はdefaultの値を返す
 // 引数が必須なのになかったらエラーを返す
 
-pub fn get_any_argument_value(args: &BuiltinFuncArgs, i: usize, default: Option<Object>) -> Result<Object, UError> {
+pub fn get_any_argument_value(args: &BuiltinFuncArgs, i: usize, default: Option<Object>) -> BuiltInResult<Object> {
     if args.len() >= i + 1 {
         let arg = args.item(i).unwrap();
         Ok(arg)
@@ -409,7 +426,7 @@ pub fn get_any_argument_value(args: &BuiltinFuncArgs, i: usize, default: Option<
     }
 }
 
-pub fn get_non_float_argument_value<T>(args: &BuiltinFuncArgs, i: usize, default: Option<T>) -> Result<T, UError>
+pub fn get_non_float_argument_value<T>(args: &BuiltinFuncArgs, i: usize, default: Option<T>) -> BuiltInResult<T>
     where T: cast::From<f64, Output=Result<T, cast::Error>>,
 {
     if args.len() >= i + 1 {
@@ -439,7 +456,7 @@ pub fn get_non_float_argument_value<T>(args: &BuiltinFuncArgs, i: usize, default
     }
 }
 
-pub fn get_num_argument_value<T>(args: &BuiltinFuncArgs, i: usize, default: Option<T>) -> Result<T, UError>
+pub fn get_num_argument_value<T>(args: &BuiltinFuncArgs, i: usize, default: Option<T>) -> BuiltInResult<T>
     where T: cast::From<f64, Output=T>,
 {
     if args.len() >= i + 1 {
@@ -461,7 +478,7 @@ pub fn get_num_argument_value<T>(args: &BuiltinFuncArgs, i: usize, default: Opti
     }
 }
 
-pub fn get_string_argument_value(args: &BuiltinFuncArgs, i: usize, default: Option<String>) -> Result<String, UError> {
+pub fn get_string_argument_value(args: &BuiltinFuncArgs, i: usize, default: Option<String>) -> BuiltInResult<String> {
     if args.len() >= i + 1 {
         let arg = args.item(i).unwrap();
         match &arg {
@@ -474,7 +491,7 @@ pub fn get_string_argument_value(args: &BuiltinFuncArgs, i: usize, default: Opti
     }
 }
 
-pub fn get_string_or_empty_argument(args: &BuiltinFuncArgs, i: usize, default: Option<Option<String>>) -> Result<Option<String>, UError> {
+pub fn get_string_or_empty_argument(args: &BuiltinFuncArgs, i: usize, default: Option<Option<String>>) -> BuiltInResult<Option<String>> {
     if args.len() >= i + 1 {
         let arg = args.item(i).unwrap();
         match &arg {
@@ -487,7 +504,7 @@ pub fn get_string_or_empty_argument(args: &BuiltinFuncArgs, i: usize, default: O
     }
 }
 
-pub fn get_bool_argument_value(args: &BuiltinFuncArgs, i: usize, default: Option<bool>) -> Result<bool, UError> {
+pub fn get_bool_argument_value(args: &BuiltinFuncArgs, i: usize, default: Option<bool>) -> BuiltInResult<bool> {
     if args.len() >= i + 1 {
         let arg = args.item(i).unwrap();
         let b = match arg {
@@ -500,7 +517,7 @@ pub fn get_bool_argument_value(args: &BuiltinFuncArgs, i: usize, default: Option
     }
 }
 
-pub fn get_bool_or_int_argument_value<T>(args: &BuiltinFuncArgs, i: usize, default: Option<T>) -> Result<T, UError>
+pub fn get_bool_or_int_argument_value<T>(args: &BuiltinFuncArgs, i: usize, default: Option<T>) -> BuiltInResult<T>
     where T: cast::From<f64, Output=Result<T, cast::Error>>,
 {
     if args.len() >= i + 1 {
@@ -522,7 +539,7 @@ pub fn get_bool_or_int_argument_value<T>(args: &BuiltinFuncArgs, i: usize, defau
     }
 }
 
-pub fn get_uobject_argument_value(args: &BuiltinFuncArgs, i: usize) -> Result<(Arc<Mutex<Value>>, Option<String>), UError> {
+pub fn get_uobject_argument_value(args: &BuiltinFuncArgs, i: usize) -> BuiltInResult<(Arc<Mutex<Value>>, Option<String>)> {
     if args.len() >= i + 1 {
         let arg = args.item(i).unwrap();
         match arg {
@@ -535,7 +552,7 @@ pub fn get_uobject_argument_value(args: &BuiltinFuncArgs, i: usize) -> Result<(A
     }
 }
 
-pub fn get_array_argument_value(args: &BuiltinFuncArgs, i: usize, default: Option<Object>) -> Result<Object, UError> {
+pub fn get_array_argument_value(args: &BuiltinFuncArgs, i: usize, default: Option<Object>) -> BuiltInResult<Object> {
     if args.len() >= i + 1 {
         let arg = args.item(i).unwrap();
         match arg {
@@ -547,7 +564,7 @@ pub fn get_array_argument_value(args: &BuiltinFuncArgs, i: usize, default: Optio
     }
 }
 
-pub fn get_num_or_array_argument_value(args: &BuiltinFuncArgs, i: usize, default: Option<Object>) -> Result<Object, UError> {
+pub fn get_num_or_array_argument_value(args: &BuiltinFuncArgs, i: usize, default: Option<Object>) -> BuiltInResult<Object> {
     if args.len() >= i + 1 {
         let arg = args.item(i).unwrap();
         match arg {
@@ -560,7 +577,7 @@ pub fn get_num_or_array_argument_value(args: &BuiltinFuncArgs, i: usize, default
     }
 }
 
-pub fn get_task_argument_value(args: &BuiltinFuncArgs, i: usize) -> Result<UTask, UError> {
+pub fn get_task_argument_value(args: &BuiltinFuncArgs, i: usize) -> BuiltInResult<UTask> {
     if args.len() >= i + 1 {
         let arg = args.item(i).unwrap();
         match arg {

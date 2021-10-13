@@ -2,7 +2,6 @@ use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
 use crate::evaluator::builtins::window_low;
 use crate::evaluator::builtins::system_controls::is_64bit_os;
-use crate::evaluator::UError;
 use crate::winapi::bindings::{
     Windows::{
         Win32::{
@@ -284,7 +283,7 @@ fn find_window(title: String, class_name: String, timeout: f64) -> HWND {
     }
 }
 
-fn get_hwnd_from_mouse_point(toplevel: bool, name: String) -> Result<HWND, UError> {
+fn get_hwnd_from_mouse_point(toplevel: bool, name: String) -> BuiltInResult<HWND> {
     unsafe {
         let point = window_low::get_current_pos(name)?;
         let mut hwnd = WindowFromPoint(point);
@@ -503,7 +502,7 @@ impl WindowSize {
     }
 }
 
-fn get_window_size(h: HWND) -> Result<WindowSize, UError> {
+fn get_window_size(h: HWND) -> BuiltInResult<WindowSize> {
     let mut rect = RECT {left: 0, top: 0, right: 0, bottom: 0};
     unsafe {
         // let mut aero_enabled = false.into();
@@ -532,7 +531,7 @@ fn get_window_rect(h: HWND) -> WindowSize {
     WindowSize(rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top)
 }
 
-pub fn set_window_size(hwnd: HWND, x: Option<i32>, y: Option<i32>, w: Option<i32>, h: Option<i32>) -> Result<(), UError> {
+pub fn set_window_size(hwnd: HWND, x: Option<i32>, y: Option<i32>, w: Option<i32>, h: Option<i32>) -> BuiltInResult<()> {
     let default_rect = get_window_size(hwnd)?;
 
     let x = x.unwrap_or(default_rect.x());

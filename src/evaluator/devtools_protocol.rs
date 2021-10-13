@@ -108,7 +108,18 @@ impl Drop for DevtoolsProtocol {
     }
 }
 
-type DevtoolsProtocolResult<T> = Result<T, UError>;
+pub struct DevtoolsProtocolError {
+    pub kind: UErrorKind,
+    pub message: UErrorMessage
+}
+
+impl DevtoolsProtocolError {
+    fn new(kind: UErrorKind, message: UErrorMessage) -> Self {
+        Self {kind, message}
+    }
+}
+
+type DevtoolsProtocolResult<T> = Result<T, DevtoolsProtocolError>;
 
 #[derive(Debug)]
 pub struct BrowserTab {
@@ -149,7 +160,7 @@ impl Browser {
             Some(ws_uri) => {
                 DevtoolsProtocol::new(ws_uri/* , btype */)?
             },
-            None => return Err(UError::new(
+            None => return Err(DevtoolsProtocolError::new(
                 UErrorKind::DevtoolsProtocolError,
                 UErrorMessage::DTPControlablePageNotFound
             ))
@@ -158,7 +169,7 @@ impl Browser {
             Some(id) => {
                 id.to_string()
             },
-            None => return Err(UError::new(
+            None => return Err(DevtoolsProtocolError::new(
                 UErrorKind::DevtoolsProtocolError,
                 UErrorMessage::DTPControlablePageNotFound
             ))
@@ -191,7 +202,7 @@ impl Browser {
         if response.status().is_success() {
             Ok(response.text()?)
         } else {
-            Err(UError::new(
+            Err(DevtoolsProtocolError::new(
                 UErrorKind::BrowserControlError,
                 UErrorMessage::WebResponseWasNotOk(
                     response.status().as_u16(),
@@ -258,7 +269,7 @@ impl Browser {
         if let Some(e) = res.get("error") {
             let code = e.get("code").unwrap().as_i64().unwrap() as i32;
             let message = e.get("message").unwrap().as_str().unwrap().to_string();
-            return Err(UError::new(
+            return Err(DevtoolsProtocolError::new(
                 UErrorKind::DevtoolsProtocolError,
                 UErrorMessage::DTPError(code, message)
             ));
@@ -312,14 +323,14 @@ impl Browser {
         let v = Value::from_str(&res)?;
         let dp = match v["webSocketDebuggerUrl"].as_str() {
             Some(uri) => DevtoolsProtocol::new(uri)?,
-            None => return Err(UError::new(
+            None => return Err(DevtoolsProtocolError::new(
                 UErrorKind::BrowserControlError,
                 UErrorMessage::DTPControlablePageNotFound
             ))
         };
         let id = match v["id"].as_str() {
             Some(id) => id.to_string(),
-            None => return Err(UError::new(
+            None => return Err(DevtoolsProtocolError::new(
                 UErrorKind::BrowserControlError,
                 UErrorMessage::DTPControlablePageNotFound
             ))
@@ -378,7 +389,7 @@ impl Browser {
                 None => match res.get("description") {
                     Some(v) => {
                         let err_msg = v.as_str().unwrap().to_string();
-                        return Err(UError::new(
+                        return Err(DevtoolsProtocolError::new(
                             UErrorKind::DevtoolsProtocolError,
                             UErrorMessage::DTPError(0, err_msg)
                         ));
@@ -419,7 +430,7 @@ impl Element {
             }
         };
         if node_id == 0 {
-            return Err(UError::new(
+            return Err(DevtoolsProtocolError::new(
                 UErrorKind::DevtoolsProtocolError,
                 UErrorMessage::DTPInvalidElement(value)
             ));
@@ -438,7 +449,7 @@ impl Element {
         if let Some(e) = res.get("error") {
             let code = e.get("code").unwrap().as_i64().unwrap() as i32;
             let message = e.get("message").unwrap().as_str().unwrap().to_string();
-            return Err(UError::new(
+            return Err(DevtoolsProtocolError::new(
                 UErrorKind::DevtoolsProtocolError,
                 UErrorMessage::DTPError(code, message)
             ));
@@ -492,7 +503,7 @@ impl Element {
             }
             sleep(Duration::from_millis(100))
         }
-        Err(UError::new(
+        Err(DevtoolsProtocolError::new(
             UErrorKind::DevtoolsProtocolError,
             UErrorMessage::DTPElementNotFound(selector.into())
         ))
@@ -530,7 +541,7 @@ impl Element {
                 None => match res.get("description") {
                     Some(v) => {
                         let err_msg = v.as_str().unwrap().to_string();
-                        return Err(UError::new(
+                        return Err(DevtoolsProtocolError::new(
                             UErrorKind::DevtoolsProtocolError,
                             UErrorMessage::Any(err_msg)
                         ));
@@ -642,7 +653,7 @@ impl DevtoolsProtocol {
         value
     }
 
-    fn send(&mut self, method: &str, params: Value) -> Result<Value, UError> {
+    fn send(&mut self, method: &str, params: Value) -> DevtoolsProtocolResult<Value> {
         let data = self.new_data(method, params);
         let msg = data.to_string();
         // println!("[DevtoolsProtocol::send] sent message: {}", &msg);
@@ -695,7 +706,7 @@ impl DevtoolsProtocol {
 
 }
 
-impl From<websocket::client::ParseError> for UError {
+impl From<websocket::client::ParseError> for DevtoolsProtocolError {
     fn from(e: websocket::client::ParseError) -> Self {
         Self::new(
             UErrorKind::WebSocketError,
@@ -703,7 +714,7 @@ impl From<websocket::client::ParseError> for UError {
         )
     }
 }
-impl From<websocket::result::WebSocketError> for UError {
+impl From<websocket::result::WebSocketError> for DevtoolsProtocolError {
     fn from(e: websocket::result::WebSocketError) -> Self {
         Self::new(
             UErrorKind::WebSocketError,
@@ -711,7 +722,7 @@ impl From<websocket::result::WebSocketError> for UError {
         )
     }
 }
-impl From<serde_json::Error> for UError {
+impl From<serde_json::Error> for DevtoolsProtocolError {
     fn from(e: serde_json::Error) -> Self {
         Self::new(
             UErrorKind::ConversionError,
@@ -719,7 +730,7 @@ impl From<serde_json::Error> for UError {
         )
     }
 }
-impl From<std::io::Error> for UError {
+impl From<std::io::Error> for DevtoolsProtocolError {
     fn from(e: std::io::Error) -> Self {
         Self::new(
             UErrorKind::FileIOError,
@@ -727,11 +738,17 @@ impl From<std::io::Error> for UError {
         )
     }
 }
-impl From<reqwest::Error> for UError {
+impl From<reqwest::Error> for DevtoolsProtocolError {
     fn from(e: reqwest::Error) -> Self {
         Self::new(
             UErrorKind::WebRequestError,
             UErrorMessage::Any(e.to_string())
         )
+    }
+}
+
+impl From<DevtoolsProtocolError> for UError {
+    fn from(e: DevtoolsProtocolError) -> Self {
+        Self::new(e.kind, e.message)
     }
 }

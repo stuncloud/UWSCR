@@ -63,31 +63,35 @@ pub fn run(script: String, mut args: Vec<String>) -> Result<(), Vec<String>> {
         ]),
         _ => {}
     };
-    let env = Environment::new(params);
-    let mut evaluator = Evaluator::new(env);
     let mut parser = Parser::new(Lexer::new(&script));
     let program = parser.parse();
     let errors = parser.get_errors();
     if errors.len() > 0 {
         return Err(errors.into_iter().map(|e| format!("{}", e)).collect());
     }
+
+    let env = Environment::new(params);
+    let mut evaluator = Evaluator::new(env);
     if let Err(e) = evaluator.eval(program) {
-        return Err(vec![format!("{}", e)])
+        let line = &e.get_line();
+        return Err(vec![line.to_string(), e.to_string()])
     }
     Ok(())
 }
 
 pub fn run_code(code: String) -> Result<(), Vec<String>> {
-    let env = Environment::new(vec![]);
-    let mut evaluator = Evaluator::new(env);
     let mut parser = Parser::new(Lexer::new(&code));
     let program = parser.parse();
     let errors = parser.get_errors();
     if errors.len() > 0 {
         return Err(errors.into_iter().map(|e| format!("{}", e)).collect());
     }
+
+    let env = Environment::new(vec![]);
+    let mut evaluator = Evaluator::new(env);
     if let Err(e) = evaluator.eval(program) {
-        return Err(vec![format!("{}", e)])
+        let line = &e.get_line();
+        return Err(vec![line.to_string(), e.to_string()])
     }
     Ok(())
 }
@@ -123,7 +127,7 @@ pub fn out_ast(script: String, path: &String, force: bool) {
             return;
         }
     }
-    for statement in program {
+    for statement in program.0 {
         println!("{:?}", statement);
     }
 }
