@@ -375,24 +375,36 @@ impl Browser {
         Ok(element)
     }
 
-    pub fn navigate(&self, uri: &str) -> DevtoolsProtocolResult<Value> {
+    pub fn navigate(&self, uri: &str) -> DevtoolsProtocolResult<bool> {
         // self.dp_send("Page.enable", json!({}))?;
-        let res = self.dp_send("Page.navigate", json!({"url": uri}))?;
-        while ! self.wait_for_page_load()? {
-            sleep(Duration::from_millis(100));
-        }
-        sleep(Duration::from_millis(100));
+        self.dp_send("Page.navigate", json!({"url": uri}))?;
+        let loaded = self.wait_for_page_load(10.0)?;
         // self.dp_wait_event("Page.loadEventFired")?;
         // self.dp_send("Page.disable", json!({}))?;
-        Ok(res)
+        Ok(loaded)
     }
 
-    fn wait_for_page_load(&self) -> DevtoolsProtocolResult<bool> {
+    fn is_navigate_completed(&self) -> DevtoolsProtocolResult<bool> {
         let completed = match self.execute_script("document.readyState", None, None)? {
             Some(v) => v.as_str().unwrap() == "complete",
             None => false
         };
         Ok(completed)
+    }
+
+    pub fn wait_for_page_load(&self, limit: f64) -> DevtoolsProtocolResult<bool> {
+        let from = Instant::now();
+        loop {
+            if self.is_navigate_completed()? {
+                sleep(Duration::from_millis(100));
+                return Ok(true)
+            } else if from.elapsed().as_secs_f64() >= limit {
+                break;
+            } else {
+                sleep(Duration::from_millis(100));
+            }
+        }
+        Ok(false)
     }
 
     pub fn execute_script(&self, script: &str, value: Option<Value>, name: Option<&str>) -> DevtoolsProtocolResult<Option<Value>> {
@@ -426,14 +438,12 @@ impl Browser {
         Ok(ret_value)
     }
 
-    pub fn reload(&self, ignore_cache: bool) -> DevtoolsProtocolResult<()> {
+    pub fn reload(&self, ignore_cache: bool) -> DevtoolsProtocolResult<bool> {
         self.dp_send("Page.reload", json!({
             "ignoreCache": ignore_cache
         }))?;
-        while ! self.wait_for_page_load()? {
-            sleep(Duration::from_millis(100));
-        }
-        Ok(())
+        let completed = self.wait_for_page_load(10.0)?;
+        Ok(completed)
     }
 
     pub fn close(&self) -> DevtoolsProtocolResult<()> {

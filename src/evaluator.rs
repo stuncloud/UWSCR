@@ -2827,8 +2827,16 @@ impl Evaluator {
         match name.to_ascii_lowercase().as_str() {
             "navigate" => {
                 let uri = get_arg(0).to_string();
-                browser.navigate(&uri)?;
-                Ok(Object::Empty)
+                let loaded = browser.navigate(&uri)?;
+                Ok(Object::Bool(loaded))
+            },
+            "wait" => {
+                let limit = match get_arg(0) {
+                    Object::Num(n) => n,
+                    _ => 10.0
+                };
+                let loaded = browser.wait_for_page_load(limit)?;
+                Ok(Object::Bool(loaded))
             },
             "execute" => {
                 let script = get_arg(0).to_string();
