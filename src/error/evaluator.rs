@@ -156,6 +156,7 @@ pub enum UErrorKind {
     FileIOError,
     DevtoolsProtocolError,
     BrowserControlError,
+    WmiError,
 }
 
 impl fmt::Display for UErrorKind {
@@ -307,6 +308,10 @@ impl fmt::Display for UErrorKind {
             Self::BrowserControlError => write_locale!(f,
                 "ブラウザ操作エラー",
                 "Browser control error",
+            ),
+            Self::WmiError => write_locale!(f,
+                "WMIエラー",
+                "WMI error",
             ),
         }
     }

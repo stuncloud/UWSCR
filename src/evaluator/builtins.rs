@@ -496,7 +496,8 @@ pub fn get_string_or_empty_argument(args: &BuiltinFuncArgs, i: usize, default: O
         let arg = args.item(i).unwrap();
         match &arg {
             Object::String(s) => Ok(Some(s.to_string())),
-            Object::Empty => Ok(None),
+            Object::Empty |
+            Object::EmptyParam => Ok(None),
             o => Ok(Some(format!("{}", o))),
         }
     } else {

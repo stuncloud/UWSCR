@@ -1,4 +1,14 @@
 use crate::error::evaluator::{UError, UErrorKind, UErrorMessage};
+use crate::winapi::bindings::Windows::Win32::{
+    Foundation::{LPARAM, HWND, BOOL},
+    UI::WindowsAndMessaging::{
+        GW_OWNER,
+        EnumWindows, GetWindowThreadProcessId, IsWindowVisible, GetWindow,
+    }
+};
+use crate::evaluator::object::Object;
+use crate::evaluator::builtins::window_control::get_id_from_hwnd;
+use crate::settings::usettings_singleton;
 
 use std::{
     fmt,
@@ -11,6 +21,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+use libc::c_void;
 use winreg;
 use reqwest;
 use serde_json::{Value, json};
@@ -20,6 +31,9 @@ use websocket::{
     sender::Writer,
     receiver::Reader,
 };
+use std::collections::HashMap;
+use wmi::{WMIConnection, FilterValue};
+use serde::Deserialize;
 
 #[derive(Debug, Clone, Copy)]
 pub enum BrowserType {
@@ -139,13 +153,11 @@ impl Browser {
     }
 
     pub fn new_chrome(port: u16, filter: Option<String>, headless: bool) -> DevtoolsProtocolResult<Self> {
-        // let mut chrome = Self::new(port, BrowserType::Chrome);
         let chrome = Self::connect(port, filter, BrowserType::Chrome, headless)?;
         Ok(chrome)
     }
 
     pub fn new_msedge(port: u16, filter: Option<String>, headless: bool) -> DevtoolsProtocolResult<Self> {
-        // let mut edge = Self::new(port, BrowserType::MSEdge);
         let edge = Self::connect(port, filter, BrowserType::MSEdge, headless)?;
         Ok(edge)
     }
@@ -183,17 +195,29 @@ impl Browser {
         Ok(browser)
     }
 
-    fn get_path(btype: BrowserType) -> std::io::Result<String> {
+    fn get_path(btype: BrowserType) -> DevtoolsProtocolResult<String> {
         /*
             1. 設定ファイル
-            2. レジストリ
+            2. レジストリ (HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\)
             の順にパスを確認し、いずれも得られなかった場合はエラーを返す
         */
-        // HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\
-        let key = format!(r#"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\{}"#, btype);
-        let hklm = winreg::RegKey::predef(winreg::enums::HKEY_LOCAL_MACHINE);
-        let subkey = hklm.open_subkey(key)?;
-        subkey.get_value("")
+        let path = {
+            let singleton = usettings_singleton(None);
+            let usettings = singleton.0.lock().unwrap();
+            match btype {
+                BrowserType::Chrome => usettings.browser.chrome.clone(),
+                BrowserType::MSEdge => usettings.browser.msedge.clone(),
+            }
+        };
+        match path {
+            Some(path) => Ok(path),
+            None => {
+                let key = format!(r#"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\{}"#, btype);
+                let hklm = winreg::RegKey::predef(winreg::enums::HKEY_LOCAL_MACHINE);
+                let subkey = hklm.open_subkey(key)?;
+                Ok(subkey.get_value("")?)
+            }
+        }
     }
 
     fn get_request(port: u16, path: &str) -> DevtoolsProtocolResult<String> {
@@ -417,6 +441,23 @@ impl Browser {
         drop(self);
         Ok(())
     }
+
+    pub fn dialog(&self, accept: bool, prompt: Option<String>) -> DevtoolsProtocolResult<()> {
+        let mut params = json!({
+            "accept": accept,
+        });
+        if prompt.is_some() {
+            let obj = params.as_object_mut().unwrap();
+            obj.insert("promptText".into(), prompt.unwrap().into());
+        }
+
+        self.dp_send("Page.handleJavaScriptDialog", params)?;
+        Ok(())
+    }
+
+    pub fn get_window_id(&self) -> DevtoolsProtocolResult<Object> {
+        get_window_id_from_port(self.port)
+    }
 }
 
 impl Element {
@@ -622,7 +663,7 @@ impl DevtoolsProtocol {
                 .connect_insecure()?;
         let (receiver, sender) = client.split()?;
 
-        let dp = Self {
+        let mut dp = Self {
             receiver,
             sender,
             id: 0,
@@ -630,7 +671,14 @@ impl DevtoolsProtocol {
             session_id: String::new(),
             // btype,
         };
+        dp.initialize()?;
         Ok(dp)
+    }
+
+    fn initialize(&mut self) -> DevtoolsProtocolResult<()> {
+        self.send("Page.enable", json!({}))?;
+        self.send("Runtime.enable", json!({}))?;
+        Ok(())
     }
 
     fn next_id(&mut self) -> u32 {
@@ -703,9 +751,69 @@ impl DevtoolsProtocol {
         }
         Ok(())
     }
-
 }
 
+// ウィンドウハンドル取得
+fn get_window_id_from_port(port: u16) -> DevtoolsProtocolResult<Object> {
+    let pid = get_pid_from_port(port)?;
+    let hwnd = get_hwnd_from_pid(pid);
+    let id = get_id_from_hwnd(hwnd);
+    Ok(Object::Num(id))
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename = "MSFT_NetTCPConnection")]
+#[serde(rename_all = "PascalCase")]
+struct NetTCPConnection {
+    owning_process: u32
+}
+
+struct LparamData(u32, HWND);
+impl LparamData {
+    pub fn new(pid: u32) -> Self {
+        Self(pid, HWND::default())
+    }
+}
+
+fn get_pid_from_port(port: u16) -> DevtoolsProtocolResult<u32>  {
+    let connection = unsafe {
+        WMIConnection::with_initialized_com(Some("Root\\StandardCimv2"))?
+    };
+    let mut filters = HashMap::new();
+    filters.insert("LocalPort".to_string(), FilterValue::Number(port.into()));
+    filters.insert("state".to_string(), FilterValue::Number(2));
+    let result: Vec<NetTCPConnection> = connection.filtered_query(&filters)?;
+    let pid = if result.len() > 0 {
+        result[0].owning_process
+    } else {
+        0
+    };
+    Ok(pid)
+}
+
+fn get_hwnd_from_pid(pid: u32) -> HWND {
+    let mut data = LparamData::new(pid);
+    let lparam = &mut data as *mut LparamData as *mut c_void as isize;
+    unsafe {
+        EnumWindows(Some(enum_window_proc), &LPARAM(lparam));
+    }
+    data.1
+}
+
+unsafe extern "system"
+fn enum_window_proc(hwnd: HWND, lparam: LPARAM) -> BOOL {
+    let mut data = &mut *(lparam.0 as *mut c_void as *mut LparamData);
+    let mut pid = 0;
+    GetWindowThreadProcessId(hwnd, &mut pid);
+    if data.0 == pid && GetWindow(hwnd, GW_OWNER) == HWND::default() && IsWindowVisible(hwnd).as_bool() {
+        data.1 = hwnd;
+        false.into()
+    } else {
+        true.into()
+    }
+}
+
+// 各種エラー
 impl From<websocket::client::ParseError> for DevtoolsProtocolError {
     fn from(e: websocket::client::ParseError) -> Self {
         Self::new(
@@ -742,6 +850,14 @@ impl From<reqwest::Error> for DevtoolsProtocolError {
     fn from(e: reqwest::Error) -> Self {
         Self::new(
             UErrorKind::WebRequestError,
+            UErrorMessage::Any(e.to_string())
+        )
+    }
+}
+impl From<wmi::utils::WMIError> for DevtoolsProtocolError {
+    fn from(e: wmi::utils::WMIError) -> Self {
+        Self::new(
+            UErrorKind::WmiError,
             UErrorMessage::Any(e.to_string())
         )
     }

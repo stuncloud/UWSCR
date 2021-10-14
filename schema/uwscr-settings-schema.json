@@ -3,6 +3,17 @@
   "title": "USettings",
   "type": "object",
   "properties": {
+    "browser": {
+      "default": {
+        "chrome": null,
+        "msedge": null
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/Browser"
+        }
+      ]
+    },
     "options": {
       "default": {
         "default_font": "MS Gothic,12",
@@ -35,6 +46,25 @@
     }
   },
   "definitions": {
+    "Browser": {
+      "type": "object",
+      "properties": {
+        "chrome": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "msedge": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
     "UOption": {
       "type": "object",
       "properties": {

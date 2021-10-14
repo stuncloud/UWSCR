@@ -335,16 +335,30 @@ pub fn hndtoid(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(Object::Num(id))
 }
 
-fn get_id_from_hwnd(hwnd: HWND) -> f64 {
-    let s = window_singleton();
-    let list = s.windows.lock().unwrap();
-    list.iter().find_map(
-        |(key, &val)| if val == hwnd {
-            Some(*key as f64)
+pub fn get_id_from_hwnd(hwnd: HWND) -> f64 {
+    let id = {
+        let s = window_singleton();
+        let list = s.windows.lock().unwrap();
+        list.iter().find_map(
+            |(key, &val)| if val == hwnd {
+                Some(*key as f64)
+            } else {
+                None
+            }
+        )
+    };
+    // リストにない場合は新たなIDを発行する
+    // hwndが無効なら-1
+    match id {
+        Some(id) => id,
+        None => if unsafe { IsWindow(hwnd).as_bool() } {
+            let new_id = get_next_id();
+            set_new_window(new_id, hwnd, false);
+            new_id as f64
         } else {
-            None
+            -1.0
         }
-    ).or_else(||Some(-1.0)).unwrap()
+    }
 }
 
 // ACW

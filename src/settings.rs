@@ -29,6 +29,8 @@ pub struct SingletonSettings(pub Arc<Mutex<USettings>>);
 pub struct USettings {
     #[serde(default)]
     pub options: UOption,
+    #[serde(default)]
+    pub browser: Browser,
     #[serde(skip_deserializing, rename(serialize = "$schema"))]
     pub schema: String,
 }
@@ -41,7 +43,7 @@ impl USettings {
 
 impl Default for USettings {
     fn default() -> Self {
-        let uri = "https://github.com/stuncloud/UWSCR/releases/download/0.1.7/uwscr-settings-schema.json".to_string();
+        let uri = "https://github.com/stuncloud/UWSCR/releases/download/0.2.1/uwscr-settings-schema.json".to_string();
         let schema = if cfg!(debug_assertions) {
             match std::env::current_dir() {
                 Ok(mut p) => {
@@ -59,6 +61,7 @@ impl Default for USettings {
         };
         USettings {
             options: UOption::default(),
+            browser: Browser::default(),
             schema
         }
     }
@@ -155,6 +158,25 @@ impl Default for UPosition {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct Browser {
+    // Chromeのパス
+    #[serde(default)]
+    pub chrome: Option<String>,
+    // MSEdgeのパス
+    #[serde(default)]
+    pub msedge: Option<String>,
+}
+
+impl Default for Browser {
+    fn default() -> Self {
+        Self {
+            chrome: None,
+            msedge: None,
+        }
+    }
+}
+
 pub fn usettings_singleton(usettings: Option<USettings>) -> Box<SingletonSettings> {
     static mut SINGLETON: Option<Box<SingletonSettings>> = None;
     static ONCE: Once = Once::new();
@@ -191,7 +213,7 @@ impl fmt::Display for Error {
 impl From<serde_json::error::Error> for Error {
     fn from(e: serde_json::error::Error) -> Self {
         Error {
-            msg: format!("{:?}", e),
+            msg: e.to_string(),
         }
     }
 }
@@ -199,7 +221,7 @@ impl From<serde_json::error::Error> for Error {
 impl From<std::io::Error> for Error {
     fn from(e: std::io::Error) -> Self {
         Error {
-            msg: format!("{:?}", e),
+            msg: e.to_string(),
         }
     }
 }

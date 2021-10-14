@@ -2887,6 +2887,18 @@ impl Evaluator {
                 browser.activate()?;
                 Ok(Object::Empty)
             },
+            "windowid" => {
+                let id = browser.get_window_id()?;
+                Ok(id)
+            },
+            "dialog" => {
+                let (accept, prompt) = match get_arg(0) {
+                    Object::String(s) => (true, Some(s)),
+                    o => (Self::is_truthy(o), None)
+                };
+                browser.dialog(accept, prompt)?;
+                Ok(Object::Empty)
+            },
             _ => Err(UError::new(
                 UErrorKind::BrowserControlError,
                 UErrorMessage::InvalidMember(name.to_string())
@@ -3098,7 +3110,15 @@ impl Evaluator {
                     "pageid" => {
                         let id = b.id.to_string();
                         Ok(Object::String(id))
-                    }
+                    },
+                    "source" => match b.execute_script("document.documentElement.outerHTML", None, None)? {
+                        Some(v) => Ok(v.into()),
+                        None => Ok(Object::Empty)
+                    },
+                    "url" => match b.execute_script("document.URL", None, None)? {
+                        Some(v) => Ok(v.into()),
+                        None => Ok(Object::Empty)
+                    },
                     _ => Err(UError::new(
                         UErrorKind::BrowserControlError,
                         UErrorMessage::InvalidMember(member)

@@ -76,14 +76,14 @@ fn main() {
         Windows::Win32::UI::WindowsAndMessaging::{
             WM_CLOSE, WM_DESTROY, HWND_TOPMOST, HWND_NOTOPMOST,
             SHOW_WINDOW_CMD, SET_WINDOW_POS_FLAGS, WINDOWPLACEMENT, WINDOWPLACEMENT_FLAGS,
-            MONITORINFOF_PRIMARY, SYSTEM_METRICS_INDEX,
+            MONITORINFOF_PRIMARY, SYSTEM_METRICS_INDEX, GET_WINDOW_CMD,
             GetCursorPos,
             WindowFromPoint, GetParent, IsWindowVisible, GetClientRect,
             GetForegroundWindow, GetWindowTextW, GetClassNameW, EnumWindows,
             IsWindow, PostMessageW, SetForegroundWindow, ShowWindow,
             SetWindowPos, GetWindowRect, MoveWindow, GetWindowPlacement,
             GetWindowThreadProcessId, IsIconic, IsWindowVisible, IsHungAppWindow,
-            GetSystemMetrics,
+            GetSystemMetrics, GetWindow,
         },
         Windows::Win32::UI::Shell::{
             CSIDL_APPDATA,
