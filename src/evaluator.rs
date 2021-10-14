@@ -128,8 +128,8 @@ impl Evaluator {
             CoInitializeEx(ptr::null_mut() as *mut c_void, COINIT_APARTMENTTHREADED)?;
         }
         let mut result = None;
-        let Program(program_block, lines) = program;
-        self.lines = lines;
+        let Program(program_block, mut lines) = program;
+        self.lines.append(&mut lines);
         for statement in program_block {
             let row = statement.row;
             match self.eval_statement(statement) {
