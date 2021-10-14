@@ -521,7 +521,7 @@ impl Evaluator {
         for (case_exp, block) in cases {
             for e in case_exp {
                 let case_obj = self.eval_expression(e)?;
-                if self.is_equal(&case_obj, &select_obj)? {
+                if case_obj.is_equal(&select_obj) {
                     return self.eval_block_statement(block);
                 }
             }
@@ -1776,7 +1776,7 @@ impl Evaluator {
                         }
                     },
                     Object::Bool(_) => self.eval_infix_string_expression(infix, s1.clone(), format!("{}", right)),
-                    Object::Empty => self.eval_infix_empty_expression(infix, left, right),
+                    Object::Empty => self.eval_infix_empty_expression(infix, left),
                     Object::Version(v) => self.eval_infix_string_expression(infix, s1.to_string(), v.to_string()),
                     _ => self.eval_infix_string_expression(infix, s1.clone(), format!("{}", right))
                 }
@@ -1784,14 +1784,14 @@ impl Evaluator {
             Object::Bool(l) => match right {
                 Object::Bool(b) => self.eval_infix_logical_operator_expression(infix, *l, b),
                 Object::String(s) => self.eval_infix_string_expression(infix, format!("{}", left), s.clone()),
-                Object::Empty => self.eval_infix_empty_expression(infix, left, right),
+                Object::Empty => self.eval_infix_empty_expression(infix, left),
                 Object::Num(n) => self.eval_infix_number_expression(infix, *l as i64 as f64, n),
                 _ => self.eval_infix_misc_expression(infix, left, right)
             },
             Object::Empty => match right {
                 Object::Num(n) => self.eval_infix_number_expression(infix, 0.0, n),
-                Object::String(_) => self.eval_infix_empty_expression(infix, left, right),
-                Object::Empty => self.eval_infix_empty_expression(infix, left, right),
+                Object::String(_) => self.eval_infix_empty_expression(infix, right),
+                Object::Empty => Ok(Object::Bool(true)),
                 _ => self.eval_infix_misc_expression(infix, left, right)
             },
             Object::Version(v1) => match right {
@@ -1895,11 +1895,11 @@ impl Evaluator {
         Ok(obj)
     }
 
-    fn eval_infix_empty_expression(&mut self, infix: Infix, left: Object, right: Object) -> EvalResult<Object> {
+    fn eval_infix_empty_expression(&mut self, infix: Infix, other: Object) -> EvalResult<Object> {
         let obj = match infix {
-            Infix::Plus => Object::String(format!("{}{}", left, right)),
-            Infix::Equal => Object::Bool(self.is_equal(&left, &right)?),
-            Infix::NotEqual => Object::Bool(! self.is_equal(&left, &right)?),
+            Infix::Plus => Object::String(other.to_string()),
+            Infix::Equal => Object::Bool(other.is_equal(&Object::Empty)),
+            Infix::NotEqual => Object::Bool(! other.is_equal(&Object::Empty)),
             _ => return Err(UError::new(
                 UErrorKind::OperatorError,
                 UErrorMessage::BadStringInfix(infix),
@@ -3207,11 +3207,6 @@ impl Evaluator {
             }
         }
         Ok(())
-    }
-
-    fn is_equal(&mut self, obj1: &Object, obj2: &Object) -> EvalResult<bool> {
-        let r = self.eval_infix_expression(Infix::Equal, obj1.clone(), obj2.clone())?;
-        Ok(Self::is_truthy(r))
     }
 }
 
