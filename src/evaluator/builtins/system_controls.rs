@@ -88,7 +88,7 @@ pub fn is_64bit_os(f_name: String) -> Result<bool, UError> {
 
 #[allow(non_camel_case_types)]
 #[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive)]
-pub enum OsNumber {
+pub enum OsKind {
     OS_WIN2000      = 12,
     OS_WINXP        = 13,
     OS_WINSRV2003   = 14,
@@ -103,6 +103,7 @@ pub enum OsNumber {
     OS_WINSRV2012R2 = 26,
     OS_WIN10        = 30,
     OS_WINSRV2016   = 31,
+    OS_WIN11        = 32,
     OS_UNKNOWN      = 0,
 }
 #[allow(non_camel_case_types)]
@@ -117,56 +118,63 @@ pub enum KindOfOsResultType {
 }
 
 
-pub fn get_os_num() -> Vec<f64> {
-    let mut info: OSVERSIONINFOEXW = unsafe{std::mem::zeroed()};
+pub fn get_os_kind() -> Vec<f64> {
+    let mut info = OSVERSIONINFOEXW::default();
     info.dwOSVersionInfoSize = std::mem::size_of::<OSVERSIONINFOEXW>() as u32;
     let p_info = <*mut _>::cast(&mut info);
     unsafe {
         GetVersionExW(p_info);
     }
     let mut res = vec![];
+    let win11_build_version = 21996;
     let num = match info.dwMajorVersion {
-        10 => if info.wProductType == VER_NT_WORKSTATION as u8 {
-            OsNumber::OS_WIN10 as u8 as f64
-        } else {
-            OsNumber::OS_WINSRV2016 as u8 as f64
-        },
+        10 => if info.dwBuildNumber < win11_build_version {
+            // Windows 10
+            if info.wProductType == VER_NT_WORKSTATION as u8 {
+                    OsKind::OS_WIN10
+                } else {
+                    OsKind::OS_WINSRV2016
+                }
+            } else {
+                // ビルド番号が21996以降はWindows 11
+                OsKind::OS_WIN11
+            },
         6 => match info.dwMinorVersion {
             3 => if info.wProductType == VER_NT_WORKSTATION as u8 {
-                OsNumber::OS_WIN81 as u8 as f64
+                OsKind::OS_WIN81
             } else {
-                OsNumber::OS_WINSRV2012R2 as u8 as f64
+                OsKind::OS_WINSRV2012R2
             },
             2 => if info.wProductType == VER_NT_WORKSTATION as u8 {
-                OsNumber::OS_WIN8 as u8 as f64
+                OsKind::OS_WIN8
             } else {
-                OsNumber::OS_WINSRV2012 as u8 as f64
+                OsKind::OS_WINSRV2012
             },
             1 => if info.wProductType == VER_NT_WORKSTATION as u8 {
-                OsNumber::OS_WIN7 as u8 as f64
+                OsKind::OS_WIN7
             } else {
-                OsNumber::OS_WINSRV2008R2 as u8 as f64
+                OsKind::OS_WINSRV2008R2
             },
             0 => if info.wProductType == VER_NT_WORKSTATION as u8 {
-                OsNumber::OS_WINVISTA as u8 as f64
+                OsKind::OS_WINVISTA
             } else {
-                OsNumber::OS_WINSRV2008 as u8 as f64
+                OsKind::OS_WINSRV2008
             },
-            _ => 0.0
+            _ => OsKind::OS_UNKNOWN
         },
         5 => match info.dwMinorVersion {
             2 => if unsafe{GetSystemMetrics(SM_SERVERR2)} != 0 {
-                OsNumber::OS_WINSRV2003R2 as u8 as f64
+                OsKind::OS_WINSRV2003R2
             } else {
-                OsNumber::OS_WINSRV2003 as u8 as f64
+                OsKind::OS_WINSRV2003
             },
-            1 => OsNumber::OS_WINXP as u8 as f64,
-            0 => OsNumber::OS_WIN2000 as u8 as f64,
-            _ => 0.0
+            1 => OsKind::OS_WINXP,
+            0 => OsKind::OS_WIN2000,
+            _ => OsKind::OS_UNKNOWN
         },
-        _ => 0.0
+        _ => OsKind::OS_UNKNOWN
     };
-    res.push(num.into());
+    res.push(num as u8 as f64);
     res.push(info.dwMajorVersion.into());
     res.push(info.dwMinorVersion.into());
     res.push(info.dwBuildNumber.into());
@@ -176,7 +184,7 @@ pub fn get_os_num() -> Vec<f64> {
 
 pub fn kindofos(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let t = get_bool_or_int_argument_value(&args, 0, Some(0)).unwrap_or(0);
-    let osnum = get_os_num();
+    let osnum = get_os_kind();
     match FromPrimitive::from_i32(t).unwrap_or(KindOfOsResultType::KIND_OF_OS) {
         KindOfOsResultType::IS_64BIT_OS => Ok(Object::Bool(is_64bit_os(args.name())?)),
         KindOfOsResultType::OSVER_MAJOR => Ok(Object::Num(osnum[1])),

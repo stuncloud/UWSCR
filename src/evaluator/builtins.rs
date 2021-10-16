@@ -160,7 +160,7 @@ pub fn init_builtins() -> Vec<NamedObject> {
     set_builtin_consts::<text_control::RegexEnum>(&mut vec);
     // system_constrol
     system_controls::builtin_func_sets().set(&mut vec);
-    set_builtin_consts::<system_controls::OsNumber>(&mut vec);
+    set_builtin_consts::<system_controls::OsKind>(&mut vec);
     set_builtin_consts::<system_controls::KindOfOsResultType>(&mut vec);
     // math
     math::builtin_func_sets().set(&mut vec);
