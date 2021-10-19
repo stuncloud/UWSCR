@@ -534,15 +534,22 @@ impl Evaluator {
 
     fn eval_loopblock_statement(&mut self, block: BlockStatement) -> EvalResult<Option<Object>> {
         for statement in block {
-            if let Some(o) = self.eval_statement(statement)? {
-                match o {
-                    Object::Exit |
-                    Object::ExitExit(_) |
-                    Object::Continue(_)|
-                    Object::Break(_) => return Ok(Some(o)),
-                    _ => ()
+            let row = statement.row;
+            match self.eval_statement(statement) {
+                Ok(opt) => if let Some(o) = opt {
+                    match o {
+                        Object::Continue(_) |
+                        Object::Break(_) |
+                        Object::Exit |
+                        Object::ExitExit(_) => return Ok(Some(o)),
+                        _ => (),
+                    }
+                },
+                Err(mut e) => {
+                    e.set_line(row, Some(self.get_line(row)?));
+                    return Err(e);
                 }
-            };
+            }
         }
         Ok(None)
     }
