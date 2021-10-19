@@ -49,6 +49,7 @@ use std::mem;
 use strum_macros::{EnumString, EnumVariantNames};
 use num_derive::{ToPrimitive, FromPrimitive};
 use num_traits::FromPrimitive;
+use serde_json::{Map, Value};
 
 
 pub fn builtin_func_sets() -> BuiltinFunctionSets {
@@ -60,6 +61,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("shexec", 2, shexec);
     sets.add("task", 21, task);
     sets.add("waittask", 1, wait_task);
+    sets.add("wmi", 2, wmi_query);
     sets
 }
 
@@ -336,4 +338,31 @@ pub fn wait_task(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         }
     };
     result
+}
+
+pub fn wmi_query(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let wql = get_string_argument_value(&args, 0, None)?;
+    let name_space = get_string_or_empty_argument(&args, 1, Some(None))?;
+    let namespace_path = name_space.as_deref();
+    let conn = unsafe {
+        wmi::WMIConnection::with_initialized_com(namespace_path)?
+    };
+    let result: Vec<Map<String, Value>> = conn.raw_query(&wql)?;
+    let obj = result
+        .into_iter()
+        .map(|m| {
+            let value = Value::Object(m);
+            Object::UObject(Arc::new(Mutex::new(value)))
+        })
+        .collect();
+    Ok(Object::Array(obj))
+}
+
+impl From<wmi::WMIError> for UError {
+    fn from(e: wmi::WMIError) -> Self {
+        Self::new(
+            UErrorKind::WmiError,
+            UErrorMessage::Any(e.to_string())
+        )
+    }
 }
