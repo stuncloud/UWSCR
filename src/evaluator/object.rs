@@ -856,3 +856,38 @@ impl Into<i32> for Object {
         }
     }
 }
+
+pub trait ValueHelper {
+    fn get_case_insensitive(&self, key: &str) -> Option<Value>;
+}
+
+impl ValueHelper for Value {
+    fn get_case_insensitive(&self, key: &str) -> Option<Value> {
+        match self {
+            Value::Object(map) => {
+                let upper = key.to_ascii_uppercase();
+                let filtered = map.iter()
+                                        .filter(|(k, _)| k.to_ascii_uppercase() == upper)
+                                        .collect::<Vec<(&String, &Value)>>();
+                if filtered.len() == 0 {
+                    None
+                } else if filtered.len() == 1 {
+                    Some(filtered[0].1.clone())
+                } else {
+                    // 複数あった場合は完全一致を返す
+                    // 完全一致がなければ1つ目を返す
+                    let matched = filtered.iter()
+                                        .filter(|(k, _)| k.as_str() == key)
+                                        .map(|(_,v)| v.clone())
+                                        .collect::<Vec<_>>();
+                    if matched.len() > 0 {
+                        Some(matched[0].clone())
+                    } else {
+                        Some(filtered[0].1.clone())
+                    }
+                }
+            },
+            _ => None,
+        }
+    }
+}

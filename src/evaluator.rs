@@ -45,24 +45,6 @@ use regex::Regex;
 use serde_json;
 use libffi::middle::{Cif, CodePtr, Type};
 
-// impl From<dlopen::Error> for UError {
-//     fn from(e: dlopen::Error) -> Self {
-//         UError::new(
-//             UErrorKind::DlopenError,
-//             UErrorMessage::DlopenError(e.to_string()),
-//         )
-//     }
-// }
-
-// impl From<cast::Error> for UError {
-//     fn from(e: cast::Error) -> Self {
-//         UError::new(
-//             UErrorKind::CastError,
-//             UErrorMessage::CastError(format!("{}", e)),
-//         )
-//     }
-// }
-
 type EvalResult<T> = Result<T, UError>;
 
 #[derive(Debug, Clone)]
@@ -1314,13 +1296,19 @@ impl Evaluator {
                     UErrorMessage::InvalidKeyOrIndex(format!("[{}, {}]", index, hash_enum.unwrap())),
                 ));
             } else {
-                let v = u.lock().unwrap().clone();
                 let (value, pointer) = match index {
                     Object::String(ref s) => {
-                        (v.get(s), format!("/{}", s))
+                        let v = u.lock().unwrap();
+                        let value = v.get_case_insensitive(s);
+                        (value, format!("/{}", s))
                     },
                     Object::Num(n) => {
-                        (v.get(n as usize), format!("/{}", n))
+                        let v = u.lock().unwrap();
+                        let p = format!("/{}", n);
+                        match v.get(n as usize) {
+                            Some(v) => (Some(v.clone()), p),
+                            None => (None, p)
+                        }
                     },
                     _ => {
                         return Err(UError::new(
@@ -3074,8 +3062,12 @@ impl Evaluator {
                 UErrorMessage::ConstructorCannotBeCalledDirectly(name)
             )),
             Object::UObject(u) => {
-                match u.lock().unwrap().get(&member) {
-                    Some(v) => self.eval_uobject(v, Arc::clone(&u), format!("/{}", member)),
+                let opt = {
+                    let m = u.lock().unwrap();
+                    m.get_case_insensitive(&member)
+                };
+                match opt {
+                    Some(v) => self.eval_uobject(&v, Arc::clone(&u), format!("/{}", member)),
                     None => Err(UError::new(
                         UErrorKind::UObjectError,
                         UErrorMessage::MemberNotFound(member)
@@ -3083,8 +3075,13 @@ impl Evaluator {
                 }
             },
             Object::UChild(u,p) => {
-                match u.lock().unwrap().pointer(p.as_str()).unwrap().get(&member) {
-                    Some(v) => self.eval_uobject(v, Arc::clone(&u), format!("{}/{}", p, member)),
+                let opt = {
+                    let m = u.lock().unwrap();
+                    let p = m.pointer(&p).unwrap();
+                    p.get_case_insensitive(&member)
+                };
+                match opt {
+                    Some(v) => self.eval_uobject(&v, Arc::clone(&u), format!("{}/{}", p, member)),
                     None => Err(UError::new(
                         UErrorKind::UObjectError,
                         UErrorMessage::MemberNotFound(member)
@@ -3253,7 +3250,7 @@ mod tests {
                     // どちらかがNone
                     panic!("\nresult: {:?}\nexpected: {:?}\n\n{}", result_obj, expected_obj, input);
                 },
-                Err(_) => panic!("this test should be ok:\n{}", input),
+                Err(e) => panic!("this test should be ok: {}\n error: {}", input, e),
             },
             Err(expected_err) => match result {
                 Ok(_) => panic!("this test should occure error:\n{}", input),
@@ -3289,7 +3286,7 @@ mod tests {
                     // どちらかがNone
                     panic!("\nresult: {:?}\nexpected: {:?}\n\n{}", result_obj, expected_obj, input);
                 },
-                Err(_) => panic!("this test should be ok:\n{}", input),
+                Err(e) => panic!("this test should be ok: {}\n error: {}", input, e),
             },
             Err(expected_err) => match result {
                 Ok(_) => panic!("this test should occure error:\n{}", input),
@@ -4726,6 +4723,41 @@ endmodule
             (
                 "M.set_a(5)",
                 Ok(Some(Object::Num(5.0)))
+            ),
+        ];
+        for (input, expected) in test_cases {
+            eval_test_with_env(&mut e, input, expected);
+        }
+    }
+
+    #[test]
+    fn test_uobject() {
+        let input1 = r#"
+dim obj = @{
+    "foo": 1,
+    "bar": {
+        "baz": 2,
+        "qux": [3, 4, 5]
+    }
+}@
+        "#;
+        let mut e = eval_env(input1);
+        let test_cases = vec![
+            (
+                "obj.foo",
+                Ok(Some(Object::Num(1.0)))
+            ),
+            (
+                "obj.FOO",
+                Ok(Some(Object::Num(1.0)))
+            ),
+            (
+                "obj.bar.baz",
+                Ok(Some(Object::Num(2.0)))
+            ),
+            (
+                "obj.bar.qux[0]",
+                Ok(Some(Object::Num(3.0)))
             ),
         ];
         for (input, expected) in test_cases {
