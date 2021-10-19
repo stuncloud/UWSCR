@@ -6,6 +6,7 @@ pub mod math;
 pub mod key_codes;
 pub mod com_object;
 pub mod browser_control;
+pub mod array_control;
 
 use crate::settings::usettings_singleton;
 use crate::winapi::{
@@ -174,7 +175,8 @@ pub fn init_builtins() -> Vec<NamedObject> {
     // browser_control
     browser_control::builtin_func_sets().set(&mut vec);
     set_builtin_consts::<browser_control::BcEnum>(&mut vec);
-
+    // array_control
+    array_control::builtin_func_sets().set(&mut vec);
     // 特殊変数
     set_special_variables(&mut vec);
 
@@ -553,11 +555,11 @@ pub fn get_uobject_argument_value(args: &BuiltinFuncArgs, i: usize) -> BuiltInRe
     }
 }
 
-pub fn get_array_argument_value(args: &BuiltinFuncArgs, i: usize, default: Option<Object>) -> BuiltInResult<Object> {
+pub fn get_array_argument_value(args: &BuiltinFuncArgs, i: usize, default: Option<Vec<Object>>) -> BuiltInResult<Vec<Object>> {
     if args.len() >= i + 1 {
         let arg = args.item(i).unwrap();
         match arg {
-            Object::Array(_) => Ok(arg),
+            Object::Array(arr) => Ok(arr),
             _ => Err(builtin_func_error(UErrorMessage::BuiltinArgInvalid(arg), args.name()))
         }
     } else {
