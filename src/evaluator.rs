@@ -1795,9 +1795,10 @@ impl Evaluator {
                 Object::String(s) => self.eval_infix_string_expression(infix, v1.to_string(), s.clone()),
                 _ => self.eval_infix_misc_expression(infix, left, right)
             },
-            Object::Array(ref a) => if infix == Infix::Plus {
-                a.to_owned().push(right);
-                Ok(Object::Array(a.to_vec()))
+            Object::Array(a) => if infix == Infix::Plus {
+                let mut new = a.to_owned();
+                new.push(right);
+                Ok(Object::Array(new))
             } else {
                 self.eval_infix_misc_expression(infix, left, right)
             },
