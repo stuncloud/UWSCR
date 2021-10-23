@@ -11,7 +11,6 @@ use crate::evaluator::environment::*;
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
 use crate::evaluator::def_dll::*;
-use crate::evaluator::com_object::*;
 use crate::evaluator::devtools_protocol::{Browser, Element};
 use crate::error::evaluator::{UError, UErrorKind, UErrorMessage};
 use crate::parser::Parser;
@@ -44,6 +43,7 @@ use num_traits::FromPrimitive;
 use regex::Regex;
 use serde_json;
 use libffi::middle::{Cif, CodePtr, Type};
+use windows::Handle;
 
 type EvalResult<T> = Result<T, UError>;
 
@@ -93,7 +93,7 @@ impl Evaluator {
             Object::Num(n) => {
                 n != 0.0
             },
-            Object::Handle(h) => ! h.is_null(),
+            Object::Handle(h) => ! h.is_invalid(),
             _ => true
         }
     }
@@ -1357,19 +1357,17 @@ impl Evaluator {
                 }
             },
             Object::ComMember(ref disp, ref member) => {
-                let com_index = ComArg::from_object(index)?;
-                let key = com_index.to_variant();
+                let key = index.to_variant()?;
                 let keys = vec![key];
                 let v = disp.get(member, Some(keys))?;
-                Object::from_variant(v)?
+                Object::from_variant(&v)?
             },
             Object::ComObject(ref disp) => {
                 // Item(key) の糖衣構文
-                let com_index = ComArg::from_object(index)?;
-                let key = com_index.to_variant();
+                let key = index.to_variant()?;
                 let keys = vec![key];
                 let v = disp.get("Item", Some(keys))?;
-                Object::from_variant(v)?
+                Object::from_variant(&v)?
             },
             Object::SafeArray(mut sa) => if hash_enum.is_some() {
                 return Err(UError::new(
@@ -1378,7 +1376,7 @@ impl Evaluator {
                 ));
             } else if let Object::Num(i) = index {
                 let v = sa.get(i as i32)?;
-                Object::from_variant(v)?
+                Object::from_variant(&v)?
             } else {
                 return Err(UError::new(
                     UErrorKind::EvaluatorError,
@@ -1475,16 +1473,13 @@ impl Evaluator {
                                     },
                                     Object::ComObject(ref disp) => {
                                         // Item(key) の糖衣構文
-                                        let com_index = ComArg::from_object(index)?;
-                                        let key = com_index.to_variant();
+                                        let key = index.to_variant()?;
                                         let keys = vec![key];
-                                        let com_value = ComArg::from_object(value)?;
-                                        let var_value = com_value.to_variant();
+                                        let var_value = value.to_variant()?;
                                         disp.set("Item", var_value, Some(keys))?;
                                     },
                                     Object::SafeArray(mut sa) => if let Object::Num(i) = index {
-                                        let com_value = ComArg::from_object(value)?;
-                                        let mut var_value = com_value.to_variant();
+                                        let mut var_value = value.to_variant()?;
                                         sa.set(i as i32, &mut var_value)?
                                     } else {
                                     },
@@ -1558,11 +1553,9 @@ impl Evaluator {
                             },
                             Object::ComObject(ref disp) => {
                                 if let Expression::Identifier(Identifier(member)) = *right {
-                                    let com_index = ComArg::from_object(index)?;
-                                    let key = com_index.to_variant();
+                                    let key = index.to_variant()?;
                                     let keys = vec![key];
-                                    let com_value = ComArg::from_object(value)?;
-                                    let var_value = com_value.to_variant();
+                                    let var_value = value.to_variant()?;
                                     disp.set(&member, var_value, Some(keys))?;
                                 }
                             },
@@ -1657,8 +1650,7 @@ impl Evaluator {
                     ));
                 },
                 Object::ComObject(ref disp) => if let Expression::Identifier(Identifier(name)) = *right {
-                    let com_arg = ComArg::from_object(value)?;
-                    let var_arg = com_arg.to_variant();
+                    let var_arg = value.to_variant()?;
                     disp.set(&name, var_arg, None)?;
                 } else {
                     return Err(UError::new(
@@ -1704,10 +1696,10 @@ impl Evaluator {
     fn eval_infix_expression(&mut self, infix: Infix, left: Object, right: Object) -> EvalResult<Object> {
         // VARIANT型だったらObjectに戻す
         if let Object::Variant(variant) = left {
-            return self.eval_infix_expression(infix, Object::from_variant(variant)?, right);
+            return self.eval_infix_expression(infix, Object::from_variant(&variant)?, right);
         }
         if let Object::Variant(variant) = right {
-            return self.eval_infix_expression(infix, left, Object::from_variant(variant)?);
+            return self.eval_infix_expression(infix, left, Object::from_variant(&variant)?);
         }
         // 論理演算子なら両辺の真性を評価してから演算する
         // ビット演算子なら両辺を数値とみなして演算する
@@ -2172,18 +2164,13 @@ impl Evaluator {
             Object::ComMember(ref disp, name) => self.invoke_com_function(disp, &name, arguments),
             Object::ComObject(ref disp) => {
                 // Item(key)の糖衣構文
-                let mut com_args = vec![];
-                for (_, obj) in arguments {
-                    let com_arg = ComArg::from_object(obj)?;
-                    com_args.push(com_arg);
-                }
                 let mut keys = vec![];
-                for com_arg in com_args.iter() {
-                    let key = com_arg.to_variant();
+                for (_, obj) in arguments {
+                    let key = obj.to_variant()?;
                     keys.push(key)
                 }
                 let v = disp.get("Item", Some(keys))?;
-                let obj = Object::from_variant(v)?;
+                let obj = Object::from_variant(&v)?;
                 Ok(obj)
             },
             Object::BrowserFunc(ref b, name) => {
@@ -2757,34 +2744,42 @@ impl Evaluator {
     }
 
     fn invoke_com_function(&mut self, disp: &IDispatch, name: &str, arguments: Vec<(Option<Expression>, Object)>) -> EvalResult<Object> {
-        let mut com_args = vec![];
+        // let mut com_args = vec![];
         let mut var_index = vec![];
-        for (_, obj) in arguments {
-            let com_arg = if let Object::VarArgument(e) = obj {
-                let o = self.eval_expression(e.clone())?;
-                let i = com_args.len();
-                var_index.push((i, e));
-                ComArg::from_object(o)?
-            } else {
-                ComArg::from_object(obj)?
-            };
-            com_args.push(com_arg);
-        }
+        // for (_, obj) in arguments {
+        //     let com_arg = if let Object::VarArgument(e) = obj {
+        //         let o = self.eval_expression(e.clone())?;
+        //         let i = com_args.len();
+        //         var_index.push((i, e));
+        //         ComArg::from_object(o)?
+        //     } else {
+        //         ComArg::from_object(obj)?
+        //     };
+        //     com_args.push(com_arg);
+        // }
         let mut var_args = vec![];
-        for com_arg in com_args.iter() {
-            let v = com_arg.to_variant();
+        for (_, obj) in arguments {
+            let v = if let Object::VarArgument(e) = obj {
+                let o = self.eval_expression(e.clone())?;
+                let i = var_args.len();
+                var_index.push((i, e));
+                o.to_variant()?
+            } else {
+                obj.to_variant()?
+            };
             var_args.push(v);
         }
+        println!("[debug] var_args: {:?}", &var_args);
+
         let result = disp.run(name, &mut var_args)?;
         if var_index.len() > 0 {
-            var_args.reverse();
             for (i, e) in var_index {
-                let var = var_args[i].to_owned();
+                let var = &var_args[i];
                 let o = Object::from_variant(var)?;
                 self.eval_assign_expression(e, o)?;
             }
         }
-        Ok(Object::from_variant(result)?)
+        Ok(Object::from_variant(&result)?)
     }
 
     fn auto_dispose_instances(&mut self, refs: Vec<String>, include_global: bool) {
@@ -3108,7 +3103,7 @@ impl Evaluator {
                     Object::ComMember(disp.clone(), member)
                 } else {
                     let v = disp.get(&member, None)?;
-                    Object::from_variant(v)?
+                    Object::from_variant(&v)?
                 };
                 Ok(obj)
             },

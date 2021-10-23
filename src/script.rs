@@ -135,7 +135,7 @@ pub fn out_ast(script: String, path: &String, force: bool) {
 pub fn get_parent_full_path(path: &String) -> Result<PathBuf, String> {
     let mut buffer = [0; MAX_PATH as usize];
     let mut file = to_wide_string(path);
-    let mut filepart = PWSTR::NULL;
+    let mut filepart = PWSTR::default();
     unsafe {
         GetFullPathNameW(PWSTR(file.as_mut_ptr()), buffer.len() as u32, PWSTR(buffer.as_mut_ptr()), &mut filepart);
     }

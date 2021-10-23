@@ -62,6 +62,7 @@ use std::mem;
 use strum_macros::{EnumString, EnumVariantNames};
 use num_derive::{ToPrimitive, FromPrimitive};
 use num_traits::FromPrimitive;
+use windows::Handle;
 
 #[derive(Clone)]
 pub struct WindowControl {
@@ -166,25 +167,25 @@ pub fn getid(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         "__GET_FROMPOINT_WIN__" => get_hwnd_from_mouse_point(true, args.name())?,
         "__GET_FROMPOINT_OBJ__" => get_hwnd_from_mouse_point(false, args.name())?,
         "__GET_THISUWSC_WIN__" => {
-            HWND::NULL
+            HWND::default()
         },
         "__GET_LOGPRINT_WIN__" => {
-            HWND::NULL
+            HWND::default()
         },
         "__GET_BALLOON_WIN__" => {
-            HWND::NULL
+            HWND::default()
         },
         "__GET_FORM_WIN__" => {
-            HWND::NULL
+            HWND::default()
         },
         "__GET_FORM_WIN2__" => {
-            HWND::NULL
+            HWND::default()
         },
         "__GET_SCHEDULE_WIN__" => {
-            HWND::NULL
+            HWND::default()
         },
         "__GET_STOPFORM_WIN__" => {
-            HWND::NULL
+            HWND::default()
         },
         _ => {
             let class_name = get_string_argument_value(&args, 1, Some("".into()))?;
@@ -193,7 +194,7 @@ pub fn getid(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             find_window(title, class_name, wait)
         },
     };
-    if ! hwnd.is_null() {
+    if ! hwnd.is_invalid() {
         let mut id = get_id_from_hwnd(hwnd);
         if id == -1.0 {
             let new_id = get_next_id();
@@ -248,7 +249,7 @@ fn enum_window_proc(hwnd: HWND, lparam: LPARAM) -> BOOL {
 
 fn find_window(title: String, class_name: String, timeout: f64) -> HWND {
     let mut target = TargetWindow {
-        hwnd: HWND::NULL,
+        hwnd: HWND::default(),
         title,
         class_name,
         found: false,
@@ -290,7 +291,7 @@ fn get_hwnd_from_mouse_point(toplevel: bool, name: String) -> BuiltInResult<HWND
         if toplevel {
             loop {
                 let parent = GetParent(hwnd);
-                if parent.is_null() || ! IsWindowVisible(parent).as_bool(){
+                if parent.is_invalid() || ! IsWindowVisible(parent).as_bool(){
                     break;
                 } else {
                     hwnd = parent;
@@ -308,7 +309,7 @@ pub fn idtohnd(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         return Ok(Object::Num(0.0));
     }
     let h = get_hwnd_from_id(id);
-    if ! h.is_null() {
+    if ! h.is_invalid() {
         unsafe {
             if IsWindow(h).as_bool() {
                 return Ok(Object::Num(h.0 as f64));
@@ -323,7 +324,7 @@ fn get_hwnd_from_id(id: i32) -> HWND {
     let list = s.windows.lock().unwrap();
     match list.get(&id) {
         Some(h) => *h,
-        None => HWND::NULL
+        None => HWND::default()
     }
 }
 
@@ -365,7 +366,7 @@ pub fn get_id_from_hwnd(hwnd: HWND) -> f64 {
 pub fn acw(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = get_non_float_argument_value::<i32>(&args, 0, None)?;
     let hwnd = get_hwnd_from_id(id);
-    if hwnd.is_null() {
+    if hwnd.is_invalid() {
         return Ok(Object::Empty);
     }
     let x = get_non_float_argument_value(&args, 1, None).ok();
@@ -406,7 +407,7 @@ pub enum CtrlWinCmd {
 pub fn ctrlwin(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = get_non_float_argument_value(&args, 0, None)?;
     let hwnd = get_hwnd_from_id(id);
-    if hwnd.is_null() {
+    if hwnd.is_invalid() {
         return Ok(Object::Empty);
     }
     let cmd = get_non_float_argument_value(&args, 1, None)?;
@@ -603,7 +604,7 @@ fn get_client_size(h: HWND) -> WindowSize {
     unsafe {
         GetClientRect(h, &mut rect);
         let mut point = POINT {x: rect.left, y: rect.top};
-        MapWindowPoints(h, HWND::NULL, &mut point, 1);
+        MapWindowPoints(h, HWND::default(), &mut point, 1);
         WindowSize(
             point.x,
             point.y,
@@ -687,7 +688,7 @@ fn get_process_path_from_hwnd(hwnd: HWND) -> BuiltinFuncResult {
     let mut buffer = [0; MAX_PATH as usize];
     unsafe {
         let handle = get_process_handle_from_hwnd(hwnd);
-        K32GetModuleFileNameExW(handle, HINSTANCE::NULL, PWSTR(buffer.as_mut_ptr()), MAX_PATH);
+        K32GetModuleFileNameExW(handle, HINSTANCE::default(), PWSTR(buffer.as_mut_ptr()), MAX_PATH);
         CloseHandle(handle);
     }
     let path = String::from_utf16_lossy(&buffer);
@@ -854,14 +855,12 @@ struct Monitor {
 }
 
 unsafe extern "system"
-fn monitor_enum_for_get_monitor_count(h: HMONITOR, _: HDC, _: *mut RECT, lparam: LPARAM) -> BOOL {
+fn callback_count_monitor(h: HMONITOR, _: HDC, _: *mut RECT, lparam: LPARAM) -> BOOL {
     let m = &mut *(lparam.0 as *mut Monitor);
-    println!("[debug] monitor: {:?}", m);
     if m.handle == h {
-        return false.into();
+        return false.into()
     }
     m.count += 1;
-
     true.into()
 }
 // nullを渡すと全モニタ数、モニタのハンドルを渡すとそのインデックスを返す
@@ -873,12 +872,11 @@ fn get_monitor_count(handle: HMONITOR) -> Object {
             index: 0,
         };
         let lparam = &mut monitor as *mut Monitor as isize;
-        let mut rect = RECT::default();
 
         EnumDisplayMonitors(
-            HDC::NULL,
-            &mut rect,
-            Some(monitor_enum_for_get_monitor_count),
+            HDC::default(),
+            &RECT::default(),
+            Some(callback_count_monitor),
             LPARAM(lparam)
         );
         Object::Num(monitor.count as f64)
@@ -900,11 +898,11 @@ fn get_monitor_handle_by_index(i: usize) -> HMONITOR {
     unsafe {
         let mut monitor = Monitor {
             count: 0,
-            handle: HMONITOR::NULL,
+            handle: HMONITOR::default(),
             index: i,
         };
         EnumDisplayMonitors(
-            HDC::NULL,
+            HDC::default(),
             &mut RECT::default(),
             Some(monitor_enum_proc_for_get_monitor_handle_by_index),
             LPARAM(&mut monitor as *mut Monitor as isize)
@@ -927,11 +925,11 @@ fn get_monitor_name(name: &[u16]) -> Object {
 
 pub fn monitor(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     if args.len() == 0 {
-        return Ok(get_monitor_count(HMONITOR::NULL));
+        return Ok(get_monitor_count(HMONITOR::default()));
     }
     let index = get_non_float_argument_value::<usize>(&args, 0, None)?;
     let h = get_monitor_handle_by_index(index);
-    if h.is_null() {
+    if h.is_invalid() {
         return Ok(Object::Bool(false));
     };
     let mut miex: MONITORINFOEXW = unsafe {mem::zeroed()};

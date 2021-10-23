@@ -6,6 +6,7 @@ version = "0.2.1"
 build = "build.rs"
 
 [dependencies]
+windows = "0.21.1"
 enigo = "*"
 cast = "0.2.3"
 encoding_rs = "0.8.26"
@@ -20,7 +21,6 @@ chrono = "0.4"
 bincode = "1"
 serde = { version = "1.0", features = ["derive"] }
 serde_derive = "1.0"
-windows = "0.18"
 dlopen = "0.1"
 libffi = "1.0.1"
 libc = "0.2"
@@ -32,8 +32,8 @@ websocket = "0.24"
 wmi = "0.9"
 
 [build-dependencies]
+windows = "0.21.1"
 winres = "0.1"
-windows = "0.18"
 
 [package.metadata.wix]
 compiler-args = ["-nologo"]

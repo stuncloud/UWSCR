@@ -50,6 +50,7 @@ use strum_macros::{EnumString, EnumVariantNames};
 use num_derive::{ToPrimitive, FromPrimitive};
 use num_traits::FromPrimitive;
 use serde_json::{Map, Value};
+use windows::Handle;
 
 
 pub fn builtin_func_sets() -> BuiltinFunctionSets {
@@ -205,15 +206,15 @@ pub fn env(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 pub fn shell_execute(cmd: String, params: Option<String>) -> bool {
     unsafe {
         let hinstance = ShellExecuteW(
-            HWND::NULL,
+            HWND::default(),
             PWSTR(to_wide_string("open").as_mut_ptr()),
             PWSTR(to_wide_string(&cmd).as_mut_ptr()),
             if params.is_some() {
                 PWSTR(to_wide_string(&params.unwrap()).as_mut_ptr())
             } else {
-                PWSTR::NULL
+                PWSTR::default()
             },
-            PWSTR::NULL,
+            PWSTR::default(),
             SW_SHOWNORMAL.0 as i32
         );
         hinstance.0 > 32
@@ -222,22 +223,22 @@ pub fn shell_execute(cmd: String, params: Option<String>) -> bool {
 
 fn create_process(cmd: String, name: String) -> Result<PROCESS_INFORMATION, UError> {
     unsafe {
-        let mut si: STARTUPINFOW = mem::zeroed();
+        let mut si = STARTUPINFOW::default();
         si.cb = mem::size_of::<STARTUPINFOW>() as u32;
         si.dwFlags = STARTF_USESHOWWINDOW;
         si.wShowWindow = SW_SHOW.0 as u16;
-        let mut pi: PROCESS_INFORMATION = mem::zeroed();
+        let mut pi = PROCESS_INFORMATION::default();
         let mut command = to_wide_string(&cmd);
 
         let r = CreateProcessW(
-            PWSTR::NULL,
+            PWSTR::default(),
             PWSTR(command.as_mut_ptr()),
             &mut SECURITY_ATTRIBUTES::default(),
             &mut SECURITY_ATTRIBUTES::default(),
             false,
             NORMAL_PRIORITY_CLASS,
             null_mut(),
-            PWSTR::NULL,
+            PWSTR::default(),
             &mut si,
             &mut pi
         );
@@ -277,7 +278,7 @@ pub fn exec(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     }
     let pi = process.unwrap();
     unsafe{
-        let mut ph = ProcessHwnd{pid: pi.dwProcessId, hwnd: HWND::NULL};
+        let mut ph = ProcessHwnd{pid: pi.dwProcessId, hwnd: HWND::default()};
         EnumWindows(Some(enum_window_proc), LPARAM(&mut ph as *mut ProcessHwnd as isize));
         let x = get_non_float_argument_value(&args, 2, None).ok();
         let y = get_non_float_argument_value(&args, 3, None).ok();
@@ -296,7 +297,7 @@ pub fn exec(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             // idを返す
             CloseHandle(pi.hThread);
             CloseHandle(pi.hProcess);
-            if ! ph.hwnd.is_null() {
+            if ! ph.hwnd.is_invalid() {
                 let id = window_control::get_next_id();
                 window_control::set_new_window(id, ph.hwnd, true);
                 Ok(Object::Num(id.into()))

@@ -49,9 +49,9 @@ pub fn to_ansi_bytes(string: &str) -> Vec<u8> {
             WC_COMPOSITECHECK,
             PWSTR(wide.as_mut_ptr()),
             wide.len() as i32,
-            PSTR::NULL,
+            PSTR::default(),
             0,
-            PSTR::NULL,
+            PSTR::default(),
             &mut 0
         );
         if len > 0 {
@@ -64,7 +64,7 @@ pub fn to_ansi_bytes(string: &str) -> Vec<u8> {
                 wide.len() as i32,
                 PSTR(result.as_mut_ptr()),
                 result.len() as i32,
-                PSTR::NULL,
+                PSTR::default(),
                 &mut 0
             );
             result
@@ -82,9 +82,9 @@ pub fn get_ansi_length(string: &str) -> usize {
             WC_COMPOSITECHECK,
             PWSTR(wide.as_mut_ptr()),
             wide.len() as i32,
-            PSTR::NULL,
+            PSTR::default(),
             0,
-            PSTR::NULL,
+            PSTR::default(),
             &mut 0
         );
         len as usize - 1
@@ -100,7 +100,7 @@ pub fn from_ansi_bytes(ansi: &Vec<u8>) -> String {
             MB_PRECOMPOSED,
             PSTR(ansi_pointer),
             ansi.len() as i32,
-            PWSTR::NULL,
+            PWSTR::default(),
             0
         );
         if len > 0 {
@@ -145,7 +145,7 @@ pub fn get_windows_directory() -> String {
 pub fn get_special_directory(csidl: i32) -> String {
     let mut buffer = [0; MAX_PATH as usize];
     unsafe {
-        SHGetSpecialFolderPathW(HWND::NULL, PWSTR(buffer.as_mut_ptr()), csidl, false);
+        SHGetSpecialFolderPathW(HWND::default(), PWSTR(buffer.as_mut_ptr()), csidl, false);
     }
     String::from_utf16_lossy(&buffer).trim_matches(char::from(0)).to_string()
 }
@@ -164,7 +164,7 @@ pub fn get_screen_height() -> i32 {
 
 pub fn get_color_depth() -> i32 {
     unsafe {
-        let dc = GetDC(HWND::NULL);
+        let dc = GetDC(HWND::default());
         let bitspixel = 12;
         GetDeviceCaps(dc, GET_DEVICE_CAPS_INDEX(bitspixel))
     }

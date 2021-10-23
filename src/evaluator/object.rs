@@ -223,7 +223,7 @@ impl fmt::Display for Object {
             //     let u = m.lock().unwrap();
             //     write!(f, "{:?}", u)
             // },
-            Object::ComObject(_) => write!(f, "Com Object"),
+            Object::ComObject(ref d) => write!(f, "{:?}", d),
             Object::ComMember(_, _) => write!(f, "Com member"),
             Object::Variant(ref v) => write!(f, "Variant({})", v.vt()),
             Object::SafeArray(_) => write!(f, "SafeArray"),

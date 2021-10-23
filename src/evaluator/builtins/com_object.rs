@@ -1,4 +1,3 @@
-use crate::evaluator::com_object::ComArg;
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
 use crate::evaluator::UError;
@@ -142,16 +141,15 @@ fn vartype(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         // VARIANT型への変換 VAR_UWSCRの場合は通常のObjectに戻す
         if vt == VarType::VAR_UWSCR as i32 {
             match o {
-                Object::Variant(v) => Ok(Object::from_variant(v)?),
+                Object::Variant(v) => Ok(Object::from_variant(&v)?),
                 o => Ok(o)
             }
         } else {
             let variant = match o {
-                Object::Variant(ref v) => v.change_type(vt as u16)?,
+                Object::Variant(ref v) => v.change_type(vt.into())?,
                 o => {
-                    let ca = ComArg::from_object(o)?;
-                    let v = ca.to_variant();
-                    v.change_type(vt as u16)?
+                    let v = o.to_variant()?;
+                    v.change_type(vt.into())?
                 }
             };
             Ok(Object::Variant(variant))
@@ -166,8 +164,7 @@ fn safearray(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             let mut sa = SAFEARRAY::new(0, (arr.len() - 1) as i32);
             let mut i = 0;
             for obj in arr {
-                let com_arg = ComArg::from_object(obj)?;
-                let mut variant = com_arg.to_variant();
+                let mut variant = obj.to_variant()?;
                 sa.set(i, &mut variant)?;
                 i += 1;
             }

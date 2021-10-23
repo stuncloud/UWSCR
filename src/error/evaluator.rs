@@ -339,7 +339,7 @@ pub enum UErrorMessage {
     ConstructorCannotBeCalledDirectly(String),
     ConstructorIsNotValid(String),
     ConstructorNotDefined(String),
-    ConvertionError(Object),
+    VariantConvertionError(Object),
     DllArgNotAllowedInStruct,
     DllArgumentIsNotArray(DllType, usize),
     DllArgumentTypeUnexpected(DllType, usize, String),
@@ -431,7 +431,7 @@ impl fmt::Display for UErrorMessage {
                     None => String::new()
                 }
             ),
-            Self::ConvertionError(o) => write_locale!(f,
+            Self::VariantConvertionError(o) => write_locale!(f,
                 "{} をVARIANT型に変換できません",
                 "Failed to convert {} to VARIANT",
                 o

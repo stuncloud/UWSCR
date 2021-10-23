@@ -121,7 +121,7 @@ fn main() {
             DISPATCH_PROPERTYGET, DISPATCH_PROPERTYPUT, DISPATCH_METHOD,
             VARIANT, DISPPARAMS, EXCEPINFO, VARENUM,
             DISPID_PROPERTYPUT, SAFEARRAY, SAFEARRAYBOUND,
-            IDispatch, VariantChangeType, VariantInit,
+            IDispatch, VariantChangeType, VariantCopy, VariantInit,
             SafeArrayCreate, SafeArrayGetElement, SafeArrayPutElement,
             SafeArrayGetLBound, SafeArrayGetUBound, SafeArrayGetDim, SafeArrayGetElemsize,
             GetActiveObject,

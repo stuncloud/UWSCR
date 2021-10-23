@@ -65,9 +65,9 @@ use crate::winapi::{
                 // VT_VOID,
                 VARENUM, SAFEARRAY, SAFEARRAYBOUND,
                 DISPPARAMS, EXCEPINFO,
-                VARIANT, VARIANT_abi, VARIANT_0, VARIANT_0_0_abi, VARIANT_0_0_0_abi, VARIANT_0_0_0_0_abi,
+                VARIANT, VARIANT_0_0,
                 IDispatch,
-                VariantInit, VariantChangeType,
+                VariantChangeType, VariantCopy,
                 SafeArrayCreate, SafeArrayGetElement, SafeArrayPutElement,
                 SafeArrayGetLBound, SafeArrayGetUBound, SafeArrayGetDim,
             },
@@ -81,11 +81,7 @@ use crate::evaluator::{
 };
 use crate::error::evaluator::{UError, UErrorKind, UErrorMessage};
 
-use std::{
-    ffi::c_void,
-    fmt, ptr,
-    // sync::{Arc, Mutex},
-};
+use std::{ffi::c_void, fmt, mem::ManuallyDrop};
 
 /* COMエラー */
 
@@ -96,25 +92,18 @@ pub struct ComError {
 }
 
 impl ComError {
-    pub fn new_with_description(e: &windows::Error, desc: &str) -> Self {
+    pub fn new(e: &windows::Error, description: Option<String>) -> Self {
         Self {
             message: e.message(),
             code: e.code().0,
-            description: Some(desc.into())
-        }
-    }
-    pub fn new(e: &windows::Error) -> Self {
-        Self {
-            message: e.message(),
-            code: e.code().0,
-            description: None
+            description
         }
     }
 }
 
 impl From<windows::Error> for ComError {
     fn from(e: windows::Error) -> Self {
-        Self::new(&e)
+        Self::new(&e, None)
     }
 }
 
@@ -127,64 +116,11 @@ impl From<ComError> for UError {
     }
 }
 
-/* COMに渡す値の実体 */
-
-#[derive(Clone, Debug)]
-pub enum ComArg {
-    Num(f64),
-    Bstr(BSTR),
-    Bool(bool),
-    Dispatch(IDispatch),
-    Variant(VARIANT),
-    Empty,
-    Null,
-    // Nothing,
-    // Invalid
-}
-
-impl ComArg {
-    pub fn from_object(object: Object) -> EvalResult<Self> {
-        let comarg = match object {
-            Object::Num(n) => Self::Num(n),
-            Object::String(ref s) => {
-                let wide = to_wide_string(s);
-                Self::Bstr(BSTR::from_wide(&wide))
-            },
-            Object::ComObject(ref d) => Self::Dispatch(d.clone()),
-            Object::Variant(ref v) => Self::Variant(v.clone()),
-            Object::Null => Self::Null,
-            Object::Bool(b) => Self::Bool(b),
-            Object::Empty |
-            Object::EmptyParam => ComArg::Empty,
-            o => return Err(UError::new(
-                UErrorKind::ConversionError,
-                UErrorMessage::ConvertionError(o),
-            )),
-        };
-        Ok(comarg)
-    }
-
-    pub fn to_variant(&self) -> VARIANT {
-        let mut variant = VARIANT::default();
-        match self {
-            ComArg::Num(n) => variant.set_double(*n),
-            ComArg::Bstr(bstr) => variant.set_bstr(bstr),
-            ComArg::Bool(b) => variant.set_bool(b),
-            ComArg::Dispatch(d) => variant.set_idispatch(d),
-            ComArg::Variant(v) => variant.set_variant(v),
-            ComArg::Empty => {}, // そのまま
-            ComArg::Null => variant.set_vt(VT_NULL),
-        }
-        variant
-    }
-}
-
-
 /* Objectの拡張 */
 impl Object {
-    pub fn from_variant(variant: VARIANT) -> EvalResult<Self> {
+    pub fn from_variant(variant: &VARIANT) -> EvalResult<Self> {
         // VT_ARRAYの場合
-        let is_array = (variant.vt() & VT_ARRAY.0 as u16) > 0;
+        let is_array = (variant.vt() & VT_ARRAY.as_u16()) > 0;
         if is_array {
             let mut sa = unsafe {
                 let p = variant.Anonymous.Anonymous.Anonymous.parray;
@@ -195,13 +131,13 @@ impl Object {
             let mut arr = vec![];
             for index in lb..ub {
                 let v = sa.get(index)?;
-                arr.push(Object::from_variant(v)?);
+                arr.push(Object::from_variant(&v)?);
             }
             return Ok(Object::Array(arr))
         }
 
         // let is_ref = (variant.vt() & VT_BYREF.0 as u16) > 0;
-        let vt = variant.vt() & VT_TYPEMASK.0 as u16;
+        let vt = variant.vt() & VT_TYPEMASK.as_u16();
         let obj = match VARENUM(vt as i32) {
             VT_EMPTY => Object::Empty,
             VT_NULL => Object::Null,
@@ -216,11 +152,8 @@ impl Object {
             VT_I8 |
             VT_ERROR |
             VT_CY => {
-                let mut dest = VARIANT::default();
-                unsafe {
-                    VariantChangeType(&mut dest, &variant, 0, VT_R8.0 as u16)?;
-                }
-                Object::Num(dest.get_double())
+                let v = variant.change_type(VT_R8)?;
+                Object::Num(v.get_double())
             },
             VT_BSTR => {
                 let bstr = variant.get_bstr()?;
@@ -229,11 +162,8 @@ impl Object {
             VT_DATE |
             VT_LPSTR |
             VT_LPWSTR => {
-                let mut dest = VARIANT::default();
-                unsafe {
-                    VariantChangeType(&mut dest, &variant, 0, VT_BSTR.0 as u16)?;
-                }
-                let bstr = dest.get_bstr()?;
+                let v = variant.change_type(VT_BSTR)?;
+                let bstr = v.get_bstr()?;
                 Object::String(bstr.to_string())
             },
             VT_DISPATCH => {
@@ -241,9 +171,45 @@ impl Object {
                 Object::ComObject(disp)
             },
             VT_BOOL => Object::Bool(variant.get_bool()),
-            _ => Object::Variant(variant),
+            _ => {
+                let v = variant.copy()?;
+                Object::Variant(v)
+            },
         };
         Ok(obj)
+    }
+
+    pub fn to_variant(&self) -> EvalResult<VARIANT> {
+        let mut variant = VARIANT::default();
+        match self {
+            Object::Num(n) => variant.set_double(*n),
+            Object::String(s) => {
+                let wide = to_wide_string(s);
+                let bstr = BSTR::from_wide(&wide);
+                variant.set_bstr(bstr);
+            },
+            Object::Bool(b) => variant.set_bool(b),
+            Object::ComObject(d) => variant.set_idispatch(d),
+            Object::Empty |
+            Object::EmptyParam => {} ,//そのまま
+            Object::Null => variant.set_vt(VT_NULL),
+            Object::Array(a) => {
+                let mut sa = SAFEARRAY::new(0, (a.len() - 1) as i32);
+                for i in 0..a.len() {
+                    let o = a.get(i).unwrap();
+                    let mut v = o.to_variant()?;
+                    sa.set(i as i32, &mut v)?;
+                }
+                variant.set_safearray(&mut sa)
+            },
+            Object::Variant(v) => variant = v.clone(),
+            Object::SafeArray(sa) => variant.set_safearray(sa),
+            o => return Err(UError::new(
+                UErrorKind::ConversionError,
+                UErrorMessage::VariantConvertionError(o.clone()),
+            )),
+        }
+        Ok(variant)
     }
 }
 
@@ -294,7 +260,10 @@ impl IDispatch {
         dp.cArgs = args.len() as u32;
         dp.rgvarg = args.as_mut_ptr();
         match self.invoke_wrapper(name, &mut dp, DISPATCH_METHOD as u16) {
-            Ok(v) => Ok(v),
+            Ok(v) => {
+                args.reverse(); // 順序を戻す
+                Ok(v)
+            },
             Err(e) => if e.code == DISP_E_MEMBERNOTFOUND.0 {
                 // メソッドが存在しなかった場合はプロパティである可能性があるのでget()する
                 args.reverse();
@@ -309,15 +278,14 @@ impl IDispatch {
     fn invoke_wrapper(&self, name: &str, dp: *mut DISPPARAMS, wflags: u16) -> ComResult<VARIANT> {
         unsafe {
             let mut member: Vec<u16> = to_wide_string(name);
-            let dispidmember = match self.GetIDsOfNames(
+            let mut dispidmember = 0;
+            self.GetIDsOfNames(
                 &windows::Guid::default(),
                 &mut PWSTR(member.as_mut_ptr()),
                 1,
-                LOCALE_USER_DEFAULT
-            ) {
-                Ok(id) => id,
-                Err(e) => return Err(ComError::new(&e)),
-            };
+                LOCALE_USER_DEFAULT,
+                &mut dispidmember
+            )?;
 
             let mut excepinfo = EXCEPINFO::default();
             let mut argerr = 0;
@@ -335,7 +303,7 @@ impl IDispatch {
             ) {
                 Ok(()) => Ok(result),
                 Err(e) => {
-                    let com_err = ComError::new_with_description(&e, &excepinfo.bstrDescription.to_string());
+                    let com_err = ComError::new(&e, Some(excepinfo.bstrDescription.to_string()));
                     Err(com_err)
                 },
             }
@@ -343,41 +311,19 @@ impl IDispatch {
     }
 }
 
+/* VARENUMを拡張 u16にinto() */
+impl From<VARENUM> for u16 {
+    fn from(v: VARENUM) -> Self {
+        v.0 as u16
+    }
+}
+impl VARENUM {
+    pub fn as_u16(&self) -> u16 {
+        self.0 as u16
+    }
+}
+
 /* VARIANTに不足しているTraitを実装 */
-
-impl Default for VARIANT {
-    fn default() -> Self {
-        let mut variant = VARIANT {
-            Anonymous: VARIANT_0 {
-                Anonymous: VARIANT_0_0_abi {
-                    vt: 0, // VT_EMPTY
-                    wReserved1: 0,
-                    wReserved2: 0,
-                    wReserved3: 0,
-                    Anonymous: VARIANT_0_0_0_abi {
-                        Anonymous: VARIANT_0_0_0_0_abi {
-                            pvRecord: ptr::null_mut() as *mut c_void,
-                            pRecInfo: ptr::null_mut() as *mut c_void
-                        }
-                    }
-                }
-            }
-        };
-        unsafe {
-            VariantInit(&mut variant);
-        }
-        variant
-    }
-}
-
-impl Clone for VARIANT {
-    fn clone(&self) -> Self {
-        let mut variant = VARIANT::default();
-        variant.Anonymous.Anonymous = unsafe {self.Anonymous.Anonymous.clone()};
-        variant
-    }
-}
-
 impl std::fmt::Debug for VARIANT {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("VARIANT")
@@ -388,46 +334,50 @@ impl std::fmt::Debug for VARIANT {
 
 unsafe impl Send for VARIANT {}
 
-pub trait VARIANTHelper {
-    fn vt(&self) -> u16;
-    fn set_vt(&mut self, vt: VARENUM);
-    fn set_double(&mut self, n: f64);
-    fn set_bstr(&mut self, bstr: &BSTR);
-    fn set_idispatch(&mut self, idispatch: &IDispatch);
-    fn set_variant(&mut self, variant: &VARIANT);
-    fn get_double(&self) -> f64;
-    fn get_bstr(&self) -> ComResult<BSTR>;
-    fn get_idispatch(&self) -> ComResult<IDispatch>;
-    fn get_bool(&self) -> bool;
-}
-
 impl VARIANT {
     pub fn vt(&self) -> u16 {
         unsafe {self.Anonymous.Anonymous.vt}
     }
     fn set_vt(&mut self, vt: VARENUM) {
-        self.Anonymous.Anonymous.vt = vt.0 as u16;
+        let mut v00 = VARIANT_0_0::default();
+        v00.vt = vt.into();
+        self.Anonymous.Anonymous = ManuallyDrop::new(v00);
     }
     fn set_double(&mut self, n: f64) {
-        self.set_vt(VT_R8);
-        self.Anonymous.Anonymous.Anonymous.dblVal = n;
+        let mut v00 = VARIANT_0_0::default();
+        v00.vt = VT_R8.into();
+        v00.Anonymous.dblVal = n;
+        self.Anonymous.Anonymous = ManuallyDrop::new(v00);
     }
-    fn set_bstr(&mut self, bstr: &BSTR) {
-        self.set_vt(VT_BSTR);
-        self.Anonymous.Anonymous.Anonymous.bstrVal = bstr.abi();
+    fn set_bstr(&mut self, bstr: BSTR) {
+        let mut v00 = VARIANT_0_0::default();
+        v00.vt = VT_BSTR.into();
+        v00.Anonymous.bstrVal = ManuallyDrop::new(bstr);
+        self.Anonymous.Anonymous = ManuallyDrop::new(v00);
     }
     fn set_bool(&mut self, b: &bool) {
-        self.set_vt(VT_BOOL);
-        self.Anonymous.Anonymous.Anonymous.boolVal = if *b {-1} else {0};
+        let mut v00 = VARIANT_0_0::default();
+        v00.vt = VT_BOOL.into();
+        v00.Anonymous.boolVal = if *b {-1} else {0};
+        self.Anonymous.Anonymous = ManuallyDrop::new(v00);
     }
     fn set_idispatch(&mut self, idispatch: &IDispatch) {
-        self.set_vt(VT_DISPATCH);
-        self.Anonymous.Anonymous.Anonymous.pdispVal = idispatch.abi();
+        let mut v00 = VARIANT_0_0::default();
+        v00.vt = VT_DISPATCH.into();
+        v00.Anonymous.pdispVal = idispatch as *const IDispatch as *mut c_void;
+        self.Anonymous.Anonymous = ManuallyDrop::new(v00);
     }
-    fn set_variant(&mut self, variant: &VARIANT) {
-        self.set_vt(VT_VARIANT);
-        let p = &mut variant.abi() as *mut VARIANT_abi;
-        self.Anonymous.Anonymous.Anonymous.pvarVal = p;
+    fn _set_variant(&mut self, variant: VARIANT) {
+        let mut v00 = VARIANT_0_0::default();
+        v00.vt = VT_VARIANT.into();
+        v00.Anonymous.pvarVal = &mut ManuallyDrop::new(variant);
+        self.Anonymous.Anonymous = ManuallyDrop::new(v00);
+    }
+    fn set_safearray(&mut self, sa: &SAFEARRAY) {
+        let mut v00 = VARIANT_0_0::default();
+        v00.vt = VT_VARIANT.as_u16() | VT_ARRAY.as_u16();
+        v00.Anonymous.parray = sa as *const SAFEARRAY as *mut SAFEARRAY;
+        self.Anonymous.Anonymous = ManuallyDrop::new(v00);
     }
     fn get_double(&self) -> f64 {
         unsafe {
@@ -436,8 +386,10 @@ impl VARIANT {
     }
     fn get_bstr(&self) -> ComResult<BSTR> {
         unsafe {
-            let p = self.Anonymous.Anonymous.Anonymous.bstrVal;
-            let bstr = BSTR::from_abi(p)?;
+            let mut copy = self.copy()?;
+            let mut v00 = ManuallyDrop::take(&mut copy.Anonymous.Anonymous);
+            let bstr = ManuallyDrop::take(&mut v00.Anonymous.bstrVal);
+            drop(copy);
             Ok(bstr)
         }
     }
@@ -453,12 +405,19 @@ impl VARIANT {
             self.Anonymous.Anonymous.Anonymous.boolVal != 0
         }
     }
-    pub fn change_type(&self, vt: u16) -> ComResult<VARIANT> {
+    pub fn change_type(&self, var_enum: VARENUM) -> ComResult<VARIANT> {
         unsafe {
             let mut dest = VARIANT::default();
-            VariantChangeType(&mut dest, self, 0, vt)?;
+            VariantChangeType(&mut dest, self, 0, var_enum.as_u16())?;
             Ok(dest)
         }
+    }
+    pub fn copy(&self) -> ComResult<VARIANT> {
+        let mut dest = VARIANT::default();
+        unsafe {
+            VariantCopy(&mut dest, self)?;
+        }
+        Ok(dest)
     }
 }
 
