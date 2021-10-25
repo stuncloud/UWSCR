@@ -336,7 +336,7 @@ pub enum UErrorMessage {
     CastError(String),
     ComError(String, Option<String>),
     ConstantCantBeAssigned(String),
-    ConstructorCannotBeCalledDirectly(String),
+    ClassMemberCannotBeCalledDirectly(String),
     ConstructorIsNotValid(String),
     ConstructorNotDefined(String),
     VariantConvertionError(Object),
@@ -681,8 +681,8 @@ impl fmt::Display for UErrorMessage {
                 "Invalid expression: {:?}",
                 e
             ),
-            Self::ConstructorCannotBeCalledDirectly(name) => write_locale!(f,
-                "コンストラクタを直接呼び出すことは出来ません ({0}.{0}())",
+            Self::ClassMemberCannotBeCalledDirectly(name) => write_locale!(f,
+                "インスタンスを作らずクラスメンバを呼び出すことはできません ({0}.{0}())",
                 "Calling {0}.{0}() is not allowed",
                 name
             ),
