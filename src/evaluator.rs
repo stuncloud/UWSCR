@@ -78,26 +78,6 @@ impl Evaluator {
         }
     }
 
-    fn is_truthy(obj: Object) -> bool {
-        match obj {
-            Object::Empty |
-            Object::Bool(false) |
-            Object::Nothing => false,
-            Object::Instance(ref m, _) => {
-                // 破棄されたインスタンスはNOTHING扱い
-                let ins = m.lock().unwrap();
-                ! ins.is_disposed()
-            },
-            Object::String(ref s) => s.len() > 0,
-            Object::Array(ref arr) => arr.len() > 0,
-            Object::Num(n) => {
-                n != 0.0
-            },
-            Object::Handle(h) => ! h.is_invalid(),
-            _ => true
-        }
-    }
-
     fn new_instance_id(&mut self) -> u32 {
         let mut instance_id = self.instance_id.lock().unwrap();
         *instance_id += 1;
@@ -455,7 +435,7 @@ impl Evaluator {
     }
 
     fn eval_if_line_statement(&mut self, condition: Expression, consequence: StatementWithRow, alternative: Option<StatementWithRow>) -> EvalResult<Option<Object>> {
-        if Self::is_truthy(self.eval_expression(condition)?) {
+        if self.eval_expression(condition)?.is_truthy() {
             self.eval_statement(consequence)
         } else {
             match alternative {
@@ -466,7 +446,7 @@ impl Evaluator {
     }
 
     fn eval_if_statement(&mut self, condition: Expression, consequence: BlockStatement, alternative: Option<BlockStatement>) -> EvalResult<Option<Object>> {
-        if Self::is_truthy(self.eval_expression(condition)?) {
+        if self.eval_expression(condition)?.is_truthy() {
             self.eval_block_statement(consequence)
         } else {
             match alternative {
@@ -477,14 +457,14 @@ impl Evaluator {
     }
 
     fn eval_elseif_statement(&mut self, condition: Expression, consequence: BlockStatement, alternatives: Vec<(Option<Expression>, BlockStatement)>) -> EvalResult<Option<Object>> {
-        if Self::is_truthy(self.eval_expression(condition)?) {
+        if self.eval_expression(condition)?.is_truthy() {
             return self.eval_block_statement(consequence);
         } else {
             for (altcond, block) in alternatives {
                 match altcond {
                     Some(cond) => {
                         // elseif
-                        if Self::is_truthy(self.eval_expression(cond)?) {
+                        if self.eval_expression(cond)?.is_truthy() {
                             return self.eval_block_statement(block);
                         }
                     },
@@ -662,7 +642,7 @@ impl Evaluator {
     }
 
     fn eval_loop_flg_expression(&mut self, expression: Expression) -> Result<bool, UError> {
-        Ok(Self::is_truthy(self.eval_expression(expression)? ))
+        Ok(self.eval_expression(expression)?.is_truthy())
     }
 
     fn eval_while_statement(&mut self, expression: Expression, block: BlockStatement) -> EvalResult<Option<Object>> {
@@ -1708,7 +1688,7 @@ impl Evaluator {
             Infix::AndL |
             Infix::OrL |
             Infix::XorL => return self.eval_infix_logical_operator_expression(
-                infix, Self::is_truthy(left), Self::is_truthy(right)
+                infix, left.is_truthy(), right.is_truthy()
             ),
             // ビット演算子
             Infix::AndB |
@@ -2854,7 +2834,7 @@ impl Evaluator {
                 Ok(res.map_or_else(|| Object::Empty, |v| v.into()))
             }
             "reload" => {
-                let ignore_cache = Self::is_truthy(get_arg(0));
+                let ignore_cache = get_arg(0).is_truthy();
                 browser.reload(ignore_cache)?;
                 Ok(Object::Empty)
             }
@@ -2893,7 +2873,7 @@ impl Evaluator {
             "dialog" => {
                 let (accept, prompt) = match get_arg(0) {
                     Object::String(s) => (true, Some(s)),
-                    o => (Self::is_truthy(o), None)
+                    o => (o.is_truthy(), None)
                 };
                 browser.dialog(accept, prompt)?;
                 Ok(Object::Empty)
@@ -2985,7 +2965,7 @@ impl Evaluator {
 
     fn eval_ternary_expression(&mut self, condition: Expression, consequence: Expression, alternative: Expression) -> EvalResult<Object> {
         let condition = self.eval_expression(condition)?;
-        if Self::is_truthy(condition) {
+        if condition.is_truthy() {
             self.eval_expression(consequence)
         } else {
             self.eval_expression(alternative)
@@ -3055,7 +3035,7 @@ impl Evaluator {
             },
             Object::Class(name, _) => Err(UError::new(
                 UErrorKind::ClassError,
-                UErrorMessage::ConstructorCannotBeCalledDirectly(name)
+                UErrorMessage::ClassMemberCannotBeCalledDirectly(name)
             )),
             Object::UObject(u) => {
                 let opt = {

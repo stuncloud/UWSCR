@@ -510,11 +510,7 @@ pub fn get_string_or_empty_argument(args: &BuiltinFuncArgs, i: usize, default: O
 pub fn get_bool_argument_value(args: &BuiltinFuncArgs, i: usize, default: Option<bool>) -> BuiltInResult<bool> {
     if args.len() >= i + 1 {
         let arg = args.item(i).unwrap();
-        let b = match arg {
-            Object::Bool(b) => b,
-            o => Evaluator::is_truthy(o)
-        };
-        Ok(b)
+        Ok(arg.is_truthy())
     } else {
         default.ok_or(builtin_func_error(UErrorMessage::BuiltinArgRequiredAt(i + 1), args.name()))
     }

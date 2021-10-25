@@ -25,10 +25,12 @@ use std::mem;
 
 use indexmap::IndexMap;
 use libc::{c_void};
+use num_traits::Zero;
 use strum_macros::{EnumString, EnumVariantNames};
 use num_derive::{ToPrimitive, FromPrimitive};
 use serde_json::{self, Value};
 use cast;
+use windows::Handle;
 
 #[derive(Clone, Debug)]
 pub enum Object {
@@ -239,6 +241,25 @@ impl fmt::Display for Object {
 impl Object {
     pub fn is_equal(&self, other: &Object) -> bool {
         format!("{}", self) == format!("{}", other)
+    }
+
+    pub fn is_truthy(&self) -> bool {
+        match self {
+            Object::Empty |
+            Object::EmptyParam |
+            Object::Bool(false) |
+            Object::Nothing => false,
+            Object::Instance(m, _) => {
+                let ins = m.lock().unwrap();
+                ! ins.is_disposed()
+            },
+            Object::String(s) |
+            Object::ExpandableTB(s) => s.len() > 0,
+            Object::Array(arr) => arr.len() > 0,
+            Object::Num(n) => ! n.is_zero(),
+            Object::Handle(h) => ! h.is_invalid(),
+            _ => true
+        }
     }
 }
 
