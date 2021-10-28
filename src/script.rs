@@ -8,20 +8,18 @@ use crate::lexer::Lexer;
 use crate::settings::load_settings;
 use crate::winapi::{
     to_wide_string,
-    bindings::{
-        Windows::{
-            Win32::{
-                Foundation::{
-                    MAX_PATH, PWSTR,
-                },
-                Storage::{
-                    FileSystem::{
-                        GetFullPathNameW,
-                    }
-                }
-            }
+};
+use windows::{
+    Win32::{
+        Foundation::{
+            MAX_PATH, PWSTR,
         },
-    },
+        Storage::{
+            FileSystem::{
+                GetFullPathNameW,
+            }
+        }
+    }
 };
 use crate::logging;
 

@@ -413,6 +413,7 @@ pub enum UErrorMessage {
     InvalidMember(String),
     WebResponseWasNotOk(u16, String),
     InvalidErrorLine(usize),
+    FailedToGetObject,
 }
 
 impl fmt::Display for UErrorMessage {
@@ -847,6 +848,10 @@ impl fmt::Display for UErrorMessage {
                 "不正なエラー行指定 ({})",
                 "Invalid error line: {}",
                 row
+            ),
+            Self::FailedToGetObject =>write_locale!(f,
+                "オブジェクトの取得に失敗",
+                "Failed to get active object",
             ),
         }
     }

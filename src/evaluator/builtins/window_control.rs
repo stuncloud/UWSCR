@@ -2,52 +2,51 @@ use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
 use crate::evaluator::builtins::window_low;
 use crate::evaluator::builtins::system_controls::is_64bit_os;
-use crate::winapi::bindings::{
-    Windows::{
-        Win32::{
-            Foundation::{
-                MAX_PATH,
-                PWSTR, BOOL, HANDLE, HINSTANCE,
-                HWND, WPARAM, LPARAM, POINT, RECT,
-                CloseHandle,
-            },
-            System::{
-                Threading::{
-                    PROCESS_QUERY_INFORMATION, PROCESS_VM_READ,
-                    OpenProcess, WaitForInputIdle, IsWow64Process,
-                },
-                ProcessStatus::K32GetModuleFileNameExW,
-            },
-            UI::{
-                WindowsAndMessaging::{
-                    SWP_NOMOVE, SWP_NOSIZE, SWP_NOACTIVATE,
-                    SW_SHOWNORMAL, SW_SHOW, SW_HIDE, SW_MINIMIZE, SW_MAXIMIZE,
-                    WINDOWPLACEMENT,
-                    WM_CLOSE, WM_DESTROY, HWND_TOPMOST, HWND_NOTOPMOST,
-                    MONITORINFOF_PRIMARY,
-                    WindowFromPoint, GetParent, IsWindowVisible, GetClientRect,
-                    GetForegroundWindow, GetWindowTextW, GetClassNameW, EnumWindows,
-                    IsWindow, PostMessageW, SetForegroundWindow, ShowWindow,
-                    SetWindowPos, GetWindowRect, MoveWindow, GetWindowPlacement,
-                    GetWindowThreadProcessId, IsIconic, IsHungAppWindow,
-                },
-                HiDpi::{
-                    GetDpiForWindow,
-                },
-            },
-            Graphics::{
-                Gdi::{
-                    HMONITOR, HDC, DISPLAY_DEVICEW, MONITORINFOEXW, MONITORINFO,
-                    MONITOR_DEFAULTTONEAREST,
-                    MapWindowPoints, MonitorFromWindow, EnumDisplayMonitors,
-                    EnumDisplayDevicesW, GetMonitorInfoW,
-                },
-                Dwm::{
-                    DWMWA_EXTENDED_FRAME_BOUNDS,
-                    DwmIsCompositionEnabled, DwmGetWindowAttribute,
-                },
-            }
+use windows::{
+    runtime::Handle,
+    Win32::{
+        Foundation::{
+            MAX_PATH,
+            PWSTR, BOOL, HANDLE, HINSTANCE,
+            HWND, WPARAM, LPARAM, POINT, RECT,
+            CloseHandle,
         },
+        System::{
+            Threading::{
+                PROCESS_QUERY_INFORMATION, PROCESS_VM_READ,
+                OpenProcess, WaitForInputIdle, IsWow64Process,
+            },
+            ProcessStatus::K32GetModuleFileNameExW,
+        },
+        UI::{
+            WindowsAndMessaging::{
+                SWP_NOMOVE, SWP_NOSIZE, SWP_NOACTIVATE,
+                SW_SHOWNORMAL, SW_SHOW, SW_HIDE, SW_MINIMIZE, SW_MAXIMIZE,
+                WINDOWPLACEMENT,
+                WM_CLOSE, WM_DESTROY, HWND_TOPMOST, HWND_NOTOPMOST,
+                MONITORINFOF_PRIMARY,
+                WindowFromPoint, GetParent, IsWindowVisible, GetClientRect,
+                GetForegroundWindow, GetWindowTextW, GetClassNameW, EnumWindows,
+                IsWindow, PostMessageW, SetForegroundWindow, ShowWindow,
+                SetWindowPos, GetWindowRect, MoveWindow, GetWindowPlacement,
+                GetWindowThreadProcessId, IsIconic, IsHungAppWindow,
+            },
+            HiDpi::{
+                GetDpiForWindow,
+            },
+        },
+        Graphics::{
+            Gdi::{
+                HMONITOR, HDC, DISPLAY_DEVICEW, MONITORINFOEXW, MONITORINFO,
+                MONITOR_DEFAULTTONEAREST,
+                MapWindowPoints, MonitorFromWindow, EnumDisplayMonitors,
+                EnumDisplayDevicesW, GetMonitorInfoW,
+            },
+            Dwm::{
+                DWMWA_EXTENDED_FRAME_BOUNDS,
+                DwmIsCompositionEnabled, DwmGetWindowAttribute,
+            },
+        }
     },
 };
 
@@ -62,7 +61,6 @@ use std::mem;
 use strum_macros::{EnumString, EnumVariantNames};
 use num_derive::{ToPrimitive, FromPrimitive};
 use num_traits::FromPrimitive;
-use windows::Handle;
 
 #[derive(Clone)]
 pub struct WindowControl {
@@ -529,7 +527,7 @@ fn get_window_size(h: HWND) -> BuiltInResult<WindowSize> {
         } else {
             let _ = DwmGetWindowAttribute(
                 h,
-                DWMWA_EXTENDED_FRAME_BOUNDS.0 as u32,
+                DWMWA_EXTENDED_FRAME_BOUNDS,
                 &mut rect as *mut _ as *mut c_void,
                 mem::size_of::<RECT>() as u32
             );
@@ -572,7 +570,7 @@ pub fn set_window_size(hwnd: HWND, x: Option<i32>, y: Option<i32>, w: Option<i32
             // 見た目のRectを取る
             let _ = DwmGetWindowAttribute(
                 hwnd,
-                DWMWA_EXTENDED_FRAME_BOUNDS.0 as u32,
+                DWMWA_EXTENDED_FRAME_BOUNDS,
                 &mut drect as *mut _ as *mut c_void,
                 mem::size_of::<RECT>() as u32
             );
@@ -932,8 +930,8 @@ pub fn monitor(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     if h.is_invalid() {
         return Ok(Object::Bool(false));
     };
-    let mut miex: MONITORINFOEXW = unsafe {mem::zeroed()};
-    let mut mi = miex.__AnonymousBase_winuser_L13558_C43;
+    let mut miex = MONITORINFOEXW::default();
+    let mut mi = miex.__AnonymousBase_winuser_L13571_C43;
     mi.cbSize = mem::size_of::<MONITORINFO>() as u32;
     // let p_miex = <*mut _>::cast(&mut miex);
     let p_miex = &mut miex as *mut _ as *mut MONITORINFO;

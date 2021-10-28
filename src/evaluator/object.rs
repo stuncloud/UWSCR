@@ -3,17 +3,21 @@ use crate::evaluator::environment::{NamedObject, Module};
 use crate::evaluator::builtins::BuiltinFunction;
 use crate::evaluator::{EvalResult};
 use crate::evaluator::def_dll::DllArg;
+use crate::evaluator::com_object::VARIANTHelper;
 use crate::error::evaluator::{UError,UErrorKind,UErrorMessage};
 use crate::evaluator::devtools_protocol::{Browser, Element};
 
 use crate::winapi::{
     to_ansi_bytes, from_ansi_bytes, to_wide_string,
-    bindings::Windows::Win32::{
+};
+use windows::{
+    runtime::Handle,
+    Win32::{
         Foundation::HWND,
         System::OleAutomation::{
             VARIANT, SAFEARRAY, IDispatch,
         },
-    },
+    }
 };
 
 use std::fmt;
@@ -30,7 +34,6 @@ use strum_macros::{EnumString, EnumVariantNames};
 use num_derive::{ToPrimitive, FromPrimitive};
 use serde_json::{self, Value};
 use cast;
-use windows::Handle;
 
 #[derive(Clone, Debug)]
 pub enum Object {
@@ -75,7 +78,7 @@ pub enum Object {
     UStruct(String, usize, Arc<Mutex<UStruct>>), // 構造体インスタンス
     ComObject(IDispatch),
     ComMember(IDispatch, String),
-    Variant(VARIANT),
+    Variant(Variant),
     // ComObject(Arc<Mutex<IDispatch>>),
     // Variant(Arc<Mutex<VARIANT>>),
     SafeArray(SAFEARRAY),
@@ -85,6 +88,8 @@ pub enum Object {
     Element(Element),
     ElementFunc(Element, String),
 }
+
+unsafe impl Send for Object {}
 
 impl fmt::Display for Object {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -227,7 +232,7 @@ impl fmt::Display for Object {
             // },
             Object::ComObject(ref d) => write!(f, "{:?}", d),
             Object::ComMember(_, _) => write!(f, "Com member"),
-            Object::Variant(ref v) => write!(f, "Variant({})", v.vt()),
+            Object::Variant(ref v) => write!(f, "Variant({})", v.0.vt()),
             Object::SafeArray(_) => write!(f, "SafeArray"),
             Object::VarArgument(_) => write!(f, "var"),
             Object::Browser(ref b) => write!(f, "Browser: {}:{} ({})", b.btype, b.port, b.id),
@@ -425,6 +430,17 @@ impl PartialEq<String> for Version {
 impl PartialEq<f64> for Version {
     fn eq(&self, other: &f64) -> bool {
         self.parse() == *other
+    }
+}
+
+#[derive(Clone)]
+pub struct Variant(pub VARIANT);
+
+impl fmt::Debug for Variant {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("VARIANT")
+            .field("vt", &self.0.vt())
+            .finish()
     }
 }
 

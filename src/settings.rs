@@ -2,9 +2,9 @@ use crate::{
     evaluator::builtins::system_controls::shell_execute,
     winapi::{
         get_special_directory,
-        bindings::Windows::Win32::UI::Shell::CSIDL_APPDATA,
     }
 };
+use windows::Win32::UI::Shell::CSIDL_APPDATA;
 
 use core::fmt;
 use std::{

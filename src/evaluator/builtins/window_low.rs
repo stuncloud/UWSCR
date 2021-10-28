@@ -7,17 +7,15 @@ use enigo::*;
 use strum_macros::{EnumString, EnumVariantNames};
 use num_derive::{ToPrimitive, FromPrimitive};
 use num_traits::FromPrimitive;
-use crate::winapi::bindings::{
-    Windows::{
-        Win32::{
-            Foundation::POINT,
-            UI::{
-                KeyboardAndMouseInput::{
-                    KEYEVENTF_SCANCODE, KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP,
-                    keybd_event, MapVirtualKeyW
-                },
-                WindowsAndMessaging::GetCursorPos,
+use windows::{
+    Win32::{
+        Foundation::POINT,
+        UI::{
+            KeyboardAndMouseInput::{
+                KEYEVENTF_SCANCODE, KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP,
+                keybd_event, MapVirtualKeyW
             },
+            WindowsAndMessaging::GetCursorPos,
         },
     },
 };

@@ -1,5 +1,5 @@
 use crate::error::evaluator::{UError, UErrorKind, UErrorMessage};
-use crate::winapi::bindings::Windows::Win32::{
+use windows::Win32::{
     Foundation::{LPARAM, HWND, BOOL},
     UI::WindowsAndMessaging::{
         GW_OWNER,

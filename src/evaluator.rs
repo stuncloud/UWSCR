@@ -11,14 +11,15 @@ use crate::evaluator::environment::*;
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
 use crate::evaluator::def_dll::*;
+use crate::evaluator::com_object::*;
 use crate::evaluator::devtools_protocol::{Browser, Element};
 use crate::error::evaluator::{UError, UErrorKind, UErrorMessage};
 use crate::parser::Parser;
 use crate::lexer::Lexer;
 use crate::logging::{out_log, LogType};
 use crate::settings::usettings_singleton;
-use crate::winapi::bindings::Windows::Win32::{
-    System::{
+use windows::{
+    Win32::System::{
         Com::{
             COINIT_APARTMENTTHREADED,
             // COINIT_MULTITHREADED,
@@ -43,7 +44,6 @@ use num_traits::FromPrimitive;
 use regex::Regex;
 use serde_json;
 use libffi::middle::{Cif, CodePtr, Type};
-use windows::Handle;
 
 type EvalResult<T> = Result<T, UError>;
 
@@ -951,7 +951,7 @@ impl Evaluator {
                 }));
                 let result = thread_self.eval_function_call_expression(func, args, false);
                 if result.is_err() {
-                    panic!("{}", result.unwrap_err());
+                    panic!("{}", result.unwrap_err().to_string());
                 }
                 unsafe {
                     CoUninitialize();
@@ -1676,10 +1676,10 @@ impl Evaluator {
     fn eval_infix_expression(&mut self, infix: Infix, left: Object, right: Object) -> EvalResult<Object> {
         // VARIANT型だったらObjectに戻す
         if let Object::Variant(variant) = left {
-            return self.eval_infix_expression(infix, Object::from_variant(&variant)?, right);
+            return self.eval_infix_expression(infix, Object::from_variant(&variant.0)?, right);
         }
         if let Object::Variant(variant) = right {
-            return self.eval_infix_expression(infix, left, Object::from_variant(&variant)?);
+            return self.eval_infix_expression(infix, left, Object::from_variant(&variant.0)?);
         }
         // 論理演算子なら両辺の真性を評価してから演算する
         // ビット演算子なら両辺を数値とみなして演算する
@@ -2724,19 +2724,7 @@ impl Evaluator {
     }
 
     fn invoke_com_function(&mut self, disp: &IDispatch, name: &str, arguments: Vec<(Option<Expression>, Object)>) -> EvalResult<Object> {
-        // let mut com_args = vec![];
         let mut var_index = vec![];
-        // for (_, obj) in arguments {
-        //     let com_arg = if let Object::VarArgument(e) = obj {
-        //         let o = self.eval_expression(e.clone())?;
-        //         let i = com_args.len();
-        //         var_index.push((i, e));
-        //         ComArg::from_object(o)?
-        //     } else {
-        //         ComArg::from_object(obj)?
-        //     };
-        //     com_args.push(com_arg);
-        // }
         let mut var_args = vec![];
         for (_, obj) in arguments {
             let v = if let Object::VarArgument(e) = obj {
@@ -2749,7 +2737,6 @@ impl Evaluator {
             };
             var_args.push(v);
         }
-        println!("[debug] var_args: {:?}", &var_args);
 
         let result = disp.run(name, &mut var_args)?;
         if var_index.len() > 0 {

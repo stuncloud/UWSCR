@@ -1,24 +1,25 @@
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
+use crate::evaluator::com_object::{VARIANTHelper, SAFEARRAYHelper};
 use crate::evaluator::UError;
 use crate::settings::usettings_singleton;
 use crate::winapi::{
-    bindings::Windows::Win32::{
-        Foundation::{
-            PWSTR
-        },
-        System::{
-            Com::{
-                CLSCTX_ALL,
-                CLSIDFromProgID, CoCreateInstance,
-            },
-            OleAutomation::{
-                IDispatch, SAFEARRAY,
-                GetActiveObject,
-            }
-        }
-    },
     to_wide_string,
+};
+use windows::Win32::{
+    Foundation::{
+        PWSTR
+    },
+    System::{
+        Com::{
+            CLSCTX_ALL,
+            CLSIDFromProgID, CoCreateInstance,
+        },
+        OleAutomation::{
+            IDispatch, SAFEARRAY,
+            GetActiveObject,
+        }
+    }
 };
 
 use std::{ptr};
@@ -27,7 +28,6 @@ use libc::c_void;
 use strum_macros::{EnumString, EnumVariantNames};
 use num_derive::{ToPrimitive, FromPrimitive};
 // use num_traits::FromPrimitive;
-use windows::Interface;
 
 pub fn builtin_func_sets() -> BuiltinFunctionSets {
     let mut sets = BuiltinFunctionSets::new();
@@ -101,27 +101,27 @@ fn getactiveoleobj(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let prog_id = get_string_argument_value(&args, 0, None)?;
     // ignore IE
     ignore_ie(&prog_id)?;
-    let disp = get_active_object(&prog_id)?;
+    let disp = match get_active_object(&prog_id)? {
+        Some(d) => d,
+        None => return Err(builtin_func_error(UErrorMessage::FailedToGetObject, args.name()))
+    };
     Ok(Object::ComObject(disp))
 }
 
-fn get_active_object(prog_id: &str) -> Result<IDispatch, windows::Error> {
+fn get_active_object(prog_id: &str) -> BuiltInResult<Option<IDispatch>> {
     let mut wide = to_wide_string(prog_id);
     let obj = unsafe {
         let rclsid = CLSIDFromProgID(PWSTR(wide.as_mut_ptr()))?;
-        println!("[debug] wide: {:?}", &wide);
-        println!("[debug] rclsid: {:?}", &rclsid);
-
         let pvreserved = ptr::null_mut() as *mut c_void;
         let mut ppunk = None;
         GetActiveObject(&rclsid, pvreserved, &mut ppunk)?;
-        println!("[debug] ppunk: {:?}", &ppunk);
         match ppunk {
-            Some(u) => u.cast::<IDispatch>()?,
-            None => return Err(windows::Error::new(
-                windows::HRESULT(0)
-                , "Unknown error on GetActiveObject"
-            ))
+            Some(u) => {
+                let p = &u as *const _ as *const IDispatch;
+                let disp = &*p;
+                Some(disp.clone())
+            },
+            None => None
         }
     };
     Ok(obj)
@@ -132,7 +132,7 @@ fn vartype(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let o = get_any_argument_value(&args, 0, None)?;
     if vt < 0 {
         let n = match o {
-            Object::Variant(ref v) => v.vt() as f64,
+            Object::Variant(ref v) => v.0.vt() as f64,
             _ => VarType::VAR_UWSCR as u32 as f64
         };
         Ok(Object::Num(n))
@@ -141,18 +141,18 @@ fn vartype(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         // VARIANT型への変換 VAR_UWSCRの場合は通常のObjectに戻す
         if vt == VarType::VAR_UWSCR as i32 {
             match o {
-                Object::Variant(v) => Ok(Object::from_variant(&v)?),
+                Object::Variant(v) => Ok(Object::from_variant(&v.0)?),
                 o => Ok(o)
             }
         } else {
             let variant = match o {
-                Object::Variant(ref v) => v.change_type(vt.into())?,
+                Object::Variant(ref v) => v.0.change_type(vt.into())?,
                 o => {
                     let v = o.to_variant()?;
                     v.change_type(vt.into())?
                 }
             };
-            Ok(Object::Variant(variant))
+            Ok(Object::Variant(Variant(variant)))
         }
     }
 }

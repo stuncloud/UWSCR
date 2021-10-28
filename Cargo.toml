@@ -6,7 +6,6 @@ version = "0.2.1"
 build = "build.rs"
 
 [dependencies]
-windows = "0.21.1"
 enigo = "*"
 cast = "0.2.3"
 encoding_rs = "0.8.26"
@@ -32,8 +31,29 @@ websocket = "0.24"
 wmi = "0.9"
 
 [build-dependencies]
-windows = "0.21.1"
 winres = "0.1"
+
+[dependencies.windows]
+version = "0.22.1"
+features = [
+    "Win32_Foundation",
+    "Win32_Globalization",
+    "Win32_Graphics_Dwm",
+    "Win32_Graphics_Gdi",
+    "Win32_Security",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Com",
+    "Win32_System_OleAutomation",
+    "Win32_System_ProcessStatus",
+    "Win32_System_SystemInformation",
+    "Win32_System_SystemServices",
+    "Win32_System_Threading",
+    "Win32_System_WindowsProgramming",
+    "Win32_UI_HiDpi",
+    "Win32_UI_KeyboardAndMouseInput",
+    "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
+]
 
 [package.metadata.wix]
 compiler-args = ["-nologo"]

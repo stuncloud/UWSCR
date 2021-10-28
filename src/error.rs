@@ -2,7 +2,7 @@ pub mod evaluator;
 pub mod parser;
 
 use std::sync::Once;
-use crate::winapi::bindings::Windows::Win32::Globalization::GetUserDefaultUILanguage;
+use windows::Win32::Globalization::GetUserDefaultUILanguage;
 
 #[derive(Debug, Clone)]
 pub enum Locale {

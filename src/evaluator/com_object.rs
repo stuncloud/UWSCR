@@ -1,87 +1,85 @@
-use windows::Abi;
-
 use crate::winapi::{
-    bindings::Windows::Win32::{
-        Foundation::{PWSTR, BSTR, DISP_E_MEMBERNOTFOUND},
-        System::{
-            // Com::{
-            //     COINIT_APARTMENTTHREADED, CLSCTX_ALL,
-            //     CLSIDFromProgID, CoInitializeEx, CoCreateInstance,
-            // },
-            OleAutomation::{
-                DISPATCH_PROPERTYGET, DISPATCH_PROPERTYPUT, DISPATCH_METHOD,
-                DISPID_PROPERTYPUT,
-                VT_ARRAY,
-                // VT_BLOB,
-                // VT_BLOB_OBJECT,
-                VT_BOOL,
-                VT_BSTR,
-                // VT_BSTR_BLOB,
-                // VT_BYREF,
-                // VT_CARRAY,
-                // VT_CF,
-                // VT_CLSID,
-                VT_CY,
-                VT_DATE,
-                // VT_DECIMAL,
-                VT_DISPATCH,
-                VT_EMPTY,
-                VT_ERROR,
-                // VT_FILETIME,
-                // VT_HRESULT,
-                VT_I1,
-                VT_I2,
-                VT_I4,
-                VT_I8,
-                // VT_ILLEGAL,
-                // VT_ILLEGALMASKED,
-                // VT_INT,
-                // VT_INT_PTR,
-                VT_LPSTR,
-                VT_LPWSTR,
-                VT_NULL,
-                // VT_PTR,
-                VT_R4,
-                VT_R8,
-                // VT_RECORD,
-                // VT_RESERVED,
-                // VT_SAFEARRAY,
-                // VT_STORAGE,
-                // VT_STORED_OBJECT,
-                // VT_STREAM,
-                // VT_STREAMED_OBJECT,
-                VT_TYPEMASK,
-                VT_UI1,
-                VT_UI2,
-                VT_UI4,
-                // VT_UI8,
-                // VT_UINT,
-                // VT_UINT_PTR,
-                // VT_UNKNOWN,
-                // VT_USERDEFINED,
-                VT_VARIANT,
-                // VT_VECTOR,
-                // VT_VERSIONED_STREAM,
-                // VT_VOID,
-                VARENUM, SAFEARRAY, SAFEARRAYBOUND,
-                DISPPARAMS, EXCEPINFO,
-                VARIANT, VARIANT_0_0,
-                IDispatch,
-                VariantChangeType, VariantCopy,
-                SafeArrayCreate, SafeArrayGetElement, SafeArrayPutElement,
-                SafeArrayGetLBound, SafeArrayGetUBound, SafeArrayGetDim,
-            },
+    to_wide_string,
+};
+use windows::Win32::{
+    Foundation::{PWSTR, BSTR, DISP_E_MEMBERNOTFOUND},
+    System::{
+        // Com::{
+        //     COINIT_APARTMENTTHREADED, CLSCTX_ALL,
+        //     CLSIDFromProgID, CoInitializeEx, CoCreateInstance,
+        // },
+        OleAutomation::{
+            DISPATCH_PROPERTYGET, DISPATCH_PROPERTYPUT, DISPATCH_METHOD,
+            DISPID_PROPERTYPUT,
+            VT_ARRAY,
+            // VT_BLOB,
+            // VT_BLOB_OBJECT,
+            VT_BOOL,
+            VT_BSTR,
+            // VT_BSTR_BLOB,
+            // VT_BYREF,
+            // VT_CARRAY,
+            // VT_CF,
+            // VT_CLSID,
+            VT_CY,
+            VT_DATE,
+            // VT_DECIMAL,
+            VT_DISPATCH,
+            VT_EMPTY,
+            VT_ERROR,
+            // VT_FILETIME,
+            // VT_HRESULT,
+            VT_I1,
+            VT_I2,
+            VT_I4,
+            VT_I8,
+            // VT_ILLEGAL,
+            // VT_ILLEGALMASKED,
+            // VT_INT,
+            // VT_INT_PTR,
+            VT_LPSTR,
+            VT_LPWSTR,
+            VT_NULL,
+            // VT_PTR,
+            VT_R4,
+            VT_R8,
+            // VT_RECORD,
+            // VT_RESERVED,
+            // VT_SAFEARRAY,
+            // VT_STORAGE,
+            // VT_STORED_OBJECT,
+            // VT_STREAM,
+            // VT_STREAMED_OBJECT,
+            VT_TYPEMASK,
+            VT_UI1,
+            VT_UI2,
+            VT_UI4,
+            // VT_UI8,
+            // VT_UINT,
+            // VT_UINT_PTR,
+            // VT_UNKNOWN,
+            // VT_USERDEFINED,
+            VT_VARIANT,
+            // VT_VECTOR,
+            // VT_VERSIONED_STREAM,
+            // VT_VOID,
+            VARENUM, SAFEARRAY, SAFEARRAYBOUND,
+            DISPPARAMS, EXCEPINFO,
+            VARIANT, VARIANT_0_0,
+            IDispatch,
+            VariantChangeType, VariantCopy,
+            SafeArrayCreate, SafeArrayGetElement, SafeArrayPutElement,
+            SafeArrayGetLBound, SafeArrayGetUBound, SafeArrayGetDim,
         },
     },
-    to_wide_string,
 };
 use crate::evaluator::{
     EvalResult,
-    object::Object,
+    object::{Object, Variant},
 };
 use crate::error::evaluator::{UError, UErrorKind, UErrorMessage};
 
-use std::{ffi::c_void, fmt, mem::ManuallyDrop};
+use std::{ffi::c_void, mem::ManuallyDrop};
 
 /* COMエラー */
 
@@ -92,7 +90,7 @@ pub struct ComError {
 }
 
 impl ComError {
-    pub fn new(e: &windows::Error, description: Option<String>) -> Self {
+    pub fn new(e: &windows::runtime::Error, description: Option<String>) -> Self {
         Self {
             message: e.message(),
             code: e.code().0,
@@ -101,8 +99,8 @@ impl ComError {
     }
 }
 
-impl From<windows::Error> for ComError {
-    fn from(e: windows::Error) -> Self {
+impl From<windows::runtime::Error> for ComError {
+    fn from(e: windows::runtime::Error) -> Self {
         Self::new(&e, None)
     }
 }
@@ -173,7 +171,7 @@ impl Object {
             VT_BOOL => Object::Bool(variant.get_bool()),
             _ => {
                 let v = variant.copy()?;
-                Object::Variant(v)
+                Object::Variant(Variant(v))
             },
         };
         Ok(obj)
@@ -202,7 +200,7 @@ impl Object {
                 }
                 variant.set_safearray(&mut sa)
             },
-            Object::Variant(v) => variant = v.clone(),
+            Object::Variant(v) => variant = v.0.clone(),
             Object::SafeArray(sa) => variant.set_safearray(sa),
             o => return Err(UError::new(
                 UErrorKind::ConversionError,
@@ -219,10 +217,17 @@ const LOCALE_USER_DEFAULT: u32 = 0x0400;
 const LOCALE_SYSTEM_DEFAULT: u32 = 0x0800;
 type ComResult<T> = Result<T, ComError>;
 
-unsafe impl Send for IDispatch {}
+// unsafe impl Send for IDispatch {}
 
-impl IDispatch {
-    pub fn get(&self, name: &str, keys: Option<Vec<VARIANT>>) -> ComResult<VARIANT> {
+pub trait IDispatchHelper {
+    fn get(&self, name: &str, keys: Option<Vec<VARIANT>>) -> ComResult<VARIANT>;
+    fn set(&self, name: &str, value: VARIANT, keys: Option<Vec<VARIANT>>) -> ComResult<VARIANT>;
+    fn run(&self, name: &str, args: &mut Vec<VARIANT>) -> ComResult<VARIANT>;
+    fn invoke_wrapper(&self, name: &str, dp: *mut DISPPARAMS, wflags: u16) -> ComResult<VARIANT>;
+}
+
+impl IDispatchHelper for IDispatch {
+    fn get(&self, name: &str, keys: Option<Vec<VARIANT>>) -> ComResult<VARIANT> {
         let mut dp = DISPPARAMS::default();
         if keys.is_some() {
             let mut args = keys.unwrap();
@@ -233,7 +238,7 @@ impl IDispatch {
         self.invoke_wrapper(name, &mut dp, DISPATCH_PROPERTYGET as u16)
     }
 
-    pub fn set(&self, name: &str, mut value: VARIANT, keys: Option<Vec<VARIANT>>) -> ComResult<VARIANT> {
+    fn set(&self, name: &str, mut value: VARIANT, keys: Option<Vec<VARIANT>>) -> ComResult<VARIANT> {
         let mut dp = DISPPARAMS::default();
         if keys.is_some() {
             let mut args = keys.unwrap();
@@ -252,7 +257,7 @@ impl IDispatch {
         self.invoke_wrapper(name, &mut dp, DISPATCH_PROPERTYPUT as u16)
     }
 
-    pub fn run(&self, name: &str, args: &mut Vec<VARIANT>) -> ComResult<VARIANT> {
+    fn run(&self, name: &str, args: &mut Vec<VARIANT>) -> ComResult<VARIANT> {
         let mut dp = DISPPARAMS::default();
         // 引数をセット
         // 引数の入った配列は逆順で渡す
@@ -280,7 +285,7 @@ impl IDispatch {
             let mut member: Vec<u16> = to_wide_string(name);
             let mut dispidmember = 0;
             self.GetIDsOfNames(
-                &windows::Guid::default(),
+                &windows::runtime::GUID::default(),
                 &mut PWSTR(member.as_mut_ptr()),
                 1,
                 LOCALE_USER_DEFAULT,
@@ -293,7 +298,7 @@ impl IDispatch {
 
             match self.Invoke(
                 dispidmember,
-                &windows::Guid::default(),
+                &windows::runtime::GUID::default(),
                 LOCALE_SYSTEM_DEFAULT,
                 wflags,
                 dp,
@@ -311,65 +316,72 @@ impl IDispatch {
     }
 }
 
-/* VARENUMを拡張 u16にinto() */
-impl From<VARENUM> for u16 {
-    fn from(v: VARENUM) -> Self {
-        v.0 as u16
-    }
+/* VARENUMを拡張*/
+pub trait VARENUMHelper {
+    fn as_u16(&self) -> u16;
 }
-impl VARENUM {
-    pub fn as_u16(&self) -> u16 {
+
+impl VARENUMHelper for VARENUM {
+    fn as_u16(&self) -> u16 {
         self.0 as u16
     }
 }
 
-/* VARIANTに不足しているTraitを実装 */
-impl std::fmt::Debug for VARIANT {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("VARIANT")
-            .field("vt", &self.vt())
-            .finish()
-    }
+// unsafe impl Send for VARIANT {}
+
+pub trait VARIANTHelper {
+    fn vt(&self) -> u16;
+    fn set_vt(&mut self, vt: VARENUM);
+    fn set_double(&mut self, n: f64);
+    fn set_bstr(&mut self, bstr: BSTR);
+    fn set_bool(&mut self, b: &bool);
+    fn set_idispatch(&mut self, idispatch: &IDispatch);
+    fn _set_variant(&mut self, variant: VARIANT);
+    fn set_safearray(&mut self, sa: &SAFEARRAY);
+    fn get_double(&self) -> f64;
+    fn get_bstr(&self) -> ComResult<BSTR>;
+    fn get_idispatch(&self) -> ComResult<IDispatch>;
+    fn get_bool(&self) -> bool;
+    fn change_type(&self, var_enum: VARENUM) -> ComResult<VARIANT>;
+    fn copy(&self) -> ComResult<VARIANT>;
 }
 
-unsafe impl Send for VARIANT {}
-
-impl VARIANT {
-    pub fn vt(&self) -> u16 {
+impl VARIANTHelper for VARIANT {
+    fn vt(&self) -> u16 {
         unsafe {self.Anonymous.Anonymous.vt}
     }
     fn set_vt(&mut self, vt: VARENUM) {
         let mut v00 = VARIANT_0_0::default();
-        v00.vt = vt.into();
+        v00.vt = vt.as_u16();
         self.Anonymous.Anonymous = ManuallyDrop::new(v00);
     }
     fn set_double(&mut self, n: f64) {
         let mut v00 = VARIANT_0_0::default();
-        v00.vt = VT_R8.into();
+        v00.vt = VT_R8.as_u16();
         v00.Anonymous.dblVal = n;
         self.Anonymous.Anonymous = ManuallyDrop::new(v00);
     }
     fn set_bstr(&mut self, bstr: BSTR) {
         let mut v00 = VARIANT_0_0::default();
-        v00.vt = VT_BSTR.into();
+        v00.vt = VT_BSTR.as_u16();
         v00.Anonymous.bstrVal = ManuallyDrop::new(bstr);
         self.Anonymous.Anonymous = ManuallyDrop::new(v00);
     }
     fn set_bool(&mut self, b: &bool) {
         let mut v00 = VARIANT_0_0::default();
-        v00.vt = VT_BOOL.into();
+        v00.vt = VT_BOOL.as_u16();
         v00.Anonymous.boolVal = if *b {-1} else {0};
         self.Anonymous.Anonymous = ManuallyDrop::new(v00);
     }
     fn set_idispatch(&mut self, idispatch: &IDispatch) {
         let mut v00 = VARIANT_0_0::default();
-        v00.vt = VT_DISPATCH.into();
+        v00.vt = VT_DISPATCH.as_u16();
         v00.Anonymous.pdispVal = idispatch as *const IDispatch as *mut c_void;
         self.Anonymous.Anonymous = ManuallyDrop::new(v00);
     }
     fn _set_variant(&mut self, variant: VARIANT) {
         let mut v00 = VARIANT_0_0::default();
-        v00.vt = VT_VARIANT.into();
+        v00.vt = VT_VARIANT.as_u16();
         v00.Anonymous.pvarVal = &mut ManuallyDrop::new(variant);
         self.Anonymous.Anonymous = ManuallyDrop::new(v00);
     }
@@ -396,8 +408,9 @@ impl VARIANT {
     fn get_idispatch(&self) -> ComResult<IDispatch> {
         unsafe {
             let p = self.Anonymous.Anonymous.Anonymous.pdispVal;
-            let disp = IDispatch::from_abi(p)?;
-            Ok(disp)
+            // let disp = IDispatch::from_abi(p)?;
+            let disp = &*p.cast::<IDispatch>();
+            Ok(disp.clone())
         }
     }
     fn get_bool(&self) -> bool {
@@ -405,14 +418,14 @@ impl VARIANT {
             self.Anonymous.Anonymous.Anonymous.boolVal != 0
         }
     }
-    pub fn change_type(&self, var_enum: VARENUM) -> ComResult<VARIANT> {
+    fn change_type(&self, var_enum: VARENUM) -> ComResult<VARIANT> {
         unsafe {
             let mut dest = VARIANT::default();
             VariantChangeType(&mut dest, self, 0, var_enum.as_u16())?;
             Ok(dest)
         }
     }
-    pub fn copy(&self) -> ComResult<VARIANT> {
+    fn copy(&self) -> ComResult<VARIANT> {
         let mut dest = VARIANT::default();
         unsafe {
             VariantCopy(&mut dest, self)?;
@@ -423,10 +436,18 @@ impl VARIANT {
 
 /* SafeArrayを拡張 */
 
-unsafe impl Send for SAFEARRAY {}
+// unsafe impl Send for SAFEARRAY {}
 
-impl SAFEARRAY {
-    pub fn new(lbound: i32, ubound: i32) -> Self {
+pub trait SAFEARRAYHelper {
+    fn new(lbound: i32, ubound: i32) -> Self;
+    fn new2(lbound: i32, ubound: i32, lbound2: i32, ubound2: i32) -> Self;
+    fn get(&mut self, index: i32) -> ComResult<VARIANT>;
+    fn set(&mut self, index: i32, variant: &mut VARIANT) -> ComResult<()>;
+    fn len(&self, get_dim: bool) -> ComResult<usize>;
+}
+
+impl SAFEARRAYHelper for SAFEARRAY {
+    fn new(lbound: i32, ubound: i32) -> Self {
         let vt = VT_VARIANT.0 as u16;
         let cdims = 1;
         let mut rgsabound = SAFEARRAYBOUND::new(lbound, ubound);
@@ -437,7 +458,7 @@ impl SAFEARRAY {
         sa
     }
 
-    pub fn new2(lbound: i32, ubound: i32, lbound2: i32, ubound2: i32) -> Self {
+    fn new2(lbound: i32, ubound: i32, lbound2: i32, ubound2: i32) -> Self {
         let vt = VT_VARIANT.0 as u16;
         let cdims = 2;
         let mut rgsabound = vec![
@@ -451,7 +472,7 @@ impl SAFEARRAY {
         sa
     }
 
-    pub fn get(&mut self, mut index: i32) -> ComResult<VARIANT> {
+    fn get(&mut self, mut index: i32) -> ComResult<VARIANT> {
         let psa = self as *mut SAFEARRAY;
         let rgindices = &mut index as *mut i32;
         let mut variant = VARIANT::default();
@@ -462,7 +483,7 @@ impl SAFEARRAY {
         Ok(variant)
     }
 
-    pub fn set(&mut self, mut index: i32, variant: &mut VARIANT) -> ComResult<()> {
+    fn set(&mut self, mut index: i32, variant: &mut VARIANT) -> ComResult<()> {
         let psa = self as *mut SAFEARRAY;
         let rgindices = &mut index as *mut i32;
         let pv = variant as *mut VARIANT as *mut c_void;
@@ -472,7 +493,7 @@ impl SAFEARRAY {
         Ok(())
     }
 
-    pub fn len(&self, get_dim: bool) -> ComResult<usize> {
+    fn len(&self, get_dim: bool) -> ComResult<usize> {
         let psa = self as *const _ as *mut SAFEARRAY;
         let size = unsafe {
             let ndim = SafeArrayGetDim(psa);
@@ -488,8 +509,12 @@ impl SAFEARRAY {
     }
 }
 
-impl SAFEARRAYBOUND {
-    pub fn new(lbound: i32, ubound: i32) -> Self {
+pub trait SAFEARRAYBOUNDHelper {
+    fn new(lbound: i32, ubound: i32) -> Self;
+}
+
+impl SAFEARRAYBOUNDHelper for SAFEARRAYBOUND {
+    fn new(lbound: i32, ubound: i32) -> Self {
         let size = (ubound - lbound + 1) as u32;
         Self {cElements: size, lLbound: lbound}
     }

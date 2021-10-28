@@ -16,8 +16,8 @@ use crate::winapi::{
     get_screen_width,
     get_screen_height,
     get_color_depth,
-    bindings::Windows::Win32::UI::Shell::CSIDL_APPDATA,
 };
+use windows::Win32::UI::Shell::CSIDL_APPDATA;
 use crate::evaluator::object::{Object, Version, HashTblEnum, SpecialFuncResultType, UTask};
 use crate::evaluator::environment::NamedObject;
 use crate::error::evaluator::{UError,UErrorKind,UErrorMessage};
@@ -31,8 +31,6 @@ use serde_json::Value;
 use strum::VariantNames;
 use num_traits::ToPrimitive;
 use strum_macros::{ToString, EnumVariantNames};
-
-use super::Evaluator;
 
 pub type BuiltinFunction = fn(BuiltinFuncArgs) -> BuiltinFuncResult;
 pub type BuiltinFuncResult = Result<Object, UError>;

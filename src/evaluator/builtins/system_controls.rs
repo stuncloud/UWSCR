@@ -1,45 +1,44 @@
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
 use crate::error::evaluator::{UErrorMessage, UErrorKind};
-use crate::winapi::bindings::{
-    Windows::{
-        Win32::{
-            Foundation::{
-                BOOL, PWSTR, HWND, LPARAM,
-                CloseHandle
+use windows::{
+    runtime::Handle,
+    Win32::{
+        Foundation::{
+            BOOL, PWSTR, HWND, LPARAM,
+            CloseHandle
+        },
+        System::{
+            WindowsProgramming::{
+                INFINITE,
             },
-            System::{
-                WindowsProgramming::{
-                        INFINITE,
-                },
-                SystemInformation::{
-                    OSVERSIONINFOEXW,
-                    GetVersionExW,
-                },
-                Threading::{
-                    STARTUPINFOW, PROCESS_INFORMATION,
-                    STARTF_USESHOWWINDOW, NORMAL_PRIORITY_CLASS,
-                    CreateProcessW, WaitForSingleObject, GetExitCodeProcess,
-                    GetCurrentProcess,
-                    WaitForInputIdle, IsWow64Process,
-                },
-                SystemServices::{
-                    VER_NT_WORKSTATION,
-                }
+            SystemInformation::{
+                OSVERSIONINFOEXW,
+                GetVersionExW,
             },
-            UI::{
-                WindowsAndMessaging::{
-                    SM_SERVERR2,
-                    SW_SHOWNORMAL, SW_SHOW,
-                    EnumWindows, GetWindowThreadProcessId, GetSystemMetrics,
-                },
-                Shell::{
-                    ShellExecuteW,
-                }
+            Threading::{
+                STARTUPINFOW, PROCESS_INFORMATION,
+                STARTF_USESHOWWINDOW, NORMAL_PRIORITY_CLASS,
+                CreateProcessW, WaitForSingleObject, GetExitCodeProcess,
+                GetCurrentProcess,
+                WaitForInputIdle, IsWow64Process,
             },
-            Security::SECURITY_ATTRIBUTES,
-        }
-    },
+            SystemServices::{
+                VER_NT_WORKSTATION,
+            }
+        },
+        UI::{
+            WindowsAndMessaging::{
+                SM_SERVERR2,
+                SW_SHOWNORMAL, SW_SHOW,
+                EnumWindows, GetWindowThreadProcessId, GetSystemMetrics,
+            },
+            Shell::{
+                ShellExecuteW,
+            }
+        },
+        Security::SECURITY_ATTRIBUTES,
+    }
 };
 use crate::winapi::to_wide_string;
 
@@ -50,8 +49,6 @@ use strum_macros::{EnumString, EnumVariantNames};
 use num_derive::{ToPrimitive, FromPrimitive};
 use num_traits::FromPrimitive;
 use serde_json::{Map, Value};
-use windows::Handle;
-
 
 pub fn builtin_func_sets() -> BuiltinFunctionSets {
     let mut sets = BuiltinFunctionSets::new();

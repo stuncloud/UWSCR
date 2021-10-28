@@ -1,40 +1,35 @@
-pub mod bindings {
-    windows::include_bindings!();
-}
-
-use bindings::{
-    Windows::{
-        Win32::{
-            Foundation:: {
-                MAX_PATH, PWSTR, PSTR, HWND
+use windows::{
+    Win32::{
+        Foundation:: {
+            MAX_PATH, PWSTR, PSTR, HWND
+        },
+        System::{
+            SystemInformation::{
+                GetSystemDirectoryW, GetWindowsDirectoryW
             },
-            System::{
-                SystemInformation::{
-                    GetSystemDirectoryW, GetWindowsDirectoryW
-                },
+        },
+        UI::{
+            WindowsAndMessaging::{
+                SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN,
+                GetSystemMetrics,
             },
-            UI::{
-                WindowsAndMessaging::{
-                    SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN,
-                    GetSystemMetrics,
-                },
-                Shell::{
-                    SHGetSpecialFolderPathW,
-                },
+            Shell::{
+                SHGetSpecialFolderPathW,
             },
-            Graphics::{
-                Gdi::{
-                    GET_DEVICE_CAPS_INDEX,
-                    GetDC, GetDeviceCaps,
-                },
+        },
+        Graphics::{
+            Gdi::{
+                GET_DEVICE_CAPS_INDEX,
+                GetDC, GetDeviceCaps,
             },
-            Globalization::{
-                CP_ACP, WC_COMPOSITECHECK, MB_PRECOMPOSED,
-                WideCharToMultiByte, MultiByteToWideChar,
-            },
-        }
+        },
+        Globalization::{
+            CP_ACP, WC_COMPOSITECHECK, MB_PRECOMPOSED,
+            WideCharToMultiByte, MultiByteToWideChar,
+        },
     }
 };
+
 
 use crate::error::evaluator::{UError, UErrorKind, UErrorMessage};
 
@@ -170,9 +165,9 @@ pub fn get_color_depth() -> i32 {
     }
 }
 
-// convert windows::Error to UError
-impl From<windows::Error> for UError {
-    fn from(e: windows::Error) -> Self {
+// convert windows::runtime::Error to UError
+impl From<windows::runtime::Error> for UError {
+    fn from(e: windows::runtime::Error) -> Self {
         UError::new(
             UErrorKind::Win32Error(e.code().0),
             UErrorMessage::Win32Error(e.message()),

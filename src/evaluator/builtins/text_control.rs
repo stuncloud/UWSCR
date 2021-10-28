@@ -1,5 +1,6 @@
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
+use crate::evaluator::com_object::{SAFEARRAYHelper};
 use crate::winapi::{
     get_ansi_length,
 };
