@@ -243,6 +243,127 @@ impl fmt::Display for Object {
     }
 }
 
+impl PartialEq for Object {
+    fn eq(&self, other: &Self) -> bool {
+        match self {
+            Object::Num(n) => match other {
+                Object::Num(n2) => n == n2,
+                Object::String(s) => n.to_string() == s.to_string(),
+                Object::Empty |
+                Object::EmptyParam => 0.0 == *n,
+                Object::Bool(b) => ! n.is_zero() && *b,
+                _ => false
+            },
+            Object::String(s) => match other {
+                Object::Num(n) => s.to_string() == n.to_string(),
+                Object::String(s2) => s.to_string() == s2.to_string(),
+                Object::Empty |
+                Object::EmptyParam => s.len() == 0,
+                Object::Bool(b) => b.to_string().to_ascii_lowercase() == s.to_ascii_lowercase(),
+                _ => false
+            },
+            Object::Bool(b) => match other {
+                Object::Bool(b2) => b == b2,
+                Object::String(s) => b.to_string().to_ascii_lowercase() == s.to_ascii_lowercase(),
+                Object::Empty |
+                Object::EmptyParam => false && *b,
+                _ => false
+            },
+            Object::Array(a) => if let Object::Array(a2) = other {a == a2} else {false},
+            Object::HashTbl(h) => if let Object::HashTbl(h2) = other {
+                let hash1 = h.lock().unwrap();
+                let hash2 = h2.lock().unwrap();
+                *hash1 == *hash2
+            } else {false},
+            Object::AnonFunc(e, b, _, p) => if let Object::AnonFunc(e2, b2, _, p2) = other {(e==e2) && (b==b2) && (p==p2)} else {false},
+            Object::Function(n, _, _, _, _) => if let Object::Function(n2,_,_,_,_) = other {n == n2} else {false},
+            Object::AsyncFunction(n, _, _, _, _) => if let Object::AsyncFunction(n2,_,_,_,_) = other {n == n2} else {false},
+            Object::BuiltinFunction(n, _, _) => if let Object::BuiltinFunction(n2,_,_) = other {n == n2} else {false},
+            Object::Module(m) => if let Object::Module(m2) = other {
+                let module1 = m.lock().unwrap();
+                let module2 = m2.lock().unwrap();
+                module1.name() == module2.name()
+            } else {false},
+            Object::Class(n, _) => if let Object::Class(n2,_) = other {n==n2} else {false},
+            Object::Instance(_, i) => if let Object::Instance(_,i2) = other {i==i2} else {false},
+            Object::Instances(_) => false,
+            Object::DestructorNotFound => false,
+            Object::Null => match other {
+                Object::Null => true,
+                _ => false
+            },
+            Object::Empty |
+            Object::EmptyParam => match other {
+                Object::Empty | Object::EmptyParam => true,
+                Object::Num(n) => &0.0 == n,
+                Object::String(s) => s.len() == 0,
+                _ => false,
+            },
+            Object::Nothing => match other {
+                Object::Nothing => true,
+                _ => false,
+            },
+            Object::Continue(_) => false,
+            Object::Break(_) => false,
+            Object::Eval(_) => false,
+            Object::Handle(h) => if let Object::Handle(h2) = other {h==h2} else {false},
+            Object::RegEx(r) => if let Object::RegEx(r2) = other {r==r2} else {false},
+            Object::Exit => false,
+            Object::ExitExit(_) => false,
+            Object::SpecialFuncResult(_) => false,
+            Object::Global => false,
+            Object::This(m) => if let Object::This(m2) = other {
+                let module1 = m.lock().unwrap();
+                let module2 = m2.lock().unwrap();
+                module1.name() == module2.name()
+            } else {false},
+            Object::UObject(v) => if let Object::UObject(v2) = other {
+                let value1 = v.lock().unwrap();
+                let value2 = v2.lock().unwrap();
+                value1.to_string() == value2.to_string()
+            } else {false},
+            Object::UChild(v, p) => if let Object::UChild(v2, p2) = other {
+                let value1 = v.lock().unwrap();
+                let value2 = v2.lock().unwrap();
+                (value1.to_string() == value2.to_string()) && (p == p2)
+            } else {false},
+            Object::DynamicVar(f) => if let Object::DynamicVar(f2) = other {f() == f2()} else {false},
+            Object::Version(v) => if let Object::Version(v2) = other {v == v2} else {false},
+            Object::ExpandableTB(_) => false,
+            Object::Enum(e) => if let Object::Enum(e2) = other {e==e2} else {false},
+            Object::Task(_) => false,
+            Object::DefDllFunction(n, p, v, t) => if let Object::DefDllFunction(n2,p2,v2,t2) = other {
+                n==n2 && p==p2 && v==v2 && t==t2
+            } else {false},
+            Object::Struct(n, s, v) => if let Object::Struct(n2,s2,v2) = other {
+                n==n2 && s==s2 && v==v2
+            } else {false},
+            Object::UStruct(n, s, u) => if let Object::UStruct(n2,s2,u2) = other {
+                let ustruct1 = u.lock().unwrap();
+                let ustruct2 = u2.lock().unwrap();
+                n==n2 && s==s2 && *ustruct1 == *ustruct2
+            } else {false},
+            Object::ComObject(d) => if let Object::ComObject(d2) = other {
+                format!("{:?}", d) == format!("{:?}", d2)
+            } else {false},
+            Object::ComMember(d, n) => if let Object::ComMember(d2,n2) = other {
+                format!("{:?}.{}", d, n) == format!("{:?}.{}", d2, n2)
+            } else {false},
+            Object::Variant(v) => if let Object::Variant(v2) = other {v == v2} else {false},
+            Object::SafeArray(_) => false,
+            Object::VarArgument(e) => if let Object::VarArgument(e2) = other {e==e2} else {false},
+            Object::Browser(b) => if let Object::Browser(b2) = other {b == b2} else {false},
+            Object::BrowserFunc(b, f) => if let Object::BrowserFunc(b2,f2) = other {
+                b == b2 && f == f2
+            } else {false},
+            Object::Element(e) => if let Object::Element(e2) = other {e==e2} else {false},
+            Object::ElementFunc(e, f) => if let Object::ElementFunc(e2,f2) = other {
+                e==e2 && f==f2
+            } else {false},
+        }
+    }
+}
+
 impl Object {
     pub fn is_equal(&self, other: &Object) -> bool {
         format!("{}", self) == format!("{}", other)
@@ -304,7 +425,7 @@ pub enum HashTblEnum {
     HASH_UNKNOWN = 0,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct HashTbl {
     map: IndexMap<String, Object>,
     sort: bool,
@@ -436,6 +557,12 @@ impl PartialEq<f64> for Version {
 #[derive(Clone)]
 pub struct Variant(pub VARIANT);
 
+impl PartialEq for Variant {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.is_equal(&other.0)
+    }
+}
+
 impl fmt::Debug for Variant {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("VARIANT")
@@ -456,14 +583,14 @@ impl fmt::Display for UTask {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct UStruct {
     name: String,
     members: Vec<UStructMember>,
     size: usize,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct UStructMember {
     name: String,
     object: Object,

@@ -1715,11 +1715,11 @@ impl Evaluator {
                     },
                     Object::String(s) => {
                         if infix == Infix::Plus {
-                            self.eval_infix_string_expression(infix, n1.to_string(), s.clone())
+                            self.eval_infix_string_expression(infix, &n1.to_string(), &s)
                         } else {
                             match s.parse::<f64>() {
                                 Ok(n2) => self.eval_infix_number_expression(infix, *n1, n2),
-                                Err(_) => self.eval_infix_string_expression(infix, n1.to_string(), s.clone())
+                                Err(_) => self.eval_infix_string_expression(infix, &n1.to_string(), &s)
                             }
                         }
                     },
@@ -1731,26 +1731,26 @@ impl Evaluator {
             },
             Object::String(s1) => {
                 match right {
-                    Object::String(s2) => self.eval_infix_string_expression(infix, s1.clone(), s2.clone()),
+                    Object::String(s2) => self.eval_infix_string_expression(infix, s1, &s2),
                     Object::Num(n) => {
                         if infix == Infix::Plus {
-                            self.eval_infix_string_expression(infix, s1.clone(), n.to_string())
+                            self.eval_infix_string_expression(infix, s1, &n.to_string())
                         } else {
                             match s1.parse::<f64>() {
                                 Ok(n2) => self.eval_infix_number_expression(infix, n2, n),
-                                Err(_) => self.eval_infix_string_expression(infix, s1.clone(), n.to_string())
+                                Err(_) => self.eval_infix_string_expression(infix, s1, &n.to_string())
                             }
                         }
                     },
-                    Object::Bool(_) => self.eval_infix_string_expression(infix, s1.clone(), format!("{}", right)),
+                    Object::Bool(_) => self.eval_infix_string_expression(infix, s1, &right.to_string()),
                     Object::Empty => self.eval_infix_empty_expression(infix, left),
-                    Object::Version(v) => self.eval_infix_string_expression(infix, s1.to_string(), v.to_string()),
-                    _ => self.eval_infix_string_expression(infix, s1.clone(), format!("{}", right))
+                    Object::Version(v) => self.eval_infix_string_expression(infix, s1, &v.to_string()),
+                    _ => self.eval_infix_string_expression(infix, s1, &right.to_string())
                 }
             },
             Object::Bool(l) => match right {
                 Object::Bool(b) => self.eval_infix_logical_operator_expression(infix, *l, b),
-                Object::String(s) => self.eval_infix_string_expression(infix, format!("{}", left), s.clone()),
+                Object::String(s) => self.eval_infix_string_expression(infix, &left.to_string(), &s),
                 Object::Empty => self.eval_infix_empty_expression(infix, left),
                 Object::Num(n) => self.eval_infix_number_expression(infix, *l as i64 as f64, n),
                 _ => self.eval_infix_misc_expression(infix, left, right)
@@ -1764,7 +1764,7 @@ impl Evaluator {
             Object::Version(v1) => match right {
                 Object::Version(v2) => self.eval_infix_number_expression(infix, v1.parse(), v2.parse()),
                 Object::Num(n) => self.eval_infix_number_expression(infix, v1.parse(), n),
-                Object::String(s) => self.eval_infix_string_expression(infix, v1.to_string(), s.clone()),
+                Object::String(s) => self.eval_infix_string_expression(infix, &v1.to_string(), &s),
                 _ => self.eval_infix_misc_expression(infix, left, right)
             },
             Object::Array(a) => if infix == Infix::Plus {
@@ -1798,8 +1798,8 @@ impl Evaluator {
                     UErrorMessage::TypeMismatch(left, infix, right),
                 ))
             },
-            Infix::Equal => Object::Bool(format!("{}", left) == format!("{}", right)),
-            Infix::NotEqual => Object::Bool(format!("{}", left) != format!("{}", right)),
+            Infix::Equal => Object::Bool(left == right),
+            Infix::NotEqual => Object::Bool(left != right),
             _ => return Err(UError::new(
                 UErrorKind::OperatorError,
                 UErrorMessage::TypeMismatch(left, infix, right),
@@ -1850,7 +1850,7 @@ impl Evaluator {
         }
     }
 
-    fn eval_infix_string_expression(&mut self, infix: Infix, left: String, right: String) -> EvalResult<Object> {
+    fn eval_infix_string_expression(&mut self, infix: Infix, left: &String, right: &String) -> EvalResult<Object> {
         let obj = match infix {
             Infix::Plus => Object::String(format!("{}{}", left, right)),
             Infix::Equal => Object::Bool(left == right),

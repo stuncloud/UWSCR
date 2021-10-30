@@ -35,7 +35,7 @@ use std::collections::HashMap;
 use wmi::{WMIConnection, FilterValue};
 use serde::Deserialize;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum BrowserType {
     Chrome,
     MSEdge,
@@ -76,6 +76,13 @@ impl fmt::Debug for Browser {
             .finish()
     }
 }
+impl PartialEq for Browser {
+    fn eq(&self, other: &Self) -> bool {
+        self.port == other.port &&
+        self.btype == other.btype &&
+        self.id == other.id
+    }
+}
 
 impl Drop for Browser {
     fn drop(&mut self) {
@@ -107,6 +114,15 @@ impl fmt::Debug for Element {
         .finish()
     }
 }
+impl PartialEq for Element {
+    fn eq(&self, other: &Self) -> bool {
+        let dp1 = self.dp.lock().unwrap();
+        let dp2 = self.dp.lock().unwrap();
+        self.node_id == other.node_id &&
+        self.value == other.value &&
+        *dp1 == *dp2
+    }
+}
 
 pub struct DevtoolsProtocol {
     id: u32,
@@ -115,6 +131,11 @@ pub struct DevtoolsProtocol {
     pub sender: Writer<TcpStream>,
 }
 
+impl PartialEq for DevtoolsProtocol {
+    fn eq(&self, other: &Self) -> bool {
+        self.session_id == other.session_id
+    }
+}
 impl Drop for DevtoolsProtocol {
     fn drop(&mut self) {
         let _ = self.sender.shutdown();
@@ -168,18 +189,18 @@ impl Browser {
             Self::start(port, &path, btype, headless)?;
         }
         let target = Self::get_target(port, filter)?;
-        let dp = match target["webSocketDebuggerUrl"].as_str() {
-            Some(ws_uri) => {
-                DevtoolsProtocol::new(ws_uri/* , btype */)?
+        let id = match target["id"].as_str() {
+            Some(id) => {
+                id.to_string()
             },
             None => return Err(DevtoolsProtocolError::new(
                 UErrorKind::DevtoolsProtocolError,
                 UErrorMessage::DTPControlablePageNotFound
             ))
         };
-        let id = match target["id"].as_str() {
-            Some(id) => {
-                id.to_string()
+        let dp = match target["webSocketDebuggerUrl"].as_str() {
+            Some(ws_uri) => {
+                DevtoolsProtocol::new(ws_uri, &id /* , btype */)?
             },
             None => return Err(DevtoolsProtocolError::new(
                 UErrorKind::DevtoolsProtocolError,
@@ -345,15 +366,15 @@ impl Browser {
         let path = format!("/json/new?{}", uri);
         let res = Self::get_request(self.port, &path)?;
         let v = Value::from_str(&res)?;
-        let dp = match v["webSocketDebuggerUrl"].as_str() {
-            Some(uri) => DevtoolsProtocol::new(uri)?,
+        let id = match v["id"].as_str() {
+            Some(id) => id.to_string(),
             None => return Err(DevtoolsProtocolError::new(
                 UErrorKind::BrowserControlError,
                 UErrorMessage::DTPControlablePageNotFound
             ))
         };
-        let id = match v["id"].as_str() {
-            Some(id) => id.to_string(),
+        let dp = match v["webSocketDebuggerUrl"].as_str() {
+            Some(uri) => DevtoolsProtocol::new(uri, &id)?,
             None => return Err(DevtoolsProtocolError::new(
                 UErrorKind::BrowserControlError,
                 UErrorMessage::DTPControlablePageNotFound
@@ -668,7 +689,7 @@ impl Element {
 }
 
 impl DevtoolsProtocol {
-    fn new(uri: &str/* , btype: BrowserType */) -> DevtoolsProtocolResult<Self>{
+    fn new(uri: &str, session_id: &str/* , btype: BrowserType */) -> DevtoolsProtocolResult<Self>{
         let client = ClientBuilder::new(uri)?
                 .connect_insecure()?;
         let (receiver, sender) = client.split()?;
@@ -678,7 +699,7 @@ impl DevtoolsProtocol {
             sender,
             id: 0,
             // page_id: String::new(),
-            session_id: String::new(),
+            session_id: session_id.to_string(),
             // btype,
         };
         dp.initialize()?;

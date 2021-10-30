@@ -344,6 +344,7 @@ pub trait VARIANTHelper {
     fn get_bool(&self) -> bool;
     fn change_type(&self, var_enum: VARENUM) -> ComResult<VARIANT>;
     fn copy(&self) -> ComResult<VARIANT>;
+    fn is_equal(&self, other: &VARIANT) -> bool;
 }
 
 impl VARIANTHelper for VARIANT {
@@ -431,6 +432,22 @@ impl VARIANTHelper for VARIANT {
             VariantCopy(&mut dest, self)?;
         }
         Ok(dest)
+    }
+    fn is_equal(&self, other: &VARIANT) -> bool {
+        if self.vt() == other.vt() {
+            match VARENUM(self.vt() as i32) {
+                VT_R8 => self.get_double() == other.get_double(),
+                VT_BSTR => {
+                    let b1 = self.get_bstr().unwrap_or_default();
+                    let b2 = other.get_bstr().unwrap_or_default();
+                    b1 == b2
+                },
+                VT_BOOL => self.get_bool() == other.get_bool(),
+                _ => unsafe {self.Anonymous.decVal == other.Anonymous.decVal}
+            }
+        } else {
+            false
+        }
     }
 }
 
