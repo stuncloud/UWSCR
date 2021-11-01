@@ -57,6 +57,7 @@ use std::sync::{Arc, Mutex, Once};
 use std::time::{Duration, Instant};
 use std::thread;
 use std::mem;
+use std::ptr;
 
 use strum_macros::{EnumString, EnumVariantNames};
 use num_derive::{ToPrimitive, FromPrimitive};
@@ -873,7 +874,7 @@ fn get_monitor_count(handle: HMONITOR) -> Object {
 
         EnumDisplayMonitors(
             HDC::default(),
-            &RECT::default(),
+            ptr::null() as *const RECT,
             Some(callback_count_monitor),
             LPARAM(lparam)
         );
@@ -901,7 +902,7 @@ fn get_monitor_handle_by_index(i: usize) -> HMONITOR {
         };
         EnumDisplayMonitors(
             HDC::default(),
-            &mut RECT::default(),
+            ptr::null() as *const RECT,
             Some(monitor_enum_proc_for_get_monitor_handle_by_index),
             LPARAM(&mut monitor as *mut Monitor as isize)
         );
@@ -910,7 +911,7 @@ fn get_monitor_handle_by_index(i: usize) -> HMONITOR {
 }
 
 fn get_monitor_name(name: &[u16]) -> Object {
-    let mut dd: DISPLAY_DEVICEW = unsafe {mem::zeroed()};
+    let mut dd = DISPLAY_DEVICEW::default();
     dd.cb = mem::size_of::<DISPLAY_DEVICEW>() as u32;
     unsafe {
         let p = name.as_ptr() as *mut _;
@@ -931,15 +932,14 @@ pub fn monitor(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         return Ok(Object::Bool(false));
     };
     let mut miex = MONITORINFOEXW::default();
-    let mut mi = miex.__AnonymousBase_winuser_L13571_C43;
-    mi.cbSize = mem::size_of::<MONITORINFO>() as u32;
-    // let p_miex = <*mut _>::cast(&mut miex);
-    let p_miex = &mut miex as *mut _ as *mut MONITORINFO;
+    miex.__AnonymousBase_winuser_L13571_C43.cbSize = mem::size_of::<MONITORINFO>() as u32;
+    let p_miex = <*mut _>::cast(&mut miex);
     unsafe {
         if ! GetMonitorInfoW(h, p_miex).as_bool() {
             return Err(builtin_func_error(UErrorMessage::UnableToGetMonitorInfo, args.name()));
         }
     }
+    let mi = miex.__AnonymousBase_winuser_L13571_C43;
     let cmd = get_non_float_argument_value::<u8>(&args, 1, Some(MonitorEnum::MON_ALL as u8))?;
     let value = match FromPrimitive::from_u8(cmd).unwrap_or(MonitorEnum::UNKNOWN_MONITOR_CMD) {
         MonitorEnum::MON_ALL => {
