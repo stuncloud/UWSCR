@@ -37,7 +37,7 @@ use windows::{
         },
         Graphics::{
             Gdi::{
-                HMONITOR, HDC, DISPLAY_DEVICEW, MONITORINFOEXW, MONITORINFO,
+                HMONITOR, HDC, DISPLAY_DEVICEW, MONITORINFOEXW,
                 MONITOR_DEFAULTTONEAREST,
                 MapWindowPoints, MonitorFromWindow, EnumDisplayMonitors,
                 EnumDisplayDevicesW, GetMonitorInfoW,
@@ -932,7 +932,7 @@ pub fn monitor(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         return Ok(Object::Bool(false));
     };
     let mut miex = MONITORINFOEXW::default();
-    miex.__AnonymousBase_winuser_L13571_C43.cbSize = mem::size_of::<MONITORINFO>() as u32;
+    miex.__AnonymousBase_winuser_L13571_C43.cbSize = mem::size_of::<MONITORINFOEXW>() as u32;
     let p_miex = <*mut _>::cast(&mut miex);
     unsafe {
         if ! GetMonitorInfoW(h, p_miex).as_bool() {
