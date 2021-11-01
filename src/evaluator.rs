@@ -3420,6 +3420,19 @@ f("a")
                 "#,
                 Ok(Some(Object::String("hoge".to_string())))
             ),
+            (
+                r#"
+// gh-27
+hashtbl a
+a['a'] = 'a'
+hashtbl b
+b['b'] = 'b'
+h = a
+h = b // 再代入に成功すればOK
+h == b
+        "#,
+                Ok(Some(Object::Bool(true)))
+            ),
         ];
         for (input, expected) in test_cases {
             eval_test(input, expected, false);

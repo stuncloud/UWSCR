@@ -638,9 +638,10 @@ fn check_special_assignment(obj1: &Object, obj2: &Object) -> bool {
             if let Object::Num(n) = obj2 {
                 if n == &109.0 {
                     h.lock().unwrap().clear();
+                    return false;
                 }
             }
-            false
+            true
         },
         _ => true
     }
