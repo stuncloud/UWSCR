@@ -883,7 +883,7 @@ fn get_monitor_count(handle: HMONITOR) -> Object {
 }
 
 unsafe extern "system"
-fn monitor_enum_proc_for_get_monitor_handle_by_index(h: HMONITOR, _: HDC, _: *mut RECT, lparam: LPARAM) -> BOOL {
+fn callback_get_handle_by_index(h: HMONITOR, _: HDC, _: *mut RECT, lparam: LPARAM) -> BOOL {
     let m = &mut *(lparam.0 as *mut Monitor);
     if m.count == m.index {
         m.handle = h;
@@ -903,7 +903,7 @@ fn get_monitor_handle_by_index(i: usize) -> HMONITOR {
         EnumDisplayMonitors(
             HDC::default(),
             ptr::null() as *const RECT,
-            Some(monitor_enum_proc_for_get_monitor_handle_by_index),
+            Some(callback_get_handle_by_index),
             LPARAM(&mut monitor as *mut Monitor as isize)
         );
         monitor.handle
