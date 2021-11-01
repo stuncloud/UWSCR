@@ -248,8 +248,8 @@ impl fmt::Display for UErrorKind {
                 n
             ),
             Self::BuiltinFunctionError(name) => write_locale!(f,
-                "ビルトイン関数エラー{}",
-                "Builtin function error{}",
+                "ビルトイン関数エラー({})",
+                "Builtin function error: {}",
                 name
             ),
             Self::ClassError => write_locale!(f,
