@@ -271,18 +271,17 @@ impl PartialEq for Object {
             },
             Object::Array(a) => if let Object::Array(a2) = other {a == a2} else {false},
             Object::HashTbl(h) => if let Object::HashTbl(h2) = other {
-                let hash1 = h.lock().unwrap();
-                let hash2 = h2.lock().unwrap();
-                *hash1 == *hash2
+                let _ = h.lock().unwrap();
+                // try_lock()がfalseなら同一HashTblと見なす
+                h2.try_lock().is_err()
             } else {false},
             Object::AnonFunc(e, b, _, p) => if let Object::AnonFunc(e2, b2, _, p2) = other {(e==e2) && (b==b2) && (p==p2)} else {false},
             Object::Function(n, _, _, _, _) => if let Object::Function(n2,_,_,_,_) = other {n == n2} else {false},
             Object::AsyncFunction(n, _, _, _, _) => if let Object::AsyncFunction(n2,_,_,_,_) = other {n == n2} else {false},
             Object::BuiltinFunction(n, _, _) => if let Object::BuiltinFunction(n2,_,_) = other {n == n2} else {false},
             Object::Module(m) => if let Object::Module(m2) = other {
-                let module1 = m.lock().unwrap();
-                let module2 = m2.lock().unwrap();
-                module1.name() == module2.name()
+                let _ = m.lock().unwrap();
+                m2.try_lock().is_err()
             } else {false},
             Object::Class(n, _) => if let Object::Class(n2,_) = other {n==n2} else {false},
             Object::Instance(_, i) => if let Object::Instance(_,i2) = other {i==i2} else {false},
@@ -313,19 +312,17 @@ impl PartialEq for Object {
             Object::SpecialFuncResult(_) => false,
             Object::Global => false,
             Object::This(m) => if let Object::This(m2) = other {
-                let module1 = m.lock().unwrap();
-                let module2 = m2.lock().unwrap();
-                module1.name() == module2.name()
+                let _ = m.lock().unwrap();
+                m2.try_lock().is_err()
             } else {false},
             Object::UObject(v) => if let Object::UObject(v2) = other {
-                let value1 = v.lock().unwrap();
-                let value2 = v2.lock().unwrap();
-                value1.to_string() == value2.to_string()
+                let _ = v.lock().unwrap();
+                v2.try_lock().is_err()
             } else {false},
             Object::UChild(v, p) => if let Object::UChild(v2, p2) = other {
-                let value1 = v.lock().unwrap();
-                let value2 = v2.lock().unwrap();
-                (value1.to_string() == value2.to_string()) && (p == p2)
+                let _ = v.lock().unwrap();
+                let is_same_object = v2.try_lock().is_err();
+                is_same_object && (p == p2)
             } else {false},
             Object::DynamicVar(f) => if let Object::DynamicVar(f2) = other {f() == f2()} else {false},
             Object::Version(v) => if let Object::Version(v2) = other {v == v2} else {false},
@@ -339,9 +336,9 @@ impl PartialEq for Object {
                 n==n2 && s==s2 && v==v2
             } else {false},
             Object::UStruct(n, s, u) => if let Object::UStruct(n2,s2,u2) = other {
-                let ustruct1 = u.lock().unwrap();
-                let ustruct2 = u2.lock().unwrap();
-                n==n2 && s==s2 && *ustruct1 == *ustruct2
+                let _ = u.lock().unwrap();
+                let is_same_struct = u2.try_lock().is_err();
+                n==n2 && s==s2 && is_same_struct
             } else {false},
             Object::ComObject(d) => if let Object::ComObject(d2) = other {
                 format!("{:?}", d) == format!("{:?}", d2)
