@@ -366,7 +366,7 @@ impl PartialEq for Object {
 
 impl Object {
     pub fn is_equal(&self, other: &Object) -> bool {
-        format!("{}", self) == format!("{}", other)
+        self == other
     }
 
     pub fn is_truthy(&self) -> bool {
