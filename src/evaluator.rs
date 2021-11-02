@@ -25,9 +25,11 @@ use windows::{
             // COINIT_MULTITHREADED,
             CoInitializeEx, CoUninitialize,
         },
-        OleAutomation::{
-            IDispatch,
-        }
+        Ole::{
+            Automation::{
+                IDispatch,
+            }
+        },
     },
 };
 

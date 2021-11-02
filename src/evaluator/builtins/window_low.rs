@@ -11,7 +11,7 @@ use windows::{
     Win32::{
         Foundation::POINT,
         UI::{
-            KeyboardAndMouseInput::{
+            Input::KeyboardAndMouse::{
                 KEYEVENTF_SCANCODE, KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP,
                 keybd_event, MapVirtualKeyW
             },

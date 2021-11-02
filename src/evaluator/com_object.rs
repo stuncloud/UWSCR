@@ -8,7 +8,7 @@ use windows::Win32::{
         //     COINIT_APARTMENTTHREADED, CLSCTX_ALL,
         //     CLSIDFromProgID, CoInitializeEx, CoCreateInstance,
         // },
-        OleAutomation::{
+        Ole::Automation::{
             DISPATCH_PROPERTYGET, DISPATCH_PROPERTYPUT, DISPATCH_METHOD,
             DISPID_PROPERTYPUT,
             VT_ARRAY,
@@ -63,14 +63,17 @@ use windows::Win32::{
             // VT_VECTOR,
             // VT_VERSIONED_STREAM,
             // VT_VOID,
-            VARENUM, SAFEARRAY, SAFEARRAYBOUND,
+            VARENUM,
             DISPPARAMS, EXCEPINFO,
-            VARIANT, VARIANT_0_0,
             IDispatch,
             VariantChangeType, VariantCopy,
             SafeArrayCreate, SafeArrayGetElement, SafeArrayPutElement,
             SafeArrayGetLBound, SafeArrayGetUBound, SafeArrayGetDim,
         },
+        Com::{
+            VARIANT, VARIANT_0_0,
+            SAFEARRAY, SAFEARRAYBOUND,
+        }
     },
 };
 use crate::evaluator::{

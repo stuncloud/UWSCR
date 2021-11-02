@@ -14,8 +14,13 @@ use windows::{
     runtime::Handle,
     Win32::{
         Foundation::HWND,
-        System::OleAutomation::{
-            VARIANT, SAFEARRAY, IDispatch,
+        System::{
+            Ole::Automation::{
+                IDispatch,
+            },
+            Com::{
+                VARIANT, SAFEARRAY,
+            }
         },
     }
 };
