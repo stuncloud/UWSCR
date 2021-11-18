@@ -210,9 +210,9 @@ impl Parser {
         ))
     }
 
-    fn error_got_bad_parameter(&mut self, msg: &str) {
+    fn error_got_bad_parameter(&mut self, kind: ParseErrorKind) {
         self.errors.push(ParseError::new(
-            ParseErrorKind::BadParameter(msg.into()),
+            kind,
             self.current_token.pos,
             self.script_name()
         ))
@@ -2566,23 +2566,23 @@ impl Parser {
                         Params::Identifier(i) |
                         Params::Reference(i) |
                         Params::Array(i, _) => if with_default_flg {
-                            self.error_got_bad_parameter(&format!("{}: only argument with default is allowed after argument with default", i));
+                            self.error_got_bad_parameter(ParseErrorKind::ParameterShouldBeDefault(i.clone()));
                             return None;
                         } else if variadic_flg {
-                            self.error_got_bad_parameter(&format!("{}: no arguments are allowed after variadic argument", i));
+                            self.error_got_bad_parameter(ParseErrorKind::ParameterCannotBeDefinedAfterVariadic(i.clone()));
                             return None;
                         },
                         Params::WithDefault(i, _) => if variadic_flg {
-                            self.error_got_bad_parameter(&format!("{}: no arguments are allowed after variadic argument", i));
+                            self.error_got_bad_parameter(ParseErrorKind::ParameterCannotBeDefinedAfterVariadic(i.clone()));
                             return None;
                         } else {
                             with_default_flg = true;
                         },
                         Params::Variadic(i) => if with_default_flg {
-                            self.error_got_bad_parameter(&format!("&{}: variadic argument is not allowed after argument with default value", i));
+                            self.error_got_bad_parameter(ParseErrorKind::ParameterShouldBeDefault(i.clone()));
                             return None;
                         } else if variadic_flg {
-                            self.error_got_bad_parameter(&format!("&{}: no arguments are allowed after variadic argument", i));
+                            self.error_got_bad_parameter(ParseErrorKind::ParameterCannotBeDefinedAfterVariadic(i.clone()));
                             return None;
                         } else {
                             variadic_flg = true;
@@ -2672,7 +2672,7 @@ impl Parser {
             },
             _ => {}
         }
-        self.error_got_bad_parameter(&format!("unexpected token: {:?}", self.current_token.token));
+        self.error_got_unexpected_token();
         None
     }
 

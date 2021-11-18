@@ -17,7 +17,9 @@ pub enum ParseErrorKind {
     InvalidExitCode,
     InvalidBlockEnd(Token, Token),
     ValueMustBeDefined(Identifier),
-    BadParameter(String),
+    // BadParameter(String),
+    ParameterShouldBeDefault(Identifier),
+    ParameterCannotBeDefinedAfterVariadic(Identifier),
     OutOfWith,
     OutOfLoop(Token),
     InvalidStatement(Statement),
@@ -105,10 +107,20 @@ impl fmt::Display for ParseErrorKind {
                 "Value must be defined: {}",
                 name.to_string()
             ),
-            ParseErrorKind::BadParameter(msg) => write_locale!(f,
-                "不正なパラメータ({})",
-                "Bad parameter: {}",
-                msg
+            // ParseErrorKind::BadParameter(msg) => write_locale!(f,
+            //     "不正なパラメータ({})",
+            //     "Bad parameter: {}",
+            //     msg
+            // ),
+            ParseErrorKind::ParameterShouldBeDefault(name) => write_locale!(f,
+                "不正なパラメータ({}): デフォルト引数の後にデフォルト引数以外は定義できません",
+                "Bad parameter ({}): Parameter should have default value",
+                name
+            ),
+            ParseErrorKind::ParameterCannotBeDefinedAfterVariadic(name) => write_locale!(f,
+                "不正なパラメータ({}): 可変長引数の後に引数は定義できません",
+                "Bad parameter ({}): You can not define parameter after variadic parameter",
+                name
             ),
             ParseErrorKind::OutOfWith => write_locale!(f,
                 "Withブロック外で . の左辺を省略できません",
