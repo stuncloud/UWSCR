@@ -166,11 +166,11 @@ pub fn get_color_depth() -> i32 {
 }
 
 // convert windows::runtime::Error to UError
-impl From<windows::runtime::Error> for UError {
-    fn from(e: windows::runtime::Error) -> Self {
+impl From<windows::core::Error> for UError {
+    fn from(e: windows::core::Error) -> Self {
         UError::new(
             UErrorKind::Win32Error(e.code().0),
-            UErrorMessage::Win32Error(e.message()),
+            UErrorMessage::Win32Error(e.message().to_string()),
         )
     }
 }

@@ -2,7 +2,7 @@ use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
 use crate::error::evaluator::{UErrorMessage, UErrorKind};
 use windows::{
-    runtime::Handle,
+    core::Handle,
     Win32::{
         Foundation::{
             BOOL, PWSTR, HWND, LPARAM,

@@ -3,7 +3,7 @@ use crate::evaluator::builtins::*;
 use crate::evaluator::builtins::window_low;
 use crate::evaluator::builtins::system_controls::is_64bit_os;
 use windows::{
-    runtime::Handle,
+    core::Handle,
     Win32::{
         Foundation::{
             MAX_PATH,

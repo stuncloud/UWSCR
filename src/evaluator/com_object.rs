@@ -4,11 +4,13 @@ use crate::winapi::{
 use windows::Win32::{
     Foundation::{PWSTR, BSTR, DISP_E_MEMBERNOTFOUND},
     System::{
-        // Com::{
+        Com::{
         //     COINIT_APARTMENTTHREADED, CLSCTX_ALL,
         //     CLSIDFromProgID, CoInitializeEx, CoCreateInstance,
-        // },
-        Ole::Automation::{
+            DISPPARAMS, EXCEPINFO,
+            IDispatch,
+        },
+        Ole::{
             DISPATCH_PROPERTYGET, DISPATCH_PROPERTYPUT, DISPATCH_METHOD,
             DISPID_PROPERTYPUT,
             VT_ARRAY,
@@ -64,8 +66,6 @@ use windows::Win32::{
             // VT_VERSIONED_STREAM,
             // VT_VOID,
             VARENUM,
-            DISPPARAMS, EXCEPINFO,
-            IDispatch,
             VariantChangeType, VariantCopy,
             SafeArrayCreate, SafeArrayGetElement, SafeArrayPutElement,
             SafeArrayGetLBound, SafeArrayGetUBound, SafeArrayGetDim,
@@ -93,17 +93,17 @@ pub struct ComError {
 }
 
 impl ComError {
-    pub fn new(e: &windows::runtime::Error, description: Option<String>) -> Self {
+    pub fn new(e: &windows::core::Error, description: Option<String>) -> Self {
         Self {
-            message: e.message(),
+            message: e.message().to_string(),
             code: e.code().0,
             description
         }
     }
 }
 
-impl From<windows::runtime::Error> for ComError {
-    fn from(e: windows::runtime::Error) -> Self {
+impl From<windows::core::Error> for ComError {
+    fn from(e: windows::core::Error) -> Self {
         Self::new(&e, None)
     }
 }
@@ -288,7 +288,7 @@ impl IDispatchHelper for IDispatch {
             let mut member: Vec<u16> = to_wide_string(name);
             let mut dispidmember = 0;
             self.GetIDsOfNames(
-                &windows::runtime::GUID::default(),
+                &windows::core::GUID::default(),
                 &mut PWSTR(member.as_mut_ptr()),
                 1,
                 LOCALE_USER_DEFAULT,
@@ -301,7 +301,7 @@ impl IDispatchHelper for IDispatch {
 
             match self.Invoke(
                 dispidmember,
-                &windows::runtime::GUID::default(),
+                &windows::core::GUID::default(),
                 LOCALE_SYSTEM_DEFAULT,
                 wflags,
                 dp,

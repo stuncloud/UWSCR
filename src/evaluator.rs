@@ -23,12 +23,8 @@ use windows::{
         Com::{
             COINIT_APARTMENTTHREADED,
             // COINIT_MULTITHREADED,
+            IDispatch,
             CoInitializeEx, CoUninitialize,
-        },
-        Ole::{
-            Automation::{
-                IDispatch,
-            }
         },
     },
 };

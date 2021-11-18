@@ -13,11 +13,10 @@ use windows::Win32::{
     System::{
         Com::{
             CLSCTX_ALL,
-            SAFEARRAY,
+            SAFEARRAY, IDispatch,
             CLSIDFromProgID, CoCreateInstance,
         },
-        Ole::Automation::{
-            IDispatch,
+        Ole::{
             GetActiveObject,
         }
     }

@@ -11,14 +11,12 @@ use crate::winapi::{
     to_ansi_bytes, from_ansi_bytes, to_wide_string,
 };
 use windows::{
-    runtime::Handle,
+    core::Handle,
     Win32::{
         Foundation::HWND,
         System::{
-            Ole::Automation::{
-                IDispatch,
-            },
             Com::{
+                IDispatch,
                 VARIANT, SAFEARRAY,
             }
         },
