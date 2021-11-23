@@ -1,8 +1,6 @@
 use crate::{
     evaluator::builtins::system_controls::shell_execute,
-    winapi::{
-        get_special_directory,
-    }
+    winapi::get_special_directory,
 };
 use windows::Win32::UI::Shell::CSIDL_APPDATA;
 
@@ -31,6 +29,8 @@ pub struct USettings {
     pub options: UOption,
     #[serde(default)]
     pub browser: Browser,
+    #[serde(default)]
+    pub chkimg: Chkimg,
     #[serde(skip_deserializing, rename(serialize = "$schema"))]
     pub schema: String,
 }
@@ -43,7 +43,7 @@ impl USettings {
 
 impl Default for USettings {
     fn default() -> Self {
-        let uri = "https://github.com/stuncloud/UWSCR/releases/download/0.2.1/uwscr-settings-schema.json".to_string();
+        let uri = "https://github.com/stuncloud/UWSCR/releases/download/0.3.0/uwscr-settings-schema.json".to_string();
         let schema = if cfg!(debug_assertions) {
             match std::env::current_dir() {
                 Ok(mut p) => {
@@ -62,6 +62,7 @@ impl Default for USettings {
         USettings {
             options: UOption::default(),
             browser: Browser::default(),
+            chkimg: Chkimg::default(),
             schema
         }
     }
@@ -177,6 +178,20 @@ impl Default for Browser {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct Chkimg {
+    // chkimg()実行時の画面を保存するかどうか
+    #[serde(default)]
+    pub save_ss: bool,
+}
+impl Default for Chkimg {
+    fn default() -> Self {
+        Self {
+            save_ss: false,
+        }
+    }
+}
+
 pub fn usettings_singleton(usettings: Option<USettings>) -> Box<SingletonSettings> {
     static mut SINGLETON: Option<Box<SingletonSettings>> = None;
     static ONCE: Once = Once::new();
@@ -226,20 +241,23 @@ impl From<std::io::Error> for Error {
     }
 }
 
-pub fn load_settings() -> Result<(), Error> {
+pub fn load_settings() -> Result<Box<SingletonSettings>, Error> {
     let mut path = PathBuf::from(
         get_special_directory(CSIDL_APPDATA as i32)
     );
     path.push("UWSCR");
     path.push("settings.json");
 
-    if path.exists() {
+    let usettings = if path.exists() {
+        // jsonから設定を読み取る
         let json = read(&path)?;
         let from_json = serde_json::from_slice::<USettings>(&json)?;
-        // jsonから読み取った設定をセット
-        usettings_singleton(Some(from_json));
-    }
-    Ok(())
+        Some(from_json)
+    } else {
+        None
+    };
+    let singleton = usettings_singleton(usettings);
+    Ok(singleton)
 }
 
 pub fn out_default_setting_file() -> Result<String, Error> {

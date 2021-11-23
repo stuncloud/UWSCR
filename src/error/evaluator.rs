@@ -157,6 +157,8 @@ pub enum UErrorKind {
     DevtoolsProtocolError,
     BrowserControlError,
     WmiError,
+    OpenCvError,
+    ScreenShotError,
 }
 
 impl fmt::Display for UErrorKind {
@@ -313,6 +315,14 @@ impl fmt::Display for UErrorKind {
                 "WMIエラー",
                 "WMI error",
             ),
+            Self::OpenCvError => write_locale!(f,
+                "opencvエラー",
+                "opencv error",
+            ),
+            Self::ScreenShotError => write_locale!(f,
+                "スクリーンショットエラー",
+                "Screenshot error",
+            ),
         }
     }
 }
@@ -414,6 +424,8 @@ pub enum UErrorMessage {
     WebResponseWasNotOk(u16, String),
     InvalidErrorLine(usize),
     FailedToGetObject,
+    GdiError(String),
+    GivenNumberIsOutOfRange(f64, f64),
 }
 
 impl fmt::Display for UErrorMessage {
@@ -852,6 +864,16 @@ impl fmt::Display for UErrorMessage {
             Self::FailedToGetObject =>write_locale!(f,
                 "オブジェクトの取得に失敗",
                 "Failed to get active object",
+            ),
+            Self::GdiError(msg) => write_locale!(f,
+                "GDI関数の実行に失敗 ({})",
+                "Failure on GDI function: {}",
+                msg
+            ),
+            Self::GivenNumberIsOutOfRange(from, to) => write_locale!(f,
+                "{}~{}を指定してください",
+                "Specify a number between {} and {}",
+                from, to
             ),
         }
     }

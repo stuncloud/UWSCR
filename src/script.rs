@@ -27,9 +27,9 @@ pub fn run(script: String, mut args: Vec<String>) -> Result<(), Vec<String>> {
     // 設定ファイルを読み込む
     // 失敗したらデフォルト設定が適用される
     match load_settings() {
-        Ok(()) => {},
+        Ok(_) => {},
         Err(e) => eprintln!("failed to load settings: {}", e),
-    }
+    };
 
     let params = args.drain(2..).collect();
     let uwscr_dir = match get_parent_full_path(&args[0]) {
@@ -45,8 +45,8 @@ pub fn run(script: String, mut args: Vec<String>) -> Result<(), Vec<String>> {
         ])
     };
     logging::init(&script_dir);
-    env::set_var("GET_UWSC_DIR", uwscr_dir.to_str().unwrap());
-    env::set_var("GET_SCRIPT_DIR", script_dir.to_str().unwrap());
+    env::set_var("GET_UWSC_DIR", &uwscr_dir);
+    env::set_var("GET_SCRIPT_DIR", &script_dir);
     match get_script_name(&args[1]) {
         Some(ref s) => {
             env::set_var("GET_UWSC_NAME", s);

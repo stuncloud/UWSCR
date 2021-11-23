@@ -2,6 +2,8 @@ use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
 use crate::evaluator::builtins::window_low;
 use crate::evaluator::builtins::system_controls::is_64bit_os;
+use crate::settings::usettings_singleton;
+use crate::evaluator::builtins::chkimg::{ChkImg, ScreenShot};
 use windows::{
     core::Handle,
     Win32::{
@@ -137,6 +139,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("status", 22, status);
     sets.add("acw", 6, acw);
     sets.add("monitor", 2, monitor);
+    sets.add("chkimg", 7, chkimg);
     sets
 }
 
@@ -969,4 +972,43 @@ pub fn monitor(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         _ => return Ok(Object::Bool(false))
     };
     Ok(Object::Num(value as f64))
+}
+
+pub fn chkimg(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let save_ss = {
+        let singleton = usettings_singleton(None);
+        let settings = singleton.0.lock().unwrap();
+        settings.chkimg.save_ss
+    };
+    let default_score = 95;
+    let path = get_string_argument_value(&args, 0, None)?;
+    let score = get_non_float_argument_value::<i32>(&args, 1, Some(default_score))?;
+    if score < 1 && score > 100 {
+        return Err(builtin_func_error(UErrorMessage::GivenNumberIsOutOfRange(1.0, 100.0), args.name()));
+    }
+    let score = score as f64 / 100.0;
+    let count = get_non_float_argument_value::<u8>(&args, 2, Some(5))?;
+    let left = get_int_or_empty_argument(&args, 3, Some(None))?;
+    let top = get_int_or_empty_argument(&args, 4, Some(None))?;
+    let right = get_int_or_empty_argument(&args, 5, Some(None))?;
+    let bottom = get_int_or_empty_argument(&args, 6, Some(None))?;
+
+    let ss = ScreenShot::get(None, left, top, right, bottom)?;
+    if save_ss {
+        ss.save("chkimg_ss.png")?;
+    }
+    let chk = ChkImg::from_screenshot(ss)?;
+    let result = chk.search(&path, score, Some(count))?;
+    let arr = result
+                            .into_iter()
+                            .map(|m| {
+                                let vec = vec![
+                                    Object::Num(m.x as f64),
+                                    Object::Num(m.y as f64),
+                                    Object::Num(m.score * 100.0)
+                                ];
+                                Object::Array(vec)
+                            })
+                            .collect::<Vec<_>>();
+    Ok(Object::Array(arr))
 }

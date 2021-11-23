@@ -14,6 +14,16 @@
         }
       ]
     },
+    "chkimg": {
+      "default": {
+        "save_ss": false
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/Chkimg"
+        }
+      ]
+    },
     "options": {
       "default": {
         "default_font": "MS Gothic,12",
@@ -62,6 +72,15 @@
             "string",
             "null"
           ]
+        }
+      }
+    },
+    "Chkimg": {
+      "type": "object",
+      "properties": {
+        "save_ss": {
+          "default": false,
+          "type": "boolean"
         }
       }
     },

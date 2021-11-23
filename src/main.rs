@@ -245,7 +245,7 @@ impl Args {
         println!("  uwscr (-l|--lib) FILE        : スクリプトからuwslファイルを生成する");
         println!("  uwscr (-c|--code) CODE       : 渡された文字列を評価して実行する");
         println!("  uwscr (-s|--settings)        : 設定ファイル(settings.json)を開く");
-        println!("  uwscr --schema [DIR]         : 設定ディレクトリにjson schemaファイル(uwscr-settings-schema.json)を出力する");
+        println!("  uwscr --schema [DIR]         : 指定ディレクトリにjson schemaファイル(uwscr-settings-schema.json)を出力する");
         // println!("  uwscr --language-server [PORT]   : Language Serverとして起動、デフォルトポートはxxx");
         println!("  uwscr (-h|--help|-?|/?)      : このヘルプを表示");
         println!("  uwscr (-v|--version)         : UWSCRのバージョンを表示");

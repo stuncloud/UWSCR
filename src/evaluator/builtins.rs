@@ -7,6 +7,7 @@ pub mod key_codes;
 pub mod com_object;
 pub mod browser_control;
 pub mod array_control;
+pub mod chkimg;
 
 use crate::settings::usettings_singleton;
 use crate::winapi::{
@@ -446,9 +447,35 @@ pub fn get_non_float_argument_value<T>(args: &BuiltinFuncArgs, i: usize, default
                     args.name())
                 )
             },
+            Object::EmptyParam => {
+                default.ok_or(builtin_func_error(UErrorMessage::BuiltinArgRequiredAt(i + 1), args.name()))
+            },
             _ => Err(builtin_func_error(
                 UErrorMessage::BuiltinArgInvalid(arg),
                 args.name())
+            )
+        }
+    } else {
+        default.ok_or(builtin_func_error(UErrorMessage::BuiltinArgRequiredAt(i + 1), args.name()))
+    }
+}
+
+// 数値またはNoneを返す省略時に可変なデフォルト値を取る引数に使う
+pub fn get_int_or_empty_argument(args: &BuiltinFuncArgs, i: usize, default: Option<Option<i32>>) -> BuiltInResult<Option<i32>> {
+    if args.len() >= i + 1 {
+        let arg = args.item(i).unwrap();
+        match arg {
+            Object::Num(n) => Ok(Some(n as i32)),
+            Object::String(ref s) => match s.parse::<f64>() {
+                Ok(n) => Ok(Some(n as i32)),
+                Err(_) => Err(builtin_func_error(
+                    UErrorMessage::BuiltinArgInvalid(arg), args.name())
+                )
+            },
+            Object::Empty |
+            Object::EmptyParam => Ok(None),
+            _ => Err(builtin_func_error(
+                UErrorMessage::BuiltinArgInvalid(arg), args.name())
             )
         }
     } else {
