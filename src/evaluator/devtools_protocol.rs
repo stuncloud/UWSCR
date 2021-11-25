@@ -266,8 +266,10 @@ impl Browser {
         let mut args = match btype {
             BrowserType::Chrome |
             BrowserType::MSEdge => {
-                let arg = format!("--remote-debugging-port={}", port);
-                vec![arg]
+                vec![
+                    format!("--remote-debugging-port={}", port),
+                    "--enable-automation".into()
+                ]
             },
         };
         if headless {
