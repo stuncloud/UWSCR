@@ -646,16 +646,18 @@ impl Parser {
 
     fn parse_print_statement(&mut self) -> Option<Statement> {
         self.bump();
-        if ! self.current_token.skipped_whitespace {
-            self.errors.push(ParseError::new(
-                ParseErrorKind::WhitespaceRequiredAfter("print".into()),
-                self.current_token.pos,
-                self.script_name()
-            ));
-            return None;
-        }
+        let has_whitespace = self.current_token.skipped_whitespace;
         let expression = match self.parse_expression(Precedence::Lowest, false) {
-            Some(e) => e,
+            Some(e) => if has_whitespace {
+                e
+            } else {
+                self.errors.push(ParseError::new(
+                    ParseErrorKind::WhitespaceRequiredAfter("print".into()),
+                    self.current_token.pos,
+                    self.script_name()
+                ));
+                return None;
+            },
             None => Expression::Literal(Literal::String("".to_string()))
         };
 
