@@ -1408,7 +1408,7 @@ checksum = "09cc8ee72d2a9becf2f2febe0205bbed8fc6615b7cb429ad062dc7b7ddd036a9"
 
 [[package]]
 name = "uwscr"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "bincode",
  "cast",
