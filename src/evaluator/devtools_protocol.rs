@@ -25,12 +25,7 @@ use libc::c_void;
 use winreg;
 use reqwest;
 use serde_json::{Value, json};
-use websocket::{
-    client::ClientBuilder,
-    Message, OwnedMessage,
-    sender::Writer,
-    receiver::Reader,
-};
+use tungstenite::{self, WebSocket, stream::MaybeTlsStream};
 use std::collections::HashMap;
 use wmi::{WMIConnection, FilterValue};
 use serde::Deserialize;
@@ -91,71 +86,6 @@ impl Drop for Browser {
     }
 }
 
-pub struct Element {
-    dp: Arc<Mutex<DevtoolsProtocol>>,
-    pub node_id: u32,
-    pub value: Value
-}
-
-impl Clone for Element {
-    fn clone(&self) -> Self {
-        Self {
-            dp: Arc::clone(&self.dp),
-            node_id: self.node_id.clone(),
-            value: self.value.clone(),
-        }
-    }
-}
-impl fmt::Debug for Element {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Element")
-        .field("node_id", &self.node_id)
-        .field("value", &self.value)
-        .finish()
-    }
-}
-impl PartialEq for Element {
-    fn eq(&self, other: &Self) -> bool {
-        let dp1 = self.dp.lock().unwrap();
-        let dp2 = self.dp.lock().unwrap();
-        self.node_id == other.node_id &&
-        self.value == other.value &&
-        *dp1 == *dp2
-    }
-}
-
-pub struct DevtoolsProtocol {
-    id: u32,
-    session_id: String,
-    pub receiver: Reader<TcpStream>,
-    pub sender: Writer<TcpStream>,
-}
-
-impl PartialEq for DevtoolsProtocol {
-    fn eq(&self, other: &Self) -> bool {
-        self.session_id == other.session_id
-    }
-}
-impl Drop for DevtoolsProtocol {
-    fn drop(&mut self) {
-        let _ = self.sender.shutdown();
-        let _ = self.receiver.shutdown();
-    }
-}
-
-pub struct DevtoolsProtocolError {
-    pub kind: UErrorKind,
-    pub message: UErrorMessage
-}
-
-impl DevtoolsProtocolError {
-    fn new(kind: UErrorKind, message: UErrorMessage) -> Self {
-        Self {kind, message}
-    }
-}
-
-type DevtoolsProtocolResult<T> = Result<T, DevtoolsProtocolError>;
-
 #[derive(Debug)]
 pub struct BrowserTab {
     pub title: String,
@@ -200,7 +130,8 @@ impl Browser {
         };
         let dp = match target["webSocketDebuggerUrl"].as_str() {
             Some(ws_uri) => {
-                DevtoolsProtocol::new(ws_uri, &id /* , btype */)?
+                // DevtoolsProtocol::new(ws_uri, &id /* , btype */)?
+                DevtoolsProtocol::new(ws_uri, id.clone())?
             },
             None => return Err(DevtoolsProtocolError::new(
                 UErrorKind::DevtoolsProtocolError,
@@ -267,8 +198,8 @@ impl Browser {
             BrowserType::Chrome |
             BrowserType::MSEdge => {
                 vec![
+                    "--enable-automation".into(),
                     format!("--remote-debugging-port={}", port),
-                    "--enable-automation".into()
                 ]
             },
         };
@@ -324,11 +255,11 @@ impl Browser {
         Ok(res["result"].to_owned())
     }
 
-    fn _dp_wait_event(&self, event: &str) -> DevtoolsProtocolResult<()> {
-        let mut dp = self.dp.lock().unwrap();
-        dp._wait_for_event(event)?;
-        Ok(())
-    }
+    // fn _dp_wait_event(&self, event: &str) -> DevtoolsProtocolResult<()> {
+    //     let mut dp = self.dp.lock().unwrap();
+    //     dp._wait_for_event(event)?;
+    //     Ok(())
+    // }
 
     pub fn get_tabs(&self, filter: Option<String>) -> DevtoolsProtocolResult<Vec<BrowserTab>> {
         let res = Browser::get_request(self.port, "/json/list")?;
@@ -376,7 +307,8 @@ impl Browser {
             ))
         };
         let dp = match v["webSocketDebuggerUrl"].as_str() {
-            Some(uri) => DevtoolsProtocol::new(uri, &id)?,
+            // Some(uri) => DevtoolsProtocol::new(uri, &id)?,
+            Some(uri) => DevtoolsProtocol::new(uri, id.clone())?,
             None => return Err(DevtoolsProtocolError::new(
                 UErrorKind::BrowserControlError,
                 UErrorMessage::DTPControlablePageNotFound
@@ -492,6 +424,42 @@ impl Browser {
         get_window_id_from_port(self.port)
     }
 }
+
+
+
+pub struct Element {
+    dp: Arc<Mutex<DevtoolsProtocol>>,
+    pub node_id: u32,
+    pub value: Value
+}
+
+impl Clone for Element {
+    fn clone(&self) -> Self {
+        Self {
+            dp: Arc::clone(&self.dp),
+            node_id: self.node_id.clone(),
+            value: self.value.clone(),
+        }
+    }
+}
+impl fmt::Debug for Element {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Element")
+        .field("node_id", &self.node_id)
+        .field("value", &self.value)
+        .finish()
+    }
+}
+impl PartialEq for Element {
+    fn eq(&self, other: &Self) -> bool {
+        let dp1 = self.dp.lock().unwrap();
+        let dp2 = self.dp.lock().unwrap();
+        self.node_id == other.node_id &&
+        self.value == other.value &&
+        *dp1 == *dp2
+    }
+}
+
 
 impl Element {
     fn new(value: Value, dp: Arc<Mutex<DevtoolsProtocol>>) -> DevtoolsProtocolResult<Element> {
@@ -690,20 +658,50 @@ impl Element {
     }
 }
 
-impl DevtoolsProtocol {
-    fn new(uri: &str, session_id: &str/* , btype: BrowserType */) -> DevtoolsProtocolResult<Self>{
-        let client = ClientBuilder::new(uri)?
-                .connect_insecure()?;
-        let (receiver, sender) = client.split()?;
+pub struct DevtoolsProtocolError {
+    pub kind: UErrorKind,
+    pub message: UErrorMessage
+}
 
-        let mut dp = Self {
-            receiver,
-            sender,
-            id: 0,
-            // page_id: String::new(),
-            session_id: session_id.to_string(),
-            // btype,
-        };
+impl DevtoolsProtocolError {
+    fn new(kind: UErrorKind, message: UErrorMessage) -> Self {
+        Self {kind, message}
+    }
+}
+
+type DevtoolsProtocolResult<T> = Result<T, DevtoolsProtocolError>;
+
+pub struct DevtoolsProtocol {
+    pub socket: WebSocket<MaybeTlsStream<TcpStream>>,
+    pub id: u32,
+    pub session_id: Option<String>
+}
+
+impl PartialEq for DevtoolsProtocol {
+    fn eq(&self, other: &Self) -> bool {
+        self.session_id == other.session_id
+    }
+}
+impl Drop for DevtoolsProtocol {
+    fn drop(&mut self) {
+        let _ = self.socket.close(None);
+    }
+}
+
+impl DevtoolsProtocol {
+    fn new(uri: &str, sid: String) -> DevtoolsProtocolResult<Self> {
+        let (socket, response) = tungstenite::connect(uri)?;
+        #[cfg(debug_assertions)]
+        println!("[debug] tungstenite::connect: {:?}", response);
+        let status = response.status();
+        if status.as_u16() >= 400 {
+            return Err(DevtoolsProtocolError::new(
+                UErrorKind::WebSocketError,
+                UErrorMessage::WebSocketConnectionError(status.as_u16(), status.as_str().into())
+            ));
+        }
+
+        let mut dp = Self {socket, id: 0, session_id: Some(sid)};
         dp.initialize()?;
         Ok(dp)
     }
@@ -720,71 +718,38 @@ impl DevtoolsProtocol {
         id
     }
 
-    fn new_data(&mut self, method: &str, params: Value) -> Value {
-        let mut value = json!({
+    fn new_data(&mut self, method: &str, params: &Value) -> Value {
+        let value = json!({
             "id": self.next_id(),
             "method": method,
             "params": params
         });
-        if self.session_id.len() > 0 {
-            if let Value::Object(ref mut m) = value {
-                m.insert("sessionId".into(), json!(self.session_id));
-            }
-        }
         value
     }
 
     fn send(&mut self, method: &str, params: Value) -> DevtoolsProtocolResult<Value> {
-        let data = self.new_data(method, params);
+        let data = self.new_data(method, &params);
         let msg = data.to_string();
-        // println!("[DevtoolsProtocol::send] sent message: {}", &msg);
-        self.sender.send_message(&Message::text(msg))?;
-        self.get_result(&data["id"])
-    }
+        #[cfg(debug_assertions)]
+        println!("[debug] data: {}", &msg);
 
-    fn search_receiver(&mut self, key: &str, value: &Value) -> Option<String> {
-        let mut took = self.receiver.incoming_messages().take_while(|r| {
-            match r {
-                Ok(m) => if let OwnedMessage::Text(ref s) = m {
-                    match Value::from_str(s) {
-                        Ok(ref obj) => &obj[key] == value,
-                        _ => false
-                    }
-                } else {
-                    false
-                },
-                _ => false
-            }
-        }).map(|m| if let Ok(OwnedMessage::Text(t)) = m {
-            t.to_string()
-        } else {
-            String::new()
-        });
-        let result = took.next();
-        // println!("[DevtoolsProtocol::search_receiver] received: {}", &result.as_ref().unwrap_or(&"not yet received".to_string()));
-        result
-    }
-
-    fn get_result(&mut self, id: &Value) -> DevtoolsProtocolResult<Value> {
+        let message = tungstenite::Message::Text(msg);
+        self.socket.write_message(message)?;
         loop {
-            let result = self.search_receiver("id", id);
-            if result.is_some() {
-                return Ok(Value::from_str(&result.unwrap())?);
-            }
-            sleep(Duration::from_millis(100));
+                let received = self.socket.read_message()?;
+                #[cfg(debug_assertions)]
+                println!("[debug] received: {}", received);
+                if received.is_text() {
+                    let msg = received.into_text()?;
+                    let value = Value::from_str(&msg)?;
+                    if value["id"] == data["id"] {
+                        break Ok(value)
+                    }
+                }
         }
-    }
-
-    fn _wait_for_event(&mut self, event: &str) -> DevtoolsProtocolResult<()> {
-        let value = json!({
-            "method": event
-        });
-        while ! self.search_receiver("method", &value).is_some() {
-            sleep(Duration::from_millis(100))
-        }
-        Ok(())
     }
 }
+
 
 // ウィンドウハンドル取得
 fn get_window_id_from_port(port: u16) -> DevtoolsProtocolResult<Object> {
@@ -847,22 +812,6 @@ fn enum_window_proc(hwnd: HWND, lparam: LPARAM) -> BOOL {
 }
 
 // 各種エラー
-impl From<websocket::client::ParseError> for DevtoolsProtocolError {
-    fn from(e: websocket::client::ParseError) -> Self {
-        Self::new(
-            UErrorKind::WebSocketError,
-            UErrorMessage::Any(e.to_string())
-        )
-    }
-}
-impl From<websocket::result::WebSocketError> for DevtoolsProtocolError {
-    fn from(e: websocket::result::WebSocketError) -> Self {
-        Self::new(
-            UErrorKind::WebSocketError,
-            UErrorMessage::Any(e.to_string())
-        )
-    }
-}
 impl From<serde_json::Error> for DevtoolsProtocolError {
     fn from(e: serde_json::Error) -> Self {
         Self::new(
@@ -891,6 +840,14 @@ impl From<wmi::utils::WMIError> for DevtoolsProtocolError {
     fn from(e: wmi::utils::WMIError) -> Self {
         Self::new(
             UErrorKind::WmiError,
+            UErrorMessage::Any(e.to_string())
+        )
+    }
+}
+impl From<tungstenite::error::Error> for DevtoolsProtocolError {
+    fn from(e: tungstenite::error::Error) -> Self {
+        Self::new(
+            UErrorKind::WebSocketError,
             UErrorMessage::Any(e.to_string())
         )
     }

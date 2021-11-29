@@ -26,8 +26,8 @@ libc = "0.2"
 schemars = "0.8.6"
 url = "2.2.2"
 winreg = "0.10"
-reqwest = { version = "0.11", features = ["blocking"] }
-websocket = "0.24"
+reqwest = { version = "0.11.6", features = ["blocking"] }
+tungstenite = "0.16.0"
 wmi = "0.9"
 opencv = { version = "0.60.0", default-features = false, features = ["imgcodecs", "imgproc"]}
 

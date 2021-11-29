@@ -426,6 +426,8 @@ pub enum UErrorMessage {
     FailedToGetObject,
     GdiError(String),
     GivenNumberIsOutOfRange(f64, f64),
+    WebSocketTimeout(Value),
+    WebSocketConnectionError(u16, String),
 }
 
 impl fmt::Display for UErrorMessage {
@@ -874,6 +876,16 @@ impl fmt::Display for UErrorMessage {
                 "{}~{}を指定してください",
                 "Specify a number between {} and {}",
                 from, to
+            ),
+            Self::WebSocketTimeout(id) => write_locale!(f,
+                "ID{}のレスポンスがありませんでした",
+                "Got no response for request id {}",
+                id
+            ),
+            Self::WebSocketConnectionError(status, status_text) => write_locale!(f,
+                "接続に失敗しました ({} {})",
+                "Failed to connect: {} {}",
+                status, status_text
             ),
         }
     }
