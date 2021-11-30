@@ -3,15 +3,17 @@ pub mod version;
 pub mod variant;
 pub mod utask;
 pub mod ustruct;
+pub mod module;
 
 pub use self::hashtbl::{HashTbl, HashTblEnum};
 pub use self::version::Version;
 pub use self::variant::Variant;
 pub use self::utask::UTask;
 pub use self::ustruct::{UStruct, UStructMember};
+pub use self::module::Module;
 
 use crate::ast::*;
-use crate::evaluator::environment::{NamedObject, Module};
+use crate::evaluator::environment::{NamedObject};
 use crate::evaluator::builtins::BuiltinFunction;
 use crate::evaluator::com_object::VARIANTHelper;
 use crate::evaluator::devtools_protocol::{Browser, Element};
