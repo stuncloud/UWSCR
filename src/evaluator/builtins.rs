@@ -19,7 +19,12 @@ use crate::winapi::{
     get_color_depth,
 };
 use windows::Win32::UI::Shell::CSIDL_APPDATA;
-use crate::evaluator::object::{Object, Version, HashTblEnum, SpecialFuncResultType, UTask};
+use crate::evaluator::object::{
+    Object, Version,
+    HashTblEnum,
+    SpecialFuncResultType,
+    UTask
+};
 use crate::evaluator::environment::NamedObject;
 use crate::error::evaluator::{UError,UErrorKind,UErrorMessage};
 use crate::ast::Expression;
