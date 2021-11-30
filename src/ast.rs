@@ -93,7 +93,7 @@ pub enum Expression {
     Infix(Infix, Box<Expression>, Box<Expression>),
     Index(Box<Expression>, Box<Expression>, Box<Option<Expression>>), // optionはhashtblの2つ目の添字
     AnonymusFunction {
-        params: Vec<Expression>,
+        params: Vec<Params>,
         body: BlockStatement,
         is_proc: bool,
     },
@@ -186,7 +186,7 @@ pub enum Statement {
     },
     Function {
         name: Identifier,
-        params: Vec<Expression>,
+        params: Vec<Params>,
         body: BlockStatement,
         is_proc: bool,
         is_async: bool,
@@ -303,7 +303,7 @@ impl fmt::Display for Params {
                 write!(f, "{}[]", i)
             },
             Params::WithDefault(ref i, _) => write!(f, "{} = [default]", i),
-            Params::Variadic(ref i) => write!(f, "&{}", i),
+            Params::Variadic(ref i) => write!(f, "args {}", i),
             _ => write!(f, "")
         }
     }

@@ -47,7 +47,7 @@ type EvalResult<T> = Result<T, UError>;
 
 #[derive(Debug, Clone)]
 pub struct  Evaluator {
-    env: Environment,
+    pub env: Environment,
     instance_id: Arc<Mutex<u32>>,
     pub ignore_com_err: bool,
     pub com_err_flg: bool,
@@ -309,22 +309,22 @@ impl Evaluator {
             Statement::Print(e) => self.eval_print_statement(e),
             Statement::Call(block, args) => {
                 let Program(body, lines) = block;
+                let params = vec![
+                    Params::Identifier(Identifier("PARAM_STR".into()))
+                ];
                 let params_str = Expression::Literal(Literal::Array(args));
                 let arguments = vec![
                     (Some(params_str.clone()), self.eval_expression(params_str)?)
                 ];
-                let call_res = self.invoke_user_function(
-                    vec![
-                        Expression::Params(Params::Identifier(Identifier("PARAM_STR".into())))
-                    ],
-                    arguments,
+                let func = Function {
+                    name: None,
+                    params,
                     body,
-                    true,
-                    None,
-                    None,
-                    false
-                );
-                match call_res {
+                    is_proc: true,
+                    module: None,
+                    outer: None,
+                };
+                match func.invoke(self, arguments, false) {
                     Ok(_) => Ok(None),
                     Err(mut e) => {
                         let row = e.line.row;
@@ -388,11 +388,8 @@ impl Evaluator {
                 let module = self.env.get_module(&name);
                 if let Some(Object::Module(m)) = module {
                     let constructor = m.lock().unwrap().get_constructor();
-                    match constructor {
-                        Some(o) => {
-                            self.invoke_function_object(o, vec![])?;
-                        },
-                        None => {}
+                    if let Some(Object::Function(f)) = constructor {
+                        f.invoke(self, vec![], false)?;
                     }
                 };
                 Ok(None)
@@ -689,7 +686,7 @@ impl Evaluator {
         Ok(None)
     }
 
-    fn eval_funtcion_definition_statement(&mut self, name: &String, params: Vec<Expression>, body: BlockStatement, is_proc: bool, is_async: bool) -> EvalResult<Object> {
+    fn eval_funtcion_definition_statement(&mut self, name: &String, params: Vec<Params>, body: BlockStatement, is_proc: bool, is_async: bool) -> EvalResult<Object> {
         for statement in &body {
             match statement.statement {
                 Statement::Function{name: _, params: _, body: _, is_proc: _, is_async: _}  => {
@@ -701,10 +698,18 @@ impl Evaluator {
                 _ => {},
             };
         }
+        let func = Function {
+            name: Some(name.into()),
+            params,
+            body,
+            is_proc,
+            module: None,
+            outer: None,
+        };
         if is_async {
-            Ok(Object::AsyncFunction(name.clone(), params, body, is_proc, None))
+            Ok(Object::AsyncFunction(func))
         } else {
-            Ok(Object::Function(name.clone(), params, body, is_proc, None))
+            Ok(Object::Function(func))
         }
     }
 
@@ -845,12 +850,20 @@ impl Evaluator {
                             _ => new_body.push(statement),
                         };
                     }
+                    let func = Function {
+                        name: Some(func_name.clone()),
+                        params,
+                        body: new_body,
+                        is_proc,
+                        module: None,
+                        outer: None,
+                    };
                     module.add(
-                        func_name.clone(),
+                        func_name,
                         if is_async {
-                            Object::AsyncFunction(func_name, params, new_body, is_proc, None)
+                            Object::AsyncFunction(func)
                         } else {
-                            Object::Function(func_name, params, new_body, is_proc, None)
+                            Object::Function(func)
                         },
                         Scope::Function,
                     );
@@ -1091,7 +1104,14 @@ impl Evaluator {
             },
             Expression::AnonymusFunction {params, body, is_proc} => {
                 let outer_local = self.env.get_local_copy();
-                Object::AnonFunc(params, body, Arc::new(Mutex::new(outer_local)), is_proc)
+                Object::AnonFunc(Function {
+                    name: None,
+                    params,
+                    body,
+                    is_proc,
+                    module: None,
+                    outer: Some(Arc::new(Mutex::new(outer_local))),
+                })
             },
             Expression::FuncCall {func, args, is_await} => {
                 self.eval_function_call_expression(func, args, is_await)?
@@ -1961,7 +1981,7 @@ impl Evaluator {
         }
     }
 
-    fn new_task(&mut self, func: Object, arguments: Vec<(Option<Expression>, Object)>) -> UTask {
+    fn new_task(&mut self, func: Function, arguments: Vec<(Option<Expression>, Object)>) -> UTask {
         // task用のselfを作る
         let mut task_self = Evaluator {
             env: Environment {
@@ -1983,7 +2003,7 @@ impl Evaluator {
                 CoInitializeEx(ptr::null_mut() as *mut c_void, COINIT_APARTMENTTHREADED)?;
             }
 
-            let ret = task_self.invoke_function_object(func, arguments);
+            let ret = func.invoke(&mut task_self, arguments, false);
 
             unsafe {
                 CoUninitialize();
@@ -2048,7 +2068,7 @@ impl Evaluator {
                     }
                 },
                 SpecialFuncResultType::Task(func, arguments) => {
-                    let task = self.new_task(*func, arguments);
+                    let task = self.new_task(func, arguments);
                     if is_await {
                         self.await_task(task)?
                     } else {
@@ -2071,16 +2091,16 @@ impl Evaluator {
         let func_object = self.eval_expression_for_func_call(*func)?;
         match func_object {
             Object::DestructorNotFound => Ok(Object::Empty),
-            Object::Function(_, params, body, is_proc, obj) => self.invoke_user_function(params, arguments, body, is_proc, None, obj, false),
-            Object::AsyncFunction(_, _,_, _, _) => {
-                let task = self.new_task(func_object, arguments);
+            Object::Function(f) => f.invoke(self, arguments, false),
+            Object::AsyncFunction(f) => {
+                let task = self.new_task(f, arguments);
                 if is_await {
                     self.await_task(task)
                 } else {
                     Ok(Object::Task(task))
                 }
             },
-            Object::AnonFunc(params, body, o, is_proc) => self.invoke_user_function(params, arguments, body, is_proc, Some(o), None, false),
+            Object::AnonFunc(f) => f.invoke(self, arguments, false),
             Object::BuiltinFunction(name, expected_len, f) => {
                 if expected_len >= arguments.len() as i32 {
                     let res = f(BuiltinFuncArgs::new(name, arguments))?;
@@ -2104,8 +2124,8 @@ impl Evaluator {
                             UErrorMessage::ConstructorNotDefined(name),
                         ))
                     };
-                    if let Object::Function(_, params, body, _, _) = constructor {
-                        self.invoke_user_function(params, arguments, body, true, None, Some(Arc::clone(&ins)), true)
+                    if let Object::Function(f) = constructor {
+                        f.invoke(self, arguments, true)
                     } else {
                         Err(UError::new(
                             UErrorKind::ClassError,
@@ -2496,230 +2516,230 @@ impl Evaluator {
         Ok(t)
     }
 
-    fn invoke_function_object(&mut self, object: Object, arguments: Vec<(Option<Expression>, Object)>) -> EvalResult<Object> {
-        match object {
-            Object::Function(_, params, body, is_proc, module_reference) |
-            Object::AsyncFunction(_, params, body, is_proc, module_reference)=> {
-                return self.invoke_user_function(params, arguments, body, is_proc, None, module_reference, false);
-            },
-            o => Err(UError::new(
-                UErrorKind::EvaluatorError,
-                UErrorMessage::NotAFunction(o)
-            ))
-        }
-    }
+    // fn invoke_function_object(&mut self, object: Object, arguments: Vec<(Option<Expression>, Object)>) -> EvalResult<Object> {
+    //     match object {
+    //         Object::Function(_, params, body, is_proc, module_reference) |
+    //         Object::AsyncFunction(_, params, body, is_proc, module_reference)=> {
+    //             return self.invoke_user_function(params, arguments, body, is_proc, None, module_reference, false);
+    //         },
+    //         o => Err(UError::new(
+    //             UErrorKind::EvaluatorError,
+    //             UErrorMessage::NotAFunction(o)
+    //         ))
+    //     }
+    // }
 
-    fn invoke_user_function(
-        &mut self,
-        mut params: Vec<Expression>,
-        mut arguments: Vec<(Option<Expression>, Object)>,
-        body: Vec<StatementWithRow>,
-        is_proc: bool,
-        anon_outer: Option<Arc<Mutex<Vec<NamedObject>>>>,
-        module_reference: Option<Arc<Mutex<Module>>>,
-        is_class_instance: bool
-    ) -> EvalResult<Object> {
-        let org_param_len = params.len();
-        if params.len() > arguments.len() {
-            arguments.resize(params.len(), (None, Object::EmptyParam));
-        } else if params.len() < arguments.len() {
-            params.resize(arguments.len(), Expression::Params(Params::VariadicDummy));
-        }
+    // fn invoke_user_function(
+    //     &mut self,
+    //     mut params: Vec<Expression>,
+    //     mut arguments: Vec<(Option<Expression>, Object)>,
+    //     body: Vec<StatementWithRow>,
+    //     is_proc: bool,
+    //     anon_outer: Option<Arc<Mutex<Vec<NamedObject>>>>,
+    //     module_reference: Option<Arc<Mutex<Module>>>,
+    //     is_class_instance: bool
+    // ) -> EvalResult<Object> {
+    //     let org_param_len = params.len();
+    //     if params.len() > arguments.len() {
+    //         arguments.resize(params.len(), (None, Object::EmptyParam));
+    //     } else if params.len() < arguments.len() {
+    //         params.resize(arguments.len(), Expression::Params(Params::VariadicDummy));
+    //     }
 
-        if anon_outer.is_some() {
-            let clone_outer = anon_outer.clone().unwrap();
-            let outer_local = clone_outer.lock().unwrap();
-            self.env.copy_scope(outer_local.clone());
-        } else {
-            self.env.new_scope();
-        }
-        let list = params.into_iter().zip(arguments.into_iter());
-        let mut variadic = vec![];
-        let mut variadic_name = String::new();
-        let mut reference = vec![];
-        for (_, (e, (arg_e, o))) in list.enumerate() {
-            let param = match e {
-                Expression::Params(p) => p,
-                e => return Err(UError::new(
-                    UErrorKind::FuncCallError,
-                    UErrorMessage::FuncBadParameter(e)
-                ))
-            };
-            let (name, value) = match param {
-                Params::Identifier(i) => {
-                    let Identifier(name) = i;
-                    if arg_e.is_none() {
-                        return Err(UError::new(
-                            UErrorKind::FuncCallError,
-                            UErrorMessage::FuncArgRequired(name),
-                        ));
-                    }
-                    (name, o.clone())
-                },
-                Params::Reference(i) => {
-                    let Identifier(name) = i.clone();
-                    let e = arg_e.unwrap();
-                    match e {
-                        Expression::Array(_, _) |
-                        Expression::Assign(_, _) |
-                        Expression::CompoundAssign(_, _, _) |
-                        Expression::Params(_) => return Err(UError::new(
-                            UErrorKind::FuncCallError,
-                            UErrorMessage::FuncInvalidArgument(name),
-                        )),
-                        _ => reference.push((name.clone(), e))
-                    };
-                    (name, o.clone())
-                },
-                Params::Array(i, b) => {
-                    let Identifier(name) = i;
-                    let e = arg_e.unwrap();
-                    match e {
-                        Expression::Identifier(_) |
-                        Expression::Index(_, _, _) |
-                        Expression::DotCall(_, _) => {
-                            if b {
-                                reference.push((name.clone(), e));
-                            }
-                            (name, o.clone())
-                        },
-                        Expression::Literal(Literal::Array(_)) => {
-                            (name, o.clone())
-                        },
-                        _ => return Err(UError::new(
-                            UErrorKind::FuncCallError,
-                            UErrorMessage::FuncInvalidArgument(name),
-                        )),
-                    }
-                },
-                Params::WithDefault(i, default) => {
-                    let Identifier(name) = i;
-                    if Object::EmptyParam.is_equal(&o) {
-                        (name, self.eval_expression(*default)?)
-                    } else {
-                        (name, o)
-                    }
-                },
-                Params::Variadic(i) => {
-                    let Identifier(name) = i;
-                    variadic_name = name.clone();
-                    variadic.push(o.clone());
-                    continue;
-                },
-                Params::VariadicDummy => {
-                    if variadic.len() < 1 {
-                        return Err(UError::new(
-                            UErrorKind::FuncCallError,
-                            UErrorMessage::FuncTooManyArguments(org_param_len)
-                        ))
-                    }
-                    variadic.push(o.clone());
-                    continue;
-                },
-            };
-            if variadic.len() == 0 {
-                self.env.define_local(&name, value)?;
-            }
-        }
-        if variadic.len() > 0 {
-            self.env.define_local(&variadic_name, Object::Array(variadic))?;
-        }
+    //     if anon_outer.is_some() {
+    //         let clone_outer = anon_outer.clone().unwrap();
+    //         let outer_local = clone_outer.lock().unwrap();
+    //         self.env.copy_scope(outer_local.clone());
+    //     } else {
+    //         self.env.new_scope();
+    //     }
+    //     let list = params.into_iter().zip(arguments.into_iter());
+    //     let mut variadic = vec![];
+    //     let mut variadic_name = String::new();
+    //     let mut reference = vec![];
+    //     for (_, (e, (arg_e, o))) in list.enumerate() {
+    //         let param = match e {
+    //             Expression::Params(p) => p,
+    //             e => return Err(UError::new(
+    //                 UErrorKind::FuncCallError,
+    //                 UErrorMessage::FuncBadParameter(e)
+    //             ))
+    //         };
+    //         let (name, value) = match param {
+    //             Params::Identifier(i) => {
+    //                 let Identifier(name) = i;
+    //                 if arg_e.is_none() {
+    //                     return Err(UError::new(
+    //                         UErrorKind::FuncCallError,
+    //                         UErrorMessage::FuncArgRequired(name),
+    //                     ));
+    //                 }
+    //                 (name, o.clone())
+    //             },
+    //             Params::Reference(i) => {
+    //                 let Identifier(name) = i.clone();
+    //                 let e = arg_e.unwrap();
+    //                 match e {
+    //                     Expression::Array(_, _) |
+    //                     Expression::Assign(_, _) |
+    //                     Expression::CompoundAssign(_, _, _) |
+    //                     Expression::Params(_) => return Err(UError::new(
+    //                         UErrorKind::FuncCallError,
+    //                         UErrorMessage::FuncInvalidArgument(name),
+    //                     )),
+    //                     _ => reference.push((name.clone(), e))
+    //                 };
+    //                 (name, o.clone())
+    //             },
+    //             Params::Array(i, b) => {
+    //                 let Identifier(name) = i;
+    //                 let e = arg_e.unwrap();
+    //                 match e {
+    //                     Expression::Identifier(_) |
+    //                     Expression::Index(_, _, _) |
+    //                     Expression::DotCall(_, _) => {
+    //                         if b {
+    //                             reference.push((name.clone(), e));
+    //                         }
+    //                         (name, o.clone())
+    //                     },
+    //                     Expression::Literal(Literal::Array(_)) => {
+    //                         (name, o.clone())
+    //                     },
+    //                     _ => return Err(UError::new(
+    //                         UErrorKind::FuncCallError,
+    //                         UErrorMessage::FuncInvalidArgument(name),
+    //                     )),
+    //                 }
+    //             },
+    //             Params::WithDefault(i, default) => {
+    //                 let Identifier(name) = i;
+    //                 if Object::EmptyParam.is_equal(&o) {
+    //                     (name, self.eval_expression(*default)?)
+    //                 } else {
+    //                     (name, o)
+    //                 }
+    //             },
+    //             Params::Variadic(i) => {
+    //                 let Identifier(name) = i;
+    //                 variadic_name = name.clone();
+    //                 variadic.push(o.clone());
+    //                 continue;
+    //             },
+    //             Params::VariadicDummy => {
+    //                 if variadic.len() < 1 {
+    //                     return Err(UError::new(
+    //                         UErrorKind::FuncCallError,
+    //                         UErrorMessage::FuncTooManyArguments(org_param_len)
+    //                     ))
+    //                 }
+    //                 variadic.push(o.clone());
+    //                 continue;
+    //             },
+    //         };
+    //         if variadic.len() == 0 {
+    //             self.env.define_local(&name, value)?;
+    //         }
+    //     }
+    //     if variadic.len() > 0 {
+    //         self.env.define_local(&variadic_name, Object::Array(variadic))?;
+    //     }
 
-        match module_reference {
-            Some(ref m) => {
-                self.env.set_module_private_member(m);
-            },
-            None => {},
-        };
+    //     match module_reference {
+    //         Some(ref m) => {
+    //             self.env.set_module_private_member(m);
+    //         },
+    //         None => {},
+    //     };
 
-        if ! is_proc {
-            // resultにEMPTYを入れておく
-            self.env.assign("result".into(), Object::Empty)?;
-        }
+    //     if ! is_proc {
+    //         // resultにEMPTYを入れておく
+    //         self.env.assign("result".into(), Object::Empty)?;
+    //     }
 
-        // 関数実行
-        match self.eval_block_statement(body) {
-            Ok(_) => {},
-            Err(e) => {
-                // 関数ブロックでエラーが発生した場合は、関数の実行事態ががなかったことになる
-                // - 戻り値を返さない
-                // - 参照渡しされた変数は更新されない
-                // - 関数内で作られたインスタンスを自動破棄しない
+    //     // 関数実行
+    //     match self.eval_block_statement(body) {
+    //         Ok(_) => {},
+    //         Err(e) => {
+    //             // 関数ブロックでエラーが発生した場合は、関数の実行事態ががなかったことになる
+    //             // - 戻り値を返さない
+    //             // - 参照渡しされた変数は更新されない
+    //             // - 関数内で作られたインスタンスを自動破棄しない
 
-                // スコープを戻す
-                self.env.restore_scope(None);
-                return Err(e);
-            }
-        }
+    //             // スコープを戻す
+    //             self.env.restore_scope(None);
+    //             return Err(e);
+    //         }
+    //     }
 
-        // 戻り値
-        let result = if is_class_instance {
-            match module_reference {
-                Some(ref m) => Object::Instance(Arc::clone(m), self.new_instance_id()),
-                None => return Err(UError::new(
-                    UErrorKind::ClassError,
-                    UErrorMessage::FailedToCreateNewInstance
-                )),
-            }
-        } else if is_proc {
-            Object::Empty
-        } else {
-            match self.env.get_variable(&"result".to_string(), true) {
-                Some(o) => o,
-                None => Object::Empty
-            }
-        };
-        // 参照渡し
-        let mut ref_values = vec![];
-        let mut do_not_dispose = vec![];
-        for (p_name, _) in reference.clone() {
-            let obj = self.env.get_variable(&p_name, true).unwrap();
-            match obj {
-                Object::Instance(_, id) => do_not_dispose.push(format!("@INSTANCE{}", id)),
-                _ => {},
-            }
-            ref_values.push(obj);
-        }
-        match result {
-            Object::Instance(_, id) => do_not_dispose.push(format!("@INSTANCE{}", id)),
-            _ => {},
-        }
+    //     // 戻り値
+    //     let result = if is_class_instance {
+    //         match module_reference {
+    //             Some(ref m) => Object::Instance(Arc::clone(m), self.new_instance_id()),
+    //             None => return Err(UError::new(
+    //                 UErrorKind::ClassError,
+    //                 UErrorMessage::FailedToCreateNewInstance
+    //             )),
+    //         }
+    //     } else if is_proc {
+    //         Object::Empty
+    //     } else {
+    //         match self.env.get_variable(&"result".to_string(), true) {
+    //             Some(o) => o,
+    //             None => Object::Empty
+    //         }
+    //     };
+    //     // 参照渡し
+    //     let mut ref_values = vec![];
+    //     let mut do_not_dispose = vec![];
+    //     for (p_name, _) in reference.clone() {
+    //         let obj = self.env.get_variable(&p_name, true).unwrap();
+    //         match obj {
+    //             Object::Instance(_, id) => do_not_dispose.push(format!("@INSTANCE{}", id)),
+    //             _ => {},
+    //         }
+    //         ref_values.push(obj);
+    //     }
+    //     match result {
+    //         Object::Instance(_, id) => do_not_dispose.push(format!("@INSTANCE{}", id)),
+    //         _ => {},
+    //     }
 
-        // このスコープのインスタンスを破棄
-        self.auto_dispose_instances(do_not_dispose, false);
+    //     // このスコープのインスタンスを破棄
+    //     self.auto_dispose_instances(do_not_dispose, false);
 
-        // 関数スコープを抜ける
-        self.env.restore_scope(anon_outer);
+    //     // 関数スコープを抜ける
+    //     self.env.restore_scope(anon_outer);
 
-        for ((_, e), o) in reference.iter().zip(ref_values.iter()) {
-            // Expressionが代入可能な場合のみ代入処理を行う
-            match e {
-                Expression::Identifier(_) |
-                Expression::Index(_, _, _) |
-                Expression::DotCall(_, _) => {
-                    self.eval_assign_expression(e.clone(), o.clone())?;
-                    // 参照渡しでインスタンスを帰す場合は自動破棄対象とする
-                    match o {
-                        Object::Instance(ref ins, id) => {
-                            self.env.set_instances(Arc::clone(ins), *id, false);
-                        },
-                        _ => {},
-                    }
-                },
-                _ => {},
-            };
-        };
+    //     for ((_, e), o) in reference.iter().zip(ref_values.iter()) {
+    //         // Expressionが代入可能な場合のみ代入処理を行う
+    //         match e {
+    //             Expression::Identifier(_) |
+    //             Expression::Index(_, _, _) |
+    //             Expression::DotCall(_, _) => {
+    //                 self.eval_assign_expression(e.clone(), o.clone())?;
+    //                 // 参照渡しでインスタンスを帰す場合は自動破棄対象とする
+    //                 match o {
+    //                     Object::Instance(ref ins, id) => {
+    //                         self.env.set_instances(Arc::clone(ins), *id, false);
+    //                     },
+    //                     _ => {},
+    //                 }
+    //             },
+    //             _ => {},
+    //         };
+    //     };
 
-        // 戻り値がインスタンスなら自動破棄されるようにしておく
-        match result {
-            Object::Instance(ref ins, id) => {
-                self.env.set_instances(Arc::clone(ins), id, false);
-            },
-            _ => {},
-        }
+    //     // 戻り値がインスタンスなら自動破棄されるようにしておく
+    //     match result {
+    //         Object::Instance(ref ins, id) => {
+    //             self.env.set_instances(Arc::clone(ins), id, false);
+    //         },
+    //         _ => {},
+    //     }
 
-        Ok(result)
-    }
+    //     Ok(result)
+    // }
 
     fn invoke_com_function(&mut self, disp: &IDispatch, name: &str, arguments: Vec<(Option<Expression>, Object)>) -> EvalResult<Object> {
         let mut var_index = vec![];
@@ -2754,8 +2774,8 @@ impl Evaluator {
                 let obj = self.env.get_tmp_instance(&ins_name, false).unwrap_or(Object::Empty);
                 if let Object::Instance(ins, _) = obj {
                     let destructor = ins.lock().unwrap().get_destructor();
-                    if destructor.is_some() {
-                        self.invoke_function_object(destructor.unwrap(), vec![]).ok();
+                    if let Some(Object::Function(f)) = destructor {
+                        let _ = f.invoke(self, vec![], false);
                     }
                     ins.lock().unwrap().dispose();
                 }
@@ -2768,8 +2788,8 @@ impl Evaluator {
                 if let Object::Instance(ins, _) = obj {
                     {
                         let destructor = ins.lock().unwrap().get_destructor();
-                        if destructor.is_some() {
-                            self.invoke_function_object(destructor.unwrap(), vec![]).ok();
+                        if let Some(Object::Function(f)) = destructor {
+                            let _ = f.invoke(self, vec![], false);
                         }
                     }
                     ins.lock().unwrap().dispose();
@@ -3171,8 +3191,8 @@ impl Evaluator {
                 Object::Nothing => {
                     let mut ins = m.lock().unwrap();
                     let destructor = ins.get_destructor();
-                    if destructor.is_some() {
-                        self.invoke_function_object(destructor.unwrap(), vec![])?;
+                    if let Some(Object::Function(f)) = destructor {
+                        let _ = f.invoke(self, vec![], false);
                     }
                     ins.dispose();
                 },

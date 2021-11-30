@@ -315,9 +315,9 @@ pub fn task(mut args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let obj = get_any_argument_value(&args, 0, None)?;
     let arguments = args.get_args_from(1);
     match obj {
-        Object::Function(_, _, _, _, _) |
-        Object::AsyncFunction(_, _, _, _, _) => Ok(Object::SpecialFuncResult(
-            SpecialFuncResultType::Task(Box::new(obj), arguments)
+        Object::Function(f) |
+        Object::AsyncFunction(f) => Ok(Object::SpecialFuncResult(
+            SpecialFuncResultType::Task(f, arguments)
         )),
         _ => Err(builtin_func_error(UErrorMessage::BuiltinArgIsNotFunction, args.name()))
     }

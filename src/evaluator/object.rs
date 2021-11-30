@@ -4,6 +4,7 @@ pub mod variant;
 pub mod utask;
 pub mod ustruct;
 pub mod module;
+pub mod function;
 
 pub use self::hashtbl::{HashTbl, HashTblEnum};
 pub use self::version::Version;
@@ -11,9 +12,9 @@ pub use self::variant::Variant;
 pub use self::utask::UTask;
 pub use self::ustruct::{UStruct, UStructMember};
 pub use self::module::Module;
+pub use self::function::Function;
 
 use crate::ast::*;
-use crate::evaluator::environment::{NamedObject};
 use crate::evaluator::builtins::BuiltinFunction;
 use crate::evaluator::com_object::VARIANTHelper;
 use crate::evaluator::devtools_protocol::{Browser, Element};
@@ -46,9 +47,9 @@ pub enum Object {
     Bool(bool),
     Array(Vec<Object>),
     HashTbl(Arc<Mutex<HashTbl>>),
-    AnonFunc(Vec<Expression>, BlockStatement, Arc<Mutex<Vec<NamedObject>>>, bool),
-    Function(String, Vec<Expression>, BlockStatement, bool, Option<Arc<Mutex<Module>>>),
-    AsyncFunction(String, Vec<Expression>, BlockStatement, bool, Option<Arc<Mutex<Module>>>),
+    AnonFunc(Function),
+    Function(Function),
+    AsyncFunction(Function),
     BuiltinFunction(String, i32, BuiltinFunction),
     Module(Arc<Mutex<Module>>),
     Class(String, BlockStatement), // class定義
@@ -122,69 +123,20 @@ impl fmt::Display for Object {
                 }
                 write!(f, "{{{}}}", key_values)
             },
-            Object::Function(ref name, ref params, _, is_proc, ref instance) => {
-                let mut arguments = String::new();
-                let func_name = if instance.is_some() {
-                    instance.clone().unwrap().lock().unwrap().name()
-                } else {
-                    name.to_string()
-                };
-                for (i, e) in params.iter().enumerate() {
-                    match e {
-                        Expression::Params(ref p) => if i < 1 {
-                            arguments.push_str(&format!("{}", p))
-                        } else {
-                            arguments.push_str(&format!(", {}", p))
-                        },
-                        _ => ()
-                    }
-                }
-                if is_proc {
-                    write!(f, "procedure: {}({})", func_name, arguments)
-                } else {
-                    write!(f, "function: {}({})", func_name, arguments)
-                }
+            Object::Function(ref func) => {
+                let title = if func.is_proc {"procedure"} else {"function"};
+                let params = func.params.iter().map(|p| p.to_string()).collect::<Vec<_>>().join(", ");
+                write!(f, "{}: {}({})", title, func.name.as_ref().unwrap(), params)
             },
-            Object::AsyncFunction(ref name, ref params, _, is_proc, ref instance) => {
-                let mut arguments = String::new();
-                let func_name = if instance.is_some() {
-                    instance.clone().unwrap().lock().unwrap().name()
-                } else {
-                    name.to_string()
-                };
-                for (i, e) in params.iter().enumerate() {
-                    match e {
-                        Expression::Params(ref p) => if i < 1 {
-                            arguments.push_str(&format!("{}", p))
-                        } else {
-                            arguments.push_str(&format!(", {}", p))
-                        },
-                        _ => ()
-                    }
-                }
-                if is_proc {
-                    write!(f, "async procedure: {}({})", func_name, arguments)
-                } else {
-                    write!(f, "async function: {}({})", func_name, arguments)
-                }
+            Object::AsyncFunction(ref func) => {
+                let title = if func.is_proc {"procedure"} else {"function"};
+                let params = func.params.iter().map(|p| p.to_string()).collect::<Vec<_>>().join(", ");
+                write!(f, "{}: {}({})", title, func.name.as_ref().unwrap(), params)
             },
-            Object::AnonFunc(ref params, _, _, is_proc) => {
-                let mut arguments = String::new();
-                for (i, e) in params.iter().enumerate() {
-                    match e {
-                        Expression::Params(ref p) => if i < 1 {
-                            arguments.push_str(&format!("{}", p))
-                        } else {
-                            arguments.push_str(&format!(", {}", p))
-                        },
-                        _ => ()
-                    }
-                }
-                if is_proc {
-                    write!(f, "anonymous_proc({})", arguments)
-                } else {
-                    write!(f, "anonymous_func({})", arguments)
-                }
+            Object::AnonFunc(ref func) => {
+                let title = if func.is_proc {"anonymous procedure"} else {"anonymous function"};
+                let params = func.params.iter().map(|p| p.to_string()).collect::<Vec<_>>().join(", ");
+                write!(f, "{}({})", title, params)
             },
             Object::BuiltinFunction(ref name, _, _) => write!(f, "builtin: {}()", name),
             Object::Null => write!(f, "NULL"),
@@ -277,9 +229,9 @@ impl PartialEq for Object {
                 let _tmp = h.lock().unwrap();
                 h2.try_lock().is_err()
             } else {false},
-            Object::AnonFunc(e, b, _, p) => if let Object::AnonFunc(e2, b2, _, p2) = other {(e==e2) && (b==b2) && (p==p2)} else {false},
-            Object::Function(n, _, _, _, _) => if let Object::Function(n2,_,_,_,_) = other {n == n2} else {false},
-            Object::AsyncFunction(n, _, _, _, _) => if let Object::AsyncFunction(n2,_,_,_,_) = other {n == n2} else {false},
+            Object::AnonFunc(f1) => if let Object::AnonFunc(f2) = other {f1 == f2} else {false},
+            Object::Function(f1) => if let Object::Function(f2) = other {f1 == f2} else {false},
+            Object::AsyncFunction(f1) => if let Object::AsyncFunction(f2) = other {f1 == f2} else {false},
             Object::BuiltinFunction(n, _, _) => if let Object::BuiltinFunction(n2,_,_) = other {n == n2} else {false},
             Object::Module(m) => if let Object::Module(m2) = other {
                 let _tmp = m.lock().unwrap();
@@ -401,12 +353,18 @@ impl Hash for Object {
     }
 }
 
+impl Default for Object {
+    fn default() -> Self {
+        Object::Empty
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum SpecialFuncResultType {
     GetEnv,
     ListModuleMember(String),
     BuiltinConstName(Option<Expression>),
-    Task(Box<Object>, Vec<(Option<Expression>, Object)>),
+    Task(Function, Vec<(Option<Expression>, Object)>),
 }
 
 impl Into<Object> for String {

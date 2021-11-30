@@ -2552,7 +2552,7 @@ impl Parser {
         Some(Expression::AnonymusFunction {params, body, is_proc: false})
     }
 
-    fn parse_function_parameters(&mut self, end_token: Token) -> Option<Vec<Expression>> {
+    fn parse_function_parameters(&mut self, end_token: Token) -> Option<Vec<Params>> {
         let mut params = vec![];
         if self.is_next_token(&Token::Rparen) {
             self.bump();
@@ -2591,7 +2591,7 @@ impl Parser {
                         },
                         Params::VariadicDummy => continue,
                     }
-                    params.push(Expression::Params(param))
+                    params.push(param);
                 },
                 None => return None
             }
@@ -4582,9 +4582,9 @@ fend
                         Statement::Function {
                             name: Identifier("hoge".to_string()),
                             params: vec![
-                                Expression::Params(Params::Identifier(Identifier("foo".to_string()))),
-                                Expression::Params(Params::Identifier(Identifier("bar".to_string()))),
-                                Expression::Params(Params::Identifier(Identifier("baz".to_string()))),
+                                Params::Identifier(Identifier("foo".to_string())),
+                                Params::Identifier(Identifier("bar".to_string())),
+                                Params::Identifier(Identifier("baz".to_string())),
                             ],
                             body: vec![
                                 StatementWithRow::new(
@@ -4620,13 +4620,13 @@ fend
                         Statement::Function {
                             name: Identifier("hoge".to_string()),
                             params: vec![
-                                Expression::Params(Params::Identifier(Identifier("foo".to_string()))),
-                                Expression::Params(Params::Reference(Identifier("bar".to_string()))),
-                                Expression::Params(Params::Array(Identifier("baz".to_string()), false)),
-                                Expression::Params(Params::WithDefault(
+                                Params::Identifier(Identifier("foo".to_string())),
+                                Params::Reference(Identifier("bar".to_string())),
+                                Params::Array(Identifier("baz".to_string()), false),
+                                Params::WithDefault(
                                     Identifier("qux".to_string()),
                                     Box::new(Expression::Literal(Literal::Num(1.0))),
-                                )),
+                                ),
                             ],
                             body: vec![],
                             is_proc: true,
@@ -4645,8 +4645,8 @@ fend
                         Statement::Function {
                             name: Identifier("hoge".to_string()),
                             params: vec![
-                                Expression::Params(Params::Reference(Identifier("foo".to_string()))),
-                                Expression::Params(Params::Variadic(Identifier("bar".to_string()))),
+                                Params::Reference(Identifier("foo".to_string())),
+                                Params::Variadic(Identifier("bar".to_string())),
                             ],
                             body: vec![],
                             is_proc: true,
@@ -4668,7 +4668,7 @@ fend
                         Statement::Function {
                             name: Identifier("hoge".to_string()),
                             params: vec![
-                                Expression::Params(Params::Identifier(Identifier("a".to_string()))),
+                                Params::Identifier(Identifier("a".to_string())),
                             ],
                             body: vec![
                                 StatementWithRow::new(
@@ -4707,7 +4707,7 @@ fend
                             Box::new(Expression::Identifier(Identifier("hoge".to_string()))),
                             Box::new(Expression::AnonymusFunction{
                                 params: vec![
-                                    Expression::Params(Params::Identifier(Identifier("a".to_string()))),
+                                    Params::Identifier(Identifier("a".to_string())),
                                 ],
                                 body: vec![
                                     StatementWithRow::new(
@@ -4735,7 +4735,7 @@ fend
                             Box::new(Expression::Identifier(Identifier("hoge".to_string()))),
                             Box::new(Expression::AnonymusFunction{
                                 params: vec![
-                                    Expression::Params(Params::Identifier(Identifier("a".to_string()))),
+                                    Params::Identifier(Identifier("a".to_string())),
                                 ],
                                 body: vec![
                                     StatementWithRow::new(
@@ -5090,8 +5090,8 @@ endmodule
                             Statement::Function {
                                 name: Identifier("f".to_string()),
                                 params: vec![
-                                    Expression::Params(Params::Identifier(Identifier("x".to_string()))),
-                                    Expression::Params(Params::Identifier(Identifier("y".to_string())))
+                                    Params::Identifier(Identifier("x".to_string())),
+                                    Params::Identifier(Identifier("y".to_string()))
                                 ],
                                 body: vec![
                                     StatementWithRow::new(
@@ -5121,7 +5121,7 @@ endmodule
                                     Identifier("_f".to_string()),
                                     Expression::AnonymusFunction {
                                         params: vec![
-                                            Expression::Params(Params::Identifier(Identifier("z".to_string()))),
+                                            Params::Identifier(Identifier("z".to_string())),
                                         ],
                                         body: vec![
                                             StatementWithRow::new(

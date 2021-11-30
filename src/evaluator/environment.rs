@@ -134,7 +134,7 @@ impl Environment {
         }));
     }
 
-    pub fn restore_scope(&mut self, anon_outer: Option<Arc<Mutex<Vec<NamedObject>>>>) {
+    pub fn restore_scope(&mut self, anon_outer: &Option<Arc<Mutex<Vec<NamedObject>>>>) {
         match anon_outer {
             // 無名関数が保持する値を更新する
             Some(r) => {

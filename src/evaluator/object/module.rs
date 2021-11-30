@@ -124,8 +124,8 @@ impl Module {
                 );
                 match self.get_public_member(name) {
                     Ok(o) => match o {
-                        Object::AnonFunc(_,_,_,_) |
-                        Object::Function(_,_,_,_,_) |
+                        Object::AnonFunc(_) |
+                        Object::Function(_) |
                         Object::BuiltinFunction(_,_,_) => Ok(o),
                         _ => Err(e)
                     },
@@ -224,10 +224,14 @@ impl Module {
     }
 
     pub fn set_module_reference_to_member_functions(&mut self, m: Arc<Mutex<Module>>) {
-        for  o in self.members.iter_mut() {
+        for o in self.members.iter_mut() {
             if o.scope == Scope::Function {
-                if let Object::Function(n, p, b, i, _) = o.object.clone() {
-                    o.object = Object::Function(n, p, b, i, Some(Arc::clone(&m)))
+                // if let Object::Function(n, p, b, i, _) = o.object.clone() {
+                //     o.object = Object::Function(n, p, b, i, Some(Arc::clone(&m)))
+                // }
+                if let Object::Function(mut f) = o.object.clone() {
+                    f.set_module(Arc::clone(&m));
+                    o.object = Object::Function(f);
                 }
             }
         }
