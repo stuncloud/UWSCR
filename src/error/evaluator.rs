@@ -935,3 +935,12 @@ impl From<cast::Error> for UError {
         )
     }
 }
+
+impl From<std::io::Error> for UError {
+    fn from(e: std::io::Error) -> Self {
+        Self::new(
+            UErrorKind::FileIOError,
+            UErrorMessage::Any(e.to_string())
+        )
+    }
+}

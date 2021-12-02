@@ -1,6 +1,7 @@
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
 use crate::error::evaluator::{UErrorMessage, UErrorKind};
+use crate::winapi::{from_ansi_bytes, to_wide_string};
 use windows::{
     core::Handle,
     Win32::{
@@ -19,6 +20,7 @@ use windows::{
             Threading::{
                 STARTUPINFOW, PROCESS_INFORMATION,
                 STARTF_USESHOWWINDOW, NORMAL_PRIORITY_CLASS,
+                CREATE_NEW_CONSOLE, CREATE_NO_WINDOW,
                 CreateProcessW, WaitForSingleObject, GetExitCodeProcess,
                 GetCurrentProcess,
                 WaitForInputIdle, IsWow64Process,
@@ -40,10 +42,11 @@ use windows::{
         Security::SECURITY_ATTRIBUTES,
     }
 };
-use crate::winapi::to_wide_string;
 
 use std::{ptr::null_mut, thread, time};
 use std::mem;
+use std::process::Command;
+use std::os::windows::process::CommandExt;
 
 use strum_macros::{EnumString, EnumVariantNames};
 use num_derive::{ToPrimitive, FromPrimitive};
@@ -60,6 +63,9 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("task", 21, task);
     sets.add("waittask", 1, wait_task);
     sets.add("wmi", 2, wmi_query);
+    sets.add("doscmd", 4, doscmd);
+    sets.add("powershell", 4, powershell);
+    sets.add("pwsh", 4, pwsh);
     sets
 }
 
@@ -362,5 +368,180 @@ impl From<wmi::WMIError> for UError {
             UErrorKind::WmiError,
             UErrorMessage::Any(e.to_string())
         )
+    }
+}
+
+pub fn doscmd(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let command = get_string_argument_value(&args, 0, None)?;
+    // falseが渡されたら終了を待つ
+    let wait = ! get_bool_argument_value(&args, 1, Some(false))?;
+    let show = get_bool_argument_value(&args, 2, Some(false))?;
+    let option = if get_bool_argument_value(&args, 3, Some(false))? {
+        ShellOption::CmdUnicode
+    } else {
+        ShellOption::CmdAnsi
+    };
+    let shell = Shell {
+        shell: ShellType::Cmd,
+        minimize: false,
+        wait, show, option,
+        command
+    };
+    let result = match shell.run()? {
+        Some(out) => Object::String(out),
+        None => Object::Empty
+    };
+    Ok(result)
+}
+
+fn run_powershell(shell: ShellType, args: &BuiltinFuncArgs) -> BuiltinFuncResult {
+    let command = get_string_argument_value(args, 0, None)?;
+    // falseが渡されたら終了を待つ
+    let wait = ! get_bool_argument_value(args, 1, Some(false))?;
+    let (show, minimize) = match get_bool_or_int_argument_value::<i32>(args, 2, Some(0))? {
+        0 => (false, false),
+        2 => (true, true),
+        _ => (true, false)
+    };
+    let option = if get_bool_argument_value(args, 3, Some(false))? {
+        ShellOption::PsNoProfile
+    } else {
+        ShellOption::None
+    };
+    let shell = Shell { shell, wait, show, minimize, option, command };
+    let result = match shell.run()? {
+        Some(out) => Object::String(out),
+        None => Object::Empty
+    };
+    Ok(result)
+}
+
+pub fn powershell(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    run_powershell(ShellType::PowerShell, &args)
+}
+
+pub fn pwsh(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    run_powershell(ShellType::Pwsh, &args)
+}
+
+#[derive(PartialEq)]
+enum ShellType {
+    Cmd,
+    PowerShell,
+    Pwsh
+}
+
+impl std::fmt::Display for ShellType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Cmd => write!(f, "cmd"),
+            Self::PowerShell => write!(f, "powershell"),
+            Self::Pwsh => write!(f, "pwsh"),
+        }
+    }
+}
+
+struct Shell {
+    shell: ShellType,
+    wait: bool,
+    show: bool,
+    minimize: bool,
+    option: ShellOption,
+    command: String
+}
+
+#[derive(PartialEq)]
+enum ShellOption {
+    CmdAnsi,
+    CmdUnicode,
+    PsNoProfile,
+    None
+}
+
+impl std::fmt::Display for ShellOption {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ShellOption::CmdAnsi => write!(f, "/A"),
+            ShellOption::CmdUnicode => write!(f, "/U"),
+            ShellOption::PsNoProfile => write!(f, "-NoProfile"),
+            ShellOption::None => write!(f, ""),
+        }
+    }
+}
+
+impl Shell {
+    fn run(&self) -> Result<Option<String>, std::io::Error> {
+        let mut shell = Command::new(self.shell.to_string());
+        if self.shell == ShellType::Cmd {
+            // doscmd
+            shell.args([
+                &self.option.to_string(),
+                "/C",
+                &self.command
+            ]);
+        } else {
+            // powershell, pwsh
+            if self.option == ShellOption::PsNoProfile {
+                shell.arg(&self.option.to_string());
+            }
+            let command = format!(
+                "[console]::OutputEncoding = [System.Text.Encoding]::UTF8;{}",
+                &self.command
+            );
+            shell.args([
+                "-Nologo",
+                "-OutputFormat",
+                "Text",
+                "-EncodedCommand",
+                &Self::to_base64(&command)
+            ]);
+        }
+        if self.show {
+            shell.creation_flags(CREATE_NEW_CONSOLE.0);
+            if self.minimize {
+                // 最小化処理
+                shell.args(["-WindowStyle", "Minimized"]);
+            }
+            if self.wait {
+                shell.status()?;
+            } else {
+                shell.spawn()?;
+            }
+            Ok(None)
+        } else {
+            shell.creation_flags(CREATE_NO_WINDOW.0);
+            if self.wait {
+                let output = shell.output()?;
+                // let out_raw = if output.stderr.len()> 0 {
+                //     output.stderr
+                // } else {
+                //     output.stdout
+                // };
+                let out_raw = output.stdout;
+                let out_string = match self.option {
+                    ShellOption::CmdUnicode => Self::unicode_output_to_string(&out_raw),
+                    ShellOption::CmdAnsi => from_ansi_bytes(&out_raw),
+                    _ => String::from_utf8(out_raw).unwrap_or_default()
+                };
+                Ok(Some(out_string))
+            } else {
+                shell.spawn()?;
+                Ok(None)
+            }
+        }
+    }
+
+    fn unicode_output_to_string(u8: &[u8]) -> String {
+        let u16: Vec<u16> = u8
+            .chunks_exact(2)
+            .into_iter()
+            .map(|a| u16::from_ne_bytes([a[0], a[1]]))
+            .collect();
+        String::from_utf16_lossy(&u16)
+    }
+    fn to_base64(command: &str) -> String {
+        let wide = command.encode_utf16().collect::<Vec<u16>>();
+        let bytes = wide.into_iter().map(|u| u.to_ne_bytes()).flatten().collect::<Vec<u8>>();
+        base64::encode(bytes)
     }
 }

@@ -1,6 +1,6 @@
 [package]
 authors = ["stuncloud <stuncloud@gmail.com>"]
-edition = "2018"
+edition = "2021"
 name = "uwscr"
 version = "0.3.0"
 build = "build.rs"
@@ -30,6 +30,7 @@ reqwest = { version = "0.11.6", features = ["blocking"] }
 tungstenite = "0.16.0"
 wmi = "0.9"
 opencv = { version = "0.60.0", default-features = false, features = ["imgcodecs", "imgproc"]}
+base64 = "0.13.0"
 
 [build-dependencies]
 winres = "0.1"
