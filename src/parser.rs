@@ -2552,7 +2552,7 @@ impl Parser {
         Some(Expression::AnonymusFunction {params, body, is_proc: false})
     }
 
-    fn parse_function_parameters(&mut self, end_token: Token) -> Option<Vec<Params>> {
+    fn parse_function_parameters(&mut self, end_token: Token) -> Option<Vec<FuncParam>> {
         let mut params = vec![];
         if self.is_next_token(&Token::Rparen) {
             self.bump();
@@ -2564,32 +2564,35 @@ impl Parser {
         loop {
             match self.parse_param() {
                 Some(param) => {
-                    match &param {
-                        Params::Identifier(i) |
-                        Params::Reference(i) |
-                        Params::Array(i, _) => if with_default_flg {
-                            self.error_got_bad_parameter(ParseErrorKind::ParameterShouldBeDefault(i.clone()));
-                            return None;
-                        } else if variadic_flg {
-                            self.error_got_bad_parameter(ParseErrorKind::ParameterCannotBeDefinedAfterVariadic(i.clone()));
-                            return None;
+                    let ident = Identifier(param.name());
+                    match &param.kind {
+                        ParamKind::Identifier |
+                        ParamKind::Reference |
+                        ParamKind::Array(_) => {
+                            if with_default_flg {
+                                self.error_got_bad_parameter(ParseErrorKind::ParameterShouldBeDefault(ident));
+                                return None;
+                            } else if variadic_flg {
+                                self.error_got_bad_parameter(ParseErrorKind::ParameterCannotBeDefinedAfterVariadic(ident));
+                                return None;
+                            }
                         },
-                        Params::WithDefault(i, _) => if variadic_flg {
-                            self.error_got_bad_parameter(ParseErrorKind::ParameterCannotBeDefinedAfterVariadic(i.clone()));
+                        ParamKind::Default(_) => if variadic_flg {
+                            self.error_got_bad_parameter(ParseErrorKind::ParameterCannotBeDefinedAfterVariadic(ident));
                             return None;
                         } else {
                             with_default_flg = true;
                         },
-                        Params::Variadic(i) => if with_default_flg {
-                            self.error_got_bad_parameter(ParseErrorKind::ParameterShouldBeDefault(i.clone()));
+                        ParamKind::Variadic => if with_default_flg {
+                            self.error_got_bad_parameter(ParseErrorKind::ParameterShouldBeDefault(ident));
                             return None;
                         } else if variadic_flg {
-                            self.error_got_bad_parameter(ParseErrorKind::ParameterCannotBeDefinedAfterVariadic(i.clone()));
+                            self.error_got_bad_parameter(ParseErrorKind::ParameterCannotBeDefinedAfterVariadic(ident));
                             return None;
                         } else {
                             variadic_flg = true;
                         },
-                        Params::VariadicDummy => continue,
+                        ParamKind::Dummy => continue,
                     }
                     params.push(param);
                 },
@@ -2609,44 +2612,70 @@ impl Parser {
         Some(params)
     }
 
-    fn parse_param(&mut self) -> Option<Params> {
-        match &self.current_token.token {
-            Token::Identifier(_) => {
-                let i = self.parse_identifier().unwrap();
-                if self.is_next_token(&Token::Lbracket) {
+    fn parse_param(&mut self) -> Option<FuncParam> {
+        match self.current_token.token() {
+            Token::Identifier(name) => {
+                let (kind, param_type) = if self.is_next_token(&Token::Lbracket) {
+                    // 配列引数定義
                     self.bump();
-                    if self.is_next_token_expected(Token::Rbracket) {
+                    let k = if self.is_next_token_expected(Token::Rbracket) {
                         while self.is_next_token(&Token::Lbracket) {
                             self.bump();
                             if !self.is_next_token_expected(Token::Rbracket) {
                                 return None;
                             }
                         }
-                        return Some(Params::Array(i, false));
+                        ParamKind::Array(false)
                     } else {
                         return None;
-                    }
-                } else if self.is_next_token(&Token::EqualOrAssign) {
-                    self.bump();
-                    if self.is_next_token(&Token::Comma) || self.is_next_token(&Token::Rparen) {
-                        // 代入する値を省略した場合はEmptyが入る
-                        return Some(Params::WithDefault(i, Box::new(Expression::Literal(Literal::Empty))));
-                    }
-                    self.bump();
-                    match self.parse_expression(Precedence::Lowest, false) {
-                        Some(e) => return Some(Params::WithDefault(i, Box::new(e))),
-                        None => {}
                     };
+                    let t = if self.is_next_token(&Token::Colon) {
+                        self.bump(); // : に移動
+                        match self.parse_param_type() {
+                            Some(t) => t,
+                            None => return None
+                        }
+                    } else {
+                        ParamType::Any
+                    };
+                    (k, t)
                 } else {
-                    return Some(Params::Identifier(i));
-                }
+                    // 型指定の有無
+                    let t = if self.is_next_token(&Token::Colon) {
+                        self.bump(); // : に移動
+                        match self.parse_param_type() {
+                            Some(t) => t,
+                            None => return None
+                        }
+                    } else {
+                        ParamType::Any
+                    };
+                    // デフォルト値の有無
+                    let k = if self.is_next_token(&Token::EqualOrAssign) {
+                        self.bump(); // = に移動
+                        let e = if self.is_next_token(&Token::Comma) || self.is_next_token(&Token::Rparen) {
+                            // 代入する値を省略した場合はEmptyが入る
+                            Expression::Literal(Literal::Empty)
+                        } else {
+                            self.bump();
+                            match self.parse_expression(Precedence::Lowest, false) {
+                                Some(e) => e,
+                                None => return None,
+                            }
+                        };
+                        ParamKind::Default(e)
+                    } else {
+                        ParamKind::Identifier
+                    };
+                    (k, t)
+                };
+                Some(FuncParam::new_with_type(Some(name), kind, param_type))
             },
             Token::Ref => {
-                match self.next_token.token {
-                    Token::Identifier(_) => {
+                match self.next_token.token() {
+                    Token::Identifier(name) => {
                         self.bump();
-                        let i = self.parse_identifier().unwrap();
-                        if self.is_next_token(&Token::Lbracket) {
+                        let kind= if self.is_next_token(&Token::Lbracket) {
                             self.bump();
                             if self.is_next_token_expected(Token::Rbracket) {
                                 while self.is_next_token(&Token::Lbracket) {
@@ -2655,27 +2684,58 @@ impl Parser {
                                         return None;
                                     }
                                 }
-                                return Some(Params::Array(i, true));
+                                ParamKind::Array(true)
                             } else {
                                 return None;
                             }
                         } else {
-                            return Some(Params::Reference(i));
-                        }
+                            ParamKind::Reference
+                        };
+                        self.bump();
+                        let param_type = if self.is_next_token(&Token::Colon) {
+                            self.bump(); // : に移動
+                            match self.parse_param_type() {
+                                Some(t) => t,
+                                None => return None
+                            }
+                        } else {
+                            ParamType::Any
+                        };
+                        Some(FuncParam::new_with_type(Some(name), kind, param_type))
                     }
-                    _ =>{}
+                    _ => {
+                        self.error_got_unexpected_next_token();
+                        None
+                    }
                 }
             },
             Token::Variadic => {
-                if let Token::Identifier(s) = self.next_token.token.clone() {
+                if let Token::Identifier(name) = self.next_token.token() {
                     self.bump();
-                    return Some(Params::Variadic(Identifier(s.clone())))
+                    Some(FuncParam::new(Some(name), ParamKind::Variadic))
+                } else {
+                    self.error_got_unexpected_next_token();
+                    None
                 }
             },
-            _ => {}
+            _ => {
+                self.error_got_unexpected_token();
+                None
+            }
         }
-        self.error_got_unexpected_token();
-        None
+    }
+
+    fn parse_param_type(&mut self) -> Option<ParamType> {
+        match self.next_token.token() {
+            Token::Identifier(name) => {
+                self.bump();
+                Some(ParamType::from(name))
+            },
+            _ => {
+                self.error_got_unexpected_token();
+                None
+            }
+        }
     }
 
     fn parse_await_func_call_expression(&mut self) -> Option<Expression> {
@@ -4582,9 +4642,9 @@ fend
                         Statement::Function {
                             name: Identifier("hoge".to_string()),
                             params: vec![
-                                Params::Identifier(Identifier("foo".to_string())),
-                                Params::Identifier(Identifier("bar".to_string())),
-                                Params::Identifier(Identifier("baz".to_string())),
+                                FuncParam::new(Some("foo".into()), ParamKind::Identifier),
+                                FuncParam::new(Some("bar".into()), ParamKind::Identifier),
+                                FuncParam::new(Some("baz".into()), ParamKind::Identifier),
                             ],
                             body: vec![
                                 StatementWithRow::new(
@@ -4620,13 +4680,10 @@ fend
                         Statement::Function {
                             name: Identifier("hoge".to_string()),
                             params: vec![
-                                Params::Identifier(Identifier("foo".to_string())),
-                                Params::Reference(Identifier("bar".to_string())),
-                                Params::Array(Identifier("baz".to_string()), false),
-                                Params::WithDefault(
-                                    Identifier("qux".to_string()),
-                                    Box::new(Expression::Literal(Literal::Num(1.0))),
-                                ),
+                                FuncParam::new(Some("foo".into()), ParamKind::Identifier),
+                                FuncParam::new(Some("bar".into()), ParamKind::Reference),
+                                FuncParam::new(Some("baz".into()), ParamKind::Array(false)),
+                                FuncParam::new(Some("qux".into()), ParamKind::Default(Expression::Literal(Literal::Num(1.0)))),
                             ],
                             body: vec![],
                             is_proc: true,
@@ -4645,8 +4702,8 @@ fend
                         Statement::Function {
                             name: Identifier("hoge".to_string()),
                             params: vec![
-                                Params::Reference(Identifier("foo".to_string())),
-                                Params::Variadic(Identifier("bar".to_string())),
+                                FuncParam::new(Some("foo".into()), ParamKind::Reference),
+                                FuncParam::new(Some("bar".into()), ParamKind::Variadic),
                             ],
                             body: vec![],
                             is_proc: true,
@@ -4668,7 +4725,7 @@ fend
                         Statement::Function {
                             name: Identifier("hoge".to_string()),
                             params: vec![
-                                Params::Identifier(Identifier("a".to_string())),
+                                FuncParam::new(Some("a".into()), ParamKind::Identifier),
                             ],
                             body: vec![
                                 StatementWithRow::new(
@@ -4707,7 +4764,7 @@ fend
                             Box::new(Expression::Identifier(Identifier("hoge".to_string()))),
                             Box::new(Expression::AnonymusFunction{
                                 params: vec![
-                                    Params::Identifier(Identifier("a".to_string())),
+                                    FuncParam::new(Some("a".into()), ParamKind::Identifier),
                                 ],
                                 body: vec![
                                     StatementWithRow::new(
@@ -4735,7 +4792,7 @@ fend
                             Box::new(Expression::Identifier(Identifier("hoge".to_string()))),
                             Box::new(Expression::AnonymusFunction{
                                 params: vec![
-                                    Params::Identifier(Identifier("a".to_string())),
+                                    FuncParam::new(Some("a".into()), ParamKind::Identifier),
                                 ],
                                 body: vec![
                                     StatementWithRow::new(
@@ -5090,8 +5147,8 @@ endmodule
                             Statement::Function {
                                 name: Identifier("f".to_string()),
                                 params: vec![
-                                    Params::Identifier(Identifier("x".to_string())),
-                                    Params::Identifier(Identifier("y".to_string()))
+                                    FuncParam::new(Some("x".into()), ParamKind::Identifier),
+                                    FuncParam::new(Some("y".into()), ParamKind::Identifier),
                                 ],
                                 body: vec![
                                     StatementWithRow::new(
@@ -5121,7 +5178,7 @@ endmodule
                                     Identifier("_f".to_string()),
                                     Expression::AnonymusFunction {
                                         params: vec![
-                                            Params::Identifier(Identifier("z".to_string())),
+                                            FuncParam::new(Some("z".into()), ParamKind::Identifier),
                                         ],
                                         body: vec![
                                             StatementWithRow::new(
@@ -5161,6 +5218,40 @@ endstruct
                     ("y".into(), DllType::Long),
                 ]), 2
             ),
+        ]);
+    }
+
+    #[test]
+    fn test_param_type() {
+        let input = r#"
+function hoge(foo: string, bar: BarEnum, baz: number = 1)
+fend
+        "#;
+        parser_test(input, vec![
+            StatementWithRow::new(
+                Statement::Function {
+                    name: Identifier("hoge".into()),
+                    params: vec![
+                        FuncParam::new_with_type(
+                            Some("foo".into()), ParamKind::Identifier,
+                            ParamType::String
+                        ),
+                        FuncParam::new_with_type(
+                            Some("bar".into()), ParamKind::Identifier,
+                            ParamType::UserDefinition("BarEnum".into())
+                        ),
+                        FuncParam::new_with_type(
+                            Some("baz".into()),
+                            ParamKind::Default(Expression::Literal(Literal::Num(1.0))),
+                            ParamType::Number
+                        ),
+                    ],
+                    body: vec![],
+                    is_proc: false,
+                    is_async: false
+                },
+                2
+            )
         ]);
     }
 

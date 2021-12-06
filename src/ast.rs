@@ -93,7 +93,7 @@ pub enum Expression {
     Infix(Infix, Box<Expression>, Box<Expression>),
     Index(Box<Expression>, Box<Expression>, Box<Option<Expression>>), // optionはhashtblの2つ目の添字
     AnonymusFunction {
-        params: Vec<Params>,
+        params: Vec<FuncParam>,
         body: BlockStatement,
         is_proc: bool,
     },
@@ -110,11 +110,52 @@ pub enum Expression {
         alternative: Box<Expression>,
     },
     DotCall(Box<Expression>, Box<Expression>), // hoge.fuga hoge.piyo()
-    Params(Params),
     UObject(String),
     ComErrFlg,
     VarArgument(Box<Expression>),
     EmptyArgument,
+}
+
+impl fmt::Display for Expression {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Expression::Identifier(i) => write!(f, "{}", i),
+            Expression::Array(arr, _) => {
+                let list = arr.iter().map(|e| e.to_string()).collect::<Vec<_>>().join(", ");
+                write!(f, "[{}]", list)
+            },
+            Expression::Literal(l) => write!(f, "{}", l),
+            Expression::Prefix(p, e) => write!(f, "{}{}", p, e),
+            Expression::Infix(i, l, r) => write!(f, "{} {} {}", l, i, r),
+            Expression::Index(l, i, h) => {
+                match &**h {
+                    Some(e) => write!(f, "{}[{}, {}]", l, i, e),
+                    None => write!(f, "{}[{}]", l, i)
+                }
+            },
+            Expression::AnonymusFunction { params, body: _, is_proc } => {
+                let t = if *is_proc {"procedure"} else {"function"};
+                let p = params.iter().map(|p| p.to_string()).collect::<Vec<_>>().join(", ");
+                write!(f, "{}({})", t, p)
+            },
+            Expression::FuncCall { func, args, is_await } => {
+                let w = if *is_await {"await "} else {""};
+                let a = args.iter().map(|e| e.to_string()).collect::<Vec<_>>().join(", ");
+                write!(f, "{}{}({})", w, func, a)
+            },
+            Expression::Assign(l, r) => write!(f, "{} := {}", l, r),
+            Expression::CompoundAssign(l, r, i) => write!(f, "{} {}= {}", l, i , r),
+            Expression::Ternary { condition, consequence, alternative } => {
+                write!(f, "{} ? {} : {}", condition, consequence, alternative)
+            },
+            Expression::DotCall(l, r) => write!(f, "{}.{}", l, r),
+            // Expression::Params(p) => write!(f, "{}", p),
+            Expression::UObject(o) => write!(f, "{}", o),
+            Expression::ComErrFlg => write!(f, ""),
+            Expression::VarArgument(a) => write!(f, "var {}", a),
+            Expression::EmptyArgument => write!(f, ""),
+        }
+    }
 }
 
 #[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
@@ -131,6 +172,26 @@ pub enum Literal {
     Null,
     Nothing,
     NaN,
+}
+
+impl fmt::Display for Literal {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Literal::Num(n) => write!(f, "{}", n),
+            Literal::String(s) => write!(f, "\"{}\"", s),
+            Literal::ExpandableString(s) => write!(f, "\"{}\"", s),
+            Literal::TextBlock(_, _) => write!(f, "textblock"),
+            Literal::Bool(b) => write!(f, "{}", b),
+            Literal::Array(arr) => {
+                let list = arr.iter().map(|e| e.to_string()).collect::<Vec<_>>().join(", ");
+                write!(f, "{}", list)
+            },
+            Literal::Empty => write!(f, "EMPTY"),
+            Literal::Null => write!(f, "NULL"),
+            Literal::Nothing => write!(f, "NOTHING"),
+            Literal::NaN => write!(f, "NaN"),
+        }
+    }
 }
 
 #[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
@@ -186,7 +247,7 @@ pub enum Statement {
     },
     Function {
         name: Identifier,
-        params: Vec<Params>,
+        params: Vec<FuncParam>,
         body: BlockStatement,
         is_proc: bool,
         is_async: bool,
@@ -305,6 +366,114 @@ impl fmt::Display for Params {
             Params::WithDefault(ref i, _) => write!(f, "{} = [default]", i),
             Params::Variadic(ref i) => write!(f, "args {}", i),
             _ => write!(f, "")
+        }
+    }
+}
+
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
+pub enum ParamType {
+    Any, // どの型でも良い、オプション指定しなかった場合常にこれ
+    String, // Object::String
+    Number, // Object::Num
+    Bool,
+    Array, // Object::Array
+    HashTbl, // Object::HashTbl
+    Function, // Object::AnonFunc | Object::Function | Object::BuiltinFunction
+    UObject, // Object::UObject | Object::UChild
+    UserDefinition(String), // Object::Instance
+}
+
+impl fmt::Display for ParamType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ParamType::Any => write!(f, ""),
+            ParamType::String => write!(f, "string"),
+            ParamType::Number => write!(f, "number"),
+            ParamType::Bool => write!(f, "bool"),
+            ParamType::Array => write!(f, "array"),
+            ParamType::HashTbl => write!(f, "hash"),
+            ParamType::Function => write!(f, "func"),
+            ParamType::UObject => write!(f, "uobject"),
+            ParamType::UserDefinition(ref name) => write!(f, "{}", name),
+        }
+    }
+}
+
+impl From<String> for ParamType {
+    fn from(s: String) -> Self {
+        match s.to_ascii_lowercase().as_str() {
+            "string" => ParamType::String,
+            "number" => ParamType::Number,
+            "bool" => ParamType::Bool,
+            "array" => ParamType::Array,
+            "hash" => ParamType::HashTbl,
+            "func" => ParamType::Function,
+            "uobject" => ParamType::UObject,
+            _ => ParamType::UserDefinition(s.into())
+        }
+    }
+}
+
+impl ParamType {
+    pub fn is_any(&self) -> bool {
+        self == &Self::Any
+    }
+}
+
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
+pub enum ParamKind {
+    Identifier,          // 通常
+    Reference,           // 参照渡し
+    Variadic,            // 可変長引数
+    Dummy,
+    Default(Expression), // デフォルト引数
+    Array(bool),         // 配列引数, trueで参照渡し
+}
+
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
+pub struct FuncParam {
+    name: Option<String>,          // 名前がなければ可変長引数用のダミー
+    pub kind: ParamKind,               // 種別
+    pub param_type: ParamType, // 型指定
+}
+
+impl FuncParam {
+    pub fn new(name: Option<String>, kind: ParamKind) -> Self {
+        Self { name, kind, param_type: ParamType::Any }
+    }
+    pub fn new_with_type(name: Option<String>, kind: ParamKind, param_type: ParamType) -> Self {
+        Self { name, kind, param_type }
+    }
+    pub fn new_dummy() -> Self {
+        Self { name: None, kind: ParamKind::Dummy, param_type: ParamType::Any }
+    }
+    pub fn name(&self) -> String {
+        self.name.clone().unwrap_or_default()
+    }
+    pub fn has_type(&self) -> bool {
+        ! self.param_type.is_any()
+    }
+}
+
+impl fmt::Display for FuncParam {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let name = if self.name.is_some() {
+            self.name.as_ref().unwrap()
+        } else {
+            return write!(f, "");
+        };
+        let sep = if self.param_type.is_any() {""} else {": "};
+        match self.kind {
+            ParamKind::Identifier => write!(f, "{}{}{}", name, sep, self.param_type),
+            ParamKind::Reference => write!(f, "var {}{}{}", name, sep, self.param_type),
+            ParamKind::Variadic => write!(f, "args {}", name),
+            ParamKind::Default(ref d) => write!(f, "{}{}{} = {}", name, sep, self.param_type, d),
+            ParamKind::Array(b) => if b {
+                write!(f, "var {}[]", name)
+            } else {
+                write!(f, "{}[]", name)
+            },
+            ParamKind::Dummy => write!(f, ""),
         }
     }
 }

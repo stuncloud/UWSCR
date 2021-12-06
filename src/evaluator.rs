@@ -310,7 +310,7 @@ impl Evaluator {
             Statement::Call(block, args) => {
                 let Program(body, lines) = block;
                 let params = vec![
-                    Params::Identifier(Identifier("PARAM_STR".into()))
+                    FuncParam::new(Some("PARAM_STR".into()), ParamKind::Identifier)
                 ];
                 let params_str = Expression::Literal(Literal::Array(args));
                 let arguments = vec![
@@ -686,7 +686,7 @@ impl Evaluator {
         Ok(None)
     }
 
-    fn eval_funtcion_definition_statement(&mut self, name: &String, params: Vec<Params>, body: BlockStatement, is_proc: bool, is_async: bool) -> EvalResult<Object> {
+    fn eval_funtcion_definition_statement(&mut self, name: &String, params: Vec<FuncParam>, body: BlockStatement, is_proc: bool, is_async: bool) -> EvalResult<Object> {
         for statement in &body {
             match statement.statement {
                 Statement::Function{name: _, params: _, body: _, is_proc: _, is_async: _}  => {
@@ -1132,10 +1132,6 @@ impl Evaluator {
             Expression::DotCall(l, r) => {
                 self.eval_dotcall_expression(*l, *r, false, false)?
             },
-            Expression::Params(_) => return Err(UError::new(
-                UErrorKind::EvaluatorError,
-                UErrorMessage::None,
-            )),
             Expression::UObject(json) => {
                 // 文字列展開する
                 if let Object::String(s) = self.expand_string(json, true) {
@@ -2985,7 +2981,7 @@ mod tests {
     use crate::evaluator::*;
     use crate::lexer::Lexer;
     use crate::parser::Parser;
-    use crate::error::evaluator::{UErrorKind,UErrorMessage,DefinitionType};
+    use crate::error::evaluator::{UErrorKind,UErrorMessage,DefinitionType,ParamTypeDetail};
 
     fn eval_test(input: &str, expected: Result<Option<Object>, UError>, ast: bool) {
         let mut e = Evaluator::new(Environment::new(vec![]));
@@ -3036,17 +3032,19 @@ mod tests {
                     let left = result_obj.unwrap();
                     let right = expected_obj.unwrap();
                     if ! left.is_equal(&right) {
-                        panic!("\nresult: {:?}\nexpected: {:?}\n\n{}", left, right, input);
+                        panic!("\nresult: {:?}\nexpected: {:?}\n\ninput: {}\n", left, right, input);
                     }
                 } else if result_obj.is_some() || expected_obj.is_some() {
                     // どちらかがNone
-                    panic!("\nresult: {:?}\nexpected: {:?}\n\n{}", result_obj, expected_obj, input);
+                    panic!("\nresult: {:?}\nexpected: {:?}\n\ninput: {}\n", result_obj, expected_obj, input);
                 },
-                Err(e) => panic!("this test should be ok: {}\n error: {}", input, e),
+                Err(e) => panic!("this test should be ok: {}\n error: {}\n", input, e),
             },
             Err(expected_err) => match result {
                 Ok(_) => panic!("this test should occure error:\n{}", input),
-                Err(result_err) => assert_eq!(result_err, expected_err),
+                Err(result_err) => if result_err != expected_err {
+                    panic!("\nresult: {:?}\nexpected: {:?}\n\ninput: {}\n", result_err, expected_err, input);
+                },
             },
         }
     }
@@ -4527,6 +4525,99 @@ dim obj = @{
             (
                 "obj.bar.qux[0]",
                 Ok(Some(Object::Num(3.0)))
+            ),
+        ];
+        for (input, expected) in test_cases {
+            eval_test_with_env(&mut e, input, expected);
+        }
+    }
+
+    #[test]
+    fn test_param_type() {
+        let input1 = r#"
+function hoge(s: string, c: myclass, n: number = 2, b: bool = false)
+    result = EMPTY
+fend
+function fuga(a: array, h: hash, f: func, u: uobject)
+    result = EMPTY
+fend
+public arr = [1,2,3]
+public hashtbl h
+public uo = @{"a": 1}@
+class myclass
+    procedure myclass()
+    fend
+endclass
+class myclass2
+    procedure myclass2()
+    fend
+endclass
+        "#;
+        let mut e = eval_env(input1);
+        let test_cases = vec![
+            (
+                "hoge(3, myclass())",
+                Err(UError::new(
+                    UErrorKind::FuncCallError,
+                    UErrorMessage::InvalidParamType("s".into(), ParamTypeDetail::String)
+                ))
+            ),
+            (
+                "hoge('hoge', myclass2())",
+                Err(UError::new(
+                    UErrorKind::FuncCallError,
+                    UErrorMessage::InvalidParamType("c".into(), ParamTypeDetail::UserDefinition("myclass".into()))
+                ))
+            ),
+            (
+                "hoge('hoge', myclass(), 'aaa')",
+                Err(UError::new(
+                    UErrorKind::FuncCallError,
+                    UErrorMessage::InvalidParamType("n".into(), ParamTypeDetail::Number)
+                ))
+            ),
+            (
+                "hoge('hoge', myclass(),2, 'aaa')",
+                Err(UError::new(
+                    UErrorKind::FuncCallError,
+                    UErrorMessage::InvalidParamType("b".into(), ParamTypeDetail::Bool)
+                ))
+            ),
+            (
+                "hoge('hoge', myclass(), 5, true)",
+                Ok(Some(Object::Empty))
+            ),
+            (
+                "fuga('hoge', h, hoge, uo)",
+                Err(UError::new(
+                    UErrorKind::FuncCallError,
+                    UErrorMessage::InvalidParamType("a".into(), ParamTypeDetail::Array)
+                ))
+            ),
+            (
+                "fuga(arr, arr, hoge, uo)",
+                Err(UError::new(
+                    UErrorKind::FuncCallError,
+                    UErrorMessage::InvalidParamType("h".into(), ParamTypeDetail::HashTbl)
+                ))
+            ),
+            (
+                "fuga(arr, h, 'hoge', uo)",
+                Err(UError::new(
+                    UErrorKind::FuncCallError,
+                    UErrorMessage::InvalidParamType("f".into(), ParamTypeDetail::Function)
+                ))
+            ),
+            (
+                "fuga(arr, h, hoge, 1)",
+                Err(UError::new(
+                    UErrorKind::FuncCallError,
+                    UErrorMessage::InvalidParamType("u".into(), ParamTypeDetail::UObject)
+                ))
+            ),
+            (
+                "fuga(arr, h, hoge, uo)",
+                Ok(Some(Object::Empty))
             ),
         ];
         for (input, expected) in test_cases {

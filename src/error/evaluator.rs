@@ -70,7 +70,8 @@ impl fmt::Display for UError {
 
 impl PartialEq for UError {
     fn eq(&self, other: &Self) -> bool {
-        self.to_string() == other.to_string()
+        self.kind == other.kind &&
+        self.message == other.message
     }
 }
 
@@ -117,7 +118,7 @@ impl Default for UErrorLine {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum UErrorKind {
     Any(String),
     UnknownError,
@@ -327,7 +328,7 @@ impl fmt::Display for UErrorKind {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum UErrorMessage {
     Unknown,
     SyntaxError,
@@ -428,6 +429,7 @@ pub enum UErrorMessage {
     GivenNumberIsOutOfRange(f64, f64),
     WebSocketTimeout(Value),
     WebSocketConnectionError(u16, String),
+    InvalidParamType(String, ParamTypeDetail),
 }
 
 impl fmt::Display for UErrorMessage {
@@ -887,11 +889,16 @@ impl fmt::Display for UErrorMessage {
                 "Failed to connect: {} {}",
                 status, status_text
             ),
+            Self::InvalidParamType(n, t) => write_locale!(f,
+                "不正な引数の型: {}は{}型のみ有効です",
+                "Invalid argument type: {} should be type {}",
+                n, t
+            ),
         }
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum DefinitionType {
     Variable,
     Const,
@@ -914,6 +921,35 @@ impl fmt::Display for DefinitionType {
             Self::Class => write_locale!(f, "クラス", "Class"),
             Self::Struct => write_locale!(f, "構造体", "Struct"),
             Self::Any => write!(f, ""),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ParamTypeDetail {
+    Any,
+    String,
+    Number,
+    Bool,
+    Array,
+    HashTbl,
+    Function,
+    UObject,
+    UserDefinition(String)
+}
+
+impl fmt::Display for ParamTypeDetail {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ParamTypeDetail::Any => write!(f, ""),
+            ParamTypeDetail::String => write_locale!(f, "文字列", "string"),
+            ParamTypeDetail::Number => write_locale!(f, "数値", "number"),
+            ParamTypeDetail::Bool => write_locale!(f, "真偽値", "bool"),
+            ParamTypeDetail::Array => write_locale!(f, "配列", "array"),
+            ParamTypeDetail::HashTbl => write_locale!(f, "連想配列", "hashtbl"),
+            ParamTypeDetail::Function => write_locale!(f, "関数", "function"),
+            ParamTypeDetail::UObject => write!(f, "UObject"),
+            ParamTypeDetail::UserDefinition(s) => write!(f, "{}", s),
         }
     }
 }

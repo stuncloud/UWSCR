@@ -1,6 +1,6 @@
-use crate::ast::{Expression, BlockStatement, Params, Literal};
+use crate::ast::{Expression, BlockStatement, FuncParam, ParamType, ParamKind, Literal};
 use crate::evaluator::environment::{NamedObject};
-use crate::error::evaluator::{UError, UErrorKind, UErrorMessage};
+use crate::error::evaluator::{UError, UErrorKind, UErrorMessage, ParamTypeDetail};
 use super::{Object, Module};
 use super::super::{EvalResult, Evaluator};
 
@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex};
 #[derive(Debug, Clone)]
 pub struct Function {
     pub name: Option<String>, // Noneなら無名関数
-    pub params: Vec<Params>,
+    pub params: Vec<FuncParam>,
     pub body: BlockStatement,
     pub is_proc: bool,
     pub module: Option<Arc<Mutex<Module>>>, // module, classの実装
@@ -35,7 +35,7 @@ impl Function {
             arguments.resize(params.len(), (None, Object::EmptyParam));
         } else if param_len < arguments.len() {
             // 可変長引数が渡された場合
-            params.resize(arguments.len(), Params::VariadicDummy);
+            params.resize(arguments.len(), FuncParam::new_dummy());
         }
         // 無名関数ならローカルコープをコピーする
         if self.outer.is_some() && self.name.is_none() {
@@ -61,67 +61,60 @@ impl Function {
         let mut reference = vec![];
 
         for (_, (param, (arg_expr, obj))) in list.enumerate() {
-            let (name, value) = match param {
-                Params::Identifier(i) => {
-                    let name = i.0;
+            let name = param.name();
+            // 引数種別チェック
+            // デフォルト値の評価もここでやる
+            let value = match param.kind {
+                ParamKind::Identifier => {
                     if arg_expr.is_none() {
                         return Err(UError::new(
                             UErrorKind::FuncCallError,
                             UErrorMessage::FuncArgRequired(name)
                         ))
                     }
-                    (name, obj)
+                    obj
                 },
-                Params::Reference(i) => {
-                    let name = i.0;
+                ParamKind::Reference => {
                     match arg_expr.unwrap() {
                         Expression::Array(_, _) |
                         Expression::Assign(_, _) |
-                        Expression::CompoundAssign(_, _, _) |
-                        Expression::Params(_) => return Err(UError::new(
+                        Expression::CompoundAssign(_, _, _) => return Err(UError::new(
                             UErrorKind::FuncCallError,
                             UErrorMessage::FuncInvalidArgument(name),
                         )),
                         e => reference.push((name.clone(), e))
                     }
-                    (name, obj)
+                    obj
                 },
-                Params::Array(i, b) => {
-                    let name = i.0;
+                ParamKind::Array(b) => {
                     let e = arg_expr.unwrap();
                     match e {
                         Expression::Identifier(_) |
                         Expression::Index(_, _, _) |
-                        Expression::DotCall(_, _) => {
-                            if b {
-                                reference.push((name.clone(), e));
-                            }
-                            (name, obj)
+                        Expression::DotCall(_, _) => if b {
+                            reference.push((name.clone(), e))
                         },
-                        Expression::Literal(Literal::Array(_)) => {
-                            (name, obj)
-                        },
+                        Expression::Literal(Literal::Array(_)) => {},
                         _ => return Err(UError::new(
                             UErrorKind::FuncCallError,
                             UErrorMessage::FuncInvalidArgument(name),
                         )),
                     }
+                    obj
                 },
-                Params::WithDefault(i, default) => {
-                    let name = i.0;
+                ParamKind::Default(ref e) => {
                     if Object::EmptyParam.is_equal(&obj) {
-                        (name, evaluator.eval_expression(*default)?)
+                        evaluator.eval_expression(e.clone())?
                     } else {
-                        (name, obj)
+                        obj
                     }
                 },
-                Params::Variadic(i) => {
-                    let name = i.0;
+                ParamKind::Variadic => {
                     variadic_name = Some(name);
                     variadic.push(obj);
                     continue;
                 },
-                Params::VariadicDummy => {
+                ParamKind::Dummy => {
                     if variadic.len() < 1 {
                         return Err(UError::new(
                             UErrorKind::FuncCallError,
@@ -132,6 +125,9 @@ impl Function {
                     continue;
                 },
             };
+            // 型チェック
+            evaluator.is_valid_type(&param, &value)?;
+
             // 可変長引数でなければローカル変数を定義
             if variadic.len() < 1 {
                 evaluator.env.define_local(&name, value)?;
@@ -224,5 +220,78 @@ impl Function {
 
     pub fn set_module(&mut self, m: Arc<Mutex<Module>>) {
         self.module = Some(m)
+    }
+}
+
+impl Evaluator {
+    fn is_valid_type(&self, param: &FuncParam, obj: &Object) -> EvalResult<()> {
+        match param.param_type {
+            ParamType::Any => return Ok(()),
+            ParamType::String => match obj {
+                Object::String(_) |
+                Object::ExpandableTB(_) => return Ok(()),
+                _ => {}
+            },
+            ParamType::Number => match obj {
+                Object::Num(_) => return Ok(()),
+                _ => {}
+            },
+            ParamType::Bool => match obj {
+                Object::Bool(_) => return Ok(()),
+                _ => {}
+            },
+            ParamType::Array => match obj {
+                Object::Array(_) => return Ok(()),
+                _ => {}
+            },
+            ParamType::HashTbl => match obj {
+                Object::HashTbl(_) => return Ok(()),
+                _ => {}
+            },
+            ParamType::Function => match obj {
+                Object::Function(_) |
+                Object::AnonFunc(_) => return Ok(()),
+                _ => {}
+            },
+            ParamType::UObject => match obj {
+                Object::UObject(_) |
+                Object::UChild(_,_) => return Ok(()),
+                _ => {}
+            },
+            ParamType::UserDefinition(ref name) => match obj {
+                Object::Instance(ref arc, _) => {
+                    let m = arc.lock().unwrap();
+                    if m.name().to_ascii_lowercase() == name.to_ascii_lowercase() {
+                        return Ok(());
+                    }
+                },
+                // Object::Enum(e) => {
+                //     if e.name.to_ascii_lowercase() == name.to_ascii_lowercase() {
+                //         return Ok(());
+                //     }
+                // },
+                _ => {}
+            },
+        }
+        Err(UError::new(
+            UErrorKind::FuncCallError,
+            UErrorMessage::InvalidParamType(param.name(), param.param_type.clone().into())
+        ))
+    }
+}
+
+impl From<ParamType> for ParamTypeDetail {
+    fn from(p: ParamType) -> Self {
+        match p {
+            ParamType::Any => ParamTypeDetail::Any,
+            ParamType::String => ParamTypeDetail::String,
+            ParamType::Number => ParamTypeDetail::Number,
+            ParamType::Bool => ParamTypeDetail::Bool,
+            ParamType::Array => ParamTypeDetail::Array,
+            ParamType::HashTbl => ParamTypeDetail::HashTbl,
+            ParamType::Function => ParamTypeDetail::Function,
+            ParamType::UObject => ParamTypeDetail::UObject,
+            ParamType::UserDefinition(s) => ParamTypeDetail::UserDefinition(s),
+        }
     }
 }
