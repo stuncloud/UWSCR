@@ -19,7 +19,7 @@ use windows::{
         },
         Graphics::{
             Gdi::{
-                GET_DEVICE_CAPS_INDEX,
+                BITSPIXEL,
                 GetDC, GetDeviceCaps,
             },
         },
@@ -160,8 +160,7 @@ pub fn get_screen_height() -> i32 {
 pub fn get_color_depth() -> i32 {
     unsafe {
         let dc = GetDC(HWND::default());
-        let bitspixel = 12;
-        GetDeviceCaps(dc, GET_DEVICE_CAPS_INDEX(bitspixel))
+        GetDeviceCaps(dc, BITSPIXEL)
     }
 }
 

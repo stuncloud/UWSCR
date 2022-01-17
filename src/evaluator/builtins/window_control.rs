@@ -5,7 +5,6 @@ use crate::evaluator::builtins::system_controls::is_64bit_os;
 use crate::settings::usettings_singleton;
 use crate::evaluator::builtins::chkimg::{ChkImg, ScreenShot};
 use windows::{
-    core::Handle,
     Win32::{
         Foundation::{
             MAX_PATH,
@@ -935,14 +934,14 @@ pub fn monitor(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         return Ok(Object::Bool(false));
     };
     let mut miex = MONITORINFOEXW::default();
-    miex.__AnonymousBase_winuser_L13571_C43.cbSize = mem::size_of::<MONITORINFOEXW>() as u32;
+    miex.monitorInfo.cbSize = mem::size_of::<MONITORINFOEXW>() as u32;
     let p_miex = <*mut _>::cast(&mut miex);
     unsafe {
         if ! GetMonitorInfoW(h, p_miex).as_bool() {
             return Err(builtin_func_error(UErrorMessage::UnableToGetMonitorInfo, args.name()));
         }
     }
-    let mi = miex.__AnonymousBase_winuser_L13571_C43;
+    let mi = miex.monitorInfo;
     let cmd = get_non_float_argument_value::<u8>(&args, 1, Some(MonitorEnum::MON_ALL as u8))?;
     let value = match FromPrimitive::from_u8(cmd).unwrap_or(MonitorEnum::UNKNOWN_MONITOR_CMD) {
         MonitorEnum::MON_ALL => {

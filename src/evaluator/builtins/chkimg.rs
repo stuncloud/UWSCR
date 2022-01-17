@@ -22,7 +22,6 @@ use windows::{
             }
         },
     },
-    core::Handle
 };
 
 use opencv::{

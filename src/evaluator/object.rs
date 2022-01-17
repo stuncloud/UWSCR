@@ -20,7 +20,6 @@ use crate::evaluator::com_object::VARIANTHelper;
 use crate::evaluator::devtools_protocol::{Browser, Element};
 
 use windows::{
-    core::Handle,
     Win32::{
         Foundation::HWND,
         System::{

@@ -88,7 +88,7 @@ use std::{ffi::c_void, mem::ManuallyDrop};
 
 pub struct ComError {
     pub message: String,
-    pub code: u32,
+    pub code: i32,
     pub description: Option<String>
 }
 
@@ -139,7 +139,7 @@ impl Object {
 
         // let is_ref = (variant.vt() & VT_BYREF.0 as u16) > 0;
         let vt = variant.vt() & VT_TYPEMASK.as_u16();
-        let obj = match VARENUM(vt as i32) {
+        let obj = match vt as i32 {
             VT_EMPTY => Object::Empty,
             VT_NULL => Object::Null,
             VT_I2 |
@@ -326,7 +326,7 @@ pub trait VARENUMHelper {
 
 impl VARENUMHelper for VARENUM {
     fn as_u16(&self) -> u16 {
-        self.0 as u16
+        *self as u16
     }
 }
 
@@ -339,7 +339,7 @@ pub trait VARIANTHelper {
     fn set_bstr(&mut self, bstr: BSTR);
     fn set_bool(&mut self, b: &bool);
     fn set_idispatch(&mut self, idispatch: &IDispatch);
-    fn _set_variant(&mut self, variant: VARIANT);
+    fn _set_variant(&mut self, variant: &mut VARIANT);
     fn set_safearray(&mut self, sa: &SAFEARRAY);
     fn get_double(&self) -> f64;
     fn get_bstr(&self) -> ComResult<BSTR>;
@@ -380,13 +380,13 @@ impl VARIANTHelper for VARIANT {
     fn set_idispatch(&mut self, idispatch: &IDispatch) {
         let mut v00 = VARIANT_0_0::default();
         v00.vt = VT_DISPATCH.as_u16();
-        v00.Anonymous.pdispVal = idispatch as *const IDispatch as *mut c_void;
+        v00.Anonymous.pdispVal = ManuallyDrop::new(Some(idispatch.clone()));
         self.Anonymous.Anonymous = ManuallyDrop::new(v00);
     }
-    fn _set_variant(&mut self, variant: VARIANT) {
+    fn _set_variant(&mut self, variant: &mut VARIANT) {
         let mut v00 = VARIANT_0_0::default();
         v00.vt = VT_VARIANT.as_u16();
-        v00.Anonymous.pvarVal = &mut ManuallyDrop::new(variant);
+        v00.Anonymous.pvarVal = variant as *mut VARIANT;
         self.Anonymous.Anonymous = ManuallyDrop::new(v00);
     }
     fn set_safearray(&mut self, sa: &SAFEARRAY) {
@@ -411,9 +411,10 @@ impl VARIANTHelper for VARIANT {
     }
     fn get_idispatch(&self) -> ComResult<IDispatch> {
         unsafe {
-            let p = self.Anonymous.Anonymous.Anonymous.pdispVal;
+            let p = &self.Anonymous.Anonymous.Anonymous.pdispVal;
             // let disp = IDispatch::from_abi(p)?;
-            let disp = &*p.cast::<IDispatch>();
+            // let disp = &*p.cast::<IDispatch>();
+            let disp = p.as_ref().unwrap();
             Ok(disp.clone())
         }
     }
@@ -437,20 +438,21 @@ impl VARIANTHelper for VARIANT {
         Ok(dest)
     }
     fn is_equal(&self, other: &VARIANT) -> bool {
-        if self.vt() == other.vt() {
-            match VARENUM(self.vt() as i32) {
-                VT_R8 => self.get_double() == other.get_double(),
-                VT_BSTR => {
-                    let b1 = self.get_bstr().unwrap_or_default();
-                    let b2 = other.get_bstr().unwrap_or_default();
-                    b1 == b2
-                },
-                VT_BOOL => self.get_bool() == other.get_bool(),
-                _ => unsafe {self.Anonymous.decVal == other.Anonymous.decVal}
-            }
-        } else {
-            false
-        }
+        // if self.vt() == other.vt() {
+        //     match self.vt() as i32 {
+        //         VT_R8 => self.get_double() == other.get_double(),
+        //         VT_BSTR => {
+        //             let b1 = self.get_bstr().unwrap_or_default();
+        //             let b2 = other.get_bstr().unwrap_or_default();
+        //             b1 == b2
+        //         },
+        //         VT_BOOL => self.get_bool() == other.get_bool(),
+        //         _ => unsafe {self.Anonymous.decVal == other.Anonymous.decVal}
+        //     }
+        // } else {
+        //     false
+        // }
+        self == other
     }
 }
 
@@ -468,7 +470,7 @@ pub trait SAFEARRAYHelper {
 
 impl SAFEARRAYHelper for SAFEARRAY {
     fn new(lbound: i32, ubound: i32) -> Self {
-        let vt = VT_VARIANT.0 as u16;
+        let vt = VT_VARIANT as u16;
         let cdims = 1;
         let mut rgsabound = SAFEARRAYBOUND::new(lbound, ubound);
         let sa = unsafe {
@@ -479,7 +481,7 @@ impl SAFEARRAYHelper for SAFEARRAY {
     }
 
     fn new2(lbound: i32, ubound: i32, lbound2: i32, ubound2: i32) -> Self {
-        let vt = VT_VARIANT.0 as u16;
+        let vt = VT_VARIANT as u16;
         let cdims = 2;
         let mut rgsabound = vec![
             SAFEARRAYBOUND::new(lbound2, ubound2),

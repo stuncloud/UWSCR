@@ -3,7 +3,6 @@ use crate::evaluator::builtins::*;
 use crate::error::evaluator::{UErrorMessage, UErrorKind};
 use crate::winapi::{from_ansi_bytes, to_wide_string};
 use windows::{
-    core::Handle,
     Win32::{
         Foundation::{
             BOOL, PWSTR, HWND, LPARAM,
@@ -218,7 +217,7 @@ pub fn shell_execute(cmd: String, params: Option<String>) -> bool {
                 PWSTR::default()
             },
             PWSTR::default(),
-            SW_SHOWNORMAL.0 as i32
+            SW_SHOWNORMAL as i32
         );
         hinstance.0 > 32
     }
@@ -229,7 +228,7 @@ fn create_process(cmd: String, name: String) -> Result<PROCESS_INFORMATION, UErr
         let mut si = STARTUPINFOW::default();
         si.cb = mem::size_of::<STARTUPINFOW>() as u32;
         si.dwFlags = STARTF_USESHOWWINDOW;
-        si.wShowWindow = SW_SHOW.0 as u16;
+        si.wShowWindow = SW_SHOW as u16;
         let mut pi = PROCESS_INFORMATION::default();
         let mut command = to_wide_string(&cmd);
 
@@ -497,7 +496,7 @@ impl Shell {
             ]);
         }
         if self.show {
-            shell.creation_flags(CREATE_NEW_CONSOLE.0);
+            shell.creation_flags(CREATE_NEW_CONSOLE);
             if self.minimize {
                 // 最小化処理
                 shell.args(["-WindowStyle", "Minimized"]);
@@ -509,7 +508,7 @@ impl Shell {
             }
             Ok(None)
         } else {
-            shell.creation_flags(CREATE_NO_WINDOW.0);
+            shell.creation_flags(CREATE_NO_WINDOW);
             if self.wait {
                 let output = shell.output()?;
                 // let out_raw = if output.stderr.len()> 0 {
