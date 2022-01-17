@@ -93,7 +93,7 @@ pub struct UOption {
     pub position: UPosition,
     // ダイアログなどのフォント
     #[serde(default)]
-    pub default_font: String,
+    pub default_font: DefaultFont,
     // 吹き出しを仮想デスクトップにも出すかどうか
     #[serde(default)]
     pub fix_balloon: bool,
@@ -131,7 +131,7 @@ impl Default for UOption {
             log_lines: 400,
             log_path: None,
             position: UPosition::default(),
-            default_font: "MS Gothic,12".into(),
+            default_font: DefaultFont::default(),
             fix_balloon: false,
             no_stop_hot_key: false,
             short_circuit: true,
@@ -156,6 +156,24 @@ impl Default for UPosition {
             left: 0,
             top: 0
         }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct DefaultFont {
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub size: i32
+}
+impl Default for DefaultFont {
+    fn default() -> Self {
+        Self { name: "Yu Gothic UI".into(), size: 15 }
+    }
+}
+impl DefaultFont {
+    pub fn new(name: &str, size: i32) -> Self {
+        Self {name: name.into(), size}
     }
 }
 

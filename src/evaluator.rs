@@ -17,7 +17,7 @@ use crate::error::evaluator::{UError, UErrorKind, UErrorMessage};
 use crate::parser::Parser;
 use crate::lexer::Lexer;
 use crate::logging::{out_log, LogType};
-use crate::settings::usettings_singleton;
+use crate::settings::*;
 use windows::{
     Win32::System::{
         Com::{
@@ -196,7 +196,10 @@ impl Evaluator {
             OptionSetting::FixBalloon(b) => usettings.options.fix_balloon = b,
             OptionSetting::Defaultfont(ref s) => {
                 if let Object::String(s) = self.expand_string(s.clone(), true) {
-                    usettings.options.default_font = s.clone()
+                    let tmp = s.split(",");
+                    let name = tmp.next().unwrap();
+                    let size = tmp.next().unwrap_or("15").parse::<i32>().unwrap_or(15);
+                    usettings.options.default_font = DefaultFont::new(name, size);
                 }
             },
             OptionSetting::Position(x, y) => {
