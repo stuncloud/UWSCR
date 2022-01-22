@@ -26,7 +26,10 @@
     },
     "options": {
       "default": {
-        "default_font": "MS Gothic,12",
+        "default_font": {
+          "name": "Yu Gothic UI",
+          "size": 15
+        },
         "dlg_title": null,
         "explicit": false,
         "fix_balloon": false,
@@ -84,12 +87,33 @@
         }
       }
     },
+    "DefaultFont": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "default": "",
+          "type": "string"
+        },
+        "size": {
+          "default": 0,
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
     "UOption": {
       "type": "object",
       "properties": {
         "default_font": {
-          "default": "",
-          "type": "string"
+          "default": {
+            "name": "Yu Gothic UI",
+            "size": 15
+          },
+          "allOf": [
+            {
+              "$ref": "#/definitions/DefaultFont"
+            }
+          ]
         },
         "dlg_title": {
           "default": null,

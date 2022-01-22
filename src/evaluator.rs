@@ -196,9 +196,9 @@ impl Evaluator {
             OptionSetting::FixBalloon(b) => usettings.options.fix_balloon = b,
             OptionSetting::Defaultfont(ref s) => {
                 if let Object::String(s) = self.expand_string(s.clone(), true) {
-                    let tmp = s.split(",");
-                    let name = tmp.next().unwrap();
-                    let size = tmp.next().unwrap_or("15").parse::<i32>().unwrap_or(15);
+                    let mut name_size = s.split(",");
+                    let name = name_size.next().unwrap();
+                    let size = name_size.next().unwrap_or("15").parse::<i32>().unwrap_or(15);
                     usettings.options.default_font = DefaultFont::new(name, size);
                 }
             },

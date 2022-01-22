@@ -8,6 +8,7 @@ pub mod com_object;
 pub mod browser_control;
 pub mod array_control;
 pub mod chkimg;
+pub mod dialog;
 
 use crate::settings::usettings_singleton;
 use crate::winapi::{
@@ -181,6 +182,9 @@ pub fn init_builtins() -> Vec<NamedObject> {
     set_builtin_consts::<browser_control::BcEnum>(&mut vec);
     // array_control
     array_control::builtin_func_sets().set(&mut vec);
+    // dialog.rs
+    set_builtin_consts::<dialog::BtnConst>(&mut vec);
+    dialog::builtin_func_sets().set(&mut vec);
     // 特殊変数
     set_special_variables(&mut vec);
 

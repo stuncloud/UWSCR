@@ -39,8 +39,6 @@ impl Function {
         }
         // 無名関数ならローカルコープをコピーする
         if self.outer.is_some() && self.name.is_none() {
-            println!("[debug] 1: {:?}", &1);
-
             let outer_clone = self.outer.clone().unwrap();
             let outer_local = outer_clone.lock().unwrap();
             evaluator.env.copy_scope(outer_local.clone());

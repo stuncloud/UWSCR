@@ -4,6 +4,7 @@ use std::fmt;
 use crate::ast::{Expression, Infix, DllType};
 use crate::evaluator::object::Object;
 use crate::write_locale;
+use crate::gui::UWindowError::{self, *};
 use super::{locale_singleton, Locale};
 use serde_json::Value;
 
@@ -328,6 +329,7 @@ impl fmt::Display for UErrorKind {
     }
 }
 
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum UErrorMessage {
     Unknown,
@@ -430,6 +432,7 @@ pub enum UErrorMessage {
     WebSocketTimeout(Value),
     WebSocketConnectionError(u16, String),
     InvalidParamType(String, ParamTypeDetail),
+    UWindowError(UWindowError),
 }
 
 impl fmt::Display for UErrorMessage {
@@ -894,6 +897,23 @@ impl fmt::Display for UErrorMessage {
                 "Invalid argument type: {} should be type {}",
                 n, t
             ),
+            Self::UWindowError(e) => match e {
+                FailedToCreateWindow(cls) => write_locale!(f,
+                    "ウィンドウの作成に失敗: {}",
+                    "Failed to create window: {}",
+                    cls
+                ),
+                FailedToRegisterClass(cls) => write_locale!(f,
+                    "クラス登録に失敗: {}",
+                    "Failed to register class: {}",
+                    cls
+                ),
+                FailedToCreateFont(font) => write_locale!(f,
+                    "フォント名が不正: {}",
+                    "Invalid font family: {}",
+                    font
+                ),
+            },
         }
     }
 }
