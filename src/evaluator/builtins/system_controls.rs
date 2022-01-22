@@ -69,7 +69,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
 }
 
 pub fn sleep(args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let sec = get_num_argument_value(&args, 0, None)?;
+    let sec = get_argument_as_num(&args, 0, None)?;
     if sec >= 0.0 {
         thread::sleep(time::Duration::from_secs_f64(sec));
     }
@@ -188,7 +188,7 @@ pub fn get_os_kind() -> Vec<f64> {
 }
 
 pub fn kindofos(args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let t = get_bool_or_int_argument_value(&args, 0, Some(0)).unwrap_or(0);
+    let t = get_argument_as_bool_or_int(&args, 0, Some(0)).unwrap_or(0);
     let osnum = get_os_kind();
     match FromPrimitive::from_i32(t).unwrap_or(KindOfOsResultType::KIND_OF_OS) {
         KindOfOsResultType::IS_64BIT_OS => Ok(Object::Bool(is_64bit_os(args.name())?)),
@@ -201,7 +201,7 @@ pub fn kindofos(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 }
 
 pub fn env(args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let env_var = get_string_argument_value(&args, 0, None)?;
+    let env_var = get_argument_as_string(&args, 0, None)?;
     Ok(Object::String(std::env::var(env_var).unwrap_or("".to_string())))
 }
 
@@ -272,8 +272,8 @@ fn enum_window_proc(hwnd: HWND, lparam: LPARAM) -> BOOL {
 }
 
 pub fn exec(args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let cmd = get_string_argument_value(&args, 0, None)?;
-    let sync = get_bool_argument_value(&args, 1, Some(false))?;
+    let cmd = get_argument_as_string(&args, 0, None)?;
+    let sync = get_argument_as_bool(&args, 1, Some(false))?;
     let process = create_process(cmd, args.name());
     if process.is_err() {
         return Ok(Object::Num(-1.0));
@@ -282,10 +282,10 @@ pub fn exec(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     unsafe{
         let mut ph = ProcessHwnd{pid: pi.dwProcessId, hwnd: HWND::default()};
         EnumWindows(Some(enum_window_proc), LPARAM(&mut ph as *mut ProcessHwnd as isize));
-        let x = get_non_float_argument_value(&args, 2, None).ok();
-        let y = get_non_float_argument_value(&args, 3, None).ok();
-        let w = get_non_float_argument_value(&args, 4, None).ok();
-        let h = get_non_float_argument_value(&args, 5, None).ok();
+        let x = get_argument_as_int(&args, 2, None).ok();
+        let y = get_argument_as_int(&args, 3, None).ok();
+        let w = get_argument_as_int(&args, 4, None).ok();
+        let h = get_argument_as_int(&args, 5, None).ok();
         window_control::set_window_size(ph.hwnd, x, y, w, h)?;
         if sync {
             // 同期する場合は終了コード
@@ -311,13 +311,13 @@ pub fn exec(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 }
 
 pub fn shexec(args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let cmd = get_string_argument_value(&args, 0, None)?;
-    let params = get_string_argument_value(&args, 1, None).map_or(None, |s| Some(s));
+    let cmd = get_argument_as_string(&args, 0, None)?;
+    let params = get_argument_as_string(&args, 1, None).map_or(None, |s| Some(s));
     Ok(Object::Bool(shell_execute(cmd, params)))
 }
 
 pub fn task(mut args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let obj = get_any_argument_value(&args, 0, None)?;
+    let obj = get_argument_as_object(&args, 0, None)?;
     let arguments = args.get_args_from(1);
     match obj {
         Object::Function(f) |
@@ -329,7 +329,7 @@ pub fn task(mut args: BuiltinFuncArgs) -> BuiltinFuncResult {
 }
 
 pub fn wait_task(args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let task = get_task_argument_value(&args, 0)?;
+    let task = get_argument_as_task(&args, 0)?;
     let mut handle = task.handle.lock().unwrap();
     let result = match handle.take().unwrap().join() {
         Ok(res) => res,
@@ -344,8 +344,8 @@ pub fn wait_task(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 }
 
 pub fn wmi_query(args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let wql = get_string_argument_value(&args, 0, None)?;
-    let name_space = get_string_or_empty_argument(&args, 1, Some(None))?;
+    let wql = get_argument_as_string(&args, 0, None)?;
+    let name_space = get_argument_as_string_or_empty(&args, 1, Some(None))?;
     let namespace_path = name_space.as_deref();
     let conn = unsafe {
         wmi::WMIConnection::with_initialized_com(namespace_path)?
@@ -371,11 +371,11 @@ impl From<wmi::WMIError> for UError {
 }
 
 pub fn doscmd(args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let command = get_string_argument_value(&args, 0, None)?;
+    let command = get_argument_as_string(&args, 0, None)?;
     // falseが渡されたら終了を待つ
-    let wait = ! get_bool_argument_value(&args, 1, Some(false))?;
-    let show = get_bool_argument_value(&args, 2, Some(false))?;
-    let option = if get_bool_argument_value(&args, 3, Some(false))? {
+    let wait = ! get_argument_as_bool(&args, 1, Some(false))?;
+    let show = get_argument_as_bool(&args, 2, Some(false))?;
+    let option = if get_argument_as_bool(&args, 3, Some(false))? {
         ShellOption::CmdUnicode
     } else {
         ShellOption::CmdAnsi
@@ -394,15 +394,15 @@ pub fn doscmd(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 }
 
 fn run_powershell(shell: ShellType, args: &BuiltinFuncArgs) -> BuiltinFuncResult {
-    let command = get_string_argument_value(args, 0, None)?;
+    let command = get_argument_as_string(args, 0, None)?;
     // falseが渡されたら終了を待つ
-    let wait = ! get_bool_argument_value(args, 1, Some(false))?;
-    let (show, minimize) = match get_bool_or_int_argument_value::<i32>(args, 2, Some(0))? {
+    let wait = ! get_argument_as_bool(args, 1, Some(false))?;
+    let (show, minimize) = match get_argument_as_bool_or_int::<i32>(args, 2, Some(0))? {
         0 => (false, false),
         2 => (true, true),
         _ => (true, false)
     };
-    let option = if get_bool_argument_value(args, 3, Some(false))? {
+    let option = if get_argument_as_bool(args, 3, Some(false))? {
         ShellOption::PsNoProfile
     } else {
         ShellOption::None

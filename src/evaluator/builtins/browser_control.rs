@@ -28,10 +28,10 @@ pub enum BcEnum {
 
 // browsercontrol(種類, [フィルタ=EMPTY, ポート=9222, ヘッドレス=FALSE])
 pub fn browser_control(args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let typearg = get_non_float_argument_value::<i32>(&args, 0, None)?;
-    let filter = get_string_or_empty_argument(&args, 1, Some(None))?;
-    let port = get_non_float_argument_value::<u16>(&args, 2, Some(DEFAULT_PORT))?;
-    let headless = get_bool_argument_value(&args, 3, Some(false))?;
+    let typearg = get_argument_as_int::<i32>(&args, 0, None)?;
+    let filter = get_argument_as_string_or_empty(&args, 1, Some(None))?;
+    let port = get_argument_as_int::<u16>(&args, 2, Some(DEFAULT_PORT))?;
+    let headless = get_argument_as_bool(&args, 3, Some(false))?;
     let browser = match FromPrimitive::from_i32(typearg).unwrap_or(BcEnum::BC_UNKNOWN) {
         BcEnum::BC_CHROME => Browser::new_chrome(port, filter, headless)?,
         BcEnum::BC_MSEDGE => Browser::new_msedge(port, filter, headless)?,

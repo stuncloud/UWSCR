@@ -81,7 +81,7 @@ fn ignore_ie(prog_id: &str) -> BuiltInResult<()> {
 }
 
 fn createoleobj(args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let prog_id = get_string_argument_value(&args, 0, None)?;
+    let prog_id = get_argument_as_string(&args, 0, None)?;
     // ignore IE
     ignore_ie(&prog_id)?;
     let idispatch = create_instance(&prog_id)?;
@@ -98,7 +98,7 @@ fn create_instance(prog_id: &str) -> BuiltInResult<IDispatch> {
 }
 
 fn getactiveoleobj(args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let prog_id = get_string_argument_value(&args, 0, None)?;
+    let prog_id = get_argument_as_string(&args, 0, None)?;
     // ignore IE
     ignore_ie(&prog_id)?;
     let disp = match get_active_object(&prog_id)? {
@@ -128,8 +128,8 @@ fn get_active_object(prog_id: &str) -> BuiltInResult<Option<IDispatch>> {
 }
 
 fn vartype(args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let vt = get_non_float_argument_value::<i32>(&args, 1, Some(-1))?;
-    let o = get_any_argument_value(&args, 0, None)?;
+    let vt = get_argument_as_int::<i32>(&args, 1, Some(-1))?;
+    let o = get_argument_as_object(&args, 0, None)?;
     if vt < 0 {
         let n = match o {
             Object::Variant(ref v) => v.0.vt() as f64,
@@ -158,7 +158,7 @@ fn vartype(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 }
 
 fn safearray(args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let lbound = match get_num_or_array_argument_value(&args, 0, Some(Object::Num(0.0)))? {
+    let lbound = match get_argument_as_int_or_array(&args, 0, Some(Object::Num(0.0)))? {
         Object::Num(n) => n as i32,
         Object::Array(arr) => {
             let mut sa = SAFEARRAY::new(0, (arr.len() - 1) as i32);
@@ -172,10 +172,10 @@ fn safearray(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         },
         _ => 0,
     };
-    let ubound = get_non_float_argument_value::<i32>(&args, 1, Some(-1))?;
+    let ubound = get_argument_as_int::<i32>(&args, 1, Some(-1))?;
     let min = i32::min_value();
-    let lbound2 = get_non_float_argument_value::<i32>(&args, 2, Some(min))?;
-    let mut ubound2 = get_non_float_argument_value::<i32>(&args, 3, Some(min))?;
+    let lbound2 = get_argument_as_int::<i32>(&args, 2, Some(min))?;
+    let mut ubound2 = get_argument_as_int::<i32>(&args, 3, Some(min))?;
 
     let safe_array = if lbound2 > min {
         // 二次元

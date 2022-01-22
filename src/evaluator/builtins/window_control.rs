@@ -160,7 +160,7 @@ pub enum SpecialWindowId {
 }
 
 pub fn getid(args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let title = get_string_argument_value(&args, 0, None)?;
+    let title = get_argument_as_string(&args, 0, None)?;
     let hwnd = match title.as_str() {
         "__GET_ACTIVE_WIN__" => unsafe {
             GetForegroundWindow()
@@ -189,9 +189,9 @@ pub fn getid(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             HWND::default()
         },
         _ => {
-            let class_name = get_string_argument_value(&args, 1, Some("".into()))?;
-            let wait = get_num_argument_value(&args, 2, Some(0.0))?;
-            let _mdi_title = get_string_argument_value(&args, 3, Some("".into()))?;
+            let class_name = get_argument_as_string(&args, 1, Some("".into()))?;
+            let wait = get_argument_as_num(&args, 2, Some(0.0))?;
+            let _mdi_title = get_argument_as_string(&args, 3, Some("".into()))?;
             find_window(title, class_name, wait)
         },
     };
@@ -305,7 +305,7 @@ fn get_hwnd_from_mouse_point(toplevel: bool, name: String) -> BuiltInResult<HWND
 
 // IDTOHND
 pub fn idtohnd(args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let id = get_non_float_argument_value::<i32>(&args, 0, None)?;
+    let id = get_argument_as_int::<i32>(&args, 0, None)?;
     if id < 0 {
         return Ok(Object::Num(0.0));
     }
@@ -331,7 +331,7 @@ fn get_hwnd_from_id(id: i32) -> HWND {
 
 // HNDTOID
 pub fn hndtoid(args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let h = get_non_float_argument_value::<isize>(&args, 0, None)?;
+    let h = get_argument_as_int::<isize>(&args, 0, None)?;
     let hwnd = HWND(h);
     let id = get_id_from_hwnd(hwnd);
     Ok(Object::Num(id))
@@ -365,16 +365,16 @@ pub fn get_id_from_hwnd(hwnd: HWND) -> f64 {
 
 // ACW
 pub fn acw(args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let id = get_non_float_argument_value::<i32>(&args, 0, None)?;
+    let id = get_argument_as_int::<i32>(&args, 0, None)?;
     let hwnd = get_hwnd_from_id(id);
     if hwnd.is_invalid() {
         return Ok(Object::Empty);
     }
-    let x = get_non_float_argument_value(&args, 1, None).ok();
-    let y = get_non_float_argument_value(&args, 2, None).ok();
-    let w = get_non_float_argument_value(&args, 3, None).ok();
-    let h = get_non_float_argument_value(&args, 4, None).ok();
-    let ms= get_non_float_argument_value(&args, 5, Some(0)).unwrap_or(0);
+    let x = get_argument_as_int(&args, 1, None).ok();
+    let y = get_argument_as_int(&args, 2, None).ok();
+    let w = get_argument_as_int(&args, 3, None).ok();
+    let h = get_argument_as_int(&args, 4, None).ok();
+    let ms= get_argument_as_int(&args, 5, Some(0)).unwrap_or(0);
     thread::sleep(Duration::from_millis(ms));
     set_window_size(hwnd, x, y, w, h)?;
     set_id_zero(hwnd);
@@ -406,12 +406,12 @@ pub enum CtrlWinCmd {
 }
 
 pub fn ctrlwin(args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let id = get_non_float_argument_value(&args, 0, None)?;
+    let id = get_argument_as_int(&args, 0, None)?;
     let hwnd = get_hwnd_from_id(id);
     if hwnd.is_invalid() {
         return Ok(Object::Empty);
     }
-    let cmd = get_non_float_argument_value(&args, 1, None)?;
+    let cmd = get_argument_as_int(&args, 1, None)?;
     match FromPrimitive::from_i32(cmd).unwrap_or(CtrlWinCmd::UNKNOWN_CTRLWIN_CMD) {
         CtrlWinCmd::CLOSE => unsafe {
             PostMessageW(hwnd, WM_CLOSE, WPARAM(0), LPARAM(0));
@@ -802,21 +802,21 @@ fn get_all_status(hwnd: HWND) -> BuiltinFuncResult {
 
 pub fn status(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let hwnd = get_hwnd_from_id(
-        get_non_float_argument_value(&args, 0, None)?
+        get_argument_as_int(&args, 0, None)?
     );
     if args.len() > 2 {
         let mut i = 1;
         // let mut stats = vec![Object::Empty; 22];
         let mut stats = HashTbl::new(true, false);
         while i < args.len() {
-            let cmd = get_non_float_argument_value::<u8>(&args, i, None)?;
+            let cmd = get_argument_as_int::<u8>(&args, i, None)?;
             let value = get_status_result(hwnd, cmd)?;
             stats.insert(cmd.to_string(), value);
             i += 1;
         }
         Ok(Object::HashTbl(Arc::new(Mutex::new(stats))))
     } else {
-        let cmd = get_non_float_argument_value::<u8>(&args, 1, None)?;
+        let cmd = get_argument_as_int::<u8>(&args, 1, None)?;
         if cmd == StatusEnum::ST_ALL as u8 {
             Ok(get_all_status(hwnd)?)
         } else {
@@ -928,7 +928,7 @@ pub fn monitor(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     if args.len() == 0 {
         return Ok(get_monitor_count(HMONITOR::default()));
     }
-    let index = get_non_float_argument_value::<usize>(&args, 0, None)?;
+    let index = get_argument_as_int::<usize>(&args, 0, None)?;
     let h = get_monitor_handle_by_index(index);
     if h.is_invalid() {
         return Ok(Object::Bool(false));
@@ -942,7 +942,7 @@ pub fn monitor(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         }
     }
     let mi = miex.monitorInfo;
-    let cmd = get_non_float_argument_value::<u8>(&args, 1, Some(MonitorEnum::MON_ALL as u8))?;
+    let cmd = get_argument_as_int::<u8>(&args, 1, Some(MonitorEnum::MON_ALL as u8))?;
     let value = match FromPrimitive::from_u8(cmd).unwrap_or(MonitorEnum::UNKNOWN_MONITOR_CMD) {
         MonitorEnum::MON_ALL => {
             let mut map = HashTbl::new(true, false);
@@ -980,17 +980,17 @@ pub fn chkimg(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         settings.chkimg.save_ss
     };
     let default_score = 95;
-    let path = get_string_argument_value(&args, 0, None)?;
-    let score = get_non_float_argument_value::<i32>(&args, 1, Some(default_score))?;
+    let path = get_argument_as_string(&args, 0, None)?;
+    let score = get_argument_as_int::<i32>(&args, 1, Some(default_score))?;
     if score < 1 && score > 100 {
         return Err(builtin_func_error(UErrorMessage::GivenNumberIsOutOfRange(1.0, 100.0), args.name()));
     }
     let score = score as f64 / 100.0;
-    let count = get_non_float_argument_value::<u8>(&args, 2, Some(5))?;
-    let left = get_int_or_empty_argument(&args, 3, Some(None))?;
-    let top = get_int_or_empty_argument(&args, 4, Some(None))?;
-    let right = get_int_or_empty_argument(&args, 5, Some(None))?;
-    let bottom = get_int_or_empty_argument(&args, 6, Some(None))?;
+    let count = get_argument_as_int::<u8>(&args, 2, Some(5))?;
+    let left = get_argument_as_int_or_empty(&args, 3, Some(None))?;
+    let top = get_argument_as_int_or_empty(&args, 4, Some(None))?;
+    let right = get_argument_as_int_or_empty(&args, 5, Some(None))?;
+    let bottom = get_argument_as_int_or_empty(&args, 6, Some(None))?;
 
     let ss = ScreenShot::get(None, left, top, right, bottom)?;
     if save_ss {

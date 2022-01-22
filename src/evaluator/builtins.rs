@@ -290,7 +290,7 @@ fn set_special_variables(vec: &mut Vec<NamedObject>) {
 // 特殊ビルトイン関数の実体
 
 pub fn builtin_eval(args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let s = get_string_argument_value(&args, 0, None)?;
+    let s = get_argument_as_string(&args, 0, None)?;
     Ok(Object::Eval(s))
 }
 
@@ -299,7 +299,7 @@ pub fn list_env(_args: BuiltinFuncArgs) -> BuiltinFuncResult {
 }
 
 pub fn list_module_member(args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let s = get_string_argument_value(&args, 0, None)?;
+    let s = get_argument_as_string(&args, 0, None)?;
     Ok(Object::SpecialFuncResult(SpecialFuncResultType::ListModuleMember(s)))
 }
 
@@ -315,8 +315,8 @@ pub fn get_settings(_args: BuiltinFuncArgs) -> BuiltinFuncResult {
 }
 
 pub fn raise(args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let msg = get_string_argument_value(&args, 0, None)?;
-    let title = get_string_argument_value(&args, 1, Some(String::new()))?;
+    let msg = get_argument_as_string(&args, 0, None)?;
+    let title = get_argument_as_string(&args, 1, Some(String::new()))?;
     let kind = if title.len() > 0 {
         UErrorKind::Any(title)
     } else {
@@ -359,7 +359,7 @@ pub enum VariableType {
 }
 
 pub fn type_of(args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let arg = get_any_argument_value(&args, 0, None)?;
+    let arg = get_argument_as_object(&args, 0, None)?;
     let t = match arg {
         Object::Num(_) => VariableType::TYPE_NUMBER,
         Object::String(_) => VariableType::TYPE_STRING,
@@ -403,8 +403,8 @@ pub fn type_of(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 }
 
 pub fn assert_equal(args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let arg1 = get_any_argument_value(&args,0, None)?;
-    let arg2 = get_any_argument_value(&args,1, None)?;
+    let arg1 = get_argument_as_object(&args,0, None)?;
+    let arg2 = get_argument_as_object(&args,1, None)?;
     if arg1.is_equal(&arg2) {
         Ok(Object::Empty)
     } else {
@@ -427,19 +427,40 @@ pub fn builtin_func_error(msg: UErrorMessage, name: String) -> UError {
 // 引数が省略されていた場合はdefaultの値を返す
 // 引数が必須なのになかったらエラーを返す
 
-pub fn get_any_argument_value(args: &BuiltinFuncArgs, i: usize, default: Option<Object>) -> BuiltInResult<Object> {
-    if args.len() >= i + 1 {
-        let arg = args.item(i).unwrap();
-        Ok(arg)
-    } else {
-        default.ok_or(builtin_func_error(UErrorMessage::BuiltinArgRequiredAt(i + 1), args.name()))
-    }
+macro_rules! get_arg_value {
+    ($args:expr, $i:expr, $default:expr, $expr:expr) => {
+        {
+            if $args.len() >= $i + 1 {
+                $expr
+            } else {
+                $default.ok_or(builtin_func_error(UErrorMessage::BuiltinArgRequiredAt($i + 1), $args.name()))
+            }
+        }
+    };
+    ($args:expr, $i:expr, $expr:expr) => {
+        {
+            if $args.len() >= $i + 1 {
+                $expr
+            } else {
+                Err(builtin_func_error(UErrorMessage::BuiltinArgRequiredAt($i + 1), $args.name()))
+            }
+        }
+    };
 }
 
-pub fn get_non_float_argument_value<T>(args: &BuiltinFuncArgs, i: usize, default: Option<T>) -> BuiltInResult<T>
+/// 受けた引数をObjectのまま受ける
+pub fn get_argument_as_object(args: &BuiltinFuncArgs, i: usize, default: Option<Object>) -> BuiltInResult<Object> {
+    get_arg_value!(args, i, default, {
+        let arg = args.item(i).unwrap();
+        Ok(arg)
+    })
+}
+
+/// 引数を任意の整数型として受ける
+pub fn get_argument_as_int<T>(args: &BuiltinFuncArgs, i: usize, default: Option<T>) -> BuiltInResult<T>
     where T: cast::From<f64, Output=Result<T, cast::Error>>,
 {
-    if args.len() >= i + 1 {
+    get_arg_value!(args, i, default, {
         let arg = args.item(i).unwrap();
         match arg {
             Object::Num(n) => T::cast(n).or(Err(builtin_func_error(
@@ -464,14 +485,12 @@ pub fn get_non_float_argument_value<T>(args: &BuiltinFuncArgs, i: usize, default
                 args.name())
             )
         }
-    } else {
-        default.ok_or(builtin_func_error(UErrorMessage::BuiltinArgRequiredAt(i + 1), args.name()))
-    }
+    })
 }
 
-// 数値またはNoneを返す省略時に可変なデフォルト値を取る引数に使う
-pub fn get_int_or_empty_argument(args: &BuiltinFuncArgs, i: usize, default: Option<Option<i32>>) -> BuiltInResult<Option<i32>> {
-    if args.len() >= i + 1 {
+/// 整数として受けるがEMPTYの場合は引数が省略されたとみなす
+pub fn get_argument_as_int_or_empty(args: &BuiltinFuncArgs, i: usize, default: Option<Option<i32>>) -> BuiltInResult<Option<i32>> {
+    get_arg_value!(args, i, default, {
         let arg = args.item(i).unwrap();
         match arg {
             Object::Num(n) => Ok(Some(n as i32)),
@@ -487,15 +506,14 @@ pub fn get_int_or_empty_argument(args: &BuiltinFuncArgs, i: usize, default: Opti
                 UErrorMessage::BuiltinArgInvalid(arg), args.name())
             )
         }
-    } else {
-        default.ok_or(builtin_func_error(UErrorMessage::BuiltinArgRequiredAt(i + 1), args.name()))
-    }
+    })
 }
 
-pub fn get_num_argument_value<T>(args: &BuiltinFuncArgs, i: usize, default: Option<T>) -> BuiltInResult<T>
+/// 引数を任意の数値型として受ける
+pub fn get_argument_as_num<T>(args: &BuiltinFuncArgs, i: usize, default: Option<T>) -> BuiltInResult<T>
     where T: cast::From<f64, Output=T>,
 {
-    if args.len() >= i + 1 {
+    get_arg_value!(args, i, default, {
         let arg = args.item(i).unwrap();
         match arg {
             Object::Num(n) => Ok(T::cast(n)),
@@ -509,51 +527,62 @@ pub fn get_num_argument_value<T>(args: &BuiltinFuncArgs, i: usize, default: Opti
                 UErrorMessage::BuiltinArgInvalid(arg), args.name())
             )
         }
-    } else {
-        default.ok_or(builtin_func_error(UErrorMessage::BuiltinArgRequiredAt(i + 1), args.name()))
-    }
+    })
 }
 
-pub fn get_string_argument_value(args: &BuiltinFuncArgs, i: usize, default: Option<String>) -> BuiltInResult<String> {
-    if args.len() >= i + 1 {
+/// 引数を文字列として受ける
+/// あらゆる型を文字列にする
+pub fn get_argument_as_string(args: &BuiltinFuncArgs, i: usize, default: Option<String>) -> BuiltInResult<String> {
+    get_arg_value!(args, i, default, {
         let arg = args.item(i).unwrap();
         match &arg {
             Object::String(s) => Ok(s.clone()),
             Object::RegEx(re) => Ok(re.clone()),
-            o => Ok(format!("{}", o)),
+            o => Ok(o.to_string()),
         }
-    } else {
-        default.ok_or(builtin_func_error(UErrorMessage::BuiltinArgRequiredAt(i + 1), args.name()))
-    }
+    })
 }
 
-pub fn get_string_or_empty_argument(args: &BuiltinFuncArgs, i: usize, default: Option<Option<String>>) -> BuiltInResult<Option<String>> {
-    if args.len() >= i + 1 {
+/// 文字列として受けるがEMPTYの場合は引数省略とみなす
+pub fn get_argument_as_string_or_empty(args: &BuiltinFuncArgs, i: usize, default: Option<Option<String>>) -> BuiltInResult<Option<String>> {
+    get_arg_value!(args, i, default, {
         let arg = args.item(i).unwrap();
         match &arg {
             Object::String(s) => Ok(Some(s.to_string())),
             Object::Empty |
             Object::EmptyParam => Ok(None),
-            o => Ok(Some(format!("{}", o))),
+            o => Ok(Some(o.to_string())),
         }
-    } else {
-        default.ok_or(builtin_func_error(UErrorMessage::BuiltinArgRequiredAt(i + 1), args.name()))
-    }
+    })
 }
 
-pub fn get_bool_argument_value(args: &BuiltinFuncArgs, i: usize, default: Option<bool>) -> BuiltInResult<bool> {
-    if args.len() >= i + 1 {
+/// 文字列または文字列の配列を受ける引数
+/// EMPTYの場合はNoneを返す
+pub fn get_string_and_array(args: &BuiltinFuncArgs, i: usize, default: Option<Option<Vec<String>>>) -> BuiltInResult<Option<Vec<String>>> {
+    get_arg_value!(args, i, default, {
+        let arg = args.item(i).unwrap();
+        match &arg {
+            Object::Array(vec) => Ok(Some(vec.iter().map(|o|o.to_string()).collect())),
+            Object::Empty |
+            Object::EmptyParam => Ok(None),
+            o => Ok(Some(vec![o.to_string()]))
+        }
+    })
+}
+
+/// 引数を真偽値として受ける
+pub fn get_argument_as_bool(args: &BuiltinFuncArgs, i: usize, default: Option<bool>) -> BuiltInResult<bool> {
+    get_arg_value!(args, i, default, {
         let arg = args.item(i).unwrap();
         Ok(arg.is_truthy())
-    } else {
-        default.ok_or(builtin_func_error(UErrorMessage::BuiltinArgRequiredAt(i + 1), args.name()))
-    }
+    })
 }
 
-pub fn get_bool_or_int_argument_value<T>(args: &BuiltinFuncArgs, i: usize, default: Option<T>) -> BuiltInResult<T>
+/// 引数をboolまたは数値として受ける (TRUE, FALSE, 2 のやつ)
+pub fn get_argument_as_bool_or_int<T>(args: &BuiltinFuncArgs, i: usize, default: Option<T>) -> BuiltInResult<T>
     where T: cast::From<f64, Output=Result<T, cast::Error>>,
 {
-    if args.len() >= i + 1 {
+    get_arg_value!(args, i, default, {
         let arg = args.item(i).unwrap();
         let type_name = std::any::type_name::<T>().to_string();
         match arg {
@@ -567,57 +596,51 @@ pub fn get_bool_or_int_argument_value<T>(args: &BuiltinFuncArgs, i: usize, defau
             )),
             _ => Err(builtin_func_error(UErrorMessage::BuiltinArgInvalid(arg), args.name()))
         }
-    } else {
-        default.ok_or(builtin_func_error(UErrorMessage::BuiltinArgRequiredAt(i + 1), args.name()))
-    }
+    })
 }
 
-pub fn get_uobject_argument_value(args: &BuiltinFuncArgs, i: usize) -> BuiltInResult<(Arc<Mutex<Value>>, Option<String>)> {
-    if args.len() >= i + 1 {
+/// UObjectを受ける引数
+pub fn get_argument_as_uobject(args: &BuiltinFuncArgs, i: usize) -> BuiltInResult<(Arc<Mutex<Value>>, Option<String>)> {
+    get_arg_value!(args, i, {
         let arg = args.item(i).unwrap();
         match arg {
             Object::UObject(ref u) => Ok((Arc::clone(u), None)),
             Object::UChild(ref u, p) => Ok((Arc::clone(u), Some(p))),
             _ => Err(builtin_func_error(UErrorMessage::BuiltinArgInvalid(arg), args.name()))
         }
-    } else {
-        Err(builtin_func_error(UErrorMessage::BuiltinArgRequiredAt(i + 1), args.name()))
-    }
+    })
 }
 
-pub fn get_array_argument_value(args: &BuiltinFuncArgs, i: usize, default: Option<Vec<Object>>) -> BuiltInResult<Vec<Object>> {
-    if args.len() >= i + 1 {
+/// 配列を受ける引数
+pub fn get_argument_as_array(args: &BuiltinFuncArgs, i: usize, default: Option<Vec<Object>>) -> BuiltInResult<Vec<Object>> {
+    get_arg_value!(args, i, {
         let arg = args.item(i).unwrap();
         match arg {
             Object::Array(arr) => Ok(arr),
             _ => Err(builtin_func_error(UErrorMessage::BuiltinArgInvalid(arg), args.name()))
         }
-    } else {
-        default.ok_or(builtin_func_error(UErrorMessage::BuiltinArgRequiredAt(i + 1), args.name()))
-    }
+    })
 }
 
-pub fn get_num_or_array_argument_value(args: &BuiltinFuncArgs, i: usize, default: Option<Object>) -> BuiltInResult<Object> {
-    if args.len() >= i + 1 {
+/// 数値または配列を受ける引数
+pub fn get_argument_as_int_or_array(args: &BuiltinFuncArgs, i: usize, default: Option<Object>) -> BuiltInResult<Object> {
+    get_arg_value!(args, i, default, {
         let arg = args.item(i).unwrap();
         match arg {
             Object::Num(_) |
             Object::Array(_) => Ok(arg),
             _ => Err(builtin_func_error(UErrorMessage::BuiltinArgInvalid(arg), args.name()))
         }
-    } else {
-        default.ok_or(builtin_func_error(UErrorMessage::BuiltinArgRequiredAt(i + 1), args.name()))
-    }
+    })
 }
 
-pub fn get_task_argument_value(args: &BuiltinFuncArgs, i: usize) -> BuiltInResult<UTask> {
-    if args.len() >= i + 1 {
+/// タスクを受ける引数
+pub fn get_argument_as_task(args: &BuiltinFuncArgs, i: usize) -> BuiltInResult<UTask> {
+    get_arg_value!(args, i, {
         let arg = args.item(i).unwrap();
         match arg {
             Object::Task(utask) => Ok(utask),
             _ => Err(builtin_func_error(UErrorMessage::BuiltinArgInvalid(arg), args.name()))
         }
-    } else {
-        Err(builtin_func_error(UErrorMessage::BuiltinArgRequiredAt(i + 1), args.name()))
-    }
+    })
 }
