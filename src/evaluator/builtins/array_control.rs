@@ -9,11 +9,11 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
 }
 
 fn join(args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let arr = get_argument_as_array(&args, 0, None)?;
-    let sep = get_argument_as_string(&args, 1, Some(" ".into()))?;
-    let empty_flg = get_argument_as_bool(&args, 2, Some(false))?;
-    let from = get_argument_as_int::<usize>(&args, 3, Some(0))?;
-    let to = get_argument_as_int::<usize>(&args, 4, Some(arr.len() - 1))?;
+    let arr = args.get_as_array(0, None)?;
+    let sep = args.get_as_string(1, Some(" ".into()))?;
+    let empty_flg = args.get_as_bool(2, Some(false))?;
+    let from = args.get_as_int::<usize>(3, Some(0))?;
+    let to = args.get_as_int::<usize>(4, Some(arr.len() - 1))?;
     if to >= arr.len() {
         return Err(builtin_func_error(
             UErrorMessage::IndexOutOfBounds((to as f64).into()), args.name()));

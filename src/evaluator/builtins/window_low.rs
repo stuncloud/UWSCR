@@ -50,9 +50,9 @@ pub enum KeyActionEnum {
 }
 
 pub fn mmv(args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let x = get_argument_as_int(&args, 0, Some(0))?;
-    let y = get_argument_as_int(&args, 1, Some(0))?;
-    let ms = get_argument_as_int::<u64>(&args, 2, Some(0))?;
+    let x = args.get_as_int(0, Some(0))?;
+    let y = args.get_as_int(1, Some(0))?;
+    let ms = args.get_as_int::<u64>(2, Some(0))?;
     let mut enigo = Enigo::new();
     thread::sleep(time::Duration::from_millis(ms));
     enigo.mouse_move_to(x, y);
@@ -61,13 +61,13 @@ pub fn mmv(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 
 pub fn btn(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let mut enigo = Enigo::new();
-    let arg1 = get_argument_as_int::<i32>(&args, 1, Some(KeyActionEnum::CLICK as i32))?;
+    let arg1 = args.get_as_int::<i32>(1, Some(KeyActionEnum::CLICK as i32))?;
     let p = get_current_pos(args.name())?;
     let (cur_x, cur_y) = (p.x, p.y);
-    let x = get_argument_as_int(&args, 2, Some(cur_x))?;
-    let y = get_argument_as_int(&args, 3, Some(cur_y))?;
-    let ms= get_argument_as_int::<u64>(&args, 4, Some(0))?;
-    let btn = get_argument_as_int::<i32>(&args, 0, None)?;
+    let x = args.get_as_int( 2, Some(cur_x))?;
+    let y = args.get_as_int( 3, Some(cur_y))?;
+    let ms= args.get_as_int::<u64>(4, Some(0))?;
+    let btn = args.get_as_int::<i32>(0, None)?;
     let button = match FromPrimitive::from_i32(btn).unwrap_or(MouseButtonEnum::UNKNOWN_MOUSE_BUTTON) {
         MouseButtonEnum::LEFT => MouseButton::Left,
         MouseButtonEnum::RIGHT => MouseButton::Right,
@@ -158,10 +158,10 @@ fn send_win_key(vk: u8, action: KeyActionEnum, wait: u64) -> BuiltinFuncResult {
 pub fn kbd(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let mut enigo = Enigo::new();
 
-    let obj = get_argument_as_object(&args, 0, None)?;
-    let action = get_argument_as_int::<i32>(&args, 1, Some(0))?;
+    let obj = args.get_as_object(0, None)?;
+    let action = args.get_as_int::<i32>(1, Some(0))?;
     let key_action = FromPrimitive::from_i32(action).unwrap_or(KeyActionEnum::UNKNOWN_ACTION);
-    let ms= get_argument_as_int::<u64>(&args, 2, Some(0))?;
+    let ms= args.get_as_int::<u64>(2, Some(0))?;
 
     let vk_win = key_codes::VirtualKeyCodes::VK_WIN as isize as f64;
     let vk_rwin = key_codes::VirtualKeyCodes::VK_START as isize as f64;
