@@ -212,7 +212,7 @@ impl PartialEq for Object {
                 Object::Num(n) => s.to_string() == n.to_string(),
                 Object::String(s2) => s.to_string() == s2.to_string(),
                 Object::Empty |
-                Object::EmptyParam => s.len() == 0,
+                Object::EmptyParam => false,
                 Object::Bool(b) => b.to_string().to_ascii_lowercase() == s.to_ascii_lowercase(),
                 _ => false
             },
@@ -248,7 +248,7 @@ impl PartialEq for Object {
             Object::EmptyParam => match other {
                 Object::Empty | Object::EmptyParam => true,
                 Object::Num(n) => &0.0 == n,
-                Object::String(s) => s.len() == 0,
+                Object::String(s) => false,
                 _ => false,
             },
             Object::Nothing => match other {
