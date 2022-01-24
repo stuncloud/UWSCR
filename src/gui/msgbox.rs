@@ -5,7 +5,6 @@ use crate::error::{locale_singleton, Locale};
 use std::{ops::{Add, BitOr, BitAnd}, fmt::Display};
 use once_cell::sync::OnceCell;
 
-// const MSGBOX_CLASS: &str = "UWSCR.MsgBox";
 static MSGBOX_CLASS: OnceCell<Result<String, UWindowError>> = OnceCell::new();
 
 #[derive(Debug)]
@@ -88,20 +87,10 @@ impl Msgbox {
         Ok(msgbox)
     }
     fn create(title: &str) -> UWindowResult<HWND> {
-        let msgbox_class = match MSGBOX_CLASS.get_or_init(|| {
-            let name = "UWSCR.MsgBox";
-            if Window::register_class(name, Some(Self::wndproc), None) == 0 {
-                Err(UWindowError::FailedToRegisterClass(name.into()))
-            } else {
-                Ok(name.into())
-            }
-        }) {
-            Ok(s) => s,
-            Err(e) => return Err(e.clone()),
-        };
+        let class_name = Window::get_class_name("UWSCR.MsgBox", &MSGBOX_CLASS, Some(Self::wndproc))?;
         Window::create_window(
             None,
-            msgbox_class,
+            &class_name,
             title,
             WS_EX_TOPMOST,
             WS_OVERLAPPED|WS_SYSMENU|WS_VISIBLE,
@@ -166,7 +155,7 @@ impl UWindow<MsgBoxResult> for Msgbox {
                         WM_COMMAND => match msg.wParam.hi_word() as u32{
                             BN_CLICKED => {
                                 let id = msg.wParam.lo_word() as i32;
-                                SendMessageW(self.hwnd, WM_CLOSE, WPARAM(1), LPARAM(0));
+                                // SendMessageW(self.hwnd, WM_CLOSE, WPARAM(1), LPARAM(0));
                                 break MsgBoxButton(id);
                             }
                             _ => {}
@@ -214,7 +203,7 @@ impl UWindow<MsgBoxResult> for Msgbox {
                 TranslateMessage(&msg);
                 DispatchMessageW(&msg);
             };
-
+            DestroyWindow(self.hwnd);
             // UnregisterClassW(MSGBOX_CLASS.to_string(), HINSTANCE::default());
             Ok((clicked, rect.left, rect.top))
         }

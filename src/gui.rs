@@ -1,5 +1,7 @@
 pub mod msgbox;
 pub use msgbox::*;
+pub mod input;
+pub use input::*;
 
 pub use windows::{
     Win32::{
@@ -41,7 +43,7 @@ pub use windows::{
                 IsWindow,
             },
             Input::KeyboardAndMouse::{
-                VIRTUAL_KEY, VK_TAB, VK_ESCAPE, VK_RETURN, VK_SHIFT, VK_RIGHT, VK_LEFT,
+                VIRTUAL_KEY, VK_TAB, VK_ESCAPE, VK_RETURN, VK_SHIFT, VK_RIGHT, VK_LEFT, VK_DOWN, VK_UP,
                 SetFocus, GetFocus,
             },
             Controls::{
@@ -58,6 +60,8 @@ pub use windows::{
         },
     }
 };
+pub use once_cell::sync::OnceCell;
+
 type WindowProc = unsafe extern "system" fn(hwnd: HWND, umsg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT;
 
 #[derive(Debug)]
@@ -127,6 +131,16 @@ impl Window {
             let n = RegisterClassExW(&wc);
             n
         }
+    }
+    // 初回のみクラス登録を行い成功すればクラス名を返す
+    fn get_class_name(class_name: &str, once_cell: &OnceCell<Result<String, UWindowError>>, wndproc: WNDPROC) -> UWindowResult<String> {
+        once_cell.get_or_init(|| {
+            if Window::register_class(class_name, wndproc, None) == 0 {
+                Err(UWindowError::FailedToRegisterClass(class_name.into()))
+            } else {
+                Ok(class_name.into())
+            }
+        }).clone()
     }
     fn create_window(
         parent: Option<HWND>,

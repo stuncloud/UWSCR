@@ -295,7 +295,7 @@ impl BuiltinFuncArgs {
     }
     /// 配列を受ける引数
     pub fn get_as_array(&self, i: usize, default: Option<Vec<Object>>) -> BuiltInResult<Vec<Object>> {
-        get_arg_value!(self, i, {
+        get_arg_value!(self, i, default, {
             let arg = self.item(i);
             match arg {
                 Object::Array(arr) => Ok(arr),

@@ -433,6 +433,7 @@ pub enum UErrorMessage {
     WebSocketConnectionError(u16, String),
     InvalidParamType(String, ParamTypeDetail),
     UWindowError(UWindowError),
+    EmptyArrayNotAllowed,
 }
 
 impl fmt::Display for UErrorMessage {
@@ -914,6 +915,10 @@ impl fmt::Display for UErrorMessage {
                     font
                 ),
             },
+            Self::EmptyArrayNotAllowed => write_locale!(f,
+                "空の配列は許可されていません",
+                "Empty array is not allowed"
+            ),
         }
     }
 }
