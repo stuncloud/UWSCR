@@ -2,6 +2,8 @@ pub mod msgbox;
 pub use msgbox::*;
 pub mod input;
 pub use input::*;
+pub mod print;
+pub use print::*;
 
 pub use windows::{
     Win32::{
@@ -377,6 +379,11 @@ impl Window {
     fn get_dlg_item(hwnd: HWND, id: i32) -> HWND {
         unsafe {
             GetDlgItem(hwnd, id)
+        }
+    }
+    fn update_window(hwnd: HWND) {
+        unsafe {
+            UpdateWindow(hwnd);
         }
     }
 }

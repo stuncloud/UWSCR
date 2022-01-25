@@ -171,7 +171,7 @@ pub fn getid(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             HWND::default()
         },
         "__GET_LOGPRINT_WIN__" => {
-            HWND::default()
+            return Ok(Object::SpecialFuncResult(SpecialFuncResultType::GetLogPrintWinId))
         },
         "__GET_BALLOON_WIN__" => {
             HWND::default()
@@ -197,11 +197,11 @@ pub fn getid(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     };
     if ! hwnd.is_invalid() {
         let mut id = get_id_from_hwnd(hwnd);
-        if id == -1.0 {
-            let new_id = get_next_id();
-            set_new_window(new_id, hwnd, false);
-            id = new_id as f64;
-        }
+        // if id == -1.0 {
+        //     let new_id = get_next_id();
+        //     set_new_window(new_id, hwnd, false);
+        //     id = new_id as f64;
+        // }
         return Ok(Object::Num(id))
     } else {
         return Ok(Object::Num(-1.0))

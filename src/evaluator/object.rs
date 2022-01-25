@@ -364,6 +364,7 @@ pub enum SpecialFuncResultType {
     ListModuleMember(String),
     BuiltinConstName(Option<Expression>),
     Task(Function, Vec<(Option<Expression>, Object)>),
+    GetLogPrintWinId,
 }
 
 impl Into<Object> for String {

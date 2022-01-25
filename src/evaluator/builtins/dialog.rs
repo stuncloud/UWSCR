@@ -22,6 +22,17 @@ static FONT_FAMILY: Lazy<FontFamily> = Lazy::new(|| {
 });
 static MSGBOX_POINT: Lazy<Mutex<(Option<i32>, Option<i32>)>> = Lazy::new(|| Mutex::new((None, None)));
 static INPUT_POINT: Lazy<Mutex<(Option<i32>, Option<i32>)>> = Lazy::new(|| Mutex::new((None, None)));
+static DIALOG_TITLE: Lazy<String> = Lazy::new(|| {
+    let singleton = usettings_singleton(None);
+    let settings = singleton.0.lock().unwrap();
+    match &settings.options.dlg_title {
+        Some(title) => title.to_string(),
+        None => match std::env::var("GET_UWSC_NAME") {
+            Ok(name) => format!("UWSCR - {}", name),
+            Err(_) => format!("UWSCR"),
+        },
+    }
+});
 
 #[allow(non_camel_case_types)]
 #[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive)]
@@ -40,18 +51,6 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("msgbox", 6, msgbox);
     sets.add("input", 5, input);
     sets
-}
-
-fn get_dlg_title() -> String {
-    let singleton = usettings_singleton(None);
-    let settings = singleton.0.lock().unwrap();
-    match &settings.options.dlg_title {
-        Some(title) => title.to_string(),
-        None => match std::env::var("GET_UWSC_NAME") {
-            Ok(name) => format!("UWSCR - {}", name),
-            Err(_) => format!("UWSCR"),
-        },
-    }
 }
 
 fn get_dlg_point(args: &BuiltinFuncArgs, i: (usize,usize), point: &Lazy<Mutex<(Option<i32>, Option<i32>)>>) -> BuiltInResult<(Option<i32>, Option<i32>)> {
@@ -87,9 +86,9 @@ pub fn msgbox(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let font_family = FONT_FAMILY.clone();
     let selected = focus.map(|n| MsgBoxButton(n));
 
-    let title = get_dlg_title();
+    let title = DIALOG_TITLE.as_str();
     let msgbox = match Msgbox::new(
-        &title,
+        title,
         &message,
         MsgBoxButton(btns),
         Some(font_family),
@@ -137,11 +136,11 @@ pub fn input(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         })
         .collect::<Vec<_>>();
     let count = fields.len();
-    let title = get_dlg_title();
+    let title = DIALOG_TITLE.as_str();
     let font = FONT_FAMILY.clone();
     let caption = msg.pop().unwrap_or_default();
 
-    let input = match InputBox::new(&title, Some(font), &caption, fields, x, y) {
+    let input = match InputBox::new(title, Some(font), &caption, fields, x, y) {
         Ok(input) => input,
         Err(e) => return Err(builtin_func_error(UWindowError(e), args.name())),
     };

@@ -14,6 +14,7 @@ use crate::evaluator::def_dll::*;
 use crate::evaluator::com_object::*;
 use crate::evaluator::devtools_protocol::{Browser, Element};
 use crate::error::evaluator::{UError, UErrorKind, UErrorMessage};
+use crate::gui::{LogPrintWin, UWindow};
 use crate::parser::Parser;
 use crate::lexer::Lexer;
 use crate::logging::{out_log, LogType};
@@ -42,6 +43,9 @@ use num_traits::FromPrimitive;
 use regex::Regex;
 use serde_json;
 use libffi::middle::{Cif, CodePtr, Type};
+use once_cell::sync::OnceCell;
+
+static LOGPRINTWIN: OnceCell<Mutex<LogPrintWin>> = OnceCell::new();
 
 type EvalResult<T> = Result<T, UError>;
 
@@ -62,6 +66,34 @@ impl Evaluator {
             ignore_com_err: false,
             com_err_flg: false,
             lines: vec![]
+        }
+    }
+
+    pub fn start_logprint_win() {
+        let lp_enabled = {
+            let singleton = usettings_singleton(None);
+            let usettings = singleton.0.lock().unwrap();
+            ! usettings.options.disable_logprintwin
+        };
+        if lp_enabled {
+            thread::spawn(|| {
+                match LogPrintWin::new() {
+                    Ok(lp) => {
+                        let lp2 = lp.clone();
+                        LOGPRINTWIN.get_or_init(move || Mutex::new(lp));
+                        lp2.message_loop().ok();
+                    },
+                    Err(e) => eprintln!("{:?}", e)
+                };
+            });
+            while LOGPRINTWIN.get().is_none() {
+                thread::sleep(std::time::Duration::from_millis(1));
+            }
+        }
+    }
+    pub fn stop_logprint_win() {
+        if let Some(m) = LOGPRINTWIN.get() {
+            m.lock().unwrap().close();
         }
     }
 
@@ -177,6 +209,9 @@ impl Evaluator {
     fn eval_print_statement(&mut self, expression: Expression) -> EvalResult<Option<Object>> {
         let obj = self.eval_expression(expression)?;
         out_log(&format!("{}", obj), LogType::Print);
+        if let Some(lp) = LOGPRINTWIN.get() {
+            lp.lock().unwrap().print(&obj.to_string());
+        }
         println!("{}", obj);
         Ok(None)
     }
@@ -232,6 +267,8 @@ impl Evaluator {
                 }
             },
             OptionSetting::AllowIEObj(b) => usettings.options.allow_ie_object = b,
+            OptionSetting::DisableLogprintwin(b) => usettings.options.disable_logprintwin = b,
+            OptionSetting::EnableStdout(b) => usettings.options.enable_stdout = b,
         }
     }
 
@@ -2073,6 +2110,16 @@ impl Evaluator {
                     } else {
                         Object::Task(task)
                     }
+                },
+                SpecialFuncResultType::GetLogPrintWinId => {
+                    let id = match LOGPRINTWIN.get() {
+                        Some(m) => {
+                            let lp = m.lock().unwrap();
+                            builtins::window_control::get_id_from_hwnd(lp.hwnd())
+                        },
+                        None => -1.0,
+                    };
+                    Object::Num(id)
                 },
             },
             _ => result
