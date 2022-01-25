@@ -114,7 +114,7 @@ pub fn input(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let mut msg = args.get_as_string_array(0, None)?.unwrap_or(vec![]);
     let mut label = match msg.len() {
         0 => return Err(builtin_func_error(UErrorMessage::EmptyArrayNotAllowed, args.name())),
-        1 =>vec![None],
+        1 => vec![None],
         _ => msg.drain(1..).map(|s| Some(s)).collect::<Vec<_>>(),
     };
     if label.len() > 5 {
@@ -136,6 +136,7 @@ pub fn input(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             InputField::new(label, default, mask)
         })
         .collect::<Vec<_>>();
+    let count = fields.len();
     let title = get_dlg_title();
     let font = FONT_FAMILY.clone();
     let caption = msg.pop().unwrap_or_default();
@@ -156,7 +157,11 @@ pub fn input(args: BuiltinFuncArgs) -> BuiltinFuncResult {
                     let arr = vec.into_iter().map(|s| Object::String(s)).collect();
                     Ok(Object::Array(arr))
                 },
-                None => Ok(Object::Empty),
+                None => if count > 1 {
+                    Ok(Object::Array(vec![]))
+                } else {
+                    Ok(Object::Empty)
+                },
             }
         },
         Err(e) => Err(builtin_func_error(UWindowError(e), args.name())),
