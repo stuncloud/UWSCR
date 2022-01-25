@@ -248,7 +248,7 @@ impl PartialEq for Object {
             Object::EmptyParam => match other {
                 Object::Empty | Object::EmptyParam => true,
                 Object::Num(n) => &0.0 == n,
-                Object::String(s) => false,
+                Object::String(_) => false,
                 _ => false,
             },
             Object::Nothing => match other {
