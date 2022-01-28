@@ -1,6 +1,6 @@
 use super::*;
 use crate::write_locale;
-use crate::error::{locale_singleton, Locale};
+use crate::error::{CURRENT_LOCALE, Locale};
 
 use std::{ops::{Add, BitOr, BitAnd}, fmt::Display};
 use once_cell::sync::OnceCell;

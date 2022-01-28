@@ -1,5 +1,5 @@
 use crate::write_locale;
-use super::{locale_singleton, Locale};
+use super::{CURRENT_LOCALE, Locale};
 use crate::lexer::Position;
 use crate::token::Token;
 use crate::ast::{Identifier, Statement};
