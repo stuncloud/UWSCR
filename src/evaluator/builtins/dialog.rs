@@ -1,3 +1,4 @@
+use crate::evaluator::LOGPRINTWIN;
 use crate::evaluator::builtins::*;
 use crate::evaluator::object::Object;
 use crate::settings::usettings_singleton;
@@ -50,7 +51,22 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     let mut sets = BuiltinFunctionSets::new();
     sets.add("msgbox", 6, msgbox);
     sets.add("input", 5, input);
+    sets.add("logprint", 5, logprint);
     sets
+}
+
+pub fn logprint(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let flg = args.get_as_bool(0, None)?;
+    let left = args.get_as_int_or_empty(1, Some(None))?;
+    let top = args.get_as_int_or_empty(2, Some(None))?;
+    let width = args.get_as_int_or_empty(3, Some(None))?;
+    let height = args.get_as_int_or_empty(4, Some(None))?;
+    if let Some(m) = LOGPRINTWIN.get(){
+        let mut lp = m.lock().unwrap();
+        lp.set_visibility(flg);
+        lp.move_to(left, top, width, height);
+    }
+    Ok(Object::Empty)
 }
 
 fn get_dlg_point(args: &BuiltinFuncArgs, i: (usize,usize), point: &Lazy<Mutex<(Option<i32>, Option<i32>)>>) -> BuiltInResult<(Option<i32>, Option<i32>)> {

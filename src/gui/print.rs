@@ -20,7 +20,7 @@ pub struct LogPrintWin {
 }
 
 impl LogPrintWin {
-    pub fn new() -> UWindowResult<Self> {
+    pub fn new(visible: bool) -> UWindowResult<Self> {
         let hwnd = match Self::create() {
             Ok(h) => h,
             Err(e) => return Err(e)
@@ -49,15 +49,10 @@ impl LogPrintWin {
             Ok(h) => h,
             Err(e) => return Err(e)
         };
-        // // マージンを指定
-        // let wparam = WPARAM((EC_LEFTMARGIN|EC_RIGHTMARGIN) as usize);
-        // // 右マージン|左マージン
-        // let lparam = LPARAM((5 * 0x10000 | 5) as isize);
-        // Window::send_message(edit, EM_SETMARGINS, wparam, lparam);
         Window::set_lr_margin(edit, 5);
         Self::reset_edit_size(hwnd, Some(edit));
         Window::update_window(hwnd);
-        Ok(Self {hwnd, edit, visible: true})
+        Ok(Self {hwnd, edit, visible})
     }
 
     fn create() -> UWindowResult<HWND> {
@@ -68,7 +63,7 @@ impl LogPrintWin {
             &class_name,
             title,
             0,
-            WS_OVERLAPPEDWINDOW|WS_VISIBLE,
+            WS_OVERLAPPEDWINDOW,
             100,
             100,
             600,
@@ -83,7 +78,9 @@ impl LogPrintWin {
         Window::move_window(edit, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top);
     }
     pub fn print(&self, message: &str) {
-        self.show();
+        if self.visible {
+            self.show();
+        }
         unsafe {
             let l = GetWindowTextLengthW(self.edit);
             SetFocus(self.edit);
@@ -95,8 +92,23 @@ impl LogPrintWin {
     }
     pub fn close(&self) {
         unsafe {
-            DestroyWindow(self.hwnd);
+            // DestroyWindow(self.hwnd);
+            SendMessageW(self.hwnd, WM_QUIT, WPARAM(0), LPARAM(self.hwnd.0));
         }
+    }
+    pub fn set_visibility(&mut self, visible: bool) {
+        self.visible = visible;
+        if visible {
+            self.show();
+        }
+    }
+    pub fn move_to(&self, left: Option<i32>, top: Option<i32>, width: Option<i32>, height: Option<i32>) {
+        let rect = Window::get_window_rect(self.hwnd);
+        let x = left.unwrap_or(rect.left);
+        let y = top.unwrap_or(rect.top);
+        let w = width.unwrap_or(rect.right - rect.left);
+        let h = height.unwrap_or(rect.bottom - rect.top);
+        Window::move_window(self.hwnd, x, y, w, h);
     }
 }
 
@@ -141,7 +153,9 @@ impl UWindow<()> for LogPrintWin {
                         _ => {}
                     }
                 } else {
-                    break ();
+                    if self.hwnd.0 == msg.lParam.0 {
+                        break ();
+                    }
                 }
                 TranslateMessage(&msg);
                 DispatchMessageW(&msg);
