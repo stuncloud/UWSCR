@@ -143,23 +143,23 @@ pub enum Token {
     EndStruct,
 
     // Option
-    Option,
-    Explicit,
-    SameStr,
-    OptPublic,
-    OptFinally,
-    SpecialChar,
-    ShortCircuit,
-    NoStopHotkey,
-    TopStopform,
-    FixBalloon,
-    Defaultfont,
-    Position,
-    Logpath,
-    Loglines,
-    Logfile,
-    Dlgtitle,
-    AllowIEObj,
+    Option(String),
+    // Explicit,
+    // SameStr,
+    // OptPublic,
+    // OptFinally,
+    // SpecialChar,
+    // ShortCircuit,
+    // NoStopHotkey,
+    // TopStopform,
+    // FixBalloon,
+    // Defaultfont,
+    // Position,
+    // Logpath,
+    // Loglines,
+    // Logfile,
+    // Dlgtitle,
+    // AllowIEObj,
 
     // COM
     ComErrIgn,
@@ -178,6 +178,3 @@ pub enum Token {
     Arrow,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum OptionSetting {
-}

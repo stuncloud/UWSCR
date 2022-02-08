@@ -347,7 +347,7 @@ impl Lexer {
         Token::Path(dir, name)
     }
 
-    fn consume_identifier(&mut self) -> Token {
+    fn get_identifier(&mut self) -> String {
         let start_pos = self.pos;
         loop {
             match self.ch {
@@ -362,7 +362,11 @@ impl Lexer {
                 }
             }
         }
-        let literal: &String = &self.input[start_pos..self.pos].into_iter().collect();
+        self.input[start_pos..self.pos].into_iter().collect()
+    }
+
+    fn consume_identifier(&mut self) -> Token {
+        let literal = self.get_identifier();
 
         match literal.to_ascii_lowercase().as_str() {
             "if" => Token::If,
@@ -442,31 +446,37 @@ impl Lexer {
             "nan" => Token::NaN,
             "var" | "ref" => Token::Ref,
             "args" | "prms" => Token::Variadic,
-            "option" => Token::Option,
-            "explicit" => Token::Explicit,
-            "samestr" => Token::SameStr,
-            "optpublic" => Token::OptPublic,
-            "optfinally" => Token::OptFinally,
-            "specialchar" => Token::SpecialChar,
-            "shortcircuit" => Token::ShortCircuit,
-            "nostophotkey" => Token::NoStopHotkey,
-            "topstopform" => Token::TopStopform,
-            "fixballoon" => Token::FixBalloon,
-            "defaultfont" => Token::Defaultfont,
-            "__allow_ie_object__" => Token::AllowIEObj,
-            "position" => Token::Position,
-            "logpath" => Token::Logpath,
-            "loglines" => Token::Loglines,
-            "logfile" => Token::Logfile,
-            "dlgtitle" => Token::Dlgtitle,
+            "option" => self.consume_option(),
+            // "explicit" => Token::Explicit,
+            // "samestr" => Token::SameStr,
+            // "optpublic" => Token::OptPublic,
+            // "optfinally" => Token::OptFinally,
+            // "specialchar" => Token::SpecialChar,
+            // "shortcircuit" => Token::ShortCircuit,
+            // "nostophotkey" => Token::NoStopHotkey,
+            // "topstopform" => Token::TopStopform,
+            // "fixballoon" => Token::FixBalloon,
+            // "defaultfont" => Token::Defaultfont,
+            // "__allow_ie_object__" => Token::AllowIEObj,
+            // "position" => Token::Position,
+            // "logpath" => Token::Logpath,
+            // "loglines" => Token::Loglines,
+            // "logfile" => Token::Logfile,
+            // "dlgtitle" => Token::Dlgtitle,
             "thread" => Token::Thread,
             "async" => Token::Async,
             "await" => Token::Await,
             "com_err_ign" => Token::ComErrIgn,
             "com_err_ret" => Token::ComErrRet,
             "com_err_flg" => Token::ComErrFlg,
-            _ => Token::Identifier(literal.to_string()),
+            other => Token::Identifier(other.to_string()),
         }
+    }
+
+    fn consume_option(&mut self) -> Token {
+        self.skip_whitespace();
+        let ident = self.get_identifier();
+        Token::Option(ident.to_ascii_lowercase())
     }
 
     fn consume_number(&mut self) -> Token {

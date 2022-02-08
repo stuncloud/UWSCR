@@ -9,6 +9,7 @@ use std::fmt;
 #[derive(Debug, Clone)]
 pub enum ParseErrorKind {
     SyntaxError,
+    UnexpectedOption(String),
     UnexpectedToken(Token, Token),
     UnexpectedToken2(Token),
     UnexpectedToken3(Vec<Token>, Token),
@@ -63,6 +64,11 @@ impl fmt::Display for ParseErrorKind {
         match self {
             ParseErrorKind::SyntaxError => write!(f,
                 "Syntax Error"
+            ),
+            ParseErrorKind::UnexpectedOption(name) => write_locale!(f,
+                "不正なオプション名: {}",
+                "Invalid option name: {}",
+                name
             ),
             ParseErrorKind::UnexpectedToken(expected, got) => write_locale!(f,
                 "不正なトークン({1}): {0}が必要です",

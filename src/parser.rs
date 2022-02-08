@@ -380,7 +380,8 @@ impl Parser {
 
     fn parse_statement(&mut self) -> Option<StatementWithRow> {
         let row = self.current_token.pos.row;
-        let statement = match self.current_token.token {
+        let token = self.current_token.token.clone();
+        let statement = match token {
             Token::Dim => self.parse_dim_statement(),
             Token::Public => self.parse_public_statement(),
             Token::Const => self.parse_const_statement(),
@@ -407,7 +408,7 @@ impl Parser {
             Token::TextBlock(is_ex) => self.parse_textblock_statement(is_ex),
             Token::With => self.parse_with_statement(),
             Token::Try => self.parse_try_statement(),
-            Token::Option => self.parse_option_statement(),
+            Token::Option(ref name) => self.parse_option_statement(name),
             Token::Enum => self.parse_enum_statement(),
             Token::Thread => self.parse_thread_statement(),
             Token::ComErrIgn => Some(Statement::ComErrIgn),
@@ -1375,10 +1376,11 @@ impl Parser {
         }
     }
 
-    fn parse_option_statement(&mut self) -> Option<Statement> {
-        self.bump();
-        let statement = match self.current_token.token {
-            Token::Explicit => {
+    fn parse_option_statement(&mut self, opt_name: &String) -> Option<Statement> {
+        // self.bump();
+        let name = opt_name.as_str();
+        let statement = match name {
+            "explicit" => {
                 if ! self.is_next_token(&Token::EqualOrAssign) {
                     Statement::Option(OptionSetting::Explicit(true))
                 } else {
@@ -1392,7 +1394,7 @@ impl Parser {
                     }
                 }
             },
-            Token::SameStr => {
+            "samestr" => {
                 if ! self.is_next_token(&Token::EqualOrAssign) {
                     Statement::Option(OptionSetting::SameStr(true))
                 } else {
@@ -1406,7 +1408,7 @@ impl Parser {
                     }
                 }
             },
-            Token::OptPublic => {
+            "optpublic" => {
                 if ! self.is_next_token(&Token::EqualOrAssign) {
                     Statement::Option(OptionSetting::OptPublic(true))
                 } else {
@@ -1420,7 +1422,7 @@ impl Parser {
                     }
                 }
             },
-            Token::OptFinally => {
+            "optfinally" => {
                 if ! self.is_next_token(&Token::EqualOrAssign) {
                     Statement::Option(OptionSetting::OptFinally(true))
                 } else {
@@ -1434,7 +1436,7 @@ impl Parser {
                     }
                 }
             },
-            Token::SpecialChar => {
+            "specialchar" => {
                 if ! self.is_next_token(&Token::EqualOrAssign) {
                     Statement::Option(OptionSetting::SpecialChar(true))
                 } else {
@@ -1448,7 +1450,7 @@ impl Parser {
                     }
                 }
             },
-            Token::ShortCircuit => {
+            "shortcircuit" => {
                 if ! self.is_next_token(&Token::EqualOrAssign) {
                     Statement::Option(OptionSetting::ShortCircuit(true))
                 } else {
@@ -1462,7 +1464,7 @@ impl Parser {
                     }
                 }
             },
-            Token::NoStopHotkey => {
+            "nostophotkey" => {
                 if ! self.is_next_token(&Token::EqualOrAssign) {
                     Statement::Option(OptionSetting::NoStopHotkey(true))
                 } else {
@@ -1476,7 +1478,7 @@ impl Parser {
                     }
                 }
             },
-            Token::TopStopform => {
+            "topstopform" => {
                 if ! self.is_next_token(&Token::EqualOrAssign) {
                     Statement::Option(OptionSetting::TopStopform(true))
                 } else {
@@ -1490,7 +1492,7 @@ impl Parser {
                     }
                 }
             },
-            Token::FixBalloon => {
+            "fixballoon" => {
                 if ! self.is_next_token(&Token::EqualOrAssign) {
                     Statement::Option(OptionSetting::FixBalloon(true))
                 } else {
@@ -1504,7 +1506,7 @@ impl Parser {
                     }
                 }
             },
-            Token::Defaultfont => {
+            "defaultfont" => {
                 if ! self.is_next_token_expected(Token::EqualOrAssign) {
                     return None;
                 }
@@ -1518,7 +1520,7 @@ impl Parser {
                     return None;
                 }
             },
-            Token::Position => {
+            "position" => {
                 if ! self.is_next_token_expected(Token::EqualOrAssign) {
                     return None;
                 }
@@ -1534,7 +1536,7 @@ impl Parser {
                 self.error_got_unexpected_token();
                 return None;
             },
-            Token::Logpath => {
+            "logpath" => {
                 if ! self.is_next_token_expected(Token::EqualOrAssign) {
                     return None;
                 }
@@ -1548,7 +1550,7 @@ impl Parser {
                     return None;
                 }
             },
-            Token::Loglines => {
+            "loglines" => {
                 if ! self.is_next_token_expected(Token::EqualOrAssign) {
                     return None;
                 }
@@ -1560,7 +1562,7 @@ impl Parser {
                     return None;
                 }
             },
-            Token::Logfile => {
+            "logfile" => {
                 if ! self.is_next_token_expected(Token::EqualOrAssign) {
                     return None;
                 }
@@ -1572,7 +1574,7 @@ impl Parser {
                     return None;
                 }
             },
-            Token::Dlgtitle => {
+            "dlgtitle" => {
                 if ! self.is_next_token_expected(Token::EqualOrAssign) {
                     return None;
                 }
@@ -1586,7 +1588,7 @@ impl Parser {
                     return None;
                 }
             },
-            Token::AllowIEObj => {
+            "__allow_ie_object__" => {
                 if ! self.is_next_token(&Token::EqualOrAssign) {
                     Statement::Option(OptionSetting::AllowIEObj(true))
                 } else {
@@ -1600,8 +1602,11 @@ impl Parser {
                     }
                 }
             },
-            _ => {
-                self.error_got_unexpected_token();
+            name => {
+                self.errors.push(ParseError::new(
+                    ParseErrorKind::UnexpectedOption(name.to_string()),
+                    self.current_token.pos, self.script_name()
+                ));
                 return None;
             },
         };
@@ -1943,7 +1948,7 @@ impl Parser {
             Token::LineContinue |
             Token::BackSlash |
             Token::ColonBackSlash |
-            Token::Option |
+            Token::Option(_) |
             Token::Comment |
             Token::Ref |
             Token::Variadic |
