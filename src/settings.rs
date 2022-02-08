@@ -70,52 +70,58 @@ impl Default for USettings {
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct UOption {
-    // finally部を必ず実行する
+    /// finally部を必ず実行する
     #[serde(default)]
     pub opt_finally: bool,
-    // 変数宣言必須
+    /// 変数宣言必須
     #[serde(default)]
     pub explicit: bool,
-    // ダイアログタイトル
+    /// ダイアログタイトル
     #[serde(default)]
     pub dlg_title: Option<String>,
-    // ログファイルの出力有無など
+    /// ログファイルの出力有無など
     #[serde(default)]
     pub log_file: u8,
-    // ログの行数
+    /// ログの行数
     #[serde(default)]
     pub log_lines: u32,
-    // ログファイルの出力先
+    /// ログファイルの出力先
     #[serde(default)]
     pub log_path: Option<String>,
-    // メインGUIの座標
+    /// メインGUIの座標
     #[serde(default)]
     pub position: UPosition,
-    // ダイアログなどのフォント
+    /// ダイアログなどのフォント
     #[serde(default)]
     pub default_font: DefaultFont,
-    // 吹き出しを仮想デスクトップにも出すかどうか
+    /// 吹き出しを仮想デスクトップにも出すかどうか
     #[serde(default)]
     pub fix_balloon: bool,
-    // // stopボタン最前面に固定するかどうか (非対応)
+    // /// stopボタン最前面に固定するかどうか (非対応)
     // #[serde(default)]
     // pub top_stop_form: bool
     // 停止ホットキー無効
     #[serde(default)]
     pub no_stop_hot_key: bool,
-    // 短絡評価の有無
+    /// 短絡評価の有無
     #[serde(default)]
     pub short_circuit: bool,
-    // // 特殊文字を展開しない (非対応)
+    // /// 特殊文字を展開しない (非対応)
     // #[serde(default)]
     // pub special_char: bool
     // publicの重複定義を禁止
     #[serde(default)]
     pub opt_public: bool,
-    // 大文字小文字を区別する
+    /// 大文字小文字を区別する
     #[serde(default)]
     pub same_str: bool,
-    // IEオブジェクトを許可 (非公開)
+    /// print窓を非表示
+    #[serde(default)]
+    pub disable_logprintwin: bool,
+    /// 標準出力を有効にする
+    #[serde(default)]
+    pub enable_stdout: bool,
+    /// IEオブジェクトを許可 (非公開)
     #[serde(skip_serializing, default)]
     #[schemars(skip)]
     pub allow_ie_object: bool,
@@ -138,6 +144,8 @@ impl Default for UOption {
             opt_public: false,
             same_str: false,
             allow_ie_object: false,
+            disable_logprintwin: false,
+            enable_stdout: false,
         }
     }
 }

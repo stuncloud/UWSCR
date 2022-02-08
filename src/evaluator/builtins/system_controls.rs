@@ -1,7 +1,7 @@
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
 use crate::error::evaluator::{UErrorMessage, UErrorKind};
-use crate::winapi::{from_ansi_bytes, to_wide_string};
+use crate::winapi::{from_ansi_bytes, to_wide_string, attach_console, free_console};
 use windows::{
     Win32::{
         Foundation::{
@@ -65,6 +65,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("doscmd", 4, doscmd);
     sets.add("powershell", 4, powershell);
     sets.add("pwsh", 4, pwsh);
+    // sets.add("attachconsole", 1, attachconsole);
     sets
 }
 
@@ -543,4 +544,14 @@ impl Shell {
         let bytes = wide.into_iter().map(|u| u.to_ne_bytes()).flatten().collect::<Vec<u8>>();
         base64::encode(bytes)
     }
+}
+
+pub fn _attachconsole(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let attach = args.get_as_bool(0, None)?;
+    let result = if attach {
+        attach_console()
+    } else {
+        free_console()
+    };
+    Ok(Object::Bool(result))
 }

@@ -5,9 +5,9 @@ use crate::evaluator::environment::Environment;
 use crate::evaluator::Evaluator;
 use crate::parser::*;
 use crate::lexer::Lexer;
-use crate::settings::load_settings;
+use crate::settings::{load_settings};
 use crate::winapi::{
-    to_wide_string,
+    to_wide_string, attach_console, free_console,
 };
 use windows::{
     Win32::{
@@ -70,10 +70,14 @@ pub fn run(script: String, mut args: Vec<String>) -> Result<(), Vec<String>> {
 
     let env = Environment::new(params);
     let mut evaluator = Evaluator::new(env);
+    let visible = ! attach_console();
+    Evaluator::start_logprint_win(visible);
     if let Err(e) = evaluator.eval(program) {
         let line = &e.get_line();
         return Err(vec![line.to_string(), e.to_string()])
     }
+    Evaluator::stop_logprint_win();
+    free_console();
     Ok(())
 }
 
@@ -94,20 +98,17 @@ pub fn run_code(code: String) -> Result<(), Vec<String>> {
     Ok(())
 }
 
-pub fn out_ast(script: String, path: &String, force: bool) {
-
+pub fn out_ast(script: String, path: &String) -> Result<(String, Option<String>), String> {
     let script_dir = match get_parent_full_path(path) {
         Ok(s) => s,
         Err(_) => {
-            eprintln!("unable to get script path");
-            return;
+            return Err("unable to get script path".to_string());
         },
     };
     logging::init(&script_dir);
     match env::set_current_dir(&script_dir) {
         Err(_)=> {
-            eprintln!("unable to set current directory");
-            return;
+            return Err("unable to set current directory".to_string());
         },
         _ => {}
     };
@@ -115,19 +116,12 @@ pub fn out_ast(script: String, path: &String, force: bool) {
     let mut parser = Parser::new(Lexer::new(&script));
     let program = parser.parse();
     let errors = parser.get_errors();
-    if errors.len() > 0 {
-        eprintln!("got {} parse error{}", errors.len(), if errors.len()>1 {"s"} else {""});
-        for err in errors {
-            eprintln!("{}", err);
-        }
-        eprintln!("");
-        if ! force {
-            return;
-        }
-    }
-    for statement in program.0 {
-        println!("{:?}", statement);
-    }
+    let err = if errors.len() > 0 {
+        let emsg = errors.iter().map(|e| e.to_string()).collect::<Vec<_>>().join("\r\n");
+        Some(format!("got {} parse error{}\r\n{}", errors.len(), if errors.len()>1 {"s"} else {""}, emsg))
+    } else {None};
+    let ast = program.0.iter().map(|s| format!("{:?}", s)).collect::<Vec<_>>().join("\r\n");
+    Ok((ast, err))
 }
 
 pub fn get_parent_full_path(path: &String) -> Result<PathBuf, String> {

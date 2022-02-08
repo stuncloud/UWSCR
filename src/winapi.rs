@@ -7,11 +7,17 @@ use windows::{
             SystemInformation::{
                 GetSystemDirectoryW, GetWindowsDirectoryW
             },
+            Console::{
+                ATTACH_PARENT_PROCESS,
+                AttachConsole, FreeConsole, AllocConsole,
+                GetConsoleCP,
+            }
         },
         UI::{
             WindowsAndMessaging::{
                 SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN,
-                GetSystemMetrics,
+                MESSAGEBOX_STYLE, MB_ICONEXCLAMATION,
+                GetSystemMetrics, MessageBoxW
             },
             Shell::{
                 SHGetSpecialFolderPathW,
@@ -161,6 +167,43 @@ pub fn get_color_depth() -> i32 {
     unsafe {
         let dc = GetDC(HWND::default());
         GetDeviceCaps(dc, BITSPIXEL)
+    }
+}
+
+pub fn attach_console() -> bool {
+    unsafe {
+        AttachConsole(ATTACH_PARENT_PROCESS).as_bool()
+    }
+}
+pub fn free_console() -> bool {
+    unsafe {
+        FreeConsole().as_bool()
+    }
+}
+pub fn alloc_console() -> bool {
+    unsafe {
+        AllocConsole().as_bool()
+    }
+}
+
+pub fn is_console() -> bool {
+    unsafe {
+        GetConsoleCP() != 0
+    }
+}
+
+pub fn message_box(message: &str, title: &str, utype: MESSAGEBOX_STYLE) {
+    unsafe {
+        MessageBoxW(HWND(0), message, title, utype);
+    }
+}
+
+pub fn show_message(message: &str, title: &str, is_error: bool) {
+    match (is_console(), is_error) {
+        (true, true) => eprintln!("{}", message),
+        (true, false) => println!("{}", message),
+        (false, true) => message_box(message, title, MB_ICONEXCLAMATION),
+        (false, false) => message_box(message, title, 0),
     }
 }
 

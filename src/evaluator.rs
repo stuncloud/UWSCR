@@ -45,7 +45,7 @@ use serde_json;
 use libffi::middle::{Cif, CodePtr, Type};
 use once_cell::sync::OnceCell;
 
-static LOGPRINTWIN: OnceCell<Mutex<LogPrintWin>> = OnceCell::new();
+pub static LOGPRINTWIN: OnceCell<Mutex<LogPrintWin>> = OnceCell::new();
 
 type EvalResult<T> = Result<T, UError>;
 
@@ -69,26 +69,19 @@ impl Evaluator {
         }
     }
 
-    pub fn start_logprint_win() {
-        let lp_enabled = {
-            let singleton = usettings_singleton(None);
-            let usettings = singleton.0.lock().unwrap();
-            ! usettings.options.disable_logprintwin
-        };
-        if lp_enabled {
-            thread::spawn(|| {
-                match LogPrintWin::new() {
-                    Ok(lp) => {
-                        let lp2 = lp.clone();
-                        LOGPRINTWIN.get_or_init(move || Mutex::new(lp));
-                        lp2.message_loop().ok();
-                    },
-                    Err(e) => eprintln!("{:?}", e)
-                };
-            });
-            while LOGPRINTWIN.get().is_none() {
-                thread::sleep(std::time::Duration::from_millis(1));
-            }
+    pub fn start_logprint_win(visible: bool) {
+        thread::spawn(move || {
+            match LogPrintWin::new(visible) {
+                Ok(lp) => {
+                    let lp2 = lp.clone();
+                    LOGPRINTWIN.get_or_init(move || Mutex::new(lp));
+                    lp2.message_loop().ok();
+                },
+                Err(e) => eprintln!("{:?}", e)
+            };
+        });
+        while LOGPRINTWIN.get().is_none() {
+            thread::sleep(std::time::Duration::from_millis(1));
         }
     }
     pub fn stop_logprint_win() {
@@ -267,8 +260,6 @@ impl Evaluator {
                 }
             },
             OptionSetting::AllowIEObj(b) => usettings.options.allow_ie_object = b,
-            OptionSetting::DisableLogprintwin(b) => usettings.options.disable_logprintwin = b,
-            OptionSetting::EnableStdout(b) => usettings.options.enable_stdout = b,
         }
     }
 

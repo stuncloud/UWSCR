@@ -17,7 +17,6 @@ use regex::Regex;
 use std::path::PathBuf;
 use std::fs;
 
-
 pub fn get_script(path: &PathBuf) -> std::io::Result<String> {
     let bytes = fs::read(path)?;
     let re = Regex::new("(\r\n|\r|\n)").unwrap();
