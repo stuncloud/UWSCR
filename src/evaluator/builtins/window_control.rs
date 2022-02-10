@@ -196,7 +196,7 @@ pub fn getid(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         },
     };
     if ! hwnd.is_invalid() {
-        let mut id = get_id_from_hwnd(hwnd);
+        let id = get_id_from_hwnd(hwnd);
         // if id == -1.0 {
         //     let new_id = get_next_id();
         //     set_new_window(new_id, hwnd, false);

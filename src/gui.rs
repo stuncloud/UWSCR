@@ -207,7 +207,7 @@ impl Window {
             SetWindowLongPtrW(hwnd, GWLP_WNDPROC, dwnewlong);
         }
     }
-    fn send_message(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+    fn _send_message(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
         unsafe {
             SendMessageW(hwnd, msg, wparam, lparam)
         }
@@ -291,7 +291,7 @@ impl Window {
             size
         }
     }
-    fn set_margin(hwnd: HWND, left: i32, top: i32, right: i32, bottom: i32) {
+    fn _set_margin(hwnd: HWND, left: i32, top: i32, right: i32, bottom: i32) {
         unsafe {
             let mut rect = RECT::default();
             let prect = &mut rect as *mut RECT as isize;
