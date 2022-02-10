@@ -42,12 +42,16 @@ pub struct SingletonSettings(pub Arc<Mutex<USettings>>);
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct USettings {
+    /// OPTION設定
     #[serde(default)]
     pub options: UOption,
+    /// BrowserControl設定
     #[serde(default)]
     pub browser: Browser,
+    /// chkimg設定
     #[serde(default)]
     pub chkimg: Chkimg,
+    /// この設定ファイルのschemaファイルのパス
     #[serde(default = "get_default_schema", skip_deserializing, rename(serialize = "$schema"))]
     pub schema: String,
 }
@@ -138,7 +142,7 @@ pub struct UOption {
     // /// stopボタン最前面に固定するかどうか (非対応)
     // #[serde(default)]
     // pub top_stop_form: bool
-    // 停止ホットキー無効
+    /// 停止ホットキー無効
     #[serde(default)]
     pub no_stop_hot_key: bool,
     /// 短絡評価の有無
@@ -147,7 +151,7 @@ pub struct UOption {
     // /// 特殊文字を展開しない (非対応)
     // #[serde(default)]
     // pub special_char: bool
-    // publicの重複定義を禁止
+    /// publicの重複定義を禁止
     #[serde(default)]
     pub opt_public: bool,
     /// 大文字小文字を区別する
@@ -182,8 +186,10 @@ impl Default for UOption {
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct UPosition {
+    /// x座標
     #[serde(default)]
     pub left: i32,
+    /// y座標
     #[serde(default)]
     pub top: i32,
 }
@@ -199,8 +205,10 @@ impl Default for UPosition {
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct DefaultFont {
+    /// フォント名
     #[serde(default)]
     pub name: String,
+    /// フォントサイズ
     #[serde(default)]
     pub size: i32
 }
@@ -270,10 +278,10 @@ where
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct Browser {
-    // Chromeのパス
+    /// Chromeのパス
     #[serde(default)]
     pub chrome: Option<String>,
-    // MSEdgeのパス
+    /// MSEdgeのパス
     #[serde(default)]
     pub msedge: Option<String>,
 }
@@ -289,7 +297,7 @@ impl Default for Browser {
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct Chkimg {
-    // chkimg()実行時の画面を保存するかどうか
+    /// chkimg()実行時の画面を保存するかどうか
     #[serde(default)]
     pub save_ss: bool,
 }
