@@ -9,16 +9,33 @@ use std::{
     fs::{
         OpenOptions,
         create_dir_all,
-        read
+        read,
     },
     io::Write,
     path::PathBuf,
-    sync::{Arc, Mutex, Once}
+    sync::{Arc, Mutex, Once},
+    str::FromStr,
+    marker::PhantomData,
 };
 
-use serde::{Serialize, Deserialize};
+use serde::{Serialize, Deserialize, Deserializer};
+use serde::de::{self, Visitor, MapAccess};
 use serde_json;
 use schemars::{schema_for, JsonSchema};
+use once_cell::sync::Lazy;
+
+/// %APPDATA%\UWSCR\settings.json
+static SETTING_FILE_PATH: Lazy<Result<PathBuf, Error>> = Lazy::new(|| {
+    let mut path = PathBuf::from(
+        get_special_directory(CSIDL_APPDATA as i32)
+    );
+    path.push("UWSCR");
+    if ! path.exists() {
+        create_dir_all(&path)?
+    }
+    path.push("settings.json");
+    Ok(path)
+});
 
 #[derive(Debug, Clone)]
 pub struct SingletonSettings(pub Arc<Mutex<USettings>>);
@@ -31,34 +48,55 @@ pub struct USettings {
     pub browser: Browser,
     #[serde(default)]
     pub chkimg: Chkimg,
-    #[serde(skip_deserializing, rename(serialize = "$schema"))]
+    #[serde(default = "get_default_schema", skip_deserializing, rename(serialize = "$schema"))]
     pub schema: String,
+}
+
+fn get_default_schema() -> String {
+    let version = env!("CARGO_PKG_VERSION");
+    let uri = format!("https://github.com/stuncloud/UWSCR/releases/download/{}/uwscr-settings-schema.json", version);
+    let schema = if cfg!(debug_assertions) {
+        match std::env::current_dir() {
+            Ok(mut p) => {
+                p.push("schema");
+                p.push("uwscr-settings-schema.json");
+                match url::Url::from_file_path(p) {
+                    Ok(u) => u.as_str().to_string(),
+                    Err(_) => uri
+                }
+            },
+            Err(_) => uri
+        }
+    } else {
+        uri
+    };
+    schema
 }
 
 impl USettings {
     pub fn get_current_settings_as_json(&self) -> String {
         serde_json::to_string_pretty(&self).unwrap_or(String::new())
     }
+    pub fn from_file(path: &PathBuf) -> Result<Self, Error> {
+        let json = read(&path)?;
+        let usettings = serde_json::from_slice::<USettings>(&json)?;
+        Ok(usettings)
+    }
+    pub fn to_file(&self, path: &PathBuf) -> Result<(), Error> {
+        let json = serde_json::to_string_pretty::<USettings>(&self)?;
+        let mut file = OpenOptions::new()
+                            .create(true)
+                            .truncate(true)
+                            .write(true)
+                            .open::<&PathBuf>(&path)?;
+        write!(file, "{}", json)?;
+        Ok(())
+    }
 }
 
 impl Default for USettings {
     fn default() -> Self {
-        let uri = "https://github.com/stuncloud/UWSCR/releases/download/0.3.0/uwscr-settings-schema.json".to_string();
-        let schema = if cfg!(debug_assertions) {
-            match std::env::current_dir() {
-                Ok(mut p) => {
-                    p.push("schema");
-                    p.push("uwscr-settings-schema.json");
-                    match url::Url::from_file_path(p) {
-                        Ok(u) => u.as_str().to_string(),
-                        Err(_) => uri
-                    }
-                },
-                Err(_) => uri
-            }
-        } else {
-            uri
-        };
+        let schema = get_default_schema();
         USettings {
             options: UOption::default(),
             browser: Browser::default(),
@@ -92,7 +130,7 @@ pub struct UOption {
     #[serde(default)]
     pub position: UPosition,
     /// ダイアログなどのフォント
-    #[serde(default)]
+    #[serde(default, deserialize_with = "string_or_struct")]
     pub default_font: DefaultFont,
     /// 吹き出しを仮想デスクトップにも出すかどうか
     #[serde(default)]
@@ -115,12 +153,6 @@ pub struct UOption {
     /// 大文字小文字を区別する
     #[serde(default)]
     pub same_str: bool,
-    /// print窓を非表示
-    #[serde(default)]
-    pub disable_logprintwin: bool,
-    /// 標準出力を有効にする
-    #[serde(default)]
-    pub enable_stdout: bool,
     /// IEオブジェクトを許可 (非公開)
     #[serde(skip_serializing, default)]
     #[schemars(skip)]
@@ -144,8 +176,6 @@ impl Default for UOption {
             opt_public: false,
             same_str: false,
             allow_ie_object: false,
-            disable_logprintwin: false,
-            enable_stdout: false,
         }
     }
 }
@@ -183,6 +213,59 @@ impl DefaultFont {
     pub fn new(name: &str, size: i32) -> Self {
         Self {name: name.into(), size}
     }
+}
+impl FromStr for DefaultFont {
+    type Err = ();
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let f = s.split(",").collect::<Vec<_>>();
+        let name = f[0];
+        let size = f[1].parse().unwrap_or(15);
+        Ok(DefaultFont::new(name, size))
+    }
+}
+
+fn string_or_struct<'de, T, D>(deserializer: D) -> Result<T, D::Error>
+where
+    T: Deserialize<'de> + FromStr<Err = ()>,
+    D: Deserializer<'de>,
+{
+    // This is a Visitor that forwards string types to T's `FromStr` impl and
+    // forwards map types to T's `Deserialize` impl. The `PhantomData` is to
+    // keep the compiler from complaining about T being an unused generic type
+    // parameter. We need T in order to know the Value type for the Visitor
+    // impl.
+    struct StringOrStruct<T>(PhantomData<fn() -> T>);
+
+    impl<'de, T> Visitor<'de> for StringOrStruct<T>
+    where
+        T: Deserialize<'de> + FromStr<Err = ()>,
+    {
+        type Value = T;
+
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            formatter.write_str("string or map")
+        }
+
+        fn visit_str<E>(self, value: &str) -> Result<T, E>
+        where
+            E: de::Error,
+        {
+            Ok(FromStr::from_str(value).unwrap())
+        }
+
+        fn visit_map<M>(self, map: M) -> Result<T, M::Error>
+        where
+            M: MapAccess<'de>,
+        {
+            // `MapAccessDeserializer` is a wrapper that turns a `MapAccess`
+            // into a `Deserializer`, allowing it to be used as the input to T's
+            // `Deserialize` implementation. T then deserializes itself using
+            // the entries from the map visitor.
+            Deserialize::deserialize(de::value::MapAccessDeserializer::new(map))
+        }
+    }
+
+    deserializer.deserialize_any(StringOrStruct(PhantomData))
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -236,11 +319,7 @@ pub fn usettings_singleton(usettings: Option<USettings>) -> Box<SingletonSetting
     }
 }
 
-impl USettings {
-    // fn load_from_file() {}
-}
-
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Error {
     msg: String
 }
@@ -266,19 +345,17 @@ impl From<std::io::Error> for Error {
         }
     }
 }
+impl From<&Error> for Error {
+    fn from(e: &Error) -> Self {
+        e.clone()
+    }
+}
 
 pub fn load_settings() -> Result<Box<SingletonSettings>, Error> {
-    let mut path = PathBuf::from(
-        get_special_directory(CSIDL_APPDATA as i32)
-    );
-    path.push("UWSCR");
-    path.push("settings.json");
+    let path = SETTING_FILE_PATH.as_ref()?;
 
     let usettings = if path.exists() {
-        // jsonから設定を読み取る
-        let json = read(&path)?;
-        let from_json = serde_json::from_slice::<USettings>(&json)?;
-        Some(from_json)
+        Some(USettings::from_file(path)?)
     } else {
         None
     };
@@ -286,20 +363,35 @@ pub fn load_settings() -> Result<Box<SingletonSettings>, Error> {
     Ok(singleton)
 }
 
-pub fn out_default_setting_file() -> Result<String, Error> {
-    let mut path = PathBuf::from(
-        get_special_directory(CSIDL_APPDATA as i32)
-    );
-    path.push("UWSCR");
-    if ! path.exists() {
-        create_dir_all(&path)?
+pub enum FileMode {
+    Open,
+    Init,
+    Merge
+}
+impl From<&String> for FileMode {
+    fn from(s: &String) -> Self {
+        let mode = match s.to_ascii_lowercase().as_str() {
+            "init" => Self::Init,
+            "merge" => Self::Merge,
+            _ => Self::Open
+        };
+        mode
     }
-    path.push("settings.json");
-    if ! path.exists() {
-        let s = USettings::default();
-        let json = serde_json::to_string_pretty::<USettings>(&s)?;
-        let mut file = OpenOptions::new().create(true).write(true).open::<&PathBuf>(&path)?;
-        write!(file, "{}", json)?;
+}
+pub fn out_default_setting_file(mode: FileMode) -> Result<String, Error> {
+    let path = SETTING_FILE_PATH.as_ref()?;
+    // ファイルが無ければ必ず新規作成
+    let mode = if ! path.exists() {FileMode::Init} else {mode};
+    match mode {
+        FileMode::Open => {},
+        FileMode::Init => {
+            let s = USettings::default();
+            s.to_file(path)?;
+        },
+        FileMode::Merge => {
+            let s = USettings::from_file(path)?;
+            s.to_file(path)?;
+        },
     }
     shell_execute(path.to_str().unwrap().to_string(), None);
     Ok(format!("Opening {}", path.to_str().unwrap()))

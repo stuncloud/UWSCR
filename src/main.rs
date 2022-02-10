@@ -13,6 +13,7 @@ use uwscr::logging::{out_log, LogType};
 use uwscr::get_script;
 use uwscr::serializer;
 use uwscr::settings::{
+    FileMode,
     out_default_setting_file, out_json_schema_file
 };
 use uwscr::winapi::{attach_console,alloc_console,free_console,show_message};
@@ -151,10 +152,10 @@ fn main() {
                 }
                 free_console();
             },
-            Mode::Settings => {
+            Mode::Settings(fm) => {
                 let dlg_title = "uwscr --settings";
                 attach_console();
-                match out_default_setting_file() {
+                match out_default_setting_file(fm) {
                     Ok(ref s) => show_message(s, dlg_title, false),
                     Err(e) => show_message(&e.to_string(), dlg_title, true)
                 }
@@ -239,7 +240,13 @@ impl Args {
                 Ok(p) => Ok(Mode::Schema(p)),
                 Err(e) => Err(e)
             },
-            "-s" | "--settings" => Ok(Mode::Settings),
+            "-s" | "--settings" => {
+                let file_mode = match self.args.get(2) {
+                    Some(s) => s.into(),
+                    None => FileMode::Open,
+                };
+                Ok(Mode::Settings(file_mode))
+            },
             "--language-server" => self.get_port().map(|p| Mode::Server(p)),
             _ => {
                 Ok(Mode::Script(PathBuf::from(self.args[1].clone())))
@@ -273,33 +280,40 @@ impl Args {
     }
 
     pub fn help(&self, err: Option<&str>) {
-        if err.is_some() {
-            println!("error: {}", err.unwrap());
-            println!("");
+        attach_console();
+        let usage = "
+Usage:
+  uwscr FILE                     : スクリプトの実行
+  uwscr FILE [params]            : パラメータ付きスクリプトの実行
+                                   半角スペース区切りで複数指定可能
+                                   スクリプトからはPARAM_STRで値を取得
+  uwscr [(-r|--repl) [FILE]]     : Replを起動 (スクリプトを指定するとそれを実行してから起動)
+  uwscr (-a|--ast) FILE          : スクリプトの構文木を出力
+  uwscr --ast-force FILE         : 構文エラーでも構文木を出力
+  uwscr (-l|--lib) FILE          : スクリプトからuwslファイルを生成する
+  uwscr (-c|--code) CODE         : 渡された文字列を評価して実行する
+  uwscr (-s|--settings) [OPTION] : 設定ファイル(settings.json)が存在しない場合は新規作成する
+                                   OPTION省略時 設定ファイルがあればそれを開く
+                                   init         設定ファイルを初期化する
+                                   merge        現在の設定とバージョンアップ時に更新された設定を可能な限りマージする
+  uwscr --schema [DIR]           : 指定ディレクトリにjson schemaファイル(uwscr-settings-schema.json)を出力する
+  uwscr (-h|--help|-?|/?)        : このヘルプを表示
+  uwscr (-v|--version)           : UWSCRのバージョンを表示
+  uwscr (-o|--online-help)       : オンラインヘルプを表示
+";
+        let message = if err.is_some() {
+            format!("error: {}\r\n{}", err.unwrap(), usage)
         } else {
-            println!("uwscr {}", self.version);
-            println!("");
-        }
-        println!("Usage:");
-        println!("  uwscr FILE                   : スクリプトの実行");
-        println!("  uwscr FILE [params]          : パラメータ付きスクリプトの実行");
-        println!("                                 半角スペース区切りで複数指定可能");
-        println!("                                 スクリプトからはPARAM_STRで値を取得");
-        println!("  uwscr [(-r|--repl) [FILE]]   : Replを起動 (スクリプトを指定するとそれを実行してから起動)");
-        println!("  uwscr (-a|--ast) FILE        : スクリプトの構文木を出力");
-        println!("  uwscr --ast-force FILE       : 構文エラーでも構文木を出力");
-        println!("  uwscr (-l|--lib) FILE        : スクリプトからuwslファイルを生成する");
-        println!("  uwscr (-c|--code) CODE       : 渡された文字列を評価して実行する");
-        println!("  uwscr (-s|--settings)        : 設定ファイル(settings.json)を開く");
-        println!("  uwscr --schema [DIR]         : 指定ディレクトリにjson schemaファイル(uwscr-settings-schema.json)を出力する");
-        // println!("  uwscr --language-server [PORT]   : Language Serverとして起動、デフォルトポートはxxx");
-        println!("  uwscr (-h|--help|-?|/?)      : このヘルプを表示");
-        println!("  uwscr (-v|--version)         : UWSCRのバージョンを表示");
-        println!("  uwscr (-o|--online-help)     : オンラインヘルプを表示");
+            format!("uwscr {}\r\n{}", self.version, usage)
+        };
+        show_message(&message, "uwscr --help", err.is_some());
+        free_console();
     }
 
     pub fn version(&self) {
-        println!("uwscr {}", self.version);
+        attach_console();
+        show_message(&format!("uwscr {}", self.version), "uwscr --version", false);
+        free_console();
     }
 }
 
@@ -312,7 +326,7 @@ enum Mode {
     Server(Option<u16>),
     Help,
     Version,
-    Settings,
+    Settings(FileMode),
     OnlineHelp,
     Schema(Option<PathBuf>)
 }
