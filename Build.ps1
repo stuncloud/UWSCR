@@ -108,28 +108,26 @@ if ($Installer) {
 
     # x64 for default
     if ("x64" -in $Architecture) {
-        $exe64 = '.\target\release\uwscr.exe'
-        $v = Get-BinaryVersion -BinPath $exe64
-        if ($v) {
-            if (! $Version) {$Version = $v}
-            # cargo wix --nocapture
-            candle -dProfile=release -dVersion="${Version}" -dPlatform=x64 -ext WixUtilExtension -o target/wix/x64.wixobj wix/x64.wxs -nologo | Out-Null
-            $msipath = ".release/${Version}/uwscr-${Version}-x64.msi"
-            light -spdb -ext WixUIExtension -ext WixUtilExtension -cultures:ja-JP -out $msipath target/wix/x64.wixobj -nologo | Out-Null
-            Get-Item $msipath
+        if (! $Version) {
+            $exe64 = '.\target\release\uwscr.exe'
+            $Version = Get-BinaryVersion -BinPath $exe64
         }
+        # cargo wix --nocapture
+        candle -dProfile=release -dVersion="${Version}" -dPlatform=x64 -ext WixUtilExtension -o target/wix/x64.wixobj wix/x64.wxs -nologo | Out-Null
+        $msipath = ".release/${Version}/uwscr-${Version}-x64.msi"
+        light -spdb -ext WixUIExtension -ext WixUtilExtension -cultures:ja-JP -out $msipath target/wix/x64.wixobj -nologo | Out-Null
+        Get-Item $msipath
     }
     # x86
     if ("x86" -in $Architecture) {
-        $exe86 = '.\target\i686-pc-windows-msvc\release\uwscr.exe'
-        $v = Get-BinaryVersion -BinPath $exe86
-        if ($v) {
-            if (! $Version) {$Version = $v}
-            # cargo wix --compiler-arg "-dProfile=i686-pc-windows-msvc\release -dPlatform=x86" --nocapture
-            candle -dProfile=i686-pc-windows-msvc\release -dVersion="${Version}" -dPlatform=x86 -ext WixUtilExtension -o target/wix/x86.wixobj wix/x86.wxs -nologo | Out-Null
-            $msipath = ".release/${Version}/uwscr-${Version}-x86.msi"
-            light -spdb -ext WixUIExtension -ext WixUtilExtension -cultures:ja-JP -out $msipath target/wix/x86.wixobj -nologo | Out-Null
-            Get-Item $msipath
+        if (! $Version) {
+            $exe86 = '.\target\i686-pc-windows-msvc\release\uwscr.exe'
+            $Version = Get-BinaryVersion -BinPath $exe86
         }
+        # cargo wix --compiler-arg "-dProfile=i686-pc-windows-msvc\release -dPlatform=x86" --nocapture
+        candle -dProfile=i686-pc-windows-msvc\release -dVersion="${Version}" -dPlatform=x86 -ext WixUtilExtension -o target/wix/x86.wixobj wix/x86.wxs -nologo | Out-Null
+        $msipath = ".release/${Version}/uwscr-${Version}-x86.msi"
+        light -spdb -ext WixUIExtension -ext WixUtilExtension -cultures:ja-JP -out $msipath target/wix/x86.wixobj -nologo | Out-Null
+        Get-Item $msipath
     }
 }
