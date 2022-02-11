@@ -50,6 +50,7 @@ pub enum ParseErrorKind {
     FunctionRequiredAfterAsync,
     FunctionCallRequiredAfterAwait,
     InvalidClassMemberDefinition(Statement),
+    MissingIndex,
 }
 
 #[derive(Debug, Clone)]
@@ -259,6 +260,10 @@ impl fmt::Display for ParseErrorKind {
                 "不正なクラスメンバ ({:?})",
                 "Invalid class member definition: {:?}",
                 statement
+            ),
+            ParseErrorKind::MissingIndex => write_locale!(f,
+                "配列の添字がない",
+                "Index is missing",
             ),
         }
     }

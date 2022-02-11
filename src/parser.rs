@@ -1836,13 +1836,22 @@ impl Parser {
                 Token::Lbracket => {
                     self.bump();
                     left = {
-                        let index = self.parse_index_expression(left.unwrap());
+                        let index = match self.parse_index_expression(left.unwrap()) {
+                            Some(e) => e,
+                            None => {
+                                self.errors.push(ParseError::new(
+                                    ParseErrorKind::MissingIndex,
+                                    self.next_token.pos, self.script_name()
+                                ));
+                                return None;
+                            },
+                        };
                         if is_sol {
-                            if let Some(e) = self.parse_assignment(self.next_token.token.clone(), index.clone().unwrap()) {
+                            if let Some(e) = self.parse_assignment(self.next_token.token.clone(), index.clone()) {
                                 return Some(e);
                             }
                         }
-                        index
+                        Some(index)
                     }
                 },
                 Token::Lparen => {
@@ -2696,7 +2705,6 @@ impl Parser {
                         } else {
                             ParamKind::Reference
                         };
-                        self.bump();
                         let param_type = if self.is_next_token(&Token::Colon) {
                             self.bump(); // : に移動
                             match self.parse_param_type() {
@@ -4689,6 +4697,27 @@ fend
                                 FuncParam::new(Some("bar".into()), ParamKind::Reference),
                                 FuncParam::new(Some("baz".into()), ParamKind::Array(false)),
                                 FuncParam::new(Some("qux".into()), ParamKind::Default(Expression::Literal(Literal::Num(1.0)))),
+                            ],
+                            body: vec![],
+                            is_proc: true,
+                            is_async: false,
+                        }, 2
+                    )
+                ]
+            ),
+            (
+                r#"
+procedure hoge(foo: string, var bar: Hoge, qux: number = 1)
+fend
+                "#,
+                vec![
+                    StatementWithRow::new(
+                        Statement::Function {
+                            name: Identifier("hoge".to_string()),
+                            params: vec![
+                                FuncParam::new_with_type(Some("foo".into()), ParamKind::Identifier, ParamType::String),
+                                FuncParam::new_with_type(Some("bar".into()), ParamKind::Reference, ParamType::UserDefinition("Hoge".into())),
+                                FuncParam::new_with_type(Some("qux".into()), ParamKind::Default(Expression::Literal(Literal::Num(1.0))), ParamType::Number),
                             ],
                             body: vec![],
                             is_proc: true,
