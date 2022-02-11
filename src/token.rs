@@ -2,10 +2,14 @@ use strum_macros::ToString;
 
 #[derive(Debug, Clone, PartialEq, ToString)]
 pub enum Token {
+    /// 不正なトークン
     Illegal(char),
-    Blank, // 空行
+    /// 空行 (未使用)
+    Blank,
+    /// ファイルの末尾
     Eof,
-    Eol, // 行末, コメント開始も行末として扱う
+    /// 行末, コメント開始も行末として扱う
+    Eol,
 
     // Identifiers + literals
     Identifier(String),
@@ -32,57 +36,99 @@ pub enum Token {
     Await,
     HashTable,
     Call,
-    Path(Option<String>, String), // directory, filename
+    /// directory, filename
+    Path(Option<String>, String),
     DefDll,
 
     // 演算子
-    Plus, // +
-    Minus, // -
-    Bang, // !
-    Asterisk, // *
-    Slash, // /
+    /// +
+    Plus,
+    /// -
+    Minus,
+    /// !
+    Bang,
+    /// *
+    Asterisk,
+    /// /
+    Slash,
 
-    And, // and
-    Or, // or
-    Xor, // xor
-    AndL, // logical and
-    OrL, // logical or
-    XorL, // logical xor
-    AndB, // bit and
-    OrB, // bit or
-    XorB, // bit xor
-    Mod, // mod
+    /// and
+    And,
+    /// or
+    Or,
+    /// xor
+    Xor,
+    /// logical and
+    AndL,
+    /// logical or
+    OrL,
+    /// logical xor
+    XorL,
+    /// bit and
+    AndB,
+    /// bit or
+    OrB,
+    /// bit xor
+    XorB,
+    /// mod
+    Mod,
 
-    AddAssign, // +=,
-    SubtractAssign, // -=,
-    MultiplyAssign, // *=,
-    DivideAssign, // /=,
+    /// +=,
+    AddAssign,
+    /// -=,
+    SubtractAssign,
+    /// *=,
+    MultiplyAssign,
+    /// /=,
+    DivideAssign,
 
-    Assign, // :=
-    EqualOrAssign, // 代入または等式r
-    Equal, // =, ==
-    NotEqual, // <>, !=
-    LessThan, // <
-    LessThanEqual, // <=
-    GreaterThan, // >
-    GreaterThanEqual, // >=
+    /// :=
+    Assign,
+    /// 代入または等式r
+    EqualOrAssign,
+    /// =, ==
+    Equal,
+    /// <>, !=
+    NotEqual,
+    /// <
+    LessThan,
+    /// <=
+    LessThanEqual,
+    /// >
+    GreaterThan,
+    /// >=
+    GreaterThanEqual,
 
-    Question, // ? 三項演算子用
+    /// ? 三項演算子用
+    Question,
 
     // Delimiters
-    Comma, // ,
-    Period, // .
-    Colon, // :
-    Semicolon, // ;
-    Lparen, // (
-    Rparen, // )
-    Lbrace, // {
-    Rbrace, // }
-    Lbracket, // [
-    Rbracket, // ]
-    LineContinue, // _
-    BackSlash, // \ ファイルパス用
-    ColonBackSlash, // :\ ファイルパス用
+    /// ,
+    Comma,
+    /// .
+    Period,
+    /// :
+    Colon,
+    /// ;
+    Semicolon,
+    /// (
+    Lparen,
+    /// )
+    Rparen,
+    /// {
+    Lbrace,
+    /// }
+    Rbrace,
+    /// [
+    Lbracket,
+    /// ]
+    Rbracket,
+    /// _
+    LineContinue,
+    /// \ ファイルパス用
+    BackSlash,
+    /// :\ ファイルパス用
+    ColonBackSlash,
 
     // ブロック構文
     If,
@@ -144,22 +190,6 @@ pub enum Token {
 
     // Option
     Option(String),
-    // Explicit,
-    // SameStr,
-    // OptPublic,
-    // OptFinally,
-    // SpecialChar,
-    // ShortCircuit,
-    // NoStopHotkey,
-    // TopStopform,
-    // FixBalloon,
-    // Defaultfont,
-    // Position,
-    // Logpath,
-    // Loglines,
-    // Logfile,
-    // Dlgtitle,
-    // AllowIEObj,
 
     // COM
     ComErrIgn,
@@ -171,7 +201,8 @@ pub enum Token {
 
     // 引数関連
     Ref,
-    Variadic, // 可変長引数
+    /// 可変長引数
+    Variadic,
 
     // 無名関数
     Pipeline,
