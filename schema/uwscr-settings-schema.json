@@ -4,6 +4,7 @@
   "type": "object",
   "properties": {
     "browser": {
+      "description": "BrowserControl設定",
       "default": {
         "chrome": null,
         "msedge": null
@@ -15,6 +16,7 @@
       ]
     },
     "chkimg": {
+      "description": "chkimg設定",
       "default": {
         "save_ss": false
       },
@@ -25,6 +27,7 @@
       ]
     },
     "options": {
+      "description": "OPTION設定",
       "default": {
         "default_font": {
           "name": "Yu Gothic UI",
@@ -53,7 +56,8 @@
       ]
     },
     "schema": {
-      "default": "",
+      "description": "この設定ファイルのschemaファイルのパス",
+      "default": "https://github.com/stuncloud/UWSCR/releases/download/0.4.0/uwscr-settings-schema.json",
       "readOnly": true,
       "type": "string"
     }
@@ -63,6 +67,7 @@
       "type": "object",
       "properties": {
         "chrome": {
+          "description": "Chromeのパス",
           "default": null,
           "type": [
             "string",
@@ -70,6 +75,7 @@
           ]
         },
         "msedge": {
+          "description": "MSEdgeのパス",
           "default": null,
           "type": [
             "string",
@@ -82,6 +88,7 @@
       "type": "object",
       "properties": {
         "save_ss": {
+          "description": "chkimg()実行時の画面を保存するかどうか",
           "default": false,
           "type": "boolean"
         }
@@ -91,10 +98,12 @@
       "type": "object",
       "properties": {
         "name": {
+          "description": "フォント名",
           "default": "",
           "type": "string"
         },
         "size": {
+          "description": "フォントサイズ",
           "default": 0,
           "type": "integer",
           "format": "int32"
@@ -105,6 +114,7 @@
       "type": "object",
       "properties": {
         "default_font": {
+          "description": "ダイアログなどのフォント",
           "default": {
             "name": "Yu Gothic UI",
             "size": 15
@@ -116,6 +126,7 @@
           ]
         },
         "dlg_title": {
+          "description": "ダイアログタイトル",
           "default": null,
           "type": [
             "string",
@@ -123,26 +134,31 @@
           ]
         },
         "explicit": {
+          "description": "変数宣言必須",
           "default": false,
           "type": "boolean"
         },
         "fix_balloon": {
+          "description": "吹き出しを仮想デスクトップにも出すかどうか",
           "default": false,
           "type": "boolean"
         },
         "log_file": {
+          "description": "ログファイルの出力有無など",
           "default": 0,
           "type": "integer",
           "format": "uint8",
           "minimum": 0.0
         },
         "log_lines": {
+          "description": "ログの行数",
           "default": 0,
           "type": "integer",
           "format": "uint32",
           "minimum": 0.0
         },
         "log_path": {
+          "description": "ログファイルの出力先",
           "default": null,
           "type": [
             "string",
@@ -150,18 +166,22 @@
           ]
         },
         "no_stop_hot_key": {
+          "description": "停止ホットキー無効",
           "default": false,
           "type": "boolean"
         },
         "opt_finally": {
+          "description": "finally部を必ず実行する",
           "default": false,
           "type": "boolean"
         },
         "opt_public": {
+          "description": "publicの重複定義を禁止",
           "default": false,
           "type": "boolean"
         },
         "position": {
+          "description": "メインGUIの座標",
           "default": {
             "left": 0,
             "top": 0
@@ -173,10 +193,12 @@
           ]
         },
         "same_str": {
+          "description": "大文字小文字を区別する",
           "default": false,
           "type": "boolean"
         },
         "short_circuit": {
+          "description": "短絡評価の有無",
           "default": false,
           "type": "boolean"
         }
@@ -186,11 +208,13 @@
       "type": "object",
       "properties": {
         "left": {
+          "description": "x座標",
           "default": 0,
           "type": "integer",
           "format": "int32"
         },
         "top": {
+          "description": "y座標",
           "default": 0,
           "type": "integer",
           "format": "int32"
