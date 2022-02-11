@@ -5,6 +5,7 @@ param(
     [switch] $Release,
     [string] $OutDir = '.\.release',
     [switch] $Installer,
+    [switch] $Schema,
     [ValidateSet("x64","x86")]
     [string[]] $Architecture = @("x64","x86")
 )
@@ -17,7 +18,7 @@ if ($Release) {
 }
 
 # ビルド
-if (! $Installer -or ($Release -and $Installer)) {
+if ((! $Installer -and ! $Schema) -or ($Release -and $Installer)) {
     if ("x64" -in $Architecture) {
         # build x64 exe
         $cmd = 'cargo build {0}' -f $(if ($Release) {'--release'})
@@ -47,9 +48,10 @@ function Get-BinaryVersion {
             Write-Error "$($BinPath) が見つかりません"
             break
         }
-        if (('{0} --version' -f $BinPath | Invoke-Expression) -match '\d+\.\d+\.\d+') {
-            $Version = $Matches[0]
-        } else {
+        $bin = Get-Item -Path $BinPath
+        $Version = $bin.VersionInfo.FileVersion
+        Write-Verbose $Version
+        if ($Version.Length -eq 0) {
             Write-Error "uwscrのバージョンが不明"
             break
         }
@@ -129,5 +131,20 @@ if ($Installer) {
         $msipath = ".release/${Version}/uwscr-${Version}-x86.msi"
         light -spdb -ext WixUIExtension -ext WixUtilExtension -cultures:ja-JP -out $msipath target/wix/x86.wixobj -nologo | Out-Null
         Get-Item $msipath
+    }
+}
+
+if ($Schema) {
+    $bin = @('.\target\release\uwscr.exe', '.\target\i686-pc-windows-msvc\release\uwscr.exe')
+    $bin | ForEach-Object {
+        if (Test-Path $_) {
+            if (! $Version) {
+                $Version = Get-BinaryVersion -BinPath $_
+            }
+            $path = ".release/${Version}/"
+            & $_ --schema $path | Out-Null
+            Join-Path $path "uwscr-settings-schema.json" | Get-Item
+            break
+        }
     }
 }
