@@ -68,11 +68,8 @@ function Out-UWSCR {
         [switch] $x86
     )
     process {
-        $v = Get-BinaryVersion -BinPath $BinPath
-        if ($v) {
-            if (! $Version) {$Version = $v}
-        } else {
-            break
+        if (! $Version) {
+            $Version = Get-BinaryVersion -BinPath $BinPath
         }
         $Arch = $x64 ? "x64": "x86"
         $verpath = Join-Path -Path $OutDir -ChildPath $Version
