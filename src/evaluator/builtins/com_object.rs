@@ -17,6 +17,7 @@ use windows::Win32::{
             CLSIDFromProgID, CoCreateInstance,
         },
         Ole::{
+            VARENUM,
             GetActiveObject,
         }
     }
@@ -146,10 +147,10 @@ fn vartype(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             }
         } else {
             let variant = match o {
-                Object::Variant(ref v) => v.0.change_type(vt.into())?,
+                Object::Variant(ref v) => v.0.change_type(VARENUM(vt.into()))?,
                 o => {
                     let v = o.to_variant()?;
-                    v.change_type(vt.into())?
+                    v.change_type(VARENUM(vt.into()))?
                 }
             };
             Ok(Object::Variant(Variant(variant)))

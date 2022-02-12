@@ -7,7 +7,7 @@ use windows::{
         Foundation::HWND,
         Graphics::{
             Gdi::{
-                SRCCOPY, CAPTUREBLT, DIB_RGB_COLORS,
+                ROP_CODE, SRCCOPY, CAPTUREBLT, DIB_RGB_COLORS,
                 BITMAPINFO, BITMAPINFOHEADER,
                 GetDC, ReleaseDC, DeleteDC, SelectObject, DeleteObject, GetDIBits,
                 StretchBlt,
@@ -219,7 +219,7 @@ impl ScreenShot {
                 top,
                 width,
                 height,
-                SRCCOPY | CAPTUREBLT
+                ROP_CODE(SRCCOPY.0 | CAPTUREBLT.0)
             );
             if ! res.as_bool() {
                 return Err(UError::new(

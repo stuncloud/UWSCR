@@ -139,7 +139,7 @@ impl Object {
 
         // let is_ref = (variant.vt() & VT_BYREF.0 as u16) > 0;
         let vt = variant.vt() & VT_TYPEMASK.as_u16();
-        let obj = match vt as i32 {
+        let obj = match VARENUM(vt as i32) {
             VT_EMPTY => Object::Empty,
             VT_NULL => Object::Null,
             VT_I2 |
@@ -326,7 +326,7 @@ pub trait VARENUMHelper {
 
 impl VARENUMHelper for VARENUM {
     fn as_u16(&self) -> u16 {
-        *self as u16
+        self.0 as u16
     }
 }
 
@@ -470,7 +470,7 @@ pub trait SAFEARRAYHelper {
 
 impl SAFEARRAYHelper for SAFEARRAY {
     fn new(lbound: i32, ubound: i32) -> Self {
-        let vt = VT_VARIANT as u16;
+        let vt = VT_VARIANT.0 as u16;
         let cdims = 1;
         let mut rgsabound = SAFEARRAYBOUND::new(lbound, ubound);
         let sa = unsafe {
@@ -481,7 +481,7 @@ impl SAFEARRAYHelper for SAFEARRAY {
     }
 
     fn new2(lbound: i32, ubound: i32, lbound2: i32, ubound2: i32) -> Self {
-        let vt = VT_VARIANT as u16;
+        let vt = VT_VARIANT.0 as u16;
         let cdims = 2;
         let mut rgsabound = vec![
             SAFEARRAYBOUND::new(lbound2, ubound2),
