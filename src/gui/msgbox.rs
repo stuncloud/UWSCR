@@ -162,7 +162,7 @@ impl UWindow<MsgBoxResult> for Msgbox {
                         },
                         WM_KEYDOWN => {
                             let key = msg.wParam.0 as u16;
-                            match key {
+                            match VIRTUAL_KEY(key) {
                                 VK_ESCAPE => break BTN_CANCEL,
                                 VK_RETURN => {
                                     SendMessageW(msg.hwnd, BM_CLICK, WPARAM(0), LPARAM(0));
@@ -171,7 +171,7 @@ impl UWindow<MsgBoxResult> for Msgbox {
                                 VK_RIGHT |
                                 VK_LEFT => if (msg.lParam.0 as u32 & KF_REPEAT * 0x10000) > 0 {
                                     // 繰り返しフラグが立ってたらフォーカス移動
-                                    let flg = match key {
+                                    let flg = match VIRTUAL_KEY(key) {
                                         VK_RIGHT => false,
                                         VK_LEFT => true,
                                         _ => shift_flg
@@ -184,7 +184,7 @@ impl UWindow<MsgBoxResult> for Msgbox {
                         },
                         WM_KEYUP => {
                             let key = msg.wParam.0 as u16;
-                            match key {
+                            match VIRTUAL_KEY(key) {
                                 VK_TAB => self.move_btn_focus(msg.hwnd, shift_flg),
                                 VK_RIGHT => self.move_btn_focus(msg.hwnd, false),
                                 VK_LEFT => self.move_btn_focus(msg.hwnd, true),

@@ -92,7 +92,7 @@ impl Window {
                 false.into(),
                 false.into(),
                 false.into(),
-                CHARSET_UNICODE,
+                CHARSET_UNICODE.0,
                 OUT_TT_PRECIS,
                 CLIP_DEFAULT_PRECIS,
                 DEFAULT_QUALITY,
@@ -113,8 +113,8 @@ impl Window {
             let mut wide = format!("{}\0", class_name).encode_utf16().collect::<Vec<u16>>(); // null終端
             let hInstance = HINSTANCE::default();
             let hbrBackground = match color {
-                Some(index) => HBRUSH(index as isize),
-                None => HBRUSH(COLOR_WINDOW as isize)
+                Some(index) => HBRUSH(index.0 as isize),
+                None => HBRUSH(COLOR_WINDOW.0 as isize)
             };
             let wc = WNDCLASSEXW {
                 cbSize: std::mem::size_of::<WNDCLASSEXW>() as u32,
@@ -188,7 +188,7 @@ impl Window {
             Some(parent),
             "static",
             "",
-            0,
+            WINDOW_EX_STYLE(0),
             WS_CHILD|WS_VISIBLE,
             x,
             y,
@@ -232,7 +232,7 @@ impl Window {
     fn set_child(parent: HWND, class_name: &str, title: &str, x: i32, y: i32, size_opt: Option<SizeOption>, font: Option<HFONT>, styles: Option<WINDOW_STYLE>, id: Option<i32>) -> UWindowResult<Child> {
         let dwstyle = WS_CHILD|WS_VISIBLE|styles.unwrap_or_default();
         let hwnd = Self::create_window(
-            Some(parent), class_name, title, 0, dwstyle, x, y, 0, 0, id
+            Some(parent), class_name, title, WINDOW_EX_STYLE(0), dwstyle, x, y, 0, 0, id
         )?;
         match font {
             Some(hfont) => {

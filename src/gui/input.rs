@@ -174,7 +174,8 @@ impl UWindow<InputBoxResult> for InputBox {
                             }
                         },
                         WM_KEYDOWN => {
-                            match msg.wParam.0 as u16 {
+                            let key = VIRTUAL_KEY(msg.wParam.0 as u16);
+                            match key {
                                 VK_ESCAPE => break None,
                                 VK_RETURN => if msg.hwnd == self.btn_ok || msg.hwnd == self.btn_cancel {
                                     SendMessageW(msg.hwnd, BM_CLICK, WPARAM(0), LPARAM(0));
@@ -198,7 +199,7 @@ impl UWindow<InputBoxResult> for InputBox {
                             }
                         },
                         WM_KEYUP => {
-                            let key = msg.wParam.0 as u16;
+                            let key = VIRTUAL_KEY(msg.wParam.0 as u16);
                             match key {
                                 VK_SHIFT => forward = true,
                                 VK_TAB => self.move_focus(msg.hwnd, forward),
@@ -280,7 +281,7 @@ impl InputField {
         };
         let mut styles = WS_BORDER;
         if self.mask {
-            styles |= ES_PASSWORD as u32;
+            styles |= WINDOW_STYLE(ES_PASSWORD as u32);
         };
         // let size_opt = Some(SizeOption { margin_x: 4, margin_y: 3, min_width: 300, min_height: 20 });
         let mut edit = Window::set_child(hpanel, "edit", title, 0, 0, None, Some(hfont), Some(styles), Some(id))?;

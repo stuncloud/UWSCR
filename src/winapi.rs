@@ -16,7 +16,7 @@ use windows::{
         UI::{
             WindowsAndMessaging::{
                 SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN,
-                MESSAGEBOX_STYLE, MB_ICONEXCLAMATION,
+                MESSAGEBOX_STYLE, MB_OK, MB_ICONEXCLAMATION,
                 GetSystemMetrics, MessageBoxW
             },
             Shell::{
@@ -203,7 +203,7 @@ pub fn show_message(message: &str, title: &str, is_error: bool) {
         (true, true) => eprintln!("{}", message),
         (true, false) => println!("{}", message),
         (false, true) => message_box(message, title, MB_ICONEXCLAMATION),
-        (false, false) => message_box(message, title, 0),
+        (false, false) => message_box(message, title, MB_OK),
     }
 }
 

@@ -29,16 +29,16 @@ impl LogPrintWin {
         let dwstyle = WS_CHILD
                                 | WS_VISIBLE
                                 | WS_VSCROLL
-                                | ES_LEFT as u32
-                                | ES_WANTRETURN as u32
-                                | ES_AUTOHSCROLL as u32
-                                | ES_AUTOVSCROLL as u32
-                                | ES_MULTILINE as u32;
+                                | WINDOW_STYLE(ES_LEFT as u32)
+                                | WINDOW_STYLE(ES_WANTRETURN as u32)
+                                | WINDOW_STYLE(ES_AUTOHSCROLL as u32)
+                                | WINDOW_STYLE(ES_AUTOVSCROLL as u32)
+                                | WINDOW_STYLE(ES_MULTILINE as u32);
         let edit = match Window::create_window(
             Some(hwnd),
             "edit",
             "",
-            0,
+            WINDOW_EX_STYLE(0),
             dwstyle,
             0,
             0,
@@ -62,7 +62,7 @@ impl LogPrintWin {
             None,
             &class_name,
             title,
-            0,
+            WINDOW_EX_STYLE(0),
             WS_OVERLAPPEDWINDOW,
             100,
             100,
