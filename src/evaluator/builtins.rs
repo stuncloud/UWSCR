@@ -26,15 +26,14 @@ use crate::evaluator::object::{
     SpecialFuncResultType,
     UTask
 };
+use crate::evaluator::object::UObject;
 use crate::evaluator::environment::NamedObject;
 use crate::error::evaluator::{UError,UErrorKind,UErrorMessage};
 use crate::ast::Expression;
 
 use std::env;
-use std::sync::{Arc, Mutex};
 
 use cast;
-use serde_json::Value;
 use strum::VariantNames;
 use num_traits::ToPrimitive;
 use strum_macros::{ToString, EnumVariantNames};
@@ -283,12 +282,11 @@ impl BuiltinFuncArgs {
         })
     }
     /// UObjectを受ける引数
-    pub fn get_as_uobject(&self, i: usize) -> BuiltInResult<(Arc<Mutex<Value>>, Option<String>)> {
+    pub fn get_as_uobject(&self, i: usize) -> BuiltInResult<UObject> {
         get_arg_value!(self, i, {
             let arg = self.item(i);
             match arg {
-                Object::UObject(ref u) => Ok((Arc::clone(u), None)),
-                Object::UChild(ref u, p) => Ok((Arc::clone(u), Some(p))),
+                Object::UObject(ref u) => Ok(u.clone()),
                 _ => Err(builtin_func_error(UErrorMessage::BuiltinArgInvalid(arg), self.name()))
             }
         })
@@ -609,8 +607,7 @@ pub fn type_of(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         Object::RegEx(_) => VariableType::TYPE_REGEX,
         Object::This(_) => VariableType::TYPE_THIS,
         Object::Global => VariableType::TYPE_GLOBAL,
-        Object::UObject(_) |
-        Object::UChild(_, _) => VariableType::TYPE_UOBJECT,
+        Object::UObject(_) => VariableType::TYPE_UOBJECT,
         Object::Version(_) => VariableType::TYPE_VERSION,
         Object::ExpandableTB(_) => VariableType::TYPE_STRING,
         Object::Enum(_) => VariableType::TYPE_ENUM,

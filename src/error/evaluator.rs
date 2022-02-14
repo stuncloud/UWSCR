@@ -434,6 +434,7 @@ pub enum UErrorMessage {
     InvalidParamType(String, ParamTypeDetail),
     UWindowError(UWindowError),
     EmptyArrayNotAllowed,
+    InvalidMemberOrIndex(String),
 }
 
 impl fmt::Display for UErrorMessage {
@@ -918,6 +919,11 @@ impl fmt::Display for UErrorMessage {
             Self::EmptyArrayNotAllowed => write_locale!(f,
                 "空の配列は許可されていません",
                 "Empty array is not allowed"
+            ),
+            Self::InvalidMemberOrIndex(o) => write_locale!(f,
+                "メンバが存在しない、または不正なインデックス: {}",
+                "Invalid index: {}",
+                o
             ),
         }
     }

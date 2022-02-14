@@ -5,6 +5,7 @@ pub mod utask;
 pub mod ustruct;
 pub mod module;
 pub mod function;
+pub mod uobject;
 
 pub use self::hashtbl::{HashTbl, HashTblEnum};
 pub use self::version::Version;
@@ -13,6 +14,7 @@ pub use self::utask::UTask;
 pub use self::ustruct::{UStruct, UStructMember};
 pub use self::module::Module;
 pub use self::function::Function;
+pub use self::uobject::UObject;
 
 use crate::ast::*;
 use crate::evaluator::builtins::BuiltinFunction;
@@ -69,8 +71,7 @@ pub enum Object {
     SpecialFuncResult(SpecialFuncResultType),
     Global, // globalを示す
     This(Arc<Mutex<Module>>),   // thisを示す
-    UObject(Arc<Mutex<serde_json::Value>>),
-    UChild(Arc<Mutex<serde_json::Value>>, String),
+    UObject(UObject),
     DynamicVar(fn()->Object), // 特殊変数とか
     Version(Version),
     ExpandableTB(String),
@@ -164,13 +165,8 @@ impl fmt::Display for Object {
             Object::RegEx(ref re) => write!(f, "regex: {}", re),
             Object::Global => write!(f, "GLOBAL"),
             Object::This(ref m) => write!(f, "THIS ({})", m.lock().unwrap().name()),
-            Object::UObject(ref v) => {
-                let value = v.lock().unwrap();
-                write!(f, "UObject: {}", serde_json::to_string(&value.clone()).map_or_else(|e| format!("{}", e), |j| j))
-            },
-            Object::UChild(ref u, ref p) => {
-                let v = u.lock().unwrap().pointer(p.as_str()).unwrap_or(&serde_json::Value::Null).clone();
-                write!(f, "UObject: {}", serde_json::to_string(&v).map_or_else(|e| format!("{}", e), |j| j))
+            Object::UObject(ref uobj) => {
+                write!(f, "UObject: {}", uobj)
             },
             Object::DynamicVar(func) => write!(f, "{}", func()),
             Object::Version(ref v) => write!(f, "{}", v),
@@ -268,14 +264,8 @@ impl PartialEq for Object {
                 let _tmp = m.lock().unwrap();
                 m2.try_lock().is_err()
             } else {false},
-            Object::UObject(v) => if let Object::UObject(v2) = other {
-                let _tmp = v.lock().unwrap();
-                v2.try_lock().is_err()
-            } else {false},
-            Object::UChild(v, p) => if let Object::UChild(v2, p2) = other {
-                let _tmp = v.lock().unwrap();
-                let is_same_object = v2.try_lock().is_err();
-                is_same_object && (p == p2)
+            Object::UObject(uobj) => if let Object::UObject(uobj2) = other {
+                uobj == uobj2
             } else {false},
             Object::DynamicVar(f) => if let Object::DynamicVar(f2) = other {f() == f2()} else {false},
             Object::Version(v) => if let Object::Version(v2) = other {v == v2} else {false},
@@ -388,7 +378,7 @@ impl Into<Object> for Value {
             },
             serde_json::Value::String(s) =>Object::String(s),
             serde_json::Value::Array(_) |
-            serde_json::Value::Object(_) => Object::UObject(Arc::new(Mutex::new(self))),
+            serde_json::Value::Object(_) => Object::UObject(UObject::new(self)),
         }
     }
 }
@@ -407,33 +397,54 @@ impl Into<i32> for Object {
     }
 }
 
-pub trait ValueHelper {
-    fn get_case_insensitive(&self, key: &str) -> Option<Value>;
+pub trait ValueExt {
+    fn get_case_insensitive(&self, key: &str) -> Option<&Value>;
+    fn get_case_insensitive_mut(&mut self, key: &str) -> Option<&mut Value>;
 }
 
-impl ValueHelper for Value {
-    fn get_case_insensitive(&self, key: &str) -> Option<Value> {
+impl ValueExt for Value {
+    fn get_case_insensitive(&self, key: &str) -> Option<&Value> {
         match self {
             Value::Object(map) => {
                 let upper = key.to_ascii_uppercase();
-                let filtered = map.iter()
-                                        .filter(|(k, _)| k.to_ascii_uppercase() == upper)
-                                        .collect::<Vec<(&String, &Value)>>();
-                if filtered.len() == 0 {
+                let map2 = map.clone();
+                let keys_found = map2.iter()
+                                            .filter(|(k, _)| k.to_ascii_uppercase() == upper)
+                                            .map(|(k,_)| k.as_str())
+                                            .collect::<Vec<_>>();
+                if keys_found.len() == 0 {
                     None
-                } else if filtered.len() == 1 {
-                    Some(filtered[0].1.clone())
                 } else {
                     // 複数あった場合は完全一致を返す
                     // 完全一致がなければ1つ目を返す
-                    let matched = filtered.iter()
-                                        .filter(|(k, _)| k.as_str() == key)
-                                        .map(|(_,v)| v.clone())
-                                        .collect::<Vec<_>>();
-                    if matched.len() > 0 {
-                        Some(matched[0].clone())
+                    if keys_found.contains(&key) {
+                        map.get(key)
                     } else {
-                        Some(filtered[0].1.clone())
+                        map.get(keys_found[0])
+                    }
+                }
+            },
+            _ => None,
+        }
+    }
+    fn get_case_insensitive_mut(&mut self, key: &str) -> Option<&mut Value> {
+        match self {
+            Value::Object(ref mut map) => {
+                let upper = key.to_ascii_uppercase();
+                let map2 = map.clone();
+                let keys_found = map2.iter()
+                                            .filter(|(k, _)| k.to_ascii_uppercase() == upper)
+                                            .map(|(k,_)| k.as_str())
+                                            .collect::<Vec<_>>();
+                if keys_found.len() == 0 {
+                    None
+                } else {
+                    // 複数あった場合は完全一致を返す
+                    // 完全一致がなければ1つ目を返す
+                    if keys_found.contains(&key) {
+                        map.get_mut(key)
+                    } else {
+                        map.get_mut(keys_found[0])
                     }
                 }
             },

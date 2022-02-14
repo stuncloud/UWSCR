@@ -5,8 +5,6 @@ use crate::winapi::{
     get_ansi_length,
 };
 
-use std::sync::{Arc, Mutex};
-
 use regex::Regex;
 use strum_macros::{EnumString, EnumVariantNames};
 use num_derive::{ToPrimitive, FromPrimitive};
@@ -216,26 +214,32 @@ pub fn replace(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 
 pub fn tojson(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let prettify = args.get_as_bool(1, Some(false))?;
-    let f = if prettify {serde_json::to_string_pretty} else {serde_json::to_string};
-    let (u, p) = args.get_as_uobject(0)?;
-    let obj = match p {
-        None => {
-            u.lock().unwrap().clone()
-        },
-        Some(p) => {
-            u.lock().unwrap().pointer(p.as_str()).unwrap().clone()
-        }
-    };
-    f(&obj).map_or_else(
+    let to_string = if prettify {serde_json::to_string_pretty} else {serde_json::to_string};
+    let uo = args.get_as_uobject(0)?;
+    let value = uo.value();
+    to_string(&value).map_or_else(
         |e| Err(builtin_func_error(UErrorMessage::Any(e.to_string()), args.name())),
         |s| Ok(Object::String(s))
     )
+    // let (u, p) = args.get_as_uobject(0)?;
+    // let obj = match p {
+    //     None => {
+    //         u.lock().unwrap().clone()
+    //     },
+    //     Some(p) => {
+    //         u.lock().unwrap().pointer(p.as_str()).unwrap().clone()
+    //     }
+    // };
+    // f(&obj).map_or_else(
+    //     |e| Err(builtin_func_error(UErrorMessage::Any(e.to_string()), args.name())),
+    //     |s| Ok(Object::String(s))
+    // )
 }
 
 pub fn fromjson(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let json = args.get_as_string(0, None)?;
     serde_json::from_str::<serde_json::Value>(json.as_str()).map_or_else(
         |_| Ok(Object::Empty),
-        |v| Ok(Object::UObject(Arc::new(Mutex::new(v))))
+        |v| Ok(Object::UObject(UObject::new(v)))
     )
 }

@@ -44,6 +44,7 @@ use regex::Regex;
 use serde_json;
 use libffi::middle::{Cif, CodePtr, Type};
 use once_cell::sync::OnceCell;
+use serde_json::Value;
 
 pub static LOGPRINTWIN: OnceCell<Mutex<LogPrintWin>> = OnceCell::new();
 
@@ -1165,9 +1166,9 @@ impl Evaluator {
             },
             Expression::UObject(json) => {
                 // 文字列展開する
-                if let Object::String(s) = self.expand_string(json, true) {
-                    match serde_json::from_str::<serde_json::Value>(s.as_str()) {
-                        Ok(v) => Object::UObject(Arc::new(Mutex::new(v))),
+                if let Object::String(ref s) = self.expand_string(json, true) {
+                    match serde_json::from_str::<serde_json::Value>(s) {
+                        Ok(v) => Object::UObject(UObject::new(v)),
                         Err(e) => return Err(UError::new(
                             UErrorKind::UObjectError,
                             UErrorMessage::JsonParseError(format!("Error message: {}", e)),
@@ -1321,65 +1322,7 @@ impl Evaluator {
                     UErrorMessage::InvalidKeyOrIndex(format!("[{}, {}]", index, hash_enum.unwrap())),
                 ));
             } else {
-                let (value, pointer) = match index {
-                    Object::String(ref s) => {
-                        let v = u.lock().unwrap();
-                        let value = v.get_case_insensitive(s);
-                        (value, format!("/{}", s))
-                    },
-                    Object::Num(n) => {
-                        let v = u.lock().unwrap();
-                        let p = format!("/{}", n);
-                        match v.get(n as usize) {
-                            Some(v) => (Some(v.clone()), p),
-                            None => (None, p)
-                        }
-                    },
-                    _ => {
-                        return Err(UError::new(
-                            UErrorKind::UObjectError,
-                            UErrorMessage::InvalidIndex(index)
-                        ));
-                    }
-                };
-                if value.is_some() {
-                    self.eval_uobject(&value.unwrap(), Arc::clone(&u), pointer)?
-                } else {
-                    return Err(UError::new(
-                        UErrorKind::UObjectError,
-                        UErrorMessage::IndexOutOfBounds(index),
-                    ));
-                }
-            },
-            Object::UChild(u, p) => if hash_enum.is_some() {
-                return Err(UError::new(
-                    UErrorKind::UObjectError,
-                    UErrorMessage::InvalidKeyOrIndex(format!("[{}, {}]", index, hash_enum.unwrap()))
-                ));
-            } else {
-                let v = u.lock().unwrap().pointer(p.as_str()).unwrap_or(&serde_json::Value::Null).clone();
-                let (value, pointer) = match index {
-                    Object::String(ref s) => {
-                        (v.get(s), format!("{}/{}", p, s))
-                    },
-                    Object::Num(n) => {
-                        (v.get(n as usize), format!("{}/{}", p, n))
-                    },
-                    _ => {
-                        return Err(UError::new(
-                            UErrorKind::UObjectError,
-                            UErrorMessage::InvalidIndex(index),
-                        ));
-                    }
-                };
-                if value.is_some() {
-                    self.eval_uobject(&value.unwrap(), Arc::clone(&u), pointer)?
-                } else {
-                    return Err(UError::new(
-                        UErrorKind::UObjectError,
-                        UErrorMessage::IndexOutOfBounds(index),
-                    ));
-                }
+                self.eval_uobject(u, index)?
             },
             Object::ComMember(ref disp, ref member) => {
                 let key = index.to_variant()?;
@@ -1534,47 +1477,16 @@ impl Evaluator {
                                 }
                             },
                             // Value::Array
-                            Object::UObject(v) => if let Object::Num(n) = index {
+                            Object::UObject(uo) => {
                                 if let Expression::Identifier(Identifier(name)) = *right {
-                                    let i = n as usize;
-                                    match v.lock().unwrap().get_mut(name.as_str()) {
-                                        Some(serde_json::Value::Array(a)) => *a.get_mut(i).unwrap() = Self::object_to_serde_value(value)?,
-                                        Some(_) => return Err(UError::new(
-                                            UErrorKind::UObjectError,
-                                            UErrorMessage::NotAnArray(name.into())
-                                        )),
-                                        None => return Err(UError::new(
-                                            UErrorKind::UObjectError,
-                                            UErrorMessage::MemberNotFound(name),
-                                        )),
-                                    };
+                                    let new_value = Self::object_to_serde_value(value)?;
+                                    uo.set(index, new_value, Some(name))?;
+                                } else {
+                                    return Err(UError::new(
+                                        UErrorKind::AssignError,
+                                        UErrorMessage::SyntaxError
+                                    ));
                                 }
-                            } else {
-                                return Err(UError::new(
-                                    UErrorKind::UObjectError,
-                                    UErrorMessage::InvalidIndex(index)
-                                ));
-                            },
-                            Object::UChild(u, p) => if let Object::Num(n) = index {
-                                if let Expression::Identifier(Identifier(name)) = *right {
-                                    let i = n as usize;
-                                    match u.lock().unwrap().pointer_mut(p.as_str()).unwrap().get_mut(name.as_str()) {
-                                        Some(serde_json::Value::Array(a)) => *a.get_mut(i).unwrap() = Self::object_to_serde_value(value)?,
-                                        Some(_) => return Err(UError::new(
-                                            UErrorKind::UObjectError,
-                                            UErrorMessage::NotAnArray(name.into()),
-                                        )),
-                                        None => return Err(UError::new(
-                                            UErrorKind::UObjectError,
-                                            UErrorMessage::MemberNotFound(name),
-                                        )),
-                                    };
-                                }
-                            } else {
-                                return Err(UError::new(
-                                    UErrorKind::UObjectError,
-                                    UErrorMessage::InvalidIndex(index)
-                                ));
                             },
                             Object::ComObject(ref disp) => {
                                 if let Expression::Identifier(Identifier(member)) = *right {
@@ -1637,28 +1549,10 @@ impl Evaluator {
                         UErrorMessage::GlobalVariableNotFound(None),
                     ))
                 },
-                Object::UObject(v) => if let Expression::Identifier(Identifier(name)) = *right {
-                    match v.lock().unwrap().get_mut(name.as_str()) {
-                        Some(mut_v) => *mut_v = Self::object_to_serde_value(value)?,
-                        None => return Err(UError::new(
-                            UErrorKind::UObjectError,
-                            UErrorMessage::MemberNotFound(name)
-                        ))
-                    }
-                } else {
-                    return Err(UError::new(
-                        UErrorKind::UObjectError,
-                        UErrorMessage::SyntaxError,
-                    ));
-                },
-                Object::UChild(u, p) => if let Expression::Identifier(Identifier(name)) = *right {
-                    match u.lock().unwrap().pointer_mut(p.as_str()).unwrap().get_mut(name.as_str()) {
-                        Some(mut_v) => *mut_v = Self::object_to_serde_value(value)?,
-                        None => return Err(UError::new(
-                            UErrorKind::UObjectError,
-                            UErrorMessage::MemberNotFound(name)
-                        ))
-                    }
+                Object::UObject(uo) => if let Expression::Identifier(Identifier(name)) = *right {
+                    let index = Object::String(name);
+                    let new_value = Self::object_to_serde_value(value)?;
+                    uo.set(index, new_value, None)?;
                 } else {
                     return Err(UError::new(
                         UErrorKind::UObjectError,
@@ -1818,16 +1712,6 @@ impl Evaluator {
                 Ok(Object::Array(new))
             } else {
                 self.eval_infix_misc_expression(infix, left, right)
-            },
-            Object::UObject(v) => {
-                let value = v.lock().unwrap().clone();
-                let left = self.eval_uobject(&value, Arc::clone(&v), "/".into())?;
-                self.eval_infix_expression(infix, left, right)
-            },
-            Object::UChild(v, p) => {
-                let value = v.lock().unwrap().pointer(p.as_str()).unwrap_or(&serde_json::Value::Null).clone();
-                let left = self.eval_uobject(&value, Arc::clone(&v), p.to_string())?;
-                self.eval_infix_expression(infix, left, right)
             },
             _ => self.eval_infix_misc_expression(infix, left, right)
         }
@@ -2629,14 +2513,8 @@ impl Evaluator {
             "execute" => {
                 let script = get_arg(0).to_string();
                 let value = match get_arg(1) {
-                    Object::UObject(v) => {
-                        let v = v.lock().unwrap();
-                        Some(v.clone())
-                    },
-                    Object::UChild(v, p) => {
-                        let v = v.lock().unwrap();
-                        let c = v.pointer(&p).unwrap();
-                        Some(c.clone())
+                    Object::UObject(uo) => {
+                        Some(uo.value())
                     },
                     Object::Empty => None,
                     o => Some(Self::object_to_serde_value(o.to_owned())?)
@@ -2707,14 +2585,8 @@ impl Evaluator {
             "execute" => {
                 let script = get_arg(0).to_string();
                 let value = match get_arg(1) {
-                    Object::UObject(v) => {
-                        let v = v.lock().unwrap();
-                        Some(v.clone())
-                    },
-                    Object::UChild(v, p) => {
-                        let v = v.lock().unwrap();
-                        let c = v.pointer(&p).unwrap();
-                        Some(c.clone())
+                    Object::UObject(uo) => {
+                        Some(uo.value())
                     },
                     Object::Empty => None,
                     o => Some(Self::object_to_serde_value(o.to_owned())?)
@@ -2855,31 +2727,7 @@ impl Evaluator {
                 UErrorMessage::ClassMemberCannotBeCalledDirectly(name)
             )),
             Object::UObject(u) => {
-                let opt = {
-                    let m = u.lock().unwrap();
-                    m.get_case_insensitive(&member)
-                };
-                match opt {
-                    Some(v) => self.eval_uobject(&v, Arc::clone(&u), format!("/{}", member)),
-                    None => Err(UError::new(
-                        UErrorKind::UObjectError,
-                        UErrorMessage::MemberNotFound(member)
-                    )),
-                }
-            },
-            Object::UChild(u,p) => {
-                let opt = {
-                    let m = u.lock().unwrap();
-                    let p = m.pointer(&p).unwrap();
-                    p.get_case_insensitive(&member)
-                };
-                match opt {
-                    Some(v) => self.eval_uobject(&v, Arc::clone(&u), format!("{}/{}", p, member)),
-                    None => Err(UError::new(
-                        UErrorKind::UObjectError,
-                        UErrorMessage::MemberNotFound(member)
-                    ))
-                }
+                self.eval_uobject(&u, member.into())
             },
             Object::Enum(e) => {
                 if let Some(n) = e.get(&member) {
@@ -2951,23 +2799,32 @@ impl Evaluator {
         }
     }
 
-    // UObject
-    fn eval_uobject(&self, v: &serde_json::Value, top: Arc<Mutex<serde_json::Value>>, pointer: String) -> EvalResult<Object> {
-        let o = match v {
-            serde_json::Value::Null => Object::Null,
-            serde_json::Value::Bool(b) => Object::Bool(*b),
-            serde_json::Value::Number(n) => match n.as_f64() {
-                Some(f) => Object::Num(f),
-                None => return Err(UError::new(
-                    UErrorKind::UObjectError,
-                    UErrorMessage::CanNotConvertToNumber(n.clone())
-                )),
+    fn eval_uobject(&self, uobject: &UObject, index: Object) -> EvalResult<Object> {
+        let o = match uobject.get(&index)? {
+            Some(value) => match value {
+                Value::Null => Object::Null,
+                Value::Bool(b) => Object::Bool(b),
+                Value::Number(n) => match n.as_f64() {
+                    Some(f) => Object::Num(f),
+                    None => return Err(UError::new(
+                        UErrorKind::UObjectError,
+                        UErrorMessage::CanNotConvertToNumber(n.clone())
+                    )),
+                },
+                Value::String(s) => {
+                    self.expand_string(s.clone(), true)
+                },
+                Value::Array(_) |
+                Value::Object(_) => {
+                    let pointer = uobject.pointer(Some(index)).unwrap();
+                    let new_obj = uobject.clone_with_pointer(pointer);
+                    Object::UObject(new_obj)
+                },
             },
-            serde_json::Value::String(s) => {
-                self.expand_string(s.clone(), true)
-            },
-            serde_json::Value::Array(_) |
-            serde_json::Value::Object(_) => Object::UChild(top, pointer),
+            None => return Err(UError::new(
+                UErrorKind::UObjectError,
+                UErrorMessage::InvalidMemberOrIndex(index.to_string()),
+            )),
         };
         Ok(o)
     }
@@ -2978,8 +2835,7 @@ impl Evaluator {
             Object::Bool(b) => serde_json::Value::Bool(b),
             Object::Num(n) => serde_json::Value::Number(serde_json::Number::from_f64(n).unwrap()),
             Object::String(ref s) => serde_json::Value::String(s.clone()),
-            Object::UObject(u) => u.lock().unwrap().clone(),
-            Object::UChild(u, p) => u.lock().unwrap().pointer(p.as_str()).unwrap().clone(),
+            Object::UObject(ref u) => u.value(),
             o => return Err(UError::new(
                 UErrorKind::UObjectError,
                 UErrorMessage::CanNotConvertToUObject(o)
@@ -4566,6 +4422,14 @@ dim obj = @{
             (
                 "obj.bar.qux[0]",
                 Ok(Some(Object::Num(3.0)))
+            ),
+            (
+                "obj.foo = 2; obj.foo",
+                Ok(Some(Object::Num(2.0)))
+            ),
+            (
+                "obj.bar.qux[1] = 9; obj.bar.qux[1]",
+                Ok(Some(Object::Num(9.0)))
             ),
         ];
         for (input, expected) in test_cases {

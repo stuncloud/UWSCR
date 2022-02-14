@@ -356,7 +356,7 @@ pub fn wmi_query(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         .into_iter()
         .map(|m| {
             let value = Value::Object(m);
-            Object::UObject(Arc::new(Mutex::new(value)))
+            Object::UObject(UObject::new(value))
         })
         .collect();
     Ok(Object::Array(obj))

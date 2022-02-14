@@ -252,8 +252,7 @@ impl Evaluator {
                 _ => {}
             },
             ParamType::UObject => match obj {
-                Object::UObject(_) |
-                Object::UChild(_,_) => return Ok(()),
+                Object::UObject(_) => return Ok(()),
                 _ => {}
             },
             ParamType::UserDefinition(ref name) => match obj {
