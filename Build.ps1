@@ -7,7 +7,8 @@ param(
     [switch] $Installer,
     [switch] $Schema,
     [ValidateSet("x64","x86")]
-    [string[]] $Architecture = @("x64","x86")
+    [string[]] $Architecture = @("x64","x86"),
+    [switch] $Checkimg
 )
 
 # リリースビルドの場合vcのライブラリをスタティックリンクする
@@ -17,11 +18,17 @@ if ($Release) {
     $env:RUSTFLAGS=''
 }
 
+if ($Checkimg -and "x86" -in $Architecture) {
+    Write-Error "chkimg版はx86未対応です"
+    break
+}
+
 # ビルド
 if ((! $Installer -and ! $Schema) -or ($Release -and $Installer)) {
     if ("x64" -in $Architecture) {
         # build x64 exe
         $cmd = 'cargo build {0}' -f $(if ($Release) {'--release'})
+        if ($Checkimg) {$cmd += " --features chkimg"}
         Invoke-Expression -Command $cmd
     }
     if ("x86" -in $Architecture) {
@@ -74,13 +81,13 @@ function Out-UWSCR {
             $Version = Get-BinaryVersion -BinPath $BinPath
         }
         $Arch = $x64 ? "x64": "x86"
+        if ($Checkimg) {$Arch += "_chkimg"}
         $verpath = Join-Path -Path $OutDir -ChildPath $Version
         $ArchDir = Join-Path -Path $verpath -ChildPath $Arch
-        if (! (Test-Path $verpath)) {
-            mkdir $verpath | ForEach-Object {
-                mkdir $ArchDir | Out-Null
-            }
-        }
+        mkdir $verpath -Force | Out-Null
+        mkdir $ArchDir -Force | Out-Null
+
+        Write-Verbose $ArchDir
         $BinPath | Copy-Item -Destination $ArchDir
         $ZipPath = Join-Path -Path $verpath -ChildPath "UWSCR$Arch.zip"
         Get-ChildItem $BinPath | Compress-Archive -DestinationPath $ZipPath -Force
@@ -116,7 +123,9 @@ if ($Installer) {
         }
         # cargo wix --nocapture
         candle -dProfile=release -dVersion="${Version}" -dPlatform=x64 -ext WixUtilExtension -o target/wix/x64.wixobj wix/x64.wxs -nologo | Out-Null
-        $msipath = ".release/${Version}/uwscr-${Version}-x64.msi"
+        $msipath = $Checkimg ?
+                    ".release/${Version}/uwscr-${Version}-chkimg-x64.msi" :
+                    ".release/${Version}/uwscr-${Version}-x64.msi"
         light -spdb -ext WixUIExtension -ext WixUtilExtension -cultures:ja-JP -out $msipath target/wix/x64.wixobj -nologo | Out-Null
         Get-Item $msipath
     }

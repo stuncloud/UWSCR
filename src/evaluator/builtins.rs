@@ -7,8 +7,9 @@ pub mod key_codes;
 pub mod com_object;
 pub mod browser_control;
 pub mod array_control;
-pub mod chkimg;
 pub mod dialog;
+#[cfg(feature="chkimg")]
+pub mod chkimg;
 
 use crate::settings::usettings_singleton;
 use crate::winapi::{

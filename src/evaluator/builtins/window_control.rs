@@ -2,8 +2,9 @@ use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
 use crate::evaluator::builtins::window_low;
 use crate::evaluator::builtins::system_controls::is_64bit_os;
-use crate::settings::usettings_singleton;
+#[cfg(feature="chkimg")]
 use crate::evaluator::builtins::chkimg::{ChkImg, ScreenShot};
+
 use windows::{
     Win32::{
         Foundation::{
@@ -138,6 +139,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("status", 22, status);
     sets.add("acw", 6, acw);
     sets.add("monitor", 2, monitor);
+    #[cfg(feature="chkimg")]
     sets.add("chkimg", 7, chkimg);
     sets
 }
@@ -973,6 +975,7 @@ pub fn monitor(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(Object::Num(value as f64))
 }
 
+#[cfg(feature="chkimg")]
 pub fn chkimg(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let save_ss = {
         let singleton = usettings_singleton(None);
