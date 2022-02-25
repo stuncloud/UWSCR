@@ -37,7 +37,7 @@ pub use windows::{
                 LoadIconW, LoadCursorW,
                 DefWindowProcW, DefDlgProcW,
                 SendMessageW, GetMessageW, TranslateMessage, DispatchMessageW, PostMessageW,
-                SetWindowLongPtrW, CallWindowProcW,
+                CallWindowProcW,
                 GetClassInfoExW, SetWindowPos, MoveWindow,
                 GetSystemMetrics, SM_CXSIZEFRAME, SM_CYSIZEFRAME, SM_CXSCREEN, SM_CYSCREEN,
                 GetWindowRect, GetClientRect, FindWindowExW, GetDlgItem, GetDlgCtrlID,
@@ -62,6 +62,7 @@ pub use windows::{
         },
     }
 };
+
 pub use once_cell::sync::OnceCell;
 
 type WindowProc = unsafe extern "system" fn(hwnd: HWND, umsg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT;
@@ -203,8 +204,18 @@ impl Window {
     }
     fn set_subclass(hwnd: HWND, proc: WindowProc) {
         unsafe {
-            let dwnewlong = proc as *const WindowProc as isize;
-            SetWindowLongPtrW(hwnd, GWLP_WNDPROC, dwnewlong);
+            #[cfg(target_arch="x86_64")]
+            {
+                use windows::Win32::UI::WindowsAndMessaging::SetWindowLongPtrW;
+                let dwnewlong = proc as *const WindowProc as isize;
+                SetWindowLongPtrW(hwnd, GWLP_WNDPROC, dwnewlong);
+            }
+            #[cfg(target_arch="x86")]
+            {
+                use windows::Win32::UI::WindowsAndMessaging::SetWindowLongW;
+                let dwnewlong = proc as *const WindowProc as i32;
+                SetWindowLongW(hwnd, GWLP_WNDPROC, dwnewlong);
+            }
         }
     }
     fn _send_message(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
