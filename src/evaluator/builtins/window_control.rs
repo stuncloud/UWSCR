@@ -6,10 +6,11 @@ use crate::evaluator::builtins::system_controls::is_64bit_os;
 use crate::evaluator::builtins::chkimg::{ChkImg, ScreenShot};
 
 use windows::{
+    core::{PCWSTR},
     Win32::{
         Foundation::{
             MAX_PATH,
-            PWSTR, BOOL, HANDLE, HINSTANCE,
+            BOOL, HANDLE, HINSTANCE,
             HWND, WPARAM, LPARAM, POINT, RECT,
             CloseHandle,
         },
@@ -227,11 +228,11 @@ fn enum_window_proc(hwnd: HWND, lparam: LPARAM) -> BOOL {
     // let target = &mut *(lparam as *mut TargetWindow) as &mut TargetWindow;
     let target = &mut *(lparam.0 as *mut TargetWindow);
 
-    let len = GetWindowTextW(hwnd, PWSTR(title_buffer.as_mut_ptr()), title_buffer.len() as i32);
+    let len = GetWindowTextW(hwnd, &mut title_buffer);
     let title = String::from_utf16_lossy(&title_buffer[..len as usize]);
     match title.to_ascii_lowercase().find(target.title.to_ascii_lowercase().as_str()) {
         Some(_) => {
-            let len = GetClassNameW(hwnd, PWSTR(class_buffer.as_mut_ptr()), class_buffer.len() as i32);
+            let len = GetClassNameW(hwnd, &mut class_buffer);
             let class = String::from_utf16_lossy(&class_buffer[..len as usize]);
 
             match class.to_ascii_lowercase().find(target.class_name.to_ascii_lowercase().as_str()) {
@@ -607,7 +608,7 @@ fn get_client_size(h: HWND) -> WindowSize {
     unsafe {
         GetClientRect(h, &mut rect);
         let mut point = POINT {x: rect.left, y: rect.top};
-        MapWindowPoints(h, HWND::default(), &mut point, 1);
+        MapWindowPoints(h, HWND::default(), &mut [point]);
         WindowSize(
             point.x,
             point.y,
@@ -620,7 +621,7 @@ fn get_client_size(h: HWND) -> WindowSize {
 fn get_window_text(hwnd: HWND) -> BuiltinFuncResult {
     unsafe {
         let mut buffer = [0; MAX_NAME_SIZE];
-        let len = GetWindowTextW(hwnd, PWSTR(buffer.as_mut_ptr()), buffer.len() as i32);
+        let len = GetWindowTextW(hwnd, &mut buffer);
         let s = String::from_utf16_lossy(&buffer[..len as usize]);
         Ok(Object::String(s))
     }
@@ -629,7 +630,7 @@ fn get_window_text(hwnd: HWND) -> BuiltinFuncResult {
 fn get_class_name(hwnd: HWND) -> BuiltinFuncResult {
     unsafe {
         let mut buffer = [0; MAX_NAME_SIZE];
-        GetClassNameW(hwnd, PWSTR(buffer.as_mut_ptr()), buffer.len() as i32);
+        GetClassNameW(hwnd, &mut buffer);
         let name = String::from_utf16_lossy(&buffer);
         Ok(Object::String(name))
     }
@@ -691,7 +692,7 @@ fn get_process_path_from_hwnd(hwnd: HWND) -> BuiltinFuncResult {
     let mut buffer = [0; MAX_PATH as usize];
     unsafe {
         let handle = get_process_handle_from_hwnd(hwnd);
-        K32GetModuleFileNameExW(handle, HINSTANCE::default(), PWSTR(buffer.as_mut_ptr()), MAX_PATH);
+        K32GetModuleFileNameExW(handle, HINSTANCE::default(), &mut buffer);
         CloseHandle(handle);
     }
     let path = String::from_utf16_lossy(&buffer);
@@ -918,8 +919,7 @@ fn get_monitor_name(name: &[u16]) -> Object {
     let mut dd = DISPLAY_DEVICEW::default();
     dd.cb = mem::size_of::<DISPLAY_DEVICEW>() as u32;
     unsafe {
-        let p = name.as_ptr() as *mut _;
-        EnumDisplayDevicesW(PWSTR(p), 0, &mut dd, 0);
+        EnumDisplayDevicesW(PCWSTR(name.as_ptr()), 0, &mut dd, 0);
     }
     Object::String(
         String::from_utf16_lossy(&dd.DeviceString)

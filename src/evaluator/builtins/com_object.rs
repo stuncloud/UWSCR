@@ -3,22 +3,18 @@ use crate::evaluator::builtins::*;
 use crate::evaluator::com_object::{VARIANTHelper, SAFEARRAYHelper};
 use crate::evaluator::UError;
 use crate::settings::usettings_singleton;
-use crate::winapi::{
-    to_wide_string,
-};
-use windows::Win32::{
-    Foundation::{
-        PWSTR
-    },
-    System::{
-        Com::{
-            CLSCTX_ALL,
-            SAFEARRAY, IDispatch,
-            CLSIDFromProgID, CoCreateInstance,
-        },
-        Ole::{
-            VARENUM,
-            GetActiveObject,
+use windows::{
+    Win32::{
+        System::{
+            Com::{
+                CLSCTX_ALL,
+                SAFEARRAY, IDispatch,
+                CLSIDFromProgID, CoCreateInstance,
+            },
+            Ole::{
+                VARENUM,
+                GetActiveObject,
+            }
         }
     }
 };
@@ -90,9 +86,8 @@ fn createoleobj(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 }
 
 fn create_instance(prog_id: &str) -> BuiltInResult<IDispatch> {
-    let mut wide = to_wide_string(prog_id);
     let obj: IDispatch = unsafe {
-        let rclsid = CLSIDFromProgID(PWSTR(wide.as_mut_ptr()))?;
+        let rclsid = CLSIDFromProgID(prog_id)?;
         CoCreateInstance(&rclsid, None, CLSCTX_ALL)?
     };
     Ok(obj)
@@ -110,9 +105,8 @@ fn getactiveoleobj(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 }
 
 fn get_active_object(prog_id: &str) -> BuiltInResult<Option<IDispatch>> {
-    let mut wide = to_wide_string(prog_id);
     let obj = unsafe {
-        let rclsid = CLSIDFromProgID(PWSTR(wide.as_mut_ptr()))?;
+        let rclsid = CLSIDFromProgID(prog_id)?;
         let pvreserved = ptr::null_mut() as *mut c_void;
         let mut ppunk = None;
         GetActiveObject(&rclsid, pvreserved, &mut ppunk)?;

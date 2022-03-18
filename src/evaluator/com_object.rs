@@ -1,8 +1,9 @@
 use crate::winapi::{
     to_wide_string,
 };
+use windows::core::{PWSTR};
 use windows::Win32::{
-    Foundation::{PWSTR, BSTR, DISP_E_MEMBERNOTFOUND},
+    Foundation::{BSTR, DISP_E_MEMBERNOTFOUND},
     System::{
         Com::{
         //     COINIT_APARTMENTTHREADED, CLSCTX_ALL,
@@ -289,10 +290,9 @@ impl IDispatchHelper for IDispatch {
             let mut dispidmember = 0;
             self.GetIDsOfNames(
                 &windows::core::GUID::default(),
-                &mut PWSTR(member.as_mut_ptr()),
+                &[PWSTR(member.as_mut_ptr())],
                 1,
-                LOCALE_USER_DEFAULT,
-                &mut dispidmember
+                &mut [dispidmember]
             )?;
 
             let mut excepinfo = EXCEPINFO::default();
