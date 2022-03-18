@@ -1,7 +1,8 @@
 use windows::{
+    core::{PSTR, PCSTR},
     Win32::{
         Foundation:: {
-            MAX_PATH, PWSTR, PSTR, HWND
+            MAX_PATH, HWND
         },
         System::{
             SystemInformation::{
@@ -44,15 +45,14 @@ use std::os::windows::ffi::OsStrExt;
 
 pub fn to_ansi_bytes(string: &str) -> Vec<u8> {
     unsafe {
-        let mut wide = to_wide_string(string);
+        let wide = to_wide_string(string);
         let len = WideCharToMultiByte(
             CP_ACP,
             WC_COMPOSITECHECK,
-            PWSTR(wide.as_mut_ptr()),
-            wide.len() as i32,
+            &wide,
             PSTR::default(),
             0,
-            PSTR::default(),
+            PCSTR::default(),
             &mut 0
         );
         if len > 0 {
@@ -61,11 +61,10 @@ pub fn to_ansi_bytes(string: &str) -> Vec<u8> {
             WideCharToMultiByte(
                 CP_ACP,
                 WC_COMPOSITECHECK,
-                PWSTR(wide.as_mut_ptr()),
-                wide.len() as i32,
+                &wide,
                 PSTR(result.as_mut_ptr()),
                 result.len() as i32,
-                PSTR::default(),
+                PCSTR::default(),
                 &mut 0
             );
             result
@@ -77,15 +76,14 @@ pub fn to_ansi_bytes(string: &str) -> Vec<u8> {
 
 pub fn get_ansi_length(string: &str) -> usize {
     unsafe {
-        let mut wide = to_wide_string(string);
+        let wide = to_wide_string(string);
         let len = WideCharToMultiByte(
             CP_ACP,
             WC_COMPOSITECHECK,
-            PWSTR(wide.as_mut_ptr()),
-            wide.len() as i32,
+            &wide,
             PSTR::default(),
             0,
-            PSTR::default(),
+            PCSTR::default(),
             &mut 0
         );
         len as usize - 1
@@ -94,15 +92,12 @@ pub fn get_ansi_length(string: &str) -> usize {
 
 pub fn from_ansi_bytes(ansi: &Vec<u8>) -> String {
     unsafe {
-        let mut ansi = ansi.clone();
-        let ansi_pointer = ansi.as_mut_ptr();
+        let ansi = ansi.clone();
         let len = MultiByteToWideChar(
             CP_ACP,
             MB_PRECOMPOSED,
-            PSTR(ansi_pointer),
-            ansi.len() as i32,
-            PWSTR::default(),
-            0
+            &ansi,
+            &mut vec![]
         );
         if len > 0 {
             let mut wide: Vec<u16> = Vec::with_capacity(len as usize);
@@ -110,10 +105,8 @@ pub fn from_ansi_bytes(ansi: &Vec<u8>) -> String {
             MultiByteToWideChar(
                 CP_ACP,
                 MB_PRECOMPOSED,
-                PSTR(ansi_pointer),
-                ansi.len() as i32,
-                PWSTR(wide.as_mut_ptr()),
-                wide.len() as i32
+                &ansi,
+                &mut wide
             );
             String::from_utf16_lossy(&wide)
         } else {
@@ -123,14 +116,14 @@ pub fn from_ansi_bytes(ansi: &Vec<u8>) -> String {
 }
 
 pub fn to_wide_string(string: &str) -> Vec<u16> {
-    let result = OsStr::new(string).encode_wide().chain(Some(0).into_iter()).collect::<Vec<_>>();
+    let result = OsStr::new(string).encode_wide().chain(std::iter::once(0)).collect::<Vec<_>>();
     result
 }
 
 pub fn get_system_directory() -> String {
     let mut buffer = [0; MAX_PATH as usize];
     unsafe {
-        GetSystemDirectoryW(PWSTR(buffer.as_mut_ptr()), buffer.len() as u32);
+        GetSystemDirectoryW(&mut buffer);
     }
     String::from_utf16_lossy(&buffer)
 }
@@ -138,7 +131,7 @@ pub fn get_system_directory() -> String {
 pub fn get_windows_directory() -> String {
     let mut buffer = [0; MAX_PATH as usize];
     unsafe {
-        GetWindowsDirectoryW(PWSTR(buffer.as_mut_ptr()), buffer.len() as u32);
+        GetWindowsDirectoryW(&mut buffer);
     }
     String::from_utf16_lossy(&buffer)
 }
@@ -146,7 +139,7 @@ pub fn get_windows_directory() -> String {
 pub fn get_special_directory(csidl: i32) -> String {
     let mut buffer = [0; MAX_PATH as usize];
     unsafe {
-        SHGetSpecialFolderPathW(HWND::default(), PWSTR(buffer.as_mut_ptr()), csidl, false);
+        SHGetSpecialFolderPathW(HWND::default(), &mut buffer, csidl, false);
     }
     String::from_utf16_lossy(&buffer).trim_matches(char::from(0)).to_string()
 }

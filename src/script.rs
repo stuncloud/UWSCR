@@ -10,9 +10,10 @@ use crate::winapi::{
     to_wide_string, attach_console, free_console,
 };
 use windows::{
+    core::{PWSTR, PCWSTR},
     Win32::{
         Foundation::{
-            MAX_PATH, PWSTR,
+            MAX_PATH,
         },
         Storage::{
             FileSystem::{
@@ -126,10 +127,10 @@ pub fn out_ast(script: String, path: &String) -> Result<(String, Option<String>)
 
 pub fn get_parent_full_path(path: &String) -> Result<PathBuf, String> {
     let mut buffer = [0; MAX_PATH as usize];
-    let mut file = to_wide_string(path);
+    let file = to_wide_string(path);
     let mut filepart = PWSTR::default();
     unsafe {
-        GetFullPathNameW(PWSTR(file.as_mut_ptr()), buffer.len() as u32, PWSTR(buffer.as_mut_ptr()), &mut filepart);
+        GetFullPathNameW(PCWSTR(file.as_ptr()), &mut buffer, &mut filepart);
     }
     let full_path = String::from_utf16_lossy(&buffer);
     Ok(Path::new(full_path.as_str()).parent().unwrap().to_owned())

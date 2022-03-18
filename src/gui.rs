@@ -5,11 +5,14 @@ pub use input::*;
 pub mod print;
 pub use print::*;
 
+use crate::winapi::to_wide_string;
+
 pub use windows::{
+    core::{PWSTR, PCWSTR},
     Win32::{
         Foundation::{
             HWND,WPARAM,LPARAM,LRESULT,
-            PWSTR, HINSTANCE, SIZE, BOOL, RECT, POINT,
+            HINSTANCE, SIZE, BOOL, RECT, POINT,
         },
         UI::{
             WindowsAndMessaging::{
@@ -111,7 +114,7 @@ impl Window {
     #[allow(non_snake_case)]
     fn register_class(class_name: &str, wndproc: WNDPROC, color: Option<SYS_COLOR_INDEX>) -> u16 {
         unsafe {
-            let mut wide = format!("{}\0", class_name).encode_utf16().collect::<Vec<u16>>(); // null終端
+            let wide = to_wide_string(class_name);
             let hInstance = HINSTANCE::default();
             let hbrBackground = match color {
                 Some(index) => HBRUSH(index.0 as isize),
@@ -127,8 +130,8 @@ impl Window {
                 hIcon: LoadIconW(hInstance, IDI_APPLICATION),
                 hCursor: LoadCursorW(hInstance, IDC_ARROW),
                 hbrBackground,
-                lpszMenuName: PWSTR::default(),
-                lpszClassName: PWSTR(wide.as_mut_ptr()),
+                lpszMenuName: PCWSTR::default(),
+                lpszClassName: PCWSTR(wide.as_ptr()),
                 hIconSm: LoadIconW(hInstance, IDI_APPLICATION),
             };
             let n = RegisterClassExW(&wc);
@@ -286,7 +289,7 @@ impl Window {
     fn get_string_size(str: &str, hwnd: HWND, font: Option<HFONT>) -> SIZE {
         unsafe {
             let mut size = SIZE::default();
-            let mut wide = str.encode_utf16().collect::<Vec<_>>();
+            let wide = to_wide_string(str);
             let hdc = GetDC(hwnd);
             let oldobj = if let Some(hfont) = font {
                 let obj = SelectObject(hdc, hfont);
@@ -294,7 +297,7 @@ impl Window {
             } else {
                 None
             };
-            GetTextExtentPoint32W(hdc, PWSTR(wide.as_mut_ptr()), wide.len() as i32, &mut size);
+            GetTextExtentPoint32W(hdc, &wide, &mut size);
             if let Some(obj) = oldobj {
                 SelectObject(hdc, obj);
             }
@@ -382,7 +385,7 @@ impl Window {
             let mut buf: Vec<u16> = Vec::with_capacity(nmaxcount as usize);
             buf.set_len(nmaxcount as usize);
             // buf.resize(nmaxcount as usize, 0);
-            GetWindowTextW(hwnd, PWSTR(buf.as_mut_ptr()), nmaxcount);
+            GetWindowTextW(hwnd, &mut buf);
             String::from_utf16_lossy(&buf)
                 .trim_end_matches('\0').to_string()
         }
