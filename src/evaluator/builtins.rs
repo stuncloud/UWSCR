@@ -105,6 +105,12 @@ impl BuiltinFuncArgs {
     pub fn item(&self, i: usize) -> Object {
         self.arguments.get(i).map(|o| o.1.clone()).unwrap_or_default()
     }
+    fn split_off(&self, at: usize) -> Vec<Object> {
+        self.arguments.clone().split_off(at)
+            .into_iter()
+            .map(|(_, o)| o)
+            .collect()
+    }
     pub fn len(&self) -> usize {
         self.arguments.len()
     }
@@ -323,6 +329,34 @@ impl BuiltinFuncArgs {
             }
         })
     }
+    /// i32として受ける、文字列をパースしない
+    pub fn get_as_i32(&self, i: usize) -> BuiltInResult<i32> {
+        get_arg_value!(self,i, {
+            let arg = self.item(i);
+            match arg {
+                Object::Num(n) => Ok(n as i32),
+                _ => Err(builtin_func_error(UErrorMessage::BuiltinArgInvalid(arg), self.name()))
+            }
+        })
+    }
+    /// 残りの引数を文字列の配列として受ける
+    pub fn get_rest_as_string_array(&self, i: usize) -> BuiltInResult<Vec<String>> {
+        get_arg_value!(self, i, {
+            let vec = self.split_off(i)
+                .into_iter()
+                .map(|o| match o {
+                    Object::Array(vec) => vec.into_iter()
+                            .map(|o| o.to_string())
+                            .collect(),
+                    Object::Empty|
+                    Object::EmptyParam => {vec![]},
+                    o => vec![o.to_string()]
+                })
+                .flatten()
+                .collect();
+            Ok(vec)
+        })
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -406,6 +440,14 @@ pub fn init_builtins() -> Vec<NamedObject> {
     array_control::builtin_func_sets().set(&mut vec);
     // dialog.rs
     set_builtin_consts::<dialog::BtnConst>(&mut vec);
+    set_builtin_consts::<dialog::SlctConst>(&mut vec);
+    // SLCT_* 定数
+    for n in 1..=31_u32 {
+        let val = 2_i32.pow(n-1);
+        let object = val.into();
+        let name = format!("SLCT_{}",n);
+        vec.push(NamedObject::new_builtin_const(name, object))
+    }
     dialog::builtin_func_sets().set(&mut vec);
     // 特殊変数
     set_special_variables(&mut vec);

@@ -8,6 +8,8 @@ use crate::gui::{
     FontFamily,
     Msgbox, MsgBoxButton,
     InputBox, InputField,
+    Slctbox, SlctReturnValue,
+    PopupMenu,
 };
 
 use std::sync::Mutex;
@@ -23,6 +25,7 @@ static FONT_FAMILY: Lazy<FontFamily> = Lazy::new(|| {
 });
 static MSGBOX_POINT: Lazy<Mutex<(Option<i32>, Option<i32>)>> = Lazy::new(|| Mutex::new((None, None)));
 static INPUT_POINT: Lazy<Mutex<(Option<i32>, Option<i32>)>> = Lazy::new(|| Mutex::new((None, None)));
+static SLCTBOX_POINT: Lazy<Mutex<(Option<i32>, Option<i32>)>> = Lazy::new(|| Mutex::new((None, None)));
 static DIALOG_TITLE: Lazy<String> = Lazy::new(|| {
     let singleton = usettings_singleton(None);
     let settings = singleton.0.lock().unwrap();
@@ -52,6 +55,8 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("msgbox", 6, msgbox);
     sets.add("input", 5, input);
     sets.add("logprint", 5, logprint);
+    sets.add("slctbox", 34, slctbox);
+    sets.add("popupmenu", 3, popupmenu);
     sets
 }
 
@@ -182,4 +187,95 @@ pub fn input(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         Err(e) => Err(builtin_func_error(UWindowError(e), args.name())),
     }
 
+}
+
+#[allow(non_camel_case_types)]
+#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive)]
+pub enum SlctConst {
+    SLCT_BTN = 1,
+    SLCT_CHK = 2,
+    SLCT_RDO = 4,
+    SLCT_CMB = 8,
+    SLCT_LST = 16,
+    SLCT_STR = 64,
+    SLCT_NUM = 128,
+}
+
+pub fn slctbox(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    // 第一引数: 種別と戻り値型
+    let n = args.get_as_int(0, None)?;
+    let (r#type, option) = Slctbox::convert_to_type_and_option(n);
+    // 第二引数: タイマー秒数
+    let wait = args.get_as_int(1, None)?;
+    // 第三引数・第四引数: いずれも数値なら座標
+    let mut x = args.get_as_i32(2).ok();
+    let mut y = args.get_as_i32(3).ok();
+    let msg_index = match (x, y) {
+        (None, None) => 2,
+        (None, Some(_)) => {y = None; 2},
+        (Some(_), None) => {x = None; 2},
+        (Some(_), Some(_)) => 4,
+    };
+    let message = args.get_as_string_or_empty(msg_index, Some(None))?;
+    // 残りの引数を文字列の配列として受ける
+    let items = args.get_rest_as_string_array(msg_index + 1)?;
+
+    // 表示位置の決定
+    let pos_x = match x {
+        Some(-1) => SLCTBOX_POINT.lock().unwrap().0,
+        Some(n) => Some(n),
+        None => None
+    };
+    let pos_y = match y {
+        Some(-1) => SLCTBOX_POINT.lock().unwrap().1,
+        Some(n) => Some(n),
+        None => None
+    };
+
+    let font = FONT_FAMILY.clone();
+    let title = DIALOG_TITLE.as_str();
+    let slct = match Slctbox::new(title, message, r#type, option, items, font, wait, pos_x, pos_y) {
+        Ok(slct) => slct,
+        Err(e) => return Err(builtin_func_error(UWindowError(e), args.name())),
+    };
+    slct.show();
+    let (ret, left, top) = match slct.message_loop() {
+        Ok(ret) => ret,
+        Err(e) => return Err(builtin_func_error(UWindowError(e), args.name())),
+    };
+    set_dlg_point(left, top, &SLCTBOX_POINT);
+    let obj = match ret {
+        SlctReturnValue::Const(n) |
+        SlctReturnValue::Index(n) => n.into(),
+        SlctReturnValue::String(s) => s.into(),
+        SlctReturnValue::Multi(vec) => {
+            let vec = vec.into_iter()
+                .map(|v| match v {
+                    SlctReturnValue::Const(n) |
+                    SlctReturnValue::Index(n) => n.into(),
+                    SlctReturnValue::String(s) => s.into(),
+                    _ => (-1).into()
+                })
+                .collect();
+            Object::Array(vec)
+        },
+        SlctReturnValue::Cancel => (-1).into(),
+    };
+    Ok(obj)
+}
+
+pub fn popupmenu(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let list = args.get_as_array(0, None)?;
+    let x = args.get_as_int_or_empty(1, Some(None))?;
+    let y = args.get_as_int_or_empty(2, Some(None))?;
+    let popup = PopupMenu::new(list);
+    let selected = match popup.show(x, y) {
+        Ok(s) => s,
+        Err(e) => return Err(builtin_func_error(UWindowError(e), args.name())),
+    };
+    let obj = match selected {
+        Some(s) => Object::String(s),
+        None => Object::Empty,
+    };
+    Ok(obj)
 }

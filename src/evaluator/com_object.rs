@@ -217,7 +217,7 @@ impl Object {
 
 /* IDispatchの拡張 */
 
-const LOCALE_USER_DEFAULT: u32 = 0x0400;
+// const LOCALE_USER_DEFAULT: u32 = 0x0400;
 const LOCALE_SYSTEM_DEFAULT: u32 = 0x0800;
 type ComResult<T> = Result<T, ComError>;
 
@@ -287,7 +287,7 @@ impl IDispatchHelper for IDispatch {
     fn invoke_wrapper(&self, name: &str, dp: *mut DISPPARAMS, wflags: u16) -> ComResult<VARIANT> {
         unsafe {
             let mut member: Vec<u16> = to_wide_string(name);
-            let mut dispidmember = 0;
+            let dispidmember = 0;
             self.GetIDsOfNames(
                 &windows::core::GUID::default(),
                 &[PWSTR(member.as_mut_ptr())],

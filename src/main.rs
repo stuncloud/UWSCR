@@ -17,9 +17,11 @@ use uwscr::settings::{
     out_default_setting_file, out_json_schema_file
 };
 use uwscr::winapi::{attach_console,alloc_console,free_console,show_message};
+use uwscr::gui::MainWin;
 
 fn main() {
     let args = Args::new();
+    let _ = MainWin::new(&args.version);
     match args.get() {
         Ok(m) => match m {
             Mode::Help => args.help(None),

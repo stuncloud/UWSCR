@@ -1,9 +1,15 @@
+pub mod mainwin;
+pub use mainwin::*;
 pub mod msgbox;
 pub use msgbox::*;
 pub mod input;
 pub use input::*;
 pub mod print;
 pub use print::*;
+pub mod slctbox;
+pub use slctbox::*;
+pub mod popupmenu;
+pub use popupmenu::*;
 
 use crate::winapi::to_wide_string;
 
@@ -19,7 +25,7 @@ pub use windows::{
                 WNDCLASSEXW, WNDPROC, MSG, HMENU,
                 HICON, HCURSOR, SYS_COLOR_INDEX,
                 IDI_APPLICATION, IDI_ASTERISK, IDC_ARROW,
-                WM_DESTROY, WM_COMMAND, WM_CLOSE, WM_KEYDOWN, WM_KEYUP, WM_SIZE, WM_SETFONT, WM_GETDLGCODE, WM_SYSCOMMAND, WM_QUIT, WM_CTLCOLORSTATIC,
+                WM_DESTROY, WM_COMMAND, WM_CLOSE, WM_KEYDOWN, WM_KEYUP, WM_SIZE, WM_SETFONT, WM_GETDLGCODE, WM_SYSCOMMAND, WM_QUIT, WM_CTLCOLORSTATIC, WM_LBUTTONDOWN,
                 BM_CLICK,
                 CS_HREDRAW, CS_VREDRAW,
                 SW_SHOW, SW_HIDE,
@@ -46,6 +52,18 @@ pub use windows::{
                 GetWindowRect, GetClientRect, FindWindowExW, GetDlgItem, GetDlgCtrlID,
                 GetWindowTextW, GetWindowTextLengthW, SetWindowTextW,
                 IsWindow,
+                // slctbox
+                LBS_NOTIFY, LBS_MULTIPLESEL,
+                LB_ADDSTRING, LB_GETSELCOUNT, LB_GETSELITEMS,
+                CBS_DROPDOWNLIST, CBS_AUTOHSCROLL,
+                CB_ADDSTRING, CB_SETCURSEL, CB_GETCURSEL,
+                BS_AUTOCHECKBOX, BS_AUTORADIOBUTTON,
+                BM_SETCHECK, BM_GETCHECK,
+                PeekMessageW, PM_REMOVE,
+                // poppumenu
+                GetCursorPos, CreatePopupMenu, TrackPopupMenu, AppendMenuW, SetForegroundWindow,
+                TPM_TOPALIGN,TPM_RETURNCMD,TPM_NONOTIFY,
+                MF_POPUP, MF_ENABLED, MF_STRING,
             },
             Input::KeyboardAndMouse::{
                 VIRTUAL_KEY, VK_TAB, VK_ESCAPE, VK_RETURN, VK_SHIFT, VK_RIGHT, VK_LEFT, VK_DOWN, VK_UP,
@@ -53,6 +71,10 @@ pub use windows::{
             },
             Controls::{
                 EM_SETMARGINS, EM_GETRECT, EM_SETRECT, EM_SETSEL, EM_REPLACESEL,
+                BST_CHECKED,
+                // progress bar
+                PBM_SETRANGE32, PBM_SETSTEP, PBM_STEPIT, PBM_SETPOS, PBM_SETMARQUEE,
+                PBS_SMOOTH,
             }
         },
         Graphics::Gdi::{
@@ -151,7 +173,7 @@ impl Window {
     fn create_window(
         parent: Option<HWND>,
         class_name: &str,
-        title: &str,
+        title: Option<&str>,
         dwexstyle: WINDOW_EX_STYLE,
         dwstyle: WINDOW_STYLE,
         x: i32,
@@ -162,10 +184,15 @@ impl Window {
     ) -> UWindowResult<HWND> {
         unsafe {
             let hmenu = id.map(|id| HMENU(id as isize));
+            let mut wide = vec![];
+            let lpwindowname = title.map(|s| {
+                wide = s.encode_utf16().chain(std::iter::once(0)).collect::<Vec<_>>();
+                PCWSTR(wide.as_ptr())
+            });
             let hwnd = CreateWindowExW(
                 dwexstyle,
                 class_name,
-                title,
+                lpwindowname,
                 dwstyle,
                 x,
                 y,
@@ -191,7 +218,7 @@ impl Window {
         let hwnd = Window::create_window(
             Some(parent),
             "static",
-            "",
+            None,
             WINDOW_EX_STYLE(0),
             WS_CHILD|WS_VISIBLE,
             x,
@@ -221,8 +248,10 @@ impl Window {
             }
         }
     }
-    fn _send_message(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+    fn send_message(hwnd: HWND, msg: u32, wparam: Option<usize>, lparam: Option<isize>) -> LRESULT {
         unsafe {
+            let wparam = WPARAM(wparam.unwrap_or_default());
+            let lparam = LPARAM(lparam.unwrap_or_default());
             SendMessageW(hwnd, msg, wparam, lparam)
         }
     }
@@ -246,7 +275,7 @@ impl Window {
     fn set_child(parent: HWND, class_name: &str, title: &str, x: i32, y: i32, size_opt: Option<SizeOption>, font: Option<HFONT>, styles: Option<WINDOW_STYLE>, id: Option<i32>) -> UWindowResult<Child> {
         let dwstyle = WS_CHILD|WS_VISIBLE|styles.unwrap_or_default();
         let hwnd = Self::create_window(
-            Some(parent), class_name, title, WINDOW_EX_STYLE(0), dwstyle, x, y, 0, 0, id
+            Some(parent), class_name, Some(title), WINDOW_EX_STYLE(0), dwstyle, x, y, 0, 0, id
         )?;
         match font {
             Some(hfont) => {
@@ -281,7 +310,7 @@ impl Window {
             min_width: 100,
             min_height: 30,
         };
-        let styles = styles.unwrap_or_default() | WS_TABSTOP | WS_BORDER;
+        let styles = styles.unwrap_or_default() | WS_TABSTOP;
         let mut btn = Self::set_child(parent, "button", title, x, y, Some(opt), font, Some(styles), Some(btn_type))?;
         btn.ctype = Some(ChildType::Button(btn_type));
         Ok(btn)
@@ -390,6 +419,11 @@ impl Window {
                 .trim_end_matches('\0').to_string()
         }
     }
+    fn get_dlg_ctrl_id(hwnd: HWND) -> i32 {
+        unsafe {
+            GetDlgCtrlID(hwnd)
+        }
+    }
     fn get_dlg_item(hwnd: HWND, id: i32) -> HWND {
         unsafe {
             GetDlgItem(hwnd, id)
@@ -405,38 +439,39 @@ impl Window {
 #[derive(Clone, Copy, Debug)]
 pub struct Child {
     hwnd: HWND,
+    id: i32,
     pub size: SIZE,
-    pub rect: RECT,
-    pub crect: RECT,
+    pub x: i32,
+    pub y: i32,
     pub ctype: Option<ChildType>
 }
 impl Child {
-    pub fn new(hwnd: HWND, size: SIZE, rect: RECT, crect: RECT, ctype: Option<ChildType>) -> Self {
-        Self { hwnd, size, rect, crect, ctype }
+    pub fn new(hwnd: HWND, id: i32, size: SIZE, x: i32, y: i32, ctype: Option<ChildType>) -> Self {
+        Self { hwnd, id, size, x, y, ctype }
     }
     pub fn move_to(&mut self, x: Option<i32>, y: Option<i32>, width: Option<i32>, height: Option<i32>) {
-        Window::move_window(
-            self.hwnd,
-            x.unwrap_or(self.rect.left),
-            y.unwrap_or(self.rect.top),
-            width.unwrap_or(self.size.cx),
-            height.unwrap_or(self.size.cy)
-        );
+        let x = x.unwrap_or(self.x);
+        let y = y.unwrap_or(self.y);
+        let width = width.unwrap_or(self.size.cx);
+        let height = height.unwrap_or(self.size.cy);
+        Window::move_window( self.hwnd, x, y, width, height);
         let rect = Window::get_window_rect(self.hwnd);
         self.size = SIZE {
             cx: rect.right - rect.left,
             cy: rect.bottom - rect.top
         };
-        self.rect = rect;
+        self.x = x;
+        self.y = y;
     }
 }
 impl Default for Child {
     fn default() -> Self {
         Self {
             hwnd: HWND::default(),
+            id: 0,
             size: SIZE::default(),
-            rect: RECT::default(),
-            crect: RECT::default(),
+            x: 0,
+            y: 0,
             ctype: None,
         }
     }
@@ -444,12 +479,19 @@ impl Default for Child {
 impl From<HWND> for Child {
     fn from(hwnd: HWND) -> Self {
         let rect = Window::get_window_rect(hwnd);
-        let crect = Window::get_client_rect(hwnd);
         let size = SIZE {
             cx: rect.right - rect.left,
             cy: rect.bottom - rect.top
         };
-        Self {hwnd, size, rect, crect, ctype: None}
+        let id = Window::get_dlg_ctrl_id(hwnd);
+        Self {
+            hwnd,
+            id,
+            size,
+            x: rect.left,
+            y: rect.top,
+            ctype: None,
+        }
     }
 }
 
@@ -476,8 +518,10 @@ pub trait UWindow<T: Default> {
             let result = loop {
                 if GetMessageW(&mut msg, HWND::default(), 0, 0).as_bool() {
                     match msg.message {
-                        _ => break T::default()
+                        _ => {}
                     }
+                } else {
+                    break T::default()
                 }
                 TranslateMessage(&msg);
                 DispatchMessageW(&msg);
@@ -508,6 +552,8 @@ pub enum UWindowError {
     FailedToCreateWindow(String),
     FailedToRegisterClass(String),
     FailedToCreateFont(String),
+    SlctBoxIndexOverFlowed(i32),
+    SlctBoxInvalidIndex(i32),
 }
 
 #[derive(Debug, Clone)]

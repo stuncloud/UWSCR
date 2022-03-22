@@ -367,6 +367,11 @@ impl Into<Object> for f64 {
         Object::Num(self)
     }
 }
+impl Into<Object> for i32 {
+    fn into(self) -> Object {
+        Object::Num(self as f64)
+    }
+}
 impl Into<Object> for Value {
     fn into(self) -> Object {
         match self {

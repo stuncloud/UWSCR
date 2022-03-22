@@ -915,6 +915,16 @@ impl fmt::Display for UErrorMessage {
                     "Invalid font family: {}",
                     font
                 ),
+                SlctBoxIndexOverFlowed(size) => write_locale!(f,
+                    "要素数過多({}): slctboxの要素数は31までです",
+                    "Too many items: {}, should be less than 32",
+                    size
+                ),
+                SlctBoxInvalidIndex(index) => write_locale!(f,
+                    "不正なインデックス({}): 該当するアイテムが見つかりません",
+                    "Invalid index: {}, no item found",
+                    index
+                ),
             },
             Self::EmptyArrayNotAllowed => write_locale!(f,
                 "空の配列は許可されていません",

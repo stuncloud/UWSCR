@@ -607,7 +607,7 @@ fn get_client_size(h: HWND) -> WindowSize {
     let mut rect = RECT {left: 0, top: 0, right: 0, bottom: 0};
     unsafe {
         GetClientRect(h, &mut rect);
-        let mut point = POINT {x: rect.left, y: rect.top};
+        let point = POINT {x: rect.left, y: rect.top};
         MapWindowPoints(h, HWND::default(), &mut [point]);
         WindowSize(
             point.x,

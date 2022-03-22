@@ -37,7 +37,7 @@ impl LogPrintWin {
         let edit = match Window::create_window(
             Some(hwnd),
             "edit",
-            "",
+            None,
             WINDOW_EX_STYLE(0),
             dwstyle,
             0,
@@ -61,7 +61,7 @@ impl LogPrintWin {
         let hwnd = Window::create_window(
             None,
             &class_name,
-            title,
+            Some(title),
             WINDOW_EX_STYLE(0),
             WS_OVERLAPPEDWINDOW,
             100,
