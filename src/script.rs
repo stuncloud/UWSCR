@@ -62,6 +62,8 @@ pub fn run(script: String, mut args: Vec<String>) -> Result<(), Vec<String>> {
         ]),
         _ => {}
     };
+    let visible = ! attach_console();
+
     let mut parser = Parser::new(Lexer::new(&script));
     let program = parser.parse();
     let errors = parser.get_errors();
@@ -71,7 +73,6 @@ pub fn run(script: String, mut args: Vec<String>) -> Result<(), Vec<String>> {
 
     let env = Environment::new(params);
     let mut evaluator = Evaluator::new(env);
-    let visible = ! attach_console();
     Evaluator::start_logprint_win(visible);
     if let Err(e) = evaluator.eval(program) {
         let line = &e.get_line();
