@@ -260,8 +260,8 @@ impl Lexer {
                 }
             },
             '@' => self.consume_uobject(),
-            '\\' => Token::BackSlash,
-            'a'..='z' | 'A'..='Z' | '#' => {
+            // '\\' => Token::BackSlash,
+            'a'..='z' | 'A'..='Z' | '#' | '\\' => {
                 return TokenInfo::new_with_pos(self.consume_identifier(), p, skipped);
             },
             '0'..='9' => {
@@ -363,7 +363,7 @@ impl Lexer {
         let start_pos = self.pos;
         loop {
             match self.ch {
-                'a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '#' => {
+                'a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '#' | '\\' => {
                     self.read_char();
                 },
                 '\0'..=' ' | '　' => {
