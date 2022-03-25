@@ -104,7 +104,7 @@ impl Lexer {
         self.nextch() == ch
     }
 
-    fn _ch_after_is(&mut self, n: usize, ch: char) -> bool {
+    fn ch_nth_after_is(&mut self, n: usize, ch: char) -> bool {
         if self.pos + n >= self.input.len() {
             false
         } else {
@@ -304,6 +304,7 @@ impl Lexer {
     fn consume_call_path(&mut self) -> Token {
         // パスの解析
         // 現在地から行末までに \ (バックスラッシュ)がなければファイル名とする
+        // \ (スラッシュ) もパス区切りとして扱う
         // ファイル名部分の最後に ( があればその直前までをパスとする
         // ( からはまたnext_tokenさせる
         let start_pos = self.pos;
@@ -312,8 +313,15 @@ impl Lexer {
 
         loop {
             match self.nextch() {
-                '\r' | '\n' | '\0' | '/' => {
+                '\r' | '\n' | '\0' => {
                     break;
+                },
+                '/' => if self.ch_nth_after_is(2, '/') {
+                    // コメントなので抜ける
+                    break;
+                } else {
+                    // \と同じ扱い
+                    back_slash_pos = self.pos + 1
                 },
                 '\\' => back_slash_pos = self.pos + 1,
                 '(' => lparen_pos = self.pos + 1,
@@ -321,7 +329,6 @@ impl Lexer {
             }
             self.read_char();
         }
-        self.read_char();
         let end_pos = if lparen_pos > 0 {
             // ( がある場合は現在地を戻す
             self.pos = lparen_pos;
@@ -330,7 +337,12 @@ impl Lexer {
             lparen_pos
         } else {
             self.read_char();
-            self.pos - 1
+            if self.ch == '\0' {
+                // 行末の場合
+                self.pos
+            } else {
+                self.pos - 1
+            }
         };
         let (dir, name) = if back_slash_pos > 0 {
             (
