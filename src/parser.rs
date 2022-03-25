@@ -782,7 +782,7 @@ impl Parser {
         }
         self.bump();
         let mut params = Vec::new();
-        while ! self.is_current_token_in(vec![Token::Rparen, Token::Eol, Token::Eof]) {
+        while ! self.is_current_token_in(vec![Token::Rparen, Token::Eof]) {
             match self.current_token.token {
                 Token::Identifier(_) |
                 Token::Struct => {
@@ -816,6 +816,7 @@ impl Parser {
                 },
                 // Token::Lbrace | Token::Rbrace => {},
                 Token::Comma => {},
+                Token::Eol=> {},
                 _ => {
                     self.error_got_unexpected_token();
                     return None;
@@ -2044,14 +2045,22 @@ impl Parser {
         }
     }
 
+    fn skip_next_eol(&mut self) {
+        while self.is_next_token(&Token::Eol) {
+            self.bump();
+        }
+    }
+
     fn parse_expression_list(&mut self, end: Token) -> Option<Vec<Expression>> {
         let mut list:Vec<Expression> = vec![];
+        let skip_eol = end != Token::Eol;
 
         if self.is_next_token(&end) {
             self.bump();
             return Some(list);
         }
 
+        if skip_eol {self.skip_next_eol();}
         self.bump();
 
         match self.parse_expression(Precedence::Lowest, false) {
@@ -2061,12 +2070,13 @@ impl Parser {
 
         while self.is_next_token(&Token::Comma) {
             self.bump();
+            if skip_eol {self.skip_next_eol();}
             self.bump();
-
             match self.parse_expression(Precedence::Lowest, false) {
                 Some(e) => list.push(e),
                 None => return None
             }
+            if skip_eol {self.skip_next_eol();}
         }
 
         if end == Token::Eol {
@@ -2568,12 +2578,14 @@ impl Parser {
 
     fn parse_function_parameters(&mut self, end_token: Token) -> Option<Vec<FuncParam>> {
         let mut params = vec![];
+        self.skip_next_eol();
         if self.is_next_token(&Token::Rparen) {
             self.bump();
             return Some(params);
         }
         let mut with_default_flg = false;
         let mut variadic_flg = false;
+        self.skip_next_eol();
         self.bump();
         loop {
             match self.parse_param() {
@@ -2612,8 +2624,10 @@ impl Parser {
                 },
                 None => return None
             }
+            self.skip_next_eol();
             if self.is_next_token(&Token::Comma) {
                 self.bump();
+                self.skip_next_eol();
                 self.bump();
             } else {
                 break;
@@ -2790,7 +2804,9 @@ impl Parser {
             self.bump();
             return Some(list);
         }
+        self.skip_next_eol();
         self.bump();
+        self.skip_next_eol();
 
         if self.is_current_token(&Token::Comma) {
             list.push(Expression::EmptyArgument);
@@ -2804,18 +2820,20 @@ impl Parser {
 
         while self.is_next_token(&Token::Comma) {
             self.bump();
+            self.skip_next_eol();
             // コンマが連続するなら空引数
             if self.is_next_token(&Token::Comma) {
                 list.push(Expression::EmptyArgument);
                 continue;
             }
+            self.skip_next_eol();
             self.bump();
-
 
             match self.parse_expression(Precedence::Lowest, false) {
                 Some(e) => list.push(e),
                 None => return None
             }
+            self.skip_next_eol();
         }
 
         if ! self.is_next_token_expected(end) {
@@ -2852,7 +2870,8 @@ mod tests {
     fn parser_test(input: &str, expected: Vec<StatementWithRow>) {
         let mut parser = Parser::new(Lexer::new(input));
         let program = parser.parse();
-        check_parse_errors(&mut parser, true, String::from("test failed"));
+        let msg = format!("Test failed with input: \r\r{}\r", input);
+        check_parse_errors(&mut parser, true, msg);
         assert_eq!(program.0, expected);
     }
 
@@ -5287,6 +5306,117 @@ fend
                 2
             )
         ]);
+    }
+
+    #[test]
+    fn test_multi_row_list() {
+        let testcases = vec![
+            ( // 配列
+                r#"
+                print [
+                    'foo',
+                    'bar'
+                    ,'baz'
+                ]
+                "#,
+                vec![
+                    StatementWithRow::new(
+                        Statement::Print(Expression::Literal(Literal::Array(vec![
+                            Expression::Literal(Literal::String("foo".into())),
+                            Expression::Literal(Literal::String("bar".into())),
+                            Expression::Literal(Literal::String("baz".into())),
+                        ]))),
+                        2
+                    )
+                ]
+            ),
+            ( // 関数呼び出し
+                r#"
+                dim ret = func(
+                    foo,
+                    ,
+                    bar
+                    ,baz
+                )
+                "#,
+                vec![
+                    StatementWithRow::new(
+                        Statement::Dim(vec![
+                            (
+                                Identifier("ret".into()),
+                                Expression::FuncCall {
+                                    func: Box::new(Expression::Identifier(Identifier("func".to_string()))),
+                                    args: vec![
+                                        Expression::Identifier("foo".into()),
+                                        Expression::EmptyArgument,
+                                        Expression::Identifier("bar".into()),
+                                        Expression::Identifier("baz".into()),
+                                    ],
+                                    is_await: false,
+                                }
+                            )
+                        ]),
+                        2
+                    )
+                ]
+            ),
+            ( // 関数定義
+                r#"
+                function func(
+                    a, b,
+                    c
+                    ,d
+                )
+                fend
+                "#,
+                vec![
+                    StatementWithRow::new(
+                        Statement::Function {
+                            name: "func".into(),
+                            params: vec![
+                                FuncParam::new(Some("a".into()), ParamKind::Identifier),
+                                FuncParam::new(Some("b".into()), ParamKind::Identifier),
+                                FuncParam::new(Some("c".into()), ParamKind::Identifier),
+                                FuncParam::new(Some("d".into()), ParamKind::Identifier),
+                            ],
+                            body: vec![],
+                            is_proc: false,
+                            is_async: false
+                        },
+                        2
+                    )
+                ]
+            ),
+            ( // def_dll
+                r#"
+                def_dll MessageBoxA(
+                    hwnd,
+                    string,
+                    string,
+                    uint
+                ):int:user32
+                "#,
+                vec![
+                    StatementWithRow::new(
+                        Statement::DefDll {
+                            name: "MessageBoxA".into(),
+                            params: vec![
+                                DefDllParam::Param { dll_type: DllType::Hwnd, is_var: false, is_array: false },
+                                DefDllParam::Param { dll_type: DllType::String, is_var: false, is_array: false },
+                                DefDllParam::Param { dll_type: DllType::String, is_var: false, is_array: false },
+                                DefDllParam::Param { dll_type: DllType::Uint, is_var: false, is_array: false },
+                            ],
+                            ret_type: DllType::Int,
+                            path: "user32".into()
+                        },
+                        2
+                    )
+                ]
+            ),
+        ];
+        for (input, expected) in testcases {
+            parser_test(input, expected);
+        }
     }
 
 }

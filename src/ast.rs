@@ -13,6 +13,11 @@ impl fmt::Display for Identifier {
         write!(f, "{}", name)
     }
 }
+impl From<&str> for Identifier {
+    fn from(s: &str) -> Self {
+        Self(s.to_string())
+    }
+}
 
 #[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub enum Prefix {
