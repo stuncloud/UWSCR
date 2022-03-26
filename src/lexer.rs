@@ -881,9 +881,7 @@ fend
                     Token::Colon,
                     Token::Identifier("C".into()),
                     Token::ColonBackSlash,
-                    Token::Identifier("hoge".into()),
-                    Token::BackSlash,
-                    Token::Identifier("hoge".into()),
+                    Token::Identifier("hoge\\hoge".into()),
                     Token::Period,
                     Token::Identifier("dll".into()),
                 ]
