@@ -10,6 +10,7 @@ use crate::gui::{
     InputBox, InputField,
     Slctbox, SlctReturnValue,
     PopupMenu,
+    Balloon,
 };
 
 use std::sync::Mutex;
@@ -57,6 +58,8 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("logprint", 5, logprint);
     sets.add("slctbox", 34, slctbox);
     sets.add("popupmenu", 3, popupmenu);
+    sets.add("balloon", 9, balloon);
+    sets.add("fukidasi", 9, balloon);
     sets
 }
 
@@ -278,4 +281,26 @@ pub fn popupmenu(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         None => Object::Empty,
     };
     Ok(obj)
+}
+
+pub fn balloon(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let balloon = if args.len() == 0 {
+        // balloon消す
+        None
+    } else {
+        let text = args.get_as_string(0, None)?;
+        let x = Some(args.get_as_int(1, Some(0_i32))?);
+        let y = Some(args.get_as_int(2, Some(0_i32))?);
+        let _dir = args.get_as_int(3, Some(0_u32))?;
+        let font_size = args.get_as_int_or_empty::<i32>(4, Some(None))?;
+        let font_name = args.get_as_string_or_empty(5, Some(None))?;
+        let font = Some(FontFamily::from((font_name, font_size)));
+        let font_color = args.get_as_int_or_empty::<u32>(6, Some(None))?;
+        let bg_color = args.get_as_int_or_empty::<u32>(7, Some(None))?;
+        match Balloon::new(&text, x, y, font, font_color, bg_color) {
+            Ok(b) => Some(b),
+            Err(e) => return Err(builtin_func_error(UWindowError(e), args.name())),
+        }
+    };
+    Ok(Object::SpecialFuncResult(SpecialFuncResultType::Balloon(balloon)))
 }

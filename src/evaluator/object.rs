@@ -355,6 +355,7 @@ pub enum SpecialFuncResultType {
     BuiltinConstName(Option<Expression>),
     Task(Function, Vec<(Option<Expression>, Object)>),
     GetLogPrintWinId,
+    Balloon(Option<crate::gui::Balloon>),
 }
 
 impl Into<Object> for String {

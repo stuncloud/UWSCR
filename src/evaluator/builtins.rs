@@ -172,13 +172,27 @@ impl BuiltinFuncArgs {
         })
     }
     /// 整数として受けるがEMPTYの場合は引数が省略されたとみなす
-    pub fn get_as_int_or_empty(&self, i: usize, default: Option<Option<i32>>) -> BuiltInResult<Option<i32>> {
+    pub fn get_as_int_or_empty<T>(&self, i: usize, default: Option<Option<T>>) -> BuiltInResult<Option<T>>
+        where T: cast::From<f64, Output=Result<T, cast::Error>>,
+    {
         get_arg_value!(self, i, default, {
             let arg = self.item(i);
             match arg {
-                Object::Num(n) => Ok(Some(n as i32)),
+                Object::Num(n) => match T::cast(n) {
+                    Ok(t) => Ok(Some(t)),
+                    Err(_) => Err(builtin_func_error(
+                        UErrorMessage::BuiltinArgCastError(arg, std::any::type_name::<T>().into()),
+                        self.name()
+                    ))
+                },
                 Object::String(ref s) => match s.parse::<f64>() {
-                    Ok(n) => Ok(Some(n as i32)),
+                    Ok(n) => match T::cast(n) {
+                        Ok(t) => Ok(Some(t)),
+                        Err(_) => Err(builtin_func_error(
+                            UErrorMessage::BuiltinArgCastError(arg, std::any::type_name::<T>().into()),
+                            self.name()
+                        ))
+                    },
                     Err(_) => Err(builtin_func_error(
                         UErrorMessage::BuiltinArgInvalid(arg), self.name())
                     )

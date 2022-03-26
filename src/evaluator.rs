@@ -14,7 +14,7 @@ use crate::evaluator::def_dll::*;
 use crate::evaluator::com_object::*;
 use crate::evaluator::devtools_protocol::{Browser, Element};
 use crate::error::evaluator::{UError, UErrorKind, UErrorMessage};
-use crate::gui::{LogPrintWin, UWindow};
+use crate::gui::{LogPrintWin, UWindow, Balloon};
 use crate::parser::Parser;
 use crate::lexer::Lexer;
 use crate::logging::{out_log, LogType};
@@ -56,7 +56,8 @@ pub struct  Evaluator {
     instance_id: Arc<Mutex<u32>>,
     pub ignore_com_err: bool,
     pub com_err_flg: bool,
-    lines: Vec<String>
+    lines: Vec<String>,
+    pub balloon: Option<Balloon>,
 }
 
 impl Evaluator {
@@ -66,7 +67,8 @@ impl Evaluator {
             instance_id: Arc::new(Mutex::new(0)),
             ignore_com_err: false,
             com_err_flg: false,
-            lines: vec![]
+            lines: vec![],
+            balloon: None,
         }
     }
 
@@ -969,7 +971,8 @@ impl Evaluator {
                 instance_id: Arc::clone(&self.instance_id),
                 ignore_com_err: false,
                 com_err_flg: false,
-                lines: self.lines.clone()
+                lines: self.lines.clone(),
+                balloon: None,
             };
             thread::spawn(move || {
                 // このスレッドでのCOMを有効化
@@ -1906,6 +1909,7 @@ impl Evaluator {
             ignore_com_err: false,
             com_err_flg: false,
             lines: self.lines.clone(),
+            balloon: None,
         };
         // 関数を非同期実行し、UTaskを返す
         let handle = thread::spawn(move || {
@@ -1995,6 +1999,16 @@ impl Evaluator {
                         None => -1.0,
                     };
                     Object::Num(id)
+                },
+                SpecialFuncResultType::Balloon(balloon) => {
+                    match balloon {
+                        Some(b) => {
+                            self.balloon = Some(b);
+                            self.balloon.as_ref().unwrap().show();
+                        },
+                        None => self.balloon = None,
+                    }
+                    Object::Empty
                 },
             },
             _ => result

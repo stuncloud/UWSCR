@@ -10,6 +10,8 @@ pub mod slctbox;
 pub use slctbox::*;
 pub mod popupmenu;
 pub use popupmenu::*;
+pub mod balloon;
+pub use balloon::*;
 
 use crate::winapi::to_wide_string;
 
@@ -64,6 +66,8 @@ pub use windows::{
                 GetCursorPos, CreatePopupMenu, TrackPopupMenu, AppendMenuW, SetForegroundWindow,
                 TPM_TOPALIGN,TPM_RETURNCMD,TPM_NONOTIFY,
                 MF_POPUP, MF_ENABLED, MF_STRING,
+                // balloon
+                WS_EX_TOOLWINDOW,WS_POPUP,
             },
             Input::KeyboardAndMouse::{
                 VIRTUAL_KEY, VK_TAB, VK_ESCAPE, VK_RETURN, VK_SHIFT, VK_RIGHT, VK_LEFT, VK_DOWN, VK_UP,
@@ -84,6 +88,10 @@ pub use windows::{
             GetDC, ReleaseDC, SelectObject,
             GetTextExtentPoint32W, CreateFontW,
             UpdateWindow, SetBkColor,
+            // balloon
+            PAINTSTRUCT, TEXTMETRICW,
+            TRANSPARENT,
+            CreateSolidBrush, BeginPaint, FillRect, SetBkMode, SetTextColor, GetTextMetricsW, TextOutW, EndPaint,
         },
     }
 };
@@ -434,6 +442,11 @@ impl Window {
             UpdateWindow(hwnd);
         }
     }
+    fn create_solid_brush(color: u32) -> HBRUSH {
+        unsafe {
+            CreateSolidBrush(color)
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -533,7 +546,7 @@ pub trait UWindow<T: Default> {
     fn wndproc(hwnd: HWND, umsg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
         match umsg {
             WM_DESTROY => {
-                PostQuitMessage(0);
+                PostMessageW(HWND(0), WM_QUIT, WPARAM(0), LPARAM(hwnd.0));
                 LRESULT(0)
             },
             msg => DefWindowProcW(hwnd, msg, wparam, lparam)
@@ -565,6 +578,11 @@ impl FontFamily {
     pub fn new(name: &str, size: i32) -> Self {
         Self {name: name.into(), size}
     }
+    fn new2(name: Option<String>, size: Option<i32>) -> Self {
+        let name = name.unwrap_or("Yu Gothic UI".into());
+        let size = size.unwrap_or(15);
+        Self::new(&name, size)
+    }
     pub fn as_handle(&self) -> UWindowResult<HFONT> {
         Window::create_font(&self.name, self.size)
     }
@@ -572,6 +590,11 @@ impl FontFamily {
 impl Default for FontFamily {
     fn default() -> Self {
         Self::new("Yu Gothic UI", 15)
+    }
+}
+impl From<(Option<String>, Option<i32>)> for FontFamily {
+    fn from((name, size): (Option<String>, Option<i32>)) -> Self {
+        Self::new2(name, size)
     }
 }
 
