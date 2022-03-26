@@ -10,6 +10,8 @@ pub struct Balloon {
     font_color: u32,
     text: String,
     hfont: HFONT,
+    x: Option<i32>,
+    y: Option<i32>,
 }
 
 impl Balloon {
@@ -20,8 +22,8 @@ impl Balloon {
         let class_name = Window::get_class_name("UWSCR.Balloon", &BALLOON_CLASS, Some(Self::wndproc))?;
         let hwnd = Self::create(text, &class_name)?;
         let hfont = font.unwrap_or_default().as_handle()?;
-        let balloon = Self { hwnd, bg_color, font_color, text: text.to_string(), hfont };
-        balloon.draw(x, y);
+        let balloon = Self { hwnd, bg_color, font_color, text: text.to_string(), hfont, x, y };
+        // balloon.draw(x, y);
         // balloon.show();
         Ok(balloon)
     }
@@ -40,15 +42,16 @@ impl Balloon {
             None
         )
     }
-    pub fn redraw(&mut self, text: &str, x: Option<i32>, y: Option<i32>, font: Option<FontFamily>, font_color: Option<u32>, bg_color: Option<u32>) -> UWindowResult<()> {
-        self.bg_color = Window::create_solid_brush(bg_color.unwrap_or(0x00FFFF));
-        self.font_color = font_color.unwrap_or(0x000000);
-        self.hfont = font.unwrap_or_default().as_handle()?;
-        self.text = text.to_string();
-        self.draw(x, y);
-        Ok(())
+    pub fn redraw(&mut self, new: Balloon) {
+        self.bg_color = new.bg_color;
+        self.font_color = new.font_color;
+        self.hfont = new.hfont;
+        self.text = new.text.to_owned();
+        self.x = new.x;
+        self.y = new.y;
+        self.draw();
     }
-    fn draw(&self, x: Option<i32>, y: Option<i32>) {
+    pub fn draw(&self) {
         unsafe {
             let size = self.text.lines().map(|line| {
                 Window::get_string_size(line, self.hwnd, Some(self.hfont))
@@ -57,8 +60,8 @@ impl Balloon {
                 let cy = s1.cy + s2.cy;
                 SIZE { cx, cy }
             }).unwrap();
-            let x = x.unwrap_or(0);
-            let y = y.unwrap_or(0);
+            let x = self.x.unwrap_or(0);
+            let y = self.y.unwrap_or(0);
             Window::move_window(self.hwnd, x, y, size.cx + BALLOON_MARGIN*2, size.cy + BALLOON_MARGIN*2);
             let mut ps = PAINTSTRUCT::default();
             let mut tm = TEXTMETRICW::default();

@@ -2002,14 +2002,27 @@ impl Evaluator {
                 },
                 SpecialFuncResultType::Balloon(balloon) => {
                     match balloon {
-                        Some(b) => {
-                            self.balloon = Some(b);
-                            self.balloon.as_ref().unwrap().show();
+                        Some(new) => match self.balloon {
+                            Some(ref mut old) => old.redraw(new),
+                            None => {
+                                new.draw();
+                                self.balloon = Some(new);
+                            },
                         },
                         None => self.balloon = None,
                     }
                     Object::Empty
                 },
+                SpecialFuncResultType::BalloonID => {
+                    match &self.balloon {
+                        Some(b) => {
+                            let hwnd = b.hwnd();
+                            let id = builtins::window_control::get_id_from_hwnd(hwnd);
+                            Object::Num(id)
+                        },
+                        None => Object::Num(-1.0),
+                    }
+                }
             },
             _ => result
         };

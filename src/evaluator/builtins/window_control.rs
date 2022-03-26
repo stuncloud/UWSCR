@@ -177,7 +177,7 @@ pub fn getid(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             return Ok(Object::SpecialFuncResult(SpecialFuncResultType::GetLogPrintWinId))
         },
         "__GET_BALLOON_WIN__" => {
-            HWND::default()
+            return Ok(Object::SpecialFuncResult(SpecialFuncResultType::BalloonID))
         },
         "__GET_FORM_WIN__" => {
             HWND::default()
