@@ -8,6 +8,7 @@ pub mod com_object;
 pub mod browser_control;
 pub mod array_control;
 pub mod dialog;
+pub mod file_control;
 #[cfg(feature="chkimg")]
 pub mod chkimg;
 
@@ -172,9 +173,10 @@ impl BuiltinFuncArgs {
         })
     }
     /// 整数として受けるがEMPTYの場合は引数が省略されたとみなす
-    pub fn get_as_int_or_empty<T>(&self, i: usize, default: Option<Option<T>>) -> BuiltInResult<Option<T>>
+    pub fn get_as_int_or_empty<T>(&self, i: usize) -> BuiltInResult<Option<T>>
         where T: cast::From<f64, Output=Result<T, cast::Error>>,
     {
+        let default = Some(None);
         get_arg_value!(self, i, default, {
             let arg = self.item(i);
             match arg {
@@ -238,7 +240,8 @@ impl BuiltinFuncArgs {
         })
     }
     /// 文字列として受けるがEMPTYの場合は引数省略とみなす
-    pub fn get_as_string_or_empty(&self, i: usize, default: Option<Option<String>>) -> BuiltInResult<Option<String>> {
+    pub fn get_as_string_or_empty(&self, i: usize) -> BuiltInResult<Option<String>> {
+        let default = Some(None);
         get_arg_value!(self, i, default, {
             let arg = self.item(i);
             match &arg {
@@ -251,7 +254,8 @@ impl BuiltinFuncArgs {
     }
     /// 文字列または文字列の配列を受ける引数
     /// EMPTYの場合はNoneを返す
-    pub fn get_as_string_array(&self, i: usize, default: Option<Option<Vec<String>>>) -> BuiltInResult<Option<Vec<String>>> {
+    pub fn get_as_string_array_or_empty(&self, i: usize) -> BuiltInResult<Option<Vec<String>>> {
+        let default = Some(None);
         get_arg_value!(self, i, default, {
             let arg = self.item(i);
             match &arg {
@@ -259,6 +263,17 @@ impl BuiltinFuncArgs {
                 Object::Empty |
                 Object::EmptyParam => Ok(None),
                 o => Ok(Some(vec![o.to_string()]))
+            }
+        })
+    }
+    /// 文字列または文字列の配列を受ける引数(必須)
+    pub fn get_as_string_array(&self, i: usize) -> BuiltInResult<Vec<String>> {
+        let default = None;
+        get_arg_value!(self, i, default, {
+            let arg = self.item(i);
+            match &arg {
+                Object::Array(vec) => Ok(vec.iter().map(|o|o.to_string()).collect()),
+                o => Ok(vec![o.to_string()])
             }
         })
     }

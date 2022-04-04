@@ -343,7 +343,7 @@ pub fn wait_task(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 
 pub fn wmi_query(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let wql = args.get_as_string(0, None)?;
-    let name_space = args.get_as_string_or_empty(1, Some(None))?;
+    let name_space = args.get_as_string_or_empty(1)?;
     let namespace_path = name_space.as_deref();
     let conn = unsafe {
         wmi::WMIConnection::with_initialized_com(namespace_path)?

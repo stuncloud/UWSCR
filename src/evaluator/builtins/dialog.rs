@@ -65,10 +65,10 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
 
 pub fn logprint(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let flg = args.get_as_bool(0, None)?;
-    let left = args.get_as_int_or_empty(1, Some(None))?;
-    let top = args.get_as_int_or_empty(2, Some(None))?;
-    let width = args.get_as_int_or_empty(3, Some(None))?;
-    let height = args.get_as_int_or_empty(4, Some(None))?;
+    let left = args.get_as_int_or_empty(1)?;
+    let top = args.get_as_int_or_empty(2)?;
+    let width = args.get_as_int_or_empty(3)?;
+    let height = args.get_as_int_or_empty(4)?;
     if let Some(m) = LOGPRINTWIN.get(){
         let mut lp = m.lock().unwrap();
         lp.set_visibility(flg);
@@ -78,14 +78,14 @@ pub fn logprint(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 }
 
 fn get_dlg_point(args: &BuiltinFuncArgs, i: (usize,usize), point: &Lazy<Mutex<(Option<i32>, Option<i32>)>>) -> BuiltInResult<(Option<i32>, Option<i32>)> {
-    let x = match args.get_as_int_or_empty(i.0, Some(None))? {
+    let x = match args.get_as_int_or_empty(i.0)? {
         Some(-1) => {
             point.lock().unwrap().0
         },
         Some(n) => Some(n),
         None => None,
     };
-    let y = match args.get_as_int_or_empty(i.1, Some(None))? {
+    let y = match args.get_as_int_or_empty(i.1)? {
         Some(-1) => {
             point.lock().unwrap().1
         },
@@ -104,7 +104,7 @@ pub fn msgbox(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let message = args.get_as_string(0, None)?;
     let btns = args.get_as_int::<i32>(1, Some(BtnConst::BTN_OK as i32))?;
     let (x, y) = get_dlg_point(&args, (2, 3), &MSGBOX_POINT)?;
-    let focus = args.get_as_int_or_empty(4, Some(None))?;
+    let focus = args.get_as_int_or_empty(4)?;
     let _enable_link = args.get_as_bool(5, Some(false))?;
 
     let font_family = FONT_FAMILY.clone();
@@ -134,7 +134,7 @@ pub fn msgbox(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 }
 
 pub fn input(args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let mut msg = args.get_as_string_array(0, None)?.unwrap_or(vec![]);
+    let mut msg = args.get_as_string_array(0)?;
     let mut label = match msg.len() {
         0 => return Err(builtin_func_error(UErrorMessage::EmptyArrayNotAllowed, args.name())),
         1 => vec![None],
@@ -143,7 +143,7 @@ pub fn input(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     if label.len() > 5 {
         label.resize(5, None);
     }
-    let mut default_values = match args.get_as_string_array(1, Some(None))? {
+    let mut default_values = match args.get_as_string_array_or_empty(1)? {
         Some(vec) => vec.into_iter().map(|s| Some(s)).collect(),
         None => vec![None],
     };
@@ -219,7 +219,7 @@ pub fn slctbox(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         (Some(_), None) => {x = None; 2},
         (Some(_), Some(_)) => 4,
     };
-    let message = args.get_as_string_or_empty(msg_index, Some(None))?;
+    let message = args.get_as_string_or_empty(msg_index)?;
     // 残りの引数を文字列の配列として受ける
     let items = args.get_rest_as_string_array(msg_index + 1)?;
 
@@ -269,8 +269,8 @@ pub fn slctbox(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 
 pub fn popupmenu(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let list = args.get_as_array(0, None)?;
-    let x = args.get_as_int_or_empty(1, Some(None))?;
-    let y = args.get_as_int_or_empty(2, Some(None))?;
+    let x = args.get_as_int_or_empty(1)?;
+    let y = args.get_as_int_or_empty(2)?;
     let popup = PopupMenu::new(list);
     let selected = match popup.show(x, y) {
         Ok(s) => s,
@@ -292,11 +292,11 @@ pub fn balloon(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         let x = Some(args.get_as_int(1, Some(0_i32))?);
         let y = Some(args.get_as_int(2, Some(0_i32))?);
         let _dir = args.get_as_int(3, Some(0_u32))?;
-        let font_size = args.get_as_int_or_empty::<i32>(4, Some(None))?;
-        let font_name = args.get_as_string_or_empty(5, Some(None))?;
+        let font_size = args.get_as_int_or_empty::<i32>(4)?;
+        let font_name = args.get_as_string_or_empty(5)?;
         let font = Some(FontFamily::from((font_name, font_size)));
-        let font_color = args.get_as_int_or_empty::<u32>(6, Some(None))?;
-        let bg_color = args.get_as_int_or_empty::<u32>(7, Some(None))?;
+        let font_color = args.get_as_int_or_empty::<u32>(6)?;
+        let bg_color = args.get_as_int_or_empty::<u32>(7)?;
         match Balloon::new(&text, x, y, font, font_color, bg_color) {
             Ok(b) => Some(b),
             Err(e) => return Err(builtin_func_error(UWindowError(e), args.name())),
