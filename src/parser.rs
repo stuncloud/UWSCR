@@ -2821,10 +2821,14 @@ impl Parser {
         while self.is_next_token(&Token::Comma) {
             self.bump();
             self.skip_next_eol();
-            // コンマが連続するなら空引数
             if self.is_next_token(&Token::Comma) {
+                // コンマが連続するなら空引数
                 list.push(Expression::EmptyArgument);
                 continue;
+            } else if self.is_next_token(&end) {
+                // , の後が ) であっても空引数扱い
+                list.push(Expression::EmptyArgument);
+                break;
             }
             self.skip_next_eol();
             self.bump();
@@ -2836,6 +2840,7 @@ impl Parser {
             self.skip_next_eol();
         }
 
+        self.skip_next_eol();
         if ! self.is_next_token_expected(end) {
             return None;
         }
