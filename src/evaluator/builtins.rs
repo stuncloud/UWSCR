@@ -258,12 +258,21 @@ impl BuiltinFuncArgs {
         let default = Some(None);
         get_arg_value!(self, i, default, {
             let arg = self.item(i);
-            match &arg {
-                Object::Array(vec) => Ok(Some(vec.iter().map(|o|o.to_string()).collect())),
+            let vec = match &arg {
+                Object::Array(vec) => Some(vec.iter().map(|o|o.to_string()).collect()),
+                Object::HashTbl(arc) => {
+                    let hash = arc.lock().unwrap();
+                    let keys = hash.keys()
+                        .into_iter()
+                        .map(|o|o.to_string())
+                        .collect();
+                    Some(keys)
+                },
                 Object::Empty |
-                Object::EmptyParam => Ok(None),
-                o => Ok(Some(vec![o.to_string()]))
-            }
+                Object::EmptyParam => None,
+                o => Some(vec![o.to_string()])
+            };
+            Ok(vec)
         })
     }
     /// 文字列または文字列の配列を受ける引数(必須)
