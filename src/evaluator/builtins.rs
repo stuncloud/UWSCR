@@ -271,10 +271,18 @@ impl BuiltinFuncArgs {
         let default = None;
         get_arg_value!(self, i, default, {
             let arg = self.item(i);
-            match &arg {
-                Object::Array(vec) => Ok(vec.iter().map(|o|o.to_string()).collect()),
-                o => Ok(vec![o.to_string()])
-            }
+            let vec = match &arg {
+                Object::Array(vec) => vec.iter().map(|o|o.to_string()).collect(),
+                Object::HashTbl(arc) => {
+                    let hash = arc.lock().unwrap();
+                    hash.keys()
+                        .into_iter()
+                        .map(|o|o.to_string())
+                        .collect()
+                }
+                o => vec![o.to_string()]
+            };
+            Ok(vec)
         })
     }
     /// 引数を真偽値として受ける
@@ -377,6 +385,12 @@ impl BuiltinFuncArgs {
                     Object::Array(vec) => vec.into_iter()
                             .map(|o| o.to_string())
                             .collect(),
+                    Object::HashTbl(arc) => {
+                        let hash = arc.lock().unwrap();
+                        hash.keys().into_iter()
+                            .map(|o|o.to_string())
+                            .collect()
+                    }
                     Object::Empty|
                     Object::EmptyParam => {vec![]},
                     o => vec![o.to_string()]
