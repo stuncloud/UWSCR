@@ -111,26 +111,21 @@ pub fn msgbox(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let selected = focus.map(|n| MsgBoxButton(n));
 
     let title = DIALOG_TITLE.as_str();
-    let msgbox = match Msgbox::new(
+    let msgbox = Msgbox::new(
         title,
         &message,
         MsgBoxButton(btns),
         Some(font_family),
         selected,
         x, y,
-    ) {
-        Ok(m) => m,
-        Err(e) => return Err(builtin_func_error(UWindowError(e), args.name())),
-    };
+    ).map_err(|e| builtin_func_error(UWindowError(e), args.name()))?;
     msgbox.show();
-    match msgbox.message_loop() {
-        Ok((btn, x, y)) => {
-            set_dlg_point(x, y, &MSGBOX_POINT);
-            let pressed = btn.0 as f64;
-            Ok(Object::Num(pressed))
-        },
-        Err(e) => Err(builtin_func_error(UWindowError(e), args.name())),
-    }
+    let (btn, x, y) = msgbox.message_loop()
+        .map_err(|e| builtin_func_error(UWindowError(e), args.name()))?;
+
+    set_dlg_point(x, y, &MSGBOX_POINT);
+    let pressed = btn.0 as f64;
+    Ok(Object::Num(pressed))
 }
 
 pub fn input(args: BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -164,32 +159,28 @@ pub fn input(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let font = FONT_FAMILY.clone();
     let caption = msg.pop().unwrap_or_default();
 
-    let input = match InputBox::new(title, Some(font), &caption, fields, x, y) {
-        Ok(input) => input,
-        Err(e) => return Err(builtin_func_error(UWindowError(e), args.name())),
-    };
+    let input = InputBox::new(title, Some(font), &caption, fields, x, y)
+            .map_err(|e| builtin_func_error(UWindowError(e), args.name()))?;
     input.show();
-    match input.message_loop() {
-        Ok((result, x, y)) => {
-            set_dlg_point(x, y, &INPUT_POINT);
-            match result {
-                Some(mut vec) => if vec.len() == 1 {
-                    let s = vec.pop().unwrap_or_default();
-                    Ok(Object::String(s))
-                } else {
-                    let arr = vec.into_iter().map(|s| Object::String(s)).collect();
-                    Ok(Object::Array(arr))
-                },
-                None => if count > 1 {
-                    Ok(Object::Array(vec![]))
-                } else {
-                    Ok(Object::Empty)
-                },
-            }
-        },
-        Err(e) => Err(builtin_func_error(UWindowError(e), args.name())),
-    }
 
+    let (result, x, y) = input.message_loop()
+        .map_err(|e| builtin_func_error(UWindowError(e), args.name()))?;
+
+    set_dlg_point(x, y, &INPUT_POINT);
+    match result {
+        Some(mut vec) => if vec.len() == 1 {
+            let s = vec.pop().unwrap_or_default();
+            Ok(Object::String(s))
+        } else {
+            let arr = vec.into_iter().map(|s| Object::String(s)).collect();
+            Ok(Object::Array(arr))
+        },
+        None => if count > 1 {
+            Ok(Object::Array(vec![]))
+        } else {
+            Ok(Object::Empty)
+        },
+    }
 }
 
 #[allow(non_camel_case_types)]
@@ -237,15 +228,12 @@ pub fn slctbox(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 
     let font = FONT_FAMILY.clone();
     let title = DIALOG_TITLE.as_str();
-    let slct = match Slctbox::new(title, message, r#type, option, items, font, wait, pos_x, pos_y) {
-        Ok(slct) => slct,
-        Err(e) => return Err(builtin_func_error(UWindowError(e), args.name())),
-    };
+    let slct = Slctbox::new(title, message, r#type, option, items, font, wait, pos_x, pos_y)
+            .map_err(|e| builtin_func_error(UWindowError(e), args.name()))?;
     slct.show();
-    let (ret, left, top) = match slct.message_loop() {
-        Ok(ret) => ret,
-        Err(e) => return Err(builtin_func_error(UWindowError(e), args.name())),
-    };
+    let (ret, left, top) = slct.message_loop()
+        .map_err(|e| builtin_func_error(UWindowError(e), args.name()))?;
+
     set_dlg_point(left, top, &SLCTBOX_POINT);
     let obj = match ret {
         SlctReturnValue::Const(n) |
@@ -272,10 +260,9 @@ pub fn popupmenu(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let x = args.get_as_int_or_empty(1)?;
     let y = args.get_as_int_or_empty(2)?;
     let popup = PopupMenu::new(list);
-    let selected = match popup.show(x, y) {
-        Ok(s) => s,
-        Err(e) => return Err(builtin_func_error(UWindowError(e), args.name())),
-    };
+    let selected = popup.show(x, y)
+        .map_err(|e| builtin_func_error(UWindowError(e), args.name()))?;
+
     let obj = match selected {
         Some(s) => Object::String(s),
         None => Object::Empty,
@@ -297,10 +284,9 @@ pub fn balloon(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         let font = Some(FontFamily::from((font_name, font_size)));
         let font_color = args.get_as_int_or_empty::<u32>(6)?;
         let bg_color = args.get_as_int_or_empty::<u32>(7)?;
-        match Balloon::new(&text, x, y, font, font_color, bg_color) {
-            Ok(b) => Some(b),
-            Err(e) => return Err(builtin_func_error(UWindowError(e), args.name())),
-        }
+        let balloon = Balloon::new(&text, x, y, font, font_color, bg_color)
+            .map_err(|e| builtin_func_error(UWindowError(e), args.name()))?;
+        Some(balloon)
     };
     Ok(Object::SpecialFuncResult(SpecialFuncResultType::Balloon(balloon)))
 }
