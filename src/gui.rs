@@ -427,7 +427,7 @@ impl Window {
                 .trim_end_matches('\0').to_string()
         }
     }
-    fn get_dlg_ctrl_id(hwnd: HWND) -> i32 {
+    fn _get_dlg_ctrl_id(hwnd: HWND) -> i32 {
         unsafe {
             GetDlgCtrlID(hwnd)
         }
@@ -452,15 +452,14 @@ impl Window {
 #[derive(Clone, Copy, Debug)]
 pub struct Child {
     hwnd: HWND,
-    id: i32,
     pub size: SIZE,
     pub x: i32,
     pub y: i32,
     pub ctype: Option<ChildType>
 }
 impl Child {
-    pub fn new(hwnd: HWND, id: i32, size: SIZE, x: i32, y: i32, ctype: Option<ChildType>) -> Self {
-        Self { hwnd, id, size, x, y, ctype }
+    pub fn _new(hwnd: HWND, size: SIZE, x: i32, y: i32, ctype: Option<ChildType>) -> Self {
+        Self { hwnd, size, x, y, ctype }
     }
     pub fn move_to(&mut self, x: Option<i32>, y: Option<i32>, width: Option<i32>, height: Option<i32>) {
         let x = x.unwrap_or(self.x);
@@ -481,7 +480,6 @@ impl Default for Child {
     fn default() -> Self {
         Self {
             hwnd: HWND::default(),
-            id: 0,
             size: SIZE::default(),
             x: 0,
             y: 0,
@@ -496,10 +494,8 @@ impl From<HWND> for Child {
             cx: rect.right - rect.left,
             cy: rect.bottom - rect.top
         };
-        let id = Window::get_dlg_ctrl_id(hwnd);
         Self {
             hwnd,
-            id,
             size,
             x: rect.left,
             y: rect.top,
