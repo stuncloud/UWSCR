@@ -6,6 +6,7 @@ pub mod ustruct;
 pub mod module;
 pub mod function;
 pub mod uobject;
+pub mod fopen;
 
 pub use self::hashtbl::{HashTbl, HashTblEnum};
 pub use self::version::Version;
@@ -15,6 +16,7 @@ pub use self::ustruct::{UStruct, UStructMember};
 pub use self::module::Module;
 pub use self::function::Function;
 pub use self::uobject::UObject;
+pub use self::fopen::*;
 
 use crate::ast::*;
 use crate::evaluator::builtins::BuiltinFunction;
@@ -91,6 +93,7 @@ pub enum Object {
     BrowserFunc(Browser, String),
     Element(Element),
     ElementFunc(Element, String),
+    Fopen(Arc<Mutex<Fopen>>),
 }
 
 unsafe impl Send for Object {}
@@ -189,6 +192,10 @@ impl fmt::Display for Object {
             Object::BrowserFunc(_,ref s) => write!(f, "Browser.{}", s),
             Object::Element(ref e) => write!(f, "Element: {}", e.node_id),
             Object::ElementFunc(_, ref s) => write!(f, "Element.{}", s),
+            Object::Fopen(ref arc) => {
+                let fopen = arc.lock().unwrap();
+                write!(f, "{}", &*fopen)
+            },
         }
     }
 }
@@ -300,6 +307,11 @@ impl PartialEq for Object {
             Object::ElementFunc(e, f) => if let Object::ElementFunc(e2,f2) = other {
                 e==e2 && f==f2
             } else {false},
+            Object::Fopen(f1) => if let Object::Fopen(f2) = other {
+                let _tmp = f1.lock().unwrap();
+                let result = f2.try_lock().is_err();
+                result
+            } else {false},
         }
     }
 }
@@ -370,6 +382,11 @@ impl Into<Object> for f64 {
     }
 }
 impl Into<Object> for i32 {
+    fn into(self) -> Object {
+        Object::Num(self as f64)
+    }
+}
+impl Into<Object> for usize {
     fn into(self) -> Object {
         Object::Num(self as f64)
     }

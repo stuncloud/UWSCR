@@ -3,9 +3,10 @@ use std::fmt;
 
 use crate::ast::{Expression, Infix, DllType};
 use crate::evaluator::object::Object;
-use crate::write_locale;
+pub use crate::write_locale;
+pub use super::{CURRENT_LOCALE, Locale};
 use crate::gui::UWindowError::{self, *};
-use super::{CURRENT_LOCALE, Locale};
+use crate::evaluator::object::fopen::FopenError;
 use serde_json::Value;
 
 #[derive(Debug, Clone)]
@@ -435,6 +436,7 @@ pub enum UErrorMessage {
     UWindowError(UWindowError),
     EmptyArrayNotAllowed,
     InvalidMemberOrIndex(String),
+    FopenError(FopenError),
 }
 
 impl fmt::Display for UErrorMessage {
@@ -935,6 +937,7 @@ impl fmt::Display for UErrorMessage {
                 "Invalid index: {}",
                 o
             ),
+            Self::FopenError(e) => write!(f, "{}", e),
         }
     }
 }

@@ -28,12 +28,13 @@ use crate::evaluator::object::{
     SpecialFuncResultType,
     UTask
 };
-use crate::evaluator::object::UObject;
+use crate::evaluator::object::{UObject,Fopen};
 use crate::evaluator::environment::NamedObject;
 use crate::error::evaluator::{UError,UErrorKind,UErrorMessage};
 use crate::ast::Expression;
 
 use std::env;
+use std::sync::{Mutex, Arc};
 
 use cast;
 use strum::VariantNames;
@@ -229,12 +230,16 @@ impl BuiltinFuncArgs {
     }
     /// 引数を文字列として受ける
     /// あらゆる型を文字列にする
+    /// 引数省略(EmptyParam)はエラーになる
     pub fn get_as_string(&self, i: usize, default: Option<String>) -> BuiltInResult<String> {
         get_arg_value!(self, i, default, {
             let arg = self.item(i);
             match &arg {
                 Object::String(s) => Ok(s.clone()),
                 Object::RegEx(re) => Ok(re.clone()),
+                Object::EmptyParam => Err(
+                    builtin_func_error(UErrorMessage::BuiltinArgRequiredAt(i + 1), self.name())
+                ),
                 o => Ok(o.to_string()),
             }
         })
@@ -409,6 +414,15 @@ impl BuiltinFuncArgs {
             Ok(vec)
         })
     }
+
+    pub fn get_as_fopen(&self, i: usize) -> BuiltInResult<Arc<Mutex<Fopen>>> {
+        get_arg_value!(self, i, {
+            match self.item(i) {
+                Object::Fopen(arc) => Ok(Arc::clone(&arc)),
+                arg => Err(builtin_func_error(UErrorMessage::BuiltinArgInvalid(arg), self.name())),
+            }
+        })
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -501,6 +515,10 @@ pub fn init_builtins() -> Vec<NamedObject> {
         vec.push(NamedObject::new_builtin_const(name, object))
     }
     dialog::builtin_func_sets().set(&mut vec);
+    // file_control
+    set_builtin_consts::<file_control::FileConst>(&mut vec);
+    set_builtin_consts::<file_control::FileConstDup>(&mut vec);
+    file_control::builtin_func_sets().set(&mut vec);
     // 特殊変数
     set_special_variables(&mut vec);
 
