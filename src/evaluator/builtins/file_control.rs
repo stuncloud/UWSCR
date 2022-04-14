@@ -15,6 +15,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("fclose", 2, fclose);
     sets.add("fget", 4, fget);
     sets.add("fput", 4, fput);
+    sets.add("fdelline", 2, fdelline);
     sets
 }
 
@@ -106,4 +107,15 @@ pub fn fput(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             |e| Err(builtin_func_error(FopenError(e), args.name())),
             |_| Ok(Object::Empty)
         )
+}
+
+pub fn fdelline(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let row = args.get_as_int(1, None::<usize>)?;
+    if row < 1 {
+        return Ok(Object::Empty)
+    }
+    let arc = args.get_as_fopen(0)?;
+    let mut fopen = arc.lock().unwrap();
+    fopen.remove(row);
+    Ok(Object::Empty)
 }

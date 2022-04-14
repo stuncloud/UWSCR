@@ -530,6 +530,17 @@ impl Fopen {
         }
         Ok(())
     }
+    pub fn remove(&mut self, row: usize) {
+        if let Some(text) = &self.text {
+            let index = row - 1;
+            let mut lines = text.lines().collect::<Vec<_>>();
+            if row <= lines.len() {
+                lines.remove(index);
+                let new = lines.join("\r\n");
+                self.text = Some(new);
+            }
+        }
+    }
 }
 
 pub enum FGetType {
