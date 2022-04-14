@@ -423,6 +423,18 @@ impl BuiltinFuncArgs {
             }
         })
     }
+    pub fn get_as_string_or_fopen(&self, i: usize) -> BuiltInResult<(Option<String>, Option<Arc<Mutex<Fopen>>>)> {
+        let default = Some((None, None));
+        get_arg_value!(self, i, default, {
+            let result = match self.item(i) {
+                Object::Empty |
+                Object::EmptyParam => (None, None),
+                Object::Fopen(arc) => (None, Some(Arc::clone(&arc))),
+                o => (Some(o.to_string()), None)
+            };
+            Ok(result)
+        })
+    }
 }
 
 #[derive(Debug, Clone)]

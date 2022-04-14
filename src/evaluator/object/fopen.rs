@@ -14,6 +14,7 @@ use windows::Win32::{
 };
 use once_cell::sync::Lazy;
 use encoding_rs::{UTF_8, SHIFT_JIS};
+use ini::Ini;
 
 static FILE_LIST: Lazy<Mutex<Vec<(u32, File)>>> = Lazy::new(|| Mutex::new(vec![]));
 static FILE_ID: Lazy<Mutex<u32>> = Lazy::new(|| Mutex::new(0));
@@ -28,6 +29,7 @@ pub enum FopenError {
     NoOpenFileFound(String),
     UnknownEncoding(String),
     CsvError(String),
+    IniError(String),
     NotReadable,
 }
 
@@ -54,6 +56,11 @@ impl From<csv::Error> for FopenError {
 impl From<csv::IntoInnerError<csv::Writer<std::vec::Vec<u8>>>> for FopenError {
     fn from(e: csv::IntoInnerError<csv::Writer<std::vec::Vec<u8>>>) -> Self {
         Self::CsvError(e.to_string())
+    }
+}
+impl From<ini::ParseError> for FopenError {
+    fn from(e: ini::ParseError) -> Self {
+        Self::IniError(e.to_string())
     }
 }
 
@@ -93,6 +100,10 @@ impl std::fmt::Display for FopenError {
             FopenError::NotReadable => write_locale!(f,
                 "F_READが指定されていないためファイルを読み取れません",
                 "Can not read file; f_READ is required",
+            ),
+            FopenError::IniError(e) => write_locale!(f,
+                "iniパースエラー ({e})",
+                "Ini parse error: {e}",
             ),
         }
     }
@@ -174,7 +185,7 @@ impl From<u32> for FopenFlag {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone)]
 pub struct Fopen {
     pub flag: FopenFlag,
     path: PathBuf,
@@ -183,6 +194,33 @@ pub struct Fopen {
     use_tab: bool,
     share: u32,
     text: Option<String>,
+    ini: Option<Ini>,
+}
+
+impl std::fmt::Debug for Fopen {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Fopen")
+            .field("flag", &self.flag)
+            .field("path", &self.path)
+            .field("id", &self.id)
+            .field("no_cr", &self.no_cr)
+            .field("use_tab", &self.use_tab)
+            .field("share", &self.share)
+            .field("text", &self.text)
+            .field("ini", &self.ini.as_ref().map_or(false, |_| true))
+            .finish()
+    }
+}
+impl std::cmp::PartialEq for Fopen {
+    fn eq(&self, other: &Self) -> bool {
+        self.flag == other.flag &&
+        self.path == other.path &&
+        self.id == other.id &&
+        self.no_cr == other.no_cr &&
+        self.use_tab == other.use_tab &&
+        self.share == other.share &&
+        self.text == other.text
+    }
 }
 
 impl Fopen {
@@ -197,7 +235,7 @@ impl Fopen {
         };
         let path = PathBuf::from(path);
         let id = Self::new_id();
-        Self { flag, path, id, no_cr, use_tab, share, text: None }
+        Self { flag, path, id, no_cr, use_tab, share, text: None, ini: None }
     }
     fn new_id() -> u32 {
         let mut m = FILE_ID.lock().unwrap();
@@ -230,7 +268,7 @@ impl Fopen {
             let text = self.decode(&buf)?;
             self.text = Some(text);
         }
-        if self._can_write() {
+        if self.can_write() {
             file.seek(SeekFrom::Start(0))?;
             file.set_len(0)?;
         }
@@ -241,56 +279,58 @@ impl Fopen {
     fn can_read(&self) -> bool {
         self.flag.mode == FopenMode::Read || self.flag.mode == FopenMode::ReadWrite
     }
-    fn _can_write(&self) -> bool {
+    fn can_write(&self) -> bool {
         self.flag.mode == FopenMode::Write || self.flag.mode == FopenMode::ReadWrite
     }
     pub fn close(&mut self) -> FopenResult<bool> {
         let mut list = FILE_LIST.lock().unwrap();
         if let Some(index) = list.iter().position(|(id, _)| *id == self.id) {
-            if let Some(ref text) = self.text {
-                if let Some((_, file)) = list.get_mut(index) {
-                    let mut stream = BufWriter::new(file);
-                    match self.flag.encoding {
-                        FopenEncoding::Utf16LE => {
-                            stream.write(&[0xFF, 0xFE])?;
-                            for utf16 in text.encode_utf16() {
-                                stream.write(&utf16.to_be_bytes())?;
-                            }
-                            if ! self.no_cr {
-                                for utf16 in "\r\n".encode_utf16() {
+            if self.can_write() {
+                if let Some(ref text) = self.text {
+                    if let Some((_, file)) = list.get_mut(index) {
+                        let mut stream = BufWriter::new(file);
+                        match self.flag.encoding {
+                            FopenEncoding::Utf16LE => {
+                                stream.write(&[0xFF, 0xFE])?;
+                                for utf16 in text.encode_utf16() {
                                     stream.write(&utf16.to_be_bytes())?;
                                 }
-                            }
-                        },
-                        FopenEncoding::Utf16BE => {
-                            stream.write(&[0xFE, 0xFF])?;
-                            for utf16 in text.encode_utf16() {
-                                stream.write(&utf16.to_le_bytes())?;
-                            }
-                            if ! self.no_cr {
-                                for utf16 in "\r\n".encode_utf16() {
+                                if ! self.no_cr {
+                                    for utf16 in "\r\n".encode_utf16() {
+                                        stream.write(&utf16.to_be_bytes())?;
+                                    }
+                                }
+                            },
+                            FopenEncoding::Utf16BE => {
+                                stream.write(&[0xFE, 0xFF])?;
+                                for utf16 in text.encode_utf16() {
                                     stream.write(&utf16.to_le_bytes())?;
                                 }
+                                if ! self.no_cr {
+                                    for utf16 in "\r\n".encode_utf16() {
+                                        stream.write(&utf16.to_le_bytes())?;
+                                    }
+                                }
+                            },
+                            FopenEncoding::Sjis => {
+                                let (cow,_,_) = SHIFT_JIS.encode(text);
+                                stream.write(cow.as_ref())?;
+                                if ! self.no_cr {
+                                    stream.write("\r\n".as_bytes())?;
+                                }
                             }
-                        },
-                        FopenEncoding::Sjis => {
-                            let (cow,_,_) = SHIFT_JIS.encode(text);
-                            stream.write(cow.as_ref())?;
-                            if ! self.no_cr {
-                                stream.write("\r\n".as_bytes())?;
-                            }
+                            _ => {
+                                if self.flag.encoding == FopenEncoding::Utf8B {
+                                    stream.write(&[0xEF, 0xBB, 0xBF])?;
+                                }
+                                stream.write(text.as_bytes())?;
+                                if ! self.no_cr {
+                                    stream.write("\r\n".as_bytes())?;
+                                }
+                            },
                         }
-                        _ => {
-                            if self.flag.encoding == FopenEncoding::Utf8B {
-                                stream.write(&[0xEF, 0xBB, 0xBF])?;
-                            }
-                            stream.write(text.as_bytes())?;
-                            if ! self.no_cr {
-                                stream.write("\r\n".as_bytes())?;
-                            }
-                        },
+                        stream.flush()?;
                     }
-                    stream.flush()?;
                 }
             }
             list.remove(index);
@@ -540,6 +580,99 @@ impl Fopen {
                 self.text = Some(new);
             }
         }
+    }
+    pub fn load_ini(&mut self) -> FopenResult<()> {
+        if self.ini.is_none() {
+            match &self.text {
+                Some(text) => {
+                    let ini = Ini::load_from_str(text)?;
+                    self.set_ini(ini);
+                },
+                None => {},
+            }
+        }
+        Ok(())
+    }
+    pub fn set_ini(&mut self, new_ini: Ini) {
+        self.ini = Some(new_ini);
+    }
+    pub fn get_sections(&mut self) -> FopenResult<Vec<String>> {
+        self.load_ini()?;
+        let list = match self.ini {
+            Some(ref ini) => {
+                let list = ini.sections()
+                    .map(|s| s.unwrap_or_default().to_string())
+                    .collect();
+                list
+            },
+            None => vec![],
+        };
+        Ok(list)
+    }
+    pub fn get_sections_from_path(path: &str) -> FopenResult<Vec<String>> {
+        let f_read = 2;
+        let mut fopen = Self::new(path, f_read);
+        if let Err(e) = fopen.open() {
+            match e {
+                // IOエラーは無視して空文字を返す
+                FopenError::IOError(_) => return Ok(vec![]),
+                e => return Err(e)
+            }
+        }
+        let sections = fopen.get_sections()?;
+        fopen.close()?;
+        Ok(sections)
+    }
+    pub fn get_keys(&mut self, section: Option<&str>) -> FopenResult<Vec<String>> {
+        self.load_ini()?;
+        let list = match self.ini {
+            Some(ref ini) => match ini.section(section) {
+                Some(p) => p.iter()
+                        .map(|(key, _)| key.to_string())
+                        .collect(),
+                None => vec![],
+            },
+            None => vec![],
+        };
+        Ok(list)
+    }
+    pub fn get_keys_from_path(path: &str, section: Option<&str>) -> FopenResult<Vec<String>> {
+        let f_read = 2;
+        let mut fopen = Self::new(path, f_read);
+        if let Err(e) = fopen.open() {
+            match e {
+                // IOエラーは無視して空文字を返す
+                FopenError::IOError(_) => return Ok(vec![]),
+                e => return Err(e)
+            }
+        }
+        let keys = fopen.get_keys(section)?;
+        fopen.close()?;
+        Ok(keys)
+    }
+    pub fn ini_read(&mut self, section: Option<&str>, key: &str) -> FopenResult<Option<String>> {
+        self.load_ini()?;
+        match &self.ini {
+            Some(ini) => {
+                let value = ini.get_from(section, key).map(|s|s.to_string());
+                Ok(value)
+            },
+            None => Ok(None),
+        }
+    }
+    pub fn ini_read_from_path(path: &str, section: Option<&str>, key: &str) -> FopenResult<Option<String>> {
+        let f_read = 2;
+        let mut fopen = Self::new(path, f_read);
+        if let Err(e) = fopen.open() {
+            match e {
+                // IOエラーは無視して空文字を返す
+                FopenError::IOError(_) => return Ok(None),
+                e => return Err(e)
+            }
+        }
+        let value = fopen.ini_read(section, key)?;
+        fopen.close()?;
+        Ok(value)
     }
 }
 

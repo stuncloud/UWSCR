@@ -406,6 +406,23 @@ impl Into<Object> for Value {
         }
     }
 }
+impl Into<Object> for Option<String> {
+    fn into(self) -> Object {
+        if let Some(s) = self {
+            Object::String(s)
+        } else {
+            Object::Empty
+        }
+    }
+}
+impl Into<Object> for Vec<String> {
+    fn into(self) -> Object {
+        let arr = self.into_iter()
+            .map(|s| s.into())
+            .collect();
+        Object::Array(arr)
+    }
+}
 
 impl Into<i32> for Object {
     fn into(self) -> i32 {
