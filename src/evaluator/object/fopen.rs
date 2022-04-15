@@ -14,7 +14,6 @@ use windows::Win32::{
 };
 use once_cell::sync::Lazy;
 use encoding_rs::{UTF_8, SHIFT_JIS};
-use ini::Ini;
 
 static FILE_LIST: Lazy<Mutex<Vec<(u32, File)>>> = Lazy::new(|| Mutex::new(vec![]));
 static FILE_ID: Lazy<Mutex<u32>> = Lazy::new(|| Mutex::new(0));
@@ -29,7 +28,6 @@ pub enum FopenError {
     NoOpenFileFound(String),
     UnknownEncoding(String),
     CsvError(String),
-    IniError(String),
     NotReadable,
 }
 
@@ -56,11 +54,6 @@ impl From<csv::Error> for FopenError {
 impl From<csv::IntoInnerError<csv::Writer<std::vec::Vec<u8>>>> for FopenError {
     fn from(e: csv::IntoInnerError<csv::Writer<std::vec::Vec<u8>>>) -> Self {
         Self::CsvError(e.to_string())
-    }
-}
-impl From<ini::ParseError> for FopenError {
-    fn from(e: ini::ParseError) -> Self {
-        Self::IniError(e.to_string())
     }
 }
 
@@ -100,10 +93,6 @@ impl std::fmt::Display for FopenError {
             FopenError::NotReadable => write_locale!(f,
                 "F_READが指定されていないためファイルを読み取れません",
                 "Can not read file; f_READ is required",
-            ),
-            FopenError::IniError(e) => write_locale!(f,
-                "iniパースエラー ({e})",
-                "Ini parse error: {e}",
             ),
         }
     }
@@ -185,7 +174,7 @@ impl From<u32> for FopenFlag {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Fopen {
     pub flag: FopenFlag,
     path: PathBuf,
@@ -194,33 +183,6 @@ pub struct Fopen {
     use_tab: bool,
     share: u32,
     text: Option<String>,
-    ini: Option<Ini>,
-}
-
-impl std::fmt::Debug for Fopen {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Fopen")
-            .field("flag", &self.flag)
-            .field("path", &self.path)
-            .field("id", &self.id)
-            .field("no_cr", &self.no_cr)
-            .field("use_tab", &self.use_tab)
-            .field("share", &self.share)
-            .field("text", &self.text)
-            .field("ini", &self.ini.as_ref().map_or(false, |_| true))
-            .finish()
-    }
-}
-impl std::cmp::PartialEq for Fopen {
-    fn eq(&self, other: &Self) -> bool {
-        self.flag == other.flag &&
-        self.path == other.path &&
-        self.id == other.id &&
-        self.no_cr == other.no_cr &&
-        self.use_tab == other.use_tab &&
-        self.share == other.share &&
-        self.text == other.text
-    }
 }
 
 impl Fopen {
@@ -235,7 +197,7 @@ impl Fopen {
         };
         let path = PathBuf::from(path);
         let id = Self::new_id();
-        Self { flag, path, id, no_cr, use_tab, share, text: None, ini: None }
+        Self { flag, path, id, no_cr, use_tab, share, text: None }
     }
     fn new_id() -> u32 {
         let mut m = FILE_ID.lock().unwrap();
@@ -581,33 +543,16 @@ impl Fopen {
             }
         }
     }
-    pub fn load_ini(&mut self) -> FopenResult<()> {
-        if self.ini.is_none() {
-            match &self.text {
-                Some(text) => {
-                    let ini = Ini::load_from_str(text)?;
-                    self.set_ini(ini);
-                },
-                None => {},
-            }
-        }
-        Ok(())
-    }
-    pub fn set_ini(&mut self, new_ini: Ini) {
-        self.ini = Some(new_ini);
-    }
-    pub fn get_sections(&mut self) -> FopenResult<Vec<String>> {
-        self.load_ini()?;
-        let list = match self.ini {
-            Some(ref ini) => {
-                let list = ini.sections()
-                    .map(|s| s.unwrap_or_default().to_string())
-                    .collect();
-                list
+
+    /* ini */
+    pub fn get_sections(&self) -> Vec<String> {
+        match &self.text {
+            Some(buf) => {
+                let ini = Ini::parse(buf);
+                ini.get_sections()
             },
             None => vec![],
-        };
-        Ok(list)
+        }
     }
     pub fn get_sections_from_path(path: &str) -> FopenResult<Vec<String>> {
         let f_read = 2;
@@ -619,24 +564,20 @@ impl Fopen {
                 e => return Err(e)
             }
         }
-        let sections = fopen.get_sections()?;
+        let sections = fopen.get_sections();
         fopen.close()?;
         Ok(sections)
     }
-    pub fn get_keys(&mut self, section: Option<&str>) -> FopenResult<Vec<String>> {
-        self.load_ini()?;
-        let list = match self.ini {
-            Some(ref ini) => match ini.section(section) {
-                Some(p) => p.iter()
-                        .map(|(key, _)| key.to_string())
-                        .collect(),
-                None => vec![],
+    pub fn get_keys(&self, section: &str) -> Vec<String> {
+        match &self.text {
+            Some(text) => {
+                let ini = Ini::parse(text);
+                ini.get_keys(section)
             },
             None => vec![],
-        };
-        Ok(list)
+        }
     }
-    pub fn get_keys_from_path(path: &str, section: Option<&str>) -> FopenResult<Vec<String>> {
+    pub fn get_keys_from_path(path: &str, section: &str) -> FopenResult<Vec<String>> {
         let f_read = 2;
         let mut fopen = Self::new(path, f_read);
         if let Err(e) = fopen.open() {
@@ -646,21 +587,20 @@ impl Fopen {
                 e => return Err(e)
             }
         }
-        let keys = fopen.get_keys(section)?;
+        let keys = fopen.get_keys(section);
         fopen.close()?;
         Ok(keys)
     }
-    pub fn ini_read(&mut self, section: Option<&str>, key: &str) -> FopenResult<Option<String>> {
-        self.load_ini()?;
-        match &self.ini {
-            Some(ini) => {
-                let value = ini.get_from(section, key).map(|s|s.to_string());
-                Ok(value)
+    pub fn ini_read(&self, section: &str, key: &str) -> Option<String> {
+        match &self.text {
+            Some(text) => {
+                let ini = Ini::parse(text);
+                ini.get(section, key)
             },
-            None => Ok(None),
+            None => None,
         }
     }
-    pub fn ini_read_from_path(path: &str, section: Option<&str>, key: &str) -> FopenResult<Option<String>> {
+    pub fn ini_read_from_path(path: &str, section: &str, key: &str) -> FopenResult<Option<String>> {
         let f_read = 2;
         let mut fopen = Self::new(path, f_read);
         if let Err(e) = fopen.open() {
@@ -670,9 +610,46 @@ impl Fopen {
                 e => return Err(e)
             }
         }
-        let value = fopen.ini_read(section, key)?;
+        let value = fopen.ini_read(section, key);
         fopen.close()?;
         Ok(value)
+    }
+    pub fn ini_write(&mut self, section: &str, key: &str, value: &str) {
+        let mut ini = match &self.text {
+            Some(text) => Ini::parse(text),
+            None => Ini::new(),
+        };
+        if ini.set(section, key, value) {
+            self.text = Some(ini.to_string());
+        }
+    }
+    pub fn ini_write_from_path(path: &str, section: &str, key: &str, value: &str) -> FopenResult<()> {
+        let f_read_or_f_write = 6;
+        let mut fopen = Self::new(path, f_read_or_f_write);
+        fopen.open()?;
+        fopen.ini_write(section, key, value);
+        fopen.close()?;
+        Ok(())
+    }
+    pub fn ini_delete(&mut self, section: &str, key: Option<&str>) {
+        let mut ini = match &self.text {
+            Some(text) => Ini::parse(text),
+            None => Ini::new(),
+        };
+        if match key {
+            Some(key) => ini.remove(section, key),
+            None => ini.remove_section(section),
+        } {
+            self.text = Some(ini.to_string());
+        }
+    }
+    pub fn ini_delete_from_path(path: &str, section: &str, key: Option<&str>) -> FopenResult<()> {
+        let f_read_or_f_write = 6;
+        let mut fopen = Self::new(path, f_read_or_f_write);
+        fopen.open()?;
+        fopen.ini_delete(section, key);
+        fopen.close()?;
+        Ok(())
     }
 }
 
@@ -730,5 +707,203 @@ impl std::fmt::Display for Fopen {
             self.flag.encoding,
             self.flag.option,
         )
+    }
+}
+
+#[derive(Debug)]
+struct Ini {
+    lines: Vec<IniLine>,
+}
+
+#[derive(Debug)]
+enum IniLine {
+    Section(String),
+    Key(IniKey),
+    Other(String)
+}
+
+impl IniLine {
+    fn get_inikey_if_match(&self, section: &str, key: &str) -> Option<IniKey> {
+        if let Self::Key(inikey) = self {
+            if inikey.section.to_ascii_uppercase() == section.to_ascii_uppercase() &&
+            inikey.key.to_ascii_uppercase() == key.to_ascii_uppercase() {
+                Some(inikey.clone())
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+    fn get_value_if_match(&self, section: &str, key: &str) -> Option<String> {
+        self.get_inikey_if_match(section, key)
+            .map(|inikey| inikey.value.clone())
+    }
+    fn is_in_section(&self, section: &str) -> bool {
+        if let Self::Key(inikey) = self {
+            inikey.is_in(section)
+        } else {
+            false
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct IniKey {
+    section: String,
+    key: String,
+    value: String,
+}
+
+impl IniKey {
+    fn is_in(&self, section: &str) -> bool {
+        self.section.to_ascii_uppercase() == section.to_ascii_uppercase()
+    }
+}
+
+impl std::fmt::Display for IniLine {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            IniLine::Section(sec) => write!(f, "[{sec}]"),
+            IniLine::Key(IniKey { section: _, key, value }) => write!(f, "{key}={value}"),
+            IniLine::Other(line) => write!(f, "{line}"),
+        }
+    }
+}
+
+impl Ini {
+    fn new() -> Self {
+        Self {lines: vec![]}
+    }
+    fn parse(text: &str) -> Self {
+        let mut current_section = None::<String>;
+        let lines = text.lines()
+                .map(|s| {
+                    let trim = s.trim();
+                    if trim.starts_with("[") && trim.ends_with("]") {
+                        let section = trim.trim_start_matches('[').trim_end_matches(']');
+                        current_section = Some(section.to_string());
+                        IniLine::Section(section.to_string())
+                    } else if current_section.is_some() {
+                        match trim.split_once('=') {
+                            Some((key, val)) => IniLine::Key(IniKey {
+                                section: current_section.as_ref().unwrap().to_string(),
+                                key: key.trim().to_string(),
+                                value: val.trim().to_string(),
+                            }),
+                            None => {
+                                if trim.len() > 0 {
+                                    // 空行以外のOtherだったらセクションから外す
+                                    current_section = None;
+                                }
+                                IniLine::Other(s.to_string())
+                            },
+                        }
+                    } else {
+                        if trim.len() > 0 {
+                            // 空行以外のOtherだったらセクションから外す
+                            current_section = None;
+                        }
+                        IniLine::Other(s.to_string())
+                    }
+                })
+                .collect();
+        Self {lines}
+    }
+
+    fn insert(&mut self, inikey: IniKey) {
+        let section = inikey.section.clone();
+        let index = self.lines.iter()
+            .rposition(|line| line.is_in_section(&section));
+        match index {
+            Some(index) => {
+                self.lines.insert(index + 1, IniLine::Key(inikey));
+            },
+            None => {
+                self.lines.push(IniLine::Section(section));
+                self.lines.push(IniLine::Key(inikey));
+            },
+        }
+    }
+
+    fn get(&self, section: &str, key: &str) -> Option<String> {
+        self.lines.iter()
+            .find_map(|l| l.get_value_if_match(section, key))
+    }
+    fn set(&mut self, section: &str, key: &str, value: &str) -> bool {
+        let maybe_inikey = self.lines.iter_mut()
+                .find(|l| l.get_inikey_if_match(section, key).is_some());
+        match maybe_inikey {
+            Some(line) => if let IniLine::Key(inikey) = line {
+                inikey.value = value.to_string();
+                true
+            } else {
+                false
+            },
+            None => {
+                let inikey = IniKey {
+                    section: section.to_string(),
+                    key: key.to_string(),
+                    value: value.to_string(),
+                };
+                self.insert(inikey);
+                true
+            },
+        }
+    }
+    fn remove(&mut self, section: &str, key: &str) -> bool {
+        let maybe = self.lines.iter()
+                .position(|line| line.get_inikey_if_match(section, key).is_some());
+        match maybe {
+            Some(index) => {
+                self.lines.remove(index);
+                true
+            },
+            None => false,
+        }
+    }
+    fn remove_section(&mut self, section: &str) -> bool {
+        let len = self.lines.len();
+        self.lines.retain(|line| match line {
+            IniLine::Section(s) => {
+                s.to_ascii_uppercase() != section.to_ascii_uppercase()
+            },
+            IniLine::Key(key) => {
+                key.section.to_ascii_uppercase() != section.to_ascii_uppercase()
+            },
+            IniLine::Other(_) => true,
+        });
+        self.lines.len() != len
+    }
+
+    fn get_sections(&self) -> Vec<String> {
+        self.lines.iter()
+            .filter_map(|line| match line {
+                IniLine::Section(s) => Some(s.to_string()),
+                _ => None,
+            })
+            .collect()
+    }
+    fn get_keys(&self, section: &str) -> Vec<String> {
+        self.lines.iter()
+            .filter_map(|line| match line {
+                IniLine::Key(key) => {
+                    if key.is_in(section) {
+                        Some(key.key.to_string())
+                    } else {
+                        None
+                    }
+                },
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn to_string(&self) -> String {
+        let lines = self.lines
+                .iter()
+                .map(|l| l.to_string())
+                .collect::<Vec<_>>();
+        lines.join("\r\n").to_string()
     }
 }

@@ -143,30 +143,21 @@ pub fn readini(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     match arc {
         // fidが渡された場合
         Some(arc) => {
-            let mut fopen = arc.lock().unwrap();
+            let fopen = arc.lock().unwrap();
             match (section, key) {
                 // 該当する値を取得
                 (Some(section), Some(key)) => {
-                    let value = fopen.ini_read(Some(&section), &key)
-                        .map_err(|e| builtin_func_error(FopenError(e), args.name()))?;
-                    Ok(value.into())
-                },
-                // セクションなしの該当キーの値を取得
-                (None, Some(key)) => {
-                    let value = fopen.ini_read(None, &key)
-                        .map_err(|e| builtin_func_error(FopenError(e), args.name()))?;
+                    let value = fopen.ini_read(&section, &key);
                     Ok(value.into())
                 },
                 // キー一覧を取得
                 (Some(section), None) => {
-                    let keys = fopen.get_keys(Some(&section))
-                        .map_err(|e| builtin_func_error(FopenError(e), args.name()))?;
+                    let keys = fopen.get_keys(&section);
                     Ok(keys.into())
                 },
                 // セクション一覧を取得
-                (None, None) => {
-                    let sections = fopen.get_sections()
-                        .map_err(|e| builtin_func_error(FopenError(e), args.name()))?;
+                (None, _) => {
+                    let sections = fopen.get_sections();
                     Ok(sections.into())
                 },
             }
@@ -176,22 +167,17 @@ pub fn readini(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             let path = path.unwrap_or(DEFAULT_INI_NAME.to_string());
             match (section, key) {
                 (Some(section), Some(key)) => {
-                    let value = Fopen::ini_read_from_path(&path, Some(&section), &key)
+                    let value = Fopen::ini_read_from_path(&path, &section, &key)
                         .map_err(|e| builtin_func_error(FopenError(e), args.name()))?;
                     Ok(value.into())
                 },
-                (None, Some(key)) => {
-                    let value = Fopen::ini_read_from_path(&path, None, &key)
-                        .map_err(|e| builtin_func_error(FopenError(e), args.name()))?;
-                    Ok(value.into())
-                },
-                (None, None) => {
+                (None, _) => {
                     let sections = Fopen::get_sections_from_path(&path)
                         .map_err(|e| builtin_func_error(FopenError(e), args.name()))?;
                     Ok(sections.into())
                 },
                 (Some(section), None) => {
-                    let keys = Fopen::get_keys_from_path(&path, Some(&section))
+                    let keys = Fopen::get_keys_from_path(&path, &section)
                         .map_err(|e| builtin_func_error(FopenError(e), args.name()))?;
                     Ok(keys.into())
                 },
@@ -201,9 +187,38 @@ pub fn readini(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 }
 
 pub fn writeini(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let section = args.get_as_string(0, None)?;
+    let key = args.get_as_string(1, None)?;
+    let value = args.get_as_object(2, None)?.to_string();
+    let (path, arc) = args.get_as_string_or_fopen(3)?;
+    match arc {
+        Some(arc) => {
+            let mut fopen = arc.lock().unwrap();
+            fopen.ini_write(&section, &key, &value);
+        },
+        None => {
+            let path = path.unwrap_or(DEFAULT_INI_NAME.to_string());
+            Fopen::ini_write_from_path(&path, &section, &key, &value)
+                .map_err(|e| builtin_func_error(FopenError(e), args.name()))?;
+        },
+    }
     Ok(Object::default())
 }
 
 pub fn deleteini(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let section = args.get_as_string(0, None)?;
+    let key = args.get_as_string_or_empty(1)?;
+    let (path, arc) = args.get_as_string_or_fopen(2)?;
+    match arc {
+        Some(arc) => {
+            let mut fopen = arc.lock().unwrap();
+            fopen.ini_delete(&section, key.as_deref());
+        },
+        None => {
+            let path = path.unwrap_or(DEFAULT_INI_NAME.to_string());
+            Fopen::ini_delete_from_path(&path, &section, key.as_deref())
+                .map_err(|e| builtin_func_error(FopenError(e), args.name()))?;
+        },
+    }
     Ok(Object::default())
 }
