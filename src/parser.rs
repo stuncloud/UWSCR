@@ -2799,45 +2799,35 @@ impl Parser {
     fn parse_func_arguments(&mut self) -> Option<Vec<Expression>> {
         let mut list:Vec<Expression> = vec![];
         let end = Token::Rparen;
-
+        self.skip_next_eol();
         if self.is_next_token(&end) {
             self.bump();
             return Some(list);
         }
-        self.skip_next_eol();
-        self.bump();
-        self.skip_next_eol();
-
-        if self.is_current_token(&Token::Comma) {
-            list.push(Expression::EmptyArgument);
-            self.bump();
-        } else {
-            match self.parse_expression(Precedence::Lowest, false) {
-                Some(e) => list.push(e),
-                None => return None
-            }
-        }
-
-        while self.is_next_token(&Token::Comma) {
-            self.bump();
+        loop {
             self.skip_next_eol();
-            if self.is_next_token(&Token::Comma) {
-                // コンマが連続するなら空引数
+            self.bump();
+            if self.is_current_token(&Token::Comma) {
+                // カンマが連続したので空引数
                 list.push(Expression::EmptyArgument);
-                continue;
-            } else if self.is_next_token(&end) {
-                // , の後が ) であっても空引数扱い
+            } else if self.is_current_token(&end) {
+                // カンマの後が ) なので空引数
                 list.push(Expression::EmptyArgument);
                 break;
+            } else {
+                // 引数の式をパース
+                if let Some(e) = self.parse_expression(Precedence::Lowest, false) {
+                    list.push(e);
+                } else {
+                    return None;
+                }
+                self.skip_next_eol();
+                if self.is_next_token(&Token::Comma) {
+                    self.bump();
+                } else {
+                    break;
+                }
             }
-            self.skip_next_eol();
-            self.bump();
-
-            match self.parse_expression(Precedence::Lowest, false) {
-                Some(e) => list.push(e),
-                None => return None
-            }
-            self.skip_next_eol();
         }
 
         self.skip_next_eol();
@@ -4863,6 +4853,139 @@ fend
                             }),
                         )), 2
                     )
+                ]
+            ),
+        ];
+        for (input, expected) in tests {
+            parser_test(input, expected);
+        }
+    }
+
+    #[test]
+    fn test_func_call() {
+        let tests = vec![
+            (
+                r#"
+func(
+    1,
+    1,
+    1
+)
+                "#,
+                vec![
+                    StatementWithRow::new(
+                        Statement::Expression(Expression::FuncCall {
+                            func: Box::new(Expression::Identifier(Identifier("func".to_string()))),
+                            args: vec![
+                                Expression::Literal(Literal::Num(1.0)),
+                                Expression::Literal(Literal::Num(1.0)),
+                                Expression::Literal(Literal::Num(1.0)),
+                            ],
+                            is_await: false
+                        })
+                        , 2
+                    ),
+                ]
+            ),
+            (
+                r#"
+func(
+    2
+    ,2,
+    2
+)
+                "#,
+                vec![
+                    StatementWithRow::new(
+                        Statement::Expression(Expression::FuncCall {
+                            func: Box::new(Expression::Identifier(Identifier("func".to_string()))),
+                            args: vec![
+                                Expression::Literal(Literal::Num(2.0)),
+                                Expression::Literal(Literal::Num(2.0)),
+                                Expression::Literal(Literal::Num(2.0)),
+                            ],
+                            is_await: false
+                        })
+                        , 2
+                    ),
+                ]
+            ),
+            (
+                r#"
+func(3
+    ,3,
+    3)
+                "#,
+                vec![
+                    StatementWithRow::new(
+                        Statement::Expression(Expression::FuncCall {
+                            func: Box::new(Expression::Identifier(Identifier("func".to_string()))),
+                            args: vec![
+                                Expression::Literal(Literal::Num(3.0)),
+                                Expression::Literal(Literal::Num(3.0)),
+                                Expression::Literal(Literal::Num(3.0)),
+                            ],
+                            is_await: false
+                        })
+                        , 2
+                    ),
+                ]
+            ),
+            (
+                "func( , , 4)",
+                vec![
+                    StatementWithRow::new(
+                        Statement::Expression(Expression::FuncCall {
+                            func: Box::new(Expression::Identifier(Identifier("func".to_string()))),
+                            args: vec![
+                                Expression::EmptyArgument,
+                                Expression::EmptyArgument,
+                                Expression::Literal(Literal::Num(4.0)),
+                            ],
+                            is_await: false
+                        })
+                        , 1
+                    ),
+                ]
+            ),
+            (
+                r#"
+func(
+    ,
+    ,
+    5
+)
+                "#,
+                vec![
+                    StatementWithRow::new(
+                        Statement::Expression(Expression::FuncCall {
+                            func: Box::new(Expression::Identifier(Identifier("func".to_string()))),
+                            args: vec![
+                                Expression::EmptyArgument,
+                                Expression::EmptyArgument,
+                                Expression::Literal(Literal::Num(5.0)),
+                            ],
+                            is_await: false
+                        })
+                        , 2
+                    ),
+                ]
+            ),
+            (
+                "func( 5, , 5)",
+                vec![
+                    StatementWithRow::new(
+                        Statement::Expression(Expression::FuncCall {
+                            func: Box::new(Expression::Identifier(Identifier("func".to_string()))),
+                            args: vec![
+                                Expression::Literal(Literal::Num(5.0)),
+                                Expression::EmptyArgument,
+                                Expression::Literal(Literal::Num(5.0)),
+                            ],
+                            is_await: false
+                        })
+                        , 1
+                    ),
                 ]
             ),
         ];
