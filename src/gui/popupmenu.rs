@@ -38,9 +38,9 @@ pub struct PopupMenu {
 }
 
 impl PopupMenu {
-    pub fn new(list: Vec<Object>) -> Self {
-        let menu = Self::create_menu(list);
-        PopupMenu { menu }
+    pub fn new(list: Vec<Object>) -> UWindowResult<Self> {
+        let menu = Self::create_menu(list)?;
+        Ok(PopupMenu { menu })
     }
     pub fn show(&self, x: Option<i32>, y: Option<i32>) -> UWindowResult<Option<String>> {
         unsafe {
@@ -60,8 +60,8 @@ impl PopupMenu {
             Ok(self.menu.get_item(b.0))
         }
     }
-    fn create_menu(list: Vec<Object>) -> Menu {
-        let mut menu = Menu::new();
+    fn create_menu(list: Vec<Object>) -> UWindowResult<Menu> {
+        let mut menu = Menu::new()?;
         for i in 0..list.len() {
             match list.get(i) {
                 Some(o) => match o {
@@ -69,7 +69,7 @@ impl PopupMenu {
                     o => {
                         let item = o.to_string();
                         if let Some(Object::Array(vec)) = list.get(i+1) {
-                            let mut sub = Self::create_submenu(item, vec, menu.get_submenu_id());
+                            let mut sub = Self::create_submenu(item, vec, menu.get_submenu_id())?;
                             menu.set_submenu(&mut sub);
                         } else {
                             menu.append(item);
@@ -79,10 +79,10 @@ impl PopupMenu {
                 None => break,
             }
         }
-        menu
+        Ok(menu)
     }
-    fn create_submenu(name: String, list: &Vec<Object>, id: usize) -> SubMenu {
-        let mut menu = SubMenu::new(name, id);
+    fn create_submenu(name: String, list: &Vec<Object>, id: usize) -> UWindowResult<SubMenu> {
+        let mut menu = SubMenu::new(name, id)?;
         for i in 0..list.len() {
             match list.get(i) {
                 Some(o) => match o {
@@ -90,7 +90,7 @@ impl PopupMenu {
                     o => {
                         let item = o.to_string();
                         if let Some(Object::Array(vec)) = list.get(i+1) {
-                            let mut sub = Self::create_submenu(item, vec, menu.get_submenu_id());
+                            let mut sub = Self::create_submenu(item, vec, menu.get_submenu_id())?;
                             menu.set_submenu(&mut sub);
                         } else {
                             menu.append(item);
@@ -100,7 +100,7 @@ impl PopupMenu {
                 None => break,
             }
         }
-        menu
+        Ok(menu)
     }
 }
 
@@ -143,9 +143,12 @@ struct Menu {
 }
 
 impl Menu {
-    fn new() -> Self {
-        let hmenu = unsafe { CreatePopupMenu() };
-        Self { hmenu, id: 1, list: vec![] }
+    fn new() -> UWindowResult<Self> {
+        let hmenu = unsafe {
+            CreatePopupMenu()
+                .map_err(|e| UWindowError::FailedToCreatePopupMenu(e.to_string()))?
+        };
+        Ok(Self { hmenu, id: 1, list: vec![] })
     }
     fn get_item(&self, id: i32) -> Option<String> {
         let item = self.list.iter().find(|(n, _)| *n == id as usize).map(|(_,s)| s.to_string());
@@ -184,9 +187,12 @@ impl SubMenu {
     fn get_name(&self) -> String {
         self.name.to_string()
     }
-    fn new(name: String, id: usize) -> Self {
-        let hmenu = unsafe { CreatePopupMenu() };
-        Self { hmenu, name, id, list: vec![] }
+    fn new(name: String, id: usize) -> UWindowResult<Self> {
+        let hmenu = unsafe {
+            CreatePopupMenu()
+                .map_err(|e| UWindowError::FailedToCreatePopupMenu(e.to_string()))?
+        };
+        Ok(Self { hmenu, name, id, list: vec![] })
     }
     fn push_list_to_parent(&mut self,list: &mut Vec<(usize, String)>) {
         list.append(&mut self.list);

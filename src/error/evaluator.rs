@@ -901,33 +901,7 @@ impl fmt::Display for UErrorMessage {
                 "Invalid argument type: {} should be type {}",
                 n, t
             ),
-            Self::UWindowError(e) => match e {
-                FailedToCreateWindow(cls) => write_locale!(f,
-                    "ウィンドウの作成に失敗: {}",
-                    "Failed to create window: {}",
-                    cls
-                ),
-                FailedToRegisterClass(cls) => write_locale!(f,
-                    "クラス登録に失敗: {}",
-                    "Failed to register class: {}",
-                    cls
-                ),
-                FailedToCreateFont(font) => write_locale!(f,
-                    "フォント名が不正: {}",
-                    "Invalid font family: {}",
-                    font
-                ),
-                SlctBoxIndexOverFlowed(size) => write_locale!(f,
-                    "要素数過多({}): slctboxの要素数は31までです",
-                    "Too many items: {}, should be less than 32",
-                    size
-                ),
-                SlctBoxInvalidIndex(index) => write_locale!(f,
-                    "不正なインデックス({}): 該当するアイテムが見つかりません",
-                    "Invalid index: {}, no item found",
-                    index
-                ),
-            },
+            Self::UWindowError(e) => write!(f, "{e}"),
             Self::EmptyArrayNotAllowed => write_locale!(f,
                 "空の配列は許可されていません",
                 "Empty array is not allowed"

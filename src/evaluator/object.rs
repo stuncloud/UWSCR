@@ -335,7 +335,7 @@ impl Object {
             Object::ExpandableTB(s) => s.len() > 0,
             Object::Array(arr) => arr.len() > 0,
             Object::Num(n) => ! n.is_zero(),
-            Object::Handle(h) => ! h.is_invalid(),
+            Object::Handle(h) => h.0 > 0,
             _ => true
         }
     }

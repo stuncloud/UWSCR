@@ -310,7 +310,7 @@ impl UWindow<SlctboxResult> for Slctbox {
             let mut msg = MSG::default();
             let mut rect = RECT::default();
             let hprogress = Window::get_dlg_item(self.hwnd, SLCT_PROGRESS_ID);
-            let start = if ! hprogress.is_invalid() {
+            let start = if hprogress.0 > 0 {
                 Window::send_message(hprogress, PBM_SETRANGE32, Some(0), Some(100));
                 Some(std::time::Instant::now())
             } else {None};
@@ -342,7 +342,7 @@ impl UWindow<SlctboxResult> for Slctbox {
                                         for index in 0..self.items.len() {
                                             let id = index as i32;
                                             let hwnd = Window::get_dlg_item(hpanel, id);
-                                            if hwnd.is_invalid() {
+                                            if hwnd.0 == 0 {
                                                 break;
                                             }
                                             let lresult = Window::send_message(hwnd, BM_GETCHECK, None, None);

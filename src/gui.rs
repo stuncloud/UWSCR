@@ -14,6 +14,8 @@ pub mod balloon;
 pub use balloon::*;
 
 use crate::winapi::to_wide_string;
+use crate::write_locale;
+use crate::error::{CURRENT_LOCALE, Locale};
 
 pub use windows::{
     core::{PWSTR, PCWSTR},
@@ -142,7 +144,7 @@ impl Window {
     }
 
     #[allow(non_snake_case)]
-    fn register_class(class_name: &str, wndproc: WNDPROC, color: Option<SYS_COLOR_INDEX>) -> u16 {
+    fn register_class(class_name: &str, wndproc: WNDPROC, color: Option<SYS_COLOR_INDEX>) -> UWindowResult<u16> {
         unsafe {
             let wide = to_wide_string(class_name);
             let hInstance = HINSTANCE::default();
@@ -150,6 +152,12 @@ impl Window {
                 Some(index) => HBRUSH(index.0 as isize),
                 None => HBRUSH(COLOR_WINDOW.0 as isize)
             };
+            let hIcon = LoadIconW(hInstance, IDI_APPLICATION)
+                .map_err(|e| UWindowError::FailedToRegisterClass(class_name.into(), e.to_string()))?;
+            let hCursor = LoadCursorW(hInstance, IDC_ARROW)
+                .map_err(|e| UWindowError::FailedToRegisterClass(class_name.into(), e.to_string()))?;
+            let hIconSm = LoadIconW(hInstance, IDI_APPLICATION)
+                .map_err(|e| UWindowError::FailedToRegisterClass(class_name.into(), e.to_string()))?;
             let wc = WNDCLASSEXW {
                 cbSize: std::mem::size_of::<WNDCLASSEXW>() as u32,
                 style: CS_HREDRAW | CS_VREDRAW,
@@ -157,22 +165,22 @@ impl Window {
                 cbClsExtra: 0,
                 cbWndExtra: 0,
                 hInstance,
-                hIcon: LoadIconW(hInstance, IDI_APPLICATION),
-                hCursor: LoadCursorW(hInstance, IDC_ARROW),
+                hIcon,
+                hCursor,
                 hbrBackground,
                 lpszMenuName: PCWSTR::default(),
                 lpszClassName: PCWSTR(wide.as_ptr()),
-                hIconSm: LoadIconW(hInstance, IDI_APPLICATION),
+                hIconSm,
             };
             let n = RegisterClassExW(&wc);
-            n
+            Ok(n)
         }
     }
     // 初回のみクラス登録を行い成功すればクラス名を返す
     fn get_class_name(class_name: &str, once_cell: &OnceCell<Result<String, UWindowError>>, wndproc: WNDPROC) -> UWindowResult<String> {
         once_cell.get_or_init(|| {
-            if Window::register_class(class_name, wndproc, None) == 0 {
-                Err(UWindowError::FailedToRegisterClass(class_name.into()))
+            if Window::register_class(class_name, wndproc, None)? == 0 {
+                Err(UWindowError::FailedToRegisterClass(class_name.into(), "RegisterClassExW has failed".into()))
             } else {
                 Ok(class_name.into())
             }
@@ -211,7 +219,7 @@ impl Window {
                 None,
                 std::ptr::null()
             );
-            if hwnd.is_invalid() {
+            if hwnd.0 == 0 {
                 Err(UWindowError::FailedToCreateWindow(class_name.into()))
             } else {
                 Ok(hwnd)
@@ -559,10 +567,48 @@ pub type UWindowResult<T> = std::result::Result<T, UWindowError>;
 #[derive(Debug, Clone, PartialEq)]
 pub enum UWindowError {
     FailedToCreateWindow(String),
-    FailedToRegisterClass(String),
+    FailedToRegisterClass(String, String),
     FailedToCreateFont(String),
     SlctBoxIndexOverFlowed(i32),
     SlctBoxInvalidIndex(i32),
+    FailedToCreatePopupMenu(String),
+}
+
+impl std::fmt::Display for UWindowError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            UWindowError::FailedToCreateWindow(cls) => write_locale!(f,
+                "ウィンドウの作成に失敗: {}",
+                "Failed to create window: {}",
+                cls
+            ),
+            UWindowError::FailedToRegisterClass(cls, reason) => write_locale!(f,
+                "クラス登録に失敗: {}, {}",
+                "Failed to register class: {}, {}",
+                cls, reason
+            ),
+            UWindowError::FailedToCreateFont(font) => write_locale!(f,
+                "フォント名が不正: {}",
+                "Invalid font family: {}",
+                font
+            ),
+            UWindowError::SlctBoxIndexOverFlowed(size) => write_locale!(f,
+                "要素数過多({}): slctboxの要素数は31までです",
+                "Too many items: {}, should be less than 32",
+                size
+            ),
+            UWindowError::SlctBoxInvalidIndex(index) => write_locale!(f,
+                "不正なインデックス({}): 該当するアイテムが見つかりません",
+                "Invalid index: {}, no item found",
+                index
+            ),
+            UWindowError::FailedToCreatePopupMenu(e) => write_locale!(f,
+                "ポップアップメニューの作成に失敗: {}",
+                "Failed to create popup menu: {}",
+                e
+            ),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

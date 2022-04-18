@@ -297,7 +297,7 @@ pub fn exec(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             // idを返す
             CloseHandle(pi.hThread);
             CloseHandle(pi.hProcess);
-            if ! ph.hwnd.is_invalid() {
+            if ph.hwnd.0 > 0 {
                 let id = window_control::get_next_id();
                 window_control::set_new_window(id, ph.hwnd, true);
                 Ok(Object::Num(id.into()))

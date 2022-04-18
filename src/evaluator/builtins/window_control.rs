@@ -195,10 +195,10 @@ pub fn getid(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             let class_name = args.get_as_string(1, Some("".into()))?;
             let wait = args.get_as_num(2, Some(0.0))?;
             let _mdi_title = args.get_as_string(3, Some("".into()))?;
-            find_window(title, class_name, wait)
+            find_window(title, class_name, wait)?
         },
     };
-    if ! hwnd.is_invalid() {
+    if hwnd.0 > 0 {
         let id = get_id_from_hwnd(hwnd);
         // if id == -1.0 {
         //     let new_id = get_next_id();
@@ -251,7 +251,7 @@ fn enum_window_proc(hwnd: HWND, lparam: LPARAM) -> BOOL {
     true.into() // 次のウィンドウへ
 }
 
-fn find_window(title: String, class_name: String, timeout: f64) -> HWND {
+fn find_window(title: String, class_name: String, timeout: f64) -> windows::core::Result<HWND> {
     let mut target = TargetWindow {
         hwnd: HWND::default(),
         title,
@@ -281,10 +281,10 @@ fn find_window(title: String, class_name: String, timeout: f64) -> HWND {
                 break;
             }
         }
-        let h = get_process_handle_from_hwnd(target.hwnd);
+        let h = get_process_handle_from_hwnd(target.hwnd)?;
         WaitForInputIdle(h, 1000); // 入力可能になるまで最大1秒待つ
         CloseHandle(h);
-        target.hwnd
+        Ok(target.hwnd)
     }
 }
 
@@ -295,7 +295,7 @@ fn get_hwnd_from_mouse_point(toplevel: bool, name: String) -> BuiltInResult<HWND
         if toplevel {
             loop {
                 let parent = GetParent(hwnd);
-                if parent.is_invalid() || ! IsWindowVisible(parent).as_bool(){
+                if parent.0 == 0 || ! IsWindowVisible(parent).as_bool(){
                     break;
                 } else {
                     hwnd = parent;
@@ -313,7 +313,7 @@ pub fn idtohnd(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         return Ok(Object::Num(0.0));
     }
     let h = get_hwnd_from_id(id);
-    if ! h.is_invalid() {
+    if h.0 > 0 {
         unsafe {
             if IsWindow(h).as_bool() {
                 return Ok(Object::Num(h.0 as f64));
@@ -370,7 +370,7 @@ pub fn get_id_from_hwnd(hwnd: HWND) -> f64 {
 pub fn acw(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = args.get_as_int::<i32>(0, None)?;
     let hwnd = get_hwnd_from_id(id);
-    if hwnd.is_invalid() {
+    if hwnd.0 == 0 {
         return Ok(Object::Empty);
     }
     let x = args.get_as_int(1, None).ok();
@@ -411,7 +411,7 @@ pub enum CtrlWinCmd {
 pub fn ctrlwin(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = args.get_as_int(0, None)?;
     let hwnd = get_hwnd_from_id(id);
-    if hwnd.is_invalid() {
+    if hwnd.0 == 0 {
         return Ok(Object::Empty);
     }
     let cmd = args.get_as_int(1, None)?;
@@ -665,20 +665,20 @@ fn get_process_id_from_hwnd(hwnd: HWND) -> u32 {
     }
 }
 
-fn is_process_64bit(hwnd: HWND) -> Object {
+fn is_process_64bit(hwnd: HWND) -> BuiltinFuncResult {
     if ! is_64bit_os("status".into()).unwrap_or(true) {
         // 32bit OSなら必ずfalse
-        return Object::Bool(false);
+        return Ok(Object::Bool(false));
     }
-    let h = get_process_handle_from_hwnd(hwnd);
+    let h = get_process_handle_from_hwnd(hwnd)?;
     let mut b = false.into();
     unsafe {
         IsWow64Process(h, &mut b);
-        Object::Bool(b.into())
+        Ok(Object::Bool(b.into()))
     }
 }
 
-fn get_process_handle_from_hwnd(hwnd: HWND) -> HANDLE {
+fn get_process_handle_from_hwnd(hwnd: HWND) -> windows::core::Result<HANDLE> {
     let pid = get_process_id_from_hwnd(hwnd);
     unsafe {
         OpenProcess(
@@ -691,7 +691,7 @@ fn get_process_handle_from_hwnd(hwnd: HWND) -> HANDLE {
 fn get_process_path_from_hwnd(hwnd: HWND) -> BuiltinFuncResult {
     let mut buffer = [0; MAX_PATH as usize];
     unsafe {
-        let handle = get_process_handle_from_hwnd(hwnd);
+        let handle = get_process_handle_from_hwnd(hwnd)?;
         K32GetModuleFileNameExW(handle, HINSTANCE::default(), &mut buffer);
         CloseHandle(handle);
     }
@@ -753,7 +753,7 @@ fn get_status_result(hwnd: HWND, st: u8) -> BuiltinFuncResult {
         StatusEnum::ST_ISID => unsafe {
             Object::Bool(IsWindow(hwnd).as_bool())
         },
-        StatusEnum::ST_WIN64 => is_process_64bit(hwnd),
+        StatusEnum::ST_WIN64 => is_process_64bit(hwnd)?,
         StatusEnum::ST_PATH => get_process_path_from_hwnd(hwnd)?,
         StatusEnum::ST_PROCESS => Object::Num(get_process_id_from_hwnd(hwnd) as f64),
         StatusEnum::ST_MONITOR => get_monitor_index_from_hwnd(hwnd),
@@ -796,7 +796,7 @@ fn get_all_status(hwnd: HWND) -> BuiltinFuncResult {
     stats.insert((StatusEnum::ST_ACTIVE as u8).to_string(), is_active_window(hwnd));
     stats.insert((StatusEnum::ST_BUSY as u8).to_string(), unsafe{ Object::Bool(IsHungAppWindow(hwnd).as_bool()) });
     stats.insert((StatusEnum::ST_ISID as u8).to_string(), unsafe{ Object::Bool(IsWindow(hwnd).as_bool()) });
-    stats.insert((StatusEnum::ST_WIN64 as u8).to_string(), is_process_64bit(hwnd));
+    stats.insert((StatusEnum::ST_WIN64 as u8).to_string(), is_process_64bit(hwnd)?);
     stats.insert((StatusEnum::ST_PATH as u8).to_string(), get_process_path_from_hwnd(hwnd)?);
     stats.insert((StatusEnum::ST_PROCESS as u8).to_string(), Object::Num(get_process_id_from_hwnd(hwnd) as f64));
     stats.insert((StatusEnum::ST_MONITOR as u8).to_string(), get_monitor_index_from_hwnd(hwnd));

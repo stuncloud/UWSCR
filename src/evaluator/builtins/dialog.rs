@@ -259,7 +259,11 @@ pub fn popupmenu(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let list = args.get_as_array(0, None)?;
     let x = args.get_as_int_or_empty(1)?;
     let y = args.get_as_int_or_empty(2)?;
-    let popup = PopupMenu::new(list);
+    let popup = PopupMenu::new(list)
+        .map_err(|e| builtin_func_error(
+            UErrorMessage::UWindowError(e),
+            args.name()
+        ))?;
     let selected = popup.show(x, y)
         .map_err(|e| builtin_func_error(UWindowError(e), args.name()))?;
 
