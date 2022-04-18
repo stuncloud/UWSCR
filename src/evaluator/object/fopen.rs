@@ -3,7 +3,7 @@ use crate::evaluator::object::Object;
 
 use std::io::{Write, Read, Seek, SeekFrom};
 use std::path::{PathBuf};
-use std::fs::{OpenOptions, File};
+use std::fs::{OpenOptions, File, remove_file};
 use std::os::windows::fs::OpenOptionsExt;
 use std::sync::Mutex;
 use std::io::BufWriter;
@@ -346,15 +346,6 @@ impl Fopen {
         };
         Ok(size.into())
     }
-    fn _read_to_end(&mut self) -> FopenResult<String> {
-        let mut list = FILE_LIST.lock().unwrap();
-        let found = list.iter_mut()
-                    .find(|(id, _)| *id == self.id)
-                    .ok_or(FopenError::NoOpenFileFound(self.path.to_string_lossy().to_string()))?;
-        let mut buf = vec![];
-        found.1.read_to_end(&mut buf)?;
-        self.decode(&buf)
-    }
     fn decode(&mut self, bytes: &[u8]) -> FopenResult<String> {
         let (cow, enc, err) = UTF_8.decode(bytes);
         let (txt, enc) = if err {
@@ -650,6 +641,27 @@ impl Fopen {
         fopen.ini_delete(section, key);
         fopen.close()?;
         Ok(())
+    }
+    pub fn delete(path: &str) -> bool {
+        let mut result = true;
+        if let Ok(mut paths) = glob::glob(path).map(|p| p.peekable()) {
+            if paths.peek().is_some() {
+                for entry in paths {
+                    if let Ok(buf) = entry {
+                        if remove_file(buf).is_err() {
+                            result = false;
+                        }
+                    } else {
+                        result = false;
+                    }
+                }
+            } else {
+                result = false;
+            }
+        } else {
+            result = false;
+        }
+        result
     }
 }
 

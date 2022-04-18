@@ -20,6 +20,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("readini", 3, readini);
     sets.add("writeini", 4, writeini);
     sets.add("deleteini", 3, deleteini);
+    sets.add("deletefile", 1, deletefile);
     sets
 }
 
@@ -49,7 +50,6 @@ pub enum FileConstDup {
 pub fn fopen(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let path = args.get_as_string(0, None)?;
     let flag = args.get_as_int::<u32>(1, Some(FileConst::F_READ as u32))?;
-    // let text = args.get_as_string_or_empty(2)?;
 
     let mut fopen = Fopen::new(&path, flag);
     if fopen.flag.mode == FopenMode::Append {
@@ -221,4 +221,10 @@ pub fn deleteini(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         },
     }
     Ok(Object::default())
+}
+
+pub fn deletefile(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let path = args.get_as_string(0, None)?;
+    let result = Fopen::delete(&path);
+    Ok(Object::Bool(result))
 }
