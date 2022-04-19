@@ -241,23 +241,21 @@ pub enum FileOrderConst {
 }
 
 pub fn getdir(args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let path = args.get_as_string(0, None)?;
-    let filter = args.get_as_string_or_empty(1)?.unwrap_or_default();
+    let dir = args.get_as_string(0, None)?;
+    let mut filter = args.get_as_string_or_empty(1)?.unwrap_or_default();
     let show_hidden = args.get_as_bool(2, Some(false))?;
     let order_by = args.get_as_int(3, Some(0))?;
 
     let get_dir = filter.starts_with('\\');
-    let mut buf = std::path::PathBuf::from(path);
-    buf = match filter.as_str() {
-        "" | "\\" => buf.join("*"),
+    filter = match filter.as_str() {
+        "" | "\\" => "*".to_string(),
         f => {
             let f = f.trim_start_matches('\\');
-            buf.join(f)
+            f.to_string()
         },
     };
-    let dir = buf.to_str().unwrap_or_default();
 
-    let files = Fopen::list_dir_entries(dir, order_by.into(), get_dir, show_hidden)
+    let files = Fopen::list_dir_entries(&dir, &filter, order_by.into(), get_dir, show_hidden, false)
         .map_err(|e| builtin_func_error(FopenError(e), args.name()))?
         .iter()
         .map(|s| s.to_string().into())

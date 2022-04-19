@@ -1448,7 +1448,6 @@ dependencies = [
  "dlopen",
  "encoding_rs",
  "enigo",
- "glob",
  "indexmap",
  "libc",
  "libffi",

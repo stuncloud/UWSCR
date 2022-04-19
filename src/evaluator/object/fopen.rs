@@ -2,7 +2,8 @@ use crate::error::evaluator::{write_locale, CURRENT_LOCALE, Locale,};
 use crate::evaluator::object::Object;
 
 use std::io::{Write, Read, Seek, SeekFrom};
-use std::path::{PathBuf};
+use std::path::{PathBuf, Path};
+use std::convert::AsRef;
 use std::fs::{OpenOptions, File, remove_file};
 use std::cmp::Ordering;
 use std::os::windows::fs::OpenOptionsExt;
@@ -660,29 +661,32 @@ impl Fopen {
     }
     pub fn delete(path: &str) -> bool {
         let mut result = true;
-        if let Ok(mut paths) = glob::glob(path).map(|p| p.peekable()) {
-            if paths.peek().is_some() {
-                for entry in paths {
-                    if let Ok(buf) = entry {
-                        if remove_file(buf).is_err() {
-                            result = false;
-                        }
-                    } else {
-                        result = false;
-                    }
+        let buf = PathBuf::from(path);
+        let filter = match buf.file_name() {
+            Some(f) => Path::new(f),
+            None => return false,
+        };
+        let dir = match buf.parent(){
+            Some(p) => p,
+            None => return false,
+        };
+        if let Ok(files) = Self::list_dir_entries(dir, filter, FileOrderBy::Default, false, true, true) {
+            for file in files {
+                if remove_file(&file).is_err() {
+                    result = false;
                 }
-            } else {
-                result = false;
             }
         } else {
             result = false;
         }
         result
     }
-    pub fn list_dir_entries(dir: &str, order_by: FileOrderBy, get_dir: bool, show_hidden: bool) -> FopenResult<Vec<String>> {
+    pub fn list_dir_entries<P: AsRef<Path>>(dir: P, filter: P, order_by: FileOrderBy, get_dir: bool, show_hidden: bool, fullpath: bool) -> FopenResult<Vec<String>> {
         let is_hidden = |attr: u32| attr & 2_u32 > 0;
         let is_dir = |attr: u32| attr & 16_u32 > 0;
-        let mut data = Self::get_dir_item(dir)?
+        let buf = PathBuf::from(dir.as_ref());
+        let path = buf.join(filter);
+        let mut data = Self::get_dir_item(&path)?
             .into_iter()
             // 隠しファイル
             .filter(|d| {
@@ -718,17 +722,23 @@ impl Fopen {
                 let trimed = name.trim_end_matches('\0');
                 match trimed {
                     "." | ".." => None,
-                    _ => Some(trimed.to_string())
+                    _ => if fullpath {
+                        let full = buf.join(trimed).to_string_lossy().to_string();
+                        Some(full)
+                    } else {
+                        Some(trimed.to_string())
+                    }
                 }
             })
             .collect();
         Ok(items)
     }
-    pub fn get_dir_item(path: &str) -> FopenResult<Vec<WIN32_FIND_DATAW>> {
+    pub fn get_dir_item<P: AsRef<Path>>(path: P) -> FopenResult<Vec<WIN32_FIND_DATAW>> {
         unsafe {
             let mut result = vec![];
             let mut lpfindfiledata = WIN32_FIND_DATAW::default();
-            let hfindfile = FindFirstFileW(path, &mut lpfindfiledata)?;
+            let lpfilename = path.as_ref().to_string_lossy().to_string();
+            let hfindfile = FindFirstFileW(lpfilename, &mut lpfindfiledata)?;
             if ! hfindfile.is_invalid() {
                 result.push(lpfindfiledata.clone());
                 lpfindfiledata = WIN32_FIND_DATAW::default();
