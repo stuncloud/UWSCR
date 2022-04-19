@@ -530,6 +530,7 @@ pub fn init_builtins() -> Vec<NamedObject> {
     // file_control
     set_builtin_consts::<file_control::FileConst>(&mut vec);
     set_builtin_consts::<file_control::FileConstDup>(&mut vec);
+    set_builtin_consts::<file_control::FileOrderConst>(&mut vec);
     file_control::builtin_func_sets().set(&mut vec);
     // 特殊変数
     set_special_variables(&mut vec);

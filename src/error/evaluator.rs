@@ -5,7 +5,7 @@ use crate::ast::{Expression, Infix, DllType};
 use crate::evaluator::object::Object;
 pub use crate::write_locale;
 pub use super::{CURRENT_LOCALE, Locale};
-use crate::gui::UWindowError::{self, *};
+use crate::gui::UWindowError;
 use crate::evaluator::object::fopen::FopenError;
 use serde_json::Value;
 

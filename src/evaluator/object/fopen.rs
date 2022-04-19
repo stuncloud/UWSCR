@@ -4,13 +4,18 @@ use crate::evaluator::object::Object;
 use std::io::{Write, Read, Seek, SeekFrom};
 use std::path::{PathBuf};
 use std::fs::{OpenOptions, File, remove_file};
+use std::cmp::Ordering;
 use std::os::windows::fs::OpenOptionsExt;
 use std::sync::Mutex;
 use std::io::BufWriter;
 
 use windows::Win32::{
     // System::SystemServices::{GENERIC_READ, GENERIC_WRITE},
-    Storage::FileSystem::{FILE_SHARE_NONE,FILE_SHARE_READ,FILE_SHARE_WRITE,FILE_SHARE_DELETE},
+    Foundation::{HANDLE, FILETIME},
+    Storage::FileSystem::{
+        FILE_SHARE_NONE,FILE_SHARE_READ,FILE_SHARE_WRITE,FILE_SHARE_DELETE,
+        FindFirstFileW, FindNextFileW, FindClose, WIN32_FIND_DATAW,
+    },
 };
 use once_cell::sync::Lazy;
 use encoding_rs::{UTF_8, SHIFT_JIS};
@@ -29,6 +34,7 @@ pub enum FopenError {
     UnknownEncoding(String),
     CsvError(String),
     NotReadable,
+    Win32Error(String),
 }
 
 impl From<std::io::Error> for FopenError {
@@ -54,6 +60,11 @@ impl From<csv::Error> for FopenError {
 impl From<csv::IntoInnerError<csv::Writer<std::vec::Vec<u8>>>> for FopenError {
     fn from(e: csv::IntoInnerError<csv::Writer<std::vec::Vec<u8>>>) -> Self {
         Self::CsvError(e.to_string())
+    }
+}
+impl From<windows::core::Error> for FopenError {
+    fn from(e: windows::core::Error) -> Self {
+        Self::Win32Error(e.to_string())
     }
 }
 
@@ -93,6 +104,11 @@ impl std::fmt::Display for FopenError {
             FopenError::NotReadable => write_locale!(f,
                 "F_READが指定されていないためファイルを読み取れません",
                 "Can not read file; f_READ is required",
+            ),
+            FopenError::Win32Error(e) => write_locale!(f,
+                "Win32エラー ({})",
+                "Win32 Error: {}",
+                e
             ),
         }
     }
@@ -663,6 +679,95 @@ impl Fopen {
         }
         result
     }
+    pub fn list_dir_entries(dir: &str, order_by: FileOrderBy, get_dir: bool, show_hidden: bool) -> FopenResult<Vec<String>> {
+        let is_hidden = |attr: u32| attr & 2_u32 > 0;
+        let is_dir = |attr: u32| attr & 16_u32 > 0;
+        let mut data = Self::get_dir_item(dir)?
+            .into_iter()
+            // 隠しファイル
+            .filter(|d| {
+                if is_hidden(d.dwFileAttributes) {
+                    show_hidden
+                } else {
+                    true
+                }
+            })
+            // ファイルかフォルダの分岐
+            .filter(|d| is_dir(d.dwFileAttributes) == get_dir)
+            .collect::<Vec<_>>();
+        if order_by != FileOrderBy::Default {
+            data.sort_by(|d1, d2| {
+                match order_by {
+                    FileOrderBy::Size => {
+                        match d1.nFileSizeHigh.cmp(&d2.nFileSizeHigh) {
+                            Ordering::Equal => d1.nFileSizeLow.cmp(&d2.nFileSizeLow),
+                            order => order,
+                        }
+                    },
+                    FileOrderBy::CreateTime => d1.ftCreationTime.cmp(&d2.ftCreationTime),
+                    FileOrderBy::LastWriteTime => d1.ftLastWriteTime.cmp(&d2.ftLastWriteTime),
+                    FileOrderBy::LastAccessTime => d1.ftLastAccessTime.cmp(&d2.ftLastAccessTime),
+                    _ => Ordering::Equal
+                }
+            })
+        }
+        let items = data
+            .into_iter()
+            .filter_map(|d| {
+                let name = String::from_utf16_lossy(&d.cFileName);
+                let trimed = name.trim_end_matches('\0');
+                match trimed {
+                    "." | ".." => None,
+                    _ => Some(trimed.to_string())
+                }
+            })
+            .collect();
+        Ok(items)
+    }
+    pub fn get_dir_item(path: &str) -> FopenResult<Vec<WIN32_FIND_DATAW>> {
+        unsafe {
+            let mut result = vec![];
+            let mut lpfindfiledata = WIN32_FIND_DATAW::default();
+            let hfindfile = FindFirstFileW(path, &mut lpfindfiledata)?;
+            if ! hfindfile.is_invalid() {
+                result.push(lpfindfiledata.clone());
+                lpfindfiledata = WIN32_FIND_DATAW::default();
+                while FindNextFileW(HANDLE(hfindfile.0), &mut lpfindfiledata).as_bool() {
+                    result.push(lpfindfiledata.clone());
+                    lpfindfiledata = WIN32_FIND_DATAW::default();
+                }
+                FindClose(hfindfile);
+            }
+            Ok(result)
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub enum FileOrderBy {
+    Default,
+    Size,
+    CreateTime,
+    LastWriteTime,
+    LastAccessTime
+}
+
+impl From<i32> for FileOrderBy {
+    fn from(n: i32) -> Self {
+        match n {
+            1 => Self::Size,
+            2 => Self::CreateTime,
+            3 => Self::LastWriteTime,
+            4 => Self::LastAccessTime,
+            _ => Self::Default,
+        }
+    }
+}
+
+impl Default for FileOrderBy {
+    fn default() -> Self {
+        Self::Default
+    }
 }
 
 pub enum FGetType {
@@ -917,5 +1022,18 @@ impl Ini {
                 .map(|l| l.to_string())
                 .collect::<Vec<_>>();
         lines.join("\r\n").to_string()
+    }
+}
+
+trait FileTimeExt {
+    fn cmp(&self, other: &Self) -> Ordering;
+}
+
+impl FileTimeExt for FILETIME {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match self.dwHighDateTime.cmp(&other.dwHighDateTime) {
+            Ordering::Equal => self.dwLowDateTime.cmp(&other.dwLowDateTime),
+            order => order,
+        }
     }
 }

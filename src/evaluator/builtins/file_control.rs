@@ -21,6 +21,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("writeini", 4, writeini);
     sets.add("deleteini", 3, deleteini);
     sets.add("deletefile", 1, deletefile);
+    sets.add("getdir", 4, getdir);
     sets
 }
 
@@ -227,4 +228,39 @@ pub fn deletefile(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let path = args.get_as_string(0, None)?;
     let result = Fopen::delete(&path);
     Ok(Object::Bool(result))
+}
+
+#[allow(non_camel_case_types)]
+#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive)]
+pub enum FileOrderConst {
+    ORDERBY_NAME     = 0,
+    ORDERBY_SIZE     = 1,
+    ORDERBY_CREATED  = 2,
+    ORDERBY_MODIFIED = 3,
+    ORDERBY_ACCESSED = 4,
+}
+
+pub fn getdir(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let path = args.get_as_string(0, None)?;
+    let filter = args.get_as_string_or_empty(1)?.unwrap_or_default();
+    let show_hidden = args.get_as_bool(2, Some(false))?;
+    let order_by = args.get_as_int(3, Some(0))?;
+
+    let get_dir = filter.starts_with('\\');
+    let mut buf = std::path::PathBuf::from(path);
+    buf = match filter.as_str() {
+        "" | "\\" => buf.join("*"),
+        f => {
+            let f = f.trim_start_matches('\\');
+            buf.join(f)
+        },
+    };
+    let dir = buf.to_str().unwrap_or_default();
+
+    let files = Fopen::list_dir_entries(dir, order_by.into(), get_dir, show_hidden)
+        .map_err(|e| builtin_func_error(FopenError(e), args.name()))?
+        .iter()
+        .map(|s| s.to_string().into())
+        .collect();
+    Ok(Object::Array(files))
 }
