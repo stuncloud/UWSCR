@@ -35,7 +35,7 @@ pub fn init(dir: &PathBuf) {
 }
 
 pub fn out_log(log: &String, log_type: LogType) {
-    if env::var("UWSCR_LOG_TYPE").unwrap_or("1".into()).as_str() == "1" {
+    if env::var("UWSCR_LOG_TYPE").unwrap_or("1".into()).as_str() == "1" && log_type != LogType::Panic {
         return;
     }
     if log.len() == 0 {
