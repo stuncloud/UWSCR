@@ -565,6 +565,7 @@ fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("raise", 2, raise);
     sets.add("type_of", 2, type_of);
     sets.add("get_settings", 0, get_settings);
+    sets.add("__p_a_n_i_c__", 1, panic);
     sets
 }
 
@@ -670,6 +671,11 @@ pub fn raise(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         UErrorKind::UserDefinedError
     };
     Err(UError::new(kind, UErrorMessage::Any(msg)))
+}
+
+pub fn panic(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let msg = args.get_as_string(0, None)?;
+    panic!("{msg}");
 }
 
 #[allow(non_camel_case_types)]

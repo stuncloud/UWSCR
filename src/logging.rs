@@ -62,6 +62,7 @@ pub fn out_log(log: &String, log_type: LogType) {
 pub enum LogType {
     Error,
     Print,
+    Panic,
 }
 
 impl fmt::Display for LogType {
@@ -69,6 +70,7 @@ impl fmt::Display for LogType {
         match *self {
             LogType::Error => write!(f,"[ERROR]"),
             LogType::Print => write!(f,"[PRINT]"),
+            LogType::Panic => write!(f,"[PANIC]"),
         }
     }
 }

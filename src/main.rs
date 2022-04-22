@@ -4,6 +4,8 @@
 use std::path::PathBuf;
 use std::env;
 use std::str::FromStr;
+use std::panic;
+use std::sync::{Arc, Mutex};
 
 use uwscr::script;
 use uwscr::repl;
@@ -18,8 +20,37 @@ use uwscr::settings::{
 };
 use uwscr::winapi::{attach_console,alloc_console,free_console,show_message};
 use uwscr::gui::MainWin;
+use uwscr::write_locale;
+use uwscr::error::{CURRENT_LOCALE, Locale};
 
 fn main() {
+    let buffer = Arc::new(Mutex::new(String::default()));
+    let old_hook = panic::take_hook();
+    panic::set_hook({
+        let buffer = buffer.clone();
+        Box::new(move |info| {
+            let mut buffer = buffer.lock().unwrap();
+            let s = info.to_string();
+            buffer.push_str(&s);
+        })
+    });
+
+    let result = panic::catch_unwind(|| {
+        start_uwscr();
+    });
+
+    panic::set_hook(old_hook);
+
+    if result.is_err() {
+        let err = buffer.lock().unwrap();
+        out_log(&err, LogType::Panic);
+        attach_console();
+        show_message(&err, &UWSCRErrorTitle::Panic.to_string(), true);
+        free_console();
+    }
+}
+
+fn start_uwscr() {
     let args = Args::new();
     let _ = MainWin::new(&args.version);
     match args.get() {
@@ -37,13 +68,13 @@ fn main() {
                             let err = errors.join("\r\n");
                             out_log(&err, LogType::Error);
                             attach_console();
-                            show_message(&err, "UWSCR構文エラー", true);
+                            show_message(&err, &UWSCRErrorTitle::StatementError.to_string(), true);
                             free_console();
                         }
                     },
                     Err(e) => {
                         attach_console();
-                        show_message(&e.to_string(), "UWSCR実行時エラー", true);
+                        show_message(&e.to_string(), &UWSCRErrorTitle::RuntimeError.to_string(), true);
                         free_console();
                     }
                 }
@@ -333,3 +364,24 @@ enum Mode {
     Schema(Option<PathBuf>)
 }
 
+enum UWSCRErrorTitle {
+    StatementError,
+    RuntimeError,
+    Panic
+}
+
+impl std::fmt::Display for UWSCRErrorTitle {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            UWSCRErrorTitle::StatementError => write_locale!(f,
+                "UWSCR構文エラー",
+                "UWSCR Statement Error",
+            ),
+            UWSCRErrorTitle::RuntimeError => write_locale!(f,
+                "UWSCR実行時エラー",
+                "UWSCR Runtime Error",
+            ),
+            UWSCRErrorTitle::Panic => write!(f,"UWSCR Panic"),
+        }
+    }
+}

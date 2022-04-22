@@ -19,6 +19,7 @@ use crate::parser::Parser;
 use crate::lexer::Lexer;
 use crate::logging::{out_log, LogType};
 use crate::settings::*;
+use crate::winapi::{attach_console,free_console,show_message};
 use windows::{
     Win32::System::{
         Com::{
@@ -38,6 +39,7 @@ use std::thread;
 use std::sync::{Arc, Mutex};
 use std::ffi::c_void;
 use std::ptr;
+use std::panic;
 
 use num_traits::FromPrimitive;
 use regex::Regex;
@@ -984,20 +986,20 @@ impl Evaluator {
                         }
                     };
                 }
-
-                std::panic::set_hook(Box::new(|panic_info|{
-                    let mut e = panic_info.to_string();
-                    let v = e.rmatch_indices("', s").collect::<Vec<_>>();
-                    if v.len() > 0 {
-                        let i = v[0].0;
-                        e.truncate(i);
-                    }
-                    e = e.replace("panicked at '", "");
-                    eprintln!("Error occured on thread> {}", e);
+                let old_hook = panic::take_hook();
+                panic::set_hook(Box::new(|panic_info|{
+                    let err = panic_info.to_string();
+                    out_log(&err, LogType::Panic);
+                    attach_console();
+                    show_message(&err, "Panic on thread", true);
+                    free_console();
+                    std::process::exit(1);
                 }));
                 let result = thread_self.eval_function_call_expression(func, args, false);
                 if result.is_err() {
                     panic!("{}", result.unwrap_err().to_string());
+                } else {
+                    panic::set_hook(old_hook);
                 }
                 unsafe {
                     CoUninitialize();
