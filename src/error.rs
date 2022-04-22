@@ -17,7 +17,6 @@ pub static CURRENT_LOCALE: Lazy<Locale> = Lazy::new(||{
     }
 });
 
-
 #[macro_export]
 macro_rules! write_locale {
     ($f:expr, $jp:literal, $en:literal $(,$args:expr)*) => {
@@ -37,4 +36,26 @@ macro_rules! write_locale {
             }
         }
     };
+}
+
+pub enum UWSCRErrorTitle {
+    StatementError,
+    RuntimeError,
+    Panic
+}
+
+impl std::fmt::Display for UWSCRErrorTitle {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            UWSCRErrorTitle::StatementError => write_locale!(f,
+                "UWSCR構文エラー",
+                "UWSCR Statement Error",
+            ),
+            UWSCRErrorTitle::RuntimeError => write_locale!(f,
+                "UWSCR実行時エラー",
+                "UWSCR Runtime Error",
+            ),
+            UWSCRErrorTitle::Panic => write!(f,"UWSCR Panic"),
+        }
+    }
 }

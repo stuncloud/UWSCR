@@ -13,6 +13,7 @@ use crate::evaluator::builtins::*;
 use crate::evaluator::def_dll::*;
 use crate::evaluator::com_object::*;
 use crate::evaluator::devtools_protocol::{Browser, Element};
+use crate::error::UWSCRErrorTitle;
 use crate::error::evaluator::{UError, UErrorKind, UErrorMessage};
 use crate::gui::{LogPrintWin, UWindow, Balloon};
 use crate::parser::Parser;
@@ -987,17 +988,34 @@ impl Evaluator {
                     };
                 }
                 let old_hook = panic::take_hook();
-                panic::set_hook(Box::new(|panic_info|{
-                    let err = panic_info.to_string();
-                    out_log(&err, LogType::Panic);
+                let uerror = Arc::new(Mutex::new(None::<UError>));
+                let uerror2 = uerror.clone();
+                panic::set_hook(Box::new(move |panic_info|{
+                    let maybe_uerror = uerror2.lock().unwrap();
                     attach_console();
-                    show_message(&err, "Panic on thread", true);
+                    match &*maybe_uerror {
+                        Some(e) => {
+                            let err = e.to_string();
+                            out_log(&err, LogType::Error);
+                            let title = UWSCRErrorTitle::RuntimeError.to_string();
+                            show_message(&err, &title, true);
+                        },
+                        None => {
+                            let err = panic_info.to_string();
+                            out_log(&err, LogType::Panic);
+                            show_message(&err, "Panic on thread", true);
+                        },
+                    }
                     free_console();
                     std::process::exit(1);
                 }));
                 let result = thread_self.eval_function_call_expression(func, args, false);
-                if result.is_err() {
-                    panic!("{}", result.unwrap_err().to_string());
+                if let Err(e) = result {
+                    {
+                        let mut m = uerror.lock().unwrap();
+                        *m = Some(e);
+                    }
+                    panic!("uerror");
                 } else {
                     panic::set_hook(old_hook);
                 }

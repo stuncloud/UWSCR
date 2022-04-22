@@ -20,8 +20,7 @@ use uwscr::settings::{
 };
 use uwscr::winapi::{attach_console,alloc_console,free_console,show_message};
 use uwscr::gui::MainWin;
-use uwscr::write_locale;
-use uwscr::error::{CURRENT_LOCALE, Locale};
+use uwscr::error::UWSCRErrorTitle;
 
 fn main() {
     let buffer = Arc::new(Mutex::new(String::default()));
@@ -362,26 +361,4 @@ enum Mode {
     Settings(FileMode),
     OnlineHelp,
     Schema(Option<PathBuf>)
-}
-
-enum UWSCRErrorTitle {
-    StatementError,
-    RuntimeError,
-    Panic
-}
-
-impl std::fmt::Display for UWSCRErrorTitle {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            UWSCRErrorTitle::StatementError => write_locale!(f,
-                "UWSCR構文エラー",
-                "UWSCR Statement Error",
-            ),
-            UWSCRErrorTitle::RuntimeError => write_locale!(f,
-                "UWSCR実行時エラー",
-                "UWSCR Runtime Error",
-            ),
-            UWSCRErrorTitle::Panic => write!(f,"UWSCR Panic"),
-        }
-    }
 }
