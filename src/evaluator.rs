@@ -1698,13 +1698,19 @@ impl Evaluator {
                         } else {
                             match s1.parse::<f64>() {
                                 Ok(n2) => self.eval_infix_number_expression(infix, n2, n),
-                                Err(_) => self.eval_infix_string_expression(infix, s1, &n.to_string())
+                                Err(_) => if infix == Infix::Multiply {
+                                    let s = s1.repeat(n as usize);
+                                    Ok(Object::String(s))
+                                } else {
+                                    self.eval_infix_string_expression(infix, s1, &n.to_string())
+                                }
                             }
                         }
                     },
                     Object::Bool(_) => self.eval_infix_string_expression(infix, s1, &right.to_string()),
                     Object::Empty => self.eval_infix_empty_expression(infix, left),
                     Object::Version(v) => self.eval_infix_string_expression(infix, s1, &v.to_string()),
+                    Object::Null => self.eval_infix_null_expression(infix, Some(left), None),
                     _ => self.eval_infix_string_expression(infix, s1, &right.to_string())
                 }
             },
@@ -1734,6 +1740,7 @@ impl Evaluator {
             } else {
                 self.eval_infix_misc_expression(infix, left, right)
             },
+            Object::Null => self.eval_infix_null_expression(infix, None, Some(right)),
             _ => self.eval_infix_misc_expression(infix, left, right)
         }
     }
@@ -1756,6 +1763,40 @@ impl Evaluator {
             ))
         };
         Ok(obj)
+    }
+
+    fn eval_infix_null_expression(&mut self, infix: Infix, left: Option<Object>, right: Option<Object>) -> EvalResult<Object> {
+        if let Some(obj) = left {
+            match infix {
+                Infix::Plus => if let Object::Num(n) = obj {
+                    Ok(Object::Num(n))
+                } else if let Object::String(s) = obj {
+                    Ok(Object::String(format!("{s}\0")))
+                } else {
+                    self.eval_infix_misc_expression(infix, obj, Object::Null)
+                },
+                _ => self.eval_infix_misc_expression(infix, obj, Object::Null)
+            }
+        } else if let Some(obj) = right {
+            match infix {
+                Infix::Plus => if let Object::Num(n) = obj {
+                    Ok(Object::Num(n))
+                } else if let Object::String(s) = obj {
+                    Ok(Object::String(format!("\0{s}")))
+                } else {
+                    self.eval_infix_misc_expression(infix, Object::Null, obj)
+                },
+                Infix::Multiply => if let Object::Num(n) = obj {
+                    let repeated = "\0".repeat(n as usize);
+                    Ok(Object::String(repeated))
+                } else {
+                    self.eval_infix_misc_expression(infix, Object::Null, obj)
+                },
+                _ => self.eval_infix_misc_expression(infix, Object::Null, obj)
+            }
+        } else {
+            self.eval_infix_misc_expression(infix, Object::Null, Object::Null)
+        }
     }
 
     fn eval_infix_number_expression(&mut self, infix: Infix, left: f64, right: f64) -> EvalResult<Object> {
@@ -1800,7 +1841,7 @@ impl Evaluator {
         }
     }
 
-    fn eval_infix_string_expression(&mut self, infix: Infix, left: &String, right: &String) -> EvalResult<Object> {
+    fn eval_infix_string_expression(&mut self, infix: Infix, left: &str, right: &str) -> EvalResult<Object> {
         let obj = match infix {
             Infix::Plus => Object::String(format!("{}{}", left, right)),
             Infix::Equal => Object::Bool(left == right),
