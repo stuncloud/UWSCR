@@ -13,7 +13,7 @@ use std::{
     },
     io::Write,
     path::PathBuf,
-    sync::{Arc, Mutex, Once},
+    sync::Mutex,
     str::FromStr,
     marker::PhantomData,
 };
@@ -36,9 +36,17 @@ static SETTING_FILE_PATH: Lazy<Result<PathBuf, Error>> = Lazy::new(|| {
     path.push("settings.json");
     Ok(path)
 });
+pub static USETTINGS: Lazy<Mutex<USettings>> = Lazy::new(|| {
+    let settings = if let Ok(path) = SETTING_FILE_PATH.as_ref() {
+        USettings::from_file(path).unwrap_or_default()
+    } else {
+        USettings::default()
+    };
+    Mutex::new(settings)
+});
 
-#[derive(Debug, Clone)]
-pub struct SingletonSettings(pub Arc<Mutex<USettings>>);
+// #[derive(Debug, Clone)]
+// pub struct SingletonSettings(pub Arc<Mutex<USettings>>);
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct USettings {
@@ -309,23 +317,23 @@ impl Default for Chkimg {
     }
 }
 
-pub fn usettings_singleton(usettings: Option<USettings>) -> Box<SingletonSettings> {
-    static mut SINGLETON: Option<Box<SingletonSettings>> = None;
-    static ONCE: Once = Once::new();
-    unsafe {
-        ONCE.call_once(|| {
-            let s = match usettings {
-                Some(s) => s,
-                None => USettings::default()
-            };
-            let singlton = SingletonSettings(
-                Arc::new(Mutex::new(s))
-            );
-            SINGLETON = Some(Box::new(singlton));
-        });
-        SINGLETON.clone().unwrap()
-    }
-}
+// pub fn usettings_singleton(usettings: Option<USettings>) -> Box<SingletonSettings> {
+//     static mut SINGLETON: Option<Box<SingletonSettings>> = None;
+//     static ONCE: Once = Once::new();
+//     unsafe {
+//         ONCE.call_once(|| {
+//             let s = match usettings {
+//                 Some(s) => s,
+//                 None => USettings::default()
+//             };
+//             let singlton = SingletonSettings(
+//                 Arc::new(Mutex::new(s))
+//             );
+//             SINGLETON = Some(Box::new(singlton));
+//         });
+//         SINGLETON.clone().unwrap()
+//     }
+// }
 
 #[derive(Debug, Clone)]
 pub struct Error {
@@ -359,17 +367,17 @@ impl From<&Error> for Error {
     }
 }
 
-pub fn load_settings() -> Result<Box<SingletonSettings>, Error> {
-    let path = SETTING_FILE_PATH.as_ref()?;
+// pub fn load_settings() -> Result<Box<SingletonSettings>, Error> {
+//     let path = SETTING_FILE_PATH.as_ref()?;
 
-    let usettings = if path.exists() {
-        Some(USettings::from_file(path)?)
-    } else {
-        None
-    };
-    let singleton = usettings_singleton(usettings);
-    Ok(singleton)
-}
+//     let usettings = if path.exists() {
+//         Some(USettings::from_file(path)?)
+//     } else {
+//         None
+//     };
+//     let singleton = usettings_singleton(usettings);
+//     Ok(singleton)
+// }
 
 pub enum FileMode {
     Open,

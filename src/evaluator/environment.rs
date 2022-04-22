@@ -4,7 +4,7 @@ use crate::{
         object::*,
         builtins::init_builtins,
     },
-    settings::usettings_singleton,
+    settings::USETTINGS,
     error::evaluator::{
         UError, UErrorKind, UErrorMessage, DefinitionType
     }
@@ -467,8 +467,7 @@ impl Environment {
             // ローカル代入許可の場合のみ
             // 同名の変数が存在しない場合は新たなローカル変数を定義
             // Option Explicitの場合はエラーになる
-            let singleton = usettings_singleton(None);
-            let usettings = singleton.0.lock().unwrap();
+            let usettings = USETTINGS.lock().unwrap();
             if usettings.options.explicit {
                 return Err(UError::new(
                     UErrorKind::DefinitionError(DefinitionType::Variable),

@@ -12,7 +12,7 @@ pub mod file_control;
 #[cfg(feature="chkimg")]
 pub mod chkimg;
 
-use crate::settings::usettings_singleton;
+use crate::settings::USETTINGS;
 use crate::winapi::{
     get_windows_directory,
     get_system_directory,
@@ -656,9 +656,10 @@ pub fn name_of(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 }
 
 pub fn get_settings(_args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let singleton = usettings_singleton(None);
-    let s = singleton.0.lock().unwrap();
-    let json = s.get_current_settings_as_json();
+    let json = {
+        let s = USETTINGS.lock().unwrap();
+        s.get_current_settings_as_json()
+    };
     Ok(Object::String(json))
 }
 

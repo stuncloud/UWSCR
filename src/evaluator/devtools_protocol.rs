@@ -8,7 +8,7 @@ use windows::Win32::{
 };
 use crate::evaluator::object::Object;
 use crate::evaluator::builtins::window_control::get_id_from_hwnd;
-use crate::settings::usettings_singleton;
+use crate::settings::USETTINGS;
 
 use std::{
     fmt,
@@ -154,8 +154,7 @@ impl Browser {
             の順にパスを確認し、いずれも得られなかった場合はエラーを返す
         */
         let path = {
-            let singleton = usettings_singleton(None);
-            let usettings = singleton.0.lock().unwrap();
+            let usettings = USETTINGS.lock().unwrap();
             match btype {
                 BrowserType::Chrome => usettings.browser.chrome.clone(),
                 BrowserType::MSEdge => usettings.browser.msedge.clone(),

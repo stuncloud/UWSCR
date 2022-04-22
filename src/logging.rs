@@ -1,4 +1,4 @@
-use crate::settings::usettings_singleton;
+use crate::settings::USETTINGS;
 
 use std::env;
 use std::path::PathBuf;
@@ -10,8 +10,7 @@ use chrono::Local;
 
 
 pub fn init(dir: &PathBuf) {
-    let singleton = usettings_singleton(None);
-    let u = singleton.0.lock().unwrap();
+    let u = USETTINGS.lock().unwrap();
     match u.options.log_path {
         Some(ref s) => {
             let mut path = PathBuf::from(&s);

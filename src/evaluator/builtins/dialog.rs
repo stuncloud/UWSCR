@@ -1,7 +1,7 @@
 use crate::evaluator::LOGPRINTWIN;
 use crate::evaluator::builtins::*;
 use crate::evaluator::object::Object;
-use crate::settings::usettings_singleton;
+use crate::settings::USETTINGS;
 use crate::error::evaluator::UErrorMessage::UWindowError;
 use crate::gui::{
     UWindow,
@@ -20,16 +20,14 @@ use num_derive::{ToPrimitive, FromPrimitive};
 use once_cell::sync::Lazy;
 
 static FONT_FAMILY: Lazy<FontFamily> = Lazy::new(|| {
-    let singleton = usettings_singleton(None);
-    let usettings = singleton.0.lock().unwrap();
+    let usettings = USETTINGS.lock().unwrap();
     FontFamily::new(&usettings.options.default_font.name, usettings.options.default_font.size)
 });
 static MSGBOX_POINT: Lazy<Mutex<(Option<i32>, Option<i32>)>> = Lazy::new(|| Mutex::new((None, None)));
 static INPUT_POINT: Lazy<Mutex<(Option<i32>, Option<i32>)>> = Lazy::new(|| Mutex::new((None, None)));
 static SLCTBOX_POINT: Lazy<Mutex<(Option<i32>, Option<i32>)>> = Lazy::new(|| Mutex::new((None, None)));
 static DIALOG_TITLE: Lazy<String> = Lazy::new(|| {
-    let singleton = usettings_singleton(None);
-    let settings = singleton.0.lock().unwrap();
+    let settings = USETTINGS.lock().unwrap();
     match &settings.options.dlg_title {
         Some(title) => title.to_string(),
         None => match std::env::var("GET_UWSC_NAME") {

@@ -216,8 +216,7 @@ impl Evaluator {
     }
 
     fn set_option_settings(&self, opt: OptionSetting) {
-        let singleton = usettings_singleton(None);
-        let mut usettings = singleton.0.lock().unwrap();
+        let mut usettings = USETTINGS.lock().unwrap();
         match opt {
             OptionSetting::Explicit(b) => usettings.options.explicit = b,
             OptionSetting::SameStr(b) => usettings.options.same_str = b,
@@ -938,8 +937,7 @@ impl Evaluator {
             },
         };
         let opt_finally = {
-            let singleton = usettings_singleton(None);
-            let usettings = singleton.0.lock().unwrap();
+            let usettings = USETTINGS.lock().unwrap();
             usettings.options.opt_finally
         };
         if ! opt_finally {

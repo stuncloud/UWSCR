@@ -2,7 +2,7 @@ use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
 use crate::evaluator::com_object::{VARIANTHelper, SAFEARRAYHelper};
 use crate::evaluator::UError;
-use crate::settings::usettings_singleton;
+use crate::settings::USETTINGS;
 use windows::{
     Win32::{
         System::{
@@ -65,8 +65,7 @@ pub enum VarType {
 
 fn ignore_ie(prog_id: &str) -> BuiltInResult<()> {
     if prog_id.to_ascii_lowercase().contains("internetexplorer.application") {
-        let singleton = usettings_singleton(None);
-        let usettings = singleton.0.lock().unwrap();
+        let usettings = USETTINGS.lock().unwrap();
         if ! usettings.options.allow_ie_object {
             return Err(UError::new(
                 UErrorKind::ProgIdError,
