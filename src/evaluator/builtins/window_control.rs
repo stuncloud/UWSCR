@@ -56,7 +56,7 @@ use windows::{
 use std::{ffi::c_void, fmt};
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
-use std::sync::{Arc, Mutex, Once};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use std::thread;
 use std::mem;
@@ -617,8 +617,8 @@ fn get_window_text(hwnd: HWND) -> BuiltinFuncResult {
 fn get_class_name(hwnd: HWND) -> BuiltinFuncResult {
     unsafe {
         let mut buffer = [0; MAX_NAME_SIZE];
-        GetClassNameW(hwnd, &mut buffer);
-        let name = String::from_utf16_lossy(&buffer);
+        let len = GetClassNameW(hwnd, &mut buffer);
+        let name = String::from_utf16_lossy(&buffer[..len as usize]);
         Ok(Object::String(name))
     }
 }
