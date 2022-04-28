@@ -1,6 +1,9 @@
 use crate::error::evaluator::{write_locale, CURRENT_LOCALE, Locale,};
 use crate::evaluator::object::Object;
-use crate::winapi::{to_wide_string, to_ansi_bytes};
+use crate::winapi::{
+    // to_wide_string,
+    to_ansi_bytes,
+};
 
 use std::io::{Write, Read, Seek, SeekFrom};
 use std::path::{PathBuf, Path};

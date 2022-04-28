@@ -162,6 +162,7 @@ pub enum UErrorKind {
     WmiError,
     OpenCvError,
     ScreenShotError,
+    ZipError,
 }
 
 impl fmt::Display for UErrorKind {
@@ -325,6 +326,10 @@ impl fmt::Display for UErrorKind {
             Self::ScreenShotError => write_locale!(f,
                 "スクリーンショットエラー",
                 "Screenshot error",
+            ),
+            Self::ZipError => write_locale!(f,
+                "Zipエラー",
+                "Zip error",
             ),
         }
     }
@@ -996,5 +1001,11 @@ impl From<std::io::Error> for UError {
             UErrorKind::FileIOError,
             UErrorMessage::Any(e.to_string())
         )
+    }
+}
+
+impl From<zip::result::ZipError> for UError {
+    fn from(e: zip::result::ZipError) -> Self {
+        Self::new(UErrorKind::ZipError, UErrorMessage::Any(e.to_string()))
     }
 }

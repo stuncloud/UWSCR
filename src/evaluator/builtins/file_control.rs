@@ -3,6 +3,7 @@ use crate::evaluator::builtins::*;
 use crate::evaluator::object::{Object, Fopen, FopenMode, FGetType, FPutType};
 use crate::error::evaluator::UErrorMessage::FopenError;
 
+use std::io::{Write, Read};
 use std::sync::{Arc, Mutex};
 use std::path::PathBuf;
 
@@ -23,6 +24,9 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("deletefile", 1, deletefile);
     sets.add("getdir", 4, getdir);
     // sets.add("dropfile", 12, dropfile);
+    sets.add("zipitems", 1, zipitems);
+    sets.add("unzip", 2, unzip);
+    sets.add("zip", 11, zip);
     sets
 }
 
@@ -290,4 +294,101 @@ pub fn _dropfile(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Fopen::drop_file(hwnd, files, x, y);
 
     Ok(Object::default())
+}
+
+struct Zip {
+    path: PathBuf,
+}
+
+impl Zip {
+    fn new(path: &str) -> Self {
+        Self {
+            path: PathBuf::from(path)
+        }
+    }
+
+    fn list(&self) -> std::io::Result<Vec<String>> {
+        use std::fs::OpenOptions;
+        use std::cmp::Ordering::{Greater,Less};
+
+        let file = OpenOptions::new()
+            .read(true)
+            .open(&self.path)?;
+        let zip = zip::ZipArchive::new(file)?;
+        let mut names = zip.file_names()
+                .map(|s| s.to_string())
+                .collect::<Vec<_>>();
+        names.sort_by(|a,b| {
+            match (a.contains('/'), b.contains('/')) {
+                (true, true) => a.cmp(b),
+                (true, false) => Less,
+                (false, true) => Greater,
+                (false, false) => a.cmp(b),
+            }
+        });
+        Ok(names)
+    }
+
+    fn extract(&self, out: &str) -> zip::result::ZipResult<()> {
+        use std::fs::OpenOptions;
+
+        let file = OpenOptions::new()
+            .read(true)
+            .open(&self.path)?;
+        let mut zip = zip::ZipArchive::new(file)?;
+        zip.extract(out)
+    }
+
+    fn compress(&self, files: Vec<String>) -> zip::result::ZipResult<()> {
+        use std::fs::OpenOptions;
+        let append = PathBuf::from(&self.path).exists();
+        let file = OpenOptions::new()
+                .write(true)
+                .read(append)
+                .create(true)
+                .open(&self.path)?;
+        let mut zip = if append {
+            zip::ZipWriter::new_append(file)?
+        } else {
+            zip::ZipWriter::new(file)
+        };
+        let options = zip::write::FileOptions::default()
+            .compression_method(zip::CompressionMethod::Deflated);
+
+        for path in files {
+            zip.start_file(&path, options)?;
+            let mut item = std::fs::File::open(&path)?;
+            let mut buf = vec![];
+            item.read_to_end(&mut buf)?;
+            zip.write_all(&buf)?;
+        }
+        zip.finish()?;
+        Ok(())
+    }
+}
+
+pub fn zipitems(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let path = args.get_as_string(0, None)?;
+    let zip = Zip::new(&path);
+    let list = zip.list()?;
+    let array = list.into_iter()
+        .map(|s| s.into())
+        .collect();
+    Ok(Object::Array(array))
+}
+
+pub fn unzip(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let path = args.get_as_string(0, None)?;
+    let out = args.get_as_string(1, None)?;
+    let zip = Zip::new(&path);
+    let result = zip.extract(&out).is_ok();
+    Ok(Object::Bool(result))
+}
+
+pub fn zip(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let path = args.get_as_string(0, None)?;
+    let files = args.get_rest_as_string_array(1)?;
+    let zip = Zip::new(&path);
+    let result = zip.compress(files).is_ok();
+    Ok(Object::Bool(result))
 }
