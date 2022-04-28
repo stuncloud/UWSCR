@@ -1,10 +1,10 @@
 
 use crate::evaluator::builtins::*;
-use crate::evaluator::object::Object;
-use crate::evaluator::object::{Fopen, FopenMode, FGetType, FPutType};
+use crate::evaluator::object::{Object, Fopen, FopenMode, FGetType, FPutType};
 use crate::error::evaluator::UErrorMessage::FopenError;
 
 use std::sync::{Arc, Mutex};
+use std::path::PathBuf;
 
 use strum_macros::{EnumString, EnumVariantNames};
 use num_derive::{ToPrimitive, FromPrimitive};
@@ -22,6 +22,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("deleteini", 3, deleteini);
     sets.add("deletefile", 1, deletefile);
     sets.add("getdir", 4, getdir);
+    // sets.add("dropfile", 12, dropfile);
     sets
 }
 
@@ -261,4 +262,32 @@ pub fn getdir(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         .map(|s| s.to_string().into())
         .collect();
     Ok(Object::Array(files))
+}
+
+pub fn _dropfile(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let id = args.get_as_int(0, None)?;
+    let mut x = args.get_as_i32(1).ok();
+    let mut y = args.get_as_i32(2).ok();
+    let index = match (x, y) {
+        (None, None) => 1,
+        (None, Some(_)) => {y = None; 1},
+        (Some(_), None) => {x = None; 1},
+        (Some(_), Some(_)) => 3,
+    };
+    let dir = args.get_as_string(index, None)?;
+    let files = args.get_rest_as_string_array(index + 1)?;
+
+    let hwnd = window_control::get_hwnd_from_id(id);
+
+    let buf = PathBuf::from(&dir);
+    let files = files.into_iter()
+            .map(|s| {
+                let p = &buf.join(s);
+                p.to_string_lossy().to_string()
+            })
+            .collect();
+
+    Fopen::drop_file(hwnd, files, x, y);
+
+    Ok(Object::default())
 }

@@ -41,6 +41,7 @@ use std::sync::{Arc, Mutex};
 use std::ffi::c_void;
 use std::ptr;
 use std::panic;
+use std::io::{stdout, Write, BufWriter};
 
 use num_traits::FromPrimitive;
 use regex::Regex;
@@ -211,7 +212,10 @@ impl Evaluator {
         if let Some(lp) = LOGPRINTWIN.get() {
             lp.lock().unwrap().print(&obj.to_string());
         }
-        println!("{}", obj);
+        // println!("{}", obj);
+        let out = stdout();
+        let mut out = BufWriter::new(out.lock());
+        writeln!(out, "{}", obj)?;
         Ok(None)
     }
 
