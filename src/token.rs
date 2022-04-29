@@ -36,6 +36,8 @@ pub enum Token {
     Await,
     HashTable,
     Call,
+    // callのuriサポート
+    Uri(String),
     /// directory, filename
     Path(Option<String>, String),
     DefDll,

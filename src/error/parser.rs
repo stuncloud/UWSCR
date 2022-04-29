@@ -52,6 +52,7 @@ pub enum ParseErrorKind {
     InvalidClassMemberDefinition(Statement),
     MissingIndex,
     InvalidHashMemberDefinition(Option<Expression>),
+    InvalidCallUri(String),
 }
 
 #[derive(Debug, Clone)]
@@ -276,6 +277,10 @@ impl fmt::Display for ParseErrorKind {
                     "Invalid hashtbl member definition: expression is required",
                 ),
             },
+            ParseErrorKind::InvalidCallUri(uri) => write_locale!(f,
+                "不正なスクリプト ({uri})",
+                "Invalid script uri: {uri}",
+            ),
         }
     }
 }

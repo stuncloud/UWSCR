@@ -302,61 +302,85 @@ impl Lexer {
 
 
     fn consume_call_path(&mut self) -> Token {
-        // パスの解析
-        // 現在地から行末までに \ (バックスラッシュ)がなければファイル名とする
-        // \ (スラッシュ) もパス区切りとして扱う
-        // ファイル名部分の最後に ( があればその直前までをパスとする
-        // ( からはまたnext_tokenさせる
-        let start_pos = self.pos;
-        let mut back_slash_pos: usize = 0;
-        let mut lparen_pos: usize = 0;
-
-        loop {
-            match self.nextch() {
-                '\r' | '\n' | '\0' => {
-                    break;
-                },
-                '/' => if self.ch_nth_after_is(2, '/') {
-                    // コメントなので抜ける
-                    break;
-                } else {
-                    // \と同じ扱い
-                    back_slash_pos = self.pos + 1
-                },
-                '\\' => back_slash_pos = self.pos + 1,
-                '(' => lparen_pos = self.pos + 1,
-                _ => {}
+        if "url[" == self.input[self.pos..(self.pos+4)].iter().collect::<String>().to_ascii_lowercase().as_str() {
+            // url解析
+            self.pos = self.pos + 4;
+            self.next_pos = self.pos + 1;
+            self.ch = self.input[self.pos];
+            let start_pos = self.pos;
+            loop {
+                match self.nextch() {
+                    '\r' | '\n' | '\0' => {
+                        // 書式が不正
+                        return Token::Illegal(self.nextch())
+                    },
+                    ']' => {
+                        self.read_char();
+                        break;
+                    },
+                    _ => self.read_char(),
+                }
             }
+            let uri = self.input[start_pos..self.pos].iter().collect::<String>();
             self.read_char();
-        }
-        let end_pos = if lparen_pos > 0 {
-            // ( がある場合は現在地を戻す
-            self.pos = lparen_pos;
-            self.next_pos = lparen_pos + 1;
-            self.ch = self.input[lparen_pos];
-            lparen_pos
+            Token::Uri(uri)
         } else {
-            self.read_char();
-            if self.ch == '\0' {
-                // 行末の場合
-                self.pos
+            // パスの解析
+            // 現在地から行末までに \ (バックスラッシュ)がなければファイル名とする
+            // \ (スラッシュ) もパス区切りとして扱う
+            // ファイル名部分の最後に ( があればその直前までをパスとする
+            // ( からはまたnext_tokenさせる
+            let start_pos = self.pos;
+            let mut back_slash_pos: usize = 0;
+            let mut lparen_pos: usize = 0;
+
+            loop {
+                match self.nextch() {
+                    '\r' | '\n' | '\0' => {
+                        break;
+                    },
+                    '/' => if self.ch_nth_after_is(2, '/') {
+                        // コメントなので抜ける
+                        break;
+                    } else {
+                        // \と同じ扱い
+                        back_slash_pos = self.pos + 1
+                    },
+                    '\\' => back_slash_pos = self.pos + 1,
+                    '(' => lparen_pos = self.pos + 1,
+                    _ => {}
+                }
+                self.read_char();
+            }
+            let end_pos = if lparen_pos > 0 {
+                // ( がある場合は現在地を戻す
+                self.pos = lparen_pos;
+                self.next_pos = lparen_pos + 1;
+                self.ch = self.input[lparen_pos];
+                lparen_pos
             } else {
-                self.pos - 1
-            }
-        };
-        let (dir, name) = if back_slash_pos > 0 {
-            (
-                Some(self.input[start_pos..back_slash_pos].into_iter().collect::<String>()),
-                self.input[(back_slash_pos + 1)..end_pos].into_iter().collect::<String>()
-            )
-        } else {
-            (
-                None,
-                self.input[start_pos..end_pos].into_iter().collect::<String>()
-            )
-        };
+                self.read_char();
+                if self.ch == '\0' {
+                    // 行末の場合
+                    self.pos
+                } else {
+                    self.pos - 1
+                }
+            };
+            let (dir, name) = if back_slash_pos > 0 {
+                (
+                    Some(self.input[start_pos..back_slash_pos].into_iter().collect::<String>()),
+                    self.input[(back_slash_pos + 1)..end_pos].into_iter().collect::<String>()
+                )
+            } else {
+                (
+                    None,
+                    self.input[start_pos..end_pos].into_iter().collect::<String>()
+                )
+            };
 
-        Token::Path(dir, name)
+            Token::Path(dir, name)
+        }
     }
 
     fn get_identifier(&mut self) -> String {

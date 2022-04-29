@@ -736,94 +736,133 @@ impl Parser {
 
 
     fn parse_call_statement(&mut self) -> Option<Statement> {
-        // パス取得
-        let (dir, name) = if let Token::Path(dir, name) = self.next_token.token.clone() {
-            (dir, name)
-        } else {
-            self.error_got_unexpected_next_token();
-            return None;
-        };
-        self.bump();
-        // 引数の確認
-        let args = if self.is_next_token(&Token::Lparen) {
-            self.bump();
-            // self.bump();
-            match self.parse_expression_list(Token::Rparen) {
-                Some(ve) => ve,
-                None => vec![],
-            }
-        } else {
-            vec![]
-        };
+        let (script, name, args) = match self.next_token.token.clone() {
+            Token::Path(dir, name) => {
+                // パス取得
+                self.bump();
+                // 引数の確認
+                let args = if self.is_next_token(&Token::Lparen) {
+                    self.bump();
+                    // self.bump();
+                    match self.parse_expression_list(Token::Rparen) {
+                        Some(ve) => ve,
+                        None => vec![],
+                    }
+                } else {
+                    vec![]
+                };
 
-        let mut path = PathBuf::new();
-        if dir.is_some() {
-            path.push(dir.unwrap());
-        }
-        path.push(&name);
-        match path.extension() {
-            Some(os_str) => {
-                if let Some(ext) = os_str.to_str() {
-                    // uwslファイルならデシリアライズして返す
-                    if ext.to_ascii_lowercase().as_str() == "uwsl" {
-                        match serializer::load(&path) {
-                            Ok(bin) => match serializer::deserialize(bin){
-                                Ok(program) => {
-                                    return Some(Statement::Call(program, args));
-                                },
-                                Err(e) => {
-                                    self.errors.push(ParseError::new(
-                                        ParseErrorKind::CanNotLoadUwsl(
-                                            path.to_string_lossy().to_string(),
-                                            format!("{}", *e)
-                                        ),
-                                        self.current_token.pos,
-                                        self.script_name()
-                                    ));
+                let mut path = PathBuf::new();
+                if dir.is_some() {
+                    path.push(dir.unwrap());
+                }
+                path.push(&name);
+                match path.extension() {
+                    Some(os_str) => {
+                        if let Some(ext) = os_str.to_str() {
+                            // uwslファイルならデシリアライズして返す
+                            if ext.to_ascii_lowercase().as_str() == "uwsl" {
+                                match serializer::load(&path) {
+                                    Ok(bin) => match serializer::deserialize(bin){
+                                        Ok(program) => {
+                                            return Some(Statement::Call(program, args));
+                                        },
+                                        Err(e) => {
+                                            self.errors.push(ParseError::new(
+                                                ParseErrorKind::CanNotLoadUwsl(
+                                                    path.to_string_lossy().to_string(),
+                                                    format!("{}", *e)
+                                                ),
+                                                self.current_token.pos,
+                                                self.script_name()
+                                            ));
+                                        }
+                                    },
+                                    Err(e) => {
+                                        self.errors.push(ParseError::new(
+                                            ParseErrorKind::CanNotLoadUwsl(
+                                                path.to_string_lossy().to_string(),
+                                                e.to_string()
+                                            ),
+                                            self.current_token.pos,
+                                            self.script_name()
+                                        ));
+                                    }
                                 }
-                            },
-                            Err(e) => {
-                                self.errors.push(ParseError::new(
-                                    ParseErrorKind::CanNotLoadUwsl(
-                                        path.to_string_lossy().to_string(),
-                                        e.to_string()
-                                    ),
-                                    self.current_token.pos,
-                                    self.script_name()
-                                ));
+                                return None;
                             }
                         }
-                        return None;
-                    }
+                    },
+                    _ => {
+                        path.set_extension("uws");
+                    },
                 }
+                let script = loop {
+                    let script = match get_script(&path) {
+                        Ok(s) => s,
+                        Err(e) => {
+                            if e.kind() == std::io::ErrorKind::NotFound {
+                                let ext = path.extension();
+                                // 拡張子がない場合は.uwsを付けて再挑戦
+                                if ext.is_none() {
+                                    path.set_extension("uws");
+                                    continue;
+                                }
+                            }
+                            self.errors.push(ParseError::new(
+                                ParseErrorKind::CanNotCallScript(path.to_string_lossy().to_string(), e.to_string()),
+                                self.current_token.pos,
+                                self.script_name()
+                            ));
+                            return None;
+                        },
+                    };
+                    break script;
+                };
+                (script, name.to_string(), args)
+            },
+            Token::Uri(uri) => {
+                let maybe_script = match reqwest::blocking::get(&uri) {
+                    Ok(response) => if response.status().is_success() {
+                        response.text().ok()
+                    } else {
+                        None
+                    },
+                    Err(_) => {
+                        None
+                    },
+                };
+                let script = match maybe_script {
+                    Some(s) => s,
+                    None => {
+                        self.errors.push(ParseError::new(
+                            ParseErrorKind::InvalidCallUri(uri),
+                            self.next_token.pos,
+                            self.script_name()
+                        ));
+                        return None;
+                    },
+                };
+                self.bump();
+                // 引数の確認
+                let args = if self.is_next_token(&Token::Lparen) {
+                    self.bump();
+                    // self.bump();
+                    match self.parse_expression_list(Token::Rparen) {
+                        Some(ve) => ve,
+                        None => vec![],
+                    }
+                } else {
+                    vec![]
+                };
+                (script, uri, args)
             },
             _ => {
-                path.set_extension("uws");
-            },
-        }
-        let script;
-        loop {
-            script = match get_script(&path) {
-                Ok(s) => s,
-                Err(e) => {
-                    if e.kind() == std::io::ErrorKind::NotFound {
-                        let ext = path.extension();
-                        // 拡張子がない場合は.uwsを付けて再挑戦
-                        if ext.is_none() {
-                            path.set_extension("uws");
-                            continue;
-                        }
-                    }
-                    self.errors.push(ParseError::new(
-                        ParseErrorKind::CanNotCallScript(path.to_string_lossy().to_string(), e.to_string()),
-                        self.current_token.pos,
-                        self.script_name()
-                    ));
-                    return None;
-                },
-            };
-            break;
-        }
+                self.error_got_unexpected_next_token();
+                return None;
+            }
+        };
+
         let mut call_parser = Parser::call(
             Lexer::new(&script),
             name
