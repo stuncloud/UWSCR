@@ -188,6 +188,9 @@ pub enum Token {
     Struct,
     EndStruct,
 
+    Hash, // hashtblシンタックスシュガー用
+    EndHash,
+
     // Option
     Option(String),
 

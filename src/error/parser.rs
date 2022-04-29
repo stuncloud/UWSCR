@@ -2,7 +2,7 @@ use crate::write_locale;
 use super::{CURRENT_LOCALE, Locale};
 use crate::lexer::Position;
 use crate::token::Token;
-use crate::ast::{Identifier, Statement};
+use crate::ast::{Identifier, Statement, Expression};
 
 use std::fmt;
 
@@ -51,6 +51,7 @@ pub enum ParseErrorKind {
     FunctionCallRequiredAfterAwait,
     InvalidClassMemberDefinition(Statement),
     MissingIndex,
+    InvalidHashMemberDefinition(Option<Expression>),
 }
 
 #[derive(Debug, Clone)]
@@ -265,6 +266,16 @@ impl fmt::Display for ParseErrorKind {
                 "配列の添字がない",
                 "Index is missing",
             ),
+            ParseErrorKind::InvalidHashMemberDefinition(e) => match e {
+                Some(e) => write_locale!(f,
+                    "不正な連想配列メンバ定義: {e}",
+                    "Invalid hashtbl member definition: {e}",
+                ),
+                None => write_locale!(f,
+                    "不正な連想配列メンバ定義: 式が未指定",
+                    "Invalid hashtbl member definition: expression is required",
+                ),
+            },
         }
     }
 }

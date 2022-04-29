@@ -206,6 +206,41 @@ impl Evaluator {
         Ok((name, Object::HashTbl(Arc::new(Mutex::new(hashtbl)))))
     }
 
+    fn eval_hash_sugar_statement(&mut self, hash: HashSugar) -> EvalResult<()> {
+        let name = hash.name.0;
+        let opt = match hash.option {
+            Some(e) => match self.eval_expression(e)? {
+                Object::Num(n) => n as u32,
+                o => return Err(UError::new(
+                    UErrorKind::HashtblError,
+                    UErrorMessage::InvalidHashtblOption(o),
+                ))
+            },
+            None => 0
+        };
+        let sort = (opt & HashTblEnum::HASH_SORT as u32) > 0;
+        let casecare = (opt & HashTblEnum::HASH_CASECARE as u32) > 0;
+        let mut hashtbl = HashTbl::new(sort, casecare);
+        for (name_expr, val_expr) in hash.members {
+            let name = if let Expression::Literal(Literal::ExpandableString(s)) = name_expr {
+                self.expand_string(s, true).to_string()
+            } else if let Expression::Literal(Literal::String(s)) = name_expr {
+                s
+            } else {
+                name_expr.to_string()
+            };
+            let value = self.eval_expression(val_expr)?;
+            hashtbl.insert(name, value);
+        }
+        let object = Object::HashTbl(Arc::new(Mutex::new(hashtbl)));
+        if hash.is_public {
+            self.env.define_public(&name, object)?;
+        } else {
+            self.env.define_local(&name, object)?;
+        }
+        Ok(())
+    }
+
     fn eval_print_statement(&mut self, expression: Expression) -> EvalResult<Option<Object>> {
         let obj = self.eval_expression(expression)?;
         out_log(&format!("{}", obj), LogType::Print);
@@ -344,6 +379,10 @@ impl Evaluator {
                         self.env.define_local(&name, hashtbl)?;
                     }
                 }
+                Ok(None)
+            },
+            Statement::Hash(hash) => {
+                self.eval_hash_sugar_statement(hash)?;
                 Ok(None)
             },
             Statement::Print(e) => self.eval_print_statement(e),
@@ -3210,6 +3249,18 @@ h = b // 再代入に成功すればOK
 h == b
         "#,
                 Ok(Some(Object::Bool(true)))
+            ),
+            (
+                r#"
+hash hoge = hash_casecare or hash_sort
+    foo = 1
+    bar = 2
+endhash
+hoge['foo'] = 1 and hoge['bar'] = 2
+        "#,
+                {
+                    Ok(Some(Object::Bool(true)))
+                }
             ),
         ];
         for (input, expected) in test_cases {

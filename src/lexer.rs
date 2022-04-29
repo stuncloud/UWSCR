@@ -440,6 +440,8 @@ impl Lexer {
             "public" => Token::Public,
             "const" => Token::Const,
             "hashtbl" => Token::HashTable,
+            "hash" => Token::Hash,
+            "endhash" => Token::EndHash,
             "mod" => Token::Mod,
             "and" => Token::And,
             "or" => Token::Or,

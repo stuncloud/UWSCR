@@ -126,6 +126,7 @@ impl Parser {
             Token::EndTry,
             Token::EndEnum,
             Token::EndStruct,
+            Token::EndHash,
         ];
         self.is_current_token_in(eobtokens)
     }
@@ -229,6 +230,14 @@ impl Parser {
     fn error_got_invalid_dllpath(&mut self, pos: Position) {
         self.errors.push(ParseError::new(
             ParseErrorKind::DllPathNotFound,
+            pos,
+            self.script_name()
+        ))
+    }
+
+    fn error_invalid_hash_member_definition(&mut self, e: Option<Expression>, pos: Position) {
+        self.errors.push(ParseError::new(
+            ParseErrorKind::InvalidHashMemberDefinition(e),
             pos,
             self.script_name()
         ))
@@ -398,6 +407,7 @@ impl Parser {
             Token::DefDll => self.parse_def_dll_statement(),
             Token::Struct => self.parse_struct_statement(),
             Token::HashTable => self.parse_hashtable_statement(false),
+            Token::Hash => self.parse_hash_statement(),
             Token::Function => self.parse_function_statement(false, false),
             Token::Procedure => self.parse_function_statement(true, false),
             Token::Async => self.parse_async_function_statement(),
@@ -613,6 +623,65 @@ impl Parser {
             Some(v) => Some(Statement::Const(v)),
             None => None
         }
+    }
+
+    fn parse_hash_statement(&mut self) -> Option<Statement> {
+        let is_public = if self.is_next_token(&Token::Public) {
+            self.bump();
+            true
+        } else {
+            false
+        };
+        self.bump();
+        let name = if let Some(i) = self.parse_identifier() {
+            i
+        } else {
+            self.error_token_is_not_identifier();
+            return None;
+        };
+        let option = if self.is_next_token(&Token::EqualOrAssign) {
+            self.bump();
+            self.bump();
+            match self.parse_expression(Precedence::Lowest, false) {
+                Some(e) => Some(e),
+                None => return None
+            }
+        } else {
+            None
+        };
+        self.bump();
+        self.bump();
+        let mut members = vec![];
+        while ! self.is_current_token(&Token::EndHash) {
+            let expression = self.parse_expression(Precedence::Lowest, false);
+            if let Some(Expression::Infix(infix, left, right)) = &expression {
+                if *infix == Infix::Equal {
+                    if let Some(e) = match *left.clone() {
+                        Expression::Identifier(i) => Some(Expression::Identifier(i)),
+                        Expression::Literal(l) => match l {
+                            Literal::Num(_) |
+                            Literal::String(_) |
+                            Literal::ExpandableString(_) |
+                            Literal::Bool(_) |
+                            Literal::Empty |
+                            Literal::Null |
+                            Literal::Nothing => Some(Expression::Literal(l)),
+                            _ => None
+                        },
+                        _ => None
+                    } {
+                        members.push((e, *right.clone()));
+                        self.bump();
+                        self.bump();
+                        continue;
+                    }
+                }
+            }
+            self.error_invalid_hash_member_definition(expression, self.current_token.pos);
+            return None;
+        }
+        let hash = HashSugar::new(name, option, is_public, members);
+        Some(Statement::Hash(hash))
     }
 
     fn parse_hashtable_statement(&mut self, is_public: bool) -> Option<Statement> {
@@ -4646,6 +4715,92 @@ until (a == b) and (c >= d)
                                 None, true
                             )
                         ]), 1
+                    )
+                ]
+            ),
+        ];
+        for (input, expected) in tests {
+            parser_test(input, expected);
+        }
+    }
+
+    #[test]
+    fn test_hash_sugar() {
+        let tests = vec![
+            (
+                r#"
+                hash hoge
+                endhash
+                "#,
+                vec![
+                    StatementWithRow::new(
+                        Statement::Hash(HashSugar::new(
+                            Identifier("hoge".into()),
+                            None,
+                            false,
+                            vec![]
+                        )),
+                        2
+                    )
+                ]
+            ),
+            (
+                r#"
+                hash hoge = HASH_CASECARE
+                endhash
+                "#,
+                vec![
+                    StatementWithRow::new(
+                        Statement::Hash(HashSugar::new(
+                            Identifier("hoge".into()),
+                            Some(Expression::Identifier(Identifier("HASH_CASECARE".to_string()))),
+                            false,
+                            vec![]
+                        )),
+                        2
+                    )
+                ]
+            ),
+            (
+                r#"
+                hash public hoge
+                endhash
+                "#,
+                vec![
+                    StatementWithRow::new(
+                        Statement::Hash(HashSugar::new(
+                            Identifier("hoge".into()),
+                            None,
+                            true,
+                            vec![]
+                        )),
+                        2
+                    )
+                ]
+            ),
+            (
+                r#"
+                hash hoge
+                    foo = 1
+                    'bar' = 2
+                    empty = 3
+                    null = 5
+                endhash
+                "#,
+                vec![
+                    StatementWithRow::new(
+                        Statement::Hash(HashSugar::new(
+                            Identifier("hoge".into()),
+                            None,
+                            false,
+                            vec![
+                                (Expression::Identifier("foo".into()), Expression::Literal(Literal::Num(1.0))),
+                                (Expression::Literal(Literal::String("bar".into())), Expression::Literal(Literal::Num(2.0))),
+                                (Expression::Literal(Literal::Empty), Expression::Literal(Literal::Num(3.0))),
+                                (Expression::Literal(Literal::Null), Expression::Literal(Literal::Num(5.0))),
+                            ]
+                        )),
+                        2
                     )
                 ]
             ),

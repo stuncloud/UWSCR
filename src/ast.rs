@@ -205,6 +205,7 @@ pub enum Statement {
     Public(Vec<(Identifier, Expression)>),
     Const(Vec<(Identifier, Expression)>),
     HashTbl(Vec<(Identifier, Option<Expression>, bool)>),
+    Hash(HashSugar),
     Print(Expression),
     Call(Program, Vec<Expression>), // スクリプトの実行部分、引数(param_str)
     DefDll {
@@ -635,4 +636,23 @@ pub enum OptionSetting {
     Logfile(i32),
     Dlgtitle(String),
     AllowIEObj(bool),
+}
+
+#[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
+pub struct HashSugar {
+    pub name: Identifier,
+    pub option: Option<Expression>,
+    pub is_public: bool,
+    pub members: Vec<(Expression, Expression)>
+}
+
+impl HashSugar {
+    pub fn new(
+        name: Identifier,
+        option: Option<Expression>,
+        is_public: bool,
+        members: Vec<(Expression, Expression)>
+    ) -> Self {
+        Self { name, option, is_public, members }
+    }
 }
