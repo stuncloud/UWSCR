@@ -23,7 +23,7 @@ pub fn get_script(path: &PathBuf) -> std::io::Result<String> {
     get_utf8(&bytes).map(|s| re.replace_all(s.as_str(), "\r\n").to_string())
 }
 
-fn get_utf8(bytes: &Vec<u8>) -> std::io::Result<String> {
+fn get_utf8(bytes: &[u8]) -> std::io::Result<String> {
     let (cow, _, err) = UTF_8.decode(bytes);
     if ! err {
         return Ok(cow.to_string());

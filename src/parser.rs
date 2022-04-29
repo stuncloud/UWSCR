@@ -1,7 +1,7 @@
 use crate::ast::*;
 use crate::lexer::{Lexer, Position, TokenInfo};
 use crate::token::Token;
-use crate::get_script;
+use crate::{get_script, get_utf8};
 use crate::serializer;
 use crate::error::parser::{ParseError, ParseErrorKind};
 
@@ -824,7 +824,20 @@ impl Parser {
             Token::Uri(uri) => {
                 let maybe_script = match reqwest::blocking::get(&uri) {
                     Ok(response) => if response.status().is_success() {
-                        response.text().ok()
+                        match response.text() {
+                            Ok(s) => {
+                                let bytes = s.as_bytes();
+                                match get_utf8(bytes) {
+                                    Ok(s) => {
+                                        let re = regex::Regex::new("(\r\n|\r|\n)").unwrap();
+                                        let script = re.replace_all(&s, "\r\n").to_string();
+                                        Some(script)
+                                    },
+                                    Err(_) => None,
+                                }
+                            },
+                            Err(_) => None,
+                        }
                     } else {
                         None
                     },
