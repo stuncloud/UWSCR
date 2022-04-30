@@ -2,6 +2,7 @@ use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
 use crate::evaluator::builtins::window_low;
 use crate::evaluator::builtins::system_controls::is_64bit_os;
+use crate::settings::USETTINGS;
 #[cfg(feature="chkimg")]
 use crate::evaluator::builtins::chkimg::{ChkImg, ScreenShot};
 
@@ -965,8 +966,7 @@ pub fn monitor(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 #[cfg(feature="chkimg")]
 pub fn chkimg(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let save_ss = {
-        let singleton = usettings_singleton(None);
-        let settings = singleton.0.lock().unwrap();
+        let settings = USETTINGS.lock().unwrap();
         settings.chkimg.save_ss
     };
     let default_score = 95;
@@ -977,10 +977,10 @@ pub fn chkimg(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     }
     let score = score as f64 / 100.0;
     let count = args.get_as_int::<u8>(2, Some(5))?;
-    let left = args.get_as_int_or_empty(3, Some(None))?;
-    let top = args.get_as_int_or_empty(4, Some(None))?;
-    let right = args.get_as_int_or_empty(5, Some(None))?;
-    let bottom = args.get_as_int_or_empty(6, Some(None))?;
+    let left = args.get_as_int_or_empty(3)?;
+    let top = args.get_as_int_or_empty(4)?;
+    let right = args.get_as_int_or_empty(5)?;
+    let bottom = args.get_as_int_or_empty(6)?;
 
     let ss = ScreenShot::get(None, left, top, right, bottom)?;
     if save_ss {
