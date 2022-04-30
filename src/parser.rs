@@ -2874,12 +2874,13 @@ impl Parser {
     }
 
     fn parse_param_type(&mut self) -> Option<ParamType> {
-        match self.next_token.token() {
-            Token::Identifier(name) => {
+        let next = self.next_token.token();
+        match self.token_to_identifier(&next) {
+            Some(Identifier(name)) => {
                 self.bump();
                 Some(ParamType::from(name))
             },
-            _ => {
+            None => {
                 self.error_got_unexpected_token();
                 None
             }
