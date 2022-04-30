@@ -2,7 +2,7 @@
 authors = ["stuncloud <stuncloud@gmail.com>"]
 edition = "2021"
 name = "uwscr"
-version = "0.5.0"
+version = "0.6.0"
 build = "build.rs"
 
 [features]
