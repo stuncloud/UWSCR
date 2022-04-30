@@ -3044,7 +3044,7 @@ mod tests {
         let mut e = Evaluator::new(Environment::new(vec![]));
         match e.eval(program) {
             Ok(_) => e,
-            Err(err) => panic!("{}", err)
+            Err(err) => panic!("\nError:\n{:#?}\ninput:\n{}\n", err, input)
         }
     }
 
