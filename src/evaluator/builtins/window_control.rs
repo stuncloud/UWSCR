@@ -2,9 +2,12 @@ use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
 use crate::evaluator::builtins::window_low;
 use crate::evaluator::builtins::system_controls::is_64bit_os;
-use crate::settings::USETTINGS;
+
 #[cfg(feature="chkimg")]
-use crate::evaluator::builtins::chkimg::{ChkImg, ScreenShot};
+use crate::{
+    settings::USETTINGS,
+    evaluator::builtins::chkimg::{ChkImg, ScreenShot}
+};
 
 use windows::{
     core::{PCWSTR},
