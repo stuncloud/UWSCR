@@ -1048,7 +1048,7 @@ impl Evaluator {
                         },
                     }
                     free_console();
-                    std::process::exit(1);
+                    std::process::exit(0);
                 }));
                 let result = thread_self.eval_function_call_expression(func, args, false);
                 if let Err(e) = result {
