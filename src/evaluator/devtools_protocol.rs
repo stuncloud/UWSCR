@@ -534,7 +534,6 @@ impl Element {
         let remote_object = self.dp_send("DOM.resolveNode", json!({
             "nodeId": self.node_id
         }))?;
-        println!("[debug] remote_object: {:?}", &remote_object);
         let mut map = Map::new();
         map.insert("objectId".into(), remote_object["object"]["objectId"].clone());
         let result = self.dp_send(
@@ -745,7 +744,7 @@ impl DevtoolsProtocol {
     fn new(uri: &str, sid: String) -> DevtoolsProtocolResult<Self> {
         let (socket, response) = tungstenite::connect(uri)?;
         #[cfg(debug_assertions)]
-        println!("[90m[debug] tungstenite::connect: {:?}[0m", response);
+        println!("\u{001b}[90m[debug] tungstenite::connect: {:?}\u{001b}[0m", response);
         let status = response.status();
         if status.as_u16() >= 400 {
             return Err(DevtoolsProtocolError::new(
@@ -785,14 +784,14 @@ impl DevtoolsProtocol {
         let data = self.new_data(method, &params);
         let msg = data.to_string();
         #[cfg(debug_assertions)]
-        println!("[36m[debug] data: {}[0m", &msg);
+        println!("\u{001b}[36m[debug] data: {}\u{001b}[0m", &msg);
 
         let message = tungstenite::Message::Text(msg);
         self.socket.write_message(message)?;
         loop {
                 let received = self.socket.read_message()?;
                 #[cfg(debug_assertions)]
-                println!("[35m[debug] received: {}[0m", received);
+                println!("\u{001b}[35m[debug] received: {}\u{001b}[0m", received);
                 if received.is_text() {
                     let msg = received.into_text()?;
                     let value = Value::from_str(&msg)?;
