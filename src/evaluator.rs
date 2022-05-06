@@ -12,7 +12,7 @@ use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
 use crate::evaluator::def_dll::*;
 use crate::evaluator::com_object::*;
-use crate::evaluator::devtools_protocol::{Browser, Element};
+use crate::evaluator::devtools_protocol::{Browser, Element, ElementProperty};
 use crate::error::UWSCRErrorTitle;
 use crate::error::evaluator::{UError, UErrorKind, UErrorMessage};
 use crate::gui::{LogPrintWin, UWindow, Balloon};
@@ -1565,6 +1565,23 @@ impl Evaluator {
                                     let name = i.0;
                                     let value = Self::object_to_serde_value(value)?;
                                     e.set_property(&name, value)?
+                                } else {
+                                    return Err(UError::new(
+                                        UErrorKind::AssignError,
+                                        UErrorMessage::SyntaxError
+                                    ));
+                                }
+                            },
+                            Object::ElementProperty(ref ep) => {
+                                if let Expression::Identifier(i) = *right {
+                                    let name = i.0;
+                                    let value = Self::object_to_serde_value(value)?;
+                                    ep.set(&name, value)?;
+                                } else {
+                                    return Err(UError::new(
+                                        UErrorKind::AssignError,
+                                        UErrorMessage::SyntaxError
+                                    ));
                                 }
                             },
                             o => return Err(UError::new(
@@ -1640,6 +1657,30 @@ impl Evaluator {
                         UErrorKind::DotOperatorError,
                         UErrorMessage::SyntaxError,
                     ));
+                },
+                Object::Element(ref e) => {
+                    if let Expression::Identifier(i) = *right {
+                        let name = i.0;
+                        let value = Self::object_to_serde_value(value)?;
+                        e.set_property(&name, value)?
+                    } else {
+                        return Err(UError::new(
+                            UErrorKind::AssignError,
+                            UErrorMessage::SyntaxError
+                        ));
+                    }
+                },
+                Object::ElementProperty(ref ep) => {
+                    if let Expression::Identifier(i) = *right {
+                        let name = i.0;
+                        let value = Self::object_to_serde_value(value)?;
+                        ep.set(&name, value)?;
+                    } else {
+                        return Err(UError::new(
+                            UErrorKind::AssignError,
+                            UErrorMessage::SyntaxError
+                        ));
+                    }
                 },
                 o => return Err(UError::new(
                     UErrorKind::DotOperatorError,
@@ -2623,6 +2664,51 @@ impl Evaluator {
         }
     }
 
+    fn get_browser_property(browser: &Browser, member: &str) -> EvalResult<Object> {
+        match member.to_ascii_lowercase().as_str() {
+            "document" => {
+                let doc = browser.document()?;
+                Ok(Object::Element(doc))
+            },
+            "pageid" => {
+                let id = browser.id.to_string();
+                Ok(Object::String(id))
+            },
+            "source" => match browser.execute_script("document.documentElement.outerHTML", None, None)? {
+                Some(v) => Ok(v.into()),
+                None => Ok(Object::Empty)
+            },
+            "url" => match browser.execute_script("document.URL", None, None)? {
+                Some(v) => Ok(v.into()),
+                None => Ok(Object::Empty)
+            }
+            _ => Err(UError::new(
+                UErrorKind::BrowserControlError,
+                UErrorMessage::InvalidMember(member.to_string())
+            ))
+        }
+    }
+    fn get_element_property(element: &Element, member: &str) -> EvalResult<Object> {
+        // 特定のメンバ名の取得を試みるがなければプロパティ取得に移行
+        match member.to_ascii_lowercase().as_str() {
+            "url" => if let Some(url) = element.url()? {
+                return Ok(url.into());
+            },
+            "parent" => if let Some(elem) = element.get_parent()? {
+                return Ok(Object::Element(elem));
+            },
+            _ => {}
+        }
+        let obj = match element.get_property(&member)? {
+            Value::Array(_) |
+            Value::Object(_) => {
+                let ep = ElementProperty::new(element.clone(), member.to_string());
+                Object::ElementProperty(ep)
+            }
+            v => v.into()
+        };
+        Ok(obj)
+    }
     fn invoke_browser_function(browser: Browser, name: &str, args: Vec<Object>) -> EvalResult<Object> {
         let get_arg = |i: usize| args.get(i).unwrap_or(&Object::Empty).to_owned();
         match name.to_ascii_lowercase().as_str() {
@@ -2690,10 +2776,7 @@ impl Evaluator {
                 browser.activate()?;
                 Ok(Object::Empty)
             },
-            "windowid" => {
-                let id = browser.get_window_id()?;
-                Ok(id)
-            },
+            "windowid" => browser.get_window_id().map_err(|e| e.into()),
             "dialog" => {
                 let (accept, prompt) = match get_arg(0) {
                     Object::String(s) => (true, Some(s)),
@@ -2884,42 +2967,16 @@ impl Evaluator {
             Object::Browser(ref b) => if is_func {
                 Ok(Object::BrowserFunc(b.clone(), member))
             } else {
-                match member.to_ascii_lowercase().as_str() {
-                    "document" => {
-                        let doc = b.document()?;
-                        Ok(Object::Element(doc))
-                    },
-                    "pageid" => {
-                        let id = b.id.to_string();
-                        Ok(Object::String(id))
-                    },
-                    "source" => match b.execute_script("document.documentElement.outerHTML", None, None)? {
-                        Some(v) => Ok(v.into()),
-                        None => Ok(Object::Empty)
-                    },
-                    "url" => match b.execute_script("document.URL", None, None)? {
-                        Some(v) => Ok(v.into()),
-                        None => Ok(Object::Empty)
-                    },
-                    _ => Err(UError::new(
-                        UErrorKind::BrowserControlError,
-                        UErrorMessage::InvalidMember(member)
-                    ))
-                }
+                Self::get_browser_property(b, &member)
             },
             Object::Element(ref e) => if is_func {
                 Ok(Object::ElementFunc(e.clone(), member))
             } else {
-                // 特定のメンバ名の取得を試みるがなければプロパティ取得に移行
-                match member.to_ascii_lowercase().as_str() {
-                    "url" => match e.url()? {
-                        Some(url) => return Ok(url.into()),
-                        None => {}
-                    }
-                    _ => {}
-                }
-                let v = e.get_property(&member)?;
-                Ok(v.into())
+                Self::get_element_property(e, &member)
+            },
+            Object::ElementProperty(ref e) => {
+                let member = e.property(Some(&member));
+                Self::get_element_property(&e.element, &member)
             },
             o => Err(UError::new(
                 UErrorKind::DotOperatorError,

@@ -24,7 +24,7 @@ use std::{
 use libc::c_void;
 use winreg;
 use reqwest;
-use serde_json::{Value, json};
+use serde_json::{Value, json, Map};
 use tungstenite::{self, WebSocket, stream::MaybeTlsStream};
 use std::collections::HashMap;
 use wmi::{WMIConnection, FilterValue};
@@ -530,6 +530,37 @@ impl Element {
         Ok(elems)
     }
 
+    pub fn get_parent(&self) -> DevtoolsProtocolResult<Option<Element>> {
+        let remote_object = self.dp_send("DOM.resolveNode", json!({
+            "nodeId": self.node_id
+        }))?;
+        println!("[debug] remote_object: {:?}", &remote_object);
+        let mut map = Map::new();
+        map.insert("objectId".into(), remote_object["object"]["objectId"].clone());
+        let result = self.dp_send(
+            "Runtime.getProperties",
+            Value::Object(map)
+        )?;
+        if let Value::Array(ref properties) = result["result"] {
+            let parent = properties.iter()
+                .find_map(|prop| {
+                    if prop["name"] == Value::String("parentElement".into()) {
+                        prop["value"]["objectId"].as_str()
+                    } else {
+                        None
+                    }
+                });
+            if let Some(id) = parent {
+                let v = self.dp_send("DOM.requestNode", json!({
+                    "objectId": id
+                }))?;
+                let elem = Element::new(v, Arc::clone(&self.dp)).ok();
+                return Ok(elem);
+            }
+        }
+        Ok(None)
+    }
+
     pub fn wait_for_element(&self, selector: &str, limit: f64) -> DevtoolsProtocolResult<Element> {
         let now = Instant::now();
         loop {
@@ -657,6 +688,29 @@ impl Element {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct ElementProperty {
+    pub element: Element,
+    pub property: String
+}
+
+impl ElementProperty {
+    pub fn new(element: Element, property: String) -> Self {
+        Self { element, property }
+    }
+    pub fn property(&self, property: Option<&str>) -> String {
+        if let Some(property) = property {
+            [&self.property, property].join(".")
+        } else {
+            self.property.to_string()
+        }
+    }
+    pub fn set(&self, property: &str, value: Value) -> DevtoolsProtocolResult<()> {
+        let name = self.property(Some(property));
+        self.element.set_property(&name, value)
+    }
+}
+
 pub struct DevtoolsProtocolError {
     pub kind: UErrorKind,
     pub message: UErrorMessage
@@ -691,7 +745,7 @@ impl DevtoolsProtocol {
     fn new(uri: &str, sid: String) -> DevtoolsProtocolResult<Self> {
         let (socket, response) = tungstenite::connect(uri)?;
         #[cfg(debug_assertions)]
-        println!("[debug] tungstenite::connect: {:?}", response);
+        println!("[90m[debug] tungstenite::connect: {:?}[0m", response);
         let status = response.status();
         if status.as_u16() >= 400 {
             return Err(DevtoolsProtocolError::new(
@@ -708,6 +762,7 @@ impl DevtoolsProtocol {
     fn initialize(&mut self) -> DevtoolsProtocolResult<()> {
         self.send("Page.enable", json!({}))?;
         self.send("Runtime.enable", json!({}))?;
+        self.send("DDM.enable", json!({}))?;
         Ok(())
     }
 
@@ -730,14 +785,14 @@ impl DevtoolsProtocol {
         let data = self.new_data(method, &params);
         let msg = data.to_string();
         #[cfg(debug_assertions)]
-        println!("[debug] data: {}", &msg);
+        println!("[36m[debug] data: {}[0m", &msg);
 
         let message = tungstenite::Message::Text(msg);
         self.socket.write_message(message)?;
         loop {
                 let received = self.socket.read_message()?;
                 #[cfg(debug_assertions)]
-                println!("[debug] received: {}", received);
+                println!("[35m[debug] received: {}[0m", received);
                 if received.is_text() {
                     let msg = received.into_text()?;
                     let value = Value::from_str(&msg)?;

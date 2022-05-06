@@ -21,7 +21,7 @@ pub use self::fopen::*;
 use crate::ast::*;
 use crate::evaluator::builtins::BuiltinFunction;
 use crate::evaluator::com_object::VARIANTHelper;
-use crate::evaluator::devtools_protocol::{Browser, Element};
+use crate::evaluator::devtools_protocol::{Browser, Element, ElementProperty};
 
 use windows::{
     Win32::{
@@ -93,6 +93,7 @@ pub enum Object {
     BrowserFunc(Browser, String),
     Element(Element),
     ElementFunc(Element, String),
+    ElementProperty(ElementProperty),
     Fopen(Arc<Mutex<Fopen>>),
 }
 
@@ -189,9 +190,10 @@ impl fmt::Display for Object {
             Object::SafeArray(_) => write!(f, "SafeArray"),
             Object::VarArgument(_) => write!(f, "var"),
             Object::Browser(ref b) => write!(f, "Browser: {}:{} ({})", b.btype, b.port, b.id),
-            Object::BrowserFunc(_,ref s) => write!(f, "Browser.{}", s),
+            Object::BrowserFunc(ref b,ref s) => write!(f, "[Browser({})].{}()", b.id, s),
             Object::Element(ref e) => write!(f, "Element: {}", e.node_id),
-            Object::ElementFunc(_, ref s) => write!(f, "Element.{}", s),
+            Object::ElementFunc(ref e, ref s) => write!(f, "[Element({})].{}()", e.node_id, s),
+            Object::ElementProperty(ref ep) => write!(f, "[Element({})].{}", ep.element.node_id, ep.property),
             Object::Fopen(ref arc) => {
                 let fopen = arc.lock().unwrap();
                 write!(f, "{}", &*fopen)
@@ -306,6 +308,9 @@ impl PartialEq for Object {
             Object::Element(e) => if let Object::Element(e2) = other {e==e2} else {false},
             Object::ElementFunc(e, f) => if let Object::ElementFunc(e2,f2) = other {
                 e==e2 && f==f2
+            } else {false},
+            Object::ElementProperty(ep1) => if let Object::ElementProperty(ep2) = other {
+                ep1==ep2
             } else {false},
             Object::Fopen(f1) => if let Object::Fopen(f2) = other {
                 let _tmp = f1.lock().unwrap();
