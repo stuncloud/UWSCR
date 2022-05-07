@@ -17,6 +17,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("length", 2, length);
     sets.add("lengthb", 1, lengthb);
     sets.add("lengthu", 1, lengthu);
+    sets.add("lengths", 1, lengths);
     sets.add("as_string", 1, as_string);
     sets.add("newre", 4, newre);
     sets.add("regex", 3, regex);
@@ -75,6 +76,15 @@ pub fn lengthu(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         o => return Err(builtin_func_error(UErrorMessage::InvalidArgument(o), args.name()))
     };
     Ok(Object::Num(len as f64))
+}
+
+pub fn lengths(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let str = args.get_as_string(0, None)?;
+    let length = str.chars()
+            .map(|char| char.len_utf16())
+            .reduce(|a,b| a+b)
+            .unwrap_or_default();
+    Ok(Object::Num(length as f64))
 }
 
 pub fn as_string(args: BuiltinFuncArgs) -> BuiltinFuncResult {
