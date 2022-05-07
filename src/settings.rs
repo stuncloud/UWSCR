@@ -59,6 +59,9 @@ pub struct USettings {
     /// chkimg設定
     #[serde(default)]
     pub chkimg: Chkimg,
+    /// print窓のフォント設定
+    #[serde(default, deserialize_with = "string_or_struct")]
+    pub logfont: LogFont,
     /// この設定ファイルのschemaファイルのパス
     #[serde(default = "get_default_schema", skip_deserializing, rename(serialize = "$schema"))]
     pub schema: String,
@@ -113,6 +116,7 @@ impl Default for USettings {
             options: UOption::default(),
             browser: Browser::default(),
             chkimg: Chkimg::default(),
+            logfont: LogFont::default(),
             schema
         }
     }
@@ -237,6 +241,35 @@ impl FromStr for DefaultFont {
         let name = f[0];
         let size = f[1].parse().unwrap_or(15);
         Ok(DefaultFont::new(name, size))
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct LogFont {
+    /// フォント名
+    #[serde(default)]
+    pub name: String,
+    /// フォントサイズ
+    #[serde(default)]
+    pub size: i32
+}
+impl Default for LogFont {
+    fn default() -> Self {
+        Self { name: "MS Gothic".into(), size: 15 }
+    }
+}
+impl LogFont {
+    pub fn new(name: &str, size: i32) -> Self {
+        Self {name: name.into(), size}
+    }
+}
+impl FromStr for LogFont {
+    type Err = ();
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let f = s.split(",").collect::<Vec<_>>();
+        let name = f[0];
+        let size = f[1].parse().unwrap_or(15);
+        Ok(LogFont::new(name, size))
     }
 }
 

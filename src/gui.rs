@@ -16,6 +16,7 @@ pub use balloon::*;
 use crate::winapi::to_wide_string;
 use crate::write_locale;
 use crate::error::{CURRENT_LOCALE, Locale};
+use crate::settings::USETTINGS;
 
 pub use windows::{
     core::{PWSTR, PCWSTR},
@@ -98,7 +99,12 @@ pub use windows::{
     }
 };
 
-pub use once_cell::sync::OnceCell;
+pub use once_cell::sync::{OnceCell, Lazy};
+
+pub static FONT_FAMILY: Lazy<FontFamily> = Lazy::new(|| {
+    let usettings = USETTINGS.lock().unwrap();
+    FontFamily::new(&usettings.options.default_font.name, usettings.options.default_font.size)
+});
 
 type WindowProc = unsafe extern "system" fn(hwnd: HWND, umsg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT;
 

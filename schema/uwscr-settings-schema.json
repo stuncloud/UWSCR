@@ -26,6 +26,18 @@
         }
       ]
     },
+    "logfont": {
+      "description": "print窓のフォント設定",
+      "default": {
+        "name": "MS Gothic",
+        "size": 15
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/LogFont"
+        }
+      ]
+    },
     "options": {
       "description": "OPTION設定",
       "default": {
@@ -57,7 +69,7 @@
     },
     "schema": {
       "description": "この設定ファイルのschemaファイルのパス",
-      "default": "https://github.com/stuncloud/UWSCR/releases/download/0.4.0/uwscr-settings-schema.json",
+      "default": "file:///D:/work/uwscr/schema/uwscr-settings-schema.json",
       "readOnly": true,
       "type": "string"
     }
@@ -95,6 +107,22 @@
       }
     },
     "DefaultFont": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "フォント名",
+          "default": "",
+          "type": "string"
+        },
+        "size": {
+          "description": "フォントサイズ",
+          "default": 0,
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
+    "LogFont": {
       "type": "object",
       "properties": {
         "name": {

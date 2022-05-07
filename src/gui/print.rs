@@ -12,6 +12,11 @@ static LOGPRINTWIN_TITLE: Lazy<String> = Lazy::new(|| {
         Err(_) => format!("UWSCR"),
     }
 });
+pub static LOG_FONT: Lazy<FontFamily> = Lazy::new(|| {
+    let usettings = USETTINGS.lock().unwrap();
+    FontFamily::new(&usettings.logfont.name, usettings.logfont.size)
+});
+
 #[derive(Debug, Clone)]
 pub struct LogPrintWin {
     hwnd: HWND,
@@ -49,6 +54,9 @@ impl LogPrintWin {
             Ok(h) => h,
             Err(e) => return Err(e)
         };
+        let hfont = LOG_FONT.as_handle()?;
+        Window::set_font(edit, hfont);
+
         Window::set_lr_margin(edit, 5);
         Self::reset_edit_size(hwnd, Some(edit));
         Window::update_window(hwnd);

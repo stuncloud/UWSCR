@@ -11,6 +11,7 @@ use crate::gui::{
     Slctbox, SlctReturnValue,
     PopupMenu,
     Balloon,
+    FONT_FAMILY
 };
 
 use std::sync::Mutex;
@@ -19,10 +20,6 @@ use strum_macros::{EnumString, EnumVariantNames};
 use num_derive::{ToPrimitive, FromPrimitive};
 use once_cell::sync::Lazy;
 
-static FONT_FAMILY: Lazy<FontFamily> = Lazy::new(|| {
-    let usettings = USETTINGS.lock().unwrap();
-    FontFamily::new(&usettings.options.default_font.name, usettings.options.default_font.size)
-});
 static MSGBOX_POINT: Lazy<Mutex<(Option<i32>, Option<i32>)>> = Lazy::new(|| Mutex::new((None, None)));
 static INPUT_POINT: Lazy<Mutex<(Option<i32>, Option<i32>)>> = Lazy::new(|| Mutex::new((None, None)));
 static SLCTBOX_POINT: Lazy<Mutex<(Option<i32>, Option<i32>)>> = Lazy::new(|| Mutex::new((None, None)));

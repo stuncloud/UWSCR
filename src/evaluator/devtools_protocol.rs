@@ -761,7 +761,6 @@ impl DevtoolsProtocol {
     fn initialize(&mut self) -> DevtoolsProtocolResult<()> {
         self.send("Page.enable", json!({}))?;
         self.send("Runtime.enable", json!({}))?;
-        self.send("DDM.enable", json!({}))?;
         Ok(())
     }
 
