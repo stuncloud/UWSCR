@@ -28,6 +28,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("tojson", 2, tojson);
     sets.add("fromjson", 1, fromjson);
     sets.add("copy", 3, copy);
+    sets.add("pos", 3, pos);
     sets
 }
 
@@ -246,11 +247,83 @@ pub fn copy(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let chars = str.chars();
     let index = start.saturating_sub(1);
     let skipped = chars.skip(index);
-    let new: String = if let Some(l) = length {
+    let copied: String = if let Some(l) = length {
         let took = skipped.take(l);
         took.collect()
     } else {
         skipped.collect()
     };
-    Ok(new.into())
+    Ok(copied.into())
+}
+
+pub fn pos(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let search = args.get_as_string(0, None)?;
+    let mut str = args.get_as_string(1, None)?;
+    let nth = args.get_as_int(2, Some(1_i32))?;
+
+    let mut target = str.to_ascii_lowercase();
+    let search = search.to_ascii_lowercase();
+
+    if target.contains(&search) {
+        let n = if nth == 0 {
+            1
+        } else {
+            nth.abs() as usize
+        };
+
+        let mut pos = Some(0_usize);
+        if nth < 0 {
+            // 後ろから
+            for _ in 0..n {
+                match target.rfind(&search) {
+                    Some(mut p) => {
+                        loop {
+                            p += 1;
+                            if target.is_char_boundary(p) {
+                                if let Some(pos) = pos.as_mut() {
+                                    *pos = p;
+                                }
+                                break;
+                            }
+                        }
+                        target.drain(p..);
+                    },
+                    None => {
+                        pos = None;
+                        break;
+                    },
+                };
+            }
+        } else {
+            for _ in 0..n {
+                match target.find(&search) {
+                    Some(mut p) => {
+                        loop {
+                            p +=1;
+                            if target.is_char_boundary(p) {
+                                if let Some(pos) = pos.as_mut() {
+                                    *pos += p;
+                                }
+                                break;
+                            }
+                        }
+                        target.drain(..p);
+                    },
+                    None => {
+                        pos = None;
+                        break;
+                    },
+                };
+            }
+        };
+        let pos = if let Some(p) = pos {
+            str.truncate(p);
+            str.chars().count()
+        } else {
+            0
+        };
+        Ok(pos.into())
+    } else {
+        Ok(0_usize.into())
+    }
 }
