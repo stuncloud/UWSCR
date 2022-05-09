@@ -27,11 +27,8 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("chgmoj", 4, replace);
     sets.add("tojson", 2, tojson);
     sets.add("fromjson", 1, fromjson);
+    sets.add("copy", 3, copy);
     sets
-}
-
-pub fn copy(_args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    Ok(Object::String("copy is not working for now, sorry!".into()))
 }
 
 pub fn length(args: BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -231,19 +228,6 @@ pub fn tojson(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         |e| Err(builtin_func_error(UErrorMessage::Any(e.to_string()), args.name())),
         |s| Ok(Object::String(s))
     )
-    // let (u, p) = args.get_as_uobject(0)?;
-    // let obj = match p {
-    //     None => {
-    //         u.lock().unwrap().clone()
-    //     },
-    //     Some(p) => {
-    //         u.lock().unwrap().pointer(p.as_str()).unwrap().clone()
-    //     }
-    // };
-    // f(&obj).map_or_else(
-    //     |e| Err(builtin_func_error(UErrorMessage::Any(e.to_string()), args.name())),
-    //     |s| Ok(Object::String(s))
-    // )
 }
 
 pub fn fromjson(args: BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -252,4 +236,21 @@ pub fn fromjson(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         |_| Ok(Object::Empty),
         |v| Ok(Object::UObject(UObject::new(v)))
     )
+}
+
+pub fn copy(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let str = args.get_as_string(0, None)?;
+    let start = args.get_as_int(1, None::<usize>)?;
+    let length = args.get_as_int_or_empty::<usize>(2)?;
+
+    let chars = str.chars();
+    let index = start.saturating_sub(1);
+    let skipped = chars.skip(index);
+    let new: String = if let Some(l) = length {
+        let took = skipped.take(l);
+        took.collect()
+    } else {
+        skipped.collect()
+    };
+    Ok(new.into())
 }
