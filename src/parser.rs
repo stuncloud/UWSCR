@@ -2947,14 +2947,12 @@ impl Parser {
                 if self.is_next_token(&Token::Comma) {
                     self.bump();
                 } else {
+                    if ! self.is_next_token_expected(end) {
+                        return None;
+                    }
                     break;
                 }
             }
-        }
-
-        self.skip_next_eol();
-        if ! self.is_next_token_expected(end) {
-            return None;
         }
 
         Some(list)
@@ -5189,6 +5187,23 @@ func(
                                 Expression::Literal(Literal::Num(5.0)),
                                 Expression::EmptyArgument,
                                 Expression::Literal(Literal::Num(5.0)),
+                            ],
+                            is_await: false
+                        })
+                        , 1
+                    ),
+                ]
+            ),
+            (
+                "func( 5, , )",
+                vec![
+                    StatementWithRow::new(
+                        Statement::Expression(Expression::FuncCall {
+                            func: Box::new(Expression::Identifier(Identifier("func".to_string()))),
+                            args: vec![
+                                Expression::Literal(Literal::Num(5.0)),
+                                Expression::EmptyArgument,
+                                Expression::EmptyArgument,
                             ],
                             is_await: false
                         })
