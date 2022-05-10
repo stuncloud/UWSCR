@@ -327,3 +327,91 @@ pub fn pos(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         Ok(0_usize.into())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::evaluator::*;
+    use crate::lexer::Lexer;
+    use crate::parser::Parser;
+
+    fn new_evaluator(input: Option<&str>) -> Evaluator {
+        let mut e = Evaluator::new(Environment::new(vec![]));
+        if let Some(input) = input {
+            let program = Parser::new(Lexer::new(input)).parse();
+            if let Err(err) = e.eval(program) {
+                panic!("\nError:\n{:#?}\ninput:\n{}\n", err, input);
+            }
+        }
+        e
+    }
+
+    fn builtin_test(e: &mut Evaluator, input: &str, expected: EvalResult<Option<Object>>) {
+        let program = Parser::new(Lexer::new(input)).parse();
+        let result = e.eval(program);
+        match expected {
+            Ok(expected_obj) => match result {
+                Ok(result_obj) => if result_obj.is_some() && expected_obj.is_some() {
+                    let left = result_obj.unwrap();
+                    let right = expected_obj.unwrap();
+                    if ! left.is_equal(&right) {
+                        panic!("\nresult: {:?}\nexpected: {:?}\n\ninput: {}\n", left, right, input);
+                    }
+                } else if result_obj.is_some() || expected_obj.is_some() {
+                    // どちらかがNone
+                    panic!("\nresult: {:?}\nexpected: {:?}\n\ninput: {}\n", result_obj, expected_obj, input);
+                },
+                Err(e) => panic!("this test should be ok: {}\n error: {}\n", input, e),
+            },
+            Err(expected_err) => match result {
+                Ok(_) => panic!("this test should occure error:\n{}", input),
+                Err(result_err) => if result_err != expected_err {
+                    panic!("\nresult: {:?}\nexpected: {:?}\n\ninput: {}\n", result_err, expected_err, input);
+                },
+            },
+        }
+    }
+
+    #[test]
+    fn test_copy() {
+        let script = r#"
+        文字列 = "あいうえおかきくけこ"
+        "#;
+        let mut e = new_evaluator(Some(script));
+        let test_cases = [
+            (r#"copy(文字列, 6)"#, Ok(Some(Object::String("かきくけこ".into())))),
+            (r#"copy(文字列, 3, 4)"#, Ok(Some(Object::String("うえおか".into())))),
+            (r#"copy(文字列, 11)"#, Ok(Some(Object::String("".into())))),
+        ];
+        for (input, expected) in test_cases {
+            builtin_test(&mut e, input, expected);
+        }
+    }
+
+    #[test]
+    fn test_pos() {
+        let script = r#"
+        moji1 = "あいabうえおかきくうえABけこ"
+        moji2 = "あいあいあ"
+        "#;
+        let mut e = new_evaluator(Some(script));
+        let test_cases = [
+            (r#"pos("うえ", moji1)"#, Ok(Some(Object::Num(5.0)))),
+            (r#"pos("うえ", moji1, 0)"#, Ok(Some(Object::Num(5.0)))),
+            (r#"pos("うえ", moji1, 1)"#, Ok(Some(Object::Num(5.0)))),
+            (r#"pos("うえ", moji1, 2)"#, Ok(Some(Object::Num(11.0)))),
+            (r#"pos("うえ", moji1, 3)"#, Ok(Some(Object::Num(0.0)))),
+            (r#"pos("うえ", moji1, -1)"#, Ok(Some(Object::Num(11.0)))),
+            (r#"pos("うえ", moji1, -2)"#, Ok(Some(Object::Num(5.0)))),
+            (r#"pos("うえ", moji1, -3)"#, Ok(Some(Object::Num(0.0)))),
+            (r#"pos("ab", moji1, 2)"#, Ok(Some(Object::Num(13.0)))),
+            (r#"pos("ab", moji1, -1)"#, Ok(Some(Object::Num(13.0)))),
+            (r#"pos("いぬ", "🐕いぬ")"#, Ok(Some(Object::Num(2.0)))),
+            (r#"pos("あいあ", moji2, 1)"#, Ok(Some(Object::Num(1.0)))),
+            (r#"pos("あいあ", moji2, 2)"#, Ok(Some(Object::Num(3.0)))),
+        ];
+        for (input, expected) in test_cases {
+            builtin_test(&mut e, input, expected);
+        }
+
+    }
+}
