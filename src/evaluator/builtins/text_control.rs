@@ -29,6 +29,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("fromjson", 1, fromjson);
     sets.add("copy", 3, copy);
     sets.add("pos", 3, pos);
+    sets.add("betweenstr", 5, betweenstr);
     sets
 }
 
@@ -256,76 +257,227 @@ pub fn copy(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(copied.into())
 }
 
+fn find_pos(str: &str, substr: &str) -> Option<usize>{
+    match str.find(substr) {
+        Some(mut p) => {
+            loop {
+                p+=1;
+                if str.is_char_boundary(p) {
+                    break;
+                }
+            }
+            Some(p)
+        },
+        None => None,
+    }
+}
+fn rfind_pos(str: &str, substr: &str) -> Option<usize>{
+    match str.rfind(substr) {
+        Some(mut p) => {
+            loop {
+                p+=1;
+                if str.is_char_boundary(p) {
+                    break;
+                }
+            }
+            Some(p)
+        },
+        None => None,
+    }
+}
+
+fn find_nth(str: &str, substr: &str, nth: i32) -> Option<usize> {
+    let mut str = str.to_ascii_lowercase();
+    let substr = substr.to_ascii_lowercase();
+    let n = if nth == 0 {1} else {nth.abs() as usize};
+    if str.contains(&substr) {
+        let mut pos = Some(0_usize);
+        for _ in 0..n {
+            if nth < 0 {
+                match rfind_pos(&str, &substr) {
+                    Some(p) => {
+                        if let Some(pos) = pos.as_mut() {
+                            *pos = p;
+                        }
+                        str.drain(p..);
+                    },
+                    None => return None,
+                }
+            } else {
+                match find_pos(&str, &substr) {
+                    Some(p) => {
+                        if let Some(pos) = pos.as_mut() {
+                            *pos += p;
+                        }
+                        str.drain(..p);
+                    },
+                    None => return None,
+                }
+            }
+        }
+        pos
+    } else {
+        None
+    }
+}
+
 pub fn pos(args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let search = args.get_as_string(0, None)?;
+    let substr = args.get_as_string(0, None)?;
     let mut str = args.get_as_string(1, None)?;
     let nth = args.get_as_int(2, Some(1_i32))?;
 
-    let mut target = str.to_ascii_lowercase();
-    let search = search.to_ascii_lowercase();
-
-    if target.contains(&search) {
-        let n = if nth == 0 {
-            1
-        } else {
-            nth.abs() as usize
-        };
-
-        let mut pos = Some(0_usize);
-        if nth < 0 {
-            // 後ろから
-            for _ in 0..n {
-                match target.rfind(&search) {
-                    Some(mut p) => {
-                        loop {
-                            p += 1;
-                            if target.is_char_boundary(p) {
-                                if let Some(pos) = pos.as_mut() {
-                                    *pos = p;
-                                }
-                                break;
-                            }
-                        }
-                        target.drain(p..);
-                    },
-                    None => {
-                        pos = None;
-                        break;
-                    },
-                };
-            }
-        } else {
-            for _ in 0..n {
-                match target.find(&search) {
-                    Some(mut p) => {
-                        loop {
-                            p +=1;
-                            if target.is_char_boundary(p) {
-                                if let Some(pos) = pos.as_mut() {
-                                    *pos += p;
-                                }
-                                break;
-                            }
-                        }
-                        target.drain(..p);
-                    },
-                    None => {
-                        pos = None;
-                        break;
-                    },
-                };
-            }
-        };
-        let pos = if let Some(p) = pos {
-            str.truncate(p);
-            str.chars().count()
-        } else {
-            0
-        };
-        Ok(pos.into())
+    let pos = if let Some(p) = find_nth(&str, &substr, nth) {
+        str.truncate(p);
+        str.chars().count()
     } else {
-        Ok(0_usize.into())
+        0
+    };
+    Ok(pos.into())
+}
+
+fn truncate_str(str: &mut String, mut p: usize) {
+    loop {
+        p-=1;
+        if str.is_char_boundary(p) {
+            break;
+        }
     }
+    str.truncate(p);
+}
+fn drain_str(str: &mut String, mut p: usize) {
+    loop {
+        p-=1;
+        if str.is_char_boundary(p) {
+            break;
+        }
+    }
+    str.drain(..p);
+}
+fn next_pos(str: &str, mut p: usize) -> usize {
+    loop {
+        p += 1;
+        if str.is_char_boundary(p) {
+            break p;
+        }
+    }
+}
+
+fn find_nth_between(str: &str, from: &str, to: &str, nth: i32, flag: bool) -> Option<(usize, usize)> {
+    let mut lower = str.to_ascii_lowercase();
+    let from = from.to_ascii_lowercase();
+    let to = to.to_ascii_lowercase();
+    let n = if nth == 0 {1} else {nth.abs() as usize};
+
+    let mut pos = Some((0_usize, 0_usize));
+    if lower.contains(&from) && lower.contains(&to) {
+        if nth < 0 {
+            for _ in 0..n {
+                let to_found_at = match lower.rfind(&to) {
+                    Some(p) => p,
+                    None => {
+                        pos = None;
+                        break;
+                    },
+                };
+                let mut temp = lower.clone();
+                temp.drain(to_found_at..);
+                let from_found_at = match temp.rfind(&from) {
+                    Some(p) => p,
+                    None => {
+                        pos = None;
+                        break;
+                    },
+                };
+                let from_pos = from_found_at + from.len();
+                if let Some((p, len)) = pos.as_mut() {
+                    *p = from_pos;
+                    *len = to_found_at - from_pos;
+                }
+                let drain_from = if flag {
+                    to_found_at
+                } else {
+                    from_found_at
+                };
+                lower.drain(drain_from..);
+            }
+        } else {
+            let mut drained = 0_usize;
+            for _i in 0..n {
+                let from_found_at = match lower.find(&from) {
+                    Some(p) => p,
+                    None => {
+                        pos = None;
+                        break;
+                    },
+                };
+                let from_pos = from_found_at + from.len();
+                let mut temp = lower.clone();
+                temp.drain(..from_pos);
+                let to_found_at = match temp.find(&to) {
+                    Some(p) => p,
+                    None => {
+                        pos = None;
+                        break;
+                    },
+                };
+                let drain_to = if flag {
+                    next_pos(&lower, from_found_at)
+                } else {
+                    next_pos(&lower, to_found_at + from_pos)
+                };
+                if let Some((p, len)) = pos.as_mut() {
+                    *p = drained + from_pos;
+                    *len = to_found_at;
+                }
+                drained += drain_to;
+                lower.drain(..drain_to);
+            }
+        }
+        pos
+    } else {
+        None
+    }
+}
+
+fn drain_between(str: &mut String, pos: usize, len: usize) {
+    str.drain(..pos);
+    str.truncate(len);
+}
+
+pub fn betweenstr(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let mut str = args.get_as_string(0, None)?;
+    let from = args.get_as_string_or_empty(1)?;
+    let to = args.get_as_string_or_empty(2)?;
+    let nth = args.get_as_int(3, Some(1_i32))?;
+    let flag = args.get_as_bool(4, Some(false))?;
+
+    let between = match (from, to) {
+        (None, None) => Some(str),
+        (None, Some(to)) => match find_nth(&str, &to, nth) {
+            Some(p) => {
+                truncate_str(&mut str, p);
+                Some(str)
+            },
+            None => None,
+        },
+        (Some(from), None) => match find_nth(&str, &from, nth) {
+            Some(mut p) => {
+                p += from.len();
+                drain_str(&mut str, p);
+                Some(str)
+            },
+            None => None,
+        },
+        (Some(from), Some(to)) => match find_nth_between(&str, &from, &to, nth, flag) {
+            Some((pos, len)) => {
+                drain_between(&mut str, pos, len);
+                Some(str)
+            },
+            None => None,
+        },
+    };
+
+    Ok(between.unwrap_or_default().into())
 }
 
 #[cfg(test)]
@@ -378,9 +530,9 @@ mod tests {
         "#;
         let mut e = new_evaluator(Some(script));
         let test_cases = [
-            (r#"copy(文字列, 6)"#, Ok(Some(Object::String("かきくけこ".into())))),
-            (r#"copy(文字列, 3, 4)"#, Ok(Some(Object::String("うえおか".into())))),
-            (r#"copy(文字列, 11)"#, Ok(Some(Object::String("".into())))),
+            (r#"copy(文字列, 6)"#, Ok(Some("かきくけこ".into()))),
+            (r#"copy(文字列, 3, 4)"#, Ok(Some("うえおか".into()))),
+            (r#"copy(文字列, 11)"#, Ok(Some("".into()))),
         ];
         for (input, expected) in test_cases {
             builtin_test(&mut e, input, expected);
@@ -395,23 +547,72 @@ mod tests {
         "#;
         let mut e = new_evaluator(Some(script));
         let test_cases = [
-            (r#"pos("うえ", moji1)"#, Ok(Some(Object::Num(5.0)))),
-            (r#"pos("うえ", moji1, 0)"#, Ok(Some(Object::Num(5.0)))),
-            (r#"pos("うえ", moji1, 1)"#, Ok(Some(Object::Num(5.0)))),
-            (r#"pos("うえ", moji1, 2)"#, Ok(Some(Object::Num(11.0)))),
-            (r#"pos("うえ", moji1, 3)"#, Ok(Some(Object::Num(0.0)))),
-            (r#"pos("うえ", moji1, -1)"#, Ok(Some(Object::Num(11.0)))),
-            (r#"pos("うえ", moji1, -2)"#, Ok(Some(Object::Num(5.0)))),
-            (r#"pos("うえ", moji1, -3)"#, Ok(Some(Object::Num(0.0)))),
-            (r#"pos("ab", moji1, 2)"#, Ok(Some(Object::Num(13.0)))),
-            (r#"pos("ab", moji1, -1)"#, Ok(Some(Object::Num(13.0)))),
-            (r#"pos("いぬ", "🐕いぬ")"#, Ok(Some(Object::Num(2.0)))),
-            (r#"pos("あいあ", moji2, 1)"#, Ok(Some(Object::Num(1.0)))),
-            (r#"pos("あいあ", moji2, 2)"#, Ok(Some(Object::Num(3.0)))),
+            (r#"pos("うえ", moji1)"#, Ok(Some(5.into()))),
+            (r#"pos("うえ", moji1, 0)"#, Ok(Some(5.into()))),
+            (r#"pos("うえ", moji1, 1)"#, Ok(Some(5.into()))),
+            (r#"pos("うえ", moji1, 2)"#, Ok(Some(11.into()))),
+            (r#"pos("うえ", moji1, 3)"#, Ok(Some(0.into()))),
+            (r#"pos("うえ", moji1, -1)"#, Ok(Some(11.into()))),
+            (r#"pos("うえ", moji1, -2)"#, Ok(Some(5.into()))),
+            (r#"pos("うえ", moji1, -3)"#, Ok(Some(0.into()))),
+            (r#"pos("ab", moji1, 2)"#, Ok(Some(13.into()))),
+            (r#"pos("ab", moji1, -1)"#, Ok(Some(13.into()))),
+            (r#"pos("いぬ", "🐕いぬ")"#, Ok(Some(2.into()))),
+            (r#"pos("あいあ", moji2, 1)"#, Ok(Some(1.into()))),
+            (r#"pos("あいあ", moji2, 2)"#, Ok(Some(3.into()))),
         ];
         for (input, expected) in test_cases {
             builtin_test(&mut e, input, expected);
         }
+    }
 
+    #[test]
+    fn test_betweenstr() {
+        let script = r#"
+        moji1 = "あfromいtoうfromえtoお"
+        moji2 = "あfromいfromうtoえfromおtoかtoき"
+        moji3 = "ababaあいうccc"
+        moji4 = "aabaab"
+        moji5 = "abあfabいfab"
+        "#;
+        let test_cases = [
+            (r#"betweenstr(moji1)"#, Ok(Some("あfromいtoうfromえtoお".into()))),
+            (r#"betweenstr(moji1,,)"#, Ok(Some("あfromいtoうfromえtoお".into()))),
+            (r#"betweenstr(moji1,,,2)"#, Ok(Some("あfromいtoうfromえtoお".into()))),
+            (r#"betweenstr(moji1,,,-1)"#, Ok(Some("あfromいtoうfromえtoお".into()))),
+            (r#"betweenstr(moji1, "from")"#, Ok(Some("いtoうfromえtoお".into()))),
+            (r#"betweenstr(moji1, "from",,2)"#, Ok(Some("えtoお".into()))),
+            (r#"betweenstr(moji1, , "to")"#, Ok(Some("あfromい".into()))),
+            (r#"betweenstr(moji1, , "to", 2)"#, Ok(Some("あfromいtoうfromえ".into()))),
+            (r#"betweenstr(moji1, , "to", 2, TRUE)"#, Ok(Some("あfromいtoうfromえ".into()))),
+            (r#"betweenstr(moji1, , "to", -1)"#, Ok(Some("あfromいtoうfromえ".into()))),
+            (r#"betweenstr(moji1, "from", "to")"#, Ok(Some("い".into()))),
+            (r#"betweenstr(moji1, "from", "to", 1)"#, Ok(Some("い".into()))),
+            (r#"betweenstr(moji1, "from", "to", 2)"#, Ok(Some("え".into()))),
+            (r#"betweenstr(moji1, "from", "to", 3)"#, Ok(Some("".into()))),
+            (r#"betweenstr(moji1, "from", "foo")"#, Ok(Some("".into()))),
+            (r#"betweenstr(moji1, "foo", "to")"#, Ok(Some("".into()))),
+            (r#"betweenstr(moji1, "foo", "bar")"#, Ok(Some("".into()))),
+            // moji2 = "あfromいfromうtoえfromおtoかtoき"
+            (r#"betweenstr(moji2, "from", "to", 1)"#, Ok(Some("いfromう".into()))),
+            (r#"betweenstr(moji2, "from", "to", 2, FALSE)"#, Ok(Some("お".into()))),
+            (r#"betweenstr(moji2, "from", "to", 2, TRUE)"#, Ok(Some("う".into()))),
+            (r#"betweenstr(moji2, "from", "to", -1)"#, Ok(Some("おtoか".into()))),
+            (r#"betweenstr(moji2, "from", "to", -2, FALSE)"#, Ok(Some("う".into()))),
+            (r#"betweenstr(moji2, "from", "to", -2, TRUE)"#, Ok(Some("お".into()))),
+            // moji3 = "ababaあいうccc"
+            (r#"betweenstr(moji3, "aba", "ccc", 1, TRUE)"#, Ok(Some("baあいう".into()))),
+            (r#"betweenstr(moji3, "aba", "ccc", 2, TRUE)"#, Ok(Some("あいう".into()))),
+            // moji4 = "aabaab"
+            (r#"betweenstr(moji4, , "b", 2)"#, Ok(Some("aabaa".into()))),
+            (r#"betweenstr(moji4, , "b", -1)"#, Ok(Some("aabaa".into()))),
+            // moji5 = "abあfabいfab"
+            (r#"betweenstr(moji5, "ab", "fab", 1)"#, Ok(Some("あ".into()))),
+            (r#"betweenstr(moji5, "ab", "fab", 2)"#, Ok(Some("い".into()))),
+        ];
+        let mut e = new_evaluator(Some(script));
+        for (input, expected) in test_cases {
+            builtin_test(&mut e, input, expected);
+        }
     }
 }

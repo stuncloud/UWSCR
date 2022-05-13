@@ -381,6 +381,11 @@ impl Into<Object> for String {
         Object::String(self)
     }
 }
+impl Into<Object> for &str {
+    fn into(self) -> Object {
+        Object::String(self.to_string())
+    }
+}
 impl Into<Object> for f64 {
     fn into(self) -> Object {
         Object::Num(self)
