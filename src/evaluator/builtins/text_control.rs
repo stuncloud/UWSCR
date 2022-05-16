@@ -31,6 +31,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("pos", 3, pos);
     sets.add("betweenstr", 5, betweenstr);
     sets.add("chknum", 1, chknum);
+    sets.add("val", 2, val);
     sets
 }
 
@@ -486,6 +487,19 @@ pub fn chknum(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(Object::Bool(result))
 }
 
+#[allow(non_camel_case_types)]
+#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive)]
+pub enum ErrConst {
+    ERR_VALUE = -999999,
+}
+
+pub fn val(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let result = args.get_as_num(0, None::<f64>);
+    let err = args.get_as_num(1, Some(ErrConst::ERR_VALUE as i32 as f64))?;
+    let val = result.unwrap_or(err);
+    Ok(val.into())
+}
+
 #[cfg(test)]
 mod tests {
     use crate::evaluator::*;
@@ -631,6 +645,22 @@ mod tests {
             (r#"chknum("３")"#, Ok(Some(false.into()))),
             (r#"chknum(TRUE)"#, Ok(Some(true.into()))),
             (r#"chknum("FALSE")"#, Ok(Some(false.into()))),
+        ];
+        for (input, expected) in test_cases {
+            builtin_test(&mut e, input, expected);
+        }
+    }
+
+    #[test]
+    fn test_val() {
+        let mut e = new_evaluator(None);
+        let test_cases = [
+            (r#"val(1)"#, Ok(Some(1.into()))),
+            (r#"val("2")"#, Ok(Some(2.into()))),
+            (r#"val("３")"#, Ok(Some((-999999).into()))),
+            (r#"val(TRUE)"#, Ok(Some(1.into()))),
+            (r#"val(FALSE)"#, Ok(Some(0.into()))),
+            (r#"val("ほげ", 0)"#, Ok(Some(0.into()))),
         ];
         for (input, expected) in test_cases {
             builtin_test(&mut e, input, expected);
