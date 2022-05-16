@@ -32,6 +32,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("betweenstr", 5, betweenstr);
     sets.add("chknum", 1, chknum);
     sets.add("val", 2, val);
+    sets.add("trim", 2, trim);
     sets
 }
 
@@ -500,6 +501,29 @@ pub fn val(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(val.into())
 }
 
+pub fn trim(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let target = args.get_as_string(0, None)?;
+    let trim_option = args.get_as_string_or_bool(1, Some(None))?;
+    let trimed = match trim_option {
+        Some(opt) => match opt {
+            Some(s) => {
+                // トリム文字指定
+                let chars = s.chars().collect::<Vec<_>>();
+                target.trim_matches(chars.as_slice())
+            },
+            None => {
+                // TRUE
+                target.trim_matches(|c: char| {c.is_ascii_whitespace() || c.is_ascii_control() || c == '　'})
+            },
+        },
+        None => {
+            // FALSE
+            target.trim_matches(|c: char| {c.is_ascii_whitespace() || c.is_ascii_control()})
+        },
+    };
+    Ok(trimed.into())
+}
+
 #[cfg(test)]
 mod tests {
     use crate::evaluator::*;
@@ -661,6 +685,27 @@ mod tests {
             (r#"val(TRUE)"#, Ok(Some(1.into()))),
             (r#"val(FALSE)"#, Ok(Some(0.into()))),
             (r#"val("ほげ", 0)"#, Ok(Some(0.into()))),
+        ];
+        for (input, expected) in test_cases {
+            builtin_test(&mut e, input, expected);
+        }
+    }
+
+    #[test]
+    fn test_trim() {
+        let mut e = new_evaluator(None);
+        let test_cases = [
+            // スペース
+            (r#"trim("  abc   ")"#, Ok(Some("abc".into()))),
+            // 改行、タブ
+            (r#"trim(" <#CR>  abc <#TAB>  ")"#, Ok(Some("abc".into()))),
+            // 制御文字
+            ("trim(' \u{001b}abc\u{001b} ')", Ok(Some("abc".into()))),
+            // 全角空白
+            (r#"trim(" 　abc　 ", TRUE)"#, Ok(Some("abc".into()))),
+            (r#"trim(" 　abc　 ", FALSE)"#, Ok(Some("　abc　".into()))),
+            // 指定文字
+            (r#"trim("edeffededdabcedfffedeeddedf", "edf")"#, Ok(Some("abc".into()))),
         ];
         for (input, expected) in test_cases {
             builtin_test(&mut e, input, expected);

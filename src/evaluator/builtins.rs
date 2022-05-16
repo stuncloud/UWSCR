@@ -444,6 +444,27 @@ impl BuiltinFuncArgs {
             Ok(result)
         })
     }
+    /// 文字列または真偽値を受ける
+    /// ## 戻り値
+    /// - `None`: FALSE
+    /// - `Some(None)`: TRUE
+    /// - `Some(Some(moji))`: String
+    pub fn get_as_string_or_bool(&self, i: usize, default: Option<Option<Option<String>>>) -> BuiltInResult<Option<Option<String>>> {
+        get_arg_value!(self, i, default, {
+            let result = match self.item(i) {
+                Object::Empty |
+                Object::EmptyParam => None,
+                Object::Bool(b) => if b {
+                    Some(None)
+                } else {
+                    None
+                },
+                Object::String(s) => Some(Some(s)),
+                arg => return Err(builtin_func_error(UErrorMessage::BuiltinArgInvalid(arg), self.name())),
+            };
+            Ok(result)
+        })
+    }
 }
 
 #[derive(Debug, Clone)]
