@@ -11,8 +11,8 @@ use serde_json::Value;
 
 #[derive(Debug, Clone)]
 pub struct UError {
-    kind: UErrorKind,
-    message: UErrorMessage,
+    pub kind: UErrorKind,
+    pub message: UErrorMessage,
     pub is_com_error: bool,
     pub line: UErrorLine,
 }

@@ -1,8 +1,9 @@
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
 use crate::evaluator::com_object::{SAFEARRAYHelper};
+use crate::error::evaluator::UErrorMessage::BuiltinArgCastError;
 use crate::winapi::{
-    get_ansi_length,
+    get_ansi_length, from_ansi_bytes, to_ansi_bytes
 };
 
 use regex::Regex;
@@ -33,6 +34,10 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("chknum", 1, chknum);
     sets.add("val", 2, val);
     sets.add("trim", 2, trim);
+    sets.add("chr", 1, chr);
+    sets.add("asc", 1, asc);
+    sets.add("chrb", 1, chrb);
+    sets.add("ascb", 1, ascb);
     sets
 }
 
@@ -522,6 +527,44 @@ pub fn trim(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         },
     };
     Ok(trimed.into())
+}
+
+pub fn chr(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let code = args.get_as_int(0, None::<u32>)?;
+    let char = match char::from_u32(code) {
+        Some(c) => c.to_string(),
+        None => String::new(),
+    };
+    Ok(char.into())
+}
+pub fn asc(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let str = args.get_as_string(0, None)?;
+    let code = match str.chars().next() {
+        Some(first) => {
+            first as u32
+        },
+        None => 0,
+    };
+    Ok(Object::Num(code as f64))
+}
+
+pub fn chrb(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let code = match args.get_as_int(0, None::<u8>) {
+        Ok(n) => n,
+        Err(e) => if let BuiltinArgCastError(_, _) = e.message {
+            0
+        } else {
+            return Err(e);
+        },
+    };
+    let ansi = from_ansi_bytes(&[code]);
+    Ok(ansi.into())
+}
+pub fn ascb(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let str = args.get_as_string(0, None)?;
+    let bytes = to_ansi_bytes(&str);
+    let code = bytes.get(0).unwrap_or(&0);
+    Ok(Object::Num(*code as f64))
 }
 
 #[cfg(test)]

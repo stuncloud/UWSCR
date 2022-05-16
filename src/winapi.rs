@@ -91,9 +91,8 @@ pub fn get_ansi_length(string: &str) -> usize {
     }
 }
 
-pub fn from_ansi_bytes(ansi: &Vec<u8>) -> String {
+pub fn from_ansi_bytes(ansi: &[u8]) -> String {
     unsafe {
-        let ansi = ansi.clone();
         let len = MultiByteToWideChar(
             CP_ACP,
             MB_PRECOMPOSED,
