@@ -155,6 +155,10 @@ impl BuiltinFuncArgs {
                     UErrorMessage::BuiltinArgCastError(arg, std::any::type_name::<T>().into()),
                     self.name()
                 ))),
+                Object::Bool(b) => T::cast(b as i32 as f64).or(Err(builtin_func_error(
+                    UErrorMessage::BuiltinArgCastError(arg, std::any::type_name::<T>().into()),
+                    self.name()
+                ))),
                 Object::String(ref s) => match s.parse::<f64>() {
                     Ok(n) => T::cast(n).or(Err(builtin_func_error(
                         UErrorMessage::BuiltinArgCastError(arg, std::any::type_name::<T>().into()),
@@ -188,6 +192,10 @@ impl BuiltinFuncArgs {
                         self.name()
                     ))
                 },
+                Object::Bool(b) => T::cast(b as i32 as f64).or(Err(builtin_func_error(
+                    UErrorMessage::BuiltinArgCastError(arg, std::any::type_name::<T>().into()),
+                    self.name()
+                ))).map(|t| Some(t)),
                 Object::String(ref s) => match s.parse::<f64>() {
                     Ok(n) => match T::cast(n) {
                         Ok(t) => Ok(Some(t)),
@@ -216,6 +224,7 @@ impl BuiltinFuncArgs {
             let arg = self.item(i);
             match arg {
                 Object::Num(n) => Ok(T::cast(n)),
+                Object::Bool(b) => Ok(T::cast(b as i32 as f64)),
                 Object::String(ref s) => match s.parse::<f64>() {
                     Ok(n) => Ok(T::cast(n)),
                     Err(_) => Err(builtin_func_error(

@@ -433,6 +433,11 @@ impl Into<Object> for Vec<String> {
         Object::Array(arr)
     }
 }
+impl Into<Object> for bool {
+    fn into(self) -> Object {
+        Object::Bool(self)
+    }
+}
 
 impl Into<i32> for Object {
     fn into(self) -> i32 {

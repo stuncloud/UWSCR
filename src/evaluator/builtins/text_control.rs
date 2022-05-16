@@ -30,6 +30,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("copy", 3, copy);
     sets.add("pos", 3, pos);
     sets.add("betweenstr", 5, betweenstr);
+    sets.add("chknum", 1, chknum);
     sets
 }
 
@@ -480,6 +481,11 @@ pub fn betweenstr(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(between.unwrap_or_default().into())
 }
 
+pub fn chknum(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let result = args.get_as_int(0, None::<i32>).is_ok();
+    Ok(Object::Bool(result))
+}
+
 #[cfg(test)]
 mod tests {
     use crate::evaluator::*;
@@ -615,4 +621,20 @@ mod tests {
             builtin_test(&mut e, input, expected);
         }
     }
+
+    #[test]
+    fn test_chknum() {
+        let mut e = new_evaluator(None);
+        let test_cases = [
+            (r#"chknum(1)"#, Ok(Some(true.into()))),
+            (r#"chknum("2")"#, Ok(Some(true.into()))),
+            (r#"chknum("３")"#, Ok(Some(false.into()))),
+            (r#"chknum(TRUE)"#, Ok(Some(true.into()))),
+            (r#"chknum("FALSE")"#, Ok(Some(false.into()))),
+        ];
+        for (input, expected) in test_cases {
+            builtin_test(&mut e, input, expected);
+        }
+    }
+
 }
