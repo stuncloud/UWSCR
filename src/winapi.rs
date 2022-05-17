@@ -122,6 +122,24 @@ pub fn to_wide_string(string: &str) -> Vec<u16> {
     result
 }
 
+pub fn contains_unicode_char(string: &str) -> bool {
+    unsafe {
+        let wide = to_wide_string(string);
+        #[allow(non_snake_case)]
+        let mut lpUsedDefaultChar = 0;
+        WideCharToMultiByte(
+            CP_ACP,
+            0,
+            &wide,
+            PSTR::default(),
+            0,
+            PCSTR::default(),
+            &mut lpUsedDefaultChar
+        );
+        lpUsedDefaultChar != 0
+    }
+}
+
 pub fn get_system_directory() -> String {
     let mut buffer = [0; MAX_PATH as usize];
     unsafe {

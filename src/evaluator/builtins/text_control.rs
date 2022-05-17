@@ -3,7 +3,7 @@ use crate::evaluator::builtins::*;
 use crate::evaluator::com_object::{SAFEARRAYHelper};
 use crate::error::evaluator::UErrorMessage::BuiltinArgCastError;
 use crate::winapi::{
-    get_ansi_length, from_ansi_bytes, to_ansi_bytes
+    get_ansi_length, from_ansi_bytes, to_ansi_bytes, contains_unicode_char,
 };
 
 use regex::Regex;
@@ -38,6 +38,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("asc", 1, asc);
     sets.add("chrb", 1, chrb);
     sets.add("ascb", 1, ascb);
+    sets.add("isunicode", 1, isunicode);
     sets
 }
 
@@ -565,6 +566,12 @@ pub fn ascb(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let bytes = to_ansi_bytes(&str);
     let code = bytes.get(0).unwrap_or(&0);
     Ok(Object::Num(*code as f64))
+}
+
+pub fn isunicode(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let str = args.get_as_string(0, None)?;
+    let is_unicode = contains_unicode_char(&str);
+    Ok(Object::Bool(is_unicode))
 }
 
 #[cfg(test)]
