@@ -109,6 +109,8 @@ pub fn from_ansi_bytes(ansi: &[u8]) -> String {
                 &mut wide
             );
             String::from_utf16_lossy(&wide)
+                .trim_end_matches(char::is_control)
+                .to_string()
         } else {
             String::new()
         }
