@@ -11,6 +11,10 @@ use strum_macros::{EnumString, EnumVariantNames};
 use num_derive::{ToPrimitive, FromPrimitive};
 use num_traits::FromPrimitive;
 use serde_json;
+use kanaria::{
+    string::UCSStr,
+    utils::ConvertTarget
+};
 
 pub fn builtin_func_sets() -> BuiltinFunctionSets {
     let mut sets = BuiltinFunctionSets::new();
@@ -39,6 +43,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("chrb", 1, chrb);
     sets.add("ascb", 1, ascb);
     sets.add("isunicode", 1, isunicode);
+    sets.add("strconv", 2, strconv);
     sets
 }
 
@@ -572,6 +577,111 @@ pub fn isunicode(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let str = args.get_as_string(0, None)?;
     let is_unicode = contains_unicode_char(&str);
     Ok(Object::Bool(is_unicode))
+}
+
+#[allow(non_camel_case_types)]
+#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive)]
+pub enum StrconvConst {
+    SC_LOWERCASE = 0x100,
+    SC_UPPERCASE = 0x200,
+    SC_HIRAGANA = 0x100000,
+    SC_KATAKANA = 0x200000,
+    SC_HALFWIDTH = 0x400000,
+    SC_FULLWIDTH = 0x800000,
+}
+
+pub fn strconv(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let base = args.get_as_string(0, None)?;
+    let opt = args.get_as_int(1, None::<u32>)?;
+
+    let mut strconv = StrConv::new(&base);
+    let conv = strconv.convert(opt);
+    Ok(conv.into())
+}
+struct StrConvType {
+    case: StrConvCase,
+    kana: StrConvKana,
+    width: StrConvWidth,
+}
+enum StrConvCase {Upper,Lower,None}
+enum StrConvKana {Hiragana,Katakana,None}
+enum StrConvWidth {Full,Half,None}
+impl From<u32> for StrConvType {
+    fn from(n: u32) -> Self {
+        let case = match (
+            n & StrconvConst::SC_LOWERCASE as u32 > 0,
+            n & StrconvConst::SC_UPPERCASE as u32 > 0
+        ) {
+            (true, false) => StrConvCase::Lower,
+            (false, true) => StrConvCase::Upper,
+            _ => StrConvCase::None,
+        };
+        let kana = match (
+            n & StrconvConst::SC_HIRAGANA as u32 > 0,
+            n & StrconvConst::SC_KATAKANA as u32 > 0
+        ) {
+            (true, false) => StrConvKana::Hiragana,
+            (false, true) => StrConvKana::Katakana,
+            _ => StrConvKana::None,
+        };
+        let width = match (
+            n & StrconvConst::SC_HALFWIDTH as u32 > 0,
+            n & StrconvConst::SC_FULLWIDTH as u32 > 0
+        ) {
+            (true, false) => StrConvWidth::Half,
+            (false, true) => StrConvWidth::Full,
+            _ => StrConvWidth::None,
+        };
+        Self { case, kana, width }
+    }
+}
+struct StrConv {
+    ucsstr: UCSStr<u32>,
+}
+impl StrConv {
+    fn new(base: &str) -> Self {
+        let ucsstr = UCSStr::from_str(base);
+        Self { ucsstr }
+    }
+    fn convert(&mut self, opt: u32) -> String {
+        let ctype = StrConvType::from(opt);
+        // かな変換後は幅変換する場合がある
+        self.kana(&ctype.kana)
+        .width(&ctype.width);
+        // 大小変換後は幅変換する場合がある
+        self.case(&ctype.case)
+        .width(&ctype.width);
+        // 幅変換後はかな・大小変換する場合がある
+        self.width(&ctype.width)
+            .kana(&ctype.kana)
+            .case(&ctype.case);
+
+        self.ucsstr.to_string()
+    }
+    fn kana(&mut self, kana: &StrConvKana) -> &mut Self {
+        match kana {
+            StrConvKana::Hiragana => {self.ucsstr.hiragana();},
+            StrConvKana::Katakana => {self.ucsstr.katakana();},
+            StrConvKana::None => {},
+        };
+        self
+    }
+    fn case(&mut self, case: &StrConvCase) -> &mut Self {
+        match case {
+            StrConvCase::Upper => {self.ucsstr.upper_case();},
+            StrConvCase::Lower => {self.ucsstr.lower_case();},
+            StrConvCase::None => {},
+        };
+        self
+    }
+    fn width(&mut self, width: &StrConvWidth) -> &mut Self {
+        match width {
+            StrConvWidth::Full => {self.ucsstr.wide(ConvertTarget::ALL);},
+            StrConvWidth::Half => {self.ucsstr.narrow(ConvertTarget::ALL);},
+            StrConvWidth::None => {},
+        };
+        self
+    }
 }
 
 #[cfg(test)]

@@ -529,6 +529,7 @@ pub fn init_builtins() -> Vec<NamedObject> {
     text_control::builtin_func_sets().set(&mut vec);
     set_builtin_consts::<text_control::RegexEnum>(&mut vec);
     set_builtin_consts::<text_control::ErrConst>(&mut vec);
+    set_builtin_consts::<text_control::StrconvConst>(&mut vec);
     // system_constrol
     system_controls::builtin_func_sets().set(&mut vec);
     set_builtin_consts::<system_controls::OsKind>(&mut vec);
