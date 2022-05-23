@@ -465,6 +465,32 @@ impl BuiltinFuncArgs {
             Ok(result)
         })
     }
+
+    pub fn get_as_const<T: From<f64>>(&self, i: usize, default: Option<T>) -> BuiltInResult<T> {
+        get_arg_value!(self, i, default, {
+            let result = match self.item(i) {
+                Object::Num(n) => T::from(n),
+                arg => return Err(builtin_func_error(UErrorMessage::BuiltinArgInvalid(arg), self.name())),
+            };
+            Ok(result)
+        })
+    }
+
+    pub fn get_as_num_or_string(&self, i: usize) -> BuiltInResult<NumOrString> {
+        get_arg_value!(self, i, {
+            let result = match self.item(i) {
+                Object::String(s) => NumOrString::String(s),
+                Object::Num(n) => NumOrString::Num(n),
+                arg => return Err(builtin_func_error(UErrorMessage::BuiltinArgInvalid(arg), self.name())),
+            };
+            Ok(result)
+        })
+    }
+}
+
+pub enum NumOrString {
+    String(String),
+    Num(f64)
 }
 
 #[derive(Debug, Clone)]
@@ -530,6 +556,7 @@ pub fn init_builtins() -> Vec<NamedObject> {
     set_builtin_consts::<text_control::RegexEnum>(&mut vec);
     set_builtin_consts::<text_control::ErrConst>(&mut vec);
     set_builtin_consts::<text_control::StrconvConst>(&mut vec);
+    set_builtin_consts::<text_control::FormatConst>(&mut vec);
     // system_constrol
     system_controls::builtin_func_sets().set(&mut vec);
     set_builtin_consts::<system_controls::OsKind>(&mut vec);

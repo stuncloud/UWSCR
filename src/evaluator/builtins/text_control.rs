@@ -13,7 +13,7 @@ use num_traits::FromPrimitive;
 use serde_json;
 use kanaria::{
     string::UCSStr,
-    utils::ConvertTarget
+    utils::{ConvertTarget, CharExtend}
 };
 
 pub fn builtin_func_sets() -> BuiltinFunctionSets {
@@ -44,6 +44,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("ascb", 1, ascb);
     sets.add("isunicode", 1, isunicode);
     sets.add("strconv", 2, strconv);
+    sets.add("format", 4, format);
     sets
 }
 
@@ -682,6 +683,56 @@ impl StrConv {
         };
         self
     }
+}
+
+#[allow(non_camel_case_types)]
+#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive)]
+pub enum FormatConst {
+    FMT_DEFAULT = 0,
+    FMT_ZERO = 1,
+    FMT_RIGHT = 2,
+    FMT_ZEROR = 3,
+}
+impl From<f64> for FormatConst {
+    fn from(n: f64) -> Self {
+        FromPrimitive::from_f64(n).unwrap_or(Self::FMT_DEFAULT)
+    }
+}
+
+pub fn format(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let val = args.get_as_num_or_string(0)?;
+    let len = args.get_as_int(1, None::<usize>)?;
+    let digit = args.get_as_int(2, Some(0_i32))?;
+    let fill = args.get_as_const(3, Some(FormatConst::FMT_DEFAULT))?;
+
+    let fixed = match val {
+        NumOrString::String(ref s) => {
+            let cnt = s.chars().count();
+            if cnt >= len {
+                s.to_string()
+            } else {
+                let t = (len / cnt) + 1;
+                let new = s.repeat(t);
+                new.to_char_vec()[0..len].into_iter().collect()
+            }
+        },
+        NumOrString::Num(n) => {
+            let s = match digit {
+                1.. => format!("{:.1$}", n, digit as usize),
+                -1 => format!("{:X}", n as i64),
+                -2 => format!("{:x}", n as i64),
+                -3 => format!("{:b}", n as i64),
+                _ => {n.to_string()}
+            };
+            match fill {
+                FormatConst::FMT_DEFAULT => format!("{:>1$}", s, len),
+                FormatConst::FMT_ZERO => format!("{:0>1$}", s, len),
+                FormatConst::FMT_RIGHT => format!("{:<1$}", s, len),
+                FormatConst::FMT_ZEROR => format!("{:0<1$}", s, len),
+            }
+        },
+    };
+    Ok(fixed.into())
 }
 
 #[cfg(test)]
