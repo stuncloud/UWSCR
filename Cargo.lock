@@ -692,6 +692,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "kanaria"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c0f9d9652540055ac4fded998a73aca97d965899077ab1212587437da44196ff"
+dependencies = [
+ "bitflags",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1672,6 +1681,7 @@ dependencies = [
  "encoding_rs",
  "enigo",
  "indexmap",
+ "kanaria",
  "libc",
  "libffi",
  "num-derive",
