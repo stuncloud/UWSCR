@@ -374,6 +374,7 @@ pub enum SpecialFuncResultType {
     GetLogPrintWinId,
     Balloon(Option<crate::gui::Balloon>),
     BalloonID,
+    Token {token: String, remained: String, expression: Option<Expression>}
 }
 
 impl Into<Object> for String {

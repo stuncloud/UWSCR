@@ -2165,7 +2165,13 @@ impl Evaluator {
                         },
                         None => Object::Num(-1.0),
                     }
-                }
+                },
+                SpecialFuncResultType::Token { token, remained, expression } => {
+                    if let Some(left) = expression {
+                        let _ = self.eval_assign_expression(left, Object::String(remained));
+                    }
+                    Object::String(token)
+                },
             },
             _ => result
         };

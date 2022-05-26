@@ -45,6 +45,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("isunicode", 1, isunicode);
     sets.add("strconv", 2, strconv);
     sets.add("format", 4, format);
+    sets.add("token", 4, token);
     sets
 }
 
@@ -730,6 +731,93 @@ pub fn format(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(fixed.into())
 }
 
+pub fn token(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let delimiter = args.get_as_string(0, None)?;
+    let base = args.get_as_string(1, None)?;
+    let expression = args.get_expr(1);
+    let delimiter_flg = args.get_as_bool(2, Some(false))?;
+    let dblquote_flg = args.get_as_bool(3, Some(false))?;
+
+    let delimiter_chars = delimiter.chars().collect::<Vec<_>>();
+    let delimiter = delimiter_chars.as_slice();
+
+    if base.contains(delimiter) {
+        if dblquote_flg {
+            let mut is_in_dbl_quote = false;
+            let mut pos = 0_usize;
+            let mut deli_pos = None::<usize>;
+            let mut rem_pos = 0_usize;
+            let mut base_chars = base.chars();
+            loop {
+                match base_chars.next() {
+                    Some(char) => {
+                        if char == '"' {
+                            is_in_dbl_quote = !is_in_dbl_quote;
+                        }
+                        if ! is_in_dbl_quote {
+                            if deli_pos.is_some() {
+                                if ! delimiter_chars.contains(&char) {
+                                    rem_pos = pos;
+                                    break;
+                                }
+                            } else {
+                                if delimiter_chars.contains(&char) {
+                                    deli_pos = Some(pos);
+                                    if ! delimiter_flg {
+                                        rem_pos = pos + 1;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    None => break,
+                }
+                pos +=  1;
+            }
+            let sfrt = if let Some(p) = deli_pos {
+                let chars = base.chars().collect::<Vec<_>>();
+                let token = chars[..p].iter().collect();
+                let remained = chars[rem_pos..].iter().collect();
+                SpecialFuncResultType::Token { token, remained, expression }
+            } else {
+                SpecialFuncResultType::Token {
+                    token: base,
+                    remained: "".to_string(),
+                    expression
+                }
+            };
+            Ok(Object::SpecialFuncResult(sfrt))
+
+
+        } else {
+            let (token, mut remained) = base.split_once(delimiter)
+                .map(|(t, r)| (t.to_string(), r.to_string()))
+                .unwrap_or_default();
+            if delimiter_flg {
+                loop {
+                    if let Some((t,r)) = remained.split_once(delimiter) {
+                        if t.is_empty() {
+                            remained = r.to_string();
+                        } else {
+                            break;
+                        }
+                    } else {
+                        break;
+                    }
+                }
+            }
+            Ok(Object::SpecialFuncResult(SpecialFuncResultType::Token { token, remained, expression }))
+        }
+    } else {
+        Ok(Object::SpecialFuncResult(SpecialFuncResultType::Token {
+            token: base,
+            remained: "".to_string(),
+            expression
+        }))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::evaluator::*;
@@ -912,6 +1000,83 @@ mod tests {
             (r#"trim(" 　abc　 ", FALSE)"#, Ok(Some("　abc　".into()))),
             // 指定文字
             (r#"trim("edeffededdabcedfffedeeddedf", "edf")"#, Ok(Some("abc".into()))),
+        ];
+        for (input, expected) in test_cases {
+            builtin_test(&mut e, input, expected);
+        }
+    }
+
+    impl From<Vec<&str>> for Object {
+        fn from(vec: Vec<&str>) -> Self {
+        let arr = vec.into_iter()
+            .map(|s| s.into())
+            .collect();
+        Object::Array(arr)
+    }
+    }
+
+    #[test]
+    fn test_token() {
+        let script = r#"
+        moji1 = "あ-い-う-え-お"
+        moji2 = "あいうabcえお"
+        moji3 = "あいうabcえお"
+        moji4 = "あいうえお"
+        "#;
+        let mut e = new_evaluator(Some(script));
+        let test_cases = [
+            (
+                r#"[token("-", moji1), moji1]"#,
+                Ok(Some(vec!["あ", "い-う-え-お"].into()))
+            ),
+            (
+                r#"[token("-", moji1), moji1]"#,
+                Ok(Some(vec!["い", "う-え-お"].into()))
+            ),
+            (
+                r#"[token("abc", moji2), moji2]"#,
+                Ok(Some(vec!["あいう", "bcえお"].into()))
+            ),
+            (
+                r#"[token("abc", moji2, FALSE), moji2]"#,
+                Ok(Some(vec!["", "cえお"].into()))
+            ),
+            (
+                r#"[token("abc", moji3, TRUE), moji3]"#,
+                Ok(Some(vec!["あいう", "えお"].into()))
+            ),
+            (
+                r#"[token("abc", moji4), moji4]"#,
+                Ok(Some(vec!["あいうえお", ""].into()))
+            ),
+            (
+                r#"
+                moji = "<#DBL>あaか<#DBL>aさ"
+                [token("abc", moji, FALSE, FALSE), moji]
+                "#,
+                Ok(Some(vec![r#""あ"#, r#"か"aさ"#].into()))
+            ),
+            (
+                r#"
+                moji = "<#DBL>あaか<#DBL>aさ"
+                [token("abc", moji, FALSE, TRUE), moji]
+                "#,
+                Ok(Some(vec![r#""あaか""#, "さ"].into()))
+            ),
+            (
+                r#"
+                moji = "<#DBL>あabcか<#DBL>abcさ"
+                [token("abc", moji, TRUE, FALSE), moji]
+                "#,
+                Ok(Some(vec![r#""あ"#, r#"か"abcさ"#].into()))
+            ),
+            (
+                r#"
+                moji = "<#DBL>あabcか<#DBL>abcさ"
+                [token("abc", moji, TRUE, TRUE), moji]
+                "#,
+                Ok(Some(vec![r#""あabcか""#, "さ"].into()))
+            ),
         ];
         for (input, expected) in test_cases {
             builtin_test(&mut e, input, expected);
