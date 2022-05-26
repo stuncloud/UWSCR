@@ -1051,17 +1051,17 @@ mod tests {
             ),
             (
                 r#"
-                moji = "<#DBL>あaか<#DBL>aさ"
+                moji = "<#DBL>あabcか<#DBL>abcさ"
                 [token("abc", moji, FALSE, FALSE), moji]
                 "#,
-                Ok(Some(vec![r#""あ"#, r#"か"aさ"#].into()))
+                Ok(Some(vec![r#""あ"#, r#"bcか"abcさ"#].into()))
             ),
             (
                 r#"
-                moji = "<#DBL>あaか<#DBL>aさ"
+                moji = "<#DBL>あabcか<#DBL>abcさ"
                 [token("abc", moji, FALSE, TRUE), moji]
                 "#,
-                Ok(Some(vec![r#""あaか""#, "さ"].into()))
+                Ok(Some(vec![r#""あabcか""#, "bcさ"].into()))
             ),
             (
                 r#"
