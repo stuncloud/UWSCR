@@ -145,31 +145,9 @@ static DEFAULT_INI_NAME: Lazy<String> = Lazy::new(|| {
 pub fn readini(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let section = args.get_as_string_or_empty(0)?;
     let key = args.get_as_string_or_empty(1)?;
-    let (path, arc) = args.get_as_string_or_fopen(2)?;
-    match arc {
-        // fidが渡された場合
-        Some(arc) => {
-            let fopen = arc.lock().unwrap();
-            match (section, key) {
-                // 該当する値を取得
-                (Some(section), Some(key)) => {
-                    let value = fopen.ini_read(&section, &key);
-                    Ok(value.into())
-                },
-                // キー一覧を取得
-                (Some(section), None) => {
-                    let keys = fopen.get_keys(&section);
-                    Ok(keys.into())
-                },
-                // セクション一覧を取得
-                (None, _) => {
-                    let sections = fopen.get_sections();
-                    Ok(sections.into())
-                },
-            }
-        },
-        // ファイルパスの場合
-        None => {
+    let path_or_fopen = args.get_as_string_or_fopen(2)?;
+    match path_or_fopen {
+        TwoTypeArg::T(path) => {
             let path = path.unwrap_or(DEFAULT_INI_NAME.to_string());
             match (section, key) {
                 (Some(section), Some(key)) => {
@@ -189,6 +167,26 @@ pub fn readini(args: BuiltinFuncArgs) -> BuiltinFuncResult {
                 },
             }
         },
+        TwoTypeArg::U(arc) => {
+            let fopen = arc.lock().unwrap();
+            match (section, key) {
+                // 該当する値を取得
+                (Some(section), Some(key)) => {
+                    let value = fopen.ini_read(&section, &key);
+                    Ok(value.into())
+                },
+                // キー一覧を取得
+                (Some(section), None) => {
+                    let keys = fopen.get_keys(&section);
+                    Ok(keys.into())
+                },
+                // セクション一覧を取得
+                (None, _) => {
+                    let sections = fopen.get_sections();
+                    Ok(sections.into())
+                },
+            }
+        },
     }
 }
 
@@ -196,16 +194,16 @@ pub fn writeini(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let section = args.get_as_string(0, None)?;
     let key = args.get_as_string(1, None)?;
     let value = args.get_as_object(2, None)?.to_string();
-    let (path, arc) = args.get_as_string_or_fopen(3)?;
-    match arc {
-        Some(arc) => {
-            let mut fopen = arc.lock().unwrap();
-            fopen.ini_write(&section, &key, &value);
-        },
-        None => {
+    let path_or_fopen = args.get_as_string_or_fopen(3)?;
+    match path_or_fopen {
+        TwoTypeArg::T(path) => {
             let path = path.unwrap_or(DEFAULT_INI_NAME.to_string());
             Fopen::ini_write_from_path(&path, &section, &key, &value)
                 .map_err(|e| builtin_func_error(FopenError(e), args.name()))?;
+        },
+        TwoTypeArg::U(arc) => {
+            let mut fopen = arc.lock().unwrap();
+            fopen.ini_write(&section, &key, &value);
         },
     }
     Ok(Object::default())
@@ -214,16 +212,16 @@ pub fn writeini(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 pub fn deleteini(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let section = args.get_as_string(0, None)?;
     let key = args.get_as_string_or_empty(1)?;
-    let (path, arc) = args.get_as_string_or_fopen(2)?;
-    match arc {
-        Some(arc) => {
-            let mut fopen = arc.lock().unwrap();
-            fopen.ini_delete(&section, key.as_deref());
-        },
-        None => {
+    let path_or_fopen = args.get_as_string_or_fopen(2)?;
+    match path_or_fopen {
+        TwoTypeArg::T(path) => {
             let path = path.unwrap_or(DEFAULT_INI_NAME.to_string());
             Fopen::ini_delete_from_path(&path, &section, key.as_deref())
                 .map_err(|e| builtin_func_error(FopenError(e), args.name()))?;
+        },
+        TwoTypeArg::U(arc) => {
+            let mut fopen = arc.lock().unwrap();
+            fopen.ini_delete(&section, key.as_deref());
         },
     }
     Ok(Object::default())

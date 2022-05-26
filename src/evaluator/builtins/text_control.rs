@@ -515,21 +515,16 @@ pub fn val(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 
 pub fn trim(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let target = args.get_as_string(0, None)?;
-    let trim_option = args.get_as_string_or_bool(1, Some(None))?;
+    let trim_option = args.get_as_string_or_bool(1, Some(TwoTypeArg::U(false)))?;
     let trimed = match trim_option {
-        Some(opt) => match opt {
-            Some(s) => {
-                // トリム文字指定
-                let chars = s.chars().collect::<Vec<_>>();
-                target.trim_matches(chars.as_slice())
-            },
-            None => {
-                // TRUE
-                target.trim_matches(|c: char| {c.is_ascii_whitespace() || c.is_ascii_control() || c == '　'})
-            },
+        TwoTypeArg::T(s) => {
+            // トリム文字指定
+            let chars = s.chars().collect::<Vec<_>>();
+            target.trim_matches(chars.as_slice())
         },
-        None => {
-            // FALSE
+        TwoTypeArg::U(b) => if b {
+            target.trim_matches(|c: char| {c.is_ascii_whitespace() || c.is_ascii_control() || c == '　'})
+        } else {
             target.trim_matches(|c: char| {c.is_ascii_whitespace() || c.is_ascii_control()})
         },
     };
@@ -706,7 +701,7 @@ pub fn format(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let fill = args.get_as_const(3, Some(FormatConst::FMT_DEFAULT))?;
 
     let fixed = match val {
-        NumOrString::String(ref s) => {
+        TwoTypeArg::T(ref s) => {
             let cnt = s.chars().count();
             if cnt >= len {
                 s.to_string()
@@ -716,7 +711,7 @@ pub fn format(args: BuiltinFuncArgs) -> BuiltinFuncResult {
                 new.to_char_vec()[0..len].into_iter().collect()
             }
         },
-        NumOrString::Num(n) => {
+        TwoTypeArg::U(n) => {
             let s = match digit {
                 1.. => format!("{:.1$}", n, digit as usize),
                 -1 => format!("{:X}", n as i64),

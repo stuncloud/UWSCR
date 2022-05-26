@@ -432,34 +432,26 @@ impl BuiltinFuncArgs {
             }
         })
     }
-    pub fn get_as_string_or_fopen(&self, i: usize) -> BuiltInResult<(Option<String>, Option<Arc<Mutex<Fopen>>>)> {
-        let default = Some((None, None));
+    pub fn get_as_string_or_fopen(&self, i: usize) -> BuiltInResult<TwoTypeArg<Option<String>, Arc<Mutex<Fopen>>>> {
+        let default = Some(TwoTypeArg::T(None));
         get_arg_value!(self, i, default, {
             let result = match self.item(i) {
                 Object::Empty |
-                Object::EmptyParam => (None, None),
-                Object::Fopen(arc) => (None, Some(Arc::clone(&arc))),
-                o => (Some(o.to_string()), None)
+                Object::EmptyParam => TwoTypeArg::T(None),
+                Object::Fopen(arc) => TwoTypeArg::U(Arc::clone(&arc)),
+                o => TwoTypeArg::T(Some(o.to_string()))
             };
             Ok(result)
         })
     }
     /// 文字列または真偽値を受ける
-    /// ## 戻り値
-    /// - `None`: FALSE
-    /// - `Some(None)`: TRUE
-    /// - `Some(Some(moji))`: String
-    pub fn get_as_string_or_bool(&self, i: usize, default: Option<Option<Option<String>>>) -> BuiltInResult<Option<Option<String>>> {
+    pub fn get_as_string_or_bool(&self, i: usize, default: Option<TwoTypeArg<String, bool>>) -> BuiltInResult<TwoTypeArg<String, bool>> {
         get_arg_value!(self, i, default, {
             let result = match self.item(i) {
                 Object::Empty |
-                Object::EmptyParam => None,
-                Object::Bool(b) => if b {
-                    Some(None)
-                } else {
-                    None
-                },
-                Object::String(s) => Some(Some(s)),
+                Object::EmptyParam => TwoTypeArg::U(false),
+                Object::Bool(b) => TwoTypeArg::U(b),
+                Object::String(s) => TwoTypeArg::T(s),
                 arg => return Err(builtin_func_error(UErrorMessage::BuiltinArgInvalid(arg), self.name())),
             };
             Ok(result)
@@ -476,11 +468,11 @@ impl BuiltinFuncArgs {
         })
     }
 
-    pub fn get_as_num_or_string(&self, i: usize) -> BuiltInResult<NumOrString> {
+    pub fn get_as_num_or_string(&self, i: usize) -> BuiltInResult<TwoTypeArg<String, f64>> {
         get_arg_value!(self, i, {
             let result = match self.item(i) {
-                Object::String(s) => NumOrString::String(s),
-                Object::Num(n) => NumOrString::Num(n),
+                Object::String(s) => TwoTypeArg::T(s),
+                Object::Num(n) => TwoTypeArg::U(n),
                 arg => return Err(builtin_func_error(UErrorMessage::BuiltinArgInvalid(arg), self.name())),
             };
             Ok(result)
@@ -488,9 +480,9 @@ impl BuiltinFuncArgs {
     }
 }
 
-pub enum NumOrString {
-    String(String),
-    Num(f64)
+pub enum TwoTypeArg<T, U> {
+    T(T),
+    U(U),
 }
 
 #[derive(Debug, Clone)]
