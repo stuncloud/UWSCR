@@ -478,6 +478,17 @@ impl BuiltinFuncArgs {
             Ok(result)
         })
     }
+
+    pub fn get_as_string_or_bytearray(&self, i: usize) -> BuiltInResult<TwoTypeArg<String, Vec<u8>>> {
+        get_arg_value!(self, i, {
+            let result = match self.item(i) {
+                Object::String(s) => TwoTypeArg::T(s),
+                Object::ByteArray(a) => TwoTypeArg::U(a),
+                arg => return Err(builtin_func_error(UErrorMessage::BuiltinArgInvalid(arg), self.name())),
+            };
+            Ok(result)
+        })
+    }
 }
 
 pub enum TwoTypeArg<T, U> {
@@ -549,6 +560,7 @@ pub fn init_builtins() -> Vec<NamedObject> {
     set_builtin_consts::<text_control::ErrConst>(&mut vec);
     set_builtin_consts::<text_control::StrconvConst>(&mut vec);
     set_builtin_consts::<text_control::FormatConst>(&mut vec);
+    set_builtin_consts::<text_control::CodeConst>(&mut vec);
     // system_constrol
     system_controls::builtin_func_sets().set(&mut vec);
     set_builtin_consts::<system_controls::OsKind>(&mut vec);

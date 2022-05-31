@@ -442,6 +442,7 @@ pub enum UErrorMessage {
     EmptyArrayNotAllowed,
     InvalidMemberOrIndex(String),
     FopenError(FopenError),
+    NotAnByte(Object),
 }
 
 impl fmt::Display for UErrorMessage {
@@ -917,6 +918,10 @@ impl fmt::Display for UErrorMessage {
                 o
             ),
             Self::FopenError(e) => write!(f, "{}", e),
+            Self::NotAnByte(o) => write_locale!(f,
+                "不正な値({o}): バイト配列の要素には0-255しか代入できません",
+                "You can not assign {o} as byte",
+            )
         }
     }
 }

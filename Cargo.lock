@@ -564,6 +564,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "htmlentity"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5b3d2d0340cc45e3f48fe9fe11b6dee3be57a7085fb80ab467c881fa49a2332c"
+dependencies = [
+ "lazy_static",
+]
+
+[[package]]
 name = "http"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1663,6 +1672,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "urlencoding"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "68b90931029ab9b034b300b797048cf23723400aa757e8a2bfb9d748102f9821"
+
+[[package]]
 name = "utf-8"
 version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1680,6 +1695,7 @@ dependencies = [
  "dlopen",
  "encoding_rs",
  "enigo",
+ "htmlentity",
  "indexmap",
  "kanaria",
  "libc",
@@ -1698,6 +1714,7 @@ dependencies = [
  "strum_macros",
  "tungstenite",
  "url",
+ "urlencoding",
  "windows",
  "winreg 0.10.1",
  "winres",

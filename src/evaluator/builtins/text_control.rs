@@ -15,6 +15,15 @@ use kanaria::{
     string::UCSStr,
     utils::{ConvertTarget, CharExtend}
 };
+use windows::{
+    core::{PSTR,PCSTR},
+    Win32::{
+        Globalization::{
+            CP_ACP, WC_COMPOSITECHECK, MB_PRECOMPOSED,
+            WideCharToMultiByte, MultiByteToWideChar,
+        },
+    },
+};
 
 pub fn builtin_func_sets() -> BuiltinFunctionSets {
     let mut sets = BuiltinFunctionSets::new();
@@ -46,6 +55,8 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("strconv", 2, strconv);
     sets.add("format", 4, format);
     sets.add("token", 4, token);
+    sets.add("encode", 2, encode);
+    sets.add("decode", 2, decode);
     sets
 }
 
@@ -64,6 +75,7 @@ pub fn length(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             let get_dim = args.get_as_bool(1, Some(false))?;
             s.len(get_dim)?
         },
+        Object::ByteArray(ref arr) => arr.len(),
         o => return Err(builtin_func_error(UErrorMessage::InvalidArgument(o), args.name()))
     };
     Ok(Object::Num(len as f64))
@@ -816,6 +828,167 @@ pub fn token(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             expression
         }))
     }
+}
+
+#[allow(non_camel_case_types)]
+#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive)]
+pub enum CodeConst {
+    CODE_ANSI = 1,
+    CODE_URL = 2,
+    CODE_UTF8 = 3,
+    CODE_HTML = 4,
+    CODE_BYTEARRAY = 5,
+    CODE_BYTEARRAYW = 6,
+    CODE_BYTEARRAYU = 7,
+}
+
+impl From<f64> for CodeConst {
+    fn from(n: f64) -> Self {
+        FromPrimitive::from_f64(n).unwrap_or(Self::CODE_UTF8)
+    }
+}
+
+struct ByteArray {
+
+}
+
+impl ByteArray {
+    fn as_byte(str: &str) -> Vec<u8> {
+        str.to_string().into_bytes()
+    }
+    fn from_byte(byte: &[u8]) -> String {
+        String::from_utf8_lossy(byte).into_owned()
+    }
+    fn as_ansi(str: &str) -> Vec<u8> {
+        unsafe {
+            let wide = str.encode_utf16().collect::<Vec<_>>();
+            let len = WideCharToMultiByte(
+                CP_ACP,
+                WC_COMPOSITECHECK,
+                &wide,
+                PSTR::default(),
+                0,
+                PCSTR::default(),
+                &mut 0
+            );
+            if len > 0 {
+                let mut result: Vec<u8> = Vec::with_capacity(len as usize);
+                result.set_len(len as usize);
+                WideCharToMultiByte(
+                    CP_ACP,
+                    WC_COMPOSITECHECK,
+                    &wide,
+                    PSTR(result.as_mut_ptr()),
+                    result.len() as i32,
+                    PCSTR::default(),
+                    &mut 0
+                );
+                result
+            } else {
+                vec![]
+            }
+        }
+    }
+    fn from_ansi(byte: &[u8]) -> String {
+        unsafe {
+            let len = MultiByteToWideChar(
+                CP_ACP,
+                MB_PRECOMPOSED,
+                byte,
+                &mut vec![]
+            );
+            if len > 0 {
+                let mut wide: Vec<u16> = Vec::with_capacity(len as usize);
+                wide.set_len(len as usize);
+                MultiByteToWideChar(
+                    CP_ACP,
+                    MB_PRECOMPOSED,
+                    byte,
+                    &mut wide
+                );
+                String::from_utf16_lossy(&wide)
+            } else {
+                String::new()
+            }
+        }
+    }
+    fn as_wide(str: &str) -> Vec<u8> {
+        let bytes = str.encode_utf16()
+            .map(|n| n.to_le_bytes())
+            .flatten()
+            .collect();
+        bytes
+    }
+    fn from_wide(byte: &[u8]) -> String {
+        let (_, wide, _) = unsafe {
+            byte.align_to::<u16>()
+        };
+        String::from_utf16_lossy(wide)
+    }
+}
+
+pub fn encode(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let str = args.get_as_string(0, None)?;
+    let code = args.get_as_const(1, None::<CodeConst>)?;
+
+    let result = match code {
+        CodeConst::CODE_ANSI => str.into(),
+        CodeConst::CODE_URL => {
+            let encoded = urlencoding::encode(&str);
+            encoded.into_owned().into()
+        },
+        CodeConst::CODE_UTF8 => str.into(),
+        CodeConst::CODE_HTML => {
+            let encoded = htmlentity::entity::encode(
+                &str,
+                htmlentity::entity::EntitySet::SpecialChars,
+                htmlentity::entity::EncodeType::Named,
+            );
+            let enc_str = encoded.iter().collect::<String>();
+            enc_str.into()
+        },
+        CodeConst::CODE_BYTEARRAY => {
+            let bytes = ByteArray::as_ansi(&str);
+            bytes.into()
+        },
+        CodeConst::CODE_BYTEARRAYW => {
+            let bytes = ByteArray::as_wide(&str);
+            bytes.into()
+        },
+        CodeConst::CODE_BYTEARRAYU => {
+            let bytes = ByteArray::as_byte(&str);
+            bytes.into()
+        },
+    };
+    Ok(result)
+}
+
+pub fn decode(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let value = args.get_as_string_or_bytearray(0)?;
+    let code = args.get_as_const(1, None::<CodeConst>)?;
+
+    let result = match value {
+        TwoTypeArg::T(s) => match code {
+            CodeConst::CODE_URL => match urlencoding::decode(&s) {
+                Ok(cow) => cow.into_owned().into(),
+                Err(_) => Object::Empty,
+            },
+            CodeConst::CODE_HTML => {
+                let decoded = htmlentity::entity::decode(&s);
+                let dec_str = decoded.iter().collect::<String>();
+                dec_str.into()
+            },
+            _ => s.into()
+        },
+        TwoTypeArg::U(byte) => match code {
+            CodeConst::CODE_BYTEARRAY => ByteArray::from_ansi(&byte).into(),
+            CodeConst::CODE_BYTEARRAYW => ByteArray::from_wide(&byte).into(),
+            CodeConst::CODE_BYTEARRAYU => ByteArray::from_byte(&byte).into(),
+            _ => Object::Empty
+        },
+    };
+
+    Ok(result)
 }
 
 #[cfg(test)]

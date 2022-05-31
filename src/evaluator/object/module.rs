@@ -168,6 +168,38 @@ impl Module {
                 };
                 h.lock().unwrap().insert(key, value);
             },
+            Object::ByteArray(mut arr) => {
+                if let Object::Num(i) = index {
+                    if let Some(val) = arr.get_mut(i as usize) {
+                        if let Object::Num(n) = value {
+                            if let Ok(new_val) = u8::try_from(n as i64) {
+                                *val = new_val;
+                            } else {
+                                return Err(UError::new(
+                                    UErrorKind::AssignError,
+                                    UErrorMessage::NotAnByte(value)
+                                ));
+                            }
+                            self.set(name, Object::ByteArray(arr), scope);
+                        } else {
+                            return Err(UError::new(
+                                UErrorKind::AssignError,
+                                UErrorMessage::NotAnByte(value)
+                            ));
+                        }
+                    } else {
+                        return Err(UError::new(
+                            UErrorKind::AssignError,
+                            UErrorMessage::InvalidIndex(index)
+                        ))
+                    }
+                } else {
+                    return Err(UError::new(
+                        UErrorKind::AssignError,
+                        UErrorMessage::InvalidIndex(index)
+                    ))
+                }
+            },
             o => return Err(UError::new(
                 UErrorKind::ArrayError,
                 UErrorMessage::NotAnArray(o)

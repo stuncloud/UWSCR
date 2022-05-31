@@ -28,8 +28,10 @@ use num_derive::{ToPrimitive, FromPrimitive};
 
 pub fn builtin_func_sets() -> BuiltinFunctionSets {
     let mut sets = BuiltinFunctionSets::new();
-    sets.add("createoleobj", 1, createoleobj);
-    sets.add("getactiveoleobj", 1, getactiveoleobj);
+    // sets.add("createoleobj", 1, createoleobj);
+    // sets.add("getactiveoleobj", 1, getactiveoleobj);
+    sets.add("&ダミー&", 1, createoleobj);
+    sets.add("%ダミー%", 1, getactiveoleobj);
     sets.add("vartype", 2, vartype);
     sets.add("safearray", 4, safearray);
     sets

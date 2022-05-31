@@ -95,6 +95,7 @@ pub enum Object {
     ElementFunc(Element, String),
     ElementProperty(ElementProperty),
     Fopen(Arc<Mutex<Fopen>>),
+    ByteArray(Vec<u8>),
 }
 
 unsafe impl Send for Object {}
@@ -198,6 +199,7 @@ impl fmt::Display for Object {
                 let fopen = arc.lock().unwrap();
                 write!(f, "{}", &*fopen)
             },
+            Object::ByteArray(ref arr) => write!(f, "{:?}", arr),
         }
     }
 }
@@ -316,6 +318,9 @@ impl PartialEq for Object {
                 let _tmp = f1.lock().unwrap();
                 let result = f2.try_lock().is_err();
                 result
+            } else {false},
+            Object::ByteArray(arr1) => if let Object::ByteArray(arr2) = other {
+                arr1 == arr2
             } else {false},
         }
     }
@@ -437,6 +442,11 @@ impl Into<Object> for Vec<String> {
 impl Into<Object> for bool {
     fn into(self) -> Object {
         Object::Bool(self)
+    }
+}
+impl  Into<Object> for Vec<u8> {
+    fn into(self) -> Object {
+        Object::ByteArray(self)
     }
 }
 

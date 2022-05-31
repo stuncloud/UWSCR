@@ -689,6 +689,7 @@ impl Evaluator {
             Object::Array(a) => a,
             Object::String(s) => s.chars().map(|c| Object::String(c.to_string())).collect::<Vec<Object>>(),
             Object::HashTbl(h) => h.lock().unwrap().keys(),
+            Object::ByteArray(arr) => arr.iter().map(|n| Object::Num(*n as f64)).collect(),
             _ => return Err(UError::new(
                 UErrorKind::SyntaxError,
                 UErrorMessage::ForInError
@@ -1415,6 +1416,24 @@ impl Evaluator {
                     UErrorMessage::InvalidIndex(index),
                 ))
             },
+            Object::ByteArray(arr) => if hash_enum.is_some() {
+                return Err(UError::new(
+                    UErrorKind::EvaluatorError,
+                    UErrorMessage::InvalidKeyOrIndex(format!("[{}, {}]", index, hash_enum.unwrap()))
+                ));
+            } else if let Object::Num(i) = index {
+                arr.get(i as usize)
+                    .map(|n| Object::Num(*n as f64))
+                    .ok_or(UError::new(
+                        UErrorKind::EvaluatorError,
+                        UErrorMessage::IndexOutOfBounds(index),
+                    ))?
+            } else {
+                return Err(UError::new(
+                    UErrorKind::EvaluatorError,
+                    UErrorMessage::InvalidIndex(index)
+                ))
+            },
             o => return Err(UError::new(
                 UErrorKind::EvaluatorError,
                 UErrorMessage::NotAnArray(o.to_owned()),
@@ -1514,6 +1533,42 @@ impl Evaluator {
                                         let mut var_value = value.to_variant()?;
                                         sa.set(i as i32, &mut var_value)?
                                     } else {
+                                    },
+                                    Object::ByteArray(mut arr) => match index {
+                                        Object::Num(i) => if let Some(val) = arr.get_mut(i as usize) {
+                                            if let Object::Num(n) = value {
+                                                if let Ok(new_val) = u8::try_from(n as i64) {
+                                                    *val = new_val;
+                                                } else {
+                                                    return Err(UError::new(
+                                                        UErrorKind::AssignError,
+                                                        UErrorMessage::NotAnByte(value)
+                                                    ));
+                                                }
+
+                                                if let Some(Object::This(m)) = self.env.get_variable(&"this".into(), true) {
+                                                    // moudele/classメンバであればその値を更新する
+                                                    m.lock().unwrap().assign(&name, value.clone(), Some(index))?;
+                                                    is_in_scope_auto_disposable = false;
+                                                } else {
+                                                    is_in_scope_auto_disposable = ! self.env.assign(name, Object::ByteArray(arr))?;
+                                                }
+                                            } else {
+                                                return Err(UError::new(
+                                                    UErrorKind::AssignError,
+                                                    UErrorMessage::NotAnByte(value)
+                                                ));
+                                            }
+                                        } else {
+                                            return Err(UError::new(
+                                                UErrorKind::AssignError,
+                                                UErrorMessage::InvalidIndex(index)
+                                            ))
+                                        },
+                                        _ => return Err(UError::new(
+                                            UErrorKind::AssignError,
+                                            UErrorMessage::InvalidIndex(index)
+                                        ))
                                     },
                                     _ => return Err(UError::new(
                                         UErrorKind::AssignError,
