@@ -11,7 +11,7 @@ use std::{
         create_dir_all,
         read,
     },
-    io::Write,
+    io::{Write, SeekFrom, Seek},
     path::PathBuf,
     sync::Mutex,
     str::FromStr,
@@ -455,6 +455,8 @@ pub fn out_json_schema_file(mut path: PathBuf) -> Result<String, Error> {
     let schema = schema_for!(USettings);
     let json = serde_json::to_string_pretty(&schema)?;
     let mut file = OpenOptions::new().create(true).write(true).open::<&PathBuf>(&path)?;
+    file.seek(SeekFrom::Start(0))?;
+    file.set_len(0)?;
     write!(file, "{}", json)?;
 
     Ok(format!("Created {}", path.to_str().unwrap()))
