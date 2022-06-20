@@ -368,6 +368,18 @@ impl BuiltinFuncArgs {
             }
         })
     }
+    pub fn get_as_array_or_empty(&self, i: usize) -> BuiltInResult<Option<Vec<Object>>> {
+        let default = Some(None::<Vec<Object>>);
+        get_arg_value!(self, i, default, {
+            let arg = self.item(i);
+            match arg {
+                Object::Array(arr) => Ok(Some(arr)),
+                Object::Empty |
+                Object::EmptyParam => Ok(None),
+                _ => Err(builtin_func_error(UErrorMessage::BuiltinArgInvalid(arg), self.name()))
+            }
+        })
+    }
     /// 数値または配列を受ける引数
     pub fn get_as_int_or_array(&self, i: usize, default: Option<Object>) -> BuiltInResult<Object> {
         get_arg_value!(self, i, default, {
@@ -579,6 +591,7 @@ pub fn init_builtins() -> Vec<NamedObject> {
     set_builtin_consts::<browser_control::BcEnum>(&mut vec);
     // array_control
     array_control::builtin_func_sets().set(&mut vec);
+    set_builtin_consts::<array_control::QsrtConst>(&mut vec);
     // dialog.rs
     set_builtin_consts::<dialog::BtnConst>(&mut vec);
     set_builtin_consts::<dialog::SlctConst>(&mut vec);

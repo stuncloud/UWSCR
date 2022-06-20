@@ -379,7 +379,8 @@ pub enum SpecialFuncResultType {
     GetLogPrintWinId,
     Balloon(Option<crate::gui::Balloon>),
     BalloonID,
-    Token {token: String, remained: String, expression: Option<Expression>}
+    Token {token: String, remained: String, expression: Option<Expression>},
+    Qsort(Option<Expression>, Vec<Object>, [Option<Expression>; 8], [Option<Vec<Object>>; 8]),
 }
 
 impl Into<Object> for String {

@@ -2230,6 +2230,19 @@ impl Evaluator {
                     }
                     Object::String(token)
                 },
+                SpecialFuncResultType::Qsort(expr, array, exprs, arrays) => {
+                    if let Some(left) = expr {
+                        let _ = self.eval_assign_expression(left, Object::Array(array));
+                    }
+                    for (expr, array) in exprs.into_iter().zip(arrays.into_iter()) {
+                        if let Some(left) = expr {
+                            if let Some(arr) = array {
+                                let _ = self.eval_assign_expression(left, Object::Array(arr));
+                            }
+                        }
+                    }
+                    Object::Empty
+                }
             },
             _ => result
         };
