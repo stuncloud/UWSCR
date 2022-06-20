@@ -2849,6 +2849,15 @@ impl Evaluator {
                 browser.dialog(accept, prompt)?;
                 Ok(Object::Empty)
             },
+            "setdownloadpath" => {
+                let path = match get_arg(0) {
+                    Object::Empty |
+                    Object::EmptyParam => None,
+                    o => Some(o.to_string())
+                };
+                browser.set_download_path(path)?;
+                Ok(Object::Empty)
+            },
             _ => Err(UError::new(
                 UErrorKind::BrowserControlError,
                 UErrorMessage::InvalidMember(name.to_string())

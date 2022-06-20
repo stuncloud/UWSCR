@@ -19,6 +19,7 @@ use std::{
     net::TcpStream,
     thread::sleep,
     time::{Duration, Instant},
+    collections::HashMap,
 };
 
 use libc::c_void;
@@ -26,7 +27,6 @@ use winreg;
 use reqwest;
 use serde_json::{Value, json, Map};
 use tungstenite::{self, WebSocket, stream::MaybeTlsStream};
-use std::collections::HashMap;
 use wmi::{WMIConnection, FilterValue};
 use serde::Deserialize;
 
@@ -419,8 +419,34 @@ impl Browser {
         Ok(())
     }
 
+    pub fn set_download_path(&self, path: Option<String>) -> DevtoolsProtocolResult<()> {
+        let params = match path {
+            Some(p) => json!({
+                "behavior": "deny",
+                "downloadPath": p,
+                "eventsEnabled": true
+            }),
+            None => json!({
+                "behavior": "default",
+                "downloadPath": null,
+                "eventsEnabled": false
+            }),
+        };
+        {
+            let mut dp = self.dp.lock().unwrap();
+            dp.set_event_handler("Browser.downloadProgress", Self::download_event);
+        }
+        self.dp_send("Browser.setDownloadBehavior", params)?;
+        Ok(())
+    }
+
     pub fn get_window_id(&self) -> DevtoolsProtocolResult<Object> {
         get_window_id_from_port(self.port)
+    }
+
+    pub fn download_event(value: &Value) -> DevtoolsProtocolResult<()> {
+        println!("{:?}", value);
+        Ok(())
     }
 }
 
@@ -685,6 +711,7 @@ impl Element {
         self.execute_script("$0.selected = true", None, None)?;
         Ok(())
     }
+
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -726,7 +753,8 @@ type DevtoolsProtocolResult<T> = Result<T, DevtoolsProtocolError>;
 pub struct DevtoolsProtocol {
     pub socket: WebSocket<MaybeTlsStream<TcpStream>>,
     pub id: u32,
-    pub session_id: Option<String>
+    pub session_id: Option<String>,
+    event_handler: HashMap<String, fn(&Value) -> DevtoolsProtocolResult<()>>,
 }
 
 impl PartialEq for DevtoolsProtocol {
@@ -753,7 +781,12 @@ impl DevtoolsProtocol {
             ));
         }
 
-        let mut dp = Self {socket, id: 0, session_id: Some(sid)};
+        let mut dp = Self {
+            socket,
+            id: 0,
+            session_id: Some(sid),
+            event_handler: HashMap::new()
+        };
         dp.initialize()?;
         Ok(dp)
     }
@@ -794,11 +827,20 @@ impl DevtoolsProtocol {
                 if received.is_text() {
                     let msg = received.into_text()?;
                     let value = Value::from_str(&msg)?;
+                    if let Value::String(ref method) = value["method"] {
+                        if let Some(func) = self.event_handler.get(method) {
+                            func(&value)?;
+                        }
+                    }
                     if value["id"] == data["id"] {
                         break Ok(value)
                     }
                 }
         }
+    }
+
+    fn set_event_handler(&mut self, event: &str, handler: fn(&Value) -> DevtoolsProtocolResult<()>) {
+        self.event_handler.insert(event.into(), handler);
     }
 }
 
