@@ -382,6 +382,7 @@ pub enum SpecialFuncResultType {
     Token {token: String, remained: String, expression: Option<Expression>},
     Qsort(Option<Expression>, Vec<Object>, [Option<Expression>; 8], [Option<Vec<Object>>; 8]),
     Reference(Vec<(Option<Expression>, Object)>),
+    Resize(Option<Expression>, Vec<Object>, f64),
 }
 
 impl Into<Object> for String {

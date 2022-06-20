@@ -2251,6 +2251,13 @@ impl Evaluator {
                     }
                     Object::Empty
                 },
+                SpecialFuncResultType::Resize(expr, arr, ret) => {
+                    if let Some(left) = expr {
+                        let _ = self.eval_assign_expression(left, Object::Array(arr));
+                    }
+                    Object::Num(ret)
+                },
+
             },
             _ => result
         };

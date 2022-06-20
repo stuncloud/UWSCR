@@ -11,6 +11,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("join", 5, join);
     sets.add("qsort", 10, qsort);
     sets.add("reverse", 1, reverse);
+    sets.add("resize", 3, resize);
     sets
 }
 
@@ -81,4 +82,24 @@ pub fn reverse(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(Object::SpecialFuncResult(SpecialFuncResultType::Reference(vec![
         (expr, Object::Array(arr))
     ])))
+}
+
+pub fn resize(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let mut arr = args.get_as_array(0, None)?;
+    let expr = args.get_expr(0);
+    let size = args.get_as_int_or_empty::<i32>(1)?;
+    let value = args.get_as_object(2, Some(Object::Empty))?;
+    if let Some(n) = size {
+        let new_len = if n < 0 {
+            0
+        } else {
+            n + 1
+        } as usize;
+        arr.resize(new_len, value);
+        let i = arr.len() as isize - 1;
+        Ok(Object::SpecialFuncResult(SpecialFuncResultType::Resize(expr, arr, i as f64)))
+    } else {
+        let i = arr.len() as isize - 1;
+        Ok(Object::Num(i as f64))
+    }
 }
