@@ -124,7 +124,10 @@ impl Evaluator {
         self.lines.append(&mut lines);
         for statement in program_block {
             let row = statement.row;
-            match self.eval_statement(statement) {
+            let res = stacker::maybe_grow(2 * 1024 * 1024, 20*1024*1024, || {
+                self.eval_statement(statement)
+            });
+            match res {
                 Ok(opt) => match opt {
                     Some(o) => match o {
                         Object::Exit => {

@@ -41,6 +41,7 @@ zip = "0.6.2"
 kanaria = "0.2.0"
 urlencoding = "2.1.0"
 htmlentity = "1.2.0"
+stacker = "0.1.14"
 
 [build-dependencies]
 winres = "0.1"
