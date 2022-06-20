@@ -245,3 +245,28 @@ impl From<windows::core::Error> for UError {
         )
     }
 }
+
+pub trait WString {
+    fn to_wide(&self) -> Vec<u16>;
+    fn to_wide_null_terminated(&self) -> Vec<u16>;
+}
+
+impl WString for &str {
+    fn to_wide(&self) -> Vec<u16> {
+        self.encode_utf16().collect()
+    }
+
+    fn to_wide_null_terminated(&self) -> Vec<u16> {
+        self.encode_utf16().chain(std::iter::once(0)).collect()
+    }
+}
+
+impl WString for String {
+    fn to_wide(&self) -> Vec<u16> {
+        self.encode_utf16().collect()
+    }
+
+    fn to_wide_null_terminated(&self) -> Vec<u16> {
+        self.encode_utf16().chain(std::iter::once(0)).collect()
+    }
+}
