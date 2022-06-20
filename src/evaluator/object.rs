@@ -381,6 +381,7 @@ pub enum SpecialFuncResultType {
     BalloonID,
     Token {token: String, remained: String, expression: Option<Expression>},
     Qsort(Option<Expression>, Vec<Object>, [Option<Expression>; 8], [Option<Vec<Object>>; 8]),
+    Reference(Vec<(Option<Expression>, Object)>),
 }
 
 impl Into<Object> for String {

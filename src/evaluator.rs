@@ -2242,7 +2242,15 @@ impl Evaluator {
                         }
                     }
                     Object::Empty
-                }
+                },
+                SpecialFuncResultType::Reference(refs) => {
+                    for (expr, value) in refs {
+                        if let Some(left) = expr {
+                            let _ = self.eval_assign_expression(left, value);
+                        }
+                    }
+                    Object::Empty
+                },
             },
             _ => result
         };
