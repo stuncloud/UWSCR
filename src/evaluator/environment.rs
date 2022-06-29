@@ -82,6 +82,16 @@ pub struct Layer {
     pub outer: Option<Arc<Mutex<Layer>>>,
 }
 
+impl Layer {
+    pub fn clear(&mut self) {
+        self.local.clear();
+        if let Some(m) = &self.outer {
+            let mut layer = m.lock().unwrap();
+            layer.clear();
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Environment {
     pub current: Arc<Mutex<Layer>>,
@@ -89,6 +99,17 @@ pub struct Environment {
 }
 
 impl Environment {
+    pub fn clear(&mut self) {
+        {
+            let mut layer = self.current.lock().unwrap();
+            layer.clear();
+        }
+        {
+            let mut vec = self.global.lock().unwrap();
+            vec.clear();
+        }
+    }
+
     pub fn new(params: Vec<String>) -> Self {
         let mut env = Environment {
             current: Arc::new(Mutex::new(Layer {
@@ -150,8 +171,11 @@ impl Environment {
             },
             None => {}
         }
-        // let outer = *self.current.outer.clone().unwrap();
-        let outer = self.current.lock().unwrap().outer.clone().unwrap();
+        let outer = {
+            let mut layer = self.current.lock().unwrap();
+            layer.local = vec![];
+            layer.outer.clone().unwrap()
+        };
         self.current = outer;
     }
 
@@ -242,7 +266,7 @@ impl Environment {
             } else {
                 Some(Object::String(text))
             },
-            Some(Object::Instance(ref ins,_)) => if ins.lock().unwrap().is_disposed() {
+            Some(Object::Instance(ref ins)) => if ins.lock().unwrap().is_dropped {
                 Some(Object::Nothing)
             } else {
                 obj
@@ -574,52 +598,6 @@ impl Environment {
             new_string = rep_to.map_or(new_string.clone(), |to| new_string.replace(format!("<#{}>", expandable).as_str(), to.as_ref()));
         }
         Object::String(new_string)
-    }
-
-    pub fn set_instances(&mut self, instance: Arc<Mutex<Module>>, id: u32, to_global: bool) {
-        let var_name = "@INSTANCES".to_string();
-        let ins_name = format!("@INSTANCE{}", id);
-        let obj = if to_global {
-            self.get_from_global(&var_name, Scope::Local).unwrap_or(Object::Empty)
-        } else {
-            self.get(&var_name, Scope::Local).unwrap_or(Object::Empty)
-        };
-        if let Object::Instances(mut v) = obj {
-            v.push(ins_name);
-            self.set(&var_name, Scope::Local, Object::Instances(v), to_global);
-        } else {
-            let v = vec![ins_name];
-            self.add(NamedObject::new(var_name, Object::Instances(v), Scope::Local), to_global);
-        };
-        self.add(NamedObject::new(format!("@INSTANCE{}", id), Object::Instance(Arc::clone(&instance), id), Scope::Local), to_global);
-    }
-
-    pub fn remove_from_instances(&mut self, id: u32) {
-        let name = "@INSTANCES".to_string();
-        let ins_name = format!("@INSTANCE{}", id);
-        let obj = self.get(&name, Scope::Local).unwrap_or(Object::Empty);
-        if let Object::Instances(mut v) = obj {
-            v.retain(|n| n != &ins_name);
-            self.set(&name, Scope::Local, Object::Instances(v), false);
-        }
-    }
-
-    pub fn get_instances(&mut self) -> Vec<String> {
-        let name = "@INSTANCES".to_string();
-        if let Object::Instances(v) = self.get(&name, Scope::Local).unwrap_or(Object::Empty) {
-            v
-        } else {
-            vec![]
-        }
-    }
-
-    pub fn get_global_instances(&mut self) -> Vec<String> {
-        let name = "@INSTANCES".to_string();
-        if let Object::Instances(v) = self.get_from_global(&name, Scope::Local).unwrap_or(Object::Empty) {
-            v
-        } else {
-            vec![]
-        }
     }
 
     pub fn set_try_error_messages(&mut self, message: String, line: String) {

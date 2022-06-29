@@ -57,7 +57,6 @@ type EvalResult<T> = Result<T, UError>;
 #[derive(Debug, Clone)]
 pub struct  Evaluator {
     pub env: Environment,
-    instance_id: Arc<Mutex<u32>>,
     pub ignore_com_err: bool,
     pub com_err_flg: bool,
     lines: Vec<String>,
@@ -65,10 +64,13 @@ pub struct  Evaluator {
 }
 
 impl Evaluator {
+    fn clear(&mut self) {
+        self.env.clear();
+    }
+
     pub fn new(env: Environment) -> Self {
         Evaluator {
             env,
-            instance_id: Arc::new(Mutex::new(0)),
             ignore_com_err: false,
             com_err_flg: false,
             lines: vec![],
@@ -106,12 +108,6 @@ impl Evaluator {
         } else {
             Ok(self.lines[row - 1].to_string())
         }
-    }
-
-    fn new_instance_id(&mut self) -> u32 {
-        let mut instance_id = self.instance_id.lock().unwrap();
-        *instance_id += 1;
-        instance_id.clone()
     }
 
     pub fn eval(&mut self, program: Program) -> EvalResult<Option<Object>> {
@@ -152,7 +148,7 @@ impl Evaluator {
                 }
             }
         }
-        self.auto_dispose_instances(vec![], true);
+        self.clear();
 
         // // COMの解除
         // unsafe {
@@ -464,13 +460,17 @@ impl Evaluator {
             },
             Statement::Module(i, block) => {
                 let Identifier(name) = i;
-                let module = self.eval_module_statement(&name, block, false)?;
-                self.env.define_module(&name, module)?;
+                let module = self.eval_module_statement(&name, block)?;
+                self.env.define_module(&name, Object::Module(module))?;
                 // コンストラクタがあれば実行する
                 let module = self.env.get_module(&name);
                 if let Some(Object::Module(m)) = module {
-                    let constructor = m.lock().unwrap().get_constructor();
-                    if let Some(Object::Function(f)) = constructor {
+                    let maybe_constructor = if let Some(f) = m.lock().unwrap().get_constructor() {
+                        Some(f)
+                    } else {
+                        None
+                    };
+                    if let Some(f) = maybe_constructor {
                         f.invoke(self, vec![], false)?;
                     }
                 };
@@ -486,7 +486,6 @@ impl Evaluator {
                 let s = self.eval_block_statement(block);
                 if let Expression::Identifier(Identifier(name)) = e {
                     if name.find("@with_tmp_").is_some() {
-                        self.eval_instance_assignment(&Expression::Identifier(Identifier(name.clone())), &Object::Nothing)?;
                         self.env.remove_variable(name);
                     }
                 }
@@ -860,7 +859,7 @@ impl Evaluator {
         Ok(Object::UStruct(name.to_string(), size, Arc::new(Mutex::new(ustruct))))
     }
 
-    fn eval_module_statement(&mut self, module_name: &String, block: BlockStatement, is_instance: bool) -> EvalResult<Object> {
+    fn eval_module_statement(&mut self, module_name: &String, block: BlockStatement) -> EvalResult<Arc<Mutex<Module>>> {
         let mut module = Module::new(module_name.to_string());
         for statement in block {
             match statement.statement {
@@ -958,12 +957,12 @@ impl Evaluator {
             }
         }
         let m = Arc::new(Mutex::new(module));
-        m.lock().unwrap().set_module_reference_to_member_functions(Arc::clone(&m));
-        if is_instance {
-            Ok(Object::Instance(Arc::clone(&m), 0))
-        } else {
-            Ok(Object::Module(Arc::clone(&m)))
+        {
+            let mut module = m.lock().unwrap();
+            module.set_module_reference_to_member_functions(Arc::clone(&m));
+
         }
+        Ok(m)
     }
 
     fn eval_try_statement(&mut self, trys: BlockStatement, except: Option<BlockStatement>, finally: Option<BlockStatement>) -> EvalResult<Option<Object>> {
@@ -1016,7 +1015,6 @@ impl Evaluator {
                     })),
                     global: Arc::clone(&self.env.global)
                 },
-                instance_id: Arc::clone(&self.instance_id),
                 ignore_com_err: false,
                 com_err_flg: false,
                 lines: self.lines.clone(),
@@ -1460,21 +1458,14 @@ impl Evaluator {
     fn eval_assign_expression(&mut self, left: Expression, value: Object) -> EvalResult<Object> {
         let assigned_value = value.clone();
         self.eval_instance_assignment(&left, &value)?;
-        let mut is_in_scope_auto_disposable = true;
-        let instance = match value {
-            Object::Instance(_, _) => Some(value.clone()),
-            _ => None,
-        };
         match left {
             Expression::Identifier(ident) => {
                 let Identifier(name) = ident;
-                // let mut env = self.env.lock().unwrap();
                 if let Some(Object::This(m)) = self.env.get_variable(&"this".into(), true) {
                     // moudele/classメンバであればその値を更新する
                     m.lock().unwrap().assign(&name, value.clone(), None)?;
-                    is_in_scope_auto_disposable = false;
                 }
-                is_in_scope_auto_disposable = ! self.env.assign(name, value)? && is_in_scope_auto_disposable;
+                self.env.assign(name, value)?;
             },
             Expression::Index(arr, i, h) => {
                 if h.is_some() {
@@ -1499,11 +1490,10 @@ impl Evaluator {
                                                 if let Some(Object::This(m)) = self.env.get_variable(&"this".into(), true) {
                                                     // moudele/classメンバであればその値を更新する
                                                     m.lock().unwrap().assign(&name, value.clone(), Some(index))?;
-                                                    is_in_scope_auto_disposable = false;
                                                 }
                                                 if i < arr.len() {
                                                     arr[i] = value;
-                                                    is_in_scope_auto_disposable = ! self.env.assign(name, Object::Array(arr))?;
+                                                    self.env.assign(name, Object::Array(arr))?;
                                                 }
                                             },
                                             _ => return Err(UError::new(
@@ -1552,9 +1542,8 @@ impl Evaluator {
                                                 if let Some(Object::This(m)) = self.env.get_variable(&"this".into(), true) {
                                                     // moudele/classメンバであればその値を更新する
                                                     m.lock().unwrap().assign(&name, value.clone(), Some(index))?;
-                                                    is_in_scope_auto_disposable = false;
                                                 } else {
-                                                    is_in_scope_auto_disposable = ! self.env.assign(name, Object::ByteArray(arr))?;
+                                                    self.env.assign(name, Object::ByteArray(arr))?;
                                                 }
                                             } else {
                                                 return Err(UError::new(
@@ -1585,17 +1574,27 @@ impl Evaluator {
                     Expression::DotCall(left, right) => {
                         match self.eval_expression(*left)? {
                             Object::Module(m) |
-                            Object::Instance(m, _) |
                             Object::This(m) => {
                                 match *right {
                                     Expression::Identifier(Identifier(name)) => {
                                         m.lock().unwrap().assign(&name, value, Some(index))?;
-                                        is_in_scope_auto_disposable = false;
                                     },
                                     _ => return Err(UError::new(
                                         UErrorKind::AssignError,
                                         UErrorMessage::SyntaxError
                                     ))
+                                }
+                            },
+                            Object::Instance(m) => {
+                                if let Expression::Identifier(Identifier(name)) = *right {
+                                    let ins = m.lock().unwrap();
+                                    let mut module = ins.module.lock().unwrap();
+                                    module.assign(&name, value, Some(index))?;
+                                } else {
+                                    return Err(UError::new(
+                                        UErrorKind::AssignError,
+                                        UErrorMessage::SyntaxError
+                                    ));
                                 }
                             },
                             // Value::Array
@@ -1655,18 +1654,27 @@ impl Evaluator {
                 };
             },
             Expression::DotCall(left, right) => match self.eval_expression(*left)? {
-                Object::Module(m) |
-                Object::Instance(m, _) => {
+                Object::Module(m) => {
                     match *right {
                         Expression::Identifier(i) => {
                             let Identifier(member_name) = i;
                             m.lock().unwrap().assign_public(&member_name, value, None)?;
-                            is_in_scope_auto_disposable = false;
                         },
                         _ => return Err(UError::new(
                             UErrorKind::AssignError,
                             UErrorMessage::SyntaxError
                         ))
+                    }
+                },
+                Object::Instance(m) => {
+                    if let Expression::Identifier(i) = *right {
+                        let ins = m.lock().unwrap();
+                        ins.module.lock().unwrap().assign_public(&i.0, value, None)?;
+                    } else {
+                        return Err(UError::new(
+                            UErrorKind::AssignError,
+                            UErrorMessage::SyntaxError
+                        ));
                     }
                 },
                 Object::This(m) => {
@@ -1681,7 +1689,7 @@ impl Evaluator {
                     }
                 },
                 Object::Global => if let Expression::Identifier(Identifier(name)) = *right {
-                    is_in_scope_auto_disposable = ! self.env.assign_public(name, value)?;
+                    self.env.assign_public(name, value)?;
                 } else {
                     return Err(UError::new(
                         UErrorKind::AssignError,
@@ -1749,14 +1757,6 @@ impl Evaluator {
                 UErrorKind::AssignError,
                 UErrorMessage::NotAVariable(left)
             ))
-        }
-        if ! is_in_scope_auto_disposable {
-            // スコープ内自動破棄対象じゃないインスタンスはグローバルに移す
-            if let Some(Object::Instance(ref ins, id)) = instance {
-                self.env.set_instances(Arc::clone(ins), id, true);
-                self.env.remove_variable(format!("@INSTANCE{}", id));
-                self.env.remove_from_instances(id);
-            }
         }
         Ok(assigned_value)
     }
@@ -2106,7 +2106,6 @@ impl Evaluator {
                 })),
                 global: Arc::clone(&self.env.global)
             },
-            instance_id: Arc::clone(&self.instance_id),
             ignore_com_err: false,
             com_err_flg: false,
             lines: self.lines.clone(),
@@ -2298,29 +2297,22 @@ impl Evaluator {
             },
             // class constructor
             Object::Class(name, block) => {
-                let instance = self.eval_module_statement(&name, block, true)?;
-                if let Object::Instance(ins, _) = instance {
-                    let constructor = match ins.lock().unwrap().get_function(&name) {
-                        Ok(o) => o,
-                        Err(_) => return Err(UError::new(
+                let m = self.eval_module_statement(&name, block)?;
+                let constructor = {
+                    let module = m.lock().unwrap();
+                    match module.get_constructor() {
+                        Some(constructor) => {
+                            constructor
+                        },
+                        None => return Err(UError::new(
                             UErrorKind::ClassError,
-                            UErrorMessage::ConstructorNotDefined(name),
-                        ))
-                    };
-                    if let Object::Function(f) = constructor {
-                        f.invoke(self, arguments, true)
-                    } else {
-                        Err(UError::new(
-                            UErrorKind::ClassError,
-                            UErrorMessage::ConstructorIsNotValid(name)
-                        ))
+                            UErrorMessage::ConstructorNotDefined(name.clone()),
+                        )),
                     }
-                } else {
-                    Err(UError::new(
-                        UErrorKind::ClassError,
-                        UErrorMessage::NotAClass(name)
-                    ))
-                }
+                };
+                constructor.invoke(self, arguments, true)?;
+                let ins = Arc::new(Mutex::new(ClassInstance::new(name, m, self.clone())));
+                Ok(Object::Instance(ins))
             },
             Object::Struct(name, size, members) => {
                 let ustruct =match arguments.len() {
@@ -2725,37 +2717,6 @@ impl Evaluator {
         Ok(Object::from_variant(&result)?)
     }
 
-    fn auto_dispose_instances(&mut self, refs: Vec<String>, include_global: bool) {
-        let ins_list = self.env.get_instances();
-        for ins_name in ins_list {
-            if ! refs.contains(&ins_name) {
-                let obj = self.env.get_tmp_instance(&ins_name, false).unwrap_or(Object::Empty);
-                if let Object::Instance(ins, _) = obj {
-                    let destructor = ins.lock().unwrap().get_destructor();
-                    if let Some(Object::Function(f)) = destructor {
-                        let _ = f.invoke(self, vec![], false);
-                    }
-                    ins.lock().unwrap().dispose();
-                }
-            }
-        }
-        if include_global {
-            let ins_list = self.env.get_global_instances();
-            for ins_name in ins_list {
-                let obj = self.env.get_tmp_instance(&ins_name, true).unwrap_or(Object::Empty);
-                if let Object::Instance(ins, _) = obj {
-                    {
-                        let destructor = ins.lock().unwrap().get_destructor();
-                        if let Some(Object::Function(f)) = destructor {
-                            let _ = f.invoke(self, vec![], false);
-                        }
-                    }
-                    ins.lock().unwrap().dispose();
-                }
-            }
-        }
-    }
-
     fn get_browser_property(browser: &Browser, member: &str) -> EvalResult<Object> {
         match member.to_ascii_lowercase().as_str() {
             "document" => {
@@ -2997,29 +2958,12 @@ impl Evaluator {
             ));
         };
         match instance {
-            Object::Module(m) |
-            Object::Instance(m, _) => {
-                let module = m.lock().unwrap(); // Mutex<Module>をロック
-                if module.is_local_member(&member) {
-                    if let Some(Object::This(this)) = self.env.get_variable(&"this".into(), true) {
-                        if this.try_lock().is_err() {
-                            // ロックに失敗した場合、上でロックしているMutexと同じだと判断
-                            // なので自分のモジュールメンバの値を返す
-                            return module.get_member(&member);
-                        }
-                    }
-                    Err(UError::new(
-                        UErrorKind::DotOperatorError,
-                        UErrorMessage::IsPrivateMember(module.name(), member)
-                    ))
-                } else if is_func {
-                    module.get_function(&member)
-                } else {
-                    match module.get_public_member(&member) {
-                        Ok(Object::ExpandableTB(text)) => Ok(self.expand_string(text, true)),
-                        res => res
-                    }
-                }
+            Object::Module(m) => {
+                self.get_module_member(&m, &member, is_func)
+            },
+            Object::Instance(m) => {
+                let ins = m.lock().unwrap();
+                self.get_module_member(&ins.module, &member, is_func)
             },
             Object::This(m) => {
                 let module = m.lock().unwrap();
@@ -3086,6 +3030,30 @@ impl Evaluator {
         }
     }
 
+    fn get_module_member(&self, mutex: &Arc<Mutex<Module>>, member: &String, is_func: bool) -> EvalResult<Object> {
+        let module = mutex.lock().unwrap(); // Mutex<Module>をロック
+        if module.is_local_member(&member) {
+            if let Some(Object::This(this)) = self.env.get_variable(&"this".into(), true) {
+                if this.try_lock().is_err() {
+                    // ロックに失敗した場合、上でロックしているMutexと同じだと判断
+                    // なので自分のモジュールメンバの値を返す
+                    return module.get_member(&member);
+                }
+            }
+            Err(UError::new(
+                UErrorKind::DotOperatorError,
+                UErrorMessage::IsPrivateMember(module.name(), member.to_string())
+            ))
+        } else if is_func {
+            module.get_function(&member)
+        } else {
+            match module.get_public_member(&member) {
+                Ok(Object::ExpandableTB(text)) => Ok(self.expand_string(text, true)),
+                res => res
+            }
+        }
+    }
+
     fn eval_uobject(&self, uobject: &UObject, index: Object) -> EvalResult<Object> {
         let o = match uobject.get(&index)? {
             Some(value) => match value {
@@ -3136,19 +3104,15 @@ impl Evaluator {
             Ok(o) => o,
             Err(_) => return Ok(())
         };
-        if let Object::Instance(ref m, _) = old_value {
+        if let Object::Instance(ref m) = old_value {
             // 既に破棄されてたらなんもしない
-            if m.lock().unwrap().is_disposed() {
+            if m.lock().unwrap().is_dropped {
                 return Ok(());
             }
             // Nothingが代入される場合は明示的にデストラクタを実行及びdispose()
             match new_value {
                 Object::Nothing => {
                     let mut ins = m.lock().unwrap();
-                    let destructor = ins.get_destructor();
-                    if let Some(Object::Function(f)) = destructor {
-                        let _ = f.invoke(self, vec![], false);
-                    }
                     ins.dispose();
                 },
                 _ => {},

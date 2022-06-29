@@ -1,4 +1,4 @@
-use super::Object;
+use super::{Object, Function};
 use crate::evaluator::{EvalResult};
 use crate::error::evaluator::{UError, UErrorKind, UErrorMessage, DefinitionType};
 use crate::evaluator::environment::{
@@ -37,8 +37,14 @@ impl Module {
         self.members.clone()
     }
 
-    pub fn get_constructor(&self) -> Option<Object> {
-        self.get(&self.name, Scope::Function)
+    pub fn get_constructor(&self) -> Option<Function> {
+        match self.get(&self.name, Scope::Function)? {
+            Object::Function(f) |
+            Object::AnonFunc(f) => {
+                Some(f)
+            },
+            _ => None
+        }
     }
 
     pub fn has_destructor(&self) -> bool {

@@ -801,9 +801,9 @@ pub fn type_of(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         Object::BuiltinFunction(_,_,_) => VariableType::TYPE_BUILTIN_FUNCTION,
         Object::Module(_) => VariableType::TYPE_MODULE,
         Object::Class(_,_) => VariableType::TYPE_CLASS,
-        Object::Instance(ref m,_) => {
+        Object::Instance(ref m) => {
             let ins = m.lock().unwrap();
-            if ins.is_disposed() {
+            if ins.is_dropped {
                 VariableType::TYPE_NOTHING
             } else {
                 VariableType::TYPE_CLASS_INSTANCE

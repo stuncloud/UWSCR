@@ -7,6 +7,7 @@ pub mod module;
 pub mod function;
 pub mod uobject;
 pub mod fopen;
+pub mod class;
 
 pub use self::hashtbl::{HashTbl, HashTblEnum};
 pub use self::version::Version;
@@ -17,6 +18,7 @@ pub use self::module::Module;
 pub use self::function::Function;
 pub use self::uobject::UObject;
 pub use self::fopen::*;
+pub use self::class::ClassInstance;
 
 use crate::ast::*;
 use crate::evaluator::builtins::BuiltinFunction;
@@ -56,8 +58,7 @@ pub enum Object {
     BuiltinFunction(String, i32, BuiltinFunction),
     Module(Arc<Mutex<Module>>),
     Class(String, BlockStatement), // class定義
-    Instance(Arc<Mutex<Module>>, u32), // classインスタンス, デストラクタが呼ばれたらNothingになる
-    Instances(Vec<String>), // ローカルのインスタンス参照リスト
+    Instance(Arc<Mutex<ClassInstance>>), // classインスタンス, デストラクタが呼ばれたらNothingになる
     DestructorNotFound, // デストラクタがなかった場合に返る、これが来たらエラーにせず終了する
     Null,
     Empty,
@@ -156,15 +157,14 @@ impl fmt::Display for Object {
             Object::SpecialFuncResult(_) => write!(f, "特殊関数の戻り値"),
             Object::Module(ref m) => write!(f, "module: {}", m.lock().unwrap().name()),
             Object::Class(ref name, _) => write!(f, "class: {}", name),
-            Object::Instance(ref m, id) => {
+            Object::Instance(ref m) => {
                 let ins = m.lock().unwrap();
-                if ins.is_disposed() {
+                if ins.is_dropped {
                     write!(f, "NOTHING")
                 } else {
-                    write!(f, "instance of {} [{}]", ins.name(), id)
+                    write!(f, "instance of {}", ins.name)
                 }
             },
-            Object::Instances(ref v) => write!(f, "auto disposable instances: {}", v.len()),
             Object::DestructorNotFound => write!(f, "no destructor"),
             Object::Handle(h) => write!(f, "{:?}", h),
             Object::RegEx(ref re) => write!(f, "regex: {}", re),
@@ -244,8 +244,10 @@ impl PartialEq for Object {
                 m2.try_lock().is_err()
             } else {false},
             Object::Class(n, _) => if let Object::Class(n2,_) = other {n==n2} else {false},
-            Object::Instance(_, i) => if let Object::Instance(_,i2) = other {i==i2} else {false},
-            Object::Instances(_) => false,
+            Object::Instance(m1) => if let Object::Instance(m2) = other {
+                let _ins = m1.lock().unwrap();
+                m2.try_lock().is_err()
+            } else {false},
             Object::DestructorNotFound => false,
             Object::Null => match other {
                 Object::Null => true,
@@ -337,9 +339,9 @@ impl Object {
             Object::EmptyParam |
             Object::Bool(false) |
             Object::Nothing => false,
-            Object::Instance(m, _) => {
+            Object::Instance(m) => {
                 let ins = m.lock().unwrap();
-                ! ins.is_disposed()
+                ! ins.is_dropped
             },
             Object::String(s) |
             Object::ExpandableTB(s) => s.len() > 0,

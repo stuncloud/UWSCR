@@ -159,13 +159,8 @@ impl Function {
 
         /* 戻り値 */
         let result = if is_instance {
-            match self.module {
-                Some(ref m) => Object::Instance(Arc::clone(m), evaluator.new_instance_id()),
-                None => return Err(UError::new(
-                    UErrorKind::ClassError,
-                    UErrorMessage::FailedToCreateNewInstance
-                )),
-            }
+            // この戻り値は使われない
+            Object::Empty
         } else if self.is_proc {
             Object::Empty
         } else {
@@ -174,20 +169,13 @@ impl Function {
 
         /* 参照渡しの処理 */
         let mut ref_values = vec![];
-        // 破棄しないインスタンスのリスト
-        let mut do_not_dispose = vec![];
 
         // 参照渡しされた変数の値を得ておく
         for (name, expr) in reference {
             let obj = evaluator.env.get_variable(&name, true).unwrap();
-            if let Object::Instance(_, ref id) = obj {
-                do_not_dispose.push(format!("@INSTANCE{}", id));
-            }
             ref_values.push((expr, obj));
         }
 
-        // 関数スコープのインスタンスを破棄
-        evaluator.auto_dispose_instances(do_not_dispose, false);
         // 関数スコープを抜ける
         evaluator.env.restore_scope(&self.outer);
 
@@ -197,20 +185,12 @@ impl Function {
                 Expression::Identifier(_) |
                 Expression::Index(_, _, _) |
                 Expression::DotCall(_, _) => {
-                    // 参照渡しでインスタンスを返す場合は自動破棄対象とする
-                    if let Object::Instance(ref ins, id) = value {
-                        evaluator.env.set_instances(Arc::clone(ins), id, false);
-                    }
                     evaluator.eval_assign_expression(expr, value)?;
                 },
                 _ => {}
             }
         }
 
-        // 戻り値がインスタンスなら呼び出し元スコープで自動破棄されるようにしておく
-        if let Object::Instance(ref ins, id) = result {
-            evaluator.env.set_instances(Arc::clone(ins), id, false);
-        }
 
         /* 結果を返す */
         Ok(result)
@@ -256,9 +236,9 @@ impl Evaluator {
                 _ => {}
             },
             ParamType::UserDefinition(ref name) => match obj {
-                Object::Instance(ref arc, _) => {
+                Object::Instance(ref arc) => {
                     let m = arc.lock().unwrap();
-                    if m.name().to_ascii_lowercase() == name.to_ascii_lowercase() {
+                    if m.name.to_ascii_lowercase() == name.to_ascii_lowercase() {
                         return Ok(());
                     }
                 },
