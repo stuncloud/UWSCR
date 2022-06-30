@@ -107,11 +107,13 @@ pub fn resize(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 
 pub fn slice(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let mut base = args.get_as_array(0, None)?;
-    let len = base.len();
-    let from = args.get_as_int(1, Some(0_usize))?
-        .min(len);
+    let len = base.len() as i32;
+    let from = args.get_as_int(1, Some(0_i32))?
+        .min(len)
+        .max(0) as usize;
     let to = args.get_as_int(2, Some(len-1))?
-        .min(len-1);
+        .min(len-1)
+        .max(0) as usize;
 
     let arr = if to >= from {
         base.drain(from..=to).collect::<Vec<_>>()
