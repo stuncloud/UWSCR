@@ -13,6 +13,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("reverse", 1, reverse);
     sets.add("resize", 3, resize);
     sets.add("slice", 3, slice);
+    sets.add("split", 5, split);
     sets
 }
 
@@ -121,4 +122,66 @@ pub fn slice(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         vec![]
     };
     Ok(Object::Array(arr))
+}
+
+pub fn split(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let str = args.get_as_string(0, None)?;
+    let delimiter = args.get_as_string(1, Some(" ".to_string()))?;
+    let empty_flg = args.get_as_bool(2, Some(false))?;
+    let num_flg = args.get_as_bool(3, Some(false))?;
+    let csv_flg = args.get_as_bool(4, Some(false))?;
+
+    if csv_flg {
+        let delimiter_byte = delimiter.bytes().next().unwrap_or(b',');
+        let mut reader = csv::ReaderBuilder::new()
+            .has_headers(false)
+            .delimiter(delimiter_byte)
+            .quote(b'"')
+            .trim(csv::Trim::All)
+            .flexible(true)
+            .from_reader(str.as_bytes());
+        match reader.records()
+            .next()
+            .map(|record| {
+                match record {
+                    Ok(r) => {
+                        let vec = r.into_iter()
+                            .map(|s| Object::String(s.into()))
+                            .collect::<Vec<_>>();
+                        Ok(vec)
+                    },
+                    Err(e) => Err(builtin_func_error(UErrorMessage::Any(e.to_string()), args.name())),
+                }
+            }) {
+            Some(r) => r.map(|v| Object::Array(v)),
+            None => Err(builtin_func_error(
+                UErrorMessage::Any("CSV conversion error".into()),
+                args.name()
+            )),
+        }
+    } else {
+        let split = str.split(delimiter.as_str());
+        let mut arr = if num_flg {
+            split.map(|s| {
+                match s.parse::<f64>() {
+                    Ok(n) => Object::Num(n),
+                    Err(_) => Object::String("".into()),
+                }
+            })
+            .collect::<Vec<_>>()
+        } else {
+            split.map(|s| Object::String(s.into())).collect::<Vec<_>>()
+        };
+        if empty_flg {
+            arr.retain(|o| {
+                if let Object::String(s) = o {
+                    s.len() > 0
+                } else {
+                    true
+                }
+            })
+        }
+        Ok(Object::Array(arr))
+    }
+
 }
