@@ -12,6 +12,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("qsort", 10, qsort);
     sets.add("reverse", 1, reverse);
     sets.add("resize", 3, resize);
+    sets.add("slice", 3, slice);
     sets
 }
 
@@ -102,4 +103,20 @@ pub fn resize(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         let i = arr.len() as isize - 1;
         Ok(Object::Num(i as f64))
     }
+}
+
+pub fn slice(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let mut base = args.get_as_array(0, None)?;
+    let len = base.len();
+    let from = args.get_as_int(1, Some(0_usize))?
+        .min(len);
+    let to = args.get_as_int(2, Some(len-1))?
+        .min(len-1);
+
+    let arr = if to >= from {
+        base.drain(from..=to).collect::<Vec<_>>()
+    } else {
+        vec![]
+    };
+    Ok(Object::Array(arr))
 }
