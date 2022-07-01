@@ -242,11 +242,13 @@ impl Evaluator {
                         return Ok(());
                     }
                 },
-                // Object::Enum(e) => {
-                //     if e.name.to_ascii_lowercase() == name.to_ascii_lowercase() {
-                //         return Ok(());
-                //     }
-                // },
+                Object::Num(n) => {
+                    if let Some(Object::Enum(e)) = self.env.get_variable(name, false) {
+                        if e.include(*n) {
+                            return Ok(());
+                        }
+                    }
+                },
                 _ => {}
             },
         }

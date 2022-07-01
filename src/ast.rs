@@ -306,6 +306,12 @@ impl UEnum {
             Ok(())
         }
     }
+    pub fn include(&self, value: f64) -> bool {
+        self.members
+            .iter()
+            .find(|(_, n)| *n == value)
+            .is_some()
+    }
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
