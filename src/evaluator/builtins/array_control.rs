@@ -15,6 +15,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("slice", 3, slice);
     sets.add("split", 5, split);
     sets.add("calcarray", 4, calcarray);
+    sets.add("setclear", 2, setclear);
     sets
 }
 
@@ -246,4 +247,16 @@ pub fn calcarray(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         },
         None => Ok(Object::Empty),
     }
+}
+
+pub fn setclear(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let mut arr = args.get_as_array(0, None)?;
+    let expr = args.get_expr(0);
+    let value = args.get_as_object(1, Some(Object::Empty))?;
+
+    arr.fill(value);
+
+    Ok(Object::SpecialFuncResult(SpecialFuncResultType::Reference(
+        vec![(expr, Object::Array(arr))]
+    )))
 }
