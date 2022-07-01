@@ -16,6 +16,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("split", 5, split);
     sets.add("calcarray", 4, calcarray);
     sets.add("setclear", 2, setclear);
+    sets.add("shiftarray", 2, shiftarray);
     sets
 }
 
@@ -255,6 +256,29 @@ pub fn setclear(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let value = args.get_as_object(1, Some(Object::Empty))?;
 
     arr.fill(value);
+
+    Ok(Object::SpecialFuncResult(SpecialFuncResultType::Reference(
+        vec![(expr, Object::Array(arr))]
+    )))
+}
+
+pub fn shiftarray(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let mut arr = args.get_as_array(0, None)?;
+    let expr = args.get_expr(0);
+    let shift = args.get_as_int(1, None::<i32>)?;
+    if shift == 0 {
+        return Ok(Object::Empty)
+    }
+
+    let len = arr.len();
+    let rotate = shift.abs() as usize;
+    arr.resize(len + rotate, Object::Empty);
+    if shift > 0 {
+        arr.rotate_right(rotate);
+    } else if shift < 0 {
+        arr.rotate_left(rotate);
+    }
+    arr.resize(len, Object::Empty);
 
     Ok(Object::SpecialFuncResult(SpecialFuncResultType::Reference(
         vec![(expr, Object::Array(arr))]
