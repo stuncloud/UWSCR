@@ -14,6 +14,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("resize", 3, resize);
     sets.add("slice", 3, slice);
     sets.add("split", 5, split);
+    sets.add("calcarray", 4, calcarray);
     sets
 }
 
@@ -184,4 +185,65 @@ pub fn split(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         Ok(Object::Array(arr))
     }
 
+}
+
+#[allow(non_camel_case_types)]
+#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive, PartialEq)]
+pub enum CalcConst {
+    CALC_ADD = 1,
+    CALC_MIN = 2,
+    CALC_MAX = 3,
+    CALC_AVR = 4,
+    CALC_UNKNOWN = 0,
+}
+impl From<f64> for CalcConst {
+    fn from(n: f64) -> Self {
+        match n as usize {
+            1 => Self::CALC_ADD,
+            2 => Self::CALC_MIN,
+            3 => Self::CALC_MAX,
+            4 => Self::CALC_AVR,
+            _ => Self::CALC_UNKNOWN,
+        }
+    }
+}
+
+pub fn calcarray(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let mut base = args.get_as_array(0, None)?;
+    let len = base.len() as i32;
+    let calc_const = args.get_as_const(1, None::<CalcConst>)?;
+    let from = args.get_as_int(2, Some(0_i32))?
+        .min(len)
+        .max(0) as usize;
+    let to = args.get_as_int(3, Some(len-1))?
+        .min(len-1)
+        .max(0) as usize;
+
+    let arr = if to >= from {
+        base.drain(from..=to).collect::<Vec<_>>()
+    } else {
+        vec![]
+    };
+
+    let calc_func = match calc_const {
+        CalcConst::CALC_ADD |
+        CalcConst::CALC_AVR => |a: f64, b: f64| a + b,
+        CalcConst::CALC_MIN => |a: f64, b: f64| a.min(b),
+        CalcConst::CALC_MAX => |a: f64, b: f64| a.max(b),
+        CalcConst::CALC_UNKNOWN => return Ok(Object::Empty),
+    };
+
+    let nums = arr.into_iter()
+        .filter_map(|o| if let Object::Num(n) = o {Some(n)} else {None});
+    let len = nums.clone().count() as f64;
+    let result = nums.reduce(calc_func);
+
+    match result {
+        Some(n) => if calc_const == CalcConst::CALC_AVR {
+            Ok(Object::Num(n / len))
+        } else {
+            Ok(Object::Num(n))
+        },
+        None => Ok(Object::Empty),
+    }
 }

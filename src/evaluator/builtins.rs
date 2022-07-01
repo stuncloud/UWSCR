@@ -592,6 +592,7 @@ pub fn init_builtins() -> Vec<NamedObject> {
     // array_control
     array_control::builtin_func_sets().set(&mut vec);
     set_builtin_consts::<array_control::QsrtConst>(&mut vec);
+    set_builtin_consts::<array_control::CalcConst>(&mut vec);
     // dialog.rs
     set_builtin_consts::<dialog::BtnConst>(&mut vec);
     set_builtin_consts::<dialog::SlctConst>(&mut vec);
