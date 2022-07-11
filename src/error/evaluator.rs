@@ -443,6 +443,7 @@ pub enum UErrorMessage {
     InvalidMemberOrIndex(String),
     FopenError(FopenError),
     NotAnByte(Object),
+    FailedToLoadImageFile(String),
 }
 
 impl fmt::Display for UErrorMessage {
@@ -921,7 +922,11 @@ impl fmt::Display for UErrorMessage {
             Self::NotAnByte(o) => write_locale!(f,
                 "不正な値({o}): バイト配列の要素には0-255しか代入できません",
                 "You can not assign {o} as byte",
-            )
+            ),
+            Self::FailedToLoadImageFile(path) => write_locale!(f,
+                "画像ファイルが正常に読み取れませんでした: {path}",
+                "Failed to load image file: {path}",
+            ),
         }
     }
 }

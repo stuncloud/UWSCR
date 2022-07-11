@@ -1,4 +1,5 @@
-use std::ffi::c_void;
+use std::{ffi::c_void, io::Read};
+use std::fs::File;
 
 use crate::error::evaluator::{UError, UErrorKind, UErrorMessage};
 
@@ -25,7 +26,7 @@ use windows::{
 };
 
 use opencv::{
-    core::{self, Mat, MatTrait, MatTraitConst, MatExprTraitConst},
+    core::{self, Mat, MatTrait, MatTraitConst, MatExprTraitConst, Vector},
     imgcodecs, imgproc,
 };
 
@@ -85,9 +86,17 @@ impl ChkImg {
         })
     }
     pub fn search(&self, path: &str, score: f64, max_count: Option<u8>) -> ChkImgResult<MatchedPoints> {
-        let templ = imgcodecs::imread(path, imgcodecs::IMREAD_GRAYSCALE)?;
-        let templ_width = *templ.mat_size().get(0).unwrap();
-        let templ_height = *templ.mat_size().get(1).unwrap();
+        let buf= {
+            let mut buf = vec![];
+            let mut f = File::open(path)?;
+            f.read_to_end(&mut buf)?;
+            Vector::from_slice(buf.as_slice())
+        };
+        let templ = imgcodecs::imdecode(&buf, imgcodecs::IMREAD_GRAYSCALE)?;
+        let templ_width = *templ.mat_size().get(0)
+            .ok_or(UError::new(UErrorKind::OpenCvError, UErrorMessage::FailedToLoadImageFile(path.into())))?;
+        let templ_height = *templ.mat_size().get(1)
+            .ok_or(UError::new(UErrorKind::OpenCvError, UErrorMessage::FailedToLoadImageFile(path.into())))?;
 
         // マッチング
         let mut result = Mat::default();
