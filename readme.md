@@ -24,8 +24,6 @@ Windows 10以上
 実行方法
 ----
 
-現時点ではコマンドプロンプトやPowerShellからの実行を推奨します
-
 ### スクリプトの実行
 
 ```powershell
@@ -71,7 +69,7 @@ uwscr --online-help
 UWSCRに関する問い合わせはこちら
 
 - [Discord](https://discord.gg/Y9VtAMZ)
-- [UWSC仮掲示板](http://www3.rocketbbs.com/601/siromasa.html)
+- [Issue](https://github.com/stuncloud/UWSCR/issues)
 
 開発支援
 ----
