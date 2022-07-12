@@ -268,15 +268,15 @@ fn find_window(title: String, class_name: String, timeout: f64) -> windows::core
         loop {
             EnumWindows(Some(enum_window_proc), LPARAM(lparam));
             if target.found {
-                break
+                let h = get_process_handle_from_hwnd(target.hwnd)?;
+                WaitForInputIdle(h, 1000); // 入力可能になるまで最大1秒待つ
+                CloseHandle(h);
+                break;
             }
             if limit.is_some() && now.elapsed() >= limit.unwrap() {
                 break;
             }
         }
-        let h = get_process_handle_from_hwnd(target.hwnd)?;
-        WaitForInputIdle(h, 1000); // 入力可能になるまで最大1秒待つ
-        CloseHandle(h);
         Ok(target.hwnd)
     }
 }
