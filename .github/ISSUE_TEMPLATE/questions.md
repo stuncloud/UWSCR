@@ -1,5 +1,5 @@
 ---
-name: 質問
+name: 質問　　
 about: UWSCRの動作や仕様に関する質問はこちら
 title: ''
 labels: question
