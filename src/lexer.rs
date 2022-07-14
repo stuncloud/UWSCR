@@ -360,8 +360,9 @@ impl Lexer {
                 lparen_pos
             } else {
                 self.read_char();
-                if self.ch == '\0' {
-                    // 行末の場合
+                // if self.ch == '\0' {
+                if ['\r', '\n', '\0'].contains(&self.ch) {
+                    // 行・分末の場合
                     self.pos
                 } else {
                     self.pos - 1
