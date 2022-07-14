@@ -18,7 +18,8 @@ pub struct Parser {
     with: Option<Expression>,
     with_count: usize,
     in_loop: bool,
-    script_name: String // callしたスクリプトの名前
+    script_name: String, // callしたスクリプトの名前,
+    script_dir: Option<PathBuf>,
 }
 
 impl Parser {
@@ -32,15 +33,19 @@ impl Parser {
             with: None,
             with_count: 0,
             in_loop: false,
-            script_name
+            script_name,
+            script_dir: None,
         };
         parser.bump();
         parser.bump();
 
         parser
     }
+    pub fn set_script_dir(&mut self, script_dir: PathBuf) {
+        self.script_dir = Some(script_dir);
+    }
 
-    pub fn call(lexer: Lexer, script_name: String) -> Self {
+    pub fn call(lexer: Lexer, script_name: String, script_dir: Option<PathBuf>) -> Self {
         let mut parser = Parser {
             lexer,
             current_token: TokenInfo::new(Token::Eof),
@@ -49,7 +54,8 @@ impl Parser {
             with: None,
             with_count: 0,
             in_loop: false,
-            script_name
+            script_name,
+            script_dir,
         };
         parser.bump();
         parser.bump();
@@ -736,7 +742,7 @@ impl Parser {
 
 
     fn parse_call_statement(&mut self) -> Option<Statement> {
-        let (script, name, args) = match self.next_token.token.clone() {
+        let (script, name, dir, args) = match self.next_token.token.clone() {
             Token::Path(dir, name) => {
                 // パス取得
                 self.bump();
@@ -752,10 +758,19 @@ impl Parser {
                     vec![]
                 };
 
-                let mut path = PathBuf::new();
-                if dir.is_some() {
-                    path.push(dir.unwrap());
+                let mut path = match &self.script_dir {
+                    Some(p) => p.clone(),
+                    None => PathBuf::new(),
+                };
+                if let Some(dir) = dir {
+                    let new_path = PathBuf::from(dir);
+                    if new_path.is_absolute() {
+                        path = new_path;
+                    } else {
+                        path.push(new_path);
+                    }
                 }
+                let dir = path.clone();
                 path.push(&name);
                 match path.extension() {
                     Some(os_str) => {
@@ -819,7 +834,7 @@ impl Parser {
                     };
                     break script;
                 };
-                (script, name.to_string(), args)
+                (script, name, Some(dir), args)
             },
             Token::Uri(uri) => {
                 let maybe_script = match reqwest::blocking::get(&uri) {
@@ -868,7 +883,7 @@ impl Parser {
                 } else {
                     vec![]
                 };
-                (script, uri, args)
+                (script, uri, None, args)
             },
             _ => {
                 self.error_got_unexpected_next_token();
@@ -878,7 +893,8 @@ impl Parser {
 
         let mut call_parser = Parser::call(
             Lexer::new(&script),
-            name
+            name,
+            dir
         );
         let call_program = call_parser.parse();
         let mut errors = call_parser.get_errors();

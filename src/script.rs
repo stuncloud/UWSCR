@@ -58,6 +58,7 @@ pub fn run(script: String, mut args: Vec<String>) -> Result<(), Vec<String>> {
     let visible = ! attach_console();
 
     let mut parser = Parser::new(Lexer::new(&script));
+    parser.set_script_dir(script_dir);
     let program = parser.parse();
     let errors = parser.get_errors();
     if errors.len() > 0 {
@@ -110,6 +111,7 @@ pub fn out_ast(script: String, path: &String) -> Result<(String, Option<String>)
     };
 
     let mut parser = Parser::new(Lexer::new(&script));
+    parser.set_script_dir(script_dir);
     let program = parser.parse();
     let errors = parser.get_errors();
     let err = if errors.len() > 0 {
