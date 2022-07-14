@@ -68,7 +68,7 @@ pub fn run(script: String, mut args: Vec<String>) -> Result<(), Vec<String>> {
     let env = Environment::new(params);
     let mut evaluator = Evaluator::new(env);
     Evaluator::start_logprint_win(visible);
-    if let Err(e) = evaluator.eval(program) {
+    if let Err(e) = evaluator.eval(program, true) {
         #[cfg(debug_assertions)] println!("\u{001b}[90m[script::run] Evaluator Error: {:#?}\u{001b}[0m", &e);
         let line = &e.get_line();
         return Err(vec![line.to_string(), e.to_string()])
@@ -88,7 +88,7 @@ pub fn run_code(code: String) -> Result<(), Vec<String>> {
 
     let env = Environment::new(vec![]);
     let mut evaluator = Evaluator::new(env);
-    if let Err(e) = evaluator.eval(program) {
+    if let Err(e) = evaluator.eval(program, true) {
         let line = &e.get_line();
         return Err(vec![line.to_string(), e.to_string()])
     }

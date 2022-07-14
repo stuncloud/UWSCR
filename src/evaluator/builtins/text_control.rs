@@ -1001,7 +1001,7 @@ mod tests {
         let mut e = Evaluator::new(Environment::new(vec![]));
         if let Some(input) = input {
             let program = Parser::new(Lexer::new(input)).parse();
-            if let Err(err) = e.eval(program) {
+            if let Err(err) = e.eval(program, false) {
                 panic!("\nError:\n{:#?}\ninput:\n{}\n", err, input);
             }
         }
@@ -1010,7 +1010,7 @@ mod tests {
 
     fn builtin_test(e: &mut Evaluator, input: &str, expected: EvalResult<Option<Object>>) {
         let program = Parser::new(Lexer::new(input)).parse();
-        let result = e.eval(program);
+        let result = e.eval(program, false);
         match expected {
             Ok(expected_obj) => match result {
                 Ok(result_obj) => if result_obj.is_some() && expected_obj.is_some() {

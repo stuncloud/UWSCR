@@ -54,7 +54,7 @@ pub fn run(script: Option<String>, exe_path: String, script_path: Option<String>
             }
             return;
         } else {
-            match evaluator.eval(program) {
+            match evaluator.eval(program, false) {
                 Err(e) => {
                     eprintln!("{}", e);
                     return;
@@ -102,8 +102,9 @@ pub fn run(script: Option<String>, exe_path: String, script_path: Option<String>
                 }
             }
         } else {
-            match evaluator.eval(program) {
+            match evaluator.eval(program, false) {
                 Ok(Some(Object::Exit)) => {
+                    evaluator.clear();
                     println!("bye!");
                     break;
                 },

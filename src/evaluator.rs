@@ -64,7 +64,7 @@ pub struct  Evaluator {
 }
 
 impl Evaluator {
-    fn clear(&mut self) {
+    pub fn clear(&mut self) {
         self.env.clear();
     }
 
@@ -110,7 +110,7 @@ impl Evaluator {
         }
     }
 
-    pub fn eval(&mut self, program: Program) -> EvalResult<Option<Object>> {
+    pub fn eval(&mut self, program: Program, clear: bool) -> EvalResult<Option<Object>> {
         // このスレッドでのCOMを有効化
         unsafe {
             CoInitializeEx(ptr::null_mut() as *mut c_void, COINIT_APARTMENTTHREADED)?;
@@ -148,7 +148,9 @@ impl Evaluator {
                 }
             }
         }
-        self.clear();
+        if clear {
+            self.clear();
+        }
 
         // // COMの解除
         // unsafe {
@@ -2166,7 +2168,7 @@ impl Evaluator {
                         UErrorMessage::ParserErrors(parse_errors),
                     ));
                 }
-                self.eval(program)?.map_or(Object::Empty, |o| o)
+                self.eval(program, false)?.map_or(Object::Empty, |o| o)
             },
             Object::SpecialFuncResult(t) => match t {
                 SpecialFuncResultType::GetEnv => {
@@ -3137,7 +3139,7 @@ mod tests {
         if ast {
             println!("{:?}", program);
         }
-        let result = e.eval(program);
+        let result = e.eval(program, true);
         match expected {
             Ok(expected_obj) => match result {
                 Ok(result_obj) => if result_obj.is_some() && expected_obj.is_some() {
@@ -3164,7 +3166,7 @@ mod tests {
     fn eval_env(input: &str) -> Evaluator {
         let program = Parser::new(Lexer::new(input)).parse();
         let mut e = Evaluator::new(Environment::new(vec![]));
-        match e.eval(program) {
+        match e.eval(program, false) {
             Ok(_) => e,
             Err(err) => panic!("\nError:\n{:#?}\ninput:\n{}\n", err, input)
         }
@@ -3173,7 +3175,7 @@ mod tests {
     //
     fn eval_test_with_env(e: &mut Evaluator, input: &str, expected: Result<Option<Object>, UError>) {
         let program = Parser::new(Lexer::new(input)).parse();
-        let result = e.eval(program);
+        let result = e.eval(program, false);
         match expected {
             Ok(expected_obj) => match result {
                 Ok(result_obj) => if result_obj.is_some() && expected_obj.is_some() {
