@@ -251,7 +251,7 @@ pub fn slctbox(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 }
 
 pub fn popupmenu(args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let list = args.get_as_array(0, None)?;
+    let list = args.get_as_array_include_hashtbl(0, None, true)?;
     let x = args.get_as_int_or_empty(1)?;
     let y = args.get_as_int_or_empty(2)?;
     let popup = PopupMenu::new(list)

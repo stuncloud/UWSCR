@@ -38,7 +38,10 @@ impl HashTbl {
     }
 
     pub fn keys(&self) -> Vec<Object> {
-        self.map.keys().map(|key| Object::String(key.clone())).collect::<Vec<Object>>()
+        self.map.keys().map(|key| Object::String(key.clone())).collect()
+    }
+    pub fn values(&self) -> Vec<Object> {
+        self.map.values().map(|val| val.clone()).collect()
     }
 
     pub fn len(&self) -> usize {

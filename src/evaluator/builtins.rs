@@ -368,6 +368,24 @@ impl BuiltinFuncArgs {
             }
         })
     }
+    /// 配列として受ける引数、連想配列も含む
+    pub fn get_as_array_include_hashtbl(&self, i: usize, default: Option<Vec<Object>>, get_hash_key: bool) -> BuiltInResult<Vec<Object>> {
+        get_arg_value!(self, i, default, {
+            let arg = self.item(i);
+            match arg {
+                Object::Array(arr) => Ok(arr),
+                Object::HashTbl(m) => {
+                    let hash = m.lock().unwrap();
+                    if get_hash_key {
+                        Ok(hash.keys())
+                    } else {
+                        Ok(hash.values())
+                    }
+                },
+                _ => Err(builtin_func_error(UErrorMessage::BuiltinArgInvalid(arg), self.name()))
+            }
+        })
+    }
     pub fn get_as_array_or_empty(&self, i: usize) -> BuiltInResult<Option<Vec<Object>>> {
         let default = Some(None::<Vec<Object>>);
         get_arg_value!(self, i, default, {

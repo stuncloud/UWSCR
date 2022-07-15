@@ -21,7 +21,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
 }
 
 fn join(args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let arr = args.get_as_array(0, None)?;
+    let arr = args.get_as_array_include_hashtbl(0, None, false)?;
     let sep = args.get_as_string(1, Some(" ".into()))?;
     let empty_flg = args.get_as_bool(2, Some(false))?;
     let from = args.get_as_int::<usize>(3, Some(0))?;
