@@ -627,7 +627,7 @@ impl Lexer {
         let pos = self.pos;
         let len = 12; // length of "endtextblock"
         self.skip_whitespace();
-        let result = if self.ch == 'e' {
+        let result = if ['e', 'E'].contains(&self.ch) {
             match self.input[self.pos..(self.pos + len)].into_iter().collect::<String>().to_ascii_lowercase().as_str() {
                 "endtextblock" => {
                     true
