@@ -1304,8 +1304,8 @@ impl Evaluator {
             Ok(Object::Num(-n))
         } else {
             Err(UError::new(
-                UErrorKind::EvaluatorError,
-                UErrorMessage::NotANumber(right)
+                UErrorKind::PrefixError('-'),
+                UErrorMessage::PrefixShouldBeNumber(right)
             ))
         }
     }
@@ -1315,8 +1315,8 @@ impl Evaluator {
             Ok(Object::Num(n))
         } else {
             Err(UError::new(
-                UErrorKind::EvaluatorError,
-                UErrorMessage::NotANumber(right)
+                UErrorKind::PrefixError('+'),
+                UErrorMessage::PrefixShouldBeNumber(right)
             ))
         }
     }

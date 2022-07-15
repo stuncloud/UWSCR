@@ -163,6 +163,7 @@ pub enum UErrorKind {
     OpenCvError,
     ScreenShotError,
     ZipError,
+    PrefixError(char),
 }
 
 impl fmt::Display for UErrorKind {
@@ -331,6 +332,10 @@ impl fmt::Display for UErrorKind {
                 "Zipエラー",
                 "Zip error",
             ),
+            Self::PrefixError(c) => write_locale!(f,
+                "接頭辞({c})エラー",
+                "Prefix {c} error",
+            ),
         }
     }
 }
@@ -444,6 +449,7 @@ pub enum UErrorMessage {
     FopenError(FopenError),
     NotAnByte(Object),
     FailedToLoadImageFile(String),
+    PrefixShouldBeNumber(Object),
 }
 
 impl fmt::Display for UErrorMessage {
@@ -926,6 +932,10 @@ impl fmt::Display for UErrorMessage {
             Self::FailedToLoadImageFile(path) => write_locale!(f,
                 "画像ファイルが正常に読み取れませんでした: {path}",
                 "Failed to load image file: {path}",
+            ),
+            Self::PrefixShouldBeNumber(o) => write_locale!(f,
+                "接頭辞が数値以外の値に付加されました: {o}",
+                "Prefix can only be added to number but given value was '{o}'",
             ),
         }
     }
