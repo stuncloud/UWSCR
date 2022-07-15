@@ -471,11 +471,10 @@ impl Shell {
         let mut shell = Command::new(self.shell.to_string());
         if self.shell == ShellType::Cmd {
             // doscmd
-            shell.args([
-                &self.option.to_string(),
-                "/C",
-                &self.command
-            ]);
+            shell.raw_arg(&self.option.to_string());
+            shell.raw_arg("/C");
+            shell.raw_arg(&self.command);
+
         } else {
             // powershell, pwsh
             if self.option == ShellOption::PsNoProfile {
@@ -509,12 +508,15 @@ impl Shell {
             shell.creation_flags(CREATE_NO_WINDOW.0);
             if self.wait {
                 let output = shell.output()?;
-                // let out_raw = if output.stderr.len()> 0 {
-                //     output.stderr
-                // } else {
-                //     output.stdout
-                // };
-                let out_raw = output.stdout;
+                let out_raw = if self.shell == ShellType::Cmd {
+                    if output.stderr.len()> 0 {
+                        output.stderr
+                    } else {
+                        output.stdout
+                    }
+                } else {
+                    output.stdout
+                };
                 let out_string = match self.option {
                     ShellOption::CmdUnicode => Self::unicode_output_to_string(&out_raw),
                     ShellOption::CmdAnsi => from_ansi_bytes(&out_raw),
