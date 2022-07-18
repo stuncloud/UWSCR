@@ -220,12 +220,14 @@ pub enum Statement {
         from: Expression,
         to: Expression,
         step: Option<Expression>,
-        block: BlockStatement
+        block: BlockStatement,
+        alt: Option<BlockStatement>, // else区
     },
     ForIn {
         loopvar: Identifier,
         collection: Expression,
-        block: BlockStatement
+        block: BlockStatement,
+        alt: Option<BlockStatement>, // else区
     },
     While(Expression, BlockStatement),
     Repeat(Expression, BlockStatement),

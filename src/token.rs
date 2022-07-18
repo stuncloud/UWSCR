@@ -136,37 +136,23 @@ pub enum Token {
     If,
     IfB,
     Then,
-    Else,
-    ElseIf,
-    EndIf,
 
     While,
-    Wend,
-
     Repeat,
-    Until,
 
     For,
     To,
     In,
     Step,
-    Next,
 
     Select,
-    Case,
-    Default,
-    Selend,
 
     Continue,
     Break,
 
     With,
-    EndWith,
 
     Try,
-    Except,
-    Finally,
-    EndTry,
 
     TextBlock(bool),
     EndTextBlock,
@@ -174,24 +160,17 @@ pub enum Token {
 
     Function,
     Procedure,
-    Fend,
-
-    Exit,
-    ExitExit,
 
     Module,
-    EndModule,
     Class,
-    EndClass,
 
     Enum,
-    EndEnum,
 
     Struct,
-    EndStruct,
 
     Hash, // hashtblシンタックスシュガー用
-    EndHash,
+
+    BlockEnd(BlockEnd),
 
     // Option
     Option(String),
@@ -202,6 +181,8 @@ pub enum Token {
     ComErrFlg,
 
     // その他
+    Exit,
+    ExitExit,
     Comment, // // ※文末扱い
 
     // 引数関連
@@ -214,3 +195,26 @@ pub enum Token {
     Arrow,
 }
 
+#[derive(Debug, Clone, PartialEq, ToString)]
+pub enum BlockEnd {
+    Else,
+    ElseIf,
+    EndIf,
+    Case,
+    Default,
+    Selend,
+    Wend,
+    Until,
+    Next,
+    EndFor,
+    EndWith,
+    Fend,
+    EndModule,
+    EndClass,
+    Except,
+    Finally,
+    EndTry,
+    EndEnum,
+    EndStruct,
+    EndHash,
+}

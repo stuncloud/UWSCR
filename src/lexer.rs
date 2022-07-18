@@ -1,3 +1,4 @@
+use crate::token::BlockEnd;
 use crate::token::Token;
 use std::f64;
 use std::fmt;
@@ -409,13 +410,13 @@ impl Lexer {
             "if" => Token::If,
             "ifb" => Token::IfB,
             "then" => Token::Then,
-            "else" => Token::Else,
-            "elseif" => Token::ElseIf,
-            "endif" => Token::EndIf,
+            "else" => Token::BlockEnd(BlockEnd::Else),
+            "elseif" => Token::BlockEnd(BlockEnd::ElseIf),
+            "endif" => Token::BlockEnd(BlockEnd::EndIf),
             "select" => Token::Select,
-            "case" => Token::Case,
-            "default" => Token::Default,
-            "selend" => Token::Selend,
+            "case" => Token::BlockEnd(BlockEnd::Case),
+            "default" => Token::BlockEnd(BlockEnd::Default),
+            "selend" => Token::BlockEnd(BlockEnd::Selend),
             "print" => Token::Print,
             "call" => {
                 self.is_call = true;
@@ -423,22 +424,23 @@ impl Lexer {
             },
             "def_dll" => Token::DefDll,
             "while" => Token::While,
-            "wend" => Token::Wend,
+            "wend" => Token::BlockEnd(BlockEnd::Wend),
             "repeat" => Token::Repeat,
-            "until" => Token::Until,
+            "until" => Token::BlockEnd(BlockEnd::Until),
             "for" => Token::For,
             "to" => Token::To,
             "in" => Token::In,
             "step" => Token::Step,
-            "next" => Token::Next,
+            "next" => Token::BlockEnd(BlockEnd::Next),
+            "endfor" => Token::BlockEnd(BlockEnd::EndFor),
             "continue" => Token::Continue,
             "break" => Token::Break,
             "with" => Token::With,
-            "endwith" => Token::EndWith,
+            "endwith" => Token::BlockEnd(BlockEnd::EndWith),
             "try" => Token::Try,
-            "except" => Token::Except,
-            "finally" => Token::Finally,
-            "endtry" => Token::EndTry,
+            "except" => Token::BlockEnd(BlockEnd::Except),
+            "finally" => Token::BlockEnd(BlockEnd::Finally),
+            "endtry" => Token::BlockEnd(BlockEnd::EndTry),
             "textblock" => {
                 self.textblock_flg = true;
                 Token::TextBlock(false)
@@ -449,24 +451,24 @@ impl Lexer {
             },
             "endtextblock" => Token::EndTextBlock,
             "enum" => Token::Enum,
-            "endenum" => Token::EndEnum,
+            "endenum" => Token::BlockEnd(BlockEnd::EndEnum),
             "struct" => Token::Struct,
-            "endstruct" => Token::EndStruct,
+            "endstruct" => Token::BlockEnd(BlockEnd::EndStruct),
             "function" => Token::Function,
             "procedure" => Token::Procedure,
-            "fend" => Token::Fend,
+            "fend" => Token::BlockEnd(BlockEnd::Fend),
             "exit" => Token::Exit,
             "exitexit" => Token::ExitExit,
             "module" => Token::Module,
-            "endmodule" => Token::EndModule,
+            "endmodule" => Token::BlockEnd(BlockEnd::EndModule),
             "class" => Token::Class,
-            "endclass" => Token::EndClass,
+            "endclass" => Token::BlockEnd(BlockEnd::EndClass),
             "dim" => Token::Dim,
             "public" => Token::Public,
             "const" => Token::Const,
             "hashtbl" => Token::HashTable,
             "hash" => Token::Hash,
-            "endhash" => Token::EndHash,
+            "endhash" => Token::BlockEnd(BlockEnd::EndHash),
             "mod" => Token::Mod,
             "and" => Token::And,
             "or" => Token::Or,
@@ -696,7 +698,7 @@ impl Lexer {
 #[cfg(test)]
 mod test {
     use crate::lexer::Lexer;
-    use crate::token::Token;
+    use crate::token::{Token, BlockEnd};
 
     fn test_next_token(input:&str, expected_tokens:Vec<Token>) {
         let mut  lexer = Lexer::new(input);
@@ -855,7 +857,7 @@ fend
             Token::Plus,
             Token::Identifier("bar".to_string()),
             Token::Eol,
-            Token::Fend,
+            Token::BlockEnd(BlockEnd::Fend),
         ];
         test_next_token(input, tokens);
     }

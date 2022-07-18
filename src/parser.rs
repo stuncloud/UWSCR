@@ -1,6 +1,6 @@
 use crate::ast::*;
 use crate::lexer::{Lexer, Position, TokenInfo};
-use crate::token::Token;
+use crate::token::{Token, BlockEnd};
 use crate::{get_script, get_utf8};
 use crate::serializer;
 use crate::error::parser::{ParseError, ParseErrorKind};
@@ -112,29 +112,11 @@ impl Parser {
     }
 
     fn is_current_token_end_of_block(&mut self) -> bool {
-        let eobtokens = vec![
-            Token::Else,
-            Token::ElseIf,
-            Token::EndIf,
-            Token::Case,
-            Token::Default,
-            Token::Selend,
-            Token::Wend,
-            Token::Until,
-            Token::Next,
-            Token::EndWith,
-            Token::Fend,
-            Token::EndModule,
-            Token::EndClass,
-            Token::Rbrace,
-            Token::Except,
-            Token::Finally,
-            Token::EndTry,
-            Token::EndEnum,
-            Token::EndStruct,
-            Token::EndHash,
-        ];
-        self.is_current_token_in(eobtokens)
+        match &self.current_token.token {
+            Token::BlockEnd(_) |
+            Token::Rbrace => true,
+            _ => false
+        }
     }
 
     fn is_next_token(&mut self, token: &Token) -> bool {
@@ -658,7 +640,7 @@ impl Parser {
         self.bump();
         self.bump();
         let mut members = vec![];
-        while ! self.is_current_token(&Token::EndHash) {
+        while ! self.is_current_token(&Token::BlockEnd(BlockEnd::EndHash)) {
             let expression = self.parse_expression(Precedence::Lowest, false);
             if let Some(Expression::Infix(infix, left, right)) = &expression {
                 if *infix == Infix::Equal {
@@ -1171,9 +1153,9 @@ impl Parser {
             self.bump();
             self.bump();
         }
-        if ! self.is_current_token(&Token::EndStruct) {
+        if ! self.is_current_token(&Token::BlockEnd(BlockEnd::EndStruct)) {
             self.errors.push(ParseError::new(
-                ParseErrorKind::InvalidBlockEnd(Token::EndStruct, self.current_token.token()),
+                ParseErrorKind::InvalidBlockEnd(Token::BlockEnd(BlockEnd::EndStruct), self.current_token.token()),
                 self.current_token.pos,
                 self.script_name()
             ));
@@ -1265,13 +1247,23 @@ impl Parser {
                 self.bump();
                 let block = self.parse_loop_block_statement();
 
-                if ! self.is_current_token(&Token::Next) {
-                    self.error_got_invalid_close_token(Token::Next);
-                    return None;
-                }
-                Some(Statement::For{
-                    loopvar, from, to, step, block
-                })
+                let alt = match &self.current_token.token {
+                    Token::BlockEnd(BlockEnd::Next) => None,
+                    Token::BlockEnd(BlockEnd::Else) => {
+                        self.bump();
+                        let alt = self.parse_block_statement();
+                        if ! self.is_current_token(&Token::BlockEnd(BlockEnd::EndFor)) {
+                            self.error_got_invalid_close_token(Token::BlockEnd(BlockEnd::EndFor));
+                            return None;
+                        }
+                        Some(alt)
+                    },
+                    _ => {
+                        self.error_got_invalid_close_token(Token::BlockEnd(BlockEnd::Next));
+                        return None;
+                    },
+                };
+                Some(Statement::For{loopvar, from, to, step, block, alt})
             },
             Token::In => {
                 // for-in
@@ -1284,11 +1276,23 @@ impl Parser {
                 self.bump();
                 let block = self.parse_loop_block_statement();
 
-                if ! self.is_current_token(&Token::Next) {
-                    self.error_got_invalid_close_token(Token::Next);
-                    return None;
-                }
-                Some(Statement::ForIn{loopvar, collection, block})
+                let alt = match &self.current_token.token {
+                    Token::BlockEnd(BlockEnd::Next) => None,
+                    Token::BlockEnd(BlockEnd::Else) => {
+                        self.bump();
+                        let alt = self.parse_block_statement();
+                        if ! self.is_current_token(&Token::BlockEnd(BlockEnd::EndFor)) {
+                            self.error_got_invalid_close_token(Token::BlockEnd(BlockEnd::EndFor));
+                            return None;
+                        }
+                        Some(alt)
+                    },
+                    _ => {
+                        self.error_got_invalid_close_token(Token::BlockEnd(BlockEnd::Next));
+                        return None;
+                    },
+                };
+                Some(Statement::ForIn{loopvar, collection, block, alt})
             },
             _ => {
                 self.error_got_unexpected_token();
@@ -1304,8 +1308,8 @@ impl Parser {
             None => return None
         };
         let block = self.parse_loop_block_statement();
-        if ! self.is_current_token(&Token::Wend) {
-            self.error_got_invalid_close_token(Token::Wend);
+        if ! self.is_current_token(&Token::BlockEnd(BlockEnd::Wend)) {
+            self.error_got_invalid_close_token(Token::BlockEnd(BlockEnd::Wend));
             return None;
         }
         Some(Statement::While(expression, block))
@@ -1314,8 +1318,8 @@ impl Parser {
     fn parse_repeat_statement(&mut self) -> Option<Statement> {
         self.bump();
         let block = self.parse_loop_block_statement();
-        if ! self.is_current_token(&Token::Until) {
-            self.error_got_invalid_close_token(Token::Until);
+        if ! self.is_current_token(&Token::BlockEnd(BlockEnd::Until)) {
+            self.error_got_invalid_close_token(Token::BlockEnd(BlockEnd::Until));
             return None;
         }
         self.bump();
@@ -1354,8 +1358,8 @@ impl Parser {
                 with_temp_assignment.unwrap()
             ));
         }
-        if ! self.is_current_token(&Token::EndWith) {
-            self.error_got_invalid_close_token(Token::EndWith);
+        if ! self.is_current_token(&Token::BlockEnd(BlockEnd::EndWith)) {
+            self.error_got_invalid_close_token(Token::BlockEnd(BlockEnd::EndWith));
             return None;
         }
         self.set_with(current_with);
@@ -1368,16 +1372,16 @@ impl Parser {
         let mut except = None;
         let mut finally = None;
         match self.current_token.token.clone() {
-            Token::Except => {
+            Token::BlockEnd(BlockEnd::Except) => {
                 self.bump();
                 except = Some(self.parse_block_statement());
             },
-            Token::Finally => {},
+            Token::BlockEnd(BlockEnd::Finally) => {},
             t => {
                 self.errors.push(ParseError::new(
                     ParseErrorKind::UnexpectedToken3(vec![
-                        Token::Except,
-                        Token::Finally
+                        Token::BlockEnd(BlockEnd::Except),
+                        Token::BlockEnd(BlockEnd::Finally)
                     ], t),
                     self.current_token.pos,
                     self.script_name()
@@ -1386,7 +1390,7 @@ impl Parser {
             },
         }
         match self.current_token.token.clone() {
-            Token::Finally => {
+            Token::BlockEnd(BlockEnd::Finally) => {
                 self.bump();
                 finally = match self.parse_finally_block_statement() {
                     Ok(b) => Some(b),
@@ -1400,12 +1404,12 @@ impl Parser {
                     }
                 };
             },
-            Token::EndTry => {},
+            Token::BlockEnd(BlockEnd::EndTry) => {},
             t => {
                 self.errors.push(ParseError::new(
                     ParseErrorKind::UnexpectedToken3(vec![
-                        Token::Finally,
-                        Token::EndTry
+                        Token::BlockEnd(BlockEnd::Finally),
+                        Token::BlockEnd(BlockEnd::EndTry)
                     ], t),
                     self.current_token.pos,
                     self.script_name()
@@ -1413,8 +1417,8 @@ impl Parser {
                 return None;
             },
         }
-        if ! self.is_current_token(&Token::EndTry) {
-            self.error_got_invalid_close_token(Token::EndTry);
+        if ! self.is_current_token(&Token::BlockEnd(BlockEnd::EndTry)) {
+            self.error_got_invalid_close_token(Token::BlockEnd(BlockEnd::EndTry));
             return None;
         }
 
@@ -1821,7 +1825,7 @@ impl Parser {
                 return None;
             }
         }
-        if ! self.is_expected_close_token(Token::EndEnum) {
+        if ! self.is_expected_close_token(Token::BlockEnd(BlockEnd::EndEnum)) {
             return None;
         }
         Some(Statement::Enum(name, u_enum))
@@ -2372,7 +2376,7 @@ impl Parser {
                 Some(s) => s,
                 None => return None
             };
-            let alternative = if self.is_next_token(&Token::Else) {
+            let alternative = if self.is_next_token(&Token::BlockEnd(BlockEnd::Else)) {
                 self.bump();
                 self.bump();
                 match self.parse_statement() {
@@ -2397,7 +2401,7 @@ impl Parser {
         // endif
         let consequence = self.parse_block_statement();
 
-        if self.is_current_token(&Token::EndIf) {
+        if self.is_current_token(&Token::BlockEnd(BlockEnd::EndIf)) {
             return Some(Statement::If {
                 condition,
                 consequence,
@@ -2405,10 +2409,10 @@ impl Parser {
             });
         }
 
-        if self.is_current_token(&Token::Else) {
+        if self.is_current_token(&Token::BlockEnd(BlockEnd::Else)) {
             let alternative:Option<BlockStatement> = Some(self.parse_block_statement());
-            if ! self.is_current_token(&Token::EndIf) {
-                self.error_got_invalid_close_token(Token::EndIf);
+            if ! self.is_current_token(&Token::BlockEnd(BlockEnd::EndIf)) {
+                self.error_got_invalid_close_token(Token::BlockEnd(BlockEnd::EndIf));
                 return None;
             }
             return Some(Statement::If {
@@ -2419,14 +2423,14 @@ impl Parser {
         }
 
         let mut alternatives: Vec<(Option<Expression>, BlockStatement)> = vec![];
-        while self.is_current_token_in(vec![Token::Else, Token::ElseIf]) {
-            if self.is_current_token(&Token::Else) {
+        while self.is_current_token_in(vec![Token::BlockEnd(BlockEnd::Else), Token::BlockEnd(BlockEnd::ElseIf)]) {
+            if self.is_current_token(&Token::BlockEnd(BlockEnd::Else)) {
                 alternatives.push(
                     (None, self.parse_block_statement())
                 );
                 // break;
             } else {
-                if self.is_current_token(&Token::ElseIf) {
+                if self.is_current_token(&Token::BlockEnd(BlockEnd::ElseIf)) {
                     self.bump();
                     let elseifcond = match self.parse_expression(Precedence::Lowest, false) {
                         Some(e) => e,
@@ -2438,8 +2442,8 @@ impl Parser {
                 }
             }
         }
-        if ! self.is_current_token(&Token::EndIf) {
-            self.error_got_invalid_close_token(Token::EndIf);
+        if ! self.is_current_token(&Token::BlockEnd(BlockEnd::EndIf)) {
+            self.error_got_invalid_close_token(Token::BlockEnd(BlockEnd::EndIf));
             return None;
         }
         Some(Statement::ElseIf {
@@ -2460,9 +2464,9 @@ impl Parser {
         let mut default = None;
         self.bump();
         self.bump();
-        while self.is_current_token_in(vec![Token::Case, Token::Default]) {
+        while self.is_current_token_in(vec![Token::BlockEnd(BlockEnd::Case), Token::BlockEnd(BlockEnd::Default)]) {
             match self.current_token.token {
-                Token::Case => {
+                Token::BlockEnd(BlockEnd::Case) => {
                     let case_values = match self.parse_expression_list(Token::Eol) {
                         Some(list) => list,
                         None => return None
@@ -2472,15 +2476,15 @@ impl Parser {
                         self.parse_block_statement()
                     ));
                 },
-                Token::Default => {
+                Token::BlockEnd(BlockEnd::Default) => {
                     self.bump();
                     default = Some(self.parse_block_statement());
                 },
                 _ => return None
             }
         }
-        if ! self.is_current_token(&Token::Selend) {
-            self.error_got_invalid_close_token(Token::Selend);
+        if ! self.is_current_token(&Token::BlockEnd(BlockEnd::Selend)) {
+            self.error_got_invalid_close_token(Token::BlockEnd(BlockEnd::Selend));
             return None;
         }
         Some(Statement::Select {expression, cases, default})
@@ -2525,8 +2529,8 @@ impl Parser {
         self.bump();
         let body = self.parse_block_statement();
 
-        if ! self.is_current_token(&Token::Fend) {
-            self.error_got_invalid_close_token(Token::Fend);
+        if ! self.is_current_token(&Token::BlockEnd(BlockEnd::Fend)) {
+            self.error_got_invalid_close_token(Token::BlockEnd(BlockEnd::Fend));
             return None;
         }
         Some(Statement::Function{name, params, body, is_proc, is_async})
@@ -2543,10 +2547,10 @@ impl Parser {
         };
         self.bump();
         let mut block = vec![];
-        while ! self.is_current_token(&Token::EndModule) {
+        while ! self.is_current_token(&Token::BlockEnd(BlockEnd::EndModule)) {
             if self.is_current_token(&Token::Eof) {
                 self.errors.push(ParseError::new(
-                    ParseErrorKind::InvalidBlockEnd(Token::EndModule, self.current_token.token.clone()),
+                    ParseErrorKind::InvalidBlockEnd(Token::BlockEnd(BlockEnd::EndModule), self.current_token.token.clone()),
                     self.current_token.pos,
                     self.script_name()
                 ));
@@ -2574,10 +2578,10 @@ impl Parser {
         self.bump();
         let mut block = vec![];
         let mut has_constructor = false;
-        while ! self.is_current_token(&Token::EndClass) {
+        while ! self.is_current_token(&Token::BlockEnd(BlockEnd::EndClass)) {
             if self.is_current_token(&Token::Eof) {
                 self.errors.push(ParseError::new(
-                    ParseErrorKind::InvalidBlockEnd(Token::EndClass, self.current_token.token.clone()),
+                    ParseErrorKind::InvalidBlockEnd(Token::BlockEnd(BlockEnd::EndClass), self.current_token.token.clone()),
                     self.current_token.pos,
                     self.script_name()
                 ));
@@ -2657,8 +2661,8 @@ impl Parser {
 
         let body = self.parse_block_statement();
 
-        if ! self.is_current_token(&Token::Fend) {
-            self.error_got_invalid_close_token(Token::Fend);
+        if ! self.is_current_token(&Token::BlockEnd(BlockEnd::Fend)) {
+            self.error_got_invalid_close_token(Token::BlockEnd(BlockEnd::Fend));
             return None;
         }
 
@@ -4475,7 +4479,8 @@ next
                                     Statement::Print(Expression::Identifier(Identifier(String::from("i")))),
                                     3
                                 )
-                            ]
+                            ],
+                            alt: None
                         }, 2
                     )
                 ]
@@ -4501,7 +4506,8 @@ next
                                     Statement::Print(Expression::Identifier(Identifier(String::from("i")))),
                                     3
                                 )
-                            ]
+                            ],
+                            alt: None
                         }, 2
                     )
                 ]
@@ -4522,7 +4528,68 @@ next
                                     Statement::Print(Expression::Identifier(Identifier(String::from("item")))),
                                     3
                                 )
-                            ]
+                            ],
+                            alt: None
+                        }, 2
+                    )
+                ]
+            ),
+            (
+                r#"
+for i = 0 to 5
+    print i
+else
+    print not_found
+endfor
+                "#,
+                vec![
+                    StatementWithRow::new(
+                        Statement::For {
+                            loopvar: Identifier(String::from("i")),
+                            from: Expression::Literal(Literal::Num(0 as f64)),
+                            to: Expression::Literal(Literal::Num(5 as f64)),
+                            step: None,
+                            block: vec![
+                                StatementWithRow::new(
+                                    Statement::Print(Expression::Identifier(Identifier(String::from("i")))),
+                                    3
+                                )
+                            ],
+                            alt: Some(vec![
+                                StatementWithRow::new(
+                                    Statement::Print(Expression::Identifier(Identifier("not_found".into()))),
+                                    5
+                                )
+                            ])
+                        }, 2
+                    )
+                ]
+            ),
+            (
+                r#"
+for item in col
+    print item
+else
+    print not_found
+endfor
+                "#,
+                vec![
+                    StatementWithRow::new(
+                        Statement::ForIn {
+                            loopvar: Identifier(String::from("item")),
+                            collection: Expression::Identifier(Identifier(String::from("col"))),
+                            block: vec![
+                                StatementWithRow::new(
+                                    Statement::Print(Expression::Identifier(Identifier(String::from("item")))),
+                                    3
+                                )
+                            ],
+                            alt: Some(vec![
+                                StatementWithRow::new(
+                                    Statement::Print(Expression::Identifier(Identifier("not_found".into()))),
+                                    5
+                                )
+                            ])
                         }, 2
                     )
                 ]
@@ -4551,7 +4618,8 @@ fend
                             Statement::Print(Expression::Identifier(Identifier(String::from("item")))),
                             3
                         )
-                    ]
+                    ],
+                    alt: None
                 }, 2
             )
         ];

@@ -432,11 +432,11 @@ impl Evaluator {
                 Ok(None)
             }
             Statement::Expression(e) => Ok(Some(self.eval_expression(e)?)),
-            Statement::For {loopvar, from, to, step, block} => {
-                self.eval_for_statement(loopvar, from, to, step, block)
+            Statement::For {loopvar, from, to, step, block, alt} => {
+                self.eval_for_statement(loopvar, from, to, step, block, alt)
             },
-            Statement::ForIn {loopvar, collection, block} => {
-                self.eval_for_in_statement(loopvar, collection, block)
+            Statement::ForIn {loopvar, collection, block, alt} => {
+                self.eval_for_in_statement(loopvar, collection, block, alt)
             },
             Statement::While(e, b) => self.eval_while_statement(e, b),
             Statement::Repeat(e, b) => self.eval_repeat_statement(e, b),
@@ -594,7 +594,7 @@ impl Evaluator {
         Ok(None)
     }
 
-    fn eval_for_statement(&mut self,loopvar: Identifier, from: Expression, to: Expression, step: Option<Expression>, block: BlockStatement) -> EvalResult<Option<Object>> {
+    fn eval_for_statement(&mut self,loopvar: Identifier, from: Expression, to: Expression, step: Option<Expression>, block: BlockStatement, alt: Option<BlockStatement>) -> EvalResult<Option<Object>> {
         let Identifier(var) = loopvar;
         let mut counter = match self.eval_expression(from)? {
             Object::Num(n) => n as i64,
@@ -659,9 +659,9 @@ impl Evaluator {
             ));
         }
         self.env.assign(var.clone(), Object::Num(counter as f64))?;
-        loop {
+        let broke = loop {
             if step > 0 && counter > counter_end || step < 0 && counter < counter_end {
-                break;
+                break false;
             }
             match self.eval_loopblock_statement(block.clone())? {
                 Some(o) => match o {
@@ -675,7 +675,7 @@ impl Evaluator {
                         Object::Break(n) => if n > 1 {
                             return Ok(Some(Object::Break(n - 1)));
                         } else {
-                            break;
+                            break true;
                         },
                         o => return Ok(Some(o))
                 },
@@ -683,11 +683,15 @@ impl Evaluator {
             };
             counter += step;
             self.env.assign(var.clone(), Object::Num(counter as f64))?;
+        };
+        if ! broke && alt.is_some() {
+            let block = alt.unwrap();
+            self.eval_block_statement(block)?;
         }
         Ok(None)
     }
 
-    fn eval_for_in_statement(&mut self, loopvar: Identifier, collection: Expression, block: BlockStatement) -> EvalResult<Option<Object>> {
+    fn eval_for_in_statement(&mut self, loopvar: Identifier, collection: Expression, block: BlockStatement, alt: Option<BlockStatement>) -> EvalResult<Option<Object>> {
         let Identifier(var) = loopvar;
         let col_obj = match self.eval_expression(collection)? {
             Object::Array(a) => a,
@@ -700,6 +704,7 @@ impl Evaluator {
             ))
         };
 
+        let mut broke = false;
         for o in col_obj {
             self.env.assign(var.clone(), o)?;
             match self.eval_loopblock_statement(block.clone())? {
@@ -711,11 +716,16 @@ impl Evaluator {
                 Some(Object::Break(n)) => if n > 1 {
                     return Ok(Some(Object::Break(n - 1)));
                 } else {
+                    broke = true;
                     break;
                 },
                 None => {},
                 o => return Ok(o),
             }
+        }
+        if ! broke && alt.is_some() {
+            let block = alt.unwrap();
+            self.eval_block_statement(block)?;
         }
         Ok(None)
     }
@@ -3761,6 +3771,44 @@ a
                 "#,
                 Ok(Some(Object::Num(1.0)))
             ),
+            (
+                r#"
+a = 0
+for i = 0 to 0
+    a = 1
+else
+    a = 2
+endfor
+a
+                "#,
+                Ok(Some(Object::Num(2.0)))
+            ),
+            (
+                r#"
+a = 0
+for i = 0 to -1
+    // ここを通らない場合
+    a = 1
+else
+    a = 2
+endfor
+a
+                "#,
+                Ok(Some(Object::Num(2.0)))
+            ),
+            (
+                r#"
+a = 0
+for i = 0 to 0
+    a = 1
+    break
+else
+    a = 2
+endfor
+a
+                "#,
+                Ok(Some(Object::Num(1.0)))
+            ),
         ];
         for (input, expected) in test_cases {
             eval_test(input, expected, false);
@@ -3829,6 +3877,44 @@ next
 a
                 "#,
                 Ok(Some(Object::Num(0.0)))
+            ),
+            (
+                r#"
+a = 0
+for n in [1,2,3]
+    a = 1
+else
+    a = 2
+endfor
+a
+                "#,
+                Ok(Some(Object::Num(2.0)))
+            ),
+            (
+                r#"
+a = 0
+for n in []
+    // ここを通らない場合
+    a = 1
+else
+    a = 2
+endfor
+a
+                "#,
+                Ok(Some(Object::Num(2.0)))
+            ),
+            (
+                r#"
+a = 0
+for n in [1,2,3]
+    a = 1
+    break
+else
+    a = 2
+endfor
+a
+                "#,
+                Ok(Some(Object::Num(1.0)))
             ),
         ];
         for (input, expected) in test_cases {
