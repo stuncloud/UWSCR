@@ -2109,8 +2109,46 @@ impl Parser {
                 self.error_no_prefix_parser();
                 return None;
             },
+            Token::Print |
+            Token::Dim |
+            Token::Public |
+            Token::Const |
+            Token::Thread |
+            Token::HashTable |
+            Token::Uri(_) |
+            Token::Path(_, _) |
+            Token::DefDll |
+            Token::If |
+            Token::IfB |
+            Token::Then |
+            Token::While |
+            Token::Repeat |
+            Token::For |
+            Token::To |
+            Token::In |
+            Token::Step |
+            Token::Select |
+            Token::Continue |
+            Token::Break |
+            Token::With |
+            Token::Try |
+            Token::TextBlock(_) |
+            Token::EndTextBlock |
+            Token::TextBlockBody(_) |
+            Token::Function |
+            Token::Procedure |
+            Token::Module |
+            Token::Class |
+            Token::Enum |
+            Token::Struct |
+            Token::Hash |
+            Token::BlockEnd(_) |
+            Token::ComErrIgn |
+            Token::ComErrRet |
+            Token::ComErrFlg |
+            Token::Exit |
+            Token::ExitExit => Identifier(token.to_string()),
             Token::Identifier(ref i) => Identifier(i.clone()),
-            _ => Identifier(format!("{:?}", token))
         };
         Some(identifier)
     }

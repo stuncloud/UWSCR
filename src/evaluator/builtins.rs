@@ -35,11 +35,12 @@ use crate::ast::Expression;
 
 use std::env;
 use std::sync::{Mutex, Arc};
+use std::string::ToString;
 
 use cast;
 use strum::VariantNames;
 use num_traits::ToPrimitive;
-use strum_macros::{ToString, EnumVariantNames};
+use strum_macros::{Display, EnumVariantNames};
 
 pub type BuiltinFunction = fn(BuiltinFuncArgs) -> BuiltinFuncResult;
 pub type BuiltinFuncResult = Result<Object, UError>;
@@ -775,7 +776,7 @@ pub fn panic(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 }
 
 #[allow(non_camel_case_types)]
-#[derive(Debug, EnumVariantNames, ToString)]
+#[derive(Debug, EnumVariantNames, Display)]
 pub enum VariableType {
     TYPE_NUMBER,
     TYPE_STRING,
