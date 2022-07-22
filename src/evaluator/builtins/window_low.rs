@@ -15,7 +15,7 @@ use windows::{
                 KEYEVENTF_SCANCODE, KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP,
                 keybd_event, MapVirtualKeyW
             },
-            WindowsAndMessaging::GetCursorPos,
+            WindowsAndMessaging::{GetCursorPos, SetCursorPos},
         },
     },
 };
@@ -49,13 +49,19 @@ pub enum KeyActionEnum {
     UNKNOWN_ACTION = -1,
 }
 
+fn move_mouse_to(x: i32, y: i32) -> bool {
+    unsafe {
+        SetCursorPos(x, y);
+        SetCursorPos(x, y).as_bool()
+    }
+}
+
 pub fn mmv(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let x = args.get_as_int(0, Some(0))?;
     let y = args.get_as_int(1, Some(0))?;
     let ms = args.get_as_int::<u64>(2, Some(0))?;
-    let mut enigo = Enigo::new();
     thread::sleep(time::Duration::from_millis(ms));
-    enigo.mouse_move_to(x, y);
+    move_mouse_to(x, y);
     Ok(Object::Empty)
 }
 
@@ -74,13 +80,13 @@ pub fn btn(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         MouseButtonEnum::MIDDLE => MouseButton::Middle,
         MouseButtonEnum::WHEEL => {
             thread::sleep(time::Duration::from_millis(ms));
-            enigo.mouse_move_to(x, y);
+            move_mouse_to(x, y);
             enigo.mouse_scroll_y(arg1);
             return Ok(Object::Empty);
         },
         MouseButtonEnum::WHEEL2 => {
             thread::sleep(time::Duration::from_millis(ms));
-            enigo.mouse_move_to(x, y);
+            move_mouse_to(x, y);
             enigo.mouse_scroll_x(arg1);
             return Ok(Object::Empty);
         },
@@ -91,7 +97,7 @@ pub fn btn(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     };
 
     thread::sleep(time::Duration::from_millis(ms));
-    enigo.mouse_move_to(x, y);
+    move_mouse_to(x, y);
     match FromPrimitive::from_i32(arg1).unwrap_or(KeyActionEnum::CLICK) {
         KeyActionEnum::CLICK => enigo.mouse_click(button),
         KeyActionEnum::DOWN => enigo.mouse_down(button),
