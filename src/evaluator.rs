@@ -20,7 +20,7 @@ use crate::parser::Parser;
 use crate::lexer::Lexer;
 use crate::logging::{out_log, LogType};
 use crate::settings::*;
-use crate::winapi::{attach_console,free_console,show_message};
+use crate::winapi::{attach_console,free_console,show_message,FORCE_WINDOW_MODE};
 use windows::{
     Win32::System::{
         Com::{
@@ -78,7 +78,10 @@ impl Evaluator {
         }
     }
 
-    pub fn start_logprint_win(visible: bool) {
+    pub fn start_logprint_win(mut visible: bool) {
+        if let Some(&true) = FORCE_WINDOW_MODE.get() {
+            visible = true;
+        }
         thread::spawn(move || {
             match LogPrintWin::new(visible) {
                 Ok(lp) => {
@@ -249,9 +252,11 @@ impl Evaluator {
             lp.lock().unwrap().print(&obj.to_string());
         }
         // println!("{}", obj);
-        let out = stdout();
-        let mut out = BufWriter::new(out.lock());
-        writeln!(out, "{}", obj)?;
+        if ! *FORCE_WINDOW_MODE.get().unwrap_or(&false) {
+            let out = stdout();
+            let mut out = BufWriter::new(out.lock());
+            writeln!(out, "{}", obj)?;
+        }
         Ok(None)
     }
 

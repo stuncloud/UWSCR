@@ -118,6 +118,9 @@ impl LogPrintWin {
         let h = height.unwrap_or(rect.bottom - rect.top);
         Window::move_window(self.hwnd, x, y, w, h);
     }
+    pub fn is_visible(&self) -> bool {
+        self.visible
+    }
 }
 
 impl UWindow<()> for LogPrintWin {

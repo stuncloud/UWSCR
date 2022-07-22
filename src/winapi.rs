@@ -44,6 +44,10 @@ use crate::error::evaluator::{UError, UErrorKind, UErrorMessage};
 use std::{ffi::OsStr};
 use std::os::windows::ffi::OsStrExt;
 
+use once_cell::sync::OnceCell;
+
+pub static FORCE_WINDOW_MODE: OnceCell<bool> = OnceCell::new();
+
 pub fn to_ansi_bytes(string: &str) -> Vec<u8> {
     unsafe {
         let wide = to_wide_string(string);
@@ -216,8 +220,13 @@ pub fn alloc_console() -> bool {
 }
 
 pub fn is_console() -> bool {
-    unsafe {
-        GetConsoleCP() != 0
+    let force_window_mode = FORCE_WINDOW_MODE.get().unwrap_or(&false);
+    if *force_window_mode {
+        false
+    } else {
+        unsafe {
+            GetConsoleCP() != 0
+        }
     }
 }
 

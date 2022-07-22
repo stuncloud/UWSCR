@@ -23,16 +23,14 @@ use windows::{
 };
 use crate::logging;
 
-pub fn run(script: String, mut args: Vec<String>) -> Result<(), Vec<String>> {
-
-    let params = args.drain(2..).collect();
-    let uwscr_dir = match get_parent_full_path(&args[0]) {
+pub fn run(script: String, exe_path: &str, script_path: &str, params: Vec<String>) -> Result<(), Vec<String>> {
+    let uwscr_dir = match get_parent_full_path(exe_path) {
         Ok(s) => s,
         Err(_) => return Err(vec![
             "unable to get uwscr path".into()
         ])
     };
-    let script_dir = match get_parent_full_path(&args[1]) {
+    let script_dir = match get_parent_full_path(script_path) {
         Ok(s) => s,
         Err(_) => return Err(vec![
             "unable to get script path".into()
@@ -41,7 +39,7 @@ pub fn run(script: String, mut args: Vec<String>) -> Result<(), Vec<String>> {
     logging::init(&script_dir);
     env::set_var("GET_UWSC_DIR", &uwscr_dir);
     env::set_var("GET_SCRIPT_DIR", &script_dir);
-    match get_script_name(&args[1]) {
+    match get_script_name(script_path) {
         Some(ref s) => {
             env::set_var("GET_UWSC_NAME", s);
             // デフォルトダイアログタイトルを設定
@@ -122,7 +120,7 @@ pub fn out_ast(script: String, path: &String) -> Result<(String, Option<String>)
     Ok((ast, err))
 }
 
-pub fn get_parent_full_path(path: &String) -> Result<PathBuf, String> {
+pub fn get_parent_full_path(path: &str) -> Result<PathBuf, String> {
     let mut buffer = [0; MAX_PATH as usize];
     let file = to_wide_string(path);
     let mut filepart = PWSTR::default();
@@ -133,6 +131,6 @@ pub fn get_parent_full_path(path: &String) -> Result<PathBuf, String> {
     Ok(Path::new(full_path.as_str()).parent().unwrap().to_owned())
 }
 
-pub fn get_script_name(path: &String) -> Option<String> {
-    Path::new(path.as_str()).file_name().unwrap().to_os_string().into_string().ok()
+pub fn get_script_name(path: &str) -> Option<String> {
+    Path::new(path).file_name().unwrap().to_os_string().into_string().ok()
 }

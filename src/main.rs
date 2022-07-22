@@ -18,7 +18,7 @@ use uwscr::settings::{
     FileMode,
     out_default_setting_file, out_json_schema_file
 };
-use uwscr::winapi::{attach_console,alloc_console,free_console,show_message};
+use uwscr::winapi::{attach_console,alloc_console,free_console,show_message, FORCE_WINDOW_MODE};
 use uwscr::gui::MainWin;
 use uwscr::error::UWSCRErrorTitle;
 
@@ -59,9 +59,11 @@ fn start_uwscr() {
             Mode::OnlineHelp => {
                 shell_execute("https://github.com/stuncloud/UWSCR/wiki".into(), None);
             },
-            Mode::Script(p) => {
+            Mode::Script(p, n) => {
+                let mut vec_args = args.get_args();
+                let params = vec_args.drain(n+1..).collect();
                 match get_script(&p) {
-                    Ok(s) => match script::run(s, args.get_args()) {
+                    Ok(s) => match script::run(s, &vec_args[0], &vec_args[1], params) {
                         Ok(_) => {},
                         Err(errors) => {
                             let err = errors.join("\r\n");
@@ -226,7 +228,7 @@ fn start_uwscr() {
 #[derive(Debug)]
 struct Args {
     args: Vec<String>,
-    version: String
+    version: String,
 }
 
 impl Args {
@@ -235,10 +237,8 @@ impl Args {
         if cfg!(feature="chkimg") {
             version.push_str(" chkimg");
         }
-        Args {
-            args: env::args().collect(),
-            version
-        }
+        let args: Vec<String> = env::args().collect();
+        Args { args, version }
     }
 
     fn get(&self) -> Result<Mode, String> {
@@ -284,8 +284,12 @@ impl Args {
                 Ok(Mode::Settings(file_mode))
             },
             "--language-server" => self.get_port().map(|p| Mode::Server(p)),
+            "-w" | "--window" => {
+                FORCE_WINDOW_MODE.get_or_init(|| true);
+                Ok(Mode::Script(PathBuf::from(self.args[2].clone()), 2))
+            },
             _ => {
-                Ok(Mode::Script(PathBuf::from(self.args[1].clone())))
+                Ok(Mode::Script(PathBuf::from(self.args[1].clone()), 1))
             },
         }
     }
@@ -319,23 +323,25 @@ impl Args {
         attach_console();
         let usage = "
 Usage:
-  uwscr FILE                     : スクリプトの実行
-  uwscr FILE [params]            : パラメータ付きスクリプトの実行
-                                   半角スペース区切りで複数指定可能
-                                   スクリプトからはPARAM_STRで値を取得
-  uwscr [(-r|--repl) [FILE]]     : Replを起動 (スクリプトを指定するとそれを実行してから起動)
-  uwscr (-a|--ast) FILE          : スクリプトの構文木を出力
-  uwscr --ast-force FILE         : 構文エラーでも構文木を出力
-  uwscr (-l|--lib) FILE          : スクリプトからuwslファイルを生成する
-  uwscr (-c|--code) CODE         : 渡された文字列を評価して実行する
-  uwscr (-s|--settings) [OPTION] : 設定ファイル(settings.json)が存在しない場合は新規作成する
-                                   OPTION省略時 設定ファイルがあればそれを開く
-                                   init         設定ファイルを初期化する
-                                   merge        現在の設定とバージョンアップ時に更新された設定を可能な限りマージする
-  uwscr --schema [DIR]           : 指定ディレクトリにjson schemaファイル(uwscr-settings-schema.json)を出力する
-  uwscr (-h|--help|-?|/?)        : このヘルプを表示
-  uwscr (-v|--version)           : UWSCRのバージョンを表示
-  uwscr (-o|--online-help)       : オンラインヘルプを表示
+  uwscr FILE                        : スクリプトの実行
+  uwscr FILE [params]               : パラメータ付きスクリプトの実行
+                                      半角スペース区切りで複数指定可能
+                                      スクリプトからはPARAM_STRで値を取得
+  uwscr (-w|--window) FILE [params] : windowモードを強制する
+                                      コンソールから実行した際にwindowモードで実行される
+  uwscr [(-r|--repl) [FILE]]        : Replを起動 (スクリプトを指定するとそれを実行してから起動)
+  uwscr (-a|--ast) FILE             : スクリプトの構文木を出力
+  uwscr --ast-force FILE            : 構文エラーでも構文木を出力
+  uwscr (-l|--lib) FILE             : スクリプトからuwslファイルを生成する
+  uwscr (-c|--code) CODE            : 渡された文字列を評価して実行する
+  uwscr (-s|--settings) [OPTION]    : 設定ファイル(settings.json)が存在しない場合は新規作成する
+                                      OPTION省略時 設定ファイルがあればそれを開く
+                                      init         設定ファイルを初期化する
+                                      merge        現在の設定とバージョンアップ時に更新された設定を可能な限りマージする
+  uwscr --schema [DIR]              : 指定ディレクトリにjson schemaファイル(uwscr-settings-schema.json)を出力する
+  uwscr (-h|--help|-?|/?)           : このヘルプを表示
+  uwscr (-v|--version)              : UWSCRのバージョンを表示
+  uwscr (-o|--online-help)          : オンラインヘルプを表示
 ";
         let message = if err.is_some() {
             format!("error: {}\r\n{}", err.unwrap(), usage)
@@ -354,7 +360,7 @@ Usage:
 }
 
 enum Mode {
-    Script(PathBuf),
+    Script(PathBuf, usize),
     Repl(Option<PathBuf>),
     Code(String),
     Ast(PathBuf, bool),
