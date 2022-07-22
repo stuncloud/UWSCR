@@ -231,9 +231,13 @@ struct Args {
 
 impl Args {
     fn new() -> Self {
+        let mut version = env!("CARGO_PKG_VERSION").to_owned();
+        if cfg!(feature="chkimg") {
+            version.push_str(" chkimg");
+        }
         Args {
             args: env::args().collect(),
-            version: env!("CARGO_PKG_VERSION").to_owned()
+            version
         }
     }
 

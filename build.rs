@@ -8,7 +8,11 @@ fn main() {
         let desc = match std::env::var("TARGET").unwrap().as_str() {
             "x86_64-pc-windows-msvc" => {
                 res.set_icon(r#".\icons\UWSC\ico\MAINICON_0016-0256_light.ico"#);
-                "UWSCR x64"
+                if cfg!(feature="chkimg") {
+                    "UWSCR x64 chkimg"
+                } else {
+                    "UWSCR x64"
+                }
             },
             "i686-pc-windows-msvc" => {
                 res.set_icon(r#".\icons\UWSC\ico\MAINICON_0016-0256_dark.ico"#);
