@@ -25,10 +25,9 @@ use windows::Win32::UI::Shell::CSIDL_APPDATA;
 use crate::evaluator::object::{
     Object, Version,
     HashTblEnum,
-    SpecialFuncResultType,
     UTask
 };
-use crate::evaluator::object::{UObject,Fopen};
+use crate::evaluator::object::{UObject,Fopen,Function};
 use crate::evaluator::environment::NamedObject;
 use crate::error::evaluator::{UError,UErrorKind,UErrorMessage};
 use crate::ast::Expression;
@@ -43,7 +42,7 @@ use num_traits::ToPrimitive;
 use strum_macros::{Display, EnumVariantNames};
 
 pub type BuiltinFunction = fn(BuiltinFuncArgs) -> BuiltinFuncResult;
-pub type BuiltinFuncResult = Result<Object, UError>;
+pub type BuiltinFuncResult = Result<BuiltinFuncReturnValue, UError>;
 pub type BuiltInResult<T> = Result<T, UError>;
 
 // pub struct BuiltinFuncError {
@@ -735,20 +734,20 @@ fn set_special_variables(vec: &mut Vec<NamedObject>) {
 
 pub fn builtin_eval(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let s = args.get_as_string(0, None)?;
-    Ok(Object::Eval(s))
+    Ok(BuiltinFuncReturnValue::Eval(s))
 }
 
 pub fn list_env(_args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    Ok(Object::SpecialFuncResult(SpecialFuncResultType::GetEnv))
+    Ok(BuiltinFuncReturnValue ::GetEnv)
 }
 
 pub fn list_module_member(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let s = args.get_as_string(0, None)?;
-    Ok(Object::SpecialFuncResult(SpecialFuncResultType::ListModuleMember(s)))
+    Ok(BuiltinFuncReturnValue ::ListModuleMember(s))
 }
 
 pub fn name_of(args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    Ok(Object::SpecialFuncResult(SpecialFuncResultType::BuiltinConstName(args.get_expr(0))))
+    Ok(BuiltinFuncReturnValue ::BuiltinConstName(args.get_expr(0)))
 }
 
 pub fn get_settings(_args: BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -756,7 +755,7 @@ pub fn get_settings(_args: BuiltinFuncArgs) -> BuiltinFuncResult {
         let s = USETTINGS.lock().unwrap();
         s.get_current_settings_as_json()
     };
-    Ok(Object::String(json))
+    Ok(BuiltinFuncReturnValue::Result(Object::String(json)))
 }
 
 pub fn raise(args: BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -848,14 +847,14 @@ pub fn type_of(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         Object::Variant(_) => VariableType::TYPE_VARIANT,
         _ => VariableType::TYPE_OTHER
     };
-    Ok(Object::String(t.to_string()))
+    Ok(BuiltinFuncReturnValue::Result(Object::String(t.to_string())))
 }
 
 pub fn assert_equal(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let arg1 = args.get_as_object(0, None)?;
     let arg2 = args.get_as_object(1, None)?;
     if arg1.is_equal(&arg2) {
-        Ok(Object::Empty)
+        Ok(BuiltinFuncReturnValue::Result(Object::Empty))
     } else {
         Err(UError::new(
             UErrorKind::AssertEqError,
@@ -868,4 +867,22 @@ pub fn assert_equal(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 
 pub fn builtin_func_error(msg: UErrorMessage, name: String) -> UError {
     UError::new(UErrorKind::BuiltinFunctionError(name), msg)
+}
+
+pub enum BuiltinFuncReturnValue {
+    Result(Object),
+    Reference {
+        refs: Vec<(Option<Expression>, Object)>,
+        result: Object
+    },
+    GetEnv,
+    ListModuleMember(String),
+    BuiltinConstName(Option<Expression>),
+    Task(Function, Vec<(Option<Expression>, Object)>),
+    GetLogPrintWinId,
+    Balloon(Option<crate::gui::Balloon>),
+    BalloonID,
+    Token {token: String, remained: String, expression: Option<Expression>},
+    Qsort(Option<Expression>, Vec<Object>, [Option<Expression>; 8], [Option<Vec<Object>>; 8]),
+    Eval(String),
 }

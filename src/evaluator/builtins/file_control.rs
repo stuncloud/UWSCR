@@ -61,13 +61,14 @@ pub fn fopen(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     if fopen.flag.mode == FopenMode::Append {
         let text = args.get_as_string(2, None)?;
         fopen.append(&text)
+            .map(|o| BuiltinFuncReturnValue::Result(o))
             .map_err(|e| builtin_func_error(FopenError(e), args.name()))
     } else {
         match fopen.open() {
             Ok(e) => match e {
-                Some(b) => Ok(Object::Bool(b)),
+                Some(b) => Ok(BuiltinFuncReturnValue::Result(Object::Bool(b))),
                 None => {
-                    Ok(Object::Fopen(Arc::new(Mutex::new(fopen))))
+                    Ok(BuiltinFuncReturnValue::Result(Object::Fopen(Arc::new(Mutex::new(fopen)))))
                 }
             },
             Err(e) => Err(builtin_func_error(FopenError(e), args.name())),
@@ -82,10 +83,10 @@ pub fn fclose(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let closed = fopen.close()
         .map_or_else(
             |e| Err(builtin_func_error(FopenError(e), args.name())),
-            |b| Ok(Object::Bool(b))
+            |b| Ok(BuiltinFuncReturnValue::Result(Object::Bool(b)))
         );
     if ignore_err && closed.is_err() {
-        Ok(Object::Bool(false))
+        Ok(BuiltinFuncReturnValue::Result(Object::Bool(false)))
     } else {
         closed
     }
@@ -100,6 +101,7 @@ pub fn fget(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let dbl = args.get_as_bool(3, Some(false))?;
 
     fopen.read(fget_type, column, dbl)
+        .map(|o| BuiltinFuncReturnValue::Result(o))
         .map_err(|e| builtin_func_error(FopenError(e), args.name()))
 }
 
@@ -115,19 +117,19 @@ pub fn fput(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     fopen.write(&value, fput_type)
         .map_or_else(
             |e| Err(builtin_func_error(FopenError(e), args.name())),
-            |_| Ok(Object::Empty)
+            |_| Ok(BuiltinFuncReturnValue::Result(Object::Empty))
         )
 }
 
 pub fn fdelline(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let row = args.get_as_int(1, None::<usize>)?;
     if row < 1 {
-        return Ok(Object::Empty)
+        return Ok(BuiltinFuncReturnValue::Result(Object::Empty))
     }
     let arc = args.get_as_fopen(0)?;
     let mut fopen = arc.lock().unwrap();
     fopen.remove(row);
-    Ok(Object::Empty)
+    Ok(BuiltinFuncReturnValue::Result(Object::Empty))
 }
 
 static DEFAULT_INI_NAME: Lazy<String> = Lazy::new(|| {
@@ -153,17 +155,17 @@ pub fn readini(args: BuiltinFuncArgs) -> BuiltinFuncResult {
                 (Some(section), Some(key)) => {
                     let value = Fopen::ini_read_from_path(&path, &section, &key)
                         .map_err(|e| builtin_func_error(FopenError(e), args.name()))?;
-                    Ok(value.into())
+                    Ok(BuiltinFuncReturnValue::Result(value.into()))
                 },
                 (None, _) => {
                     let sections = Fopen::get_sections_from_path(&path)
                         .map_err(|e| builtin_func_error(FopenError(e), args.name()))?;
-                    Ok(sections.into())
+                    Ok(BuiltinFuncReturnValue::Result(sections.into()))
                 },
                 (Some(section), None) => {
                     let keys = Fopen::get_keys_from_path(&path, &section)
                         .map_err(|e| builtin_func_error(FopenError(e), args.name()))?;
-                    Ok(keys.into())
+                    Ok(BuiltinFuncReturnValue::Result(keys.into()))
                 },
             }
         },
@@ -173,17 +175,17 @@ pub fn readini(args: BuiltinFuncArgs) -> BuiltinFuncResult {
                 // 該当する値を取得
                 (Some(section), Some(key)) => {
                     let value = fopen.ini_read(&section, &key);
-                    Ok(value.into())
+                    Ok(BuiltinFuncReturnValue::Result(value.into()))
                 },
                 // キー一覧を取得
                 (Some(section), None) => {
                     let keys = fopen.get_keys(&section);
-                    Ok(keys.into())
+                    Ok(BuiltinFuncReturnValue::Result(keys.into()))
                 },
                 // セクション一覧を取得
                 (None, _) => {
                     let sections = fopen.get_sections();
-                    Ok(sections.into())
+                    Ok(BuiltinFuncReturnValue::Result(sections.into()))
                 },
             }
         },
@@ -206,7 +208,7 @@ pub fn writeini(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             fopen.ini_write(&section, &key, &value);
         },
     }
-    Ok(Object::default())
+    Ok(BuiltinFuncReturnValue::Result(Object::default()))
 }
 
 pub fn deleteini(args: BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -224,13 +226,13 @@ pub fn deleteini(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             fopen.ini_delete(&section, key.as_deref());
         },
     }
-    Ok(Object::default())
+    Ok(BuiltinFuncReturnValue::Result(Object::default()))
 }
 
 pub fn deletefile(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let path = args.get_as_string(0, None)?;
     let result = Fopen::delete(&path);
-    Ok(Object::Bool(result))
+    Ok(BuiltinFuncReturnValue::Result(Object::Bool(result)))
 }
 
 #[allow(non_camel_case_types)]
@@ -263,7 +265,7 @@ pub fn getdir(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         .iter()
         .map(|s| s.to_string().into())
         .collect();
-    Ok(Object::Array(files))
+    Ok(BuiltinFuncReturnValue::Result(Object::Array(files)))
 }
 
 pub fn _dropfile(args: BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -291,7 +293,7 @@ pub fn _dropfile(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 
     Fopen::drop_file(hwnd, files, x, y);
 
-    Ok(Object::default())
+    Ok(BuiltinFuncReturnValue::Result(Object::default()))
 }
 
 struct Zip {
@@ -372,7 +374,7 @@ pub fn zipitems(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let array = list.into_iter()
         .map(|s| s.into())
         .collect();
-    Ok(Object::Array(array))
+    Ok(BuiltinFuncReturnValue::Result(Object::Array(array)))
 }
 
 pub fn unzip(args: BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -380,7 +382,7 @@ pub fn unzip(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let out = args.get_as_string(1, None)?;
     let zip = Zip::new(&path);
     let result = zip.extract(&out).is_ok();
-    Ok(Object::Bool(result))
+    Ok(BuiltinFuncReturnValue::Result(Object::Bool(result)))
 }
 
 pub fn zip(args: BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -388,5 +390,5 @@ pub fn zip(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let files = args.get_rest_as_string_array(1)?;
     let zip = Zip::new(&path);
     let result = zip.compress(files).is_ok();
-    Ok(Object::Bool(result))
+    Ok(BuiltinFuncReturnValue::Result(Object::Bool(result)))
 }

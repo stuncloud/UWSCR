@@ -75,7 +75,7 @@ pub fn sleep(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     if sec >= 0.0 {
         thread::sleep(time::Duration::from_secs_f64(sec));
     }
-    Ok(Object::Empty)
+    Ok(BuiltinFuncReturnValue::Result(Object::Empty))
 }
 
 pub fn is_64bit_os(f_name: String) -> Result<bool, UError> {
@@ -192,19 +192,21 @@ pub fn get_os_kind() -> Vec<f64> {
 pub fn kindofos(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let t = args.get_as_bool_or_int(0, Some(0)).unwrap_or(0);
     let osnum = get_os_kind();
-    match FromPrimitive::from_i32(t).unwrap_or(KindOfOsResultType::KIND_OF_OS) {
-        KindOfOsResultType::IS_64BIT_OS => Ok(Object::Bool(is_64bit_os(args.name())?)),
-        KindOfOsResultType::OSVER_MAJOR => Ok(Object::Num(osnum[1])),
-        KindOfOsResultType::OSVER_MINOR => Ok(Object::Num(osnum[2])),
-        KindOfOsResultType::OSVER_BUILD => Ok(Object::Num(osnum[3])),
-        KindOfOsResultType::OSVER_PLATFORM => Ok(Object::Num(osnum[4])),
-        KindOfOsResultType::KIND_OF_OS => Ok(Object::Num(osnum[0])),
-    }
+    let obj = match FromPrimitive::from_i32(t).unwrap_or(KindOfOsResultType::KIND_OF_OS) {
+        KindOfOsResultType::IS_64BIT_OS => Object::Bool(is_64bit_os(args.name())?),
+        KindOfOsResultType::OSVER_MAJOR => Object::Num(osnum[1]),
+        KindOfOsResultType::OSVER_MINOR => Object::Num(osnum[2]),
+        KindOfOsResultType::OSVER_BUILD => Object::Num(osnum[3]),
+        KindOfOsResultType::OSVER_PLATFORM => Object::Num(osnum[4]),
+        KindOfOsResultType::KIND_OF_OS => Object::Num(osnum[0]),
+    };
+    Ok(BuiltinFuncReturnValue::Result(obj))
 }
 
 pub fn env(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let env_var = args.get_as_string(0, None)?;
-    Ok(Object::String(std::env::var(env_var).unwrap_or("".to_string())))
+    let env_val = std::env::var(env_var).unwrap_or_default();
+    Ok(BuiltinFuncReturnValue::Result(Object::String(env_val)))
 }
 
 pub fn shell_execute(cmd: String, params: Option<String>) -> bool {
@@ -274,7 +276,7 @@ pub fn exec(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let sync = args.get_as_bool(1, Some(false))?;
     let process = create_process(cmd, args.name());
     if process.is_err() {
-        return Ok(Object::Num(-1.0));
+        return Ok(BuiltinFuncReturnValue::Result(Object::Num(-1.0)));
     }
     let pi = process.unwrap();
     unsafe{
@@ -292,7 +294,7 @@ pub fn exec(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             GetExitCodeProcess(pi.hProcess, &mut exit);
             CloseHandle(pi.hThread);
             CloseHandle(pi.hProcess);
-            Ok(Object::Num(exit.into()))
+            Ok(BuiltinFuncReturnValue::Result(Object::Num(exit.into())))
         } else {
             // idを返す
             CloseHandle(pi.hThread);
@@ -300,9 +302,9 @@ pub fn exec(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             if ph.hwnd.0 > 0 {
                 let id = window_control::get_next_id();
                 window_control::set_new_window(id, ph.hwnd, true);
-                Ok(Object::Num(id.into()))
+                Ok(BuiltinFuncReturnValue::Result(Object::Num(id.into())))
             } else {
-                Ok(Object::Num(-1.0))
+                Ok(BuiltinFuncReturnValue::Result(Object::Num(-1.0)))
             }
         }
     }
@@ -311,7 +313,7 @@ pub fn exec(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 pub fn shexec(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let cmd = args.get_as_string(0, None)?;
     let params = args.get_as_string(1, None).map_or(None, |s| Some(s));
-    Ok(Object::Bool(shell_execute(cmd, params)))
+    Ok(BuiltinFuncReturnValue::Result(Object::Bool(shell_execute(cmd, params))))
 }
 
 pub fn task(mut args: BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -319,9 +321,7 @@ pub fn task(mut args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let arguments = args.take_argument(1);
     match obj {
         Object::Function(f) |
-        Object::AsyncFunction(f) => Ok(Object::SpecialFuncResult(
-            SpecialFuncResultType::Task(f, arguments)
-        )),
+        Object::AsyncFunction(f) => Ok(BuiltinFuncReturnValue::Task(f, arguments)),
         _ => Err(builtin_func_error(UErrorMessage::BuiltinArgIsNotFunction, args.name()))
     }
 }
@@ -330,7 +330,7 @@ pub fn wait_task(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let task = args.get_as_task(0)?;
     let mut handle = task.handle.lock().unwrap();
     let result = match handle.take().unwrap().join() {
-        Ok(res) => res,
+        Ok(res) => res.map(|o| BuiltinFuncReturnValue::Result(o)),
         Err(e) => {
             Err(UError::new(
                 UErrorKind::TaskError,
@@ -356,7 +356,7 @@ pub fn wmi_query(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             Object::UObject(UObject::new(value))
         })
         .collect();
-    Ok(Object::Array(obj))
+    Ok(BuiltinFuncReturnValue::Result(Object::Array(obj)))
 }
 
 impl From<wmi::WMIError> for UError {
@@ -388,7 +388,7 @@ pub fn doscmd(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         Some(out) => Object::String(out),
         None => Object::Empty
     };
-    Ok(result)
+    Ok(BuiltinFuncReturnValue::Result(result))
 }
 
 fn run_powershell(shell: ShellType, args: &BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -410,7 +410,7 @@ fn run_powershell(shell: ShellType, args: &BuiltinFuncArgs) -> BuiltinFuncResult
         Some(out) => Object::String(out),
         None => Object::Empty
     };
-    Ok(result)
+    Ok(BuiltinFuncReturnValue::Result(result))
 }
 
 pub fn powershell(args: BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -552,5 +552,5 @@ pub fn _attachconsole(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     } else {
         free_console()
     };
-    Ok(Object::Bool(result))
+    Ok(BuiltinFuncReturnValue::Result(Object::Bool(result)))
 }

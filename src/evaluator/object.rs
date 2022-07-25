@@ -59,19 +59,16 @@ pub enum Object {
     Module(Arc<Mutex<Module>>),
     Class(String, BlockStatement), // class定義
     Instance(Arc<Mutex<ClassInstance>>), // classインスタンス, デストラクタが呼ばれたらNothingになる
-    DestructorNotFound, // デストラクタがなかった場合に返る、これが来たらエラーにせず終了する
     Null,
     Empty,
     EmptyParam,
     Nothing,
     Continue(u32),
     Break(u32),
-    Eval(String),
     Handle(HWND),
     RegEx(String),
     Exit,
     ExitExit(i32),
-    SpecialFuncResult(SpecialFuncResultType),
     Global, // globalを示す
     This(Arc<Mutex<Module>>),   // thisを示す
     UObject(UObject),
@@ -153,8 +150,6 @@ impl fmt::Display for Object {
             Object::Break(ref n) => write!(f, "Break {}", n),
             Object::Exit => write!(f, "Exit"),
             Object::ExitExit(ref n) => write!(f, "ExitExit ({})", n),
-            Object::Eval(ref value) => write!(f, "{}", value),
-            Object::SpecialFuncResult(_) => write!(f, "特殊関数の戻り値"),
             Object::Module(ref m) => write!(f, "module: {}", m.lock().unwrap().name()),
             Object::Class(ref name, _) => write!(f, "class: {}", name),
             Object::Instance(ref m) => {
@@ -165,7 +160,6 @@ impl fmt::Display for Object {
                     write!(f, "instance of {}", ins.name)
                 }
             },
-            Object::DestructorNotFound => write!(f, "no destructor"),
             Object::Handle(h) => write!(f, "{:?}", h),
             Object::RegEx(ref re) => write!(f, "regex: {}", re),
             Object::Global => write!(f, "GLOBAL"),
@@ -248,7 +242,6 @@ impl PartialEq for Object {
                 let _ins = m1.lock().unwrap();
                 m2.try_lock().is_err()
             } else {false},
-            Object::DestructorNotFound => false,
             Object::Null => match other {
                 Object::Null => true,
                 _ => false
@@ -266,12 +259,10 @@ impl PartialEq for Object {
             },
             Object::Continue(_) => false,
             Object::Break(_) => false,
-            Object::Eval(_) => false,
             Object::Handle(h) => if let Object::Handle(h2) = other {h==h2} else {false},
             Object::RegEx(r) => if let Object::RegEx(r2) = other {r==r2} else {false},
             Object::Exit => false,
             Object::ExitExit(_) => false,
-            Object::SpecialFuncResult(_) => false,
             Object::Global => false,
             Object::This(m) => if let Object::This(m2) = other {
                 let _tmp = m.lock().unwrap();
@@ -370,21 +361,6 @@ impl Default for Object {
     fn default() -> Self {
         Object::Empty
     }
-}
-
-#[derive(Clone, Debug)]
-pub enum SpecialFuncResultType {
-    GetEnv,
-    ListModuleMember(String),
-    BuiltinConstName(Option<Expression>),
-    Task(Function, Vec<(Option<Expression>, Object)>),
-    GetLogPrintWinId,
-    Balloon(Option<crate::gui::Balloon>),
-    BalloonID,
-    Token {token: String, remained: String, expression: Option<Expression>},
-    Qsort(Option<Expression>, Vec<Object>, [Option<Expression>; 8], [Option<Vec<Object>>; 8]),
-    Reference(Vec<(Option<Expression>, Object)>),
-    Resize(Option<Expression>, Vec<Object>, f64),
 }
 
 impl Into<Object> for String {

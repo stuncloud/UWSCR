@@ -121,9 +121,7 @@ impl Module {
     pub fn get_function(&self, name: &String) -> EvalResult<Object> {
         match self.get(name, Scope::Function) {
             Some(o) => Ok(o),
-            None => if self.is_destructor_name(name) && ! self.has_destructor() {
-                Ok(Object::DestructorNotFound)
-            } else {
+            None => {
                 let e = UError::new(
                     UErrorKind::ModuleError,
                     UErrorMessage::ModuleMemberNotFound(DefinitionType::Function, self.name.to_string(), name.to_string())

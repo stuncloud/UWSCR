@@ -17,6 +17,19 @@ pub struct Function {
     pub outer: Option<Arc<Mutex<Vec<NamedObject>>>>, // 無名関数にコピーするスコープ情報
 }
 
+impl Default for Function {
+    fn default() -> Self {
+        Self {
+            name: None,
+            params: vec![],
+            body: vec![],
+            is_proc: true,
+            module: None,
+            outer: None,
+        }
+    }
+}
+
 impl PartialEq for Function {
     fn eq(&self, other: &Self) -> bool {
         self.name == other.name &&

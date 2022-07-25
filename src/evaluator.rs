@@ -2163,9 +2163,9 @@ impl Evaluator {
         }
     }
 
-    fn builtin_func_result(&mut self, result: Object, is_await: bool) -> EvalResult<Object> {
+    fn builtin_func_result(&mut self, result: BuiltinFuncReturnValue, is_await: bool) -> EvalResult<Object> {
         let obj = match result {
-            Object::Eval(s) => {
+            BuiltinFuncReturnValue::Eval(s) => {
                 let mut parser = Parser::new(Lexer::new(&s));
                 let program = parser.parse();
                 let errors = parser.get_errors();
@@ -2185,97 +2185,88 @@ impl Evaluator {
                 }
                 self.eval(program, false)?.map_or(Object::Empty, |o| o)
             },
-            Object::SpecialFuncResult(t) => match t {
-                SpecialFuncResultType::GetEnv => {
-                    self.env.get_env()
-                },
-                SpecialFuncResultType::ListModuleMember(name) => {
-                    self.env.get_module_member(&name)
-                },
-                SpecialFuncResultType::BuiltinConstName(e) => {
-                    if let Some(Expression::Identifier(Identifier(name))) = e {
-                        self.env.get_name_of_builtin_consts(&name)
-                    } else {
-                        Object::Empty
-                    }
-                },
-                SpecialFuncResultType::Task(func, arguments) => {
-                    let task = self.new_task(func, arguments);
-                    if is_await {
-                        self.await_task(task)?
-                    } else {
-                        Object::Task(task)
-                    }
-                },
-                SpecialFuncResultType::GetLogPrintWinId => {
-                    let id = match LOGPRINTWIN.get() {
-                        Some(m) => {
-                            let lp = m.lock().unwrap();
-                            builtins::window_control::get_id_from_hwnd(lp.hwnd())
-                        },
-                        None => -1.0,
-                    };
-                    Object::Num(id)
-                },
-                SpecialFuncResultType::Balloon(balloon) => {
-                    match balloon {
-                        Some(new) => match self.balloon {
-                            Some(ref mut old) => old.redraw(new),
-                            None => {
-                                new.draw();
-                                self.balloon = Some(new);
-                            },
-                        },
-                        None => self.balloon = None,
-                    }
-                    Object::Empty
-                },
-                SpecialFuncResultType::BalloonID => {
-                    match &self.balloon {
-                        Some(b) => {
-                            let hwnd = b.hwnd();
-                            let id = builtins::window_control::get_id_from_hwnd(hwnd);
-                            Object::Num(id)
-                        },
-                        None => Object::Num(-1.0),
-                    }
-                },
-                SpecialFuncResultType::Token { token, remained, expression } => {
-                    if let Some(left) = expression {
-                        let _ = self.eval_assign_expression(left, Object::String(remained));
-                    }
-                    Object::String(token)
-                },
-                SpecialFuncResultType::Qsort(expr, array, exprs, arrays) => {
-                    if let Some(left) = expr {
-                        let _ = self.eval_assign_expression(left, Object::Array(array));
-                    }
-                    for (expr, array) in exprs.into_iter().zip(arrays.into_iter()) {
-                        if let Some(left) = expr {
-                            if let Some(arr) = array {
-                                let _ = self.eval_assign_expression(left, Object::Array(arr));
-                            }
-                        }
-                    }
-                    Object::Empty
-                },
-                SpecialFuncResultType::Reference(refs) => {
-                    for (expr, value) in refs {
-                        if let Some(left) = expr {
-                            let _ = self.eval_assign_expression(left, value);
-                        }
-                    }
-                    Object::Empty
-                },
-                SpecialFuncResultType::Resize(expr, arr, ret) => {
-                    if let Some(left) = expr {
-                        let _ = self.eval_assign_expression(left, Object::Array(arr));
-                    }
-                    Object::Num(ret)
-                },
-
+            BuiltinFuncReturnValue::GetEnv => {
+                self.env.get_env()
             },
-            _ => result
+            BuiltinFuncReturnValue::ListModuleMember(name) => {
+                self.env.get_module_member(&name)
+            },
+            BuiltinFuncReturnValue::BuiltinConstName(e) => {
+                if let Some(Expression::Identifier(Identifier(name))) = e {
+                    self.env.get_name_of_builtin_consts(&name)
+                } else {
+                    Object::Empty
+                }
+            },
+            BuiltinFuncReturnValue::Task(func, arguments) => {
+                let task = self.new_task(func, arguments);
+                if is_await {
+                    self.await_task(task)?
+                } else {
+                    Object::Task(task)
+                }
+            },
+            BuiltinFuncReturnValue::GetLogPrintWinId => {
+                let id = match LOGPRINTWIN.get() {
+                    Some(m) => {
+                        let lp = m.lock().unwrap();
+                        builtins::window_control::get_id_from_hwnd(lp.hwnd())
+                    },
+                    None => -1.0,
+                };
+                Object::Num(id)
+            },
+            BuiltinFuncReturnValue::Balloon(balloon) => {
+                match balloon {
+                    Some(new) => match self.balloon {
+                        Some(ref mut old) => old.redraw(new),
+                        None => {
+                            new.draw();
+                            self.balloon = Some(new);
+                        },
+                    },
+                    None => self.balloon = None,
+                }
+                Object::Empty
+            },
+            BuiltinFuncReturnValue::BalloonID => {
+                match &self.balloon {
+                    Some(b) => {
+                        let hwnd = b.hwnd();
+                        let id = builtins::window_control::get_id_from_hwnd(hwnd);
+                        Object::Num(id)
+                    },
+                    None => Object::Num(-1.0),
+                }
+            },
+            BuiltinFuncReturnValue::Token { token, remained, expression } => {
+                if let Some(left) = expression {
+                    let _ = self.eval_assign_expression(left, Object::String(remained));
+                }
+                Object::String(token)
+            },
+            BuiltinFuncReturnValue::Qsort(expr, array, exprs, arrays) => {
+                if let Some(left) = expr {
+                    let _ = self.eval_assign_expression(left, Object::Array(array));
+                }
+                for (expr, array) in exprs.into_iter().zip(arrays.into_iter()) {
+                    if let Some(left) = expr {
+                        if let Some(arr) = array {
+                            let _ = self.eval_assign_expression(left, Object::Array(arr));
+                        }
+                    }
+                }
+                Object::Empty
+            },
+            BuiltinFuncReturnValue::Reference {refs, result} => {
+                for (expr, value) in refs {
+                    if let Some(left) = expr {
+                        let _ = self.eval_assign_expression(left, value);
+                    }
+                }
+                result
+            },
+            BuiltinFuncReturnValue::Result(obj) => obj,
         };
         Ok(obj)
     }
@@ -2289,7 +2280,6 @@ impl Evaluator {
 
         let func_object = self.eval_expression_for_func_call(*func)?;
         match func_object {
-            Object::DestructorNotFound => Ok(Object::Empty),
             Object::Function(f) => f.invoke(self, arguments, false),
             Object::AsyncFunction(f) => {
                 let task = self.new_task(f, arguments);

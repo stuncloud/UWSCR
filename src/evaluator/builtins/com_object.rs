@@ -83,7 +83,7 @@ fn createoleobj(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     // ignore IE
     ignore_ie(&prog_id)?;
     let idispatch = create_instance(&prog_id)?;
-    Ok(Object::ComObject(idispatch))
+    Ok(BuiltinFuncReturnValue::Result(Object::ComObject(idispatch)))
 }
 
 fn create_instance(prog_id: &str) -> BuiltInResult<IDispatch> {
@@ -102,7 +102,7 @@ fn getactiveoleobj(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         Some(d) => d,
         None => return Err(builtin_func_error(UErrorMessage::FailedToGetObject, args.name()))
     };
-    Ok(Object::ComObject(disp))
+    Ok(BuiltinFuncReturnValue::Result(Object::ComObject(disp)))
 }
 
 fn get_active_object(prog_id: &str) -> BuiltInResult<Option<IDispatch>> {
@@ -131,14 +131,14 @@ fn vartype(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             Object::Variant(ref v) => v.0.vt() as f64,
             _ => VarType::VAR_UWSCR as u32 as f64
         };
-        Ok(Object::Num(n))
+        Ok(BuiltinFuncReturnValue::Result(Object::Num(n)))
     } else {
         let _is_array = (vt as u16 | VarType::VAR_ARRAY as u16) > 0;
         // VARIANT型への変換 VAR_UWSCRの場合は通常のObjectに戻す
         if vt == VarType::VAR_UWSCR as i32 {
             match o {
-                Object::Variant(v) => Ok(Object::from_variant(&v.0)?),
-                o => Ok(o)
+                Object::Variant(v) => Ok(BuiltinFuncReturnValue::Result(Object::from_variant(&v.0)?)),
+                o => Ok(BuiltinFuncReturnValue::Result(o))
             }
         } else {
             let variant = match o {
@@ -148,7 +148,7 @@ fn vartype(args: BuiltinFuncArgs) -> BuiltinFuncResult {
                     v.change_type(VARENUM(vt.into()))?
                 }
             };
-            Ok(Object::Variant(Variant(variant)))
+            Ok(BuiltinFuncReturnValue::Result(Object::Variant(Variant(variant))))
         }
     }
 }
@@ -164,7 +164,7 @@ fn safearray(args: BuiltinFuncArgs) -> BuiltinFuncResult {
                 sa.set(i, &mut variant)?;
                 i += 1;
             }
-            return Ok(Object::SafeArray(sa))
+            return Ok(BuiltinFuncReturnValue::Result(Object::SafeArray(sa)))
         },
         _ => 0,
     };
@@ -183,5 +183,5 @@ fn safearray(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         // 一次元
         SAFEARRAY::new(lbound, ubound)
     };
-    Ok(Object::SafeArray(safe_array))
+    Ok(BuiltinFuncReturnValue::Result(Object::SafeArray(safe_array)))
 }

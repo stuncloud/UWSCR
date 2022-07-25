@@ -69,7 +69,7 @@ pub fn logprint(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         lp.set_visibility(flg);
         lp.move_to(left, top, width, height);
     }
-    Ok(Object::Empty)
+    Ok(BuiltinFuncReturnValue::Result(Object::Empty))
 }
 
 fn get_dlg_point(args: &BuiltinFuncArgs, i: (usize,usize), point: &Lazy<Mutex<(Option<i32>, Option<i32>)>>) -> BuiltInResult<(Option<i32>, Option<i32>)> {
@@ -120,7 +120,7 @@ pub fn msgbox(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 
     set_dlg_point(x, y, &MSGBOX_POINT);
     let pressed = btn.0 as f64;
-    Ok(Object::Num(pressed))
+    Ok(BuiltinFuncReturnValue::Result(Object::Num(pressed)))
 }
 
 pub fn input(args: BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -165,15 +165,15 @@ pub fn input(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     match result {
         Some(mut vec) => if vec.len() == 1 {
             let s = vec.pop().unwrap_or_default();
-            Ok(Object::String(s))
+            Ok(BuiltinFuncReturnValue::Result(Object::String(s)))
         } else {
             let arr = vec.into_iter().map(|s| Object::String(s)).collect();
-            Ok(Object::Array(arr))
+            Ok(BuiltinFuncReturnValue::Result(Object::Array(arr)))
         },
         None => if count > 1 {
-            Ok(Object::Array(vec![]))
+            Ok(BuiltinFuncReturnValue::Result(Object::Array(vec![])))
         } else {
-            Ok(Object::Empty)
+            Ok(BuiltinFuncReturnValue::Result(Object::Empty))
         },
     }
 }
@@ -247,7 +247,7 @@ pub fn slctbox(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         },
         SlctReturnValue::Cancel => (-1).into(),
     };
-    Ok(obj)
+    Ok(BuiltinFuncReturnValue::Result(obj))
 }
 
 pub fn popupmenu(args: BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -266,7 +266,7 @@ pub fn popupmenu(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         Some(s) => Object::String(s),
         None => Object::Empty,
     };
-    Ok(obj)
+    Ok(BuiltinFuncReturnValue::Result(obj))
 }
 
 pub fn balloon(args: BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -287,5 +287,5 @@ pub fn balloon(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             .map_err(|e| builtin_func_error(UWindowError(e), args.name()))?;
         Some(balloon)
     };
-    Ok(Object::SpecialFuncResult(SpecialFuncResultType::Balloon(balloon)))
+    Ok(BuiltinFuncReturnValue::Balloon(balloon))
 }

@@ -40,5 +40,5 @@ pub fn browser_control(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             args.name()
         ))
     };
-    Ok(Object::Browser(browser))
+    Ok(BuiltinFuncReturnValue::Result(Object::Browser(browser)))
 }

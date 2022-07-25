@@ -62,7 +62,7 @@ pub fn mmv(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let ms = args.get_as_int::<u64>(2, Some(0))?;
     thread::sleep(time::Duration::from_millis(ms));
     move_mouse_to(x, y);
-    Ok(Object::Empty)
+    Ok(BuiltinFuncReturnValue::Result(Object::Empty))
 }
 
 pub fn btn(args: BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -82,18 +82,18 @@ pub fn btn(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             thread::sleep(time::Duration::from_millis(ms));
             move_mouse_to(x, y);
             enigo.mouse_scroll_y(arg1);
-            return Ok(Object::Empty);
+            return Ok(BuiltinFuncReturnValue::Result(Object::Empty));
         },
         MouseButtonEnum::WHEEL2 => {
             thread::sleep(time::Duration::from_millis(ms));
             move_mouse_to(x, y);
             enigo.mouse_scroll_x(arg1);
-            return Ok(Object::Empty);
+            return Ok(BuiltinFuncReturnValue::Result(Object::Empty));
         },
         MouseButtonEnum::TOUCH => {
             return Err(builtin_func_error(UErrorMessage::NotYetSupported("TOUCH".into()), args.name()));
         },
-        _ => return Ok(Object::Empty)
+        _ => return Ok(BuiltinFuncReturnValue::Result(Object::Empty))
     };
 
     thread::sleep(time::Duration::from_millis(ms));
@@ -104,7 +104,7 @@ pub fn btn(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         KeyActionEnum::UP => enigo.mouse_up(button),
         _ => return Err(builtin_func_error(UErrorMessage::InvalidArgument((arg1 as f64).into()), args.name()))
     }
-    Ok(Object::Empty)
+    Ok(BuiltinFuncReturnValue::Result(Object::Empty))
 }
 
 pub fn get_current_pos(name: String) -> BuiltInResult<POINT>{
@@ -158,7 +158,7 @@ fn send_win_key(vk: u8, action: KeyActionEnum, wait: u64) -> BuiltinFuncResult {
             _ => {},
         }
     }
-    Ok(Object::Empty)
+    Ok(BuiltinFuncReturnValue::Result(Object::Empty))
 }
 
 pub fn kbd(args: BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -180,7 +180,7 @@ pub fn kbd(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         Object::String(s) => {
             thread::sleep(time::Duration::from_millis(ms));
             enigo.key_sequence(s.as_str());
-            return Ok(Object::Empty);
+            return Ok(BuiltinFuncReturnValue::Result(Object::Empty));
         }
         _ => return Err(builtin_func_error(UErrorMessage::InvalidArgument(obj), args.name()))
     };
@@ -191,5 +191,5 @@ pub fn kbd(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         KeyActionEnum::UP => enigo.key_up(key),
         _ => (),
     };
-    Ok(Object::Empty)
+    Ok(BuiltinFuncReturnValue::Result(Object::Empty))
 }

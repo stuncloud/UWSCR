@@ -167,10 +167,10 @@ pub fn getid(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             HWND::default()
         },
         "__GET_LOGPRINT_WIN__" => {
-            return Ok(Object::SpecialFuncResult(SpecialFuncResultType::GetLogPrintWinId))
+            return Ok(BuiltinFuncReturnValue::GetLogPrintWinId)
         },
         "__GET_BALLOON_WIN__" => {
-            return Ok(Object::SpecialFuncResult(SpecialFuncResultType::BalloonID))
+            return Ok(BuiltinFuncReturnValue::BalloonID)
         },
         "__GET_FORM_WIN__" => {
             HWND::default()
@@ -198,9 +198,9 @@ pub fn getid(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         //     set_new_window(new_id, hwnd, false);
         //     id = new_id as f64;
         // }
-        return Ok(Object::Num(id))
+        return Ok(BuiltinFuncReturnValue::Result(Object::Num(id)))
     } else {
-        return Ok(Object::Num(-1.0))
+        return Ok(BuiltinFuncReturnValue::Result(Object::Num(-1.0)))
     }
 }
 
@@ -303,17 +303,17 @@ fn get_hwnd_from_mouse_point(toplevel: bool, name: String) -> BuiltInResult<HWND
 pub fn idtohnd(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = args.get_as_int::<i32>(0, None)?;
     if id < 0 {
-        return Ok(Object::Num(0.0));
+        return Ok(BuiltinFuncReturnValue::Result(Object::Num(0.0)));
     }
     let h = get_hwnd_from_id(id);
     if h.0 > 0 {
         unsafe {
             if IsWindow(h).as_bool() {
-                return Ok(Object::Num(h.0 as f64));
+                return Ok(BuiltinFuncReturnValue::Result(Object::Num(h.0 as f64)));
             }
         }
     }
-    Ok(Object::Num(0.0))
+    Ok(BuiltinFuncReturnValue::Result(Object::Num(0.0)))
 }
 
 pub fn get_hwnd_from_id(id: i32) -> HWND {
@@ -329,7 +329,7 @@ pub fn hndtoid(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let h = args.get_as_int::<isize>(0, None)?;
     let hwnd = HWND(h);
     let id = get_id_from_hwnd(hwnd);
-    Ok(Object::Num(id))
+    Ok(BuiltinFuncReturnValue::Result(Object::Num(id)))
 }
 
 pub fn get_id_from_hwnd(hwnd: HWND) -> f64 {
@@ -362,7 +362,7 @@ pub fn acw(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = args.get_as_int::<i32>(0, None)?;
     let hwnd = get_hwnd_from_id(id);
     if hwnd.0 == 0 {
-        return Ok(Object::Empty);
+        return Ok(BuiltinFuncReturnValue::Result(Object::Empty));
     }
     let x = args.get_as_int(1, None).ok();
     let y = args.get_as_int(2, None).ok();
@@ -372,13 +372,13 @@ pub fn acw(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     thread::sleep(Duration::from_millis(ms));
     set_window_size(hwnd, x, y, w, h)?;
     set_id_zero(hwnd);
-    Ok(Object::Empty)
+    Ok(BuiltinFuncReturnValue::Result(Object::Empty))
 }
 
 
 // CLKITEM
 pub fn clkitem(args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    Ok(Object::Bool(args.len() > 0))
+    Ok(BuiltinFuncReturnValue::Result(Object::Bool(args.len() > 0)))
 }
 
 // CTRLWIN
@@ -403,7 +403,7 @@ pub fn ctrlwin(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = args.get_as_int(0, None)?;
     let hwnd = get_hwnd_from_id(id);
     if hwnd.0 == 0 {
-        return Ok(Object::Empty);
+        return Ok(BuiltinFuncReturnValue::Result(Object::Empty));
     }
     let cmd = args.get_as_int(1, None)?;
     match FromPrimitive::from_i32(cmd).unwrap_or(CtrlWinCmd::UNKNOWN_CTRLWIN_CMD) {
@@ -460,7 +460,7 @@ pub fn ctrlwin(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         _ => (),
     };
     set_id_zero(hwnd);
-    Ok(Object::Empty)
+    Ok(BuiltinFuncReturnValue::Result(Object::Empty))
 }
 
 // STATUS
@@ -609,7 +609,7 @@ fn get_client_size(h: HWND) -> WindowSize {
     }
 }
 
-fn get_window_text(hwnd: HWND) -> BuiltinFuncResult {
+fn get_window_text(hwnd: HWND) -> BuiltInResult<Object> {
     unsafe {
         let mut buffer = [0; MAX_NAME_SIZE];
         let len = GetWindowTextW(hwnd, &mut buffer);
@@ -618,7 +618,7 @@ fn get_window_text(hwnd: HWND) -> BuiltinFuncResult {
     }
 }
 
-fn get_class_name(hwnd: HWND) -> BuiltinFuncResult {
+fn get_class_name(hwnd: HWND) -> BuiltInResult<Object> {
     unsafe {
         let mut buffer = [0; MAX_NAME_SIZE];
         let len = GetClassNameW(hwnd, &mut buffer);
@@ -656,7 +656,7 @@ fn get_process_id_from_hwnd(hwnd: HWND) -> u32 {
     }
 }
 
-fn is_process_64bit(hwnd: HWND) -> BuiltinFuncResult {
+fn is_process_64bit(hwnd: HWND) -> BuiltInResult<Object> {
     if ! is_64bit_os("status".into()).unwrap_or(true) {
         // 32bit OSなら必ずfalse
         return Ok(Object::Bool(false));
@@ -679,7 +679,7 @@ fn get_process_handle_from_hwnd(hwnd: HWND) -> windows::core::Result<HANDLE> {
     }
 }
 
-fn get_process_path_from_hwnd(hwnd: HWND) -> BuiltinFuncResult {
+fn get_process_path_from_hwnd(hwnd: HWND) -> BuiltInResult<Object> {
     let mut buffer = [0; MAX_PATH as usize];
     unsafe {
         let handle = get_process_handle_from_hwnd(hwnd)?;
@@ -698,7 +698,7 @@ fn get_monitor_index_from_hwnd(hwnd: HWND) -> Object {
 }
 
 
-fn get_status_result(hwnd: HWND, st: u8) -> BuiltinFuncResult {
+fn get_status_result(hwnd: HWND, st: u8) -> BuiltInResult<Object> {
     let stat = FromPrimitive::from_u8(st).unwrap_or(StatusEnum::UNKNOWN_STATUS);
     let obj = match stat {
         StatusEnum::ST_TITLE => get_window_text(hwnd)?,
@@ -791,7 +791,7 @@ fn get_all_status(hwnd: HWND) -> BuiltinFuncResult {
     stats.insert((StatusEnum::ST_PATH as u8).to_string(), get_process_path_from_hwnd(hwnd)?);
     stats.insert((StatusEnum::ST_PROCESS as u8).to_string(), Object::Num(get_process_id_from_hwnd(hwnd) as f64));
     stats.insert((StatusEnum::ST_MONITOR as u8).to_string(), get_monitor_index_from_hwnd(hwnd));
-    Ok(Object::HashTbl(Arc::new(Mutex::new(stats))))
+    Ok(BuiltinFuncReturnValue::Result(Object::HashTbl(Arc::new(Mutex::new(stats)))))
 }
 
 pub fn status(args: BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -808,13 +808,14 @@ pub fn status(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             stats.insert(cmd.to_string(), value);
             i += 1;
         }
-        Ok(Object::HashTbl(Arc::new(Mutex::new(stats))))
+        Ok(BuiltinFuncReturnValue::Result(Object::HashTbl(Arc::new(Mutex::new(stats)))))
     } else {
         let cmd = args.get_as_int::<u8>(1, None)?;
         if cmd == StatusEnum::ST_ALL as u8 {
             Ok(get_all_status(hwnd)?)
         } else {
-            Ok(get_status_result(hwnd, cmd)?)
+            let st = get_status_result(hwnd, cmd)?;
+            Ok(BuiltinFuncReturnValue::Result(st))
         }
     }
 }
@@ -919,12 +920,13 @@ fn get_monitor_name(name: &[u16]) -> Object {
 
 pub fn monitor(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     if args.len() == 0 {
-        return Ok(get_monitor_count(HMONITOR::default()));
+        let count = get_monitor_count(HMONITOR::default());
+        return Ok(BuiltinFuncReturnValue::Result(count));
     }
     let index = args.get_as_int::<usize>(0, None)?;
     let h = get_monitor_handle_by_index(index);
     if h.is_invalid() {
-        return Ok(Object::Bool(false));
+        return Ok(BuiltinFuncReturnValue::Result(Object::Bool(false)));
     };
     let mut miex = MONITORINFOEXW::default();
     miex.monitorInfo.cbSize = mem::size_of::<MONITORINFOEXW>() as u32;
@@ -949,21 +951,21 @@ pub fn monitor(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             map.insert((MonitorEnum::MON_WORK_Y as u8).to_string(), Object::Num(mi.rcWork.top.into()));
             map.insert((MonitorEnum::MON_WORK_WIDTH as u8).to_string(), Object::Num((mi.rcWork.right - mi.rcWork.left).into()));
             map.insert((MonitorEnum::MON_WORK_HEIGHT as u8).to_string(), Object::Num((mi.rcWork.bottom - mi.rcWork.top).into()));
-            return Ok(Object::HashTbl(Arc::new(Mutex::new(map))));
+            return Ok(BuiltinFuncReturnValue::Result(Object::HashTbl(Arc::new(Mutex::new(map)))));
         },
         MonitorEnum::MON_X => mi.rcMonitor.left,
         MonitorEnum::MON_Y => mi.rcMonitor.top,
         MonitorEnum::MON_WIDTH => mi.rcMonitor.right - mi.rcMonitor.left,
         MonitorEnum::MON_HEIGHT => mi.rcMonitor.bottom - mi.rcMonitor.top,
-        MonitorEnum::MON_NAME => return Ok(get_monitor_name(&miex.szDevice)),
-        MonitorEnum::MON_PRIMARY => return Ok(Object::Bool(mi.dwFlags == MONITORINFOF_PRIMARY)),
+        MonitorEnum::MON_NAME => return Ok(BuiltinFuncReturnValue::Result(get_monitor_name(&miex.szDevice))),
+        MonitorEnum::MON_PRIMARY => return Ok(BuiltinFuncReturnValue::Result(Object::Bool(mi.dwFlags == MONITORINFOF_PRIMARY))),
         MonitorEnum::MON_WORK_X => mi.rcWork.left,
         MonitorEnum::MON_WORK_Y => mi.rcWork.top,
         MonitorEnum::MON_WORK_WIDTH => mi.rcWork.right - mi.rcWork.left,
         MonitorEnum::MON_WORK_HEIGHT => mi.rcWork.bottom - mi.rcWork.top,
-        _ => return Ok(Object::Bool(false))
+        _ => return Ok(BuiltinFuncReturnValue::Result(Object::Bool(false)))
     };
-    Ok(Object::Num(value as f64))
+    Ok(BuiltinFuncReturnValue::Result(Object::Num(value as f64)))
 }
 
 #[cfg(feature="chkimg")]
@@ -1002,5 +1004,5 @@ pub fn chkimg(args: BuiltinFuncArgs) -> BuiltinFuncResult {
                                 Object::Array(vec)
                             })
                             .collect::<Vec<_>>();
-    Ok(Object::Array(arr))
+    Ok(BuiltinFuncReturnValue::Result(Object::Array(arr)))
 }

@@ -36,7 +36,7 @@ fn join(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             .filter(|s| if empty_flg {s.len() > 0} else {true})
             .collect::<Vec<String>>()
             .join(&sep);
-    Ok(Object::String(joined))
+    Ok(BuiltinFuncReturnValue::Result(Object::String(joined)))
 }
 
 #[allow(non_camel_case_types)]
@@ -76,7 +76,7 @@ pub fn qsort(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     ];
     let qsort = qsort::Qsort::new(order);
     qsort.sort(&mut array, &mut arrays);
-    Ok(Object::SpecialFuncResult(SpecialFuncResultType::Qsort(expr, array, exprs, arrays)))
+    Ok(BuiltinFuncReturnValue::Qsort(expr, array, exprs, arrays))
 }
 
 pub fn reverse(args: BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -84,9 +84,7 @@ pub fn reverse(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let expr = args.get_expr(0);
 
     arr.reverse();
-    Ok(Object::SpecialFuncResult(SpecialFuncResultType::Reference(vec![
-        (expr, Object::Array(arr))
-    ])))
+    Ok(BuiltinFuncReturnValue::Reference { refs: vec![(expr, Object::Array(arr))], result: Object::Empty})
 }
 
 pub fn resize(args: BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -102,10 +100,13 @@ pub fn resize(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         } as usize;
         arr.resize(new_len, value);
         let i = arr.len() as isize - 1;
-        Ok(Object::SpecialFuncResult(SpecialFuncResultType::Resize(expr, arr, i as f64)))
+        Ok(BuiltinFuncReturnValue::Reference {
+            refs: vec![(expr, Object::Array(arr))],
+            result: Object::Num(i as f64)
+        })
     } else {
         let i = arr.len() as isize - 1;
-        Ok(Object::Num(i as f64))
+        Ok(BuiltinFuncReturnValue::Result(Object::Num(i as f64)))
     }
 }
 
@@ -124,7 +125,7 @@ pub fn slice(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     } else {
         vec![]
     };
-    Ok(Object::Array(arr))
+    Ok(BuiltinFuncReturnValue::Result(Object::Array(arr)))
 }
 
 pub fn split(args: BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -156,7 +157,7 @@ pub fn split(args: BuiltinFuncArgs) -> BuiltinFuncResult {
                     Err(e) => Err(builtin_func_error(UErrorMessage::Any(e.to_string()), args.name())),
                 }
             }) {
-            Some(r) => r.map(|v| Object::Array(v)),
+            Some(r) => r.map(|v| BuiltinFuncReturnValue::Result(Object::Array(v))),
             None => Err(builtin_func_error(
                 UErrorMessage::Any("CSV conversion error".into()),
                 args.name()
@@ -184,7 +185,7 @@ pub fn split(args: BuiltinFuncArgs) -> BuiltinFuncResult {
                 }
             })
         }
-        Ok(Object::Array(arr))
+        Ok(BuiltinFuncReturnValue::Result(Object::Array(arr)))
     }
 
 }
@@ -232,7 +233,7 @@ pub fn calcarray(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         CalcConst::CALC_AVR => |a: f64, b: f64| a + b,
         CalcConst::CALC_MIN => |a: f64, b: f64| a.min(b),
         CalcConst::CALC_MAX => |a: f64, b: f64| a.max(b),
-        CalcConst::CALC_UNKNOWN => return Ok(Object::Empty),
+        CalcConst::CALC_UNKNOWN => return Ok(BuiltinFuncReturnValue::Result(Object::Empty)),
     };
 
     let nums = arr.into_iter()
@@ -242,11 +243,11 @@ pub fn calcarray(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 
     match result {
         Some(n) => if calc_const == CalcConst::CALC_AVR {
-            Ok(Object::Num(n / len))
+            Ok(BuiltinFuncReturnValue::Result(Object::Num(n / len)))
         } else {
-            Ok(Object::Num(n))
+            Ok(BuiltinFuncReturnValue::Result(Object::Num(n)))
         },
-        None => Ok(Object::Empty),
+        None => Ok(BuiltinFuncReturnValue::Result(Object::Empty)),
     }
 }
 
@@ -257,9 +258,10 @@ pub fn setclear(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 
     arr.fill(value);
 
-    Ok(Object::SpecialFuncResult(SpecialFuncResultType::Reference(
-        vec![(expr, Object::Array(arr))]
-    )))
+    Ok(BuiltinFuncReturnValue::Reference {
+        refs: vec![(expr, Object::Array(arr))],
+        result: Object::Empty
+    })
 }
 
 pub fn shiftarray(args: BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -267,7 +269,7 @@ pub fn shiftarray(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let expr = args.get_expr(0);
     let shift = args.get_as_int(1, None::<i32>)?;
     if shift == 0 {
-        return Ok(Object::Empty)
+        return Ok(BuiltinFuncReturnValue::Result(Object::Empty))
     }
 
     let len = arr.len();
@@ -280,7 +282,8 @@ pub fn shiftarray(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     }
     arr.resize(len, Object::Empty);
 
-    Ok(Object::SpecialFuncResult(SpecialFuncResultType::Reference(
-        vec![(expr, Object::Array(arr))]
-    )))
+    Ok(BuiltinFuncReturnValue::Reference {
+        refs: vec![(expr, Object::Array(arr))],
+        result: Object::Empty
+    })
 }

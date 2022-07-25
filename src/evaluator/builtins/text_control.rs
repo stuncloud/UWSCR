@@ -78,7 +78,7 @@ pub fn length(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         Object::ByteArray(ref arr) => arr.len(),
         o => return Err(builtin_func_error(UErrorMessage::InvalidArgument(o), args.name()))
     };
-    Ok(Object::Num(len as f64))
+    Ok(BuiltinFuncReturnValue::Result(Object::Num(len as f64)))
 }
 
 pub fn lengthb(args: BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -90,7 +90,7 @@ pub fn lengthb(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         Object::Null => 1,
         o => return Err(builtin_func_error(UErrorMessage::InvalidArgument(o), args.name()))
     };
-    Ok(Object::Num(len as f64))
+    Ok(BuiltinFuncReturnValue::Result(Object::Num(len as f64)))
 }
 
 pub fn lengthu(args: BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -102,7 +102,7 @@ pub fn lengthu(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         Object::Null => 1,
         o => return Err(builtin_func_error(UErrorMessage::InvalidArgument(o), args.name()))
     };
-    Ok(Object::Num(len as f64))
+    Ok(BuiltinFuncReturnValue::Result(Object::Num(len as f64)))
 }
 
 pub fn lengths(args: BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -111,11 +111,11 @@ pub fn lengths(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             .map(|char| char.len_utf16())
             .reduce(|a,b| a+b)
             .unwrap_or_default();
-    Ok(Object::Num(length as f64))
+    Ok(BuiltinFuncReturnValue::Result(Object::Num(length as f64)))
 }
 
 pub fn as_string(args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    Ok(Object::String(format!("{}", args.get_as_object(0, None)?)))
+    Ok(BuiltinFuncReturnValue::Result(Object::String(format!("{}", args.get_as_object(0, None)?))))
 }
 
 // 正規表現
@@ -143,19 +143,21 @@ pub fn newre(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     if opt.len() > 0 {
         pattern = format!("(?{}){}", opt, pattern);
     }
-    Ok(Object::RegEx(pattern))
+    Ok(BuiltinFuncReturnValue::Result(Object::RegEx(pattern)))
 }
 
-fn test_regex(target: String, pattern: String, f_name: String) -> Result<Object, UError> {
+fn test_regex(target: String, pattern: String, f_name: String) -> BuiltinFuncResult {
     match Regex::new(pattern.as_str()) {
-        Ok(re) => Ok(Object::Bool(
-            re.is_match(target.as_str())
-        )),
+        Ok(re) => {
+            Ok(BuiltinFuncReturnValue::Result(Object::Bool(
+                re.is_match(target.as_str())
+            )))
+        },
         Err(_) => Err(builtin_func_error(UErrorMessage::InvalidRegexPattern(pattern), f_name))
     }
 }
 
-fn match_regex(target: String, pattern: String, f_name: String) -> Result<Object, UError> {
+fn match_regex(target: String, pattern: String, f_name: String) -> BuiltinFuncResult {
     match Regex::new(pattern.as_str()) {
         Ok(re) => {
             let mut matches = vec![];
@@ -174,18 +176,18 @@ fn match_regex(target: String, pattern: String, f_name: String) -> Result<Object
                     ))
                 }
             }
-            Ok(Object::Array(matches))
+            Ok(BuiltinFuncReturnValue::Result(Object::Array(matches)))
         },
         Err(_) => Err(builtin_func_error(UErrorMessage::InvalidRegexPattern(pattern), f_name))
     }
 }
 
-fn replace_regex(target: String, pattern: String, replace_to: String, f_name: String) -> Result<Object, UError> {
+fn replace_regex(target: String, pattern: String, replace_to: String, f_name: String) -> BuiltinFuncResult {
     match Regex::new(pattern.as_str()) {
         Ok(re) => {
-            Ok(Object::String(
+            Ok(BuiltinFuncReturnValue::Result(Object::String(
                 re.replace_all(target.as_str(), replace_to.as_str()).to_string()
-            ))
+            )))
         },
         Err(_) => Err(builtin_func_error(UErrorMessage::InvalidRegexPattern(pattern), f_name))
     }
@@ -204,7 +206,7 @@ pub fn regex(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         Object::Num(n) => {
             match FromPrimitive::from_f64(n).unwrap_or(RegexEnum::REGEX_TEST) {
                 RegexEnum::REGEX_MATCH => match_regex(target, pattern, args.name()),
-                _ => test_regex(target, pattern, args.name()),
+                _ => test_regex(target, pattern, args.name())
             }
         },
         Object::String(s) |
@@ -245,7 +247,7 @@ pub fn replace(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             lower.replace_range(pos..(pos+len), r);
             out.replace_range(pos..(pos+len), r);
         }
-        Ok(Object::String(out))
+        Ok(BuiltinFuncReturnValue::Result(Object::String(out)))
     }
 }
 
@@ -256,15 +258,15 @@ pub fn tojson(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let value = uo.value();
     to_string(&value).map_or_else(
         |e| Err(builtin_func_error(UErrorMessage::Any(e.to_string()), args.name())),
-        |s| Ok(Object::String(s))
+        |s| Ok(BuiltinFuncReturnValue::Result(Object::String(s)))
     )
 }
 
 pub fn fromjson(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let json = args.get_as_string(0, None)?;
     serde_json::from_str::<serde_json::Value>(json.as_str()).map_or_else(
-        |_| Ok(Object::Empty),
-        |v| Ok(Object::UObject(UObject::new(v)))
+        |_| Ok(BuiltinFuncReturnValue::Result(Object::Empty)),
+        |v| Ok(BuiltinFuncReturnValue::Result(Object::UObject(UObject::new(v))))
     )
 }
 
@@ -282,7 +284,7 @@ pub fn copy(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     } else {
         skipped.collect()
     };
-    Ok(copied.into())
+    Ok(BuiltinFuncReturnValue::Result(copied.into()))
 }
 
 fn find_pos(str: &str, substr: &str) -> Option<usize>{
@@ -360,7 +362,7 @@ pub fn pos(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     } else {
         0
     };
-    Ok(pos.into())
+    Ok(BuiltinFuncReturnValue::Result(pos.into()))
 }
 
 fn truncate_str(str: &mut String, mut p: usize) {
@@ -505,12 +507,12 @@ pub fn betweenstr(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         },
     };
 
-    Ok(between.unwrap_or_default().into())
+    Ok(BuiltinFuncReturnValue::Result(between.unwrap_or_default().into()))
 }
 
 pub fn chknum(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let result = args.get_as_int(0, None::<i32>).is_ok();
-    Ok(Object::Bool(result))
+    Ok(BuiltinFuncReturnValue::Result(Object::Bool(result)))
 }
 
 #[allow(non_camel_case_types)]
@@ -523,7 +525,7 @@ pub fn val(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let result = args.get_as_num(0, None::<f64>);
     let err = args.get_as_num(1, Some(ErrConst::ERR_VALUE as i32 as f64))?;
     let val = result.unwrap_or(err);
-    Ok(val.into())
+    Ok(BuiltinFuncReturnValue::Result(val.into()))
 }
 
 pub fn trim(args: BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -541,7 +543,7 @@ pub fn trim(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             target.trim_matches(|c: char| {c.is_ascii_whitespace() || c.is_ascii_control()})
         },
     };
-    Ok(trimed.into())
+    Ok(BuiltinFuncReturnValue::Result(trimed.into()))
 }
 
 pub fn chr(args: BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -550,7 +552,7 @@ pub fn chr(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         Some(c) => c.to_string(),
         None => String::new(),
     };
-    Ok(char.into())
+    Ok(BuiltinFuncReturnValue::Result(char.into()))
 }
 pub fn asc(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let str = args.get_as_string(0, None)?;
@@ -560,7 +562,7 @@ pub fn asc(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         },
         None => 0,
     };
-    Ok(Object::Num(code as f64))
+    Ok(BuiltinFuncReturnValue::Result(Object::Num(code as f64)))
 }
 
 pub fn chrb(args: BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -573,19 +575,19 @@ pub fn chrb(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         },
     };
     let ansi = from_ansi_bytes(&[code]);
-    Ok(ansi.into())
+    Ok(BuiltinFuncReturnValue::Result(ansi.into()))
 }
 pub fn ascb(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let str = args.get_as_string(0, None)?;
     let bytes = to_ansi_bytes(&str);
     let code = bytes.get(0).unwrap_or(&0);
-    Ok(Object::Num(*code as f64))
+    Ok(BuiltinFuncReturnValue::Result(Object::Num(*code as f64)))
 }
 
 pub fn isunicode(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let str = args.get_as_string(0, None)?;
     let is_unicode = contains_unicode_char(&str);
-    Ok(Object::Bool(is_unicode))
+    Ok(BuiltinFuncReturnValue::Result(Object::Bool(is_unicode)))
 }
 
 #[allow(non_camel_case_types)]
@@ -605,7 +607,7 @@ pub fn strconv(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 
     let mut strconv = StrConv::new(&base);
     let conv = strconv.convert(opt);
-    Ok(conv.into())
+    Ok(BuiltinFuncReturnValue::Result(conv.into()))
 }
 struct StrConvType {
     case: StrConvCase,
@@ -740,7 +742,7 @@ pub fn format(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             }
         },
     };
-    Ok(fixed.into())
+    Ok(BuiltinFuncReturnValue::Result(fixed.into()))
 }
 
 pub fn token(args: BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -791,15 +793,15 @@ pub fn token(args: BuiltinFuncArgs) -> BuiltinFuncResult {
                 let chars = base.chars().collect::<Vec<_>>();
                 let token = chars[..p].iter().collect();
                 let remained = chars[rem_pos..].iter().collect();
-                SpecialFuncResultType::Token { token, remained, expression }
+                BuiltinFuncReturnValue::Token { token, remained, expression }
             } else {
-                SpecialFuncResultType::Token {
+                BuiltinFuncReturnValue::Token {
                     token: base,
                     remained: "".to_string(),
                     expression
                 }
             };
-            Ok(Object::SpecialFuncResult(sfrt))
+            Ok(sfrt)
 
 
         } else {
@@ -819,14 +821,14 @@ pub fn token(args: BuiltinFuncArgs) -> BuiltinFuncResult {
                     }
                 }
             }
-            Ok(Object::SpecialFuncResult(SpecialFuncResultType::Token { token, remained, expression }))
+            Ok(BuiltinFuncReturnValue::Token { token, remained, expression })
         }
     } else {
-        Ok(Object::SpecialFuncResult(SpecialFuncResultType::Token {
+        Ok(BuiltinFuncReturnValue::Token {
             token: base,
             remained: "".to_string(),
             expression
-        }))
+        })
     }
 }
 
@@ -960,7 +962,7 @@ pub fn encode(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             bytes.into()
         },
     };
-    Ok(result)
+    Ok(BuiltinFuncReturnValue::Result(result))
 }
 
 pub fn decode(args: BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -988,7 +990,7 @@ pub fn decode(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         },
     };
 
-    Ok(result)
+    Ok(BuiltinFuncReturnValue::Result(result))
 }
 
 #[cfg(test)]
