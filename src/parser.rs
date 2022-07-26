@@ -578,12 +578,11 @@ impl Parser {
 
     fn parse_public_statement(&mut self) -> Option<Statement> {
         match &self.next_token.token {
-            Token::Identifier(_) => self.bump(),
             Token::HashTable => {
                 self.bump();
                 return self.parse_hashtable_statement(true);
             },
-            _ => return None,
+            _ => self.bump(),
         }
         match self.parse_variable_definition(false) {
             Some(v) => Some(Statement::Public(v)),
@@ -592,10 +591,7 @@ impl Parser {
     }
 
     fn parse_dim_statement(&mut self) -> Option<Statement> {
-        match &self.next_token.token {
-            Token::Identifier(_) => self.bump(),
-            _ => return None,
-        }
+        self.bump();
         match self.parse_variable_definition(false) {
             Some(v) => Some(Statement::Dim(v)),
             None => None
@@ -603,10 +599,11 @@ impl Parser {
     }
 
     fn parse_const_statement(&mut self) -> Option<Statement> {
-        match &self.next_token.token {
-            Token::Identifier(_) => self.bump(),
-            _ => return None,
-        }
+        // match &self.next_token.token {
+        //     Token::Identifier(_) => self.bump(),
+        //     _ => return None,
+        // }
+        self.bump();
         match self.parse_variable_definition(true) {
             Some(v) => Some(Statement::Const(v)),
             None => None
