@@ -260,8 +260,9 @@ impl ScreenShot {
             Ok(ScreenShot {data, left, top, width, height})
         }
     }
-    pub fn save(&self, filename: &str) -> opencv::Result<()> {
+    pub fn save(&self, filename: Option<&str>) -> opencv::Result<()> {
         let vector = core::Vector::new();
+        let filename = filename.unwrap_or(&format!("chkimg_ss_{}_{}.png", self.width, self.height));
         imgcodecs::imwrite(&filename, &self.data, &vector)?;
         Ok(())
     }

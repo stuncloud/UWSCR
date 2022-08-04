@@ -989,7 +989,7 @@ pub fn chkimg(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 
     let ss = ScreenShot::get(None, left, top, right, bottom)?;
     if save_ss {
-        ss.save("chkimg_ss.png")?;
+        ss.save(None)?;
     }
     let chk = ChkImg::from_screenshot(ss)?;
     let result = chk.search(&path, score, Some(count))?;
