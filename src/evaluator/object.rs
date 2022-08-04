@@ -68,7 +68,6 @@ pub enum Object {
     Handle(HWND),
     RegEx(String),
     Exit,
-    ExitExit(i32),
     Global, // globalを示す
     This(Arc<Mutex<Module>>),   // thisを示す
     UObject(UObject),
@@ -149,7 +148,6 @@ impl fmt::Display for Object {
             Object::Continue(ref n) => write!(f, "Continue {}", n),
             Object::Break(ref n) => write!(f, "Break {}", n),
             Object::Exit => write!(f, "Exit"),
-            Object::ExitExit(ref n) => write!(f, "ExitExit ({})", n),
             Object::Module(ref m) => write!(f, "module: {}", m.lock().unwrap().name()),
             Object::Class(ref name, _) => write!(f, "class: {}", name),
             Object::Instance(ref m) => {
@@ -262,7 +260,6 @@ impl PartialEq for Object {
             Object::Handle(h) => if let Object::Handle(h2) = other {h==h2} else {false},
             Object::RegEx(r) => if let Object::RegEx(r2) = other {r==r2} else {false},
             Object::Exit => false,
-            Object::ExitExit(_) => false,
             Object::Global => false,
             Object::This(m) => if let Object::This(m2) = other {
                 let _tmp = m.lock().unwrap();

@@ -133,14 +133,13 @@ impl Evaluator {
                             result = Some(Object::Exit);
                             break;
                         },
-                        Object::ExitExit(n) => {
-                            std::process::exit(n);
-                        },
                         _ => result = Some(o),
                     },
                     None => ()
                 },
-                Err(mut e) => {
+                Err(mut e) => if let UErrorKind::ExitExit(n) = e.kind {
+                    std::process::exit(n);
+                } else {
                     let line = self.lines[row - 1].clone();
                     if e.line.has_row() {
                         e.line.set_line_if_none(line)
@@ -171,8 +170,7 @@ impl Evaluator {
                     Some(o) => match o {
                         Object::Continue(_) |
                         Object::Break(_) |
-                        Object::Exit |
-                        Object::ExitExit(_) => return Ok(Some(o)),
+                        Object::Exit => return Ok(Some(o)),
                         _ => (),
                     },
                     None => (),
@@ -504,7 +502,7 @@ impl Evaluator {
             Statement::Thread(e) => self.eval_thread_statement(e),
             Statement::Try {trys, except, finally} => self.eval_try_statement(trys, except, finally),
             Statement::Exit => Ok(Some(Object::Exit)),
-            Statement::ExitExit(n) => Ok(Some(Object::ExitExit(n))),
+            Statement::ExitExit(n) => Err(UError::exitexit(n)),
             Statement::ComErrIgn => {
                 self.ignore_com_err = true;
                 self.com_err_flg = false;
@@ -585,8 +583,7 @@ impl Evaluator {
                     match o {
                         Object::Continue(_) |
                         Object::Break(_) |
-                        Object::Exit |
-                        Object::ExitExit(_) => return Ok(Some(o)),
+                        Object::Exit => return Ok(Some(o)),
                         _ => (),
                     }
                 },
@@ -983,9 +980,18 @@ impl Evaluator {
     }
 
     fn eval_try_statement(&mut self, trys: BlockStatement, except: Option<BlockStatement>, finally: Option<BlockStatement>) -> EvalResult<Option<Object>> {
+        let opt_finally = {
+            let usettings = USETTINGS.lock().unwrap();
+            usettings.options.opt_finally
+        };
         let obj = match self.eval_block_statement(trys) {
             Ok(opt) => opt,
-            Err(mut e) => {
+            Err(mut e) => if let UErrorKind::ExitExit(_) = e.kind {
+                if opt_finally && finally.is_some() {
+                    self.eval_block_statement(finally.unwrap())?;
+                }
+                return Err(e)
+            } else {
                 let row = e.line.row;
                 e.line.set_line_if_none(self.get_line(row)?);
                 self.env.set_try_error_messages(
@@ -999,15 +1005,10 @@ impl Evaluator {
                 }
             },
         };
-        let opt_finally = {
-            let usettings = USETTINGS.lock().unwrap();
-            usettings.options.opt_finally
-        };
         if ! opt_finally {
             // OPTFINALLYでない場合でexit、exitexitなら終了する
             match obj {
-                Some(Object::Exit) |
-                Some(Object::ExitExit(_)) => return Ok(obj),
+                Some(Object::Exit) => return Ok(obj),
                 _ => {}
             }
         }
@@ -1054,7 +1055,9 @@ impl Evaluator {
                     let maybe_uerror = uerror2.lock().unwrap();
                     attach_console();
                     match &*maybe_uerror {
-                        Some(e) => {
+                        Some(e) => if let UErrorKind::ExitExit(n) = e.kind {
+                            std::process::exit(n);
+                        } else {
                             let err = e.to_string();
                             out_log(&err, LogType::Error);
                             let title = UWSCRErrorTitle::RuntimeError.to_string();

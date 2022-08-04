@@ -36,6 +36,14 @@ impl UError {
     pub fn get_line(&self) -> UErrorLine {
         self.line.clone()
     }
+    pub fn exitexit(n: i32) -> Self {
+        Self {
+            kind: UErrorKind::ExitExit(n),
+            message: UErrorMessage::None,
+            is_com_error: false,
+            line: UErrorLine::new(0, None),
+        }
+    }
 }
 
 impl Default for UError {
@@ -164,6 +172,7 @@ pub enum UErrorKind {
     ScreenShotError,
     ZipError,
     PrefixError(char),
+    ExitExit(i32),
 }
 
 impl fmt::Display for UErrorKind {
@@ -336,6 +345,7 @@ impl fmt::Display for UErrorKind {
                 "接頭辞({c})エラー",
                 "Prefix {c} error",
             ),
+            Self::ExitExit(_) => write!(f, ""),
         }
     }
 }
