@@ -262,8 +262,9 @@ impl ScreenShot {
     }
     pub fn save(&self, filename: Option<&str>) -> opencv::Result<()> {
         let vector = core::Vector::new();
-        let filename = filename.unwrap_or(&format!("chkimg_ss_{}_{}.png", self.width, self.height));
-        imgcodecs::imwrite(&filename, &self.data, &vector)?;
+        let default = format!("chkimg_ss_{}_{}.png", self.width, self.height);
+        let filename = filename.unwrap_or(&default);
+        imgcodecs::imwrite(filename, &self.data, &vector)?;
         Ok(())
     }
 }
