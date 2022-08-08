@@ -874,6 +874,7 @@ impl Evaluator {
     }
 
     fn eval_module_statement(&mut self, module_name: &String, block: BlockStatement) -> EvalResult<Arc<Mutex<Module>>> {
+        self.env.new_scope();
         let mut module = Module::new(module_name.to_string());
         for statement in block {
             match statement.statement {
@@ -881,6 +882,7 @@ impl Evaluator {
                     for (i, e) in vec {
                         let Identifier(member_name) = i;
                         let value = self.eval_expression(e)?;
+                        self.env.define_local(&member_name, value.clone())?;
                         module.add(member_name, value, Scope::Local);
                     }
                 },
@@ -888,6 +890,7 @@ impl Evaluator {
                     for (i, e) in vec {
                         let Identifier(member_name) = i;
                         let value = self.eval_expression(e)?;
+                        self.env.define_local(&member_name, value.clone())?;
                         module.add(member_name, value, Scope::Public);
                     }
                 },
@@ -895,18 +898,21 @@ impl Evaluator {
                     for (i, e) in vec {
                         let Identifier(member_name) = i;
                         let value = self.eval_expression(e)?;
+                        self.env.define_local(&member_name, value.clone())?;
                         module.add(member_name, value, Scope::Const);
                     }
                 },
                 Statement::TextBlock(i, s) => {
                     let Identifier(name) = i;
                     let value = self.eval_literal(s)?;
+                    self.env.define_local(&name, value.clone())?;
                     module.add(name, value, Scope::Const);
                 },
                 Statement::HashTbl(v) => {
                     for (i, opt, is_pub) in v {
                         let (name, hashtbl) = self.eval_hashtbl_definition_statement(i, opt)?;
                         let scope = if is_pub {Scope::Public} else {Scope::Local};
+                        self.env.define_local(&name, hashtbl.clone())?;
                         module.add(name, hashtbl, scope);
                     }
                 },
@@ -919,6 +925,7 @@ impl Evaluator {
                                 for (i, e) in vec {
                                     let Identifier(member_name) = i;
                                     let value = self.eval_expression(e)?;
+                                    self.env.define_local(&member_name, value.clone())?;
                                     module.add(member_name, value, Scope::Public);
                                 }
                             },
@@ -926,6 +933,7 @@ impl Evaluator {
                                 for (i, e) in vec {
                                     let Identifier(member_name) = i;
                                     let value = self.eval_expression(e)?;
+                                    self.env.define_local(&member_name, value.clone())?;
                                     module.add(member_name, value, Scope::Const);
                                 }
                             },
@@ -933,6 +941,7 @@ impl Evaluator {
                                 for (i, opt, is_pub) in v {
                                     if is_pub {
                                         let (name, hashtbl) = self.eval_hashtbl_definition_statement(i, opt)?;
+                                        self.env.define_local(&name, hashtbl.clone())?;
                                         module.add(name, hashtbl, Scope::Public);
                                     }
                                 }
@@ -954,13 +963,15 @@ impl Evaluator {
                         module: None,
                         outer: None,
                     };
+                    let func_obj = if is_async {
+                        Object::AsyncFunction(func)
+                    } else {
+                        Object::Function(func)
+                    };
+                    self.env.define_local_function(&func_name, func_obj.clone())?;
                     module.add(
                         func_name,
-                        if is_async {
-                            Object::AsyncFunction(func)
-                        } else {
-                            Object::Function(func)
-                        },
+                        func_obj,
                         Scope::Function,
                     );
                 },
@@ -970,6 +981,7 @@ impl Evaluator {
                 ))
             }
         }
+        self.env.restore_scope(&None);
         let m = Arc::new(Mutex::new(module));
         {
             let mut module = m.lock().unwrap();

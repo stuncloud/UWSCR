@@ -425,6 +425,17 @@ impl Environment {
         self.define(key, object, Scope::Function, true)
     }
 
+    pub fn define_local_function(&mut self, name: &str, object: Object) -> Result<(), UError> {
+        let key = name.to_ascii_uppercase();
+        if self.contains(&key, Scope::Function) {
+            return Err(UError::new(
+                UErrorKind::DefinitionError(DefinitionType::Function),
+                UErrorMessage::AlreadyDefined(name.into())
+            ));
+        }
+        self.define(key, object, Scope::Function, false)
+    }
+
     pub fn define_dll_function(&mut self, name: &str, object: Object) -> Result<(), UError> {
         let key = name.to_ascii_uppercase();
         self.define(key, object, Scope::Function, true)
