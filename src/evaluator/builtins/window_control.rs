@@ -37,6 +37,7 @@ use windows::{
                 IsWindow, PostMessageW, SetForegroundWindow, ShowWindow,
                 SetWindowPos, GetWindowRect, MoveWindow, GetWindowPlacement,
                 GetWindowThreadProcessId, IsIconic, IsHungAppWindow,
+                EnumChildWindows,
             },
             HiDpi::{
                 GetDpiForWindow,
@@ -135,6 +136,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("monitor", 2, monitor);
     #[cfg(feature="chkimg")]
     sets.add("chkimg", 7, chkimg);
+    sets.add("getallwin", 1, getallwin);
     sets
 }
 
@@ -1005,4 +1007,45 @@ pub fn chkimg(args: BuiltinFuncArgs) -> BuiltinFuncResult {
                             })
                             .collect::<Vec<_>>();
     Ok(BuiltinFuncReturnValue::Result(Object::Array(arr)))
+}
+
+unsafe extern "system"
+fn callback_getallwin(hwnd: HWND, lparam: LPARAM) -> BOOL {
+    let list = lparam.0 as *mut HwndList;
+    match hwnd {
+        HWND(0) => false.into(),
+        h => {
+            (*list).0.push(h);
+            true.into()
+        },
+    }
+}
+
+#[derive(Debug)]
+struct HwndList(Vec<HWND>);
+
+pub fn getallwin(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let target = match args.get_as_int_or_empty::<i32>(0)? {
+        Some(id) => match get_hwnd_from_id(id) {
+            HWND(0) => return Ok(BuiltinFuncReturnValue::Result(Object::Array(vec![]))),
+            h => Some(h)
+        },
+        None => None,
+    };
+    let id_list = unsafe {
+        let mut list = HwndList(vec![]);
+        let lparam = LPARAM(&mut list as *mut HwndList as isize);
+        match target {
+            Some(h) => EnumChildWindows(h, Some(callback_getallwin), lparam),
+            None => EnumWindows(Some(callback_getallwin), lparam),
+        };
+
+        list.0.into_iter()
+            .map(|h| {
+                let id = get_id_from_hwnd(h);
+                Object::Num(id)
+            })
+            .collect()
+    };
+    Ok(BuiltinFuncReturnValue::Result(Object::Array(id_list)))
 }
