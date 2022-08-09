@@ -37,7 +37,7 @@ use windows::{
                 IsWindow, PostMessageW, SetForegroundWindow, ShowWindow,
                 SetWindowPos, GetWindowRect, MoveWindow, GetWindowPlacement,
                 GetWindowThreadProcessId, IsIconic, IsHungAppWindow,
-                EnumChildWindows,
+                EnumChildWindows, GetMenu, GetSystemMenu,
             },
             HiDpi::{
                 GetDpiForWindow,
@@ -137,6 +137,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     #[cfg(feature="chkimg")]
     sets.add("chkimg", 7, chkimg);
     sets.add("getallwin", 1, getallwin);
+    sets.add("getctlhnd", 3, getctlhnd);
     sets
 }
 
@@ -217,7 +218,7 @@ struct TargetWindow {
 }
 
 unsafe extern "system"
-fn enum_window_proc(hwnd: HWND, lparam: LPARAM) -> BOOL {
+fn callback_find_window(hwnd: HWND, lparam: LPARAM) -> BOOL {
     let mut title_buffer = [0; MAX_NAME_SIZE];
     let mut class_buffer = [0; MAX_NAME_SIZE];
     // let target = &mut *(lparam as *mut TargetWindow) as &mut TargetWindow;
@@ -268,7 +269,7 @@ fn find_window(title: String, class_name: String, timeout: f64) -> windows::core
     unsafe {
         let lparam = &mut target as *mut TargetWindow as isize;
         loop {
-            EnumWindows(Some(enum_window_proc), LPARAM(lparam));
+            EnumWindows(Some(callback_find_window), LPARAM(lparam));
             if target.found {
                 let h = get_process_handle_from_hwnd(target.hwnd)?;
                 WaitForInputIdle(h, 1000); // 入力可能になるまで最大1秒待つ
@@ -1048,4 +1049,71 @@ pub fn getallwin(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             .collect()
     };
     Ok(BuiltinFuncReturnValue::Result(Object::Array(id_list)))
+}
+
+#[allow(non_camel_case_types)]
+#[derive(Debug, EnumVariantNames)]
+pub enum GetHndConst {
+    GET_MENU_HND,   // __GET_MENU_HND__
+    GET_SYSMENU_HND // __GET_SYSMENU_HND__
+}
+
+unsafe extern "system"
+fn callback_getctlhnd(hwnd: HWND, lparam: LPARAM) -> BOOL {
+    let ctlhnd = &mut *(lparam.0 as *mut CtlHnd);
+    let pat = ctlhnd.target.to_ascii_lowercase();
+
+    let mut buffer = [0; MAX_NAME_SIZE];
+    let len = GetWindowTextW(hwnd, &mut buffer);
+    let title = String::from_utf16_lossy(&buffer[..len as usize]);
+    if let Some(_) = title.to_ascii_lowercase().find(&pat) {
+        ctlhnd.order -= 1;
+        if ctlhnd.order == 0 {
+            ctlhnd.hwnd = hwnd;
+            return false.into()
+        }
+    } else {
+        let mut buffer = [0; MAX_NAME_SIZE];
+        let len = GetClassNameW(hwnd, &mut buffer);
+        let name = String::from_utf16_lossy(&buffer[..len as usize]);
+        if let Some(_) = name.to_ascii_lowercase().find(&pat) {
+            ctlhnd.order-= 1;
+            if ctlhnd.order == 0 {
+                ctlhnd.hwnd = hwnd;
+                return false.into()
+            }
+        }
+    }
+    true.into()
+}
+
+struct CtlHnd{target: String, hwnd: HWND, order: u32}
+
+pub fn getctlhnd(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let id = args.get_as_int(0, None::<i32>)?;
+    let parent = get_hwnd_from_id(id);
+    let target = args.get_as_string(1, None)?;
+
+    let hwnd = match target.to_ascii_uppercase().as_str() {
+        "__GET_MENU_HND__" => unsafe {
+            let menu = GetMenu(parent);
+            menu.0 as f64
+        },
+        "__GET_SYSMENU_HND__" => unsafe {
+            let menu = GetSystemMenu(parent, false);
+            menu.0 as f64
+        },
+        _ => {
+            let n = args.get_as_int(2, Some(1))?;
+            let order = if n < 1 {1_u32} else {n as u32};
+
+            let mut ctlhnd = CtlHnd {target, hwnd: HWND::default(), order};
+            let lparam = LPARAM(&mut ctlhnd as *mut CtlHnd as isize);
+            unsafe {
+                EnumChildWindows(parent, Some(callback_getctlhnd), lparam);
+            }
+            ctlhnd.hwnd.0 as f64
+        }
+    };
+    Ok(BuiltinFuncReturnValue::Result(Object::Num(hwnd)))
 }
