@@ -711,14 +711,15 @@ impl From<f64> for FormatConst {
 
 pub fn format(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let val = args.get_as_num_or_string(0)?;
-    let len = args.get_as_int(1, None::<usize>)?;
+    let len = args.get_as_int(1, None::<i32>)?;
+    let len = if len < 0 {0_usize} else {len as usize};
     let digit = args.get_as_int(2, Some(0_i32))?;
     let fill = args.get_as_const(3, Some(FormatConst::FMT_DEFAULT))?;
 
     let fixed = match val {
         TwoTypeArg::T(ref s) => {
             let cnt = s.chars().count();
-            if cnt >= len {
+            if cnt == 0 || len == 0 || cnt >= len {
                 s.to_string()
             } else {
                 let t = (len / cnt) + 1;
