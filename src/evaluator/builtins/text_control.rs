@@ -869,9 +869,9 @@ impl ByteArray {
                 CP_ACP,
                 WC_COMPOSITECHECK,
                 &wide,
-                PSTR::default(),
+                PSTR::null(),
                 0,
-                PCSTR::default(),
+                PCSTR::null(),
                 &mut 0
             );
             if len > 0 {
@@ -883,7 +883,7 @@ impl ByteArray {
                     &wide,
                     PSTR(result.as_mut_ptr()),
                     result.len() as i32,
-                    PCSTR::default(),
+                    PCSTR::null(),
                     &mut 0
                 );
                 result

@@ -2,6 +2,7 @@ use crate::error::evaluator::{write_locale, CURRENT_LOCALE, Locale,};
 use crate::evaluator::object::Object;
 use crate::winapi::{
     // to_wide_string,
+    WString, PcwstrExt,
     to_ansi_bytes,
 };
 
@@ -756,7 +757,7 @@ impl Fopen {
         unsafe {
             let mut result = vec![];
             let mut lpfindfiledata = WIN32_FIND_DATAW::default();
-            let lpfilename = path.as_ref().to_string_lossy().to_string();
+            let lpfilename = path.as_ref().to_string_lossy().to_string().to_wide_null_terminated().to_pcwstr();
             let hfindfile = FindFirstFileW(lpfilename, &mut lpfindfiledata)?;
             if ! hfindfile.is_invalid() {
                 result.push(lpfindfiledata.clone());

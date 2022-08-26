@@ -564,7 +564,7 @@ pub fn set_window_size(hwnd: HWND, x: Option<i32>, y: Option<i32>, w: Option<i32
             MoveWindow(hwnd, x, y, w, h, false);
 
             // ウィンドウのDPIを得る
-            let w_dpi = GetDpiForWindow(&hwnd);
+            let w_dpi = GetDpiForWindow(hwnd);
             let dpi_factor = w_dpi as f64 / 96.0;
 
             // 見た目のRectを取る

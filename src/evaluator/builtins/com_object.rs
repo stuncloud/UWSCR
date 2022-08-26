@@ -3,7 +3,10 @@ use crate::evaluator::builtins::*;
 use crate::evaluator::com_object::{VARIANTHelper, SAFEARRAYHelper};
 use crate::evaluator::UError;
 use crate::settings::USETTINGS;
+use crate::winapi::WString;
+
 use windows::{
+    core::{PCWSTR, GUID, Interface},
     Win32::{
         System::{
             Com::{
@@ -86,9 +89,17 @@ fn createoleobj(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(BuiltinFuncReturnValue::Result(Object::ComObject(idispatch)))
 }
 
+fn get_clsid_from_progid(prog_id: &str) -> BuiltInResult<GUID> {
+    unsafe {
+        let wide = prog_id.to_wide_null_terminated();
+        let rclsid = CLSIDFromProgID(PCWSTR::from_raw(wide.as_ptr()))?;
+        Ok(rclsid)
+    }
+}
+
 fn create_instance(prog_id: &str) -> BuiltInResult<IDispatch> {
     let obj: IDispatch = unsafe {
-        let rclsid = CLSIDFromProgID(prog_id)?;
+        let rclsid = get_clsid_from_progid(prog_id)?;
         CoCreateInstance(&rclsid, None, CLSCTX_ALL)?
     };
     Ok(obj)
@@ -107,15 +118,14 @@ fn getactiveoleobj(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 
 fn get_active_object(prog_id: &str) -> BuiltInResult<Option<IDispatch>> {
     let obj = unsafe {
-        let rclsid = CLSIDFromProgID(prog_id)?;
+        let rclsid = get_clsid_from_progid(prog_id)?;
         let pvreserved = ptr::null_mut() as *mut c_void;
         let mut ppunk = None;
         GetActiveObject(&rclsid, pvreserved, &mut ppunk)?;
         match ppunk {
-            Some(u) => {
-                let p = &u as *const _ as *const IDispatch;
-                let disp = &*p;
-                Some(disp.clone())
+            Some(unk) => {
+                let disp = unk.cast::<IDispatch>()?;
+                Some(disp)
             },
             None => None
         }

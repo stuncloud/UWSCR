@@ -13,7 +13,7 @@ pub use popupmenu::*;
 pub mod balloon;
 pub use balloon::*;
 
-use crate::winapi::to_wide_string;
+use crate::winapi::{to_wide_string, WString, PcwstrExt};
 use crate::write_locale;
 use crate::error::{CURRENT_LOCALE, Locale};
 use crate::settings::USETTINGS;
@@ -139,7 +139,7 @@ impl Window {
                 CLIP_DEFAULT_PRECIS,
                 DEFAULT_QUALITY,
                 FF_DONTCARE,
-                font_family
+                font_family.to_wide_null_terminated().to_pcwstr()
             );
             if hfont.is_invalid() {
                 Err(UWindowError::FailedToCreateFont(font_family.into()))
@@ -174,7 +174,7 @@ impl Window {
                 hIcon,
                 hCursor,
                 hbrBackground,
-                lpszMenuName: PCWSTR::default(),
+                lpszMenuName: PCWSTR::null(),
                 lpszClassName: PCWSTR(wide.as_ptr()),
                 hIconSm,
             };
@@ -206,14 +206,15 @@ impl Window {
     ) -> UWindowResult<HWND> {
         unsafe {
             let hmenu = id.map(|id| HMENU(id as isize));
-            let mut wide = vec![];
-            let lpwindowname = title.map(|s| {
-                wide = s.encode_utf16().chain(std::iter::once(0)).collect::<Vec<_>>();
-                PCWSTR(wide.as_ptr())
-            });
+            let lpwindowname = if let Some(s) = title {
+                s.to_wide_null_terminated().to_pcwstr()
+            } else {
+                PCWSTR::null()
+            };
+            let lpclassname = class_name.to_wide_null_terminated().to_pcwstr();
             let hwnd = CreateWindowExW(
                 dwexstyle,
-                class_name,
+                lpclassname,
                 lpwindowname,
                 dwstyle,
                 x,

@@ -887,7 +887,7 @@ fn get_hwnd_from_pid(pid: u32) -> HWND {
     let mut data = LparamData::new(pid);
     let lparam = &mut data as *mut LparamData as *mut c_void as isize;
     unsafe {
-        EnumWindows(Some(enum_window_proc), &LPARAM(lparam));
+        EnumWindows(Some(enum_window_proc), LPARAM(lparam));
     }
     data.1
 }

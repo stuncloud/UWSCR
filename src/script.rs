@@ -7,6 +7,7 @@ use crate::parser::*;
 use crate::lexer::Lexer;
 use crate::winapi::{
     to_wide_string, attach_console, free_console,
+    WString, PcwstrExt,
 };
 use windows::{
     core::{PWSTR, PCWSTR},
@@ -122,10 +123,10 @@ pub fn out_ast(script: String, path: &String) -> Result<(String, Option<String>)
 
 pub fn get_parent_full_path(path: &str) -> Result<PathBuf, String> {
     let mut buffer = [0; MAX_PATH as usize];
-    let file = to_wide_string(path);
-    let mut filepart = PWSTR::default();
+    let lpfilename = path.to_wide_null_terminated().to_pcwstr();
+    let mut filepart = PWSTR::null();
     unsafe {
-        GetFullPathNameW(PCWSTR(file.as_ptr()), &mut buffer, &mut filepart);
+        GetFullPathNameW(lpfilename, &mut buffer, &mut filepart);
     }
     let full_path = String::from_utf16_lossy(&buffer);
     Ok(Path::new(full_path.as_str()).parent().unwrap().to_owned())

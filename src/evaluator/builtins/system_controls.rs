@@ -1,8 +1,9 @@
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
 use crate::error::evaluator::{UErrorMessage, UErrorKind};
-use crate::winapi::{from_ansi_bytes, to_wide_string, attach_console, free_console};
+use crate::winapi::{from_ansi_bytes, to_wide_string, attach_console, free_console, WString, PcwstrExt};
 use windows::{
+    w,
     core::{PWSTR,PCWSTR},
     Win32::{
         Foundation::{
@@ -213,10 +214,10 @@ pub fn shell_execute(cmd: String, params: Option<String>) -> bool {
     unsafe {
         let hinstance = ShellExecuteW(
             HWND::default(),
-            "open",
-            cmd,
-            params.unwrap_or_default(),
-            PCWSTR::default(),
+            w!("open"),
+            cmd.to_wide_null_terminated().to_pcwstr(),
+            params.unwrap_or_default().to_wide_null_terminated().to_pcwstr(),
+            PCWSTR::null(),
             SW_SHOWNORMAL.0 as i32
         );
         hinstance.0 > 32
@@ -233,14 +234,14 @@ fn create_process(cmd: String, name: String) -> Result<PROCESS_INFORMATION, UErr
         let mut command = to_wide_string(&cmd);
 
         let r = CreateProcessW(
-            PCWSTR::default(),
+            PCWSTR::null(),
             PWSTR(command.as_mut_ptr()),
             &mut SECURITY_ATTRIBUTES::default(),
             &mut SECURITY_ATTRIBUTES::default(),
             false,
             NORMAL_PRIORITY_CLASS,
             null_mut(),
-            PCWSTR::default(),
+            PCWSTR::null(),
             &mut si,
             &mut pi
         );

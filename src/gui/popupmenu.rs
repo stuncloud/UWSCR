@@ -1,6 +1,8 @@
 use super::*;
 
 use crate::evaluator::object::Object;
+use crate::winapi::{WString, PcwstrExt};
+
 static POPUP_CLASS: OnceCell<Result<String, UWindowError>> = OnceCell::new();
 
 pub struct PoupupDummyWin {
@@ -112,7 +114,8 @@ trait MenuTrait {
     }
     fn set_submenu(&mut self, sub: &mut SubMenu) {
         unsafe {
-            AppendMenuW(self.hmenu(), MF_POPUP, sub.get_id(), sub.get_name());
+            let lpnewitem = sub.get_name().to_wide_null_terminated().to_pcwstr();
+            AppendMenuW(self.hmenu(), MF_POPUP, sub.get_id(), lpnewitem);
             let list = self.get_mut_list();
             sub.push_list_to_parent(list);
         }
@@ -121,7 +124,8 @@ trait MenuTrait {
         unsafe {
             let id = self.id();
             self.set_list(id, &item);
-            AppendMenuW(self.hmenu(), MF_ENABLED|MF_STRING, self.id(), item);
+            let lpnewitem = item.to_wide_null_terminated().to_pcwstr();
+            AppendMenuW(self.hmenu(), MF_ENABLED|MF_STRING, self.id(), lpnewitem);
         }
         self.increase_id();
     }

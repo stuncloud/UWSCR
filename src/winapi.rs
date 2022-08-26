@@ -1,5 +1,5 @@
 use windows::{
-    core::{PSTR, PCSTR},
+    core::{PSTR, PCSTR, PCWSTR},
     Win32::{
         Foundation:: {
             MAX_PATH, HWND
@@ -55,9 +55,9 @@ pub fn to_ansi_bytes(string: &str) -> Vec<u8> {
             CP_ACP,
             WC_COMPOSITECHECK,
             &wide,
-            PSTR::default(),
+            PSTR::null(),
             0,
-            PCSTR::default(),
+            PCSTR::null(),
             &mut 0
         );
         if len > 0 {
@@ -69,7 +69,7 @@ pub fn to_ansi_bytes(string: &str) -> Vec<u8> {
                 &wide,
                 PSTR(result.as_mut_ptr()),
                 result.len() as i32,
-                PCSTR::default(),
+                PCSTR::null(),
                 &mut 0
             );
             result
@@ -86,9 +86,9 @@ pub fn get_ansi_length(string: &str) -> usize {
             CP_ACP,
             WC_COMPOSITECHECK,
             &wide,
-            PSTR::default(),
+            PSTR::null(),
             0,
-            PCSTR::default(),
+            PCSTR::null(),
             &mut 0
         );
         len as usize - 1
@@ -135,9 +135,9 @@ pub fn contains_unicode_char(string: &str) -> bool {
             CP_ACP,
             0,
             &wide,
-            PSTR::default(),
+            PSTR::null(),
             0,
-            PCSTR::default(),
+            PCSTR::null(),
             &mut lpUsedDefaultChar
         );
         lpUsedDefaultChar != 0
@@ -232,7 +232,9 @@ pub fn is_console() -> bool {
 
 pub fn message_box(message: &str, title: &str, utype: MESSAGEBOX_STYLE) {
     unsafe {
-        MessageBoxW(HWND(0), message, title, utype);
+        let lptext = message.to_wide_null_terminated().to_pcwstr();
+        let lpcaption = title.to_wide_null_terminated().to_pcwstr();
+        MessageBoxW(HWND(0), lptext, lpcaption, utype);
     }
 }
 
@@ -277,5 +279,15 @@ impl WString for String {
 
     fn to_wide_null_terminated(&self) -> Vec<u16> {
         self.encode_utf16().chain(std::iter::once(0)).collect()
+    }
+}
+
+pub trait PcwstrExt {
+    fn to_pcwstr(&self) -> PCWSTR;
+}
+
+impl<'a> PcwstrExt for Vec<u16> {
+    fn to_pcwstr(&self) -> PCWSTR {
+        PCWSTR::from_raw(self.as_ptr())
     }
 }
