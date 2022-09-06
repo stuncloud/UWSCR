@@ -27,7 +27,7 @@ use winreg;
 use reqwest;
 use serde_json::{Value, json, Map};
 use tungstenite::{self, WebSocket, stream::MaybeTlsStream};
-use wmi::{WMIConnection, FilterValue};
+use wmi::{WMIConnection, FilterValue, COMLibrary, WMIResult};
 use serde::Deserialize;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -114,7 +114,7 @@ impl Browser {
     }
 
     fn connect(port: u16, filter: Option<String>, btype: BrowserType, headless: bool) -> DevtoolsProtocolResult<Self> {
-        if Self::test_connection(port).is_err() {
+        if ! Self::test_connection(port, &btype.to_string())? {
             let path = Self::get_path(btype)?;
             Self::start(port, &path, btype, headless)?;
         }
@@ -187,12 +187,21 @@ impl Browser {
         }
     }
 
-    fn test_connection(port: u16) -> DevtoolsProtocolResult<()>{
-        Browser::get_request(port, "/json/version")?;
-        Ok(())
+    fn test_connection(port: u16, name: &str) -> DevtoolsProtocolResult<bool>{
+        match is_process_available(port, name)? {
+            Some(b) => if b {
+                Ok(true)
+            } else {
+                Err(DevtoolsProtocolError::new(
+                    UErrorKind::DevtoolsProtocolError,
+                    UErrorMessage::UncontrollableBrowserDetected(port, name.into())
+                ))
+            },
+            None => Ok(false),
+        }
     }
 
-    fn start(port: u16, path: &str, btype: BrowserType, headless: bool) -> std::io::Result<()> {
+    fn start(port: u16, path: &str, btype: BrowserType, headless: bool) -> DevtoolsProtocolResult<()> {
         let mut args = match btype {
             BrowserType::Chrome |
             BrowserType::MSEdge => {
@@ -209,7 +218,15 @@ impl Browser {
         Command::new(&path)
                     .args(&args)
                     .spawn()?;
-        Ok(())
+        if wait_for_connection(port) {
+            Browser::get_request(port, "/json/version")?;
+            Ok(())
+        } else {
+            Err(DevtoolsProtocolError::new(
+                UErrorKind::DevtoolsProtocolError,
+                UErrorMessage::FailedToOpenPort(port)
+            ))
+        }
     }
 
     fn get_target(port: u16, filter: Option<String>) -> DevtoolsProtocolResult<Value> {
@@ -860,6 +877,13 @@ struct NetTCPConnection {
     owning_process: u32
 }
 
+#[derive(Deserialize, Debug)]
+#[serde(rename = "Win32_Process")]
+#[serde(rename_all = "PascalCase")]
+struct Win32Process {
+    process_id: u32,
+}
+
 struct LparamData(u32, HWND);
 impl LparamData {
     pub fn new(pid: u32) -> Self {
@@ -868,9 +892,7 @@ impl LparamData {
 }
 
 fn get_pid_from_port(port: u16) -> DevtoolsProtocolResult<u32>  {
-    let connection = unsafe {
-        WMIConnection::with_initialized_com(Some("Root\\StandardCimv2"))?
-    };
+    let connection = new_wmi_connection(Some("Root\\StandardCimv2"))?;
     let mut filters = HashMap::new();
     filters.insert("LocalPort".to_string(), FilterValue::Number(port.into()));
     filters.insert("state".to_string(), FilterValue::Number(2));
@@ -881,6 +903,55 @@ fn get_pid_from_port(port: u16) -> DevtoolsProtocolResult<u32>  {
         0
     };
     Ok(pid)
+}
+
+fn is_process_available(port: u16, name: &str) -> DevtoolsProtocolResult<Option<bool>> {
+    let pcon = new_wmi_connection(None)?;
+    let mut filters = HashMap::new();
+    filters.insert("Name".into(), FilterValue::String(name.into()));
+    let processes: Vec<Win32Process> = pcon.filtered_query(&filters)?;
+    if processes.len() > 0 {
+        let ncon = new_wmi_connection(Some("Root\\StandardCimv2"))?;
+        let mut filters = HashMap::new();
+        filters.insert("LocalPort".to_string(), FilterValue::Number(port.into()));
+        filters.insert("State".to_string(), FilterValue::Number(2));
+        let tcpcons: Vec<NetTCPConnection> = ncon.filtered_query(&filters)?;
+        if let Some(tcpcon) = tcpcons.first() {
+            let found = processes.iter()
+                .find(|p| p.process_id == tcpcon.owning_process)
+                .is_some();
+            Ok(Some(found))
+        } else {
+            Ok(Some(false))
+        }
+    } else {
+        Ok(None)
+    }
+}
+
+fn new_wmi_connection(namespace: Option<&str>) -> WMIResult<WMIConnection> {
+    unsafe {
+        let com_lib = COMLibrary::assume_initialized();
+        match namespace {
+            Some(namespace_path) => WMIConnection::with_namespace_path(namespace_path, com_lib),
+            None => WMIConnection::new(com_lib),
+        }
+    }
+}
+
+fn wait_for_connection(port: u16) -> bool {
+    let addr = format!("localhost:{port}");
+    let timeout = std::time::Duration::from_secs(5);
+    let from = std::time::Instant::now();
+    loop {
+        if std::net::TcpStream::connect(&addr).is_ok() {
+            break true;
+        }
+        if from.elapsed() >= timeout {
+            break false;
+        }
+    }
+
 }
 
 fn get_hwnd_from_pid(pid: u32) -> HWND {
