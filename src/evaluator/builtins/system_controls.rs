@@ -345,9 +345,13 @@ pub fn wait_task(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 pub fn wmi_query(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let wql = args.get_as_string(0, None)?;
     let name_space = args.get_as_string_or_empty(1)?;
-    let namespace_path = name_space.as_deref();
     let conn = unsafe {
-        wmi::WMIConnection::with_initialized_com(namespace_path)?
+        let com_lib = wmi::COMLibrary::assume_initialized();
+        if let Some(namespace_path) = name_space {
+            wmi::WMIConnection::with_namespace_path(&namespace_path, com_lib)?
+        } else {
+            wmi::WMIConnection::new(com_lib)?
+        }
     };
     let result: Vec<Map<String, Value>> = conn.raw_query(&wql)?;
     let obj = result
