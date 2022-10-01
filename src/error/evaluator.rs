@@ -466,6 +466,8 @@ pub enum UErrorMessage {
     FailedToLoadImageFile(String),
     PrefixShouldBeNumber(Object),
     FailedToInitializeLogPrintWindow,
+    UncontrollableBrowserDetected(u16, String),
+    FailedToOpenPort(u16),
 }
 
 impl fmt::Display for UErrorMessage {
@@ -956,6 +958,14 @@ impl fmt::Display for UErrorMessage {
             Self::FailedToInitializeLogPrintWindow => write_locale!(f,
                 "Printウィンドウの初期化に失敗",
                 "Failed to initialize logprint window",
+            ),
+            Self::UncontrollableBrowserDetected(port, name) => write_locale!(f,
+                "対象ポート({port})が開かれていない{name}が既に起動中のため自動操作が行えません、すべての{name}を終了して再実行してください",
+                "Detected uncontrollable {name}, close all {name} and try again",
+            ),
+            Self::FailedToOpenPort(port) => write_locale!(f,
+                "ポート{port}へ接続できませんでした",
+                "Faild to create connection to port {port}",
             ),
         }
     }
