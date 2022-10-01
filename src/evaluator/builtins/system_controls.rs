@@ -15,16 +15,18 @@ use windows::{
                 INFINITE,
             },
             SystemInformation::{
-                OSVERSIONINFOEXW,
-                GetVersionExW,
+                OSVERSIONINFOEXW, GetVersionExW,
+                SYSTEM_INFO, GetNativeSystemInfo,
+            },
+            Diagnostics::Debug::{
+                PROCESSOR_ARCHITECTURE_AMD64, PROCESSOR_ARCHITECTURE_INTEL,
             },
             Threading::{
                 STARTUPINFOW, PROCESS_INFORMATION,
                 STARTF_USESHOWWINDOW, NORMAL_PRIORITY_CLASS,
                 CREATE_NEW_CONSOLE, CREATE_NO_WINDOW,
                 CreateProcessW, WaitForSingleObject, GetExitCodeProcess,
-                GetCurrentProcess,
-                WaitForInputIdle, IsWow64Process,
+                WaitForInputIdle,
             },
             SystemServices::{
                 VER_NT_WORKSTATION,
@@ -79,18 +81,16 @@ pub fn sleep(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(BuiltinFuncReturnValue::Result(Object::Empty))
 }
 
-pub fn is_64bit_os(f_name: String) -> Result<bool, UError> {
-    let arch = std::env::var("PROCESSOR_ARCHITECTURE").unwrap_or("unknown".to_string());
-    match arch.as_str() {
-        "AMD64" => Ok(true),
-        "x86" => {
-            let mut b = false.into();
-            unsafe {
-                IsWow64Process(GetCurrentProcess(), &mut b);
-            }
-            Ok(b.as_bool())
-        },
-        _ => Err(builtin_func_error(UErrorMessage::UnknownArchitecture(arch), f_name))
+pub fn is_64bit_os() -> Option<bool> {
+    let mut lpsysteminfo = SYSTEM_INFO::default();
+    let arch = unsafe {
+        GetNativeSystemInfo(&mut lpsysteminfo);
+        lpsysteminfo.Anonymous.Anonymous.wProcessorArchitecture
+    };
+    match arch {
+        PROCESSOR_ARCHITECTURE_AMD64 => Some(true),
+        PROCESSOR_ARCHITECTURE_INTEL => Some(false),
+        _ => None,
     }
 }
 
@@ -194,7 +194,11 @@ pub fn kindofos(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let t = args.get_as_bool_or_int(0, Some(0)).unwrap_or(0);
     let osnum = get_os_kind();
     let obj = match FromPrimitive::from_i32(t).unwrap_or(KindOfOsResultType::KIND_OF_OS) {
-        KindOfOsResultType::IS_64BIT_OS => Object::Bool(is_64bit_os(args.name())?),
+        KindOfOsResultType::IS_64BIT_OS => {
+            let is_x64_os = is_64bit_os()
+                .ok_or(builtin_func_error(UErrorMessage::UnsupportedArchitecture, args.name()))?;
+            Object::Bool(is_x64_os)
+        },
         KindOfOsResultType::OSVER_MAJOR => Object::Num(osnum[1]),
         KindOfOsResultType::OSVER_MINOR => Object::Num(osnum[2]),
         KindOfOsResultType::OSVER_BUILD => Object::Num(osnum[3]),
