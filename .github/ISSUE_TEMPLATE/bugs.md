@@ -1,7 +1,7 @@
 ---
 name: バグ報告
 about: 不具合の報告はこちらからお願いします
-title: 'バグ: '
+title: ''
 labels: bug
 assignees: stuncloud
 
@@ -16,7 +16,7 @@ assignees: stuncloud
 <!-- 現象を再現させるための手順を記述してください -->
 <!-- スクリプトの実行のみで再現する場合は不要です -->
 
-1. 
+1.
 
 ## 再現コード
 
@@ -35,7 +35,7 @@ assignees: stuncloud
 - OS: Windows (11/10/8.1/7)
 
 <!-- BrowserControlの不具合であれば以下も記述してください -->
-<!-- 
+<!--
 - ブラウザ情報
     - ブラウザ名
     - バージョン
