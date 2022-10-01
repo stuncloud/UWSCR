@@ -3,6 +3,7 @@ use std::env;
 
 use crate::evaluator::environment::Environment;
 use crate::evaluator::object::Object;
+use crate::evaluator::com_object::{com_initialize, com_uninitialize};
 use crate::evaluator::Evaluator;
 use crate::parser::Parser;
 use crate::error::parser::ParseErrorKind;
@@ -39,6 +40,12 @@ pub fn run(script: Option<String>, exe_path: String, script_path: Option<String>
                 return;
             },
         };
+    }
+
+    // このスレッドでのCOMを有効化
+    if let Err(e) = com_initialize() {
+        eprintln!("failed to initialize COM: {e}");
+        return;
     }
 
     let env = Environment::new(vec![]);
@@ -114,5 +121,8 @@ pub fn run(script: Option<String>, exe_path: String, script_path: Option<String>
             }
         }
     }
+
+    // COM解除
+    com_uninitialize();
 }
 

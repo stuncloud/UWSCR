@@ -64,3 +64,12 @@ impl std::fmt::Display for UWSCRErrorTitle {
         }
     }
 }
+
+impl Into<Vec<String>> for evaluator::UError {
+    fn into(self) -> Vec<String> {
+        vec![
+            self.get_line().to_string(),
+            self.to_string(),
+        ]
+    }
+}

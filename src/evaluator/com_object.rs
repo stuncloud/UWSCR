@@ -10,6 +10,7 @@ use windows::Win32::{
         //     CLSIDFromProgID, CoInitializeEx, CoCreateInstance,
             DISPPARAMS, EXCEPINFO,
             IDispatch,
+            CoInitializeEx, CoUninitialize, COINIT_APARTMENTTHREADED,
         },
         Ole::{
             DISPATCH_PROPERTYGET, DISPATCH_PROPERTYPUT, DISPATCH_METHOD,
@@ -540,5 +541,18 @@ impl SAFEARRAYBOUNDHelper for SAFEARRAYBOUND {
     fn new(lbound: i32, ubound: i32) -> Self {
         let size = (ubound - lbound + 1) as u32;
         Self {cElements: size, lLbound: lbound}
+    }
+}
+
+pub fn com_initialize() -> EvalResult<()> {
+    unsafe {
+        CoInitializeEx(std::ptr::null() as *const c_void, COINIT_APARTMENTTHREADED)?;
+    }
+    Ok(())
+}
+
+pub fn com_uninitialize() {
+    unsafe {
+        CoUninitialize();
     }
 }

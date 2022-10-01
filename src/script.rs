@@ -3,14 +3,15 @@ use std::env;
 
 use crate::evaluator::environment::Environment;
 use crate::evaluator::Evaluator;
+use crate::evaluator::com_object::{com_initialize, com_uninitialize};
 use crate::parser::*;
 use crate::lexer::Lexer;
 use crate::winapi::{
-    to_wide_string, attach_console, free_console,
+    attach_console, free_console,
     WString, PcwstrExt,
 };
 use windows::{
-    core::{PWSTR, PCWSTR},
+    core::{PWSTR},
     Win32::{
         Foundation::{
             MAX_PATH,
@@ -64,9 +65,14 @@ pub fn run(script: String, exe_path: &str, script_path: &str, params: Vec<String
         return Err(errors.into_iter().map(|e| format!("{}", e)).collect());
     }
 
+    // このスレッドでのCOMを有効化
+    if let Err(e) = com_initialize() {
+        return Err(vec![e.to_string()]);
+    }
+
     let env = Environment::new(params);
     let mut evaluator = Evaluator::new(env);
-    Evaluator::start_logprint_win(visible);
+    Evaluator::start_logprint_win(visible)?;
     if let Err(e) = evaluator.eval(program, true) {
         #[cfg(debug_assertions)] println!("\u{001b}[90m[script::run] Evaluator Error: {:#?}\u{001b}[0m", &e);
         let line = &e.get_line();
@@ -74,6 +80,9 @@ pub fn run(script: String, exe_path: &str, script_path: &str, params: Vec<String
     }
     Evaluator::stop_logprint_win();
     free_console();
+
+    // COM解除
+    com_uninitialize();
     Ok(())
 }
 
@@ -85,12 +94,19 @@ pub fn run_code(code: String) -> Result<(), Vec<String>> {
         return Err(errors.into_iter().map(|e| format!("{}", e)).collect());
     }
 
+    // このスレッドでのCOMを有効化
+    if let Err(e) = com_initialize() {
+        return Err(vec![e.to_string()]);
+    }
+
     let env = Environment::new(vec![]);
     let mut evaluator = Evaluator::new(env);
     if let Err(e) = evaluator.eval(program, true) {
         let line = &e.get_line();
         return Err(vec![line.to_string(), e.to_string()])
     }
+    // COM解除
+    com_uninitialize();
     Ok(())
 }
 

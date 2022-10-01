@@ -24,10 +24,10 @@ use crate::winapi::{attach_console,free_console,show_message,FORCE_WINDOW_MODE};
 use windows::{
     Win32::System::{
         Com::{
-            COINIT_APARTMENTTHREADED,
+            // COINIT_APARTMENTTHREADED,
             // COINIT_MULTITHREADED,
             IDispatch,
-            CoInitializeEx, CoUninitialize,
+            // CoInitializeEx, CoUninitialize,
         },
     },
 };
@@ -39,7 +39,6 @@ use std::path::PathBuf;
 use std::thread;
 use std::sync::{Arc, Mutex};
 use std::ffi::c_void;
-use std::ptr;
 use std::panic;
 use std::io::{stdout, Write, BufWriter};
 
@@ -85,7 +84,7 @@ impl Evaluator {
         thread::spawn(move || {
             let mut counter = 0;
             let lp = loop {
-            match LogPrintWin::new(visible) {
+                match LogPrintWin::new(visible) {
                     Ok(lp) => break lp,
                     Err(e) => {
                         counter += 1;
@@ -97,9 +96,9 @@ impl Evaluator {
                     },
                 }
             };
-                    let lp2 = lp.clone();
-                    LOGPRINTWIN.get_or_init(move || Mutex::new(lp));
-                    lp2.message_loop().ok();
+            let lp2 = lp.clone();
+            LOGPRINTWIN.get_or_init(move || Mutex::new(lp));
+            lp2.message_loop().ok();
         });
         let now = std::time::Instant::now();
         let limit = std::time::Duration::from_millis(100);
@@ -109,8 +108,8 @@ impl Evaluator {
                     UError::new(UErrorKind::InitializeError, UErrorMessage::FailedToInitializeLogPrintWindow).to_string()
                 ]);
             } else {
-            thread::sleep(std::time::Duration::from_millis(1));
-        }
+                thread::sleep(std::time::Duration::from_millis(1));
+            }
         }
         Ok(())
     }
@@ -132,10 +131,6 @@ impl Evaluator {
     }
 
     pub fn eval(&mut self, program: Program, clear: bool) -> EvalResult<Option<Object>> {
-        // このスレッドでのCOMを有効化
-        unsafe {
-            CoInitializeEx(ptr::null_mut() as *mut c_void, COINIT_APARTMENTTHREADED)?;
-        }
         let mut result = None;
         let Program(program_block, mut lines) = program;
         self.lines.append(&mut lines);
@@ -171,11 +166,6 @@ impl Evaluator {
         if clear {
             self.clear();
         }
-
-        // // COMの解除
-        // unsafe {
-        //     CoUninitialize();
-        // }
 
         Ok(result)
     }
@@ -1070,13 +1060,8 @@ impl Evaluator {
             };
             thread::spawn(move || {
                 // このスレッドでのCOMを有効化
-                unsafe {
-                    match CoInitializeEx(ptr::null_mut() as *mut c_void, COINIT_APARTMENTTHREADED) {
-                        Ok(()) => {},
-                        Err(e) => {
-                            panic!("Error returned by CoInitializeEx: {}", e.message());
-                        }
-                    };
+                if let Err(_) = com_object::com_initialize() {
+                    panic!("Failed to initialize COM on new thread");
                 }
                 let old_hook = panic::take_hook();
                 let uerror = Arc::new(Mutex::new(None::<UError>));
@@ -1108,13 +1093,11 @@ impl Evaluator {
                         let mut m = uerror.lock().unwrap();
                         *m = Some(e);
                     }
-                    panic!("uerror");
+                    panic!("");
                 } else {
                     panic::set_hook(old_hook);
                 }
-                unsafe {
-                    CoUninitialize();
-                }
+                com_object::com_uninitialize();
             });
         }
         Ok(None)
@@ -2164,15 +2147,11 @@ impl Evaluator {
         // 関数を非同期実行し、UTaskを返す
         let handle = thread::spawn(move || {
             // このスレッドでのCOMを有効化
-            unsafe {
-                CoInitializeEx(ptr::null_mut() as *mut c_void, COINIT_APARTMENTTHREADED)?;
-            }
+            com_object::com_initialize()?;
 
             let ret = func.invoke(&mut task_self, arguments, false);
 
-            unsafe {
-                CoUninitialize();
-            }
+            com_object::com_uninitialize();
 
             ret
         });
