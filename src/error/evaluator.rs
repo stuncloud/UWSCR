@@ -441,7 +441,7 @@ pub enum UErrorMessage {
     TypeMismatch(Object, Infix, Object),
     UnableToGetCursorPosition,
     UnableToGetMonitorInfo,
-    UnknownArchitecture(String),
+    UnsupportedArchitecture,
     UnknownDllType(String),
     VariableNotFound(String),
     Win32Error(String),
@@ -830,10 +830,9 @@ impl fmt::Display for UErrorMessage {
                 "Invalid argument: {}",
                 o
             ),
-            Self::UnknownArchitecture(arch) => write_locale!(f,
-                "不明なアーキテクチャ: {}",
-                "Unknown architecture: {}",
-                arch
+            Self::UnsupportedArchitecture => write_locale!(f,
+                "サポート外OSアーキテクチャ",
+                "OS architecture is not supported",
             ),
             Self::FailedToCreateProcess => write_locale!(f,
                 "プロセスの作成に失敗",

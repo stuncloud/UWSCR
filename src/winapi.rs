@@ -2,7 +2,7 @@ use windows::{
     core::{PSTR, PCSTR, PCWSTR},
     Win32::{
         Foundation:: {
-            MAX_PATH, HWND
+            MAX_PATH, HWND, WPARAM,
         },
         System::{
             SystemInformation::{
@@ -19,7 +19,9 @@ use windows::{
             WindowsAndMessaging::{
                 SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN,
                 MESSAGEBOX_STYLE, MB_OK, MB_ICONEXCLAMATION,
-                GetSystemMetrics, MessageBoxW
+                GetSystemMetrics, MessageBoxW,
+                GetClassNameW, GetWindowTextW,
+                GetWindowLongW, GWL_STYLE,
             },
             Shell::{
                 SHGetSpecialFolderPathW,
@@ -290,4 +292,37 @@ impl<'a> PcwstrExt for Vec<u16> {
     fn to_pcwstr(&self) -> PCWSTR {
         PCWSTR::from_raw(self.as_ptr())
     }
+}
+
+pub fn get_class_name(hwnd: HWND) -> String {
+    unsafe {
+        let mut class_buffer = [0; 512];
+        let len = GetClassNameW(hwnd, &mut class_buffer);
+        let class = String::from_utf16_lossy(&class_buffer[..len as usize]);
+        class
+    }
+}
+
+pub fn get_window_title(hwnd: HWND) -> String {
+    unsafe {
+        let mut title_buffer = [0; 512];
+        let len = GetWindowTextW(hwnd, &mut title_buffer);
+        let title = String::from_utf16_lossy(&title_buffer[..len as usize]);
+        title
+    }
+}
+
+pub fn get_window_style(hwnd: HWND) -> i32 {
+    unsafe {
+        GetWindowLongW(hwnd, GWL_STYLE)
+    }
+}
+
+pub fn make_wparam(lo: u16, hi: u16) -> WPARAM {
+    let wparam = make_dword(lo, hi) as usize;
+    WPARAM(wparam)
+}
+
+fn make_dword(lo: u16, hi: u16) -> u32 {
+    (lo as u32 & 0xFFFF) | (hi as u32 & 0xFFFF) << 16
 }

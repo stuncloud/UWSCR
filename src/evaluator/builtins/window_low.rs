@@ -49,7 +49,7 @@ pub enum KeyActionEnum {
     UNKNOWN_ACTION = -1,
 }
 
-fn move_mouse_to(x: i32, y: i32) -> bool {
+pub fn move_mouse_to(x: i32, y: i32) -> bool {
     unsafe {
         SetCursorPos(x, y);
         SetCursorPos(x, y).as_bool()

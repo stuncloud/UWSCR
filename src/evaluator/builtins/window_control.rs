@@ -1,7 +1,14 @@
+mod acc;
+mod clkitem;
+mod win32;
+
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
-use crate::evaluator::builtins::window_low;
-use crate::evaluator::builtins::system_controls::is_64bit_os;
+use crate::evaluator::builtins::{
+    ThreeState,
+    window_low,
+    system_controls::is_64bit_os,
+};
 
 #[cfg(feature="chkimg")]
 use crate::{
@@ -138,6 +145,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("chkimg", 7, chkimg);
     sets.add("getallwin", 1, getallwin);
     sets.add("getctlhnd", 3, getctlhnd);
+    sets.add("getitem", 6, getitem);
     sets
 }
 
@@ -380,8 +388,58 @@ pub fn acw(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 
 
 // CLKITEM
+#[allow(non_camel_case_types)]
+#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive)]
+pub enum ClkConst {
+    CLK_BTN       = 1,
+    CLK_LIST      = 2,
+    CLK_MENU      = 4,
+    CLK_TAB       = 8,
+    CLK_TREEVIEW  = 16,
+    CLK_LISTVIEW  = 32,
+    CLK_TOOLBAR   = 64,
+    CLK_LINK      = 128,
+    CLK_SHORT     = 256,
+    CLK_BACK      = 512,
+    CLK_MOUSEMOVE = 1024,
+    CLK_RIGHTCLK  = 4096,
+    CLK_LEFTCLK   = 2048,
+    CLK_DBLCLK    = 8192,
+    CLK_FROMLAST  = 65536,
+    CLK_ACC       = 32768,
+    CLK_API       = 536870912,
+    CLK_UIA       = 1073741824,
+    CLK_HWND      = 262144,
+}
+#[allow(non_camel_case_types)]
+#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive)]
+pub enum ClkConstAlias {
+    CLK_TREEVEW = 16,
+    CLK_LSTVEW  = 32,
+    CLK_MUSMOVE = 1024,
+}
+
 pub fn clkitem(args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    Ok(BuiltinFuncReturnValue::Result(Object::Bool(args.len() > 0)))
+    let id = args.get_as_int(0, None::<i32>)?;
+    // let name = args.get_as_string(1, None)?;
+    let names = args.get_as_string_array(1)?;
+    let clk_const = args.get_as_int(2, Some(0_usize))?;
+    let check = args.get_as_three_state(3, Some(ThreeState::True))?;
+    let order = args.get_as_int(4, Some(1))?;
+    let order = if order < 1 {1_u32} else {order as u32};
+
+    let hwnd = get_hwnd_from_id(id);
+
+    let name = if names.len() > 1 {
+        names.join("\t")
+    } else {
+        names[0].to_string()
+    };
+
+    let ci = clkitem::ClkItem::new(name, clk_const, order);
+    let result = ci.click(hwnd, check);
+
+    Ok(BuiltinFuncReturnValue::Result(result))
 }
 
 // CTRLWIN
@@ -655,21 +713,22 @@ fn get_process_id_from_hwnd(hwnd: HWND) -> u32 {
     let mut pid = 0;
     unsafe {
         GetWindowThreadProcessId(hwnd, &mut pid);
-        pid
     }
+    pid
 }
 
 fn is_process_64bit(hwnd: HWND) -> BuiltInResult<Object> {
-    if ! is_64bit_os("status".into()).unwrap_or(true) {
+    if ! is_64bit_os().unwrap_or(true) {
         // 32bit OSなら必ずfalse
         return Ok(Object::Bool(false));
     }
     let h = get_process_handle_from_hwnd(hwnd)?;
-    let mut b = false.into();
+    let mut is_wow64 = false.into();
     unsafe {
-        IsWow64Process(h, &mut b);
-        Ok(Object::Bool(b.into()))
+        IsWow64Process(h, &mut is_wow64);
     }
+    let is_64 = ! is_wow64.as_bool();
+    Ok(Object::Bool(is_64))
 }
 
 fn get_process_handle_from_hwnd(hwnd: HWND) -> windows::core::Result<HANDLE> {
@@ -1116,4 +1175,49 @@ pub fn getctlhnd(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         }
     };
     Ok(BuiltinFuncReturnValue::Result(Object::Num(hwnd)))
+}
+
+#[allow(non_camel_case_types)]
+#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive)]
+pub enum GetItemConst {
+    ITM_BTN       = 1,
+    ITM_LIST      = 2,
+    ITM_TAB       = 8,
+    ITM_MENU      = 4,
+    ITM_TREEVIEW  = 16,
+    ITM_LISTVIEW  = 32,
+    ITM_EDIT      = 131072,
+    ITM_STATIC    = 262144,
+    ITM_STATUSBAR = 524288,
+    ITM_TOOLBAR   = 64,
+    ITM_LINK      = 128,
+    ITM_ACCCLK    = 4194304,
+    ITM_ACCCLK2   = 272629760,
+    ITM_ACCTXT    = 8388608,
+    ITM_ACCEDIT   = 16777216,
+    ITM_FROMLAST  = 65536,
+    ITM_BACK      = 512,
+    // UObject (json) ですべての要素を返す
+    ITM_API_ALL   = 1024,
+    ITM_ACC_ALL   = 2097152,
+    ITM_UIA_ALL   = 536870912,
+}
+#[allow(non_camel_case_types)]
+#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive)]
+pub enum GetItemConstAlias {
+    ITM_TREEVEW   = 16,
+    ITM_LSTVEW    = 32,
+}
+
+pub fn getitem(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let id = args.get_as_int(0, None::<i32>)?;
+    let hwnd = get_hwnd_from_id(id);
+    match acc::Acc::from_hwnd(hwnd) {
+        Some(acc) => {
+            let tree = acc.get_all_children();
+            println!("{:#?}", tree);
+        },
+        None => {},
+    }
+    Ok(BuiltinFuncReturnValue::Result(Object::default()))
 }

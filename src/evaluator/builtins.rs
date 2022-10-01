@@ -328,7 +328,7 @@ impl BuiltinFuncArgs {
             }
         })
     }
-    /// 引数をboolまたは数値として受ける (TRUE, FALSE, 2 のやつ)
+    /// bool及び数値を数値として受ける
     pub fn get_as_bool_or_int<T>(&self, i: usize, default: Option<T>) -> BuiltInResult<T>
         where T: cast::From<f64, Output=Result<T, cast::Error>>,
     {
@@ -344,6 +344,17 @@ impl BuiltinFuncArgs {
                     UErrorMessage::BuiltinArgCastError(arg, type_name),
                     self.name())
                 )),
+                _ => Err(builtin_func_error(UErrorMessage::BuiltinArgInvalid(arg), self.name()))
+            }
+        })
+    }
+    /// 3状態引数 (TRUE, FALSE, 2のやつ)
+    pub fn get_as_three_state(&self, i: usize, default: Option<ThreeState>) -> BuiltInResult<ThreeState> {
+        get_arg_value!(self, i, default, {
+            let arg = self.item(i);
+            match arg {
+                Object::Bool(b) => Ok(b.into()),
+                Object::Num(n) => Ok(n.into()),
                 _ => Err(builtin_func_error(UErrorMessage::BuiltinArgInvalid(arg), self.name()))
             }
         })
@@ -526,6 +537,34 @@ pub enum TwoTypeArg<T, U> {
     U(U),
 }
 
+pub enum ThreeState {
+    True,
+    False,
+    Other,
+}
+impl From<f64> for ThreeState {
+    fn from(n: f64) -> Self {
+        match n as i64 {
+            0 => Self::False,
+            2 => Self::Other,
+            _ => Self::True
+        }
+    }
+}
+impl From<bool> for ThreeState {
+    fn from(b: bool) -> Self {
+        if b { Self::True } else { Self::False }
+    }
+}
+impl ThreeState {
+    pub fn as_bool(&self) -> bool {
+        match self {
+            Self::False => false,
+            _ => true
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct BuiltinFunctionSet {
     name: String,
@@ -585,6 +624,11 @@ pub fn init_builtins() -> Vec<NamedObject> {
     set_builtin_consts::<window_control::MonitorEnum>(&mut vec);
     set_builtin_consts::<window_control::MonitorEnumAlias>(&mut vec);
     set_builtin_str_consts::<window_control::GetHndConst>(&mut vec, "__", "__");
+    set_builtin_consts::<window_control::ClkConst>(&mut vec);
+    set_builtin_consts::<window_control::ClkConstAlias>(&mut vec);
+    set_builtin_consts::<window_control::GetItemConst>(&mut vec);
+    set_builtin_consts::<window_control::GetItemConstAlias>(&mut vec);
+
     // text control
     text_control::builtin_func_sets().set(&mut vec);
     set_builtin_consts::<text_control::RegexEnum>(&mut vec);

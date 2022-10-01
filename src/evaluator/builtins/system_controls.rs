@@ -404,10 +404,10 @@ fn run_powershell(shell: ShellType, args: &BuiltinFuncArgs) -> BuiltinFuncResult
     let command = args.get_as_string(0, None)?;
     // falseが渡されたら終了を待つ
     let wait = ! args.get_as_bool(1, Some(false))?;
-    let (show, minimize) = match args.get_as_bool_or_int::<i32>(2, Some(0))? {
-        0 => (false, false),
-        2 => (true, true),
-        _ => (true, false)
+    let (show, minimize) = match args.get_as_three_state(2, Some(ThreeState::False))? {
+        ThreeState::True => (true, false),
+        ThreeState::False => (false, false),
+        ThreeState::Other => (true, true),
     };
     let option = if args.get_as_bool(3, Some(false))? {
         ShellOption::PsNoProfile
