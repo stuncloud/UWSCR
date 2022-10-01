@@ -41,6 +41,7 @@ macro_rules! write_locale {
 pub enum UWSCRErrorTitle {
     StatementError,
     RuntimeError,
+    InitializeError,
     Panic
 }
 
@@ -54,6 +55,10 @@ impl std::fmt::Display for UWSCRErrorTitle {
             UWSCRErrorTitle::RuntimeError => write_locale!(f,
                 "UWSCR実行時エラー",
                 "UWSCR Runtime Error",
+            ),
+            UWSCRErrorTitle::InitializeError => write_locale!(f,
+                "初期化エラー",
+                "UWSCR Initializing Error",
             ),
             UWSCRErrorTitle::Panic => write!(f,"UWSCR Panic"),
         }

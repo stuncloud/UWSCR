@@ -82,7 +82,11 @@ fn start_uwscr() {
             },
             Mode::Code(c) => {
                 if ! attach_console() {
-                    Evaluator::start_logprint_win(true);
+                    if let Err(e) = Evaluator::start_logprint_win(true) {
+                        let err = e.join("\r\n");
+                        show_message(&err, &UWSCRErrorTitle::InitializeError.to_string(), true);
+                        return;
+                    }
                 }
                 match script::run_code(c) {
                     Ok(_) => {},
@@ -99,7 +103,11 @@ fn start_uwscr() {
                 if ! attach_console() {
                     alloc_console();
                 };
-                Evaluator::start_logprint_win(false);
+                if let Err(e) = Evaluator::start_logprint_win(false) {
+                    let err = e.join("\r\n");
+                    show_message(&err, &UWSCRErrorTitle::InitializeError.to_string(), true);
+                    return;
+                }
                 let exe_path = args.args[0].clone();
                 if p.is_some() {
                     match get_script(&p.unwrap()) {

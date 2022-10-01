@@ -26,34 +26,25 @@ pub struct LogPrintWin {
 
 impl LogPrintWin {
     pub fn new(visible: bool) -> UWindowResult<Self> {
-        let hwnd = match Self::create() {
-            Ok(h) => h,
-            Err(e) => return Err(e)
-        };
-        // let rect = Window::get_client_rect(hwnd);
-        let dwstyle = WS_CHILD
-                                | WS_VISIBLE
-                                | WS_VSCROLL
-                                | WINDOW_STYLE(ES_LEFT as u32)
-                                | WINDOW_STYLE(ES_WANTRETURN as u32)
-                                | WINDOW_STYLE(ES_AUTOHSCROLL as u32)
-                                | WINDOW_STYLE(ES_AUTOVSCROLL as u32)
-                                | WINDOW_STYLE(ES_MULTILINE as u32);
-        let edit = match Window::create_window(
+        let hwnd = Self::create()?;
+        let rect = Window::get_client_rect(hwnd);
+        let x = rect.left;
+        let y = rect.top;
+        let width = rect.right - rect.left;
+        let height = rect.bottom - rect.top;
+        let dwstyle = WS_CHILD|
+            WS_VISIBLE|
+            WS_VSCROLL|
+            WINDOW_STYLE((ES_LEFT|ES_WANTRETURN|ES_AUTOHSCROLL|ES_AUTOVSCROLL|ES_MULTILINE) as u32);
+        let edit = Window::create_window(
             Some(hwnd),
             "edit",
             None,
             WINDOW_EX_STYLE(0),
             dwstyle,
-            0,
-            0,
-            0,
-            0,
+            x, y, width, height,
             Some(ID_EDIT)
-        ) {
-            Ok(h) => h,
-            Err(e) => return Err(e)
-        };
+        )?;
         let hfont = LOG_FONT.as_handle()?;
         Window::set_font(edit, hfont);
 

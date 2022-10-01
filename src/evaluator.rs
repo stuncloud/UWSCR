@@ -78,23 +78,41 @@ impl Evaluator {
         }
     }
 
-    pub fn start_logprint_win(mut visible: bool) {
+    pub fn start_logprint_win(mut visible: bool) -> Result<(), Vec<String>> {
         if let Some(&true) = FORCE_WINDOW_MODE.get() {
             visible = true;
         }
         thread::spawn(move || {
+            let mut counter = 0;
+            let lp = loop {
             match LogPrintWin::new(visible) {
-                Ok(lp) => {
+                    Ok(lp) => break lp,
+                    Err(e) => {
+                        counter += 1;
+                        #[cfg(debug_assertions)]
+                        println!("\u{001b}[31m[debug] {e}\u{001b}[0m");
+                        if counter > 10 {
+                            panic!("Failed to create logprint win");
+                        }
+                    },
+                }
+            };
                     let lp2 = lp.clone();
                     LOGPRINTWIN.get_or_init(move || Mutex::new(lp));
                     lp2.message_loop().ok();
-                },
-                Err(e) => eprintln!("{:?}", e)
-            };
         });
+        let now = std::time::Instant::now();
+        let limit = std::time::Duration::from_millis(100);
         while LOGPRINTWIN.get().is_none() {
+            if now.elapsed() > limit {
+                return Err(vec![
+                    UError::new(UErrorKind::InitializeError, UErrorMessage::FailedToInitializeLogPrintWindow).to_string()
+                ]);
+            } else {
             thread::sleep(std::time::Duration::from_millis(1));
         }
+        }
+        Ok(())
     }
     pub fn stop_logprint_win() {
         if let Some(m) = LOGPRINTWIN.get() {

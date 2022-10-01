@@ -173,6 +173,7 @@ pub enum UErrorKind {
     ZipError,
     PrefixError(char),
     ExitExit(i32),
+    InitializeError,
 }
 
 impl fmt::Display for UErrorKind {
@@ -346,6 +347,10 @@ impl fmt::Display for UErrorKind {
                 "Prefix {c} error",
             ),
             Self::ExitExit(_) => write!(f, ""),
+            Self::InitializeError => write_locale!(f,
+                "初期化エラー",
+                "Initializing error",
+            ),
         }
     }
 }
@@ -460,6 +465,7 @@ pub enum UErrorMessage {
     NotAnByte(Object),
     FailedToLoadImageFile(String),
     PrefixShouldBeNumber(Object),
+    FailedToInitializeLogPrintWindow,
 }
 
 impl fmt::Display for UErrorMessage {
@@ -946,6 +952,10 @@ impl fmt::Display for UErrorMessage {
             Self::PrefixShouldBeNumber(o) => write_locale!(f,
                 "接頭辞が数値以外の値に付加されました: {o}",
                 "Prefix can only be added to number but given value was '{o}'",
+            ),
+            Self::FailedToInitializeLogPrintWindow => write_locale!(f,
+                "Printウィンドウの初期化に失敗",
+                "Failed to initialize logprint window",
             ),
         }
     }
