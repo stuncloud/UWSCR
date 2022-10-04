@@ -4015,7 +4015,7 @@ a
             ),
             (
                 r#"
-if true then print "test sucseed!" else print "should not be printed"
+if true then print "test succeed!" else print "should not be printed"
                 "#,
                 Ok(None)
             ),
@@ -4061,13 +4061,13 @@ a
             (
                 r#"
 if true then
-    a = "test sucseed!"
+    a = "test succeed!"
 else
     a = "should not get this message"
 endif
 a
                 "#,
-                Ok(Some(Object::String("test sucseed!".to_string())))
+                Ok(Some(Object::String("test succeed!".to_string())))
             ),
             (
                 r#"
@@ -4093,11 +4093,11 @@ a
 if false then
     a = "should not get this message"
 elseif true then
-    a = "test1 sucseed!"
+    a = "test1 succeed!"
 endif
 a
                 "#,
-                Ok(Some(Object::String("test1 sucseed!".to_string())))
+                Ok(Some(Object::String("test1 succeed!".to_string())))
             ),
             (
                 r#"
@@ -4106,11 +4106,11 @@ if false then
 elseif false then
     a = "should not get this message"
 elseif true then
-    a = "test2 sucseed!"
+    a = "test2 succeed!"
 endif
 a
                 "#,
-                Ok(Some(Object::String("test2 sucseed!".to_string())))
+                Ok(Some(Object::String("test2 succeed!".to_string())))
             ),
             (
                 r#"
@@ -4119,16 +4119,16 @@ if false then
 elseif false then
     a = "should not get this message"
 else
-    a = "test3 sucseed!"
+    a = "test3 succeed!"
 endif
 a
                 "#,
-                Ok(Some(Object::String("test3 sucseed!".to_string())))
+                Ok(Some(Object::String("test3 succeed!".to_string())))
             ),
             (
                 r#"
 if true then
-    a = "test4 sucseed!"
+    a = "test4 succeed!"
 elseif true then
     a = "should not get this message"
 else
@@ -4136,7 +4136,7 @@ else
 endif
 a
                 "#,
-                Ok(Some(Object::String("test4 sucseed!".to_string())))
+                Ok(Some(Object::String("test4 succeed!".to_string())))
             ),
         ];
         for (input, expected) in test_cases {
@@ -4151,7 +4151,7 @@ a
                 r#"
 select 1
     case 1
-        a = "test1 sucseed!"
+        a = "test1 succeed!"
     case 2
         a = "should not get this message"
     default
@@ -4159,7 +4159,7 @@ select 1
 selend
 a
                 "#,
-                Ok(Some(Object::String("test1 sucseed!".to_string())))
+                Ok(Some(Object::String("test1 succeed!".to_string())))
             ),
             (
                 r#"
@@ -4167,13 +4167,13 @@ select 3
     case 1
         a = "should not get this message"
     case 2, 3
-        a = "test2 sucseed!"
+        a = "test2 succeed!"
     default
         a = "should not get this message"
 selend
 a
                 "#,
-                Ok(Some(Object::String("test2 sucseed!".to_string())))
+                Ok(Some(Object::String("test2 succeed!".to_string())))
             ),
             (
                 r#"
@@ -4183,21 +4183,21 @@ select 6
     case 2, 3
         a = "should not get this message"
     default
-        a = "test3 sucseed!"
+        a = "test3 succeed!"
 selend
 a
                 "#,
-                Ok(Some(Object::String("test3 sucseed!".to_string())))
+                Ok(Some(Object::String("test3 succeed!".to_string())))
             ),
             (
                 r#"
 select 6
     default
-        a = "test4 sucseed!"
+        a = "test4 succeed!"
 selend
 a
                 "#,
-                Ok(Some(Object::String("test4 sucseed!".to_string())))
+                Ok(Some(Object::String("test4 succeed!".to_string())))
             ),
             (
                 r#"
@@ -4205,11 +4205,11 @@ select true
     case 1 = 2
         a = "should not get this message"
     case 2 = 2
-        a = "test5 sucseed!"
+        a = "test5 succeed!"
 selend
 a
                 "#,
-                Ok(Some(Object::String("test5 sucseed!".to_string())))
+                Ok(Some(Object::String("test5 succeed!".to_string())))
             ),
         ];
         for (input, expected) in test_cases {
