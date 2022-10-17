@@ -1,5 +1,6 @@
 
 use windows::{
+    core::{PWSTR, PSTR},
     Win32::{
         Foundation::{
             HWND, WPARAM, LPARAM, BOOL, RECT, HANDLE, POINT,
@@ -18,11 +19,16 @@ use windows::{
                 BN_CLICKED,
                 BS_CHECKBOX, BS_AUTOCHECKBOX, BS_3STATE, BS_AUTO3STATE, BS_RADIOBUTTON, BS_AUTORADIOBUTTON,
                 BM_SETCHECK, BM_GETCHECK,
-                CB_GETCOUNT, CB_GETLBTEXT, CB_GETLBTEXTLEN, CB_SETCURSEL, CB_GETCURSEL,
+                CB_GETCOUNT, CB_GETLBTEXT, CB_GETLBTEXTLEN, CB_SETCURSEL, CB_GETCURSEL, CB_SETEDITSEL,
+                CBN_SELCHANGE,
                 LB_GETCOUNT, LB_GETTEXT, LB_GETTEXTLEN, LB_SETCURSEL, LB_GETCURSEL, LB_GETITEMRECT,
+                LBN_SELCHANGE,
                 WS_DISABLED,
                 EnumChildWindows, PostMessageW, GetDlgCtrlID, SendMessageW,
                 IsWindowUnicode,
+                HMENU, GetMenu, GetMenuItemCount, GetSubMenu, GetMenuItemID, GetMenuItemRect,
+                MIIM_TYPE, MIIM_STATE, MENUITEMINFOW, GetMenuItemInfoW, MENUITEMINFOA, GetMenuItemInfoA,
+                MFS_CHECKED,
             }
         },
         Graphics::Gdi::ClientToScreen,
@@ -44,7 +50,7 @@ use windows::{
 
 use crate::winapi::{
     get_class_name, get_window_title, make_wparam, get_window_style,
-    from_ansi_bytes,
+    from_ansi_bytes, from_wide_string,
 };
 use crate::evaluator::builtins::{
     ThreeState,
@@ -66,6 +72,12 @@ impl Win32 {
         Self { hwnd }
     }
     fn search(&self, item: &mut SearchItem) {
+        if item.target.contains(&TargetClass::Menu) {
+            Self::search_menu(self.hwnd, item);
+            if item.found.is_some() {
+                return;
+            }
+        }
         let p = item as *mut SearchItem;
         let lparam = LPARAM(p as isize);
         unsafe {
@@ -80,34 +92,34 @@ impl Win32 {
             let item = &mut *(lparam.0 as *mut SearchItem);
             let class = get_class_name(hwnd);
             let target = TargetClass::from(class);
+            // println!("\u{001b}[33m[debug] target: {:#?}\u{001b}[0m", &target);
             if item.target.contains(&target) {
                 match target {
                     TargetClass::ComboBox => {
-                        if let ListIndex::Index(index) = Self::search_combo_box(hwnd, item) {
-                            item.found = Some((hwnd, target, vec![index]));
+                        if let ListIndex::Index(i) = Self::search_combo_box(hwnd, item) {
+                            item.found = Some(ItemFound::new(hwnd, target, ItemInfo::Index(i)));
                             return false.into();
                         }
                     },
                     TargetClass::List => {
                         match Self::search_list_box(hwnd, item) {
                             ListIndex::Index(i) => {
-                                item.found = Some((hwnd, target, vec![i]));
+                                item.found = Some(ItemFound::new(hwnd, target, ItemInfo::Index(i)));
                                 return false.into();
                             },
                             ListIndex::Multi(v) => {
-                                item.found = Some((hwnd, target, v));
+                                item.found = Some(ItemFound::new(hwnd, target, ItemInfo::Indexes(v)));
                                 return false.into();
                             },
                             ListIndex::None => {},
                         }
                     },
-                    TargetClass::Tab => if let Some(index) = Self::search_tab(hwnd, item) {
-                        item.found = Some((hwnd, target, vec![index]));
+                    TargetClass::Tab => if let Some(i) = Self::search_tab(hwnd, item) {
+                        item.found = Some(ItemFound::new(hwnd, target, ItemInfo::Index(i)));
                         return false.into();
                     },
                     TargetClass::Menu => {
-                        // foo\bar\baz 形式
-                        todo!()
+                        // ここには来ない
                     },
                     TargetClass::TreeView => {
                         todo!()
@@ -127,7 +139,7 @@ impl Win32 {
                     _ => {
                         let title = get_window_title(hwnd);
                         if item.matches(&title) {
-                            item.found = Some((hwnd, target, vec![]));
+                            item.found = Some(ItemFound::new(hwnd, target, ItemInfo::None));
                             return false.into();
                         }
                     }
@@ -145,18 +157,18 @@ impl Win32 {
         let mut item = SearchItem::from_clkitem(clk_item);
         self.search(&mut item);
         // println!("\u{001b}[35m[debug] item: {:#?}\u{001b}[0m", &item);
-        if let Some((hwnd, class, index)) = item.found {
-            if Self::is_disabled(hwnd) {
+        if let Some(found) = item.found {
+            if Self::is_disabled(found.hwnd) {
                 ClkResult::failed()
             } else {
-                match class {
+                match found.target {
                     TargetClass::Button => {
-                        match ButtonType::from(hwnd) {
+                        match ButtonType::from(found.hwnd) {
                             ButtonType::Button => if check.as_bool() {
-                                let clicked = self.post_wm_command(hwnd, BN_CLICKED);
-                                ClkResult::new(clicked, hwnd)
+                                let clicked = self.post_wm_command(found.hwnd, None, BN_CLICKED);
+                                ClkResult::new(clicked, found.hwnd)
                             } else {
-                                ClkResult::new(true, hwnd)
+                                ClkResult::new(true, found.hwnd)
                             },
                             ButtonType::Check => {
                                 let wparam = if check.as_bool() {
@@ -164,12 +176,12 @@ impl Win32 {
                                 } else {
                                     BST_UNCHECKED.0 as usize
                                 };
-                                Self::post_message(hwnd, BM_SETCHECK, wparam, 0);
+                                Self::post_message(found.hwnd, BM_SETCHECK, wparam, 0);
                                 // チェック状態を確認してチェック指示と比較
                                 Self::sleep(30);
-                                let is_checked = Self::send_message(hwnd, BM_GETCHECK, 0, 0);
+                                let is_checked = Self::send_message(found.hwnd, BM_GETCHECK, 0, 0);
                                 let clicked = (is_checked > 0) == check.as_bool();
-                                ClkResult::new(clicked, hwnd)
+                                ClkResult::new(clicked, found.hwnd)
                             },
                             ButtonType::ThreeState => {
                                 let wparam = match check {
@@ -177,84 +189,109 @@ impl Win32 {
                                     ThreeState::False => BST_UNCHECKED.0 as usize,
                                     ThreeState::Other => BST_INDETERMINATE.0 as usize,
                                 };
-                                Self::post_message(hwnd, BM_SETCHECK, wparam, 0);
+                                Self::post_message(found.hwnd, BM_SETCHECK, wparam, 0);
                                 // チェック状態を確認してチェック指示と比較
                                 Self::sleep(30);
-                                let checked = Self::send_message(hwnd, BM_GETCHECK, 0, 0);
+                                let checked = Self::send_message(found.hwnd, BM_GETCHECK, 0, 0);
                                 let clicked = checked == wparam as isize;
-                                ClkResult::new(clicked, hwnd)
+                                ClkResult::new(clicked, found.hwnd)
                             },
                             ButtonType::Radio => if check.as_bool() {
-                                MouseInput::left_click(hwnd);
+                                MouseInput::left_click(found.hwnd);
                                 // チェック状態を確認してチェック指示と比較
                                 Self::sleep(30);
-                                let is_checked = Self::send_message(hwnd, BM_GETCHECK, 0, 0);
+                                let is_checked = Self::send_message(found.hwnd, BM_GETCHECK, 0, 0);
                                 let clicked = (is_checked > 0) == check.as_bool();
-                                ClkResult::new(clicked, hwnd)
+                                ClkResult::new(clicked, found.hwnd)
                             } else {
-                                ClkResult::new(true, hwnd)
+                                ClkResult::new(true, found.hwnd)
                             },
                         }
                     },
-                    TargetClass::List => if index.len() > 1 {
-                        let mut list_result = true;
-                        let mut point = (0, 0);
-                        for i in index {
-                            Self::post_message(hwnd, LB_SETCURSEL, i, 0);
-                            Self::sleep(30);
-                            let index = Self::send_message(hwnd, LB_GETCURSEL, 0, 0);
-                            if i as isize != index {
-                                list_result = false;
-                                point = Self::get_list_item_point(hwnd, index as usize);
-                                break;
-                            }
-                        }
-                        let (x, y) = point;
-                        ClkResult::new_with_point(list_result, hwnd, x, y)
-                    } else if index.len() == 1 {
-                        let i = index[0];
-                        Self::post_message(hwnd, LB_SETCURSEL, i, 0);
-                        Self::sleep(30);
-                        let index = Self::send_message(hwnd, LB_GETCURSEL, 0, 0);
-                        let clicked = i as isize == index;
-                        let (x, y) = Self::get_list_item_point(hwnd, index as usize);
-                        ClkResult::new_with_point(clicked, hwnd, x, y)
-                    } else {
-                        ClkResult::failed()
-                    },
-                    TargetClass::ComboBox => if index.len() > 0 {
-                        let i = index[0];
-                        Self::post_message(hwnd, CB_SETCURSEL, i, 0);
-                        Self::sleep(30);
-                        let index = Self::send_message(hwnd, CB_GETCURSEL, 0, 0);
-                        let clicked = i as isize == index;
-                        let (x, y) = Self::get_list_item_point(hwnd, index as usize);
-                        ClkResult::new_with_point(clicked, hwnd, x, y)
-                    } else {
-                        ClkResult::failed()
-                    },
-                    TargetClass::Tab => {
-                        if index.len() > 0 {
-                            if check.as_bool() {
-                                let i = index[0];
-                                Self::post_message(hwnd, TCM_SETCURFOCUS, i, 0);
+                    TargetClass::List => match found.info {
+                        ItemInfo::Indexes(v) => {
+                            let mut list_result = true;
+                            let mut point = (0, 0);
+                            for i in v {
+                                Self::post_message(found.hwnd, LB_SETCURSEL, i, 0);
                                 Self::sleep(30);
-                                let index = Self::send_message(hwnd, TCM_GETCURSEL, 0, 0);
-                                let clicked = i as isize == index;
-                                if let Some((x, y)) = Self::get_tab_point(hwnd, index as usize) {
-                                    ClkResult::new_with_point(clicked, hwnd, x, y)
-                                } else {
-                                    ClkResult::new(clicked, hwnd)
+                                let index = Self::send_message(found.hwnd, LB_GETCURSEL, 0, 0);
+                                if i as isize != index {
+                                    list_result = false;
+                                    point = Self::get_list_item_point(found.hwnd, index as usize);
+                                    break;
                                 }
+                            }
+                            let (x, y) = point;
+                            ClkResult::new_with_point(list_result, found.hwnd, x, y)
+                        },
+                        ItemInfo::Index(i) => {
+                            let clicked = if check.as_bool() {
+                                Self::post_message(found.hwnd, LB_SETCURSEL, i, 0);
+                                Self::sleep(30);
+                                let index = Self::send_message(found.hwnd, LB_GETCURSEL, 0, 0);
+                                Self::post_wm_command(&self, found.hwnd, None, LBN_SELCHANGE);
+                                i as isize == index
                             } else {
-                                ClkResult::failed()
+                                true
+                            };
+                            let (x, y) = Self::get_list_item_point(found.hwnd, i);
+                            ClkResult::new_with_point(clicked, found.hwnd, x, y)
+
+                        },
+                        _ => ClkResult::failed(),
+                    },
+                    TargetClass::ComboBox => if let ItemInfo::Index(i) = found.info {
+                        let clicked = if check.as_bool() {
+                            Self::post_message(found.hwnd, CB_SETCURSEL, i, 0);
+                            Self::post_message(found.hwnd, CB_SETEDITSEL, i, 0xFFFF0000);
+                            // let id = Self::send_message(found.hwnd, CB_GETITEMDATA, i, 0) as i32;
+                            // println!("\u{001b}[31m[debug] id: {:#?}\u{001b}[0m", &id);
+                            Self::post_wm_command(&self, found.hwnd, None, CBN_SELCHANGE);
+                            Self::sleep(30);
+                            let index = Self::send_message(found.hwnd, CB_GETCURSEL, 0, 0);
+                            i as isize == index
+                        } else {
+                            true
+                        };
+                        // let (x, y) = Self::get_list_item_point(found.hwnd, i);
+                        ClkResult::new(clicked, found.hwnd)
+                    } else {
+                        ClkResult::failed()
+                    },
+                    TargetClass::Tab => if let ItemInfo::Index(i) = found.info {
+                        let clicked = if check.as_bool() {
+                            Self::post_message(found.hwnd, TCM_SETCURFOCUS, i, 0);
+                            Self::sleep(30);
+                            let index = Self::send_message(found.hwnd, TCM_GETCURSEL, 0, 0);
+                            i as isize == index
+                        } else {
+                            true
+                        };
+                        if let Some((x, y)) = Self::get_tab_point(found.hwnd, i) {
+                            ClkResult::new_with_point(clicked, found.hwnd, x, y)
+                        } else {
+                            ClkResult::new(clicked, found.hwnd)
+                        }
+                    } else {
+                        ClkResult::failed()
+                    },
+                    TargetClass::Menu => {
+                        if let ItemInfo::Menu(id, checked, x, y) = found.info {
+                            match (check.as_bool(), checked) {
+                                // checkがtrueかつメニューにチェックがなければクリック
+                                (true, false) |
+                                // checkがfalseかつメニューにチェックがあればクリック
+                                (false, true) => {
+                                    let clicked = Menu::click(found.hwnd, id);
+                                    ClkResult::new_with_point(clicked, found.hwnd, x, y)
+                                },
+                                // それ以外は項目があればTRUEを返す
+                                _ => ClkResult::new_with_point(true, found.hwnd, x, y),
                             }
                         } else {
                             ClkResult::failed()
                         }
-                    },
-                    TargetClass::Menu => {
-                        todo!()
                     },
                     TargetClass::TreeView => {
                         todo!()
@@ -283,8 +320,8 @@ impl Win32 {
         get_window_style(hwnd) as u32 & WS_DISABLED.0 > 0
     }
 
-    fn post_wm_command(&self, hwnd: HWND, command: u32) -> bool {
-        let id = Self::get_window_id(hwnd);
+    fn post_wm_command(&self, hwnd: HWND, id: Option<i32>, command: u32) -> bool {
+        let id = id.unwrap_or(Self::get_window_id(hwnd));
         let msg = command as u16;
         let wparam = make_wparam(id as u16, msg).0;
         let lparam = hwnd.0;
@@ -373,7 +410,8 @@ impl Win32 {
         let mut rect = RECT::default();
         let lparam = &mut rect as *mut RECT as isize;
         Self::send_message(hwnd, LB_GETITEMRECT, index, lparam);
-        Self::get_center(rect)
+        let (x, y) = Win32::get_middle_left(rect);
+        Win32::client_to_screen(hwnd, x, y)
     }
 
     fn search_tab(hwnd: HWND, item: &mut SearchItem) -> Option<usize> {
@@ -391,7 +429,7 @@ impl Win32 {
     fn get_tab_point(hwnd: HWND, index: usize) -> Option<(i32, i32)> {
         let mut rect = RECT::default();
         let pid = get_process_id_from_hwnd(hwnd);
-        let remote_rect = ProcessMemory::new(pid, &rect)?;
+        let remote_rect = ProcessMemory::new(pid, Some(&rect))?;
         let lparam = remote_rect.pointer as isize;
         Win32::send_message(hwnd, TCM_GETITEMRECT, index, lparam);
         remote_rect.read(&mut rect);
@@ -400,11 +438,21 @@ impl Win32 {
         Some(point)
     }
 
-    fn _is_window_unicode(hwnd: HWND) -> bool {
+    fn search_menu(hwnd: HWND, item: &mut SearchItem) {
+        let menu = Menu::new(hwnd);
+        menu.search(item, None, None);
+    }
+
+    fn is_window_unicode(hwnd: HWND) -> bool {
         unsafe { IsWindowUnicode(hwnd).as_bool() }
     }
     fn get_center(rect: RECT) -> (i32, i32) {
         let x = rect.left + (rect.right - rect.left) / 2;
+        let y = rect.top + (rect.bottom - rect.top) / 2;
+        (x, y)
+    }
+    fn get_middle_left(rect: RECT) -> (i32, i32) {
+        let x = rect.left + 5.min(rect.right - rect.left); // ちょっとだけずらす
         let y = rect.top + (rect.bottom - rect.top) / 2;
         (x, y)
     }
@@ -430,7 +478,7 @@ pub struct SearchItem {
     short: bool,
     target: Vec<TargetClass>,
     order: u32,
-    found: Option<(HWND, TargetClass, Vec<usize>)>,
+    found: Option<ItemFound>,
 }
 impl SearchItem {
     pub fn from_clkitem(item: &ClkItem) -> Self {
@@ -480,6 +528,25 @@ impl SearchItem {
         self.order -= 1;
         self.order < 1
     }
+}
+
+#[derive(Debug)]
+struct ItemFound {
+    hwnd: HWND,
+    target: TargetClass,
+    info: ItemInfo,
+}
+impl ItemFound {
+    fn new(hwnd: HWND, target: TargetClass, info: ItemInfo) -> Self {
+        Self { hwnd, target, info }
+    }
+}
+#[derive(Debug)]
+enum ItemInfo {
+    None,
+    Index(usize),
+    Indexes(Vec<usize>),
+    Menu(usize, bool, i32, i32),
 }
 
 #[derive(Debug, PartialEq)]
@@ -561,15 +628,17 @@ struct ProcessMemory {
 }
 
 impl ProcessMemory {
-    fn new<T>(pid: u32, obj: &T) -> Option<Self> {
+    fn new<T>(pid: u32, obj: Option<&T>) -> Option<Self> {
         let hprocess = Self::open_process(pid)?;
         let pointer = unsafe {
             VirtualAllocEx(hprocess, ptr::null(), mem::size_of::<T>(), MEM_COMMIT, PAGE_READWRITE)
         };
-        let lpbuffer = obj as *const T as *const c_void;
-        let nsize = mem::size_of::<T>();
-        unsafe {
-            WriteProcessMemory(hprocess, pointer, lpbuffer, nsize, ptr::null_mut());
+        if let Some(obj) = obj {
+            let lpbuffer = obj as *const T as *const c_void;
+            let nsize = mem::size_of::<T>();
+            unsafe {
+                WriteProcessMemory(hprocess, pointer, lpbuffer, nsize, ptr::null_mut());
+            }
         }
         Some(Self { hprocess, pointer })
     }
@@ -595,6 +664,9 @@ impl ProcessMemory {
             let dwdesiredaccess = PROCESS_VM_READ|PROCESS_VM_WRITE|PROCESS_VM_OPERATION|PROCESS_QUERY_INFORMATION;
             OpenProcess(dwdesiredaccess, false, pid).ok()
         }
+    }
+    fn _as_ptr<T>(&self) -> *mut T {
+        self.pointer as *mut T
     }
 }
 
@@ -636,7 +708,7 @@ impl TabControl {
             // タブ名を受けるバッファ
             let mut buf = [0; 260];
             // 対象プロセス上に同様のバッファを作成
-            let remote_buf = ProcessMemory::new(self.pid, &buf)?;
+            let remote_buf = ProcessMemory::new::<[u16; 260]>(self.pid, None)?;
             // リモートバッファに名前を受ける
             self.get_remote_name(index, remote_buf.pointer, buf.len() as i32, TCM_GETITEMW)?;
             // 対象プロセスのバッファからローカルのバッファに読み出し
@@ -644,7 +716,7 @@ impl TabControl {
             Some(String::from_utf16_lossy(&buf))
         } else {
             let mut buf = [0; 260];
-            let remote_buf = ProcessMemory::new(self.pid, &buf)?;
+            let remote_buf = ProcessMemory::new::<[u16; 260]>(self.pid, None)?;
             self.get_remote_name(index, remote_buf.pointer, buf.len() as i32, TCM_GETITEMA)?;
             remote_buf.read(&mut buf);
             Some(from_ansi_bytes(&buf))
@@ -657,7 +729,7 @@ impl TabControl {
                 tcitem.mask = TCIF_TEXT.0;
                 tcitem.cchTextMax = len;
                 tcitem.pszText = p_buffer as i32;
-                let remote_item = ProcessMemory::new(self.pid, &tcitem)?;
+                let remote_item = ProcessMemory::new(self.pid, Some(&tcitem))?;
                 let lparam = remote_item.pointer as isize;
                 Win32::send_message(self.hwnd, msg, index, lparam);
             },
@@ -666,7 +738,7 @@ impl TabControl {
                 tcitem.mask = TCIF_TEXT.0;
                 tcitem.cchTextMax = len;
                 tcitem.pszText = p_buffer as i64;
-                let remote_item = ProcessMemory::new(self.pid, &tcitem)?;
+                let remote_item = ProcessMemory::new(self.pid, Some(&tcitem))?;
                 let lparam = remote_item.pointer as isize;
                 Win32::send_message(self.hwnd, msg, index, lparam);
             },
@@ -706,5 +778,93 @@ struct TCITEM86 {
 impl Default for TCITEM86 {
     fn default() -> Self {
         Self { mask: 0, dwState: 0, dwStateMask: 0, pszText: 0, cchTextMax: 0, iImage: 0, lParam: 0 }
+    }
+}
+
+#[derive(Debug)]
+struct Menu {
+    hwnd: HWND,
+    // pid: u32,
+    is_unicode: bool,
+}
+impl Menu {
+    fn new(hwnd: HWND) -> Self {
+        // let pid = get_process_id_from_hwnd(hwnd);
+        let is_unicode = Win32::is_window_unicode(hwnd);
+        Self { hwnd, is_unicode }
+    }
+    fn click(hwnd: HWND, id: usize) -> bool {
+        if id > 0 {
+            Win32::send_message(hwnd, WM_COMMAND, id, 0);
+            true
+        } else {
+            false
+        }
+    }
+    fn search(&self, item: &mut SearchItem, hmenu: Option<HMENU>, path: Option<String>) {
+        let hmenu = hmenu.unwrap_or(unsafe { GetMenu(self.hwnd) });
+        unsafe {
+            let cnt = GetMenuItemCount(hmenu);
+            for npos in 0..cnt {
+                let (name, checked) = self.get_name_and_check(hmenu, npos as u32);
+                let path = if let Some(path) = path.as_ref() {
+                    format!("{path}\\{name}")
+                } else {
+                    name.clone()
+                };
+                let found = if item.name.contains('\\') {
+                    item.matches(&path)
+                } else {
+                    item.matches(&name)
+                };
+                if found {
+                    let id = GetMenuItemID(hmenu, npos) as usize;
+                    let mut rect = RECT::default();
+                    GetMenuItemRect(self.hwnd, hmenu, npos as u32, &mut rect);
+                    let (x, y) = Win32::get_center(rect);
+                    let (x, y) = Win32::client_to_screen(self.hwnd, x, y);
+                    item.found = Some(ItemFound::new(self.hwnd, TargetClass::Menu, ItemInfo::Menu(id, checked, x, y)));
+                    return;
+                }
+                let sub = GetSubMenu(hmenu, npos);
+                if ! sub.is_invalid() {
+                    self.search(item, Some(sub), Some(path));
+                }
+                if item.found.is_some() {
+                    return;
+                }
+            }
+        }
+    }
+    fn get_name_and_check(&self, hmenu: HMENU, npos: u32) -> (String, bool) {
+        if self.is_unicode {
+            Self::get_name_w(hmenu, npos)
+        } else {
+            Self::get_name_a(hmenu, npos)
+        }
+    }
+    fn get_name_w(hmenu: HMENU, npos: u32) -> (String, bool) {
+        let mut buf = [0; 260];
+        let mut info = MENUITEMINFOW::default();
+        info.cbSize = mem::size_of::<MENUITEMINFOW>() as u32;
+        info.fMask = MIIM_TYPE|MIIM_STATE;
+        info.cch = buf.len() as u32;
+        info.dwTypeData = PWSTR::from_raw(buf.as_mut_ptr());
+        unsafe { GetMenuItemInfoW(hmenu, npos, true, &mut info) };
+        let checked = (info.fState & MFS_CHECKED) == MFS_CHECKED;
+        let name = from_wide_string(&buf);
+        (name, checked)
+    }
+    fn get_name_a(hmenu: HMENU, npos: u32) -> (String, bool) {
+        let mut buf = [0; 260];
+        let mut info = MENUITEMINFOA::default();
+        info.cbSize = mem::size_of::<MENUITEMINFOA>() as u32;
+        info.fMask = MIIM_TYPE|MIIM_STATE;
+        info.cch = buf.len() as u32;
+        info.dwTypeData = PSTR::from_raw(buf.as_mut_ptr());
+        unsafe { GetMenuItemInfoA(hmenu, npos, true, &mut info) };
+        let checked = (info.fState & MFS_CHECKED) == MFS_CHECKED;
+        let name = from_ansi_bytes(&buf);
+        (name, checked)
     }
 }

@@ -95,6 +95,9 @@ impl ClkResult {
     pub fn failed() -> Self {
         Self::default()
     }
+    pub fn _succeed(hwnd: HWND, point: Option<(i32, i32)>) -> Self {
+        Self { clicked: true, hwnd, point }
+    }
 }
 
 impl ClkItem {

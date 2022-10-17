@@ -127,6 +127,11 @@ pub fn to_wide_string(string: &str) -> Vec<u16> {
     let result = OsStr::new(string).encode_wide().chain(std::iter::once(0)).collect::<Vec<_>>();
     result
 }
+pub fn from_wide_string(wide: &[u16]) -> String {
+    String::from_utf16_lossy(&wide)
+        .trim_end_matches(char::is_control)
+        .to_string()
+}
 
 pub fn contains_unicode_char(string: &str) -> bool {
     unsafe {
