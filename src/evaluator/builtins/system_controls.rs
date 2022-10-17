@@ -196,7 +196,7 @@ pub fn kindofos(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let obj = match FromPrimitive::from_i32(t).unwrap_or(KindOfOsResultType::KIND_OF_OS) {
         KindOfOsResultType::IS_64BIT_OS => {
             let is_x64_os = is_64bit_os()
-                .ok_or(builtin_func_error(UErrorMessage::UnsupportedArchitecture, args.name()))?;
+                .ok_or(builtin_func_error(UErrorMessage::UnsupportedArchitecture))?;
             Object::Bool(is_x64_os)
         },
         KindOfOsResultType::OSVER_MAJOR => Object::Num(osnum[1]),
@@ -228,7 +228,7 @@ pub fn shell_execute(cmd: String, params: Option<String>) -> bool {
     }
 }
 
-fn create_process(cmd: String, name: String) -> Result<PROCESS_INFORMATION, UError> {
+fn create_process(cmd: String) -> BuiltInResult<PROCESS_INFORMATION> {
     unsafe {
         let mut si = STARTUPINFOW::default();
         si.cb = mem::size_of::<STARTUPINFOW>() as u32;
@@ -253,7 +253,7 @@ fn create_process(cmd: String, name: String) -> Result<PROCESS_INFORMATION, UErr
             WaitForInputIdle(pi.hProcess, 1000);
             Ok(pi)
         } else {
-            Err(builtin_func_error(UErrorMessage::FailedToCreateProcess, name))
+            Err(builtin_func_error(UErrorMessage::FailedToCreateProcess))
         }
     }
 }
@@ -279,11 +279,7 @@ fn enum_window_proc(hwnd: HWND, lparam: LPARAM) -> BOOL {
 pub fn exec(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let cmd = args.get_as_string(0, None)?;
     let sync = args.get_as_bool(1, Some(false))?;
-    let process = create_process(cmd, args.name());
-    if process.is_err() {
-        return Ok(BuiltinFuncReturnValue::Result(Object::Num(-1.0)));
-    }
-    let pi = process.unwrap();
+    let pi = create_process(cmd)?;
     unsafe{
         let mut ph = ProcessHwnd{pid: pi.dwProcessId, hwnd: HWND::default()};
         EnumWindows(Some(enum_window_proc), LPARAM(&mut ph as *mut ProcessHwnd as isize));
@@ -327,7 +323,7 @@ pub fn task(mut args: BuiltinFuncArgs) -> BuiltinFuncResult {
     match obj {
         Object::Function(f) |
         Object::AsyncFunction(f) => Ok(BuiltinFuncReturnValue::Task(f, arguments)),
-        _ => Err(builtin_func_error(UErrorMessage::BuiltinArgIsNotFunction, args.name()))
+        _ => Err(builtin_func_error(UErrorMessage::BuiltinArgIsNotFunction))
     }
 }
 
@@ -343,7 +339,7 @@ pub fn wait_task(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             ))
         }
     };
-    result
+    result.map_err(|e| e.into())
 }
 
 pub fn wmi_query(args: BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -368,9 +364,9 @@ pub fn wmi_query(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(BuiltinFuncReturnValue::Result(Object::Array(obj)))
 }
 
-impl From<wmi::WMIError> for UError {
+impl From<wmi::WMIError> for BuiltinFuncError {
     fn from(e: wmi::WMIError) -> Self {
-        Self::new(
+        Self::new_with_kind(
             UErrorKind::WmiError,
             UErrorMessage::Any(e.to_string())
         )
@@ -551,6 +547,12 @@ impl Shell {
         let wide = command.encode_utf16().collect::<Vec<u16>>();
         let bytes = wide.into_iter().map(|u| u.to_ne_bytes()).flatten().collect::<Vec<u8>>();
         base64::encode(bytes)
+    }
+}
+
+impl From<std::io::Error> for BuiltinFuncError {
+    fn from(e: std::io::Error) -> Self {
+        Self::UError(e.into())
     }
 }
 

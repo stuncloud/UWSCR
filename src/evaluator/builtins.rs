@@ -42,65 +42,61 @@ use num_traits::ToPrimitive;
 use strum_macros::{Display, EnumVariantNames};
 
 pub type BuiltinFunction = fn(BuiltinFuncArgs) -> BuiltinFuncResult;
-pub type BuiltinFuncResult = Result<BuiltinFuncReturnValue, UError>;
-pub type BuiltInResult<T> = Result<T, UError>;
+pub type BuiltinFuncResult = Result<BuiltinFuncReturnValue, BuiltinFuncError>;
+pub type BuiltInResult<T> = Result<T, BuiltinFuncError>;
 
-// pub struct BuiltinFuncError {
-//     kind: UErrorKind,
-//     message: UErrorMessage
-// }
-// impl BuiltinFuncError {
-//     pub fn new(kind: UErrorKind, message: UErrorMessage) -> Self {
-//         Self {kind, message}
-//     }
-// }
-
-// impl From<BuiltinFuncError> for UError {
-//     fn from(e: BuiltinFuncError) -> Self {
-//         UError::new(e.kind, e.message)
-//     }
-// }
-
-macro_rules! get_arg_value {
-    ($args:expr, $i:expr, $default:expr, $expr:expr) => {
-        {
-            if $args.len() >= $i + 1 {
-                $expr
-            } else {
-                $default.ok_or(builtin_func_error(UErrorMessage::BuiltinArgRequiredAt($i + 1), $args.name()))
-            }
+pub enum BuiltinFuncError {
+    UError(UError),
+    Error(UErrorMessage),
+    Kind(UErrorKind, UErrorMessage),
+}
+impl BuiltinFuncError {
+    pub fn new(message: UErrorMessage) -> Self {
+        Self::Error(message)
+    }
+    pub fn new_with_kind(kind: UErrorKind, message: UErrorMessage) -> Self {
+        Self::Kind(kind, message)
+    }
+    pub fn message(&self) -> UErrorMessage {
+        match self {
+            BuiltinFuncError::UError(e) => e.message.clone(),
+            BuiltinFuncError::Error(e) => e.clone(),
+            BuiltinFuncError::Kind(_, e) => e.clone(),
         }
-    };
-    ($args:expr, $i:expr, $expr:expr) => {
-        {
-            if $args.len() >= $i + 1 {
-                $expr
-            } else {
-                Err(builtin_func_error(UErrorMessage::BuiltinArgRequiredAt($i + 1), $args.name()))
-            }
+    }
+    pub fn to_uerror(self, name: String) -> UError {
+        match self {
+            BuiltinFuncError::UError(e) => e,
+            BuiltinFuncError::Error(message) => UError::new(UErrorKind::BuiltinFunctionError(name), message),
+            BuiltinFuncError::Kind(kind, message) => UError::new(kind, message),
         }
-    };
+    }
+}
+
+pub fn builtin_func_error(message: UErrorMessage) -> BuiltinFuncError {
+    BuiltinFuncError::new(message)
+}
+
+impl From<windows::core::Error> for BuiltinFuncError {
+    fn from(e: windows::core::Error) -> Self {
+        Self::UError(e.into())
+    }
+}
+
+impl From<UError> for BuiltinFuncError {
+    fn from(e: UError) -> Self {
+        Self::UError(e)
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct BuiltinFuncArgs {
-    func_name: String,
-    // arg_exprs: Vec<Option<Expression>>,
-    // args: Vec<Object>,
     arguments: Vec<(Option<Expression>, Object)>,
 }
 
 impl BuiltinFuncArgs {
-    pub fn new(func_name: String, arguments: Vec<(Option<Expression>, Object)>) -> Self {
-        // let mut arg_exprs = Vec::new();
-        // let mut args = Vec::new();
-        // for (e, o) in arguments {
-        //     arg_exprs.push(e);
-        //     args.push(o);
-        // }
+    pub fn new(arguments: Vec<(Option<Expression>, Object)>) -> Self {
         BuiltinFuncArgs {
-            // func_name, arg_exprs, args
-            func_name,
             arguments
         }
     }
@@ -115,9 +111,6 @@ impl BuiltinFuncArgs {
     }
     pub fn len(&self) -> usize {
         self.arguments.len()
-    }
-    pub fn name(&self) -> String {
-        self.func_name.clone()
     }
     pub fn get_expr(&self, i: usize) -> Option<Expression> {
         self.arguments.get(i).map_or(None,|e| e.0.clone())
@@ -136,43 +129,61 @@ impl BuiltinFuncArgs {
     // default: 省略可能な引数のデフォルト値、必須引数ならNoneを渡す
     // 引数が省略されていた場合はdefaultの値を返す
     // 引数が必須なのになかったらエラーを返す
+    fn get_arg<T, F: Fn(Object)-> BuiltInResult<T>>(&self, i: usize, f: F) -> BuiltInResult<T> {
+        if self.len() >= i+ 1 {
+            let obj = self.item(i);
+            f(obj)
+        } else {
+            Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgRequiredAt(i + 1)))
+        }
+    }
+    fn get_arg_with_default<T, F: Fn(Object)-> BuiltInResult<T>>(&self, i: usize, default: Option<T>, f: F) -> BuiltInResult<T> {
+        if self.len() >= i+ 1 {
+            let obj = self.item(i);
+            f(obj)
+        } else {
+            let err = BuiltinFuncError::new(UErrorMessage::BuiltinArgRequiredAt(i + 1));
+            default.ok_or(err)
+        }
+    }
+    fn get_arg_with_default2<T, F: Fn(Object, Option<T>)-> BuiltInResult<T>>(&self, i: usize, default: Option<T>, f: F) -> BuiltInResult<T> {
+        if self.len() >= i+ 1 {
+            let obj = self.item(i);
+            f(obj, default)
+        } else {
+            let err = BuiltinFuncError::new(UErrorMessage::BuiltinArgRequiredAt(i + 1));
+            default.ok_or(err)
+        }
+    }
 
     /// 受けた引数をObjectのまま受ける
     pub fn get_as_object(&self, i: usize, default: Option<Object>) -> BuiltInResult<Object> {
-        get_arg_value!(self, i, default, {
-            let arg = self.item(i);
+        self.get_arg_with_default(i, default, |arg|{
             Ok(arg)
         })
     }
     /// 引数を任意の整数型として受ける
-    pub fn get_as_int<T>(&self, i: usize, default: Option<T>) -> BuiltInResult<T>
+    pub fn get_as_int<T: Clone>(&self, i: usize, default: Option<T>) -> BuiltInResult<T>
         where T: cast::From<f64, Output=Result<T, cast::Error>>,
     {
-        get_arg_value!(self, i, default, {
-            let arg = self.item(i);
+        self.get_arg_with_default2(i, default, |arg, default| {
             match arg {
-                Object::Num(n) => T::cast(n).or(Err(builtin_func_error(
+                Object::Num(n) => T::cast(n).or(Err(BuiltinFuncError::new(
                     UErrorMessage::BuiltinArgCastError(arg, std::any::type_name::<T>().into()),
-                    self.name()
                 ))),
-                Object::Bool(b) => T::cast(b as i32 as f64).or(Err(builtin_func_error(
+                Object::Bool(b) => T::cast(b as i32 as f64).or(Err(BuiltinFuncError::new(
                     UErrorMessage::BuiltinArgCastError(arg, std::any::type_name::<T>().into()),
-                    self.name()
                 ))),
                 Object::String(ref s) => match s.parse::<f64>() {
-                    Ok(n) => T::cast(n).or(Err(builtin_func_error(
+                    Ok(n) => T::cast(n).or(Err(BuiltinFuncError::new(
                         UErrorMessage::BuiltinArgCastError(arg, std::any::type_name::<T>().into()),
-                        self.name()
                     ))),
-                    Err(_) => Err(builtin_func_error(
-                        UErrorMessage::BuiltinArgInvalid(arg),
-                        self.name())
-                    )
+                    Err(_) => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg)))
                 },
                 Object::EmptyParam => {
-                    default.ok_or(builtin_func_error(UErrorMessage::BuiltinArgRequiredAt(i + 1), self.name()))
+                    default.ok_or(BuiltinFuncError::new(UErrorMessage::BuiltinArgRequiredAt(i + 1)))
                 },
-                _ => Err(builtin_func_error(UErrorMessage::BuiltinArgInvalid(arg), self.name())
+                _ => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg))
                 )
             }
         })
@@ -182,37 +193,30 @@ impl BuiltinFuncArgs {
         where T: cast::From<f64, Output=Result<T, cast::Error>>,
     {
         let default = Some(None);
-        get_arg_value!(self, i, default, {
-            let arg = self.item(i);
+        self.get_arg_with_default(i, default, |arg| {
             match arg {
                 Object::Num(n) => match T::cast(n) {
                     Ok(t) => Ok(Some(t)),
-                    Err(_) => Err(builtin_func_error(
+                    Err(_) => Err(BuiltinFuncError::new(
                         UErrorMessage::BuiltinArgCastError(arg, std::any::type_name::<T>().into()),
-                        self.name()
+
                     ))
                 },
-                Object::Bool(b) => T::cast(b as i32 as f64).or(Err(builtin_func_error(
+                Object::Bool(b) => T::cast(b as i32 as f64).or(Err(BuiltinFuncError::new(
                     UErrorMessage::BuiltinArgCastError(arg, std::any::type_name::<T>().into()),
-                    self.name()
                 ))).map(|t| Some(t)),
                 Object::String(ref s) => match s.parse::<f64>() {
                     Ok(n) => match T::cast(n) {
                         Ok(t) => Ok(Some(t)),
-                        Err(_) => Err(builtin_func_error(
-                            UErrorMessage::BuiltinArgCastError(arg, std::any::type_name::<T>().into()),
-                            self.name()
+                        Err(_) => Err(BuiltinFuncError::new(
+                            UErrorMessage::BuiltinArgCastError(arg, std::any::type_name::<T>().into())
                         ))
                     },
-                    Err(_) => Err(builtin_func_error(
-                        UErrorMessage::BuiltinArgInvalid(arg), self.name())
-                    )
+                    Err(_) => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg)))
                 },
                 Object::Empty |
                 Object::EmptyParam => Ok(None),
-                _ => Err(builtin_func_error(
-                    UErrorMessage::BuiltinArgInvalid(arg), self.name())
-                )
+                _ => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg)))
             }
         })
     }
@@ -220,20 +224,15 @@ impl BuiltinFuncArgs {
     pub fn get_as_num<T>(&self, i: usize, default: Option<T>) -> BuiltInResult<T>
         where T: cast::From<f64, Output=T>,
     {
-        get_arg_value!(self, i, default, {
-            let arg = self.item(i);
+        self.get_arg_with_default(i, default, |arg| {
             match arg {
                 Object::Num(n) => Ok(T::cast(n)),
                 Object::Bool(b) => Ok(T::cast(b as i32 as f64)),
                 Object::String(ref s) => match s.parse::<f64>() {
                     Ok(n) => Ok(T::cast(n)),
-                    Err(_) => Err(builtin_func_error(
-                        UErrorMessage::BuiltinArgInvalid(arg), self.name())
-                    )
+                    Err(_) => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg)))
                 },
-                _ => Err(builtin_func_error(
-                    UErrorMessage::BuiltinArgInvalid(arg), self.name())
-                )
+                _ => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg)))
             }
         })
     }
@@ -241,13 +240,12 @@ impl BuiltinFuncArgs {
     /// あらゆる型を文字列にする
     /// 引数省略(EmptyParam)はエラーになる
     pub fn get_as_string(&self, i: usize, default: Option<String>) -> BuiltInResult<String> {
-        get_arg_value!(self, i, default, {
-            let arg = self.item(i);
-            match &arg {
-                Object::String(s) => Ok(s.clone()),
-                Object::RegEx(re) => Ok(re.clone()),
+        self.get_arg_with_default(i, default, |arg| {
+            match arg {
+                Object::String(s) => Ok(s),
+                Object::RegEx(re) => Ok(re),
                 Object::EmptyParam => Err(
-                    builtin_func_error(UErrorMessage::BuiltinArgRequiredAt(i + 1), self.name())
+                    BuiltinFuncError::new(UErrorMessage::BuiltinArgRequiredAt(i + 1))
                 ),
                 o => Ok(o.to_string()),
             }
@@ -256,10 +254,9 @@ impl BuiltinFuncArgs {
     /// 文字列として受けるがEMPTYの場合は引数省略とみなす
     pub fn get_as_string_or_empty(&self, i: usize) -> BuiltInResult<Option<String>> {
         let default = Some(None);
-        get_arg_value!(self, i, default, {
-            let arg = self.item(i);
-            match &arg {
-                Object::String(s) => Ok(Some(s.to_string())),
+        self.get_arg_with_default(i, default, |arg| {
+            match arg {
+                Object::String(s) => Ok(Some(s)),
                 Object::Empty |
                 Object::EmptyParam => Ok(None),
                 o => Ok(Some(o.to_string())),
@@ -270,8 +267,7 @@ impl BuiltinFuncArgs {
     /// EMPTYの場合はNoneを返す
     pub fn get_as_string_array_or_empty(&self, i: usize) -> BuiltInResult<Option<Vec<String>>> {
         let default = Some(None);
-        get_arg_value!(self, i, default, {
-            let arg = self.item(i);
+        self.get_arg_with_default(i, default, |arg| {
             let vec = match &arg {
                 Object::Array(vec) => Some(vec.iter().map(|o|o.to_string()).collect()),
                 Object::HashTbl(arc) => {
@@ -292,10 +288,9 @@ impl BuiltinFuncArgs {
     /// 文字列または文字列の配列を受ける引数(必須)
     pub fn get_as_string_array(&self, i: usize) -> BuiltInResult<Vec<String>> {
         let default = None;
-        get_arg_value!(self, i, default, {
-            let arg = self.item(i);
-            let vec = match &arg {
-                Object::Array(vec) => vec.iter().map(|o|o.to_string()).collect(),
+        self.get_arg_with_default(i, default, |arg| {
+            let vec = match arg {
+                Object::Array(vec) => vec.into_iter().map(|o|o.to_string()).collect(),
                 Object::HashTbl(arc) => {
                     let hash = arc.lock().unwrap();
                     hash.keys()
@@ -310,17 +305,15 @@ impl BuiltinFuncArgs {
     }
     /// 引数を真偽値として受ける
     pub fn get_as_bool(&self, i: usize, default: Option<bool>) -> BuiltInResult<bool> {
-        get_arg_value!(self, i, default, {
-            let arg = self.item(i);
+        self.get_arg_with_default(i, default, |arg| {
             Ok(arg.is_truthy())
         })
     }
     /// 真偽値または真偽値の配列を受ける引数
     /// EMPTYの場合はNoneを返す
     pub fn get_as_bool_array(&self, i: usize, default: Option<Option<Vec<bool>>>) -> BuiltInResult<Option<Vec<bool>>> {
-        get_arg_value!(self,i,default, {
-            let arg = self.item(i);
-            match &arg {
+        self.get_arg_with_default(i ,default, |arg| {
+            match arg {
                 Object::Array(vec) => Ok(Some(vec.iter().map(|o|o.is_truthy()).collect())),
                 Object::Empty |
                 Object::EmptyParam => Ok(None),
@@ -332,57 +325,50 @@ impl BuiltinFuncArgs {
     pub fn get_as_bool_or_int<T>(&self, i: usize, default: Option<T>) -> BuiltInResult<T>
         where T: cast::From<f64, Output=Result<T, cast::Error>>,
     {
-        get_arg_value!(self, i, default, {
-            let arg = self.item(i);
+        self.get_arg_with_default(i, default, |arg|{
             let type_name = std::any::type_name::<T>().to_string();
             match arg {
-                Object::Bool(b) => T::cast(b as i32 as f64).or(Err(builtin_func_error(
+                Object::Bool(b) => T::cast(b as i32 as f64).or(Err(BuiltinFuncError::new(
                     UErrorMessage::BuiltinArgCastError(arg, type_name),
-                    self.name()
                 ))),
-                Object::Num(n) => T::cast(n).or(Err(builtin_func_error(
+                Object::Num(n) => T::cast(n).or(Err(BuiltinFuncError::new(
                     UErrorMessage::BuiltinArgCastError(arg, type_name),
-                    self.name())
-                )),
-                _ => Err(builtin_func_error(UErrorMessage::BuiltinArgInvalid(arg), self.name()))
+                ))),
+                _ => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg)))
             }
         })
     }
     /// 3状態引数 (TRUE, FALSE, 2のやつ)
     pub fn get_as_three_state(&self, i: usize, default: Option<ThreeState>) -> BuiltInResult<ThreeState> {
-        get_arg_value!(self, i, default, {
-            let arg = self.item(i);
+        self.get_arg_with_default(i, default, |arg|{
             match arg {
                 Object::Bool(b) => Ok(b.into()),
                 Object::Num(n) => Ok(n.into()),
-                _ => Err(builtin_func_error(UErrorMessage::BuiltinArgInvalid(arg), self.name()))
+                _ => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg)))
             }
         })
     }
     /// UObjectを受ける引数
     pub fn get_as_uobject(&self, i: usize) -> BuiltInResult<UObject> {
-        get_arg_value!(self, i, {
-            let arg = self.item(i);
+        self.get_arg(i, |arg| {
             match arg {
                 Object::UObject(ref u) => Ok(u.clone()),
-                _ => Err(builtin_func_error(UErrorMessage::BuiltinArgInvalid(arg), self.name()))
+                _ => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg)))
             }
         })
     }
     /// 配列を受ける引数
     pub fn get_as_array(&self, i: usize, default: Option<Vec<Object>>) -> BuiltInResult<Vec<Object>> {
-        get_arg_value!(self, i, default, {
-            let arg = self.item(i);
+        self.get_arg_with_default(i, default, |arg| {
             match arg {
                 Object::Array(arr) => Ok(arr),
-                _ => Err(builtin_func_error(UErrorMessage::BuiltinArgInvalid(arg), self.name()))
+                _ => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg)))
             }
         })
     }
     /// 配列として受ける引数、連想配列も含む
     pub fn get_as_array_include_hashtbl(&self, i: usize, default: Option<Vec<Object>>, get_hash_key: bool) -> BuiltInResult<Vec<Object>> {
-        get_arg_value!(self, i, default, {
-            let arg = self.item(i);
+        self.get_arg_with_default(i, default, |arg| {
             match arg {
                 Object::Array(arr) => Ok(arr),
                 Object::HashTbl(m) => {
@@ -393,56 +379,52 @@ impl BuiltinFuncArgs {
                         Ok(hash.values())
                     }
                 },
-                _ => Err(builtin_func_error(UErrorMessage::BuiltinArgInvalid(arg), self.name()))
+                _ => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg)))
             }
         })
     }
     pub fn get_as_array_or_empty(&self, i: usize) -> BuiltInResult<Option<Vec<Object>>> {
         let default = Some(None::<Vec<Object>>);
-        get_arg_value!(self, i, default, {
-            let arg = self.item(i);
+        self.get_arg_with_default(i, default, |arg| {
             match arg {
                 Object::Array(arr) => Ok(Some(arr)),
                 Object::Empty |
                 Object::EmptyParam => Ok(None),
-                _ => Err(builtin_func_error(UErrorMessage::BuiltinArgInvalid(arg), self.name()))
+                _ => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg)))
             }
         })
     }
     /// 数値または配列を受ける引数
     pub fn get_as_int_or_array(&self, i: usize, default: Option<Object>) -> BuiltInResult<Object> {
-        get_arg_value!(self, i, default, {
-            let arg = self.item(i);
+        self.get_arg_with_default(i, default, |arg|{
             match arg {
                 Object::Num(_) |
                 Object::Array(_) => Ok(arg),
-                _ => Err(builtin_func_error(UErrorMessage::BuiltinArgInvalid(arg), self.name()))
+                _ => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg)))
             }
         })
     }
     /// タスクを受ける引数
     pub fn get_as_task(&self, i: usize) -> BuiltInResult<UTask> {
-        get_arg_value!(self, i, {
-            let arg = self.item(i);
+        self.get_arg(i, |arg| {
             match arg {
                 Object::Task(utask) => Ok(utask),
-                _ => Err(builtin_func_error(UErrorMessage::BuiltinArgInvalid(arg), self.name()))
+                _ => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg)))
             }
         })
     }
     /// i32として受ける、文字列をパースしない
     pub fn get_as_i32(&self, i: usize) -> BuiltInResult<i32> {
-        get_arg_value!(self,i, {
-            let arg = self.item(i);
+        self.get_arg(i, |arg| {
             match arg {
                 Object::Num(n) => Ok(n as i32),
-                _ => Err(builtin_func_error(UErrorMessage::BuiltinArgInvalid(arg), self.name()))
+                _ => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg)))
             }
         })
     }
     /// 残りの引数を文字列の配列として受ける
     pub fn get_rest_as_string_array(&self, i: usize) -> BuiltInResult<Vec<String>> {
-        get_arg_value!(self, i, {
+        self.get_arg(i, |_| {
             let vec = self.split_off(i)
                 .into_iter()
                 .map(|o| match o {
@@ -466,17 +448,17 @@ impl BuiltinFuncArgs {
     }
 
     pub fn get_as_fopen(&self, i: usize) -> BuiltInResult<Arc<Mutex<Fopen>>> {
-        get_arg_value!(self, i, {
-            match self.item(i) {
+        self.get_arg(i, |arg| {
+            match arg {
                 Object::Fopen(arc) => Ok(Arc::clone(&arc)),
-                arg => Err(builtin_func_error(UErrorMessage::BuiltinArgInvalid(arg), self.name())),
+                arg => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg))),
             }
         })
     }
     pub fn get_as_string_or_fopen(&self, i: usize) -> BuiltInResult<TwoTypeArg<Option<String>, Arc<Mutex<Fopen>>>> {
         let default = Some(TwoTypeArg::T(None));
-        get_arg_value!(self, i, default, {
-            let result = match self.item(i) {
+        self.get_arg_with_default(i, default, |arg| {
+            let result = match arg {
                 Object::Empty |
                 Object::EmptyParam => TwoTypeArg::T(None),
                 Object::Fopen(arc) => TwoTypeArg::U(Arc::clone(&arc)),
@@ -487,45 +469,45 @@ impl BuiltinFuncArgs {
     }
     /// 文字列または真偽値を受ける
     pub fn get_as_string_or_bool(&self, i: usize, default: Option<TwoTypeArg<String, bool>>) -> BuiltInResult<TwoTypeArg<String, bool>> {
-        get_arg_value!(self, i, default, {
-            let result = match self.item(i) {
+        self.get_arg_with_default(i, default, |arg| {
+            let result = match arg {
                 Object::Empty |
                 Object::EmptyParam => TwoTypeArg::U(false),
                 Object::Bool(b) => TwoTypeArg::U(b),
                 Object::String(s) => TwoTypeArg::T(s),
-                arg => return Err(builtin_func_error(UErrorMessage::BuiltinArgInvalid(arg), self.name())),
+                arg => return Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg))),
             };
             Ok(result)
         })
     }
 
     pub fn get_as_const<T: From<f64>>(&self, i: usize, default: Option<T>) -> BuiltInResult<T> {
-        get_arg_value!(self, i, default, {
-            let result = match self.item(i) {
+        self.get_arg_with_default(i, default, |arg| {
+            let result = match arg {
                 Object::Num(n) => T::from(n),
-                arg => return Err(builtin_func_error(UErrorMessage::BuiltinArgInvalid(arg), self.name())),
+                arg => return Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg))),
             };
             Ok(result)
         })
     }
 
     pub fn get_as_num_or_string(&self, i: usize) -> BuiltInResult<TwoTypeArg<String, f64>> {
-        get_arg_value!(self, i, {
-            let result = match self.item(i) {
+        self.get_arg( i, |arg| {
+            let result = match arg {
                 Object::String(s) => TwoTypeArg::T(s),
                 Object::Num(n) => TwoTypeArg::U(n),
-                arg => return Err(builtin_func_error(UErrorMessage::BuiltinArgInvalid(arg), self.name())),
+                arg => return Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg))),
             };
             Ok(result)
         })
     }
 
     pub fn get_as_string_or_bytearray(&self, i: usize) -> BuiltInResult<TwoTypeArg<String, Vec<u8>>> {
-        get_arg_value!(self, i, {
-            let result = match self.item(i) {
+        self.get_arg(i, |arg| {
+            let result = match arg {
                 Object::String(s) => TwoTypeArg::T(s),
                 Object::ByteArray(a) => TwoTypeArg::U(a),
-                arg => return Err(builtin_func_error(UErrorMessage::BuiltinArgInvalid(arg), self.name())),
+                arg => return Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg))),
             };
             Ok(result)
         })
@@ -750,7 +732,7 @@ fn set_special_variables(vec: &mut Vec<NamedObject>) {
     )));
     vec.push(NamedObject::new_builtin_const("G_MOUSE_X".into(), Object::DynamicVar(
         || Object::Num(
-            match window_low::get_current_pos("G_MOUSE_X".into()) {
+            match window_low::get_current_pos() {
                 Ok(p) => p.x as f64,
                 Err(_) => -999999.0
             }
@@ -758,7 +740,7 @@ fn set_special_variables(vec: &mut Vec<NamedObject>) {
     )));
     vec.push(NamedObject::new_builtin_const("G_MOUSE_Y".into(), Object::DynamicVar(
         || Object::Num(
-            match window_low::get_current_pos("G_MOUSE_Y".into()) {
+            match window_low::get_current_pos() {
                 Ok(p) => p.y as f64,
                 Err(_) => -999999.0
             }
@@ -811,7 +793,7 @@ pub fn raise(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     } else {
         UErrorKind::UserDefinedError
     };
-    Err(UError::new(kind, UErrorMessage::Any(msg)))
+    Err(BuiltinFuncError::new_with_kind(kind, UErrorMessage::Any(msg)))
 }
 
 pub fn panic(args: BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -901,17 +883,8 @@ pub fn assert_equal(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     if arg1.is_equal(&arg2) {
         Ok(BuiltinFuncReturnValue::Result(Object::Empty))
     } else {
-        Err(UError::new(
-            UErrorKind::AssertEqError,
-            UErrorMessage::AssertEqLeftAndRight(arg1, arg2)
-        ))
+        Err(BuiltinFuncError::new_with_kind(UErrorKind::AssertEqError, UErrorMessage::AssertEqLeftAndRight(arg1, arg2)))
     }
-}
-
-// エラー出力用関数
-
-pub fn builtin_func_error(msg: UErrorMessage, name: String) -> UError {
-    UError::new(UErrorKind::BuiltinFunctionError(name), msg)
 }
 
 pub enum BuiltinFuncReturnValue {

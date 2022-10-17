@@ -2,7 +2,7 @@
 use crate::{
     evaluator::{
         builtins::*,
-        devtools_protocol::Browser,
+        devtools_protocol::{Browser, DevtoolsProtocolError},
     }
 };
 
@@ -37,8 +37,13 @@ pub fn browser_control(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         BcEnum::BC_MSEDGE => Browser::new_msedge(port, filter, headless)?,
         BcEnum::BC_UNKNOWN => return Err(builtin_func_error(
             UErrorMessage::InvalidArgument((port as f64).into()),
-            args.name()
         ))
     };
     Ok(BuiltinFuncReturnValue::Result(Object::Browser(browser)))
+}
+
+impl From<DevtoolsProtocolError> for BuiltinFuncError {
+    fn from(e: DevtoolsProtocolError) -> Self {
+        Self::UError(e.into())
+    }
 }

@@ -1,7 +1,6 @@
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
 use crate::evaluator::com_object::{VARIANTHelper, SAFEARRAYHelper};
-use crate::evaluator::UError;
 use crate::settings::USETTINGS;
 use crate::winapi::WString;
 
@@ -72,7 +71,7 @@ fn ignore_ie(prog_id: &str) -> BuiltInResult<()> {
     if prog_id.to_ascii_lowercase().contains("internetexplorer.application") {
         let usettings = USETTINGS.lock().unwrap();
         if ! usettings.options.allow_ie_object {
-            return Err(UError::new(
+            return Err(BuiltinFuncError::new_with_kind(
                 UErrorKind::ProgIdError,
                 UErrorMessage::InternetExplorerNotAllowed
             ));
@@ -111,7 +110,7 @@ fn getactiveoleobj(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     ignore_ie(&prog_id)?;
     let disp = match get_active_object(&prog_id)? {
         Some(d) => d,
-        None => return Err(builtin_func_error(UErrorMessage::FailedToGetObject, args.name()))
+        None => return Err(builtin_func_error(UErrorMessage::FailedToGetObject))
     };
     Ok(BuiltinFuncReturnValue::Result(Object::ComObject(disp)))
 }

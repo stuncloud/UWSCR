@@ -2304,8 +2304,10 @@ impl Evaluator {
             Object::AnonFunc(f) => f.invoke(self, arguments, false),
             Object::BuiltinFunction(name, expected_len, f) => {
                 if expected_len >= arguments.len() as i32 {
-                    let res = f(BuiltinFuncArgs::new(name, arguments))?;
-                    self.builtin_func_result(res, is_await)
+                    match f(BuiltinFuncArgs::new(arguments)) {
+                        Ok(r) => self.builtin_func_result(r, is_await),
+                        Err(e) => Err(e.to_uerror(name)),
+                    }
                 } else {
                     let l = arguments.len();
                     Err(UError::new(

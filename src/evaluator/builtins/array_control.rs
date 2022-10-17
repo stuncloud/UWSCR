@@ -28,7 +28,7 @@ fn join(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let to = args.get_as_int::<usize>(4, Some(arr.len() - 1))?;
     if to >= arr.len() {
         return Err(builtin_func_error(
-            UErrorMessage::IndexOutOfBounds((to as f64).into()), args.name()));
+            UErrorMessage::IndexOutOfBounds((to as f64).into())));
     }
     let slice = &arr[from..=to];
     let joined = slice.iter()
@@ -154,14 +154,11 @@ pub fn split(args: BuiltinFuncArgs) -> BuiltinFuncResult {
                             .collect::<Vec<_>>();
                         Ok(vec)
                     },
-                    Err(e) => Err(builtin_func_error(UErrorMessage::Any(e.to_string()), args.name())),
+                    Err(e) => Err(builtin_func_error(UErrorMessage::Any(e.to_string()))),
                 }
             }) {
             Some(r) => r.map(|v| BuiltinFuncReturnValue::Result(Object::Array(v))),
-            None => Err(builtin_func_error(
-                UErrorMessage::Any("CSV conversion error".into()),
-                args.name()
-            )),
+            None => Err(builtin_func_error(UErrorMessage::Any("CSV conversion error".into()))),
         }
     } else {
         let split = str.split(delimiter.as_str());

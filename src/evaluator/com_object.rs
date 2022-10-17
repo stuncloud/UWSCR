@@ -83,6 +83,7 @@ use crate::evaluator::{
     object::{Object, Variant},
 };
 use crate::error::evaluator::{UError, UErrorKind, UErrorMessage};
+use crate::evaluator::builtins::BuiltinFuncError;
 
 use std::{ffi::c_void, mem::ManuallyDrop};
 
@@ -116,6 +117,12 @@ impl From<ComError> for UError {
             UErrorKind::ComError(e.code),
             UErrorMessage::ComError(e.message, e.description)
         )
+    }
+}
+
+impl From<ComError> for BuiltinFuncError {
+    fn from(e: ComError) -> Self {
+        Self::UError(e.into())
     }
 }
 

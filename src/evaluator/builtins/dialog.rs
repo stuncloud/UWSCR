@@ -113,10 +113,10 @@ pub fn msgbox(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         Some(font_family),
         selected,
         x, y,
-    ).map_err(|e| builtin_func_error(UWindowError(e), args.name()))?;
+    ).map_err(|e| builtin_func_error(UWindowError(e)))?;
     msgbox.show();
     let (btn, x, y) = msgbox.message_loop()
-        .map_err(|e| builtin_func_error(UWindowError(e), args.name()))?;
+        .map_err(|e| builtin_func_error(UWindowError(e)))?;
 
     set_dlg_point(x, y, &MSGBOX_POINT);
     let pressed = btn.0 as f64;
@@ -126,7 +126,7 @@ pub fn msgbox(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 pub fn input(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let mut msg = args.get_as_string_array(0)?;
     let mut label = match msg.len() {
-        0 => return Err(builtin_func_error(UErrorMessage::EmptyArrayNotAllowed, args.name())),
+        0 => return Err(builtin_func_error(UErrorMessage::EmptyArrayNotAllowed)),
         1 => vec![None],
         _ => msg.drain(1..).map(|s| Some(s)).collect::<Vec<_>>(),
     };
@@ -155,11 +155,11 @@ pub fn input(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let caption = msg.pop().unwrap_or_default();
 
     let input = InputBox::new(title, Some(font), &caption, fields, x, y)
-            .map_err(|e| builtin_func_error(UWindowError(e), args.name()))?;
+            .map_err(|e| builtin_func_error(UWindowError(e)))?;
     input.show();
 
     let (result, x, y) = input.message_loop()
-        .map_err(|e| builtin_func_error(UWindowError(e), args.name()))?;
+        .map_err(|e| builtin_func_error(UWindowError(e)))?;
 
     set_dlg_point(x, y, &INPUT_POINT);
     match result {
@@ -224,10 +224,10 @@ pub fn slctbox(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let font = FONT_FAMILY.clone();
     let title = DIALOG_TITLE.as_str();
     let slct = Slctbox::new(title, message, r#type, option, items, font, wait, pos_x, pos_y)
-            .map_err(|e| builtin_func_error(UWindowError(e), args.name()))?;
+            .map_err(|e| builtin_func_error(UWindowError(e)))?;
     slct.show();
     let (ret, left, top) = slct.message_loop()
-        .map_err(|e| builtin_func_error(UWindowError(e), args.name()))?;
+        .map_err(|e| builtin_func_error(UWindowError(e)))?;
 
     set_dlg_point(left, top, &SLCTBOX_POINT);
     let obj = match ret {
@@ -255,12 +255,9 @@ pub fn popupmenu(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let x = args.get_as_int_or_empty(1)?;
     let y = args.get_as_int_or_empty(2)?;
     let popup = PopupMenu::new(list)
-        .map_err(|e| builtin_func_error(
-            UErrorMessage::UWindowError(e),
-            args.name()
-        ))?;
+        .map_err(|e| builtin_func_error(UErrorMessage::UWindowError(e)))?;
     let selected = popup.show(x, y)
-        .map_err(|e| builtin_func_error(UWindowError(e), args.name()))?;
+        .map_err(|e| builtin_func_error(UWindowError(e)))?;
 
     let obj = match selected {
         Some(s) => Object::String(s),
@@ -284,7 +281,7 @@ pub fn balloon(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         let font_color = args.get_as_int_or_empty::<u32>(6)?;
         let bg_color = args.get_as_int_or_empty::<u32>(7)?;
         let balloon = Balloon::new(&text, x, y, font, font_color, bg_color)
-            .map_err(|e| builtin_func_error(UWindowError(e), args.name()))?;
+            .map_err(|e| builtin_func_error(UWindowError(e)))?;
         Some(balloon)
     };
     Ok(BuiltinFuncReturnValue::Balloon(balloon))

@@ -172,8 +172,8 @@ pub fn getid(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         "__GET_ACTIVE_WIN__" => unsafe {
             GetForegroundWindow()
         },
-        "__GET_FROMPOINT_WIN__" => get_hwnd_from_mouse_point(true, args.name())?,
-        "__GET_FROMPOINT_OBJ__" => get_hwnd_from_mouse_point(false, args.name())?,
+        "__GET_FROMPOINT_WIN__" => get_hwnd_from_mouse_point(true)?,
+        "__GET_FROMPOINT_OBJ__" => get_hwnd_from_mouse_point(false)?,
         "__GET_THISUWSC_WIN__" => {
             HWND::default()
         },
@@ -292,9 +292,9 @@ fn find_window(title: String, class_name: String, timeout: f64) -> windows::core
     }
 }
 
-fn get_hwnd_from_mouse_point(toplevel: bool, name: String) -> BuiltInResult<HWND> {
+fn get_hwnd_from_mouse_point(toplevel: bool) -> BuiltInResult<HWND> {
     unsafe {
-        let point = window_low::get_current_pos(name)?;
+        let point = window_low::get_current_pos()?;
         let mut hwnd = WindowFromPoint(point);
         if toplevel {
             loop {
@@ -995,7 +995,7 @@ pub fn monitor(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let p_miex = <*mut _>::cast(&mut miex);
     unsafe {
         if ! GetMonitorInfoW(h, p_miex).as_bool() {
-            return Err(builtin_func_error(UErrorMessage::UnableToGetMonitorInfo, args.name()));
+            return Err(builtin_func_error(UErrorMessage::UnableToGetMonitorInfo));
         }
     }
     let mi = miex.monitorInfo;
@@ -1040,7 +1040,7 @@ pub fn chkimg(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let path = args.get_as_string(0, None)?;
     let score = args.get_as_int::<i32>(1, Some(default_score))?;
     if score < 1 && score > 100 {
-        return Err(builtin_func_error(UErrorMessage::GivenNumberIsOutOfRange(1.0, 100.0), args.name()));
+        return Err(builtin_func_error(UErrorMessage::GivenNumberIsOutOfRange(1.0, 100.0)));
     }
     let score = score as f64 / 100.0;
     let count = args.get_as_int::<u8>(2, Some(5))?;

@@ -76,7 +76,7 @@ pub fn length(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             s.len(get_dim)?
         },
         Object::ByteArray(ref arr) => arr.len(),
-        o => return Err(builtin_func_error(UErrorMessage::InvalidArgument(o), args.name()))
+        o => return Err(builtin_func_error(UErrorMessage::InvalidArgument(o)))
     };
     Ok(BuiltinFuncReturnValue::Result(Object::Num(len as f64)))
 }
@@ -88,7 +88,7 @@ pub fn lengthb(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         Object::Bool(b) => b.to_string().len(),
         Object::Empty => 0,
         Object::Null => 1,
-        o => return Err(builtin_func_error(UErrorMessage::InvalidArgument(o), args.name()))
+        o => return Err(builtin_func_error(UErrorMessage::InvalidArgument(o)))
     };
     Ok(BuiltinFuncReturnValue::Result(Object::Num(len as f64)))
 }
@@ -100,7 +100,7 @@ pub fn lengthu(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         Object::Bool(b) => b.to_string().len(),
         Object::Empty => 0,
         Object::Null => 1,
-        o => return Err(builtin_func_error(UErrorMessage::InvalidArgument(o), args.name()))
+        o => return Err(builtin_func_error(UErrorMessage::InvalidArgument(o)))
     };
     Ok(BuiltinFuncReturnValue::Result(Object::Num(len as f64)))
 }
@@ -146,18 +146,18 @@ pub fn newre(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(BuiltinFuncReturnValue::Result(Object::RegEx(pattern)))
 }
 
-fn test_regex(target: String, pattern: String, f_name: String) -> BuiltinFuncResult {
+fn test_regex(target: String, pattern: String) -> BuiltinFuncResult {
     match Regex::new(pattern.as_str()) {
         Ok(re) => {
             Ok(BuiltinFuncReturnValue::Result(Object::Bool(
                 re.is_match(target.as_str())
             )))
         },
-        Err(_) => Err(builtin_func_error(UErrorMessage::InvalidRegexPattern(pattern), f_name))
+        Err(_) => Err(builtin_func_error(UErrorMessage::InvalidRegexPattern(pattern)))
     }
 }
 
-fn match_regex(target: String, pattern: String, f_name: String) -> BuiltinFuncResult {
+fn match_regex(target: String, pattern: String) -> BuiltinFuncResult {
     match Regex::new(pattern.as_str()) {
         Ok(re) => {
             let mut matches = vec![];
@@ -178,25 +178,25 @@ fn match_regex(target: String, pattern: String, f_name: String) -> BuiltinFuncRe
             }
             Ok(BuiltinFuncReturnValue::Result(Object::Array(matches)))
         },
-        Err(_) => Err(builtin_func_error(UErrorMessage::InvalidRegexPattern(pattern), f_name))
+        Err(_) => Err(builtin_func_error(UErrorMessage::InvalidRegexPattern(pattern)))
     }
 }
 
-fn replace_regex(target: String, pattern: String, replace_to: String, f_name: String) -> BuiltinFuncResult {
+fn replace_regex(target: String, pattern: String, replace_to: String) -> BuiltinFuncResult {
     match Regex::new(pattern.as_str()) {
         Ok(re) => {
             Ok(BuiltinFuncReturnValue::Result(Object::String(
                 re.replace_all(target.as_str(), replace_to.as_str()).to_string()
             )))
         },
-        Err(_) => Err(builtin_func_error(UErrorMessage::InvalidRegexPattern(pattern), f_name))
+        Err(_) => Err(builtin_func_error(UErrorMessage::InvalidRegexPattern(pattern)))
     }
 }
 
 pub fn testre(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let target = args.get_as_string(0, None)?;
     let pattern = args.get_as_string(1, None)?;
-    test_regex(target, pattern, args.name())
+    test_regex(target, pattern)
 }
 
 pub fn regex(args: BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -205,21 +205,21 @@ pub fn regex(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     match args.get_as_object(2, Some(Object::Empty))? {
         Object::Num(n) => {
             match FromPrimitive::from_f64(n).unwrap_or(RegexEnum::REGEX_TEST) {
-                RegexEnum::REGEX_MATCH => match_regex(target, pattern, args.name()),
-                _ => test_regex(target, pattern, args.name())
+                RegexEnum::REGEX_MATCH => match_regex(target, pattern),
+                _ => test_regex(target, pattern)
             }
         },
         Object::String(s) |
-        Object::RegEx(s) => replace_regex(target, pattern, s.clone(), args.name()),
-        Object::Empty => test_regex(target, pattern, args.name()),
-        o => Err(builtin_func_error(UErrorMessage::InvalidArgument(o), args.name()))
+        Object::RegEx(s) => replace_regex(target, pattern, s.clone()),
+        Object::Empty => test_regex(target, pattern),
+        o => Err(builtin_func_error(UErrorMessage::InvalidArgument(o)))
     }
 }
 
 pub fn regexmatch(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let target = args.get_as_string(0, None)?;
     let pattern = args.get_as_string(1, None)?;
-    match_regex(target, pattern, args.name())
+    match_regex(target, pattern)
 }
 
 pub fn replace(args: BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -227,12 +227,12 @@ pub fn replace(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let (pattern, is_regex) = match args.get_as_object(1, None)? {
         Object::String(s) => (s.clone(), args.get_as_bool(3, Some(false))?),
         Object::RegEx(re) => (re.clone(), true),
-        o => return Err(builtin_func_error(UErrorMessage::InvalidArgument(o), args.name()))
+        o => return Err(builtin_func_error(UErrorMessage::InvalidArgument(o)))
     };
     let replace_to = args.get_as_string(2, None)?;
 
     if is_regex {
-        replace_regex(target, pattern, replace_to, args.name())
+        replace_regex(target, pattern, replace_to)
     } else {
         let mut out = target.clone();
         let mut lower = target.to_ascii_lowercase();
@@ -257,7 +257,7 @@ pub fn tojson(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let uo = args.get_as_uobject(0)?;
     let value = uo.value();
     to_string(&value).map_or_else(
-        |e| Err(builtin_func_error(UErrorMessage::Any(e.to_string()), args.name())),
+        |e| Err(builtin_func_error(UErrorMessage::Any(e.to_string()))),
         |s| Ok(BuiltinFuncReturnValue::Result(Object::String(s)))
     )
 }
@@ -568,11 +568,11 @@ pub fn asc(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 pub fn chrb(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let code = match args.get_as_int(0, None::<u8>) {
         Ok(n) => n,
-        Err(e) => if let BuiltinArgCastError(_, _) = e.message {
-            0
-        } else {
-            return Err(e);
-        },
+        Err(e) => match e.message() {
+            // キャスト失敗の場合は0を返す
+            BuiltinArgCastError(_, _) => 0,
+            _ => return Err(e)
+        }
     };
     let ansi = from_ansi_bytes(&[code]);
     Ok(BuiltinFuncReturnValue::Result(ansi.into()))

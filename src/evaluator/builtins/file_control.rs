@@ -62,7 +62,7 @@ pub fn fopen(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         let text = args.get_as_string(2, None)?;
         fopen.append(&text)
             .map(|o| BuiltinFuncReturnValue::Result(o))
-            .map_err(|e| builtin_func_error(FopenError(e), args.name()))
+            .map_err(|e| builtin_func_error(FopenError(e)))
     } else {
         match fopen.open() {
             Ok(e) => match e {
@@ -71,7 +71,7 @@ pub fn fopen(args: BuiltinFuncArgs) -> BuiltinFuncResult {
                     Ok(BuiltinFuncReturnValue::Result(Object::Fopen(Arc::new(Mutex::new(fopen)))))
                 }
             },
-            Err(e) => Err(builtin_func_error(FopenError(e), args.name())),
+            Err(e) => Err(builtin_func_error(FopenError(e))),
         }
     }
 }
@@ -82,7 +82,7 @@ pub fn fclose(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let ignore_err = args.get_as_bool(1, Some(false))?;
     let closed = fopen.close()
         .map_or_else(
-            |e| Err(builtin_func_error(FopenError(e), args.name())),
+            |e| Err(builtin_func_error(FopenError(e))),
             |b| Ok(BuiltinFuncReturnValue::Result(Object::Bool(b)))
         );
     if ignore_err && closed.is_err() {
@@ -102,7 +102,7 @@ pub fn fget(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 
     fopen.read(fget_type, column, dbl)
         .map(|o| BuiltinFuncReturnValue::Result(o))
-        .map_err(|e| builtin_func_error(FopenError(e), args.name()))
+        .map_err(|e| builtin_func_error(FopenError(e)))
 }
 
 pub fn fput(args: BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -116,7 +116,7 @@ pub fn fput(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 
     fopen.write(&value, fput_type)
         .map_or_else(
-            |e| Err(builtin_func_error(FopenError(e), args.name())),
+            |e| Err(builtin_func_error(FopenError(e))),
             |_| Ok(BuiltinFuncReturnValue::Result(Object::Empty))
         )
 }
@@ -154,17 +154,17 @@ pub fn readini(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             match (section, key) {
                 (Some(section), Some(key)) => {
                     let value = Fopen::ini_read_from_path(&path, &section, &key)
-                        .map_err(|e| builtin_func_error(FopenError(e), args.name()))?;
+                        .map_err(|e| builtin_func_error(FopenError(e)))?;
                     Ok(BuiltinFuncReturnValue::Result(value.into()))
                 },
                 (None, _) => {
                     let sections = Fopen::get_sections_from_path(&path)
-                        .map_err(|e| builtin_func_error(FopenError(e), args.name()))?;
+                        .map_err(|e| builtin_func_error(FopenError(e)))?;
                     Ok(BuiltinFuncReturnValue::Result(sections.into()))
                 },
                 (Some(section), None) => {
                     let keys = Fopen::get_keys_from_path(&path, &section)
-                        .map_err(|e| builtin_func_error(FopenError(e), args.name()))?;
+                        .map_err(|e| builtin_func_error(FopenError(e)))?;
                     Ok(BuiltinFuncReturnValue::Result(keys.into()))
                 },
             }
@@ -201,7 +201,7 @@ pub fn writeini(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         TwoTypeArg::T(path) => {
             let path = path.unwrap_or(DEFAULT_INI_NAME.to_string());
             Fopen::ini_write_from_path(&path, &section, &key, &value)
-                .map_err(|e| builtin_func_error(FopenError(e), args.name()))?;
+                .map_err(|e| builtin_func_error(FopenError(e)))?;
         },
         TwoTypeArg::U(arc) => {
             let mut fopen = arc.lock().unwrap();
@@ -219,7 +219,7 @@ pub fn deleteini(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         TwoTypeArg::T(path) => {
             let path = path.unwrap_or(DEFAULT_INI_NAME.to_string());
             Fopen::ini_delete_from_path(&path, &section, key.as_deref())
-                .map_err(|e| builtin_func_error(FopenError(e), args.name()))?;
+                .map_err(|e| builtin_func_error(FopenError(e)))?;
         },
         TwoTypeArg::U(arc) => {
             let mut fopen = arc.lock().unwrap();
@@ -261,7 +261,7 @@ pub fn getdir(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     };
 
     let files = Fopen::list_dir_entries(&dir, &filter, order_by.into(), get_dir, show_hidden, false)
-        .map_err(|e| builtin_func_error(FopenError(e), args.name()))?
+        .map_err(|e| builtin_func_error(FopenError(e)))?
         .iter()
         .map(|s| s.to_string().into())
         .collect();
