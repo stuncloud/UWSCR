@@ -57,7 +57,7 @@ fn start_uwscr() {
             Mode::Help => args.help(None),
             Mode::Version => args.version(),
             Mode::OnlineHelp => {
-                shell_execute("https://github.com/stuncloud/UWSCR/wiki".into(), None);
+                shell_execute("https://stuncloud.github.io/UWSCR/".into(), None);
             },
             Mode::Script(p, n) => {
                 let mut vec_args = args.get_args();
