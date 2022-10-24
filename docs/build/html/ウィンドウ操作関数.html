@@ -1,0 +1,2249 @@
+<!doctype html>
+<html class="no-js" lang="ja">
+  <head><meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="color-scheme" content="light dark"><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+<link rel="index" title="索引" href="genindex.html" /><link rel="search" title="検索" href="search.html" /><link rel="next" title="制御関数" href="%E5%88%B6%E5%BE%A1%E9%96%A2%E6%95%B0.html" /><link rel="prev" title="文字列操作関数" href="%E6%96%87%E5%AD%97%E5%88%97%E6%93%8D%E4%BD%9C%E9%96%A2%E6%95%B0.html" />
+
+    <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
+        <title>ウィンドウ操作関数 - UWSCR ドキュメント</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f8f8f8;
+  --color-code-foreground: black;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-half" viewBox="0 0 24 24">
+    <title>Auto light/dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-shadow">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M13 12h5" />
+      <path d="M13 15h4" />
+      <path d="M13 18h1" />
+      <path d="M13 9h4" />
+      <path d="M13 6h1" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc">
+<label class="overlay sidebar-overlay" for="__navigation">
+  <div class="visually-hidden">Hide navigation sidebar</div>
+</label>
+<label class="overlay toc-overlay" for="__toc">
+  <div class="visually-hidden">Hide table of contents sidebar</div>
+</label>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <div class="visually-hidden">Toggle site navigation sidebar</div>
+        <i class="icon"><svg><use href="#svg-menu"></use></svg></i>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="index.html"><div class="brand">UWSCR  ドキュメント</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle">
+          <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+          <svg class="theme-icon-when-auto"><use href="#svg-sun-half"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <div class="visually-hidden">Toggle table of contents sidebar</div>
+        <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="index.html">
+  
+  
+  <span class="sidebar-brand-text">UWSCR  ドキュメント</span>
+  
+</a><form class="sidebar-search-container" method="get" action="search.html" role="search">
+  <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">使い方</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="%E5%AE%9F%E8%A1%8C%E6%96%B9%E6%B3%95.html">実行方法</a></li>
+<li class="toctree-l1"><a class="reference internal" href="%E8%A8%AD%E5%AE%9A%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB.html">設定ファイル</a></li>
+<li class="toctree-l1"><a class="reference internal" href="%E3%83%93%E3%83%AB%E3%83%89%E6%96%B9%E6%B3%95.html">ビルド方法</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">スクリプト構文</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="%E3%82%B9%E3%82%AF%E3%83%AA%E3%83%97%E3%83%88%E6%A7%8B%E6%96%87.html">スクリプト構文</a></li>
+<li class="toctree-l1"><a class="reference internal" href="%E7%89%B9%E6%AE%8A%E5%A4%89%E6%95%B0.html">特殊変数</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">ビルトイン関数</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="%E6%96%87%E5%AD%97%E5%88%97%E6%93%8D%E4%BD%9C%E9%96%A2%E6%95%B0.html">文字列操作関数</a></li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">ウィンドウ操作関数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="%E5%88%B6%E5%BE%A1%E9%96%A2%E6%95%B0.html">制御関数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="%E3%82%B7%E3%82%B9%E3%83%86%E3%83%A0%E9%96%A2%E6%95%B0.html">システム関数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB%E6%93%8D%E4%BD%9C%E9%96%A2%E6%95%B0.html">ファイル操作関数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="GUI.html">GUI</a></li>
+<li class="toctree-l1"><a class="reference internal" href="%E9%85%8D%E5%88%97%E6%93%8D%E4%BD%9C%E9%96%A2%E6%95%B0.html">配列操作関数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="%E6%95%B0%E5%AD%A6%E9%96%A2%E6%95%B0.html">数学関数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="COM%E3%82%AA%E3%83%96%E3%82%B8%E3%82%A7%E3%82%AF%E3%83%88.html">COMオブジェクト</a></li>
+<li class="toctree-l1"><a class="reference internal" href="%E3%83%96%E3%83%A9%E3%82%A6%E3%82%B6%E6%93%8D%E4%BD%9C.html">ブラウザ操作</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          
+<div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle">
+              <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+              <svg class="theme-icon-when-auto"><use href="#svg-sun-half"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <div class="visually-hidden">Toggle table of contents sidebar</div>
+            <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+          </label>
+        </div>
+        <article role="main">
+          <section id="id1">
+<h1>ウィンドウ操作関数<a class="headerlink" href="#id1" title="この見出しへのパーマリンク">#</a></h1>
+<section id="id">
+<h2>ID取得<a class="headerlink" href="#id" title="この見出しへのパーマリンク">#</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="getid">
+<span class="sig-name descname"><span class="pre">getid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">タイトル</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">クラス名=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">待ち時間=1</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#getid" title="この定義へのパーマリンク">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">getid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">定数</span></span></em><span class="sig-paren">)</span></dt>
+<dd><div class="line-block">
+<div class="line">ウィンドウを検索し、該当するウィンドウを示すIDを返します</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>タイトル</strong> (<em>文字列</em>) -- 検索するウィンドウのタイトル (部分一致)</p></li>
+<li><p><strong>クラス名</strong> (<em>文字列 省略可</em>) -- 検索するウィンドウのクラス名 (部分一致)</p></li>
+<li><p><strong>待ち時間</strong> (<em>数値 省略可</em>) -- ウィンドウが見つからない場合のタイムアウト時間</p></li>
+<li><p><strong>定数</strong> (<em>定数</em>) -- <p>以下の定数を指定</p>
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">GET_ACTIVE_WIN</span></span></dt>
+<dd><p>アクティブウィンドウ</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">GET_FROMPOINT_WIN</span></span></dt>
+<dd><p>マウスカーソル下のウィンドウ</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">GET_FROMPOINT_OBJ</span></span></dt>
+<dd><p>マウスカーソル下の子ウィンドウ</p>
+<p>対象なし(-1を返す)</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">GET_LOGPRINT_WIN</span></span></dt>
+<dd><p>Printウィンドウ</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">GET_BALLOON_WIN</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">GET_FUKIDASI_WIN</span></span></dt>
+<dd><p>吹き出し</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">GET_THISUWSC_WIN</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">GET_FORM_WIN</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">GET_FORM_WIN2</span></span></dt>
+<dd><p>未実装 (-1を返す)</p>
+</dd></dl>
+
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>ウィンドウID、タイムアウトした場合 <code class="docutils literal notranslate"><span class="pre">-1</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="getallwin">
+<span class="sig-name descname"><span class="pre">getallwin</span></span><span class="sig-paren">(</span><span class="optional">[</span><em class="sig-param"><span class="n"><span class="pre">ID=EMPTY</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#getallwin" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">すべてのウィンドウのIDを得ます</div>
+<div class="line">特定のウィンドウIDを指定した場合、そのウィンドウの子要素を得ます</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>ID</strong> (<em>数値 省略可</em>) -- 子要素を取得したいウィンドウのID</p>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>ウィンドウIDの配列</p>
+</dd>
+</dl>
+<div class="admonition caution">
+<p class="admonition-title">注意</p>
+<div class="line-block">
+<div class="line">UWSCとは異なり見つかったウィンドウの個数ではなくウィンドウIDの配列が返るようになりました</div>
+<div class="line">それに伴い特殊変数 <code class="docutils literal notranslate"><span class="pre">ALL_WIN_ID</span></code> は廃止されました</div>
+</div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="idtohnd">
+<span class="sig-name descname"><span class="pre">idtohnd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ID</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#idtohnd" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">ウィンドウIDからウィンドウハンドル値を得ます</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>ID</strong> (<em>数値</em>) -- ウィンドウID</p>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>ウィンドウハンドル値、該当ウィンドウがない場合は <code class="docutils literal notranslate"><span class="pre">0</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="hndtoid">
+<span class="sig-name descname"><span class="pre">hndtoid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">hwnd</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#hndtoid" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">ウィンドウハンドル値からウィンドウIDを得ます</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>hwnd</strong> (<em>数値</em>) -- ウィンドウハンドル値</p>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>ウィンドウID、該当ウィンドウがない場合 <code class="docutils literal notranslate"><span class="pre">-1</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="getctlhnd">
+<span class="sig-name descname"><span class="pre">getctlhnd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ID</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">アイテム名</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">n番目=1</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#getctlhnd" title="この定義へのパーマリンク">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">getctlhnd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ID</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">メニュー定数</span></span></em><span class="sig-paren">)</span></dt>
+<dd><div class="line-block">
+<div class="line">小ウィンドウ(ボタン等)のウィンドウハンドル値、またはメニューハンドルを得ます</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ID</strong> (<em>数値</em>) -- ウィンドウID</p></li>
+<li><p><strong>アイテム名</strong> (<em>文字列</em>) -- 小ウィンドウのタイトルまたはクラス名 (部分一致)</p></li>
+<li><p><strong>メニュー定数</strong> (<em>定数</em>) -- <p>以下のいずれかを指定</p>
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">GET_MENU_HND</span></span></dt>
+<dd><p>メニューハンドルを返す</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">GET_SYSMENU_HND</span></span></dt>
+<dd><p>システムメニューハンドルを返す</p>
+</dd></dl>
+
+</p></li>
+<li><p><strong>n番目</strong> (<em>数値 省略可</em>) -- n番目に該当するアイテムを探す</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>ハンドル値</p>
+</dd>
+</dl>
+<div class="admonition- admonition">
+<p class="admonition-title">サンプルコード</p>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">getid</span><span class="p">(</span><span class="s">&quot;ファイル名を指定して実行&quot;</span><span class="p">)</span>
+<span class="n">h1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">getctlhnd</span><span class="p">(</span><span class="n">id</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;実行するプログラム名、&quot;</span><span class="p">)</span><span class="w"> </span><span class="c">// タイトルを部分一致</span>
+<span class="n">h2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">getctlhnd</span><span class="p">(</span><span class="n">id</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;static&quot;</span><span class="o">,</span><span class="w"> </span><span class="m">2</span><span class="p">)</span><span class="w">              </span><span class="c">// クラス名指定、2番目</span>
+<span class="n">assert_equal</span><span class="p">(</span><span class="n">h1</span><span class="o">,</span><span class="w"> </span><span class="n">h2</span><span class="p">)</span><span class="w"> </span><span class="c">// 一致</span>
+</pre></div>
+</div>
+</div>
+</dd></dl>
+
+<section id="about-id0">
+<span id="id0"></span><h3>ID0について<a class="headerlink" href="#about-id0" title="この見出しへのパーマリンク">#</a></h3>
+<div class="line-block">
+<div class="line">ウィンドウIDを使う一部の関数が実行されると、その関数の対象となったウィンドウが <cite>ID0</cite> に記憶されます</div>
+<div class="line">次に同様の関数が実行されると <cite>ID0</cite> は上書きされます</div>
+</div>
+<div class="admonition- admonition">
+<p class="admonition-title">サンプルコード</p>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">ctrlwin</span><span class="p">(</span><span class="n">getid</span><span class="p">(</span><span class="s">&quot;TEST&quot;</span><span class="p">)</span><span class="o">,</span><span class="w"> </span><span class="m">HIDE</span><span class="p">)</span>
+<span class="c">// getid(&quot;TEST&quot;)のウィンドウがID0に記憶される</span>
+
+<span class="n">ctrlwin</span><span class="p">(</span><span class="m">0</span><span class="o">,</span><span class="w"> </span><span class="m">SHOW</span><span class="p">)</span><span class="w"> </span><span class="c">// 同じウィンドウに対して実行される</span>
+</pre></div>
+</div>
+</div>
+</section>
+</section>
+<section id="id2">
+<h2>ウィンドウ操作<a class="headerlink" href="#id2" title="この見出しへのパーマリンク">#</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="clkitem">
+<span class="sig-name descname"><span class="pre">clkitem</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ID</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">アイテム名</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">CLK定数=0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">チェック指定=TRUE</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n番目=1</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#clkitem" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">ボタン等をクリックします</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ID</strong> (<em>数値</em>) -- 対象のウィンドウID</p></li>
+<li><p><strong>アイテム名</strong> (<em>文字列</em>) -- クリックしたいボタンや項目の名前</p></li>
+<li><p><strong>CLK定数</strong> (<em>定数 省略可</em>) -- <p>クリックしたいアイテムの種類やクリックの方法を指定します</p>
+<p>これらの定数は <code class="docutils literal notranslate"><span class="pre">OR</span></code> で連結することにより複数指定が可能</p>
+<ul>
+<li><p>アイテム種別</p>
+<blockquote>
+<div><div class="line-block">
+<div class="line">アイテム種別が未指定の場合はすべての種別を検索します</div>
+<div class="line">(<code class="docutils literal notranslate"><span class="pre">CLK_BTN</span> <span class="pre">or</span> <span class="pre">CLK_LIST</span> <span class="pre">or</span> <span class="pre">CLK_TAB</span> <span class="pre">or</span> <span class="pre">CLK_MENU</span> <span class="pre">or</span> <span class="pre">CLK_TREEVIEW</span> <span class="pre">or</span> <span class="pre">CLK_LISTVIEW</span> <span class="pre">or</span> <span class="pre">CLK_TOOLBAR</span> <span class="pre">or</span> <span class="pre">CLK_LINK</span></code> と同等)</div>
+<div class="line">複数指定時の検索順は以下の通り</div>
+</div>
+<ol class="arabic simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">CLK_BTN</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">CLK_LIST</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">CLK_TAB</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">CLK_MENU</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">CLK_TREEVIEW</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">CLK_LISTVIEW</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">CLK_TOOLBAR</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">CLK_LINK</span></code></p></li>
+</ol>
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">CLK_BTN</span></span></dt>
+<dd><div class="line-block">
+<div class="line">ボタン、チェックボックス、ラジオボタン、その他</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">CLK_LIST</span></span></dt>
+<dd><div class="line-block">
+<div class="line">リストボックス、コンボボックス</div>
+<div class="line">複数選択可能なリストボックスで複数項目を選択したい場合はアイテム名をタブ文字 (<code class="docutils literal notranslate"><span class="pre">&lt;#TAB&gt;</span></code>) で区切るか、配列で指定する</div>
+</div>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">clkitem</span><span class="p">(</span><span class="n">id</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;foo&lt;#TAB&gt;bar&lt;#TAB&gt;baz&quot;</span><span class="o">,</span><span class="w"> </span><span class="m">CLK_LIST</span><span class="p">)</span><span class="w"> </span><span class="c">// タブ文字区切り</span>
+<span class="n">clkitem</span><span class="p">(</span><span class="n">id</span><span class="o">,</span><span class="w"> </span><span class="p">[</span><span class="s">&quot;foo&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;bar&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;baz&quot;</span><span class="p">]</span><span class="o">,</span><span class="w"> </span><span class="m">CLK_LIST</span><span class="p">)</span><span class="w"> </span><span class="c">// タブ文字区切り</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">CLK_TAB</span></span></dt>
+<dd><div class="line-block">
+<div class="line">タブ</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">CLK_MENU</span></span></dt>
+<dd><div class="line-block">
+<div class="line">メニュー</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">CLK_TREEVIEW</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">CLK_TREEVEW</span></span></dt>
+<dd><div class="line-block">
+<div class="line">ツリービュー</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">CLK_LISTVIEW</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">CLK_LSTVEW</span></span></dt>
+<dd><div class="line-block">
+<div class="line">リストビュー、カラムヘッダ</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">CLK_TOOLBAR</span></span></dt>
+<dd><div class="line-block">
+<div class="line">ツールバー</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">CLK_LINK</span></span></dt>
+<dd><div class="line-block">
+<div class="line">リンク</div>
+</div>
+</dd></dl>
+
+</div></blockquote>
+</li>
+<li><p>マウスボタン指定</p>
+<blockquote>
+<div><div class="line-block">
+<div class="line">マウスボタン指定があった場合はクリック方式に関わらずWin32 API(PostMessage)によるクリック処理が行われます</div>
+<div class="line">未指定の場合はクリック方式別</div>
+</div>
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">CLK_RIGHTCLK</span></span></dt>
+<dd><p>右クリック</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">CLK_LEFTCLK</span></span></dt>
+<dd><p>左クリック (CLK_RIGHTCLKと同時指定ならこちらが優先)</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">CLK_DBLCLK</span></span></dt>
+<dd><p>ダブルクリック (CLK_LEFTCLKと同時指定で2回目のクリック)</p>
+</dd></dl>
+
+</div></blockquote>
+</li>
+<li><p>クリック方式(API)</p>
+<blockquote>
+<div><div class="line-block">
+<div class="line">クリック方式が未指定の場合はすべての方式で検索を行います</div>
+<div class="line">(<code class="docutils literal notranslate"><span class="pre">CLK_API</span></code> or <code class="docutils literal notranslate"><span class="pre">CLK_UIA</span></code> or <code class="docutils literal notranslate"><span class="pre">CLK_ACC</span></code> と同等)</div>
+<div class="line">クリック方式が複数指定された場合の適用順は以下の通り</div>
+</div>
+<ol class="arabic simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">CLK_API</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">CLK_UIA</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">CLK_ACC</span></code></p></li>
+</ol>
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">CLK_API</span></span></dt>
+<dd><div class="line-block">
+<div class="line">Win32 APIによる検索およびクリック</div>
+<div class="line">クリックは対象アイテムに応じたメッセージ処理を行います</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">CLK_ACC</span></span></dt>
+<dd><div class="line-block">
+<div class="line">アクセシビリティコントロールによる検索およびクリック</div>
+<div class="line">クリックはACCオブジェクトのデフォルトアクションを実行します</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">CLK_UIA</span></span></dt>
+<dd><p>UI Automationによる検索およびクリック</p>
+</dd></dl>
+
+</div></blockquote>
+</li>
+<li><p>オプション</p>
+<blockquote>
+<div><dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">CLK_BACK</span></span></dt>
+<dd><p>バックグラウンド処理 (ウィンドウをアクティブにしない)</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">CLK_MOUSEMOVE</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">CLK_MUSMOVE</span></span></dt>
+<dd><p>クリック位置にマウスを移動</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">CLK_SHORT</span></span></dt>
+<dd><div class="line-block">
+<div class="line">アイテム名の部分一致</div>
+<div class="line">未指定の場合は完全一致する必要があります</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">CLK_FROMLAST</span></span></dt>
+<dd><p>逆順サーチ (CLK_ACC指定時のみ有効)</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">CLK_HWND</span></span></dt>
+<dd><p>戻り値を対象アイテムのHWNDにする (0は対象不明)</p>
+</dd></dl>
+
+</div></blockquote>
+</li>
+</ul>
+</p></li>
+<li><p><strong>チェック指定</strong> (<em>真偽値 省略可</em>) -- <div class="line-block">
+<div class="line">チェックボックスやメニューの場合、チェックのオンオフを指定 (TRUEならチェックを入れる、FALSEならはずす)</div>
+<div class="line">それ以外のアイテムの場合FALSEだとクリック動作を行いません (対象が存在していればTRUEを返す)</div>
+</div>
+</p></li>
+<li><p><strong>n番目</strong> (<em>数値 省略可</em>) -- 同名アイテムの場合何番目をクリックするか</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>成功時TRUE、 <code class="docutils literal notranslate"><span class="pre">CLK_HWND</span></code> 指定時は対象のウィンドウハンドル値を返す</p>
+</dd>
+</dl>
+</dd></dl>
+
+<div class="admonition note">
+<p class="admonition-title">注釈</p>
+<p>アイテム名の一致について</p>
+<p><code class="docutils literal notranslate"><span class="pre">CLK_SHORT</span></code> を指定しない場合アイテム名は完全一致する必要がありますが、ニーモニックがある場合はそれを無視することができます</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">&amp;</span></code> の有無は問わない</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">(&amp;A)</span></code> のように括弧で括られたニーモニックは括弧ごと無視できる</p></li>
+<li><p>括弧以降にある文字も無視できる</p></li>
+</ul>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// &amp;Button</span>
+<span class="n">clkitem</span><span class="p">(</span><span class="n">id</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;&amp;Button&quot;</span><span class="p">)</span><span class="w">    </span><span class="c">// ok, &quot;&amp;&quot;を含めても一致する</span>
+<span class="n">clkitem</span><span class="p">(</span><span class="n">id</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;Button&quot;</span><span class="p">)</span><span class="w">     </span><span class="c">// ok, &quot;&amp;&quot;がなくても一致</span>
+<span class="c">// ボタン(&amp;B)</span>
+<span class="n">clkitem</span><span class="p">(</span><span class="n">id</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;ボタン(&amp;B)&quot;</span><span class="p">)</span><span class="w"> </span><span class="c">// ok</span>
+<span class="n">clkitem</span><span class="p">(</span><span class="n">id</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;ボタン(B)&quot;</span><span class="p">)</span><span class="w">  </span><span class="c">// ok, &quot;&amp;&quot;は無視できる</span>
+<span class="n">clkitem</span><span class="p">(</span><span class="n">id</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;ボタン&quot;</span><span class="p">)</span><span class="w">     </span><span class="c">// ok, 括弧ごと無視できる</span>
+<span class="c">// ボタン (&amp;B)</span>
+<span class="n">clkitem</span><span class="p">(</span><span class="n">id</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;ボタン&quot;</span><span class="p">)</span><span class="w">     </span><span class="c">// ok, 括弧の前に半角スペースがあった場合それも無視できる</span>
+<span class="c">// 選択 (&amp;S)...</span>
+<span class="n">clkitem</span><span class="p">(</span><span class="n">id</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;選択&quot;</span><span class="p">)</span><span class="w">       </span><span class="c">// ok, 括弧以降も無視できる</span>
+</pre></div>
+</div>
+</div>
+<dl class="py function">
+<dt class="sig sig-object py" id="ctrlwin">
+<span class="sig-name descname"><span class="pre">ctrlwin</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ID</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">コマンド定数</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ctrlwin" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">対象ウィンドウに命令コマンドを送信します</div>
+<div class="line"><a class="reference internal" href="#about-id0"><span class="std std-ref">ID0</span></a> を更新します</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ID</strong> (<em>数値</em>) -- 対象ウィンドウ</p></li>
+<li><p><strong>コマンド定数</strong> (<em>定数</em>) -- <p>実行したいコマンドを示す定数</p>
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">CLOSE</span></span></dt>
+<dd><p>ウィンドウを閉じる</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">CLOSE2</span></span></dt>
+<dd><p>ウィンドウを強制的に閉じる</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ACTIVATE</span></span></dt>
+<dd><p>ウィンドウをアクティブにする</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">HIDE</span></span></dt>
+<dd><p>ウィンドウを非表示にする</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SHOW</span></span></dt>
+<dd><p>ウィンドウの非表示を解除する</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">MIN</span></span></dt>
+<dd><p>ウィンドウを最小化する</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">MAX</span></span></dt>
+<dd><p>ウィンドウを最大化する</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">NORMAL</span></span></dt>
+<dd><p>ウィンドウを通常サイズに戻す</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">TOPMOST</span></span></dt>
+<dd><p>ウィンドウを最前面に固定する</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">NOTOPMOST</span></span></dt>
+<dd><p>ウィンドウの最前面固定を解除</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">TOPNOACTV</span></span></dt>
+<dd><p>ウィンドウを最前面に移動するがアクティブにはしない</p>
+</dd></dl>
+
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>なし</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="status">
+<span class="sig-name descname"><span class="pre">status</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ID</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ST定数</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">ST定数...</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#status" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">対象ウィンドウの各種状態を取得します</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ID</strong> (<em>数値</em>) -- ウィンドウID</p></li>
+<li><p><strong>ST定数</strong> (<em>定数</em>) -- <p>取得したい状態を示す定数を指定</p>
+<div class="line-block">
+<div class="line">定数は最大21個指定できます</div>
+</div>
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ST_TITLE</span></span></dt>
+<dd><p>ウィンドウタイトル (文字列)</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ST_CLASS</span></span></dt>
+<dd><p>ウィンドウクラス名 (文字列)</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ST_X</span></span></dt>
+<dd><p>ウィンドウ左上のX座標 (数値)</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ST_Y</span></span></dt>
+<dd><p>ウィンドウ左上のY座標 (数値)</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ST_WIDTH</span></span></dt>
+<dd><p>ウィンドウの幅 (数値)</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ST_HEIGHT</span></span></dt>
+<dd><p>ウィンドウの高さ (数値)</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ST_CLX</span></span></dt>
+<dd><p>ウィンドウのクライアント領域左上のX座標 (数値)</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ST_CLY</span></span></dt>
+<dd><p>ウィンドウのクライアント領域左上のY座標 (数値)</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ST_CLWIDTH</span></span></dt>
+<dd><p>ウィンドウのクライアント領域の幅 (数値)</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ST_CLHEIGHT</span></span></dt>
+<dd><p>ウィンドウのクライアント領域の高さ (数値)</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ST_PARENT</span></span></dt>
+<dd><p>親ウィンドウのID (数値)</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ST_ICON</span></span></dt>
+<dd><p>最小化してればTRUE (真偽値)</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ST_MAXIMIZED</span></span></dt>
+<dd><p>最大化してればTRUE (真偽値)</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ST_VISIBLE</span></span></dt>
+<dd><p>ウィンドウが可視ならTRUE (真偽値)</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ST_ACTIVE</span></span></dt>
+<dd><p>ウィンドウがアクティブならTRUE (真偽値)</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ST_BUSY</span></span></dt>
+<dd><p>ウィンドウが応答なしならTRUE (真偽値)</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ST_ISID</span></span></dt>
+<dd><p>ウィンドウが有効ならTRUE (真偽値)</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ST_WIN64</span></span></dt>
+<dd><p>プロセスが64ビットかどうか (真偽値)</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ST_PATH</span></span></dt>
+<dd><p>プロセスの実行ファイルのパス (文字列)</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ST_PROCESS</span></span></dt>
+<dd><p>プロセスID (数値)</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ST_MONITOR</span></span></dt>
+<dd><p>ウィンドウが表示されているモニタ番号 (monitor関数に対応) (数値)</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ST_ALL</span></span></dt>
+<dd><div class="line-block">
+<div class="line">すべての状態を取得</div>
+<div class="line">この定数を指定する場合ほかの定数は指定できません</div>
+</div>
+</dd></dl>
+
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>ST定数を一つだけ指定した場合は得られた値、複数指定時または <code class="docutils literal notranslate"><span class="pre">ST_ALL</span></code> 指定時は連想配列 (キーはST定数)</p>
+</dd>
+</dl>
+<div class="admonition- admonition">
+<p class="admonition-title">サンプルコード</p>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">getid</span><span class="p">(</span><span class="s">&quot;uwsc&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;HH&quot;</span><span class="p">)</span><span class="w"> </span><span class="c">// uwscヘルプファイル</span>
+<span class="n">stat</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">status</span><span class="p">(</span><span class="n">id</span><span class="o">,</span><span class="w"> </span><span class="m">ST_TITLE</span><span class="o">,</span><span class="w"> </span><span class="m">ST_CLASS</span><span class="o">,</span><span class="w"> </span><span class="m">ST_HEIGHT</span><span class="o">,</span><span class="w"> </span><span class="m">ST_WIDTH</span><span class="p">)</span>
+
+<span class="k">print</span><span class="w"> </span><span class="n">stat</span><span class="p">[</span><span class="m">ST_TITLE</span><span class="p">]</span><span class="w">  </span><span class="c">// uwsc</span>
+<span class="k">print</span><span class="w"> </span><span class="n">stat</span><span class="p">[</span><span class="m">ST_CLASS</span><span class="p">]</span><span class="w">  </span><span class="c">// HH Parent</span>
+<span class="k">print</span><span class="w"> </span><span class="n">stat</span><span class="p">[</span><span class="m">ST_HEIGHT</span><span class="p">]</span><span class="w"> </span><span class="c">// 778</span>
+<span class="k">print</span><span class="w"> </span><span class="n">stat</span><span class="p">[</span><span class="m">ST_WIDTH</span><span class="p">]</span><span class="w">  </span><span class="c">// 1251</span>
+</pre></div>
+</div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="monitor">
+<span class="sig-name descname"><span class="pre">monitor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">モニタ番号</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">MON定数</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#monitor" title="この定義へのパーマリンク">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">monitor</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span></dt>
+<dd><div class="line-block">
+<div class="line">モニタの情報を得ます</div>
+<div class="line">引数なしで実行した場合モニタの数を得ます</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>モニタ番号</strong> (<em>数値 省略可</em>) -- モニタを示す番号 (0から)</p></li>
+<li><p><strong>MON定数</strong> (<em>定数 省略可</em>) -- <p>取得したい情報を示す定数</p>
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">MON_X</span></span></dt>
+<dd><p>モニタのX座標 (数値)</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">MON_Y</span></span></dt>
+<dd><p>モニタのY座標 (数値)</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">MON_WIDTH</span></span></dt>
+<dd><p>モニタの幅 (数値)</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">MON_HEIGHT</span></span></dt>
+<dd><p>モニタの高さ (数値)</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">MON_PRIMARY</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">MON_ISMAIN</span></span></dt>
+<dd><p>プライマリ(メイン)モニタならTRUE (真偽値)</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">MON_NAME</span></span></dt>
+<dd><p>モニタ名 (文字列)</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">MON_WORK_X</span></span></dt>
+<dd><p>作業エリアのX座標 (数値)</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">MON_WORK_Y</span></span></dt>
+<dd><p>作業エリアのY座標 (数値)</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">MON_WORK_WIDTH</span></span></dt>
+<dd><p>作業エリアの幅 (数値)</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">MON_WORK_HEIGHT</span></span></dt>
+<dd><p>作業エリアの高さ (数値)</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">MON_ALL</span></span></dt>
+<dd><p>上記すべて (デフォルト)</p>
+</dd></dl>
+
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p>引数なしで実行: モニタの数</p></li>
+<li><p>定数指定 (<code class="docutils literal notranslate"><span class="pre">MON_ALL</span></code> 以外): 得られた値</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">MON_ALL</span></code> 指定: 連想配列 (キーはMON定数)</p></li>
+<li><p>該当モニタなし: <code class="docutils literal notranslate"><span class="pre">FALSE</span></code></p></li>
+</ul>
+</p>
+</dd>
+</dl>
+<div class="admonition- admonition">
+<p class="admonition-title">サンプルコード</p>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// すべてのモニタのサイズを表示</span>
+<span class="k">for</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="n">to</span><span class="w"> </span><span class="n">monitor</span><span class="p">()</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="m">1</span>
+<span class="w">    </span><span class="n">m</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">monitor</span><span class="p">(</span><span class="n">i</span><span class="o">,</span><span class="w"> </span><span class="m">MON_ALL</span><span class="p">)</span>
+<span class="w">    </span><span class="k">print</span><span class="w"> </span><span class="s">&quot;モニタ&quot;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="s">&quot;: &quot;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">m</span><span class="p">[</span><span class="m">MON_NAME</span><span class="p">]</span>
+<span class="w">    </span><span class="k">print</span><span class="w"> </span><span class="n">m</span><span class="p">[</span><span class="m">MON_X</span><span class="p">]</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="s">&quot;, &quot;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">m</span><span class="p">[</span><span class="m">MON_Y</span><span class="p">]</span>
+<span class="w">    </span><span class="k">print</span><span class="w"> </span><span class="n">m</span><span class="p">[</span><span class="m">MON_WIDTH</span><span class="p">]</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="s">&quot; x &quot;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">m</span><span class="p">[</span><span class="m">MON_HEIGHT</span><span class="p">]</span>
+<span class="k">next</span>
+</pre></div>
+</div>
+</div>
+</dd></dl>
+
+<section id="acc">
+<h3>ACCについて<a class="headerlink" href="#acc" title="この見出しへのパーマリンク">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">clkitem</span></code> や <code class="docutils literal notranslate"><span class="pre">getitem</span></code> などで対象となるロール</p>
+<ul class="simple">
+<li><dl class="simple">
+<dt>クリック (<code class="docutils literal notranslate"><span class="pre">CLK_ACC</span></code>, <code class="docutils literal notranslate"><span class="pre">ITM_ACCCLK</span></code>)</dt><dd><ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">ROLE_SYSTEM_BUTTONDROPDOWN</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ROLE_SYSTEM_BUTTONDROPDOWNGRID</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ROLE_SYSTEM_BUTTONMENU</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ROLE_SYSTEM_CELL</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ROLE_SYSTEM_CHECKBUTTON</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ROLE_SYSTEM_COLUMNHEADER</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ROLE_SYSTEM_LINK</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ROLE_SYSTEM_LISTITEM</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ROLE_SYSTEM_MENUITEM</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ROLE_SYSTEM_OUTLINEBUTTON</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ROLE_SYSTEM_OUTLINEITEM</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ROLE_SYSTEM_PAGETAB</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ROLE_SYSTEM_PUSHBUTTON</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ROLE_SYSTEM_RADIOBUTTON</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ROLE_SYSTEM_ROWHEADER</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ROLE_SYSTEM_SPLITBUTTON</span></code></p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>スタティックテキスト (<code class="docutils literal notranslate"><span class="pre">ITM_ACCTXT</span></code>)</dt><dd><ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">ROLE_SYSTEM_STATICTEXT</span></code></p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>エディットボックス (<code class="docutils literal notranslate"><span class="pre">ITM_ACCEDIT</span></code>)</dt><dd><ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">ROLE_SYSTEM_TEXT</span></code></p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</section>
+</section>
+<section id="id3">
+<h2>画像検索<a class="headerlink" href="#id3" title="この見出しへのパーマリンク">#</a></h2>
+<div class="admonition hint">
+<p class="admonition-title">ヒント</p>
+<p>chkimg関数を使う場合chkimg版UWSCR(UWSCRx64_chkimg.zip)を導入してください</p>
+</div>
+<dl class="py function">
+<dt class="sig sig-object py" id="chkimg">
+<span class="sig-name descname"><span class="pre">chkimg</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">画像ファイルパス</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">スコア=95</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">最大検索数=5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">left=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">top=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">right=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bottom=EMPTY</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#chkimg" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">指定画像をスクリーン上から探してその座標を返します</div>
+</div>
+<div class="admonition caution">
+<p class="admonition-title">注意</p>
+<p>UWSCとは引数や戻り値が異なります</p>
+<p>特殊変数 <code class="docutils literal notranslate"><span class="pre">G_IMG_X</span></code>, <code class="docutils literal notranslate"><span class="pre">G_IMG_Y</span></code>, <code class="docutils literal notranslate"><span class="pre">ALL_IMG_X</span></code>, <code class="docutils literal notranslate"><span class="pre">ALL_IMG_Y</span></code> は廃止</p>
+</div>
+<div class="admonition attention">
+<p class="admonition-title">注意</p>
+<p>OpenCV 4.5.4が必要です</p>
+<p>インストール方法等は <a class="reference internal" href="#opencv"><span class="std std-ref">OpenCV導入方法</span></a> を参照ください</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>画像ファイルパス</strong> (<em>文字列</em>) -- 検索する画像のパス (jpg, bmp, png)</p></li>
+<li><p><strong>スコア</strong> (<em>数値 省略可</em>) -- <p>画像に対する一致率を指定 (0-100)</p>
+<div class="line-block">
+<div class="line">一致率が指定値以上であれば結果を返します</div>
+<div class="line">100が完全一致</div>
+</div>
+</p></li>
+<li><p><strong>最大検索数</strong> (<em>数値 省略可</em>) -- 検索の試行回数を指定</p></li>
+<li><p><strong>left</strong> (<em>数値 省略可</em>) -- 検索範囲指定: 左上X座標、省略時は画面左上X座標</p></li>
+<li><p><strong>top</strong> (<em>数値 省略可</em>) -- 検索範囲指定: 左上Y座標、省略時は画面左上Y座標</p></li>
+<li><p><strong>right</strong> (<em>数値 省略可</em>) -- 検索範囲指定: 右下X座標、省略時は画面右下X座標</p></li>
+<li><p><strong>bottom</strong> (<em>数値 省略可</em>) -- 検索範囲指定: 右下X座標、省略時は画面右下Y座標</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>該当する部分の座標とスコアを格納した二次元配列 <code class="docutils literal notranslate"><span class="pre">[[X座標,</span> <span class="pre">Y座標,</span> <span class="pre">スコア],</span> <span class="pre">...]</span></code></p>
+</dd>
+</dl>
+<div class="admonition- admonition">
+<p class="admonition-title">サンプルコード</p>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="k">for</span><span class="w"> </span><span class="n">found</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="n">chkimg</span><span class="p">(</span><span class="s">&quot;hoge.png&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="k">print</span><span class="w"> </span><span class="n">found</span><span class="w"> </span><span class="c">// [x, y, スコア]</span>
+<span class="k">next</span>
+</pre></div>
+</div>
+</div>
+</dd></dl>
+
+<section id="opencv">
+<span id="id4"></span><h3>OpenCV導入方法<a class="headerlink" href="#opencv" title="この見出しへのパーマリンク">#</a></h3>
+<ol class="arabic simple">
+<li><dl class="simple">
+<dt>OpenCVのインストール</dt><dd><ol class="arabic simple">
+<li><p><a class="reference external" href="https://github.com/opencv/opencv/releases/tag/4.5.4">Release OpenCV 4.5.4 · opencv/opencv</a> を開く</p></li>
+<li><p>Asssetsにある <code class="docutils literal notranslate"><span class="pre">opencv-4.5.4-vc14_vc15.exe</span></code> をダウンロード</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">opencv-4.5.4-vc14_vc15.exe</span></code> を実行し、任意のフォルダに展開する (例: <cite>C:\tools</cite>)</p></li>
+</ol>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>UWSCRからdllを参照できるようにする (以下のいずれかの方法)</dt><dd><ul class="simple">
+<li><dl class="simple">
+<dt>方法1: dllをuwscr.exeと同じフォルダに置く</dt><dd><ol class="arabic simple">
+<li><p><cite>{展開先}\opencv\build\x64\vc15\bin</cite> の <code class="docutils literal notranslate"><span class="pre">opencv_world454.dll</span></code> をコピー</p></li>
+</ol>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>方法2: 環境変数PATHに登録</dt><dd><ol class="arabic simple">
+<li><p>スタートメニューから <strong>環境変数を編集</strong> を実行</p></li>
+<li><p>ユーザー環境変数の <cite>Path</cite> をダブルクリック</p></li>
+<li><p><cite>{展開先}\opencv\build\x64\vc15\bin</cite> を追記 (<cite>{展開先}</cite> は実際のフォルダパスに変換してください 例: <cite>C:\tools</cite>)</p></li>
+<li><p>実行環境(PowerShellなど)を再起動</p></li>
+</ol>
+</dd>
+</dl>
+</li>
+</ul>
+</dd>
+</dl>
+</li>
+</ol>
+</section>
+</section>
+<section id="id5">
+<h2>低レベル関数<a class="headerlink" href="#id5" title="この見出しへのパーマリンク">#</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="mmv">
+<span class="sig-name descname"><span class="pre">mmv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">ms=0</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#mmv" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">マウスカーソルを移動します</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>数値</em>) -- 移動先のX座標</p></li>
+<li><p><strong>y</strong> (<em>数値</em>) -- 移動先のY座標</p></li>
+<li><p><strong>ms</strong> (<em>数値 省略可</em>) -- マウス移動を行うまでの待機時間 (ミリ秒)</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>なし</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="btn">
+<span class="sig-name descname"><span class="pre">btn</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ボタン定数</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">状態=CLICK</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ms=0</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#btn" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">指定座標にマウスボタン操作を送信します</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ボタン定数</strong> (<em>定数</em>) -- <p>操作するマウスボタンを指定</p>
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">LEFT</span></span></dt>
+<dd><p>左クリック</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">RIGHT</span></span></dt>
+<dd><p>右クリック</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">MIDDLE</span></span></dt>
+<dd><p>ホイルクリック</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">WHEEL</span></span></dt>
+<dd><p>ホイル回転 (上下方向)</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">WHEEL2</span></span></dt>
+<dd><p>ホイル回転 (左右方向)</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">TOUCH</span></span></dt>
+<dd><p>タッチ操作 (未実装)</p>
+</dd></dl>
+
+</p></li>
+<li><p><strong>状態</strong> (<em>定数 省略可</em>) -- <p>マウスボタンに対してどのような操作を行うかを指定</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">LEFT</span></code>, <code class="docutils literal notranslate"><span class="pre">RIGHT</span></code>, <code class="docutils literal notranslate"><span class="pre">MIDDLE</span></code> の場合以下のいずれかを指定</p>
+<blockquote>
+<div><dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">CLICK</span></span></dt>
+<dd><p>ボタンクリック (デフォルト)</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">DOWN</span></span></dt>
+<dd><p>ボタン押し下げ</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">UP</span></span></dt>
+<dd><p>ボタン開放</p>
+</dd></dl>
+
+</div></blockquote>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">WHEEL</span></code>: 数値を指定、正の数なら下方向、負の数なら上方向にスクロール</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">WHEEL2</span></code>: 数値を指定、正の数なら下方向、負の数なら上方向にスクロール</p></li>
+</ul>
+</p></li>
+<li><p><strong>x</strong> (<em>数値 省略可</em>) -- ボタン操作を行う位置のX座標、省略時は現在のマウスのX座標</p></li>
+<li><p><strong>y</strong> (<em>数値 省略可</em>) -- ボタン操作を行う位置のY座標、省略時は現在のマウスのY座標</p></li>
+<li><p><strong>ms</strong> (<em>数値 省略可</em>) -- ボタン操作を行うまでの待機時間 (ミリ秒)</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>なし</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="kbd">
+<span class="sig-name descname"><span class="pre">kbd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">仮想キー</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">状態=CLICK</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ms=0</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#kbd" title="この定義へのパーマリンク">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">kbd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">送信文字列</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">状態=CLICK</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ms=0</span></span></em><span class="optional">]</span><span class="sig-paren">)</span></dt>
+<dd><div class="line-block">
+<div class="line">キーボード入力を送信します</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>仮想キー</strong> (<em>定数</em>) -- <a class="reference internal" href="#virtual-keys"><span class="std std-ref">仮想キーコード一覧</span></a> のいずれか</p></li>
+<li><p><strong>送信文字列</strong> (<em>文字列</em>) -- キー入力として送信される文字列</p></li>
+<li><p><strong>状態</strong> (<em>定数 省略可</em>) -- <p>キーの入力状態を指定、文字列送信時は無視される</p>
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">CLICK</span></span></dt>
+<dd><p>キークリック (デフォルト)</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">DOWN</span></span></dt>
+<dd><p>キー押し下げ</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">UP</span></span></dt>
+<dd><p>キー開放</p>
+</dd></dl>
+
+</p></li>
+<li><p><strong>ms</strong> (<em>数値 省略可</em>) -- キーボード入力を行うまでの待機時間 (ミリ秒)</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>なし</p>
+</dd>
+</dl>
+<div class="admonition- admonition">
+<p class="admonition-title">サンプルコード</p>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// a が入力される</span>
+<span class="n">kbd</span><span class="p">(</span><span class="m">VK_A</span><span class="p">)</span>
+
+<span class="c">// A が入力される</span>
+<span class="n">kbd</span><span class="p">(</span><span class="m">VK_SHIFT</span><span class="o">,</span><span class="w"> </span><span class="m">DOWN</span><span class="p">)</span>
+<span class="n">kbd</span><span class="p">(</span><span class="m">VK_A</span><span class="o">,</span><span class="w"> </span><span class="m">CLICK</span><span class="o">,</span><span class="w"> </span><span class="m">100</span><span class="p">)</span>
+<span class="n">kbd</span><span class="p">(</span><span class="m">VK_SHIFT</span><span class="o">,</span><span class="w"> </span><span class="m">UP</span><span class="o">,</span><span class="w"> </span><span class="m">100</span><span class="p">)</span>
+
+<span class="c">// A が入力される</span>
+<span class="n">kbd</span><span class="p">(</span><span class="s">&quot;A&quot;</span><span class="p">)</span>
+
+<span class="c">// あ が入力される</span>
+<span class="n">kbd</span><span class="p">(</span><span class="s">&quot;あ&quot;</span><span class="p">)</span>
+
+<span class="c">// abcde が入力される</span>
+<span class="n">kbd</span><span class="p">(</span><span class="s">&quot;abcde&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="acw">
+<span class="sig-name descname"><span class="pre">acw</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ID</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">x=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">h=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">w=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ms=0</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#acw" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">ウィンドウの位置やサイズを変更します</div>
+<div class="line"><a class="reference internal" href="#about-id0"><span class="std std-ref">ID0</span></a> を更新します</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ID</strong> (<em>数値</em>) -- ウィンドウID</p></li>
+<li><p><strong>x</strong> (<em>数値 省略可</em>) -- 移動先のX座標、省略時は対象ウィンドウの現在のX座標</p></li>
+<li><p><strong>y</strong> (<em>数値 省略可</em>) -- 移動先のY座標、省略時は対象ウィンドウの現在のY座標</p></li>
+<li><p><strong>h</strong> (<em>数値 省略可</em>) -- 変更するウィンドウの高さ、省略時は対象ウィンドウの現在の高さ</p></li>
+<li><p><strong>w</strong> (<em>数値 省略可</em>) -- 変更するウィンドウの幅、省略時は対象ウィンドウの現在の幅</p></li>
+<li><p><strong>ms</strong> (<em>数値 省略可</em>) -- ウィンドウに変更を加えるまでの待機時間 (ミリ秒)</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>なし</p>
+</dd>
+</dl>
+<div class="admonition- admonition">
+<p class="admonition-title">サンプルコード</p>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">acw</span><span class="p">(</span><span class="n">getid</span><span class="p">(</span><span class="m">GET_ACTIVE_WIN</span><span class="p">)</span><span class="o">,</span><span class="w"> </span><span class="m">100</span><span class="o">,</span><span class="w"> </span><span class="m">100</span><span class="p">)</span><span class="w"> </span><span class="c">// ID0を更新</span>
+<span class="n">sleep</span><span class="p">(</span><span class="m">1</span><span class="p">)</span>
+<span class="n">acw</span><span class="p">(</span><span class="m">0</span><span class="o">,</span><span class="w"> </span><span class="m">200</span><span class="o">,</span><span class="w"> </span><span class="m">200</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</dd></dl>
+
+<section id="virtual-keys">
+<span id="id6"></span><h3>仮想キーコード一覧<a class="headerlink" href="#virtual-keys" title="この見出しへのパーマリンク">#</a></h3>
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_A</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_B</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_C</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_D</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_E</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_F</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_G</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_H</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_I</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_J</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_K</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_L</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_M</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_N</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_O</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_P</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_Q</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_R</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_S</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_T</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_U</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_V</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_W</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_X</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_Y</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_Z</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_0</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_1</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_2</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_3</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_4</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_5</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_6</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_7</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_8</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_9</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_START</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_BACK</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_TAB</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_CLEAR</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_ESC</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_ESCAPE</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_RETURN</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_ENTER</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_RRETURN</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_SHIFT</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_RSHIFT</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_WIN</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_RWIN</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_ALT</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_MENU</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_RALT</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_CTRL</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_CONTROL</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_RCTRL</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_PAUSE</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_CAPITAL</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_KANA</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_FINAL</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_KANJI</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_CONVERT</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_NONCONVERT</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_ACCEPT</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_MODECHANGE</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_SPACE</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_PRIOR</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_NEXT</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_END</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_HOME</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_LEFT</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_UP</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_RIGHT</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_DOWN</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_SELECT</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_PRINT</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_EXECUTE</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_SNAPSHOT</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_INSERT</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_DELETE</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_HELP</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_APPS</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_MULTIPLY</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_ADD</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_SEPARATOR</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_SUBTRACT</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_DECIMAL</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_DIVIDE</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_NUMPAD0</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_NUMPAD1</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_NUMPAD2</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_NUMPAD3</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_NUMPAD4</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_NUMPAD5</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_NUMPAD6</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_NUMPAD7</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_NUMPAD8</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_NUMPAD9</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_F1</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_F2</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_F3</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_F4</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_F5</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_F6</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_F7</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_F8</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_F9</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_F10</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_F11</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_F12</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_NUMLOCK</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_SCROLL</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_PLAY</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_ZOOM</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_SLEEP</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_BROWSER_BACK</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_BROWSER_FORWARD</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_BROWSER_REFRESH</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_BROWSER_STOP</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_BROWSER_SEARCH</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_BROWSER_FAVORITES</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_BROWSER_HOME</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_VOLUME_MUTE</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_VOLUME_DOWN</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_VOLUME_UP</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_MEDIA_NEXT_TRACK</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_MEDIA_PREV_TRACK</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_MEDIA_STOP</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_MEDIA_PLAY_PAUSE</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_LAUNCH_MEDIA_SELECT</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_LAUNCH_MAIL</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_LAUNCH_APP1</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_LAUNCH_APP2</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_OEM_PLUS</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_OEM_COMMA</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_OEM_MINUS</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_OEM_PERIOD</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_OEM_1</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_OEM_2</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_OEM_3</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_OEM_4</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_OEM_5</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_OEM_6</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_OEM_7</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_OEM_8</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_OEM_RESET</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_OEM_JUMP</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_OEM_PA1</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_OEM_PA2</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK_OEM_PA3</span></span></dt>
+<dd></dd></dl>
+
+</section>
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="%E5%88%B6%E5%BE%A1%E9%96%A2%E6%95%B0.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">制御関数</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="%E6%96%87%E5%AD%97%E5%88%97%E6%93%8D%E4%BD%9C%E9%96%A2%E6%95%B0.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">文字列操作関数</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2022, stuncloud
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            <div class="icons">
+              
+            </div>
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">ウィンドウ操作関数</a><ul>
+<li><a class="reference internal" href="#id">ID取得</a><ul>
+<li><a class="reference internal" href="#getid"><code class="docutils literal notranslate"><span class="pre">getid()</span></code></a></li>
+<li><a class="reference internal" href="#getallwin"><code class="docutils literal notranslate"><span class="pre">getallwin()</span></code></a></li>
+<li><a class="reference internal" href="#idtohnd"><code class="docutils literal notranslate"><span class="pre">idtohnd()</span></code></a></li>
+<li><a class="reference internal" href="#hndtoid"><code class="docutils literal notranslate"><span class="pre">hndtoid()</span></code></a></li>
+<li><a class="reference internal" href="#getctlhnd"><code class="docutils literal notranslate"><span class="pre">getctlhnd()</span></code></a></li>
+<li><a class="reference internal" href="#about-id0">ID0について</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id2">ウィンドウ操作</a><ul>
+<li><a class="reference internal" href="#clkitem"><code class="docutils literal notranslate"><span class="pre">clkitem()</span></code></a></li>
+<li><a class="reference internal" href="#ctrlwin"><code class="docutils literal notranslate"><span class="pre">ctrlwin()</span></code></a></li>
+<li><a class="reference internal" href="#status"><code class="docutils literal notranslate"><span class="pre">status()</span></code></a></li>
+<li><a class="reference internal" href="#monitor"><code class="docutils literal notranslate"><span class="pre">monitor()</span></code></a></li>
+<li><a class="reference internal" href="#acc">ACCについて</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id3">画像検索</a><ul>
+<li><a class="reference internal" href="#chkimg"><code class="docutils literal notranslate"><span class="pre">chkimg()</span></code></a></li>
+<li><a class="reference internal" href="#opencv">OpenCV導入方法</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id5">低レベル関数</a><ul>
+<li><a class="reference internal" href="#mmv"><code class="docutils literal notranslate"><span class="pre">mmv()</span></code></a></li>
+<li><a class="reference internal" href="#btn"><code class="docutils literal notranslate"><span class="pre">btn()</span></code></a></li>
+<li><a class="reference internal" href="#kbd"><code class="docutils literal notranslate"><span class="pre">kbd()</span></code></a></li>
+<li><a class="reference internal" href="#acw"><code class="docutils literal notranslate"><span class="pre">acw()</span></code></a></li>
+<li><a class="reference internal" href="#virtual-keys">仮想キーコード一覧</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    <script src="_static/scripts/furo.js"></script>
+    <script src="_static/translations.js"></script>
+    <script src="_static/custom.js"></script>
+    </body>
+</html>

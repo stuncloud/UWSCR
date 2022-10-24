@@ -1,4 +1,0 @@
-UWSCR
-=====
-
-enjoy!
