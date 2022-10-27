@@ -147,33 +147,37 @@ impl ClkItem {
     }
     fn click_acc(&self, hwnd: HWND, check: bool) -> ClkResult {
         if let Some(window) = acc::Acc::from_hwnd(hwnd) {
-            let item = acc::SearchItem::from_clkitem(self);
+            let items = acc::SearchItem::from_clkitem(self);
             let mut order = self.order;
 
-            match window.search(&item, &mut order, self.backwards) {
-                Some(target) => {
-                    let result = match self.button {
-                        ClkButton::Left { double } => if let Some(hwnd) = target.get_hwnd() {
-                            if double {
-                                MouseInput::left_dblclick(hwnd)
+            for item in items {
+                println!("\u{001b}[35m[debug] item: {:?}\u{001b}[0m", &item);
+                match window.search(&item, &mut order, self.backwards, None) {
+                    Some(target) => {
+                        let result = match self.button {
+                            ClkButton::Left { double } => if let Some(hwnd) = target.get_hwnd() {
+                                if double {
+                                    MouseInput::left_dblclick(hwnd)
+                                } else {
+                                    MouseInput::left_click(hwnd)
+                                }
                             } else {
-                                MouseInput::left_click(hwnd)
-                            }
-                        } else {
-                            false
-                        },
-                        ClkButton::Right => if let Some(hwnd) = target.get_hwnd() {
-                            MouseInput::right_click(hwnd)
-                        } else {
-                            false
-                        },
-                        ClkButton::Default => target.invoke_default_action(check),
-                    };
-                    let (x, y) = MouseInput::point_from_hwnd(hwnd);
-                    ClkResult::new_with_point(result, target.get_hwnd().unwrap_or_default(), x, y)
-                },
-                None => ClkResult::default(),
+                                false
+                            },
+                            ClkButton::Right => if let Some(hwnd) = target.get_hwnd() {
+                                MouseInput::right_click(hwnd)
+                            } else {
+                                false
+                            },
+                            ClkButton::Default => target.invoke_default_action(check),
+                        };
+                        let (x, y) = MouseInput::point_from_hwnd(hwnd);
+                        return ClkResult::new_with_point(result, target.get_hwnd().unwrap_or_default(), x, y);
+                    },
+                    None => {},
+                }
             }
+            ClkResult::default()
         } else {
             ClkResult::default()
         }
