@@ -159,10 +159,11 @@ ID0について
 
                 .. hint:: 複数選択可能なリストボックスでの複数項目指定
 
-                    | アイテム名をタブ文字 (``<#TAB>``) で区切るか、配列で指定ことで複数選択できます
+                    | アイテム名をタブ文字 (``<#TAB>``) で区切るか、配列指定で複数選択できます
 
                     .. sourcecode:: uwscr
 
+                        // foo, bar, bazを選択状態にする
                         clkitem(id, "foo<#TAB>bar<#TAB>baz", CLK_LIST) // タブ文字区切り
                         clkitem(id, ["foo", "bar", "baz"], CLK_LIST)   // タブ文字区切り
 

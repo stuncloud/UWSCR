@@ -466,9 +466,10 @@
 <p class="admonition-title">ヒント</p>
 <p>複数選択可能なリストボックスでの複数項目指定</p>
 <div class="line-block">
-<div class="line">アイテム名をタブ文字 (<code class="docutils literal notranslate"><span class="pre">&lt;#TAB&gt;</span></code>) で区切るか、配列で指定ことで複数選択できます</div>
+<div class="line">アイテム名をタブ文字 (<code class="docutils literal notranslate"><span class="pre">&lt;#TAB&gt;</span></code>) で区切るか、配列指定で複数選択できます</div>
 </div>
-<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">clkitem</span><span class="p">(</span><span class="n">id</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;foo&lt;#TAB&gt;bar&lt;#TAB&gt;baz&quot;</span><span class="o">,</span><span class="w"> </span><span class="m">CLK_LIST</span><span class="p">)</span><span class="w"> </span><span class="c">// タブ文字区切り</span>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// foo, bar, bazを選択状態にする</span>
+<span class="n">clkitem</span><span class="p">(</span><span class="n">id</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;foo&lt;#TAB&gt;bar&lt;#TAB&gt;baz&quot;</span><span class="o">,</span><span class="w"> </span><span class="m">CLK_LIST</span><span class="p">)</span><span class="w"> </span><span class="c">// タブ文字区切り</span>
 <span class="n">clkitem</span><span class="p">(</span><span class="n">id</span><span class="o">,</span><span class="w"> </span><span class="p">[</span><span class="s">&quot;foo&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;bar&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;baz&quot;</span><span class="p">]</span><span class="o">,</span><span class="w"> </span><span class="m">CLK_LIST</span><span class="p">)</span><span class="w">   </span><span class="c">// タブ文字区切り</span>
 </pre></div>
 </div>
