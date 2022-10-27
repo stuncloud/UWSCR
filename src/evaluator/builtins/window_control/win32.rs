@@ -302,7 +302,11 @@ impl Win32 {
                     },
                     TargetClass::TreeView => {
                         if let ItemInfo::HItem(hitem, pid) = found.info {
-                            let clicked = TreeView::click(found.hwnd, hitem);
+                            let clicked = if check.as_bool() {
+                                TreeView::click(found.hwnd, hitem)
+                            } else {
+                                true
+                            };
                             if let Some((x, y)) = TreeView::get_point(found.hwnd, pid, hitem) {
                                 ClkResult::new_with_point(clicked, found.hwnd, x, y)
                             } else {
