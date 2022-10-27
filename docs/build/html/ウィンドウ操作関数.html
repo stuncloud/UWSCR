@@ -496,6 +496,14 @@
 <dd><div class="line-block">
 <div class="line">ツリービュー</div>
 </div>
+<div class="caution admonition">
+<p class="admonition-title">制限事項</p>
+<div class="line-block">
+<div class="line">UWSCR x86版では <code class="docutils literal notranslate"><span class="pre">CLK_TREEVIEW</span> <span class="pre">or</span> <span class="pre">CLK_API</span></code> によるクリック操作に制限があり、</div>
+<div class="line">x64のウィンドウに対するクリックが行えません</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">CLK_API</span></code> 以外の方式を指定してください</div>
+</div>
+</div>
 </dd></dl>
 
 <dl class="object">
@@ -649,8 +657,6 @@
 <dd class="field-even"><p>成功時TRUE、 <code class="docutils literal notranslate"><span class="pre">CLK_HWND</span></code> 指定時は対象のウィンドウハンドル値を返す</p>
 </dd>
 </dl>
-</dd></dl>
-
 <div class="admonition note">
 <p class="admonition-title">注釈</p>
 <p>アイテム名の一致について</p>
@@ -674,6 +680,8 @@
 </pre></div>
 </div>
 </div>
+</dd></dl>
+
 <dl class="py function">
 <dt class="sig sig-object py" id="ctrlwin">
 <span class="sig-name descname"><span class="pre">ctrlwin</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ID</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">コマンド定数</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ctrlwin" title="この定義へのパーマリンク">#</a></dt>
