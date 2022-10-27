@@ -2,7 +2,7 @@ use windows::{
     core::{PSTR, PCSTR, PCWSTR},
     Win32::{
         Foundation:: {
-            MAX_PATH, HWND, WPARAM,
+            MAX_PATH, HWND, WPARAM, LPARAM,
         },
         System::{
             SystemInformation::{
@@ -327,7 +327,15 @@ pub fn make_wparam(lo: u16, hi: u16) -> WPARAM {
     let wparam = make_dword(lo, hi) as usize;
     WPARAM(wparam)
 }
-
 fn make_dword(lo: u16, hi: u16) -> u32 {
     (lo as u32 & 0xFFFF) | (hi as u32 & 0xFFFF) << 16
+}
+
+pub fn make_lparam(lo: i16, hi: i16) -> LPARAM {
+    let lparam = make_word(lo, hi);
+    LPARAM(lparam)
+}
+pub fn make_word(lo: i16, hi: i16) -> isize {
+    let word = (lo as i32 & 0xFFFF) | (hi as i32 & 0xFFFF) << 16;
+    word as isize
 }

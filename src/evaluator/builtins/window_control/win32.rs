@@ -13,6 +13,9 @@ use windows::{
                 BST_CHECKED, BST_UNCHECKED, BST_INDETERMINATE,
                 TCM_GETITEMW, TCM_GETITEMA, TCM_GETITEMCOUNT, TCM_GETCURSEL, TCM_GETUNICODEFORMAT, TCM_GETITEMRECT, TCM_SETCURFOCUS,
                 TCIF_TEXT,
+                TVIF_HANDLE, TVIF_TEXT,
+                TVM_GETUNICODEFORMAT, TVM_GETITEMA, TVM_GETITEMW, TVM_GETNEXTITEM, TVM_GETITEMRECT, TVM_SELECTITEM,
+                TVGN_ROOT, TVGN_CHILD, TVGN_NEXT, TVGN_CARET,
             },
             WindowsAndMessaging::{
                 WM_COMMAND,
@@ -50,7 +53,7 @@ use windows::{
 
 use crate::winapi::{
     get_class_name, get_window_title, make_wparam, get_window_style,
-    from_ansi_bytes, from_wide_string,
+    from_ansi_bytes, from_wide_string, make_word,
 };
 use crate::evaluator::builtins::{
     ThreeState,
@@ -122,7 +125,10 @@ impl Win32 {
                         // ここには来ない
                     },
                     TargetClass::TreeView => {
-                        todo!()
+                        Self::search_treeview(hwnd, item);
+                        if item.found.is_some() {
+                            return false.into()
+                        }
                     },
                     TargetClass::ListView => {
                         todo!()
@@ -244,7 +250,8 @@ impl Win32 {
                     TargetClass::ComboBox => if let ItemInfo::Index(i) = found.info {
                         let clicked = if check.as_bool() {
                             Self::post_message(found.hwnd, CB_SETCURSEL, i, 0);
-                            Self::post_message(found.hwnd, CB_SETEDITSEL, i, 0xFFFF0000);
+                            let lparam = make_word(0, -1);
+                            Self::post_message(found.hwnd, CB_SETEDITSEL, i, lparam);
                             // let id = Self::send_message(found.hwnd, CB_GETITEMDATA, i, 0) as i32;
                             // println!("\u{001b}[31m[debug] id: {:#?}\u{001b}[0m", &id);
                             Self::post_wm_command(&self, found.hwnd, None, CBN_SELCHANGE);
@@ -294,7 +301,16 @@ impl Win32 {
                         }
                     },
                     TargetClass::TreeView => {
-                        todo!()
+                        if let ItemInfo::HItem(hitem, pid) = found.info {
+                            let clicked = TreeView::click(found.hwnd, hitem);
+                            if let Some((x, y)) = TreeView::get_point(found.hwnd, pid, hitem) {
+                                ClkResult::new_with_point(clicked, found.hwnd, x, y)
+                            } else {
+                                ClkResult::new(clicked, found.hwnd)
+                            }
+                        } else {
+                            ClkResult::failed()
+                        }
                     },
                     TargetClass::ListView => {
                         todo!()
@@ -443,6 +459,12 @@ impl Win32 {
         menu.search(item, None, None);
     }
 
+    fn search_treeview(hwnd: HWND, item: &mut SearchItem) {
+        if let Some(tv) = TreeView::new(hwnd) {
+            tv.search(item, None, None);
+        }
+    }
+
     fn is_window_unicode(hwnd: HWND) -> bool {
         unsafe { IsWindowUnicode(hwnd).as_bool() }
     }
@@ -547,6 +569,7 @@ enum ItemInfo {
     Index(usize),
     Indexes(Vec<usize>),
     Menu(usize, bool, i32, i32),
+    HItem(isize, u32),
 }
 
 #[derive(Debug, PartialEq)]
@@ -642,6 +665,23 @@ impl ProcessMemory {
         }
         Some(Self { hprocess, pointer })
     }
+    fn new2<T, U>(pid: u32, value: U) -> Option<Self> {
+        let hprocess = Self::open_process(pid)?;
+        let pointer = unsafe {
+            VirtualAllocEx(hprocess, ptr::null(), mem::size_of::<T>(), MEM_COMMIT, PAGE_READWRITE)
+        };
+        let lpbuffer = &value as *const U as *const c_void;
+        let nsize = mem::size_of::<T>();
+        if nsize < mem::size_of::<U>() {
+            // 書き込むデータのサイズが確保したメモリサイズを超えたらダメ
+            None
+        } else {
+            unsafe {
+                WriteProcessMemory(hprocess, pointer, lpbuffer, nsize, ptr::null_mut());
+            }
+            Some(Self { hprocess, pointer })
+        }
+    }
     fn read<T>(&self, buf: &mut T) {
         let lpbuffer = buf as *mut T as *mut c_void;
         let nsize = mem::size_of::<T>();
@@ -694,8 +734,6 @@ impl TabControl {
         let is_unicode = Win32::send_message(hwnd, TCM_GETUNICODEFORMAT, 0, 0) != 0;
         let pid = get_process_id_from_hwnd(hwnd);
         // // 対象プロセスと自身のアーキテクチャを確認
-        // let is_x64 = cfg!(target_arch="x86_64");
-        // let is_target_x64 = ProcessMemory::is_process_x64(pid)?;
         let target_arch = if ProcessMemory::is_process_x64(pid)? {
             TargetArch::X64
         } else {
@@ -866,5 +904,166 @@ impl Menu {
         let checked = (info.fState & MFS_CHECKED) == MFS_CHECKED;
         let name = from_ansi_bytes(&buf);
         (name, checked)
+    }
+}
+
+struct TreeView {
+    hwnd: HWND,
+    pid: u32,
+    target_arch: TargetArch,
+    is_unicode: bool,
+}
+
+impl TreeView {
+    fn new(hwnd: HWND) -> Option<Self> {
+        let is_unicode = Win32::send_message(hwnd, TVM_GETUNICODEFORMAT, 0, 0) != 0;
+        let pid = get_process_id_from_hwnd(hwnd);
+        let target_arch = if ProcessMemory::is_process_x64(pid)? {
+            TargetArch::X64
+        } else {
+            TargetArch::X86
+        };
+        let tv = Self { hwnd, is_unicode, pid, target_arch };
+        Some(tv)
+    }
+    fn search(&self, item: &mut SearchItem, hitem: Option<isize>, path: Option<String>) {
+        let hitem = hitem.unwrap_or(self.get_root());
+        if let Some(name) = self.get_name(hitem) {
+            let new_path = match path.as_ref() {
+                Some(p) => format!("{p}\\{name}"),
+                None => name.clone(),
+            };
+            let found = if item.name.contains('\\') {
+                item.matches(&new_path)
+            } else {
+                item.matches(&name)
+            };
+            if found {
+                item.found = Some(ItemFound::new(self.hwnd, TargetClass::TreeView, ItemInfo::HItem(hitem, self.pid)));
+            } else {
+                // 子を探す
+                let child = self.get_child(hitem);
+                if child != 0 {
+                    self.search(item, Some(child), Some(new_path));
+                    if item.found.is_some() {
+                        // 子から見つかれば終了
+                        return;
+                    }
+                }
+                // 次の要素を探す
+                let next = self.get_next(hitem);
+                if next != 0 {
+                    self.search(item, Some(next), path);
+                }
+            }
+        }
+    }
+    fn get_root(&self) -> isize {
+        Win32::send_message(self.hwnd, TVM_GETNEXTITEM, TVGN_ROOT as usize, 0)
+    }
+    fn get_child(&self, hitem: isize) -> isize {
+        Win32::send_message(self.hwnd, TVM_GETNEXTITEM, TVGN_CHILD as usize, hitem)
+    }
+    fn get_next(&self, hitem: isize) -> isize {
+        Win32::send_message(self.hwnd, TVM_GETNEXTITEM, TVGN_NEXT as usize, hitem)
+    }
+    fn get_point(hwnd: HWND, pid: u32, hitem: isize) -> Option<(i32, i32)> {
+        let mut rect = RECT::default();
+        let remote = ProcessMemory::new2::<RECT, _>(pid, hitem)?;
+        let lparam = remote.pointer as isize;
+        remote.read(&mut rect);
+        Win32::send_message(hwnd, TVM_GETITEMRECT, 1, lparam);
+        remote.read(&mut rect);
+        let (x, y) = Win32::get_center(rect);
+        let (x, y) = Win32::client_to_screen(hwnd, x, y);
+        Some((x, y))
+    }
+    fn get_name(&self, hitem: isize) -> Option<String> {
+        if self.is_unicode {
+            let mut buf = [0; 260];
+            let remote_buf = ProcessMemory::new::<[u16; 260]>(self.pid, None)?;
+
+            self.get_remote_name(hitem, remote_buf.pointer, buf.len() as i32, TVM_GETITEMW)?;
+
+            remote_buf.read(&mut buf);
+            let name = from_wide_string(&buf);
+            Some(name)
+        } else {
+            let mut buf = [0; 260];
+            let remote_buf = ProcessMemory::new::<[u8; 260]>(self.pid, None)?;
+
+            self.get_remote_name(hitem, remote_buf.pointer, buf.len() as i32, TVM_GETITEMA)?;
+
+            remote_buf.read(&mut buf);
+            let name = from_ansi_bytes(&buf);
+            Some(name)
+        }
+    }
+    fn get_remote_name(&self, hitem: isize, pbuf: *mut c_void, len: i32, msg: u32) -> Option<()> {
+        let res = match self.target_arch {
+            TargetArch::X86 => {
+                let mut tvitem = TVITEM86::default();
+                tvitem.mask = (TVIF_HANDLE|TVIF_TEXT).0;
+                tvitem.hItem = hitem as i32;
+                tvitem.cchTextMax = len;
+                tvitem.pszText = pbuf as i32;
+                let remote_item = ProcessMemory::new(self.pid, Some(&tvitem))?;
+                let lparam = remote_item.pointer as isize;
+                Win32::send_message(self.hwnd, msg, 0, lparam) != 0
+            },
+            TargetArch::X64 => {
+                let mut tvitem = TVITEM64::default();
+                tvitem.mask = (TVIF_HANDLE|TVIF_TEXT).0;
+                tvitem.hItem = hitem as i64;
+                tvitem.cchTextMax = len;
+                tvitem.pszText = pbuf as i64;
+                let remote_item = ProcessMemory::new(self.pid, Some(&tvitem))?;
+                let lparam = remote_item.pointer as isize;
+                Win32::send_message(self.hwnd, msg, 0, lparam) != 0
+            },
+        };
+        if res { Some(()) } else { None }
+    }
+    fn click(hwnd: HWND, hitem: isize) -> bool {
+        Win32::send_message(hwnd, TVM_SELECTITEM, TVGN_CARET as usize, hitem) != 0
+    }
+}
+
+#[repr(C)]
+#[allow(non_snake_case)]
+struct TVITEM86 {
+    mask: u32,
+    hItem: i32,
+    state: u32,
+    stateMask: u32,
+    pszText: i32,
+    cchTextMax: i32,
+    iImage: i32,
+    iSelectedImage: i32,
+    cChildren: i32,
+    lParam: i32,
+}
+impl Default for TVITEM86 {
+    fn default() -> Self {
+        Self { mask: 0, hItem: 0, state: 0, stateMask: 0, pszText: 0, cchTextMax: 0, iImage: 0, iSelectedImage: 0, cChildren: 0, lParam: 0 }
+    }
+}
+#[repr(C)]
+#[allow(non_snake_case)]
+struct TVITEM64 {
+    mask: u32,
+    hItem: i64,
+    state: u32,
+    stateMask: u32,
+    pszText: i64,
+    cchTextMax: i32,
+    iImage: i32,
+    iSelectedImage: i32,
+    cChildren: i32,
+    lParam: i64,
+}
+impl Default for TVITEM64 {
+    fn default() -> Self {
+        Self { mask: 0, hItem: 0, state: 0, stateMask: 0, pszText: 0, cchTextMax: 0, iImage: 0, iSelectedImage: 0, cChildren: 0, lParam: 0 }
     }
 }
