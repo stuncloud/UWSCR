@@ -461,11 +461,17 @@
 <span class="sig-name descname"><span class="pre">CLK_LIST</span></span></dt>
 <dd><div class="line-block">
 <div class="line">リストボックス、コンボボックス</div>
-<div class="line">複数選択可能なリストボックスで複数項目を選択したい場合はアイテム名をタブ文字 (<code class="docutils literal notranslate"><span class="pre">&lt;#TAB&gt;</span></code>) で区切るか、配列で指定する</div>
+</div>
+<div class="admonition hint">
+<p class="admonition-title">ヒント</p>
+<p>複数選択可能なリストボックスでの複数項目指定</p>
+<div class="line-block">
+<div class="line">アイテム名をタブ文字 (<code class="docutils literal notranslate"><span class="pre">&lt;#TAB&gt;</span></code>) で区切るか、配列で指定ことで複数選択できます</div>
 </div>
 <div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">clkitem</span><span class="p">(</span><span class="n">id</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;foo&lt;#TAB&gt;bar&lt;#TAB&gt;baz&quot;</span><span class="o">,</span><span class="w"> </span><span class="m">CLK_LIST</span><span class="p">)</span><span class="w"> </span><span class="c">// タブ文字区切り</span>
-<span class="n">clkitem</span><span class="p">(</span><span class="n">id</span><span class="o">,</span><span class="w"> </span><span class="p">[</span><span class="s">&quot;foo&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;bar&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;baz&quot;</span><span class="p">]</span><span class="o">,</span><span class="w"> </span><span class="m">CLK_LIST</span><span class="p">)</span><span class="w"> </span><span class="c">// タブ文字区切り</span>
+<span class="n">clkitem</span><span class="p">(</span><span class="n">id</span><span class="o">,</span><span class="w"> </span><span class="p">[</span><span class="s">&quot;foo&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;bar&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;baz&quot;</span><span class="p">]</span><span class="o">,</span><span class="w"> </span><span class="m">CLK_LIST</span><span class="p">)</span><span class="w">   </span><span class="c">// タブ文字区切り</span>
 </pre></div>
+</div>
 </div>
 </dd></dl>
 
@@ -482,6 +488,13 @@
 <span class="sig-name descname"><span class="pre">CLK_MENU</span></span></dt>
 <dd><div class="line-block">
 <div class="line">メニュー</div>
+</div>
+<div class="admonition hint">
+<p class="admonition-title">ヒント</p>
+<p>アイテム名のパス指定</p>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">ファイル\保存</span></code> のように階層構造をパス表記することもできます</div>
+</div>
 </div>
 </dd></dl>
 
@@ -503,6 +516,11 @@
 <div class="line">x64のウィンドウに対するクリックが行えません</div>
 <div class="line"><code class="docutils literal notranslate"><span class="pre">CLK_API</span></code> 以外の方式を指定してください</div>
 </div>
+</div>
+<div class="admonition hint">
+<p class="admonition-title">ヒント</p>
+<p>アイテム名のパス指定</p>
+<p><code class="docutils literal notranslate"><span class="pre">root\branch\leaf</span></code> のように階層構造をパス表記することもできます</p>
 </div>
 </dd></dl>
 

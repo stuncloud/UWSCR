@@ -156,13 +156,15 @@ ID0について
             .. object:: CLK_LIST
 
                 | リストボックス、コンボボックス
-                | 複数選択可能なリストボックスで複数項目を選択したい場合はアイテム名をタブ文字 (``<#TAB>``) で区切るか、配列で指定する
 
+                .. hint:: 複数選択可能なリストボックスでの複数項目指定
 
-                .. sourcecode:: uwscr
+                    | アイテム名をタブ文字 (``<#TAB>``) で区切るか、配列で指定ことで複数選択できます
 
-                    clkitem(id, "foo<#TAB>bar<#TAB>baz", CLK_LIST) // タブ文字区切り
-                    clkitem(id, ["foo", "bar", "baz"], CLK_LIST) // タブ文字区切り
+                    .. sourcecode:: uwscr
+
+                        clkitem(id, "foo<#TAB>bar<#TAB>baz", CLK_LIST) // タブ文字区切り
+                        clkitem(id, ["foo", "bar", "baz"], CLK_LIST)   // タブ文字区切り
 
             .. object:: CLK_TAB
 
@@ -171,6 +173,10 @@ ID0について
             .. object:: CLK_MENU
 
                 | メニュー
+
+                .. hint:: アイテム名のパス指定
+
+                    | ``ファイル\保存`` のように階層構造をパス表記することもできます
 
             .. object:: CLK_TREEVIEW
             .. object:: CLK_TREEVEW
@@ -184,6 +190,9 @@ ID0について
                     | x64のウィンドウに対するクリックが行えません
                     | ``CLK_API`` 以外の方式を指定してください
 
+                .. hint:: アイテム名のパス指定
+
+                    ``root\branch\leaf`` のように階層構造をパス表記することもできます
 
             .. object:: CLK_LISTVIEW
             .. object:: CLK_LSTVEW
