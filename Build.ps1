@@ -8,7 +8,8 @@ param(
     [switch] $Schema,
     [ValidateSet("x64","x86")]
     [string[]] $Architecture = @("x64","x86"),
-    [switch] $Checkimg
+    [switch] $Checkimg,
+    [switch] $Document
 )
 
 # リリースビルドの場合vcのライブラリをスタティックリンクする
@@ -24,7 +25,7 @@ if ($Checkimg -and "x86" -in $Architecture) {
 }
 
 # ビルド
-if ((! $Installer -and ! $Schema) -or ($Release -and $Installer)) {
+if ((! $Installer -and ! $Schema -and ! $Document) -or ($Release -and $Installer)) {
     if ("x64" -in $Architecture) {
         # build x64 exe
         $cmd = 'cargo build {0}' -f $(if ($Release) {'--release'})
@@ -156,4 +157,9 @@ if ($Schema) {
             break
         }
     }
+}
+
+if ($Document) {
+    Invoke-Expression -Command '.\docs\make.bat clean'
+    Invoke-Expression -Command '.\docs\make.bat html'
 }
