@@ -16,14 +16,13 @@ use windows::{
                 TVIF_HANDLE, TVIF_TEXT,
                 TVM_GETUNICODEFORMAT, TVM_GETITEMA, TVM_GETITEMW, TVM_GETNEXTITEM, TVM_GETITEMRECT, TVM_SELECTITEM,
                 TVGN_ROOT, TVGN_CHILD, TVGN_NEXT, TVGN_CARET,
-                LVM_GETUNICODEFORMAT, LVM_GETHEADER, LVM_GETITEMCOUNT, LVM_GETITEMTEXTW, LVM_GETITEMTEXTA, LVM_SETITEMSTATE, LVM_GETSUBITEMRECT,
-                LVIF_TEXT, LVIF_STATE,
-                LVIS_FOCUSED, LVIS_SELECTED,
-                HDM_GETITEMCOUNT,
-                NMITEMACTIVATE,
+                LVM_GETUNICODEFORMAT, LVM_GETHEADER, LVM_GETITEMCOUNT, LVM_GETITEMTEXTW, LVM_GETITEMTEXTA, LVM_GETSUBITEMRECT,
+                LVIF_TEXT,
+                HDM_GETITEMCOUNT, HDM_GETITEMW, HDM_GETITEMA, HDM_GETITEMRECT,
+                HDI_TEXT,
             },
             WindowsAndMessaging::{
-                WM_COMMAND, WM_NOTIFY,
+                WM_COMMAND,
                 BN_CLICKED,
                 BS_CHECKBOX, BS_AUTOCHECKBOX, BS_3STATE, BS_AUTO3STATE, BS_RADIOBUTTON, BS_AUTORADIOBUTTON,
                 BM_SETCHECK, BM_GETCHECK,
@@ -69,9 +68,6 @@ use super::get_process_id_from_hwnd;
 use std::mem;
 use std::ptr;
 use std::ffi::c_void;
-
-// const NM_CLICK: u32 = 0xFFFFFFFE;
-const NM_SETFOCUS: u32 = 0xFFFFFFF9;
 
 #[derive(Debug)]
 pub struct Win32 {
@@ -210,6 +206,10 @@ impl Win32 {
                     TargetClass::ListView => match found.info {
                         ItemInfo::ListView(row, column, lv) => {
                             let point = lv.get_point(row, column);
+                            ClkResult::new(true, found.hwnd, point)
+                        },
+                        ItemInfo::ListViewHeader(index, pid) => {
+                            let point = ListView::get_header_point(found.hwnd, index, pid);
                             ClkResult::new(true, found.hwnd, point)
                         }
                         _ => ClkResult::failed()
@@ -378,17 +378,27 @@ impl Win32 {
                         }
                     },
                     TargetClass::ListView => {
-                        if let ItemInfo::ListView(row, column, lv) = found.info {
-                            let point = lv.get_point(row, column);
-                            let clicked = if check.as_bool() {
-                                // lv.click(row, column)
-                                MouseInput::left_click(found.hwnd, point)
-                            } else {
-                                true
-                            };
-                            ClkResult::new(clicked, found.hwnd, point)
-                        } else {
-                            ClkResult::failed()
+                        match found.info {
+                            ItemInfo::ListView(row, column, lv) => {
+                                let point = lv.get_point(row, column);
+                                let clicked = if check.as_bool() {
+                                    // lv.click(row, column)
+                                    MouseInput::left_click(found.hwnd, point)
+                                } else {
+                                    true
+                                };
+                                ClkResult::new(clicked, found.hwnd, point)
+                            },
+                            ItemInfo::ListViewHeader(index, pid) => {
+                                let point = ListView::get_header_point(found.hwnd, index, pid);
+                                let clicked = if check.as_bool() {
+                                    MouseInput::left_click(found.hwnd, point)
+                                } else {
+                                    true
+                                };
+                                ClkResult::new(clicked, found.hwnd, point)
+                            }
+                            _ => ClkResult::failed()
                         }
                     },
                     // TargetClass::ListViewHeader => {
@@ -653,6 +663,7 @@ enum ItemInfo {
     Menu(usize, bool, i32, i32),
     HItem(isize, u32),
     ListView(i32, i32, ListView),
+    ListViewHeader(i32, u32)
 }
 
 #[derive(Debug, PartialEq)]
@@ -1152,7 +1163,19 @@ impl ListView {
     }
     fn search(&self, item: &mut SearchItem) {
         let header  = Win32::send_message(self.hwnd, LVM_GETHEADER, 0, 0);
-        let columns = Win32::send_message(HWND(header), HDM_GETITEMCOUNT, 0, 0);
+        let h_header = HWND(header);
+        let columns = Win32::send_message(h_header, HDM_GETITEMCOUNT, 0, 0);
+        // ヘッダの検索
+        for column in 0..columns as i32 {
+            if let Some(text) = self.get_header_name(h_header, column) {
+                if item.matches(&text) {
+                    let info = ItemInfo::ListViewHeader(column, self.pid);
+                    item.found = Some(ItemFound::new(h_header, TargetClass::ListView, info));
+                    return;
+                }
+            }
+        }
+        // 行ごとのカラムを検索
         let rows = Win32::send_message(self.hwnd, LVM_GETITEMCOUNT, 0, 0);
         'row: for row in 0..rows {
             for column in 0..columns {
@@ -1221,6 +1244,66 @@ impl ListView {
         let (x, y) = Win32::client_to_screen(self.hwnd, x, y);
         Some((x, y))
     }
+    fn get_header_name(&self, hwnd: HWND, index: i32) -> Option<String> {
+        if self.is_unicode {
+            let mut buf = [0; 260];
+            let remote = ProcessMemory::new::<[u16; 260]>(self.pid, None)?;
+            self.get_remote_header_name(hwnd, index, remote.pointer, buf.len() as i32, HDM_GETITEMW);
+            remote.read(&mut buf);
+            let text = from_wide_string(&buf);
+            Some(text)
+        } else {
+            let mut buf = [0; 260];
+            let remote = ProcessMemory::new::<[u8; 260]>(self.pid, None)?;
+            self.get_remote_header_name(hwnd, index, remote.pointer, buf.len() as i32, HDM_GETITEMA);
+            remote.read(&mut buf);
+            let text = from_ansi_bytes(&buf);
+            Some(text)
+        }
+    }
+    fn get_remote_header_name(&self, hwnd: HWND, index: i32, pbuf: *mut c_void, len: i32, msg: u32) -> Option<()> {
+        let result = match self.target_arch {
+            TargetArch::X64 => {
+                let mut hditem = HDITEM64::default();
+                hditem.mask = HDI_TEXT.0;
+                hditem.cchTextMax = len;
+                hditem.pszText = pbuf as i64;
+                let remote = ProcessMemory::new(self.pid, Some(&hditem))?;
+                let wparam = index as usize;
+                let lparam = remote.pointer as isize;
+                Win32::send_message(hwnd, msg, wparam, lparam)
+            },
+            TargetArch::X86 => {
+                let mut hditem = HDITEM86::default();
+                hditem.mask = HDI_TEXT.0;
+                hditem.cchTextMax = len;
+                hditem.pszText = pbuf as i32;
+                let remote = ProcessMemory::new(self.pid, Some(&hditem))?;
+                let wparam = index as usize;
+                let lparam = remote.pointer as isize;
+                Win32::send_message(hwnd, msg, wparam, lparam)
+            },
+        };
+        if result != 0 {
+            Some(())
+        } else {
+            None
+        }
+    }
+    fn get_header_point(hwnd: HWND, index: i32, pid: u32) -> Option<(i32, i32)> {
+        let mut rect = RECT::default();
+        let remote = ProcessMemory::new::<RECT>(pid, None)?;
+        let wparam = index as usize;
+        let lparam = remote.pointer as isize;
+        if Win32::send_message(hwnd, HDM_GETITEMRECT, wparam, lparam) != 0 {
+            remote.read(&mut rect);
+            let (x, y) = Win32::get_center(rect);
+            let point = Win32::client_to_screen(hwnd, x, y);
+            Some(point)
+        } else {
+            None
+        }
+    }
 }
 
 #[repr(C)]
@@ -1262,4 +1345,39 @@ struct LVITEM86 {
     puColumns: i32,
     piColFmt: i32,
     iGroup: i32,
+}
+
+#[repr(C)]
+#[allow(non_snake_case)]
+#[derive(Default)]
+struct HDITEM64 {
+    mask: u32,
+    cxy: i32,
+    pszText: i64,
+    hbm: i64,
+    cchTextMax: i32,
+    fmt: i32,
+    lParam: i64,
+    iImage: i32,
+    iOrder: i32,
+    r#type: u32,
+    pvFilter: i64,
+    state: u32,
+}
+#[repr(C)]
+#[allow(non_snake_case)]
+#[derive(Default)]
+struct HDITEM86 {
+    mask: u32,
+    cxy: i32,
+    pszText: i32,
+    hbm: i32,
+    cchTextMax: i32,
+    fmt: i32,
+    lParam: i32,
+    iImage: i32,
+    iOrder: i32,
+    r#type: u32,
+    pvFilter: i32,
+    state: u32,
 }
