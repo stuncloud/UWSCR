@@ -8,7 +8,7 @@ use windows::{
         },
         UI::{
             Controls::{
-                WC_BUTTON, WC_LISTBOX, WC_COMBOBOX, WC_TABCONTROL, WC_TREEVIEW, WC_LISTVIEW, WC_HEADER, WC_LINK,
+                WC_BUTTON, WC_LISTBOX, WC_COMBOBOX, WC_TABCONTROL, WC_TREEVIEW, WC_LISTVIEW, WC_LINK, //WC_HEADER,
                 TOOLBARCLASSNAME,
                 BST_CHECKED, BST_UNCHECKED, BST_INDETERMINATE,
                 TCM_GETITEMW, TCM_GETITEMA, TCM_GETITEMCOUNT, TCM_GETCURSEL, TCM_GETUNICODEFORMAT, TCM_GETITEMRECT, TCM_SETCURFOCUS,
@@ -16,9 +16,14 @@ use windows::{
                 TVIF_HANDLE, TVIF_TEXT,
                 TVM_GETUNICODEFORMAT, TVM_GETITEMA, TVM_GETITEMW, TVM_GETNEXTITEM, TVM_GETITEMRECT, TVM_SELECTITEM,
                 TVGN_ROOT, TVGN_CHILD, TVGN_NEXT, TVGN_CARET,
+                LVM_GETUNICODEFORMAT, LVM_GETHEADER, LVM_GETITEMCOUNT, LVM_GETITEMTEXTW, LVM_GETITEMTEXTA, LVM_SETITEMSTATE, LVM_GETSUBITEMRECT,
+                LVIF_TEXT, LVIF_STATE,
+                LVIS_FOCUSED, LVIS_SELECTED,
+                HDM_GETITEMCOUNT,
+                NMITEMACTIVATE,
             },
             WindowsAndMessaging::{
-                WM_COMMAND,
+                WM_COMMAND, WM_NOTIFY,
                 BN_CLICKED,
                 BS_CHECKBOX, BS_AUTOCHECKBOX, BS_3STATE, BS_AUTO3STATE, BS_RADIOBUTTON, BS_AUTORADIOBUTTON,
                 BM_SETCHECK, BM_GETCHECK,
@@ -64,6 +69,9 @@ use super::get_process_id_from_hwnd;
 use std::mem;
 use std::ptr;
 use std::ffi::c_void;
+
+// const NM_CLICK: u32 = 0xFFFFFFFE;
+const NM_SETFOCUS: u32 = 0xFFFFFFF9;
 
 #[derive(Debug)]
 pub struct Win32 {
@@ -127,15 +135,18 @@ impl Win32 {
                     TargetClass::TreeView => {
                         Self::search_treeview(hwnd, item);
                         if item.found.is_some() {
-                            return false.into()
+                            return false.into();
                         }
                     },
                     TargetClass::ListView => {
-                        todo!()
+                        Self::search_listview(hwnd, item);
+                        if item.found.is_some() {
+                            return false.into();
+                        }
                     },
-                    TargetClass::ListViewHeader => {
-                        todo!()
-                    },
+                    // TargetClass::ListViewHeader => {
+                    //     todo!()
+                    // },
                     TargetClass::ToolBar => {
                         todo!()
                     },
@@ -159,6 +170,63 @@ impl Win32 {
             true.into()
         }
     }
+    pub fn get_point(&self, clk_item: &ClkItem) -> ClkResult {
+        let mut item = SearchItem::from_clkitem(clk_item);
+        self.search(&mut item);
+        if let Some(found) = item.found {
+            if Self::is_disabled(found.hwnd) {
+                ClkResult::failed()
+            } else {
+                match found.target {
+                    TargetClass::Button => ClkResult::new(true, found.hwnd, None),
+                    TargetClass::List => match found.info {
+                        ItemInfo::Index(i) => {
+                            let point = Self::get_list_item_point(found.hwnd, i);
+                            ClkResult::new(true, found.hwnd, Some(point))
+                        },
+                        _ => ClkResult::failed()
+                    },
+                    TargetClass::ComboBox => ClkResult::new(true, found.hwnd, None),
+                    TargetClass::Tab => match found.info {
+                        ItemInfo::Index(i) => {
+                            let point = Self::get_tab_point(found.hwnd, i);
+                            ClkResult::new(true, found.hwnd, point)
+                        },
+                        _ => ClkResult::failed()
+                    },
+                    TargetClass::Menu => match found.info {
+                        ItemInfo::Menu(_, _, x, y) => {
+                            ClkResult::new(true, found.hwnd, Some((x, y)))
+                        }
+                        _ => ClkResult::failed()
+                    },
+                    TargetClass::TreeView => match found.info {
+                        ItemInfo::HItem(hitem, pid) => {
+                            let point = TreeView::get_point(found.hwnd, pid, hitem);
+                            ClkResult::new(true, found.hwnd, point)
+                        }
+                        _ => ClkResult::failed()
+                    },
+                    TargetClass::ListView => match found.info {
+                        ItemInfo::ListView(row, column, lv) => {
+                            let point = lv.get_point(row, column);
+                            ClkResult::new(true, found.hwnd, point)
+                        }
+                        _ => ClkResult::failed()
+                    },
+                    TargetClass::ToolBar => match found.info {
+                        _ => ClkResult::failed()
+                    },
+                    TargetClass::Link => match found.info {
+                        _ => ClkResult::failed()
+                    },
+                    TargetClass::Other(_) => ClkResult::failed(),
+                }
+            }
+        } else {
+            ClkResult::failed()
+        }
+    }
     pub fn click(&self, clk_item: &ClkItem, check: &ThreeState) -> ClkResult {
         let mut item = SearchItem::from_clkitem(clk_item);
         self.search(&mut item);
@@ -172,9 +240,9 @@ impl Win32 {
                         match ButtonType::from(found.hwnd) {
                             ButtonType::Button => if check.as_bool() {
                                 let clicked = self.post_wm_command(found.hwnd, None, BN_CLICKED);
-                                ClkResult::new(clicked, found.hwnd)
+                                ClkResult::new(clicked, found.hwnd, None)
                             } else {
-                                ClkResult::new(true, found.hwnd)
+                                ClkResult::new(true, found.hwnd, None)
                             },
                             ButtonType::Check => {
                                 let wparam = if check.as_bool() {
@@ -187,7 +255,7 @@ impl Win32 {
                                 Self::sleep(30);
                                 let is_checked = Self::send_message(found.hwnd, BM_GETCHECK, 0, 0);
                                 let clicked = (is_checked > 0) == check.as_bool();
-                                ClkResult::new(clicked, found.hwnd)
+                                ClkResult::new(clicked, found.hwnd, None)
                             },
                             ButtonType::ThreeState => {
                                 let wparam = match check {
@@ -200,17 +268,17 @@ impl Win32 {
                                 Self::sleep(30);
                                 let checked = Self::send_message(found.hwnd, BM_GETCHECK, 0, 0);
                                 let clicked = checked == wparam as isize;
-                                ClkResult::new(clicked, found.hwnd)
+                                ClkResult::new(clicked, found.hwnd, None)
                             },
                             ButtonType::Radio => if check.as_bool() {
-                                MouseInput::left_click(found.hwnd);
+                                MouseInput::left_click(found.hwnd, None);
                                 // チェック状態を確認してチェック指示と比較
                                 Self::sleep(30);
                                 let is_checked = Self::send_message(found.hwnd, BM_GETCHECK, 0, 0);
                                 let clicked = (is_checked > 0) == check.as_bool();
-                                ClkResult::new(clicked, found.hwnd)
+                                ClkResult::new(clicked, found.hwnd, None)
                             } else {
-                                ClkResult::new(true, found.hwnd)
+                                ClkResult::new(true, found.hwnd, None)
                             },
                         }
                     },
@@ -228,8 +296,7 @@ impl Win32 {
                                     break;
                                 }
                             }
-                            let (x, y) = point;
-                            ClkResult::new_with_point(list_result, found.hwnd, x, y)
+                            ClkResult::new(list_result, found.hwnd, Some(point))
                         },
                         ItemInfo::Index(i) => {
                             let clicked = if check.as_bool() {
@@ -241,8 +308,8 @@ impl Win32 {
                             } else {
                                 true
                             };
-                            let (x, y) = Self::get_list_item_point(found.hwnd, i);
-                            ClkResult::new_with_point(clicked, found.hwnd, x, y)
+                            let point = Self::get_list_item_point(found.hwnd, i);
+                            ClkResult::new(clicked, found.hwnd, Some(point))
 
                         },
                         _ => ClkResult::failed(),
@@ -262,7 +329,7 @@ impl Win32 {
                             true
                         };
                         // let (x, y) = Self::get_list_item_point(found.hwnd, i);
-                        ClkResult::new(clicked, found.hwnd)
+                        ClkResult::new(clicked, found.hwnd, None)
                     } else {
                         ClkResult::failed()
                     },
@@ -275,11 +342,8 @@ impl Win32 {
                         } else {
                             true
                         };
-                        if let Some((x, y)) = Self::get_tab_point(found.hwnd, i) {
-                            ClkResult::new_with_point(clicked, found.hwnd, x, y)
-                        } else {
-                            ClkResult::new(clicked, found.hwnd)
-                        }
+                        let point = Self::get_tab_point(found.hwnd, i);
+                        ClkResult::new(clicked, found.hwnd, point)
                     } else {
                         ClkResult::failed()
                     },
@@ -291,10 +355,10 @@ impl Win32 {
                                 // checkがfalseかつメニューにチェックがあればクリック
                                 (false, true) => {
                                     let clicked = Menu::click(found.hwnd, id);
-                                    ClkResult::new_with_point(clicked, found.hwnd, x, y)
+                                    ClkResult::new(clicked, found.hwnd, Some((x, y)))
                                 },
                                 // それ以外は項目があればTRUEを返す
-                                _ => ClkResult::new_with_point(true, found.hwnd, x, y),
+                                _ => ClkResult::new(true, found.hwnd, Some((x, y))),
                             }
                         } else {
                             ClkResult::failed()
@@ -307,21 +371,29 @@ impl Win32 {
                             } else {
                                 true
                             };
-                            if let Some((x, y)) = TreeView::get_point(found.hwnd, pid, hitem) {
-                                ClkResult::new_with_point(clicked, found.hwnd, x, y)
-                            } else {
-                                ClkResult::new(clicked, found.hwnd)
-                            }
+                            let point = TreeView::get_point(found.hwnd, pid, hitem);
+                            ClkResult::new(clicked, found.hwnd, point)
                         } else {
                             ClkResult::failed()
                         }
                     },
                     TargetClass::ListView => {
-                        todo!()
+                        if let ItemInfo::ListView(row, column, lv) = found.info {
+                            let point = lv.get_point(row, column);
+                            let clicked = if check.as_bool() {
+                                // lv.click(row, column)
+                                MouseInput::left_click(found.hwnd, point)
+                            } else {
+                                true
+                            };
+                            ClkResult::new(clicked, found.hwnd, point)
+                        } else {
+                            ClkResult::failed()
+                        }
                     },
-                    TargetClass::ListViewHeader => {
-                        todo!()
-                    },
+                    // TargetClass::ListViewHeader => {
+                    //     todo!()
+                    // },
                     TargetClass::ToolBar => {
                         todo!()
                     },
@@ -469,6 +541,12 @@ impl Win32 {
         }
     }
 
+    fn search_listview(hwnd: HWND, item: &mut SearchItem) {
+        if let Some(lv) = ListView::new(hwnd) {
+            lv.search(item);
+        }
+    }
+
     fn is_window_unicode(hwnd: HWND) -> bool {
         unsafe { IsWindowUnicode(hwnd).as_bool() }
     }
@@ -533,7 +611,7 @@ impl SearchItem {
         }
         if item.target.listview {
             si.target.push(TargetClass::ListView);
-            si.target.push(TargetClass::ListViewHeader);
+            // si.target.push(TargetClass::ListViewHeader);
         }
         if item.target.toolbar {
             si.target.push(TargetClass::ToolBar);
@@ -574,6 +652,7 @@ enum ItemInfo {
     Indexes(Vec<usize>),
     Menu(usize, bool, i32, i32),
     HItem(isize, u32),
+    ListView(i32, i32, ListView),
 }
 
 #[derive(Debug, PartialEq)]
@@ -585,7 +664,7 @@ enum TargetClass {
     Menu,
     TreeView,
     ListView,
-    ListViewHeader,
+    // ListViewHeader,
     ToolBar,
     Link,
     Other(String),
@@ -601,7 +680,7 @@ impl std::fmt::Display for TargetClass {
             TargetClass::Menu => write!(f, "#32768"),
             TargetClass::TreeView => write!(f, "{}", WC_TREEVIEW),
             TargetClass::ListView => write!(f, "{}", WC_LISTVIEW),
-            TargetClass::ListViewHeader => write!(f, "{}", WC_HEADER),
+            // TargetClass::ListViewHeader => write!(f, "{}", WC_HEADER),
             TargetClass::ToolBar => write!(f, "{}", TOOLBARCLASSNAME),
             TargetClass::Link => write!(f, "{}", WC_LINK),
             TargetClass::Other(s) => write!(f, "{s}"),
@@ -619,7 +698,7 @@ impl From<String> for TargetClass {
             "#32768" => Self::Menu,
             "systreeview32" => Self::TreeView,
             "syslistview32" => Self::ListView,
-            "sysheader32" => Self::ListViewHeader,
+            // "sysheader32" => Self::ListViewHeader,
             "toolbarwindow32" => Self::ToolBar,
             "syslink" => Self::Link,
             _ => Self::Other(s),
@@ -723,6 +802,7 @@ impl Drop for ProcessMemory {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
 enum TargetArch {
     X86,
     X64,
@@ -791,6 +871,7 @@ impl TabControl {
 
 #[repr(C)]
 #[allow(non_snake_case)]
+#[derive(Default)]
 struct TCITEM64 {
     pub mask: u32,
     pub dwState: u32,
@@ -800,14 +881,10 @@ struct TCITEM64 {
     pub iImage: i32,
     pub lParam: i64,
 }
-impl Default for TCITEM64 {
-    fn default() -> Self {
-        Self { mask: 0, dwState: 0, dwStateMask: 0, pszText: 0, cchTextMax: 0, iImage: 0, lParam: 0 }
-    }
-}
 
 #[repr(C)]
 #[allow(non_snake_case)]
+#[derive(Default)]
 struct TCITEM86 {
     pub mask: u32,
     pub dwState: u32,
@@ -816,11 +893,6 @@ struct TCITEM86 {
     pub cchTextMax: i32,
     pub iImage: i32,
     pub lParam: i32,
-}
-impl Default for TCITEM86 {
-    fn default() -> Self {
-        Self { mask: 0, dwState: 0, dwStateMask: 0, pszText: 0, cchTextMax: 0, iImage: 0, lParam: 0 }
-    }
 }
 
 #[derive(Debug)]
@@ -1035,6 +1107,7 @@ impl TreeView {
 
 #[repr(C)]
 #[allow(non_snake_case)]
+#[derive(Default)]
 struct TVITEM86 {
     mask: u32,
     hItem: i32,
@@ -1047,13 +1120,9 @@ struct TVITEM86 {
     cChildren: i32,
     lParam: i32,
 }
-impl Default for TVITEM86 {
-    fn default() -> Self {
-        Self { mask: 0, hItem: 0, state: 0, stateMask: 0, pszText: 0, cchTextMax: 0, iImage: 0, iSelectedImage: 0, cChildren: 0, lParam: 0 }
-    }
-}
 #[repr(C)]
 #[allow(non_snake_case)]
+#[derive(Default)]
 struct TVITEM64 {
     mask: u32,
     hItem: i64,
@@ -1066,8 +1135,131 @@ struct TVITEM64 {
     cChildren: i32,
     lParam: i64,
 }
-impl Default for TVITEM64 {
-    fn default() -> Self {
-        Self { mask: 0, hItem: 0, state: 0, stateMask: 0, pszText: 0, cchTextMax: 0, iImage: 0, iSelectedImage: 0, cChildren: 0, lParam: 0 }
+
+#[derive(Debug, Clone)]
+struct ListView {
+    hwnd: HWND,
+    pid: u32,
+    target_arch: TargetArch,
+    is_unicode: bool,
+}
+impl ListView {
+    fn new(hwnd: HWND) -> Option<Self> {
+        let is_unicode = Win32::send_message(hwnd, LVM_GETUNICODEFORMAT, 0, 0) != 0;
+        let pid = get_process_id_from_hwnd(hwnd);
+        let target_arch = if ProcessMemory::is_process_x64(pid)? {TargetArch::X64} else {TargetArch::X86};
+        Some(Self { hwnd, is_unicode, pid, target_arch })
     }
+    fn search(&self, item: &mut SearchItem) {
+        let header  = Win32::send_message(self.hwnd, LVM_GETHEADER, 0, 0);
+        let columns = Win32::send_message(HWND(header), HDM_GETITEMCOUNT, 0, 0);
+        let rows = Win32::send_message(self.hwnd, LVM_GETITEMCOUNT, 0, 0);
+        'row: for row in 0..rows {
+            for column in 0..columns {
+                if let Some(text) = self.get_name(row, column) {
+                    if item.matches(&text) {
+                        let info = ItemInfo::ListView(row as i32, column as i32, self.clone());
+                        item.found = Some(ItemFound::new(self.hwnd, TargetClass::ListView, info));
+                        break 'row;
+                    }
+                }
+            }
+        }
+    }
+    fn get_name(&self, row: isize, column: isize) -> Option<String> {
+        if self.is_unicode {
+            let mut buf = [0; 260];
+            let remote = ProcessMemory::new::<[u16; 260]>(self.pid, None)?;
+            self.get_remote_name(row, column, remote.pointer, buf.len() as i32, LVM_GETITEMTEXTW);
+            remote.read(&mut buf);
+            let text = from_wide_string(&buf);
+            Some(text)
+        } else {
+            let mut buf = [0; 260];
+            let remote = ProcessMemory::new::<[u8; 260]>(self.pid, None)?;
+            self.get_remote_name(row, column, remote.pointer, buf.len() as i32, LVM_GETITEMTEXTA);
+            remote.read(&mut buf);
+            let text = from_ansi_bytes(&buf);
+            Some(text)
+        }
+    }
+    fn get_remote_name(&self, row: isize, column: isize, pbuf: *mut c_void, len: i32, msg: u32) -> Option<()> {
+        let n = match self.target_arch {
+            TargetArch::X64 => {
+                let mut lvitem = LVITEM64::default();
+                lvitem.mask = LVIF_TEXT;
+                lvitem.iItem = row as i32;
+                lvitem.iSubItem = column as i32;
+                lvitem.pszText = pbuf as i64;
+                lvitem.cchTextMax = len;
+                let remote = ProcessMemory::new(self.pid, Some(&lvitem))?;
+                let lparam = remote.pointer as isize;
+                Win32::send_message(self.hwnd, msg, row as usize, lparam)
+            },
+            TargetArch::X86 => {
+                let mut lvitem = LVITEM86::default();
+                lvitem.mask = LVIF_TEXT;
+                lvitem.iItem = row as i32;
+                lvitem.iSubItem = column as i32;
+                lvitem.pszText = pbuf as i32;
+                lvitem.cchTextMax = len;
+                let remote = ProcessMemory::new(self.pid, Some(&lvitem))?;
+                let lparam = remote.pointer as isize;
+                Win32::send_message(self.hwnd, msg, row as usize, lparam)
+            },
+        };
+        if n > 0 {Some(())} else {None}
+    }
+    fn get_point(&self, row: i32, column: i32) -> Option<(i32, i32)> {
+        let mut rect = RECT::default();
+        rect.top = column;
+        let remote = ProcessMemory::new(self.pid, Some(&rect))?;
+        let lparam = remote.pointer as isize;
+        Win32::send_message(self.hwnd, LVM_GETSUBITEMRECT, row as usize, lparam);
+        remote.read(&mut rect);
+        let (x, y) = Win32::get_center(rect);
+        let (x, y) = Win32::client_to_screen(self.hwnd, x, y);
+        Some((x, y))
+    }
+}
+
+#[repr(C)]
+#[allow(non_snake_case)]
+#[derive(Default)]
+struct LVITEM64 {
+    mask: u32,
+    iItem: i32,
+    iSubItem: i32,
+    state: u32,
+    stateMask: u32,
+    pszText: i64,
+    cchTextMax: i32,
+    iImage: i32,
+    lParam: i64,
+    iIndent: i32,
+    iGroupId: i32,
+    cColumns: u32,
+    puColumns: i32,
+    piColFmt: i64,
+    iGroup: i32,
+}
+#[repr(C)]
+#[allow(non_snake_case)]
+#[derive(Default)]
+struct LVITEM86 {
+    mask: u32,
+    iItem: i32,
+    iSubItem: i32,
+    state: u32,
+    stateMask: u32,
+    pszText: i32,
+    cchTextMax: i32,
+    iImage: i32,
+    lParam: i32,
+    iIndent: i32,
+    iGroupId: i32,
+    cColumns: u32,
+    puColumns: i32,
+    piColFmt: i32,
+    iGroup: i32,
 }

@@ -8,7 +8,7 @@ use crate::evaluator::builtins::ThreeState;
 use windows::{
     Win32::{
         Foundation::{
-            HWND, RECT, WPARAM, LPARAM,
+            HWND, RECT, WPARAM, LPARAM, POINT
         },
         UI::{
             WindowsAndMessaging::{
@@ -24,6 +24,7 @@ use windows::{
                 }
             },
         },
+        Graphics::Gdi::ScreenToClient,
     }
 };
 
@@ -78,12 +79,12 @@ impl Default for ClkResult {
     }
 }
 impl ClkResult {
-    pub fn new(clicked: bool, hwnd: HWND) -> Self {
-        Self { clicked, hwnd, point: None }
+    pub fn new(clicked: bool, hwnd: HWND, point: Option<(i32, i32)>) -> Self {
+        Self { clicked, hwnd, point }
     }
-    pub fn new_with_point(clicked: bool, hwnd: HWND, x: i32, y: i32) -> Self {
-        Self { clicked, hwnd, point: Some((x, y)) }
-    }
+    // pub fn new_with_point(clicked: bool, hwnd: HWND, x: i32, y: i32) -> Self {
+    //     Self { clicked, hwnd, point: Some((x, y)) }
+    // }
     fn to_object(&self, as_hwnd: bool) -> Object {
         if as_hwnd {
             let n = self.hwnd.0 as f64;
@@ -140,7 +141,29 @@ impl ClkItem {
     }
     fn click_win32(&self, hwnd: HWND, check: &ThreeState) -> ClkResult {
         let win32 = win32::Win32::new(hwnd);
-        win32.click(self, check)
+        match self.button {
+            ClkButton::Left { double } => {
+                let mut result = win32.get_point(self);
+                if result.clicked {
+                    let point = result.point;
+                    result.clicked = if double {
+                        MouseInput::left_dblclick(hwnd, point)
+                    } else {
+                        MouseInput::left_click(hwnd, point)
+                    };
+                }
+                result
+            },
+            ClkButton::Right => {
+                let mut result = win32.get_point(self);
+                if result.clicked {
+                    let point = result.point;
+                    result.clicked = MouseInput::right_click(hwnd, point);
+                }
+                result
+            },
+            ClkButton::Default => win32.click(self, check),
+        }
     }
     fn click_uia(&self, _hwnd: HWND, _check: &ThreeState) -> ClkResult {
         ClkResult::default()
@@ -157,22 +180,22 @@ impl ClkItem {
                         let result = match self.button {
                             ClkButton::Left { double } => if let Some(hwnd) = target.get_hwnd() {
                                 if double {
-                                    MouseInput::left_dblclick(hwnd)
+                                    MouseInput::left_dblclick(hwnd, None)
                                 } else {
-                                    MouseInput::left_click(hwnd)
+                                    MouseInput::left_click(hwnd, None)
                                 }
                             } else {
                                 false
                             },
                             ClkButton::Right => if let Some(hwnd) = target.get_hwnd() {
-                                MouseInput::right_click(hwnd)
+                                MouseInput::right_click(hwnd, None)
                             } else {
                                 false
                             },
                             ClkButton::Default => target.invoke_default_action(check),
                         };
-                        let (x, y) = MouseInput::point_from_hwnd(hwnd);
-                        return ClkResult::new_with_point(result, target.get_hwnd().unwrap_or_default(), x, y);
+                        let point = MouseInput::point_from_hwnd(hwnd);
+                        return ClkResult::new(result, target.get_hwnd().unwrap_or_default(), Some(point));
                     },
                     None => {},
                 }
@@ -244,19 +267,22 @@ impl UsizeExt for usize {
 pub struct MouseInput {}
 
 impl MouseInput {
-    pub fn left_click(hwnd: HWND) -> bool {
-        Self::click(hwnd, vec![WM_LBUTTONDOWN, WM_LBUTTONUP])
+    pub fn left_click(hwnd: HWND, point: Option<(i32, i32)>) -> bool {
+        Self::click(hwnd, vec![WM_LBUTTONDOWN, WM_LBUTTONUP], point)
     }
-    pub fn right_click(hwnd: HWND) -> bool {
-        Self::click(hwnd, vec![WM_RBUTTONDOWN, WM_RBUTTONUP])
+    pub fn right_click(hwnd: HWND, point: Option<(i32, i32)>) -> bool {
+        Self::click(hwnd, vec![WM_RBUTTONDOWN, WM_RBUTTONUP], point)
     }
-    pub fn left_dblclick(hwnd: HWND) -> bool {
-        Self::click(hwnd, vec![WM_LBUTTONDBLCLK])
+    pub fn left_dblclick(hwnd: HWND, point: Option<(i32, i32)>) -> bool {
+        Self::click(hwnd, vec![WM_LBUTTONDBLCLK], point)
     }
-    fn click(hwnd: HWND, msgs: Vec<u32>) -> bool {
+    fn click(hwnd: HWND, msgs: Vec<u32>, point: Option<(i32, i32)>) -> bool {
         unsafe {
             if IsWindowEnabled(hwnd).as_bool() {
-                let lparam = Self::point_lparam_from_hwnd(hwnd);
+                let lparam = match point {
+                    Some(p) => Self::point_to_lparam(Self::screen_to_client(hwnd, p)),
+                    None => Self::point_to_lparam(Self::point_from_hwnd(hwnd)),
+                };
                 let mut result = true;
                 for msg in msgs {
                     let r = PostMessageW(hwnd, msg, WPARAM(0), LPARAM(lparam));
@@ -275,18 +301,20 @@ impl MouseInput {
             // だいたい真ん中あたりを狙う
             let x = lprect.left + (lprect.right - lprect.left) / 2;
             let y = lprect.top + (lprect.bottom - lprect.top) / 2;
-            (x, y)
+            Self::screen_to_client(hwnd, (x, y))
         }
     }
-    fn point_lparam_from_hwnd(hwnd: HWND) -> isize {
+    fn point_to_lparam(point: (i32, i32)) -> isize {
+        let (x, y) = point;
+        let lparam = (x & 0xFFFF) | (y & 0xFFFF) << 16;
+        lparam as isize
+    }
+    fn screen_to_client(hwnd: HWND, point: (i32, i32)) -> (i32, i32) {
         unsafe {
-            let mut lprect = RECT::default();
-            GetWindowRect(hwnd, &mut lprect);
-            // だいたい真ん中あたりを狙う
-            let x = (lprect.right - lprect.left) / 2;
-            let y = (lprect.bottom - lprect.top) / 2;
-            let lparam = (x as u32 & 0xFFFF) | (y as u32 & 0xFFFF) << 16;
-            lparam as isize
+            let (x, y) = point;
+            let mut lppoint = POINT { x, y };
+            ScreenToClient(hwnd, &mut lppoint);
+            (lppoint.x, lppoint.y)
         }
     }
 }
