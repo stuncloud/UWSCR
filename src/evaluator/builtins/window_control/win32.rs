@@ -20,6 +20,7 @@ use windows::{
                 LVIF_TEXT,
                 HDM_GETITEMCOUNT, HDM_GETITEMW, HDM_GETITEMA, HDM_GETITEMRECT,
                 HDI_TEXT,
+                TB_GETUNICODEFORMAT, TB_BUTTONCOUNT, TB_GETBUTTONTEXTW, TB_GETBUTTONTEXTA, TB_GETITEMRECT, TB_GETBUTTON,
             },
             WindowsAndMessaging::{
                 WM_COMMAND,
@@ -36,6 +37,7 @@ use windows::{
                 HMENU, GetMenu, GetMenuItemCount, GetSubMenu, GetMenuItemID, GetMenuItemRect,
                 MIIM_TYPE, MIIM_STATE, MENUITEMINFOW, GetMenuItemInfoW, MENUITEMINFOA, GetMenuItemInfoA,
                 MFS_CHECKED,
+                GetWindowThreadProcessId, PostThreadMessageW, GetParent,
             }
         },
         Graphics::Gdi::ClientToScreen,
@@ -144,7 +146,10 @@ impl Win32 {
                     //     todo!()
                     // },
                     TargetClass::ToolBar => {
-                        todo!()
+                        Self::search_toolbar(hwnd, item);
+                        if item.found.is_some() {
+                            return false.into();
+                        }
                     },
                     TargetClass::Link => {
                         todo!()
@@ -215,10 +220,10 @@ impl Win32 {
                         _ => ClkResult::failed()
                     },
                     TargetClass::ToolBar => match found.info {
-                        _ => ClkResult::failed()
+                        _ => todo!()
                     },
                     TargetClass::Link => match found.info {
-                        _ => ClkResult::failed()
+                        _ => todo!()
                     },
                     TargetClass::Other(_) => ClkResult::failed(),
                 }
@@ -405,7 +410,18 @@ impl Win32 {
                     //     todo!()
                     // },
                     TargetClass::ToolBar => {
-                        todo!()
+                        match found.info {
+                            ItemInfo::ToolBar(index, id, pid) => {
+                                let clicked = if check.as_bool() {
+                                    ToolBar::click(found.hwnd, id)
+                                } else {
+                                    true
+                                };
+                                let point = ToolBar::get_point(found.hwnd, index, pid);
+                                ClkResult::new(clicked, found.hwnd, point)
+                            }
+                            _ => ClkResult::failed(),
+                        }
                     },
                     TargetClass::Link => {
                         todo!()
@@ -438,6 +454,17 @@ impl Win32 {
     fn send_message(hwnd: HWND, msg: u32, wparam: usize, lparam: isize) -> isize {
         unsafe {
             SendMessageW(hwnd, msg, WPARAM(wparam), LPARAM(lparam)).0
+        }
+    }
+    fn _post_thread_message(hwnd: HWND, msg: u32, wparam: usize, lparam: isize) -> bool {
+        unsafe {
+            let idthread = GetWindowThreadProcessId(hwnd, &mut 0);
+            PostThreadMessageW(idthread, msg, WPARAM(wparam), LPARAM(lparam)).as_bool()
+        }
+    }
+    fn get_parent(hwnd: HWND) -> HWND {
+        unsafe {
+            GetParent(hwnd)
         }
     }
     fn get_window_id(hwnd: HWND) -> i32 {
@@ -557,6 +584,12 @@ impl Win32 {
         }
     }
 
+    fn search_toolbar(hwnd: HWND, item: &mut SearchItem) {
+        if let Some(tb) = ToolBar::new(hwnd) {
+            tb.search(item);
+        }
+    }
+
     fn is_window_unicode(hwnd: HWND) -> bool {
         unsafe { IsWindowUnicode(hwnd).as_bool() }
     }
@@ -663,7 +696,9 @@ enum ItemInfo {
     Menu(usize, bool, i32, i32),
     HItem(isize, u32),
     ListView(i32, i32, ListView),
-    ListViewHeader(i32, u32)
+    ListViewHeader(i32, u32),
+    /// index, id, pid
+    ToolBar(usize, usize, u32),
 }
 
 #[derive(Debug, PartialEq)]
@@ -1380,4 +1415,129 @@ struct HDITEM86 {
     r#type: u32,
     pvFilter: i32,
     state: u32,
+}
+
+struct ToolBar {
+    hwnd: HWND,
+    pid: u32,
+    target_arch: TargetArch,
+    is_unicode: bool,
+}
+
+impl ToolBar {
+    fn new(hwnd: HWND) -> Option<Self> {
+        let is_unicode = Win32::send_message(hwnd, TB_GETUNICODEFORMAT, 0, 0) != 0;
+        let pid = get_process_id_from_hwnd(hwnd);
+        let target_arch = if ProcessMemory::is_process_x64(pid)? {TargetArch::X64} else {TargetArch::X86};
+        Some(Self { hwnd, pid, is_unicode, target_arch })
+    }
+    fn search(&self, item: &mut SearchItem) {
+        let cnt = Win32::send_message(self.hwnd, TB_BUTTONCOUNT, 0, 0);
+        for i in 0..cnt as usize {
+            let id = self.get_id(i);
+            if let Some(name) = self.get_name(id) {
+                if item.matches(&name) {
+                    item.found = Some(ItemFound::new(self.hwnd, TargetClass::ToolBar, ItemInfo::ToolBar(i, id, self.pid)));
+                    break;
+                }
+            }
+        }
+    }
+    fn get_id(&self, index: usize) -> usize {
+        // id取得を試みる、失敗したらインデックスをそのまま返す
+        match self.target_arch {
+            TargetArch::X64 => {
+                if let Some(remote) = ProcessMemory::new::<TBBUTTON64>(self.pid, None) {
+                    let p = remote.pointer as isize;
+                    if Win32::send_message(self.hwnd, TB_GETBUTTON, index, p) != 0 {
+                        let mut tbbutton = TBBUTTON64::default();
+                        remote.read(&mut tbbutton);
+                        tbbutton.idCommand as usize
+                    } else {
+                        index
+                    }
+                } else {
+                    index
+                }
+            },
+            TargetArch::X86 => {
+                if let Some(remote) = ProcessMemory::new::<TBBUTTON86>(self.pid, None) {
+                    let p = remote.pointer as isize;
+                    if Win32::send_message(self.hwnd, TB_GETBUTTON, index, p) != 0 {
+                        let mut tbbutton = TBBUTTON86::default();
+                        remote.read(&mut tbbutton);
+                        tbbutton.idCommand as usize
+                    } else {
+                        index
+                    }
+                } else {
+                    index
+                }
+            },
+        }
+    }
+    fn get_name(&self, id: usize) -> Option<String> {
+        if self.is_unicode {
+            let remote = ProcessMemory::new::<[u16; 260]>(self.pid, None)?;
+            let lparam = remote.pointer as isize;
+            if Win32::send_message(self.hwnd, TB_GETBUTTONTEXTW, id, lparam) > -1 {
+                let mut buf = [0; 260];
+                remote.read(&mut buf);
+                let name = from_wide_string(&buf);
+                Some(name)
+            } else {
+                None
+            }
+        } else {
+            let remote = ProcessMemory::new::<[u8; 260]>(self.pid, None)?;
+            let lparam = remote.pointer as isize;
+            if Win32::send_message(self.hwnd, TB_GETBUTTONTEXTA, id, lparam) > -1 {
+                let mut buf = [0; 260];
+                remote.read(&mut buf);
+                let name = from_ansi_bytes(&buf);
+                Some(name)
+            } else {
+                None
+            }
+        }
+    }
+    fn get_point(hwnd: HWND, index: usize, pid: u32) -> Option<(i32, i32)> {
+        let mut rect = RECT::default();
+        let remote = ProcessMemory::new::<RECT>(pid, None)?;
+        let lparam = remote.pointer as isize;
+        Win32::send_message(hwnd, TB_GETITEMRECT, index, lparam);
+        remote.read(&mut rect);
+        let (x, y) = Win32::get_center(rect);
+        let point = Win32::client_to_screen(hwnd, x, y);
+        Some(point)
+    }
+    fn click(hwnd: HWND, id: usize) -> bool {
+        let parent = Win32::get_parent(hwnd);
+        Win32::post_message(parent, WM_COMMAND, id, hwnd.0)
+    }
+}
+
+#[repr(C)]
+#[allow(non_snake_case)]
+#[derive(Default)]
+struct TBBUTTON64 {
+    iBitmap: i32,
+    idCommand: i32,
+    fsState: u8,
+    fsStyle: u8,
+    bReserved: [u8; 6],
+    dwData: u64,
+    iString: i64,
+}
+#[repr(C)]
+#[allow(non_snake_case)]
+#[derive(Default)]
+struct TBBUTTON86 {
+    iBitmap: i32,
+    idCommand: i32,
+    fsState: u8,
+    fsStyle: u8,
+    bReserved: [u8; 6],
+    dwData: u32,
+    iString: i32,
 }
