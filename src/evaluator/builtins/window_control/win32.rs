@@ -1537,7 +1537,7 @@ struct TBBUTTON86 {
     idCommand: i32,
     fsState: u8,
     fsStyle: u8,
-    bReserved: [u8; 6],
+    bReserved: [u8; 2],
     dwData: u32,
     iString: i32,
 }
