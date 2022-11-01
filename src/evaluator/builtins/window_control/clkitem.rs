@@ -170,39 +170,35 @@ impl ClkItem {
     }
     fn click_acc(&self, hwnd: HWND, check: bool) -> ClkResult {
         if let Some(window) = acc::Acc::from_hwnd(hwnd) {
-            let items = acc::SearchItem::from_clkitem(self);
+            let item = acc::SearchItem::from_clkitem(self);
             let mut order = self.order;
 
-            for item in items {
-                println!("\u{001b}[35m[debug] item: {:?}\u{001b}[0m", &item);
-                match window.search(&item, &mut order, self.backwards, None) {
-                    Some(target) => {
-                        let result = match self.button {
-                            ClkButton::Left { double } => if let Some(hwnd) = target.get_hwnd() {
-                                if double {
-                                    MouseInput::left_dblclick(hwnd, None)
-                                } else {
-                                    MouseInput::left_click(hwnd, None)
-                                }
+            match window.search(&item, &mut order, self.backwards) {
+                Some(target) => {
+                    let result = match self.button {
+                        ClkButton::Left { double } => if let Some(hwnd) = target.get_hwnd() {
+                            if double {
+                                MouseInput::left_dblclick(hwnd, None)
                             } else {
-                                false
-                            },
-                            ClkButton::Right => if let Some(hwnd) = target.get_hwnd() {
-                                MouseInput::right_click(hwnd, None)
-                            } else {
-                                false
-                            },
-                            ClkButton::Default => target.invoke_default_action(check),
-                        };
-                        let point = MouseInput::point_from_hwnd(hwnd);
-                        return ClkResult::new(result, target.get_hwnd().unwrap_or_default(), Some(point));
-                    },
-                    None => {},
-                }
+                                MouseInput::left_click(hwnd, None)
+                            }
+                        } else {
+                            false
+                        },
+                        ClkButton::Right => if let Some(hwnd) = target.get_hwnd() {
+                            MouseInput::right_click(hwnd, None)
+                        } else {
+                            false
+                        },
+                        ClkButton::Default => target.click(check),
+                    };
+                    let point = target.get_point();
+                    return ClkResult::new(result, target.get_hwnd().unwrap_or_default(), point);
+                },
+                None => ClkResult::failed(),
             }
-            ClkResult::default()
         } else {
-            ClkResult::default()
+            ClkResult::failed()
         }
     }
 }

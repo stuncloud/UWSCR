@@ -213,6 +213,11 @@ ID0について
 
                 | リンク
 
+                .. caution::
+
+                    | CLK_APIによるリンククリックは未対応です
+                    | CLK_ACCをご利用ください
+
         - マウスボタン指定
 
             | マウスボタン指定があった場合はクリック方式に関わらずWin32 API(PostMessage)によるクリック処理が行われます
@@ -252,7 +257,9 @@ ID0について
 
             .. object:: CLK_UIA
 
-                UI Automationによる検索およびクリック
+                | UI Automationによる検索およびクリック
+
+                .. caution:: 未実装です
 
 
         - オプション
@@ -283,7 +290,10 @@ ID0について
     :param 真偽値 省略可 チェック指定:
 
         | チェックボックスやメニューの場合、チェックのオンオフを指定 (TRUEならチェックを入れる、FALSEならはずす)
+        | 3状態チェックボックスの場合、2を指定することでグレー状態にできます
         | それ以外のアイテムの場合FALSEだとクリック動作を行いません (対象が存在していればTRUEを返す)
+
+        .. caution:: CLK_ACCは3状態チェックボックスをサポートしません
 
     :param 数値 省略可 n番目: 同名アイテムの場合何番目をクリックするか
     :return: 成功時TRUE、 ``CLK_HWND`` 指定時は対象のウィンドウハンドル値を返す
@@ -551,33 +561,6 @@ ID0について
                 print m[MON_X] + ", " + m[MON_Y]
                 print m[MON_WIDTH] + " x " + m[MON_HEIGHT]
             next
-
-ACCについて
-^^^^^^^^^^^
-
-``clkitem`` や ``getitem`` などで対象となるロール
-
-- クリック (``CLK_ACC``, ``ITM_ACCCLK``)
-    - ``ROLE_SYSTEM_BUTTONDROPDOWN``
-    - ``ROLE_SYSTEM_BUTTONDROPDOWNGRID``
-    - ``ROLE_SYSTEM_BUTTONMENU``
-    - ``ROLE_SYSTEM_CELL``
-    - ``ROLE_SYSTEM_CHECKBUTTON``
-    - ``ROLE_SYSTEM_COLUMNHEADER``
-    - ``ROLE_SYSTEM_LINK``
-    - ``ROLE_SYSTEM_LISTITEM``
-    - ``ROLE_SYSTEM_MENUITEM``
-    - ``ROLE_SYSTEM_OUTLINEBUTTON``
-    - ``ROLE_SYSTEM_OUTLINEITEM``
-    - ``ROLE_SYSTEM_PAGETAB``
-    - ``ROLE_SYSTEM_PUSHBUTTON``
-    - ``ROLE_SYSTEM_RADIOBUTTON``
-    - ``ROLE_SYSTEM_ROWHEADER``
-    - ``ROLE_SYSTEM_SPLITBUTTON``
-- スタティックテキスト (``ITM_ACCTXT``)
-    - ``ROLE_SYSTEM_STATICTEXT``
-- エディットボックス (``ITM_ACCEDIT``)
-    - ``ROLE_SYSTEM_TEXT``
 
 画像検索
 --------
