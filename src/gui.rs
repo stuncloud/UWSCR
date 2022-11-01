@@ -13,7 +13,7 @@ pub use popupmenu::*;
 pub mod balloon;
 pub use balloon::*;
 
-use crate::winapi::{to_wide_string, WString, PcwstrExt};
+use crate::winapi::{to_wide_string, WString, PcwstrExt, from_wide_string};
 use crate::write_locale;
 use crate::error::{CURRENT_LOCALE, Locale};
 use crate::settings::USETTINGS;
@@ -24,6 +24,7 @@ pub use windows::{
         Foundation::{
             HWND,WPARAM,LPARAM,LRESULT,
             HINSTANCE, SIZE, BOOL, RECT, POINT,
+            GetLastError,
         },
         UI::{
             WindowsAndMessaging::{
@@ -96,6 +97,12 @@ pub use windows::{
             TRANSPARENT,
             CreateSolidBrush, BeginPaint, FillRect, SetBkMode, SetTextColor, GetTextMetricsW, TextOutW, EndPaint,
         },
+        System::{
+            Diagnostics::Debug::{
+                FormatMessageW, FORMAT_MESSAGE_FROM_SYSTEM, FORMAT_MESSAGE_IGNORE_INSERTS,
+            },
+            SystemServices::{ LANG_NEUTRAL, SUBLANG_DEFAULT }
+        }
     }
 };
 
@@ -227,7 +234,8 @@ impl Window {
                 std::ptr::null()
             );
             if hwnd.0 == 0 {
-                Err(UWindowError::FailedToCreateWindow(class_name.into()))
+                let err = SystemError::new();
+                Err(UWindowError::FailedToCreateWindow(class_name.into(), err))
             } else {
                 Ok(hwnd)
             }
@@ -573,7 +581,8 @@ pub type UWindowResult<T> = std::result::Result<T, UWindowError>;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum UWindowError {
-    FailedToCreateWindow(String),
+    /// class名, エラーメッセージ
+    FailedToCreateWindow(String, SystemError),
     FailedToRegisterClass(String, String),
     FailedToCreateFont(String),
     SlctBoxIndexOverFlowed(i32),
@@ -584,10 +593,9 @@ pub enum UWindowError {
 impl std::fmt::Display for UWindowError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            UWindowError::FailedToCreateWindow(cls) => write_locale!(f,
-                "ウィンドウの作成に失敗: {}",
-                "Failed to create window: {}",
-                cls
+            UWindowError::FailedToCreateWindow(cls, e) => write_locale!(f,
+                "ウィンドウ({cls})の作成に失敗: {e}",
+                "Failed to create window: {cls}",
             ),
             UWindowError::FailedToRegisterClass(cls, reason) => write_locale!(f,
                 "クラス登録に失敗: {}, {}",
@@ -658,5 +666,35 @@ impl WparamExt for WPARAM {
     }
     fn lo_word(&self) -> usize {
         self.0 & 0xFFFF
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SystemError {
+    code: u32,
+    msg: String,
+}
+impl SystemError {
+    fn new() -> Self {
+        unsafe {
+            let code = GetLastError().0;
+            let mut buf = [0; 512];
+            FormatMessageW(
+                FORMAT_MESSAGE_FROM_SYSTEM|FORMAT_MESSAGE_IGNORE_INSERTS,
+                std::ptr::null(),
+                code,
+                SUBLANG_DEFAULT << 10 | LANG_NEUTRAL,
+                PWSTR::from_raw(buf.as_mut_ptr()),
+                buf.len() as u32,
+                std::ptr::null()
+            );
+            let msg = from_wide_string(&buf);
+            Self { code, msg }
+        }
+    }
+}
+impl std::fmt::Display for SystemError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[{}] {}", self.code, self.msg)
     }
 }
