@@ -2,7 +2,6 @@ use std::ptr::null_mut;
 use std::ffi::c_void;
 use std::mem::{transmute, ManuallyDrop};
 
-use windows::Win32::UI::Accessibility::SELFLAG_ADDSELECTION;
 use windows::{
     core::{Interface, HRESULT,},
     Win32::{
@@ -10,7 +9,7 @@ use windows::{
         UI::{
             WindowsAndMessaging::{
                 STATE_SYSTEM_SELECTABLE, STATE_SYSTEM_CHECKED,
-                OBJID_CLIENT,
+                OBJID_WINDOW, //OBJID_CLIENT,
             },
             Accessibility::{
                 ROLE_SYSTEM_ALERT, ROLE_SYSTEM_ANIMATION, ROLE_SYSTEM_APPLICATION, ROLE_SYSTEM_BORDER, ROLE_SYSTEM_BUTTONDROPDOWN, ROLE_SYSTEM_BUTTONDROPDOWNGRID, ROLE_SYSTEM_BUTTONMENU, ROLE_SYSTEM_CARET, ROLE_SYSTEM_CELL, ROLE_SYSTEM_CHARACTER, ROLE_SYSTEM_CHART, ROLE_SYSTEM_CHECKBUTTON, ROLE_SYSTEM_CLIENT, ROLE_SYSTEM_CLOCK, ROLE_SYSTEM_COLUMN, ROLE_SYSTEM_COLUMNHEADER, ROLE_SYSTEM_COMBOBOX, ROLE_SYSTEM_CURSOR, ROLE_SYSTEM_DIAGRAM, ROLE_SYSTEM_DIAL, ROLE_SYSTEM_DIALOG, ROLE_SYSTEM_DOCUMENT, ROLE_SYSTEM_DROPLIST, ROLE_SYSTEM_EQUATION, ROLE_SYSTEM_GRAPHIC, ROLE_SYSTEM_GRIP, ROLE_SYSTEM_GROUPING, ROLE_SYSTEM_HELPBALLOON, ROLE_SYSTEM_HOTKEYFIELD, ROLE_SYSTEM_INDICATOR, ROLE_SYSTEM_IPADDRESS, ROLE_SYSTEM_LINK, ROLE_SYSTEM_LIST, ROLE_SYSTEM_LISTITEM, ROLE_SYSTEM_MENUBAR, ROLE_SYSTEM_MENUITEM, ROLE_SYSTEM_MENUPOPUP, ROLE_SYSTEM_OUTLINE, ROLE_SYSTEM_OUTLINEBUTTON, ROLE_SYSTEM_OUTLINEITEM, ROLE_SYSTEM_PAGETAB, ROLE_SYSTEM_PAGETABLIST, ROLE_SYSTEM_PANE, ROLE_SYSTEM_PROGRESSBAR, ROLE_SYSTEM_PROPERTYPAGE, ROLE_SYSTEM_PUSHBUTTON, ROLE_SYSTEM_RADIOBUTTON, ROLE_SYSTEM_ROW, ROLE_SYSTEM_ROWHEADER, ROLE_SYSTEM_SCROLLBAR, ROLE_SYSTEM_SEPARATOR, ROLE_SYSTEM_SLIDER, ROLE_SYSTEM_SOUND, ROLE_SYSTEM_SPINBUTTON, ROLE_SYSTEM_SPLITBUTTON, ROLE_SYSTEM_STATICTEXT, ROLE_SYSTEM_STATUSBAR, ROLE_SYSTEM_TABLE, ROLE_SYSTEM_TEXT, ROLE_SYSTEM_TITLEBAR, ROLE_SYSTEM_TOOLBAR, ROLE_SYSTEM_TOOLTIP, ROLE_SYSTEM_WHITESPACE, ROLE_SYSTEM_WINDOW,
@@ -18,11 +17,11 @@ use windows::{
                 AccessibleObjectFromWindow,
                 AccessibleChildren,
                 WindowFromAccessibleObject,
-                SELFLAG_TAKEFOCUS,
+                SELFLAG_TAKEFOCUS,SELFLAG_TAKESELECTION,SELFLAG_ADDSELECTION,
             },
             Controls::{
                 STATE_SYSTEM_INVISIBLE,
-                // WC_LISTVIEW,
+                WC_LISTVIEW,
             },
         },
         System::{
@@ -58,7 +57,7 @@ impl Acc {
         } else {
             unsafe {
                 let mut ppvobject = null_mut::<IAccessible>() as *mut c_void;
-                match AccessibleObjectFromWindow(hwnd, OBJID_CLIENT.0 as u32, &IAccessible::IID, &mut ppvobject) {
+                match AccessibleObjectFromWindow(hwnd, OBJID_WINDOW.0 as u32, &IAccessible::IID, &mut ppvobject) {
                     Ok(_) => {
                         let obj: IAccessible = transmute(ppvobject);
                         Some(Acc {obj, id: None, has_child: true })
@@ -115,27 +114,34 @@ impl Acc {
                     .ok()
         }
     }
-    pub fn click(&self, check: bool) -> bool {
-        if let Some(role) = self.get_role() {
-            match role {
-                AccRole::OutlineItem |
-                AccRole::ListItem => self.select(false),
-                _ => self.invoke_default_action(check)
+    pub fn click(&self, check: bool) -> AccClickResult {
+        let result = if let Some(action) = self.get_default_action() {
+            match self.invoke_default_action(check) {
+                true => AccClickResult::new(true, AccClickReason::DefaultAction(action)),
+                // デフォルトアクションが失敗したら選択する
+                false => {
+                    let result = self.select(false);
+                    AccClickResult::new(result, AccClickReason::DefaultActionAndSelect(action))
+                },
             }
         } else {
-            false
-        }
+            let result = self.select(false);
+            AccClickResult::new(result, AccClickReason::Select)
+        };
+        println!("\u{001b}[31m[click] result: {:?}\u{001b}[0m", result);
+        result
     }
     fn invoke_default_action(&self, check: bool) -> bool {
         unsafe {
             let varchild = self.get_varchild();
             match self.get_role() {
                 Some(role) => match role {
-                    AccRole::CheckButton => if check {
+                    AccRole::CheckButton |
+                    AccRole::MenuItem => if check {
                         // チェック状態にする
                         if self.is_checked() {
                             // すでにチェック済みなのでなにもしない
-                            self.has_valid_default_action()
+                            true
                         } else {
                             // チェックする
                             self.obj.accDoDefaultAction(&varchild).is_ok()
@@ -147,13 +153,13 @@ impl Acc {
                             self.obj.accDoDefaultAction(&varchild).is_ok()
                         } else {
                             // すでに未チェックなのでなにもしない
-                            self.has_valid_default_action()
+                            true
                         }
                     }
                     _ => if check {
                         self.obj.accDoDefaultAction(&varchild).is_ok()
                     } else {
-                        self.has_valid_default_action()
+                        true
                     }
                 },
                 None => false,
@@ -163,7 +169,11 @@ impl Acc {
     fn select(&self, append: bool) -> bool {
         unsafe {
             let varchild = self.get_varchild();
-            let flag = if append {SELFLAG_ADDSELECTION} else {SELFLAG_TAKEFOCUS} as i32;
+            let flag = if append {
+                SELFLAG_ADDSELECTION
+            } else {
+                SELFLAG_TAKEFOCUS|SELFLAG_TAKESELECTION
+            } as i32;
             self.obj.accSelect(flag, &varchild).is_ok()
         }
     }
@@ -185,13 +195,6 @@ impl Acc {
             let x = pxleft + pcxwidth / 2;
             let y = pytop + pcyheight / 2;
             Some((x, y))
-        }
-    }
-    fn has_valid_default_action(&self) -> bool {
-        if let Some(action) = self.get_default_action() {
-            action.len() > 0
-        } else {
-            false
         }
     }
     pub fn get_role(&self) -> Option<AccRole> {
@@ -249,6 +252,13 @@ impl Acc {
         let hwnd = self.get_hwnd()?;
         let class_name = get_class_name(hwnd);
         Some(class_name)
+    }
+    fn is_listview(&self) -> bool {
+        if let Some(class_name) = self.get_classname() {
+            class_name.eq(WC_LISTVIEW)
+        } else {
+            false
+        }
     }
 
     pub fn get_children(&self, acc_type: AccType) -> Vec<Self> {
@@ -398,12 +408,22 @@ impl Acc {
             for varchild in varchildren {
                 if let Some(acc) = self.get_acc_from_varchild(&varchild, true) {
                     if let Some(role) = acc.get_role() {
-                        println!("\u{001b}[33m[debug] parent: {:?}, children: {}\u{001b}[0m", role, acc.get_child_count());
+
                         if item.target.is_valid_parent_role(&role, &acc) {
-                            println!("\u{001b}[36m[debug] role: {:?}, name: {:?}\u{001b}[0m", &role, acc.get_name());
-                            if let Some(found) = acc.search_child(&role, item, order, backwards, None) {
-                                return Some(found);
+                            println!("\u{001b}[36m[search] role: {:?}, name: {:?}, children: {}, parent: {:?}\u{001b}[0m", role, acc.get_name(), acc.get_child_count(), self.get_role());
+                            match role {
+                                AccRole::List => if let Some(found) = acc.search_list(item, order, backwards) {
+                                    return Some(found)
+                                }
+                                AccRole::MenuBar => if let Some(found) = acc.search_menu(item, order, backwards, None) {
+                                    return Some(found)
+                                },
+                                _ => if let Some(found) = acc.search_child(&role, item, order, backwards, None) {
+                                    return Some(found);
+                                }
                             }
+                        } else {
+                            // println!("\u{001b}[33m[search] role: {:?}, name: {:?}, children: {}, parent: {:?}\u{001b}[0m", role, acc.get_name(), acc.get_child_count(), self.get_role());
                         }
                     }
                     if acc.has_child() {
@@ -416,119 +436,12 @@ impl Acc {
                 }
             }
             None
-
-            // let target_roles = item.target.get_target_role();
-            // for variant in rgvarchildren {
-            //     let variant00 = &variant.Anonymous.Anonymous;
-            //     let vt = variant00.vt;
-            //     let maybe_acc = match VARENUM(vt as i32) {
-            //         VT_I4 => {
-            //             let id = variant00.Anonymous.lVal;
-            //             match self.obj.get_accChild(&variant) {
-            //                 Ok(disp) => {
-            //                     Self::from_idispatch(disp, Some(id))
-            //                         .map(|acc| (acc, true))
-            //                 },
-            //                 Err(e) => {
-            //                     if let HRESULT(0) = e.code() {
-            //                         if let Some(true) = self.is_visible(Some(&variant)) {
-            //                             let acc = Self::new(self.obj.clone(), Some(id));
-            //                             Some((acc, false))
-            //                         } else {
-            //                             None
-            //                         }
-            //                     } else {
-            //                         None
-            //                     }
-            //                 },
-            //             }
-            //         },
-            //         VT_DISPATCH => {
-            //             Self::from_pdispval(&variant00.Anonymous.pdispVal)
-            //                 .map(|acc| (acc, true))
-            //         },
-            //         _ => None,
-            //     };
-            //     if let Some((acc, has_child)) = maybe_acc {
-            //         let mut new_path = None;
-            //         if let Some(role) = acc.get_role() {
-            //             // 指定ロールに含まれるか？
-            //             if target_roles.contains(&role) {
-            //                 if role == AccRole::Listitem && item.target == SearchTarget::ListView {
-            //                     // クラスがSysListView32であれば名前の比較を行う
-            //                     if let Some(class_name) = acc.get_classname() {
-            //                         if class_name.to_ascii_lowercase() == WC_LISTVIEW.to_ascii_lowercase() {
-            //                             if item.matches(&acc.get_name()) {
-            //                                 *order -= 1;
-            //                                 if *order < 1 {
-            //                                     return Some(acc);
-            //                                 }
-            //                             }
-            //                         }
-            //                     }
-            //                     // 子のStatictextまたはTextに一致するものがあるか検索
-            //                     let child = item.generate_listview_searcher();
-            //                     if acc.search(&child, order, backwards, None).is_some() {
-            //                         return Some(acc);
-            //                     }
-            //                 } else {
-            //                     let name = if role == AccRole::Text {
-            //                         acc.get_value()
-            //                     } else {
-            //                         acc.get_name()
-            //                     };
-            //                     match role {
-            //                         AccRole::Menuitem |
-            //                         AccRole::Outlinebutton |
-            //                         AccRole::Outlineitem => {
-            //                             // パスの比較
-            //                             if item.name.contains('\\') {
-            //                                 new_path = match &path {
-            //                                     Some(p) => if let Some(n) = &name {
-            //                                         Some(format!("{p}\\{n}"))
-            //                                     } else {
-            //                                         Some(p.clone())
-            //                                     },
-            //                                     None => name.clone(),
-            //                                 };
-            //                                 if item.matches(&new_path) {
-            //                                     *order -= 1;
-            //                                     if *order < 1 {
-            //                                         return Some(acc);
-            //                                     }
-            //                                 }
-            //                             }
-            //                         },
-            //                         _ => {}
-            //                     }
-            //                     // 名前の比較
-            //                     if item.matches(&name) {
-            //                         *order -= 1;
-            //                         if *order < 1 {
-            //                             return Some(acc);
-            //                         }
-            //                     }
-            //                 }
-            //             }
-            //         }
-            //         // もともとがIDispatchの場合は子をサーチ
-            //         if has_child {
-            //             println!("\u{001b}[33m[debug] new_path: {:?}\u{001b}[0m", &new_path);
-            //             if let Some(acc) = acc.search(item, order, backwards, new_path) {
-            //                 return Some(acc);
-            //             }
-            //         }
-            //     }
-            // }
-            // None
         }
     }
     fn search_child(&self, parent: &AccRole, item: &SearchItem, order: &mut u32, backwards: bool, path: Option<String>) -> Option<SearchResult> {
         unsafe {
             let varchildren = self.get_varchildren(backwards);
-
             let ignore_invisible = TargetRole::ignore_invisible(&parent);
-            let mut group = vec![];
             for varchild in varchildren {
                 if let Some(acc) = self.get_acc_from_varchild(&varchild, ignore_invisible) {
                     let mut new_path = None;
@@ -537,10 +450,11 @@ impl Acc {
                             Some(name) => name,
                             None => continue,
                         };
-                        println!("\u{001b}[35m[debug][search_child] name: {name}, role: {:?}\u{001b}[0m", &role);
                         match parent {
                             AccRole::Window |
-                            AccRole::Client => {
+                            AccRole::Client |
+                            AccRole::PageTablist |
+                            AccRole::ToolBar => {
                                 if item.target.contains(parent, &role) {
                                     if item.matches(&name, order) {
                                         return Some(SearchResult::Acc(acc));
@@ -549,25 +463,10 @@ impl Acc {
                                     continue;
                                 }
                             },
-                            AccRole::List => {
-                                if item.target.contains(parent, &role) {
-                                    if item.matches(&name, order) {
-                                        if item.is_group() {
-                                            // リストの複数選択
-                                            group.push(acc);
-                                            continue;
-                                        } else {
-                                            return Some(SearchResult::Acc(acc));
-                                        }
-                                    }
-                                } else {
-                                    continue;
-                                }
-                            }
                             // treeview, menu
                             AccRole::Outline => {
                                 if item.target.contains(&parent, &role) {
-                                    if item.name.contains('\\') {
+                                    if item.is_path() {
                                         new_path = match &path {
                                             Some(p) => {
                                                 let path = format!("{p}\\{name}");
@@ -600,14 +499,186 @@ impl Acc {
                     }
                 }
             }
-            if ! group.is_empty() {
-                Some(SearchResult::Group(group))
-            } else {
-                None
-            }
+            None
         }
 
     }
+
+    fn search_list(&self, item: &SearchItem, order: &mut u32, backwards: bool) ->  Option<SearchResult> {
+        let varchildren = self.get_varchildren(backwards);
+        let list_items = varchildren.iter()
+            .map(|varchild| self.get_acc_from_varchild(&varchild, false));
+        let maybe_header = list_items.clone().find_map(|maybe_acc| {
+                match maybe_acc {
+                    Some(acc) => match acc.get_role() {
+                        Some(role) => if role.eq(&AccRole::Window) {
+                            Some(acc)
+                        } else {
+                            None
+                        },
+                        None => None,
+                    },
+                    None => None,
+                }
+            });
+        if let Some(header) = maybe_header {
+            // ListView
+            if let Some(found) = header.search_listview_header(item, order, backwards) {
+                return Some(found);
+            }
+            for maybe_acc in list_items {
+                if let Some(acc) = maybe_acc {
+                    if let Some(AccRole::ListItem) = acc.get_role() {
+                        let name = match acc.get_name() {
+                            Some(name) => name,
+                            None => continue,
+                        };
+                        if item.matches(&name, order) {
+                            return Some(SearchResult::Acc(acc));
+                        } else {
+                            if let Some(found) = acc.search_listview_items(item, order, backwards) {
+                                return Some(found);
+                            }
+                        }
+                    }
+                }
+            }
+            None
+        } else {
+            // List
+            let mut group = vec![];
+            for maybe_acc in list_items {
+                if let Some(acc) = maybe_acc {
+                    if let Some(AccRole::ListItem) = acc.get_role() {
+                        let name = match acc.get_item_name() {
+                            Some(name) => name,
+                            None => continue,
+                        };
+                        if item.matches(&name, order) {
+                            if item.is_group() {
+                                // リストの複数選択
+                                group.push(acc);
+                                continue;
+                            } else {
+                                return Some(SearchResult::Acc(acc));
+                            }
+                        }
+                    }
+                }
+            }
+            if group.is_empty() {
+                None
+            } else {
+                Some(SearchResult::Group(group))
+            }
+        }
+    }
+    fn search_listview_items(&self, item: &SearchItem, order: &mut u32, backwards: bool) ->  Option<SearchResult> {
+        if self.has_child() {
+            let varchildren = self.get_varchildren(backwards);
+            for varchild in varchildren {
+                if let Some(acc) = self.get_acc_from_varchild(&varchild, false) {
+                    if let Some(role) = acc.get_role() {
+                        match role {
+                            AccRole::Text |
+                            AccRole::StaticText => {
+                                match acc.get_item_name() {
+                                    Some(name) => {
+                                        if item.matches(&name, order) {
+                                            return Some(SearchResult::Acc(acc));
+                                        }
+                                    },
+                                    None => {},
+                                }
+                            }
+                            _ => if let Some(found) = acc.search_listview_items(item, order, backwards) {
+                                return Some(found);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }
+    fn search_listview_header(&self, item: &SearchItem, order: &mut u32, backwards: bool) ->  Option<SearchResult> {
+        let varchildren = self.get_varchildren(backwards);
+        for varchild in varchildren {
+            if let Some(acc) = self.get_acc_from_varchild(&varchild, true) {
+                if let Some(AccRole::ColumnHeader) = self.get_role() {
+                    let name = match acc.get_name() {
+                        Some(name) => name,
+                        None => continue,
+                    };
+                    if item.matches(&name, order) {
+                        return Some(SearchResult::Acc(acc));
+                    }
+                } else {
+                    if let Some(found) = acc.search_listview_header(item, order, backwards) {
+                        return Some(found);
+                    }
+                }
+            }
+        }
+        None
+    }
+    fn search_menu(&self, item: &SearchItem, order: &mut u32, backwards: bool, path: Option<String>) ->  Option<SearchResult> {
+        let varchildren = self.get_varchildren(backwards);
+        for varchild in varchildren {
+            if let Some(acc) = self.get_acc_from_varchild(&varchild, false) {
+                println!(
+                    "\u{001b}[35m[search_menu] name: {:?}, role:{:?}, child: {}, parent: {:?}, acc: {:?}\u{001b}[0m",
+                    acc.get_name(),
+                    acc.get_role(),
+                    acc.get_child_count(),
+                    self.get_role(),
+                    acc
+                );
+                if let Some(role) = acc.get_role() {
+                    match role {
+                        AccRole::MenuItem => {
+                            if let Some(name) = acc.get_name() {
+                                let name = if item.is_path() {
+                                    if let Some(p) = &path {
+                                        format!("{p}\\{name}")
+                                    } else {
+                                         name
+                                    }
+                                } else {
+                                    name
+                                };
+                                // let new_route = match &route {
+                                //     Some(route) => route.add(&acc, &name),
+                                //     None => MenuRoute::new(&acc, &name),
+                                // };
+                                if item.matches(&name, order) {
+                                    // let result = new_route.to_search_result();
+                                    // return Some(result);
+                                    return Some(SearchResult::Acc(acc));
+                                }
+                                if acc.has_child() {
+                                    if let Some(found) = acc.search_menu(item, order, backwards, Some(name)) {
+                                        return Some(found);
+                                    }
+                                }
+                            }
+                        },
+                        AccRole::Window |
+                        AccRole::MenuPopup => {
+                            if acc.has_child() {
+                                if let Some(found) = acc.search_menu(item, order, backwards, path.clone()) {
+                                    return Some(found);
+                                }
+                            }
+                        },
+                        _ => {}
+                    }
+                }
+            }
+        }
+        None
+    }
+
     fn get_varchildren(&self, backwards: bool) -> Vec<VARIANT> {
         let cnt = self.get_child_count() as usize;
         let mut rgvarchildren = vec![VARIANT::default(); cnt];
@@ -716,9 +787,52 @@ impl Acc {
     }
 }
 
+// #[derive(Clone)]
+// struct MenuRoute {
+//     route: Vec<Acc>,
+//     path: String,
+// }
+// impl MenuRoute {
+//     fn new(acc: &Acc, path: &String) -> Self {
+//         Self { route: vec![acc.clone()], path: path.to_string() }
+//     }
+//     fn add(&self, acc: &Acc, path: &String) -> Self {
+//         let mut route = self.route.clone();
+//         route.push(acc.clone());
+//         let path = path.to_string();
+//         Self { route, path }
+//     }
+//     fn to_search_result(self) -> SearchResult {
+//         SearchResult::Route(self.route)
+//     }
+// }
+
+
+#[derive(Debug)]
+pub struct AccClickResult(bool, AccClickReason);
+#[derive(Debug)]
+pub enum AccClickReason {
+    /// デフォルトアクションを実行
+    DefaultAction(String),
+    /// 選択
+    Select,
+    /// デフォルトアクションに失敗して選択した
+    DefaultActionAndSelect(String)
+}
+impl AccClickResult {
+    fn new(result: bool, reason: AccClickReason) -> Self {
+        Self(result, reason)
+    }
+    pub fn as_bool(&self) -> bool {
+        self.0
+    }
+}
+
 pub enum SearchResult {
     Acc(Acc),
     Group(Vec<Acc>),
+    // Route(Vec<Acc>)
+    Menu(Acc)
 }
 impl SearchResult {
     pub fn get_hwnd(&self) -> Option<HWND> {
@@ -738,19 +852,43 @@ impl SearchResult {
                     None
                 }
             },
+            SearchResult::Menu(acc) => None,
+            // SearchResult::Route(route) => {
+            //     if let Some(last) = route.last() {
+            //         last.get_point()
+            //     } else {
+            //         None
+            //     }
+            // },
+
         }
     }
     pub fn click(&self, check: bool) -> bool {
         match self {
-            SearchResult::Acc(acc) => acc.click(check),
+            SearchResult::Acc(acc) => acc.click(check).as_bool(),
             SearchResult::Group(group) => {
                 group.into_iter()
                     .map(|acc| acc.select(true))
                     .reduce(|a, b| a && b)
                     .unwrap_or(false)
             },
+            SearchResult::Menu(acc) => {
+                todo!()
+            },
+            // SearchResult::Route(route) => {
+            //     route.into_iter()
+            //         .map(|acc| {
+            //             Self::sleep(1000);
+            //             acc.click(check).as_bool()
+            //         })
+            //         .last()
+            //         .unwrap_or(false)
+            // },
         }
     }
+    // fn sleep(ms: u64) {
+    //     std::thread::sleep(std::time::Duration::from_millis(ms));
+    // }
 }
 
 
@@ -800,6 +938,9 @@ impl SearchItem {
     }
     fn is_group(&self) -> bool {
         ! self.group.is_empty()
+    }
+    fn is_path(&self) -> bool {
+        self.name.contains('\\')
     }
 
 }
@@ -879,7 +1020,11 @@ impl TargetRole {
             // タブ
             AccRole::PageTablist => AccRole::PageTab.eq(role),
             // メニュー
-            AccRole::MenuBar => AccRole::MenuItem.eq(role),
+            AccRole::MenuBar => match role {
+                AccRole::MenuItem|
+                AccRole::MenuPopup => true,
+                _ => false
+            },
             // ツリービュー
             AccRole::Outline => match role {
                 AccRole::OutlineItem|
@@ -887,7 +1032,6 @@ impl TargetRole {
                 _ => false,
             },
             // リストビュー
-
             // ツールバー
             AccRole::ToolBar => match role {
                 AccRole::PushButton => true,
