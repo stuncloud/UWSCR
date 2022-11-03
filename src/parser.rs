@@ -302,6 +302,8 @@ impl Parser {
                                 name, params, body: new_body, is_proc, is_async
                             },
                             s.row,
+                            s.line,
+                            s.script_name
                         ));
                         func_counter += 1;
                     },
@@ -346,6 +348,8 @@ impl Parser {
                                 StatementWithRow::new(
                                     Statement::Call(Program(new_block, call_program.1), params),
                                     s.row,
+                                    s.line,
+                                    s.script_name
                                 )
                             );
                         }
@@ -414,7 +418,9 @@ impl Parser {
             _ => self.parse_expression_statement(),
         };
         match statement {
-            Some(s) => Some(StatementWithRow::new(s, row)),
+            Some(s) => Some(StatementWithRow::new(
+                s, row, self.lexer.get_line(row), Some(self.script_name())
+            )),
             None => None
         }
     }
@@ -2734,12 +2740,16 @@ impl Parser {
                 body.push(StatementWithRow::new(
                     Statement::Expression(assign),
                     row,
+                    self.lexer.get_line(row),
+                    Some(self.script_name())
                 ));
                 break;
             } else if self.is_next_token(&Token::Eol) {
                 body.push(StatementWithRow::new(
                     Statement::Expression(optexpr.unwrap()),
                     row,
+                    self.lexer.get_line(row),
+                    Some(self.script_name())
                 ));
             } else {
                 self.error_got_unexpected_next_token();
@@ -3021,6 +3031,12 @@ mod tests {
     use crate::lexer::Lexer;
     use crate::parser::Parser;
 
+    impl StatementWithRow {
+        fn new_expected(statement: Statement, row: usize) -> Self{
+            Self { statement, row, line: "dummy".into(), script_name: None }
+        }
+    }
+
     fn check_parse_errors(parser: &mut Parser, out: bool, msg: String) {
         let errors = parser.get_errors();
         if errors.len() == 0 {
@@ -3061,11 +3077,11 @@ print 1
 print 2
         "#;
         parser_test(input, vec![
-            StatementWithRow::new(
+            StatementWithRow::new_expected(
                 Statement::Print(Expression::Literal(Literal::Num(1 as f64))),
                 2,
             ),
-            StatementWithRow::new(
+            StatementWithRow::new_expected(
                 Statement::Print(Expression::Literal(Literal::Num(2 as f64))),
                 5,
             ),
@@ -3077,7 +3093,7 @@ print 2
         let testcases = vec![
             (
                 "dim hoge = 1", vec![
-                    StatementWithRow::new(Statement::Dim(
+                    StatementWithRow::new_expected(Statement::Dim(
                         vec![
                             (
                                 Identifier(String::from("hoge")),
@@ -3089,7 +3105,7 @@ print 2
             ),
             (
                 "dim fuga", vec![
-                    StatementWithRow::new(Statement::Dim(
+                    StatementWithRow::new_expected(Statement::Dim(
                         vec![
                             (
                                 Identifier(String::from("fuga")),
@@ -3101,7 +3117,7 @@ print 2
             ),
             (
                 "dim piyo = EMPTY", vec![
-                    StatementWithRow::new(Statement::Dim(
+                    StatementWithRow::new_expected(Statement::Dim(
                         vec![
                             (
                                 Identifier(String::from("piyo")),
@@ -3113,7 +3129,7 @@ print 2
             ),
             (
                 "dim arr1[] = 1, 3, 5, 7, 9", vec![
-                    StatementWithRow::new(Statement::Dim(
+                    StatementWithRow::new_expected(Statement::Dim(
                         vec![
                             (
                                 Identifier(String::from("arr1")),
@@ -3136,7 +3152,7 @@ print 2
             ),
             (
                 "dim arr2[4]", vec![
-                    StatementWithRow::new(Statement::Dim(
+                    StatementWithRow::new_expected(Statement::Dim(
                         vec![
                             (
                                 Identifier(String::from("arr2")),
@@ -3153,7 +3169,7 @@ print 2
             ),
             (
                 "dim arr2[1, 2]", vec![
-                    StatementWithRow::new(Statement::Dim(
+                    StatementWithRow::new_expected(Statement::Dim(
                         vec![
                             (
                                 Identifier(String::from("arr2")),
@@ -3171,7 +3187,7 @@ print 2
             ),
             (
                 "dim arr2[,, 1]", vec![
-                    StatementWithRow::new(Statement::Dim(
+                    StatementWithRow::new_expected(Statement::Dim(
                         vec![
                             (
                                 Identifier(String::from("arr2")),
@@ -3190,7 +3206,7 @@ print 2
             ),
             (
                 "dim arr2[1,1,1]", vec![
-                    StatementWithRow::new(Statement::Dim(
+                    StatementWithRow::new_expected(Statement::Dim(
                         vec![
                             (
                                 Identifier(String::from("arr2")),
@@ -3209,7 +3225,7 @@ print 2
             ),
             (
                 "dim a = 1, b, c[1], d[] = 1,2", vec![
-                    StatementWithRow::new(Statement::Dim(
+                    StatementWithRow::new_expected(Statement::Dim(
                         vec![
                             (
                                 Identifier(String::from("a")),
@@ -3264,35 +3280,35 @@ print ['配', '列', 'リ', 'テ', 'ラ', 'ル']
 print []
 "#;
         parser_test(input, vec![
-            StatementWithRow::new(
+            StatementWithRow::new_expected(
                 Statement::Print(Expression::Literal(Literal::Num(1 as f64))),
                 2
             ),
-            StatementWithRow::new(
+            StatementWithRow::new_expected(
                 Statement::Print(Expression::Literal(Literal::Num(1.23))),
                 3
             ),
-            StatementWithRow::new(
+            StatementWithRow::new_expected(
                 Statement::Print(Expression::Literal(
                     Literal::Num(i64::from_str_radix("12AB", 16).unwrap() as f64)
                 )),
                 4
             ),
-            StatementWithRow::new(
+            StatementWithRow::new_expected(
                 Statement::Print(Expression::Literal(Literal::Bool(true))),
                 5
             ),
-            StatementWithRow::new(
+            StatementWithRow::new_expected(
                 Statement::Print(Expression::Literal(Literal::Bool(false))),
                 6
             ),
-            StatementWithRow::new(
+            StatementWithRow::new_expected(
                 Statement::Print(Expression::Literal(
                     Literal::ExpandableString(String::from("展開可能文字列リテラル"))
                 )),
                 7
             ),
-            StatementWithRow::new(
+            StatementWithRow::new_expected(
                 Statement::Print(Expression::Literal(
                     Literal::Array(
                         vec![
@@ -3307,7 +3323,7 @@ print []
                 )),
                 8
             ),
-            StatementWithRow::new(
+            StatementWithRow::new_expected(
                 Statement::Print(Expression::Literal(
                     Literal::Array(vec![])
                 )),
@@ -3326,19 +3342,19 @@ if a then
 endif
 "#;
         parser_test(input, vec![
-            StatementWithRow::new(
+            StatementWithRow::new_expected(
                 Statement::If {
                     condition: Expression::Identifier(Identifier(String::from("a"))),
                     consequence: vec![
-                        StatementWithRow::new(
+                        StatementWithRow::new_expected(
                             Statement::Expression(Expression::Identifier(Identifier(String::from("statement1")))),
                             3
                         ),
-                        StatementWithRow::new(
+                        StatementWithRow::new_expected(
                             Statement::Expression(Expression::Identifier(Identifier(String::from("statement2")))),
                             4
                         ),
-                        StatementWithRow::new(
+                        StatementWithRow::new_expected(
                             Statement::Expression(Expression::Identifier(Identifier(String::from("statement3")))),
                             5
                         ),
@@ -3356,11 +3372,11 @@ endif
             (
                 "if a then b",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::IfSingleLine {
                             condition: Expression::Identifier(Identifier(String::from("a"))),
                             consequence: Box::new(
-                                StatementWithRow::new(
+                                StatementWithRow::new_expected(
                                     Statement::Expression(Expression::Identifier(Identifier(String::from("b")))),
                                     1
                                 )
@@ -3374,17 +3390,17 @@ endif
             (
                 "if a then b else c",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::IfSingleLine {
                             condition: Expression::Identifier(Identifier(String::from("a"))),
                             consequence: Box::new(
-                                StatementWithRow::new(
+                                StatementWithRow::new_expected(
                                     Statement::Expression(Expression::Identifier(Identifier(String::from("b")))),
                                     1
                                 )
                             ),
                             alternative: Box::new(Some(
-                                StatementWithRow::new(
+                                StatementWithRow::new_expected(
                                     Statement::Expression(Expression::Identifier(Identifier(String::from("c")))),
                                     1
                                 )
@@ -3397,17 +3413,17 @@ endif
             (
                 "if a then print 1 else b = c",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::IfSingleLine {
                             condition: Expression::Identifier(Identifier(String::from("a"))),
                             consequence: Box::new(
-                                StatementWithRow::new(
+                                StatementWithRow::new_expected(
                                     Statement::Print(Expression::Literal(Literal::Num(1 as f64))),
                                     1
                                 )
                             ),
                             alternative: Box::new(Some(
-                                StatementWithRow::new(
+                                StatementWithRow::new_expected(
                                     Statement::Expression(Expression::Assign(
                                         Box::new(Expression::Identifier(Identifier(String::from("b")))),
                                         Box::new(Expression::Identifier(Identifier(String::from("c")))),
@@ -3434,11 +3450,11 @@ if b
 endif
 "#;
         parser_test(input, vec![
-            StatementWithRow::new(
+            StatementWithRow::new_expected(
                 Statement::If{
                     condition: Expression::Identifier(Identifier(String::from("b"))),
                     consequence: vec![
-                        StatementWithRow::new(
+                        StatementWithRow::new_expected(
                             Statement::Expression(Expression::Identifier(Identifier(String::from("statement1")))),
                             3
                         )
@@ -3461,21 +3477,21 @@ else
 endif
 "#;
         parser_test(input, vec![
-            StatementWithRow::new(
+            StatementWithRow::new_expected(
                 Statement::If {
                     condition: Expression::Identifier(Identifier(String::from("a"))),
                     consequence: vec![
-                        StatementWithRow::new(
+                        StatementWithRow::new_expected(
                             Statement::Expression(Expression::Identifier(Identifier(String::from("statement1")))),
                             3
                         ),
                     ],
                     alternative: Some(vec![
-                        StatementWithRow::new(
+                        StatementWithRow::new_expected(
                             Statement::Expression(Expression::Identifier(Identifier(String::from("statement2_1")))),
                             5
                         ),
-                        StatementWithRow::new(
+                        StatementWithRow::new_expected(
                             Statement::Expression(Expression::Identifier(Identifier(String::from("statement2_2")))),
                             6
                         ),
@@ -3503,11 +3519,11 @@ else
 endif
 "#;
         parser_test(input, vec![
-            StatementWithRow::new(
+            StatementWithRow::new_expected(
                 Statement::ElseIf {
                     condition: Expression::Identifier(Identifier(String::from("a"))),
                     consequence: vec![
-                        StatementWithRow::new(
+                        StatementWithRow::new_expected(
                             Statement::Expression(Expression::Identifier(Identifier(String::from("statement1")))),
                             3
                         )
@@ -3516,7 +3532,7 @@ endif
                         (
                             Some(Expression::Identifier(Identifier(String::from("b")))),
                             vec![
-                                StatementWithRow::new(
+                                StatementWithRow::new_expected(
                                     Statement::Expression(Expression::Identifier(Identifier(String::from("statement2")))),
                                     5
                                 )
@@ -3525,7 +3541,7 @@ endif
                         (
                             Some(Expression::Identifier(Identifier(String::from("c")))),
                             vec![
-                                StatementWithRow::new(
+                                StatementWithRow::new_expected(
                                     Statement::Expression(Expression::Identifier(Identifier(String::from("statement3")))),
                                     7
                                 )
@@ -3534,7 +3550,7 @@ endif
                         (
                             Some(Expression::Identifier(Identifier(String::from("d")))),
                             vec![
-                                StatementWithRow::new(
+                                StatementWithRow::new_expected(
                                     Statement::Expression(Expression::Identifier(Identifier(String::from("statement4")))),
                                     9
                                 )
@@ -3543,7 +3559,7 @@ endif
                         (
                             None,
                             vec![
-                                StatementWithRow::new(
+                                StatementWithRow::new_expected(
                                     Statement::Expression(Expression::Identifier(Identifier(String::from("statement5")))),
                                     11
                                 )
@@ -3565,11 +3581,11 @@ elseif b then
 endif
 "#;
         parser_test(input, vec![
-            StatementWithRow::new(
+            StatementWithRow::new_expected(
                 Statement::ElseIf {
                     condition: Expression::Identifier(Identifier(String::from("a"))),
                     consequence: vec![
-                        StatementWithRow::new(
+                        StatementWithRow::new_expected(
                             Statement::Expression(Expression::Identifier(Identifier(String::from("statement1")))),
                             3
                         )
@@ -3578,7 +3594,7 @@ endif
                         (
                             Some(Expression::Identifier(Identifier(String::from("b")))),
                             vec![
-                                StatementWithRow::new(
+                                StatementWithRow::new_expected(
                                     Statement::Expression(Expression::Identifier(Identifier(String::from("statement2")))),
                                     5
                                 )
@@ -3606,7 +3622,7 @@ select 1
 selend
                 "#,
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Select {
                             expression: Expression::Literal(Literal::Num(1.0)),
                             cases: vec![
@@ -3616,7 +3632,7 @@ selend
                                         Expression::Literal(Literal::Num(2.0))
                                     ],
                                     vec![
-                                        StatementWithRow::new(
+                                        StatementWithRow::new_expected(
                                             Statement::Print(Expression::Identifier(Identifier("a".to_string()))),
                                             4
                                         )
@@ -3627,7 +3643,7 @@ selend
                                         Expression::Literal(Literal::Num(3.0))
                                     ],
                                     vec![
-                                        StatementWithRow::new(
+                                        StatementWithRow::new_expected(
                                             Statement::Print(Expression::Identifier(Identifier("b".to_string()))),
                                             6
                                         )
@@ -3635,7 +3651,7 @@ selend
                                 ),
                             ],
                             default: Some(vec![
-                                StatementWithRow::new(
+                                StatementWithRow::new_expected(
                                     Statement::Print(Expression::Identifier(Identifier("c".to_string()))),
                                     8
                                 )
@@ -3653,12 +3669,12 @@ select 1
 selend
                 "#,
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Select {
                             expression: Expression::Literal(Literal::Num(1.0)),
                             cases: vec![],
                             default: Some(vec![
-                                StatementWithRow::new(
+                                StatementWithRow::new_expected(
                                     Statement::Print(Expression::Identifier(Identifier("c".to_string()))),
                                     4
                                 )
@@ -3676,7 +3692,7 @@ select 1
 selend
                 "#,
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Select {
                             expression: Expression::Literal(Literal::Num(1.0)),
                             cases: vec![
@@ -3685,7 +3701,7 @@ selend
                                         Expression::Literal(Literal::Num(1.0)),
                                     ],
                                     vec![
-                                        StatementWithRow::new(
+                                        StatementWithRow::new_expected(
                                             Statement::Print(Expression::Identifier(Identifier("a".to_string()))),
                                             4
                                         )
@@ -3711,21 +3727,21 @@ selend
 +1
         "#;
         parser_test(input, vec![
-            StatementWithRow::new(
+            StatementWithRow::new_expected(
                 Statement::Expression(Expression::Prefix(
                     Prefix::Not,
                     Box::new(Expression::Identifier(Identifier(String::from("hoge"))))
                 )),
                 2
             ),
-            StatementWithRow::new(
+            StatementWithRow::new_expected(
                 Statement::Expression(Expression::Prefix(
                     Prefix::Minus,
                     Box::new(Expression::Literal(Literal::Num(1 as f64)))
                 )),
                 3
             ),
-            StatementWithRow::new(
+            StatementWithRow::new_expected(
                 Statement::Expression(Expression::Prefix(
                     Prefix::Plus,
                     Box::new(Expression::Literal(Literal::Num(1 as f64)))
@@ -3752,7 +3768,7 @@ selend
 3 <= 3
         "#;
         parser_test(input, vec![
-            StatementWithRow::new(
+            StatementWithRow::new_expected(
                 Statement::Expression(Expression::Infix(
                     Infix::Plus,
                     Box::new(Expression::Literal(Literal::Num(3 as f64))),
@@ -3760,7 +3776,7 @@ selend
                 )),
                 2
             ),
-            StatementWithRow::new(
+            StatementWithRow::new_expected(
                 Statement::Expression(Expression::Infix(
                     Infix::Minus,
                     Box::new(Expression::Literal(Literal::Num(3 as f64))),
@@ -3768,7 +3784,7 @@ selend
                 )),
                 3
             ),
-            StatementWithRow::new(
+            StatementWithRow::new_expected(
                 Statement::Expression(Expression::Infix(
                     Infix::Multiply,
                     Box::new(Expression::Literal(Literal::Num(3 as f64))),
@@ -3776,7 +3792,7 @@ selend
                 )),
                 4
             ),
-            StatementWithRow::new(
+            StatementWithRow::new_expected(
                 Statement::Expression(Expression::Infix(
                     Infix::Divide,
                     Box::new(Expression::Literal(Literal::Num(3 as f64))),
@@ -3784,7 +3800,7 @@ selend
                 )),
                 5
             ),
-            StatementWithRow::new(
+            StatementWithRow::new_expected(
                 Statement::Expression(Expression::Infix(
                     Infix::GreaterThan,
                     Box::new(Expression::Literal(Literal::Num(3 as f64))),
@@ -3792,7 +3808,7 @@ selend
                 )),
                 6
             ),
-            StatementWithRow::new(
+            StatementWithRow::new_expected(
                 Statement::Expression(Expression::Infix(
                     Infix::LessThan,
                     Box::new(Expression::Literal(Literal::Num(3 as f64))),
@@ -3800,7 +3816,7 @@ selend
                 )),
                 7
             ),
-            StatementWithRow::new(
+            StatementWithRow::new_expected(
                 Statement::Expression(Expression::Infix(
                     Infix::Equal,
                     Box::new(Expression::Literal(Literal::Num(3 as f64))),
@@ -3808,7 +3824,7 @@ selend
                 )),
                 8
             ),
-            StatementWithRow::new(
+            StatementWithRow::new_expected(
                 Statement::Expression(Expression::Infix(
                     Infix::Equal,
                     Box::new(Expression::Literal(Literal::Num(3 as f64))),
@@ -3816,7 +3832,7 @@ selend
                 )),
                 9
             ),
-            StatementWithRow::new(
+            StatementWithRow::new_expected(
                 Statement::Expression(Expression::Infix(
                     Infix::NotEqual,
                     Box::new(Expression::Literal(Literal::Num(3 as f64))),
@@ -3824,7 +3840,7 @@ selend
                 )),
                 10
             ),
-            StatementWithRow::new(
+            StatementWithRow::new_expected(
                 Statement::Expression(Expression::Infix(
                     Infix::NotEqual,
                     Box::new(Expression::Literal(Literal::Num(3 as f64))),
@@ -3832,7 +3848,7 @@ selend
                 )),
                 11
             ),
-            StatementWithRow::new(
+            StatementWithRow::new_expected(
                 Statement::Expression(Expression::Infix(
                     Infix::GreaterThanEqual,
                     Box::new(Expression::Literal(Literal::Num(3 as f64))),
@@ -3840,7 +3856,7 @@ selend
                 )),
                 12
             ),
-            StatementWithRow::new(
+            StatementWithRow::new_expected(
                 Statement::Expression(Expression::Infix(
                     Infix::LessThanEqual,
                     Box::new(Expression::Literal(Literal::Num(3 as f64))),
@@ -3858,7 +3874,7 @@ selend
             (
                 "-a * b",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Expression(Expression::Infix(
                             Infix::Multiply,
                             Box::new(Expression::Prefix(
@@ -3873,7 +3889,7 @@ selend
             (
                 "!-a",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Expression(Expression::Prefix(
                             Prefix::Not,
                             Box::new(Expression::Prefix(
@@ -3887,7 +3903,7 @@ selend
             (
                 "a + b + c",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Expression(Expression::Infix(
                             Infix::Plus,
                             Box::new(Expression::Infix(
@@ -3903,7 +3919,7 @@ selend
             (
                 "a + b - c",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Expression(Expression::Infix(
                             Infix::Minus,
                             Box::new(Expression::Infix(
@@ -3919,7 +3935,7 @@ selend
             (
                 "a * b * c",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Expression(Expression::Infix(
                             Infix::Multiply,
                             Box::new(Expression::Infix(
@@ -3935,7 +3951,7 @@ selend
             (
                 "a * b / c",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Expression(Expression::Infix(
                             Infix::Divide,
                             Box::new(Expression::Infix(
@@ -3951,7 +3967,7 @@ selend
             (
                 "a + b / c",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Expression(Expression::Infix(
                             Infix::Plus,
                             Box::new(Expression::Identifier(Identifier(String::from("a")))),
@@ -3967,7 +3983,7 @@ selend
             (
                 "a + b * c + d / e - f",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Expression(Expression::Infix(
                             Infix::Minus,
                             Box::new(Expression::Infix(
@@ -3995,7 +4011,7 @@ selend
             (
                 "5 > 4 == 3 < 4",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Expression(
                             Expression::Infix(
                                 Infix::Equal,
@@ -4017,7 +4033,7 @@ selend
             (
                 "5 < 4 != 3 > 4",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Expression(
                             Expression::Infix(
                                 Infix::NotEqual,
@@ -4039,7 +4055,7 @@ selend
             (
                 "5 >= 4 = 3 <= 4",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Expression(
                             Expression::Infix(
                                 Infix::Equal,
@@ -4061,7 +4077,7 @@ selend
             (
                 "3 + 4 * 5 == 3 * 1 + 4 * 5",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Expression(
                             Expression::Infix(
                                 Infix::Equal,
@@ -4095,7 +4111,7 @@ selend
             (
                 "3 > 5 == FALSE",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Expression(
                             Expression::Infix(
                                 Infix::Equal,
@@ -4113,7 +4129,7 @@ selend
             (
                 "3 < 5 = TRUE",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Expression(
                             Expression::Infix(
                                 Infix::Equal,
@@ -4131,7 +4147,7 @@ selend
             (
                 "1 + (2 + 3) + 4",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Expression(
                             Expression::Infix(
                                 Infix::Plus,
@@ -4153,7 +4169,7 @@ selend
             (
                 "(5 + 5) * 2",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Expression(
                             Expression::Infix(
                                 Infix::Multiply,
@@ -4171,7 +4187,7 @@ selend
             (
                 "2 / (5 + 5)",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Expression(
                             Expression::Infix(
                                 Infix::Divide,
@@ -4189,7 +4205,7 @@ selend
             (
                 "-(5 + 5)",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Expression(Expression::Prefix(
                             Prefix::Minus,
                             Box::new(Expression::Infix(
@@ -4204,7 +4220,7 @@ selend
             (
                 "!(5 = 5)",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Expression(Expression::Prefix(
                             Prefix::Not,
                             Box::new(Expression::Infix(
@@ -4219,7 +4235,7 @@ selend
             (
                 "a + add(b * c) + d",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Expression(Expression::Infix(
                             Infix::Plus,
                             Box::new(Expression::Infix(
@@ -4245,7 +4261,7 @@ selend
             (
                 "add(a, b, 1, 2 * 3, 4 + 5, add(6, 7 * 8))",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Expression(Expression::FuncCall{
                             func: Box::new(Expression::Identifier(Identifier(String::from("add")))),
                             args: vec![
@@ -4283,7 +4299,7 @@ selend
             (
                 "a * [1, 2, 3, 4][b * c] * d",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Expression(Expression::Infix(
                             Infix::Multiply,
                             Box::new(Expression::Infix(
@@ -4314,7 +4330,7 @@ selend
             (
                 "add(a * b[2], b[1], 2 * [1, 2][1])",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Expression(Expression::FuncCall{
                             func: Box::new(Expression::Identifier(Identifier(String::from("add")))),
                             args: vec![
@@ -4355,7 +4371,7 @@ selend
             (
                 "a or b and c",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Expression(Expression::Infix(
                             Infix::Or,
                             Box::new(Expression::Identifier(Identifier(String::from("a")))),
@@ -4371,7 +4387,7 @@ selend
             (
                 "1 + 5 mod 3",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Expression(Expression::Infix(
                             Infix::Plus,
                             Box::new(Expression::Literal(Literal::Num(1 as f64))),
@@ -4387,7 +4403,7 @@ selend
             (
                 "3 * 2 and 2 xor (2 or 4)",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Expression(Expression::Infix(
                             Infix::Xor,
                             Box::new(Expression::Infix(
@@ -4415,7 +4431,7 @@ if a = b = c then
 endif
                 "#,
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::If {
                             condition: Expression::Infix(
                                 Infix::Equal,
@@ -4427,7 +4443,7 @@ endif
                                 Box::new(Expression::Identifier(Identifier(String::from("c")))),
                             ),
                             consequence: vec![
-                                StatementWithRow::new(
+                                StatementWithRow::new_expected(
                                     Statement::Print(Expression::Literal(Literal::Num(1 as f64))),
                                     3
                                 )
@@ -4449,7 +4465,7 @@ endif
             (
                 "a = 1",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Expression(Expression::Assign(
                             Box::new(Expression::Identifier(Identifier(String::from("a")))),
                             Box::new(Expression::Literal(Literal::Num(1 as f64)))
@@ -4460,7 +4476,7 @@ endif
             (
                 "a[0] = 1",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Expression(Expression::Assign(
                             Box::new(Expression::Index(
                                 Box::new(Expression::Identifier(Identifier(String::from("a")))),
@@ -4475,7 +4491,7 @@ endif
             (
                 "a = 1 = 2", // a に 1 = 2 を代入
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Expression(Expression::Assign(
                             Box::new(Expression::Identifier(Identifier(String::from("a")))),
                             Box::new(Expression::Infix(
@@ -4503,14 +4519,14 @@ for i = 0 to 5
 next
                 "#,
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::For {
                             loopvar: Identifier(String::from("i")),
                             from: Expression::Literal(Literal::Num(0 as f64)),
                             to: Expression::Literal(Literal::Num(5 as f64)),
                             step: None,
                             block: vec![
-                                StatementWithRow::new(
+                                StatementWithRow::new_expected(
                                     Statement::Print(Expression::Identifier(Identifier(String::from("i")))),
                                     3
                                 )
@@ -4527,7 +4543,7 @@ for i = 5 to 0 step -1
 next
                 "#,
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::For {
                             loopvar: Identifier(String::from("i")),
                             from: Expression::Literal(Literal::Num(5 as f64)),
@@ -4537,7 +4553,7 @@ next
                                 Box::new(Expression::Literal(Literal::Num(1 as f64)))
                             )),
                             block: vec![
-                                StatementWithRow::new(
+                                StatementWithRow::new_expected(
                                     Statement::Print(Expression::Identifier(Identifier(String::from("i")))),
                                     3
                                 )
@@ -4554,12 +4570,12 @@ for item in col
 next
                 "#,
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::ForIn {
                             loopvar: Identifier(String::from("item")),
                             collection: Expression::Identifier(Identifier(String::from("col"))),
                             block: vec![
-                                StatementWithRow::new(
+                                StatementWithRow::new_expected(
                                     Statement::Print(Expression::Identifier(Identifier(String::from("item")))),
                                     3
                                 )
@@ -4578,20 +4594,20 @@ else
 endfor
                 "#,
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::For {
                             loopvar: Identifier(String::from("i")),
                             from: Expression::Literal(Literal::Num(0 as f64)),
                             to: Expression::Literal(Literal::Num(5 as f64)),
                             step: None,
                             block: vec![
-                                StatementWithRow::new(
+                                StatementWithRow::new_expected(
                                     Statement::Print(Expression::Identifier(Identifier(String::from("i")))),
                                     3
                                 )
                             ],
                             alt: Some(vec![
-                                StatementWithRow::new(
+                                StatementWithRow::new_expected(
                                     Statement::Print(Expression::Identifier(Identifier("not_found".into()))),
                                     5
                                 )
@@ -4609,18 +4625,18 @@ else
 endfor
                 "#,
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::ForIn {
                             loopvar: Identifier(String::from("item")),
                             collection: Expression::Identifier(Identifier(String::from("col"))),
                             block: vec![
-                                StatementWithRow::new(
+                                StatementWithRow::new_expected(
                                     Statement::Print(Expression::Identifier(Identifier(String::from("item")))),
                                     3
                                 )
                             ],
                             alt: Some(vec![
-                                StatementWithRow::new(
+                                StatementWithRow::new_expected(
                                     Statement::Print(Expression::Identifier(Identifier("not_found".into()))),
                                     5
                                 )
@@ -4644,12 +4660,12 @@ for item in col
 fend
         "#;
         let expected = vec![
-            StatementWithRow::new(
+            StatementWithRow::new_expected(
                 Statement::ForIn {
                     loopvar: Identifier(String::from("item")),
                     collection: Expression::Identifier(Identifier(String::from("col"))),
                     block: vec![
-                        StatementWithRow::new(
+                        StatementWithRow::new_expected(
                             Statement::Print(Expression::Identifier(Identifier(String::from("item")))),
                             3
                         )
@@ -4669,7 +4685,7 @@ while (a == b) and (c >= d)
 wend
         "#;
         parser_test(input, vec![
-            StatementWithRow::new(
+            StatementWithRow::new_expected(
                 Statement::While(
                     Expression::Infix(
                         Infix::And,
@@ -4685,7 +4701,7 @@ wend
                         )),
                     ),
                     vec![
-                        StatementWithRow::new(
+                        StatementWithRow::new_expected(
                             Statement::Expression(Expression::FuncCall {
                                 func: Box::new(Expression::Identifier(Identifier(String::from("dosomething")))),
                                 args: vec![],
@@ -4706,7 +4722,7 @@ repeat
 until (a == b) and (c >= d)
         "#;
         parser_test(input, vec![
-            StatementWithRow::new(
+            StatementWithRow::new_expected(
                 Statement::Repeat(
                     Expression::Infix(
                         Infix::And,
@@ -4722,7 +4738,7 @@ until (a == b) and (c >= d)
                         )),
                     ),
                     vec![
-                        StatementWithRow::new(
+                        StatementWithRow::new_expected(
                             Statement::Expression(Expression::FuncCall {
                                 func: Box::new(Expression::Identifier(Identifier(String::from("dosomething")))),
                                 args: vec![],
@@ -4741,7 +4757,7 @@ until (a == b) and (c >= d)
             (
                 "a ? b : c",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Expression(Expression::Ternary{
                             condition: Box::new(Expression::Identifier(Identifier(String::from("a")))),
                             consequence: Box::new(Expression::Identifier(Identifier(String::from("b")))),
@@ -4753,7 +4769,7 @@ until (a == b) and (c >= d)
             (
                 "x = a ? b : c",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Expression(Expression::Assign(
                             Box::new(Expression::Identifier(Identifier(String::from("x")))),
                             Box::new(Expression::Ternary{
@@ -4768,7 +4784,7 @@ until (a == b) and (c >= d)
             (
                 "hoge[a?b:c]",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Expression(Expression::Index(
                             Box::new(Expression::Identifier(Identifier(String::from("hoge")))),
                             Box::new(Expression::Ternary{
@@ -4784,7 +4800,7 @@ until (a == b) and (c >= d)
             (
                 "x + y * a ? b + q : c / r",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Expression(Expression::Ternary{
                             condition: Box::new(Expression::Infix(
                                 Infix::Plus,
@@ -4812,7 +4828,7 @@ until (a == b) and (c >= d)
             (
                 "a ? b: c ? d: e",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Expression(Expression::Ternary{
                             condition: Box::new(Expression::Identifier(Identifier("a".to_string()))),
                             consequence: Box::new(Expression::Identifier(Identifier("b".to_string()))),
@@ -4837,7 +4853,7 @@ until (a == b) and (c >= d)
             (
                 "hashtbl hoge",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::HashTbl(vec![
                             (
                                 Identifier(String::from("hoge")),
@@ -4850,7 +4866,7 @@ until (a == b) and (c >= d)
             (
                 "hashtbl hoge = HASH_CASECARE",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::HashTbl(vec![
                             (
                                 Identifier(String::from("hoge")),
@@ -4864,7 +4880,7 @@ until (a == b) and (c >= d)
             (
                 "hashtbl hoge = HASH_SORT",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::HashTbl(vec![
                             (
                                 Identifier(String::from("hoge")),
@@ -4878,7 +4894,7 @@ until (a == b) and (c >= d)
             (
                 "public hashtbl hoge",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::HashTbl(vec![
                             (
                                 Identifier(String::from("hoge")),
@@ -4903,7 +4919,7 @@ until (a == b) and (c >= d)
                 endhash
                 "#,
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Hash(HashSugar::new(
                             Identifier("hoge".into()),
                             None,
@@ -4920,7 +4936,7 @@ until (a == b) and (c >= d)
                 endhash
                 "#,
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Hash(HashSugar::new(
                             Identifier("hoge".into()),
                             Some(Expression::Identifier(Identifier("HASH_CASECARE".to_string()))),
@@ -4937,7 +4953,7 @@ until (a == b) and (c >= d)
                 endhash
                 "#,
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Hash(HashSugar::new(
                             Identifier("hoge".into()),
                             None,
@@ -4958,7 +4974,7 @@ until (a == b) and (c >= d)
                 endhash
                 "#,
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Hash(HashSugar::new(
                             Identifier("hoge".into()),
                             None,
@@ -4990,7 +5006,7 @@ function hoge(foo, bar, baz)
 fend
                 "#,
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Function {
                             name: Identifier("hoge".to_string()),
                             params: vec![
@@ -4999,7 +5015,7 @@ fend
                                 FuncParam::new(Some("baz".into()), ParamKind::Identifier),
                             ],
                             body: vec![
-                                StatementWithRow::new(
+                                StatementWithRow::new_expected(
                                     Statement::Expression(
                                         Expression::Assign(
                                             Box::new(Expression::Identifier(Identifier("result".to_string()))),
@@ -5028,7 +5044,7 @@ procedure hoge(foo, var bar, baz[], qux = 1)
 fend
                 "#,
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Function {
                             name: Identifier("hoge".to_string()),
                             params: vec![
@@ -5050,7 +5066,7 @@ procedure hoge(foo: string, var bar: Hoge, qux: number = 1)
 fend
                 "#,
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Function {
                             name: Identifier("hoge".to_string()),
                             params: vec![
@@ -5071,7 +5087,7 @@ procedure hoge(ref foo, args bar)
 fend
                 "#,
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Function {
                             name: Identifier("hoge".to_string()),
                             params: vec![
@@ -5094,14 +5110,14 @@ function hoge(a)
 fend
                 "#,
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Function {
                             name: Identifier("hoge".to_string()),
                             params: vec![
                                 FuncParam::new(Some("a".into()), ParamKind::Identifier),
                             ],
                             body: vec![
-                                StatementWithRow::new(
+                                StatementWithRow::new_expected(
                                     Statement::Expression(
                                         Expression::Assign(
                                             Box::new(Expression::Identifier(Identifier("result".to_string()))),
@@ -5114,7 +5130,7 @@ fend
                             is_async: false,
                         }, 4
                     ),
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Print(Expression::FuncCall{
                             func: Box::new(Expression::Identifier(Identifier("hoge".to_string()))),
                             args: vec![
@@ -5132,7 +5148,7 @@ hoge = function(a)
 fend
                 "#,
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Expression(Expression::Assign(
                             Box::new(Expression::Identifier(Identifier("hoge".to_string()))),
                             Box::new(Expression::AnonymusFunction{
@@ -5140,7 +5156,7 @@ fend
                                     FuncParam::new(Some("a".into()), ParamKind::Identifier),
                                 ],
                                 body: vec![
-                                    StatementWithRow::new(
+                                    StatementWithRow::new_expected(
                                         Statement::Expression(Expression::Assign(
                                             Box::new(Expression::Identifier(Identifier("result".to_string()))),
                                             Box::new(Expression::Identifier(Identifier("a".to_string())))
@@ -5160,7 +5176,7 @@ hoge = procedure(a)
 fend
                 "#,
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Expression(Expression::Assign(
                             Box::new(Expression::Identifier(Identifier("hoge".to_string()))),
                             Box::new(Expression::AnonymusFunction{
@@ -5168,7 +5184,7 @@ fend
                                     FuncParam::new(Some("a".into()), ParamKind::Identifier),
                                 ],
                                 body: vec![
-                                    StatementWithRow::new(
+                                    StatementWithRow::new_expected(
                                         Statement::Print(
                                             Expression::Identifier(Identifier("a".to_string()))
                                         ), 3
@@ -5198,7 +5214,7 @@ func(
 )
                 "#,
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Expression(Expression::FuncCall {
                             func: Box::new(Expression::Identifier(Identifier("func".to_string()))),
                             args: vec![
@@ -5221,7 +5237,7 @@ func(
 )
                 "#,
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Expression(Expression::FuncCall {
                             func: Box::new(Expression::Identifier(Identifier("func".to_string()))),
                             args: vec![
@@ -5242,7 +5258,7 @@ func(3
     3)
                 "#,
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Expression(Expression::FuncCall {
                             func: Box::new(Expression::Identifier(Identifier("func".to_string()))),
                             args: vec![
@@ -5259,7 +5275,7 @@ func(3
             (
                 "func( , , 4)",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Expression(Expression::FuncCall {
                             func: Box::new(Expression::Identifier(Identifier("func".to_string()))),
                             args: vec![
@@ -5282,7 +5298,7 @@ func(
 )
                 "#,
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Expression(Expression::FuncCall {
                             func: Box::new(Expression::Identifier(Identifier("func".to_string()))),
                             args: vec![
@@ -5299,7 +5315,7 @@ func(
             (
                 "func( 5, , 5)",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Expression(Expression::FuncCall {
                             func: Box::new(Expression::Identifier(Identifier("func".to_string()))),
                             args: vec![
@@ -5316,7 +5332,7 @@ func(
             (
                 "func( 5, , )",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Expression(Expression::FuncCall {
                             func: Box::new(Expression::Identifier(Identifier("func".to_string()))),
                             args: vec![
@@ -5342,7 +5358,7 @@ func(
             (
                 "a += 1",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Expression(Expression::CompoundAssign(
                             Box::new(Expression::Identifier(Identifier("a".to_string()))),
                             Box::new(Expression::Literal(Literal::Num(1.0))),
@@ -5354,7 +5370,7 @@ func(
             (
                 "a -= 1",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Expression(Expression::CompoundAssign(
                             Box::new(Expression::Identifier(Identifier("a".to_string()))),
                             Box::new(Expression::Literal(Literal::Num(1.0))),
@@ -5366,7 +5382,7 @@ func(
             (
                 "a *= 1",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Expression(Expression::CompoundAssign(
                             Box::new(Expression::Identifier(Identifier("a".to_string()))),
                             Box::new(Expression::Literal(Literal::Num(1.0))),
@@ -5378,7 +5394,7 @@ func(
             (
                 "a /= 1",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Expression(Expression::CompoundAssign(
                             Box::new(Expression::Identifier(Identifier("a".to_string()))),
                             Box::new(Expression::Literal(Literal::Num(1.0))),
@@ -5399,7 +5415,7 @@ func(
             (
                 "print hoge.a",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Print(Expression::DotCall(
                             Box::new(Expression::Identifier(Identifier("hoge".into()))),
                             Box::new(Expression::Identifier(Identifier("a".into()))),
@@ -5410,7 +5426,7 @@ func(
             (
                 "print hoge.b()",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Print(Expression::FuncCall{
                             func: Box::new(Expression::DotCall(
                                 Box::new(Expression::Identifier(Identifier("hoge".into()))),
@@ -5425,7 +5441,7 @@ func(
             (
                 "hoge.a = 1",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Expression(Expression::Assign(
                             Box::new(Expression::DotCall(
                                 Box::new(Expression::Identifier(Identifier("hoge".into()))),
@@ -5448,7 +5464,7 @@ func(
             (
                 "def_dll hoge(int, dword[], byte[], var string, var long[], {word,word}):bool:hoge.dll",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::DefDll {
                             name: "hoge".into(),
                             params: vec![
@@ -5471,7 +5487,7 @@ func(
             (
                 "def_dll hoge({long, long, {long, long}}):bool:hoge.dll",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::DefDll {
                             name: "hoge".into(),
                             params: vec![
@@ -5491,7 +5507,7 @@ func(
             (
                 "def_dll hoge()::hoge.dll",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::DefDll {
                             name: "hoge".into(),
                             params: vec![],
@@ -5504,7 +5520,7 @@ func(
             (
                 "def_dll hoge():hoge.dll",
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::DefDll {
                             name: "hoge".into(),
                             params: vec![],
@@ -5541,32 +5557,32 @@ fend
 public p3 = 1
         "#;
         parser_test(input, vec![
-            StatementWithRow::new(
+            StatementWithRow::new_expected(
                 Statement::Public(vec![
                     (Identifier("p1".to_string()), Expression::Literal(Literal::Num(1.0)))
                 ]), 3
             ),
-            StatementWithRow::new(
+            StatementWithRow::new_expected(
                 Statement::Const(vec![
                     (Identifier("c1".to_string()), Expression::Literal(Literal::Num(1.0)))
                 ]), 4
             ),
-            StatementWithRow::new(
+            StatementWithRow::new_expected(
                 Statement::Const(vec![
                     (Identifier("c2".to_string()), Expression::Literal(Literal::Num(1.0)))
                 ]), 5
             ),
-            StatementWithRow::new(
+            StatementWithRow::new_expected(
                 Statement::Public(vec![
                     (Identifier("p2".to_string()), Expression::Literal(Literal::Num(1.0)))
                 ]), 6
             ),
-            StatementWithRow::new(
+            StatementWithRow::new_expected(
                 Statement::Public(
                     vec![(Identifier("p3".to_string()), Expression::Literal(Literal::Num(1.0)))]
                 ), 16
             ),
-            StatementWithRow::new(
+            StatementWithRow::new_expected(
                 Statement::Function {
                     name: Identifier("f1".to_string()),
                     params: vec![],
@@ -5575,7 +5591,7 @@ public p3 = 1
                     is_async: false,
                 }, 9
             ),
-            StatementWithRow::new(
+            StatementWithRow::new_expected(
                 Statement::Function {
                     name: Identifier("p1".to_string()),
                     params: vec![],
@@ -5584,7 +5600,7 @@ public p3 = 1
                     is_async: false,
                 }, 11
             ),
-            StatementWithRow::new(
+            StatementWithRow::new_expected(
                 Statement::Function {
                     name: Identifier("f2".to_string()),
                     params: vec![],
@@ -5593,12 +5609,12 @@ public p3 = 1
                     is_async: false,
                 }, 13
             ),
-            StatementWithRow::new(
+            StatementWithRow::new_expected(
                 Statement::Dim(vec![
                     (Identifier("d1".to_string()), Expression::Literal(Literal::Num(1.0)))
                 ]), 2
             ),
-            StatementWithRow::new(
+            StatementWithRow::new_expected(
                 Statement::Dim(vec![
                     (Identifier("d2".to_string()), Expression::Literal(Literal::Num(1.0)))
                 ]), 7
@@ -5628,31 +5644,31 @@ module Hoge
 endmodule
         "#;
         parser_test(input, vec![
-            StatementWithRow::new(
+            StatementWithRow::new_expected(
                 Statement::Module(
                     Identifier("Hoge".to_string()),
                     vec![
-                        StatementWithRow::new(
+                        StatementWithRow::new_expected(
                             Statement::Dim(vec![
                                 (Identifier("a".to_string()), Expression::Literal(Literal::Num(1.0)))
                             ]), 3
                         ),
-                        StatementWithRow::new(
+                        StatementWithRow::new_expected(
                             Statement::Public(vec![
                                 (Identifier("b".to_string()), Expression::Literal(Literal::Num(1.0)))
                             ]), 4
                         ),
-                        StatementWithRow::new(
+                        StatementWithRow::new_expected(
                             Statement::Const(vec![
                                 (Identifier("c".to_string()), Expression::Literal(Literal::Num(1.0)))
                             ]), 5
                         ),
-                        StatementWithRow::new(
+                        StatementWithRow::new_expected(
                             Statement::Function {
                                 name: Identifier("Hoge".to_string()),
                                 params: vec![],
                                 body: vec![
-                                    StatementWithRow::new(
+                                    StatementWithRow::new_expected(
                                         Statement::Expression(Expression::Assign(
                                             Box::new(Expression::DotCall(
                                                 Box::new(Expression::Identifier(Identifier("this".to_string()))),
@@ -5666,7 +5682,7 @@ endmodule
                                 is_async: false,
                             }, 7
                         ),
-                        StatementWithRow::new(
+                        StatementWithRow::new_expected(
                             Statement::Function {
                                 name: Identifier("f".to_string()),
                                 params: vec![
@@ -5674,7 +5690,7 @@ endmodule
                                     FuncParam::new(Some("y".into()), ParamKind::Identifier),
                                 ],
                                 body: vec![
-                                    StatementWithRow::new(
+                                    StatementWithRow::new_expected(
                                         Statement::Expression(Expression::Assign(
                                             Box::new(Expression::Identifier(Identifier("result".to_string()))),
                                             Box::new(Expression::Infix(
@@ -5695,7 +5711,7 @@ endmodule
                                 is_async: false,
                             }, 11
                         ),
-                        StatementWithRow::new(
+                        StatementWithRow::new_expected(
                             Statement::Dim(vec![
                                 (
                                     Identifier("_f".to_string()),
@@ -5704,7 +5720,7 @@ endmodule
                                             FuncParam::new(Some("z".into()), ParamKind::Identifier),
                                         ],
                                         body: vec![
-                                            StatementWithRow::new(
+                                            StatementWithRow::new_expected(
                                                 Statement::Expression(Expression::Assign(
                                                     Box::new(Expression::Identifier(Identifier("result".to_string()))),
                                                     Box::new(Expression::Infix(
@@ -5735,7 +5751,7 @@ struct Point
 endstruct
         "#;
         parser_test(input, vec![
-            StatementWithRow::new(
+            StatementWithRow::new_expected(
                 Statement::Struct(Identifier("Point".into()), vec![
                     ("x".into(), DllType::Long),
                     ("y".into(), DllType::Long),
@@ -5751,7 +5767,7 @@ function hoge(foo: string, bar: BarEnum, baz: number = 1)
 fend
         "#;
         parser_test(input, vec![
-            StatementWithRow::new(
+            StatementWithRow::new_expected(
                 Statement::Function {
                     name: Identifier("hoge".into()),
                     params: vec![
@@ -5790,7 +5806,7 @@ fend
                 ]
                 "#,
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Print(Expression::Literal(Literal::Array(vec![
                             Expression::Literal(Literal::String("foo".into())),
                             Expression::Literal(Literal::String("bar".into())),
@@ -5810,7 +5826,7 @@ fend
                 )
                 "#,
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Dim(vec![
                             (
                                 Identifier("ret".into()),
@@ -5840,7 +5856,7 @@ fend
                 fend
                 "#,
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::Function {
                             name: "func".into(),
                             params: vec![
@@ -5867,7 +5883,7 @@ fend
                 ):int:user32
                 "#,
                 vec![
-                    StatementWithRow::new(
+                    StatementWithRow::new_expected(
                         Statement::DefDll {
                             name: "MessageBoxA".into(),
                             params: vec![

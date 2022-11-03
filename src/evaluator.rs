@@ -135,7 +135,6 @@ impl Evaluator {
         let Program(program_block, mut lines) = program;
         self.lines.append(&mut lines);
         for statement in program_block {
-            let row = statement.row;
             let res = stacker::maybe_grow(2 * 1024 * 1024, 20*1024*1024, || {
                 self.eval_statement(statement)
             });
@@ -150,15 +149,9 @@ impl Evaluator {
                     },
                     None => ()
                 },
-                Err(mut e) => if let UErrorKind::ExitExit(n) = e.kind {
+                Err(e) => if let UErrorKind::ExitExit(n) = e.kind {
                     std::process::exit(n);
                 } else {
-                    let line = self.lines[row - 1].clone();
-                    if e.line.has_row() {
-                        e.line.set_line_if_none(line)
-                    } else {
-                        e.set_line(row, Some(line));
-                    }
                     return Err(e);
                 }
             }
@@ -172,7 +165,6 @@ impl Evaluator {
 
     fn eval_block_statement(&mut self, block: BlockStatement) -> EvalResult<Option<Object>> {
         for statement in block {
-            let row = statement.row;
             match self.eval_statement(statement) {
                 Ok(result) => match result {
                     Some(o) => match o {
@@ -183,8 +175,7 @@ impl Evaluator {
                     },
                     None => (),
                 },
-                Err(mut e) => {
-                    e.set_line(row, Some(self.get_line(row)?));
+                Err(e) => {
                     return Err(e);
                 }
             };
@@ -320,7 +311,7 @@ impl Evaluator {
     }
 
     fn eval_statement(&mut self, statement: StatementWithRow) -> EvalResult<Option<Object>> {
-        let StatementWithRow { statement, row } = statement;
+        let StatementWithRow { statement, row, line, script_name } = statement;
         let result = self.eval_statement_inner(statement);
         if self.ignore_com_err {
             match result {
@@ -330,7 +321,7 @@ impl Evaluator {
                     Ok(None)
                 } else {
                     if ! e.line.has_row() {
-                        e.set_line(row, None);
+                        e.set_line(row, line, script_name);
                     }
                     Err(e)
                 }
@@ -341,7 +332,7 @@ impl Evaluator {
                 Ok(r) => Ok(r),
                 Err(mut e) => {
                     if ! e.line.has_row() {
-                        e.set_line(row, None);
+                        e.set_line(row, line, script_name);
                     }
                     Err(e)
                 }
@@ -399,7 +390,7 @@ impl Evaluator {
             },
             Statement::Print(e) => self.eval_print_statement(e),
             Statement::Call(block, args) => {
-                let Program(body, lines) = block;
+                let Program(body, _) = block;
                 let params = vec![
                     FuncParam::new(Some("PARAM_STR".into()), ParamKind::Identifier)
                 ];
@@ -415,21 +406,11 @@ impl Evaluator {
                     module: None,
                     outer: None,
                 };
-                match func.invoke(self, arguments, false) {
+                let result = match func.invoke(self, arguments, false) {
                     Ok(_) => Ok(None),
-                    Err(mut e) => {
-                        let row = e.line.row;
-                        if row > 1 && row <= lines.len() {
-                            e.line.set_line_if_none(lines[row - 1].clone());
-                        } else {
-                            return Err(UError::new(
-                                UErrorKind::EvaluatorError,
-                                UErrorMessage::InvalidErrorLine(row)
-                            ));
-                        }
-                        Err(e)
-                    }
-                }
+                    Err(e) => Err(e),
+                };
+                result
             },
             Statement::DefDll{name, params, ret_type, path} => {
                 let func = self.eval_def_dll_statement(&name, &path, params, ret_type)?;
@@ -585,7 +566,6 @@ impl Evaluator {
 
     fn eval_loopblock_statement(&mut self, block: BlockStatement) -> EvalResult<Option<Object>> {
         for statement in block {
-            let row = statement.row;
             match self.eval_statement(statement) {
                 Ok(opt) => if let Some(o) = opt {
                     match o {
@@ -595,8 +575,7 @@ impl Evaluator {
                         _ => (),
                     }
                 },
-                Err(mut e) => {
-                    e.set_line(row, Some(self.get_line(row)?));
+                Err(e) => {
                     return Err(e);
                 }
             }
@@ -999,21 +978,19 @@ impl Evaluator {
         Ok(m)
     }
 
-    fn eval_try_statement(&mut self, trys: BlockStatement, except: Option<BlockStatement>, finally: Option<BlockStatement>) -> EvalResult<Option<Object>> {
+    fn eval_try_statement(&mut self, try_block: BlockStatement, except: Option<BlockStatement>, finally: Option<BlockStatement>) -> EvalResult<Option<Object>> {
         let opt_finally = {
             let usettings = USETTINGS.lock().unwrap();
             usettings.options.opt_finally
         };
-        let obj = match self.eval_block_statement(trys) {
+        let obj = match self.eval_block_statement(try_block) {
             Ok(opt) => opt,
-            Err(mut e) => if let UErrorKind::ExitExit(_) = e.kind {
+            Err(e) => if let UErrorKind::ExitExit(_) = e.kind {
                 if opt_finally && finally.is_some() {
                     self.eval_block_statement(finally.unwrap())?;
                 }
                 return Err(e)
             } else {
-                let row = e.line.row;
-                e.line.set_line_if_none(self.get_line(row)?);
                 self.env.set_try_error_messages(
                     e.to_string(),
                     e.get_line().to_string()

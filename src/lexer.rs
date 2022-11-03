@@ -75,6 +75,14 @@ impl Lexer {
 
         lexer
     }
+    pub fn get_line(&self, row: usize) -> String {
+        if row > 0 && row <= self.lines.len() {
+            let line = self.lines[row - 1].clone();
+            line
+        } else {
+            String::new()
+        }
+    }
 
     fn to_next_row(&mut self) {
         self.position_before = self.position.clone();

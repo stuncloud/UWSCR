@@ -316,22 +316,32 @@ impl UEnum {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StatementWithRow {
     pub statement: Statement,
     pub row: usize,
+    pub line: String,
+    pub script_name: Option<String>,
 }
 
 impl StatementWithRow {
-    pub fn new(statement: Statement, row: usize) -> Self {
-        Self {statement, row}
+    pub fn new(statement: Statement, row: usize, line: String, script_name: Option<String>) -> Self {
+        Self {statement, row, line, script_name }
     }
     // 存在しない行
     pub fn new_non_existent_line(statement: Statement) -> Self {
         Self {
             statement,
             row: 0,
+            line: "dummy".into(),
+            script_name: None,
         }
+    }
+}
+
+impl PartialEq for StatementWithRow {
+    fn eq(&self, other: &Self) -> bool {
+        self.statement == other.statement && self.row == other.row
     }
 }
 

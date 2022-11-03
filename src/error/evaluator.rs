@@ -30,8 +30,8 @@ impl UError {
             line: UErrorLine::default()
         }
     }
-    pub fn set_line(&mut self, row: usize, line: Option<String>) {
-        self.line = UErrorLine::new(row, line)
+    pub fn set_line(&mut self, row: usize, line: String, script_name: Option<String>) {
+        self.line = UErrorLine::new(row, line, script_name)
     }
     pub fn get_line(&self) -> UErrorLine {
         self.line.clone()
@@ -41,7 +41,7 @@ impl UError {
             kind: UErrorKind::ExitExit(n),
             message: UErrorMessage::None,
             is_com_error: false,
-            line: UErrorLine::new(0, None),
+            line: UErrorLine::None,
         }
     }
 }
@@ -86,45 +86,55 @@ impl PartialEq for UError {
 }
 
 #[derive(Debug, Clone)]
-pub struct UErrorLine {
-    pub row: usize,
-    pub line: Option<String>
+pub enum UErrorLine {
+    None,
+    Line {
+        row: usize,
+        line: String,
+        script_name: Option<String>
+    },
 }
 
 impl UErrorLine {
-    pub fn new(row: usize, line: Option<String>) -> Self {
-        Self {row, line}
+    pub fn new(row: usize, line: String, script_name: Option<String>) -> Self {
+        Self::Line {row, line, script_name}
     }
     pub fn has_row(&self) -> bool {
-        self.row > 0
-    }
-    pub fn has_line(&self) -> bool {
-        self.line.is_some()
-    }
-    pub fn set_line_if_none(&mut self, line: String) {
-        if self.line.is_none() && self.row > 0 {
-            self.line = Some(line);
+        match self {
+            UErrorLine::None => false,
+            UErrorLine::Line { row, line:_, script_name:_ } => *row > 0,
         }
+    }
+}
+impl Default for UErrorLine {
+    fn default() -> Self {
+        Self::None
     }
 }
 
 impl fmt::Display for UErrorLine {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write_locale!(f,
-            "{}行目: {}",
-            "Row {}: {}",
-            self.row,
-            match &self.line {
-                Some(line) => line.clone(),
-                None => "スクリプト外または不明なエラー".into()
-            }
-        )
-    }
-}
-
-impl Default for UErrorLine {
-    fn default() -> Self {
-        Self {row: 0, line: None}
+        match self {
+            UErrorLine::None => write_locale!(f,
+                "※エラー行情報がありません※",
+                "* Error row information not found *"
+            ),
+            UErrorLine::Line { row, line, script_name } => {
+                if let Some(name) = &script_name {
+                    write_locale!(f,
+                        "{} {}行目: {}",
+                        "{}, row {}: {}",
+                        name, row, line
+                    )
+                } else {
+                    write_locale!(f,
+                        "{}行目: {}",
+                        "Row {}: {}",
+                        row, line
+                    )
+                }
+            },
+        }
     }
 }
 
