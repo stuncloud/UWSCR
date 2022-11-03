@@ -15,9 +15,9 @@ UWSCRオンラインヘルプ
     :maxdepth: 2
     :caption: 使い方
 
-    実行方法
-    設定ファイル
-    ビルド方法
+    usage/how_to_run
+    usage/settings
+    usage/how_to_build
 
 
 スクリプト構文
@@ -27,8 +27,8 @@ UWSCRオンラインヘルプ
     :maxdepth: 2
     :caption: スクリプト構文
 
-    スクリプト構文
-    特殊変数
+    syntax/statement
+    syntax/special_variables
 
 ビルトイン関数
 --------------
@@ -37,16 +37,16 @@ UWSCRオンラインヘルプ
     :maxdepth: 3
     :caption: ビルトイン関数
 
-    文字列操作関数
-    ウィンドウ操作関数
-    制御関数
-    システム関数
-    ファイル操作関数
-    GUI
-    配列操作関数
-    数学関数
-    COMオブジェクト
-    ブラウザ操作
+    builtins/string
+    builtins/window
+    builtins/control
+    builtins/system
+    builtins/file
+    builtins/gui
+    builtins/array
+    builtins/math
+    builtins/comobject
+    builtins/browser
 
 コミュニティ
 ------------

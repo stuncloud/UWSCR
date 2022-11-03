@@ -1,0 +1,1088 @@
+<!doctype html>
+<html class="no-js" lang="ja">
+  <head><meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="color-scheme" content="light dark"><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+<link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="GUI" href="gui.html" /><link rel="prev" title="システム関数" href="system.html" />
+
+    <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
+        <title>ファイル操作関数 - UWSCR ドキュメント</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f8f8f8;
+  --color-code-foreground: black;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-half" viewBox="0 0 24 24">
+    <title>Auto light/dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-shadow">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M13 12h5" />
+      <path d="M13 15h4" />
+      <path d="M13 18h1" />
+      <path d="M13 9h4" />
+      <path d="M13 6h1" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc">
+<label class="overlay sidebar-overlay" for="__navigation">
+  <div class="visually-hidden">Hide navigation sidebar</div>
+</label>
+<label class="overlay toc-overlay" for="__toc">
+  <div class="visually-hidden">Hide table of contents sidebar</div>
+</label>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <div class="visually-hidden">Toggle site navigation sidebar</div>
+        <i class="icon"><svg><use href="#svg-menu"></use></svg></i>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../index.html"><div class="brand">UWSCR  ドキュメント</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle">
+          <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+          <svg class="theme-icon-when-auto"><use href="#svg-sun-half"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <div class="visually-hidden">Toggle table of contents sidebar</div>
+        <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
+  
+  
+  <span class="sidebar-brand-text">UWSCR  ドキュメント</span>
+  
+</a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
+  <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">使い方</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../usage/how_to_run.html">実行方法</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage/settings.html">設定ファイル</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage/how_to_build.html">ビルド方法</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">スクリプト構文</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../syntax/statement.html">スクリプト構文</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../syntax/special_variables.html">特殊変数</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">ビルトイン関数</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="string.html">文字列操作関数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="window.html">ウィンドウ操作関数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="control.html">制御関数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="system.html">システム関数</a></li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">ファイル操作関数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gui.html">GUI</a></li>
+<li class="toctree-l1"><a class="reference internal" href="array.html">配列操作関数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="math.html">数学関数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="comobject.html">COMオブジェクト</a></li>
+<li class="toctree-l1"><a class="reference internal" href="browser.html">ブラウザ操作</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          
+<div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle">
+              <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+              <svg class="theme-icon-when-auto"><use href="#svg-sun-half"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <div class="visually-hidden">Toggle table of contents sidebar</div>
+            <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+          </label>
+        </div>
+        <article role="main">
+          <section id="id1">
+<h1>ファイル操作関数<a class="headerlink" href="#id1" title="この見出しへのパーマリンク">#</a></h1>
+<section id="id2">
+<h2>テキストファイル<a class="headerlink" href="#id2" title="この見出しへのパーマリンク">#</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="fopen">
+<span class="sig-name descname"><span class="pre">fopen</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ファイルパス</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">モード=F_READ</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">追記文字列=EMPTY</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#fopen" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">テキストファイルを開きます</div>
+</div>
+<div class="caution admonition">
+<p class="admonition-title">UWSCとの違い</p>
+<div class="line-block">
+<div class="line">戻り値のファイルIDが数値ではなくなりました</div>
+</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ファイルパス</strong> (<em>文字列</em>) -- 開きたいテキストファイルのパス</p></li>
+<li><p><strong>モード</strong> (<em>定数 省略可</em>) -- <p>どのようにファイルを開くかを指定、 <code class="docutils literal notranslate"><span class="pre">OR</span></code> 連結可</p>
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">F_EXISTS</span></span></dt>
+<dd><div class="line-block">
+<div class="line">パスの存在確認 (ディレクトリの場合は末尾に <code class="docutils literal notranslate"><span class="pre">\</span></code> を付ける)</div>
+<div class="line">戻り値が真偽値になる</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">F_READ</span></span></dt>
+<dd><div class="line-block">
+<div class="line">ファイルを読む (SJIS、UTF8、UTF16対応)</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">F_WRITE</span></span></dt>
+<dd><div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">F_READ</span></code> と併記しない場合はファイルを上書きする (UTF-8)</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">F_READ</span></code> と併記した場合は元ファイルのエンコーディングを維持する</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">F_WRITE1</span></span></dt>
+<dd><div class="line-block">
+<div class="line">SJISで書き込む</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">F_WRITE8</span></span></dt>
+<dd><div class="line-block">
+<div class="line">UTF-8で書き込む</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">F_WRITE8B</span></span></dt>
+<dd><div class="line-block">
+<div class="line">BOM付きUTF-8で書き込む</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">F_WRITE16</span></span></dt>
+<dd><div class="line-block">
+<div class="line">UTF-16LEで書き込む</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">F_APPEND</span></span></dt>
+<dd><div class="line-block">
+<div class="line">文末に追記し、即ファイルを閉じる</div>
+<div class="line"><cite>追記文字列</cite> を必ず指定する</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">F_WRITE</span></code> 系と併記で書き込む文字列のエンコーディングを指定できる</div>
+<div class="line">戻り値が書き込んだバイト数になる</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">F_NOCR</span></span></dt>
+<dd><div class="line-block">
+<div class="line">文末に改行を入れない</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">F_TAB</span></span></dt>
+<dd><div class="line-block">
+<div class="line">CSVセパレータをカンマではなくタブ文字にする</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">F_EXCLUSIVE</span></span></dt>
+<dd><div class="line-block">
+<div class="line">排他モードでファイルを開く</div>
+</div>
+</dd></dl>
+
+</p></li>
+<li><p><strong>追記文字列</strong> (<em>文字列 省略可</em>) -- <code class="docutils literal notranslate"><span class="pre">F_APPEND</span></code> 指定時に追記する文字列</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p><p>モードによる</p>
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">真偽値</span></span></dt>
+<dd><p><code class="docutils literal notranslate"><span class="pre">F_EXISTS</span></code> 指定時、ファイルまたはディレクトリが存在する場合はTRUE</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">数値</span></span></dt>
+<dd><p><code class="docutils literal notranslate"><span class="pre">F_APPEND</span></code> 指定時、書き込んだバイト数</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ファイルID</span></span></dt>
+<dd><p><code class="docutils literal notranslate"><span class="pre">F_EXISTS</span></code>, <code class="docutils literal notranslate"><span class="pre">F_APPEND</span></code> 以外を指定した場合、開いたファイルを示すIDを返す</p>
+</dd></dl>
+
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fget">
+<span class="sig-name descname"><span class="pre">fget</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ファイルID</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">行</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">列=0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ダブルクォート無視=FALSE</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#fget" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">ファイルを読み取ります</div>
+</div>
+<div class="admonition caution">
+<p class="admonition-title">注意</p>
+<p><code class="docutils literal notranslate"><span class="pre">F_READ</span></code> を指定してファイルを開く必要があります</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ファイルID</strong> (<em>ファイルID</em>) -- <code class="docutils literal notranslate"><span class="pre">fopen</span></code> で開いたファイルのID</p></li>
+<li><p><strong>行</strong> (<em>数値</em>) -- 読み取る行の番号 (1から)</p></li>
+<li><p><strong>列</strong> (<em>数値</em>) -- 読み取るcsv列の番号 (1から)、0の場合行全体</p></li>
+<li><p><strong>ダブルクォート無視</strong> (<em>真偽値 省略可</em>) -- <p>列が1以上 (csv読み取り) の場合に有効</p>
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">TRUE</span></span></dt>
+<dd><div class="line-block">
+<div class="line">ダブルクォートを無視する</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">FALSE</span></span></dt>
+<dd><div class="line-block">
+<div class="line">ダブルクォートで括られていたら単語と判断する</div>
+<div class="line">ダブルクォートはダブルクォートでエスケープする (<code class="docutils literal notranslate"><span class="pre">&quot;&quot;</span></code>)</div>
+</div>
+</dd></dl>
+
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>読み取った文字列</p>
+</dd>
+</dl>
+<div class="admonition- admonition">
+<p class="admonition-title">サンプルコード</p>
+<div class="line-block">
+<div class="line">test.csv</div>
+</div>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>foo,bar,baz
+foo   ,    bar   ,  baz
+&quot;ダブルクォートありのカラム&quot;,&quot;ダブルクォートの&quot;&quot;エスケープ&quot;&quot;&quot;,&quot;&quot;
+&quot;改行を
+含む&quot;,&quot;ここはまだ4行目&quot;
+</pre></div>
+</div>
+<div class="line-block">
+<div class="line">スクリプト</div>
+</div>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">fid</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fopen</span><span class="p">(</span><span class="s">&quot;test.csv&quot;</span><span class="o">,</span><span class="w"> </span><span class="m">F_READ</span><span class="p">)</span>
+
+<span class="k">print</span><span class="w"> </span><span class="n">fget</span><span class="p">(</span><span class="n">fid</span><span class="o">,</span><span class="w"> </span><span class="m">1</span><span class="p">)</span><span class="w"> </span><span class="c">// foo,bar,baz</span>
+<span class="k">print</span><span class="w"> </span><span class="n">fget</span><span class="p">(</span><span class="n">fid</span><span class="o">,</span><span class="w"> </span><span class="m">1</span><span class="o">,</span><span class="w"> </span><span class="m">1</span><span class="p">)</span><span class="w"> </span><span class="c">// foo</span>
+<span class="c">// 前後のホワイトスペースはトリムされる</span>
+<span class="k">print</span><span class="w"> </span><span class="n">fget</span><span class="p">(</span><span class="n">fid</span><span class="o">,</span><span class="w"> </span><span class="m">2</span><span class="o">,</span><span class="w"> </span><span class="m">1</span><span class="p">)</span><span class="w"> </span><span class="c">// 「    foo   」にはならず「foo」が返る</span>
+<span class="c">// ダブルクォートで括られたカラム</span>
+<span class="k">print</span><span class="w"> </span><span class="n">fget</span><span class="p">(</span><span class="n">fid</span><span class="o">,</span><span class="w"> </span><span class="m">3</span><span class="o">,</span><span class="w"> </span><span class="m">1</span><span class="o">,</span><span class="w"> </span><span class="m">FALSE</span><span class="p">)</span><span class="w"> </span><span class="c">// ダブルクォートありのカラム</span>
+<span class="k">print</span><span class="w"> </span><span class="n">fget</span><span class="p">(</span><span class="n">fid</span><span class="o">,</span><span class="w"> </span><span class="m">3</span><span class="o">,</span><span class="w"> </span><span class="m">1</span><span class="o">,</span><span class="w"> </span><span class="m">TRUE</span><span class="p">)</span><span class="w">  </span><span class="c">// &quot;ダブルクォートありのカラム&quot;</span>
+<span class="c">// 第4引数FALSEはUWSCにおける 2 の動作が標準になりました</span>
+<span class="k">print</span><span class="w"> </span><span class="n">fget</span><span class="p">(</span><span class="n">fid</span><span class="o">,</span><span class="w"> </span><span class="m">3</span><span class="o">,</span><span class="w"> </span><span class="m">2</span><span class="o">,</span><span class="w"> </span><span class="m">FALSE</span><span class="p">)</span><span class="w"> </span><span class="c">// ダブルクォートの&quot;エスケープ&quot;</span>
+<span class="k">print</span><span class="w"> </span><span class="n">fget</span><span class="p">(</span><span class="n">fid</span><span class="o">,</span><span class="w"> </span><span class="m">3</span><span class="o">,</span><span class="w"> </span><span class="m">2</span><span class="o">,</span><span class="w"> </span><span class="m">TRUE</span><span class="p">)</span><span class="w">  </span><span class="c">// &quot;ダブルクォートの&quot;&quot;エスケープ&quot;&quot;&quot;</span>
+<span class="c">// 改行を含むカラムのサポート</span>
+<span class="c">// 第4引数がFALSEかつ改行を含む文字列がダブルクォートで括られている場合のみ</span>
+<span class="k">print</span><span class="w"> </span><span class="n">fget</span><span class="p">(</span><span class="n">fid</span><span class="o">,</span><span class="w"> </span><span class="m">4</span><span class="o">,</span><span class="w"> </span><span class="m">1</span><span class="o">,</span><span class="w"> </span><span class="m">FALSE</span><span class="p">)</span><span class="w"> </span><span class="c">// 改行を</span>
+<span class="w">                            </span><span class="c">// 含む</span>
+<span class="k">print</span><span class="w"> </span><span class="n">fget</span><span class="p">(</span><span class="n">fid</span><span class="o">,</span><span class="w"> </span><span class="m">4</span><span class="o">,</span><span class="w"> </span><span class="m">2</span><span class="o">,</span><span class="w"> </span><span class="m">FALSE</span><span class="p">)</span><span class="w"> </span><span class="c">// ここはまだ4行目</span>
+
+<span class="n">fclose</span><span class="p">(</span><span class="n">fid</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fput">
+<span class="sig-name descname"><span class="pre">fput</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ファイルID</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">値</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">行=0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">列=0</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#fput" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">ファイルに書き込みます</div>
+</div>
+<div class="admonition caution">
+<p class="admonition-title">注意</p>
+<p><code class="docutils literal notranslate"><span class="pre">F_WRITE</span></code> 系を指定してファイルを開く必要があります</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ファイルID</strong> (<em>ファイルID</em>) -- <code class="docutils literal notranslate"><span class="pre">fopen</span></code> で開いたファイルのID</p></li>
+<li><p><strong>値</strong> (<em>文字列</em>) -- 書き込む文字列</p></li>
+<li><p><strong>行</strong> (<em>数値 省略可</em>) -- <p>書き込む行を指定</p>
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">0</span></span></dt>
+<dd><p>文末に新たな行として書き加えます</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">1以上</span></span></dt>
+<dd><p>指定行に書き込みます (上書き)</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">F_ALLTEXT</span> <span class="pre">(定数)</span></span></dt>
+<dd><p>指定行に書き込みますが、ファイル全体を書き込む値で上書きします</p>
+</dd></dl>
+
+</p></li>
+<li><p><strong>列</strong> (<em>数値 省略可</em>) -- <p>書き込むCSV列を指定</p>
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">0</span></span></dt>
+<dd><p>行全体に書き込み</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">1以上</span></span></dt>
+<dd><p>CSVカラムとして書き込み</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">F_INSERT</span> <span class="pre">(定数)</span></span></dt>
+<dd><div class="line-block">
+<div class="line">指定した行へ上書きではなく挿入します</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">F_READ</span></code> が未指定の場合無視されます</div>
+</div>
+</dd></dl>
+
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>なし</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fdelline">
+<span class="sig-name descname"><span class="pre">fdelline</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ファイルID</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">行</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fdelline" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">指定行を削除します</div>
+</div>
+<div class="admonition caution">
+<p class="admonition-title">注意</p>
+<p><code class="docutils literal notranslate"><span class="pre">F_READ</span></code> および <code class="docutils literal notranslate"><span class="pre">F_WRITE</span></code> 系を指定してファイルを開く必要があります</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ファイルID</strong> (<em>ファイルID</em>) -- <code class="docutils literal notranslate"><span class="pre">fopen</span></code> で開いたファイルのID</p></li>
+<li><p><strong>行</strong> (<em>数値</em>) -- 削除する行の番号 (1から)、該当行がない場合なにもしない</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>なし</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fclose">
+<span class="sig-name descname"><span class="pre">fclose</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ファイルID</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">エラー抑止=FALSE</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#fclose" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">ファイルを閉じて変更を適用します</div>
+</div>
+<div class="admonition caution">
+<p class="admonition-title">注意</p>
+<p>ファイルを閉じない限り <code class="docutils literal notranslate"><span class="pre">fput</span></code> や <code class="docutils literal notranslate"><span class="pre">fdelline</span></code> による変更はファイルに反映されません</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ファイルID</strong> (<em>ファイルID</em>) -- <code class="docutils literal notranslate"><span class="pre">fopen</span></code> で開いたファイルのID</p></li>
+<li><p><strong>エラー抑止</strong> (<em>真偽値 省略可</em>) -- TRUEにするとファイル書き込み時のエラーを無視する</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>ファイルへの書き込みが行われ正常に閉じられた場合はTRUE</p>
+</dd>
+</dl>
+<div class="admonition- admonition">
+<p class="admonition-title">サンプルコード</p>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// 読み取り</span>
+<span class="n">fid</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fopen</span><span class="p">(</span><span class="n">path</span><span class="p">)</span><span class="w"> </span><span class="c">// fopen(path, F_READ) と同等</span>
+<span class="k">print</span><span class="w"> </span><span class="n">fget</span><span class="p">(</span><span class="n">fid</span><span class="o">,</span><span class="w"> </span><span class="m">1</span><span class="p">)</span>
+<span class="n">fclose</span><span class="p">(</span><span class="n">fid</span><span class="p">)</span>
+
+<span class="c">// 書き込み</span>
+<span class="n">fid</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fopen</span><span class="p">(</span><span class="n">path</span><span class="o">,</span><span class="w"> </span><span class="m">F_WRITE</span><span class="p">)</span>
+<span class="n">fput</span><span class="p">(</span><span class="n">fid</span><span class="o">,</span><span class="w"> </span><span class="n">text</span><span class="p">)</span>
+<span class="n">fclose</span><span class="p">(</span><span class="n">fid</span><span class="p">)</span><span class="w"> </span><span class="c">// 上書きされる</span>
+
+<span class="c">// 読み書き</span>
+<span class="n">fid</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fopen</span><span class="p">(</span><span class="n">path</span><span class="o">,</span><span class="w"> </span><span class="m">F_READ</span><span class="w"> </span><span class="n">or</span><span class="w"> </span><span class="m">F_WRITE</span><span class="p">)</span>
+<span class="k">print</span><span class="w"> </span><span class="n">fget</span><span class="p">(</span><span class="n">fid</span><span class="o">,</span><span class="w"> </span><span class="m">1</span><span class="p">)</span>
+<span class="n">fput</span><span class="p">(</span><span class="n">fid</span><span class="o">,</span><span class="w"> </span><span class="n">text</span><span class="p">)</span>
+<span class="n">fclose</span><span class="p">(</span><span class="n">fid</span><span class="p">)</span><span class="w"> </span><span class="c">// 編集して保存</span>
+
+<span class="c">// エンコーディングを変更して保存</span>
+<span class="n">fid</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fopen</span><span class="p">(</span><span class="n">path</span><span class="o">,</span><span class="w"> </span><span class="m">F_WRITE1</span><span class="p">)</span><span class="w"> </span><span class="c">// SJISでファイルを書き込み</span>
+<span class="n">fput</span><span class="p">(</span><span class="n">fid</span><span class="o">,</span><span class="w"> </span><span class="n">text1</span><span class="p">)</span>
+<span class="n">fclose</span><span class="p">(</span><span class="n">fid</span><span class="p">)</span>
+
+<span class="n">fid</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fopen</span><span class="p">(</span><span class="n">path</span><span class="o">,</span><span class="w"> </span><span class="m">F_READ</span><span class="w"> </span><span class="n">or</span><span class="w"> </span><span class="m">F_WRITE16</span><span class="p">)</span>
+<span class="n">fput</span><span class="p">(</span><span class="n">fid</span><span class="o">,</span><span class="w"> </span><span class="n">text2</span><span class="p">)</span>
+<span class="n">fclose</span><span class="p">(</span><span class="n">fid</span><span class="p">)</span><span class="w"> </span><span class="c">// 編集してUTF-16で保存</span>
+
+<span class="c">// 追記</span>
+<span class="n">fopen</span><span class="p">(</span><span class="n">path</span><span class="o">,</span><span class="w"> </span><span class="m">F_APPEND</span><span class="w"> </span><span class="n">or</span><span class="w"> </span><span class="m">F_WRITE16</span><span class="o">,</span><span class="w"> </span><span class="n">text</span><span class="p">)</span><span class="w"> </span><span class="c">// UTF-16で末尾に追記</span>
+<span class="n">fopen</span><span class="p">(</span><span class="n">path</span><span class="o">,</span><span class="w"> </span><span class="m">F_APPEND</span><span class="p">)</span><span class="w"> </span><span class="c">// エラー; F_APPEND指定時は第三引数が必須</span>
+
+<span class="c">// 自動ファイルクローズ</span>
+<span class="k">print</span><span class="w"> </span><span class="n">fget</span><span class="p">(</span><span class="n">fopen</span><span class="p">(</span><span class="n">path</span><span class="o">,</span><span class="w"> </span><span class="m">F_READ</span><span class="p">)</span><span class="o">,</span><span class="w"> </span><span class="m">F_ALLTEXT</span><span class="p">)</span>
+<span class="c">// ファイル識別子を変数に代入しなかった場合は読み書き関数実行後に自動でファイルが閉じられます</span>
+</pre></div>
+</div>
+</div>
+</dd></dl>
+
+</section>
+<section id="ini">
+<h2>iniファイル<a class="headerlink" href="#ini" title="この見出しへのパーマリンク">#</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="readini">
+<span class="sig-name descname"><span class="pre">readini</span></span><span class="sig-paren">(</span><span class="optional">[</span><em class="sig-param"><span class="n"><span class="pre">セクション=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">キー=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ファイル=&quot;&lt;#GET_UWSC_NAME&gt;.ini&quot;</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#readini" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">iniファイルを読み込みます</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>セクション</strong> (<em>文字列 省略可</em>) -- 読み出したいキーのあるセクション名を指定、省略時はセクション一覧を得る</p></li>
+<li><p><strong>キー</strong> (<em>文字列 省略可</em>) -- 値を読み出したいキーの名前を指定、省略時はキー一覧を得る</p></li>
+<li><p><strong>ファイル</strong> (<em>文字列またはファイルID 省略可</em>) -- <p>読み出すiniファイルのパス、またはファイルID</p>
+<div class="admonition hint">
+<p class="admonition-title">ヒント</p>
+<p>ファイルIDは <code class="docutils literal notranslate"><span class="pre">F_READ</span></code> を含めてfopenしている必要があります</p>
+</div>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">セクション省略時</span></span></dt>
+<dd><div class="line-block">
+<div class="line">iniファイルのセクション一覧を格納した配列</div>
+<div class="line">セクション省略時のキー指定は無視されます</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">キーを省略</span></span></dt>
+<dd><p>指定セクションのキー一覧を格納した配列</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">セクションとキーを指定</span></span></dt>
+<dd><div class="line-block">
+<div class="line">該当キーの値</div>
+<div class="line">該当キーが存在しない場合EMPTY</div>
+</div>
+</dd></dl>
+
+</p>
+</dd>
+</dl>
+<div class="admonition- admonition">
+<p class="admonition-title">サンプルコード</p>
+<p>test.ini</p>
+<div class="highlight-ini notranslate"><div class="highlight"><pre><span></span><span class="k">[section]</span><span class="w"></span>
+<span class="na">key1</span><span class="o">=</span><span class="s">&quot;あ&quot;</span><span class="w"></span>
+<span class="na">key2</span><span class="o">=</span><span class="s">&quot;い&quot;</span><span class="w"></span>
+<span class="na">key3</span><span class="o">=</span><span class="s">&quot;う&quot;</span><span class="w"></span>
+<span class="k">[foo]</span><span class="w"></span>
+<span class="na">name</span><span class="o">=</span><span class="s">&quot;foo&quot;</span><span class="w"></span>
+<span class="k">[bar]</span><span class="w"></span>
+<span class="na">name</span><span class="o">=</span><span class="s">&quot;bar&quot;</span><span class="w"></span>
+<span class="k">[baz]</span><span class="w"></span>
+<span class="na">name</span><span class="o">=</span><span class="s">&quot;baz&quot;</span><span class="w"></span>
+</pre></div>
+</div>
+</div>
+<p>スクリプト</p>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">ini</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&#39;test.ini&#39;</span>
+<span class="k">print</span><span class="w"> </span><span class="n">readini</span><span class="p">(</span><span class="s">&#39;foo&#39;</span><span class="o">,</span><span class="w"> </span><span class="s">&#39;name&#39;</span><span class="o">,</span><span class="w"> </span><span class="n">ini</span><span class="p">)</span><span class="w"> </span><span class="c">// foo</span>
+
+<span class="c">// セクションを省略(またはEMPTY指定)するとセクション一覧を取得</span>
+<span class="k">print</span><span class="w"> </span><span class="n">readini</span><span class="p">(</span><span class="w"> </span><span class="o">,</span><span class="w"> </span><span class="o">,</span><span class="w"> </span><span class="n">ini</span><span class="p">)</span><span class="w"> </span><span class="c">// [ section, foo, bar, baz ]</span>
+<span class="k">print</span><span class="w"> </span><span class="n">readini</span><span class="p">(</span><span class="w"> </span><span class="o">,</span><span class="w"> </span><span class="s">&#39;name&#39;</span><span class="o">,</span><span class="w"> </span><span class="n">ini</span><span class="p">)</span><span class="w"> </span><span class="c">// ↑と同じ結果 (セクション省略時のキーは無視される)</span>
+
+<span class="c">// セクションを指定してキーを省略(またはEMPTY指定)するとキー一覧を収録</span>
+<span class="k">print</span><span class="w"> </span><span class="n">readini</span><span class="p">(</span><span class="s">&#39;section&#39;</span><span class="o">,</span><span class="w"> </span><span class="o">,</span><span class="w"> </span><span class="n">ini</span><span class="p">)</span><span class="w"> </span><span class="c">// [ key1, key2, key3 ]</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="writeini">
+<span class="sig-name descname"><span class="pre">writeini</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">セクション</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">キー</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">値</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">ファイル=&quot;&lt;#GET_UWSC_NAME&gt;.ini&quot;</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#writeini" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">iniファイルに書き込みます</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>セクション</strong> (<em>文字列</em>) -- 書き込みたいキーのあるセクション名、存在しない場合新規に作成されます</p></li>
+<li><p><strong>キー</strong> (<em>文字列</em>) -- 書き込みたいキーの名前、存在しない場合新規に作成されます</p></li>
+<li><p><strong>値</strong> (<em>文字列</em>) -- 該当キーに書き込む値</p></li>
+<li><p><strong>ファイル</strong> (<em>文字列またはファイルID 省略可</em>) -- <p>書き込むiniファイルのパス、またはファイルID</p>
+<div class="admonition hint">
+<p class="admonition-title">ヒント</p>
+<div class="line-block">
+<div class="line">ファイルIDは <code class="docutils literal notranslate"><span class="pre">F_READ</span></code> 及び <code class="docutils literal notranslate"><span class="pre">F_WRITE</span></code> 系を含めてfopenしている必要があります</div>
+<div class="line">また、ファイルIDを渡した場合はfcloseを呼ぶまで変更が反映されません</div>
+</div>
+</div>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>なし</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="deleteini">
+<span class="sig-name descname"><span class="pre">deleteini</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">セクション</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">キー=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ファイル=&quot;&lt;#GET_UWSC_NAME&gt;.ini&quot;</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#deleteini" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">指定キーまたはセクションを削除します</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>セクション</strong> (<em>文字列</em>) -- 削除したいキーのあるセクション名</p></li>
+<li><p><strong>キー</strong> (<em>文字列</em>) -- 削除したいキーの名前</p></li>
+<li><p><strong>ファイル</strong> (<em>文字列またはファイルID 省略可</em>) -- <p>書き込むiniファイルのパス、またはファイルID</p>
+<div class="admonition hint">
+<p class="admonition-title">ヒント</p>
+<div class="line-block">
+<div class="line">ファイルIDは <code class="docutils literal notranslate"><span class="pre">F_READ</span></code> 及び <code class="docutils literal notranslate"><span class="pre">F_WRITE</span></code> 系を含めてfopenしている必要があります</div>
+<div class="line">また、ファイルIDを渡した場合はfcloseを呼ぶまで変更が反映されません</div>
+</div>
+</div>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>なし</p>
+</dd>
+</dl>
+</dd></dl>
+
+<section id="iniid">
+<h3>INI関数のファイルID利用について<a class="headerlink" href="#iniid" title="この見出しへのパーマリンク">#</a></h3>
+<div class="line-block">
+<div class="line">iniファイルをfopenで開き、そのファイルIDを各種ini関数に渡すことでiniファイルの読み書きができるようになりました</div>
+</div>
+<div class="admonition- admonition">
+<p class="admonition-title">サンプルコード</p>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">fid</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fopen</span><span class="p">(</span><span class="s">&quot;hoge.ini&quot;</span><span class="o">,</span><span class="w"> </span><span class="m">F_READ</span><span class="w"> </span><span class="n">or</span><span class="w"> </span><span class="m">F_WRITE</span><span class="p">)</span>
+<span class="c">// ファイルパスの代わりにファイルIDを指定</span>
+<span class="k">print</span><span class="w"> </span><span class="n">readini</span><span class="p">(</span><span class="s">&quot;hoge&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;fuga&quot;</span><span class="o">,</span><span class="w"> </span><span class="n">fid</span><span class="p">)</span><span class="w">        </span><span class="c">// 読む場合はF_READが必要</span>
+<span class="n">writeini</span><span class="p">(</span><span class="s">&quot;hoge&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;fuga&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;fugafuga&quot;</span><span class="o">,</span><span class="w"> </span><span class="n">fid</span><span class="p">)</span><span class="w"> </span><span class="c">// 書き込みにはF_READ or F_WRITEが必要</span>
+<span class="n">deleteini</span><span class="p">(</span><span class="s">&quot;hoge&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;fuga&quot;</span><span class="o">,</span><span class="w"> </span><span class="n">fid</span><span class="p">)</span><span class="w">            </span><span class="c">// 削除にもF_READ or F_WRITEが必要</span>
+
+<span class="n">fclose</span><span class="p">(</span><span class="n">fid</span><span class="p">)</span><span class="w"> </span><span class="c">// iniファイルへの書き込みが反映される</span>
+</pre></div>
+</div>
+</div>
+<div class="line-block">
+<div class="line">以下のような用途を想定しています</div>
+</div>
+<ul class="simple">
+<li><p>同一iniファイルへの複数回の読み書きを行う場合にファイルアクセスを減らしたい</p></li>
+<li><p>iniファイル編集時に排他制御(<code class="docutils literal notranslate"><span class="pre">F_EXCLUSIVE</span></code>)したい</p></li>
+</ul>
+</section>
+</section>
+<section id="id3">
+<h2>その他のファイル操作<a class="headerlink" href="#id3" title="この見出しへのパーマリンク">#</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="deletefile">
+<span class="sig-name descname"><span class="pre">deletefile</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ファイルパス</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#deletefile" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">ファイルを削除します</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">*</span></code>, <code class="docutils literal notranslate"><span class="pre">?</span></code> によるワイルドカード指定も可能</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>ファイルパス</strong> (<em>文字列</em>) -- 削除したいファイルのパス</p>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>削除成功時TRUE</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="getdir">
+<span class="sig-name descname"><span class="pre">getdir</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ディレクトリパス</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">フィルタ=&quot;*&quot;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">非表示ファイル=FALSE</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">取得順=ORDERBY_NAME</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#getdir" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">対象ディレクトリに含まれるファイル、またはディレクトリの一覧を取得します</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ディレクトリパス</strong> (<em>文字列</em>) -- 対象ディレクトリのパス</p></li>
+<li><p><strong>フィルタ</strong> (<em>文字列 省略可</em>) -- <div class="line-block">
+<div class="line">ファイル名のフィルタ、ワイルドカード(<code class="docutils literal notranslate"><span class="pre">*</span></code>, <code class="docutils literal notranslate"><span class="pre">?</span></code>)可</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">\</span></code> のみ、または <code class="docutils literal notranslate"><span class="pre">\</span></code> から始まる文字列指定でファイルではなくディレクトリ一覧を返す</div>
+</div>
+</p></li>
+<li><p><strong>非表示ファイル</strong> (<em>真偽値 省略可</em>) -- 非表示ファイルを含めるかどうか</p></li>
+<li><p><strong>取得順</strong> (<em>定数 省略可</em>) -- <p>取得順を示す定数</p>
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ORDERBY_NAME</span></span></dt>
+<dd><p>ファイル名順</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ORDERBY_SIZE</span></span></dt>
+<dd><p>サイズ順</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ORDERBY_CREATED</span></span></dt>
+<dd><p>作成日時順</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ORDERBY_MODIFIED</span></span></dt>
+<dd><p>更新日時順</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ORDERBY_ACCESSED</span></span></dt>
+<dd><p>最終アクセス日時順</p>
+</dd></dl>
+
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p><p>該当するファイル名またはディレクトリ名の一覧を格納した配列</p>
+<div class="caution admonition">
+<p class="admonition-title">UWSCとの違い</p>
+<div class="line-block">
+<div class="line">該当ファイルの個数ではなく配列が返るようになりました</div>
+<div class="line">それに伴い特殊変数 <code class="docutils literal notranslate"><span class="pre">GETDIR_FILES</span></code> は廃止されました</div>
+</div>
+</div>
+</p>
+</dd>
+</dl>
+<div class="admonition- admonition">
+<p class="admonition-title">サンプルコード</p>
+<div class="line-block">
+<div class="line">ファイル構成</div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>C:\test\
+├ foo1.txt
+├ foo2.txt
+├ bar.txt
+├ baz.txt
+├ hidden.txt (隠しファイル)
+├ dir1\
+├ dir2\
+├ folder1\
+└ folder2\
+</pre></div>
+</div>
+<div class="line-block">
+<div class="line">スクリプト</div>
+</div>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// ファイル一覧の表示</span>
+<span class="k">print</span><span class="w"> </span><span class="n">getdir</span><span class="p">(</span><span class="s">&#39;C:\test&#39;</span><span class="p">)</span><span class="w"> </span><span class="c">// [foo1.txt, foo2.txt, bar.txt, baz.txt]</span>
+<span class="c">// ファイル名のフィルタ</span>
+<span class="k">print</span><span class="w"> </span><span class="n">getdir</span><span class="p">(</span><span class="s">&#39;C:\test&#39;</span><span class="o">,</span><span class="w"> </span><span class="s">&#39;foo*&#39;</span><span class="p">)</span><span class="w"> </span><span class="c">// [foo1.txt, foo2.txt]</span>
+<span class="c">// 隠しファイルも表示</span>
+<span class="k">print</span><span class="w"> </span><span class="n">getdir</span><span class="p">(</span><span class="s">&#39;C:\test&#39;</span><span class="o">,</span><span class="w"> </span><span class="o">,</span><span class="w"> </span><span class="m">TRUE</span><span class="p">)</span><span class="w"> </span><span class="c">// [foo1.txt, foo2.txt, bar.txt, baz.txt, hidden.txt]</span>
+<span class="c">// フォルダ一覧の表示</span>
+<span class="k">print</span><span class="w"> </span><span class="n">getdir</span><span class="p">(</span><span class="s">&#39;C:\test&#39;</span><span class="o">,</span><span class="w"> </span><span class="s">&#39;\&#39;</span><span class="p">)</span><span class="w"> </span><span class="c">// [dir1, dir2, folder1, folder2]</span>
+<span class="c">// フォルダ一名のフィルタ</span>
+<span class="k">print</span><span class="w"> </span><span class="n">getdir</span><span class="p">(</span><span class="s">&#39;C:\test&#39;</span><span class="o">,</span><span class="w"> </span><span class="s">&#39;\dir*&#39;</span><span class="p">)</span><span class="w"> </span><span class="c">// [dir1, dir2]</span>
+</pre></div>
+</div>
+</div>
+</dd></dl>
+
+</section>
+<section id="zip">
+<h2>ZIPファイル<a class="headerlink" href="#zip" title="この見出しへのパーマリンク">#</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="id0">
+<span class="sig-name descname"><span class="pre">zip</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">zipファイル</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ファイル</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">ファイル</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">...</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#id0" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">zipファイルを作成します</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>zipファイル</strong> (<em>文字列</em>) -- 作成するzipファイルのパス</p></li>
+<li><p><strong>ファイル</strong> (<em>文字列または配列</em>) -- <div class="line-block">
+<div class="line">zipファイルに含めたいファイルのパス (10個まで)</div>
+<div class="line">パスの配列を渡すこともできる</div>
+</div>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>成功時TRUE</p>
+</dd>
+</dl>
+<div class="admonition- admonition">
+<p class="admonition-title">サンプルコード</p>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">files</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="s">&#39;foo.uws&#39;</span><span class="o">,</span>
+<span class="w">    </span><span class="s">&#39;bar.uws&#39;</span><span class="o">,</span>
+<span class="w">    </span><span class="s">&#39;baz.uws&#39;</span><span class="o">,</span>
+<span class="w">    </span><span class="s">&#39;modules\qux.uws&#39;</span><span class="o">,</span>
+<span class="w">    </span><span class="s">&#39;modules\quux.uws&#39;</span>
+<span class="p">]</span>
+
+<span class="n">zip</span><span class="p">(</span><span class="s">&quot;test.zip&quot;</span><span class="o">,</span><span class="w"> </span><span class="n">files</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="unzip">
+<span class="sig-name descname"><span class="pre">unzip</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">zipファイル</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">展開先フォルダ</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#unzip" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">zipファイルを指定フォルダに展開します</div>
+<div class="line">展開先フォルダが存在しない場合は新規に作成されます</div>
+<div class="line">すでに同名ファイルが存在する場合は上書きされます</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>zipファイル</strong> (<em>文字列</em>) -- 展開したいzipファイルのパス</p></li>
+<li><p><strong>展開先フォルダ</strong> (<em>文字列</em>) -- 展開先フォルダのパス</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p><p>成功時TRUE</p>
+<div class="admonition attention">
+<p class="admonition-title">注意</p>
+<p>失敗した場合でも一部のファイルが展開されることがあります</p>
+</div>
+</p>
+</dd>
+</dl>
+<div class="admonition- admonition">
+<p class="admonition-title">サンプルコード</p>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">unzip</span><span class="p">(</span><span class="s">&quot;test.zip&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;out&quot;</span><span class="p">)</span>
+
+<span class="k">for</span><span class="w"> </span><span class="n">file</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="n">getdir</span><span class="p">(</span><span class="s">&quot;out&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="k">print</span><span class="w"> </span><span class="n">file</span>
+<span class="k">next</span>
+<span class="k">for</span><span class="w"> </span><span class="n">dir</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="n">getdir</span><span class="p">(</span><span class="s">&#39;out&#39;</span><span class="o">,</span><span class="w"> </span><span class="s">&#39;\&#39;</span><span class="p">)</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="n">file</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="n">getdir</span><span class="p">(</span><span class="s">&quot;out\&lt;#dir&gt;&quot;</span><span class="p">)</span>
+<span class="w">        </span><span class="k">print</span><span class="w"> </span><span class="s">&quot;&lt;#dir&gt;/&lt;#file&gt;&quot;</span>
+<span class="w">    </span><span class="k">next</span>
+<span class="k">next</span>
+<span class="c">// foo.uws</span>
+<span class="c">// bar.uws</span>
+<span class="c">// baz.uws</span>
+<span class="c">// modules\qux.uws</span>
+<span class="c">// modules\quux.uws</span>
+</pre></div>
+</div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="zipitems">
+<span class="sig-name descname"><span class="pre">zipitems</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">zipファイル</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#zipitems" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">zipファイルに含まれるファイル一覧を取得します</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>zipファイル</strong> (<em>文字列</em>) -- zipファイルのパス</p>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>ファイル名を格納した配列 (フォルダの区切りは <code class="docutils literal notranslate"><span class="pre">/</span></code>)</p>
+</dd>
+</dl>
+<div class="admonition- admonition">
+<p class="admonition-title">サンプルコード</p>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="k">for</span><span class="w"> </span><span class="n">item</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="n">zipitems</span><span class="p">(</span><span class="s">&quot;test.zip&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="k">print</span><span class="w"> </span><span class="n">item</span>
+<span class="k">next</span>
+<span class="c">// foo.uws</span>
+<span class="c">// bar.uws</span>
+<span class="c">// baz.uws</span>
+<span class="c">// modules/qux.uws</span>
+<span class="c">// modules/quux.uws</span>
+</pre></div>
+</div>
+</div>
+</dd></dl>
+
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="gui.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">GUI</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="system.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">システム関数</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2022, stuncloud
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            <div class="icons">
+              
+            </div>
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">ファイル操作関数</a><ul>
+<li><a class="reference internal" href="#id2">テキストファイル</a><ul>
+<li><a class="reference internal" href="#fopen"><code class="docutils literal notranslate"><span class="pre">fopen()</span></code></a></li>
+<li><a class="reference internal" href="#fget"><code class="docutils literal notranslate"><span class="pre">fget()</span></code></a></li>
+<li><a class="reference internal" href="#fput"><code class="docutils literal notranslate"><span class="pre">fput()</span></code></a></li>
+<li><a class="reference internal" href="#fdelline"><code class="docutils literal notranslate"><span class="pre">fdelline()</span></code></a></li>
+<li><a class="reference internal" href="#fclose"><code class="docutils literal notranslate"><span class="pre">fclose()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#ini">iniファイル</a><ul>
+<li><a class="reference internal" href="#readini"><code class="docutils literal notranslate"><span class="pre">readini()</span></code></a></li>
+<li><a class="reference internal" href="#writeini"><code class="docutils literal notranslate"><span class="pre">writeini()</span></code></a></li>
+<li><a class="reference internal" href="#deleteini"><code class="docutils literal notranslate"><span class="pre">deleteini()</span></code></a></li>
+<li><a class="reference internal" href="#iniid">INI関数のファイルID利用について</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id3">その他のファイル操作</a><ul>
+<li><a class="reference internal" href="#deletefile"><code class="docutils literal notranslate"><span class="pre">deletefile()</span></code></a></li>
+<li><a class="reference internal" href="#getdir"><code class="docutils literal notranslate"><span class="pre">getdir()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#zip">ZIPファイル</a><ul>
+<li><a class="reference internal" href="#id0"><code class="docutils literal notranslate"><span class="pre">zip()</span></code></a></li>
+<li><a class="reference internal" href="#unzip"><code class="docutils literal notranslate"><span class="pre">unzip()</span></code></a></li>
+<li><a class="reference internal" href="#zipitems"><code class="docutils literal notranslate"><span class="pre">zipitems()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/sphinx_highlight.js"></script>
+    <script src="../_static/scripts/furo.js"></script>
+    <script src="../_static/translations.js"></script>
+    <script src="../_static/custom.js"></script>
+    </body>
+</html>
