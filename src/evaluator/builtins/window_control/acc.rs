@@ -9,7 +9,7 @@ use windows::{
         UI::{
             WindowsAndMessaging::{
                 STATE_SYSTEM_SELECTABLE, STATE_SYSTEM_CHECKED,
-                OBJID_WINDOW, //OBJID_CLIENT,
+                OBJID_WINDOW,
             },
             Accessibility::{
                 ROLE_SYSTEM_ALERT, ROLE_SYSTEM_ANIMATION, ROLE_SYSTEM_APPLICATION, ROLE_SYSTEM_BORDER, ROLE_SYSTEM_BUTTONDROPDOWN, ROLE_SYSTEM_BUTTONDROPDOWNGRID, ROLE_SYSTEM_BUTTONMENU, ROLE_SYSTEM_CARET, ROLE_SYSTEM_CELL, ROLE_SYSTEM_CHARACTER, ROLE_SYSTEM_CHART, ROLE_SYSTEM_CHECKBUTTON, ROLE_SYSTEM_CLIENT, ROLE_SYSTEM_CLOCK, ROLE_SYSTEM_COLUMN, ROLE_SYSTEM_COLUMNHEADER, ROLE_SYSTEM_COMBOBOX, ROLE_SYSTEM_CURSOR, ROLE_SYSTEM_DIAGRAM, ROLE_SYSTEM_DIAL, ROLE_SYSTEM_DIALOG, ROLE_SYSTEM_DOCUMENT, ROLE_SYSTEM_DROPLIST, ROLE_SYSTEM_EQUATION, ROLE_SYSTEM_GRAPHIC, ROLE_SYSTEM_GRIP, ROLE_SYSTEM_GROUPING, ROLE_SYSTEM_HELPBALLOON, ROLE_SYSTEM_HOTKEYFIELD, ROLE_SYSTEM_INDICATOR, ROLE_SYSTEM_IPADDRESS, ROLE_SYSTEM_LINK, ROLE_SYSTEM_LIST, ROLE_SYSTEM_LISTITEM, ROLE_SYSTEM_MENUBAR, ROLE_SYSTEM_MENUITEM, ROLE_SYSTEM_MENUPOPUP, ROLE_SYSTEM_OUTLINE, ROLE_SYSTEM_OUTLINEBUTTON, ROLE_SYSTEM_OUTLINEITEM, ROLE_SYSTEM_PAGETAB, ROLE_SYSTEM_PAGETABLIST, ROLE_SYSTEM_PANE, ROLE_SYSTEM_PROGRESSBAR, ROLE_SYSTEM_PROPERTYPAGE, ROLE_SYSTEM_PUSHBUTTON, ROLE_SYSTEM_RADIOBUTTON, ROLE_SYSTEM_ROW, ROLE_SYSTEM_ROWHEADER, ROLE_SYSTEM_SCROLLBAR, ROLE_SYSTEM_SEPARATOR, ROLE_SYSTEM_SLIDER, ROLE_SYSTEM_SOUND, ROLE_SYSTEM_SPINBUTTON, ROLE_SYSTEM_SPLITBUTTON, ROLE_SYSTEM_STATICTEXT, ROLE_SYSTEM_STATUSBAR, ROLE_SYSTEM_TABLE, ROLE_SYSTEM_TEXT, ROLE_SYSTEM_TITLEBAR, ROLE_SYSTEM_TOOLBAR, ROLE_SYSTEM_TOOLTIP, ROLE_SYSTEM_WHITESPACE, ROLE_SYSTEM_WINDOW,
@@ -115,6 +115,10 @@ impl Acc {
         }
     }
     pub fn click(&self, check: bool) -> AccClickResult {
+        if let Some(AccRole::ListItem) = self.get_role() {
+            // リスト項目の場合はまず選択
+            self.select(false);
+        }
         let result = if let Some(action) = self.get_default_action() {
             match self.invoke_default_action(check) {
                 true => AccClickResult::new(true, AccClickReason::DefaultAction(action)),
@@ -128,7 +132,6 @@ impl Acc {
             let result = self.select(false);
             AccClickResult::new(result, AccClickReason::Select)
         };
-        println!("\u{001b}[31m[click] result: {:?}\u{001b}[0m", result);
         result
     }
     fn invoke_default_action(&self, check: bool) -> bool {
@@ -408,9 +411,7 @@ impl Acc {
             for varchild in varchildren {
                 if let Some(acc) = self.get_acc_from_varchild(&varchild, true) {
                     if let Some(role) = acc.get_role() {
-
                         if item.target.is_valid_parent_role(&role, &acc) {
-                            println!("\u{001b}[36m[search] role: {:?}, name: {:?}, children: {}, parent: {:?}\u{001b}[0m", role, acc.get_name(), acc.get_child_count(), self.get_role());
                             match role {
                                 AccRole::List => if let Some(found) = acc.search_list(item, order, backwards) {
                                     return Some(found)
@@ -422,8 +423,6 @@ impl Acc {
                                     return Some(found);
                                 }
                             }
-                        } else {
-                            // println!("\u{001b}[33m[search] role: {:?}, name: {:?}, children: {}, parent: {:?}\u{001b}[0m", role, acc.get_name(), acc.get_child_count(), self.get_role());
                         }
                     }
                     if acc.has_child() {
@@ -614,8 +613,10 @@ impl Acc {
                         return Some(SearchResult::Acc(acc));
                     }
                 } else {
-                    if let Some(found) = acc.search_listview_header(item, order, backwards) {
-                        return Some(found);
+                    if acc.has_child() {
+                        if let Some(found) = acc.search_listview_header(item, order, backwards) {
+                            return Some(found);
+                        }
                     }
                 }
             }
@@ -626,14 +627,6 @@ impl Acc {
         let varchildren = self.get_varchildren(backwards);
         for varchild in varchildren {
             if let Some(acc) = self.get_acc_from_varchild(&varchild, false) {
-                println!(
-                    "\u{001b}[35m[search_menu] name: {:?}, role:{:?}, child: {}, parent: {:?}, acc: {:?}\u{001b}[0m",
-                    acc.get_name(),
-                    acc.get_role(),
-                    acc.get_child_count(),
-                    self.get_role(),
-                    acc
-                );
                 if let Some(role) = acc.get_role() {
                     match role {
                         AccRole::MenuItem => {
@@ -647,14 +640,8 @@ impl Acc {
                                 } else {
                                     name
                                 };
-                                // let new_route = match &route {
-                                //     Some(route) => route.add(&acc, &name),
-                                //     None => MenuRoute::new(&acc, &name),
-                                // };
                                 if item.matches(&name, order) {
-                                    // let result = new_route.to_search_result();
-                                    // return Some(result);
-                                    return Some(SearchResult::Acc(acc));
+                                    return Some(SearchResult::Menu(acc));
                                 }
                                 if acc.has_child() {
                                     if let Some(found) = acc.search_menu(item, order, backwards, Some(name)) {
@@ -787,26 +774,6 @@ impl Acc {
     }
 }
 
-// #[derive(Clone)]
-// struct MenuRoute {
-//     route: Vec<Acc>,
-//     path: String,
-// }
-// impl MenuRoute {
-//     fn new(acc: &Acc, path: &String) -> Self {
-//         Self { route: vec![acc.clone()], path: path.to_string() }
-//     }
-//     fn add(&self, acc: &Acc, path: &String) -> Self {
-//         let mut route = self.route.clone();
-//         route.push(acc.clone());
-//         let path = path.to_string();
-//         Self { route, path }
-//     }
-//     fn to_search_result(self) -> SearchResult {
-//         SearchResult::Route(self.route)
-//     }
-// }
-
 
 #[derive(Debug)]
 pub struct AccClickResult(bool, AccClickReason);
@@ -852,14 +819,7 @@ impl SearchResult {
                     None
                 }
             },
-            SearchResult::Menu(acc) => None,
-            // SearchResult::Route(route) => {
-            //     if let Some(last) = route.last() {
-            //         last.get_point()
-            //     } else {
-            //         None
-            //     }
-            // },
+            SearchResult::Menu(_) => None,
 
         }
     }
@@ -873,22 +833,10 @@ impl SearchResult {
                     .unwrap_or(false)
             },
             SearchResult::Menu(acc) => {
-                todo!()
+                acc.click(check).as_bool()
             },
-            // SearchResult::Route(route) => {
-            //     route.into_iter()
-            //         .map(|acc| {
-            //             Self::sleep(1000);
-            //             acc.click(check).as_bool()
-            //         })
-            //         .last()
-            //         .unwrap_or(false)
-            // },
         }
     }
-    // fn sleep(ms: u64) {
-    //     std::thread::sleep(std::time::Duration::from_millis(ms));
-    // }
 }
 
 
