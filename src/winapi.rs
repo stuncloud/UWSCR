@@ -156,7 +156,7 @@ pub fn get_system_directory() -> String {
     unsafe {
         GetSystemDirectoryW(&mut buffer);
     }
-    String::from_utf16_lossy(&buffer)
+    from_wide_string(&buffer)
 }
 
 pub fn get_windows_directory() -> String {
@@ -164,7 +164,7 @@ pub fn get_windows_directory() -> String {
     unsafe {
         GetWindowsDirectoryW(&mut buffer);
     }
-    String::from_utf16_lossy(&buffer)
+    from_wide_string(&buffer)
 }
 
 pub fn get_special_directory(csidl: i32) -> String {
@@ -172,7 +172,7 @@ pub fn get_special_directory(csidl: i32) -> String {
     unsafe {
         SHGetSpecialFolderPathW(HWND::default(), &mut buffer, csidl, false);
     }
-    String::from_utf16_lossy(&buffer).trim_matches(char::from(0)).to_string()
+    from_wide_string(&buffer)
 }
 
 pub fn get_screen_width() -> i32 {
