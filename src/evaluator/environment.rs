@@ -23,8 +23,8 @@ use regex::Regex;
 
 
 #[derive(PartialEq, Clone, Debug)]
-pub enum Scope {
-    Local,
+pub enum ContainerType {
+    Variable,
     Public,
     Const,
     Function,
@@ -35,18 +35,18 @@ pub enum Scope {
     BuiltinFunc,
 }
 
-impl fmt::Display for Scope {
+impl fmt::Display for ContainerType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Scope::Local => write!(f,"Local"),
-            Scope::Public => write!(f,"Public"),
-            Scope::Const => write!(f,"Const"),
-            Scope::Function => write!(f,"Function"),
-            Scope::Module => write!(f,"Module"),
-            Scope::Class => write!(f,"Class"),
-            Scope::Struct => write!(f,"Struct"),
-            Scope::BuiltinConst => write!(f,"BuiltinConst"),
-            Scope::BuiltinFunc => write!(f,"BuiltinFunc"),
+            ContainerType::Variable => write!(f,"Variable"),
+            ContainerType::Public => write!(f,"Public"),
+            ContainerType::Const => write!(f,"Const"),
+            ContainerType::Function => write!(f,"Function"),
+            ContainerType::Module => write!(f,"Module"),
+            ContainerType::Class => write!(f,"Class"),
+            ContainerType::Struct => write!(f,"Struct"),
+            ContainerType::BuiltinConst => write!(f,"BuiltinConst"),
+            ContainerType::BuiltinFunc => write!(f,"BuiltinFunc"),
         }
     }
 }
@@ -55,24 +55,24 @@ impl fmt::Display for Scope {
 pub struct NamedObject {
     pub name: String,
     pub object: Object,
-    pub scope: Scope,
+    pub container_type: ContainerType,
 }
 
 impl NamedObject {
-    pub fn new(name: String, object: Object, scope: Scope) -> Self {
-        NamedObject {name, object, scope}
+    pub fn new(name: String, object: Object, container_type: ContainerType) -> Self {
+        NamedObject {name, object, container_type}
     }
     pub fn new_builtin_const(name: String, object: Object) -> Self {
-        NamedObject {name, object, scope: Scope::BuiltinConst}
+        NamedObject {name, object, container_type: ContainerType::BuiltinConst}
     }
     pub fn new_builtin_func(name: String, object: Object) -> Self {
-        NamedObject {name, object, scope: Scope::BuiltinFunc}
+        NamedObject {name, object, container_type: ContainerType::BuiltinFunc}
     }
 }
 
 impl fmt::Display for NamedObject {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "({}) {} = {}", self.scope, self.name, self.object)
+        write!(f, "({}) {} = {}", self.container_type, self.name, self.object)
     }
 }
 
@@ -119,12 +119,12 @@ impl Environment {
             global: Arc::new(Mutex::new(init_builtins()))
         };
         let param_str = params.iter().map(|s| Object::String(s.into())).collect::<Vec<Object>>();
-        env.define("PARAM_STR".into(), Object::Array(param_str), Scope::Local, false).unwrap();
+        env.define("PARAM_STR".into(), Object::Array(param_str), ContainerType::Variable, false).unwrap();
         env.add(NamedObject::new(
-            "TRY_ERRLINE".into(), Object::Empty, Scope::Local
+            "TRY_ERRLINE".into(), Object::Empty, ContainerType::Variable
         ), false);
         env.add(NamedObject::new(
-            "TRY_ERRMSG".into(), Object::Empty, Scope::Local
+            "TRY_ERRMSG".into(), Object::Empty, ContainerType::Variable
         ), false);
         env
     }
@@ -136,10 +136,10 @@ impl Environment {
             outer,
         }));
         self.add(NamedObject::new(
-            "TRY_ERRLINE".into(), Object::Empty, Scope::Local
+            "TRY_ERRLINE".into(), Object::Empty, ContainerType::Variable
         ), false);
         self.add(NamedObject::new(
-            "TRY_ERRMSG".into(), Object::Empty, Scope::Local
+            "TRY_ERRMSG".into(), Object::Empty, ContainerType::Variable
         ), false);
     }
 
@@ -191,11 +191,11 @@ impl Environment {
         self.current.lock().unwrap().local.retain(|o| o.name != name.to_ascii_uppercase());
     }
 
-    fn set(&mut self, name: &String, scope: Scope, value: Object, to_global: bool) {
+    fn set(&mut self, name: &String, container_type: ContainerType, value: Object, to_global: bool) {
         let key = name.to_ascii_uppercase();
         if to_global {
             for obj in self.global.lock().unwrap().iter_mut() {
-                if obj.name == key && obj.scope == scope {
+                if obj.name == key && obj.container_type == container_type {
                     if check_special_assignment(&obj.object, &value) {
                         obj.object = value;
                     }
@@ -204,7 +204,7 @@ impl Environment {
             }
         } else {
             for obj in self.current.lock().unwrap().local.iter_mut() {
-                if obj.name == key && obj.scope == scope {
+                if obj.name == key && obj.container_type == container_type {
                     if check_special_assignment(&obj.object, &value) {
                         obj.object = value;
                     }
@@ -214,42 +214,42 @@ impl Environment {
         }
     }
 
-    fn get(&self, name: &String, scope: Scope) -> Option<Object> {
+    fn get(&self, name: &String, container_type: ContainerType) -> Option<Object> {
         let key = name.to_ascii_uppercase();
         self.current.lock().unwrap().local.iter().find(
-            |o| o.name == key && o.scope == scope
+            |o| o.name == key && o.container_type == container_type
         ).map(|o| o.object.clone())
     }
 
-    fn get_from_global(&self, name: &String, scope: Scope) -> Option<Object> {
+    fn get_from_global(&self, name: &String, container_type: ContainerType) -> Option<Object> {
         let key = name.to_ascii_uppercase();
         self.global.lock().unwrap().iter().find(
-            |o| o.name == key && o.scope == scope
+            |o| o.name == key && o.container_type == container_type
         ).map(|o| o.object.clone())
     }
 
     pub fn get_name_of_builtin_consts(&self, name: &String) -> Object {
         let key = name.to_ascii_uppercase();
         self.global.lock().unwrap().iter()
-        .find(|o| o.name == key && o.scope == Scope::BuiltinConst)
+        .find(|o| o.name == key && o.container_type == ContainerType::BuiltinConst)
         .map_or(Object::Empty, |o| Object::String(o.name.to_string()))
     }
 
     // 変数評価の際に呼ばれる
     pub fn get_variable(&self, name: &String, expand: bool) -> Option<Object> {
-        let obj = match self.get(&name, Scope::Local) {
+        let obj = match self.get(&name, ContainerType::Variable) {
             Some(value) => Some(value),
-            None => match self.get(&name, Scope::Const) { // module関数から呼ばれた場合のみ
+            None => match self.get(&name, ContainerType::Const) { // module関数から呼ばれた場合のみ
                 Some(value) => Some(value),
-                None => match self.get(&name, Scope::Public) { // module関数から呼ばれた場合のみ
+                None => match self.get(&name, ContainerType::Public) { // module関数から呼ばれた場合のみ
                     Some(value) => Some(value),
-                    None => match self.get_from_global(&name, Scope::Const) {
+                    None => match self.get_from_global(&name, ContainerType::Const) {
                         Some(value) => Some(value),
-                        None => match self.get_from_global(&name, Scope::Public) {
+                        None => match self.get_from_global(&name, ContainerType::Public) {
                             Some(value) => Some(value),
-                            None => match self.get_from_global(&name, Scope::BuiltinConst) {
+                            None => match self.get_from_global(&name, ContainerType::BuiltinConst) {
                                 Some(value) => Some(value),
-                                None => match self.get_from_global(&name, Scope::Local) { // インスタンス自動破棄
+                                None => match self.get_from_global(&name, ContainerType::Variable) { // インスタンス自動破棄
                                     Some(value) => Some(value),
                                     None => None
                                 }
@@ -277,18 +277,18 @@ impl Environment {
 
     pub fn get_tmp_instance(&self, name: &String, from_global: bool) -> Option<Object> {
         if from_global {
-            self.get_from_global(&name, Scope::Local)
+            self.get_from_global(&name, ContainerType::Variable)
         } else {
-            self.get(name, Scope::Local)
+            self.get(name, ContainerType::Variable)
         }
     }
 
     pub fn get_function(&self, name: &String) -> Option<Object> {
-        match self.get(&name, Scope::Function) { // module関数から呼ばれた場合のみ
+        match self.get(&name, ContainerType::Function) { // module関数から呼ばれた場合のみ
             Some(func) => Some(func),
-            None =>  match self.get_from_global(&name, Scope::Function) {
+            None =>  match self.get_from_global(&name, ContainerType::Function) {
                 Some(func) => Some(func),
-                None => match self.get_from_global(&name, Scope::BuiltinFunc) {
+                None => match self.get_from_global(&name, ContainerType::BuiltinFunc) {
                     Some(func) => Some(func),
                     None => None
                 }
@@ -299,9 +299,9 @@ impl Environment {
     // global.hoge
     pub fn get_global(&self, name: &String, is_func: bool) -> EvalResult<Object> {
         if is_func {
-            match self.get_from_global(name, Scope::Function) {
+            match self.get_from_global(name, ContainerType::Function) {
                 Some(o) => Ok(o),
-                None => match self.get_from_global(name, Scope::BuiltinFunc) {
+                None => match self.get_from_global(name, ContainerType::BuiltinFunc) {
                     Some(o) => Ok(o),
                     None => Err(UError::new(
                         UErrorKind::EvaluatorError,
@@ -310,11 +310,11 @@ impl Environment {
                 }
             }
         } else {
-            match self.get_from_global(name, Scope::Public) {
+            match self.get_from_global(name, ContainerType::Public) {
                 Some(o) => Ok(o),
-                None => match self.get_from_global(name, Scope::Const) {
+                None => match self.get_from_global(name, ContainerType::Const) {
                     Some(o) => Ok(o),
-                    None => match self.get_from_global(name, Scope::BuiltinConst) {
+                    None => match self.get_from_global(name, ContainerType::BuiltinConst) {
                         Some(o) => Ok(o),
                         None => Err(UError::new(
                             UErrorKind::EvaluatorError,
@@ -327,20 +327,20 @@ impl Environment {
     }
 
     pub fn get_module(&self, name: &String) -> Option<Object> {
-        self.get_from_global(&name, Scope::Module)
+        self.get_from_global(&name, ContainerType::Module)
     }
 
     pub fn get_class(&self, name: &String) -> Option<Object> {
-        self.get_from_global(&name, Scope::Class)
+        self.get_from_global(&name, ContainerType::Class)
     }
 
     pub fn get_struct(&self, name: &String) -> Option<Object> {
-        self.get_from_global(&name, Scope::Struct)
+        self.get_from_global(&name, ContainerType::Struct)
     }
 
     // 予約語チェック
     fn is_reserved(&mut self, name: &String) -> bool {
-        self.global.lock().unwrap().iter().any(|obj| obj.name == *name && obj.scope == Scope::BuiltinConst) ||
+        self.global.lock().unwrap().iter().any(|obj| obj.name == *name && obj.container_type == ContainerType::BuiltinConst) ||
         vec![
             "GLOBAL",
             "THIS",
@@ -349,58 +349,57 @@ impl Environment {
         ].iter().any(|s| s.to_string() == *name)
     }
 
-    fn contains(&mut self, name: &String, scope: Scope) -> bool {
-        if scope == Scope::Local {
-            self.current.lock().unwrap().local.iter().any(|obj| obj.name == *name && scope == obj.scope)
-        } else {
-            self.global.lock().unwrap().iter().any(|obj| obj.name == *name && scope == obj.scope)
-        }
+    fn contains_in_local(&mut self, name: &String, container_types: &[ContainerType]) -> bool {
+        self.current.lock().unwrap().local.iter().any(|obj| obj.name == *name && container_types.contains(&obj.container_type))
+    }
+    fn contains_in_global(&mut self, name: &String, container_types: &[ContainerType]) -> bool {
+        self.global.lock().unwrap().iter().any(|obj| obj.name == *name && container_types.contains(&obj.container_type))
     }
 
-    fn define(&mut self, name: String, object: Object, scope: Scope, to_global: bool) -> Result<(), UError> {
+    fn define(&mut self, name: String, object: Object, container_type: ContainerType, to_global: bool) -> Result<(), UError> {
         if self.is_reserved(&name) {
             return Err(UError::new(
                 UErrorKind::DefinitionError(DefinitionType::Variable),
                 UErrorMessage::Reserved(name)
             ))
         }
-        let obj = NamedObject {name, object, scope};
+        let obj = NamedObject {name, object, container_type};
         self.add(obj, to_global);
         Ok(())
     }
 
     pub fn define_local(&mut self, name: &str, object: Object) -> Result<(), UError> {
         let key = name.to_ascii_uppercase();
-        if self.contains(&key, Scope::Local) || self.contains(&key, Scope::Const) {
+        if self.contains_in_local(&key, &[ContainerType::Variable]) || self.contains_in_global(&key, &[ContainerType::Const]) {
             return Err(UError::new(
                 UErrorKind::DefinitionError(DefinitionType::Variable),
                 UErrorMessage::AlreadyDefined(name.into())
             ))
         }
-        self.define(key, object, Scope::Local, false)
+        self.define(key, object, ContainerType::Variable, false)
     }
 
     pub fn define_public(&mut self, name: &str, object: Object) -> Result<(), UError> {
         let key = name.to_ascii_uppercase();
-        if self.contains(&key, Scope::Const) {
+        if self.contains_in_global(&key, &[ContainerType::Const]) {
             return Err(UError::new(
                 UErrorKind::DefinitionError(DefinitionType::Public),
                 UErrorMessage::AlreadyDefined(name.into())
             ))
         }
-        self.define(key, object, Scope::Public, true)
+        self.define(key, object, ContainerType::Public, true)
     }
 
     pub fn define_const(&mut self, name: &str, object: Object) -> Result<(), UError> {
         let key = name.to_ascii_uppercase();
-        if self.contains(&key, Scope::Local) || self.contains(&key, Scope::Public) {
+        if self.contains_in_global(&key, &[ContainerType::Public]) {
             return Err(UError::new(
                 UErrorKind::DefinitionError(DefinitionType::Const),
                 UErrorMessage::AlreadyDefined(name.into())
             ))
-        } else if self.contains(&key, Scope::Const) {
+        } else if self.contains_in_global(&key, &[ContainerType::Const]) {
             // const定義済みで値が異なればエラー、同じなら何もしないでOk返す
-            let const_value = self.get_from_global(&key, Scope::Const).unwrap_or(Object::Empty);
+            let const_value = self.get_from_global(&key, ContainerType::Const).unwrap_or(Object::Empty);
 
             if ! object.is_equal(&const_value) {
                 return Err(UError::new(
@@ -411,67 +410,101 @@ impl Environment {
                 return Ok(());
             }
         }
-        self.define(key, object, Scope::Const, true)
+        self.define(key, object, ContainerType::Const, true)
     }
 
     pub fn define_function(&mut self, name: &str, object: Object) -> Result<(), UError> {
         let key = name.to_ascii_uppercase();
-        if self.contains(&key, Scope::Function) {
+        if self.contains_in_global(&key, &[ContainerType::Function]) {
             return Err(UError::new(
                 UErrorKind::DefinitionError(DefinitionType::Function),
                 UErrorMessage::AlreadyDefined(name.into())
             ));
         }
-        self.define(key, object, Scope::Function, true)
+        self.define(key, object, ContainerType::Function, true)
     }
 
-    pub fn define_local_function(&mut self, name: &str, object: Object) -> Result<(), UError> {
+    /// モジュール関数
+    pub fn define_module_function(&mut self, name: &str, object: Object) -> Result<(), UError> {
         let key = name.to_ascii_uppercase();
-        if self.contains(&key, Scope::Function) {
+        if self.contains_in_local(&key, &[ContainerType::Function]) {
             return Err(UError::new(
                 UErrorKind::DefinitionError(DefinitionType::Function),
                 UErrorMessage::AlreadyDefined(name.into())
             ));
         }
-        self.define(key, object, Scope::Function, false)
+        self.define(key, object, ContainerType::Function, false)
+    }
+    /// モジュールの定数
+    pub fn define_module_const(&mut self, name: &str, object: Object) -> Result<(), UError> {
+        let key = name.to_ascii_uppercase();
+        if self.contains_in_local(&key, &[ContainerType::Variable,ContainerType::Const,ContainerType::Public]) {
+            return Err(UError::new(
+                UErrorKind::DefinitionError(DefinitionType::Variable),
+                UErrorMessage::AlreadyDefined(name.into())
+            ))
+        }
+        self.define(key, object, ContainerType::Const, false)
+    }
+    /// モジュールのパブリック変数
+    pub fn define_module_public(&mut self, name: &str, object: Object) -> Result<(), UError> {
+        let key = name.to_ascii_uppercase();
+        if self.contains_in_local(&key, &[ContainerType::Variable, ContainerType::Const]) {
+            return Err(UError::new(
+                UErrorKind::DefinitionError(DefinitionType::Variable),
+                UErrorMessage::AlreadyDefined(name.into())
+            ))
+        }
+        self.define(key, object, ContainerType::Public, false)
+    }
+    /// モジュールの変数
+    pub fn define_module_variable(&mut self, name: &str, object: Object) -> Result<(), UError> {
+        let key = name.to_ascii_uppercase();
+        if self.contains_in_local(&key, &[ContainerType::Variable,ContainerType::Const,ContainerType::Public]) {
+            return Err(UError::new(
+                UErrorKind::DefinitionError(DefinitionType::Variable),
+                UErrorMessage::AlreadyDefined(name.into())
+            ))
+        }
+        self.define(key, object, ContainerType::Variable, false)
     }
 
     pub fn define_dll_function(&mut self, name: &str, object: Object) -> Result<(), UError> {
         let key = name.to_ascii_uppercase();
-        self.define(key, object, Scope::Function, true)
+        self.define(key, object, ContainerType::Function, true)
     }
 
     pub fn define_module(&mut self, name: &str, object: Object) -> Result<(), UError> {
         let key = name.to_ascii_uppercase();
-        if self.contains(&key, Scope::Module) {
+        if self.contains_in_global(&key, &[ContainerType::Module]) {
             return Err(UError::new(
                 UErrorKind::DefinitionError(DefinitionType::Module),
                 UErrorMessage::AlreadyDefined(name.into())
             ));
         }
-        self.define(key, object, Scope::Module, true)
+        self.define(key, object, ContainerType::Module, true)
     }
 
     pub fn define_class(&mut self, name: &str, object: Object) -> Result<(), UError> {
         let key = name.to_ascii_uppercase();
-        if self.contains(&key, Scope::Class) {
+        if self.contains_in_global(&key, &[ContainerType::Class]) {
             return Err(UError::new(
                 UErrorKind::DefinitionError(DefinitionType::Class),
                 UErrorMessage::AlreadyDefined(name.into())
             ));
         }
-        self.define(key, object, Scope::Class, true)
+        self.define(key, object, ContainerType::Class, true)
     }
 
     pub fn define_struct(&mut self, name: &str, object: Object) -> Result<(), UError> {
         let key = name.to_ascii_uppercase();
-        if self.contains(&key, Scope::Struct) {
+        if self.contains_in_global(&key, &[ContainerType::Struct]) {
             return Err(UError::new(
                 UErrorKind::DefinitionError(DefinitionType::Struct),
                 UErrorMessage::AlreadyDefined(name.into())
             ));
         }
-        self.define(key, object, Scope::Struct, true)
+        self.define(key, object, ContainerType::Struct, true)
     }
 
     fn assignment(&mut self, name: String, value: Object, include_local: bool) -> EvalResult<bool> {
@@ -484,19 +517,19 @@ impl Environment {
                 UErrorMessage::Reserved(key),
             ))
         }
-        if self.contains(&key, Scope::Const) {
+        if self.contains_in_global(&key, &[ContainerType::Const]) {
             // 同名の定数がある場合エラー
             return Err(UError::new(
                 UErrorKind::AssignError,
                 UErrorMessage::ConstantCantBeAssigned(key)
             ))
-        } else if self.contains(&key, Scope::Local) && include_local {
+        } else if self.contains_in_local(&key, &[ContainerType::Variable]) && include_local {
             // ローカル代入許可の場合のみ
             // 同名のローカル変数が存在する場合は値を上書き
-            self.set(&key, Scope::Local, value, false);
-        } else if self.contains(&key, Scope::Public) {
+            self.set(&key, ContainerType::Variable, value, false);
+        } else if self.contains_in_global(&key, &[ContainerType::Public]) {
             // 同名のグローバル変数が存在する場合は値を上書き
-            self.set(&key, Scope::Public, value, true);
+            self.set(&key, ContainerType::Public, value, true);
             is_public = true;
         } else if include_local {
             // ローカル代入許可の場合のみ
@@ -535,7 +568,7 @@ impl Environment {
         self.add(NamedObject {
             name: key,
             object: value.clone(),
-            scope: Scope::Local
+            container_type: ContainerType::Variable
         }, false)
     }
 
@@ -549,18 +582,18 @@ impl Environment {
         self.add(NamedObject::new(
             "THIS".into(),
             Object::This(Arc::clone(module)),
-            Scope::Local
+            ContainerType::Variable
         ), false);
         self.add(NamedObject::new(
             "GLOBAL".into(),
             Object::Global,
-            Scope::Local
+            ContainerType::Variable
         ), false);
     }
 
     pub fn has_function(&mut self, name: &String) -> bool {
         let key = name.to_ascii_uppercase();
-        self.contains(&key, Scope::Function)
+        self.contains_in_global(&key, &[ContainerType::Function])
     }
 
     // for builtin debug fungtions
@@ -571,7 +604,7 @@ impl Environment {
             arr.push(Object::String(format!("current: {}", obj)));
         }
         for obj in self.global.lock().unwrap().iter() {
-            if obj.scope != Scope::BuiltinConst && obj.scope != Scope::BuiltinFunc {
+            if obj.container_type != ContainerType::BuiltinConst && obj.container_type != ContainerType::BuiltinFunc {
                 arr.push(Object::String(format!("global: {}", obj)));
             }
         }
@@ -612,8 +645,8 @@ impl Environment {
     }
 
     pub fn set_try_error_messages(&mut self, message: String, line: String) {
-        self.set(&"TRY_ERRMSG".into(), Scope::Local, Object::String(message), false);
-        self.set(&"TRY_ERRLINE".into(), Scope::Local, Object::String(line), false);
+        self.set(&"TRY_ERRMSG".into(), ContainerType::Variable, Object::String(message), false);
+        self.set(&"TRY_ERRLINE".into(), ContainerType::Variable, Object::String(line), false);
     }
 }
 

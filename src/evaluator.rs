@@ -869,38 +869,51 @@ impl Evaluator {
                     for (i, e) in vec {
                         let Identifier(member_name) = i;
                         let value = self.eval_expression(e)?;
-                        self.env.define_local(&member_name, value.clone())?;
-                        module.add(member_name, value, Scope::Local);
+                        self.env.define_module_variable(&member_name, value.clone())?;
+                        module.add(member_name, value, ContainerType::Variable);
                     }
                 },
                 Statement::Public(vec) => {
                     for (i, e) in vec {
                         let Identifier(member_name) = i;
                         let value = self.eval_expression(e)?;
-                        self.env.define_local(&member_name, value.clone())?;
-                        module.add(member_name, value, Scope::Public);
+                        self.env.define_module_public(&member_name, value.clone())?;
+                        module.add(member_name, value, ContainerType::Public);
                     }
                 },
                 Statement::Const(vec)  => {
                     for (i, e) in vec {
                         let Identifier(member_name) = i;
                         let value = self.eval_expression(e)?;
-                        self.env.define_local(&member_name, value.clone())?;
-                        module.add(member_name, value, Scope::Const);
+                        {
+                            let m = self.env.global.lock().unwrap();
+                            let c = m.iter()
+                                .filter(|o|o.container_type == ContainerType::Const)
+                                .collect::<Vec<_>>();
+                            println!("\u{001b}[33m[debug] c: {:#?}\u{001b}[0m", &c);
+                        }
+                        self.env.define_module_const(&member_name, value.clone())?;
+                        println!("\u{001b}[36m[debug] 2\u{001b}[0m");
+                        module.add(member_name, value, ContainerType::Const);
                     }
                 },
                 Statement::TextBlock(i, s) => {
                     let Identifier(name) = i;
                     let value = self.eval_literal(s)?;
-                    self.env.define_local(&name, value.clone())?;
-                    module.add(name, value, Scope::Const);
+                    self.env.define_module_const(&name, value.clone())?;
+                    module.add(name, value, ContainerType::Const);
                 },
                 Statement::HashTbl(v) => {
                     for (i, opt, is_pub) in v {
                         let (name, hashtbl) = self.eval_hashtbl_definition_statement(i, opt)?;
-                        let scope = if is_pub {Scope::Public} else {Scope::Local};
-                        self.env.define_local(&name, hashtbl.clone())?;
-                        module.add(name, hashtbl, scope);
+                        let container_type = if is_pub {
+                            self.env.define_module_public(&name, hashtbl.clone())?;
+                            ContainerType::Public
+                        } else {
+                            self.env.define_module_variable(&name, hashtbl.clone())?;
+                            ContainerType::Variable
+                        };
+                        module.add(name, hashtbl, container_type);
                     }
                 },
                 Statement::Function{name: i, params, body, is_proc, is_async} => {
@@ -912,26 +925,32 @@ impl Evaluator {
                                 for (i, e) in vec {
                                     let Identifier(member_name) = i;
                                     let value = self.eval_expression(e)?;
-                                    self.env.define_local(&member_name, value.clone())?;
-                                    module.add(member_name, value, Scope::Public);
+                                    self.env.define_module_public(&member_name, value.clone())?;
+                                    module.add(member_name, value, ContainerType::Public);
                                 }
                             },
                             Statement::Const(vec) => {
                                 for (i, e) in vec {
                                     let Identifier(member_name) = i;
                                     let value = self.eval_expression(e)?;
-                                    self.env.define_local(&member_name, value.clone())?;
-                                    module.add(member_name, value, Scope::Const);
+                                    self.env.define_module_const(&member_name, value.clone())?;
+                                    module.add(member_name, value, ContainerType::Const);
                                 }
                             },
                             Statement::HashTbl(v) => {
                                 for (i, opt, is_pub) in v {
                                     if is_pub {
                                         let (name, hashtbl) = self.eval_hashtbl_definition_statement(i, opt)?;
-                                        self.env.define_local(&name, hashtbl.clone())?;
-                                        module.add(name, hashtbl, Scope::Public);
+                                        self.env.define_module_public(&name, hashtbl.clone())?;
+                                        module.add(name, hashtbl, ContainerType::Public);
                                     }
                                 }
+                            },
+                            Statement::TextBlock(i, s) => {
+                                let Identifier(name) = i;
+                                let value = self.eval_literal(s)?;
+                                self.env.define_module_const(&name, value.clone())?;
+                                module.add(name, value, ContainerType::Const);
                             },
                             Statement::Function{name: _, params: _, body: _, is_proc: _, is_async: _}  => {
                                 return Err(UError::new(
@@ -955,11 +974,11 @@ impl Evaluator {
                     } else {
                         Object::Function(func)
                     };
-                    self.env.define_local_function(&func_name, func_obj.clone())?;
+                    self.env.define_module_function(&func_name, func_obj.clone())?;
                     module.add(
                         func_name,
                         func_obj,
-                        Scope::Function,
+                        ContainerType::Function,
                     );
                 },
                 _ => return Err(UError::new(
@@ -3030,7 +3049,9 @@ impl Evaluator {
 
     fn get_module_member(&self, mutex: &Arc<Mutex<Module>>, member: &String, is_func: bool) -> EvalResult<Object> {
         let module = mutex.lock().unwrap(); // Mutex<Module>をロック
-        if module.is_local_member(&member) {
+        if is_func {
+            module.get_function(&member)
+        } else if module.is_local_member(&member) {
             if let Some(Object::This(this)) = self.env.get_variable(&"this".into(), true) {
                 if this.try_lock().is_err() {
                     // ロックに失敗した場合、上でロックしているMutexと同じだと判断
@@ -3042,8 +3063,6 @@ impl Evaluator {
                 UErrorKind::DotOperatorError,
                 UErrorMessage::IsPrivateMember(module.name(), member.to_string())
             ))
-        } else if is_func {
-            module.get_function(&member)
         } else {
             match module.get_public_member(&member) {
                 Ok(Object::ExpandableTB(text)) => Ok(self.expand_string(text, true)),
