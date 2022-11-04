@@ -160,6 +160,6 @@ if ($Schema) {
 }
 
 if ($Document) {
-    Invoke-Expression -Command '.\docs\make.bat clean'
-    Invoke-Expression -Command '.\docs\make.bat html'
+    Invoke-Expression -Command '.\documents\make.bat clean'
+    Invoke-Expression -Command '.\documents\make.bat html'
 }
