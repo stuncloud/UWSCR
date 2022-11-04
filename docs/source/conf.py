@@ -9,6 +9,8 @@
 project = 'UWSCR'
 copyright = '2022, stuncloud'
 author = 'stuncloud'
+version = '0.9.0'
+html_title = f'{project} {version}'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
