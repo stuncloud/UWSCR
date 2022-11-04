@@ -27,41 +27,41 @@ Windows 10以上
 ### スクリプトの実行
 
 ```powershell
-uwscr path\to\script.uws
+cmd /c uwscr path\to\script.uws
 ```
 
 ### REPL
 
 ```powershell
-uwscr -r
-uwscr --repl
-uwscr --repl path\to\script.uws # スクリプトの事前読み込み
+cmd /c uwscr -r
+cmd /c uwscr --repl
+cmd /c uwscr --repl path\to\script.uws # スクリプトの事前読み込み
 ```
 
 ### バージョン確認
 
 ```powershell
-uwscr --version
+cmd /c uwscr --version
 ```
 
 ### ヘルプ表示
 
 ```powershell
-uwscr -h
-uwscr --help
+cmd /c uwscr -h
+cmd /c uwscr --help
 ```
 
-### オンラインヘルプ (wiki)
+### オンラインヘルプ
 
 ```powershell
-uwscr -o
-uwscr --online-help
+cmd /c uwscr -o
+cmd /c uwscr --online-help
 ```
 
 詳細な使い方
 ----
 
-[UWSCR ドキュメント](https://stuncloud.github.io/UWSCR/index.html)を参照してください
+[UWSCRオンラインヘルプ](https://stuncloud.github.io/UWSCR/index.html)を参照してください
 
 お問い合わせ
 ----
