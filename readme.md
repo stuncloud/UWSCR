@@ -19,7 +19,7 @@ Windows 10以上
     - 32ビット版uwscr
 - UWSCRx64_chkimg.zip
     - 64ビット版で`chkimg`が使えるもの
-    - opencvのdllが別途必要です ([導入方法](https://github.com/stuncloud/UWSCR/wiki/%E3%82%A6%E3%82%A3%E3%83%B3%E3%83%89%E3%82%A6%E6%93%8D%E4%BD%9C%E9%96%A2%E6%95%B0#CHKIMG))
+    - opencvのdllが別途必要です ([導入方法](https://stuncloud.github.io/UWSCR/builtins/window.html#opencv))
 
 実行方法
 ----
@@ -61,7 +61,7 @@ uwscr --online-help
 詳細な使い方
 ----
 
-[Wiki](https://github.com/stuncloud/UWSCR/wiki)のヘルプを参照してください
+[UWSCR ドキュメント](https://stuncloud.github.io/UWSCR/index.html)を参照してください
 
 お問い合わせ
 ----
