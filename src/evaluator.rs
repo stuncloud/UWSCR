@@ -86,10 +86,10 @@ impl Evaluator {
             let lp = loop {
                 match LogPrintWin::new(visible) {
                     Ok(lp) => break lp,
-                    Err(e) => {
+                    Err(_e) => {
                         counter += 1;
                         #[cfg(debug_assertions)]
-                        println!("\u{001b}[31m[debug] {e}\u{001b}[0m");
+                        println!("\u{001b}[31m[debug] {_e}\u{001b}[0m");
                         if counter > 10 {
                             panic!("Failed to create logprint win");
                         }

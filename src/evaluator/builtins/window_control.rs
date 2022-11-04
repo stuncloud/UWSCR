@@ -145,7 +145,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("chkimg", 7, chkimg);
     sets.add("getallwin", 1, getallwin);
     sets.add("getctlhnd", 3, getctlhnd);
-    sets.add("getitem", 6, getitem);
+    sets.add("&&getitem", 6, getitem);
     sets
 }
 
