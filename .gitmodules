@@ -1,0 +1,4 @@
+[submodule "documents/build/html"]
+	path = documents/build/html
+	url = git@github.com:stuncloud/UWSCR.git
+	branch = gh-pages

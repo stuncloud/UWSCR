@@ -1,5 +1,5 @@
 /target
 /.release
 /schema
-/docs/build
+/documents/build
 *.uws
