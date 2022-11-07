@@ -812,6 +812,7 @@ pub enum VariableType {
     TYPE_ANONYMOUS_FUNCTION,
     TYPE_FUNCTION,
     TYPE_BUILTIN_FUNCTION,
+    TYPE_ASYNC_FUNCTION,
     TYPE_MODULE,
     TYPE_CLASS,
     TYPE_CLASS_INSTANCE,
@@ -831,7 +832,13 @@ pub enum VariableType {
     TYPE_STRUCT_INSTANCE,
     TYPE_COM_OBJECT,
     TYPE_VARIANT,
-    TYPE_OTHER,
+    TYPE_SAFEARRAY,
+    TYPE_BROWSER_OBJECT,
+    TYPE_ELEMENT_OBJECT,
+    TYPE_FILE_ID,
+    TYPE_BYTE_ARRAY,
+
+    TYPE_NOT_VALUE_TYPE,
 }
 
 pub fn type_of(args: BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -845,6 +852,7 @@ pub fn type_of(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         Object::AnonFunc(_) => VariableType::TYPE_ANONYMOUS_FUNCTION,
         Object::Function(_) => VariableType::TYPE_FUNCTION,
         Object::BuiltinFunction(_,_,_) => VariableType::TYPE_BUILTIN_FUNCTION,
+        Object::AsyncFunction(_) => VariableType::TYPE_ASYNC_FUNCTION,
         Object::Module(_) => VariableType::TYPE_MODULE,
         Object::Class(_,_) => VariableType::TYPE_CLASS,
         Object::Instance(ref m) => {
@@ -856,6 +864,7 @@ pub fn type_of(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             }
         },
         Object::Null => VariableType::TYPE_NULL,
+        Object::EmptyParam |
         Object::Empty => VariableType::TYPE_EMPTY,
         Object::Nothing => VariableType::TYPE_NOTHING,
         Object::Handle(_) => VariableType::TYPE_HWND,
@@ -870,9 +879,23 @@ pub fn type_of(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         Object::DefDllFunction(_,_,_,_) => VariableType::TYPE_DLL_FUNCTION,
         Object::Struct(_,_,_) => VariableType::TYPE_STRUCT,
         Object::UStruct(_,_,_) => VariableType::TYPE_STRUCT_INSTANCE,
+        Object::ComMember(_, _) |
         Object::ComObject(_) => VariableType::TYPE_COM_OBJECT,
         Object::Variant(_) => VariableType::TYPE_VARIANT,
-        _ => VariableType::TYPE_OTHER
+        Object::SafeArray(_) => VariableType::TYPE_SAFEARRAY,
+        Object::BrowserFunc(_, _) |
+        Object::Browser(_) => VariableType::TYPE_BROWSER_OBJECT,
+        Object::ElementFunc(_, _) |
+        Object::ElementProperty(_) |
+        Object::Element(_) => VariableType::TYPE_ELEMENT_OBJECT,
+        Object::Fopen(_) => VariableType::TYPE_FILE_ID,
+        Object::ByteArray(_) => VariableType::TYPE_BYTE_ARRAY,
+
+        Object::VarArgument(_) |
+        Object::DynamicVar(_) |
+        Object::Continue(_) |
+        Object::Break(_) |
+        Object::Exit => VariableType::TYPE_NOT_VALUE_TYPE,
     };
     Ok(BuiltinFuncReturnValue::Result(Object::String(t.to_string())))
 }
