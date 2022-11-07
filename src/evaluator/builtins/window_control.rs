@@ -54,8 +54,9 @@ use windows::{
             Gdi::{
                 HMONITOR, HDC, DISPLAY_DEVICEW, MONITORINFOEXW,
                 MONITOR_DEFAULTTONEAREST,
-                MapWindowPoints, MonitorFromWindow, EnumDisplayMonitors,
+                MonitorFromWindow, EnumDisplayMonitors,
                 EnumDisplayDevicesW, GetMonitorInfoW,
+                ClientToScreen
             },
             Dwm::{
                 DWMWA_EXTENDED_FRAME_BOUNDS,
@@ -658,8 +659,8 @@ fn get_client_size(h: HWND) -> WindowSize {
     let mut rect = RECT {left: 0, top: 0, right: 0, bottom: 0};
     unsafe {
         GetClientRect(h, &mut rect);
-        let point = POINT {x: rect.left, y: rect.top};
-        MapWindowPoints(h, HWND::default(), &mut [point]);
+        let mut point = POINT {x: rect.left, y: rect.top};
+        ClientToScreen(h, &mut point);
         WindowSize(
             point.x,
             point.y,
