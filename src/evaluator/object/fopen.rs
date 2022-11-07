@@ -17,7 +17,7 @@ use std::io::BufWriter;
 
 use windows::Win32::{
     // System::SystemServices::{GENERIC_READ, GENERIC_WRITE},
-    Foundation::{HANDLE, FILETIME, HWND, RECT, WPARAM, LPARAM, POINT},
+    Foundation::{FILETIME, HWND, RECT, WPARAM, LPARAM, POINT},
     Storage::FileSystem::{
         FILE_SHARE_NONE,FILE_SHARE_READ,FILE_SHARE_WRITE,FILE_SHARE_DELETE,
         FindFirstFileW, FindNextFileW, FindClose, WIN32_FIND_DATAW,
@@ -762,7 +762,7 @@ impl Fopen {
             if ! hfindfile.is_invalid() {
                 result.push(lpfindfiledata.clone());
                 lpfindfiledata = WIN32_FIND_DATAW::default();
-                while FindNextFileW(HANDLE(hfindfile.0), &mut lpfindfiledata).as_bool() {
+                while FindNextFileW(hfindfile, &mut lpfindfiledata).as_bool() {
                     result.push(lpfindfiledata.clone());
                     lpfindfiledata = WIN32_FIND_DATAW::default();
                 }

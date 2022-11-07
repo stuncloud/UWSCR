@@ -238,12 +238,13 @@ impl ScreenShot {
             }
 
             let mut mat = Mat::new_rows_cols(height, width, core::CV_8UC4)?;
+            let pmat = mat.data_mut() as *mut c_void;
             GetDIBits(
                 hdc_compat,
                 hbmp,
                 0,
                 height as u32,
-                mat.data_mut() as *mut c_void,
+                Some(pmat),
                 &mut info,
                 DIB_RGB_COLORS
             );

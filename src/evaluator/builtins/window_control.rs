@@ -72,7 +72,6 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use std::thread;
 use std::mem;
-use std::ptr;
 
 use strum_macros::{EnumString, EnumVariantNames};
 use num_derive::{ToPrimitive, FromPrimitive};
@@ -712,7 +711,7 @@ fn is_active_window(hwnd: HWND) -> Object {
 fn get_process_id_from_hwnd(hwnd: HWND) -> u32 {
     let mut pid = 0;
     unsafe {
-        GetWindowThreadProcessId(hwnd, &mut pid);
+        GetWindowThreadProcessId(hwnd, Some(&mut pid));
     }
     pid
 }
@@ -933,7 +932,7 @@ fn get_monitor_count(handle: HMONITOR) -> Object {
 
         EnumDisplayMonitors(
             HDC::default(),
-            ptr::null() as *const RECT,
+            None,
             Some(callback_count_monitor),
             LPARAM(lparam)
         );
@@ -961,7 +960,7 @@ fn get_monitor_handle_by_index(i: usize) -> HMONITOR {
         };
         EnumDisplayMonitors(
             HDC::default(),
-            ptr::null() as *const RECT,
+            None,
             Some(callback_get_handle_by_index),
             LPARAM(&mut monitor as *mut Monitor as isize)
         );

@@ -16,7 +16,7 @@ use kanaria::{
     utils::{ConvertTarget, CharExtend}
 };
 use windows::{
-    core::{PSTR,PCSTR},
+    core::{PCSTR},
     Win32::{
         Globalization::{
             CP_ACP, WC_COMPOSITECHECK, MB_PRECOMPOSED,
@@ -869,22 +869,19 @@ impl ByteArray {
                 CP_ACP,
                 WC_COMPOSITECHECK,
                 &wide,
-                PSTR::null(),
-                0,
+                None,
                 PCSTR::null(),
-                &mut 0
+                None,
             );
             if len > 0 {
-                let mut result: Vec<u8> = Vec::with_capacity(len as usize);
-                result.set_len(len as usize);
+                let mut result = vec![0; len as usize];
                 WideCharToMultiByte(
                     CP_ACP,
                     WC_COMPOSITECHECK,
                     &wide,
-                    PSTR(result.as_mut_ptr()),
-                    result.len() as i32,
+                    Some(&mut result),
                     PCSTR::null(),
-                    &mut 0
+                    None,
                 );
                 result
             } else {
@@ -898,16 +895,15 @@ impl ByteArray {
                 CP_ACP,
                 MB_PRECOMPOSED,
                 byte,
-                &mut vec![]
+                None
             );
             if len > 0 {
-                let mut wide: Vec<u16> = Vec::with_capacity(len as usize);
-                wide.set_len(len as usize);
+                let mut wide = vec![0; len as usize];
                 MultiByteToWideChar(
                     CP_ACP,
                     MB_PRECOMPOSED,
                     byte,
-                    &mut wide
+                    Some(&mut wide)
                 );
                 String::from_utf16_lossy(&wide)
             } else {

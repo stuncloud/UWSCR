@@ -56,7 +56,7 @@ impl PopupMenu {
                 TPM_TOPALIGN|TPM_RETURNCMD|TPM_NONOTIFY,
                 x, y, 0,
                 dummy.hwnd(),
-                std::ptr::null() as *const RECT
+                None
             );
             dummy.destroy();
             Ok(self.menu.get_item(b.0))

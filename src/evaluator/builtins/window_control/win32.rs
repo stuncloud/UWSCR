@@ -8,8 +8,6 @@ use windows::{
         },
         UI::{
             Controls::{
-                WC_BUTTON, WC_LISTBOX, WC_COMBOBOX, WC_TABCONTROL, WC_TREEVIEW, WC_LISTVIEW, WC_LINK, //WC_HEADER,
-                TOOLBARCLASSNAME,
                 BST_CHECKED, BST_UNCHECKED, BST_INDETERMINATE,
                 TCM_GETITEMW, TCM_GETITEMA, TCM_GETITEMCOUNT, TCM_GETCURSEL, TCM_GETUNICODEFORMAT, TCM_GETITEMRECT, TCM_SETCURFOCUS,
                 TCIF_TEXT,
@@ -68,7 +66,6 @@ use super::clkitem::{ClkItem, MouseInput, match_title, ClkResult};
 use super::get_process_id_from_hwnd;
 
 use std::mem;
-use std::ptr;
 use std::ffi::c_void;
 
 #[derive(Debug)]
@@ -458,7 +455,7 @@ impl Win32 {
     }
     fn _post_thread_message(hwnd: HWND, msg: u32, wparam: usize, lparam: isize) -> bool {
         unsafe {
-            let idthread = GetWindowThreadProcessId(hwnd, &mut 0);
+            let idthread = GetWindowThreadProcessId(hwnd, None);
             PostThreadMessageW(idthread, msg, WPARAM(wparam), LPARAM(lparam)).as_bool()
         }
     }
@@ -716,23 +713,23 @@ enum TargetClass {
     Other(String),
 }
 
-impl std::fmt::Display for TargetClass {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            TargetClass::Button => write!(f, "{}", WC_BUTTON),
-            TargetClass::List => write!(f, "{}", WC_LISTBOX),
-            TargetClass::ComboBox => write!(f, "{}", WC_COMBOBOX),
-            TargetClass::Tab => write!(f, "{}", WC_TABCONTROL),
-            TargetClass::Menu => write!(f, "#32768"),
-            TargetClass::TreeView => write!(f, "{}", WC_TREEVIEW),
-            TargetClass::ListView => write!(f, "{}", WC_LISTVIEW),
-            // TargetClass::ListViewHeader => write!(f, "{}", WC_HEADER),
-            TargetClass::ToolBar => write!(f, "{}", TOOLBARCLASSNAME),
-            TargetClass::Link => write!(f, "{}", WC_LINK),
-            TargetClass::Other(s) => write!(f, "{s}"),
-        }
-    }
-}
+// impl std::fmt::Display for TargetClass {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         match self {
+//             TargetClass::Button => write!(f, "{}", WC_BUTTON),
+//             TargetClass::List => write!(f, "{}", WC_LISTBOX),
+//             TargetClass::ComboBox => write!(f, "{}", WC_COMBOBOX),
+//             TargetClass::Tab => write!(f, "{}", WC_TABCONTROL),
+//             TargetClass::Menu => write!(f, "#32768"),
+//             TargetClass::TreeView => write!(f, "{}", WC_TREEVIEW),
+//             TargetClass::ListView => write!(f, "{}", WC_LISTVIEW),
+//             // TargetClass::ListViewHeader => write!(f, "{}", WC_HEADER),
+//             TargetClass::ToolBar => write!(f, "{}", TOOLBARCLASSNAME),
+//             TargetClass::Link => write!(f, "{}", WC_LINK),
+//             TargetClass::Other(s) => write!(f, "{s}"),
+//         }
+//     }
+// }
 
 impl From<String> for TargetClass {
     fn from(s: String) -> Self {
@@ -783,13 +780,13 @@ impl ProcessMemory {
     fn new<T>(pid: u32, obj: Option<&T>) -> Option<Self> {
         let hprocess = Self::open_process(pid)?;
         let pointer = unsafe {
-            VirtualAllocEx(hprocess, ptr::null(), mem::size_of::<T>(), MEM_COMMIT, PAGE_READWRITE)
+            VirtualAllocEx(hprocess, None, mem::size_of::<T>(), MEM_COMMIT, PAGE_READWRITE)
         };
         if let Some(obj) = obj {
             let lpbuffer = obj as *const T as *const c_void;
             let nsize = mem::size_of::<T>();
             unsafe {
-                WriteProcessMemory(hprocess, pointer, lpbuffer, nsize, ptr::null_mut());
+                WriteProcessMemory(hprocess, pointer, lpbuffer, nsize, None);
             }
         }
         Some(Self { hprocess, pointer })
@@ -797,7 +794,7 @@ impl ProcessMemory {
     fn new2<T, U>(pid: u32, value: U) -> Option<Self> {
         let hprocess = Self::open_process(pid)?;
         let pointer = unsafe {
-            VirtualAllocEx(hprocess, ptr::null(), mem::size_of::<T>(), MEM_COMMIT, PAGE_READWRITE)
+            VirtualAllocEx(hprocess, None, mem::size_of::<T>(), MEM_COMMIT, PAGE_READWRITE)
         };
         let lpbuffer = &value as *const U as *const c_void;
         let nsize = mem::size_of::<T>();
@@ -806,7 +803,7 @@ impl ProcessMemory {
             None
         } else {
             unsafe {
-                WriteProcessMemory(hprocess, pointer, lpbuffer, nsize, ptr::null_mut());
+                WriteProcessMemory(hprocess, pointer, lpbuffer, nsize, None);
             }
             Some(Self { hprocess, pointer })
         }
@@ -815,7 +812,7 @@ impl ProcessMemory {
         let lpbuffer = buf as *mut T as *mut c_void;
         let nsize = mem::size_of::<T>();
         unsafe {
-            ReadProcessMemory(self.hprocess, self.pointer, lpbuffer, nsize, ptr::null_mut());
+            ReadProcessMemory(self.hprocess, self.pointer, lpbuffer, nsize, None);
         }
     }
     fn is_process_x64(pid: u32) -> Option<bool> {
@@ -1245,7 +1242,7 @@ impl ListView {
         let n = match self.target_arch {
             TargetArch::X64 => {
                 let mut lvitem = LVITEM64::default();
-                lvitem.mask = LVIF_TEXT;
+                lvitem.mask = LVIF_TEXT.0;
                 lvitem.iItem = row as i32;
                 lvitem.iSubItem = column as i32;
                 lvitem.pszText = pbuf as i64;
@@ -1256,7 +1253,7 @@ impl ListView {
             },
             TargetArch::X86 => {
                 let mut lvitem = LVITEM86::default();
-                lvitem.mask = LVIF_TEXT;
+                lvitem.mask = LVIF_TEXT.0;
                 lvitem.iItem = row as i32;
                 lvitem.iSubItem = column as i32;
                 lvitem.pszText = pbuf as i32;

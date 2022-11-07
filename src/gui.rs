@@ -23,13 +23,13 @@ pub use windows::{
     Win32::{
         Foundation::{
             HWND,WPARAM,LPARAM,LRESULT,
-            HINSTANCE, SIZE, BOOL, RECT, POINT,
+            HINSTANCE, SIZE, BOOL, RECT, POINT, COLORREF,
             GetLastError,
         },
         UI::{
             WindowsAndMessaging::{
                 WNDCLASSEXW, WNDPROC, MSG, HMENU,
-                HICON, HCURSOR, SYS_COLOR_INDEX,
+                HICON, HCURSOR,
                 IDI_APPLICATION, IDI_ASTERISK, IDC_ARROW,
                 WM_DESTROY, WM_COMMAND, WM_CLOSE, WM_KEYDOWN, WM_KEYUP, WM_SIZE, WM_SETFONT, WM_GETDLGCODE, WM_SYSCOMMAND, WM_QUIT, WM_CTLCOLORSTATIC, WM_LBUTTONDOWN,
                 BM_CLICK,
@@ -42,7 +42,7 @@ pub use windows::{
                 KF_REPEAT,
                 ES_MULTILINE,ES_WANTRETURN, ES_AUTOHSCROLL, ES_AUTOVSCROLL, ES_LOWERCASE, ES_UPPERCASE, ES_LEFT, ES_PASSWORD,
                 EC_LEFTMARGIN, EC_RIGHTMARGIN,
-                COLOR_BACKGROUND, COLOR_WINDOW,
+
                 GWLP_WNDPROC,
                 SC_CLOSE,
                 RegisterClassExW, CreateWindowExW,
@@ -87,6 +87,7 @@ pub use windows::{
         },
         Graphics::Gdi::{
             HBRUSH, HDC, HFONT,
+            SYS_COLOR_INDEX, COLOR_BACKGROUND, COLOR_WINDOW,
             FW_DONTCARE,CHARSET_UNICODE, OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
             DEFAULT_PITCH, FF_DONTCARE,
             GetDC, ReleaseDC, SelectObject,
@@ -137,15 +138,15 @@ impl Window {
                 0,
                 0,
                 0,
-                FW_DONTCARE as i32,
+                FW_DONTCARE.0 as i32,
                 false.into(),
                 false.into(),
                 false.into(),
                 CHARSET_UNICODE.0,
-                OUT_TT_PRECIS,
-                CLIP_DEFAULT_PRECIS,
-                DEFAULT_QUALITY,
-                FF_DONTCARE,
+                OUT_TT_PRECIS.0 as u32,
+                CLIP_DEFAULT_PRECIS.0 as u32,
+                DEFAULT_QUALITY.0 as u32,
+                FF_DONTCARE.0 as u32,
                 font_family.to_wide_null_terminated().to_pcwstr()
             );
             if hfont.is_invalid() {
@@ -231,7 +232,7 @@ impl Window {
                 parent,
                 hmenu,
                 None,
-                std::ptr::null()
+                None
             );
             if hwnd.0 == 0 {
                 let err = SystemError::new();
@@ -465,9 +466,9 @@ impl Window {
             UpdateWindow(hwnd);
         }
     }
-    fn create_solid_brush(color: u32) -> HBRUSH {
+    fn create_solid_brush(colorref: COLORREF) -> HBRUSH {
         unsafe {
-            CreateSolidBrush(color)
+            CreateSolidBrush(colorref)
         }
     }
 }
@@ -681,12 +682,12 @@ impl SystemError {
             let mut buf = [0; 512];
             FormatMessageW(
                 FORMAT_MESSAGE_FROM_SYSTEM|FORMAT_MESSAGE_IGNORE_INSERTS,
-                std::ptr::null(),
+                None,
                 code,
                 SUBLANG_DEFAULT << 10 | LANG_NEUTRAL,
                 PWSTR::from_raw(buf.as_mut_ptr()),
                 buf.len() as u32,
-                std::ptr::null()
+                None
             );
             let msg = from_wide_string(&buf);
             Self { code, msg }

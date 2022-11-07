@@ -179,7 +179,7 @@ impl fmt::Display for Object {
             // },
             Object::ComObject(ref d) => write!(f, "{:?}", d),
             Object::ComMember(_, _) => write!(f, "Com member"),
-            Object::Variant(ref v) => write!(f, "Variant({})", v.0.vt()),
+            Object::Variant(ref v) => write!(f, "Variant({})", v.0.vt().0),
             Object::SafeArray(_) => write!(f, "SafeArray"),
             Object::VarArgument(_) => write!(f, "var"),
             Object::Browser(ref b) => write!(f, "Browser: {}:{} ({})", b.btype, b.port, b.id),

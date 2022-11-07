@@ -12,9 +12,9 @@ use windows::{
                 CLSCTX_ALL,
                 SAFEARRAY, IDispatch,
                 CLSIDFromProgID, CoCreateInstance,
+                VARENUM,
             },
             Ole::{
-                VARENUM,
                 GetActiveObject,
             }
         }
@@ -22,11 +22,12 @@ use windows::{
 };
 
 use std::{ptr};
+use std::ops::BitOr;
 use libc::c_void;
 // use std::sync::{Arc, Mutex};
 use strum_macros::{EnumString, EnumVariantNames};
 use num_derive::{ToPrimitive, FromPrimitive};
-// use num_traits::FromPrimitive;
+use num_traits::ToPrimitive;
 
 pub fn builtin_func_sets() -> BuiltinFunctionSets {
     let mut sets = BuiltinFunctionSets::new();
@@ -65,6 +66,24 @@ pub enum VarType {
     VAR_USTR     = 258, // VT_LPWSTR
     VAR_UWSCR    = 512, // UWSCRデータ型
     VAR_ARRAY    = 0x2000,
+}
+impl PartialEq<VarType> for u16 {
+    fn eq(&self, other: &VarType) -> bool {
+        match ToPrimitive::to_u16(other) {
+            Some(n) => *self == n,
+            None => false,
+        }
+    }
+}
+impl BitOr<VarType> for u16 {
+    type Output = u16;
+
+    fn bitor(self, rhs: VarType) -> Self::Output {
+        match ToPrimitive::to_u16(&rhs) {
+            Some(n) => n | self,
+            None => 0,
+        }
+    }
 }
 
 fn ignore_ie(prog_id: &str) -> BuiltInResult<()> {
@@ -137,24 +156,25 @@ fn vartype(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let o = args.get_as_object(0, None)?;
     if vt < 0 {
         let n = match o {
-            Object::Variant(ref v) => v.0.vt() as f64,
+            Object::Variant(ref v) => v.0.vt().0 as f64,
             _ => VarType::VAR_UWSCR as u32 as f64
         };
         Ok(BuiltinFuncReturnValue::Result(Object::Num(n)))
     } else {
-        let _is_array = (vt as u16 | VarType::VAR_ARRAY as u16) > 0;
+        let vt = vt as u16;
+        let _is_array = (vt | VarType::VAR_ARRAY) > 0;
         // VARIANT型への変換 VAR_UWSCRの場合は通常のObjectに戻す
-        if vt == VarType::VAR_UWSCR as i32 {
+        if vt == VarType::VAR_UWSCR {
             match o {
                 Object::Variant(v) => Ok(BuiltinFuncReturnValue::Result(Object::from_variant(&v.0)?)),
                 o => Ok(BuiltinFuncReturnValue::Result(o))
             }
         } else {
             let variant = match o {
-                Object::Variant(ref v) => v.0.change_type(VARENUM(vt.into()))?,
+                Object::Variant(ref v) => v.0.change_type(VARENUM(vt))?,
                 o => {
                     let v = o.to_variant()?;
-                    v.change_type(VARENUM(vt.into()))?
+                    v.change_type(VARENUM(vt))?
                 }
             };
             Ok(BuiltinFuncReturnValue::Result(Object::Variant(Variant(variant))))

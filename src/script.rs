@@ -142,7 +142,7 @@ pub fn get_parent_full_path(path: &str) -> Result<PathBuf, String> {
     let lpfilename = path.to_wide_null_terminated().to_pcwstr();
     let mut filepart = PWSTR::null();
     unsafe {
-        GetFullPathNameW(lpfilename, &mut buffer, &mut filepart);
+        GetFullPathNameW(lpfilename, Some(&mut buffer), Some(&mut filepart));
     }
     let full_path = String::from_utf16_lossy(&buffer);
     Ok(Path::new(full_path.as_str()).parent().unwrap().to_owned())

@@ -3,9 +3,9 @@ use std::ffi::c_void;
 use std::mem::{transmute, ManuallyDrop};
 
 use windows::{
-    core::{Interface, HRESULT,},
+    core::{Interface, HRESULT, BSTR},
     Win32::{
-        Foundation::{HWND, BSTR},
+        Foundation::{HWND},
         UI::{
             WindowsAndMessaging::{
                 STATE_SYSTEM_SELECTABLE, STATE_SYSTEM_CHECKED,
@@ -21,15 +21,15 @@ use windows::{
             },
             Controls::{
                 STATE_SYSTEM_INVISIBLE,
-                WC_LISTVIEW,
             },
         },
         System::{
             Com::{
                 VARIANT, VARIANT_0_0, IDispatch,
+                VT_I4,VT_DISPATCH,
+
             },
             Ole::{
-                VARENUM,VT_I4,VT_DISPATCH,
                 VariantInit,
             }
         }
@@ -227,13 +227,6 @@ impl Acc {
             let _ = self.obj.put_accValue(&varchild, &szvalue);
         }
     }
-    // pub fn select(&self) -> AccResult<()> {
-    //     unsafe {
-    //         let varchild = self.get_varchild();
-    //         self.obj.accSelect(SELFLAG_TAKEFOCUS as i32, &varchild)?;
-    //     }
-    //     Ok(())
-    // }
 
     pub fn get_acc_static_text(&self) -> Vec<Self> {
         self.get_children(AccType::StaticText)
@@ -256,13 +249,6 @@ impl Acc {
         let class_name = get_class_name(hwnd);
         Some(class_name)
     }
-    fn is_listview(&self) -> bool {
-        if let Some(class_name) = self.get_classname() {
-            class_name.eq(WC_LISTVIEW)
-        } else {
-            false
-        }
-    }
 
     pub fn get_children(&self, acc_type: AccType) -> Vec<Self> {
         let mut children = vec![];
@@ -282,8 +268,7 @@ impl Acc {
                 }
                 for variant in rgvarchildren {
                     let variant00 = &variant.Anonymous.Anonymous;
-                    let vt = variant00.vt;
-                    match VARENUM(vt as i32) {
+                    match variant00.vt {
                         VT_I4 => {
                             let id = variant00.Anonymous.lVal;
                             match self.obj.get_accChild(&variant) {
@@ -331,8 +316,7 @@ impl Acc {
 
                 for variant in rgvarchildren {
                     let variant00 = &variant.Anonymous.Anonymous;
-                    let vt = variant00.vt;
-                    let maybe_acc = match VARENUM(vt as i32) {
+                    let maybe_acc = match variant00.vt {
                         VT_I4 => {
                             let id = variant00.Anonymous.lVal;
                             match self.obj.get_accChild(&variant) {
@@ -683,8 +667,7 @@ impl Acc {
     fn get_acc_from_varchild(&self, varchild: &VARIANT, ignore_invisible: bool) -> Option<Self> {
         unsafe {
             let variant00 = &varchild.Anonymous.Anonymous;
-            let vt = VARENUM(variant00.vt as i32);
-            match vt {
+            match variant00.vt {
                 VT_I4 => {
                     let id = variant00.Anonymous.lVal;
                     let child = unsafe { self.obj.get_accChild(varchild) };
@@ -726,7 +709,7 @@ impl Acc {
             };
             if let Some(variant) = state {
                 let variant00 = variant.Anonymous.Anonymous;
-                if VARENUM(variant00.vt as i32) == VT_I4 {
+                if variant00.vt == VT_I4 {
                     Some(variant00.Anonymous.lVal)
                 } else {
                     None
@@ -1011,7 +994,7 @@ fn to_vt_i4(n: i32) -> VARIANT {
         let mut variant = VARIANT::default();
         VariantInit(&mut variant);
         let mut variant00 = VARIANT_0_0::default();
-        variant00.vt = VT_I4.0 as u16;
+        variant00.vt = VT_I4;
         variant00.Anonymous.lVal = n;
         variant.Anonymous.Anonymous = ManuallyDrop::new(variant00);
         variant
@@ -1031,8 +1014,7 @@ impl I32Ext for i32 {
     fn from_variant(variant: VARIANT) -> Self {
         unsafe {
             let variant00 = &variant.Anonymous.Anonymous;
-            let vt = variant00.vt;
-            match VARENUM(vt as i32) {
+            match variant00.vt {
                 VT_I4 => variant00.Anonymous.lVal,
                 _ => 0
             }

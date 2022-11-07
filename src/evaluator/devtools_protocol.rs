@@ -967,7 +967,7 @@ unsafe extern "system"
 fn enum_window_proc(hwnd: HWND, lparam: LPARAM) -> BOOL {
     let mut data = &mut *(lparam.0 as *mut c_void as *mut LparamData);
     let mut pid = 0;
-    GetWindowThreadProcessId(hwnd, &mut pid);
+    GetWindowThreadProcessId(hwnd, Some(&mut pid));
     if data.0 == pid && GetWindow(hwnd, GW_OWNER) == HWND::default() && IsWindowVisible(hwnd).as_bool() {
         data.1 = hwnd;
         false.into()

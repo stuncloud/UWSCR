@@ -7,7 +7,7 @@ static BALLOON_MARGIN: i32 = 10;
 pub struct Balloon {
     hwnd: HWND,
     bg_color: HBRUSH,
-    font_color: u32,
+    font_color: COLORREF,
     text: String,
     hfont: HFONT,
     x: Option<i32>,
@@ -16,8 +16,9 @@ pub struct Balloon {
 
 impl Balloon {
     pub fn new(text: &str, x: Option<i32>, y: Option<i32>, font: Option<FontFamily>, font_color: Option<u32>, bg_color: Option<u32>) -> UWindowResult<Self> {
-        let bg_color = Window::create_solid_brush(bg_color.unwrap_or(0x00FFFF));
-        let font_color = font_color.unwrap_or(0x000000);
+        let colorref = COLORREF(bg_color.unwrap_or(0x00FFFF));
+        let bg_color = Window::create_solid_brush(colorref);
+        let font_color = COLORREF(font_color.unwrap_or(0x000000));
         // let mut m = BALLOON.lock().unwrap();
         let class_name = Window::get_class_name("UWSCR.Balloon", &BALLOON_CLASS, Some(Self::wndproc))?;
         let hwnd = Self::create(text, &class_name)?;

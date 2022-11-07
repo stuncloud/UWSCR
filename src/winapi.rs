@@ -1,5 +1,5 @@
 use windows::{
-    core::{PSTR, PCSTR, PCWSTR},
+    core::{PCSTR, PCWSTR},
     Win32::{
         Foundation:: {
             MAX_PATH, HWND, WPARAM, LPARAM,
@@ -57,10 +57,9 @@ pub fn to_ansi_bytes(string: &str) -> Vec<u8> {
             CP_ACP,
             WC_COMPOSITECHECK,
             &wide,
-            PSTR::null(),
-            0,
+            None,
             PCSTR::null(),
-            &mut 0
+            None
         );
         if len > 0 {
             let mut result: Vec<u8> = Vec::with_capacity(len as usize);
@@ -69,10 +68,9 @@ pub fn to_ansi_bytes(string: &str) -> Vec<u8> {
                 CP_ACP,
                 WC_COMPOSITECHECK,
                 &wide,
-                PSTR(result.as_mut_ptr()),
-                result.len() as i32,
+                Some(&mut result),
                 PCSTR::null(),
-                &mut 0
+                None
             );
             result
         } else {
@@ -88,10 +86,9 @@ pub fn get_ansi_length(string: &str) -> usize {
             CP_ACP,
             WC_COMPOSITECHECK,
             &wide,
-            PSTR::null(),
-            0,
+            None,
             PCSTR::null(),
-            &mut 0
+            None
         );
         len as usize - 1
     }
@@ -103,7 +100,7 @@ pub fn from_ansi_bytes(ansi: &[u8]) -> String {
             CP_ACP,
             MB_PRECOMPOSED,
             &ansi,
-            &mut vec![]
+            Some(&mut vec![])
         );
         if len > 0 {
             let mut wide: Vec<u16> = Vec::with_capacity(len as usize);
@@ -112,7 +109,7 @@ pub fn from_ansi_bytes(ansi: &[u8]) -> String {
                 CP_ACP,
                 MB_PRECOMPOSED,
                 &ansi,
-                &mut wide
+                Some(&mut wide)
             );
             String::from_utf16_lossy(&wide)
                 .trim_end_matches(char::is_control)
@@ -142,10 +139,9 @@ pub fn contains_unicode_char(string: &str) -> bool {
             CP_ACP,
             0,
             &wide,
-            PSTR::null(),
-            0,
+            None,
             PCSTR::null(),
-            &mut lpUsedDefaultChar
+            Some(&mut lpUsedDefaultChar)
         );
         lpUsedDefaultChar != 0
     }
@@ -154,7 +150,7 @@ pub fn contains_unicode_char(string: &str) -> bool {
 pub fn get_system_directory() -> String {
     let mut buffer = [0; MAX_PATH as usize];
     unsafe {
-        GetSystemDirectoryW(&mut buffer);
+        GetSystemDirectoryW(Some(&mut buffer));
     }
     from_wide_string(&buffer)
 }
@@ -162,7 +158,7 @@ pub fn get_system_directory() -> String {
 pub fn get_windows_directory() -> String {
     let mut buffer = [0; MAX_PATH as usize];
     unsafe {
-        GetWindowsDirectoryW(&mut buffer);
+        GetWindowsDirectoryW(Some(&mut buffer));
     }
     from_wide_string(&buffer)
 }

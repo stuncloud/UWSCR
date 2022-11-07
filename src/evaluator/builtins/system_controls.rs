@@ -42,11 +42,10 @@ use windows::{
                 ShellExecuteW,
             }
         },
-        Security::SECURITY_ATTRIBUTES,
     }
 };
 
-use std::{ptr::null_mut, thread, time};
+use std::{thread, time};
 use std::mem;
 use std::process::Command;
 use std::os::windows::process::CommandExt;
@@ -222,7 +221,7 @@ pub fn shell_execute(cmd: String, params: Option<String>) -> bool {
             cmd.to_wide_null_terminated().to_pcwstr(),
             params.unwrap_or_default().to_wide_null_terminated().to_pcwstr(),
             PCWSTR::null(),
-            SW_SHOWNORMAL.0 as i32
+            SW_SHOWNORMAL
         );
         hinstance.0 > 32
     }
@@ -240,11 +239,11 @@ fn create_process(cmd: String) -> BuiltInResult<PROCESS_INFORMATION> {
         let r = CreateProcessW(
             PCWSTR::null(),
             PWSTR(command.as_mut_ptr()),
-            &mut SECURITY_ATTRIBUTES::default(),
-            &mut SECURITY_ATTRIBUTES::default(),
+            None,
+            None,
             false,
             NORMAL_PRIORITY_CLASS,
-            null_mut(),
+            None,
             PCWSTR::null(),
             &mut si,
             &mut pi
@@ -267,7 +266,7 @@ unsafe extern "system"
 fn enum_window_proc(hwnd: HWND, lparam: LPARAM) -> BOOL {
     let ph = &mut *(lparam.0 as *mut ProcessHwnd);
     let mut pid = 0;
-    GetWindowThreadProcessId(hwnd, &mut pid);
+    GetWindowThreadProcessId(hwnd, Some(&mut pid));
     if pid == ph.pid {
         ph.hwnd = hwnd;
         false.into()
