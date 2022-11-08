@@ -600,7 +600,7 @@ impl Win32 {
         let y = rect.top + (rect.bottom - rect.top) / 2;
         (x, y)
     }
-    fn client_to_screen(hwnd: HWND, x: i32, y: i32) -> (i32, i32) {
+    pub fn client_to_screen(hwnd: HWND, x: i32, y: i32) -> (i32, i32) {
         let mut point = POINT { x, y };
         unsafe { ClientToScreen(hwnd, &mut point); }
         (point.x, point.y)

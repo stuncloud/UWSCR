@@ -5,38 +5,41 @@ use std::mem::{transmute, ManuallyDrop};
 use windows::{
     core::{Interface, HRESULT, BSTR},
     Win32::{
-        Foundation::{HWND},
+        Foundation::{HWND, POINT},
         UI::{
             WindowsAndMessaging::{
-                STATE_SYSTEM_SELECTABLE, STATE_SYSTEM_CHECKED,
+                STATE_SYSTEM_ALERT_HIGH,STATE_SYSTEM_ALERT_MEDIUM,STATE_SYSTEM_ALERT_LOW,STATE_SYSTEM_ANIMATED,STATE_SYSTEM_BUSY,STATE_SYSTEM_CHECKED,STATE_SYSTEM_COLLAPSED,STATE_SYSTEM_DEFAULT,STATE_SYSTEM_EXPANDED,STATE_SYSTEM_EXTSELECTABLE,STATE_SYSTEM_FLOATING,STATE_SYSTEM_FOCUSED,STATE_SYSTEM_HOTTRACKED,STATE_SYSTEM_LINKED,STATE_SYSTEM_MARQUEED,STATE_SYSTEM_MIXED,STATE_SYSTEM_MOVEABLE,STATE_SYSTEM_MULTISELECTABLE,STATE_SYSTEM_PROTECTED,STATE_SYSTEM_READONLY,STATE_SYSTEM_SELECTABLE,STATE_SYSTEM_SELECTED,STATE_SYSTEM_SELFVOICING,STATE_SYSTEM_SIZEABLE,STATE_SYSTEM_TRAVERSED,
                 OBJID_WINDOW,
+                SetForegroundWindow,
             },
             Accessibility::{
                 ROLE_SYSTEM_ALERT, ROLE_SYSTEM_ANIMATION, ROLE_SYSTEM_APPLICATION, ROLE_SYSTEM_BORDER, ROLE_SYSTEM_BUTTONDROPDOWN, ROLE_SYSTEM_BUTTONDROPDOWNGRID, ROLE_SYSTEM_BUTTONMENU, ROLE_SYSTEM_CARET, ROLE_SYSTEM_CELL, ROLE_SYSTEM_CHARACTER, ROLE_SYSTEM_CHART, ROLE_SYSTEM_CHECKBUTTON, ROLE_SYSTEM_CLIENT, ROLE_SYSTEM_CLOCK, ROLE_SYSTEM_COLUMN, ROLE_SYSTEM_COLUMNHEADER, ROLE_SYSTEM_COMBOBOX, ROLE_SYSTEM_CURSOR, ROLE_SYSTEM_DIAGRAM, ROLE_SYSTEM_DIAL, ROLE_SYSTEM_DIALOG, ROLE_SYSTEM_DOCUMENT, ROLE_SYSTEM_DROPLIST, ROLE_SYSTEM_EQUATION, ROLE_SYSTEM_GRAPHIC, ROLE_SYSTEM_GRIP, ROLE_SYSTEM_GROUPING, ROLE_SYSTEM_HELPBALLOON, ROLE_SYSTEM_HOTKEYFIELD, ROLE_SYSTEM_INDICATOR, ROLE_SYSTEM_IPADDRESS, ROLE_SYSTEM_LINK, ROLE_SYSTEM_LIST, ROLE_SYSTEM_LISTITEM, ROLE_SYSTEM_MENUBAR, ROLE_SYSTEM_MENUITEM, ROLE_SYSTEM_MENUPOPUP, ROLE_SYSTEM_OUTLINE, ROLE_SYSTEM_OUTLINEBUTTON, ROLE_SYSTEM_OUTLINEITEM, ROLE_SYSTEM_PAGETAB, ROLE_SYSTEM_PAGETABLIST, ROLE_SYSTEM_PANE, ROLE_SYSTEM_PROGRESSBAR, ROLE_SYSTEM_PROPERTYPAGE, ROLE_SYSTEM_PUSHBUTTON, ROLE_SYSTEM_RADIOBUTTON, ROLE_SYSTEM_ROW, ROLE_SYSTEM_ROWHEADER, ROLE_SYSTEM_SCROLLBAR, ROLE_SYSTEM_SEPARATOR, ROLE_SYSTEM_SLIDER, ROLE_SYSTEM_SOUND, ROLE_SYSTEM_SPINBUTTON, ROLE_SYSTEM_SPLITBUTTON, ROLE_SYSTEM_STATICTEXT, ROLE_SYSTEM_STATUSBAR, ROLE_SYSTEM_TABLE, ROLE_SYSTEM_TEXT, ROLE_SYSTEM_TITLEBAR, ROLE_SYSTEM_TOOLBAR, ROLE_SYSTEM_TOOLTIP, ROLE_SYSTEM_WHITESPACE, ROLE_SYSTEM_WINDOW,
                 IAccessible,
-                AccessibleObjectFromWindow,
+                AccessibleObjectFromWindow, AccessibleObjectFromPoint,
                 AccessibleChildren,
                 WindowFromAccessibleObject,
+                GetRoleTextW, GetStateTextW,
                 SELFLAG_TAKEFOCUS,SELFLAG_TAKESELECTION,SELFLAG_ADDSELECTION,
+                STATE_SYSTEM_HASPOPUP,STATE_SYSTEM_NORMAL,
             },
             Controls::{
-                STATE_SYSTEM_INVISIBLE,
+                STATE_SYSTEM_FOCUSABLE,STATE_SYSTEM_INVISIBLE,STATE_SYSTEM_OFFSCREEN,STATE_SYSTEM_PRESSED,STATE_SYSTEM_UNAVAILABLE,
             },
         },
         System::{
             Com::{
                 VARIANT, VARIANT_0_0, IDispatch,
                 VT_I4,VT_DISPATCH,
-
             },
             Ole::{
                 VariantInit,
             }
-        }
+        },
+        Graphics::Gdi::ScreenToClient
     }
 };
 
-use crate::winapi::{WString, get_class_name};
+use crate::winapi::{WString, get_class_name, from_wide_string};
 use super::clkitem::{ClkItem, match_title};
 
 #[derive(Debug, Clone)]
@@ -65,6 +68,18 @@ impl Acc {
                     Err(_) => None,
                 }
             }
+        }
+    }
+    pub fn from_point(hwnd: HWND, clx: i32, cly: i32) -> Option<Self> {
+        unsafe {
+            let (x, y) = super::win32::Win32::client_to_screen(hwnd, clx, cly);
+            let ptscreen = POINT { x, y };
+            let mut ppacc = None;
+            let mut pvarchild = VARIANT::default();
+            if AccessibleObjectFromPoint(ptscreen, &mut ppacc, &mut pvarchild).is_err() {
+                return None;
+            }
+            ppacc.map(|obj| Acc { obj, id: None, has_child: false })
         }
     }
     #[allow(unused)]
@@ -97,6 +112,10 @@ impl Acc {
         } else {
             self.get_name()
         }
+    }
+    /// DrawTextやTextOutで描画されたテキストを得る
+    pub fn get_api_text(&self) -> Option<String> {
+        None
     }
     pub fn get_name(&self) -> Option<String> {
         unsafe {
@@ -200,15 +219,36 @@ impl Acc {
             Some((x, y))
         }
     }
+    pub fn get_location(&self, hwnd: HWND) -> Option<Vec<i32>> {
+        unsafe {
+            let varchild = self.get_varchild();
+            let mut pxleft = 0;
+            let mut pytop = 0;
+            let mut pcxwidth = 0;
+            let mut pcyheight = 0;
+            self.obj.accLocation(&mut pxleft, &mut pytop, &mut pcxwidth, &mut pcyheight, &varchild).ok()?;
+            let mut lppoint = POINT { x: pxleft, y: pytop };
+            ScreenToClient(hwnd, &mut lppoint);
+            Some(vec![lppoint.x, lppoint.y, pcxwidth, pcyheight])
+        }
+    }
     pub fn get_role(&self) -> Option<AccRole> {
         unsafe {
             let varchild = self.get_varchild();
-            self.obj.get_accRole(&varchild)
-                    .map(|variant| {
-                        let role = i32::from_variant(variant);
-                        role.into()
-                    })
-                    .ok()
+            let variant = self.obj.get_accRole(&varchild).ok()?;
+            let role = i32::from_variant(variant)?.into();
+            Some(role)
+        }
+    }
+    pub fn get_role_text(&self) -> Option<String> {
+        unsafe {
+            let varchild = self.get_varchild();
+            let variant = self.obj.get_accRole(&varchild).ok()?;
+            let lrole = i32::from_variant(variant)? as u32;
+            let size = GetRoleTextW(lrole, None) as usize;
+            let mut buf = vec![0; size +1];
+            GetRoleTextW(lrole, Some(&mut buf));
+            Some(from_wide_string(&buf))
         }
     }
     pub fn get_value(&self) -> Option<String> {
@@ -701,22 +741,75 @@ impl Acc {
     pub fn get_state(&self, varchild: Option<&VARIANT>) -> Option<i32> {
         unsafe {
             let state = match varchild {
-                Some(varchild) => self.obj.get_accState(varchild).ok(),
+                Some(varchild) => self.obj.get_accState(varchild).ok()?,
                 None => {
                     let varchild = self.get_varchild();
-                    self.obj.get_accState(&varchild).ok()
+                    self.obj.get_accState(&varchild).ok()?
                 },
             };
-            if let Some(variant) = state {
-                let variant00 = variant.Anonymous.Anonymous;
-                if variant00.vt == VT_I4 {
-                    Some(variant00.Anonymous.lVal)
-                } else {
-                    None
+            i32::from_variant(state)
+        }
+    }
+    pub fn get_state_texts(&self) -> Option<Vec<String>> {
+        let states = self.get_state(None)? as u32;
+        let mut texts = vec![];
+        let list = [
+            STATE_SYSTEM_ALERT_HIGH,
+            STATE_SYSTEM_ALERT_MEDIUM,
+            STATE_SYSTEM_ALERT_LOW,
+            STATE_SYSTEM_ANIMATED,
+            STATE_SYSTEM_BUSY,
+            STATE_SYSTEM_CHECKED,
+            STATE_SYSTEM_COLLAPSED,
+            STATE_SYSTEM_DEFAULT,
+            STATE_SYSTEM_EXPANDED,
+            STATE_SYSTEM_EXTSELECTABLE,
+            STATE_SYSTEM_FLOATING,
+            STATE_SYSTEM_FOCUSED,
+            STATE_SYSTEM_HOTTRACKED,
+            STATE_SYSTEM_LINKED,
+            STATE_SYSTEM_MARQUEED,
+            STATE_SYSTEM_MIXED,
+            STATE_SYSTEM_MOVEABLE,
+            STATE_SYSTEM_MULTISELECTABLE,
+            STATE_SYSTEM_PROTECTED,
+            STATE_SYSTEM_READONLY,
+            STATE_SYSTEM_SELECTABLE,
+            STATE_SYSTEM_SELECTED,
+            STATE_SYSTEM_SELFVOICING,
+            STATE_SYSTEM_SIZEABLE,
+            STATE_SYSTEM_TRAVERSED,
+            STATE_SYSTEM_HASPOPUP,
+            STATE_SYSTEM_NORMAL,
+            STATE_SYSTEM_FOCUSABLE.0,
+            STATE_SYSTEM_INVISIBLE.0,
+            STATE_SYSTEM_OFFSCREEN.0,
+            STATE_SYSTEM_PRESSED.0,
+            STATE_SYSTEM_UNAVAILABLE.0,
+        ];
+        for state in list {
+            if states.includes(state) {
+                if let Some(text) = self.get_state_text(state) {
+                    texts.push(text);
                 }
-            } else {
-                None
             }
+        }
+        Some(texts)
+    }
+    fn get_state_text(&self, state: u32) -> Option<String> {
+        unsafe {
+            let size = GetStateTextW(state, None) as usize;
+            let mut buf = vec![0; size + 1];
+            GetStateTextW(state, Some(&mut buf));
+            Some(from_wide_string(&buf))
+        }
+    }
+    pub fn get_description(&self) -> Option<String> {
+        unsafe {
+            let varchild = self.get_varchild();
+            self.obj.get_accDescription(&varchild)
+                .map(|bstr| bstr.to_string())
+                .ok()
         }
     }
     fn is_visible(&self, varchild: Option<&VARIANT>) -> Option<bool> {
@@ -1003,7 +1096,7 @@ fn to_vt_i4(n: i32) -> VARIANT {
 
 trait I32Ext {
     fn into_variant(&self) -> VARIANT;
-    fn from_variant(variant: VARIANT) -> Self;
+    fn from_variant(variant: VARIANT) -> Option<i32>;
 }
 
 impl I32Ext for i32 {
@@ -1011,17 +1104,25 @@ impl I32Ext for i32 {
         to_vt_i4(*self)
     }
 
-    fn from_variant(variant: VARIANT) -> Self {
+    fn from_variant(variant: VARIANT) -> Option<i32> {
         unsafe {
             let variant00 = &variant.Anonymous.Anonymous;
             match variant00.vt {
-                VT_I4 => variant00.Anonymous.lVal,
-                _ => 0
+                VT_I4 => Some(variant00.Anonymous.lVal),
+                _ => None
             }
         }
     }
 }
 
+trait U32Ext {
+    fn includes(&self, other: u32) -> bool;
+}
+impl U32Ext for u32{
+    fn includes(&self, other: u32) -> bool {
+        (self & other) == other
+    }
+}
 
 
 #[derive(Debug, PartialEq)]
@@ -1196,3 +1297,4 @@ impl std::fmt::Debug for AccTree {
           .finish()
     }
 }
+

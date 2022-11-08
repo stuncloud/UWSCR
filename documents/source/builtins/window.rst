@@ -380,6 +380,9 @@ ID0について
 
     :return: なし
 
+ウィンドウ情報取得
+------------------
+
 .. function:: status(ID, ST定数, [ST定数...])
 
     | 対象ウィンドウの各種状態を取得します
@@ -566,6 +569,64 @@ ID0について
                 print m[MON_X] + ", " + m[MON_Y]
                 print m[MON_WIDTH] + " x " + m[MON_HEIGHT]
             next
+
+.. function:: posacc(ID, クライアントX座標, クライアントY座標, [種別=0])
+
+    | 座標位置のアクセシビリティオブジェクトから情報を得ます
+
+    :param ウィンドウID ID: 対象ウィンドウのID
+    :param 数値 クライアントX座標: 対象ウィンドウのクライアント領域におけるX座標
+    :param 数値 クライアントY座標: 対象ウィンドウのクライアント領域におけるY座標
+    :param 定数 省略可 種別: 取得したい情報の種類を示す定数
+
+        .. object:: 0
+
+            | ``ACC_ACC`` を実行し、取得できなければ ``ACC_API`` を実行 (デフォルト)
+
+        .. object:: ACC_ACC
+
+            | 表示文字列の取得
+
+        .. object:: ACC_API
+
+            | DrawText, TextOut等のAPIで描画されたテキストを取得 (未実装)
+
+        .. object:: ACC_NAME
+
+            | オブジェクトの表示名
+
+        .. object:: ACC_VALUE
+
+            | オブジェクトの値 (エディットボックス等)
+
+        .. object:: ACC_ROLE
+
+            | オブジェクトの役割名
+
+        .. object:: ACC_STATE
+
+            | オブジェクトの状態
+
+        .. object:: ACC_DESCRIPTION
+
+            | オブジェクトの説明
+
+        .. object:: ACC_LOCATION
+
+            | オブジェクトの位置情報
+            | [x, y, 幅, 高さ]
+
+        .. object:: ACC_BACK (オプション)
+
+            | 他の定数とOR連結で指定
+            | 対象ウィンドウをアクティブにしない
+    :rtype: 文字列または配列
+    :return:
+
+        | ``ACC_LOCATION`` 指定時は数値の配列を返します
+        | ``ACC_STATE`` 指定時は文字列の配列を返します
+        | それ以外は該当する値を文字列で返します
+        | 失敗時はEMPTYを返します
 
 画像検索
 --------

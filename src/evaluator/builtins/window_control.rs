@@ -146,6 +146,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("getallwin", 1, getallwin);
     sets.add("getctlhnd", 3, getctlhnd);
     sets.add("&&getitem", 6, getitem);
+    sets.add("posacc", 4, posacc);
     sets
 }
 
@@ -1220,4 +1221,80 @@ pub fn getitem(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         None => {},
     }
     Ok(BuiltinFuncReturnValue::Result(Object::default()))
+}
+
+#[allow(non_camel_case_types)]
+#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive)]
+pub enum AccConst {
+    ACC_ACC         = 1,
+    ACC_API         = 2,
+    ACC_NAME        = 3,
+    ACC_VALUE       = 4,
+    ACC_ROLE        = 5,
+    ACC_STATE       = 6,
+    ACC_DESCRIPTION = 7,
+    ACC_LOCATION    = 8,
+    ACC_BACK        = 512,
+}
+
+pub fn posacc(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let id = args.get_as_int(0, None::<i32>)?;
+    let hwnd = get_hwnd_from_id(id);
+    let clx = args.get_as_int(1, None::<i32>)?;
+    let cly = args.get_as_int(2, None::<i32>)?;
+    let mode = args.get_as_int(3, Some(0_u16))?;
+    let mode = if (mode & AccConst::ACC_BACK as u16) > 0 {
+        // ACC_BACKを除去
+        mode - AccConst::ACC_BACK as u16
+    } else {
+        // ACC_BACKがないので対象ウィンドウをアクティブにする
+        unsafe { SetForegroundWindow(hwnd); }
+        mode
+    };
+    let obj = match acc::Acc::from_point(hwnd, clx, cly) {
+        Some(acc) => match mode {
+            0 => {
+                match acc.get_name().map(|name|name.into()) {
+                    Some(obj) => obj,
+                    None => acc.get_api_text().map(|api| api.into()).unwrap_or_default(),
+                }
+            }
+            1 | 3 => {
+                acc.get_name().map(|name|name.into()).unwrap_or_default()
+            },
+            2 => {
+                acc.get_api_text().map(|api| api.into()).unwrap_or_default()
+            },
+            4 => {
+                acc.get_value().map(|val| val.into()).unwrap_or_default()
+            },
+            5 => {
+                acc.get_role_text().map(|role| role.into()).unwrap_or_default()
+            },
+            6 => {
+                let vec2obj = |vec: Vec<String>| {
+                    let arr = vec.into_iter()
+                        .map(|text| text.into())
+                        .collect();
+                    Object::Array(arr)
+                };
+                acc.get_state_texts().map(vec2obj).unwrap_or_default()
+            },
+            7 => {
+                acc.get_description().map(|desc| desc.into()).unwrap_or_default()
+            },
+            8 => {
+                let vec2obj = |vec: Vec<i32>| {
+                    let arr = vec.into_iter()
+                        .map(|n| n.into())
+                        .collect();
+                    Object::Array(arr)
+                };
+                acc.get_location(hwnd).map(vec2obj).unwrap_or_default()
+            },
+            _ => Object::Empty
+        },
+        None => Object::Empty,
+    };
+    Ok(BuiltinFuncReturnValue::Result(obj))
 }
