@@ -35,7 +35,7 @@ static DIALOG_TITLE: Lazy<String> = Lazy::new(|| {
 });
 
 #[allow(non_camel_case_types)]
-#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive)]
+#[derive(Debug, EnumString, EnumProperty, EnumVariantNames, ToPrimitive, FromPrimitive)]
 pub enum BtnConst {
     BTN_YES    = 4,
     BTN_NO     = 8,
@@ -179,7 +179,7 @@ pub fn input(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 }
 
 #[allow(non_camel_case_types)]
-#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive)]
+#[derive(Debug, EnumString, EnumProperty, EnumVariantNames, ToPrimitive, FromPrimitive)]
 pub enum SlctConst {
     SLCT_BTN = 1,
     SLCT_CHK = 2,

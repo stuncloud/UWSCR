@@ -1374,32 +1374,38 @@ impl Evaluator {
                         UErrorMessage::InvalidIndex(index)
                     ))
                 };
-                if hash_enum.is_some() {
-                    let hash_index_opt = hash_enum.unwrap();
+                if let Some(hash_index_opt) = hash_enum {
                     if let Object::Num(n) = hash_index_opt {
-                        match FromPrimitive::from_f64(n).unwrap_or(HashTblEnum::HASH_UNKNOWN) {
-                            HashTblEnum::HASH_EXISTS => hash.check(key),
-                            HashTblEnum::HASH_REMOVE => hash.remove(key),
-                            HashTblEnum::HASH_KEY => if i.is_some() {
-                                hash.get_key(i.unwrap())
-                            } else {
-                                return Err(UError::new(
-                                UErrorKind::EvaluatorError,
-                                    UErrorMessage::MissingHashIndex("HASH_KEY".into())
-                                ));
-                            },
-                            HashTblEnum::HASH_VAL => if i.is_some() {
-                                hash.get_value(i.unwrap())
-                            } else {
-                                return Err(UError::new(
+                        if let Some(hahtblenum) = FromPrimitive::from_f64(n) {
+                            match hahtblenum {
+                                HashTblEnum::HASH_EXISTS => hash.check(key),
+                                HashTblEnum::HASH_REMOVE => hash.remove(key),
+                                HashTblEnum::HASH_KEY => if i.is_some() {
+                                    hash.get_key(i.unwrap())
+                                } else {
+                                    return Err(UError::new(
                                     UErrorKind::EvaluatorError,
-                                        UErrorMessage::MissingHashIndex("HASH_VAL".into())
-                                ));
-                            },
-                            _ => return Err(UError::new(
+                                        UErrorMessage::MissingHashIndex("HASH_KEY".into())
+                                    ));
+                                },
+                                HashTblEnum::HASH_VAL => if i.is_some() {
+                                    hash.get_value(i.unwrap())
+                                } else {
+                                    return Err(UError::new(
+                                        UErrorKind::EvaluatorError,
+                                            UErrorMessage::MissingHashIndex("HASH_VAL".into())
+                                    ));
+                                },
+                                _ => return Err(UError::new(
+                                    UErrorKind::EvaluatorError,
+                                    UErrorMessage::InvalidHashIndexOption(hash_index_opt)
+                                ))
+                            }
+                        } else {
+                            return Err(UError::new(
                                 UErrorKind::EvaluatorError,
                                 UErrorMessage::InvalidHashIndexOption(hash_index_opt)
-                            ))
+                            ));
                         }
                     } else {
                         return Err(UError::new(

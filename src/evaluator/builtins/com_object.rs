@@ -41,7 +41,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
 }
 
 #[allow(non_camel_case_types)]
-#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive)]
+#[derive(Debug, EnumString, EnumProperty, EnumVariantNames, ToPrimitive, FromPrimitive)]
 pub enum VarType {
     VAR_EMPTY    = 0,   // VT_EMPTY
     VAR_NULL     = 1,   // VT_NULL

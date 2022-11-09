@@ -31,7 +31,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
 }
 
 #[allow(non_camel_case_types)]
-#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive)]
+#[derive(Debug, EnumString, EnumProperty, EnumVariantNames, ToPrimitive, FromPrimitive)]
 pub enum FileConst {
     F_EXISTS    = 1,
     F_READ      = 2,
@@ -44,13 +44,9 @@ pub enum FileConst {
     F_NOCR      = 128,
     F_TAB       = 256,
     F_EXCLUSIVE = 512,
+    #[strum(props(alias="F_INSERT"))]
     F_LINECOUNT = -1,
     F_ALLTEXT   = -2
-}
-#[allow(non_camel_case_types)]
-#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive)]
-pub enum FileConstDup {
-    F_INSERT = -1,
 }
 
 pub fn fopen(args: BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -236,7 +232,7 @@ pub fn deletefile(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 }
 
 #[allow(non_camel_case_types)]
-#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive)]
+#[derive(Debug, EnumString, EnumProperty, EnumVariantNames, ToPrimitive, FromPrimitive)]
 pub enum FileOrderConst {
     ORDERBY_NAME     = 0,
     ORDERBY_SIZE     = 1,

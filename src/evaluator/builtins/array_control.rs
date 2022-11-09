@@ -40,7 +40,7 @@ fn join(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 }
 
 #[allow(non_camel_case_types)]
-#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive)]
+#[derive(Debug, EnumString, EnumProperty, EnumVariantNames, ToPrimitive, FromPrimitive)]
 pub enum QsrtConst {
     QSRT_A = 0,
     QSRT_D = 1,
@@ -49,11 +49,28 @@ pub enum QsrtConst {
     QSRT_NATURALA = 4,
     QSRT_NATURALD = 5,
 }
+impl Default for QsrtConst {
+    fn default() -> Self {
+        Self::QSRT_A
+    }
+}
+impl Into<qsort::SortOrder> for QsrtConst {
+    fn into(self) -> qsort::SortOrder {
+        match self {
+            QsrtConst::QSRT_A => qsort::SortOrder::Ascending,
+            QsrtConst::QSRT_D => qsort::SortOrder::Descending,
+            QsrtConst::QSRT_UNICODEA => qsort::SortOrder::UnicodeAsc,
+            QsrtConst::QSRT_UNICODED => qsort::SortOrder::UnicodeDsc,
+            QsrtConst::QSRT_NATURALA => qsort::SortOrder::NaturalAsc,
+            QsrtConst::QSRT_NATURALD => qsort::SortOrder::NaturalDsc,
+        }
+    }
+}
 
 pub fn qsort(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let mut array = args.get_as_array(0, None)?;
     let expr = args.get_expr(0);
-    let order = args.get_as_const(1, Some(qsort::SortOrder::Ascending))?;
+    let order = args.get_as_const::<QsrtConst>(1, false)?.unwrap_or_default();
     let mut arrays = [
         args.get_as_array_or_empty(2)?,
         args.get_as_array_or_empty(3)?,
@@ -74,7 +91,7 @@ pub fn qsort(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         args.get_expr(8),
         args.get_expr(9),
     ];
-    let qsort = qsort::Qsort::new(order);
+    let qsort = qsort::Qsort::new(order.into());
     qsort.sort(&mut array, &mut arrays);
     Ok(BuiltinFuncReturnValue::Qsort(expr, array, exprs, arrays))
 }
@@ -188,30 +205,18 @@ pub fn split(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 }
 
 #[allow(non_camel_case_types)]
-#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive, PartialEq)]
+#[derive(Debug, EnumString, EnumProperty, EnumVariantNames, ToPrimitive, FromPrimitive, PartialEq)]
 pub enum CalcConst {
     CALC_ADD = 1,
     CALC_MIN = 2,
     CALC_MAX = 3,
     CALC_AVR = 4,
-    CALC_UNKNOWN = 0,
-}
-impl From<f64> for CalcConst {
-    fn from(n: f64) -> Self {
-        match n as usize {
-            1 => Self::CALC_ADD,
-            2 => Self::CALC_MIN,
-            3 => Self::CALC_MAX,
-            4 => Self::CALC_AVR,
-            _ => Self::CALC_UNKNOWN,
-        }
-    }
 }
 
 pub fn calcarray(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let mut base = args.get_as_array(0, None)?;
     let len = base.len() as i32;
-    let calc_const = args.get_as_const(1, None::<CalcConst>)?;
+    let maybe_const = args.get_as_const(1, true)?;
     let from = args.get_as_int(2, Some(0_i32))?
         .min(len)
         .max(0) as usize;
@@ -225,12 +230,14 @@ pub fn calcarray(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         vec![]
     };
 
+    let Some(calc_const) = maybe_const else {
+        return Ok(BuiltinFuncReturnValue::Result(Object::Empty));
+    };
     let calc_func = match calc_const {
         CalcConst::CALC_ADD |
         CalcConst::CALC_AVR => |a: f64, b: f64| a + b,
         CalcConst::CALC_MIN => |a: f64, b: f64| a.min(b),
         CalcConst::CALC_MAX => |a: f64, b: f64| a.max(b),
-        CalcConst::CALC_UNKNOWN => return Ok(BuiltinFuncReturnValue::Result(Object::Empty)),
     };
 
     let nums = arr.into_iter()

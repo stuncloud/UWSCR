@@ -478,6 +478,7 @@ pub enum UErrorMessage {
     FailedToInitializeLogPrintWindow,
     UncontrollableBrowserDetected(u16, String),
     FailedToOpenPort(u16),
+    InvalidBrowserType(i32),
 }
 
 impl fmt::Display for UErrorMessage {
@@ -975,6 +976,10 @@ impl fmt::Display for UErrorMessage {
             Self::FailedToOpenPort(port) => write_locale!(f,
                 "ポート{port}へ接続できませんでした",
                 "Faild to create connection to port {port}",
+            ),
+            Self::InvalidBrowserType(n) => write_locale!(f,
+                "不正なブラウザタイプ: {n}",
+                "Invalid browser type: {n}",
             ),
         }
     }

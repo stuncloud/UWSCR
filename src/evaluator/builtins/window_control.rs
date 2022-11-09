@@ -74,7 +74,7 @@ use std::time::{Duration, Instant};
 use std::thread;
 use std::mem;
 
-use strum_macros::{EnumString, EnumVariantNames};
+use strum_macros::{EnumString, EnumProperty, EnumVariantNames};
 use num_derive::{ToPrimitive, FromPrimitive};
 use num_traits::FromPrimitive;
 use once_cell::sync::Lazy;
@@ -390,18 +390,21 @@ pub fn acw(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 
 // CLKITEM
 #[allow(non_camel_case_types)]
-#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive)]
+#[derive(Debug, EnumString, EnumProperty, EnumVariantNames, ToPrimitive, FromPrimitive)]
 pub enum ClkConst {
     CLK_BTN       = 1,
     CLK_LIST      = 2,
     CLK_MENU      = 4,
     CLK_TAB       = 8,
+    #[strum(props(alias="CLK_TREEVEW"))]
     CLK_TREEVIEW  = 16,
+    #[strum(props(alias="CLK_LSTVEW"))]
     CLK_LISTVIEW  = 32,
     CLK_TOOLBAR   = 64,
     CLK_LINK      = 128,
     CLK_SHORT     = 256,
     CLK_BACK      = 512,
+    #[strum(props(alias="CLK_MUSMOVE"))]
     CLK_MOUSEMOVE = 1024,
     CLK_RIGHTCLK  = 4096,
     CLK_LEFTCLK   = 2048,
@@ -411,13 +414,6 @@ pub enum ClkConst {
     CLK_API       = 536870912,
     CLK_UIA       = 1073741824,
     CLK_HWND      = 262144,
-}
-#[allow(non_camel_case_types)]
-#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive)]
-pub enum ClkConstAlias {
-    CLK_TREEVEW = 16,
-    CLK_LSTVEW  = 32,
-    CLK_MUSMOVE = 1024,
 }
 
 pub fn clkitem(args: BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -445,7 +441,7 @@ pub fn clkitem(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 
 // CTRLWIN
 #[allow(non_camel_case_types)]
-#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive)]
+#[derive(Debug, EnumString, EnumProperty, EnumVariantNames, ToPrimitive, FromPrimitive)]
 pub enum CtrlWinCmd {
     CLOSE     = 2,
     CLOSE2    = 3,
@@ -458,7 +454,6 @@ pub enum CtrlWinCmd {
     TOPMOST   = 9,
     NOTOPMOST = 10,
     TOPNOACTV = 11,
-    UNKNOWN_CTRLWIN_CMD = -1,
 }
 
 pub fn ctrlwin(args: BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -467,67 +462,67 @@ pub fn ctrlwin(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     if hwnd.0 == 0 {
         return Ok(BuiltinFuncReturnValue::Result(Object::Empty));
     }
-    let cmd = args.get_as_int(1, None)?;
-    match FromPrimitive::from_i32(cmd).unwrap_or(CtrlWinCmd::UNKNOWN_CTRLWIN_CMD) {
-        CtrlWinCmd::CLOSE => unsafe {
-            PostMessageW(hwnd, WM_CLOSE, WPARAM(0), LPARAM(0));
-        },
-        CtrlWinCmd::CLOSE2 => unsafe {
-            PostMessageW(hwnd, WM_DESTROY, WPARAM(0), LPARAM(0));
-        },
-        CtrlWinCmd::ACTIVATE => unsafe {
-            SetForegroundWindow(hwnd);
-        },
-        CtrlWinCmd::HIDE => unsafe {
-            ShowWindow(hwnd, SW_HIDE);
-        },
-        CtrlWinCmd::SHOW => unsafe {
-            ShowWindow(hwnd, SW_SHOW);
-        },
-        CtrlWinCmd::MIN => unsafe {
-            ShowWindow(hwnd, SW_MINIMIZE);
-        },
-        CtrlWinCmd::MAX => unsafe {
-            ShowWindow(hwnd, SW_MAXIMIZE);
-        },
-        CtrlWinCmd::NORMAL => unsafe {
-            ShowWindow(hwnd, SW_SHOWNORMAL);
-        },
-        CtrlWinCmd::TOPMOST => unsafe {
-            SetWindowPos(
-                hwnd,
-                HWND_TOPMOST,
-                0, 0, 0, 0,
-                SWP_NOMOVE | SWP_NOSIZE
-            );
-        },
-        CtrlWinCmd::NOTOPMOST => unsafe {
-            SetWindowPos(
-                hwnd,
-                HWND_NOTOPMOST,
-                0, 0, 0, 0,
-                SWP_NOMOVE | SWP_NOSIZE
-            );
-        },
-        CtrlWinCmd::TOPNOACTV => unsafe {
-            for h in vec![HWND_TOPMOST, HWND_NOTOPMOST] {
+    if let Some(cmd) = args.get_as_const(1, true)? {
+        match cmd {
+            CtrlWinCmd::CLOSE => unsafe {
+                PostMessageW(hwnd, WM_CLOSE, WPARAM(0), LPARAM(0));
+            },
+            CtrlWinCmd::CLOSE2 => unsafe {
+                PostMessageW(hwnd, WM_DESTROY, WPARAM(0), LPARAM(0));
+            },
+            CtrlWinCmd::ACTIVATE => unsafe {
+                SetForegroundWindow(hwnd);
+            },
+            CtrlWinCmd::HIDE => unsafe {
+                ShowWindow(hwnd, SW_HIDE);
+            },
+            CtrlWinCmd::SHOW => unsafe {
+                ShowWindow(hwnd, SW_SHOW);
+            },
+            CtrlWinCmd::MIN => unsafe {
+                ShowWindow(hwnd, SW_MINIMIZE);
+            },
+            CtrlWinCmd::MAX => unsafe {
+                ShowWindow(hwnd, SW_MAXIMIZE);
+            },
+            CtrlWinCmd::NORMAL => unsafe {
+                ShowWindow(hwnd, SW_SHOWNORMAL);
+            },
+            CtrlWinCmd::TOPMOST => unsafe {
                 SetWindowPos(
                     hwnd,
-                    h,
+                    HWND_TOPMOST,
                     0, 0, 0, 0,
-                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE
+                    SWP_NOMOVE | SWP_NOSIZE
                 );
-            }
-        },
-        _ => (),
-    };
+            },
+            CtrlWinCmd::NOTOPMOST => unsafe {
+                SetWindowPos(
+                    hwnd,
+                    HWND_NOTOPMOST,
+                    0, 0, 0, 0,
+                    SWP_NOMOVE | SWP_NOSIZE
+                );
+            },
+            CtrlWinCmd::TOPNOACTV => unsafe {
+                for h in vec![HWND_TOPMOST, HWND_NOTOPMOST] {
+                    SetWindowPos(
+                        hwnd,
+                        h,
+                        0, 0, 0, 0,
+                        SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE
+                    );
+                }
+            },
+        }
+    }
     set_id_zero(hwnd);
     Ok(BuiltinFuncReturnValue::Result(Object::Empty))
 }
 
 // STATUS
 #[allow(non_camel_case_types)]
-#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive)]
+#[derive(Debug, EnumString, EnumProperty, EnumVariantNames, ToPrimitive, FromPrimitive, PartialEq, Clone, Copy)]
 pub enum StatusEnum {
     ST_ALL       = 0,
     ST_TITLE     = 9,
@@ -555,7 +550,6 @@ pub enum StatusEnum {
     ST_WY        = 102,
     ST_WWIDTH    = 103,
     ST_WHEIGHT   = 104,
-    UNKNOWN_STATUS = -1,
 }
 
 struct WindowSize(i32, i32, i32, i32); // x, y, with, height
@@ -761,8 +755,7 @@ fn get_monitor_index_from_hwnd(hwnd: HWND) -> Object {
 }
 
 
-fn get_status_result(hwnd: HWND, st: u8) -> BuiltInResult<Object> {
-    let stat = FromPrimitive::from_u8(st).unwrap_or(StatusEnum::UNKNOWN_STATUS);
+fn get_status_result(hwnd: HWND, stat: StatusEnum) -> BuiltInResult<Object> {
     let obj = match stat {
         StatusEnum::ST_TITLE => get_window_text(hwnd)?,
         StatusEnum::ST_CLASS => get_class_name(hwnd)?,
@@ -824,7 +817,7 @@ fn get_status_result(hwnd: HWND, st: u8) -> BuiltInResult<Object> {
                 _ => Object::Empty
             }
         },
-        _ => Object::Bool(false) // 定数以外を受けた場合false
+        StatusEnum::ST_ALL => Object::Empty
     };
     Ok(obj)
 }
@@ -866,31 +859,37 @@ pub fn status(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         // let mut stats = vec![Object::Empty; 22];
         let mut stats = HashTbl::new(true, false);
         while i < args.len() {
-            let cmd = args.get_as_int::<u8>(i, None)?;
-            let value = get_status_result(hwnd, cmd)?;
-            stats.insert(cmd.to_string(), value);
+            if let Some(cmd) = args.get_as_const::<StatusEnum>(i, true)? {
+                let value = get_status_result(hwnd, cmd)?;
+                let name = (cmd as u8).to_string();
+                stats.insert(name, value);
+            }
             i += 1;
         }
         Ok(BuiltinFuncReturnValue::Result(Object::HashTbl(Arc::new(Mutex::new(stats)))))
     } else {
-        let cmd = args.get_as_int::<u8>(1, None)?;
-        if cmd == StatusEnum::ST_ALL as u8 {
-            Ok(get_all_status(hwnd)?)
+        if let Some(cmd) = args.get_as_const::<StatusEnum>(1, true)?{
+            if cmd == StatusEnum::ST_ALL {
+                Ok(get_all_status(hwnd)?)
+            } else {
+                let st = get_status_result(hwnd, cmd)?;
+                Ok(BuiltinFuncReturnValue::Result(st))
+            }
         } else {
-            let st = get_status_result(hwnd, cmd)?;
-            Ok(BuiltinFuncReturnValue::Result(st))
+            Ok(BuiltinFuncReturnValue::Result(Object::Empty))
         }
     }
 }
 
 // monitor
 #[allow(non_camel_case_types)]
-#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive)]
+#[derive(Debug, EnumString, EnumProperty, EnumVariantNames, ToPrimitive, FromPrimitive)]
 pub enum MonitorEnum {
     MON_X           = 0,
     MON_Y           = 1,
     MON_WIDTH       = 2,
     MON_HEIGHT      = 3,
+    #[strum(props(alias="MON_ISMAIN"))]
     MON_PRIMARY     = 4,
     MON_NAME        = 5,
     MON_WORK_X      = 10,
@@ -898,12 +897,8 @@ pub enum MonitorEnum {
     MON_WORK_WIDTH  = 12,
     MON_WORK_HEIGHT = 13,
     MON_ALL         = 20,
+    #[strum(props(hidden="true"))]
     UNKNOWN_MONITOR_CMD = -1,
-}
-#[allow(non_camel_case_types)]
-#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive)]
-pub enum MonitorEnumAlias {
-    MON_ISMAIN     = 4,
 }
 
 #[derive(Debug)]
@@ -1179,13 +1174,15 @@ pub fn getctlhnd(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 }
 
 #[allow(non_camel_case_types)]
-#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive)]
+#[derive(Debug, EnumString, EnumProperty, EnumVariantNames, ToPrimitive, FromPrimitive)]
 pub enum GetItemConst {
     ITM_BTN       = 1,
     ITM_LIST      = 2,
     ITM_TAB       = 8,
     ITM_MENU      = 4,
+    #[strum(props(alias="ITM_TREEVEW"))]
     ITM_TREEVIEW  = 16,
+    #[strum(props(alias="ITM_LSTVEW"))]
     ITM_LISTVIEW  = 32,
     ITM_EDIT      = 131072,
     ITM_STATIC    = 262144,
@@ -1203,12 +1200,6 @@ pub enum GetItemConst {
     ITM_ACC_ALL   = 2097152,
     ITM_UIA_ALL   = 536870912,
 }
-#[allow(non_camel_case_types)]
-#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive)]
-pub enum GetItemConstAlias {
-    ITM_TREEVEW   = 16,
-    ITM_LSTVEW    = 32,
-}
 
 pub fn getitem(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = args.get_as_int(0, None::<i32>)?;
@@ -1224,7 +1215,7 @@ pub fn getitem(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 }
 
 #[allow(non_camel_case_types)]
-#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive)]
+#[derive(Debug, EnumString, EnumProperty, EnumVariantNames, ToPrimitive, FromPrimitive)]
 pub enum AccConst {
     ACC_ACC         = 1,
     ACC_API         = 2,

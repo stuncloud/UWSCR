@@ -121,10 +121,10 @@ pub fn as_string(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 // 正規表現
 
 #[allow(non_camel_case_types)]
-#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive)]
+#[derive(Debug, EnumString, EnumProperty, EnumVariantNames, ToPrimitive, FromPrimitive)]
 pub enum RegexEnum {
     REGEX_TEST  = 0, // default
-    REGEX_MATCH  = 1,
+    REGEX_MATCH = 1,
 }
 
 pub fn newre(args: BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -516,7 +516,7 @@ pub fn chknum(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 }
 
 #[allow(non_camel_case_types)]
-#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive)]
+#[derive(Debug, EnumString, EnumProperty, EnumVariantNames, ToPrimitive, FromPrimitive)]
 pub enum ErrConst {
     ERR_VALUE = -999999,
 }
@@ -591,7 +591,7 @@ pub fn isunicode(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 }
 
 #[allow(non_camel_case_types)]
-#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive)]
+#[derive(Debug, EnumString, EnumProperty, EnumVariantNames, ToPrimitive, FromPrimitive)]
 pub enum StrconvConst {
     SC_LOWERCASE = 0x100,
     SC_UPPERCASE = 0x200,
@@ -696,16 +696,16 @@ impl StrConv {
 }
 
 #[allow(non_camel_case_types)]
-#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive)]
+#[derive(Debug, EnumString, EnumProperty, EnumVariantNames, ToPrimitive, FromPrimitive)]
 pub enum FormatConst {
     FMT_DEFAULT = 0,
     FMT_ZERO = 1,
     FMT_RIGHT = 2,
     FMT_ZEROR = 3,
 }
-impl From<f64> for FormatConst {
-    fn from(n: f64) -> Self {
-        FromPrimitive::from_f64(n).unwrap_or(Self::FMT_DEFAULT)
+impl Default for FormatConst {
+    fn default() -> Self {
+        Self::FMT_DEFAULT
     }
 }
 
@@ -714,7 +714,7 @@ pub fn format(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let len = args.get_as_int(1, None::<i32>)?;
     let len = if len < 0 {0_usize} else {len as usize};
     let digit = args.get_as_int(2, Some(0_i32))?;
-    let fill = args.get_as_const(3, Some(FormatConst::FMT_DEFAULT))?;
+    let fill = args.get_as_const(3, false)?.unwrap_or_default();
 
     let fixed = match val {
         TwoTypeArg::T(ref s) => {
@@ -834,7 +834,7 @@ pub fn token(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 }
 
 #[allow(non_camel_case_types)]
-#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive)]
+#[derive(Debug, EnumString, EnumProperty, EnumVariantNames, ToPrimitive, FromPrimitive)]
 pub enum CodeConst {
     CODE_ANSI = 1,
     CODE_URL = 2,
@@ -928,7 +928,9 @@ impl ByteArray {
 
 pub fn encode(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let str = args.get_as_string(0, None)?;
-    let code = args.get_as_const(1, None::<CodeConst>)?;
+    let Some(code) = args.get_as_const::<CodeConst>(1, true)? else {
+        return Ok(BuiltinFuncReturnValue::Result(Object::String(str)));
+    };
 
     let result = match code {
         CodeConst::CODE_ANSI => str.into(),
@@ -964,7 +966,9 @@ pub fn encode(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 
 pub fn decode(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let value = args.get_as_string_or_bytearray(0)?;
-    let code = args.get_as_const(1, None::<CodeConst>)?;
+    let Some(code) = args.get_as_const::<CodeConst>(1, true)? else {
+        return Ok(BuiltinFuncReturnValue::Result(Object::Empty));
+    };
 
     let result = match value {
         TwoTypeArg::T(s) => match code {

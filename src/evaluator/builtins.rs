@@ -37,9 +37,9 @@ use std::sync::{Mutex, Arc};
 use std::string::ToString;
 
 use cast;
-use strum::VariantNames;
-use num_traits::ToPrimitive;
-use strum_macros::{Display, EnumVariantNames};
+use strum::{VariantNames, EnumProperty};
+use num_traits::{ToPrimitive, FromPrimitive};
+use strum_macros::{Display, EnumVariantNames, EnumProperty};
 
 pub type BuiltinFunction = fn(BuiltinFuncArgs) -> BuiltinFuncResult;
 pub type BuiltinFuncResult = Result<BuiltinFuncReturnValue, BuiltinFuncError>;
@@ -146,13 +146,30 @@ impl BuiltinFuncArgs {
             default.ok_or(err)
         }
     }
-    fn get_arg_with_default2<T, F: Fn(Object, Option<T>)-> BuiltInResult<T>>(&self, i: usize, default: Option<T>, f: F) -> BuiltInResult<T> {
+    fn get_arg_with_default2<T, F: Fn(Object, T)-> BuiltInResult<T>>(&self, i: usize, default: Option<T>, f: F) -> BuiltInResult<T> {
         if self.len() >= i+ 1 {
             let obj = self.item(i);
-            f(obj, default)
+            if let Some(d) = default {
+                f(obj, d)
+            } else {
+                Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgRequiredAt(i + 1)))
+            }
         } else {
             let err = BuiltinFuncError::new(UErrorMessage::BuiltinArgRequiredAt(i + 1));
             default.ok_or(err)
+        }
+    }
+    fn get_arg_with_required_flag<T, F: Fn(Object)-> BuiltInResult<Option<T>>>(&self, i: usize, required: bool, f: F) -> BuiltInResult<Option<T>> {
+        if self.len() >= i+ 1 {
+            let obj = self.item(i);
+            f(obj)
+        } else {
+            if required {
+                let err = BuiltinFuncError::new(UErrorMessage::BuiltinArgRequiredAt(i + 1));
+                Err(err)
+            } else {
+                Ok(None)
+            }
         }
     }
 
@@ -181,7 +198,7 @@ impl BuiltinFuncArgs {
                     Err(_) => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg)))
                 },
                 Object::EmptyParam => {
-                    default.ok_or(BuiltinFuncError::new(UErrorMessage::BuiltinArgRequiredAt(i + 1)))
+                    Ok(default)
                 },
                 _ => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg))
                 )
@@ -481,10 +498,11 @@ impl BuiltinFuncArgs {
         })
     }
 
-    pub fn get_as_const<T: From<f64>>(&self, i: usize, default: Option<T>) -> BuiltInResult<T> {
-        self.get_arg_with_default(i, default, |arg| {
+    /// 数値を定数として受ける
+    pub fn get_as_const<T: FromPrimitive>(&self, i: usize, required: bool) -> BuiltInResult<Option<T>> {
+        self.get_arg_with_required_flag(i, required, |arg| {
             let result = match arg {
-                Object::Num(n) => T::from(n),
+                Object::Num(n) => T::from_f64(n),
                 arg => return Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg))),
             };
             Ok(result)
@@ -604,12 +622,9 @@ pub fn init_builtins() -> Vec<NamedObject> {
     set_builtin_consts::<window_control::CtrlWinCmd>(&mut vec);
     set_builtin_consts::<window_control::StatusEnum>(&mut vec);
     set_builtin_consts::<window_control::MonitorEnum>(&mut vec);
-    set_builtin_consts::<window_control::MonitorEnumAlias>(&mut vec);
     set_builtin_str_consts::<window_control::GetHndConst>(&mut vec, "__", "__");
     set_builtin_consts::<window_control::ClkConst>(&mut vec);
-    set_builtin_consts::<window_control::ClkConstAlias>(&mut vec);
     set_builtin_consts::<window_control::GetItemConst>(&mut vec);
-    set_builtin_consts::<window_control::GetItemConstAlias>(&mut vec);
     set_builtin_consts::<window_control::AccConst>(&mut vec);
 
     // text control
@@ -627,7 +642,6 @@ pub fn init_builtins() -> Vec<NamedObject> {
     math::builtin_func_sets().set(&mut vec);
     // key codes
     set_builtin_consts::<key_codes::VirtualKeyCodes>(&mut vec);
-    set_builtin_consts::<key_codes::VirtualKeyCodeDups>(&mut vec);
     set_builtin_consts::<key_codes::VirtualMouseButton>(&mut vec);
     // com_object
     com_object::builtin_func_sets().set(&mut vec);
@@ -652,7 +666,6 @@ pub fn init_builtins() -> Vec<NamedObject> {
     dialog::builtin_func_sets().set(&mut vec);
     // file_control
     set_builtin_consts::<file_control::FileConst>(&mut vec);
-    set_builtin_consts::<file_control::FileConstDup>(&mut vec);
     set_builtin_consts::<file_control::FileOrderConst>(&mut vec);
     file_control::builtin_func_sets().set(&mut vec);
     // 特殊変数
@@ -661,13 +674,25 @@ pub fn init_builtins() -> Vec<NamedObject> {
     vec
 }
 
-pub fn set_builtin_consts<E: std::str::FromStr + VariantNames + ToPrimitive>(vec: &mut Vec<NamedObject>) {
+pub fn set_builtin_consts<E: std::str::FromStr + VariantNames + EnumProperty + ToPrimitive>(vec: &mut Vec<NamedObject>) {
     for name in E::VARIANTS {
-        let value = E::from_str(name).ok().unwrap();
-        vec.push(NamedObject::new_builtin_const(
-            name.to_ascii_uppercase(),
-            Object::Num(ToPrimitive::to_f64(&value).unwrap())
-        ));
+        if let Ok(value) = E::from_str(name) {
+            // props(hidden="true") であればスキップ
+            if value.get_str("hidden").is_none() {
+                let num = ToPrimitive::to_f64(&value).unwrap();
+                vec.push(NamedObject::new_builtin_const(
+                    name.to_ascii_uppercase(),
+                    Object::Num(num)
+                ));
+                // aliasがあればそれもセットする
+                if let Some(alias) = value.get_str("alias") {
+                    vec.push(NamedObject::new_builtin_const(
+                        alias.to_ascii_uppercase(),
+                        Object::Num(num)
+                    ));
+                }
+            }
+        }
     }
 }
 
@@ -928,3 +953,4 @@ pub enum BuiltinFuncReturnValue {
     Qsort(Option<Expression>, Vec<Object>, [Option<Expression>; 8], [Option<Vec<Object>>; 8]),
     Eval(String),
 }
+

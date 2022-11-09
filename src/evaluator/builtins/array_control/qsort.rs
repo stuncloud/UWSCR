@@ -141,17 +141,3 @@ pub enum SortOrder {
     NaturalAsc,
     NaturalDsc,
 }
-
-impl From<f64> for SortOrder {
-    fn from(n: f64) -> Self {
-        let n = n as usize;
-        match n {
-            1 => Self::Descending,
-            2 => Self::UnicodeAsc,
-            3 => Self::UnicodeDsc,
-            4 => Self::NaturalAsc,
-            5 => Self::NaturalDsc,
-            _ => Self::Ascending,
-        }
-    }
-}

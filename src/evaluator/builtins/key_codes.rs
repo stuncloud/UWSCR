@@ -1,8 +1,8 @@
-use strum_macros::{EnumString, EnumVariantNames};
+use strum_macros::{EnumString, EnumVariantNames, EnumProperty};
 use num_derive::{ToPrimitive};
 
 #[allow(non_camel_case_types)]
-#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive)]
+#[derive(Debug, EnumString, EnumProperty, EnumVariantNames, ToPrimitive)]
 pub enum VirtualKeyCodes {
     VK_A                   = 65,
     VK_B                   = 66,
@@ -40,24 +40,24 @@ pub enum VirtualKeyCodes {
     VK_7                   = 55,
     VK_8                   = 56,
     VK_9                   = 57,
-    VK_START               = 92,
     VK_BACK                = 8,
     VK_TAB                 = 9,
     VK_CLEAR               = 12,
+    #[strum(props(alias="VK_ESCAPE"))]
     VK_ESC                 = 27,
-    // VK_ESCAPE              = 27,
+    #[strum(props(alias="VK_ENTER"))]
     VK_RETURN              = 13,
-    // VK_ENTER               = 13,
     VK_RRETURN             = 901,
     VK_SHIFT               = 16,
     VK_RSHIFT              = 161,
     VK_WIN                 = 91,
-    // VK_RWIN                = 92,
+    #[strum(props(alias="VK_RWIN"))]
+    VK_START               = 92,
+    #[strum(props(alias="VK_MENU"))]
     VK_ALT                 = 18,
-    // VK_MENU                = 18,
     VK_RALT                = 165,
+    #[strum(props(alias="VK_CONTROL"))]
     VK_CTRL                = 17,
-    // VK_CONTROL             = 17,
     VK_RCTRL               = 163,
     VK_PAUSE               = 19,
     VK_CAPITAL             = 20,
@@ -156,17 +156,7 @@ pub enum VirtualKeyCodes {
 }
 
 #[allow(non_camel_case_types)]
-#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive)]
-pub enum VirtualKeyCodeDups {
-    VK_ESCAPE = VirtualKeyCodes::VK_ESC as isize,
-    VK_ENTER = VirtualKeyCodes::VK_RETURN as isize,
-    VK_RWIN = VirtualKeyCodes::VK_START as isize,
-    VK_MENU = VirtualKeyCodes::VK_ALT as isize,
-    VK_CONTROL = VirtualKeyCodes::VK_CTRL as isize,
-}
-
-#[allow(non_camel_case_types)]
-#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive)]
+#[derive(Debug, EnumString, EnumProperty, EnumVariantNames, ToPrimitive)]
 pub enum VirtualMouseButton {
     VK_LBUTTON = 1,
     VK_RBUTTON = 2,

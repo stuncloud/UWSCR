@@ -3,7 +3,7 @@ use crate::{
     evaluator::{
         builtins::*,
         devtools_protocol::{Browser, DevtoolsProtocolError},
-    }
+    },
 };
 
 use strum_macros::{EnumString, EnumVariantNames};
@@ -19,25 +19,24 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
 const DEFAULT_PORT: u16 = 9222;
 
 #[allow(non_camel_case_types)]
-#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive)]
+#[derive(Debug, EnumString, EnumProperty, EnumVariantNames, ToPrimitive, FromPrimitive)]
 pub enum BcEnum {
     BC_CHROME = 1,
     BC_MSEDGE = 2,
-    BC_UNKNOWN = -1
 }
 
 // browsercontrol(種類, [フィルタ=EMPTY, ポート=9222, ヘッドレス=FALSE])
 pub fn browser_control(args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let typearg = args.get_as_int::<i32>(0, None)?;
+    let t = args.get_as_int(0, None)?;
+    let Some(browser_type) = FromPrimitive::from_i32(t) else {
+        return Err(builtin_func_error(UErrorMessage::InvalidBrowserType(t)));
+    };
     let filter = args.get_as_string_or_empty(1)?;
     let port = args.get_as_int::<u16>(2, Some(DEFAULT_PORT))?;
     let headless = args.get_as_bool(3, Some(false))?;
-    let browser = match FromPrimitive::from_i32(typearg).unwrap_or(BcEnum::BC_UNKNOWN) {
+    let browser = match browser_type {
         BcEnum::BC_CHROME => Browser::new_chrome(port, filter, headless)?,
         BcEnum::BC_MSEDGE => Browser::new_msedge(port, filter, headless)?,
-        BcEnum::BC_UNKNOWN => return Err(builtin_func_error(
-            UErrorMessage::InvalidArgument((port as f64).into()),
-        ))
     };
     Ok(BuiltinFuncReturnValue::Result(Object::Browser(browser)))
 }

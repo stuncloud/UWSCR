@@ -29,7 +29,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
 }
 
 #[allow(non_camel_case_types)]
-#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive)]
+#[derive(Debug, EnumString, EnumProperty, EnumVariantNames, ToPrimitive, FromPrimitive)]
 pub enum MouseButtonEnum {
     LEFT = 0,
     RIGHT = 1,
@@ -37,16 +37,14 @@ pub enum MouseButtonEnum {
     WHEEL = 5,
     WHEEL2 = 6,
     TOUCH = 7,
-    UNKNOWN_MOUSE_BUTTON = -1,
 }
 
 #[allow(non_camel_case_types)]
-#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive)]
+#[derive(Debug, EnumString, EnumProperty, EnumVariantNames, ToPrimitive, FromPrimitive)]
 pub enum KeyActionEnum {
     CLICK = 0,
     DOWN = 1,
     UP = 2,
-    UNKNOWN_ACTION = -1,
 }
 
 pub fn move_mouse_to(x: i32, y: i32) -> bool {
@@ -66,43 +64,44 @@ pub fn mmv(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 }
 
 pub fn btn(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let Some(btn) = args.get_as_const::<MouseButtonEnum>(0, true)? else {
+        // 不正な定数の場合何もしない
+        return Ok(BuiltinFuncReturnValue::Result(Object::Empty));
+    };
     let mut enigo = Enigo::new();
-    let arg1 = args.get_as_int::<i32>(1, Some(KeyActionEnum::CLICK as i32))?;
+    let action = args.get_as_int::<i32>(1, Some(KeyActionEnum::CLICK as i32))?;
     let p = get_current_pos()?;
     let (cur_x, cur_y) = (p.x, p.y);
     let x = args.get_as_int( 2, Some(cur_x))?;
     let y = args.get_as_int( 3, Some(cur_y))?;
     let ms= args.get_as_int::<u64>(4, Some(0))?;
-    let btn = args.get_as_int::<i32>(0, None)?;
-    let button = match FromPrimitive::from_i32(btn).unwrap_or(MouseButtonEnum::UNKNOWN_MOUSE_BUTTON) {
+    let button = match btn {
         MouseButtonEnum::LEFT => MouseButton::Left,
         MouseButtonEnum::RIGHT => MouseButton::Right,
         MouseButtonEnum::MIDDLE => MouseButton::Middle,
         MouseButtonEnum::WHEEL => {
             thread::sleep(time::Duration::from_millis(ms));
             move_mouse_to(x, y);
-            enigo.mouse_scroll_y(arg1);
+            enigo.mouse_scroll_y(action);
             return Ok(BuiltinFuncReturnValue::Result(Object::Empty));
         },
         MouseButtonEnum::WHEEL2 => {
             thread::sleep(time::Duration::from_millis(ms));
             move_mouse_to(x, y);
-            enigo.mouse_scroll_x(arg1);
+            enigo.mouse_scroll_x(action);
             return Ok(BuiltinFuncReturnValue::Result(Object::Empty));
         },
         MouseButtonEnum::TOUCH => {
             return Err(builtin_func_error(UErrorMessage::NotYetSupported("TOUCH".into())));
         },
-        _ => return Ok(BuiltinFuncReturnValue::Result(Object::Empty))
     };
 
     thread::sleep(time::Duration::from_millis(ms));
     move_mouse_to(x, y);
-    match FromPrimitive::from_i32(arg1).unwrap_or(KeyActionEnum::CLICK) {
+    match FromPrimitive::from_i32(action).unwrap_or(KeyActionEnum::CLICK) {
         KeyActionEnum::CLICK => enigo.mouse_click(button),
         KeyActionEnum::DOWN => enigo.mouse_down(button),
         KeyActionEnum::UP => enigo.mouse_up(button),
-        _ => return Err(builtin_func_error(UErrorMessage::InvalidArgument((arg1 as f64).into())))
     }
     Ok(BuiltinFuncReturnValue::Result(Object::Empty))
 }
@@ -155,18 +154,17 @@ fn send_win_key(vk: u8, action: KeyActionEnum, wait: u64) -> BuiltinFuncResult {
                     0
                 );
             },
-            _ => {},
         }
     }
     Ok(BuiltinFuncReturnValue::Result(Object::Empty))
 }
 
 pub fn kbd(args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let mut enigo = Enigo::new();
 
+    let mut enigo = Enigo::new();
     let obj = args.get_as_object(0, None)?;
-    let action = args.get_as_int::<i32>(1, Some(0))?;
-    let key_action = FromPrimitive::from_i32(action).unwrap_or(KeyActionEnum::UNKNOWN_ACTION);
+    let key_action = args.get_as_const::<KeyActionEnum>(1, false)?
+        .unwrap_or(KeyActionEnum::CLICK);
     let ms= args.get_as_int::<u64>(2, Some(0))?;
 
     let vk_win = key_codes::VirtualKeyCodes::VK_WIN as isize as f64;
@@ -189,7 +187,6 @@ pub fn kbd(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         KeyActionEnum::CLICK => enigo.key_click(key),
         KeyActionEnum::DOWN => enigo.key_down(key),
         KeyActionEnum::UP => enigo.key_up(key),
-        _ => (),
     };
     Ok(BuiltinFuncReturnValue::Result(Object::Empty))
 }

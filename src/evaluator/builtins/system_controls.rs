@@ -94,7 +94,7 @@ pub fn is_64bit_os() -> Option<bool> {
 }
 
 #[allow(non_camel_case_types)]
-#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive)]
+#[derive(Debug, EnumString, EnumProperty, EnumVariantNames, ToPrimitive, FromPrimitive)]
 pub enum OsKind {
     OS_WIN2000      = 12,
     OS_WINXP        = 13,
@@ -114,7 +114,7 @@ pub enum OsKind {
     OS_UNKNOWN      = 0,
 }
 #[allow(non_camel_case_types)]
-#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive)]
+#[derive(Debug, EnumString, EnumProperty, EnumVariantNames, ToPrimitive, FromPrimitive)]
 pub enum KindOfOsResultType {
     KIND_OF_OS     = 0,
     IS_64BIT_OS    = 1,

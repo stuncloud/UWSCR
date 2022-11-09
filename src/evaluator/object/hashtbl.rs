@@ -1,11 +1,11 @@
 use super::Object;
 
 use indexmap::IndexMap;
-use strum_macros::{EnumString, EnumVariantNames};
+use strum_macros::{EnumString, EnumVariantNames, EnumProperty};
 use num_derive::{ToPrimitive, FromPrimitive};
 
 #[allow(non_camel_case_types)]
-#[derive(Debug, EnumString, EnumVariantNames, ToPrimitive, FromPrimitive)]
+#[derive(Debug, EnumString, EnumProperty, EnumVariantNames, ToPrimitive, FromPrimitive)]
 pub enum HashTblEnum {
     HASH_CASECARE = 0x1000,
     HASH_SORT = 0x2000,
@@ -14,7 +14,7 @@ pub enum HashTblEnum {
     HASH_KEY = -101,
     HASH_VAL = -102,
     HASH_REMOVEALL = -109,
-    HASH_UNKNOWN = 0,
+    // HASH_UNKNOWN = 0,
 }
 
 #[derive(Clone, Debug, PartialEq)]
