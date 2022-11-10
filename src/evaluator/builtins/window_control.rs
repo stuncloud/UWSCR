@@ -45,6 +45,7 @@ use windows::{
                 SetWindowPos, GetWindowRect, MoveWindow, GetWindowPlacement,
                 GetWindowThreadProcessId, IsIconic, IsHungAppWindow,
                 EnumChildWindows, GetMenu, GetSystemMenu,
+                GetCursorInfo, CURSORINFO,
             },
             HiDpi::{
                 GetDpiForWindow,
@@ -147,6 +148,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("getctlhnd", 3, getctlhnd);
     sets.add("&&getitem", 6, getitem);
     sets.add("posacc", 4, posacc);
+    sets.add("muscur", 0, muscur);
     sets
 }
 
@@ -1288,4 +1290,51 @@ pub fn posacc(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         None => Object::Empty,
     };
     Ok(BuiltinFuncReturnValue::Result(obj))
+}
+
+#[allow(non_camel_case_types)]
+#[derive(Debug, EnumString, EnumProperty, EnumVariantNames, ToPrimitive, FromPrimitive)]
+pub enum CurConst {
+    CUR_APPSTARTING = 1,
+    CUR_ARROW       = 2,
+    CUR_CROSS       = 3,
+    CUR_HAND        = 4,
+    CUR_HELP        = 5,
+    CUR_IBEAM       = 6,
+    CUR_NO          = 8,
+    CUR_SIZEALL     = 10,
+    CUR_SIZENESW    = 11,
+    CUR_SIZENS      = 12,
+    CUR_SIZENWSE    = 13,
+    CUR_SIZEWE      = 14,
+    CUR_UPARROW     = 15,
+    CUR_WAIT        = 16,
+}
+
+pub fn muscur(_: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let id = unsafe {
+        let mut pci = CURSORINFO::default();
+        pci.cbSize = std::mem::size_of::<CURSORINFO>() as u32;
+        GetCursorInfo(&mut pci);
+        pci.hCursor.0
+    };
+    let cursor = match id {
+        65563 => CurConst::CUR_APPSTARTING,
+        65541 => CurConst::CUR_ARROW,
+        65547 => CurConst::CUR_CROSS,
+        65569 => CurConst::CUR_HAND,
+        65565 => CurConst::CUR_HELP,
+        65543 => CurConst::CUR_IBEAM,
+        65561 => CurConst::CUR_NO,
+        65559 => CurConst::CUR_SIZEALL,
+        65553 => CurConst::CUR_SIZENESW,
+        65557 => CurConst::CUR_SIZENS,
+        65551 => CurConst::CUR_SIZENWSE,
+        65555 => CurConst::CUR_SIZEWE,
+        65549 => CurConst::CUR_UPARROW,
+        65545 => CurConst::CUR_WAIT,
+        _ => return Ok(BuiltinFuncReturnValue::Result(Object::Num(0.0))),
+    };
+    let n = cursor as i32 as f64;
+    Ok(BuiltinFuncReturnValue::Result(Object::Num(n)))
 }

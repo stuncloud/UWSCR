@@ -628,6 +628,73 @@ ID0について
         | それ以外は該当する値を文字列で返します
         | 失敗時はEMPTYを返します
 
+.. function:: muscur()
+
+    | マウスカーソルの種別を返します
+
+    :rtype: 定数
+    :return:
+
+        .. object:: CUR_APPSTARTING (1)
+
+            | 砂時計付き矢印
+
+        .. object:: CUR_ARROW (2)
+
+            | 標準矢印
+
+        .. object:: CUR_CROSS (3)
+
+            | 十字
+
+        .. object:: CUR_HAND (4)
+
+            | ハンド
+
+        .. object:: CUR_HELP (5)
+
+            | クエスチョンマーク付き矢印
+
+        .. object:: CUR_IBEAM (6)
+
+            | アイビーム (テキスト上のカーソル)
+
+        .. object:: CUR_NO (8)
+
+            | 禁止
+
+        .. object:: CUR_SIZEALL (10)
+
+            | ４方向矢印
+
+        .. object:: CUR_SIZENESW (11)
+
+            | 斜め左下がりの両方向矢印
+
+        .. object:: CUR_SIZENS (12)
+
+            | 上下両方向矢印
+
+        .. object:: CUR_SIZENWSE (13)
+
+            | 斜め右下がりの両方向矢印
+
+        .. object:: CUR_SIZEWE (14)
+
+            | 左右両方向矢印
+
+        .. object:: CUR_UPARROW (15)
+
+            | 垂直の矢印
+
+        .. object:: CUR_WAIT (16)
+
+            | 砂時計
+
+        .. object:: 0
+
+            | 上記以外
+
 画像検索
 --------
 
