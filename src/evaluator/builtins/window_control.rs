@@ -31,6 +31,10 @@ use windows::{
                 OpenProcess, WaitForInputIdle, IsWow64Process,
             },
             ProcessStatus::K32GetModuleFileNameExW,
+            SystemServices::CF_BITMAP,
+            DataExchange::{
+                OpenClipboard, CloseClipboard, GetClipboardData, IsClipboardFormatAvailable,
+            }
         },
         UI::{
             WindowsAndMessaging::{
@@ -46,6 +50,7 @@ use windows::{
                 GetWindowThreadProcessId, IsIconic, IsHungAppWindow,
                 EnumChildWindows, GetMenu, GetSystemMenu,
                 GetCursorInfo, CURSORINFO,
+
             },
             HiDpi::{
                 GetDpiForWindow,
@@ -57,7 +62,12 @@ use windows::{
                 MONITOR_DEFAULTTONEAREST,
                 MonitorFromWindow, EnumDisplayMonitors,
                 EnumDisplayDevicesW, GetMonitorInfoW,
-                ClientToScreen
+                ClientToScreen,
+                GetDC, ReleaseDC, DeleteDC,
+                GetPixel,
+                HBITMAP,
+                SelectObject, DeleteObject,
+                CreateCompatibleDC,
             },
             Dwm::{
                 DWMWA_EXTENDED_FRAME_BOUNDS,
@@ -149,6 +159,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("&&getitem", 6, getitem);
     sets.add("posacc", 4, posacc);
     sets.add("muscur", 0, muscur);
+    sets.add("peekcolor", 4, peekcolor);
     sets
 }
 
@@ -1337,4 +1348,65 @@ pub fn muscur(_: BuiltinFuncArgs) -> BuiltinFuncResult {
     };
     let n = cursor as i32 as f64;
     Ok(BuiltinFuncReturnValue::Result(Object::Num(n)))
+}
+
+#[allow(non_camel_case_types)]
+#[derive(Debug, EnumString, EnumProperty, EnumVariantNames, ToPrimitive, FromPrimitive, Default)]
+pub enum ColConst {
+    #[default]
+    COL_BGR = 0,
+    COL_RGB = 3,
+    COL_R   = 4,
+    COL_G   = 5,
+    COL_B   = 6,
+}
+
+pub fn peekcolor(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let x = args.get_as_int(0, None::<i32>)?;
+    let y = args.get_as_int(1, None::<i32>)?;
+    let colconst = args.get_as_const::<ColConst>(2, false)?.unwrap_or_default();
+    let clipboard = args.get_as_bool(3, Some(false))?;
+    unsafe {
+        let bgr = if clipboard {
+            if IsClipboardFormatAvailable(CF_BITMAP.0).as_bool() && OpenClipboard(HWND(0)).as_bool() {
+                let h = GetClipboardData(CF_BITMAP.0)?;
+                let hbitmap = HBITMAP(h.0);
+                let hdc = CreateCompatibleDC(None);
+                let old = SelectObject(hdc, hbitmap);
+                let colorref = GetPixel(hdc, x, y);
+                SelectObject(hdc, old);
+                CloseHandle(h);
+                DeleteObject(hbitmap);
+                DeleteDC(hdc);
+                CloseClipboard();
+                colorref.0
+            } else {
+                0
+            }
+        } else {
+            let hdc = GetDC(None);
+            let colorref = GetPixel(hdc, x, y);
+            ReleaseDC(None, hdc);
+            colorref.0
+        };
+        if bgr > 0xFFFFFF {
+            Ok(BuiltinFuncReturnValue::Result(Object::Num(-1.0)))
+        } else {
+            let r = |c: u32| c & 0xFF;
+            let g = |c: u32| (c >> 8) & 0xFF;
+            let b = |c: u32| (c >> 16) & 0xFF;
+            let color = match colconst {
+                ColConst::COL_BGR => bgr & 0xFFFFFF,
+                ColConst::COL_RGB => {
+                    r(bgr) << 16 |
+                    g(bgr) << 8 |
+                    b(bgr)
+                },
+                ColConst::COL_R => r(bgr),
+                ColConst::COL_G => g(bgr),
+                ColConst::COL_B => b(bgr),
+            };
+            Ok(BuiltinFuncReturnValue::Result(Object::Num(color as f64)))
+        }
+    }
 }

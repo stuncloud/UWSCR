@@ -695,6 +695,51 @@ ID0について
 
             | 上記以外
 
+.. function:: peekcolor(x, y, [RGB指定=COL_BGR, クリップボード=FALSE])
+
+    | 指定位置の色を得ます
+
+    :param 数値 x: X座標
+    :param 数値 y: Y座標
+    :param 定数 省略可 RGB指定: 戻り値の指定
+
+        .. object:: COL_BGR (0)
+
+            | BGR値で返す
+            | 青は$FF0000、緑は$00FF00、赤は$0000FF
+
+        .. object:: COL_RGB
+
+            | RGB値で返す
+            | 赤は$FF0000、緑は$00FF00、青は$0000FF
+
+        .. object:: COL_R
+
+            | 赤の成分のみ
+
+        .. object:: COL_G
+
+            | 緑の成分のみ
+
+        .. object:: COL_B
+
+            | 青の成分のみ
+    :param 真偽値 省略可 クリップボード:
+
+        .. object:: FALSE
+
+            | 画面の指定座標から
+
+        .. object:: TRUE
+
+            | クリップボード画像の指定座標から
+
+    :rtype: 数値
+    :return: 指定座標の色を示す数値
+
+        | 範囲外の場合は ``-1``
+
+
 画像検索
 --------
 
