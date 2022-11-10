@@ -1381,7 +1381,7 @@ pub fn peekcolor(args: BuiltinFuncArgs) -> BuiltinFuncResult {
                 CloseClipboard();
                 colorref.0
             } else {
-                0
+                0xFFFFFFFF
             }
         } else {
             let hdc = GetDC(None);
@@ -1396,7 +1396,7 @@ pub fn peekcolor(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             let g = |c: u32| (c >> 8) & 0xFF;
             let b = |c: u32| (c >> 16) & 0xFF;
             let color = match colconst {
-                ColConst::COL_BGR => bgr & 0xFFFFFF,
+                ColConst::COL_BGR => bgr,
                 ColConst::COL_RGB => {
                     r(bgr) << 16 |
                     g(bgr) << 8 |
