@@ -626,6 +626,7 @@ pub fn init_builtins() -> Vec<NamedObject> {
     set_builtin_consts::<window_control::ClkConst>(&mut vec);
     set_builtin_consts::<window_control::GetItemConst>(&mut vec);
     set_builtin_consts::<window_control::AccConst>(&mut vec);
+    set_builtin_consts::<window_control::CurConst>(&mut vec);
 
     // text control
     text_control::builtin_func_sets().set(&mut vec);
