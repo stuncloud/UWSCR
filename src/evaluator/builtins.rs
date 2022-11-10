@@ -146,14 +146,10 @@ impl BuiltinFuncArgs {
             default.ok_or(err)
         }
     }
-    fn get_arg_with_default2<T, F: Fn(Object, T)-> BuiltInResult<T>>(&self, i: usize, default: Option<T>, f: F) -> BuiltInResult<T> {
+    fn get_arg_with_default2<T, F: Fn(Object, Option<T>)-> BuiltInResult<T>>(&self, i: usize, default: Option<T>, f: F) -> BuiltInResult<T> {
         if self.len() >= i+ 1 {
             let obj = self.item(i);
-            if let Some(d) = default {
-                f(obj, d)
-            } else {
-                Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgRequiredAt(i + 1)))
-            }
+            f(obj, default)
         } else {
             let err = BuiltinFuncError::new(UErrorMessage::BuiltinArgRequiredAt(i + 1));
             default.ok_or(err)
@@ -198,7 +194,7 @@ impl BuiltinFuncArgs {
                     Err(_) => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg)))
                 },
                 Object::EmptyParam => {
-                    Ok(default)
+                    default.ok_or(BuiltinFuncError::new(UErrorMessage::BuiltinArgRequiredAt(i + 1)))
                 },
                 _ => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg))
                 )
