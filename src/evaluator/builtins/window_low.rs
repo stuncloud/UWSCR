@@ -167,8 +167,8 @@ pub fn kbd(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         .unwrap_or(KeyActionEnum::CLICK);
     let ms= args.get_as_int::<u64>(2, Some(0))?;
 
-    let vk_win = key_codes::VirtualKeyCodes::VK_WIN as isize as f64;
-    let vk_rwin = key_codes::VirtualKeyCodes::VK_START as isize as f64;
+    let vk_win = key_codes::VirtualKeyCode::VK_WIN as isize as f64;
+    let vk_rwin = key_codes::VirtualKeyCode::VK_START as isize as f64;
     let key = match obj {
         Object::Num(n) => if n == vk_win || n == vk_rwin {
             return send_win_key(n as u8, key_action, ms)

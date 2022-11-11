@@ -1,9 +1,16 @@
 use strum_macros::{EnumString, EnumVariantNames, EnumProperty};
-use num_derive::{ToPrimitive};
+use num_derive::{ToPrimitive, FromPrimitive};
+use num_traits::{ToPrimitive};
+
+use windows::Win32::UI::Input::KeyboardAndMouse::{
+    INPUT, INPUT_KEYBOARD, KEYBDINPUT,
+    KEYEVENTF_KEYUP, KEYEVENTF_UNICODE,
+    VIRTUAL_KEY,
+};
 
 #[allow(non_camel_case_types)]
-#[derive(Debug, EnumString, EnumProperty, EnumVariantNames, ToPrimitive)]
-pub enum VirtualKeyCodes {
+#[derive(Debug, EnumString, EnumProperty, EnumVariantNames, ToPrimitive, FromPrimitive)]
+pub enum VirtualKeyCode {
     VK_A                   = 65,
     VK_B                   = 66,
     VK_C                   = 67,
@@ -161,4 +168,78 @@ pub enum VirtualMouseButton {
     VK_LBUTTON = 1,
     VK_RBUTTON = 2,
     VK_MBUTTON = 4,
+}
+
+pub enum SCKeyCode {
+    VirtualKeyCode(VirtualKeyCode),
+    Unicode(u16),
+}
+
+impl SCKeyCode {
+    pub fn codes_to_input(codes: Vec<Self>) -> Vec<INPUT> {
+        let mut down_keys = vec![];
+        let inputs = codes.into_iter()
+            .map(|sc| {
+                let down = sc.to_input(false);
+                let up = sc.to_input(true);
+                if sc.is_down_key() {
+                    down_keys.push(up);
+                    vec![down]
+                } else {
+                    vec![down, up]
+                }
+            })
+            .flatten()
+            .collect::<Vec<_>>();
+        down_keys.reverse();
+        [inputs, down_keys].concat()
+    }
+    fn to_input(&self, up: bool) -> INPUT {
+        let mut input = INPUT::default();
+        input.r#type = INPUT_KEYBOARD;
+        let mut ki = KEYBDINPUT::default();
+        match self {
+            SCKeyCode::VirtualKeyCode(key) => {
+                let vk = ToPrimitive::to_u16(key).unwrap();
+                ki.wVk = VIRTUAL_KEY(vk);
+                if up {
+                    ki.dwFlags = KEYEVENTF_KEYUP;
+                }
+            },
+            SCKeyCode::Unicode(code) => {
+                ki.dwFlags = if up {
+                    KEYEVENTF_UNICODE|KEYEVENTF_KEYUP
+                } else {
+                    KEYEVENTF_UNICODE
+                };
+                ki.wScan = *code;
+            },
+        }
+        input.Anonymous.ki = ki;
+        input
+    }
+    fn is_down_key(&self) -> bool {
+        match self {
+            SCKeyCode::VirtualKeyCode(key) => {
+                match key {
+                    VirtualKeyCode::VK_SHIFT |
+                    VirtualKeyCode::VK_CTRL |
+                    VirtualKeyCode::VK_ALT |
+                    VirtualKeyCode::VK_RSHIFT |
+                    VirtualKeyCode::VK_RCTRL |
+                    VirtualKeyCode::VK_RALT |
+                    VirtualKeyCode::VK_WIN |
+                    VirtualKeyCode::VK_START => {
+                        true
+                    },
+                    _ => {
+                        false
+                    }
+                }
+            },
+            SCKeyCode::Unicode(_) => {
+                false
+            },
+        }
+    }
 }

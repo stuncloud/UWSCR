@@ -50,10 +50,12 @@ use windows::{
                 GetWindowThreadProcessId, IsIconic, IsHungAppWindow,
                 EnumChildWindows, GetMenu, GetSystemMenu,
                 GetCursorInfo, CURSORINFO,
-
             },
             HiDpi::{
                 GetDpiForWindow,
+            },
+            Input::KeyboardAndMouse::{
+                SendInput, INPUT
             },
         },
         Graphics::{
@@ -160,6 +162,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("posacc", 4, posacc);
     sets.add("muscur", 0, muscur);
     sets.add("peekcolor", 4, peekcolor);
+    sets.add("sckey", 36, sckey);
     sets
 }
 
@@ -1409,4 +1412,18 @@ pub fn peekcolor(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             Ok(BuiltinFuncReturnValue::Result(Object::Num(color as f64)))
         }
     }
+}
+
+pub fn sckey(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let id = args.get_as_int(0, None::<i32>)?;
+    let hwnd = get_hwnd_from_id(id);
+    let keys = args.get_sckey_codes(1)?;
+    let pinputs: Vec<INPUT> = SCKeyCode::codes_to_input(keys);
+    unsafe {
+        if hwnd.0 != 0 {
+            SetForegroundWindow(hwnd);
+        }
+        SendInput(&pinputs, std::mem::size_of::<INPUT>() as i32);
+    }
+    Ok(BuiltinFuncReturnValue::Result(Object::default()))
 }

@@ -29,6 +29,7 @@ use crate::evaluator::object::{
 };
 use crate::evaluator::object::{UObject,Fopen,Function};
 use crate::evaluator::environment::NamedObject;
+use crate::evaluator::builtins::key_codes::{SCKeyCode};
 use crate::error::evaluator::{UError,UErrorKind,UErrorMessage};
 use crate::ast::Expression;
 
@@ -459,6 +460,26 @@ impl BuiltinFuncArgs {
             Ok(vec)
         })
     }
+    /// 残りの引数をsckey用のキーコードとして得る
+    pub fn get_sckey_codes(&self, i: usize) -> BuiltInResult<Vec<SCKeyCode>> {
+        self.get_arg(i, |_| {
+            let vec = self.split_off(i)
+                .into_iter()
+                .filter_map(|o| match o {
+                    Object::Num(n) => {
+                        FromPrimitive::from_f64(n)
+                            .map(|key| SCKeyCode::VirtualKeyCode(key))
+                    },
+                    Object::String(s) => {
+                        s.chars().next()
+                            .map(|char| SCKeyCode::Unicode(char as u16))
+                    }
+                    _ => None,
+                })
+                .collect();
+            Ok(vec)
+        })
+    }
 
     pub fn get_as_fopen(&self, i: usize) -> BuiltInResult<Arc<Mutex<Fopen>>> {
         self.get_arg(i, |arg| {
@@ -639,7 +660,7 @@ pub fn init_builtins() -> Vec<NamedObject> {
     // math
     math::builtin_func_sets().set(&mut vec);
     // key codes
-    set_builtin_consts::<key_codes::VirtualKeyCodes>(&mut vec);
+    set_builtin_consts::<key_codes::VirtualKeyCode>(&mut vec);
     set_builtin_consts::<key_codes::VirtualMouseButton>(&mut vec);
     // com_object
     com_object::builtin_func_sets().set(&mut vec);
