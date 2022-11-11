@@ -380,6 +380,24 @@ ID0について
 
     :return: なし
 
+.. function:: sckey(ID, キー, [キー, ...])
+
+    | ショートカットキーを送信します
+
+    :param ウィンドウID ID: アクティブにするウィンドウのID、0指定でどのウィンドウもアクティブにしない
+    :param 定数または文字列 キー: :ref:`virtual_keys` のいずれか、またはアルファベット一文字
+
+        .. note::
+
+            | キーは35個まで指定可能
+            | ``VK_SHIFT``, ``VK_CTRL``, ``VK_ALT``, ``VK_WIN`` は押し下げられた状態になります (Rも含む)
+            | これらのキーはすべてのキー入力が終了したあとにキーアップ状態に戻ります
+
+    :return: なし
+
+ウィンドウ情報取得
+------------------
+
 .. function:: status(ID, ST定数, [ST定数...])
 
     | 対象ウィンドウの各種状態を取得します
@@ -566,6 +584,177 @@ ID0について
                 print m[MON_X] + ", " + m[MON_Y]
                 print m[MON_WIDTH] + " x " + m[MON_HEIGHT]
             next
+
+.. function:: posacc(ID, クライアントX座標, クライアントY座標, [種別=0])
+
+    | 座標位置のアクセシビリティオブジェクトから情報を得ます
+
+    :param ウィンドウID ID: 対象ウィンドウのID
+    :param 数値 クライアントX座標: 対象ウィンドウのクライアント領域におけるX座標
+    :param 数値 クライアントY座標: 対象ウィンドウのクライアント領域におけるY座標
+    :param 定数 省略可 種別: 取得したい情報の種類を示す定数
+
+        .. object:: 0
+
+            | ``ACC_ACC`` を実行し、取得できなければ ``ACC_API`` を実行 (デフォルト)
+
+        .. object:: ACC_ACC
+
+            | 表示文字列の取得
+
+        .. object:: ACC_API
+
+            | DrawText, TextOut等のAPIで描画されたテキストを取得 (未実装)
+
+        .. object:: ACC_NAME
+
+            | オブジェクトの表示名
+
+        .. object:: ACC_VALUE
+
+            | オブジェクトの値 (エディットボックス等)
+
+        .. object:: ACC_ROLE
+
+            | オブジェクトの役割名
+
+        .. object:: ACC_STATE
+
+            | オブジェクトの状態
+
+        .. object:: ACC_DESCRIPTION
+
+            | オブジェクトの説明
+
+        .. object:: ACC_LOCATION
+
+            | オブジェクトの位置情報
+            | [x, y, 幅, 高さ]
+
+        .. object:: ACC_BACK (オプション)
+
+            | 他の定数とOR連結で指定
+            | 対象ウィンドウをアクティブにしない
+    :rtype: 文字列または配列
+    :return:
+
+        | ``ACC_LOCATION`` 指定時は数値の配列を返します
+        | ``ACC_STATE`` 指定時は文字列の配列を返します
+        | それ以外は該当する値を文字列で返します
+        | 失敗時はEMPTYを返します
+
+.. function:: muscur()
+
+    | マウスカーソルの種別を返します
+
+    :rtype: 定数
+    :return:
+
+        .. object:: CUR_APPSTARTING (1)
+
+            | 砂時計付き矢印
+
+        .. object:: CUR_ARROW (2)
+
+            | 標準矢印
+
+        .. object:: CUR_CROSS (3)
+
+            | 十字
+
+        .. object:: CUR_HAND (4)
+
+            | ハンド
+
+        .. object:: CUR_HELP (5)
+
+            | クエスチョンマーク付き矢印
+
+        .. object:: CUR_IBEAM (6)
+
+            | アイビーム (テキスト上のカーソル)
+
+        .. object:: CUR_NO (8)
+
+            | 禁止
+
+        .. object:: CUR_SIZEALL (10)
+
+            | ４方向矢印
+
+        .. object:: CUR_SIZENESW (11)
+
+            | 斜め左下がりの両方向矢印
+
+        .. object:: CUR_SIZENS (12)
+
+            | 上下両方向矢印
+
+        .. object:: CUR_SIZENWSE (13)
+
+            | 斜め右下がりの両方向矢印
+
+        .. object:: CUR_SIZEWE (14)
+
+            | 左右両方向矢印
+
+        .. object:: CUR_UPARROW (15)
+
+            | 垂直の矢印
+
+        .. object:: CUR_WAIT (16)
+
+            | 砂時計
+
+        .. object:: 0
+
+            | 上記以外
+
+.. function:: peekcolor(x, y, [RGB指定=COL_BGR, クリップボード=FALSE])
+
+    | 指定位置の色を得ます
+
+    :param 数値 x: X座標
+    :param 数値 y: Y座標
+    :param 定数 省略可 RGB指定: 戻り値の指定
+
+        .. object:: COL_BGR (0)
+
+            | BGR値で返す
+            | 青は$FF0000、緑は$00FF00、赤は$0000FF
+
+        .. object:: COL_RGB
+
+            | RGB値で返す
+            | 赤は$FF0000、緑は$00FF00、青は$0000FF
+
+        .. object:: COL_R
+
+            | 赤の成分のみ
+
+        .. object:: COL_G
+
+            | 緑の成分のみ
+
+        .. object:: COL_B
+
+            | 青の成分のみ
+    :param 真偽値 省略可 クリップボード:
+
+        .. object:: FALSE
+
+            | 画面の指定座標から
+
+        .. object:: TRUE
+
+            | クリップボード画像の指定座標から
+
+    :rtype: 数値
+    :return:
+
+        | 指定座標の色を示す数値
+        | 失敗時は ``-1`` (範囲外指定やクリップボード指定でクリップボード画像がない場合)
+
 
 画像検索
 --------

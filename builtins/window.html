@@ -822,6 +822,37 @@
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="sckey">
+<span class="sig-name descname"><span class="pre">sckey</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ID</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">キー</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">キー</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">...</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#sckey" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">ショートカットキーを送信します</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ID</strong> (<em>ウィンドウID</em>) -- アクティブにするウィンドウのID、0指定でどのウィンドウもアクティブにしない</p></li>
+<li><p><strong>キー</strong> (<em>定数または文字列</em>) -- <p><a class="reference internal" href="#virtual-keys"><span class="std std-ref">仮想キーコード一覧</span></a> のいずれか、またはアルファベット一文字</p>
+<div class="admonition note">
+<p class="admonition-title">注釈</p>
+<div class="line-block">
+<div class="line">キーは35個まで指定可能</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">VK_SHIFT</span></code>, <code class="docutils literal notranslate"><span class="pre">VK_CTRL</span></code>, <code class="docutils literal notranslate"><span class="pre">VK_ALT</span></code>, <code class="docutils literal notranslate"><span class="pre">VK_WIN</span></code> は押し下げられた状態になります (Rも含む)</div>
+<div class="line">これらのキーはすべてのキー入力が終了したあとにキーアップ状態に戻ります</div>
+</div>
+</div>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>なし</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="id3">
+<h2>ウィンドウ情報取得<a class="headerlink" href="#id3" title="この見出しへのパーマリンク">#</a></h2>
+<dl class="py function">
 <dt class="sig sig-object py" id="status">
 <span class="sig-name descname"><span class="pre">status</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ID</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ST定数</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">ST定数...</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#status" title="この定義へのパーマリンク">#</a></dt>
 <dd><div class="line-block">
@@ -1106,9 +1137,345 @@
 </div>
 </dd></dl>
 
+<dl class="py function">
+<dt class="sig sig-object py" id="posacc">
+<span class="sig-name descname"><span class="pre">posacc</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ID</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">クライアントX座標</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">クライアントY座標</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">種別=0</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#posacc" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">座標位置のアクセシビリティオブジェクトから情報を得ます</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ID</strong> (<em>ウィンドウID</em>) -- 対象ウィンドウのID</p></li>
+<li><p><strong>クライアントX座標</strong> (<em>数値</em>) -- 対象ウィンドウのクライアント領域におけるX座標</p></li>
+<li><p><strong>クライアントY座標</strong> (<em>数値</em>) -- 対象ウィンドウのクライアント領域におけるY座標</p></li>
+<li><p><strong>種別</strong> (<em>定数 省略可</em>) -- <p>取得したい情報の種類を示す定数</p>
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">0</span></span></dt>
+<dd><div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">ACC_ACC</span></code> を実行し、取得できなければ <code class="docutils literal notranslate"><span class="pre">ACC_API</span></code> を実行 (デフォルト)</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ACC_ACC</span></span></dt>
+<dd><div class="line-block">
+<div class="line">表示文字列の取得</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ACC_API</span></span></dt>
+<dd><div class="line-block">
+<div class="line">DrawText, TextOut等のAPIで描画されたテキストを取得 (未実装)</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ACC_NAME</span></span></dt>
+<dd><div class="line-block">
+<div class="line">オブジェクトの表示名</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ACC_VALUE</span></span></dt>
+<dd><div class="line-block">
+<div class="line">オブジェクトの値 (エディットボックス等)</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ACC_ROLE</span></span></dt>
+<dd><div class="line-block">
+<div class="line">オブジェクトの役割名</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ACC_STATE</span></span></dt>
+<dd><div class="line-block">
+<div class="line">オブジェクトの状態</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ACC_DESCRIPTION</span></span></dt>
+<dd><div class="line-block">
+<div class="line">オブジェクトの説明</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ACC_LOCATION</span></span></dt>
+<dd><div class="line-block">
+<div class="line">オブジェクトの位置情報</div>
+<div class="line">[x, y, 幅, 高さ]</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ACC_BACK</span> <span class="pre">(オプション)</span></span></dt>
+<dd><div class="line-block">
+<div class="line">他の定数とOR連結で指定</div>
+<div class="line">対象ウィンドウをアクティブにしない</div>
+</div>
+</dd></dl>
+
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>文字列または配列</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p><div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">ACC_LOCATION</span></code> 指定時は数値の配列を返します</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">ACC_STATE</span></code> 指定時は文字列の配列を返します</div>
+<div class="line">それ以外は該当する値を文字列で返します</div>
+<div class="line">失敗時はEMPTYを返します</div>
+</div>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="muscur">
+<span class="sig-name descname"><span class="pre">muscur</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#muscur" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">マウスカーソルの種別を返します</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-odd"><p>定数</p>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">CUR_APPSTARTING</span> <span class="pre">(1)</span></span></dt>
+<dd><div class="line-block">
+<div class="line">砂時計付き矢印</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">CUR_ARROW</span> <span class="pre">(2)</span></span></dt>
+<dd><div class="line-block">
+<div class="line">標準矢印</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">CUR_CROSS</span> <span class="pre">(3)</span></span></dt>
+<dd><div class="line-block">
+<div class="line">十字</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">CUR_HAND</span> <span class="pre">(4)</span></span></dt>
+<dd><div class="line-block">
+<div class="line">ハンド</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">CUR_HELP</span> <span class="pre">(5)</span></span></dt>
+<dd><div class="line-block">
+<div class="line">クエスチョンマーク付き矢印</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">CUR_IBEAM</span> <span class="pre">(6)</span></span></dt>
+<dd><div class="line-block">
+<div class="line">アイビーム (テキスト上のカーソル)</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">CUR_NO</span> <span class="pre">(8)</span></span></dt>
+<dd><div class="line-block">
+<div class="line">禁止</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">CUR_SIZEALL</span> <span class="pre">(10)</span></span></dt>
+<dd><div class="line-block">
+<div class="line">４方向矢印</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">CUR_SIZENESW</span> <span class="pre">(11)</span></span></dt>
+<dd><div class="line-block">
+<div class="line">斜め左下がりの両方向矢印</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">CUR_SIZENS</span> <span class="pre">(12)</span></span></dt>
+<dd><div class="line-block">
+<div class="line">上下両方向矢印</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">CUR_SIZENWSE</span> <span class="pre">(13)</span></span></dt>
+<dd><div class="line-block">
+<div class="line">斜め右下がりの両方向矢印</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">CUR_SIZEWE</span> <span class="pre">(14)</span></span></dt>
+<dd><div class="line-block">
+<div class="line">左右両方向矢印</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">CUR_UPARROW</span> <span class="pre">(15)</span></span></dt>
+<dd><div class="line-block">
+<div class="line">垂直の矢印</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">CUR_WAIT</span> <span class="pre">(16)</span></span></dt>
+<dd><div class="line-block">
+<div class="line">砂時計</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">0</span></span></dt>
+<dd><div class="line-block">
+<div class="line">上記以外</div>
+</div>
+</dd></dl>
+
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="peekcolor">
+<span class="sig-name descname"><span class="pre">peekcolor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">RGB指定=COL_BGR</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">クリップボード=FALSE</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#peekcolor" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">指定位置の色を得ます</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>数値</em>) -- X座標</p></li>
+<li><p><strong>y</strong> (<em>数値</em>) -- Y座標</p></li>
+<li><p><strong>RGB指定</strong> (<em>定数 省略可</em>) -- <p>戻り値の指定</p>
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">COL_BGR</span> <span class="pre">(0)</span></span></dt>
+<dd><div class="line-block">
+<div class="line">BGR値で返す</div>
+<div class="line">青は$FF0000、緑は$00FF00、赤は$0000FF</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">COL_RGB</span></span></dt>
+<dd><div class="line-block">
+<div class="line">RGB値で返す</div>
+<div class="line">赤は$FF0000、緑は$00FF00、青は$0000FF</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">COL_R</span></span></dt>
+<dd><div class="line-block">
+<div class="line">赤の成分のみ</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">COL_G</span></span></dt>
+<dd><div class="line-block">
+<div class="line">緑の成分のみ</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">COL_B</span></span></dt>
+<dd><div class="line-block">
+<div class="line">青の成分のみ</div>
+</div>
+</dd></dl>
+
+</p></li>
+<li><p><strong>クリップボード</strong> (<em>真偽値 省略可</em>) -- <dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">FALSE</span></span></dt>
+<dd><div class="line-block">
+<div class="line">画面の指定座標から</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">TRUE</span></span></dt>
+<dd><div class="line-block">
+<div class="line">クリップボード画像の指定座標から</div>
+</div>
+</dd></dl>
+
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>数値</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p><div class="line-block">
+<div class="line">指定座標の色を示す数値</div>
+<div class="line">失敗時は <code class="docutils literal notranslate"><span class="pre">-1</span></code> (範囲外指定やクリップボード指定でクリップボード画像がない場合)</div>
+</div>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
 </section>
-<section id="id3">
-<h2>画像検索<a class="headerlink" href="#id3" title="この見出しへのパーマリンク">#</a></h2>
+<section id="id4">
+<h2>画像検索<a class="headerlink" href="#id4" title="この見出しへのパーマリンク">#</a></h2>
 <div class="admonition hint">
 <p class="admonition-title">ヒント</p>
 <p>chkimg関数を使う場合chkimg版UWSCR(UWSCRx64_chkimg.zip)を導入してください</p>
@@ -1161,7 +1528,7 @@
 </dd></dl>
 
 <section id="opencv">
-<span id="id4"></span><h3>OpenCV導入方法<a class="headerlink" href="#opencv" title="この見出しへのパーマリンク">#</a></h3>
+<span id="id5"></span><h3>OpenCV導入方法<a class="headerlink" href="#opencv" title="この見出しへのパーマリンク">#</a></h3>
 <ol class="arabic simple">
 <li><dl class="simple">
 <dt>OpenCVのインストール</dt><dd><ol class="arabic simple">
@@ -1198,8 +1565,8 @@
 </ol>
 </section>
 </section>
-<section id="id5">
-<h2>低レベル関数<a class="headerlink" href="#id5" title="この見出しへのパーマリンク">#</a></h2>
+<section id="id6">
+<h2>低レベル関数<a class="headerlink" href="#id6" title="この見出しへのパーマリンク">#</a></h2>
 <dl class="py function">
 <dt class="sig sig-object py" id="mmv">
 <span class="sig-name descname"><span class="pre">mmv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">ms=0</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#mmv" title="この定義へのパーマリンク">#</a></dt>
@@ -1405,7 +1772,7 @@
 </dd></dl>
 
 <section id="virtual-keys">
-<span id="id6"></span><h3>仮想キーコード一覧<a class="headerlink" href="#virtual-keys" title="この見出しへのパーマリンク">#</a></h3>
+<span id="id7"></span><h3>仮想キーコード一覧<a class="headerlink" href="#virtual-keys" title="この見出しへのパーマリンク">#</a></h3>
 <dl class="object">
 <dt class="sig sig-object">
 <span class="sig-name descname"><span class="pre">VK_A</span></span></dt>
@@ -2225,16 +2592,23 @@
 <li><a class="reference internal" href="#id2">ウィンドウ操作</a><ul>
 <li><a class="reference internal" href="#clkitem"><code class="docutils literal notranslate"><span class="pre">clkitem()</span></code></a></li>
 <li><a class="reference internal" href="#ctrlwin"><code class="docutils literal notranslate"><span class="pre">ctrlwin()</span></code></a></li>
-<li><a class="reference internal" href="#status"><code class="docutils literal notranslate"><span class="pre">status()</span></code></a></li>
-<li><a class="reference internal" href="#monitor"><code class="docutils literal notranslate"><span class="pre">monitor()</span></code></a></li>
+<li><a class="reference internal" href="#sckey"><code class="docutils literal notranslate"><span class="pre">sckey()</span></code></a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#id3">画像検索</a><ul>
+<li><a class="reference internal" href="#id3">ウィンドウ情報取得</a><ul>
+<li><a class="reference internal" href="#status"><code class="docutils literal notranslate"><span class="pre">status()</span></code></a></li>
+<li><a class="reference internal" href="#monitor"><code class="docutils literal notranslate"><span class="pre">monitor()</span></code></a></li>
+<li><a class="reference internal" href="#posacc"><code class="docutils literal notranslate"><span class="pre">posacc()</span></code></a></li>
+<li><a class="reference internal" href="#muscur"><code class="docutils literal notranslate"><span class="pre">muscur()</span></code></a></li>
+<li><a class="reference internal" href="#peekcolor"><code class="docutils literal notranslate"><span class="pre">peekcolor()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id4">画像検索</a><ul>
 <li><a class="reference internal" href="#chkimg"><code class="docutils literal notranslate"><span class="pre">chkimg()</span></code></a></li>
 <li><a class="reference internal" href="#opencv">OpenCV導入方法</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#id5">低レベル関数</a><ul>
+<li><a class="reference internal" href="#id6">低レベル関数</a><ul>
 <li><a class="reference internal" href="#mmv"><code class="docutils literal notranslate"><span class="pre">mmv()</span></code></a></li>
 <li><a class="reference internal" href="#btn"><code class="docutils literal notranslate"><span class="pre">btn()</span></code></a></li>
 <li><a class="reference internal" href="#kbd"><code class="docutils literal notranslate"><span class="pre">kbd()</span></code></a></li>

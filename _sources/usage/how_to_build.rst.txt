@@ -168,3 +168,23 @@ opencvのインストール
 
 .. warning:: chkimg版はx86でのビルドはできません
 
+ドキュメント
+++++++++++++
+
+.. important:: Python実行環境が必要です
+
+準備
+----
+
+``pip`` 等で以下をインストール
+
+- ``Sphinx`` (ドキュメントのビルド)
+- ``furo`` (ドキュメントのテーマ)
+- ``pygments`` (サンプル構文のシンタックスハイライト)
+
+ビルド
+------
+
+1. ``.\documents\make.bat html`` を実行
+
+.. hint:: ``.\documents\build\html\`` に出力されます
