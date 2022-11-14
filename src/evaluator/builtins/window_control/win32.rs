@@ -67,6 +67,7 @@ use super::get_process_id_from_hwnd;
 
 use std::mem;
 use std::ffi::c_void;
+use std::marker::PhantomData;
 
 #[derive(Debug)]
 pub struct Win32 {
@@ -608,6 +609,17 @@ impl Win32 {
     fn sleep(ms: u64) {
         std::thread::sleep(std::time::Duration::from_millis(ms));
     }
+    fn is_process_x64(pid: u32) -> Option<bool> {
+        unsafe {
+            let dwdesiredaccess = PROCESS_VM_READ|PROCESS_VM_WRITE|PROCESS_VM_OPERATION|PROCESS_QUERY_INFORMATION;
+            let hprocess = OpenProcess(dwdesiredaccess, false, pid).ok()?;
+            let mut wow64process = true.into();
+            IsWow64Process(hprocess, &mut wow64process);
+            CloseHandle(hprocess);
+            let is_x64 = ! wow64process.as_bool();
+            Some(is_x64)
+        }
+    }
 }
 
 enum ListIndex {
@@ -771,72 +783,57 @@ impl From<HWND> for ButtonType {
     }
 }
 
-struct ProcessMemory {
+struct ProcessMemory<T> {
     pub hprocess: HANDLE,
     pub pointer: *mut c_void,
+    phantom: PhantomData<T>
 }
 
-impl ProcessMemory {
-    fn new<T>(pid: u32, obj: Option<&T>) -> Option<Self> {
-        let hprocess = Self::open_process(pid)?;
-        let pointer = unsafe {
-            VirtualAllocEx(hprocess, None, mem::size_of::<T>(), MEM_COMMIT, PAGE_READWRITE)
-        };
-        if let Some(obj) = obj {
-            let lpbuffer = obj as *const T as *const c_void;
-            let nsize = mem::size_of::<T>();
+impl<T> ProcessMemory<T> {
+    fn new(pid: u32, value: Option<&T>) -> Option<Self> {
             unsafe {
-                WriteProcessMemory(hprocess, pointer, lpbuffer, nsize, None);
+            let dwdesiredaccess = PROCESS_VM_READ|PROCESS_VM_WRITE|PROCESS_VM_OPERATION|PROCESS_QUERY_INFORMATION;
+            let hprocess = OpenProcess(dwdesiredaccess, false, pid).ok()?;
+            let pointer = VirtualAllocEx(hprocess, None, mem::size_of::<T>(), MEM_COMMIT, PAGE_READWRITE);
+            let pm = Self { hprocess, pointer, phantom: PhantomData };
+            if let Some(value) = value {
+                pm.write(value);
             }
+            Some(pm)
         }
-        Some(Self { hprocess, pointer })
     }
-    fn new2<T, U>(pid: u32, value: U) -> Option<Self> {
-        let hprocess = Self::open_process(pid)?;
-        let pointer = unsafe {
-            VirtualAllocEx(hprocess, None, mem::size_of::<T>(), MEM_COMMIT, PAGE_READWRITE)
-        };
+    fn write(&self, value: &T) -> bool {
+        unsafe {
+            let lpbuffer = value as *const T as *const c_void;
+            let nsize = mem::size_of::<T>();
+            WriteProcessMemory(self.hprocess, self.pointer, lpbuffer, nsize, None).as_bool()
+        }
+    }
+    fn write2<U>(&self, value: U) -> bool {
+        unsafe {
         let lpbuffer = &value as *const U as *const c_void;
         let nsize = mem::size_of::<T>();
         if nsize < mem::size_of::<U>() {
             // 書き込むデータのサイズが確保したメモリサイズを超えたらダメ
-            None
+                false
         } else {
-            unsafe {
-                WriteProcessMemory(hprocess, pointer, lpbuffer, nsize, None);
+                WriteProcessMemory(self.hprocess, self.pointer, lpbuffer, nsize, None).as_bool()
             }
-            Some(Self { hprocess, pointer })
         }
     }
-    fn read<T>(&self, buf: &mut T) {
+    fn read(&self, buf: &mut T) {
         let lpbuffer = buf as *mut T as *mut c_void;
         let nsize = mem::size_of::<T>();
         unsafe {
             ReadProcessMemory(self.hprocess, self.pointer, lpbuffer, nsize, None);
         }
     }
-    fn is_process_x64(pid: u32) -> Option<bool> {
-        let hprocess = Self::open_process(pid)?;
-        let mut wow64process = true.into();
-        unsafe {
-            IsWow64Process(hprocess, &mut wow64process);
-            CloseHandle(hprocess);
-        }
-        let is_x64 = ! wow64process.as_bool();
-        Some(is_x64)
-    }
-    fn open_process(pid: u32) -> Option<HANDLE> {
-        unsafe {
-            let dwdesiredaccess = PROCESS_VM_READ|PROCESS_VM_WRITE|PROCESS_VM_OPERATION|PROCESS_QUERY_INFORMATION;
-            OpenProcess(dwdesiredaccess, false, pid).ok()
-        }
-    }
-    fn _as_ptr<T>(&self) -> *mut T {
+    fn _as_ptr(&self) -> *mut T {
         self.pointer as *mut T
     }
 }
 
-impl Drop for ProcessMemory {
+impl<T> Drop for ProcessMemory<T> {
     fn drop(&mut self) {
         unsafe {
             VirtualFreeEx(self.hprocess, self.pointer, 0, MEM_RELEASE);
@@ -861,7 +858,7 @@ impl TabControl {
         let is_unicode = Win32::send_message(hwnd, TCM_GETUNICODEFORMAT, 0, 0) != 0;
         let pid = get_process_id_from_hwnd(hwnd);
         // // 対象プロセスと自身のアーキテクチャを確認
-        let target_arch = if ProcessMemory::is_process_x64(pid)? {
+        let target_arch = if Win32::is_process_x64(pid)? {
             TargetArch::X64
         } else {
             TargetArch::X86
@@ -873,7 +870,7 @@ impl TabControl {
             // タブ名を受けるバッファ
             let mut buf = [0; 260];
             // 対象プロセス上に同様のバッファを作成
-            let remote_buf = ProcessMemory::new::<[u16; 260]>(self.pid, None)?;
+            let remote_buf = ProcessMemory::new(self.pid, None)?;
             // リモートバッファに名前を受ける
             self.get_remote_name(index, remote_buf.pointer, buf.len() as i32, TCM_GETITEMW)?;
             // 対象プロセスのバッファからローカルのバッファに読み出し
@@ -881,7 +878,7 @@ impl TabControl {
             Some(String::from_utf16_lossy(&buf))
         } else {
             let mut buf = [0; 260];
-            let remote_buf = ProcessMemory::new::<[u16; 260]>(self.pid, None)?;
+            let remote_buf = ProcessMemory::new(self.pid, None)?;
             self.get_remote_name(index, remote_buf.pointer, buf.len() as i32, TCM_GETITEMA)?;
             remote_buf.read(&mut buf);
             Some(from_ansi_bytes(&buf))
@@ -1037,7 +1034,7 @@ impl TreeView {
     fn new(hwnd: HWND) -> Option<Self> {
         let is_unicode = Win32::send_message(hwnd, TVM_GETUNICODEFORMAT, 0, 0) != 0;
         let pid = get_process_id_from_hwnd(hwnd);
-        let target_arch = if ProcessMemory::is_process_x64(pid)? {
+        let target_arch = if Win32::is_process_x64(pid)? {
             TargetArch::X64
         } else {
             TargetArch::X86
@@ -1088,9 +1085,10 @@ impl TreeView {
     }
     fn get_point(hwnd: HWND, pid: u32, hitem: isize) -> Option<(i32, i32)> {
         let mut rect = RECT::default();
-        let remote = ProcessMemory::new2::<RECT, _>(pid, hitem)?;
+        let remote = ProcessMemory::new(pid, None)?;
+        // RECTの領域にアイテム識別番号を書き込む
+        remote.write2(hitem);
         let lparam = remote.pointer as isize;
-        remote.read(&mut rect);
         Win32::send_message(hwnd, TVM_GETITEMRECT, 1, lparam);
         remote.read(&mut rect);
         let (x, y) = Win32::get_center(rect);
@@ -1100,7 +1098,7 @@ impl TreeView {
     fn get_name(&self, hitem: isize) -> Option<String> {
         if self.is_unicode {
             let mut buf = [0; 260];
-            let remote_buf = ProcessMemory::new::<[u16; 260]>(self.pid, None)?;
+            let remote_buf = ProcessMemory::new(self.pid, None)?;
 
             self.get_remote_name(hitem, remote_buf.pointer, buf.len() as i32, TVM_GETITEMW)?;
 
@@ -1109,7 +1107,7 @@ impl TreeView {
             Some(name)
         } else {
             let mut buf = [0; 260];
-            let remote_buf = ProcessMemory::new::<[u8; 260]>(self.pid, None)?;
+            let remote_buf = ProcessMemory::new(self.pid, None)?;
 
             self.get_remote_name(hitem, remote_buf.pointer, buf.len() as i32, TVM_GETITEMA)?;
 
@@ -1190,7 +1188,7 @@ impl ListView {
     fn new(hwnd: HWND) -> Option<Self> {
         let is_unicode = Win32::send_message(hwnd, LVM_GETUNICODEFORMAT, 0, 0) != 0;
         let pid = get_process_id_from_hwnd(hwnd);
-        let target_arch = if ProcessMemory::is_process_x64(pid)? {TargetArch::X64} else {TargetArch::X86};
+        let target_arch = if Win32::is_process_x64(pid)? {TargetArch::X64} else {TargetArch::X86};
         Some(Self { hwnd, is_unicode, pid, target_arch })
     }
     fn search(&self, item: &mut SearchItem) {
@@ -1224,14 +1222,14 @@ impl ListView {
     fn get_name(&self, row: isize, column: isize) -> Option<String> {
         if self.is_unicode {
             let mut buf = [0; 260];
-            let remote = ProcessMemory::new::<[u16; 260]>(self.pid, None)?;
+            let remote = ProcessMemory::new(self.pid, None)?;
             self.get_remote_name(row, column, remote.pointer, buf.len() as i32, LVM_GETITEMTEXTW);
             remote.read(&mut buf);
             let text = from_wide_string(&buf);
             Some(text)
         } else {
             let mut buf = [0; 260];
-            let remote = ProcessMemory::new::<[u8; 260]>(self.pid, None)?;
+            let remote = ProcessMemory::new(self.pid, None)?;
             self.get_remote_name(row, column, remote.pointer, buf.len() as i32, LVM_GETITEMTEXTA);
             remote.read(&mut buf);
             let text = from_ansi_bytes(&buf);
@@ -1279,14 +1277,14 @@ impl ListView {
     fn get_header_name(&self, hwnd: HWND, index: i32) -> Option<String> {
         if self.is_unicode {
             let mut buf = [0; 260];
-            let remote = ProcessMemory::new::<[u16; 260]>(self.pid, None)?;
+            let remote = ProcessMemory::new(self.pid, None)?;
             self.get_remote_header_name(hwnd, index, remote.pointer, buf.len() as i32, HDM_GETITEMW);
             remote.read(&mut buf);
             let text = from_wide_string(&buf);
             Some(text)
         } else {
             let mut buf = [0; 260];
-            let remote = ProcessMemory::new::<[u8; 260]>(self.pid, None)?;
+            let remote = ProcessMemory::new(self.pid, None)?;
             self.get_remote_header_name(hwnd, index, remote.pointer, buf.len() as i32, HDM_GETITEMA);
             remote.read(&mut buf);
             let text = from_ansi_bytes(&buf);
@@ -1324,7 +1322,7 @@ impl ListView {
     }
     fn get_header_point(hwnd: HWND, index: i32, pid: u32) -> Option<(i32, i32)> {
         let mut rect = RECT::default();
-        let remote = ProcessMemory::new::<RECT>(pid, None)?;
+        let remote = ProcessMemory::new(pid, None)?;
         let wparam = index as usize;
         let lparam = remote.pointer as isize;
         if Win32::send_message(hwnd, HDM_GETITEMRECT, wparam, lparam) != 0 {
@@ -1425,7 +1423,7 @@ impl ToolBar {
     fn new(hwnd: HWND) -> Option<Self> {
         let is_unicode = Win32::send_message(hwnd, TB_GETUNICODEFORMAT, 0, 0) != 0;
         let pid = get_process_id_from_hwnd(hwnd);
-        let target_arch = if ProcessMemory::is_process_x64(pid)? {TargetArch::X64} else {TargetArch::X86};
+        let target_arch = if Win32::is_process_x64(pid)? {TargetArch::X64} else {TargetArch::X86};
         Some(Self { hwnd, pid, is_unicode, target_arch })
     }
     fn search(&self, item: &mut SearchItem) {
@@ -1444,7 +1442,7 @@ impl ToolBar {
         // id取得を試みる、失敗したらインデックスをそのまま返す
         match self.target_arch {
             TargetArch::X64 => {
-                if let Some(remote) = ProcessMemory::new::<TBBUTTON64>(self.pid, None) {
+                if let Some(remote) = ProcessMemory::new(self.pid, None) {
                     let p = remote.pointer as isize;
                     if Win32::send_message(self.hwnd, TB_GETBUTTON, index, p) != 0 {
                         let mut tbbutton = TBBUTTON64::default();
@@ -1458,7 +1456,7 @@ impl ToolBar {
                 }
             },
             TargetArch::X86 => {
-                if let Some(remote) = ProcessMemory::new::<TBBUTTON86>(self.pid, None) {
+                if let Some(remote) = ProcessMemory::new(self.pid, None) {
                     let p = remote.pointer as isize;
                     if Win32::send_message(self.hwnd, TB_GETBUTTON, index, p) != 0 {
                         let mut tbbutton = TBBUTTON86::default();
@@ -1475,7 +1473,7 @@ impl ToolBar {
     }
     fn get_name(&self, id: usize) -> Option<String> {
         if self.is_unicode {
-            let remote = ProcessMemory::new::<[u16; 260]>(self.pid, None)?;
+            let remote = ProcessMemory::new(self.pid, None)?;
             let lparam = remote.pointer as isize;
             if Win32::send_message(self.hwnd, TB_GETBUTTONTEXTW, id, lparam) > -1 {
                 let mut buf = [0; 260];
@@ -1486,7 +1484,7 @@ impl ToolBar {
                 None
             }
         } else {
-            let remote = ProcessMemory::new::<[u8; 260]>(self.pid, None)?;
+            let remote = ProcessMemory::new(self.pid, None)?;
             let lparam = remote.pointer as isize;
             if Win32::send_message(self.hwnd, TB_GETBUTTONTEXTA, id, lparam) > -1 {
                 let mut buf = [0; 260];
@@ -1500,7 +1498,7 @@ impl ToolBar {
     }
     fn get_point(hwnd: HWND, index: usize, pid: u32) -> Option<(i32, i32)> {
         let mut rect = RECT::default();
-        let remote = ProcessMemory::new::<RECT>(pid, None)?;
+        let remote = ProcessMemory::new(pid, None)?;
         let lparam = remote.pointer as isize;
         Win32::send_message(hwnd, TB_GETITEMRECT, index, lparam);
         remote.read(&mut rect);
