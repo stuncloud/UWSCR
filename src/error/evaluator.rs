@@ -31,7 +31,8 @@ impl UError {
         }
     }
     pub fn set_line(&mut self, row: usize, line: String, script_name: Option<String>) {
-        self.line = UErrorLine::new(row, line, script_name)
+        let line = line.trim_start_matches([' ', '\t', '　']);
+        self.line = UErrorLine::new(row, line.into(), script_name)
     }
     pub fn get_line(&self) -> UErrorLine {
         self.line.clone()
@@ -479,6 +480,8 @@ pub enum UErrorMessage {
     UncontrollableBrowserDetected(u16, String),
     FailedToOpenPort(u16),
     InvalidBrowserType(i32),
+    UnableToReference(String),
+    InvalidReference,
 }
 
 impl fmt::Display for UErrorMessage {
@@ -980,6 +983,14 @@ impl fmt::Display for UErrorMessage {
             Self::InvalidBrowserType(n) => write_locale!(f,
                 "不正なブラウザタイプ: {n}",
                 "Invalid browser type: {n}",
+            ),
+            Self::UnableToReference(name) => write_locale!(f,
+                "{name} を参照できません",
+                "Unable to reference {name}",
+            ),
+            Self::InvalidReference => write_locale!(f,
+                "有効な参照ではありません",
+                "Invalid reference",
             ),
         }
     }
