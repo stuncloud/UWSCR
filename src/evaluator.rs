@@ -3650,6 +3650,38 @@ hoge[0]
     }
 
     #[test]
+    fn test_assign_multi_dimensional_array() {
+        let test_cases = vec![
+            (
+                r#"
+hoge = [[1],[2]]
+hoge[0][0] = 100
+hoge
+                "#,
+                Ok(Some(Object::Array(vec![
+                    Object::Array(vec![Object::Num(100.0)]),
+                    Object::Array(vec![Object::Num(2.0)]),
+                ])))
+            ),
+            (
+                r#"
+hoge = [[[1]]]
+hoge[0][0][0] = 100
+hoge
+                "#,
+                Ok(Some(Object::Array(vec![
+                    Object::Array(vec![
+                        Object::Array(vec![Object::Num(100.0)]),
+                    ]),
+                ])))
+            ),
+        ];
+        for (input, expected) in test_cases {
+            eval_test(input, expected, false);
+        }
+    }
+
+    #[test]
     fn test_public() {
         let input = r#"
 public hoge = 1
@@ -5111,183 +5143,183 @@ endclass
     #[test]
     fn test_reference() {
         let input1 = r#"
-        function test(ref p)
-            p = "reference test"
-        fend
+function test(ref p)
+    p = "reference test"
+fend
         "#;
         let mut e = eval_env(input1);
         let test_cases = vec![
             (
                 r#"
-                v = "hoge"
-                test(v)
-                v
+v = "hoge"
+test(v)
+v
                 "#,
                 Ok(Some("reference test".into()))
             ),
             (
                 r#"
-                arr = ["hoge"]
-                test(arr[0])
-                arr[0]
+arr = ["hoge"]
+test(arr[0])
+arr[0]
                 "#,
                 Ok(Some("reference test".into()))
             ),
             (
                 r#"
-                arr = ["hoge"]
-                i = 0
-                test(arr[i])
-                arr[i]
+arr = ["hoge"]
+i = 0
+test(arr[i])
+arr[i]
                 "#,
                 Ok(Some("reference test".into()))
             ),
             (
                 r#"
-                function test2(ref p: array, i: number)
-                    p[i] = "test2"
-                    result = p[i]
-                fend
-                arr = ["hoge"]
-                test2(arr, 0)
-                arr[0]
+function test2(ref p: array, i: number)
+    p[i] = "test2"
+    result = p[i]
+fend
+arr = ["hoge"]
+test2(arr, 0)
+arr[0]
                 "#,
                 Ok(Some("test2".into()))
             ),
             (
                 r#"
-                arr = [["foo"], ["bar"]]
-                test(arr[0][0])
-                arr[0][0]
+arr = [["foo"], ["bar"]]
+test(arr[0][0])
+arr[0][0]
                 "#,
                 Ok(Some("reference test".into()))
             ),
             (
                 r#"
-                function test3(ref p: array, i: number, j: number)
-                    p[i][j] = "test3"
-                fend
-                arr = [["foo"], ["bar"]]
-                test3(arr, 0, 0)
-                arr[0][0]
+function test3(ref p: array, i: number, j: number)
+    p[i][j] = "test3"
+fend
+arr = [["foo"], ["bar"]]
+test3(arr, 0, 0)
+arr[0][0]
                 "#,
                 Ok(Some("test3".into()))
             ),
             (
                 r#"
-                arr = [[["foo"]]]
-                test(arr[0][0][0])
-                arr[0][0][0]
+arr = [[["foo"]]]
+test(arr[0][0][0])
+arr[0][0][0]
                 "#,
                 Ok(Some("reference test".into()))
             ),
             (
                 r#"
-                function test4(ref p: array, i: number, j: number, k: number)
-                    p[i][j][k] := "test4"
-                fend
-                arr = [[["foo"]]]
-                test4(arr, 0, 0, 0)
-                arr[0][0][0]
+function test4(ref p: array, i: number, j: number, k: number)
+    p[i][j][k] := "test4"
+fend
+arr = [[["foo"]]]
+test4(arr, 0, 0, 0)
+arr[0][0][0]
                 "#,
                 Ok(Some("test4".into()))
             ),
             (
                 r#"
-                module M
-                    public p = "module"
-                    public q = [1]
-                    public r = [[1]]
-                endmodule
-                test(M.p)
-                M.p
+module M
+    public p = "module"
+    public q = [1]
+    public r = [[1]]
+endmodule
+test(M.p)
+M.p
                 "#,
                 Ok(Some("reference test".into()))
             ),
             (
                 r#"
-                test(M.q[0])
-                M.q[0]
+test(M.q[0])
+M.q[0]
                 "#,
                 Ok(Some("reference test".into()))
             ),
             (
                 r#"
-                test2(M.q, 0)
-                M.q[0]
+test2(M.q, 0)
+M.q[0]
                 "#,
                 Ok(Some("test2".into()))
             ),
             (
                 r#"
-                test(M.r[0][0])
-                M.r[0][0]
+test(M.r[0][0])
+M.r[0][0]
                 "#,
                 Ok(Some("reference test".into()))
             ),
             (
                 r#"
-                test3(M.r, 0, 0)
-                M.r[0][0]
+test3(M.r, 0, 0)
+M.r[0][0]
                 "#,
                 Ok(Some("test3".into()))
             ),
             (
                 r#"
-                class C
-                    procedure C
-                    fend
-                    public p = "class"
-                endclass
-                ins = C()
-                test(ins.p)
-                ins.p
+class C
+    procedure C
+    fend
+    public p = "class"
+endclass
+ins = C()
+test(ins.p)
+ins.p
                 "#,
                 Ok(Some("reference test".into()))
             ),
             (
                 r#"
-                class Z
-                    procedure Z()
-                    fend
-                    public p = "Z"
-                endclass
+class Z
+    procedure Z()
+    fend
+    public p = "Z"
+endclass
 
-                class Y
-                    procedure Y()
-                        this.z = [Z()]
-                    fend
-                    public p = "Y"
-                    public z
-                endclass
+class Y
+    procedure Y()
+        this.z = [Z()]
+    fend
+    public p = "Y"
+    public z
+endclass
 
-                class X
-                    procedure X()
-                        this.y = Y()
-                    fend
-                    public p = "X"
-                    public y
-                endclass
+class X
+    procedure X()
+        this.y = Y()
+    fend
+    public p = "X"
+    public y
+endclass
 
-                function test5(ref r)
-                    result = r := "test5"
-                fend
+function test5(ref r)
+    r = "test5"
+fend
 
-                x = X()
-                test5(x.y.z[0].p)
-                x.y.z[0].p
+x = X()
+test5(x.y.z[0].p)
+x.y.z[0].p
                 "#,
                 Ok(Some("test5".into()))
             ),
             (
                 r#"
-                function test6(ref r: X)
-                    result = r.y.z[0].p := "test6"
-                fend
+function test6(ref r: X)
+    r.y.z[0].p = "test6"
+fend
 
-                x = X()
-                test6(x)
-                x.y.z[0].p
+x = X()
+test6(x)
+x.y.z[0].p
                 "#,
                 Ok(Some("test6".into()))
             ),
