@@ -224,7 +224,7 @@ impl Evaluator {
         let mut hashtbl = HashTbl::new(sort, casecare);
         for (name_expr, val_expr) in hash.members {
             let name = if let Expression::Literal(Literal::ExpandableString(s)) = name_expr {
-                self.expand_string(s, true).to_string()
+                self.expand_string(s, true, false).to_string()
             } else if let Expression::Literal(Literal::String(s)) = name_expr {
                 s
             } else {
@@ -248,7 +248,6 @@ impl Evaluator {
         if let Some(lp) = LOGPRINTWIN.get() {
             lp.lock().unwrap().print(&obj.to_string());
         }
-        // println!("{}", obj);
         if ! *FORCE_WINDOW_MODE.get().unwrap_or(&false) {
             let out = stdout();
             let mut out = BufWriter::new(out.lock());
@@ -270,7 +269,7 @@ impl Evaluator {
             OptionSetting::TopStopform(_) => {},
             OptionSetting::FixBalloon(b) => usettings.options.fix_balloon = b,
             OptionSetting::Defaultfont(ref s) => {
-                if let Object::String(s) = self.expand_string(s.clone(), true) {
+                if let Object::String(s) = self.expand_string(s.clone(), true, false) {
                     let mut name_size = s.split(",");
                     let name = name_size.next().unwrap();
                     let size = name_size.next().unwrap_or("15").parse::<i32>().unwrap_or(15);
@@ -282,7 +281,7 @@ impl Evaluator {
                 usettings.options.position.top = y;
             },
             OptionSetting::Logpath(ref s) => {
-                if let Object::String(s) = self.expand_string(s.clone(), true) {
+                if let Object::String(s) = self.expand_string(s.clone(), true, false) {
                     let mut path = PathBuf::from(&s);
                     if path.is_dir() {
                         path.push("uwscr.log");
@@ -301,7 +300,7 @@ impl Evaluator {
                 usettings.options.log_file = n as u8;
             },
             OptionSetting::Dlgtitle(ref s) => {
-                if let Object::String(ref s) = self.expand_string(s.clone(), true) {
+                if let Object::String(ref s) = self.expand_string(s.clone(), true, false) {
                     env::set_var("UWSCR_DEFAULT_TITLE", s.as_str());
                     usettings.options.dlg_title = Some(s.to_string());
                 }
@@ -369,7 +368,7 @@ impl Evaluator {
             },
             Statement::TextBlock(i, s) => {
                 let Identifier(name) = i;
-                let value = self.eval_literal(s)?;
+                let value = self.eval_literal(s, false)?;
                 self.env.define_const(&name, value)?;
                 Ok(None)
             },
@@ -885,21 +884,13 @@ impl Evaluator {
                     for (i, e) in vec {
                         let Identifier(member_name) = i;
                         let value = self.eval_expression(e)?;
-                        {
-                            let m = self.env.global.lock().unwrap();
-                            let c = m.iter()
-                                .filter(|o|o.container_type == ContainerType::Const)
-                                .collect::<Vec<_>>();
-                            println!("\u{001b}[33m[debug] c: {:#?}\u{001b}[0m", &c);
-                        }
                         self.env.define_module_const(&member_name, value.clone())?;
-                        println!("\u{001b}[36m[debug] 2\u{001b}[0m");
                         module.add(member_name, value, ContainerType::Const);
                     }
                 },
                 Statement::TextBlock(i, s) => {
                     let Identifier(name) = i;
-                    let value = self.eval_literal(s)?;
+                    let value = self.eval_literal(s, false)?;
                     self.env.define_module_const(&name, value.clone())?;
                     module.add(name, value, ContainerType::Const);
                 },
@@ -948,7 +939,7 @@ impl Evaluator {
                             },
                             Statement::TextBlock(i, s) => {
                                 let Identifier(name) = i;
-                                let value = self.eval_literal(s)?;
+                                let value = self.eval_literal(s, false)?;
                                 self.env.define_module_const(&name, value.clone())?;
                                 module.add(name, value, ContainerType::Const);
                             },
@@ -1204,7 +1195,7 @@ impl Evaluator {
                     },
                 }
             },
-            Expression::Literal(l) => self.eval_literal(l)?,
+            Expression::Literal(l) => self.eval_literal(l, false)?,
             Expression::Prefix(p, r) => {
                 let right = self.eval_expression(*r)?;
                 self.eval_prefix_expression(p, right)?
@@ -1227,7 +1218,7 @@ impl Evaluator {
                 } else {
                     None
                 };
-                self.eval_index_expression(left, index, hash_enum)?
+                self.get_index_value(left, index, hash_enum)?
             },
             Expression::AnonymusFunction {params, body, is_proc} => {
                 let outer_local = self.env.get_local_copy();
@@ -1261,7 +1252,7 @@ impl Evaluator {
             },
             Expression::UObject(json) => {
                 // 文字列展開する
-                if let Object::String(ref s) = self.expand_string(json, true) {
+                if let Object::String(ref s) = self.expand_string(json, true, false) {
                     match serde_json::from_str::<serde_json::Value>(s) {
                         Ok(v) => Object::UObject(UObject::new(v)),
                         Err(e) => return Err(UError::new(
@@ -1276,11 +1267,57 @@ impl Evaluator {
             Expression::ComErrFlg => Object::Bool(self.com_err_flg),
             Expression::EmptyArgument => Object::EmptyParam,
             Expression::VarArgument(e) => Object::VarArgument(*e),
+            Expression::Reference(e) => self.eval_reference(*e)?
         };
-        Ok(obj)
+        if let Object::Reference(e) = obj {
+            self.eval_expression(Expression::Reference(Box::new(e)))
+        } else {
+            Ok(obj)
+        }
+    }
+    fn eval_reference(&mut self, expression: Expression) -> EvalResult<Object> {
+        match expression {
+            Expression::Identifier(Identifier(name)) => {
+                self.env.get_from_outer(&name)
+                    .ok_or(UError::new(UErrorKind::EvaluatorError, UErrorMessage::UnableToReference(name)))
+                },
+            Expression::Index(expr_array, expr_index, _) => {
+                let array = match *expr_array {
+                    Expression::DotCall(left, right) => {
+                        let Expression::Identifier(Identifier(member)) = *right else {
+                            return Err(UError::new(
+                                UErrorKind::DotOperatorError,
+                                UErrorMessage::InvalidRightExpression(*right)
+                            ));
+                        };
+                        let instance = self.eval_reference(*left)?;
+                        self.get_member(instance, member, false, true)?
+                    },
+                    Expression::Identifier(Identifier(name)) => self.env.get_from_outer(&name)
+                        .ok_or(UError::new(UErrorKind::EvaluatorError, UErrorMessage::UnableToReference(name)))?,
+                    _ => self.eval_reference(*expr_array)?,
+                };
+                let index = self.eval_reference(*expr_index)?;
+                self.get_index_value(array, index, None)
+            },
+            Expression::DotCall(left, right) => {
+                let Expression::Identifier(Identifier(member)) = *right else {
+                    return Err(UError::new(
+                        UErrorKind::DotOperatorError,
+                        UErrorMessage::InvalidRightExpression(*right)
+                    ));
+                };
+                let instance = self.eval_reference(*left)?;
+                self.get_member(instance, member, false, false)
+            },
+            Expression::Literal(literal) => {
+                self.eval_literal(literal, true)
+            },
+            _ => Err(UError::new(UErrorKind::EvaluatorError, UErrorMessage::InvalidReference))
+        }
     }
 
-    fn eval_identifier(&mut self, identifier: Identifier) -> EvalResult<Object> {
+    fn eval_identifier(&self, identifier: Identifier) -> EvalResult<Object> {
         let Identifier(name) = identifier;
         // let env = self.env.lock().unwrap();
         let obj = match self.env.get_variable(&name, true) {
@@ -1348,7 +1385,7 @@ impl Evaluator {
         }
     }
 
-    fn eval_index_expression(&mut self, left: Object, index: Object, hash_enum: Option<Object>) -> EvalResult<Object> {
+    fn get_index_value(&mut self, left: Object, index: Object, hash_enum: Option<Object>) -> EvalResult<Object> {
         let obj = match &left {
             Object::Array(ref a) => if hash_enum.is_some() {
                 return Err(UError::new(
@@ -1414,7 +1451,7 @@ impl Evaluator {
                         ));
                     }
                 } else {
-                    hash.get(key)
+                    hash.get(&key)
                 }
             },
             Object::UObject(u) => if hash_enum.is_some() {
@@ -1471,7 +1508,7 @@ impl Evaluator {
                 ))
             },
             o => return Err(UError::new(
-                UErrorKind::EvaluatorError,
+                UErrorKind::Any("Evaluator::get_index_value".into()),
                 UErrorMessage::NotAnArray(o.to_owned()),
             ))
         };
@@ -1491,302 +1528,49 @@ impl Evaluator {
     }
 
     fn eval_assign_expression(&mut self, left: Expression, value: Object) -> EvalResult<Object> {
-        let assigned_value = value.clone();
-        self.eval_instance_assignment(&left, &value)?;
-        match left {
-            Expression::Identifier(ident) => {
-                let Identifier(name) = ident;
-                if let Some(Object::This(m)) = self.env.get_variable(&"this".into(), true) {
-                    // moudele/classメンバであればその値を更新する
-                    m.lock().unwrap().assign(&name, value.clone(), None)?;
-                }
-                self.env.assign(name, value)?;
-            },
-            Expression::Index(arr, i, h) => {
-                if h.is_some() {
-                    return Err(UError::new(
-                        UErrorKind::AssignError,
-                        UErrorMessage::InvalidKeyOrIndex("".into()),
-                    ));
-                }
-                let index = self.eval_expression(*i)?;
-                match *arr {
-                    Expression::Identifier(ident) => {
-                        let Identifier(name) = ident;
-                        let obj = self.env.get_variable(&name, true);
-                        match obj {
-                            Some(o) => {
-                                match o {
-                                    Object::Array(a) => {
-                                        let mut arr = a.clone();
-                                        match index {
-                                            Object::Num(n) => {
-                                                let i = n as usize;
-                                                if let Some(Object::This(m)) = self.env.get_variable(&"this".into(), true) {
-                                                    // moudele/classメンバであればその値を更新する
-                                                    m.lock().unwrap().assign(&name, value.clone(), Some(index))?;
-                                                }
-                                                if i < arr.len() {
-                                                    arr[i] = value;
-                                                    self.env.assign(name, Object::Array(arr))?;
-                                                }
-                                            },
-                                            _ => return Err(UError::new(
-                                                UErrorKind::AssignError,
-                                                UErrorMessage::InvalidIndex(index)
-                                            ))
-                                        };
-                                    },
-                                    Object::HashTbl(h) => {
-                                        let key = match index {
-                                            Object::Num(n) => n.to_string(),
-                                            Object::Bool(b) => b.to_string(),
-                                            Object::String(s) => s,
-                                            _ => return Err(UError::new(
-                                                UErrorKind::AssignError,
-                                                UErrorMessage::InvalidIndex(index)
-                                            ))
-                                        };
-                                        let mut hash = h.lock().unwrap();
-                                        hash.insert(key, value);
-                                    },
-                                    Object::ComObject(ref disp) => {
-                                        // Item(key) の糖衣構文
-                                        let key = index.to_variant()?;
-                                        let keys = vec![key];
-                                        let var_value = value.to_variant()?;
-                                        disp.set("Item", var_value, Some(keys))?;
-                                    },
-                                    Object::SafeArray(mut sa) => if let Object::Num(i) = index {
-                                        let mut var_value = value.to_variant()?;
-                                        sa.set(i as i32, &mut var_value)?
-                                    } else {
-                                    },
-                                    Object::ByteArray(mut arr) => match index {
-                                        Object::Num(i) => if let Some(val) = arr.get_mut(i as usize) {
-                                            if let Object::Num(n) = value {
-                                                if let Ok(new_val) = u8::try_from(n as i64) {
-                                                    *val = new_val;
-                                                } else {
-                                                    return Err(UError::new(
-                                                        UErrorKind::AssignError,
-                                                        UErrorMessage::NotAnByte(value)
-                                                    ));
-                                                }
+        let left = self.expand_refence(left);
 
-                                                if let Some(Object::This(m)) = self.env.get_variable(&"this".into(), true) {
-                                                    // moudele/classメンバであればその値を更新する
-                                                    m.lock().unwrap().assign(&name, value.clone(), Some(index))?;
-                                                } else {
-                                                    self.env.assign(name, Object::ByteArray(arr))?;
-                                                }
-                                            } else {
-                                                return Err(UError::new(
-                                                    UErrorKind::AssignError,
-                                                    UErrorMessage::NotAnByte(value)
-                                                ));
-                                            }
-                                        } else {
-                                            return Err(UError::new(
-                                                UErrorKind::AssignError,
-                                                UErrorMessage::InvalidIndex(index)
-                                            ))
-                                        },
-                                        _ => return Err(UError::new(
-                                            UErrorKind::AssignError,
-                                            UErrorMessage::InvalidIndex(index)
-                                        ))
-                                    },
-                                    _ => return Err(UError::new(
-                                        UErrorKind::AssignError,
-                                        UErrorMessage::NotAnArray(Object::String(name))
-                                    ))
-                                };
-                            },
-                            None => {}
-                        };
-                    },
-                    Expression::DotCall(left, right) => {
-                        match self.eval_expression(*left)? {
-                            Object::Module(m) |
-                            Object::This(m) => {
-                                match *right {
-                                    Expression::Identifier(Identifier(name)) => {
-                                        m.lock().unwrap().assign(&name, value, Some(index))?;
-                                    },
-                                    _ => return Err(UError::new(
-                                        UErrorKind::AssignError,
-                                        UErrorMessage::SyntaxError
-                                    ))
-                                }
-                            },
-                            Object::Instance(m) => {
-                                if let Expression::Identifier(Identifier(name)) = *right {
-                                    let ins = m.lock().unwrap();
-                                    let mut module = ins.module.lock().unwrap();
-                                    module.assign(&name, value, Some(index))?;
-                                } else {
-                                    return Err(UError::new(
-                                        UErrorKind::AssignError,
-                                        UErrorMessage::SyntaxError
-                                    ));
-                                }
-                            },
-                            // Value::Array
-                            Object::UObject(uo) => {
-                                if let Expression::Identifier(Identifier(name)) = *right {
-                                    let new_value = Self::object_to_serde_value(value)?;
-                                    uo.set(index, new_value, Some(name))?;
-                                } else {
-                                    return Err(UError::new(
-                                        UErrorKind::AssignError,
-                                        UErrorMessage::SyntaxError
-                                    ));
-                                }
-                            },
-                            Object::ComObject(ref disp) => {
-                                if let Expression::Identifier(Identifier(member)) = *right {
-                                    let key = index.to_variant()?;
-                                    let keys = vec![key];
-                                    let var_value = value.to_variant()?;
-                                    disp.set(&member, var_value, Some(keys))?;
-                                }
-                            },
-                            Object::Element(ref e) => {
-                                if let Expression::Identifier(i) = *right {
-                                    let name = i.0;
-                                    let value = Self::object_to_serde_value(value)?;
-                                    e.set_property(&name, value)?
-                                } else {
-                                    return Err(UError::new(
-                                        UErrorKind::AssignError,
-                                        UErrorMessage::SyntaxError
-                                    ));
-                                }
-                            },
-                            Object::ElementProperty(ref ep) => {
-                                if let Expression::Identifier(i) = *right {
-                                    let name = i.0;
-                                    let value = Self::object_to_serde_value(value)?;
-                                    ep.set(&name, value)?;
-                                } else {
-                                    return Err(UError::new(
-                                        UErrorKind::AssignError,
-                                        UErrorMessage::SyntaxError
-                                    ));
-                                }
-                            },
-                            o => return Err(UError::new(
-                                UErrorKind::DotOperatorError,
-                                UErrorMessage::InvalidObject(o),
-                            ))
+        self.class_instance_disposal(&left, &value);
+        let assigned_value = value.clone();
+        match left {
+            Expression::Reference(e) => {
+                match *e {
+                    Expression::Identifier(Identifier(name)) => {
+                        self.assign_identifier(&name, value, true)?;
+                    }
+                    Expression::Index(expr_array, expr_index, expr_hash_option) => {
+                        if let Some(e) = *expr_hash_option {
+                            let key = self.eval_expression(e)?;
+                            return Err(UError::new(
+                                UErrorKind::AssignError,
+                                UErrorMessage::InvalidKeyOrIndex(key.to_string()),
+                            ));
                         }
+                        self.assign_array(*expr_array, *expr_index, value, true, None)?;
+                    }
+                    Expression::DotCall(expr_object, expr_member) => {
+                        self.assign_object_member(*expr_object, *expr_member, value, true)?;
                     },
-                    _ => return Err(UError::new(
-                        UErrorKind::AssignError,
-                        UErrorMessage::SyntaxError,
-                    ))
-                };
+                    _ => {
+                        return Err(UError::new(UErrorKind::AssignError, UErrorMessage::InvalidReference));
+                    }
+                }
             },
-            Expression::DotCall(left, right) => match self.eval_expression(*left)? {
-                Object::Module(m) => {
-                    match *right {
-                        Expression::Identifier(i) => {
-                            let Identifier(member_name) = i;
-                            m.lock().unwrap().assign_public(&member_name, value, None)?;
-                        },
-                        _ => return Err(UError::new(
-                            UErrorKind::AssignError,
-                            UErrorMessage::SyntaxError
-                        ))
-                    }
-                },
-                Object::Instance(m) => {
-                    if let Expression::Identifier(i) = *right {
-                        let ins = m.lock().unwrap();
-                        ins.module.lock().unwrap().assign_public(&i.0, value, None)?;
-                    } else {
-                        return Err(UError::new(
-                            UErrorKind::AssignError,
-                            UErrorMessage::SyntaxError
-                        ));
-                    }
-                },
-                Object::This(m) => {
-                    let mut module = m.lock().unwrap();
-                    if let Expression::Identifier(Identifier(member)) = *right {
-                        module.assign(&member, value, None)?;
-                    } else {
-                        return Err(UError::new(
-                            UErrorKind::DotOperatorError,
-                            UErrorMessage::MemberNotFound(module.name()),
-                        ));
-                    }
-                },
-                Object::Global => if let Expression::Identifier(Identifier(name)) = *right {
-                    self.env.assign_public(name, value)?;
-                } else {
+            Expression::Identifier(Identifier(name)) => {
+                self.assign_identifier(&name, value, false)?;
+            },
+            Expression::Index(expr_array, expr_index, expr_hash_option) => {
+                if let Some(e) = *expr_hash_option {
+                    let key = self.eval_expression(e)?;
                     return Err(UError::new(
                         UErrorKind::AssignError,
-                        UErrorMessage::GlobalVariableNotFound(None),
-                    ))
-                },
-                Object::UObject(uo) => if let Expression::Identifier(Identifier(name)) = *right {
-                    let index = Object::String(name);
-                    let new_value = Self::object_to_serde_value(value)?;
-                    uo.set(index, new_value, None)?;
-                } else {
-                    return Err(UError::new(
-                        UErrorKind::UObjectError,
-                        UErrorMessage::SyntaxError,
+                        UErrorMessage::InvalidKeyOrIndex(key.to_string()),
                     ));
-                },
-                Object::UStruct(_, _, m) => if let Expression::Identifier(Identifier(name)) = *right {
-                    let mut u = m.lock().unwrap();
-                    u.set(name, value)?;
-                } else {
-                    return Err(UError::new(
-                        UErrorKind::UStructError,
-                        UErrorMessage::SyntaxError,
-                    ));
-                },
-                Object::ComObject(ref disp) => if let Expression::Identifier(Identifier(name)) = *right {
-                    let var_arg = value.to_variant()?;
-                    disp.set(&name, var_arg, None)?;
-                } else {
-                    return Err(UError::new(
-                        UErrorKind::DotOperatorError,
-                        UErrorMessage::SyntaxError,
-                    ));
-                },
-                Object::Element(ref e) => {
-                    if let Expression::Identifier(i) = *right {
-                        let name = i.0;
-                        let value = Self::object_to_serde_value(value)?;
-                        e.set_property(&name, value)?
-                    } else {
-                        return Err(UError::new(
-                            UErrorKind::AssignError,
-                            UErrorMessage::SyntaxError
-                        ));
-                    }
-                },
-                Object::ElementProperty(ref ep) => {
-                    if let Expression::Identifier(i) = *right {
-                        let name = i.0;
-                        let value = Self::object_to_serde_value(value)?;
-                        ep.set(&name, value)?;
-                    } else {
-                        return Err(UError::new(
-                            UErrorKind::AssignError,
-                            UErrorMessage::SyntaxError
-                        ));
-                    }
-                },
-                o => return Err(UError::new(
-                    UErrorKind::DotOperatorError,
-                    UErrorMessage::InvalidObject(o)
-                )),
+                }
+                self.assign_array(*expr_array, *expr_index, value, false, None)?;
+            },
+            Expression::DotCall(expr_object, expr_member) => {
+                self.assign_object_member(*expr_object, *expr_member, value, false)?;
             },
             _ => return Err(UError::new(
                 UErrorKind::AssignError,
@@ -1794,6 +1578,431 @@ impl Evaluator {
             ))
         }
         Ok(assigned_value)
+    }
+    fn assign_identifier(&mut self, name: &str, new: Object, is_reference: bool) -> EvalResult<()> {
+        let maybe_this = if is_reference {
+            self.env.get_from_outer("this")
+        } else {
+            self.env.get_variable("this", true)
+        };
+        if let Some(Object::This(mutex)) = maybe_this {
+            if let Ok(mut module) = mutex.lock() {
+                // module/classスコープ内であれば該当するメンバの値も更新してする
+                module.assign(name, new.clone(), None)?;
+            }
+        }
+        if is_reference {
+            self.env.update_outer(name, new);
+        } else {
+            self.env.assign(name.into(), new)?;
+        }
+        Ok(())
+    }
+    fn assign_array(&mut self, expr_array: Expression, expr_index: Expression, new: Object, is_reference: bool, dimension: Option<Vec<Object>>) -> EvalResult<()> {
+        match expr_array {
+            Expression::Reference(expr_ref) => {
+                self.assign_array(*expr_ref, expr_index, new, true, dimension)?;
+            }
+            Expression::Identifier(Identifier(name)) => {
+                let index = self.eval_expression(expr_index)?;
+                let maybe_object = if is_reference {
+                    self.env.get_from_outer(&name)
+                } else {
+                    self.env.get_variable(&name, true)
+                };
+                if let Some(object) = maybe_object {
+                    let dimension = match dimension {
+                        Some(mut d) => {
+                            d.push(index.clone());
+                            d
+                        },
+                        None => vec![index.clone()],
+                    };
+                    let dimension2 = Some(dimension.clone());
+                    let (maybe_new, update) = Self::update_array_object(object.clone(), dimension, &new)
+                        .map_err(|mut e| {
+                            if let UErrorMessage::NotAnArray(_) = e.message {
+                                e.message = UErrorMessage::NotAnArray(name.clone().into());
+                            }
+                            e
+                        })?;
+
+                    if update {
+                            if let Some(new_value) = maybe_new {
+                                self.update_module_member_on_assignment(&name, new.clone(), is_reference, dimension2)?;
+                                if is_reference {
+                                    self.env.update_outer(&name, new_value)
+                                } else {
+                                    self.env.assign(name, new_value)?;
+                                }
+                            }
+                        }
+                    }
+            },
+            Expression::DotCall(expr_object, expr_member) => {
+                let index = self.eval_expression(expr_index)?;
+                let dimension = match dimension {
+                    Some(mut d) => {
+                        d.push(index.clone());
+                        Some(d)
+                    },
+                    None => Some(vec![index.clone()]),
+                };
+                let instance = if is_reference {
+                    self.eval_reference(*expr_object)
+                } else {
+                    self.eval_expression(*expr_object)
+                }?;
+                match instance {
+                    Object::Module(mutex) |
+                    Object::This(mutex) => {
+                        match *expr_member {
+                            Expression::Identifier(Identifier(name)) => {
+                                mutex.lock().unwrap().assign(&name, new, dimension)?;
+                            },
+                            _ => return Err(UError::new(
+                                UErrorKind::AssignError,
+                                UErrorMessage::SyntaxError
+                            ))
+                        }
+                    },
+                    Object::Instance(mutex) => {
+                        if let Expression::Identifier(Identifier(name)) = *expr_member {
+                            let ins = mutex.lock().unwrap();
+                            let mut module = ins.module.lock().unwrap();
+                            module.assign(&name, new, dimension)?;
+                        } else {
+                            return Err(UError::new(
+                                UErrorKind::AssignError,
+                                UErrorMessage::SyntaxError
+                            ));
+                        }
+                    },
+                    // Value::Array
+                    Object::UObject(uo) => {
+                        if let Expression::Identifier(Identifier(name)) = *expr_member {
+                            let new_value = Self::object_to_serde_value(new)?;
+                            uo.set(index, new_value, Some(name))?;
+                        } else {
+                            return Err(UError::new(
+                                UErrorKind::AssignError,
+                                UErrorMessage::SyntaxError
+                            ));
+                        }
+                    },
+                    Object::ComObject(ref disp) => {
+                        if let Expression::Identifier(Identifier(member)) = *expr_member {
+                            let key = index.to_variant()?;
+                            let keys = vec![key];
+                            let var_value = new.to_variant()?;
+                            disp.set(&member, var_value, Some(keys))?;
+                        }
+                    },
+                    Object::Element(ref e) => {
+                        if let Expression::Identifier(Identifier(name)) = *expr_member {
+                            let value = Self::object_to_serde_value(new)?;
+                            e.set_property(&name, value)?
+                        } else {
+                            return Err(UError::new(
+                                UErrorKind::AssignError,
+                                UErrorMessage::SyntaxError
+                            ));
+                        }
+                    },
+                    Object::ElementProperty(ref ep) => {
+                        if let Expression::Identifier(Identifier(name)) = *expr_member {
+                            let value = Self::object_to_serde_value(new)?;
+                            ep.set(&name, value)?;
+                        } else {
+                            return Err(UError::new(
+                                UErrorKind::AssignError,
+                                UErrorMessage::SyntaxError
+                            ));
+                        }
+                    },
+                    o => return Err(UError::new(
+                        UErrorKind::DotOperatorError,
+                        UErrorMessage::InvalidObject(o),
+                    ))
+                }
+            },
+            Expression::Index(expr_inner_array, expr_inner_index, _) => {
+                let index = self.eval_expression(expr_index)?;
+                let dimension = match dimension {
+                    Some(mut d) => {
+                        d.push(index);
+                        Some(d)
+                    },
+                    None => Some(vec![index]),
+                };
+                self.assign_array(*expr_inner_array, *expr_inner_index, new, is_reference, dimension)?;
+            }
+            _ => return Err(UError::new(
+                UErrorKind::AssignError,
+                UErrorMessage::SyntaxError,
+            ))
+        };
+        Ok(())
+    }
+    /// 戻り値
+    /// (Some(更新された配列), 変数を更新すべきかどうか)
+    pub fn update_array_object(array: Object, mut dimension: Vec<Object>, new: &Object) -> EvalResult<(Option<Object>, bool)> {
+        let Some(index) = dimension.pop() else {
+            return Ok((None, true));
+        };
+
+        match array {
+            Object::Array(mut arr) => {
+                let Object::Num(i) = index else {
+                    return Err(UError::new(
+                        UErrorKind::AssignError,
+                        UErrorMessage::InvalidIndex(index)
+                    ));
+                };
+                let Some(obj) = arr.get_mut(i as usize) else {
+                    return Err(UError::new(
+                        UErrorKind::AssignError,
+                        UErrorMessage::IndexOutOfBounds(index)
+                    ));
+                };
+                let (maybe_new, update) = Self::update_array_object(obj.clone(), dimension, new)?;
+                if update {
+                    match maybe_new {
+                        Some(new) => *obj = new,
+                        None => *obj = new.to_owned(),
+                    }
+                }
+                Ok((Some(Object::Array(arr)), true))
+            },
+            Object::HashTbl(mutex) => {
+                let name = match index {
+                    Object::Num(n) => n.to_string(),
+                    Object::Bool(b) => b.to_string(),
+                    Object::String(s) => s,
+                    _ => return Err(UError::new(
+                        UErrorKind::AssignError,
+                        UErrorMessage::InvalidIndex(index)
+                    ))
+                };
+                let mut hash = mutex.lock().unwrap();
+                let obj = hash.get(&name);
+                let (maybe_new, update) = Self::update_array_object(obj.clone(), dimension, new)?;
+                if update {
+                    if let Some(new_array) = maybe_new {
+                        hash.insert(name, new_array);
+                    } else {
+                        hash.insert(name, new.to_owned());
+                    }
+                }
+                Ok((None, false))
+            },
+            Object::ComObject(disp) => {
+                // Item(key) の糖衣構文
+                let key = index.to_variant()?;
+                let keys = vec![key];
+                let var_value = new.to_variant()?;
+                disp.set("Item", var_value, Some(keys))?;
+                Ok((Some(Object::ComObject(disp)), true))
+            },
+            Object::SafeArray(mut sa) => {
+                if let Object::Num(i) = index {
+                    let mut var_value = new.to_variant()?;
+                    sa.set(i as i32, &mut var_value)?;
+                    Ok((Some(Object::SafeArray(sa)), true))
+                } else {
+                    Err(UError::new(
+                        UErrorKind::AssignError,
+                        UErrorMessage::InvalidIndex(index)
+                    ))
+                }
+            },
+            Object::ByteArray(mut arr) => {
+                let Object::Num(i) = index else {
+                    return Err(UError::new(
+                        UErrorKind::AssignError,
+                        UErrorMessage::InvalidIndex(index)
+                    ));
+                };
+                let Some(val) = arr.get_mut(i as usize) else {
+                    return Err(UError::new(
+                        UErrorKind::AssignError,
+                        UErrorMessage::InvalidIndex(index)
+                    ));
+                };
+
+                if let Object::Num(n) = new {
+                    let new_val = u8::try_from(*n as i64)
+                        .map_err(|_| UError::new(UErrorKind::AssignError, UErrorMessage::NotAnByte(new.to_owned())))?;
+                    *val = new_val;
+                } else {
+                    return Err(UError::new(UErrorKind::AssignError, UErrorMessage::NotAnByte(new.to_owned())));
+                }
+                Ok((Some(Object::ByteArray(arr)), true))
+            }
+            _ => Err(UError::new(UErrorKind::AssignError, UErrorMessage::NotAnArray("".into())))
+        }
+    }
+    fn assign_object_member(&mut self, expr_object: Expression, expr_member: Expression, new: Object, is_reference: bool) -> EvalResult<()> {
+        let instance = if is_reference {
+            self.eval_reference(expr_object)
+        } else {
+            self.eval_expression(expr_object)
+        }?;
+        match instance {
+            Object::Module(m) => {
+                match expr_member {
+                    Expression::Identifier(Identifier(name)) => {
+                        m.lock().unwrap().assign_public(&name, new, None)?;
+                    },
+                    _ => return Err(UError::new(
+                        UErrorKind::AssignError,
+                        UErrorMessage::SyntaxError
+                    ))
+                }
+            },
+            Object::Instance(m) => {
+                if let Expression::Identifier(Identifier(name)) = expr_member {
+                    let ins = m.lock().unwrap();
+                    ins.module.lock().unwrap().assign_public(&name, new, None)?;
+                } else {
+                    return Err(UError::new(
+                        UErrorKind::AssignError,
+                        UErrorMessage::SyntaxError
+                    ));
+                }
+            },
+            Object::This(m) => {
+                if let Expression::Identifier(Identifier(member)) = expr_member {
+                    let mut module = m.lock().unwrap();
+                    module.assign(&member, new, None)?;
+                } else {
+                    return Err(UError::new(
+                        UErrorKind::AssignError,
+                        UErrorMessage::SyntaxError
+                    ));
+                }
+            },
+            Object::Global => {
+                if let Expression::Identifier(Identifier(name)) = expr_member {
+                    self.env.assign_public(name, new)?;
+                } else {
+                    return Err(UError::new(
+                        UErrorKind::AssignError,
+                        UErrorMessage::GlobalVariableNotFound(None),
+                    ))
+                }
+            },
+            Object::UObject(uo) => {
+                if let Expression::Identifier(Identifier(name)) = expr_member {
+                    let index = Object::String(name);
+                    let new_value = Self::object_to_serde_value(new)?;
+                    uo.set(index, new_value, None)?;
+                } else {
+                    return Err(UError::new(
+                        UErrorKind::UObjectError,
+                        UErrorMessage::SyntaxError,
+                    ));
+                }
+            },
+            Object::UStruct(_, _, m) => {
+                if let Expression::Identifier(Identifier(name)) = expr_member {
+                    let mut u = m.lock().unwrap();
+                    u.set(name, new)?;
+                } else {
+                    return Err(UError::new(
+                        UErrorKind::UStructError,
+                        UErrorMessage::SyntaxError,
+                    ));
+                }
+            },
+            Object::ComObject(ref disp) => {
+                if let Expression::Identifier(Identifier(name)) = expr_member {
+                    let var_arg = new.to_variant()?;
+                    disp.set(&name, var_arg, None)?;
+                } else {
+                    return Err(UError::new(
+                        UErrorKind::DotOperatorError,
+                        UErrorMessage::SyntaxError,
+                    ));
+                }
+            },
+            Object::Element(ref e) => {
+                if let Expression::Identifier(i) = expr_member {
+                    let name = i.0;
+                    let value = Self::object_to_serde_value(new)?;
+                    e.set_property(&name, value)?
+                } else {
+                    return Err(UError::new(
+                        UErrorKind::AssignError,
+                        UErrorMessage::SyntaxError
+                    ));
+                }
+            },
+            Object::ElementProperty(ref ep) => {
+                if let Expression::Identifier(i) = expr_member {
+                    let name = i.0;
+                    let value = Self::object_to_serde_value(new)?;
+                    ep.set(&name, value)?;
+                } else {
+                    return Err(UError::new(
+                        UErrorKind::AssignError,
+                        UErrorMessage::SyntaxError
+                    ));
+                }
+            },
+            o => return Err(UError::new(
+                UErrorKind::DotOperatorError,
+                UErrorMessage::InvalidObject(o)
+            )),
+        }
+        Ok(())
+    }
+    /// 左辺がクラスインスタンスかつNOTHINGが代入された場合にdisposeする
+    fn class_instance_disposal(&mut self, left: &Expression, new_value: &Object) {
+        if let Object::Nothing = new_value {
+            if let Ok(Object::Instance(ref mutex)) = self.eval_expression(left.clone()) {
+                // 代入値がNOTHING、かつ元の値がクラスインスタンス
+                let mut ins = mutex.lock().unwrap();
+                if ! ins.is_dropped {
+                    // 破棄済みでなければdispose
+                    ins.dispose();
+                }
+            }
+        }
+    }
+    /// 変数が参照渡しであれば参照元の式を展開する
+    fn expand_refence(&self, expression: Expression) -> Expression {
+        match expression {
+            Expression::Identifier(ref identifier) => {
+                if let Ok(Object::Reference(expr_ref)) = self.eval_identifier(identifier.clone()) {
+                    let expr_ref = self.expand_refence_index(expr_ref);
+                    Expression::Reference(Box::new(expr_ref))
+                } else {
+                    expression
+                }
+            }
+            Expression::Index(e, index, h) => {
+                let expr = self.expand_refence(*e);
+                Expression::Index(Box::new(expr), index, h)
+            }
+            Expression::DotCall(e, member) => {
+                let expr = self.expand_refence(*e);
+                Expression::DotCall(Box::new(expr), member)
+            },
+            _ => expression
+        }
+    }
+    /// 参照元の式が配列だったら添字も参照にする
+    fn expand_refence_index(&self, expr_ref: Expression) -> Expression {
+        match expr_ref {
+            Expression::Index(expr_arr, expr_index, expr_hash) => {
+                let expr_arr = self.expand_refence_index(*expr_arr);
+                // 添字も参照にする
+                let expr_index = Box::new(Expression::Reference(expr_index));
+                Expression::Index(Box::new(expr_arr), expr_index, expr_hash)
+            },
+            e => e
+        }
     }
 
     fn to_number(obj: &Object) -> Option<f64> {
@@ -2054,13 +2263,13 @@ impl Evaluator {
         Ok(obj)
     }
 
-    fn eval_literal(&mut self, literal: Literal) -> EvalResult<Object> {
+    fn eval_literal(&mut self, literal: Literal, is_reference: bool) -> EvalResult<Object> {
         let obj = match literal {
             Literal::Num(value) => Object::Num(value),
             Literal::String(value) => Object::String(value),
-            Literal::ExpandableString(value) => self.expand_string(value, true),
+            Literal::ExpandableString(value) => self.expand_string(value, true, is_reference),
             Literal::Bool(value) => Object::Bool(value),
-            Literal::Array(objects) => self.eval_array_literal(objects)?,
+            Literal::Array(objects) => self.eval_array_literal(objects, is_reference)?,
             Literal::Empty => Object::Empty,
             Literal::Null => Object::Null,
             Literal::Nothing => Object::Nothing,
@@ -2068,13 +2277,13 @@ impl Evaluator {
             Literal::TextBlock(text, is_ex) => if is_ex {
                 Object::ExpandableTB(text)
             } else {
-                self.expand_string(text, false)
+                self.expand_string(text, false, is_reference)
             },
         };
         Ok(obj)
     }
 
-    fn expand_string(&self, string: String, expand_var: bool) -> Object {
+    fn expand_string(&self, string: String, expand_var: bool, is_reference: bool) -> Object {
         let re = Regex::new("<#([^>]+)>").unwrap();
         let mut new_string = string.clone();
         for cap in re.captures_iter(string.as_str()) {
@@ -2084,7 +2293,11 @@ impl Evaluator {
                 "TAB" => Some("\t".into()),
                 "DBL" => Some("\"".into()),
                 text => if expand_var {
-                    self.env.get_variable(&text.into(), false).map(|o| format!("{}", o).into())
+                    if is_reference {
+                        self.env.get_from_outer(text)
+                    } else {
+                        self.env.get_variable(text, false)
+                    }.map(|o| o.to_string().into())
                 } else {
                     continue;
                 },
@@ -2094,10 +2307,15 @@ impl Evaluator {
         Object::String(new_string)
     }
 
-    fn eval_array_literal(&mut self, objects: Vec<Expression>) -> EvalResult<Object> {
+    fn eval_array_literal(&mut self, expr_items: Vec<Expression>, is_reference: bool) -> EvalResult<Object> {
         let mut arr = vec![];
-        for e in objects {
-            arr.push(self.eval_expression(e.clone())?);
+        for e in expr_items {
+            let obj = if is_reference {
+                self.eval_reference(e)
+            } else {
+                self.eval_expression(e)
+            }?;
+            arr.push(obj);
         }
         Ok(Object::Array(arr))
     }
@@ -2967,19 +3185,23 @@ impl Evaluator {
             Expression::UObject(_) => {
                 self.eval_expression(left)?
             },
+            Expression::Reference(e) => {
+                self.eval_reference(*e)?
+            }
             e => return Err(UError::new(
                 UErrorKind::DotOperatorError,
-                UErrorMessage::InvalidExpression(e),
+                UErrorMessage::InvalidLeftExpression(e),
             )),
         };
-        let member = if let Expression::Identifier(i) = right {
-            i.0
-        } else {
+        let Expression::Identifier(Identifier(member)) = right else {
             return Err(UError::new(
                 UErrorKind::DotOperatorError,
-                UErrorMessage::InvalidExpression(right)
+                UErrorMessage::InvalidRightExpression(right)
             ));
         };
+        self.get_member(instance, member, is_func, is_com_property)
+    }
+    fn get_member(&self, instance: Object, member: String, is_func: bool, is_com_property: bool) -> EvalResult<Object> {
         match instance {
             Object::Module(m) => {
                 self.get_module_member(&m, &member, is_func)
@@ -2994,7 +3216,7 @@ impl Evaluator {
                     module.get_function(&member)
                 } else {
                     match module.get_member(&member) {
-                        Ok(Object::ExpandableTB(text)) => Ok(self.expand_string(text, true)),
+                        Ok(Object::ExpandableTB(text)) => Ok(self.expand_string(text, true, false)),
                         res => res
                     }
                 }
@@ -3058,7 +3280,7 @@ impl Evaluator {
         if is_func {
             module.get_function(&member)
         } else if module.is_local_member(&member) {
-            if let Some(Object::This(this)) = self.env.get_variable(&"this".into(), true) {
+            if let Some(Object::This(this)) = self.env.get_variable("this", true) {
                 if this.try_lock().is_err() {
                     // ロックに失敗した場合、上でロックしているMutexと同じだと判断
                     // なので自分のモジュールメンバの値を返す
@@ -3071,10 +3293,25 @@ impl Evaluator {
             ))
         } else {
             match module.get_public_member(&member) {
-                Ok(Object::ExpandableTB(text)) => Ok(self.expand_string(text, true)),
+                Ok(Object::ExpandableTB(text)) => Ok(self.expand_string(text, true, false)),
                 res => res
             }
         }
+    }
+    /// 代入処理時にmodule/classスコープ内であれば同名メンバも更新する
+    fn update_module_member_on_assignment(&self, name: &str, new: Object, is_reference: bool, dimension: Option<Vec<Object>>) -> EvalResult<()> {
+        let maybe_this = if is_reference {
+            self.env.get_from_outer("this")
+        } else {
+            self.env.get_variable("this", true)
+        };
+        // thisがあればmodule/classスコープ
+        if let Some(Object::This(mutex)) = maybe_this {
+            if let Ok(mut module) = mutex.lock() {
+                module.assign(name, new, dimension)?;
+            }
+        }
+        Ok(())
     }
 
     fn eval_uobject(&self, uobject: &UObject, index: Object) -> EvalResult<Object> {
@@ -3090,7 +3327,7 @@ impl Evaluator {
                     )),
                 },
                 Value::String(s) => {
-                    self.expand_string(s.clone(), true)
+                    self.expand_string(s.clone(), true, false)
                 },
                 Value::Array(_) |
                 Value::Object(_) => {
@@ -3122,27 +3359,6 @@ impl Evaluator {
         Ok(v)
     }
 
-    fn eval_instance_assignment(&mut self, left: &Expression, new_value: &Object) -> EvalResult<()> {
-        let old_value = match self.eval_expression(left.clone()) {
-            Ok(o) => o,
-            Err(_) => return Ok(())
-        };
-        if let Object::Instance(ref m) = old_value {
-            // 既に破棄されてたらなんもしない
-            if m.lock().unwrap().is_dropped {
-                return Ok(());
-            }
-            // Nothingが代入される場合は明示的にデストラクタを実行及びdispose()
-            match new_value {
-                Object::Nothing => {
-                    let mut ins = m.lock().unwrap();
-                    ins.dispose();
-                },
-                _ => {},
-            }
-        }
-        Ok(())
-    }
 }
 
 #[cfg(test)]
@@ -3214,7 +3430,7 @@ mod tests {
             Err(expected_err) => match result {
                 Ok(_) => panic!("this test should occure error:\n{}", input),
                 Err(result_err) => if result_err != expected_err {
-                    panic!("\nresult: {:?}\nexpected: {:?}\n\ninput: {}\n", result_err, expected_err, input);
+                    panic!("\nresult: {}\nexpected: {}\n\ninput: {}\n", result_err, expected_err, input);
                 },
             },
         }
@@ -4885,6 +5101,195 @@ endclass
             (
                 "fuga(arr, h, hoge, uo)",
                 Ok(Some(Object::Empty))
+            ),
+        ];
+        for (input, expected) in test_cases {
+            eval_test_with_env(&mut e, input, expected);
+        }
+    }
+
+    #[test]
+    fn test_reference() {
+        let input1 = r#"
+        function test(ref p)
+            p = "reference test"
+        fend
+        "#;
+        let mut e = eval_env(input1);
+        let test_cases = vec![
+            (
+                r#"
+                v = "hoge"
+                test(v)
+                v
+                "#,
+                Ok(Some("reference test".into()))
+            ),
+            (
+                r#"
+                arr = ["hoge"]
+                test(arr[0])
+                arr[0]
+                "#,
+                Ok(Some("reference test".into()))
+            ),
+            (
+                r#"
+                arr = ["hoge"]
+                i = 0
+                test(arr[i])
+                arr[i]
+                "#,
+                Ok(Some("reference test".into()))
+            ),
+            (
+                r#"
+                function test2(ref p: array, i: number)
+                    p[i] = "test2"
+                    result = p[i]
+                fend
+                arr = ["hoge"]
+                test2(arr, 0)
+                arr[0]
+                "#,
+                Ok(Some("test2".into()))
+            ),
+            (
+                r#"
+                arr = [["foo"], ["bar"]]
+                test(arr[0][0])
+                arr[0][0]
+                "#,
+                Ok(Some("reference test".into()))
+            ),
+            (
+                r#"
+                function test3(ref p: array, i: number, j: number)
+                    p[i][j] = "test3"
+                fend
+                arr = [["foo"], ["bar"]]
+                test3(arr, 0, 0)
+                arr[0][0]
+                "#,
+                Ok(Some("test3".into()))
+            ),
+            (
+                r#"
+                arr = [[["foo"]]]
+                test(arr[0][0][0])
+                arr[0][0][0]
+                "#,
+                Ok(Some("reference test".into()))
+            ),
+            (
+                r#"
+                function test4(ref p: array, i: number, j: number, k: number)
+                    p[i][j][k] := "test4"
+                fend
+                arr = [[["foo"]]]
+                test4(arr, 0, 0, 0)
+                arr[0][0][0]
+                "#,
+                Ok(Some("test4".into()))
+            ),
+            (
+                r#"
+                module M
+                    public p = "module"
+                    public q = [1]
+                    public r = [[1]]
+                endmodule
+                test(M.p)
+                M.p
+                "#,
+                Ok(Some("reference test".into()))
+            ),
+            (
+                r#"
+                test(M.q[0])
+                M.q[0]
+                "#,
+                Ok(Some("reference test".into()))
+            ),
+            (
+                r#"
+                test2(M.q, 0)
+                M.q[0]
+                "#,
+                Ok(Some("test2".into()))
+            ),
+            (
+                r#"
+                test(M.r[0][0])
+                M.r[0][0]
+                "#,
+                Ok(Some("reference test".into()))
+            ),
+            (
+                r#"
+                test3(M.r, 0, 0)
+                M.r[0][0]
+                "#,
+                Ok(Some("test3".into()))
+            ),
+            (
+                r#"
+                class C
+                    procedure C
+                    fend
+                    public p = "class"
+                endclass
+                ins = C()
+                test(ins.p)
+                ins.p
+                "#,
+                Ok(Some("reference test".into()))
+            ),
+            (
+                r#"
+                class Z
+                    procedure Z()
+                    fend
+                    public p = "Z"
+                endclass
+
+                class Y
+                    procedure Y()
+                        this.z = [Z()]
+                    fend
+                    public p = "Y"
+                    public z
+                endclass
+
+                class X
+                    procedure X()
+                        this.y = Y()
+                    fend
+                    public p = "X"
+                    public y
+                endclass
+
+                function test5(ref r)
+                    result = r := "test5"
+                fend
+
+                x = X()
+                test5(x.y.z[0].p)
+                x.y.z[0].p
+                "#,
+                Ok(Some("test5".into()))
+            ),
+            (
+                r#"
+                function test6(ref r: X)
+                    result = r.y.z[0].p := "test6"
+                fend
+
+                x = X()
+                test6(x)
+                x.y.z[0].p
+                "#,
+                Ok(Some("test6".into()))
             ),
         ];
         for (input, expected) in test_cases {

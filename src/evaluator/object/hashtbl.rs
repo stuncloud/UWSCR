@@ -57,8 +57,8 @@ impl HashTbl {
         }
     }
 
-    pub fn get(&self, name: String) -> Object {
-        let key = if ! self.casecare { name.to_ascii_uppercase() } else { name };
+    pub fn get(&self, name: &String) -> Object {
+        let key = if ! self.casecare { name.to_ascii_uppercase() } else { name.to_string() };
         self.map.get(&key).unwrap_or(&Object::Empty).clone()
     }
     // hash[i, hash_key]

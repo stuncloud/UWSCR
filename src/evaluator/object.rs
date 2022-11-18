@@ -85,6 +85,7 @@ pub enum Object {
     // ComObject(Arc<Mutex<IDispatch>>),
     // Variant(Arc<Mutex<VARIANT>>),
     SafeArray(SAFEARRAY),
+    /// COMメソッドのvar引数
     VarArgument(Expression),
     Browser(Browser),
     BrowserFunc(Browser, String),
@@ -93,6 +94,8 @@ pub enum Object {
     ElementProperty(ElementProperty),
     Fopen(Arc<Mutex<Fopen>>),
     ByteArray(Vec<u8>),
+    /// 参照渡しされたパラメータ変数
+    Reference(Expression),
 }
 
 unsafe impl Send for Object {}
@@ -192,6 +195,7 @@ impl fmt::Display for Object {
                 write!(f, "{}", &*fopen)
             },
             Object::ByteArray(ref arr) => write!(f, "{:?}", arr),
+            Object::Reference(_) => write!(f, "Reference"),
         }
     }
 }
@@ -312,6 +316,8 @@ impl PartialEq for Object {
             Object::ByteArray(arr1) => if let Object::ByteArray(arr2) = other {
                 arr1 == arr2
             } else {false},
+            // 比較されることはない
+            Object::Reference(_) => false,
         }
     }
 }

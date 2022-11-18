@@ -68,8 +68,6 @@ impl Function {
         let mut variadic = vec![];
         // 可変長引数の変数名
         let mut variadic_name = None;
-        // 参照渡し引数
-        let mut reference = vec![];
 
         for (_, (param, (arg_expr, obj))) in list.enumerate() {
             let name = param.name();
@@ -93,9 +91,15 @@ impl Function {
                             UErrorKind::FuncCallError,
                             UErrorMessage::FuncInvalidArgument(name),
                         )),
-                        e => reference.push((name.clone(), e))
+                        e => {
+                            // 型チェック
+                            evaluator.is_valid_type(&param, &obj)?;
+                            // パラメータ変数に参照を代入
+                            evaluator.env.define_local(&name, Object::Reference(e))?;
+                        }
                     }
-                    obj
+                    // 通常のパラメータ変数への代入は行わないためcontinueする
+                    continue;
                 },
                 ParamKind::Array(b) => {
                     let e = arg_expr.unwrap();
@@ -103,7 +107,12 @@ impl Function {
                         Expression::Identifier(_) |
                         Expression::Index(_, _, _) |
                         Expression::DotCall(_, _) => if b {
-                            reference.push((name.clone(), e))
+                            // 型チェック
+                            evaluator.is_valid_type(&param, &obj)?;
+                            // パラメータ変数に参照を代入
+                            evaluator.eval_assign_expression(e.clone(), Object::Reference(e))?;
+                            // 通常のパラメータ変数への代入は行わないためcontinueする
+                            continue;
                         },
                         Expression::Literal(Literal::Array(_)) => {},
                         _ => return Err(UError::new(
@@ -176,33 +185,11 @@ impl Function {
         } else if self.is_proc {
             Object::Empty
         } else {
-            evaluator.env.get_variable(&"result".into(), true).unwrap_or_default()
+            evaluator.env.get_variable("result", true).unwrap_or_default()
         };
-
-        /* 参照渡しの処理 */
-        let mut ref_values = vec![];
-
-        // 参照渡しされた変数の値を得ておく
-        for (name, expr) in reference {
-            let obj = evaluator.env.get_variable(&name, true).unwrap();
-            ref_values.push((expr, obj));
-        }
 
         // 関数スコープを抜ける
         evaluator.env.restore_scope(&self.outer);
-
-        // 呼び出し元スコープで参照渡しした変数の値を更新する
-        for (expr, value) in ref_values {
-            match expr {
-                Expression::Identifier(_) |
-                Expression::Index(_, _, _) |
-                Expression::DotCall(_, _) => {
-                    evaluator.eval_assign_expression(expr, value)?;
-                },
-                _ => {}
-            }
-        }
-
 
         /* 結果を返す */
         Ok(result)

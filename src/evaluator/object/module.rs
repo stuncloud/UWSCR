@@ -1,5 +1,5 @@
 use super::{Object, Function};
-use crate::evaluator::{EvalResult};
+use crate::evaluator::{EvalResult, Evaluator};
 use crate::error::evaluator::{UError, UErrorKind, UErrorMessage, DefinitionType};
 use crate::evaluator::environment::{
     NamedObject, ContainerType,
@@ -52,7 +52,7 @@ impl Module {
         self.contains(&name, ContainerType::Function)
     }
 
-    pub fn is_destructor_name(&self, name: &String) -> bool {
+    pub fn is_destructor_name(&self, name: &str) -> bool {
         name.to_string() == format!("_{}_", self.name())
     }
 
@@ -65,19 +65,19 @@ impl Module {
         self.members.push(NamedObject::new(name.to_ascii_uppercase(), object, container_type))
     }
 
-    fn contains(&self, name: &String, container_type: ContainerType) -> bool {
+    fn contains(&self, name: &str, container_type: ContainerType) -> bool {
         let key = name.to_ascii_uppercase();
         self.members.clone().into_iter().any(|obj| obj.name == key && container_type == obj.container_type)
     }
 
-    fn get(&self, name: &String, container_type: ContainerType) -> Option<Object> {
+    fn get(&self, name: &str, container_type: ContainerType) -> Option<Object> {
         let key = name.to_ascii_uppercase();
         self.members.clone().into_iter().find(
             |o| o.name == key && o.container_type == container_type
         ).map(|o| o.object)
     }
 
-    fn set(&mut self, name: &String, value: Object, container_type: ContainerType) {
+    fn set(&mut self, name: &str, value: Object, container_type: ContainerType) {
         let key = name.to_ascii_uppercase();
         for obj in self.members.iter_mut() {
             if obj.name == key && obj.container_type == container_type {
@@ -89,7 +89,7 @@ impl Module {
         }
     }
 
-    pub fn get_member(&self, name: &String) -> EvalResult<Object> {
+    pub fn get_member(&self, name: &str) -> EvalResult<Object> {
         match self.get(name, ContainerType::Variable) {
             Some(o) => Ok(o),
             None => match self.get(name, ContainerType::Public) {
@@ -105,7 +105,7 @@ impl Module {
         }
     }
 
-    pub fn get_public_member(&self, name: &String) -> EvalResult<Object> {
+    pub fn get_public_member(&self, name: &str) -> EvalResult<Object> {
         match self.get(name, ContainerType::Public) {
             Some(o) => Ok(o),
             None => match self.get(name, ContainerType::Const) {
@@ -118,7 +118,7 @@ impl Module {
         }
     }
 
-    pub fn get_function(&self, name: &String) -> EvalResult<Object> {
+    pub fn get_function(&self, name: &str) -> EvalResult<Object> {
         match self.get(name, ContainerType::Function) {
             Some(o) => Ok(o),
             None => {
@@ -139,80 +139,24 @@ impl Module {
         }
     }
 
-    fn assign_index(&mut self, name: &String, value: Object, index: Object, container_type: ContainerType) -> Result<(), UError> {
-        match self.get_member(name)? {
-            Object::Array(mut a) => {
-                if let Object::Num(n) = index {
-                    let i = n as usize;
-                    if i < a.len() {
-                        a[i] = value;
-                        self.set(name, Object::Array(a), container_type);
-                    } else {
-                        return Err(UError::new(
-                            UErrorKind::ArrayError,
-                            UErrorMessage::IndexOutOfBounds(index)
-                        ))
-                    }
-                } else {
-                    return Err(UError::new(
-                        UErrorKind::ArrayError,
-                        UErrorMessage::InvalidIndex(index)
-                    ))
+    fn assign_index(&mut self, name: &str, new: Object, dimension: Vec<Object>, container_type: ContainerType) -> Result<(), UError> {
+        let array = self.get_member(name)?;
+        let (maybe_new, update) = Evaluator::update_array_object(array, dimension, &new)
+            .map_err(|mut e| {
+                if let UErrorMessage::NotAnArray(_) = e.message {
+                    e.message = UErrorMessage::NotAnArray(name.clone().into());
                 }
-            },
-            Object::HashTbl(h) => {
-                let key = match index {
-                    Object::Num(n) => n.to_string(),
-                    Object::Bool(b) => b.to_string(),
-                    Object::String(s) => s,
-                    _ => return Err(UError::new(
-                        UErrorKind::HashtblError,
-                        UErrorMessage::InvalidIndex(index)
-                    ))
-                };
-                h.lock().unwrap().insert(key, value);
-            },
-            Object::ByteArray(mut arr) => {
-                if let Object::Num(i) = index {
-                    if let Some(val) = arr.get_mut(i as usize) {
-                        if let Object::Num(n) = value {
-                            if let Ok(new_val) = u8::try_from(n as i64) {
-                                *val = new_val;
-                            } else {
-                                return Err(UError::new(
-                                    UErrorKind::AssignError,
-                                    UErrorMessage::NotAnByte(value)
-                                ));
-                            }
-                            self.set(name, Object::ByteArray(arr), container_type);
-                        } else {
-                            return Err(UError::new(
-                                UErrorKind::AssignError,
-                                UErrorMessage::NotAnByte(value)
-                            ));
-                        }
-                    } else {
-                        return Err(UError::new(
-                            UErrorKind::AssignError,
-                            UErrorMessage::InvalidIndex(index)
-                        ))
-                    }
-                } else {
-                    return Err(UError::new(
-                        UErrorKind::AssignError,
-                        UErrorMessage::InvalidIndex(index)
-                    ))
-                }
-            },
-            o => return Err(UError::new(
-                UErrorKind::ArrayError,
-                UErrorMessage::NotAnArray(o)
-            ))
+                e
+            })?;
+        if update {
+            if let Some(new_array) = maybe_new {
+                self.set(name, new_array, container_type);
+            }
         }
         Ok(())
     }
 
-    pub fn assign(&mut self, name: &String, value: Object, index: Option<Object>) -> Result<(), UError> {
+    pub fn assign(&mut self, name: &str, value: Object, dimension: Option<Vec<Object>>) -> Result<(), UError> {
         let container_type = if self.contains(name, ContainerType::Const) {
             // 同名の定数がある場合はエラー
             return Err(UError::new(
@@ -228,20 +172,20 @@ impl Module {
         } else {
             return Ok(());
         };
-        match index {
-            Some(i) => {
-                return self.assign_index(name, value, i, container_type)
+        match dimension {
+            Some(d) => {
+                return self.assign_index(name, value, d, container_type)
             },
             None => self.set(name, value, container_type)
         }
         Ok(())
     }
 
-    pub fn assign_public(&mut self, name: &String, value: Object, index: Option<Object>) -> Result<(), UError> {
+    pub fn assign_public(&mut self, name: &str, value: Object, dimension: Option<Vec<Object>>) -> Result<(), UError> {
         if self.contains(&name, ContainerType::Public) {
-            match index {
-                Some(i) => {
-                    return self.assign_index(name, value, i, ContainerType::Public)
+            match dimension {
+                Some(d) => {
+                    return self.assign_index(name, value, d, ContainerType::Public)
                 },
                 None => self.set(name, value, ContainerType::Public)
             }
@@ -254,7 +198,7 @@ impl Module {
         Ok(())
     }
 
-    pub fn is_local_member(&self, name: &String) -> bool {
+    pub fn is_local_member(&self, name: &str) -> bool {
         let key = name.to_ascii_uppercase();
         self.contains(&key, ContainerType::Variable)
     }

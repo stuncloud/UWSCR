@@ -91,34 +91,88 @@ impl fmt::Display for Infix {
 
 #[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub enum Expression {
+    /// 識別子
     Identifier(Identifier),
-    Array(Vec<Expression>, Vec<Expression>), // 配列、配列宣言時の添字リスト(多次元定義時のそれぞれの添字)
+    /// 配列宣言
+    ///
+    /// 0. 配列
+    /// 1. 次元毎の添字
+    Array(Vec<Expression>, Vec<Expression>),
+    /// リテラル
     Literal(Literal),
+    /// プリフィクス
+    ///
+    /// 0. + か -
+    /// 1. 式
     Prefix(Prefix, Box<Expression>),
+    /// 演算
+    ///
+    /// 1. 演算子
+    /// 2. 左辺
+    /// 3. 右辺
     Infix(Infix, Box<Expression>, Box<Expression>),
-    Index(Box<Expression>, Box<Expression>, Box<Option<Expression>>), // optionはhashtblの2つ目の添字
+    /// 変数\[i] または 変数\[i, n] 表記
+    ///
+    /// 0. 変数を示す式
+    /// 1. 添字を示す式
+    /// 2. hashtblの2つ目の添字
+    Index(Box<Expression>, Box<Expression>, Box<Option<Expression>>),
+    /// 無名関数定義
+    ///
+    /// - params: 引数
+    /// - body: 処理
+    /// - is_proc: プロシージャかどうか
     AnonymusFunction {
         params: Vec<FuncParam>,
         body: BlockStatement,
         is_proc: bool,
     },
+    /// 関数定義
+    ///
+    /// - params: 引数
+    /// - body: 処理
+    /// - is_proc: プロシージャかどうか
     FuncCall {
         func: Box<Expression>,
         args: Vec<Expression>,
         is_await: bool,
     },
+    /// 代入式
+    ///
+    /// 1. 左辺
+    /// 2. 右辺
     Assign(Box<Expression>, Box<Expression>),
+    /// 複合代入
+    ///
+    /// 1. 左辺
+    /// 2. 右辺
+    /// 3. 演算子
     CompoundAssign(Box<Expression>, Box<Expression>, Infix), // += -= *= /=
-    Ternary { // ?: 三項演算子
+    /// 三項演算子
+    /// condition ? consequence : alternative
+    Ternary {
         condition: Box<Expression>,
         consequence: Box<Expression>,
         alternative: Box<Expression>,
     },
+    /// .呼び出し、左辺.右辺
+    ///
+    /// 1. 左辺
+    /// 2. 右辺
     DotCall(Box<Expression>, Box<Expression>), // hoge.fuga hoge.piyo()
+    /// UObject宣言
     UObject(String),
+    /// COM_ERR_FLG
     ComErrFlg,
+    /// COM関数のvar引数
+    ///
+    /// 0. var 式
     VarArgument(Box<Expression>),
+    /// 省略された引数
+    /// func( , )
     EmptyArgument,
+    /// 参照渡し引数の参照元の式
+    Reference(Box<Expression>),
 }
 
 impl fmt::Display for Expression {
@@ -159,6 +213,7 @@ impl fmt::Display for Expression {
             Expression::ComErrFlg => write!(f, ""),
             Expression::VarArgument(a) => write!(f, "var {}", a),
             Expression::EmptyArgument => write!(f, ""),
+            Expression::Reference(e) => write!(f, "reference of {e}"),
         }
     }
 }

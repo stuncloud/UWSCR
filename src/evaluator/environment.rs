@@ -191,7 +191,7 @@ impl Environment {
         self.current.lock().unwrap().local.retain(|o| o.name != name.to_ascii_uppercase());
     }
 
-    fn set(&mut self, name: &String, container_type: ContainerType, value: Object, to_global: bool) {
+    fn set(&mut self, name: &str, container_type: ContainerType, value: Object, to_global: bool) {
         let key = name.to_ascii_uppercase();
         if to_global {
             for obj in self.global.lock().unwrap().iter_mut() {
@@ -214,21 +214,21 @@ impl Environment {
         }
     }
 
-    fn get(&self, name: &String, container_type: ContainerType) -> Option<Object> {
+    fn get(&self, name: &str, container_type: ContainerType) -> Option<Object> {
         let key = name.to_ascii_uppercase();
         self.current.lock().unwrap().local.iter().find(
             |o| o.name == key && o.container_type == container_type
         ).map(|o| o.object.clone())
     }
 
-    fn get_from_global(&self, name: &String, container_type: ContainerType) -> Option<Object> {
+    fn get_from_global(&self, name: &str, container_type: ContainerType) -> Option<Object> {
         let key = name.to_ascii_uppercase();
         self.global.lock().unwrap().iter().find(
             |o| o.name == key && o.container_type == container_type
         ).map(|o| o.object.clone())
     }
 
-    pub fn get_name_of_builtin_consts(&self, name: &String) -> Object {
+    pub fn get_name_of_builtin_consts(&self, name: &str) -> Object {
         let key = name.to_ascii_uppercase();
         self.global.lock().unwrap().iter()
         .find(|o| o.name == key && o.container_type == ContainerType::BuiltinConst)
@@ -236,7 +236,7 @@ impl Environment {
     }
 
     // 変数評価の際に呼ばれる
-    pub fn get_variable(&self, name: &String, expand: bool) -> Option<Object> {
+    pub fn get_variable(&self, name: &str, expand: bool) -> Option<Object> {
         let obj = match self.get(&name, ContainerType::Variable) {
             Some(value) => Some(value),
             None => match self.get(&name, ContainerType::Const) { // module関数から呼ばれた場合のみ
@@ -275,7 +275,7 @@ impl Environment {
         }
     }
 
-    pub fn get_tmp_instance(&self, name: &String, from_global: bool) -> Option<Object> {
+    pub fn get_tmp_instance(&self, name: &str, from_global: bool) -> Option<Object> {
         if from_global {
             self.get_from_global(&name, ContainerType::Variable)
         } else {
@@ -283,7 +283,7 @@ impl Environment {
         }
     }
 
-    pub fn get_function(&self, name: &String) -> Option<Object> {
+    pub fn get_function(&self, name: &str) -> Option<Object> {
         match self.get(&name, ContainerType::Function) { // module関数から呼ばれた場合のみ
             Some(func) => Some(func),
             None =>  match self.get_from_global(&name, ContainerType::Function) {
@@ -297,7 +297,7 @@ impl Environment {
     }
 
     // global.hoge
-    pub fn get_global(&self, name: &String, is_func: bool) -> EvalResult<Object> {
+    pub fn get_global(&self, name: &str, is_func: bool) -> EvalResult<Object> {
         if is_func {
             match self.get_from_global(name, ContainerType::Function) {
                 Some(o) => Ok(o),
@@ -326,20 +326,20 @@ impl Environment {
         }
     }
 
-    pub fn get_module(&self, name: &String) -> Option<Object> {
+    pub fn get_module(&self, name: &str) -> Option<Object> {
         self.get_from_global(&name, ContainerType::Module)
     }
 
-    pub fn get_class(&self, name: &String) -> Option<Object> {
+    pub fn get_class(&self, name: &str) -> Option<Object> {
         self.get_from_global(&name, ContainerType::Class)
     }
 
-    pub fn get_struct(&self, name: &String) -> Option<Object> {
+    pub fn get_struct(&self, name: &str) -> Option<Object> {
         self.get_from_global(&name, ContainerType::Struct)
     }
 
     // 予約語チェック
-    fn is_reserved(&mut self, name: &String) -> bool {
+    fn is_reserved(&mut self, name: &str) -> bool {
         self.global.lock().unwrap().iter().any(|obj| obj.name == *name && obj.container_type == ContainerType::BuiltinConst) ||
         vec![
             "GLOBAL",
@@ -349,10 +349,10 @@ impl Environment {
         ].iter().any(|s| s.to_string() == *name)
     }
 
-    fn contains_in_local(&mut self, name: &String, container_types: &[ContainerType]) -> bool {
+    fn contains_in_local(&mut self, name: &str, container_types: &[ContainerType]) -> bool {
         self.current.lock().unwrap().local.iter().any(|obj| obj.name == *name && container_types.contains(&obj.container_type))
     }
-    fn contains_in_global(&mut self, name: &String, container_types: &[ContainerType]) -> bool {
+    fn contains_in_global(&mut self, name: &str, container_types: &[ContainerType]) -> bool {
         self.global.lock().unwrap().iter().any(|obj| obj.name == *name && container_types.contains(&obj.container_type))
     }
 
@@ -591,7 +591,7 @@ impl Environment {
         ), false);
     }
 
-    pub fn has_function(&mut self, name: &String) -> bool {
+    pub fn has_function(&mut self, name: &str) -> bool {
         let key = name.to_ascii_uppercase();
         self.contains_in_global(&key, &[ContainerType::Function])
     }
@@ -611,7 +611,7 @@ impl Environment {
         Object::Array(arr)
     }
 
-    pub fn get_module_member(&self, name: &String) -> Object {
+    pub fn get_module_member(&self, name: &str) -> Object {
         let mut arr = Vec::new();
         match self.get_module(name) {
             Some(o) => match o {
@@ -637,7 +637,7 @@ impl Environment {
                 "CR" => Some("\r\n".into()),
                 "TAB" => Some("\t".into()),
                 "DBL" => Some("\"".into()),
-                text =>  self.get_variable(&text.into(), false).map(|o| format!("{}", o).into()),
+                text =>  self.get_variable(text, false).map(|o| format!("{}", o).into()),
             };
             new_string = rep_to.map_or(new_string.clone(), |to| new_string.replace(format!("<#{}>", expandable).as_str(), to.as_ref()));
         }
@@ -645,9 +645,45 @@ impl Environment {
     }
 
     pub fn set_try_error_messages(&mut self, message: String, line: String) {
-        self.set(&"TRY_ERRMSG".into(), ContainerType::Variable, Object::String(message), false);
-        self.set(&"TRY_ERRLINE".into(), ContainerType::Variable, Object::String(line), false);
+        self.set("TRY_ERRMSG", ContainerType::Variable, Object::String(message), false);
+        self.set("TRY_ERRLINE", ContainerType::Variable, Object::String(line), false);
     }
+
+    pub fn get_from_outer(&self, name: &str) -> Option<Object> {
+        let key = name.to_ascii_uppercase();
+        let current = self.current.lock().unwrap();
+        if let Some(outer) = &current.outer {
+            let value = {
+                let layer = outer.lock().unwrap();
+                layer.local.iter()
+                    .find(|no| no.name == key)
+                    .map(|no| no.object.clone())
+            };
+            if value.is_none() {
+                let global = self.global.lock().unwrap();
+                global.iter()
+                    .find(|no| no.name == key)
+                    .map(|no| no.object.clone())
+            } else {
+                value
+            }
+        } else {
+            None
+        }
+    }
+    pub fn update_outer(&self, name: &str, object: Object) {
+        let key = name.to_ascii_uppercase();
+        let mut current = self.current.lock().unwrap();
+        if let Some(outer) = current.outer.as_mut() {
+            let mut layer = outer.lock().unwrap();
+            let found = layer.local.iter_mut()
+                .find(|no| no.name == key);
+            if let Some(no) = found {
+                no.object = object;
+            }
+        }
+    }
+
 }
 
 // 特殊な代入に対する処理

@@ -251,7 +251,7 @@ impl fmt::Display for UErrorKind {
                 "Assigning Error"
             ),
             Self::DotOperatorError => write_locale!(f,
-                ". 呼び出しエラー",
+                "ドット呼び出しエラー",
                 "Dot operator Error"
             ),
             Self::UStructError => write_locale!(f,
@@ -365,7 +365,6 @@ impl fmt::Display for UErrorKind {
         }
     }
 }
-
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum UErrorMessage {
@@ -482,6 +481,8 @@ pub enum UErrorMessage {
     InvalidBrowserType(i32),
     UnableToReference(String),
     InvalidReference,
+    InvalidLeftExpression(Expression),
+    InvalidRightExpression(Expression),
 }
 
 impl fmt::Display for UErrorMessage {
@@ -991,6 +992,14 @@ impl fmt::Display for UErrorMessage {
             Self::InvalidReference => write_locale!(f,
                 "有効な参照ではありません",
                 "Invalid reference",
+            ),
+            Self::InvalidLeftExpression(e) => write_locale!(f,
+                "式の左辺が不正な式です: {e}",
+                "Expression on the left is invalid: {e}",
+            ),
+            Self::InvalidRightExpression(e) => write_locale!(f,
+                "式の右辺が不正な式です: {e}",
+                "Expression on the right is invalid: {e}",
             ),
         }
     }
