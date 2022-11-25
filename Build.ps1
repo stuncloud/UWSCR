@@ -161,5 +161,10 @@ if ($Schema) {
 
 if ($Document) {
     Invoke-Expression -Command '.\documents\make.bat clean'
+    $nojekyll = '.\documents\build\html\.nojekyll'
+    if (!(Test-Path $nojekyll)) {
+        $file = New-Item -Path $nojekyll -ItemType File
+        $file.Attributes += 'ReadOnly'
+    }
     Invoke-Expression -Command '.\documents\make.bat html'
 }
