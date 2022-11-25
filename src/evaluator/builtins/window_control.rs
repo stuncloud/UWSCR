@@ -8,13 +8,13 @@ use crate::evaluator::builtins::{
     ThreeState,
     window_low,
     system_controls::is_64bit_os,
+    text_control::ErrConst,
 };
 
 #[cfg(feature="chkimg")]
 use crate::{
     settings::USETTINGS,
     evaluator::builtins::chkimg::{ChkImg, ScreenShot},
-    evaluator::builtins::text_control::ErrConst,
 };
 
 use windows::{
