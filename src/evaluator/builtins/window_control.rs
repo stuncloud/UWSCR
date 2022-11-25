@@ -13,7 +13,8 @@ use crate::evaluator::builtins::{
 #[cfg(feature="chkimg")]
 use crate::{
     settings::USETTINGS,
-    evaluator::builtins::chkimg::{ChkImg, ScreenShot}
+    evaluator::builtins::chkimg::{ChkImg, ScreenShot},
+    evaluator::builtins::text_control::ErrConst,
 };
 
 use windows::{
@@ -163,6 +164,8 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("muscur", 0, muscur);
     sets.add("peekcolor", 4, peekcolor);
     sets.add("sckey", 36, sckey);
+    sets.add("setslider", 4, setslider);
+    sets.add("getslider", 3, getslider);
     sets
 }
 
@@ -1426,4 +1429,72 @@ pub fn sckey(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         SendInput(&pinputs, std::mem::size_of::<INPUT>() as i32);
     }
     Ok(BuiltinFuncReturnValue::Result(Object::default()))
+}
+
+struct Slider {
+    slider: win32::Slider,
+}
+
+impl Slider {
+    fn new(hwnd: HWND, nth: u32) -> Option<Self> {
+        win32::Win32::get_slider(hwnd, nth)
+            .map(|slider| Self { slider })
+    }
+    fn get(&self, param: SldConst) -> i32 {
+
+        match param {
+            SldConst::SLD_POS => self.slider.get_pos(),
+            SldConst::SLD_MIN => self.slider.get_min(),
+            SldConst::SLD_MAX => self.slider.get_max(),
+            SldConst::SLD_PAGE => self.slider.get_page(),
+            SldConst::SLD_BAR => self.slider.get_bar(),
+            SldConst::SLD_X => self.slider.get_point().0,
+            SldConst::SLD_Y => self.slider.get_point().1,
+        }
+    }
+    fn set(&self, pos: i32, smooth: bool) -> bool {
+        self.slider.set_pos(pos, smooth)
+    }
+}
+
+pub fn setslider(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let id = args.get_as_int(0, None)?;
+    let hwnd = get_hwnd_from_id(id);
+    let value = args.get_as_int(1, None)?;
+    let nth = args.get_as_int(2, Some(1))?;
+    let smooth = args.get_as_bool(3, Some(true))?;
+
+    let result = if let Some(slider) = Slider::new(hwnd, nth) {
+        slider.set(value, smooth)
+    } else {
+        false
+    };
+    Ok(BuiltinFuncReturnValue::Result(Object::Bool(result)))
+
+}
+#[allow(non_camel_case_types)]
+#[derive(Debug, EnumString, EnumProperty, EnumVariantNames, ToPrimitive, FromPrimitive, Default)]
+pub enum SldConst {
+    #[default]
+    SLD_POS  = 0,
+    SLD_MIN  = 1,
+    SLD_MAX  = 2,
+    SLD_PAGE = 3,
+    SLD_BAR  = 4,
+    SLD_X    = 5,
+    SLD_Y    = 6,
+}
+pub fn getslider(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let id = args.get_as_int(0, None)?;
+    let hwnd = get_hwnd_from_id(id);
+    let nth = args.get_as_int(1, Some(1))?;
+    let param = args.get_as_const(2, false)?.unwrap_or_default();
+
+    if let Some(slider) = Slider::new(hwnd, nth) {
+        let val = slider.get(param);
+        Ok(BuiltinFuncReturnValue::Result(Object::Num(val as f64)))
+    } else {
+        let error_value = Object::Num(ErrConst::ERR_VALUE as i32 as f64);
+        Ok(BuiltinFuncReturnValue::Result(error_value))
+    }
 }

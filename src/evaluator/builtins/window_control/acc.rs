@@ -688,6 +688,37 @@ impl Acc {
         }
         None
     }
+    pub fn search_slider(&self, order: &mut u32) -> Option<Self> {
+        unsafe {
+            let varchildren = self.get_varchildren(false);
+            for varchild in varchildren {
+                if let Some(acc) = self.get_acc_from_varchild(&varchild, true) {
+                    if let Some(role) = acc.get_role() {
+                        match role {
+                            AccRole::ScrollBar |
+                            AccRole::Slider => {
+                                println!("\u{001b}[36m[debug] role: {:?}\u{001b}[0m", &role);
+                                *order -= 1;
+                                if *order < 1 {
+                                    return Some(acc);
+                                }
+                            },
+                            _ => {
+                                println!("\u{001b}[35m[debug] role: {:?}\u{001b}[0m", &role);
+                            }
+                        }
+                    }
+                    if acc.has_child() {
+                        let maybe_found = acc.search_slider(order);
+                        if maybe_found.is_some() {
+                            return maybe_found;
+                        }
+                    }
+                }
+            }
+            None
+        }
+    }
 
     fn get_varchildren(&self, backwards: bool) -> Vec<VARIANT> {
         let cnt = self.get_child_count() as usize;
