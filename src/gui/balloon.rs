@@ -32,7 +32,7 @@ impl Balloon {
         Window::create_window(
             None,
             class_name,
-            None,
+            "",
             // WS_EX_TOPMOST|WS_EX_TOOLWINDOW,
             WS_EX_TOOLWINDOW,
             WS_VISIBLE|WS_POPUP|WS_BORDER,

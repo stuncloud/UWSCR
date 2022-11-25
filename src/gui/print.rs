@@ -32,14 +32,12 @@ impl LogPrintWin {
         let y = rect.top;
         let width = rect.right - rect.left;
         let height = rect.bottom - rect.top;
-        let dwstyle = WS_CHILD|
-            WS_VISIBLE|
-            WS_VSCROLL|
+        let dwstyle = WS_CHILD|WS_VSCROLL|
             WINDOW_STYLE((ES_LEFT|ES_WANTRETURN|ES_AUTOHSCROLL|ES_AUTOVSCROLL|ES_MULTILINE) as u32);
         let edit = Window::create_window(
             Some(hwnd),
             "edit",
-            None,
+            "",
             WINDOW_EX_STYLE(0),
             dwstyle,
             x, y, width, height,
@@ -60,7 +58,7 @@ impl LogPrintWin {
         let hwnd = Window::create_window(
             None,
             &class_name,
-            Some(title),
+            title,
             WINDOW_EX_STYLE(0),
             WS_OVERLAPPEDWINDOW,
             100,

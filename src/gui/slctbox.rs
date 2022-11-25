@@ -135,7 +135,7 @@ impl Slctbox {
         let list = Window::create_window(
             Some(self.hwnd),
             "LISTBOX",
-            None,
+            "",
             WINDOW_EX_STYLE::default(),
             dwstyle,
             MARGIN_X, top,
@@ -162,7 +162,7 @@ impl Slctbox {
                 |WINDOW_STYLE(CBS_DROPDOWNLIST as u32)
                 |WINDOW_STYLE(CBS_AUTOHSCROLL as u32);
         let combo = Window::create_window(
-            Some(self.hwnd), "COMBOBOX", None,
+            Some(self.hwnd), "COMBOBOX", "",
             WINDOW_EX_STYLE::default(), dwstyle,
             MARGIN_X, top, width, combo_height,
             Some(SLCT_CMB_ID)
@@ -210,7 +210,7 @@ impl Slctbox {
         Window::create_window(
             Some(self.hwnd),
             "msctls_progress32",
-            None,
+            "",
             WINDOW_EX_STYLE::default(),
             WS_CHILD|WS_VISIBLE,
             0, top, width, PROGRESS_BAR_HEIGHT,
@@ -223,9 +223,9 @@ impl Slctbox {
         Window::create_window(
             None,
             &class_name,
-            Some(title),
+            title,
             WS_EX_TOPMOST,
-            WS_OVERLAPPED|WS_SYSMENU|WS_VISIBLE|WINDOW_STYLE(PBS_SMOOTH),
+            WS_OVERLAPPED|WS_SYSMENU|WINDOW_STYLE(PBS_SMOOTH),
             0, 0, 100, 100,
             None
         )

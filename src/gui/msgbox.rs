@@ -91,9 +91,9 @@ impl Msgbox {
         Window::create_window(
             None,
             &class_name,
-            Some(title),
+            title,
             WS_EX_TOPMOST,
-            WS_OVERLAPPED|WS_SYSMENU|WS_VISIBLE,
+            WS_OVERLAPPED|WS_SYSMENU,
             0, 0, WIDTH, HEIGHT,
             None
         )

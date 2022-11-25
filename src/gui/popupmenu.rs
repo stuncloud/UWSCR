@@ -14,7 +14,7 @@ impl PoupupDummyWin {
         let hwnd = Window::create_window(
             None,
             &class_name,
-            None,
+            "",
             WINDOW_EX_STYLE::default(),
             WINDOW_STYLE::default(),
             0, 0, 1, 1, None

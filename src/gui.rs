@@ -19,7 +19,7 @@ use crate::error::{CURRENT_LOCALE, Locale};
 use crate::settings::USETTINGS;
 
 pub use windows::{
-    core::{PWSTR, PCWSTR},
+    core::{PWSTR, PCWSTR, HSTRING},
     Win32::{
         Foundation::{
             HWND,WPARAM,LPARAM,LRESULT,
@@ -203,7 +203,7 @@ impl Window {
     fn create_window(
         parent: Option<HWND>,
         class_name: &str,
-        title: Option<&str>,
+        title: &str,
         dwexstyle: WINDOW_EX_STYLE,
         dwstyle: WINDOW_STYLE,
         x: i32,
@@ -214,16 +214,12 @@ impl Window {
     ) -> UWindowResult<HWND> {
         unsafe {
             let hmenu = id.map(|id| HMENU(id as isize));
-            let lpwindowname = if let Some(s) = title {
-                s.to_wide_null_terminated().to_pcwstr()
-            } else {
-                PCWSTR::null()
-            };
-            let lpclassname = class_name.to_wide_null_terminated().to_pcwstr();
+            let lpwindowname = HSTRING::from(title);
+            let lpclassname = HSTRING::from(class_name);
             let hwnd = CreateWindowExW(
                 dwexstyle,
-                lpclassname,
-                lpwindowname,
+                &lpclassname,
+                &lpwindowname,
                 dwstyle,
                 x,
                 y,
@@ -250,7 +246,7 @@ impl Window {
         let hwnd = Window::create_window(
             Some(parent),
             "static",
-            None,
+            "",
             WINDOW_EX_STYLE(0),
             WS_CHILD|WS_VISIBLE,
             x,
@@ -307,7 +303,7 @@ impl Window {
     fn set_child(parent: HWND, class_name: &str, title: &str, x: i32, y: i32, size_opt: Option<SizeOption>, font: Option<HFONT>, styles: Option<WINDOW_STYLE>, id: Option<i32>) -> UWindowResult<Child> {
         let dwstyle = WS_CHILD|WS_VISIBLE|styles.unwrap_or_default();
         let hwnd = Self::create_window(
-            Some(parent), class_name, Some(title), WINDOW_EX_STYLE(0), dwstyle, x, y, 0, 0, id
+            Some(parent), class_name, title, WINDOW_EX_STYLE(0), dwstyle, x, y, 0, 0, id
         )?;
         match font {
             Some(hfont) => {

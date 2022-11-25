@@ -17,7 +17,7 @@ impl MainWin {
         let hwnd = Window::create_window(
             None,
             &class_name,
-            Some(&title),
+            &title,
             WINDOW_EX_STYLE(0),
             WINDOW_STYLE(0),
             100,
