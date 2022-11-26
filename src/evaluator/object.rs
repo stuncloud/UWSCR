@@ -386,6 +386,11 @@ impl Into<Object> for i32 {
         Object::Num(self as f64)
     }
 }
+impl Into<Object> for u32 {
+    fn into(self) -> Object {
+        Object::Num(self as f64)
+    }
+}
 impl Into<Object> for usize {
     fn into(self) -> Object {
         Object::Num(self as f64)

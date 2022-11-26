@@ -1,15 +1,16 @@
 mod acc;
 mod clkitem;
 mod win32;
+mod monitor;
 
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
 use crate::evaluator::builtins::{
-    ThreeState,
     window_low,
     system_controls::is_64bit_os,
     text_control::ErrConst,
 };
+use monitor::Monitor;
 
 #[cfg(feature="chkimg")]
 use crate::{
@@ -18,7 +19,6 @@ use crate::{
 };
 
 use windows::{
-    core::{PCWSTR},
     Win32::{
         Foundation::{
             MAX_PATH,
@@ -43,7 +43,6 @@ use windows::{
                 SW_SHOWNORMAL, SW_SHOW, SW_HIDE, SW_MINIMIZE, SW_MAXIMIZE,
                 WINDOWPLACEMENT,
                 WM_CLOSE, WM_DESTROY, HWND_TOPMOST, HWND_NOTOPMOST,
-                MONITORINFOF_PRIMARY,
                 WindowFromPoint, GetParent, IsWindowVisible, GetClientRect,
                 GetForegroundWindow, GetWindowTextW, GetClassNameW, EnumWindows,
                 IsWindow, PostMessageW, SetForegroundWindow, ShowWindow,
@@ -61,10 +60,6 @@ use windows::{
         },
         Graphics::{
             Gdi::{
-                HMONITOR, HDC, DISPLAY_DEVICEW, MONITORINFOEXW,
-                MONITOR_DEFAULTTONEAREST,
-                MonitorFromWindow, EnumDisplayMonitors,
-                EnumDisplayDevicesW, GetMonitorInfoW,
                 ClientToScreen,
                 GetDC, ReleaseDC, DeleteDC,
                 GetPixel,
@@ -90,7 +85,7 @@ use std::mem;
 
 use strum_macros::{EnumString, EnumProperty, EnumVariantNames};
 use num_derive::{ToPrimitive, FromPrimitive};
-use num_traits::FromPrimitive;
+use num_traits::ToPrimitive;
 use once_cell::sync::Lazy;
 
 #[derive(Clone)]
@@ -767,10 +762,10 @@ fn get_process_path_from_hwnd(hwnd: HWND) -> BuiltInResult<Object> {
 }
 
 fn get_monitor_index_from_hwnd(hwnd: HWND) -> Object {
-    let h = unsafe {
-        MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST)
-    };
-    get_monitor_count(h)
+    match Monitor::from_hwnd(hwnd) {
+        Some(m) => m.index().into(),
+        None => Object::Empty,
+    }
 }
 
 
@@ -915,134 +910,59 @@ pub enum MonitorEnum {
     MON_WORK_Y      = 11,
     MON_WORK_WIDTH  = 12,
     MON_WORK_HEIGHT = 13,
+    MON_DPI         = 15,
+    MON_SCALING     = 16,
     MON_ALL         = 20,
-    #[strum(props(hidden="true"))]
-    UNKNOWN_MONITOR_CMD = -1,
 }
-
-#[derive(Debug)]
-struct Monitor {
-    count: usize,
-    handle: HMONITOR,
-    index: usize,
-}
-
-unsafe extern "system"
-fn callback_count_monitor(h: HMONITOR, _: HDC, _: *mut RECT, lparam: LPARAM) -> BOOL {
-    let m = &mut *(lparam.0 as *mut Monitor);
-    if m.handle == h {
-        return false.into()
+impl fmt::Display for MonitorEnum {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f,"{}", ToPrimitive::to_f64(self).unwrap_or_default())
     }
-    m.count += 1;
-    true.into()
-}
-// nullを渡すと全モニタ数、モニタのハンドルを渡すとそのインデックスを返す
-fn get_monitor_count(handle: HMONITOR) -> Object {
-    unsafe {
-        let mut monitor = Monitor {
-            count: 0,
-            handle,
-            index: 0,
-        };
-        let lparam = &mut monitor as *mut Monitor as isize;
-
-        EnumDisplayMonitors(
-            HDC::default(),
-            None,
-            Some(callback_count_monitor),
-            LPARAM(lparam)
-        );
-        Object::Num(monitor.count as f64)
-    }
-}
-
-unsafe extern "system"
-fn callback_get_handle_by_index(h: HMONITOR, _: HDC, _: *mut RECT, lparam: LPARAM) -> BOOL {
-    let m = &mut *(lparam.0 as *mut Monitor);
-    if m.count == m.index {
-        m.handle = h;
-        return false.into();
-    }
-    m.count += 1;
-    true.into()
-}
-
-fn get_monitor_handle_by_index(i: usize) -> HMONITOR {
-    unsafe {
-        let mut monitor = Monitor {
-            count: 0,
-            handle: HMONITOR::default(),
-            index: i,
-        };
-        EnumDisplayMonitors(
-            HDC::default(),
-            None,
-            Some(callback_get_handle_by_index),
-            LPARAM(&mut monitor as *mut Monitor as isize)
-        );
-        monitor.handle
-    }
-}
-
-fn get_monitor_name(name: &[u16]) -> Object {
-    let mut dd = DISPLAY_DEVICEW::default();
-    dd.cb = mem::size_of::<DISPLAY_DEVICEW>() as u32;
-    unsafe {
-        EnumDisplayDevicesW(PCWSTR(name.as_ptr()), 0, &mut dd, 0);
-    }
-    Object::String(
-        String::from_utf16_lossy(&dd.DeviceString)
-    )
 }
 
 pub fn monitor(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     if args.len() == 0 {
-        let count = get_monitor_count(HMONITOR::default());
-        return Ok(BuiltinFuncReturnValue::Result(count));
+        let count = Monitor::get_count();
+        Ok(BuiltinFuncReturnValue::Result(count.into()))
+    } else {
+        let index = args.get_as_int(0, None)?;
+        let Some(monitor) = Monitor::from_index(index) else {
+            return Ok(BuiltinFuncReturnValue::Result(false.into()))
+        };
+        let mon_enum = args.get_as_const::<MonitorEnum>(1, false)?
+            .unwrap_or(MonitorEnum::MON_ALL);
+        let obj = match mon_enum {
+            MonitorEnum::MON_X => monitor.x().into(),
+            MonitorEnum::MON_Y => monitor.y().into(),
+            MonitorEnum::MON_WIDTH => monitor.width().into(),
+            MonitorEnum::MON_HEIGHT => monitor.height().into(),
+            MonitorEnum::MON_PRIMARY => monitor.is_primary().into(),
+            MonitorEnum::MON_NAME => monitor.name().into(),
+            MonitorEnum::MON_WORK_X => monitor.work_x().into(),
+            MonitorEnum::MON_WORK_Y => monitor.work_y().into(),
+            MonitorEnum::MON_WORK_WIDTH => monitor.work_width().into(),
+            MonitorEnum::MON_WORK_HEIGHT => monitor.work_height().into(),
+            MonitorEnum::MON_DPI => monitor.dpi().unwrap_or(0.0).into(),
+            MonitorEnum::MON_SCALING => monitor.scaling().unwrap_or(0.0).into(),
+            MonitorEnum::MON_ALL => {
+                let mut map = HashTbl::new(false, false);
+                map.insert(MonitorEnum::MON_X.to_string(), monitor.x().into());
+                map.insert(MonitorEnum::MON_Y.to_string(), monitor.y().into());
+                map.insert(MonitorEnum::MON_WIDTH.to_string(), monitor.width().into());
+                map.insert(MonitorEnum::MON_HEIGHT.to_string(), monitor.height().into());
+                map.insert(MonitorEnum::MON_PRIMARY.to_string(), monitor.is_primary().into());
+                map.insert(MonitorEnum::MON_NAME.to_string(), monitor.name().into());
+                map.insert(MonitorEnum::MON_WORK_X.to_string(), monitor.work_x().into());
+                map.insert(MonitorEnum::MON_WORK_Y.to_string(), monitor.work_y().into());
+                map.insert(MonitorEnum::MON_WORK_WIDTH.to_string(), monitor.work_width().into());
+                map.insert(MonitorEnum::MON_WORK_HEIGHT.to_string(), monitor.work_height().into());
+                map.insert(MonitorEnum::MON_DPI.to_string(), monitor.dpi().unwrap_or(0.0).into());
+                map.insert(MonitorEnum::MON_SCALING.to_string(), monitor.scaling().unwrap_or(0.0).into());
+                Object::HashTbl(Arc::new(Mutex::new(map)))
+            },
+        };
+        Ok(BuiltinFuncReturnValue::Result(obj))
     }
-    let index = args.get_as_int::<usize>(0, None)?;
-    let h = get_monitor_handle_by_index(index);
-    if h.is_invalid() {
-        return Ok(BuiltinFuncReturnValue::Result(Object::Bool(false)));
-    };
-    let mut miex = MONITORINFOEXW::default();
-    miex.monitorInfo.cbSize = mem::size_of::<MONITORINFOEXW>() as u32;
-    let p_miex = <*mut _>::cast(&mut miex);
-    unsafe {
-        if ! GetMonitorInfoW(h, p_miex).as_bool() {
-            return Err(builtin_func_error(UErrorMessage::UnableToGetMonitorInfo));
-        }
-    }
-    let mi = miex.monitorInfo;
-    let cmd = args.get_as_int::<u8>(1, Some(MonitorEnum::MON_ALL as u8))?;
-    let value = match FromPrimitive::from_u8(cmd).unwrap_or(MonitorEnum::UNKNOWN_MONITOR_CMD) {
-        MonitorEnum::MON_ALL => {
-            let mut map = HashTbl::new(true, false);
-            map.insert((MonitorEnum::MON_X as u8).to_string(), Object::Num(mi.rcMonitor.left.into()));
-            map.insert((MonitorEnum::MON_Y as u8).to_string(), Object::Num(mi.rcMonitor.top.into()));
-            map.insert((MonitorEnum::MON_WIDTH as u8).to_string(), Object::Num((mi.rcMonitor.right - mi.rcMonitor.left).into()));
-            map.insert((MonitorEnum::MON_HEIGHT as u8).to_string(), Object::Num((mi.rcMonitor.bottom - mi.rcMonitor.top).into()));
-            map.insert((MonitorEnum::MON_NAME as u8).to_string(), get_monitor_name(&miex.szDevice));
-            map.insert((MonitorEnum::MON_PRIMARY as u8).to_string(), Object::Bool(mi.dwFlags == MONITORINFOF_PRIMARY));
-            map.insert((MonitorEnum::MON_WORK_X as u8).to_string(), Object::Num(mi.rcWork.left.into()));
-            map.insert((MonitorEnum::MON_WORK_Y as u8).to_string(), Object::Num(mi.rcWork.top.into()));
-            map.insert((MonitorEnum::MON_WORK_WIDTH as u8).to_string(), Object::Num((mi.rcWork.right - mi.rcWork.left).into()));
-            map.insert((MonitorEnum::MON_WORK_HEIGHT as u8).to_string(), Object::Num((mi.rcWork.bottom - mi.rcWork.top).into()));
-            return Ok(BuiltinFuncReturnValue::Result(Object::HashTbl(Arc::new(Mutex::new(map)))));
-        },
-        MonitorEnum::MON_X => mi.rcMonitor.left,
-        MonitorEnum::MON_Y => mi.rcMonitor.top,
-        MonitorEnum::MON_WIDTH => mi.rcMonitor.right - mi.rcMonitor.left,
-        MonitorEnum::MON_HEIGHT => mi.rcMonitor.bottom - mi.rcMonitor.top,
-        MonitorEnum::MON_NAME => return Ok(BuiltinFuncReturnValue::Result(get_monitor_name(&miex.szDevice))),
-        MonitorEnum::MON_PRIMARY => return Ok(BuiltinFuncReturnValue::Result(Object::Bool(mi.dwFlags == MONITORINFOF_PRIMARY))),
-        MonitorEnum::MON_WORK_X => mi.rcWork.left,
-        MonitorEnum::MON_WORK_Y => mi.rcWork.top,
-        MonitorEnum::MON_WORK_WIDTH => mi.rcWork.right - mi.rcWork.left,
-        MonitorEnum::MON_WORK_HEIGHT => mi.rcWork.bottom - mi.rcWork.top,
-        _ => return Ok(BuiltinFuncReturnValue::Result(Object::Bool(false)))
-    };
-    Ok(BuiltinFuncReturnValue::Result(Object::Num(value as f64)))
 }
 
 #[cfg(feature="chkimg")]
