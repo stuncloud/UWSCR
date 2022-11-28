@@ -147,9 +147,9 @@ impl ClkItem {
                 if result.clicked {
                     let point = result.point;
                     result.clicked = if double {
-                        MouseInput::left_dblclick(hwnd, point)
+                        MouseInput::left_dblclick(result.hwnd, point)
                     } else {
-                        MouseInput::left_click(hwnd, point)
+                        MouseInput::left_click(result.hwnd, point)
                     };
                 }
                 result
@@ -158,7 +158,7 @@ impl ClkItem {
                 let mut result = win32.get_point(self);
                 if result.clicked {
                     let point = result.point;
-                    result.clicked = MouseInput::right_click(hwnd, point);
+                    result.clicked = MouseInput::right_click(result.hwnd, point);
                 }
                 result
             },
@@ -275,10 +275,12 @@ impl MouseInput {
     fn click(hwnd: HWND, msgs: Vec<u32>, point: Option<(i32, i32)>) -> bool {
         unsafe {
             if IsWindowEnabled(hwnd).as_bool() {
-                let lparam = match point {
-                    Some(p) => Self::point_to_lparam(Self::screen_to_client(hwnd, p)),
-                    None => Self::point_to_lparam(Self::point_from_hwnd(hwnd)),
+                let point = match point {
+                    Some(p) => p,
+                    None => Self::point_from_hwnd(hwnd),
                 };
+                let client_point = Self::screen_to_client(hwnd, point);
+                let lparam = Self::point_to_lparam(client_point);
                 let mut result = true;
                 for msg in msgs {
                     let r = PostMessageW(hwnd, msg, WPARAM(0), LPARAM(lparam));
@@ -297,7 +299,7 @@ impl MouseInput {
             // だいたい真ん中あたりを狙う
             let x = lprect.left + (lprect.right - lprect.left) / 2;
             let y = lprect.top + (lprect.bottom - lprect.top) / 2;
-            Self::screen_to_client(hwnd, (x, y))
+            (x, y)
         }
     }
     fn point_to_lparam(point: (i32, i32)) -> isize {
