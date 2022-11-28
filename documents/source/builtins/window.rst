@@ -506,7 +506,7 @@ ID0について
 
         .. object:: ST_MONITOR
 
-            ウィンドウが表示されているモニタ番号 (monitor関数に対応) (数値)
+            ウィンドウが表示されているモニタ番号 (:any:`monitor` 関数に対応) (数値)
 
         .. object:: ST_ALL
 
@@ -527,12 +527,9 @@ ID0について
             print stat[ST_HEIGHT] // 778
             print stat[ST_WIDTH]  // 1251
 
-.. function:: monitor(モニタ番号, [MON定数])
-.. function:: monitor()
-    :noindex:
+.. function:: monitor(モニタ番号, [MON定数=MON_ALL])
 
     | モニタの情報を得ます
-    | 引数なしで実行した場合モニタの数を得ます
 
     :param 数値 省略可 モニタ番号: モニタを示す番号 (0から)
     :param 定数 省略可 MON定数: 取得したい情報を示す定数
@@ -578,17 +575,30 @@ ID0について
 
             作業エリアの高さ (数値)
 
+        .. object:: MON_DPI
+
+            画面のDPI
+
+        .. object:: MON_SCALING
+
+            スケーリング倍率 (%)
+
         .. object:: MON_ALL
 
-            上記すべて (デフォルト)
-
+            上記すべて (連想配列、キーはMON定数)
 
     :return:
 
-        - 引数なしで実行: モニタの数
         - 定数指定 (``MON_ALL`` 以外): 得られた値
         - ``MON_ALL`` 指定: 連想配列 (キーはMON定数)
         - 該当モニタなし: ``FALSE``
+
+.. function:: monitor()
+    :noindex:
+
+    | (引数なし) モニタの数を得ます
+
+    :return: モニタの数
 
     .. admonition:: サンプルコード
 
