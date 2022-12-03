@@ -878,6 +878,19 @@ impl Acc {
             .ok()
             .map(|obj| Self { obj, id: Some(id), has_child: true })
     }
+    pub fn get_check_state(hwnd: HWND, name: String, nth: u32) -> Option<i32> {
+        let acc = Self::from_hwnd(hwnd)?;
+        let target = TargetRole { parent: vec![AccRole::Window, AccRole::MenuBar] };
+        let item = SearchItem::new(name, true, target);
+        let mut order = nth;
+        let search_result = acc.search(&item, &mut order, false)?;
+        let result = match search_result {
+            SearchResult::Acc(acc) |
+            SearchResult::Menu(acc) => acc.is_checked() as i32,
+            SearchResult::Group(_) => -1,
+        };
+        Some(result)
+    }
 }
 
 

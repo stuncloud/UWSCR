@@ -202,6 +202,14 @@ impl BuiltinFuncArgs {
             }
         })
     }
+    /// n番目を得る、1以下は1にする
+    pub fn get_as_nth<T>(&self, i: usize) -> BuiltInResult<T>
+        where T: cast::From<f64, Output=Result<T, cast::Error>> + Clone + Copy + std::cmp::Ord,
+    {
+        let one = T::cast(1.0).or(Err(BuiltinFuncError::new(UErrorMessage::None)))?;
+        let nth = self.get_as_int::<T>(i, Some(one))?;
+        Ok(one.max(nth))
+    }
     /// 整数として受けるがEMPTYの場合は引数が省略されたとみなす
     pub fn get_as_int_or_empty<T>(&self, i: usize) -> BuiltInResult<Option<T>>
         where T: cast::From<f64, Output=Result<T, cast::Error>>,

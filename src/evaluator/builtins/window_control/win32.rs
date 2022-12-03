@@ -708,6 +708,26 @@ impl Win32 {
             None
         }
     }
+
+    pub fn get_check_state(hwnd: HWND, name: String, nth: u32) -> i32 {
+        let mut item = SearchItem {
+            name,
+            short: true,
+            target: vec![TargetClass::Button, TargetClass::Menu],
+            order: nth,
+            found: None,
+        };
+        Self::new(hwnd).search(&mut item);
+        if let Some(found) = item.found {
+            match found.info {
+                ItemInfo::None => Self::send_message(found.hwnd, BM_GETCHECK, 0, 0) as i32,
+                ItemInfo::Menu(_, c, _, _) => c as i32,
+                _ => -1,
+            }
+        } else {
+            -1
+        }
+    }
 }
 
 enum ListIndex {
@@ -799,6 +819,7 @@ enum ItemInfo {
     None,
     Index(usize),
     Indexes(Vec<usize>),
+    /// id, チェック状態, x, y
     Menu(usize, bool, i32, i32),
     HItem(isize, u32),
     ListView(i32, i32, ListView),

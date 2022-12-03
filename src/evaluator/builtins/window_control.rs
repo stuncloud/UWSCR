@@ -160,6 +160,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("sckey", 36, sckey);
     sets.add("setslider", 4, setslider);
     sets.add("getslider", 3, getslider);
+    sets.add("chkbtn", 4, chkbtn);
     sets
 }
 
@@ -1392,7 +1393,7 @@ pub enum SldConst {
 pub fn getslider(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = args.get_as_int(0, None)?;
     let hwnd = get_hwnd_from_id(id);
-    let nth = args.get_as_int(1, Some(1))?;
+    let nth = args.get_as_nth(1)?;
     let param = args.get_as_const(2, false)?.unwrap_or_default();
 
     if let Some(slider) = Slider::new(hwnd, nth) {
@@ -1401,5 +1402,25 @@ pub fn getslider(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     } else {
         let error_value = Object::Num(ErrConst::ERR_VALUE as i32 as f64);
         Ok(BuiltinFuncReturnValue::Result(error_value))
+    }
+}
+
+pub fn chkbtn(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let id = args.get_as_int(0, None)?;
+    let name = args.get_as_string(1, None)?;
+    let nth = args.get_as_nth(2)?;
+    let acc = args.get_as_bool(3, Some(false))?;
+
+    let hwnd = get_hwnd_from_id(id);
+    if unsafe {IsWindow(hwnd).as_bool()} {
+        let result = if acc {
+            acc::Acc::get_check_state(hwnd, name, nth).unwrap_or(-1)
+        } else {
+            win32::Win32::get_check_state(hwnd, name, nth)
+        } as f64;
+
+        Ok(BuiltinFuncReturnValue::Result(result.into()))
+    } else {
+        Ok(BuiltinFuncReturnValue::Result(false.into()))
     }
 }
