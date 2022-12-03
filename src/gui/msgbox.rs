@@ -72,13 +72,14 @@ impl Msgbox {
         let width = Self::calculate_width(label.size.cx, bwidth, pad_x);
         let size = SIZE { cx: width, cy: height.max(HEIGHT).min(MAX_HEIGHT) };
 
-        let (pos_x, pos_y) = if x.is_none() | y.is_none() {
+        if x.is_none() | y.is_none() {
             let (center_x, center_y) = Self::calculate_pos(size);
-            (x.unwrap_or(center_x), y.unwrap_or(center_y))
+            let x = x.unwrap_or(center_x);
+            let y = y.unwrap_or(center_y);
+            Window::set_window_pos(hwnd, x, y, size, None);
         } else {
-            (x.unwrap(), y.unwrap())
+            Window::move_window_scaled(hwnd, x.unwrap(), y.unwrap(), width, height);
         };
-        Window::set_window_pos(hwnd, pos_x, pos_y, size, None);
         let bleft = Window::calculate_center(width, bwidth);
         Window::move_window(panel, bleft, btop, bwidth, bheight);
         let msgbox = Self {

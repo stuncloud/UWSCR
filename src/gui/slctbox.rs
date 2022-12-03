@@ -90,13 +90,14 @@ impl Slctbox {
             slctbox.set_progress_bar(height-pad_y, width)?;
             height += PROGRESS_BAR_HEIGHT;
         }
-        let (x, y) = if pos_x.is_none() | pos_y.is_none() {
+        if pos_x.is_none() | pos_y.is_none() {
             let (center_x, center_y) = Window::calculate_center_pos(width, height);
-            (pos_x.unwrap_or(center_x), pos_y.unwrap_or(center_y))
+            let x = pos_x.unwrap_or(center_x);
+            let y = pos_y.unwrap_or(center_y);
+            Window::move_window(hwnd, x, y, width, height);
         } else {
-            (pos_x.unwrap(), pos_y.unwrap())
-        };
-        Window::move_window(hwnd, x, y, width, height);
+            Window::move_window_scaled(hwnd, pos_x.unwrap(), pos_y.unwrap(), width, height);
+        }
         Ok(slctbox)
     }
     fn set_message(&self, message: &str) -> UWindowResult<Child> {

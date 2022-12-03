@@ -10,7 +10,7 @@ use crate::evaluator::builtins::{
     system_controls::is_64bit_os,
     text_control::ErrConst,
 };
-use monitor::Monitor;
+pub use monitor::Monitor;
 
 #[cfg(feature="chkimg")]
 use crate::{
@@ -81,7 +81,6 @@ use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use std::thread;
-use std::mem;
 
 use strum_macros::{EnumString, EnumProperty, EnumVariantNames};
 use num_derive::{ToPrimitive, FromPrimitive};
@@ -396,7 +395,7 @@ pub fn acw(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let h = args.get_as_int(4, None).ok();
     let ms= args.get_as_int(5, Some(0)).unwrap_or(0);
     thread::sleep(Duration::from_millis(ms));
-    set_window_size(hwnd, x, y, w, h)?;
+    set_window_size(hwnd, x, y, w, h);
     set_id_zero(hwnd);
     Ok(BuiltinFuncReturnValue::Result(Object::Empty))
 }
@@ -582,25 +581,23 @@ impl WindowSize {
     }
 }
 
-fn get_window_size(h: HWND) -> BuiltInResult<WindowSize> {
-    let mut rect = RECT {left: 0, top: 0, right: 0, bottom: 0};
+fn get_window_size(h: HWND) -> WindowSize {
     unsafe {
-        // let mut aero_enabled = false.into();
-        // let _ = DwmIsCompositionEnabled(&mut aero_enabled);
-        let aero_enabled = DwmIsCompositionEnabled()?;
-        if ! aero_enabled.as_bool() {
+        let mut rect = RECT::default();
+        let pvattribute = &mut rect as *mut RECT as *mut c_void;
+        let cbattribute = std::mem::size_of::<RECT>() as u32;
+        if DwmIsCompositionEnabled().unwrap_or(BOOL(0)).as_bool() {
+            // 見た目のRectを取る
+            if DwmGetWindowAttribute(h, DWMWA_EXTENDED_FRAME_BOUNDS, pvattribute, cbattribute).is_err() {
+                // 失敗時はGetWindowRect
+                GetWindowRect(h, &mut rect);
+            }
+        } else {
             // AEROがオフならGetWindowRect
             GetWindowRect(h, &mut rect);
-        } else {
-            let _ = DwmGetWindowAttribute(
-                h,
-                DWMWA_EXTENDED_FRAME_BOUNDS,
-                &mut rect as *mut _ as *mut c_void,
-                mem::size_of::<RECT>() as u32
-            );
         };
+        WindowSize(rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top)
     }
-    Ok(WindowSize(rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top))
 }
 
 fn get_window_rect(h: HWND) -> WindowSize {
@@ -611,56 +608,44 @@ fn get_window_rect(h: HWND) -> WindowSize {
     WindowSize(rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top)
 }
 
-pub fn set_window_size(hwnd: HWND, x: Option<i32>, y: Option<i32>, w: Option<i32>, h: Option<i32>) -> BuiltInResult<()> {
-    let default_rect = get_window_size(hwnd)?;
+pub fn set_window_size(hwnd: HWND, x: Option<i32>, y: Option<i32>, w: Option<i32>, h: Option<i32>) {
+    let default_rect = get_window_size(hwnd);
 
     let x = x.unwrap_or(default_rect.x());
     let y = y.unwrap_or(default_rect.y());
     let w = w.unwrap_or(default_rect.width());
     let h = h.unwrap_or(default_rect.height());
     unsafe {
-        // let mut aero_enabled = false.into();
-        // let _ = DwmIsCompositionEnabled(&mut aero_enabled);
-        let aero_enabled = DwmIsCompositionEnabled()?;
-
-        if aero_enabled.as_bool() {
-            let mut drect: RECT= mem::zeroed();
-            let mut wrect: RECT= mem::zeroed();
-
-            // 一旦移動する
-            MoveWindow(hwnd, x, y, w, h, false);
-
+        MoveWindow(hwnd, x, y, w, h, true);
+        if DwmIsCompositionEnabled().unwrap_or(BOOL(0)).as_bool() {
             // ウィンドウのDPIを得る
             let w_dpi = GetDpiForWindow(hwnd);
             let dpi_factor = w_dpi as f64 / 96.0;
 
             // 見た目のRectを取る
-            let _ = DwmGetWindowAttribute(
-                hwnd,
-                DWMWA_EXTENDED_FRAME_BOUNDS,
-                &mut drect as *mut _ as *mut c_void,
-                mem::size_of::<RECT>() as u32
-            );
-            // 実際のRectを取る
-            GetWindowRect(hwnd, &mut wrect);
+            let mut drect = RECT::default();
+            let pvattribute = &mut drect as *mut RECT as *mut c_void;
+            let cbattribute = std::mem::size_of::<RECT>() as u32;
+            if DwmGetWindowAttribute(hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, pvattribute, cbattribute).is_ok() {
+                // 実際のRectを取る
+                let mut wrect = RECT::default();
+                GetWindowRect(hwnd, &mut wrect);
 
-            let fix= |o, v| {
-                let d = dpi_factor * 100.0;
-                let t = ((v as f64 / d) * 100.0).round();
-                o - t as i32
-            };
-            let new_x = fix(x, drect.left - wrect.left);
-            let new_y = fix(y, drect.top - wrect.top);
-            let new_w = fix(w, (drect.right - drect.left) - (wrect.right - wrect.left));
-            let new_h = fix(h, (drect.bottom - drect.top) - (wrect.bottom - wrect.top));
-
-            // 移動し直し
-            MoveWindow(hwnd, new_x, new_y, new_w, new_h, true);
-        } else {
-            MoveWindow(hwnd, x, y, w, h, true);
+                // 見た目と実際の差分から最適な移動位置を得る
+                let fix= |o, v| {
+                    let d = dpi_factor * 100.0;
+                    let t = ((v as f64 / d) * 100.0).round();
+                    o - t as i32
+                };
+                let new_x = fix(x, drect.left - wrect.left);
+                let new_y = fix(y, drect.top - wrect.top);
+                let new_w = fix(w, (drect.right - drect.left) - (wrect.right - wrect.left));
+                let new_h = fix(h, (drect.bottom - drect.top) - (wrect.bottom - wrect.top));
+                // 移動し直し
+                MoveWindow(hwnd, new_x, new_y, new_w, new_h, true);
+            }
         }
     }
-    Ok(())
 }
 
 
@@ -777,7 +762,7 @@ fn get_status_result(hwnd: HWND, stat: StatusEnum) -> BuiltInResult<Object> {
         StatusEnum::ST_Y |
         StatusEnum::ST_WIDTH |
         StatusEnum::ST_HEIGHT => {
-            let wsize = get_window_size(hwnd)?;
+            let wsize = get_window_size(hwnd);
             match stat {
                 StatusEnum::ST_X => Object::Num(wsize.x() as f64),
                 StatusEnum::ST_Y => Object::Num(wsize.y() as f64),
@@ -840,7 +825,7 @@ fn get_all_status(hwnd: HWND) -> BuiltinFuncResult {
     let mut stats = HashTbl::new(true, false);
     stats.insert((StatusEnum::ST_TITLE as u8).to_string(), get_window_text(hwnd)?);
     stats.insert((StatusEnum::ST_CLASS as u8).to_string(), get_class_name(hwnd)?);
-    let wsize = get_window_size(hwnd)?;
+    let wsize = get_window_size(hwnd);
     stats.insert((StatusEnum::ST_X as u8).to_string(), Object::Num(wsize.x() as f64));
     stats.insert((StatusEnum::ST_Y as u8).to_string(), Object::Num(wsize.y() as f64));
     stats.insert((StatusEnum::ST_WIDTH as u8).to_string(), Object::Num(wsize.width() as f64));
@@ -943,7 +928,7 @@ pub fn monitor(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             MonitorEnum::MON_WORK_WIDTH => monitor.work_width().into(),
             MonitorEnum::MON_WORK_HEIGHT => monitor.work_height().into(),
             MonitorEnum::MON_DPI => monitor.dpi().unwrap_or(0.0).into(),
-            MonitorEnum::MON_SCALING => monitor.scaling().unwrap_or(0.0).into(),
+            MonitorEnum::MON_SCALING => monitor.scaling().into(),
             MonitorEnum::MON_ALL => {
                 let mut map = HashTbl::new(false, false);
                 map.insert(MonitorEnum::MON_X.to_string(), monitor.x().into());
@@ -957,7 +942,7 @@ pub fn monitor(args: BuiltinFuncArgs) -> BuiltinFuncResult {
                 map.insert(MonitorEnum::MON_WORK_WIDTH.to_string(), monitor.work_width().into());
                 map.insert(MonitorEnum::MON_WORK_HEIGHT.to_string(), monitor.work_height().into());
                 map.insert(MonitorEnum::MON_DPI.to_string(), monitor.dpi().unwrap_or(0.0).into());
-                map.insert(MonitorEnum::MON_SCALING.to_string(), monitor.scaling().unwrap_or(0.0).into());
+                map.insert(MonitorEnum::MON_SCALING.to_string(), monitor.scaling().into());
                 Object::HashTbl(Arc::new(Mutex::new(map)))
             },
         };

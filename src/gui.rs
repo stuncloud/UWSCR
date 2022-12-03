@@ -17,6 +17,7 @@ use crate::winapi::{to_wide_string, WString, PcwstrExt, from_wide_string};
 use crate::write_locale;
 use crate::error::{CURRENT_LOCALE, Locale};
 use crate::settings::USETTINGS;
+pub use crate::evaluator::builtins::window_control::Monitor;
 
 pub use windows::{
     core::{PWSTR, PCWSTR, HSTRING},
@@ -83,20 +84,26 @@ pub use windows::{
                 // progress bar
                 PBM_SETRANGE32, PBM_SETSTEP, PBM_STEPIT, PBM_SETPOS, PBM_SETMARQUEE,
                 PBS_SMOOTH,
-            }
+            },
         },
-        Graphics::Gdi::{
-            HBRUSH, HDC, HFONT,
-            SYS_COLOR_INDEX, COLOR_BACKGROUND, COLOR_WINDOW,
-            FW_DONTCARE,CHARSET_UNICODE, OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
-            DEFAULT_PITCH, FF_DONTCARE,
-            GetDC, ReleaseDC, SelectObject,
-            GetTextExtentPoint32W, CreateFontW,
-            UpdateWindow, SetBkColor,
-            // balloon
-            PAINTSTRUCT, TEXTMETRICW,
-            TRANSPARENT,
-            CreateSolidBrush, BeginPaint, FillRect, SetBkMode, SetTextColor, GetTextMetricsW, TextOutW, EndPaint,
+        Graphics::{
+            Gdi::{
+                HBRUSH, HDC, HFONT,
+                SYS_COLOR_INDEX, COLOR_BACKGROUND, COLOR_WINDOW,
+                FW_DONTCARE,CHARSET_UNICODE, OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
+                DEFAULT_PITCH, FF_DONTCARE,
+                GetDC, ReleaseDC, SelectObject,
+                GetTextExtentPoint32W, CreateFontW,
+                UpdateWindow, SetBkColor,
+                // balloon
+                PAINTSTRUCT, TEXTMETRICW,
+                TRANSPARENT,
+                CreateSolidBrush, BeginPaint, FillRect, SetBkMode, SetTextColor, GetTextMetricsW, TextOutW, EndPaint,
+            },
+            Dwm::{
+                DWMWA_EXTENDED_FRAME_BOUNDS,
+                DwmIsCompositionEnabled, DwmGetWindowAttribute,
+            }
         },
         System::{
             Diagnostics::Debug::{
@@ -107,6 +114,7 @@ pub use windows::{
     }
 };
 
+use std::ffi::c_void;
 pub use once_cell::sync::{OnceCell, Lazy};
 
 pub static FONT_FAMILY: Lazy<FontFamily> = Lazy::new(|| {
@@ -287,6 +295,34 @@ impl Window {
         unsafe {
             let wparam = WPARAM(hfont.0 as usize);
             SendMessageW(hwnd, WM_SETFONT, wparam, LPARAM(1));
+        }
+    }
+    fn fix_aero_rect(hwnd: HWND,x: &mut i32, y: &mut i32, width: &mut i32, height: &mut i32) {
+        unsafe {
+            if DwmIsCompositionEnabled().unwrap_or(BOOL(0)).as_bool() {
+                let mut drect = RECT::default();
+                let pvattribute = &mut drect as *mut RECT as *mut c_void;
+                let cbattribute = std::mem::size_of::<RECT>() as u32;
+                if DwmGetWindowAttribute(hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, pvattribute, cbattribute).is_ok() {
+                    let mut wrect = RECT::default();
+                    GetWindowRect(hwnd, &mut wrect);
+                    *x = *x - (drect.left - wrect.left);
+                    *y = *y - (drect.top - wrect.top);
+                    *width = *width - ((drect.right - drect.left) - (wrect.right - wrect.left));
+                    *height = *height - ((drect.bottom - drect.top) - (wrect.bottom - wrect.top));
+                }
+            }
+        }
+    }
+    fn move_window_scaled(hwnd: HWND, mut x: i32, mut y: i32, mut width: i32, mut height: i32) {
+        unsafe {
+            MoveWindow(hwnd, x, y, width, height, false);
+            if let Some(monitor) = Monitor::from_hwnd(hwnd) {
+                Self::fix_aero_rect(hwnd, &mut x, &mut y, &mut width, &mut height);
+                let x = monitor.to_scaled(x);
+                let y = monitor.to_scaled(y);
+                MoveWindow(hwnd, x, y, width, height, true);
+            }
         }
     }
     fn set_window_pos(hwnd: HWND, x: i32, y: i32, size: SIZE, flags: Option<SET_WINDOW_POS_FLAGS>) {

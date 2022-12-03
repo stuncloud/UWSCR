@@ -10,12 +10,12 @@ pub struct Balloon {
     font_color: COLORREF,
     text: String,
     hfont: HFONT,
-    x: Option<i32>,
-    y: Option<i32>,
+    x: i32,
+    y: i32,
 }
 
 impl Balloon {
-    pub fn new(text: &str, x: Option<i32>, y: Option<i32>, font: Option<FontFamily>, font_color: Option<u32>, bg_color: Option<u32>) -> UWindowResult<Self> {
+    pub fn new(text: &str, x: i32, y: i32, font: Option<FontFamily>, font_color: Option<u32>, bg_color: Option<u32>) -> UWindowResult<Self> {
         let colorref = COLORREF(bg_color.unwrap_or(0x00FFFF));
         let bg_color = Window::create_solid_brush(colorref);
         let font_color = COLORREF(font_color.unwrap_or(0x000000));
@@ -61,8 +61,12 @@ impl Balloon {
                 let cy = s1.cy + s2.cy;
                 SIZE { cx, cy }
             }).unwrap();
-            let x = self.x.unwrap_or(0);
-            let y = self.y.unwrap_or(0);
+            let (x, y) = {
+                match Monitor::from_hwnd(self.hwnd) {
+                    Some(m) => (m.to_scaled(self.x), m.to_scaled(self.y)),
+                    None => (self.x, self.y),
+                }
+            };
             Window::move_window(self.hwnd, x, y, size.cx + BALLOON_MARGIN*2, size.cy + BALLOON_MARGIN*2);
             let mut ps = PAINTSTRUCT::default();
             let mut tm = TEXTMETRICW::default();

@@ -1,5 +1,6 @@
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
+use crate::evaluator::window_control::Monitor;
 
 use std::{thread, time};
 
@@ -53,13 +54,21 @@ pub fn move_mouse_to(x: i32, y: i32) -> bool {
         SetCursorPos(x, y).as_bool()
     }
 }
+fn move_mouse_to_scaled(x: i32, y: i32) -> bool {
+    // スケーリング補正
+    let (x, y) = (x, y).to_scaled();
+    unsafe {
+        SetCursorPos(x, y);
+        SetCursorPos(x, y).as_bool()
+    }
+}
 
 pub fn mmv(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let x = args.get_as_int(0, Some(0))?;
     let y = args.get_as_int(1, Some(0))?;
     let ms = args.get_as_int::<u64>(2, Some(0))?;
     thread::sleep(time::Duration::from_millis(ms));
-    move_mouse_to(x, y);
+    move_mouse_to_scaled(x, y);
     Ok(BuiltinFuncReturnValue::Result(Object::Empty))
 }
 
@@ -81,13 +90,13 @@ pub fn btn(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         MouseButtonEnum::MIDDLE => MouseButton::Middle,
         MouseButtonEnum::WHEEL => {
             thread::sleep(time::Duration::from_millis(ms));
-            move_mouse_to(x, y);
+            move_mouse_to_scaled(x, y);
             enigo.mouse_scroll_y(action);
             return Ok(BuiltinFuncReturnValue::Result(Object::Empty));
         },
         MouseButtonEnum::WHEEL2 => {
             thread::sleep(time::Duration::from_millis(ms));
-            move_mouse_to(x, y);
+            move_mouse_to_scaled(x, y);
             enigo.mouse_scroll_x(action);
             return Ok(BuiltinFuncReturnValue::Result(Object::Empty));
         },
@@ -97,7 +106,7 @@ pub fn btn(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     };
 
     thread::sleep(time::Duration::from_millis(ms));
-    move_mouse_to(x, y);
+    move_mouse_to_scaled(x, y);
     match FromPrimitive::from_i32(action).unwrap_or(KeyActionEnum::CLICK) {
         KeyActionEnum::CLICK => enigo.mouse_click(button),
         KeyActionEnum::DOWN => enigo.mouse_down(button),
@@ -113,6 +122,7 @@ pub fn get_current_pos() -> BuiltInResult<POINT>{
             return Err(builtin_func_error(UErrorMessage::UnableToGetCursorPosition));
         };
     }
+    let point = point.to_real();
     Ok(point)
 }
 
@@ -189,4 +199,52 @@ pub fn kbd(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         KeyActionEnum::UP => enigo.key_up(key),
     };
     Ok(BuiltinFuncReturnValue::Result(Object::Empty))
+}
+
+trait Scaling {
+    fn to_scaled(self) -> Self;
+    fn to_real(self) -> Self;
+}
+
+impl Scaling for (i32, i32) {
+    fn to_scaled(self) -> Self {
+        let (x, y) = self;
+        match Monitor::from_point(x, y) {
+            Some(m) => {
+                (m.to_scaled(x), m.to_scaled(y))
+            },
+            None => (x, y),
+        }
+    }
+    fn to_real(self) -> Self {
+        let (x, y) = self;
+        match Monitor::from_point(x, y) {
+            Some(m) => {
+                (m.to_real(x), m.to_real(y))
+            },
+            None => (x, y),
+        }
+    }
+}
+impl Scaling for POINT {
+    fn to_scaled(self) -> Self {
+        let POINT { x, y } = self;
+        let (x, y) = match Monitor::from_point(x, y) {
+            Some(m) => {
+                (m.to_scaled(x), m.to_scaled(y))
+            },
+            None => (x, y),
+        };
+        POINT { x, y }
+    }
+    fn to_real(self) -> Self {
+        let POINT { x, y } = self;
+        let (x, y) = match Monitor::from_point(x, y) {
+            Some(m) => {
+                (m.to_real(x), m.to_real(y))
+            },
+            None => (x, y),
+        };
+        POINT { x, y }
+    }
 }

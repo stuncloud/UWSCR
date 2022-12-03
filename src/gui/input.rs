@@ -89,14 +89,14 @@ impl InputBox {
         bpanel.move_to(Some(bx), Some(top), None, None);
         let height = top + bpanel.size.cy + MARGIN_Y + w_margin_y;
 
-        let (pos_x, pos_y) = if x.is_none() | y.is_none() {
+        if x.is_none() | y.is_none() {
             let (center_x, center_y) = Window::calculate_center_pos(width, height);
-            (x.unwrap_or(center_x), y.unwrap_or(center_y))
+            let x = x.unwrap_or(center_x);
+            let y = y.unwrap_or(center_y);
+            Window::move_window(self.hwnd, x, y, width, height);
         } else {
-            (x.unwrap(), y.unwrap())
-        };
-        // let (x, y) = Window::calculate_center_pos(width, height);
-        Window::move_window(self.hwnd, pos_x, pos_y, width, height);
+            Window::move_window_scaled(self.hwnd, x.unwrap(), y.unwrap(), width, height);
+        }
 
         Ok(())
     }

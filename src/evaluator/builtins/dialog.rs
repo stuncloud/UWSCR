@@ -272,8 +272,8 @@ pub fn balloon(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         None
     } else {
         let text = args.get_as_string(0, None)?;
-        let x = Some(args.get_as_int(1, Some(0_i32))?);
-        let y = Some(args.get_as_int(2, Some(0_i32))?);
+        let x = args.get_as_int(1, Some(0_i32))?;
+        let y = args.get_as_int(2, Some(0_i32))?;
         let _dir = args.get_as_int(3, Some(0_u32))?;
         let font_size = args.get_as_int_or_empty::<i32>(4)?;
         let font_name = args.get_as_string_or_empty(5)?;

@@ -286,7 +286,7 @@ pub fn exec(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         let y = args.get_as_int(3, None).ok();
         let w = args.get_as_int(4, None).ok();
         let h = args.get_as_int(5, None).ok();
-        window_control::set_window_size(ph.hwnd, x, y, w, h)?;
+        window_control::set_window_size(ph.hwnd, x, y, w, h);
         if sync {
             // 同期する場合は終了コード
             let mut exit: u32 = 0;

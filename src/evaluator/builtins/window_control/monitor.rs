@@ -7,7 +7,7 @@ use windows::{
         UI::{
             WindowsAndMessaging::{MONITORINFOF_PRIMARY},
             HiDpi::{
-                GetDpiForMonitor, MDT_EFFECTIVE_DPI,
+                GetDpiForMonitor, MDT_DEFAULT
             },
         },
         Graphics::{
@@ -18,6 +18,7 @@ use windows::{
                 MONITORINFOEXW, MONITORINFO, GetMonitorInfoW,
                 EnumDisplayDevicesW, DISPLAY_DEVICEW,
                 MonitorFromWindow,
+                EnumDisplaySettingsW, ENUM_CURRENT_SETTINGS
             },
         }
     }
@@ -27,9 +28,15 @@ use std::mem::size_of;
 pub struct Monitor {
     handle: HMONITOR,
     info: MONITORINFO,
-    name: [u16; 32],
+    name: String,
     primary: bool,
     index: u32,
+    // device: DISPLAY_DEVICEW,
+    devmode: DEVMODE,
+    /// 表示スケール (%)
+    scaling: f64,
+    /// 座標補正のための倍率
+    ratio: f64,
 }
 
 impl Monitor {
@@ -46,7 +53,7 @@ impl Monitor {
         Self::new(data.0, Some(index))
     }
     /// 座標からモニタを得る
-    pub fn _from_point(x: i32, y: i32) -> Option<Self> {
+    pub fn from_point(x: i32, y: i32) -> Option<Self> {
         unsafe {
             let pt = POINT { x, y };
             let hmonitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
@@ -68,10 +75,12 @@ impl Monitor {
         self.info.rcMonitor.top
     }
     pub fn width(&self) -> i32 {
-        self.info.rcMonitor.right - self.info.rcMonitor.left
+        // self.info.rcMonitor.right - self.info.rcMonitor.left
+        self.devmode.dmPelsWidth as i32
     }
     pub fn height(&self) -> i32 {
-        self.info.rcMonitor.bottom - self.info.rcMonitor.top
+        // self.info.rcMonitor.bottom - self.info.rcMonitor.top
+        self.devmode.dmPelsHeight as i32
     }
     pub fn work_x(&self) -> i32 {
         self.info.rcWork.left
@@ -80,31 +89,37 @@ impl Monitor {
         self.info.rcWork.top
     }
     pub fn work_width(&self) -> i32 {
-        self.info.rcWork.right - self.info.rcWork.left
+        let width = self.info.rcWork.right - self.info.rcWork.left;
+        (width as f64 * self.scaling) as i32
     }
     pub fn work_height(&self) -> i32 {
-        self.info.rcWork.bottom - self.info.rcWork.top
+        let height = self.info.rcWork.bottom - self.info.rcWork.top;
+        (height as f64 * self.scaling) as i32
     }
     pub fn is_primary(&self) -> bool {
         self.primary
     }
-    pub fn name(&self) -> Option<String> {
-        let dd = self.get_display_device()?;
-        let name = from_wide_string(&dd.DeviceString);
-        Some(name)
+    pub fn name(&self) -> String {
+        self.name.clone()
     }
     pub fn dpi(&self) -> Option<f64> {
         unsafe {
             let mut dpix = 0;
-            GetDpiForMonitor(self.handle, MDT_EFFECTIVE_DPI, &mut dpix, &mut 0).ok()?;
+            GetDpiForMonitor(self.handle, MDT_DEFAULT, &mut dpix, &mut 0).ok()?;
             Some(dpix as f64)
         }
     }
-    pub fn scaling(&self) -> Option<f64> {
-        Some(0.0)
+    pub fn scaling(&self) -> u32 {
+        (self.scaling * 100.0) as u32
     }
     pub fn index(&self) -> u32 {
         self.index
+    }
+    pub fn to_scaled(&self, n: i32) -> i32 {
+        (n as f64 * self.ratio) as i32
+    }
+    pub fn to_real(&self, n: i32) -> i32 {
+        (n as f64 * self.scaling) as i32
     }
 
     fn new(hmonitor: HMONITOR, index: Option<u32>) -> Option<Self> {
@@ -113,14 +128,38 @@ impl Monitor {
         } else {
             let miex = Self::get_monitor_info(hmonitor)?;
             let index = index.unwrap_or(Self::get_index(hmonitor));
+            let device = Self::get_display_device(&miex.szDevice)?;
+            let name = from_wide_string(&device.DeviceString);
+            let devmode = Self::get_monitor_settings(&miex.szDevice)?;
+            // スケーリングの計算
+            let width = (miex.monitorInfo.rcMonitor.right - miex.monitorInfo.rcMonitor.left) as f64;
+            let scaling = devmode.dmPelsWidth as f64 / width;
+            let ratio = width / devmode.dmPelsWidth as f64;
             let me = Self {
                 handle: hmonitor,
                 info: miex.monitorInfo,
-                name: miex.szDevice,
+                name,
                 primary: miex.monitorInfo.dwFlags == MONITORINFOF_PRIMARY,
                 index,
+                // device,
+                devmode,
+                scaling,
+                ratio
             };
             Some(me)
+        }
+    }
+    fn get_monitor_settings(name: &[u16; 32]) -> Option<DEVMODE> {
+        unsafe {
+            let mut dm = DEVMODE::default();
+            dm.dmSize = size_of::<DEVMODE>() as u16;
+            let lpszdevicename = HSTRING::from_wide(name);
+            let lpdevmode = <*mut _>::cast(&mut dm);
+            if EnumDisplaySettingsW(&lpszdevicename, ENUM_CURRENT_SETTINGS, lpdevmode).as_bool() {
+                Some(dm)
+            } else {
+                None
+            }
         }
     }
     fn get_monitor_info(hmonitor: HMONITOR) -> Option<MONITORINFOEXW> {
@@ -135,11 +174,11 @@ impl Monitor {
             }
         }
     }
-    fn get_display_device(&self) -> Option<DISPLAY_DEVICEW> {
+    fn get_display_device(szdevice: &[u16; 32]) -> Option<DISPLAY_DEVICEW> {
         unsafe {
             let mut dd = DISPLAY_DEVICEW::default();
             dd.cb = size_of::<DISPLAY_DEVICEW>() as u32;
-            let lpdevice = HSTRING::from_wide(&self.name);
+            let lpdevice = HSTRING::from_wide(szdevice);
             if EnumDisplayDevicesW(&lpdevice, 0, &mut dd, 0).as_bool() {
                 Some(dd)
             } else {
@@ -189,4 +228,44 @@ impl Monitor {
             true.into()
         }
     }
+}
+
+#[repr(C)]
+#[derive(Debug, Default)]
+#[allow(non_snake_case)]
+struct DEVMODE {
+    pub dmDeviceName: [u16; 32],
+    pub dmSpecVersion: u16,
+    pub dmDriverVersion: u16,
+    pub dmSize: u16,
+    pub dmDriverExtra: u16,
+    pub dmFields: u32,
+    // pub Anonymous1: DEVMODEW_0,
+    pub dmPosition: POINT,
+    pub dmDisplayOrientation: u32,
+    pub dmDisplayFixedOutput: u32,
+
+    pub dmColor: i16,
+    pub dmDuplex: i16,
+    pub dmYResolution: i16,
+    pub dmTTOption: i16,
+    pub dmCollate: i16,
+    pub dmFormName: [u16; 32],
+    pub dmLogPixels: u16,
+    pub dmBitsPerPel: u32,
+    pub dmPelsWidth: u32,
+    pub dmPelsHeight: u32,
+    // pub Anonymous2: DEVMODEW_1,
+    pub dmDisplayFlags: u32,
+    pub dmNup: u32,
+
+    pub dmDisplayFrequency: u32,
+    pub dmICMMethod: u32,
+    pub dmICMIntent: u32,
+    pub dmMediaType: u32,
+    pub dmDitherType: u32,
+    pub dmReserved1: u32,
+    pub dmReserved2: u32,
+    pub dmPanningWidth: u32,
+    pub dmPanningHeight: u32,
 }
