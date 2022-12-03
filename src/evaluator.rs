@@ -2499,6 +2499,7 @@ impl Evaluator {
                 result
             },
             BuiltinFuncReturnValue::Result(obj) => obj,
+            BuiltinFuncReturnValue::Empty => Object::Empty
         };
         Ok(obj)
     }

@@ -960,6 +960,8 @@ pub fn assert_equal(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 
 pub enum BuiltinFuncReturnValue {
     Result(Object),
+    /// 戻り値なし
+    Empty,
     Reference {
         refs: Vec<(Option<Expression>, Object)>,
         result: Object
