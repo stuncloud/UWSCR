@@ -27,7 +27,7 @@ libffi = "1.0.1"
 num-derive = "0.3"
 num-traits = "0.2"
 once_cell = "1"
-opencv = { version = "0.60.0", default-features = false, features = ["imgcodecs", "imgproc"], optional = true}
+opencv = { version = "0.74.0", default-features = false, features = ["imgcodecs", "imgproc"], optional = true}
 regex = "1"
 reqwest = { version = "0.11", features = ["blocking"] }
 schemars = "0.8"
