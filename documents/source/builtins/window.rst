@@ -856,8 +856,6 @@ ID0について
 画像検索
 --------
 
-.. hint:: chkimg関数を使う場合chkimg版UWSCR(UWSCRx64_chkimg.zip)を導入してください
-
 .. function:: chkimg(画像ファイルパス, [スコア=95, 最大検索数=5, left=EMPTY, top=EMPTY, right=EMPTY, bottom=EMPTY])
 
     | 指定画像をスクリーン上から探してその座標を返します
@@ -865,10 +863,6 @@ ID0について
     .. caution:: UWSCとは引数や戻り値が異なります
 
         特殊変数 ``G_IMG_X``, ``G_IMG_Y``, ``ALL_IMG_X``, ``ALL_IMG_Y`` は廃止
-
-    .. attention:: OpenCV 4.5.4が必要です
-
-        インストール方法等は :ref:`opencv` を参照ください
 
     :param 文字列 画像ファイルパス: 検索する画像のパス (jpg, bmp, png)
     :param 数値 省略可 スコア: 画像に対する一致率を指定 (0-100)
@@ -891,25 +885,6 @@ ID0について
             for found in chkimg("hoge.png")
                 print found // [x, y, スコア]
             next
-
-.. _opencv:
-
-OpenCV導入方法
-^^^^^^^^^^^^^^
-
-1. OpenCVのインストール
-    1. `Release OpenCV 4.5.4 · opencv/opencv <https://github.com/opencv/opencv/releases/tag/4.5.4>`_ を開く
-    2. Asssetsにある ``opencv-4.5.4-vc14_vc15.exe`` をダウンロード
-    3. ``opencv-4.5.4-vc14_vc15.exe`` を実行し、任意のフォルダに展開する (例: `C:\\tools`)
-2. UWSCRからdllを参照できるようにする (以下のいずれかの方法)
-    - 方法1: dllをuwscr.exeと同じフォルダに置く
-        1. `{展開先}\\opencv\\build\\x64\\vc15\\bin` の ``opencv_world454.dll`` をコピー
-    - 方法2: 環境変数PATHに登録
-        1. スタートメニューから **環境変数を編集** を実行
-        2. ユーザー環境変数の `Path` をダブルクリック
-        3. `{展開先}\\opencv\\build\\x64\\vc15\\bin` を追記 (`{展開先}` は実際のフォルダパスに変換してください 例: `C:\\tools`)
-        4. 実行環境(PowerShellなど)を再起動
-
 
 低レベル関数
 ------------

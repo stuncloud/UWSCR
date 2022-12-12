@@ -8,7 +8,10 @@ param(
     [switch] $Schema,
     [ValidateSet("x64","x86")]
     [string[]] $Architecture = @("x64","x86"),
-    [switch] $Checkimg,
+    # opencv x64版installビルド先のパス
+    [string] $OpenCV64Install,
+    # opencv x86版installビルド先のパス
+    [string] $OpenCV86Install,
     [switch] $Document
 )
 
@@ -19,23 +22,63 @@ if ($Release) {
     $env:RUSTFLAGS=''
 }
 
-if ($Checkimg -and "x86" -in $Architecture) {
-    Write-Error "chkimg版はx86未対応です"
-    break
-}
-
 # ビルド
 if ((! $Installer -and ! $Schema -and ! $Document) -or ($Release -and $Installer)) {
     if ("x64" -in $Architecture) {
         # build x64 exe
-        $cmd = 'cargo build {0}' -f $(if ($Release) {'--release'})
-        if ($Checkimg) {$cmd += " --features chkimg"}
-        Invoke-Expression -Command $cmd
+        if ($OpenCV64Install -ne $null) {
+            $env:OPENCV_INCLUDE_PATHS = Join-Path $OpenCV64Install 'include'
+            $env:OPENCV_LINK_PATHS = Join-Path $OpenCV64Install 'x64\vc16\staticlib'
+            $libs = (Join-Path $env:OPENCV_LINK_PATHS '*.lib' | Get-ChildItem).BaseName | ForEach-Object {
+                    $_.StartsWith('lib') ? "lib$($_)" : $_
+            }
+            $env:OPENCV_LINK_LIBS = $libs -join ','
+            Write-Verbose $env:OPENCV_INCLUDE_PATHS
+            Write-Verbose $env:OPENCV_LINK_PATHS
+            Write-Verbose $env:OPENCV_LINK_LIBS
+            if ($Release) {
+                cargo build --features chkimg --release
+            } else {
+                cargo build --features chkimg
+            }
+        } else {
+            if ($Release) {
+                cargo build --release
+            } else {
+                cargo build
+            }
+        }
+        if ($LASTEXITCODE -ne 0) {
+            break
+        }
     }
     if ("x86" -in $Architecture) {
         # build x86 exe
-        $cmd = 'cargo build --target=i686-pc-windows-msvc {0}' -f $(if ($Release) {'--release'})
-        Invoke-Expression -Command $cmd
+        if ($OpenCV86Install -ne $null) {
+            $env:OPENCV_INCLUDE_PATHS = Join-Path $OpenCV86Install 'include'
+            $env:OPENCV_LINK_PATHS = Join-Path $OpenCV86Install 'x86\vc16\staticlib'
+            $libs = (Join-Path $env:OPENCV_LINK_PATHS '*.lib' | Get-ChildItem).BaseName | ForEach-Object {
+                    $_.StartsWith('lib') ? "lib$($_)" : $_
+            }
+            $env:OPENCV_LINK_LIBS = $libs -join ','
+            Write-Verbose $env:OPENCV_INCLUDE_PATHS
+            Write-Verbose $env:OPENCV_LINK_PATHS
+            Write-Verbose $env:OPENCV_LINK_LIBS
+            if ($Release) {
+                cargo build --target=i686-pc-windows-msvc --features chkimg --release
+            } else {
+                cargo build --target=i686-pc-windows-msvc --features chkimg
+            }
+        } else {
+            if ($Release) {
+                cargo build --target=i686-pc-windows-msvc --release
+            } else {
+                cargo build --target=i686-pc-windows-msvc
+            }
+        }
+        if ($LASTEXITCODE -ne 0) {
+            break
+        }
     }
 }
 
