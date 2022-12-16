@@ -9,6 +9,7 @@ pub mod browser_control;
 pub mod array_control;
 pub mod dialog;
 pub mod file_control;
+pub mod clipboard;
 #[cfg(feature="chkimg")]
 pub mod chkimg;
 
@@ -654,6 +655,7 @@ pub fn init_builtins() -> Vec<NamedObject> {
     set_builtin_consts::<window_control::CurConst>(&mut vec);
     set_builtin_consts::<window_control::ColConst>(&mut vec);
     set_builtin_consts::<window_control::SldConst>(&mut vec);
+    set_builtin_consts::<window_control::GetStrConst>(&mut vec);
 
     // text control
     text_control::builtin_func_sets().set(&mut vec);

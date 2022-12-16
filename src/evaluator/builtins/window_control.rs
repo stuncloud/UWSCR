@@ -9,6 +9,7 @@ use crate::evaluator::builtins::{
     window_low,
     system_controls::is_64bit_os,
     text_control::ErrConst,
+    clipboard::Clipboard,
 };
 pub use monitor::Monitor;
 
@@ -161,6 +162,8 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("setslider", 4, setslider);
     sets.add("getslider", 3, getslider);
     sets.add("chkbtn", 4, chkbtn);
+    sets.add("getstr", 4, getstr);
+    sets.add("sendstr", 5, sendstr);
     sets
 }
 
@@ -701,6 +704,12 @@ fn is_maximized(hwnd: HWND)-> Object {
 fn is_active_window(hwnd: HWND) -> Object {
     unsafe {
         Object::Bool(GetForegroundWindow() == hwnd)
+    }
+}
+
+fn is_window(hwnd: HWND) -> bool {
+    unsafe {
+        IsWindow(hwnd).as_bool()
     }
 }
 
@@ -1423,4 +1432,85 @@ pub fn chkbtn(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     } else {
         Ok(BuiltinFuncReturnValue::Result(false.into()))
     }
+}
+
+#[allow(non_camel_case_types)]
+#[derive(Debug, EnumString, EnumProperty, EnumVariantNames, ToPrimitive, FromPrimitive)]
+pub enum GetStrConst {
+    STR_EDIT       = 0,
+    STR_STATIC     = 1,
+    STR_STATUS     = 2,
+    STR_ACC_EDIT   = 3,
+    STR_ACC_STATIC = 4,
+    STR_ACC_CELL   = 5,
+}
+
+pub fn getstr(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let id = args.get_as_int(0, None)?;
+    let nth = args.get_as_nth(1)?;
+    let item_type = args.get_as_const(2, false)?.unwrap_or(GetStrConst::STR_EDIT);
+    let mouse = args.get_as_bool(3, Some(false))?;
+
+    if id == 0 {
+        // クリップボードから
+        let str = Clipboard::new()?.get_str();
+        Ok(BuiltinFuncReturnValue::Result(str.into()))
+    } else {
+        let hwnd = get_hwnd_from_id(id);
+        if is_window(hwnd) {
+            let str = match item_type {
+                GetStrConst::STR_EDIT => win32::Win32::get_edit_str(hwnd, nth, mouse),
+                GetStrConst::STR_STATIC => win32::Win32::get_static_str(hwnd, nth, mouse),
+                GetStrConst::STR_STATUS => win32::Win32::get_status_str(hwnd, nth, mouse),
+                GetStrConst::STR_ACC_EDIT => acc::Acc::get_edit_str(hwnd, nth, mouse),
+                GetStrConst::STR_ACC_STATIC => acc::Acc::get_static_str(hwnd, nth, mouse),
+                GetStrConst::STR_ACC_CELL => acc::Acc::get_cell_str(hwnd, nth, mouse),
+            };
+            Ok(BuiltinFuncReturnValue::Result(str.into()))
+        } else {
+            Ok(BuiltinFuncReturnValue::Empty)
+        }
+    }
+
+}
+
+pub enum SendStrMode {
+    /// キャレット位置に挿入
+    Append,
+    /// 元の内容を消してから入力
+    Replace,
+    /// キャレット位置に挿入
+    /// ただし1文字ずつ送信
+    OneByOne,
+}
+impl From<i32> for SendStrMode {
+    fn from(n: i32) -> Self {
+        match n {
+            0 => Self::Append,
+            2 => Self::OneByOne,
+            _ => Self::Replace,
+        }
+    }
+}
+
+pub fn sendstr(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let id = args.get_as_int(0, None)?;
+    let str = args.get_as_string(1, None)?;
+    let nth = args.get_as_int(2, Some(0))?;
+    let mode = args.get_as_bool_or_int(3, Some(0))?;
+    let acc = args.get_as_bool_or_int(4, Some(0))?;
+
+    if id == 0 {
+        // クリップボードに挿入
+        Clipboard::new()?.send_str(str);
+    } else {
+        let hwnd = get_hwnd_from_id(id);
+        let mode = SendStrMode::from(mode);
+        match acc {
+            0 => win32::Win32::sendstr(hwnd, nth, str, mode),
+            5 => acc::Acc::sendstr_cell(hwnd, nth, &str, mode), // cell
+            _ => acc::Acc::sendstr(hwnd, nth, &str, mode), // acc
+        };
+    }
+    Ok(BuiltinFuncReturnValue::Empty)
 }

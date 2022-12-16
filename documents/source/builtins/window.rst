@@ -411,6 +411,59 @@ ID0について
     :rtype: 真偽値
     :return: 成功時TRUE、失敗または操作不能時はFALSE
 
+.. function:: sendstr(ID, 文字列, [n番目=1, 送信モード=FALSE, ACC指定=FALSE])
+
+    | エディットボックスに文字列を送信します
+
+    :param 数値 ID: 対象ウィンドウのID
+
+        | 0ならクリップボードに送信 (その場合n番目、送信モード、ACC指定は無視されます)
+
+    :param 文字列 文字列: 送信する文字列
+    :param 数値 n番目: n番目のエディットボックスに送信
+
+        | 0ならフォーカスされたエディットボックス
+
+    :param 真偽値または数値 送信モード:
+
+        .. object:: FALSE または 0
+
+            | 追記
+
+        .. object:: TRUE または 1
+
+            | 置き換え
+
+        .. object:: 2
+
+            | 一文字ずつ送信
+            | ACC時は無視されます (TRUE扱い)
+
+    :param 真偽値または定数 ACC指定:
+
+        .. object:: FALSE または 0
+
+            | APIまたはUIAを使用
+
+        .. object:: TRUE または 1
+
+            | ACCを使用
+
+        .. object:: STR_ACC_CELL
+
+            | DataGridView内のCell値の変更 (ACCを使用)
+
+        .. admonition:: UWSCとの違い
+            :class: note
+
+            | TRUEでも対象ウィンドウをアクティブにしないため、2は廃止されました
+
+    :return: なし
+
+    .. admonition:: サンプルコード
+
+        .. sourcecode:: uwscr
+
 
 ウィンドウ情報取得
 ------------------
@@ -821,7 +874,7 @@ ID0について
     :rtype: 数値
     :return: 取得した値、該当するスライダーがない場合は ``-999999``
 
-.. function:: chkimg(ID, アイテム名, [n番目=1, ACC=FALSE])
+.. function:: chkbtn(ID, アイテム名, [n番目=1, ACC=FALSE])
 
     | ボタン(チェックボックス、ラジオボタン)やメニューのチェック状態を得る
 
@@ -842,7 +895,6 @@ ID0について
             :class: note
 
             | TRUEでも対象ウィンドウをアクティブにしないため、2は廃止されました
-            |
 
     :rtype: 数値またはFALSE
     :return:
@@ -852,6 +904,45 @@ ID0について
         - 1: チェックされている
         - 2: チェックボックスが灰色 (ACCでは判定不可)
         - FALSE: ウィンドウが存在しない
+
+.. function:: getstr(ID, [n番目=1, 種別=STR_EDIT, マウス移動=FALSE])
+
+    | ウィンドウ上の文字列を取得します
+
+    :param 数値 ID: 対象ウィンドウのID
+
+        | 0の場合クリップボードから取得します (その場合以降の引数は無視されます)
+
+    :param 数値 省略可 n番目: n番目に該当するアイテム種別の文字列を得る
+    :param 定数 省略可 種別: 文字列を取得するアイテム種別
+
+        .. object:: STR_EDIT
+
+            | エディットコントロール
+
+        .. object:: STR_STATIC
+
+            | スタティックコントロール
+
+        .. object:: STR_STATUS
+
+            | ステータスバー
+
+        .. object:: STR_ACC_EDIT
+
+            | エディットコントロール等 (ACCで取得)
+
+        .. object:: STR_ACC_STATIC
+
+            | スタティックコントロール (ACCで取得)
+
+        .. object:: STR_ACC_CELL
+
+            | DataGridView内のセルの値
+
+    :param 真偽値 省略可 マウス移動: TRUEなら該当アイテムまでマウス移動
+    :rtype: 文字列またはEMPTY
+    :return: 取得した文字列、対象がない場合はEMPTY
 
 画像検索
 --------

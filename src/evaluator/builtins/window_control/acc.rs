@@ -9,7 +9,7 @@ use windows::{
         UI::{
             WindowsAndMessaging::{
                 STATE_SYSTEM_ALERT_HIGH,STATE_SYSTEM_ALERT_MEDIUM,STATE_SYSTEM_ALERT_LOW,STATE_SYSTEM_ANIMATED,STATE_SYSTEM_BUSY,STATE_SYSTEM_CHECKED,STATE_SYSTEM_COLLAPSED,STATE_SYSTEM_DEFAULT,STATE_SYSTEM_EXPANDED,STATE_SYSTEM_EXTSELECTABLE,STATE_SYSTEM_FLOATING,STATE_SYSTEM_FOCUSED,STATE_SYSTEM_HOTTRACKED,STATE_SYSTEM_LINKED,STATE_SYSTEM_MARQUEED,STATE_SYSTEM_MIXED,STATE_SYSTEM_MOVEABLE,STATE_SYSTEM_MULTISELECTABLE,STATE_SYSTEM_PROTECTED,STATE_SYSTEM_READONLY,STATE_SYSTEM_SELECTABLE,STATE_SYSTEM_SELECTED,STATE_SYSTEM_SELFVOICING,STATE_SYSTEM_SIZEABLE,STATE_SYSTEM_TRAVERSED,
-                OBJID_WINDOW,
+                OBJECT_IDENTIFIER, OBJID_WINDOW,
             },
             Accessibility::{
                 ROLE_SYSTEM_ALERT, ROLE_SYSTEM_ANIMATION, ROLE_SYSTEM_APPLICATION, ROLE_SYSTEM_BORDER, ROLE_SYSTEM_BUTTONDROPDOWN, ROLE_SYSTEM_BUTTONDROPDOWNGRID, ROLE_SYSTEM_BUTTONMENU, ROLE_SYSTEM_CARET, ROLE_SYSTEM_CELL, ROLE_SYSTEM_CHARACTER, ROLE_SYSTEM_CHART, ROLE_SYSTEM_CHECKBUTTON, ROLE_SYSTEM_CLIENT, ROLE_SYSTEM_CLOCK, ROLE_SYSTEM_COLUMN, ROLE_SYSTEM_COLUMNHEADER, ROLE_SYSTEM_COMBOBOX, ROLE_SYSTEM_CURSOR, ROLE_SYSTEM_DIAGRAM, ROLE_SYSTEM_DIAL, ROLE_SYSTEM_DIALOG, ROLE_SYSTEM_DOCUMENT, ROLE_SYSTEM_DROPLIST, ROLE_SYSTEM_EQUATION, ROLE_SYSTEM_GRAPHIC, ROLE_SYSTEM_GRIP, ROLE_SYSTEM_GROUPING, ROLE_SYSTEM_HELPBALLOON, ROLE_SYSTEM_HOTKEYFIELD, ROLE_SYSTEM_INDICATOR, ROLE_SYSTEM_IPADDRESS, ROLE_SYSTEM_LINK, ROLE_SYSTEM_LIST, ROLE_SYSTEM_LISTITEM, ROLE_SYSTEM_MENUBAR, ROLE_SYSTEM_MENUITEM, ROLE_SYSTEM_MENUPOPUP, ROLE_SYSTEM_OUTLINE, ROLE_SYSTEM_OUTLINEBUTTON, ROLE_SYSTEM_OUTLINEITEM, ROLE_SYSTEM_PAGETAB, ROLE_SYSTEM_PAGETABLIST, ROLE_SYSTEM_PANE, ROLE_SYSTEM_PROGRESSBAR, ROLE_SYSTEM_PROPERTYPAGE, ROLE_SYSTEM_PUSHBUTTON, ROLE_SYSTEM_RADIOBUTTON, ROLE_SYSTEM_ROW, ROLE_SYSTEM_ROWHEADER, ROLE_SYSTEM_SCROLLBAR, ROLE_SYSTEM_SEPARATOR, ROLE_SYSTEM_SLIDER, ROLE_SYSTEM_SOUND, ROLE_SYSTEM_SPINBUTTON, ROLE_SYSTEM_SPLITBUTTON, ROLE_SYSTEM_STATICTEXT, ROLE_SYSTEM_STATUSBAR, ROLE_SYSTEM_TABLE, ROLE_SYSTEM_TEXT, ROLE_SYSTEM_TITLEBAR, ROLE_SYSTEM_TOOLBAR, ROLE_SYSTEM_TOOLTIP, ROLE_SYSTEM_WHITESPACE, ROLE_SYSTEM_WINDOW,
@@ -38,8 +38,9 @@ use windows::{
     }
 };
 
-use crate::winapi::{WString, get_class_name, from_wide_string};
+use crate::winapi::{get_class_name, from_wide_string};
 use super::clkitem::{ClkItem, match_title};
+use crate::evaluator::builtins::window_low::move_mouse_to;
 
 #[derive(Debug, Clone)]
 pub struct Acc {
@@ -57,15 +58,22 @@ impl Acc {
         if let HWND(0) = hwnd {
             None
         } else {
-            unsafe {
-                let mut ppvobject = null_mut::<IAccessible>() as *mut c_void;
-                match AccessibleObjectFromWindow(hwnd, OBJID_WINDOW.0 as u32, &IAccessible::IID, &mut ppvobject) {
-                    Ok(_) => {
-                        let obj: IAccessible = transmute(ppvobject);
-                        Some(Acc {obj, id: None, has_child: true })
-                    },
-                    Err(_) => None,
-                }
+            Self::from_hwnd_and_id(hwnd, OBJID_WINDOW)
+        }
+    }
+    fn from_hwnd_and_id(hwnd: HWND, obj_id: OBJECT_IDENTIFIER) -> Option<Self> {
+        unsafe {
+            let mut ppvobject = null_mut::<IAccessible>() as *mut c_void;
+            match AccessibleObjectFromWindow(hwnd, obj_id.0 as u32, &IAccessible::IID, &mut ppvobject) {
+                Ok(_) => {
+                    let obj: IAccessible = transmute(ppvobject);
+                    Some(Acc {obj, id: None, has_child: true })
+                },
+                Err(error) => {
+                    #[cfg(debug_assertions)]
+                    println!("\u{001b}[31m[from_hwnd_and_id] error: {:?}\u{001b}[0m", &error);
+                    None
+                },
             }
         }
     }
@@ -205,7 +213,7 @@ impl Acc {
             false
         }
     }
-    pub fn get_point(&self) -> Option<(i32, i32)>{
+    pub fn get_point(&self, center: bool) -> Option<(i32, i32)>{
         unsafe {
             let varchild = self.get_varchild();
             let mut pxleft = 0;
@@ -213,9 +221,13 @@ impl Acc {
             let mut pcxwidth = 0;
             let mut pcyheight = 0;
             self.obj.accLocation(&mut pxleft, &mut pytop, &mut pcxwidth, &mut pcyheight, &varchild).ok()?;
-            let x = pxleft + pcxwidth / 2;
-            let y = pytop + pcyheight / 2;
-            Some((x, y))
+            if center {
+                let x = pxleft + pcxwidth / 2;
+                let y = pytop + pcyheight / 2;
+                Some((x, y))
+            } else {
+                Some((pxleft, pytop))
+            }
         }
     }
     pub fn get_location(&self, hwnd: HWND) -> Option<Vec<i32>> {
@@ -260,10 +272,21 @@ impl Acc {
     }
     pub fn set_value(&self, value: &str) {
         unsafe {
-            let wide: Vec<u16> = value.to_wide_null_terminated();
-            let szvalue = BSTR::from_wide(&wide);
+            let szvalue = BSTR::from(value);
             let varchild = self.get_varchild();
             let _ = self.obj.put_accValue(&varchild, &szvalue);
+        }
+    }
+    fn append_value(&self, value: &str) {
+        if let Some(old) = self.get_value() {
+            let new = format!("{old}{value}");
+            self.set_value(&new);
+        }
+    }
+    fn get_focused(&self) -> Option<Self> {
+        unsafe {
+            let varchild = self.obj.accFocus().ok()?;
+            self.get_acc_from_varchild(&varchild, true)
         }
     }
 
@@ -437,10 +460,17 @@ impl Acc {
                         if item.target.is_valid_parent_role(&role, &acc) {
                             match role {
                                 AccRole::List => if let Some(found) = acc.search_list(item, order, backwards) {
-                                    return Some(found)
+                                    return Some(found);
                                 }
                                 AccRole::MenuBar => if let Some(found) = acc.search_menu(item, order, backwards, None) {
-                                    return Some(found)
+                                    return Some(found);
+                                },
+                                AccRole::Text |
+                                AccRole::StaticText |
+                                AccRole::Cell => {
+                                    if acc.is_target_text(order, item, &role) {
+                                        return Some(SearchResult::Acc(acc));
+                                    }
                                 },
                                 _ => if let Some(found) = acc.search_child(&role, item, order, backwards, None) {
                                     return Some(found);
@@ -510,7 +540,14 @@ impl Acc {
                                         }
                                     }
                                 }
-                            }
+                            },
+                            AccRole::Text |
+                            AccRole::StaticText |
+                            AccRole::Cell => {
+                                if acc.is_target_text(order, item, &role) {
+                                    return Some(SearchResult::Acc(acc));
+                                }
+                            },
                             _ => continue,
                         }
                     }
@@ -523,7 +560,6 @@ impl Acc {
             }
             None
         }
-
     }
 
     fn search_list(&self, item: &SearchItem, order: &mut u32, backwards: bool) ->  Option<SearchResult> {
@@ -719,6 +755,24 @@ impl Acc {
             None
         }
     }
+    fn is_target_text(&self, order: &mut u32, item: &SearchItem, role: &AccRole) -> bool {
+        if item.target.match_parent(role) {
+            if *order == 0 {
+                // フォーカスしてたらtrue
+                if let Some(state) = self.get_state(None) {
+                    println!("\u{001b}[33m[debug] state: {:?}\u{001b}[0m", &state);
+                    if (state as u32).includes(STATE_SYSTEM_FOCUSED) {
+                        return true;
+                    }
+                }
+            } else {
+                if SearchItem::is_in_exact_order(order) {
+                    return true;
+                }
+            }
+        }
+        false
+    }
 
     fn get_varchildren(&self, backwards: bool) -> Vec<VARIANT> {
         let cnt = self.get_child_count() as usize;
@@ -891,8 +945,54 @@ impl Acc {
         };
         Some(result)
     }
+    fn get_str(hwnd: HWND, role: AccRole, nth: u32, mouse: bool) -> Option<String> {
+        let acc = Self::from_hwnd(hwnd)?;
+        let target = TargetRole {parent: vec![role]};
+        let item = SearchItem::new(String::default(), false, target);
+        let mut order = nth;
+        match acc.search(&item, &mut order, false)? {
+            SearchResult::Acc(acc) => {
+                if mouse {
+                    if let Some((x, y)) = acc.get_point(false) {
+                        move_mouse_to(x+5, y+5);
+                    }
+                }
+                acc.get_item_name()
+            },
+            _ => None
+        }
+    }
+    pub fn get_edit_str(hwnd: HWND, nth: u32, mouse: bool) -> Option<String> {
+        Self::get_str(hwnd, AccRole::Text, nth, mouse)
+    }
+    pub fn get_static_str(hwnd: HWND, nth: u32, mouse: bool) -> Option<String> {
+        Self::get_str(hwnd, AccRole::StaticText, nth, mouse)
+    }
+    pub fn get_cell_str(hwnd: HWND, nth: u32, mouse: bool) -> Option<String> {
+        Self::get_str(hwnd, AccRole::Cell, nth, mouse)
+    }
+    pub fn sendstr(hwnd: HWND, nth: u32, str: &str, mode: super::SendStrMode) {
+        Self::send_str(hwnd, nth, str, mode, AccRole::Text)
+    }
+    pub fn sendstr_cell(hwnd: HWND, nth: u32, str: &str, mode: super::SendStrMode) {
+        Self::send_str(hwnd, nth, str, mode, AccRole::Cell)
+    }
+    fn send_str(hwnd: HWND, nth: u32, str: &str, mode: super::SendStrMode, role: AccRole) {
+        let Some(acc) = Self::from_hwnd(hwnd) else {
+            return;
+        };
+        let target = TargetRole {parent: vec![role]};
+        let item = SearchItem::new(String::default(), false, target);
+        let mut order = nth;
+        if let Some(SearchResult::Acc(acc)) = acc.search(&item, &mut order, false) {
+            match mode {
+                super::SendStrMode::Append => acc.append_value(str),
+                super::SendStrMode::Replace |
+                super::SendStrMode::OneByOne => acc.set_value(str),
+            };
+        }
+    }
 }
-
 
 #[derive(Debug)]
 pub struct AccClickResult(bool, AccClickReason);
@@ -930,10 +1030,10 @@ impl SearchResult {
     }
     pub fn get_point(&self) -> Option<(i32, i32)> {
         match self {
-            SearchResult::Acc(acc) => acc.get_point(),
+            SearchResult::Acc(acc) => acc.get_point(true),
             SearchResult::Group(group) => {
                 if let Some(last) = group.last() {
-                    last.get_point()
+                    last.get_point(true)
                 } else {
                     None
                 }
@@ -990,8 +1090,7 @@ impl SearchItem {
     fn matches(&self, other: &String, order: &mut u32) -> bool {
         if self.group.is_empty() {
             if match_title(other, &self.name, self.short) {
-                *order -= 1;
-                *order < 1
+                Self::is_in_exact_order(order)
             } else {
                 false
             }
@@ -1002,6 +1101,10 @@ impl SearchItem {
                 })
                 .is_some()
         }
+    }
+    fn is_in_exact_order(order: &mut u32) -> bool {
+        *order -= 1;
+        *order < 1
     }
     fn is_group(&self) -> bool {
         ! self.group.is_empty()
@@ -1060,6 +1163,9 @@ impl TargetRole {
                 // 該当親ロールで名前がないものは無視
                 AccRole::Window |
                 AccRole::Client => acc.has_valid_name(),
+                // edit, staticは子の有無をチェックしない
+                AccRole::Text |
+                AccRole::StaticText => return true,
                 // それ以外は名前をチェックしない
                 _ => true,
             };
@@ -1106,6 +1212,9 @@ impl TargetRole {
             }
             // リンク
             AccRole::Client => AccRole::Link.eq(role),
+            AccRole::Text |
+            AccRole::StaticText |
+            AccRole::Cell => true,
             _ => false
         }
     }

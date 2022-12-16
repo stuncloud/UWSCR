@@ -185,6 +185,7 @@ pub enum UErrorKind {
     PrefixError(char),
     ExitExit(i32),
     InitializeError,
+    ClipboardError,
 }
 
 impl fmt::Display for UErrorKind {
@@ -362,6 +363,10 @@ impl fmt::Display for UErrorKind {
                 "初期化エラー",
                 "Initializing error",
             ),
+            Self::ClipboardError => write_locale!(f,
+                "クリップボードエラー",
+                "Clipboard error",
+            ),
         }
     }
 }
@@ -483,6 +488,7 @@ pub enum UErrorMessage {
     InvalidReference,
     InvalidLeftExpression(Expression),
     InvalidRightExpression(Expression),
+    FailedToOpenClipboard
 }
 
 impl fmt::Display for UErrorMessage {
@@ -1000,6 +1006,10 @@ impl fmt::Display for UErrorMessage {
             Self::InvalidRightExpression(e) => write_locale!(f,
                 "式の右辺が不正な式です: {e}",
                 "Expression on the right is invalid: {e}",
+            ),
+            Self::FailedToOpenClipboard => write_locale!(f,
+                "クリップボードが開けませんでした",
+                "Failed to open clipboard",
             ),
         }
     }

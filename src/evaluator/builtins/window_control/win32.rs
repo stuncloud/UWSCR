@@ -1,6 +1,6 @@
 
 use windows::{
-    core::{PWSTR, PSTR},
+    core::{PWSTR, PSTR, HSTRING},
     Win32::{
         Foundation::{
             HWND, WPARAM, LPARAM, BOOL, RECT, HANDLE, POINT,
@@ -21,6 +21,9 @@ use windows::{
                 TB_GETUNICODEFORMAT, TB_BUTTONCOUNT, TB_GETBUTTONTEXTW, TB_GETBUTTONTEXTA, TB_GETITEMRECT, TB_GETBUTTON,
                 // slider
                 TBM_GETRANGEMIN, TBM_GETRANGEMAX, TBM_GETPAGESIZE, TBS_VERT, TBM_SETPOS, TBM_GETTHUMBRECT,
+                SB_GETPARTS, SB_GETRECT, SB_GETTEXTLENGTHW, SB_GETTEXTW,
+                // sendstr
+                EM_REPLACESEL,
             },
             WindowsAndMessaging::{
                 WM_COMMAND,
@@ -43,7 +46,10 @@ use windows::{
                 GetScrollInfo, SCROLLBAR_CONSTANTS, SB_HORZ, SB_VERT, SCROLLINFO, SIF_ALL,
                 GetScrollBarInfo, SCROLLBARINFO, OBJECT_IDENTIFIER, OBJID_HSCROLL, OBJID_VSCROLL,
                 WM_HSCROLL, WM_VSCROLL, SB_THUMBTRACK,
-            }
+                // get/sendstr
+                WM_GETTEXT, WM_GETTEXTLENGTH, WM_CHAR,
+                GetGUIThreadInfo, GUITHREADINFO, WM_SETTEXT,
+            },
         },
         Graphics::Gdi::{ClientToScreen, ScreenToClient},
         System::{
@@ -68,9 +74,10 @@ use crate::winapi::{
 };
 use crate::evaluator::builtins::{
     ThreeState,
+    window_low::move_mouse_to,
 };
 use super::clkitem::{ClkItem, MouseInput, match_title, ClkResult};
-use super::get_process_id_from_hwnd;
+use super::{get_process_id_from_hwnd, get_window_rect};
 
 use std::mem;
 use std::ffi::c_void;
@@ -168,13 +175,30 @@ impl Win32 {
                     TargetClass::TrackBar => {
                         // ここには来ない
                     },
-                    _ => {
+                    TargetClass::Button => {
                         let title = get_window_title(hwnd);
                         if item.matches(&title) {
                             item.found = Some(ItemFound::new(hwnd, target, ItemInfo::None));
                             return false.into();
                         }
+                    },
+                    TargetClass::Edit |
+                    TargetClass::Static => {
+                        if item.is_in_exact_order() {
+                            item.found = Some(ItemFound::new(hwnd, target, ItemInfo::None));
+                            return false.into();
+                        }
+                    },
+                    TargetClass::StatusBar => {
+                        let count = Self::send_message(hwnd, SB_GETPARTS, 0, 0) as usize;
+                        for i in 0..count {
+                            if item.is_in_exact_order() {
+                                item.found = Some(ItemFound::new(hwnd, target, ItemInfo::Index(i)));
+                                return false.into();
+                            }
+                        }
                     }
+                    TargetClass::Other(_) => {},
                 }
             }
             // 子要素のサーチ
@@ -285,9 +309,10 @@ impl Win32 {
                         _ => ClkResult::failed()
                     },
                     TargetClass::ScrollBar |
-                    TargetClass::TrackBar => {
-                        ClkResult::failed()
-                    },
+                    TargetClass::TrackBar |
+                    TargetClass::Edit |
+                    TargetClass::Static |
+                    TargetClass::StatusBar |
                     TargetClass::Other(_) => ClkResult::failed(),
                 }
             }
@@ -491,6 +516,9 @@ impl Win32 {
                     },
                     TargetClass::ScrollBar |
                     TargetClass::TrackBar => ClkResult::failed(),
+                    TargetClass::Edit |
+                    TargetClass::Static |
+                    TargetClass::StatusBar => ClkResult::failed(),
                     TargetClass::Other(_) => ClkResult::failed(),
                 }
             }
@@ -728,6 +756,137 @@ impl Win32 {
             -1
         }
     }
+    pub fn get_edit_str(hwnd: HWND, nth: u32, mouse: bool) -> Option<String> {
+        Self::get_str(hwnd, TargetClass::Edit, nth, mouse)
+    }
+    pub fn get_static_str(hwnd: HWND, nth: u32, mouse: bool) -> Option<String> {
+        Self::get_str(hwnd, TargetClass::Static, nth, mouse)
+    }
+    pub fn get_status_str(hwnd: HWND, nth: u32, mouse: bool) -> Option<String> {
+        Self::get_str(hwnd, TargetClass::StatusBar, nth, mouse)
+    }
+    fn get_str(hwnd: HWND, target: TargetClass, nth: u32, mouse: bool) -> Option<String> {
+        let mut item = SearchItem {
+            name: String::new(),
+            short: false,
+            target: vec![target],
+            order: nth,
+            found: None,
+        };
+        Self::new(hwnd).search(&mut item);
+        match item.found {
+            Some(found) => {
+                let (str, x, y) = match found.target {
+                    TargetClass::Edit => {
+                        let rect = get_window_rect(found.hwnd);
+                        let len = Win32::send_message(found.hwnd, WM_GETTEXTLENGTH, 0, 0) as usize;
+                        let mut buf = vec![0; len + 1];
+                        let str = if Win32::send_message(found.hwnd, WM_GETTEXT, len + 1, buf.as_mut_ptr() as isize) > 0 {
+                            Some(from_wide_string(&buf))
+                        } else {
+                            None
+                        };
+                        (str, rect.x(), rect.y())
+                    },
+                    TargetClass::Static => {
+                        let title = get_window_title(found.hwnd);
+                        let rect = get_window_rect(found.hwnd);
+                        (Some(title), rect.x(), rect.y())
+                    },
+                    TargetClass::StatusBar => {
+                        if let ItemInfo::Index(i) = found.info {
+                            let pid = get_process_id_from_hwnd(hwnd);
+                            let len = Self::send_message(found.hwnd, SB_GETTEXTLENGTHW, i, 0) as usize;
+                            let str = if len > 0 {
+                                let mut buf = [0; 260];
+                                match ProcessMemory::new(pid, None) {
+                                    Some(remote) => {
+                                        Self::send_message(found.hwnd, SB_GETTEXTW, i, remote.pointer as isize);
+                                        remote.read(&mut buf);
+                                        let str = from_wide_string(&buf).trim().to_string();
+                                        Some(str)
+                                    },
+                                    None => None,
+                                }
+                            } else {
+                                None
+                            };
+                            let (x, y) = match ProcessMemory::new(pid, None) {
+                                Some(remote) => {
+                                    Self::send_message(found.hwnd, SB_GETRECT, i, remote.pointer as isize);
+                                    let mut rect = RECT::default();
+                                    remote.read(&mut rect);
+                                    Self::client_to_screen(found.hwnd, rect.left, rect.top)
+                                },
+                                None => (0, 0),
+                            };
+                            (str, x, y)
+                        } else {
+                            (None, 0, 0)
+                        }
+                    },
+                    _ => (None, 0, 0),
+                };
+                if mouse && str.is_some() {
+                    move_mouse_to(x+5, y+5);
+                }
+                str
+            },
+            None => None,
+        }
+    }
+    pub fn sendstr(hwnd: HWND, nth: u32, str: String, mode: super::SendStrMode) {
+        let edit = if nth == 0 {
+            let focused = Self::get_focused_control(hwnd);
+            let class_name = get_class_name(focused).to_ascii_lowercase();
+            if class_name == "edit".to_string() {
+                focused
+            } else {
+                return;
+            }
+        } else {
+            let mut item = SearchItem {
+                name: String::new(),
+                short: false,
+                target: vec![TargetClass::Edit],
+                order: nth,
+                found: None,
+            };
+            Self::new(hwnd).search(&mut item);
+            if let Some(found) = item.found {
+                found.hwnd
+            } else {
+                return;
+            }
+        };
+        let hstring = HSTRING::from(str);
+        let lparam = hstring.as_ptr() as isize;
+        match mode {
+            super::SendStrMode::Append => {
+                Self::send_message(edit, EM_REPLACESEL, 0, lparam);
+            },
+            super::SendStrMode::Replace => {
+                Self::send_message(edit, WM_SETTEXT, 0, lparam);
+            },
+            super::SendStrMode::OneByOne => {
+                let vec = hstring.as_wide()
+                    .into_iter()
+                    .map(|n| *n as usize);
+                for char in vec {
+                    Win32::send_message(edit, WM_CHAR, char, 1);
+                }
+            },
+        }
+    }
+    pub fn get_focused_control(hwnd: HWND) -> HWND {
+        unsafe {
+            let idthread = GetWindowThreadProcessId(hwnd, None);
+            let mut pgui = GUITHREADINFO::default();
+            pgui.cbSize = std::mem::size_of::<GUITHREADINFO>() as u32;
+            GetGUIThreadInfo(idthread, &mut pgui);
+            pgui.hwndFocus
+        }
+    }
 }
 
 enum ListIndex {
@@ -844,6 +1003,9 @@ enum TargetClass {
     Link,
     ScrollBar,
     TrackBar,
+    Edit,
+    Static,
+    StatusBar,
     Other(String),
 }
 
@@ -880,6 +1042,9 @@ impl From<String> for TargetClass {
             "syslink" => Self::Link,
             "scrollbar" => Self::ScrollBar,
             "msctls_trackbar32" => Self::TrackBar,
+            "edit" => Self::Edit,
+            "static" => Self::Static,
+            "msctls_statusbar32" => Self::StatusBar,
             _ => Self::Other(s),
         }
     }
