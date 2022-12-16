@@ -53,19 +53,33 @@ Rustのインストール
          stable-x86_64-pc-windows-msvc (default)
          rustc 1.62.0 (a8314ef7d 2022-06-27)
 
+
+OpenCV
+^^^^^^
+
+| chkimgを含める場合は事前にOpenCVをインストール、または静的リンクライブラリをビルドしておく必要があります
+| インストールした場合はuwscr.exe実行時にopencv_worldXXX.dllを参照できるようにする必要があります
+| ライブラリをビルドした場合はdllは不要です
+| chkimgを含めずビルドする場合はこの項目をスキップしてください
+
+.. _install_opencv:
+
+OpenCVのインストール
+********************
+
+1. `OpenCV <https://github.com/opencv/opencv/releases/latest>`_ で ``opencv-X.Y.Z-vc14_vc15.exe`` をダウンロード
+2. ``opencv-X.Y.Z-vc14_vc15.exe`` を実行し、任意のフォルダに展開
+
 .. _build_opencv:
 
 OpenCVのビルド
-^^^^^^^^^^^^^^
-
-chkimgを含める場合は事前にOpenCVをビルドしておく必要があります
+**************
 
 準備
 ~~~~
 
 1. `OpenCV <https://github.com/opencv/opencv/releases/latest>`_ のソースコードをダウンロードして任意のフォルダに展開
 2. `Cmake <https://cmake.org/download/>`_ をダウンロードしインストール
-3. `LLVM <https://github.com/llvm/llvm-project/releases/latest>`_ で ``LLVM-X.Y.Z-win64.exe`` をダウンロードしてインストール
 
 cmake
 ~~~~~
@@ -166,46 +180,104 @@ msbuild
 1. UWSCRを ``git clone`` し、PowerShellでそのディレクトリへ移動
 2. 以下のコマンドを実行
 
-x64デバッグビルド
-^^^^^^^^^^^^^^^^^
+デバッグビルド
+^^^^^^^^^^^^^^
 
 .. code:: powershell
 
-   cargo build
+    # x64
+    cargo build
 
 .. note:: ``.\target\debug\`` に出力されます
 
-x64リリースビルド
-^^^^^^^^^^^^^^^^^
-
 .. code:: powershell
 
-   cargo build --release
-
-.. note:: ``.\target\release\`` に出力されます
-
-
-x86デバッグビルド
-^^^^^^^^^^^^^^^^^
-
-.. code:: powershell
-
-   cargo build --target=i686-pc-windows-msvc
+    # x86
+    cargo build --target=i686-pc-windows-msvc
 
 .. note:: ``.\target\i686-pc-windows-msvc\debug\`` に出力されます
 
-
-x86リリースビルド
-^^^^^^^^^^^^^^^^^
+リリースビルド
+^^^^^^^^^^^^^^
 
 .. code:: powershell
 
-   cargo build --target=i686-pc-windows-msvc --release
+    # x64
+    cargo build --release
+
+.. note:: ``.\target\release\`` に出力されます
+
+.. code:: powershell
+
+    # x86
+    cargo build --target=i686-pc-windows-msvc --release
 
 .. note:: ``.\target\i686-pc-windows-msvc\release\`` に出力されます
 
 chkimgを含める場合
 ^^^^^^^^^^^^^^^^^^
+
+準備
+****
+
+1. `LLVM <https://github.com/llvm/llvm-project/releases/latest>`_ で ``LLVM-X.Y.Z-win64.exe`` をダウンロードしてインストール
+
+| 以下の環境変数を設定する必要があります
+| 具体的な設定値については後述します
+
+.. object:: OPENCV_INCLUDE_PATHS
+
+        includeフォルダのパス
+
+.. object:: OPENCV_LINK_PATHS
+
+        libファイルのあるパス
+
+.. object:: OPENCV_LINK_LIBS
+
+        読み込むlibファイル
+
+ビルド
+******
+
+``cargo`` 実行時に ``--features chkimg`` を指定しchkimgが含まれるようにします
+
+OpenCVをインストールした場合
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. hint::
+
+   | :ref:`install_opencv` を実行している必要があります
+   | opencvの展開先は ``C:\tools\opencv\`` としています、環境に合わせて適宜読み替えてください
+
+.. caution::
+
+    | この方法ではx86版はビルドできません
+
+以下は環境変数を設定しつつcargoによるビルドを行うPowerShellスクリプトのサンプルです
+
+.. code:: powershell
+
+    # includeフォルダ
+    $env:OPENCV_INCLUDE_PATHS = 'C:\tools\opencv\build\include\'
+    # libファイルのあるフォルダ
+    $env:OPENCV_LINK_PATHS = 'C:\tools\opencv\build\x64\vc15\lib'
+    # 読み込むlibファイル
+    $env:OPENCV_LINK_LIBS = 'opencv_worldXXX'
+    # XXXの部分はopencvのバージョンにより変わります (バージョン4.6.0→460)
+
+    cargo build --features chkimg
+
+.. important::
+
+    | この方法でビルドしたuwscr.exeは ``opencv_worldXXX.dll`` が参照できないと実行できません
+    | 以下のいずれかの方法でdllを参照できるようにしてください
+
+    - ``C:\tools\opencv\build\x64\vc15\bin`` にPATHを通す
+    - ``C:\tools\opencv\build\x64\vc15\bin\opencv_worldXXX.dll`` をuwscr.exeと同じフォルダにコピーする
+
+OpenCVをビルドした場合
+~~~~~~~~~~~~~~~~~~~~~~
 
 .. hint::
 
@@ -217,6 +289,7 @@ chkimgを含める場合
    | VC++ランタイムライブラリを静的リンクしてビルドする場合はopencvビルド時に ``BUILD_WITH_STATIC_CRT`` をオンにします
    | VC++ランタイムライブラリを静的リンクしない場合はopencvビルド時に ``BUILD_WITH_STATIC_CRT`` をオフにします
 
+以下は環境変数を設定しつつcargoによるビルドを行うPowerShellスクリプトのサンプルです
 
 - x64
 
@@ -227,6 +300,7 @@ chkimgを含める場合
        # libファイルのあるフォルダ
        $env:OPENCV_LINK_PATHS = 'C:\tools\opencv64\install\x64\vc16\staticlib'
        # 読み込むlibファイル
+       # 複数ある場合は , で連結する
        $env:OPENCV_LINK_LIBS = @(
            'opencv_coreXXX'
            'opencv_imgcodecsXXX'
@@ -243,6 +317,7 @@ chkimgを含める場合
        ) -join ','
        # XXXの部分はopencvのバージョンにより変わります (バージョン4.6.0→460)
        # libから始まるファイルは先頭にlibを追加する必要があります (libpng→liblibpng)
+
        cargo build --features chkimg
 
 - x86
@@ -265,6 +340,7 @@ chkimgを含める場合
            'liblibwebp'
            'zlib'
        ) -join ','
+
        cargo build --features chkimg --target=i686-pc-windows-msvc
 
 cargoによるテスト実行
