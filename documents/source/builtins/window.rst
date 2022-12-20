@@ -944,6 +944,105 @@ ID0について
     :rtype: 文字列またはEMPTY
     :return: 取得した文字列、対象がない場合はEMPTY
 
+.. function:: getitem(ID, 種別, [n番目=1, 列=1, ディセーブル無視=FALSE, ACC最大取得数=0])
+
+    | ウィンドウ上の文字情報をアイテム種別に取得する
+
+    :param 数値 ID: 対象ウィンドウのID
+    :param 定数 種別: 種類を示す定数、OR連結で複数指定可
+
+        .. object:: ITM_BTN
+
+            ボタン、チェックボックス、ラジオボタン
+
+        .. object:: ITM_LIST
+
+            リストボックス、コンボボックス
+
+        .. object:: ITM_TAB
+
+            タブコントロール
+
+        .. object:: ITM_MENU
+
+            メニュー
+
+        .. object:: ITM_TREEVIEW (ITM_TREEVEW)
+
+            ツリービュー
+
+        .. object:: ITM_LISTVIEW (ITM_LSTVEW)
+
+            リストビュー
+
+        .. object:: ITM_EDIT
+
+            エディットボックス
+
+        .. object:: ITM_STATIC
+
+            スタティックコントロール
+
+        .. object:: ITM_STATUSBAR
+
+            ステータスバー
+
+        .. object:: ITM_TOOLBAR
+
+            ツールバー
+
+        .. object:: ITM_LINK
+
+            リンク
+
+        .. object:: ITM_ACCCLK
+
+            ACCによりクリック可能なもの
+
+        .. object:: ITM_ACCCLK2
+
+            ACCによりクリック可能なもの、選択可能テキスト
+
+        .. object:: ITM_ACCTXT
+
+            ACCスタティックテキスト
+
+        .. object:: ITM_ACCEDIT
+
+            ACCエディット可能テキスト
+
+        .. object:: ITM_FROMLAST
+
+            ACCで検索順序を逆にする (最後のアイテムから取得)
+
+        .. admonition:: UWSCとの違い
+            :class: caution
+
+            | ACCでもウィンドウをアクティブにしないため、ITM_BACKは廃止されました
+
+
+    :param 数値 省略可 n番目: ITM_LIST、ITM_TREEVIEW、ITM_LISTVIEW指定時かつ対象が複数あった場合にいずれを取得するか指定、-1ならすべて取得
+
+        .. hint:: 複数種別同時指定時の処理について
+
+            | ITM_LIST、ITM_TREEVIEW、ITM_LISTVIEWのうち複数を同時に指定した場合、それぞれのn番目を検索します
+
+            .. sourcecode:: uwscr
+
+                // この場合リストまたはコンボボックスの2番目、及びツリービューの2番目をそれぞれ取得します
+                getitem(id, ITM_LIST or ITM_TREEVIEW, 2)
+
+    :param 数値 省略可 列: ITM_LISTVIEW指定時にどの列から取得するかを指定(1から)、0ならすべての列、-1ならカラム名を取得
+    :param 真偽値 省略可 ディセーブル無視: FALSEならディセーブル状態でも取得する、TRUEなら取得しない
+    :param 数値 省略可 ACC最大取得数: ACC指定時に取得するアイテム数の上限を指定、0なら無制限、マイナス指定時は逆順
+    :rtype: 文字列の配列
+    :return: 取得されたアイテム名の配列
+
+        .. admonition:: UWSCとの違い
+            :class: caution
+
+            | ALL_ITEM_LISTは廃止されました
+
 画像検索
 --------
 

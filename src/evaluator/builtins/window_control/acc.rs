@@ -1267,11 +1267,12 @@ impl I32Ext for i32 {
     }
 }
 
-trait U32Ext {
-    fn includes(&self, other: u32) -> bool;
+pub trait U32Ext {
+    fn includes<T: Into<u32>>(&self, other: T) -> bool;
 }
 impl U32Ext for u32{
-    fn includes(&self, other: u32) -> bool {
+    fn includes<T: Into<u32>>(&self, other: T) -> bool {
+        let other: u32 = other.into();
         (self & other) == other
     }
 }

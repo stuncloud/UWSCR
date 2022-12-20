@@ -154,7 +154,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("chkimg", 7, chkimg);
     sets.add("getallwin", 1, getallwin);
     sets.add("getctlhnd", 3, getctlhnd);
-    sets.add("&&getitem", 6, getitem);
+    sets.add("getitem", 6, getitem);
     sets.add("posacc", 4, posacc);
     sets.add("muscur", 0, muscur);
     sets.add("peekcolor", 4, peekcolor);
@@ -1129,23 +1129,29 @@ pub enum GetItemConst {
     ITM_ACCEDIT   = 16777216,
     ITM_FROMLAST  = 65536,
     ITM_BACK      = 512,
-    // UObject (json) ですべての要素を返す
-    ITM_API_ALL   = 1024,
-    ITM_ACC_ALL   = 2097152,
-    ITM_UIA_ALL   = 536870912,
+}
+impl Into<u32> for GetItemConst {
+    fn into(self) -> u32 {
+        ToPrimitive::to_u32(&self).unwrap_or(0)
+    }
 }
 
 pub fn getitem(args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let id = args.get_as_int(0, None::<i32>)?;
+    let id = args.get_as_int(0, None)?;
     let hwnd = get_hwnd_from_id(id);
-    match acc::Acc::from_hwnd(hwnd) {
-        Some(acc) => {
-            let tree = acc.get_all_children();
-            println!("{:#?}", tree);
-        },
-        None => {},
-    }
-    Ok(BuiltinFuncReturnValue::Result(Object::default()))
+    let target = args.get_as_int(1, None)?;
+    let nth = args.get_as_int(2, Some(1))?;
+    let column = args.get_as_int(3, Some(1))?;
+    let ignore_disabled = args.get_as_bool(4, Some(false))?;
+    let _acc_max = args.get_as_int(5, Some(0))?;
+
+    // api
+    let api_items = win32::Win32::getitem(hwnd, target, nth, column, ignore_disabled);
+    // acc
+
+    let arr = api_items.into_iter().map(|s| s.into()).collect();
+
+    Ok(BuiltinFuncReturnValue::Result(Object::Array(arr)))
 }
 
 #[allow(non_camel_case_types)]

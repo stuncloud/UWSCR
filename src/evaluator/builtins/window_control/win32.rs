@@ -24,6 +24,8 @@ use windows::{
                 SB_GETPARTS, SB_GETRECT, SB_GETTEXTLENGTHW, SB_GETTEXTW,
                 // sendstr
                 EM_REPLACESEL,
+                // syslink
+                // LITEM,LM_GETITEM, LIF_ITEMID, LIF_ITEMINDEX, LIF_URL,
             },
             WindowsAndMessaging::{
                 WM_COMMAND,
@@ -49,6 +51,7 @@ use windows::{
                 // get/sendstr
                 WM_GETTEXT, WM_GETTEXTLENGTH, WM_CHAR,
                 GetGUIThreadInfo, GUITHREADINFO, WM_SETTEXT,
+                // GetWindowTextW, GetWindowTextLengthW,
             },
         },
         Graphics::Gdi::{ClientToScreen, ScreenToClient},
@@ -78,6 +81,7 @@ use crate::evaluator::builtins::{
 };
 use super::clkitem::{ClkItem, MouseInput, match_title, ClkResult};
 use super::{get_process_id_from_hwnd, get_window_rect};
+use super::acc::U32Ext;
 
 use std::mem;
 use std::ffi::c_void;
@@ -118,7 +122,6 @@ impl Win32 {
             let item = &mut *(lparam.0 as *mut SearchItem);
             let class = get_class_name(hwnd);
             let target = TargetClass::from(class);
-            // println!("\u{001b}[33m[debug] target: {:#?}\u{001b}[0m", &target);
             if item.target.contains(&target) {
                 match target {
                     TargetClass::ComboBox => {
@@ -159,9 +162,6 @@ impl Win32 {
                             return false.into();
                         }
                     },
-                    // TargetClass::ListViewHeader => {
-                    //     todo!()
-                    // },
                     TargetClass::ToolBar => {
                         Self::search_toolbar(hwnd, item);
                         if item.found.is_some() {
@@ -201,11 +201,6 @@ impl Win32 {
                     TargetClass::Other(_) => {},
                 }
             }
-            // 子要素のサーチ
-            EnumChildWindows(hwnd, Some(Self::enum_child_callback), lparam);
-            if item.found.is_some() {
-                return false.into();
-            }
             true.into()
         }
     }
@@ -242,11 +237,6 @@ impl Win32 {
                     }
                 }
             }
-        }
-        // 子要素のサーチ
-        EnumChildWindows(hwnd, Some(Self::slider_callback), lparam);
-        if item.found.is_some() {
-            return false.into();
         }
         true.into()
     }
@@ -565,6 +555,17 @@ impl Win32 {
             GetDlgCtrlID(hwnd)
         }
     }
+    fn get_text(hwnd: HWND) -> Option<String> {
+        let len = Win32::send_message(hwnd, WM_GETTEXTLENGTH, 0, 0);
+        if len > 0 {
+            let mut buf = vec![0; len as usize + 1];
+            let size = Win32::send_message(hwnd, WM_GETTEXT, buf.len(), buf.as_mut_ptr() as isize);
+            let text = String::from_utf16_lossy(&buf[..size as usize]);
+            Some(text)
+        } else {
+            None
+        }
+    }
     fn search_combo_box(hwnd: HWND, item: &mut SearchItem) -> ListIndex {
         Self::search_list(hwnd, item, CB_GETCOUNT, CB_GETLBTEXTLEN, CB_GETLBTEXT)
     }
@@ -639,10 +640,10 @@ impl Win32 {
     fn search_tab(hwnd: HWND, item: &mut SearchItem) -> Option<usize> {
         let count = Self::send_message(hwnd, TCM_GETITEMCOUNT, 0, 0);
         let tab_ctrl = TabControl::new(hwnd)?;
-        for i in 0..count as usize {
-            if let Some(name) = tab_ctrl.get_name(i) {
+        for i in 0..count {
+            if let Some(name) = tab_ctrl.get_name(i as usize) {
                 if item.matches(name.trim_end_matches("\0")) {
-                    return Some(i);
+                    return Some(i as usize);
                 }
             }
         }
@@ -887,6 +888,105 @@ impl Win32 {
             pgui.hwndFocus
         }
     }
+
+    // getitem
+
+    pub fn getitem(hwnd: HWND, target: u32, nth: i32, column: i32, ignore_disabled: bool) -> Vec<String> {
+        let mut gi = GetItem::new(target, nth, column, ignore_disabled);
+        if gi.target.contains(&TargetClass::Menu) {
+            Menu::new(hwnd).get_names(None, &mut gi);
+        }
+        let lparam = LPARAM(&mut gi as *mut GetItem as isize);
+        unsafe {
+            EnumChildWindows(hwnd, Some(Self::getitem_callback), lparam);
+        }
+        gi.found
+    }
+    unsafe extern "system"
+    fn getitem_callback(hwnd: HWND, lparam: LPARAM) -> BOOL {
+        if let HWND(0) = hwnd {
+            false.into()
+        } else {
+            let gi = &mut *(lparam.0 as *mut GetItem);
+            if Self::is_disabled(hwnd) && gi.ignore_disabled {
+                // ディセーブル無視で対象がdisabledなら次へ
+                return true.into();
+            }
+            let class = TargetClass::from(get_class_name(hwnd));
+            if gi.target.contains(&class) {
+                match class {
+                    TargetClass::Button => {
+                        gi.add(get_window_title(hwnd));
+                    },
+                    TargetClass::List => {
+                        if gi.is_nth_list() {
+                            for i in 0..Self::send_message(hwnd, LB_GETCOUNT, 0, 0) {
+                                let len = Self::send_message(hwnd, LB_GETTEXTLEN, i as usize, 0);
+                                if len > 0 {
+                                    let mut buf = vec![0; len as usize];
+                                    let len = Self::send_message(hwnd, LB_GETTEXT, i as usize, buf.as_mut_ptr() as isize);
+                                    let name = String::from_utf16_lossy(&buf[0..len as usize]);
+                                    gi.add(name);
+                                }
+                            }
+                        }
+                    },
+                    TargetClass::ComboBox => {
+                        if gi.is_nth_list() {
+                            for i in 0..Self::send_message(hwnd, CB_GETCOUNT, 0, 0) {
+                                let len = Self::send_message(hwnd, CB_GETLBTEXTLEN, i as usize, 0);
+                                if len > 0 {
+                                    let mut buf = vec![0; len as usize];
+                                    let len = Self::send_message(hwnd, CB_GETLBTEXT, i as usize, buf.as_mut_ptr() as isize);
+                                    let name = String::from_utf16_lossy(&buf[0..len as usize]);
+                                    gi.add(name);
+                                }
+                            }
+                        }
+                    },
+                    TargetClass::Tab => {
+                        if let Some(tab) = TabControl::new(hwnd) {
+                            for i in 0..Self::send_message(hwnd, TCM_GETITEMCOUNT, 0, 0) {
+                                if let Some(name) = tab.get_name(i as usize) {
+                                    gi.add(name);
+                                }
+                            }
+                        }
+                    },
+                    TargetClass::Menu => {},
+                    TargetClass::TreeView => {
+                        if gi.is_nth_treeview() {
+                            if let Some(tv) = TreeView::new(hwnd) {
+                                tv.get_names(None, gi);
+                            }
+                        }
+                    },
+                    TargetClass::ListView => {
+                        if gi.is_nth_listview() {
+                            if let Some(lv) = ListView::new(hwnd) {
+                                lv.get_names(gi);
+                            }
+                        }
+                    },
+                    TargetClass::ToolBar => {
+                        if let Some(tb) = ToolBar::new(hwnd) {
+                            tb.get_names(gi);
+                        }
+                    },
+                    TargetClass::Link => {
+                        SysLink::new(hwnd).get_names(gi);
+                    },
+                    TargetClass::ScrollBar => todo!(),
+                    TargetClass::TrackBar => todo!(),
+                    TargetClass::Edit => todo!(),
+                    TargetClass::Static => todo!(),
+                    TargetClass::StatusBar => todo!(),
+                    TargetClass::Other(_) => todo!(),
+                }
+            }
+            true.into()
+        }
+    }
 }
 
 enum ListIndex {
@@ -989,22 +1089,118 @@ enum ItemInfo {
     ScrollBar(SCROLLINFO, SCROLLBAR_CONSTANTS, (i32, i32)),
 }
 
+struct GetItem {
+    /// 取得対象クラス
+    target: Vec<TargetClass>,
+    /// リスト、リストビュー、ツリービューでn番目を取得、-1なら全部
+    nth_list: i32,
+    nth_listview: i32,
+    nth_treevie: i32,
+    /// リストビューのカラム、0ならカラム名
+    column: i32,
+    /// ディセーブルは無視
+    ignore_disabled: bool,
+    /// 見つかった文字列
+    found: Vec<String>,
+}
+impl GetItem {
+    fn new(t: u32, nth: i32, column: i32, ignore_disabled: bool) -> Self {
+        use super::GetItemConst;
+        let mut target = vec![];
+        if t.includes(GetItemConst::ITM_BTN) {target.push(TargetClass::Button);}
+        if t.includes(GetItemConst::ITM_LIST) {
+            target.push(TargetClass::List);
+            target.push(TargetClass::ComboBox);
+        }
+        if t.includes(GetItemConst::ITM_TAB) {target.push(TargetClass::Tab);}
+        if t.includes(GetItemConst::ITM_MENU) {target.push(TargetClass::Menu);}
+        if t.includes(GetItemConst::ITM_TREEVIEW) {target.push(TargetClass::TreeView);}
+        if t.includes(GetItemConst::ITM_LISTVIEW) {target.push(TargetClass::ListView);}
+        if t.includes(GetItemConst::ITM_EDIT) {target.push(TargetClass::Edit);}
+        if t.includes(GetItemConst::ITM_STATIC) {target.push(TargetClass::Static);}
+        if t.includes(GetItemConst::ITM_STATUSBAR) {target.push(TargetClass::StatusBar);}
+        if t.includes(GetItemConst::ITM_TOOLBAR) {target.push(TargetClass::ToolBar);}
+        if t.includes(GetItemConst::ITM_LINK) {target.push(TargetClass::Link);}
+        let nth_list = nth;
+        let nth_listview = nth;
+        let nth_treevie = nth;
+        Self { target, column, ignore_disabled, found: vec![], nth_list, nth_listview, nth_treevie }
+    }
+
+    fn add(&mut self, name: String) {
+        if name.len() > 0 {
+            self.found.push(name)
+        }
+    }
+    fn is_nth_list(&mut self) -> bool {
+        if self.nth_list < 0 {
+            // -1以下なら必ずtrue
+            true
+        } else if self.nth_list > 0 {
+            // 1以上なら1引いて0になれば該当のもの
+            self.nth_list -= 1;
+            self.nth_list == 0
+        } else {
+            // 0の場合
+            false
+        }
+    }
+    fn is_nth_listview(&mut self) -> bool {
+        if self.nth_listview < 0 {
+            // -1以下なら必ずtrue
+            true
+        } else if self.nth_listview > 0 {
+            // 1以上なら1引いて0になれば該当のもの
+            self.nth_listview -= 1;
+            self.nth_listview == 0
+        } else {
+            // 0の場合
+            false
+        }
+    }
+    fn is_nth_treeview(&mut self) -> bool {
+        if self.nth_treevie < 0 {
+            // -1以下なら必ずtrue
+            true
+        } else if self.nth_treevie > 0 {
+            // 1以上なら1引いて0になれば該当のもの
+            self.nth_treevie -= 1;
+            self.nth_treevie == 0
+        } else {
+            // 0の場合
+            false
+        }
+    }
+}
+
 #[derive(Debug, PartialEq)]
 enum TargetClass {
+    /// button
     Button,
+    /// listbox
     List,
+    /// combobox
     ComboBox,
+    /// systabcontrol32
     Tab,
     Menu,
+    /// systreeview32
     TreeView,
+    /// syslistview32
     ListView,
-    // ListViewHeader,
+    /// toolbarwindow32
     ToolBar,
+    /// syslink
     Link,
+    /// scrollbar
     ScrollBar,
+    /// msctls_trackbar32
     TrackBar,
+    /// edit
     Edit,
+    /// static
     Static,
+    /// msctls_statusbar32
     StatusBar,
     Other(String),
 }
@@ -1037,7 +1233,6 @@ impl From<String> for TargetClass {
             "#32768" => Self::Menu,
             "systreeview32" => Self::TreeView,
             "syslistview32" => Self::ListView,
-            // "sysheader32" => Self::ListViewHeader,
             "toolbarwindow32" => Self::ToolBar,
             "syslink" => Self::Link,
             "scrollbar" => Self::ScrollBar,
@@ -1080,14 +1275,20 @@ struct ProcessMemory<T> {
 
 impl<T> ProcessMemory<T> {
     fn new(pid: u32, value: Option<&T>) -> Option<Self> {
+        let maybe_pm = Self::new2(pid, mem::size_of::<T>());
+        if let Some(value) = value {
+            if let Some(pm) = &maybe_pm {
+                pm.write(value);
+            }
+        }
+        maybe_pm
+    }
+    fn new2(pid: u32, dwsize: usize) -> Option<Self> {
         unsafe {
             let dwdesiredaccess = PROCESS_VM_READ|PROCESS_VM_WRITE|PROCESS_VM_OPERATION|PROCESS_QUERY_INFORMATION;
             let hprocess = OpenProcess(dwdesiredaccess, false, pid).ok()?;
-            let pointer = VirtualAllocEx(hprocess, None, mem::size_of::<T>(), MEM_COMMIT, PAGE_READWRITE);
+            let pointer = VirtualAllocEx(hprocess, None, dwsize, MEM_COMMIT, PAGE_READWRITE);
             let pm = Self { hprocess, pointer, phantom: PhantomData };
-            if let Some(value) = value {
-                pm.write(value);
-            }
             Some(pm)
         }
     }
@@ -1279,6 +1480,19 @@ impl Menu {
             }
         }
     }
+    fn get_names(&self, hmenu: Option<HMENU>, gi: &mut GetItem) {
+        unsafe {
+            let hmenu = hmenu.unwrap_or(GetMenu(self.hwnd));
+            for npos in 0..GetMenuItemCount(hmenu) {
+                let (name, _) = self.get_name_and_check(hmenu, npos as u32);
+                gi.add(name);
+                let sub = GetSubMenu(hmenu, npos);
+                if ! sub.is_invalid() {
+                    self.get_names(Some(sub), gi);
+                }
+            }
+        }
+    }
     fn get_name_and_check(&self, hmenu: HMENU, npos: u32) -> (String, bool) {
         if self.is_unicode {
             Self::get_name_w(hmenu, npos)
@@ -1347,8 +1561,7 @@ impl TreeView {
                 item.found = Some(ItemFound::new(self.hwnd, TargetClass::TreeView, ItemInfo::HItem(hitem, self.pid)));
             } else {
                 // 子を探す
-                let child = self.get_child(hitem);
-                if child != 0 {
+                if let Some(child) = self.get_child(hitem) {
                     self.search(item, Some(child), Some(new_path));
                     if item.found.is_some() {
                         // 子から見つかれば終了
@@ -1356,21 +1569,34 @@ impl TreeView {
                     }
                 }
                 // 次の要素を探す
-                let next = self.get_next(hitem);
-                if next != 0 {
+                if let Some(next) = self.get_next(hitem) {
                     self.search(item, Some(next), path);
                 }
+            }
+        }
+    }
+    fn get_names(&self, hitem: Option<isize>, gi: &mut GetItem) {
+        let hitem = hitem.unwrap_or(self.get_root());
+        if let Some(name) = self.get_name(hitem) {
+            gi.add(name);
+            if let Some(child) = self.get_child(hitem) {
+                self.get_names(Some(child), gi);
+            }
+            if let Some(next) = self.get_next(hitem) {
+                self.get_names(Some(next), gi);
             }
         }
     }
     fn get_root(&self) -> isize {
         Win32::send_message(self.hwnd, TVM_GETNEXTITEM, TVGN_ROOT as usize, 0)
     }
-    fn get_child(&self, hitem: isize) -> isize {
-        Win32::send_message(self.hwnd, TVM_GETNEXTITEM, TVGN_CHILD as usize, hitem)
+    fn get_child(&self, hitem: isize) -> Option<isize> {
+        let h = Win32::send_message(self.hwnd, TVM_GETNEXTITEM, TVGN_CHILD as usize, hitem);
+        if h != 0 { Some(h) } else { None }
     }
-    fn get_next(&self, hitem: isize) -> isize {
-        Win32::send_message(self.hwnd, TVM_GETNEXTITEM, TVGN_NEXT as usize, hitem)
+    fn get_next(&self, hitem: isize) -> Option<isize> {
+        let h = Win32::send_message(self.hwnd, TVM_GETNEXTITEM, TVGN_NEXT as usize, hitem);
+        if h != 0 { Some(h) } else { None }
     }
     fn get_point(hwnd: HWND, pid: u32, hitem: isize) -> Option<(i32, i32)> {
         let mut rect = RECT::default();
@@ -1503,6 +1729,36 @@ impl ListView {
                         let info = ItemInfo::ListView(row as i32, column as i32, self.clone());
                         item.found = Some(ItemFound::new(self.hwnd, TargetClass::ListView, info));
                         break 'row;
+                    }
+                }
+            }
+        }
+    }
+    fn get_names(&self, gi: &mut GetItem) {
+        let column = gi.column;
+        let header  = Win32::send_message(self.hwnd, LVM_GETHEADER, 0, 0);
+        let hwnd = HWND(header);
+        let columns = Win32::send_message(hwnd, HDM_GETITEMCOUNT, 0, 0);
+        if column < 0 {
+            // ヘッダ名
+            for index in 0..columns {
+                if let Some(name) = self.get_header_name(hwnd, index as i32) {
+                    gi.add(name);
+                }
+            }
+        } else {
+            let rows = Win32::send_message(self.hwnd, LVM_GETITEMCOUNT, 0, 0);
+            for row in 0..rows {
+                if column == 0 {
+                    for index in 0..columns {
+                        if let Some(name) = self.get_name(row, index) {
+                            gi.add(name);
+                        }
+                    }
+                } else {
+                    let index = column as isize - 1;
+                    if let Some(name) = self.get_name(row, index) {
+                        gi.add(name);
                     }
                 }
             }
@@ -1727,6 +1983,15 @@ impl ToolBar {
             }
         }
     }
+    fn get_names(&self, gi: &mut GetItem) {
+        let cnt = Win32::send_message(self.hwnd, TB_BUTTONCOUNT, 0, 0);
+        for i in 0..cnt as usize {
+            let id = self.get_id(i);
+            if let Some(name) = self.get_name(id) {
+                gi.add(name);
+            }
+        }
+    }
     fn get_id(&self, index: usize) -> usize {
         // id取得を試みる、失敗したらインデックスをそのまま返す
         match self.target_arch {
@@ -1942,5 +2207,29 @@ impl Slider {
         info.cbSize = std::mem::size_of::<SCROLLBARINFO>() as u32;
         GetScrollBarInfo(hwnd, idobject, &mut info);
         (info.rcScrollBar.left, info.rcScrollBar.top)
+    }
+}
+
+struct SysLink {
+    hwnd: HWND,
+    // pid: u32,
+}
+
+impl SysLink {
+    fn new(hwnd: HWND) -> Self {
+        // let pid = get_process_id_from_hwnd(hwnd);
+        // Self { hwnd, pid }
+        Self { hwnd }
+    }
+    fn get_names(&self, gi: &mut GetItem) {
+        if let Some(text) = Win32::get_text(self.hwnd) {
+            let fragment = scraper::Html::parse_fragment(&text);
+            if let Ok(selector) = scraper::Selector::parse("a") {
+                for element in fragment.select(&selector) {
+                    let name = element.text().collect();
+                    gi.add(name);
+                }
+            }
+        }
     }
 }
