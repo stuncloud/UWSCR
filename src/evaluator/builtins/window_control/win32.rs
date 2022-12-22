@@ -190,7 +190,7 @@ impl Win32 {
                         }
                     },
                     TargetClass::StatusBar => {
-                        let count = Self::send_message(hwnd, SB_GETPARTS, 0, 0) as usize;
+                        let count = StatusBar::new(hwnd).count();
                         for i in 0..count {
                             if item.is_in_exact_order() {
                                 item.found = Some(ItemFound::new(hwnd, target, ItemInfo::Index(i)));
@@ -796,29 +796,10 @@ impl Win32 {
                     },
                     TargetClass::StatusBar => {
                         if let ItemInfo::Index(i) = found.info {
-                            let pid = get_process_id_from_hwnd(hwnd);
-                            let len = Self::send_message(found.hwnd, SB_GETTEXTLENGTHW, i, 0) as usize;
-                            let str = if len > 0 {
-                                let mut buf = [0; 260];
-                                match ProcessMemory::new(pid, None) {
-                                    Some(remote) => {
-                                        Self::send_message(found.hwnd, SB_GETTEXTW, i, remote.pointer as isize);
-                                        remote.read(&mut buf);
-                                        let str = from_wide_string(&buf).trim().to_string();
-                                        Some(str)
-                                    },
-                                    None => None,
-                                }
-                            } else {
-                                None
-                            };
-                            let (x, y) = match ProcessMemory::new(pid, None) {
-                                Some(remote) => {
-                                    Self::send_message(found.hwnd, SB_GETRECT, i, remote.pointer as isize);
-                                    let mut rect = RECT::default();
-                                    remote.read(&mut rect);
-                                    Self::client_to_screen(found.hwnd, rect.left, rect.top)
-                                },
+                            let sb = StatusBar::new(found.hwnd);
+                            let str = sb.get_str(i);
+                            let (x, y) = match sb.get_rect(i) {
+                                Some(rect) => Self::client_to_screen(found.hwnd, rect.left, rect.top),
                                 None => (0, 0),
                             };
                             (str, x, y)
@@ -953,7 +934,6 @@ impl Win32 {
                             }
                         }
                     },
-                    TargetClass::Menu => {},
                     TargetClass::TreeView => {
                         if gi.is_nth_treeview() {
                             if let Some(tv) = TreeView::new(hwnd) {
@@ -976,12 +956,20 @@ impl Win32 {
                     TargetClass::Link => {
                         SysLink::new(hwnd).get_names(gi);
                     },
-                    TargetClass::ScrollBar => todo!(),
-                    TargetClass::TrackBar => todo!(),
-                    TargetClass::Edit => todo!(),
-                    TargetClass::Static => todo!(),
-                    TargetClass::StatusBar => todo!(),
-                    TargetClass::Other(_) => todo!(),
+                    TargetClass::Edit |
+                    TargetClass::Static => {
+                        if let Some(text) = Self::get_text(hwnd) {
+                            gi.add(text);
+                        }
+                    },
+                    TargetClass::StatusBar => {
+                        StatusBar::new(hwnd).get_names(gi);
+                    },
+                    // なにもしない
+                    TargetClass::Menu |
+                    TargetClass::ScrollBar |
+                    TargetClass::TrackBar |
+                    TargetClass::Other(_) => {},
                 }
             }
             true.into()
@@ -2229,6 +2217,49 @@ impl SysLink {
                     let name = element.text().collect();
                     gi.add(name);
                 }
+            }
+        }
+    }
+}
+
+struct StatusBar {
+    hwnd: HWND,
+    pid: u32,
+}
+impl StatusBar {
+    fn new(hwnd: HWND) -> Self {
+        let pid = get_process_id_from_hwnd(hwnd);
+        Self { hwnd, pid }
+    }
+    fn count(&self) -> usize {
+        Win32::send_message(self.hwnd, SB_GETPARTS, 0, 0) as usize
+    }
+    fn get_str(&self, index: usize) -> Option<String> {
+        let len = Win32::send_message(self.hwnd, SB_GETTEXTLENGTHW, index, 0);
+        let len = len as usize & 0xFFFF; // 下位WORDがサイズ
+        if len > 0 {
+            let mut buf = [0u16; 260];
+            let remote = ProcessMemory::new(self.pid, None)?;
+            let len = Win32::send_message(self.hwnd, SB_GETTEXTW, index, remote.pointer as isize);
+            let len = len as usize & 0xFFFF; // 下位WORDがサイズ
+            remote.read(&mut buf);
+            let str = String::from_utf16_lossy(&buf[..len]).trim().to_string();
+            Some(str)
+        } else {
+            None
+        }
+    }
+    fn get_rect(&self, index: usize) -> Option<RECT> {
+        let mut rect = RECT::default();
+        let remote = ProcessMemory::new(self.pid, None)?;
+        Win32::send_message(self.hwnd, SB_GETRECT, index, remote.pointer as isize);
+        remote.read(&mut rect);
+        Some(rect)
+    }
+    fn get_names(&self, gi: &mut GetItem) {
+        for index in 0..self.count() {
+            if let Some(name) = self.get_str(index) {
+                gi.add(name);
             }
         }
     }
