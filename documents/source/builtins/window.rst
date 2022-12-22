@@ -1041,7 +1041,31 @@ ID0について
         .. admonition:: UWSCとの違い
             :class: caution
 
-            | ALL_ITEM_LISTは廃止されました
+            | 戻り値が配列になったため ``ALL_ITEM_LIST`` は廃止されました
+
+            .. sourcecode:: uwscr
+
+                items = getitem(id, ITM_BTN)
+                // 個数を得る
+                print length(items)
+                // アイテム名の表示
+                for item in items
+                    print item
+                next
+
+            | また、空の文字列は結果に含まれなくなりました
+
+            .. sourcecode:: uwscr
+
+                // UWSCでは空文字を1つ目のアイテムとして出力していましたが、UWSCRでは空文字はスキップされます
+                i = 0
+                for item in getitem(getid('ファイル名を指定して実行'), ITM_STATIC)
+                    i += 1
+                    print "<#i>: <#item>"
+                next
+                // 結果
+                // 1: 実行するプログラム名、または開くフォルダーやドキュメント名、インターネット リソース名を入力してください。
+                // 2: 名前(&O):
 
 画像検索
 --------
