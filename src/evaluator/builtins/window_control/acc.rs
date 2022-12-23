@@ -49,7 +49,7 @@ pub struct Acc {
     has_child: bool,
 }
 
-#[allow(unused)]
+// #[allow(unused)]
 impl Acc {
     pub fn new(obj: IAccessible, id: i32) -> Self {
         Self { obj, id: Some(id), has_child: false }
@@ -102,6 +102,17 @@ impl Acc {
     }
     fn has_child(&self) -> bool {
         self.has_child && self.get_child_count() > 0
+    }
+    fn get_parent(&self) -> Option<Self> {
+        unsafe {
+            if let Ok(disp) = self.obj.accParent() {
+                disp.cast()
+                    .ok()
+                    .map(|obj| Self { obj, id: None, has_child: true })
+            } else {
+                None
+            }
+        }
     }
     fn get_varchild(&self) -> VARIANT {
         self.id.unwrap_or(0).into_variant()
@@ -270,276 +281,51 @@ impl Acc {
                     .ok()
         }
     }
-    pub fn set_value(&self, value: &str) {
+    pub fn set_value(&self, value: &str) -> bool {
         unsafe {
             let szvalue = BSTR::from(value);
             let varchild = self.get_varchild();
-            let _ = self.obj.put_accValue(&varchild, &szvalue);
+            self.obj.put_accValue(&varchild, &szvalue).is_ok()
         }
     }
-    fn append_value(&self, value: &str) {
+    fn append_value(&self, value: &str) -> bool {
         if let Some(old) = self.get_value() {
             let new = format!("{old}{value}");
-            self.set_value(&new);
+            self.set_value(&new)
+        } else {
+            false
         }
     }
-    fn get_focused(&self) -> Option<Self> {
+    fn _get_focused(&self) -> Option<Self> {
         unsafe {
             let varchild = self.obj.accFocus().ok()?;
             self.get_acc_from_varchild(&varchild, true)
         }
     }
 
-    pub fn get_acc_static_text(&self) -> Vec<Self> {
-        self.get_children(AccType::StaticText)
-    }
-    pub fn get_acc_click(&self) -> Vec<Self> {
-        self.get_children(AccType::Clickable(false))
-    }
-    pub fn get_acc_click2(&self) -> Vec<Self> {
-        self.get_children(AccType::Clickable(true))
-    }
-    pub fn get_acc_edit(&self) -> Vec<Self> {
-        self.get_children(AccType::Editable)
-    }
-    pub fn get_acc_all(&self) -> Vec<Self> {
-        self.get_children(AccType::Any)
-    }
-
-    fn get_classname(&self) -> Option<String> {
+    fn _get_classname(&self) -> Option<String> {
         let hwnd = self.get_hwnd()?;
         let class_name = get_class_name(hwnd);
         Some(class_name)
     }
 
-    pub fn get_children(&self, acc_type: AccType) -> Vec<Self> {
-        let mut children = vec![];
-        self.enum_children(&mut children, &acc_type);
-        children
-    }
-    pub fn get_all_children(&self) -> AccTree {
-        unsafe {
-            let mut tree = AccTree::from_acc(self);
-            let cnt = self.get_child_count() as usize;
-            if cnt > 0 {
-                let mut rgvarchildren: Vec<VARIANT> = Vec::with_capacity(cnt);
-                rgvarchildren.resize(cnt, VARIANT::default());
-                let mut pcobtained = 0;
-                if AccessibleChildren(&self.obj, 0, &mut rgvarchildren, &mut pcobtained).is_err() {
-                    return tree;
-                }
-                for variant in rgvarchildren {
-                    let variant00 = &variant.Anonymous.Anonymous;
-                    match variant00.vt {
-                        VT_I4 => {
-                            let id = variant00.Anonymous.lVal;
-                            match self.obj.get_accChild(&variant) {
-                                Ok(disp) => {
-                                    if let Some(acc) = Self::from_idispatch(disp, id) {
-                                        let branch = acc.get_all_children();
-                                        tree.push(branch);
-                                    }
-                                },
-                                Err(e) => {
-                                    if let HRESULT(0) = e.code() {
-                                        let acc = Self::new(self.obj.to_owned(), id);
-                                        if acc.is_visible(Some(&variant)).unwrap_or(false) {
-                                            let leaf = AccTree::from_acc(&acc);
-                                            tree.push(leaf);
-                                        }
-                                    }
-                                },
-                            }
-                        },
-                        VT_DISPATCH => {
-                            if let Some(acc) = Self::from_pdispval(&variant00.Anonymous.pdispVal) {
-                                let branch = acc.get_all_children();
-                                tree.push(branch);
-                            }
-                        },
-                        _ => {},
-                    }
-                }
-            }
-            tree
-        }
-    }
-    fn enum_children(&self, children: &mut Vec<Self>, acc_type: &AccType) {
-        unsafe {
-            let cnt = self.get_child_count() as usize;
-            if cnt > 0 {
-                println!("\u{001b}[31mparent: \u{001b}[36m{:?} \u{001b}[33m{:?}\u{001b}[0m", self.get_name(), self.get_role());
-                let mut rgvarchildren: Vec<VARIANT> = Vec::with_capacity(cnt);
-                rgvarchildren.resize(cnt, VARIANT::default());
-                let mut pcobtained = 0;
-                if AccessibleChildren(&self.obj, 0, &mut rgvarchildren, &mut pcobtained).is_err() {
-                    return;
-                }
-
-                for variant in rgvarchildren {
-                    let variant00 = &variant.Anonymous.Anonymous;
-                    let maybe_acc = match variant00.vt {
-                        VT_I4 => {
-                            let id = variant00.Anonymous.lVal;
-                            match self.obj.get_accChild(&variant) {
-                                Ok(disp) => {
-                                    Self::from_idispatch(disp, id)
-                                },
-                                Err(e) => {
-                                    if let HRESULT(0) = e.code() {
-                                        let acc = Self::new(self.obj.to_owned(), id);
-                                        if acc.is_valid_type(acc_type).unwrap_or(false) {
-                                            println!("child1: \u{001b}[36m{:?} \u{001b}[33m{:?}\u{001b}[0m", acc.get_name(), acc.get_role());
-                                            children.push(acc);
-                                        }
-                                    }
-                                    None
-                                },
-                            }
-                        },
-                        VT_DISPATCH => {
-                            Self::from_pdispval(&variant00.Anonymous.pdispVal)
-                        },
-                        _ => None,
-                    };
-
-                    if let Some(acc) = maybe_acc {
-                        println!("\u{001b}[32mchild2: \u{001b}[36m{:?} \u{001b}[33m{:?}\u{001b}[0m {:?}", acc.get_name(), acc.get_role(), acc.get_value());
-                        if acc.is_valid_type(acc_type).unwrap_or(false) {
-                            children.push(acc.clone());
-                        }
-                        acc.enum_children(children, acc_type);
-                    }
-                }
-            }
-        }
-    }
-    fn is_valid_type(&self, acc_type: &AccType) -> Option<bool> {
-        let role = self.get_role()?;
-        let is_valid = match acc_type {
-            AccType::StaticText => {
-                role == AccRole::StaticText
-            },
-            AccType::Clickable(include_selectable_text) => match role {
-                AccRole::ButtonDropdown |
-                AccRole::ButtonDropdownGrid |
-                AccRole::ButtonMenu |
-                AccRole::Cell |
-                AccRole::CheckButton |
-                AccRole::ColumnHeader |
-                AccRole::Link |
-                AccRole::ListItem |
-                AccRole::MenuItem |
-                AccRole::OutlineButton |
-                AccRole::OutlineItem |
-                AccRole::PageTab |
-                AccRole::PushButton |
-                AccRole::RadioButton |
-                AccRole::RowHeader |
-                AccRole::SplitButton
-                => self.get_name().unwrap_or_default().len() > 0,
-                _ => self.is_selectable()? && *include_selectable_text,
-            },
-            AccType::Editable => match role {
-                AccRole::Text => true,
-                _ => false,
-            },
-            AccType::Any => true,
-        };
-        let result = is_valid && self.is_visible(None).unwrap_or(false);
-        Some(result)
-    }
 
     pub fn search(&self, item: &SearchItem, order: &mut u32, backwards: bool) -> Option<SearchResult> {
-        unsafe {
-            let varchildren = self.get_varchildren(backwards);
+        let varchildren = self.get_varchildren(backwards);
 
-            for varchild in varchildren {
-                if let Some(acc) = self.get_acc_from_varchild(&varchild, true) {
-                    if let Some(role) = acc.get_role() {
-                        if item.target.is_valid_parent_role(&role, &acc) {
-                            match role {
-                                AccRole::List => if let Some(found) = acc.search_list(item, order, backwards) {
-                                    return Some(found);
-                                }
-                                AccRole::MenuBar => if let Some(found) = acc.search_menu(item, order, backwards, None) {
-                                    return Some(found);
-                                },
-                                AccRole::Text |
-                                AccRole::StaticText |
-                                AccRole::Cell => {
-                                    if acc.is_target_text(order, item, &role) {
-                                        return Some(SearchResult::Acc(acc));
-                                    }
-                                },
-                                _ => if let Some(found) = acc.search_child(&role, item, order, backwards, None) {
-                                    return Some(found);
-                                }
-                            }
-                        }
-                    }
-                    if acc.has_child() {
-                        // 子があればサーチ
-                        if let Some(found) = acc.search(item, order, backwards) {
-                            // 見つかれば終了
-                            return Some(found);
-                        }
-                    }
-                }
-            }
-            None
-        }
-    }
-    fn search_child(&self, parent: &AccRole, item: &SearchItem, order: &mut u32, backwards: bool, path: Option<String>) -> Option<SearchResult> {
-        unsafe {
-            let varchildren = self.get_varchildren(backwards);
-            let ignore_invisible = TargetRole::ignore_invisible(&parent);
-            for varchild in varchildren {
-                if let Some(acc) = self.get_acc_from_varchild(&varchild, ignore_invisible) {
-                    let mut new_path = None;
-                    if let Some(role) = acc.get_role() {
-                        let name = match acc.get_item_name() {
-                            Some(name) => name,
-                            None => continue,
-                        };
-                        match parent {
-                            AccRole::Window |
-                            AccRole::Client |
-                            AccRole::PageTablist |
-                            AccRole::ToolBar => {
-                                if item.target.contains(parent, &role) {
-                                    if item.matches(&name, order) {
-                                        return Some(SearchResult::Acc(acc));
-                                    }
-                                } else {
-                                    continue;
-                                }
+        for varchild in varchildren {
+            if let Some(acc) = self.get_acc_from_varchild(&varchild, true) {
+                if let Some(role) = acc.get_role() {
+                    if item.target.is_valid_parent_role(&role, &acc) {
+                        match role {
+                            AccRole::Combobox => if let Some(found) = acc.search_combo(item, order, backwards) {
+                                return Some(found);
                             },
-                            // treeview, menu
-                            AccRole::Outline => {
-                                if item.target.contains(&parent, &role) {
-                                    if item.is_path() {
-                                        new_path = match &path {
-                                            Some(p) => {
-                                                let path = format!("{p}\\{name}");
-                                                if item.matches(&path, order) {
-                                                    return Some(SearchResult::Acc(acc));
-                                                }
-                                                Some(path)
-                                            },
-                                            None => {
-                                                if item.matches(&name, order) {
-                                                    return Some(SearchResult::Acc(acc));
-                                                }
-                                                Some(name)
-                                            },
-                                        };
-                                    } else {
-                                        if item.matches(&name, order) {
-                                            return Some(SearchResult::Acc(acc));
-                                        }
-                                    }
-                                }
+                            AccRole::List => if let Some(found) = acc.search_list(item, order, backwards) {
+                                return Some(found);
+                            }
+                            AccRole::MenuBar => if let Some(found) = acc.search_menu(item, order, backwards, None) {
+                                return Some(found);
                             },
                             AccRole::Text |
                             AccRole::StaticText |
@@ -548,21 +334,136 @@ impl Acc {
                                     return Some(SearchResult::Acc(acc));
                                 }
                             },
-                            _ => continue,
+                            _ => if let Some(found) = acc.search_child(&role, item, order, backwards, None) {
+                                return Some(found);
+                            }
                         }
                     }
-                    if acc.has_child() {
-                        if let Some(found) = self.search_child(parent, item, order, backwards, new_path) {
-                            return Some(found);
+                }
+                if acc.has_child() {
+                    // 子があればサーチ
+                    if let Some(found) = acc.search(item, order, backwards) {
+                        // 見つかれば終了
+                        return Some(found);
+                    }
+                }
+            }
+        }
+        None
+    }
+    fn search_child(&self, parent: &AccRole, item: &SearchItem, order: &mut u32, backwards: bool, path: Option<String>) -> Option<SearchResult> {
+        let varchildren = self.get_varchildren(backwards);
+        let ignore_invisible = TargetRole::ignore_invisible(&parent);
+        for varchild in varchildren {
+            if let Some(acc) = self.get_acc_from_varchild(&varchild, ignore_invisible) {
+                let mut new_path = None;
+                if let Some(role) = acc.get_role() {
+                    let name = match acc.get_item_name() {
+                        Some(name) => name,
+                        None => continue,
+                    };
+                    match parent {
+                        AccRole::Window |
+                        AccRole::Client |
+                        AccRole::PageTablist |
+                        AccRole::ToolBar => {
+                            if item.target.contains(parent, &role) {
+                                if item.matches(&name, order) {
+                                    return Some(SearchResult::Acc(acc));
+                                }
+                            } else {
+                                continue;
+                            }
+                        },
+                        // treeview, menu
+                        AccRole::Outline => {
+                            if item.target.contains(&parent, &role) {
+                                if item.is_path() {
+                                    new_path = match &path {
+                                        Some(p) => {
+                                            let path = format!("{p}\\{name}");
+                                            if item.matches(&path, order) {
+                                                return Some(SearchResult::Acc(acc));
+                                            }
+                                            Some(path)
+                                        },
+                                        None => {
+                                            if item.matches(&name, order) {
+                                                return Some(SearchResult::Acc(acc));
+                                            }
+                                            Some(name)
+                                        },
+                                    };
+                                } else {
+                                    if item.matches(&name, order) {
+                                        return Some(SearchResult::Acc(acc));
+                                    }
+                                }
+                            }
+                        },
+                        AccRole::Text |
+                        AccRole::StaticText |
+                        AccRole::Cell => {
+                            if acc.is_target_text(order, item, &role) {
+                                return Some(SearchResult::Acc(acc));
+                            }
+                        },
+                        _ => continue,
+                    }
+                }
+                if acc.has_child() {
+                    if let Some(found) = self.search_child(parent, item, order, backwards, new_path) {
+                        return Some(found);
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    fn search_combo(&self, item: &SearchItem, order: &mut u32, backwards: bool) ->  Option<SearchResult> {
+        let mut listitem = None;
+        let mut button = None;
+        for varchild in self.get_varchildren(backwards) {
+            if let Some(window) = self.get_child_acc_by_role(&varchild, AccRole::Window, false) {
+                'listitem_loop: for varchild in window.get_varchildren(backwards) {
+                    if let Some(list) = window.get_child_acc_by_role(&varchild, AccRole::List, false) {
+                        for varchild in list.get_varchildren(backwards) {
+                            if let Some(li) = list.get_child_acc_by_role(&varchild, AccRole::ListItem, false) {
+                                if let Some(name) = li.get_name() {
+                                    if item.matches(&name, order) {
+                                        listitem = Some(li);
+                                        break 'listitem_loop;
+                                    }
+                                }
+                            }
                         }
                     }
                 }
             }
-            None
+            if let Some(pb) = self.get_child_acc_by_role(&varchild, AccRole::PushButton, false) {
+                button = Some(pb);
+            }
+        }
+        match (button, listitem) {
+            (Some(button), Some(listitem)) => Some(SearchResult::Combo(button, listitem)),
+            _ => None,
         }
     }
-
+    fn get_parent_if_combo(&self) -> Option<Self> {
+        if let Some(window) = self.get_parent() {
+            if let Some(maybe_combo) = window.get_parent() {
+                if maybe_combo.get_role() == Some(AccRole::Combobox) {
+                    return Some(maybe_combo)
+                }
+            }
+        }
+        None
+    }
     fn search_list(&self, item: &SearchItem, order: &mut u32, backwards: bool) ->  Option<SearchResult> {
+        if let Some(combo) = self.get_parent_if_combo() {
+            return combo.search_combo(item, order, backwards);
+        }
         let varchildren = self.get_varchildren(backwards);
         let list_items = varchildren.iter()
             .map(|varchild| self.get_acc_from_varchild(&varchild, false));
@@ -724,36 +625,34 @@ impl Acc {
         }
         None
     }
-    pub fn search_slider(&self, order: &mut u32) -> Option<Self> {
-        unsafe {
-            let varchildren = self.get_varchildren(false);
-            for varchild in varchildren {
-                if let Some(acc) = self.get_acc_from_varchild(&varchild, true) {
-                    if let Some(role) = acc.get_role() {
-                        match role {
-                            AccRole::ScrollBar |
-                            AccRole::Slider => {
-                                println!("\u{001b}[36m[debug] role: {:?}\u{001b}[0m", &role);
-                                *order -= 1;
-                                if *order < 1 {
-                                    return Some(acc);
-                                }
-                            },
-                            _ => {
-                                println!("\u{001b}[35m[debug] role: {:?}\u{001b}[0m", &role);
+    pub fn _search_slider(&self, order: &mut u32) -> Option<Self> {
+        let varchildren = self.get_varchildren(false);
+        for varchild in varchildren {
+            if let Some(acc) = self.get_acc_from_varchild(&varchild, true) {
+                if let Some(role) = acc.get_role() {
+                    match role {
+                        AccRole::ScrollBar |
+                        AccRole::Slider => {
+                            println!("\u{001b}[36m[debug] role: {:?}\u{001b}[0m", &role);
+                            *order -= 1;
+                            if *order < 1 {
+                                return Some(acc);
                             }
-                        }
-                    }
-                    if acc.has_child() {
-                        let maybe_found = acc.search_slider(order);
-                        if maybe_found.is_some() {
-                            return maybe_found;
+                        },
+                        _ => {
+                            println!("\u{001b}[35m[debug] role: {:?}\u{001b}[0m", &role);
                         }
                     }
                 }
+                if acc.has_child() {
+                    let maybe_found = acc._search_slider(order);
+                    if maybe_found.is_some() {
+                        return maybe_found;
+                    }
+                }
             }
-            None
         }
+        None
     }
     fn is_target_text(&self, order: &mut u32, item: &SearchItem, role: &AccRole) -> bool {
         if item.target.match_parent(role) {
@@ -780,7 +679,9 @@ impl Acc {
         let mut pcobtained = 0;
         if cnt > 0 {
             unsafe {
-                AccessibleChildren(&self.obj, 0, &mut rgvarchildren, &mut pcobtained);
+                if AccessibleChildren(&self.obj, 0, &mut rgvarchildren, &mut pcobtained).is_err() {
+                    return vec![];
+                }
             }
             if backwards {
                 rgvarchildren.reverse();
@@ -794,7 +695,7 @@ impl Acc {
             match variant00.vt {
                 VT_I4 => {
                     let id = variant00.Anonymous.lVal;
-                    let child = unsafe { self.obj.get_accChild(varchild) };
+                    let child = self.obj.get_accChild(varchild);
                     match child {
                         Ok(disp) => Self::from_idispatch(disp, id),//.map(|acc| (acc, true)),
                         Err(e) => if let HRESULT(0) = e.code() {
@@ -820,6 +721,17 @@ impl Acc {
                 },
                 _ => None
             }
+        }
+    }
+    fn get_child_acc_by_role(&self, varchild: &VARIANT, role: AccRole, ignore_invisible: bool) -> Option<Self> {
+        if let Some(acc) = self.get_acc_from_varchild(varchild, ignore_invisible) {
+            if acc.get_role() == Some(role) {
+                Some(acc)
+            } else {
+                None
+            }
+        } else {
+            None
         }
     }
     pub fn get_state(&self, varchild: Option<&VARIANT>) -> Option<i32> {
@@ -910,12 +822,11 @@ impl Acc {
         };
         Some(is_visible)
     }
-    fn is_selectable(&self) -> Option<bool> {
-        let is_selectable = match self.get_state(None) {
+    fn is_selectable(&self) -> bool {
+        match self.get_state(None) {
             Some(state) => (state & STATE_SYSTEM_SELECTABLE as i32) > 0,
             None => false,
-        };
-        Some(is_selectable)
+        }
     }
     fn from_pdispval(pdispval: &Option<IDispatch>) -> Option<Self> {
         match pdispval {
@@ -942,6 +853,7 @@ impl Acc {
             SearchResult::Acc(acc) |
             SearchResult::Menu(acc) => acc.is_checked() as i32,
             SearchResult::Group(_) => -1,
+            SearchResult::Combo(_, _) => 0,
         };
         Some(result)
     }
@@ -992,6 +904,71 @@ impl Acc {
             };
         }
     }
+    fn search_items(&self, gi: &mut GetItem) -> Option<()> {
+        let varchildren = self.get_varchildren(gi.backward);
+        for varchild in varchildren {
+            if let Some(acc) = self.get_acc_from_varchild(&varchild, false) {
+                if let Some(role) = acc.get_role() {
+                    match role {
+                        AccRole::Text => if gi.edit {
+                            if acc.is_visible(None).unwrap_or(false) {
+                                if let Some(value) = acc.get_value() {
+                                    gi.add(value)?;
+                                }
+                            }
+                        },
+                        AccRole::StaticText => if gi.r#static {
+                            if acc.is_visible(None).unwrap_or(false) {
+                                if let Some(value) = acc.get_name() {
+                                    gi.add(value)?;
+                                }
+                            }
+                        },
+                        AccRole::PushButton |
+                        AccRole::CheckButton |
+                        AccRole::RadioButton |
+                        AccRole::ButtonDropdown |
+                        AccRole::ButtonDropdownGrid |
+                        AccRole::ButtonMenu |
+                        AccRole::ListItem |
+                        AccRole::PageTab |
+                        AccRole::MenuItem |
+                        // AccRole::MenuPopup |
+                        AccRole::OutlineItem |
+                        AccRole::OutlineButton |
+                        AccRole::ColumnHeader |
+                        AccRole::Link => if gi.click {
+                            if acc.is_visible(None).unwrap_or(false) {
+                                if let Some(value) = acc.get_name() {
+                                    gi.add(value)?;
+                                }
+                            }
+                        },
+                        _ => if gi.click2 && acc.is_selectable() {
+                            if acc.is_visible(None).unwrap_or(false) {
+                                if let Some(value) = acc.get_name() {
+                                    gi.add(value)?;
+                                }
+                            }
+                        }
+                    }
+                }
+                if acc.has_child() {
+                    acc.search_items(gi)?;
+                }
+            }
+        }
+        Some(())
+    }
+    pub fn getitem(hwnd: HWND, opt: u32, acc_max: i32) -> Vec<String> {
+        let mut gi = GetItem::new(opt, acc_max);
+        if let Some(acc) = Self::from_hwnd(hwnd) {
+            acc.search_items(&mut gi);
+            gi.found
+        } else {
+            vec![]
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -1014,11 +991,14 @@ impl AccClickResult {
     }
 }
 
+#[derive(Debug)]
 pub enum SearchResult {
     Acc(Acc),
     Group(Vec<Acc>),
     // Route(Vec<Acc>)
-    Menu(Acc)
+    Menu(Acc),
+    /// PushButton, ListItem
+    Combo(Acc, Acc),
 }
 impl SearchResult {
     pub fn get_hwnd(&self) -> Option<HWND> {
@@ -1039,12 +1019,14 @@ impl SearchResult {
                 }
             },
             SearchResult::Menu(_) => None,
-
+            SearchResult::Combo(acc, _) => acc.get_point(false),
         }
     }
     pub fn click(&self, check: bool) -> bool {
         match self {
-            SearchResult::Acc(acc) => acc.click(check).as_bool(),
+            SearchResult::Acc(acc) => {
+                acc.click(check).as_bool()
+            },
             SearchResult::Group(group) => {
                 group.into_iter()
                     .map(|acc| acc.select(true))
@@ -1053,6 +1035,9 @@ impl SearchResult {
             },
             SearchResult::Menu(acc) => {
                 acc.click(check).as_bool()
+            },
+            SearchResult::Combo(button, item) => {
+                button.invoke_default_action(check) && item.invoke_default_action(check)
             },
         }
     }
@@ -1131,6 +1116,7 @@ impl TargetRole {
         }
         if item.target.list {
             parent.push(AccRole::List);
+            parent.push(AccRole::Combobox);
         }
         if item.target.tab {
             parent.push(AccRole::PageTablist);
@@ -1190,6 +1176,7 @@ impl TargetRole {
             },
             // リスト
             AccRole::List => AccRole::ListItem.eq(role),
+            AccRole::Combobox => AccRole::ListItem.eq(role),
             // タブ
             AccRole::PageTablist => AccRole::PageTab.eq(role),
             // メニュー
@@ -1220,18 +1207,11 @@ impl TargetRole {
     }
     fn ignore_invisible(role: &AccRole) -> bool {
         match role {
-            AccRole::Outline => false,
+            AccRole::Outline |
+            AccRole::Combobox => false,
             _ => true,
         }
     }
-}
-
-#[derive(Debug)]
-pub enum AccType {
-    StaticText,
-    Clickable(bool),
-    Editable,
-    Any,
 }
 
 fn to_vt_i4(n: i32) -> VARIANT {
@@ -1419,35 +1399,50 @@ impl From<i32> for AccRole {
     }
 }
 
-pub struct AccTree(Acc, Vec<Self>);
 
-impl AccTree {
-    fn from_acc(acc: &Acc) -> Self {
-        Self(acc.clone(), vec![])
-    }
-    fn push(&mut self, tree: Self) {
-        self.1.push(tree);
-    }
-    // pub fn is_leaf(&self) -> bool {
-    //     self.1.len() == 0
-    // }
-    // pub fn is_branch(&self) -> bool {
-    //     self.1.len() > 0
-    // }
+struct GetItem {
+    edit: bool,
+    r#static: bool,
+    /// Some(true): ITM_ACCCLK2
+    /// Some(false): ITM_ACCCLK
+    click: bool,
+    click2: bool,
+    count: Option<u32>,
+    backward: bool,
+    found: Vec<String>,
 }
-
-impl std::fmt::Debug for AccTree {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let role = self.0.get_role().unwrap_or(AccRole::Unknown(0));
-        let class = self.0.get_classname().unwrap_or_default();
-        let name = self.0.get_name().unwrap_or_default();
-        let value = self.0.get_value().unwrap_or_default();
-        let name = format!("{name} [{class}]");
-        f.debug_struct(&name)
-          .field("Role", &role)
-          .field("Value", &value)
-          .field("Child", &self.1)
-          .finish()
+impl GetItem {
+    fn new(opt: u32, acc_max: i32) -> Self {
+        let edit = opt.includes(super::GetItemConst::ITM_ACCEDIT);
+        let r#static = opt.includes(super::GetItemConst::ITM_ACCTXT);
+        let (click, click2) = if opt.includes(super::GetItemConst::ITM_ACCCLK2) {
+            (true, true)
+        } else if opt.includes(super::GetItemConst::ITM_ACCCLK) {
+            (true, false)
+        } else {
+            (false, false)
+        };
+        let mut backward = opt.includes(super::GetItemConst::ITM_FROMLAST);
+        let count = if acc_max > 0 {
+            Some(acc_max as u32)
+        } else if acc_max < 0 {
+            backward = true;
+            Some(acc_max.abs() as u32)
+        } else {
+            None
+        };
+        Self { edit, r#static, click, click2, count, backward, found: vec![] }
+    }
+    fn add(&mut self, value: String) -> Option<()> {
+        if value.len() > 0 {
+            if let Some(count) = self.count.as_mut() {
+                if *count > 0 {
+                    self.found.push(value);
+                    *count -= 1;
+                    return Some(());
+                }
+            }
+        }
+        None
     }
 }
-

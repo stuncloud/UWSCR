@@ -1128,7 +1128,7 @@ pub enum GetItemConst {
     ITM_ACCTXT    = 8388608,
     ITM_ACCEDIT   = 16777216,
     ITM_FROMLAST  = 65536,
-    ITM_BACK      = 512,
+    // ITM_BACK      = 512,
 }
 impl Into<u32> for GetItemConst {
     fn into(self) -> u32 {
@@ -1143,14 +1143,15 @@ pub fn getitem(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let nth = args.get_as_int(2, Some(1))?;
     let column = args.get_as_int(3, Some(1))?;
     let ignore_disabled = args.get_as_bool(4, Some(false))?;
-    let _acc_max = args.get_as_int(5, Some(0))?;
+    let acc_max = args.get_as_int(5, Some(0))?;
 
     // api
-    let api_items = win32::Win32::getitem(hwnd, target, nth, column, ignore_disabled);
+    let mut items = win32::Win32::getitem(hwnd, target, nth, column, ignore_disabled);
     // acc
+    let acc_items = acc::Acc::getitem(hwnd, target, acc_max);
 
-    let arr = api_items.into_iter().map(|s| s.into()).collect();
-
+    items.extend(acc_items);
+    let arr = items.into_iter().map(|s| s.into()).collect();
     Ok(BuiltinFuncReturnValue::Result(Object::Array(arr)))
 }
 
