@@ -29,6 +29,15 @@ html_theme = 'furo'
 html_static_path = ['_static']
 html_js_files = ['custom.js']
 
+extensions = ['sphinx-favicon']
+favicons = [
+    {
+        "rel": "icon",
+        "static-file": "MAINICON_0016-0256_light.ico",
+        "type": "image/vnd.microsoft.icon",
+    }
+]
+
 # extensions = ['myst_parser']
 # source_suffix = {
 #     '.rst': 'restructuredtext',
