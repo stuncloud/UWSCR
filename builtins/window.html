@@ -6,7 +6,7 @@
 <link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="制御関数" href="control.html" /><link rel="prev" title="文字列操作関数" href="string.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>ウィンドウ操作関数 - UWSCR 0.9.0</title>
+        <title>ウィンドウ操作関数 - UWSCR 0.9.1</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -123,7 +123,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 0.9.0</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 0.9.1</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -146,7 +146,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 0.9.0</span>
+  <span class="sidebar-brand-text">UWSCR 0.9.1</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -849,6 +849,128 @@
 </dl>
 </dd></dl>
 
+<dl class="py function">
+<dt class="sig sig-object py" id="setslider">
+<span class="sig-name descname"><span class="pre">setslider</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ID</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">値</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">n番目=1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">スクロール=TRUE</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#setslider" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">スライダー(スクロールバー、トラックバー)の値を設定します</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ID</strong> (<em>ウィンドウID</em>) -- 対象ウィンドウのID</p></li>
+<li><p><strong>値</strong> (<em>数値</em>) -- <p>スライダーに設定する値</p>
+<div class="admonition hint">
+<p class="admonition-title">ヒント</p>
+<div class="line-block">
+<div class="line">最大値を上回る値だった場合は最大値に、最小値を下回る値だった場合は最小値に変更されます</div>
+</div>
+</div>
+</p></li>
+<li><p><strong>n番目</strong> (<em>数値 省略可</em>) -- n番目のスライダーを設定する</p></li>
+<li><p><strong>スクロール</strong> (<em>真偽値 省略可</em>) -- TRUEならスクロールバーを少しずつ動かす</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>真偽値</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>成功時TRUE、失敗または操作不能時はFALSE</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="sendstr">
+<span class="sig-name descname"><span class="pre">sendstr</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ID</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">文字列</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">n番目=1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">送信モード=FALSE</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ACC指定=FALSE</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#sendstr" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">エディットボックスに文字列を送信します</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ID</strong> (<em>数値</em>) -- <p>対象ウィンドウのID</p>
+<div class="line-block">
+<div class="line">0ならクリップボードに送信 (その場合n番目、送信モード、ACC指定は無視されます)</div>
+</div>
+</p></li>
+<li><p><strong>文字列</strong> (<em>文字列</em>) -- 送信する文字列</p></li>
+<li><p><strong>n番目</strong> (<em>数値</em>) -- <p>n番目のエディットボックスに送信</p>
+<div class="line-block">
+<div class="line">0ならフォーカスされたエディットボックス</div>
+</div>
+</p></li>
+<li><p><strong>送信モード</strong> (<em>真偽値または数値</em>) -- <dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">FALSE</span> <span class="pre">または</span> <span class="pre">0</span></span></dt>
+<dd><div class="line-block">
+<div class="line">追記</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">TRUE</span> <span class="pre">または</span> <span class="pre">1</span></span></dt>
+<dd><div class="line-block">
+<div class="line">置き換え</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">2</span></span></dt>
+<dd><div class="line-block">
+<div class="line">一文字ずつ送信</div>
+<div class="line">ACC時は無視されます (TRUE扱い)</div>
+</div>
+</dd></dl>
+
+</p></li>
+<li><p><strong>ACC指定</strong> (<em>真偽値または定数</em>) -- <dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">FALSE</span> <span class="pre">または</span> <span class="pre">0</span></span></dt>
+<dd><div class="line-block">
+<div class="line">APIまたはUIAを使用</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">TRUE</span> <span class="pre">または</span> <span class="pre">1</span></span></dt>
+<dd><div class="line-block">
+<div class="line">ACCを使用</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">STR_ACC_CELL</span></span></dt>
+<dd><div class="line-block">
+<div class="line">DataGridView内のCell値の変更 (ACCを使用)</div>
+</div>
+</dd></dl>
+
+<div class="note admonition">
+<p class="admonition-title">UWSCとの違い</p>
+<div class="line-block">
+<div class="line">TRUEでも対象ウィンドウをアクティブにしないため、2は廃止されました</div>
+</div>
+</div>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>なし</p>
+</dd>
+</dl>
+<div class="admonition- admonition">
+<p class="admonition-title">サンプルコード</p>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span>
+</pre></div>
+</div>
+</div>
+</dd></dl>
+
 </section>
 <section id="id3">
 <h2>ウィンドウ情報取得<a class="headerlink" href="#id3" title="この見出しへのパーマリンク">#</a></h2>
@@ -989,7 +1111,7 @@
 <dl class="object">
 <dt class="sig sig-object">
 <span class="sig-name descname"><span class="pre">ST_MONITOR</span></span></dt>
-<dd><p>ウィンドウが表示されているモニタ番号 (monitor関数に対応) (数値)</p>
+<dd><p>ウィンドウが表示されているモニタ番号 (<a class="reference internal" href="#monitor" title="monitor"><code class="xref any py py-func docutils literal notranslate"><span class="pre">monitor</span></code></a> 関数に対応) (数値)</p>
 </dd></dl>
 
 <dl class="object">
@@ -1024,15 +1146,9 @@
 
 <dl class="py function">
 <dt class="sig sig-object py" id="monitor">
-<span class="sig-name descname"><span class="pre">monitor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">モニタ番号</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">MON定数</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#monitor" title="この定義へのパーマリンク">#</a></dt>
-<dd></dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py">
-<span class="sig-name descname"><span class="pre">monitor</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span></dt>
+<span class="sig-name descname"><span class="pre">monitor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">モニタ番号</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">MON定数=MON_ALL</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#monitor" title="この定義へのパーマリンク">#</a></dt>
 <dd><div class="line-block">
 <div class="line">モニタの情報を得ます</div>
-<div class="line">引数なしで実行した場合モニタの数を得ます</div>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
@@ -1106,8 +1222,20 @@
 
 <dl class="object">
 <dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">MON_DPI</span></span></dt>
+<dd><p>画面のDPI</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">MON_SCALING</span></span></dt>
+<dd><p>スケーリング倍率 (%)</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
 <span class="sig-name descname"><span class="pre">MON_ALL</span></span></dt>
-<dd><p>上記すべて (デフォルト)</p>
+<dd><p>上記すべて (連想配列、キーはMON定数)</p>
 </dd></dl>
 
 </p></li>
@@ -1115,12 +1243,24 @@
 </dd>
 <dt class="field-even">戻り値<span class="colon">:</span></dt>
 <dd class="field-even"><p><ul class="simple">
-<li><p>引数なしで実行: モニタの数</p></li>
 <li><p>定数指定 (<code class="docutils literal notranslate"><span class="pre">MON_ALL</span></code> 以外): 得られた値</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">MON_ALL</span></code> 指定: 連想配列 (キーはMON定数)</p></li>
 <li><p>該当モニタなし: <code class="docutils literal notranslate"><span class="pre">FALSE</span></code></p></li>
 </ul>
 </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">monitor</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span></dt>
+<dd><div class="line-block">
+<div class="line">(引数なし) モニタの数を得ます</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>モニタの数</p>
 </dd>
 </dl>
 <div class="admonition- admonition">
@@ -1473,13 +1613,421 @@
 </dl>
 </dd></dl>
 
+<dl class="py function">
+<dt class="sig sig-object py" id="getslider">
+<span class="sig-name descname"><span class="pre">getslider</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ID</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">n番目=1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">パラメータ=SLD_POS</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#getslider" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">スライダー(スクロールバー、トラックバー)の値を取得します</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ID</strong> (<em>ウィンドウID</em>) -- 対象ウィンドウのID</p></li>
+<li><p><strong>n番目</strong> (<em>数値 省略可</em>) -- n番目のスライダーから値を得る</p></li>
+<li><p><strong>パラメータ</strong> (<em>定数 省略可</em>) -- <p>取得する値の種類を示す定数</p>
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SLD_POS</span></span></dt>
+<dd><div class="line-block">
+<div class="line">現在値</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SLD_MIN</span></span></dt>
+<dd><div class="line-block">
+<div class="line">最小値</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SLD_MAX</span></span></dt>
+<dd><div class="line-block">
+<div class="line">最大値</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SLD_PAGE</span></span></dt>
+<dd><div class="line-block">
+<div class="line">1ページ移動量</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SLD_BAR</span></span></dt>
+<dd><div class="line-block">
+<div class="line">表示方向 (横なら0、縦なら1を返す)</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SLD_X</span></span></dt>
+<dd><div class="line-block">
+<div class="line">クライアントX座標</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SLD_Y</span></span></dt>
+<dd><div class="line-block">
+<div class="line">クライアントY座標</div>
+</div>
+</dd></dl>
+
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>数値</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>取得した値、該当するスライダーがない場合は <code class="docutils literal notranslate"><span class="pre">-999999</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="chkbtn">
+<span class="sig-name descname"><span class="pre">chkbtn</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ID</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">アイテム名</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">n番目=1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ACC=FALSE</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#chkbtn" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">ボタン(チェックボックス、ラジオボタン)やメニューのチェック状態を得る</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ID</strong> (<em>数値</em>) -- 対象ウィンドウのID</p></li>
+<li><p><strong>アイテム名</strong> (<em>文字列</em>) -- ボタン名 (部分一致)</p></li>
+<li><p><strong>n番目</strong> (<em>数値 省略可</em>) -- n番目に該当するボタンの状態を得る</p></li>
+<li><p><strong>ACC</strong> (<em>真偽値 省略可</em>) -- <dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">FALSE</span></span></dt>
+<dd><div class="line-block">
+<div class="line">APIまたはUIAを使用</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">TRUE</span></span></dt>
+<dd><div class="line-block">
+<div class="line">ACCを使用</div>
+</div>
+</dd></dl>
+
+<div class="note admonition">
+<p class="admonition-title">UWSCとの違い</p>
+<div class="line-block">
+<div class="line">TRUEでも対象ウィンドウをアクティブにしないため、2は廃止されました</div>
+</div>
+</div>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>数値またはFALSE</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p><ul class="simple">
+<li><p>-1: 存在しない、または無効</p></li>
+<li><p>0: チェックされていない</p></li>
+<li><p>1: チェックされている</p></li>
+<li><p>2: チェックボックスが灰色 (ACCでは判定不可)</p></li>
+<li><p>FALSE: ウィンドウが存在しない</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="getstr">
+<span class="sig-name descname"><span class="pre">getstr</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ID</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">n番目=1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">種別=STR_EDIT</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">マウス移動=FALSE</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#getstr" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">ウィンドウ上の文字列を取得します</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ID</strong> (<em>数値</em>) -- <p>対象ウィンドウのID</p>
+<div class="line-block">
+<div class="line">0の場合クリップボードから取得します (その場合以降の引数は無視されます)</div>
+</div>
+</p></li>
+<li><p><strong>n番目</strong> (<em>数値 省略可</em>) -- n番目に該当するアイテム種別の文字列を得る</p></li>
+<li><p><strong>種別</strong> (<em>定数 省略可</em>) -- <p>文字列を取得するアイテム種別</p>
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">STR_EDIT</span></span></dt>
+<dd><div class="line-block">
+<div class="line">エディットコントロール</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">STR_STATIC</span></span></dt>
+<dd><div class="line-block">
+<div class="line">スタティックコントロール</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">STR_STATUS</span></span></dt>
+<dd><div class="line-block">
+<div class="line">ステータスバー</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">STR_ACC_EDIT</span></span></dt>
+<dd><div class="line-block">
+<div class="line">エディットコントロール等 (ACCで取得)</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">STR_ACC_STATIC</span></span></dt>
+<dd><div class="line-block">
+<div class="line">スタティックコントロール (ACCで取得)</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">STR_ACC_CELL</span></span></dt>
+<dd><div class="line-block">
+<div class="line">DataGridView内のセルの値</div>
+</div>
+</dd></dl>
+
+</p></li>
+<li><p><strong>マウス移動</strong> (<em>真偽値 省略可</em>) -- TRUEなら該当アイテムまでマウス移動</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>文字列またはEMPTY</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>取得した文字列、対象がない場合はEMPTY</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="getitem">
+<span class="sig-name descname"><span class="pre">getitem</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ID</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">種別</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">n番目=1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">列=1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ディセーブル無視=FALSE</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ACC最大取得数=0</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#getitem" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">ウィンドウ上の文字情報をアイテム種別に取得する</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ID</strong> (<em>数値</em>) -- 対象ウィンドウのID</p></li>
+<li><p><strong>種別</strong> (<em>定数</em>) -- <p>種類を示す定数、OR連結で複数指定可</p>
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ITM_BTN</span></span></dt>
+<dd><p>ボタン、チェックボックス、ラジオボタン</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ITM_LIST</span></span></dt>
+<dd><p>リストボックス、コンボボックス</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ITM_TAB</span></span></dt>
+<dd><p>タブコントロール</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ITM_MENU</span></span></dt>
+<dd><p>メニュー</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ITM_TREEVIEW</span> <span class="pre">(ITM_TREEVEW)</span></span></dt>
+<dd><p>ツリービュー</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ITM_LISTVIEW</span> <span class="pre">(ITM_LSTVEW)</span></span></dt>
+<dd><p>リストビュー</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ITM_EDIT</span></span></dt>
+<dd><p>エディットボックス</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ITM_STATIC</span></span></dt>
+<dd><p>スタティックコントロール</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ITM_STATUSBAR</span></span></dt>
+<dd><p>ステータスバー</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ITM_TOOLBAR</span></span></dt>
+<dd><p>ツールバー</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ITM_LINK</span></span></dt>
+<dd><p>リンク</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ITM_ACCCLK</span></span></dt>
+<dd><p>ACCによりクリック可能なもの</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ITM_ACCCLK2</span></span></dt>
+<dd><p>ACCによりクリック可能なもの、選択可能テキスト</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ITM_ACCTXT</span></span></dt>
+<dd><p>ACCスタティックテキスト</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ITM_ACCEDIT</span></span></dt>
+<dd><p>ACCエディット可能テキスト</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ITM_FROMLAST</span></span></dt>
+<dd><p>ACCで検索順序を逆にする (最後のアイテムから取得)</p>
+</dd></dl>
+
+<div class="caution admonition">
+<p class="admonition-title">UWSCとの違い</p>
+<div class="line-block">
+<div class="line">ACCでもウィンドウをアクティブにしないため、ITM_BACKは廃止されました</div>
+</div>
+</div>
+</p></li>
+<li><p><strong>n番目</strong> (<em>数値 省略可</em>) -- <p>ITM_LIST、ITM_TREEVIEW、ITM_LISTVIEW指定時かつ対象が複数あった場合にいずれを取得するか指定、-1ならすべて取得</p>
+<div class="admonition hint">
+<p class="admonition-title">ヒント</p>
+<p>複数種別同時指定時の処理について</p>
+<div class="line-block">
+<div class="line">ITM_LIST、ITM_TREEVIEW、ITM_LISTVIEWのうち複数を同時に指定した場合、それぞれのn番目を検索します</div>
+</div>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// この場合リストまたはコンボボックスの2番目、及びツリービューの2番目をそれぞれ取得します</span>
+<span class="n">getitem</span><span class="p">(</span><span class="n">id</span><span class="o">,</span><span class="w"> </span><span class="m">ITM_LIST</span><span class="w"> </span><span class="n">or</span><span class="w"> </span><span class="m">ITM_TREEVIEW</span><span class="o">,</span><span class="w"> </span><span class="m">2</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</p></li>
+<li><p><strong>列</strong> (<em>数値 省略可</em>) -- ITM_LISTVIEW指定時にどの列から取得するかを指定(1から)、0ならすべての列、-1ならカラム名を取得</p></li>
+<li><p><strong>ディセーブル無視</strong> (<em>真偽値 省略可</em>) -- FALSEならディセーブル状態でも取得する、TRUEなら取得しない</p></li>
+<li><p><strong>ACC最大取得数</strong> (<em>数値 省略可</em>) -- ACC指定時に取得するアイテム数の上限を指定、0なら無制限、マイナス指定時は逆順(ITM_FROMLASTと同じ)</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>文字列の配列</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p><p>取得されたアイテム名の配列</p>
+<div class="caution admonition">
+<p class="admonition-title">UWSCとの違い</p>
+<div class="line-block">
+<div class="line">戻り値が配列になったため <code class="docutils literal notranslate"><span class="pre">ALL_ITEM_LIST</span></code> は廃止されました</div>
+</div>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">items</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">getitem</span><span class="p">(</span><span class="n">id</span><span class="o">,</span><span class="w"> </span><span class="m">ITM_BTN</span><span class="p">)</span>
+<span class="c">// 個数を得る</span>
+<span class="k">print</span><span class="w"> </span><span class="n">length</span><span class="p">(</span><span class="n">items</span><span class="p">)</span>
+<span class="c">// アイテム名の表示</span>
+<span class="k">for</span><span class="w"> </span><span class="n">item</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="n">items</span>
+<span class="w">    </span><span class="k">print</span><span class="w"> </span><span class="n">item</span>
+<span class="k">next</span>
+</pre></div>
+</div>
+<div class="line-block">
+<div class="line">また、空の文字列は結果に含まれなくなりました</div>
+</div>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// UWSCでは空文字を1つ目のアイテムとして出力していましたが、UWSCRでは空文字はスキップされます</span>
+<span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">0</span>
+<span class="k">for</span><span class="w"> </span><span class="n">item</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="n">getitem</span><span class="p">(</span><span class="n">getid</span><span class="p">(</span><span class="s">&#39;ファイル名を指定して実行&#39;</span><span class="p">)</span><span class="o">,</span><span class="w"> </span><span class="m">ITM_STATIC</span><span class="p">)</span>
+<span class="w">    </span><span class="n">i</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="m">1</span>
+<span class="w">    </span><span class="k">print</span><span class="w"> </span><span class="s">&quot;&lt;#i&gt;: &lt;#item&gt;&quot;</span>
+<span class="k">next</span>
+<span class="c">// 結果</span>
+<span class="c">// 1: 実行するプログラム名、または開くフォルダーやドキュメント名、インターネット リソース名を入力してください。</span>
+<span class="c">// 2: 名前(&amp;O):</span>
+</pre></div>
+</div>
+</div>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="getslctlst">
+<span class="sig-name descname"><span class="pre">getslctlst</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ID</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">n番目=1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">列=1</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#getslctlst" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">表示されているコンボボックス、リストボックス、ツリービュー、リストビューから選択されている項目を取得</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>数値</strong> (<em>type</em>) -- 対象ウィンドウのID</p></li>
+<li><p><strong>n番目</strong> (<em>数値 省略可</em>) -- n番目の該当コントロールから値を得る (1から)</p></li>
+<li><p><strong>列</strong> (<em>数値 省略可</em>) -- リストビューの場合取得する列を指定 (1から)</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>文字列、または文字列の配列</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p><p>選択項目、複数選択されている場合は配列で返る</p>
+<div class="caution admonition">
+<p class="admonition-title">UWSCとの違い</p>
+<div class="line-block">
+<div class="line">リストやリストビューが複数選択されていた場合にタブ連結された文字列ではなく、</div>
+<div class="line">それぞれの要素を持つ配列として返すようになりました</div>
+</div>
+</div>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
 </section>
 <section id="id4">
 <h2>画像検索<a class="headerlink" href="#id4" title="この見出しへのパーマリンク">#</a></h2>
-<div class="admonition hint">
-<p class="admonition-title">ヒント</p>
-<p>chkimg関数を使う場合chkimg版UWSCR(UWSCRx64_chkimg.zip)を導入してください</p>
-</div>
 <dl class="py function">
 <dt class="sig sig-object py" id="chkimg">
 <span class="sig-name descname"><span class="pre">chkimg</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">画像ファイルパス</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">スコア=95</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">最大検索数=5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">left=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">top=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">right=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bottom=EMPTY</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#chkimg" title="この定義へのパーマリンク">#</a></dt>
@@ -1490,11 +2038,6 @@
 <p class="admonition-title">注意</p>
 <p>UWSCとは引数や戻り値が異なります</p>
 <p>特殊変数 <code class="docutils literal notranslate"><span class="pre">G_IMG_X</span></code>, <code class="docutils literal notranslate"><span class="pre">G_IMG_Y</span></code>, <code class="docutils literal notranslate"><span class="pre">ALL_IMG_X</span></code>, <code class="docutils literal notranslate"><span class="pre">ALL_IMG_Y</span></code> は廃止</p>
-</div>
-<div class="admonition attention">
-<p class="admonition-title">注意</p>
-<p>OpenCV 4.5.4が必要です</p>
-<p>インストール方法等は <a class="reference internal" href="#opencv"><span class="std std-ref">OpenCV導入方法</span></a> を参照ください</p>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
@@ -1513,8 +2056,11 @@
 <li><p><strong>bottom</strong> (<em>数値 省略可</em>) -- 検索範囲指定: 右下X座標、省略時は画面右下Y座標</p></li>
 </ul>
 </dd>
-<dt class="field-even">戻り値<span class="colon">:</span></dt>
-<dd class="field-even"><p>該当する部分の座標とスコアを格納した二次元配列 <code class="docutils literal notranslate"><span class="pre">[[X座標,</span> <span class="pre">Y座標,</span> <span class="pre">スコア],</span> <span class="pre">...]</span></code></p>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>二次元配列</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>該当する部分の座標とスコアを格納した二次元配列 <code class="docutils literal notranslate"><span class="pre">[[X座標,</span> <span class="pre">Y座標,</span> <span class="pre">スコア],</span> <span class="pre">...]</span></code></p>
 </dd>
 </dl>
 <div class="admonition- admonition">
@@ -1527,46 +2073,9 @@
 </div>
 </dd></dl>
 
-<section id="opencv">
-<span id="id5"></span><h3>OpenCV導入方法<a class="headerlink" href="#opencv" title="この見出しへのパーマリンク">#</a></h3>
-<ol class="arabic simple">
-<li><dl class="simple">
-<dt>OpenCVのインストール</dt><dd><ol class="arabic simple">
-<li><p><a class="reference external" href="https://github.com/opencv/opencv/releases/tag/4.5.4">Release OpenCV 4.5.4 · opencv/opencv</a> を開く</p></li>
-<li><p>Asssetsにある <code class="docutils literal notranslate"><span class="pre">opencv-4.5.4-vc14_vc15.exe</span></code> をダウンロード</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">opencv-4.5.4-vc14_vc15.exe</span></code> を実行し、任意のフォルダに展開する (例: <cite>C:\tools</cite>)</p></li>
-</ol>
-</dd>
-</dl>
-</li>
-<li><dl class="simple">
-<dt>UWSCRからdllを参照できるようにする (以下のいずれかの方法)</dt><dd><ul class="simple">
-<li><dl class="simple">
-<dt>方法1: dllをuwscr.exeと同じフォルダに置く</dt><dd><ol class="arabic simple">
-<li><p><cite>{展開先}\opencv\build\x64\vc15\bin</cite> の <code class="docutils literal notranslate"><span class="pre">opencv_world454.dll</span></code> をコピー</p></li>
-</ol>
-</dd>
-</dl>
-</li>
-<li><dl class="simple">
-<dt>方法2: 環境変数PATHに登録</dt><dd><ol class="arabic simple">
-<li><p>スタートメニューから <strong>環境変数を編集</strong> を実行</p></li>
-<li><p>ユーザー環境変数の <cite>Path</cite> をダブルクリック</p></li>
-<li><p><cite>{展開先}\opencv\build\x64\vc15\bin</cite> を追記 (<cite>{展開先}</cite> は実際のフォルダパスに変換してください 例: <cite>C:\tools</cite>)</p></li>
-<li><p>実行環境(PowerShellなど)を再起動</p></li>
-</ol>
-</dd>
-</dl>
-</li>
-</ul>
-</dd>
-</dl>
-</li>
-</ol>
 </section>
-</section>
-<section id="id6">
-<h2>低レベル関数<a class="headerlink" href="#id6" title="この見出しへのパーマリンク">#</a></h2>
+<section id="id5">
+<h2>低レベル関数<a class="headerlink" href="#id5" title="この見出しへのパーマリンク">#</a></h2>
 <dl class="py function">
 <dt class="sig sig-object py" id="mmv">
 <span class="sig-name descname"><span class="pre">mmv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">ms=0</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#mmv" title="この定義へのパーマリンク">#</a></dt>
@@ -1772,7 +2281,7 @@
 </dd></dl>
 
 <section id="virtual-keys">
-<span id="id7"></span><h3>仮想キーコード一覧<a class="headerlink" href="#virtual-keys" title="この見出しへのパーマリンク">#</a></h3>
+<span id="id6"></span><h3>仮想キーコード一覧<a class="headerlink" href="#virtual-keys" title="この見出しへのパーマリンク">#</a></h3>
 <dl class="object">
 <dt class="sig sig-object">
 <span class="sig-name descname"><span class="pre">VK_A</span></span></dt>
@@ -2593,6 +3102,8 @@
 <li><a class="reference internal" href="#clkitem"><code class="docutils literal notranslate"><span class="pre">clkitem()</span></code></a></li>
 <li><a class="reference internal" href="#ctrlwin"><code class="docutils literal notranslate"><span class="pre">ctrlwin()</span></code></a></li>
 <li><a class="reference internal" href="#sckey"><code class="docutils literal notranslate"><span class="pre">sckey()</span></code></a></li>
+<li><a class="reference internal" href="#setslider"><code class="docutils literal notranslate"><span class="pre">setslider()</span></code></a></li>
+<li><a class="reference internal" href="#sendstr"><code class="docutils literal notranslate"><span class="pre">sendstr()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#id3">ウィンドウ情報取得</a><ul>
@@ -2601,14 +3112,18 @@
 <li><a class="reference internal" href="#posacc"><code class="docutils literal notranslate"><span class="pre">posacc()</span></code></a></li>
 <li><a class="reference internal" href="#muscur"><code class="docutils literal notranslate"><span class="pre">muscur()</span></code></a></li>
 <li><a class="reference internal" href="#peekcolor"><code class="docutils literal notranslate"><span class="pre">peekcolor()</span></code></a></li>
+<li><a class="reference internal" href="#getslider"><code class="docutils literal notranslate"><span class="pre">getslider()</span></code></a></li>
+<li><a class="reference internal" href="#chkbtn"><code class="docutils literal notranslate"><span class="pre">chkbtn()</span></code></a></li>
+<li><a class="reference internal" href="#getstr"><code class="docutils literal notranslate"><span class="pre">getstr()</span></code></a></li>
+<li><a class="reference internal" href="#getitem"><code class="docutils literal notranslate"><span class="pre">getitem()</span></code></a></li>
+<li><a class="reference internal" href="#getslctlst"><code class="docutils literal notranslate"><span class="pre">getslctlst()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#id4">画像検索</a><ul>
 <li><a class="reference internal" href="#chkimg"><code class="docutils literal notranslate"><span class="pre">chkimg()</span></code></a></li>
-<li><a class="reference internal" href="#opencv">OpenCV導入方法</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#id6">低レベル関数</a><ul>
+<li><a class="reference internal" href="#id5">低レベル関数</a><ul>
 <li><a class="reference internal" href="#mmv"><code class="docutils literal notranslate"><span class="pre">mmv()</span></code></a></li>
 <li><a class="reference internal" href="#btn"><code class="docutils literal notranslate"><span class="pre">btn()</span></code></a></li>
 <li><a class="reference internal" href="#kbd"><code class="docutils literal notranslate"><span class="pre">kbd()</span></code></a></li>

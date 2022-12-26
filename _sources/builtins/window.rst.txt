@@ -395,6 +395,76 @@ ID0について
 
     :return: なし
 
+.. function:: setslider(ID, 値, [n番目=1, スクロール=TRUE])
+
+    | スライダー(スクロールバー、トラックバー)の値を設定します
+
+    :param ウィンドウID ID: 対象ウィンドウのID
+    :param 数値 値: スライダーに設定する値
+
+        .. hint::
+
+            | 最大値を上回る値だった場合は最大値に、最小値を下回る値だった場合は最小値に変更されます
+
+    :param 数値 省略可 n番目: n番目のスライダーを設定する
+    :param 真偽値 省略可 スクロール: TRUEならスクロールバーを少しずつ動かす
+    :rtype: 真偽値
+    :return: 成功時TRUE、失敗または操作不能時はFALSE
+
+.. function:: sendstr(ID, 文字列, [n番目=1, 送信モード=FALSE, ACC指定=FALSE])
+
+    | エディットボックスに文字列を送信します
+
+    :param 数値 ID: 対象ウィンドウのID
+
+        | 0ならクリップボードに送信 (その場合n番目、送信モード、ACC指定は無視されます)
+
+    :param 文字列 文字列: 送信する文字列
+    :param 数値 n番目: n番目のエディットボックスに送信
+
+        | 0ならフォーカスされたエディットボックス
+
+    :param 真偽値または数値 送信モード:
+
+        .. object:: FALSE または 0
+
+            | 追記
+
+        .. object:: TRUE または 1
+
+            | 置き換え
+
+        .. object:: 2
+
+            | 一文字ずつ送信
+            | ACC時は無視されます (TRUE扱い)
+
+    :param 真偽値または定数 ACC指定:
+
+        .. object:: FALSE または 0
+
+            | APIまたはUIAを使用
+
+        .. object:: TRUE または 1
+
+            | ACCを使用
+
+        .. object:: STR_ACC_CELL
+
+            | DataGridView内のCell値の変更 (ACCを使用)
+
+        .. admonition:: UWSCとの違い
+            :class: note
+
+            | TRUEでも対象ウィンドウをアクティブにしないため、2は廃止されました
+
+    :return: なし
+
+    .. admonition:: サンプルコード
+
+        .. sourcecode:: uwscr
+
+
 ウィンドウ情報取得
 ------------------
 
@@ -489,7 +559,7 @@ ID0について
 
         .. object:: ST_MONITOR
 
-            ウィンドウが表示されているモニタ番号 (monitor関数に対応) (数値)
+            ウィンドウが表示されているモニタ番号 (:any:`monitor` 関数に対応) (数値)
 
         .. object:: ST_ALL
 
@@ -510,12 +580,9 @@ ID0について
             print stat[ST_HEIGHT] // 778
             print stat[ST_WIDTH]  // 1251
 
-.. function:: monitor(モニタ番号, [MON定数])
-.. function:: monitor()
-    :noindex:
+.. function:: monitor(モニタ番号, [MON定数=MON_ALL])
 
     | モニタの情報を得ます
-    | 引数なしで実行した場合モニタの数を得ます
 
     :param 数値 省略可 モニタ番号: モニタを示す番号 (0から)
     :param 定数 省略可 MON定数: 取得したい情報を示す定数
@@ -561,17 +628,30 @@ ID0について
 
             作業エリアの高さ (数値)
 
+        .. object:: MON_DPI
+
+            画面のDPI
+
+        .. object:: MON_SCALING
+
+            スケーリング倍率 (%)
+
         .. object:: MON_ALL
 
-            上記すべて (デフォルト)
-
+            上記すべて (連想配列、キーはMON定数)
 
     :return:
 
-        - 引数なしで実行: モニタの数
         - 定数指定 (``MON_ALL`` 以外): 得られた値
         - ``MON_ALL`` 指定: 連想配列 (キーはMON定数)
         - 該当モニタなし: ``FALSE``
+
+.. function:: monitor()
+    :noindex:
+
+    | (引数なし) モニタの数を得ます
+
+    :return: モニタの数
 
     .. admonition:: サンプルコード
 
@@ -755,11 +835,256 @@ ID0について
         | 指定座標の色を示す数値
         | 失敗時は ``-1`` (範囲外指定やクリップボード指定でクリップボード画像がない場合)
 
+.. function:: getslider(ID, [n番目=1, パラメータ=SLD_POS])
+
+    | スライダー(スクロールバー、トラックバー)の値を取得します
+
+    :param ウィンドウID ID: 対象ウィンドウのID
+    :param 数値 省略可 n番目: n番目のスライダーから値を得る
+    :param 定数 省略可 パラメータ: 取得する値の種類を示す定数
+
+        .. object:: SLD_POS
+
+            | 現在値
+
+        .. object:: SLD_MIN
+
+            | 最小値
+
+        .. object:: SLD_MAX
+
+            | 最大値
+
+        .. object:: SLD_PAGE
+
+            | 1ページ移動量
+
+        .. object:: SLD_BAR
+
+            | 表示方向 (横なら0、縦なら1を返す)
+
+        .. object:: SLD_X
+
+            | クライアントX座標
+
+        .. object:: SLD_Y
+
+            | クライアントY座標
+
+    :rtype: 数値
+    :return: 取得した値、該当するスライダーがない場合は ``-999999``
+
+.. function:: chkbtn(ID, アイテム名, [n番目=1, ACC=FALSE])
+
+    | ボタン(チェックボックス、ラジオボタン)やメニューのチェック状態を得る
+
+    :param 数値 ID: 対象ウィンドウのID
+    :param 文字列 アイテム名: ボタン名 (部分一致)
+    :param 数値 省略可 n番目: n番目に該当するボタンの状態を得る
+    :param 真偽値 省略可 ACC:
+
+        .. object:: FALSE
+
+            | APIまたはUIAを使用
+
+        .. object:: TRUE
+
+            | ACCを使用
+
+        .. admonition:: UWSCとの違い
+            :class: note
+
+            | TRUEでも対象ウィンドウをアクティブにしないため、2は廃止されました
+
+    :rtype: 数値またはFALSE
+    :return:
+
+        - -1: 存在しない、または無効
+        - 0: チェックされていない
+        - 1: チェックされている
+        - 2: チェックボックスが灰色 (ACCでは判定不可)
+        - FALSE: ウィンドウが存在しない
+
+.. function:: getstr(ID, [n番目=1, 種別=STR_EDIT, マウス移動=FALSE])
+
+    | ウィンドウ上の文字列を取得します
+
+    :param 数値 ID: 対象ウィンドウのID
+
+        | 0の場合クリップボードから取得します (その場合以降の引数は無視されます)
+
+    :param 数値 省略可 n番目: n番目に該当するアイテム種別の文字列を得る
+    :param 定数 省略可 種別: 文字列を取得するアイテム種別
+
+        .. object:: STR_EDIT
+
+            | エディットコントロール
+
+        .. object:: STR_STATIC
+
+            | スタティックコントロール
+
+        .. object:: STR_STATUS
+
+            | ステータスバー
+
+        .. object:: STR_ACC_EDIT
+
+            | エディットコントロール等 (ACCで取得)
+
+        .. object:: STR_ACC_STATIC
+
+            | スタティックコントロール (ACCで取得)
+
+        .. object:: STR_ACC_CELL
+
+            | DataGridView内のセルの値
+
+    :param 真偽値 省略可 マウス移動: TRUEなら該当アイテムまでマウス移動
+    :rtype: 文字列またはEMPTY
+    :return: 取得した文字列、対象がない場合はEMPTY
+
+.. function:: getitem(ID, 種別, [n番目=1, 列=1, ディセーブル無視=FALSE, ACC最大取得数=0])
+
+    | ウィンドウ上の文字情報をアイテム種別に取得する
+
+    :param 数値 ID: 対象ウィンドウのID
+    :param 定数 種別: 種類を示す定数、OR連結で複数指定可
+
+        .. object:: ITM_BTN
+
+            ボタン、チェックボックス、ラジオボタン
+
+        .. object:: ITM_LIST
+
+            リストボックス、コンボボックス
+
+        .. object:: ITM_TAB
+
+            タブコントロール
+
+        .. object:: ITM_MENU
+
+            メニュー
+
+        .. object:: ITM_TREEVIEW (ITM_TREEVEW)
+
+            ツリービュー
+
+        .. object:: ITM_LISTVIEW (ITM_LSTVEW)
+
+            リストビュー
+
+        .. object:: ITM_EDIT
+
+            エディットボックス
+
+        .. object:: ITM_STATIC
+
+            スタティックコントロール
+
+        .. object:: ITM_STATUSBAR
+
+            ステータスバー
+
+        .. object:: ITM_TOOLBAR
+
+            ツールバー
+
+        .. object:: ITM_LINK
+
+            リンク
+
+        .. object:: ITM_ACCCLK
+
+            ACCによりクリック可能なもの
+
+        .. object:: ITM_ACCCLK2
+
+            ACCによりクリック可能なもの、選択可能テキスト
+
+        .. object:: ITM_ACCTXT
+
+            ACCスタティックテキスト
+
+        .. object:: ITM_ACCEDIT
+
+            ACCエディット可能テキスト
+
+        .. object:: ITM_FROMLAST
+
+            ACCで検索順序を逆にする (最後のアイテムから取得)
+
+        .. admonition:: UWSCとの違い
+            :class: caution
+
+            | ACCでもウィンドウをアクティブにしないため、ITM_BACKは廃止されました
+
+
+    :param 数値 省略可 n番目: ITM_LIST、ITM_TREEVIEW、ITM_LISTVIEW指定時かつ対象が複数あった場合にいずれを取得するか指定、-1ならすべて取得
+
+        .. hint:: 複数種別同時指定時の処理について
+
+            | ITM_LIST、ITM_TREEVIEW、ITM_LISTVIEWのうち複数を同時に指定した場合、それぞれのn番目を検索します
+
+            .. sourcecode:: uwscr
+
+                // この場合リストまたはコンボボックスの2番目、及びツリービューの2番目をそれぞれ取得します
+                getitem(id, ITM_LIST or ITM_TREEVIEW, 2)
+
+    :param 数値 省略可 列: ITM_LISTVIEW指定時にどの列から取得するかを指定(1から)、0ならすべての列、-1ならカラム名を取得
+    :param 真偽値 省略可 ディセーブル無視: FALSEならディセーブル状態でも取得する、TRUEなら取得しない
+    :param 数値 省略可 ACC最大取得数: ACC指定時に取得するアイテム数の上限を指定、0なら無制限、マイナス指定時は逆順(ITM_FROMLASTと同じ)
+    :rtype: 文字列の配列
+    :return: 取得されたアイテム名の配列
+
+        .. admonition:: UWSCとの違い
+            :class: caution
+
+            | 戻り値が配列になったため ``ALL_ITEM_LIST`` は廃止されました
+
+            .. sourcecode:: uwscr
+
+                items = getitem(id, ITM_BTN)
+                // 個数を得る
+                print length(items)
+                // アイテム名の表示
+                for item in items
+                    print item
+                next
+
+            | また、空の文字列は結果に含まれなくなりました
+
+            .. sourcecode:: uwscr
+
+                // UWSCでは空文字を1つ目のアイテムとして出力していましたが、UWSCRでは空文字はスキップされます
+                i = 0
+                for item in getitem(getid('ファイル名を指定して実行'), ITM_STATIC)
+                    i += 1
+                    print "<#i>: <#item>"
+                next
+                // 結果
+                // 1: 実行するプログラム名、または開くフォルダーやドキュメント名、インターネット リソース名を入力してください。
+                // 2: 名前(&O):
+
+.. function:: getslctlst(ID, [n番目=1, 列=1])
+
+    | 表示されているコンボボックス、リストボックス、ツリービュー、リストビューから選択されている項目を取得
+
+    :param type 数値: 対象ウィンドウのID
+    :param 数値 省略可 n番目: n番目の該当コントロールから値を得る (1から)
+    :param 数値 省略可 列: リストビューの場合取得する列を指定 (1から)
+    :rtype: 文字列、または文字列の配列
+    :return: 選択項目、複数選択されている場合は配列で返る
+
+        .. admonition:: UWSCとの違い
+            :class: caution
+
+            | リストやリストビューが複数選択されていた場合にタブ連結された文字列ではなく、
+            | それぞれの要素を持つ配列として返すようになりました
 
 画像検索
 --------
-
-.. hint:: chkimg関数を使う場合chkimg版UWSCR(UWSCRx64_chkimg.zip)を導入してください
 
 .. function:: chkimg(画像ファイルパス, [スコア=95, 最大検索数=5, left=EMPTY, top=EMPTY, right=EMPTY, bottom=EMPTY])
 
@@ -768,10 +1093,6 @@ ID0について
     .. caution:: UWSCとは引数や戻り値が異なります
 
         特殊変数 ``G_IMG_X``, ``G_IMG_Y``, ``ALL_IMG_X``, ``ALL_IMG_Y`` は廃止
-
-    .. attention:: OpenCV 4.5.4が必要です
-
-        インストール方法等は :ref:`opencv` を参照ください
 
     :param 文字列 画像ファイルパス: 検索する画像のパス (jpg, bmp, png)
     :param 数値 省略可 スコア: 画像に対する一致率を指定 (0-100)
@@ -784,7 +1105,7 @@ ID0について
     :param 数値 省略可 top: 検索範囲指定: 左上Y座標、省略時は画面左上Y座標
     :param 数値 省略可 right: 検索範囲指定: 右下X座標、省略時は画面右下X座標
     :param 数値 省略可 bottom: 検索範囲指定: 右下X座標、省略時は画面右下Y座標
-
+    :rtype: 二次元配列
     :return: 該当する部分の座標とスコアを格納した二次元配列 ``[[X座標, Y座標, スコア], ...]``
 
     .. admonition:: サンプルコード
@@ -794,25 +1115,6 @@ ID0について
             for found in chkimg("hoge.png")
                 print found // [x, y, スコア]
             next
-
-.. _opencv:
-
-OpenCV導入方法
-^^^^^^^^^^^^^^
-
-1. OpenCVのインストール
-    1. `Release OpenCV 4.5.4 · opencv/opencv <https://github.com/opencv/opencv/releases/tag/4.5.4>`_ を開く
-    2. Asssetsにある ``opencv-4.5.4-vc14_vc15.exe`` をダウンロード
-    3. ``opencv-4.5.4-vc14_vc15.exe`` を実行し、任意のフォルダに展開する (例: `C:\\tools`)
-2. UWSCRからdllを参照できるようにする (以下のいずれかの方法)
-    - 方法1: dllをuwscr.exeと同じフォルダに置く
-        1. `{展開先}\\opencv\\build\\x64\\vc15\\bin` の ``opencv_world454.dll`` をコピー
-    - 方法2: 環境変数PATHに登録
-        1. スタートメニューから **環境変数を編集** を実行
-        2. ユーザー環境変数の `Path` をダブルクリック
-        3. `{展開先}\\opencv\\build\\x64\\vc15\\bin` を追記 (`{展開先}` は実際のフォルダパスに変換してください 例: `C:\\tools`)
-        4. 実行環境(PowerShellなど)を再起動
-
 
 低レベル関数
 ------------

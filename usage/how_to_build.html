@@ -6,7 +6,7 @@
 <link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="スクリプト構文" href="../syntax/statement.html" /><link rel="prev" title="設定ファイル" href="settings.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>ビルド方法 - UWSCR 0.9.0</title>
+        <title>ビルド方法 - UWSCR 0.9.1</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -123,7 +123,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 0.9.0</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 0.9.1</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -146,7 +146,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 0.9.0</span>
+  <span class="sidebar-brand-text">UWSCR 0.9.1</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -214,7 +214,7 @@
           <section id="id1">
 <h1>ビルド方法<a class="headerlink" href="#id1" title="この見出しへのパーマリンク">#</a></h1>
 <section id="uwscr">
-<h2>UWSCR通常版<a class="headerlink" href="#uwscr" title="この見出しへのパーマリンク">#</a></h2>
+<h2>UWSCR<a class="headerlink" href="#uwscr" title="この見出しへのパーマリンク">#</a></h2>
 <p>ソースからuwscr.exeをビルドする方法</p>
 <section id="rust">
 <h3>Rust開発環境の準備<a class="headerlink" href="#rust" title="この見出しへのパーマリンク">#</a></h3>
@@ -243,16 +243,16 @@
 <li><p><code class="docutils literal notranslate"><span class="pre">rustup</span> <span class="pre">target</span> <span class="pre">install</span> <span class="pre">i686-pc-windows-msvc</span></code> を実行してx86版もビルドできるようにする</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">rustup</span> <span class="pre">show</span></code> を実行し以下のような出力になっていればOK</p>
 <blockquote>
-<div><div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>Default host: x86_64-pc-windows-msvc
-rustup home:  C:<span class="se">\U</span>sers<span class="se">\(</span>your name<span class="o">)</span><span class="se">\.</span>rustup
+<div><div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Default host: x86_64-pc-windows-msvc
+rustup home:  C:\Users\(your name)\.rustup
 
 installed toolchains
 --------------------
 
 stable-i686-pc-windows-msvc
-stable-x86_64-pc-windows-msvc <span class="o">(</span>default<span class="o">)</span>
+stable-x86_64-pc-windows-msvc (default)
 
-installed targets <span class="k">for</span> active toolchain
+installed targets for active toolchain
 --------------------------------------
 
 i686-pc-windows-msvc
@@ -261,17 +261,161 @@ x86_64-pc-windows-msvc
 active toolchain
 ----------------
 
-stable-x86_64-pc-windows-msvc <span class="o">(</span>default<span class="o">)</span>
-rustc <span class="m">1</span>.62.0 <span class="o">(</span>a8314ef7d <span class="m">2022</span>-06-27<span class="o">)</span>
+stable-x86_64-pc-windows-msvc (default)
+rustc 1.62.0 (a8314ef7d 2022-06-27)
 </pre></div>
 </div>
 </div></blockquote>
 </li>
 </ol>
 </section>
+<section id="opencv">
+<h4>OpenCV<a class="headerlink" href="#opencv" title="この見出しへのパーマリンク">#</a></h4>
+<div class="line-block">
+<div class="line">chkimgを含める場合は事前にOpenCVをインストール、または静的リンクライブラリをビルドしておく必要があります</div>
+<div class="line">インストールした場合はuwscr.exe実行時にopencv_worldXXX.dllを参照できるようにする必要があります</div>
+<div class="line">ライブラリをビルドした場合はdllは不要です</div>
+<div class="line">chkimgを含めずビルドする場合はこの項目をスキップしてください</div>
+</div>
+<section id="install-opencv">
+<span id="id3"></span><h5>OpenCVのインストール<a class="headerlink" href="#install-opencv" title="この見出しへのパーマリンク">#</a></h5>
+<ol class="arabic simple">
+<li><p><a class="reference external" href="https://github.com/opencv/opencv/releases/latest">OpenCV</a> で <code class="docutils literal notranslate"><span class="pre">opencv-X.Y.Z-vc14_vc15.exe</span></code> をダウンロード</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">opencv-X.Y.Z-vc14_vc15.exe</span></code> を実行し、任意のフォルダに展開</p></li>
+</ol>
 </section>
-<section id="id3">
-<h3>ビルド<a class="headerlink" href="#id3" title="この見出しへのパーマリンク">#</a></h3>
+<section id="build-opencv">
+<span id="id5"></span><h5>OpenCVのビルド<a class="headerlink" href="#build-opencv" title="この見出しへのパーマリンク">#</a></h5>
+<section id="id6">
+<h6>準備<a class="headerlink" href="#id6" title="この見出しへのパーマリンク">#</a></h6>
+<ol class="arabic simple">
+<li><p><a class="reference external" href="https://github.com/opencv/opencv/releases/latest">OpenCV</a> のソースコードをダウンロードして任意のフォルダに展開</p></li>
+<li><p><a class="reference external" href="https://cmake.org/download/">Cmake</a> をダウンロードしインストール</p></li>
+</ol>
+</section>
+<section id="id8">
+<h6>cmake<a class="headerlink" href="#id8" title="この見出しへのパーマリンク">#</a></h6>
+<div class="admonition hint">
+<p class="admonition-title">ヒント</p>
+<div class="line-block">
+<div class="line">以下ではOpenCVの展開先を <code class="docutils literal notranslate"><span class="pre">C:\tools\opencv</span></code> としています</div>
+<div class="line">生成されるファイルの出力先を <code class="docutils literal notranslate"><span class="pre">C:\tools\opencv64</span></code> または <code class="docutils literal notranslate"><span class="pre">C:\tools\opencv86</span></code> としています</div>
+<div class="line">msvcビルドツールは <code class="docutils literal notranslate"><span class="pre">Visual</span> <span class="pre">Studio</span> <span class="pre">16</span> <span class="pre">2019</span></code> としています</div>
+<div class="line">いずれも環境に合わせて読み替えてください</div>
+</div>
+</div>
+<ol class="arabic simple">
+<li><p>スタートメニューからcmake-guiを起動</p></li>
+<li><p>Where is the source code (ソース) に <code class="docutils literal notranslate"><span class="pre">C:\tools\opencv</span></code> を指定</p></li>
+<li><p>Where to build the binaries (出力先) に <code class="docutils literal notranslate"><span class="pre">C:\tools\opencv64</span></code> を指定 (x86はopencv86)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Configure</span></code> ボタンを押す (出力先フォルダが存在しない場合はダイアログで確認されるので作成してもらう)</p></li>
+<li><dl class="simple">
+<dt>ダイアログが表示されたら</dt><dd><ul class="simple">
+<li><p>generatorは <code class="docutils literal notranslate"><span class="pre">Visual</span> <span class="pre">Studio</span> <span class="pre">16</span> <span class="pre">2019</span></code> を選択</p></li>
+<li><dl class="simple">
+<dt>platformは <code class="docutils literal notranslate"><span class="pre">x64</span></code> を選択</dt><dd><ul>
+<li><p>x86なら <code class="docutils literal notranslate"><span class="pre">Win32</span></code> にする</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p>toolsetは空欄</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Finish</span></code> ボタンを押してしばらく待つ</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>リストが表示されるので変更を加える</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">BUILD_SHARED_LIBS</span></code> のチェックを外す</p></li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">BUILD_opencv_*</span></code> 系は以下のみチェックし、ほかは外す</dt><dd><ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">BUILD_opencv_core</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">BUILD_opencv_imgcodecs</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">BUILD_opencv_imgprocs</span></code></p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">*_TESTS</span></code> 系のチェック外す</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">BUILD_JAVA</span></code> のチェック外す</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">WITH_ADE</span></code> のチェック外す</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">WITH_QUIRC</span></code> のチェック外す</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">WITH_OPENEXR</span></code> のチェック外す</p></li>
+<li><dl class="simple">
+<dt>VC++ランタイムを静的リンクしない場合のみ</dt><dd><ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">BUILD_WITH_STATIC_CRT</span></code> のチェックを外す</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>再度 <code class="docutils literal notranslate"><span class="pre">Configure</span></code> ボタンを押ししばらく待つ</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">BUILD_FAT_JAVA_LIB</span></code> が赤くなるけど無視</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p>リストが赤くなっていればなくなるまで <code class="docutils literal notranslate"><span class="pre">Configure</span></code> ボタンを押す</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Generate</span></code> ボタンを押す</p></li>
+</ol>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>スクリプトによる実行方法</p>
+<div class="line-block">
+<div class="line">UWSCRリポジトリにある <code class="docutils literal notranslate"><span class="pre">CmakeOpencv.ps1</span></code> で上記と同等のことができます</div>
+</div>
+<div class="highlight-powershell notranslate"><div class="highlight"><pre><span></span><span class="p">.\</span><span class="n">CmakeOpencv</span><span class="p">.</span><span class="n">ps1</span> <span class="n">-Source</span> <span class="n">C</span><span class="p">:\</span><span class="n">tools</span><span class="p">\</span><span class="n">opencv</span><span class="p">\</span> <span class="n">-OutDir</span> <span class="n">C</span><span class="p">:\</span><span class="n">tools</span><span class="p">\</span><span class="n">opencv64</span><span class="p">\</span> <span class="n">-Architecture</span> <span class="n">x64</span> <span class="n">-WithStaticCrt</span>
+</pre></div>
+</div>
+</div>
+</section>
+<section id="msbuild">
+<h6>msbuild<a class="headerlink" href="#msbuild" title="この見出しへのパーマリンク">#</a></h6>
+<div class="admonition hint">
+<p class="admonition-title">ヒント</p>
+<div class="line-block">
+<div class="line">msvcビルドツールは <code class="docutils literal notranslate"><span class="pre">Visual</span> <span class="pre">Studio</span> <span class="pre">16</span> <span class="pre">2019</span></code> がインストールされているものとします</div>
+<div class="line">また、cmakeの出力先が <code class="docutils literal notranslate"><span class="pre">C:\tools\opencv64</span></code> または <code class="docutils literal notranslate"><span class="pre">C:\tools\opencv86</span></code> であるものとします</div>
+<div class="line">環境に合わせて適宜読み替えてください</div>
+</div>
+</div>
+<ol class="arabic">
+<li><p>スタートメニューから <code class="docutils literal notranslate"><span class="pre">x64</span> <span class="pre">Native</span> <span class="pre">Tools</span> <span class="pre">Command</span> <span class="pre">Prompt</span> <span class="pre">for</span> <span class="pre">VS</span> <span class="pre">2019</span></code> を起動</p></li>
+<li><p>以下を実行</p>
+<ul>
+<li><p>x64</p>
+<blockquote>
+<div><div class="highlight-bat notranslate"><div class="highlight"><pre><span></span><span class="k">cd</span> /d c:\tools\opencv64
+chcp 65001
+msbuild -p:Configuration=Release;Platform=x64;CodePage=65001 INSTALL.vcxproj
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+<li><p>x86</p>
+<blockquote>
+<div><div class="highlight-bat notranslate"><div class="highlight"><pre><span></span><span class="k">cd</span> /d c:\tools\opencv86
+chcp 65001
+msbuild -p:Configuration=Release;Platform=Win32;CodePage=65001 INSTALL.vcxproj
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">C:\tools\opencv64\install</span></code> (x86なら <code class="docutils literal notranslate"><span class="pre">C:\tools\opencv86\install</span></code>) に出力される</p></li>
+</ol>
+</section>
+</section>
+</section>
+</section>
+<section id="id9">
+<h3>ビルド<a class="headerlink" href="#id9" title="この見出しへのパーマリンク">#</a></h3>
 <div class="admonition important">
 <p class="admonition-title">重要</p>
 <p>Rustのバージョンについて</p>
@@ -280,61 +424,213 @@ rustc <span class="m">1</span>.62.0 <span class="o">(</span>a8314ef7d <span clas
 <div class="line">このバージョン未満のRustではビルドができません</div>
 </div>
 </div>
-<ol class="arabic">
+<div class="admonition important">
+<p class="admonition-title">重要</p>
+<p>VC++ランタイムライブラリについて</p>
+<div class="line-block">
+<div class="line">以下のコマンドでそのままビルドした場合は実行時にVC++ランタイムライブラリが必要になります</div>
+<div class="line">exe単体で動作させる(ライブラリを静的リンクする)ためには事前に以下の環境変数をセットしてください</div>
+</div>
+<blockquote>
+<div><div class="highlight-powershell notranslate"><div class="highlight"><pre><span></span><span class="nv">$env:RUSTFLAGS</span><span class="p">=</span><span class="s1">&#39;-C target-feature=+crt-static&#39;</span>
+</pre></div>
+</div>
+</div></blockquote>
+</div>
+<ol class="arabic simple">
 <li><p>UWSCRを <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">clone</span></code> し、PowerShellでそのディレクトリへ移動</p></li>
-<li><p>以下のコマンドを実行</p>
-<blockquote>
-<div><ul>
-<li><p>x64デバッグビルド</p>
-<blockquote>
-<div><div class="highlight-powershell notranslate"><div class="highlight"><pre><span></span><span class="n">cargo</span> <span class="n">build</span>
+<li><p>以下のコマンドを実行</p></li>
+</ol>
+<section id="id10">
+<h4>デバッグビルド<a class="headerlink" href="#id10" title="この見出しへのパーマリンク">#</a></h4>
+<div class="highlight-powershell notranslate"><div class="highlight"><pre><span></span><span class="c"># x64</span>
+<span class="n">cargo</span> <span class="n">build</span>
 </pre></div>
 </div>
 <div class="admonition note">
 <p class="admonition-title">注釈</p>
 <p><code class="docutils literal notranslate"><span class="pre">.\target\debug\</span></code> に出力されます</p>
 </div>
-</div></blockquote>
-</li>
-<li><p>x64リリースビルド</p>
-<blockquote>
-<div><div class="highlight-powershell notranslate"><div class="highlight"><pre><span></span><span class="n">cargo</span> <span class="n">build</span> <span class="p">-</span><span class="n">-release</span>
-</pre></div>
-</div>
-<div class="admonition note">
-<p class="admonition-title">注釈</p>
-<p><code class="docutils literal notranslate"><span class="pre">.\target\release\</span></code> に出力されます</p>
-</div>
-</div></blockquote>
-</li>
-<li><p>x86デバッグビルド</p>
-<blockquote>
-<div><div class="highlight-powershell notranslate"><div class="highlight"><pre><span></span><span class="n">cargo</span> <span class="n">build</span> <span class="p">-</span><span class="n">-target</span><span class="p">=</span><span class="n">i686-pc-windows-msvc</span>
+<div class="highlight-powershell notranslate"><div class="highlight"><pre><span></span><span class="c"># x86</span>
+<span class="n">cargo</span> <span class="n">build</span> <span class="p">-</span><span class="n">-target</span><span class="p">=</span><span class="n">i686-pc-windows-msvc</span>
 </pre></div>
 </div>
 <div class="admonition note">
 <p class="admonition-title">注釈</p>
 <p><code class="docutils literal notranslate"><span class="pre">.\target\i686-pc-windows-msvc\debug\</span></code> に出力されます</p>
 </div>
-</div></blockquote>
-</li>
-<li><p>x86リリースビルド</p>
-<blockquote>
-<div><div class="highlight-powershell notranslate"><div class="highlight"><pre><span></span><span class="n">cargo</span> <span class="n">build</span> <span class="p">-</span><span class="n">-target</span><span class="p">=</span><span class="n">i686-pc-windows-msvc</span> <span class="p">-</span><span class="n">-release</span>
+</section>
+<section id="id11">
+<h4>リリースビルド<a class="headerlink" href="#id11" title="この見出しへのパーマリンク">#</a></h4>
+<div class="highlight-powershell notranslate"><div class="highlight"><pre><span></span><span class="c"># x64</span>
+<span class="n">cargo</span> <span class="n">build</span> <span class="p">-</span><span class="n">-release</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">注釈</p>
+<p><code class="docutils literal notranslate"><span class="pre">.\target\release\</span></code> に出力されます</p>
+</div>
+<div class="highlight-powershell notranslate"><div class="highlight"><pre><span></span><span class="c"># x86</span>
+<span class="n">cargo</span> <span class="n">build</span> <span class="p">-</span><span class="n">-target</span><span class="p">=</span><span class="n">i686-pc-windows-msvc</span> <span class="p">-</span><span class="n">-release</span>
 </pre></div>
 </div>
 <div class="admonition note">
 <p class="admonition-title">注釈</p>
 <p><code class="docutils literal notranslate"><span class="pre">.\target\i686-pc-windows-msvc\release\</span></code> に出力されます</p>
 </div>
+</section>
+<section id="chkimg">
+<h4>chkimgを含める場合<a class="headerlink" href="#chkimg" title="この見出しへのパーマリンク">#</a></h4>
+<section id="id12">
+<h5>準備<a class="headerlink" href="#id12" title="この見出しへのパーマリンク">#</a></h5>
+<ol class="arabic simple">
+<li><p><a class="reference external" href="https://github.com/llvm/llvm-project/releases/latest">LLVM</a> で <code class="docutils literal notranslate"><span class="pre">LLVM-X.Y.Z-win64.exe</span></code> をダウンロードしてインストール</p></li>
+</ol>
+<div class="line-block">
+<div class="line">以下の環境変数を設定する必要があります</div>
+<div class="line">具体的な設定値については後述します</div>
+</div>
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">OPENCV_INCLUDE_PATHS</span></span></dt>
+<dd><p>includeフォルダのパス</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">OPENCV_LINK_PATHS</span></span></dt>
+<dd><p>libファイルのあるパス</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">OPENCV_LINK_LIBS</span></span></dt>
+<dd><p>読み込むlibファイル</p>
+</dd></dl>
+
+</section>
+<section id="id13">
+<h5>ビルド<a class="headerlink" href="#id13" title="この見出しへのパーマリンク">#</a></h5>
+<p><code class="docutils literal notranslate"><span class="pre">cargo</span></code> 実行時に <code class="docutils literal notranslate"><span class="pre">--features</span> <span class="pre">chkimg</span></code> を指定しchkimgが含まれるようにします</p>
+<section id="id14">
+<h6>OpenCVをインストールした場合<a class="headerlink" href="#id14" title="この見出しへのパーマリンク">#</a></h6>
+<div class="admonition hint">
+<p class="admonition-title">ヒント</p>
+<div class="line-block">
+<div class="line"><a class="reference internal" href="#install-opencv"><span class="std std-ref">OpenCVのインストール</span></a> を実行している必要があります</div>
+<div class="line">opencvの展開先は <code class="docutils literal notranslate"><span class="pre">C:\tools\opencv\</span></code> としています、環境に合わせて適宜読み替えてください</div>
+</div>
+</div>
+<div class="admonition caution">
+<p class="admonition-title">注意</p>
+<div class="line-block">
+<div class="line">この方法ではx86版はビルドできません</div>
+</div>
+</div>
+<p>以下は環境変数を設定しつつcargoによるビルドを行うPowerShellスクリプトのサンプルです</p>
+<div class="highlight-powershell notranslate"><div class="highlight"><pre><span></span><span class="c"># includeフォルダ</span>
+<span class="nv">$env:OPENCV_INCLUDE_PATHS</span> <span class="p">=</span> <span class="s1">&#39;C:\tools\opencv\build\include\&#39;</span>
+<span class="c"># libファイルのあるフォルダ</span>
+<span class="nv">$env:OPENCV_LINK_PATHS</span> <span class="p">=</span> <span class="s1">&#39;C:\tools\opencv\build\x64\vc15\lib&#39;</span>
+<span class="c"># 読み込むlibファイル</span>
+<span class="nv">$env:OPENCV_LINK_LIBS</span> <span class="p">=</span> <span class="s1">&#39;opencv_worldXXX&#39;</span>
+<span class="c"># XXXの部分はopencvのバージョンにより変わります (バージョン4.6.0→460)</span>
+
+<span class="n">cargo</span> <span class="n">build</span> <span class="p">-</span><span class="n">-features</span> <span class="n">chkimg</span>
+</pre></div>
+</div>
+<div class="admonition important">
+<p class="admonition-title">重要</p>
+<div class="line-block">
+<div class="line">この方法でビルドしたuwscr.exeは <code class="docutils literal notranslate"><span class="pre">opencv_worldXXX.dll</span></code> が参照できないと実行できません</div>
+<div class="line">以下のいずれかの方法でdllを参照できるようにしてください</div>
+</div>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">C:\tools\opencv\build\x64\vc15\bin</span></code> にPATHを通す</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">C:\tools\opencv\build\x64\vc15\bin\opencv_worldXXX.dll</span></code> をuwscr.exeと同じフォルダにコピーする</p></li>
+</ul>
+</div>
+</section>
+<section id="id15">
+<h6>OpenCVをビルドした場合<a class="headerlink" href="#id15" title="この見出しへのパーマリンク">#</a></h6>
+<div class="admonition hint">
+<p class="admonition-title">ヒント</p>
+<div class="line-block">
+<div class="line"><a class="reference internal" href="#build-opencv"><span class="std std-ref">OpenCVのビルド</span></a> を実行している必要があります</div>
+<div class="line">msbuildの出力先は <code class="docutils literal notranslate"><span class="pre">C:\tools\opencv64\install\</span></code> (<code class="docutils literal notranslate"><span class="pre">C:\tools\opencv86\install\</span></code>) としています、環境に合わせて適宜読み替えてください</div>
+</div>
+</div>
+<div class="admonition important">
+<p class="admonition-title">重要</p>
+<p>BUILD_WITH_STATIC_CRTについて</p>
+<div class="line-block">
+<div class="line">VC++ランタイムライブラリを静的リンクしてビルドする場合はopencvビルド時に <code class="docutils literal notranslate"><span class="pre">BUILD_WITH_STATIC_CRT</span></code> をオンにします</div>
+<div class="line">VC++ランタイムライブラリを静的リンクしない場合はopencvビルド時に <code class="docutils literal notranslate"><span class="pre">BUILD_WITH_STATIC_CRT</span></code> をオフにします</div>
+</div>
+</div>
+<p>以下は環境変数を設定しつつcargoによるビルドを行うPowerShellスクリプトのサンプルです</p>
+<ul>
+<li><p>x64</p>
+<blockquote>
+<div><div class="highlight-powershell notranslate"><div class="highlight"><pre><span></span><span class="c"># includeフォルダ</span>
+<span class="nv">$env:OPENCV_INCLUDE_PATHS</span> <span class="p">=</span> <span class="s1">&#39;C:\tools\opencv64\install\include&#39;</span>
+<span class="c"># libファイルのあるフォルダ</span>
+<span class="nv">$env:OPENCV_LINK_PATHS</span> <span class="p">=</span> <span class="s1">&#39;C:\tools\opencv64\install\x64\vc16\staticlib&#39;</span>
+<span class="c"># 読み込むlibファイル</span>
+<span class="c"># 複数ある場合は , で連結する</span>
+<span class="nv">$env:OPENCV_LINK_LIBS</span> <span class="p">=</span> <span class="p">@(</span>
+    <span class="s1">&#39;opencv_coreXXX&#39;</span>
+    <span class="s1">&#39;opencv_imgcodecsXXX&#39;</span>
+    <span class="s1">&#39;opencv_imgprocXXX&#39;</span>
+    <span class="s1">&#39;ippiw&#39;</span>
+    <span class="s1">&#39;ittnotify&#39;</span>
+    <span class="s1">&#39;ippicvmt&#39;</span>
+    <span class="s1">&#39;liblibjpeg-turbo&#39;</span>
+    <span class="s1">&#39;liblibopenjp2&#39;</span>
+    <span class="s1">&#39;liblibpng&#39;</span>
+    <span class="s1">&#39;liblibtiff&#39;</span>
+    <span class="s1">&#39;liblibwebp&#39;</span>
+    <span class="s1">&#39;zlib&#39;</span>
+<span class="p">)</span> <span class="n">-join</span> <span class="s1">&#39;,&#39;</span>
+<span class="c"># XXXの部分はopencvのバージョンにより変わります (バージョン4.6.0→460)</span>
+<span class="c"># libから始まるファイルは先頭にlibを追加する必要があります (libpng→liblibpng)</span>
+
+<span class="n">cargo</span> <span class="n">build</span> <span class="p">-</span><span class="n">-features</span> <span class="n">chkimg</span>
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+<li><p>x86</p>
+<blockquote>
+<div><div class="highlight-powershell notranslate"><div class="highlight"><pre><span></span><span class="nv">$env:OPENCV_INCLUDE_PATHS</span> <span class="p">=</span> <span class="s1">&#39;C:\tools\opencv86\install\include&#39;</span>
+<span class="nv">$env:OPENCV_LINK_PATHS</span> <span class="p">=</span> <span class="s1">&#39;C:\tools\opencv86\install\x86\vc16\staticlib&#39;</span>
+<span class="nv">$env:OPENCV_LINK_LIBS</span> <span class="p">=</span> <span class="p">@(</span>
+    <span class="s1">&#39;opencv_coreXXX&#39;</span>
+    <span class="s1">&#39;opencv_imgcodecsXXX&#39;</span>
+    <span class="s1">&#39;opencv_imgprocXXX&#39;</span>
+    <span class="s1">&#39;ippiw&#39;</span>
+    <span class="s1">&#39;ittnotify&#39;</span>
+    <span class="s1">&#39;ippicvmt&#39;</span>
+    <span class="s1">&#39;liblibjpeg-turbo&#39;</span>
+    <span class="s1">&#39;liblibopenjp2&#39;</span>
+    <span class="s1">&#39;liblibpng&#39;</span>
+    <span class="s1">&#39;liblibtiff&#39;</span>
+    <span class="s1">&#39;liblibwebp&#39;</span>
+    <span class="s1">&#39;zlib&#39;</span>
+<span class="p">)</span> <span class="n">-join</span> <span class="s1">&#39;,&#39;</span>
+
+<span class="n">cargo</span> <span class="n">build</span> <span class="p">-</span><span class="n">-features</span> <span class="n">chkimg</span> <span class="p">-</span><span class="n">-target</span><span class="p">=</span><span class="n">i686-pc-windows-msvc</span>
+</pre></div>
+</div>
 </div></blockquote>
 </li>
 </ul>
-</div></blockquote>
-</li>
-</ol>
+</section>
+</section>
+</section>
+</section>
 <section id="cargo">
-<h4>cargoによるテスト実行<a class="headerlink" href="#cargo" title="この見出しへのパーマリンク">#</a></h4>
+<h3>cargoによるテスト実行<a class="headerlink" href="#cargo" title="この見出しへのパーマリンク">#</a></h3>
 <div class="line-block">
 <div class="line">cargoを使ったuwscrのテスト実行方法</div>
 <div class="line">都度ビルド→実行を行います</div>
@@ -356,75 +652,14 @@ rustc <span class="m">1</span>.62.0 <span class="o">(</span>a8314ef7d <span clas
 </div>
 </section>
 </section>
-</section>
-<section id="chkimg">
-<h2>chkimg版<a class="headerlink" href="#chkimg" title="この見出しへのパーマリンク">#</a></h2>
-<div class="line-block">
-<div class="line">chkimgを含むUWSCRをビルドする場合は別途opencvのインストールが必要です</div>
-<div class="line">opencvはバージョン4.5.4をインストールしてください</div>
-</div>
-<section id="opencv">
-<h3>opencvのインストール<a class="headerlink" href="#opencv" title="この見出しへのパーマリンク">#</a></h3>
-<ol class="arabic">
-<li><p><a class="reference external" href="https://github.com/llvm/llvm-project/releases/tag/llvmorg-13.0.0">Release LLVM 13.0.0 · llvm/llvm-project</a> で <code class="docutils literal notranslate"><span class="pre">LLVM-13.0.0-win**.exe</span></code> をダウンロードしてインストール</p></li>
-<li><p><a class="reference external" href="https://github.com/opencv/opencv/releases/tag/4.5.4">Release OpenCV 4.5.4 · opencv/opencv</a> で <code class="docutils literal notranslate"><span class="pre">opencv-4.5.4-vc14_vc15.exe</span></code> をダウンロードしてインストール</p></li>
-<li><p>ビルド環境で以下の環境変数を読み取れるようにしてください</p>
-<blockquote>
-<div><div class="line-block">
-<div class="line">opencv4.5.4を <code class="docutils literal notranslate"><span class="pre">C:\tools</span></code> に展開した場合</div>
-</div>
-<dl class="object">
-<dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">OPENCV_LINK_PATHS</span></span></dt>
-<dd><p><code class="docutils literal notranslate"><span class="pre">C:\tools\opencv\build\x64\vc15\lib</span></code></p>
-</dd></dl>
-
-<dl class="object">
-<dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">OPENCV_LINK_LIBS</span></span></dt>
-<dd><p><code class="docutils literal notranslate"><span class="pre">opencv_world454</span></code></p>
-</dd></dl>
-
-<dl class="object">
-<dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">OPENCV_INCLUDE_PATHS</span></span></dt>
-<dd><p><code class="docutils literal notranslate"><span class="pre">C:\tools\opencv\build\include\</span></code></p>
-</dd></dl>
-
-<dl class="object">
-<dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">PATH</span></span></dt>
-<dd><p>cargoでテスト実行する際にdllを参照するため</p>
-<p><code class="docutils literal notranslate"><span class="pre">%PATH%;C:\tools\opencv\build\x64\vc15\bin</span></code></p>
-</dd></dl>
-
-</div></blockquote>
-</li>
-</ol>
-</section>
-<section id="id4">
-<h3>ビルド<a class="headerlink" href="#id4" title="この見出しへのパーマリンク">#</a></h3>
-<p><code class="docutils literal notranslate"><span class="pre">chkimg</span></code> フィーチャーを指定してビルドします</p>
-<div class="highlight-powershell notranslate"><div class="highlight"><pre><span></span><span class="c"># x64デバッグ版</span>
-<span class="n">cargo</span> <span class="n">build</span> <span class="p">-</span><span class="n">-features</span> <span class="n">chkimg</span>
-<span class="c"># x64リリース版</span>
-<span class="n">cargo</span> <span class="n">build</span> <span class="p">-</span><span class="n">-features</span> <span class="n">chkimg</span> <span class="p">-</span><span class="n">-release</span>
-</pre></div>
-</div>
-<div class="admonition warning">
-<p class="admonition-title">警告</p>
-<p>chkimg版はx86でのビルドはできません</p>
-</div>
-</section>
-</section>
-<section id="id5">
-<h2>ドキュメント<a class="headerlink" href="#id5" title="この見出しへのパーマリンク">#</a></h2>
+<section id="id16">
+<h2>ドキュメント<a class="headerlink" href="#id16" title="この見出しへのパーマリンク">#</a></h2>
 <div class="admonition important">
 <p class="admonition-title">重要</p>
 <p>Python実行環境が必要です</p>
 </div>
-<section id="id6">
-<h3>準備<a class="headerlink" href="#id6" title="この見出しへのパーマリンク">#</a></h3>
+<section id="id17">
+<h3>準備<a class="headerlink" href="#id17" title="この見出しへのパーマリンク">#</a></h3>
 <p><code class="docutils literal notranslate"><span class="pre">pip</span></code> 等で以下をインストール</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">Sphinx</span></code> (ドキュメントのビルド)</p></li>
@@ -432,8 +667,8 @@ rustc <span class="m">1</span>.62.0 <span class="o">(</span>a8314ef7d <span clas
 <li><p><code class="docutils literal notranslate"><span class="pre">pygments</span></code> (サンプル構文のシンタックスハイライト)</p></li>
 </ul>
 </section>
-<section id="id7">
-<h3>ビルド<a class="headerlink" href="#id7" title="この見出しへのパーマリンク">#</a></h3>
+<section id="id18">
+<h3>ビルド<a class="headerlink" href="#id18" title="この見出しへのパーマリンク">#</a></h3>
 <ol class="arabic simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">.\documents\make.bat</span> <span class="pre">html</span></code> を実行</p></li>
 </ol>
@@ -503,26 +738,42 @@ rustc <span class="m">1</span>.62.0 <span class="o">(</span>a8314ef7d <span clas
           <div class="toc-tree">
             <ul>
 <li><a class="reference internal" href="#">ビルド方法</a><ul>
-<li><a class="reference internal" href="#uwscr">UWSCR通常版</a><ul>
+<li><a class="reference internal" href="#uwscr">UWSCR</a><ul>
 <li><a class="reference internal" href="#rust">Rust開発環境の準備</a><ul>
 <li><a class="reference internal" href="#visual-c-build-tools">Visual C++ Build Tools のインストール</a></li>
 <li><a class="reference internal" href="#id2">Rustのインストール</a></li>
+<li><a class="reference internal" href="#opencv">OpenCV</a><ul>
+<li><a class="reference internal" href="#install-opencv">OpenCVのインストール</a></li>
+<li><a class="reference internal" href="#build-opencv">OpenCVのビルド</a><ul>
+<li><a class="reference internal" href="#id6">準備</a></li>
+<li><a class="reference internal" href="#id8">cmake</a></li>
+<li><a class="reference internal" href="#msbuild">msbuild</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#id3">ビルド</a><ul>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id9">ビルド</a><ul>
+<li><a class="reference internal" href="#id10">デバッグビルド</a></li>
+<li><a class="reference internal" href="#id11">リリースビルド</a></li>
+<li><a class="reference internal" href="#chkimg">chkimgを含める場合</a><ul>
+<li><a class="reference internal" href="#id12">準備</a></li>
+<li><a class="reference internal" href="#id13">ビルド</a><ul>
+<li><a class="reference internal" href="#id14">OpenCVをインストールした場合</a></li>
+<li><a class="reference internal" href="#id15">OpenCVをビルドした場合</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
 <li><a class="reference internal" href="#cargo">cargoによるテスト実行</a></li>
 </ul>
 </li>
-</ul>
-</li>
-<li><a class="reference internal" href="#chkimg">chkimg版</a><ul>
-<li><a class="reference internal" href="#opencv">opencvのインストール</a></li>
-<li><a class="reference internal" href="#id4">ビルド</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#id5">ドキュメント</a><ul>
-<li><a class="reference internal" href="#id6">準備</a></li>
-<li><a class="reference internal" href="#id7">ビルド</a></li>
+<li><a class="reference internal" href="#id16">ドキュメント</a><ul>
+<li><a class="reference internal" href="#id17">準備</a></li>
+<li><a class="reference internal" href="#id18">ビルド</a></li>
 </ul>
 </li>
 </ul>
