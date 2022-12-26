@@ -11,10 +11,13 @@ use windows::{
                 BST_CHECKED, BST_UNCHECKED, BST_INDETERMINATE,
                 TCM_GETITEMW, TCM_GETITEMA, TCM_GETITEMCOUNT, TCM_GETCURSEL, TCM_GETUNICODEFORMAT, TCM_GETITEMRECT, TCM_SETCURFOCUS,
                 TCIF_TEXT,
+                // treeview
                 TVIF_HANDLE, TVIF_TEXT,
                 TVM_GETUNICODEFORMAT, TVM_GETITEMA, TVM_GETITEMW, TVM_GETNEXTITEM, TVM_GETITEMRECT, TVM_SELECTITEM,
-                TVGN_ROOT, TVGN_CHILD, TVGN_NEXT, TVGN_CARET,
+                TVGN_ROOT, TVGN_CHILD, TVGN_NEXT, TVGN_CARET, TVGN_NEXTSELECTED,
+                // listview
                 LVM_GETUNICODEFORMAT, LVM_GETHEADER, LVM_GETITEMCOUNT, LVM_GETITEMTEXTW, LVM_GETITEMTEXTA, LVM_GETSUBITEMRECT,
+                LVM_GETNEXTITEMINDEX, LVITEMINDEX, LVNI_SELECTED,
                 LVIF_TEXT,
                 HDM_GETITEMCOUNT, HDM_GETITEMW, HDM_GETITEMA, HDM_GETITEMRECT,
                 HDI_TEXT,
@@ -35,6 +38,7 @@ use windows::{
                 CB_GETCOUNT, CB_GETLBTEXT, CB_GETLBTEXTLEN, CB_SETCURSEL, CB_GETCURSEL, CB_SETEDITSEL,
                 CBN_SELCHANGE,
                 LB_GETCOUNT, LB_GETTEXT, LB_GETTEXTLEN, LB_SETCURSEL, LB_GETCURSEL, LB_GETITEMRECT,
+                LB_GETSELCOUNT, LB_GETSELITEMS,
                 LBN_SELCHANGE,
                 WS_DISABLED,
                 EnumChildWindows, PostMessageW, GetDlgCtrlID, SendMessageW,
@@ -520,6 +524,11 @@ impl Win32 {
     fn is_disabled(hwnd: HWND) -> bool {
         get_window_style(hwnd) as u32 & WS_DISABLED.0 > 0
     }
+    fn is_visible(hwnd: HWND) -> bool {
+        unsafe {
+            IsWindowVisible(hwnd).as_bool()
+        }
+    }
 
     fn post_wm_command(&self, hwnd: HWND, id: Option<i32>, command: u32) -> bool {
         let id = id.unwrap_or(Self::get_window_id(hwnd));
@@ -975,6 +984,91 @@ impl Win32 {
             true.into()
         }
     }
+
+    pub fn getslctlst(hwnd: HWND, nth: u32, column: isize) -> Vec<String> {
+        let mut gsl = GetSlctLst::new(nth, column);
+        let lparam = LPARAM(&mut gsl as *mut GetSlctLst as isize);
+        unsafe {
+            EnumChildWindows(hwnd, Some(Self::getslctlst_callback), lparam);
+        }
+        gsl.found
+    }
+    unsafe extern "system"
+    fn getslctlst_callback(hwnd: HWND, lparam: LPARAM) -> BOOL {
+        if let HWND(0) = hwnd {
+            false.into()
+        } else {
+            if ! Self::is_visible(hwnd) {
+                return true.into();
+            }
+            let gsl = &mut *(lparam.0 as *mut GetSlctLst);
+            let target_class = TargetClass::from(get_class_name(hwnd));
+            match target_class {
+                TargetClass::ComboBox => if gsl.is_nth_control() {
+                    let index = Self::send_message(hwnd, CB_GETCURSEL, 0, 0);
+                    if index > -1 {
+                        let len = Self::send_message(hwnd, CB_GETLBTEXTLEN, index as usize, 0);
+                        if len > 0 {
+                            let mut buf = vec![0; len as usize];
+                            let len = Self::send_message(hwnd, CB_GETLBTEXT, index as usize, buf.as_mut_ptr() as isize);
+                            let name = String::from_utf16_lossy(&buf[0..len as usize]);
+                            gsl.add(name);
+                            return false.into();
+                        }
+                    }
+                },
+                TargetClass::List => if gsl.is_nth_control() {
+                    let count = Self::send_message(hwnd, LB_GETSELCOUNT, 0, 0);
+                    let indexes = if count < 0 {
+                        // 単一選択
+                        let index = Self::send_message(hwnd, LB_GETCURSEL, 0, 0);
+                        if index > -1 {
+                            vec![index]
+                        } else {
+                            vec![]
+                        }
+                    } else {
+                        // 複数選択
+                        let mut buf = vec![0i32; count as usize];
+                        if Self::send_message(hwnd, LB_GETSELITEMS, count as usize, buf.as_mut_ptr() as isize) > -1 {
+                            buf.into_iter().map(|n| n as isize).collect()
+                        } else {
+                            vec![]
+                        }
+                    };
+                    for index in indexes {
+                        let len = Self::send_message(hwnd, LB_GETTEXTLEN, index as usize, 0);
+                        if len > 0 {
+                            let mut buf = vec![0; len as usize];
+                            let len = Self::send_message(hwnd, LB_GETTEXT, index as usize, buf.as_mut_ptr() as isize);
+                            let name = String::from_utf16_lossy(&buf[0..len as usize]);
+                            gsl.add(name);
+                        }
+                    }
+                    return false.into();
+                },
+                TargetClass::ListView => if gsl.is_nth_control() {
+                    if let Some(lv) = ListView::new(hwnd) {
+                        let selected = lv.get_selected(gsl.column);
+                        if selected.len() > 0 {
+                            gsl.extend(selected);
+                        }
+                    }
+                },
+                TargetClass::TreeView => if gsl.is_nth_control() {
+                    if let Some(tv) = TreeView::new(hwnd) {
+                        if let Some(hitem) = tv.get_selected() {
+                            if let Some(value) = tv.get_name(hitem) {
+                                gsl.add(value);
+                            }
+                        }
+                    }
+                },
+                _ => {},
+            }
+            true.into()
+        }
+    }
 }
 
 enum ListIndex {
@@ -1158,6 +1252,29 @@ impl GetItem {
             // 0の場合
             false
         }
+    }
+}
+
+struct GetSlctLst {
+    nth: u32,
+    column: isize,
+    found: Vec<String>,
+}
+impl GetSlctLst {
+    fn new(nth: u32, column: isize) -> Self {
+        Self { nth, column, found: vec![] }
+    }
+    fn add(&mut self, value: String) {
+        self.found.push(value);
+    }
+    fn extend(&mut self, values: Vec<String>) {
+        self.found.extend(values)
+    }
+    fn is_nth_control(&mut self) -> bool {
+        if self.nth > 0 {
+            self.nth -= 1;
+        }
+        self.nth == 0
     }
 }
 
@@ -1586,6 +1703,10 @@ impl TreeView {
         let h = Win32::send_message(self.hwnd, TVM_GETNEXTITEM, TVGN_NEXT as usize, hitem);
         if h != 0 { Some(h) } else { None }
     }
+    fn get_selected(&self) -> Option<isize> {
+        let h = Win32::send_message(self.hwnd, TVM_GETNEXTITEM, TVGN_NEXTSELECTED as usize, 0);
+        if h != 0 { Some(h) } else { None }
+    }
     fn get_point(hwnd: HWND, pid: u32, hitem: isize) -> Option<(i32, i32)> {
         let mut rect = RECT::default();
         let remote = ProcessMemory::new(pid, None)?;
@@ -1751,6 +1872,24 @@ impl ListView {
                 }
             }
         }
+    }
+    fn get_selected(&self, column: isize) -> Vec<String> {
+        let mut selected = vec![];
+        let mut index = LVITEMINDEX::default();
+        index.iItem = -1;
+        if let Some(remote) = ProcessMemory::new(self.pid, Some(&index)) {
+            loop {
+                if Win32::send_message(self.hwnd, LVM_GETNEXTITEMINDEX, remote.pointer as usize, LVNI_SELECTED as isize) != 0 {
+                    remote.read(&mut index);
+                    if let Some(value) = self.get_name(index.iItem as isize, column) {
+                        selected.push(value);
+                    }
+                } else {
+                    break
+                }
+            }
+        }
+        selected
     }
     fn get_name(&self, row: isize, column: isize) -> Option<String> {
         if self.is_unicode {

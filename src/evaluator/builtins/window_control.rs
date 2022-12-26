@@ -164,6 +164,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("chkbtn", 4, chkbtn);
     sets.add("getstr", 4, getstr);
     sets.add("sendstr", 5, sendstr);
+    sets.add("getslctlst", 3, getslctlst);
     sets
 }
 
@@ -1520,4 +1521,24 @@ pub fn sendstr(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         };
     }
     Ok(BuiltinFuncReturnValue::Empty)
+}
+
+pub fn getslctlst(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let id = args.get_as_int(0, None)?;
+    let nth = args.get_as_nth(1)?;
+    let column = args.get_as_nth(2)? as isize - 1;
+
+    let hwnd = get_hwnd_from_id(id);
+
+    let mut found = win32::Win32::getslctlst(hwnd, nth, column);
+    let obj = match found.len() {
+        0 => Object::Empty,
+        1 => found.pop().into(),
+        _ => {
+            let arr = found.into_iter().map(|s| s.into()).collect();
+            Object::Array(arr)
+        }
+    };
+
+    Ok(BuiltinFuncReturnValue::Result(obj))
 }
