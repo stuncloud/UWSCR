@@ -69,9 +69,7 @@ impl Acc {
                     let obj: IAccessible = transmute(ppvobject);
                     Some(Acc {obj, id: None, has_child: true })
                 },
-                Err(error) => {
-                    #[cfg(debug_assertions)]
-                    println!("\u{001b}[31m[from_hwnd_and_id] error: {:?}\u{001b}[0m", &error);
+                Err(_) => {
                     None
                 },
             }
