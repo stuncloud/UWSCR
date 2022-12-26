@@ -1,15 +1,12 @@
-UWSC互換スクリプト実行ツール UWSCR
-=====
+# UWSC互換スクリプト実行ツール UWSCR
 
 UWSCスクリプトを読み取り実行させるためのツールです
 
-動作保証OS
-----
+## 動作保証OS
 
 Windows 10以上
 
-導入方法
-----
+## 導入方法
 
 [最新版のリリースページ](https://github.com/stuncloud/UWSCR/releases/latest/#:~:text=Assets)下部のAssetsからzipファイルをダウンロードし、中の`uwscr.exe`を任意のフォルダに展開してください
 
@@ -17,12 +14,8 @@ Windows 10以上
     - 64ビット版uwscr
 - UWSCRx86.zip
     - 32ビット版uwscr
-- UWSCRx64_chkimg.zip
-    - 64ビット版で`chkimg`が使えるもの
-    - opencvのdllが別途必要です ([導入方法](https://stuncloud.github.io/UWSCR/builtins/window.html#opencv))
 
-実行方法
-----
+## 実行方法
 
 ### スクリプトの実行
 
@@ -58,21 +51,18 @@ cmd /c uwscr -o
 cmd /c uwscr --online-help
 ```
 
-詳細な使い方
-----
+## 詳細な使い方
 
 [UWSCRオンラインヘルプ](https://stuncloud.github.io/UWSCR/index.html)を参照してください
 
-お問い合わせ
-----
+## お問い合わせ
 
 UWSCRに関する問い合わせはこちら
 
 - [Discord](https://discord.gg/Y9VtAMZ)
 - [Issue](https://github.com/stuncloud/UWSCR/issues)
 
-開発支援
-----
+## 開発支援
 
 以下からご支援いただけます
 
