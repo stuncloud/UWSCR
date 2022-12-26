@@ -16,6 +16,10 @@ param(
     [switch] $Clean
 )
 
+trap {
+    break
+}
+
 # リリースビルドの場合vcのライブラリをスタティックリンクする
 if ($Release) {
     $env:RUSTFLAGS='-C target-feature=+crt-static'
@@ -24,7 +28,7 @@ if ($Release) {
 }
 
 # ビルド
-if ((! $Installer -and ! $Schema -and ! $Document) -or ($Release -and $Installer)) {
+if ((! $Installer) -or ($Release -and $Installer)) {
     if ("x64" -in $Architecture) {
         # build x64 exe
         if ($OpenCV64Install -ne $null) {
