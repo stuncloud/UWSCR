@@ -12,7 +12,8 @@ param(
     [string] $OpenCV64Install,
     # opencv x86版installビルド先のパス
     [string] $OpenCV86Install,
-    [switch] $Document
+    [switch] $Document,
+    [switch] $Clean
 )
 
 # リリースビルドの場合vcのライブラリをスタティックリンクする
@@ -203,7 +204,9 @@ if ($Schema) {
 }
 
 if ($Document) {
-    Invoke-Expression -Command '.\documents\make.bat clean'
+    if ($Clean) {
+        Invoke-Expression -Command '.\documents\make.bat clean'
+    }
     $nojekyll = '.\documents\build\html\.nojekyll'
     if (!(Test-Path $nojekyll)) {
         $file = New-Item -Path $nojekyll -ItemType File
