@@ -13,8 +13,8 @@ use windows::{
         Foundation::POINT,
         UI::{
             Input::KeyboardAndMouse::{
-                KEYEVENTF_SCANCODE, KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP,
-                keybd_event, MapVirtualKeyW
+                KEYBD_EVENT_FLAGS, KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP, KEYEVENTF_UNICODE,
+                SendInput, INPUT, KEYBDINPUT, INPUT_KEYBOARD, VIRTUAL_KEY,
             },
             WindowsAndMessaging::{GetCursorPos, SetCursorPos},
         },
@@ -126,79 +126,24 @@ pub fn get_current_pos() -> BuiltInResult<POINT>{
     Ok(point)
 }
 
-fn send_win_key(vk: u8, action: KeyActionEnum, wait: u64) -> BuiltinFuncResult {
-    thread::sleep(time::Duration::from_millis(wait));
-    unsafe {
-        let dw_flags = KEYEVENTF_SCANCODE | KEYEVENTF_EXTENDEDKEY;
-        let scancode = MapVirtualKeyW(vk as u32, 0) as u8;
-        match action {
-            KeyActionEnum::CLICK => {
-                keybd_event(
-                    0,
-                    scancode,
-                    dw_flags,
-                    0
-                );
-                // enigoと同様に20ms待つ
-                thread::sleep(time::Duration::from_millis(20));
-                keybd_event(
-                    0,
-                    scancode,
-                    KEYEVENTF_KEYUP | dw_flags,
-                    0
-                );
-            },
-            KeyActionEnum::DOWN => {
-                keybd_event(
-                    0,
-                    scancode,
-                    dw_flags,
-                    0
-                );
-            },
-            KeyActionEnum::UP => {
-                keybd_event(
-                    0,
-                    scancode,
-                    KEYEVENTF_KEYUP | dw_flags,
-                    0
-                );
-            },
-        }
-    }
-    Ok(BuiltinFuncReturnValue::Result(Object::Empty))
-}
-
 pub fn kbd(args: BuiltinFuncArgs) -> BuiltinFuncResult {
-
-    let mut enigo = Enigo::new();
-    let obj = args.get_as_object(0, None)?;
-    let key_action = args.get_as_const::<KeyActionEnum>(1, false)?
+    let key = args.get_as_num_or_string(0)?;
+    let action = args.get_as_const::<KeyActionEnum>(1, false)?
         .unwrap_or(KeyActionEnum::CLICK);
-    let ms= args.get_as_int::<u64>(2, Some(0))?;
+    let wait= args.get_as_int::<u64>(2, Some(0))?;
 
-    let vk_win = key_codes::VirtualKeyCode::VK_WIN as isize as f64;
-    let vk_rwin = key_codes::VirtualKeyCode::VK_START as isize as f64;
-    let key = match obj {
-        Object::Num(n) => if n == vk_win || n == vk_rwin {
-            return send_win_key(n as u8, key_action, ms)
-        } else {
-            Key::Raw(n as u16)
+    let vk_win = key_codes::VirtualKeyCode::VK_WIN as u8;
+    let vk_rwin = key_codes::VirtualKeyCode::VK_START as u8;
+    match key {
+        TwoTypeArg::U(vk) => {
+            let extend = vk == vk_win || vk == vk_rwin;
+            Input::send_key(vk, action, wait, extend);
         },
-        Object::String(s) => {
-            thread::sleep(time::Duration::from_millis(ms));
-            enigo.key_sequence(s.as_str());
-            return Ok(BuiltinFuncReturnValue::Result(Object::Empty));
+        TwoTypeArg::T(s) => {
+            Input::send_str(&s, wait);
         }
-        _ => return Err(builtin_func_error(UErrorMessage::InvalidArgument(obj)))
     };
-    thread::sleep(time::Duration::from_millis(ms));
-    match key_action {
-        KeyActionEnum::CLICK => enigo.key_click(key),
-        KeyActionEnum::DOWN => enigo.key_down(key),
-        KeyActionEnum::UP => enigo.key_up(key),
-    };
-    Ok(BuiltinFuncReturnValue::Result(Object::Empty))
+    Ok(BuiltinFuncReturnValue::Empty)
 }
 
 trait Scaling {
@@ -246,5 +191,85 @@ impl Scaling for POINT {
             None => (x, y),
         };
         POINT { x, y }
+    }
+}
+
+struct Input {}
+
+impl Input {
+    fn send_key(vk: u8, action: KeyActionEnum, wait: u64, extend: bool) {
+        thread::sleep(time::Duration::from_millis(wait));
+        match action {
+            KeyActionEnum::CLICK => {
+                Self::key_down(vk, extend);
+                // 20ms待って離す
+                thread::sleep(time::Duration::from_millis(20));
+                Self::key_up(vk, extend)
+            },
+            KeyActionEnum::DOWN => Self::key_down(vk, extend),
+            KeyActionEnum::UP => Self::key_up(vk, extend),
+        }
+    }
+    fn send_str(str: &str, wait: u64) {
+        thread::sleep(time::Duration::from_millis(wait));
+        unsafe {
+            let pinputs = str.encode_utf16()
+                .map(|scan| {
+                    let mut input = INPUT::default();
+                    input.r#type = INPUT_KEYBOARD;
+                    input.Anonymous.ki = KEYBDINPUT {
+                        wVk: VIRTUAL_KEY(0),
+                        wScan: scan,
+                        dwFlags: KEYEVENTF_UNICODE,
+                        time: 0,
+                        dwExtraInfo: 0,
+                    };
+                    input
+                })
+                .collect::<Vec<_>>();
+            SendInput(&pinputs, std::mem::size_of::<INPUT>() as i32);
+        }
+    }
+    fn key_down(vk: u8, extend: bool) {
+        unsafe {
+            let mut input = INPUT::default();
+            let dwflags = if extend {
+                KEYEVENTF_EXTENDEDKEY
+            } else {
+                KEYBD_EVENT_FLAGS(0)
+            };
+            // let scan = MapVirtualKeyW(vk as u32, 0) as u16;
+            let wvk = VIRTUAL_KEY(vk as u16);
+            input.r#type = INPUT_KEYBOARD;
+            input.Anonymous.ki = KEYBDINPUT {
+                wVk: wvk,
+                wScan: 0,
+                dwFlags: dwflags,
+                time: 0,
+                dwExtraInfo: 0,
+            };
+            SendInput(&[input], std::mem::size_of::<INPUT>() as i32);
+        }
+    }
+    fn key_up(vk: u8, extend: bool) {
+        unsafe {
+            let mut input = INPUT::default();
+            let dwflags = if extend {
+                KEYEVENTF_KEYUP | KEYEVENTF_EXTENDEDKEY
+            } else {
+                KEYEVENTF_KEYUP
+            };
+            // let scan = MapVirtualKeyW(vk as u32, 0) as u16;
+            let wvk = VIRTUAL_KEY(vk as u16);
+            input.r#type = INPUT_KEYBOARD;
+            input.Anonymous.ki = KEYBDINPUT {
+                wVk: wvk,
+                wScan: 0,
+                dwFlags: dwflags,
+                time: 0,
+                dwExtraInfo: 0,
+            };
+            SendInput(&[input], std::mem::size_of::<INPUT>() as i32);
+        }
     }
 }
