@@ -533,12 +533,38 @@ impl BuiltinFuncArgs {
         })
     }
 
-    pub fn get_as_num_or_string(&self, i: usize) -> BuiltInResult<TwoTypeArg<String, f64>> {
+    /// 数値は数値として受けるがそれ以外は文字列として受ける
+    pub fn get_as_num_or_string<T>(&self, i: usize) -> BuiltInResult<TwoTypeArg<String, T>>
+        where T: cast::From<f64, Output=Result<T, cast::Error>>
+    {
         self.get_arg( i, |arg| {
             let result = match arg {
-                Object::String(s) => TwoTypeArg::T(s),
+                Object::Num(n) => {
+                    T::cast(n)
+                        .or(Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgCastError(arg, std::any::type_name::<T>().into()))))
+                        .map(|t| TwoTypeArg::U(t))?
+                },
+                Object::Bool(b) => {
+                    let n = if b {1.0} else {0.0};
+                    T::cast(n)
+                        .or(Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgCastError(arg, std::any::type_name::<T>().into()))))
+                        .map(|t| TwoTypeArg::U(t))?
+                },
+                arg => TwoTypeArg::T(arg.to_string()),
+            };
+            Ok(result)
+        })
+    }
+    /// 数値はf64として受けるがそれ以外は文字列として受ける
+    pub fn get_as_f64_or_string(&self, i: usize) -> BuiltInResult<TwoTypeArg<String, f64>> {
+        self.get_arg( i, |arg| {
+            let result = match arg {
                 Object::Num(n) => TwoTypeArg::U(n),
-                arg => return Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg))),
+                Object::Bool(b) => {
+                    let n = if b {1.0} else {0.0};
+                    TwoTypeArg::U(n)
+                },
+                arg => TwoTypeArg::T(arg.to_string()),
             };
             Ok(result)
         })

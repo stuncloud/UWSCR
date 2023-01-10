@@ -710,7 +710,7 @@ impl Default for FormatConst {
 }
 
 pub fn format(args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let val = args.get_as_num_or_string(0)?;
+    let val = args.get_as_f64_or_string(0)?;
     let len = args.get_as_int(1, None::<i32>)?;
     let len = if len < 0 {0_usize} else {len as usize};
     let digit = args.get_as_int(2, Some(0_i32))?;
