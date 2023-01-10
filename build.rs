@@ -9,14 +9,18 @@ fn main() {
             "x86_64-pc-windows-msvc" => {
                 res.set_icon(r#".\icons\UWSC\ico\MAINICON_0016-0256_light.ico"#);
                 if cfg!(feature="chkimg") {
-                    "UWSCR x64 chkimg"
-                } else {
                     "UWSCR x64"
+                } else {
+                    "UWSCR x64 (chkimg not included)"
                 }
             },
             "i686-pc-windows-msvc" => {
                 res.set_icon(r#".\icons\UWSC\ico\MAINICON_0016-0256_dark.ico"#);
-                "UWSCR x86"
+                if cfg!(feature="chkimg") {
+                    "UWSCR x86"
+                } else {
+                    "UWSCR x86 (chkimg not included)"
+                }
             },
             _ => "UWSCR"
         };
