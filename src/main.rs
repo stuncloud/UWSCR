@@ -23,29 +23,33 @@ use uwscr::gui::MainWin;
 use uwscr::error::UWSCRErrorTitle;
 
 fn main() {
-    let buffer = Arc::new(Mutex::new(String::default()));
-    let old_hook = panic::take_hook();
-    panic::set_hook({
-        let buffer = buffer.clone();
-        Box::new(move |info| {
-            let mut buffer = buffer.lock().unwrap();
-            let s = info.to_string();
-            buffer.push_str(&s);
-        })
-    });
-
-    let result = panic::catch_unwind(|| {
+    if cfg!(debug_assertions) {
         start_uwscr();
-    });
+    } else {
+        let buffer = Arc::new(Mutex::new(String::default()));
+        let old_hook = panic::take_hook();
+        panic::set_hook({
+            let buffer = buffer.clone();
+            Box::new(move |info| {
+                let mut buffer = buffer.lock().unwrap();
+                let s = info.to_string();
+                buffer.push_str(&s);
+            })
+        });
 
-    panic::set_hook(old_hook);
+        let result = panic::catch_unwind(|| {
+            start_uwscr();
+        });
 
-    if result.is_err() {
-        let err = buffer.lock().unwrap();
-        out_log(&err, LogType::Panic);
-        attach_console();
-        show_message(&err, &UWSCRErrorTitle::Panic.to_string(), true);
-        free_console();
+        panic::set_hook(old_hook);
+
+        if result.is_err() {
+            let err = buffer.lock().unwrap();
+            out_log(&err, LogType::Panic);
+            attach_console();
+            show_message(&err, &UWSCRErrorTitle::Panic.to_string(), true);
+            free_console();
+        }
     }
 }
 
