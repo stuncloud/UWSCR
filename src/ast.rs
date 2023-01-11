@@ -506,7 +506,6 @@ pub enum ParamKind {
     Variadic,            // 可変長引数
     Dummy,
     Default(Expression), // デフォルト引数
-    Array(bool),         // 配列引数, trueで参照渡し
 }
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
@@ -547,11 +546,6 @@ impl fmt::Display for FuncParam {
             ParamKind::Reference => write!(f, "var {}{}{}", name, sep, self.param_type),
             ParamKind::Variadic => write!(f, "args {}", name),
             ParamKind::Default(ref d) => write!(f, "{}{}{} = {}", name, sep, self.param_type, d),
-            ParamKind::Array(b) => if b {
-                write!(f, "var {}[]", name)
-            } else {
-                write!(f, "{}[]", name)
-            },
             ParamKind::Dummy => write!(f, ""),
         }
     }

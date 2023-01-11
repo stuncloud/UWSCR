@@ -1,4 +1,4 @@
-use crate::ast::{Expression, BlockStatement, FuncParam, ParamType, ParamKind, Literal};
+use crate::ast::{Expression, BlockStatement, FuncParam, ParamType, ParamKind};
 use crate::evaluator::environment::{NamedObject};
 use crate::error::evaluator::{UError, UErrorKind, UErrorMessage, ParamTypeDetail};
 use super::{Object, Module};
@@ -100,27 +100,6 @@ impl Function {
                     }
                     // 通常のパラメータ変数への代入は行わないためcontinueする
                     continue;
-                },
-                ParamKind::Array(b) => {
-                    let e = arg_expr.unwrap();
-                    match e {
-                        Expression::Identifier(_) |
-                        Expression::Index(_, _, _) |
-                        Expression::DotCall(_, _) => if b {
-                            // 型チェック
-                            evaluator.is_valid_type(&param, &obj)?;
-                            // パラメータ変数に参照を代入
-                            evaluator.eval_assign_expression(e.clone(), Object::Reference(e))?;
-                            // 通常のパラメータ変数への代入は行わないためcontinueする
-                            continue;
-                        },
-                        Expression::Literal(Literal::Array(_)) => {},
-                        _ => return Err(UError::new(
-                            UErrorKind::FuncCallError,
-                            UErrorMessage::FuncInvalidArgument(name),
-                        )),
-                    }
-                    obj
                 },
                 ParamKind::Default(ref e) => {
                     if Object::EmptyParam.is_equal(&obj) {

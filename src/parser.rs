@@ -2779,8 +2779,7 @@ impl Parser {
                     let ident = Identifier(param.name());
                     match &param.kind {
                         ParamKind::Identifier |
-                        ParamKind::Reference |
-                        ParamKind::Array(_) => {
+                        ParamKind::Reference => {
                             if with_default_flg {
                                 self.error_got_bad_parameter(ParseErrorKind::ParameterShouldBeDefault(ident));
                                 return None;
@@ -2839,7 +2838,7 @@ impl Parser {
                                 return None;
                             }
                         }
-                        ParamKind::Array(false)
+                        ParamKind::Identifier
                     } else {
                         return None;
                     };
@@ -2898,7 +2897,7 @@ impl Parser {
                                         return None;
                                     }
                                 }
-                                ParamKind::Array(true)
+                                ParamKind::Reference
                             } else {
                                 return None;
                             }
@@ -5050,7 +5049,7 @@ fend
                             params: vec![
                                 FuncParam::new(Some("foo".into()), ParamKind::Identifier),
                                 FuncParam::new(Some("bar".into()), ParamKind::Reference),
-                                FuncParam::new(Some("baz".into()), ParamKind::Array(false)),
+                                FuncParam::new(Some("baz".into()), ParamKind::Identifier),
                                 FuncParam::new(Some("qux".into()), ParamKind::Default(Expression::Literal(Literal::Num(1.0)))),
                             ],
                             body: vec![],
