@@ -28,19 +28,21 @@ impl ClassInstance {
         }
     }
     pub fn dispose(&mut self) {
-        self.is_dropped = true;
-        let destructor = {
-            let module = self.module.lock().unwrap();
-            if let Some(Object::Function(destructor)) = module.get_destructor() {
-                Some(destructor)
-            } else {
-                None
+        if ! self.is_dropped {
+            self.is_dropped = true;
+            let destructor = {
+                let module = self.module.lock().unwrap();
+                if let Some(Object::Function(destructor)) = module.get_destructor() {
+                    Some(destructor)
+                } else {
+                    None
+                }
+            };
+            if let Some(f) = destructor {
+                let _ = f.invoke(&mut self.evaluator, vec![], false);
             }
-        };
-        if let Some(f) = destructor {
-            let _ = f.invoke(&mut self.evaluator, vec![], false);
+            self.module.lock().unwrap().dispose();
         }
-        self.module.lock().unwrap().dispose();
     }
 }
 
