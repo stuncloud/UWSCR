@@ -21,6 +21,7 @@ pub use self::fopen::*;
 pub use self::class::ClassInstance;
 
 use crate::ast::*;
+use crate::evaluator::environment::Layer;
 use crate::evaluator::builtins::BuiltinFunction;
 use crate::evaluator::com_object::VARIANTHelper;
 use crate::evaluator::devtools_protocol::{Browser, Element, ElementProperty};
@@ -95,7 +96,7 @@ pub enum Object {
     Fopen(Arc<Mutex<Fopen>>),
     ByteArray(Vec<u8>),
     /// 参照渡しされたパラメータ変数
-    Reference(Expression),
+    Reference(Expression, Arc<Mutex<Layer>>),
 }
 
 unsafe impl Send for Object {}
@@ -195,7 +196,7 @@ impl fmt::Display for Object {
                 write!(f, "{}", &*fopen)
             },
             Object::ByteArray(ref arr) => write!(f, "{:?}", arr),
-            Object::Reference(_) => write!(f, "Reference"),
+            Object::Reference(_, _) => write!(f, "Reference"),
         }
     }
 }
@@ -317,7 +318,7 @@ impl PartialEq for Object {
                 arr1 == arr2
             } else {false},
             // 比較されることはない
-            Object::Reference(_) => false,
+            Object::Reference(_, _) => false,
         }
     }
 }

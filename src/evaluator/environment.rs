@@ -51,7 +51,7 @@ impl fmt::Display for ContainerType {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct NamedObject {
     pub name: String,
     pub object: Object,
@@ -649,38 +649,25 @@ impl Environment {
         self.set("TRY_ERRLINE", ContainerType::Variable, Object::String(line), false);
     }
 
-    pub fn get_from_outer(&self, name: &str) -> Option<Object> {
-        let key = name.to_ascii_uppercase();
+    pub fn clone_outer(&self) -> Option<Arc<Mutex<Layer>>> {
         let current = self.current.lock().unwrap();
-        if let Some(outer) = &current.outer {
-            let value = {
-                let layer = outer.lock().unwrap();
-                layer.local.iter()
-                    .find(|no| no.name == key)
-                    .map(|no| no.object.clone())
-            };
-            if value.is_none() {
-                let global = self.global.lock().unwrap();
-                global.iter()
-                    .find(|no| no.name == key)
-                    .map(|no| no.object.clone())
-            } else {
-                value
-            }
-        } else {
-            None
-        }
+        current.outer.clone()
     }
-    pub fn update_outer(&self, name: &str, object: Object) {
+    pub fn get_from_reference(&self, name: &str, outer: &Arc<Mutex<Layer>>) -> Option<Object> {
         let key = name.to_ascii_uppercase();
-        let mut current = self.current.lock().unwrap();
-        if let Some(outer) = current.outer.as_mut() {
-            let mut layer = outer.lock().unwrap();
-            let found = layer.local.iter_mut()
-                .find(|no| no.name == key);
-            if let Some(no) = found {
-                no.object = object;
-            }
+        let value = {
+            let layer = outer.lock().unwrap();
+            layer.local.iter()
+                .find(|no| no.name == key)
+                .map(|no| no.object.clone())
+        };
+        if value.is_none() {
+            let global = self.global.lock().unwrap();
+            global.iter()
+                .find(|no| no.name == key)
+                .map(|no| no.object.clone())
+        } else {
+            value
         }
     }
 

@@ -95,7 +95,11 @@ impl Function {
                             // 型チェック
                             evaluator.is_valid_type(&param, &obj)?;
                             // パラメータ変数に参照を代入
-                            evaluator.env.define_local(&name, Object::Reference(e))?;
+                            if let Some(outer) = evaluator.env.clone_outer() {
+                                evaluator.env.define_local(&name, Object::Reference(e, outer))?;
+                            } else {
+                                Err(UError::new(UErrorKind::EvaluatorError, UErrorMessage::NoOuterScopeFound))?;
+                            }
                         }
                     }
                     // 通常のパラメータ変数への代入は行わないためcontinueする

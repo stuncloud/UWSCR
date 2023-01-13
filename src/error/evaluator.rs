@@ -488,7 +488,8 @@ pub enum UErrorMessage {
     InvalidReference,
     InvalidLeftExpression(Expression),
     InvalidRightExpression(Expression),
-    FailedToOpenClipboard
+    FailedToOpenClipboard,
+    NoOuterScopeFound,
 }
 
 impl fmt::Display for UErrorMessage {
@@ -1010,6 +1011,10 @@ impl fmt::Display for UErrorMessage {
             Self::FailedToOpenClipboard => write_locale!(f,
                 "クリップボードが開けませんでした",
                 "Failed to open clipboard",
+            ),
+            Self::NoOuterScopeFound => write_locale!(f,
+                "参照渡しが行われましたが外部スコープがありません",
+                "No outer scope found"
             ),
         }
     }

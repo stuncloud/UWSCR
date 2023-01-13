@@ -971,7 +971,7 @@ pub fn type_of(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         Object::Element(_) => VariableType::TYPE_ELEMENT_OBJECT,
         Object::Fopen(_) => VariableType::TYPE_FILE_ID,
         Object::ByteArray(_) => VariableType::TYPE_BYTE_ARRAY,
-        Object::Reference(_) => VariableType::TYPE_REFERENCE,
+        Object::Reference(_, _) => VariableType::TYPE_REFERENCE,
 
         Object::VarArgument(_) |
         Object::DynamicVar(_) |

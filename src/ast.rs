@@ -171,8 +171,6 @@ pub enum Expression {
     /// 省略された引数
     /// func( , )
     EmptyArgument,
-    /// 参照渡し引数の参照元の式
-    Reference(Box<Expression>),
 }
 
 impl fmt::Display for Expression {
@@ -208,12 +206,10 @@ impl fmt::Display for Expression {
                 write!(f, "{} ? {} : {}", condition, consequence, alternative)
             },
             Expression::DotCall(l, r) => write!(f, "{}.{}", l, r),
-            // Expression::Params(p) => write!(f, "{}", p),
             Expression::UObject(o) => write!(f, "{}", o),
             Expression::ComErrFlg => write!(f, ""),
             Expression::VarArgument(a) => write!(f, "var {}", a),
             Expression::EmptyArgument => write!(f, ""),
-            Expression::Reference(e) => write!(f, "reference of {e}"),
         }
     }
 }
