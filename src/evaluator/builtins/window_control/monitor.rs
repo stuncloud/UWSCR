@@ -25,8 +25,8 @@ use windows::{
 };
 use std::mem::size_of;
 
+#[derive(Debug)]
 pub struct Monitor {
-    handle: HMONITOR,
     info: MONITORINFO,
     name: String,
     primary: bool,
@@ -35,8 +35,8 @@ pub struct Monitor {
     devmode: DEVMODE,
     /// 表示スケール (%)
     scaling: f64,
-    /// 座標補正のための倍率
-    ratio: f64,
+    /// dpi
+    dpi: f64,
 }
 
 impl Monitor {
@@ -102,12 +102,8 @@ impl Monitor {
     pub fn name(&self) -> String {
         self.name.clone()
     }
-    pub fn dpi(&self) -> Option<f64> {
-        unsafe {
-            let mut dpix = 0;
-            GetDpiForMonitor(self.handle, MDT_DEFAULT, &mut dpix, &mut 0).ok()?;
-            Some(dpix as f64)
-        }
+    pub fn dpi(&self) -> f64 {
+        self.dpi
     }
     pub fn scaling(&self) -> u32 {
         (self.scaling * 100.0) as u32
@@ -115,11 +111,12 @@ impl Monitor {
     pub fn index(&self) -> u32 {
         self.index
     }
-    pub fn to_scaled(&self, n: i32) -> i32 {
-        (n as f64 * self.ratio) as i32
-    }
-    pub fn to_real(&self, n: i32) -> i32 {
-        (n as f64 * self.scaling) as i32
+    fn get_dpi(hmonitor: HMONITOR) -> Option<f64> {
+        unsafe {
+            let mut dpix = 0;
+            GetDpiForMonitor(hmonitor, MDT_DEFAULT, &mut dpix, &mut 0).ok()?;
+            Some(dpix as f64)
+        }
     }
 
     fn new(hmonitor: HMONITOR, index: Option<u32>) -> Option<Self> {
@@ -131,12 +128,10 @@ impl Monitor {
             let device = Self::get_display_device(&miex.szDevice)?;
             let name = from_wide_string(&device.DeviceString);
             let devmode = Self::get_monitor_settings(&miex.szDevice)?;
+            let dpi = Self::get_dpi(hmonitor)?;
             // スケーリングの計算
-            let width = (miex.monitorInfo.rcMonitor.right - miex.monitorInfo.rcMonitor.left) as f64;
-            let scaling = devmode.dmPelsWidth as f64 / width;
-            let ratio = width / devmode.dmPelsWidth as f64;
-            let me = Self {
-                handle: hmonitor,
+            let scaling = dpi / 96.0;
+            let monitor = Self {
                 info: miex.monitorInfo,
                 name,
                 primary: miex.monitorInfo.dwFlags == MONITORINFOF_PRIMARY,
@@ -144,9 +139,9 @@ impl Monitor {
                 // device,
                 devmode,
                 scaling,
-                ratio
+                dpi
             };
-            Some(me)
+            Some(monitor)
         }
     }
     fn get_monitor_settings(name: &[u16; 32]) -> Option<DEVMODE> {

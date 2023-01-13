@@ -48,28 +48,9 @@ impl PopupMenu {
         unsafe {
             let mut p = POINT::default();
             GetCursorPos(&mut p);
-            match (x, y) {
-                (None, None) => (p.x, p.y),
-                (None, Some(mut y)) => {
-                    if let Some(m) = Monitor::from_point(p.x, y) {
-                        y = m.to_scaled(y);
-                    }
-                    (p.x, y)
-                },
-                (Some(mut x), None) => {
-                    if let Some(m) = Monitor::from_point(x, p.y) {
-                        x = m.to_scaled(x);
-                    }
-                    (x, p.y)
-                },
-                (Some(mut x), Some(mut y)) => {
-                    if let Some(m) = Monitor::from_point(x, y) {
-                        x = m.to_scaled(x);
-                        y = m.to_scaled(y);
-                    }
-                    (x, y)
-                },
-            }
+            let x = x.unwrap_or(p.x);
+            let y = y.unwrap_or(p.y);
+            (x, y)
         }
     }
     pub fn show(&self, x: Option<i32>, y: Option<i32>) -> UWindowResult<Option<String>> {

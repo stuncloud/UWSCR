@@ -78,7 +78,7 @@ impl Msgbox {
             let y = y.unwrap_or(center_y);
             Window::set_window_pos(hwnd, x, y, size, None);
         } else {
-            Window::move_window_scaled(hwnd, x.unwrap(), y.unwrap(), width, height);
+            Window::move_window(hwnd, x.unwrap(), y.unwrap(), width, height);
         };
         let bleft = Window::calculate_center(width, bwidth);
         Window::move_window(panel, bleft, btop, bwidth, bheight);

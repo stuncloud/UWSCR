@@ -95,7 +95,7 @@ impl InputBox {
             let y = y.unwrap_or(center_y);
             Window::move_window(self.hwnd, x, y, width, height);
         } else {
-            Window::move_window_scaled(self.hwnd, x.unwrap(), y.unwrap(), width, height);
+            Window::move_window(self.hwnd, x.unwrap(), y.unwrap(), width, height);
         }
 
         Ok(())

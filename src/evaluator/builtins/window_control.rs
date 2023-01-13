@@ -52,9 +52,6 @@ use windows::{
                 EnumChildWindows, GetMenu, GetSystemMenu,
                 GetCursorInfo, CURSORINFO,
             },
-            HiDpi::{
-                GetDpiForWindow,
-            },
             Input::KeyboardAndMouse::{
                 SendInput, INPUT
             },
@@ -623,10 +620,6 @@ pub fn set_window_size(hwnd: HWND, x: Option<i32>, y: Option<i32>, w: Option<i32
     unsafe {
         MoveWindow(hwnd, x, y, w, h, true);
         if DwmIsCompositionEnabled().unwrap_or(BOOL(0)).as_bool() {
-            // ウィンドウのDPIを得る
-            let w_dpi = GetDpiForWindow(hwnd);
-            let dpi_factor = w_dpi as f64 / 96.0;
-
             // 見た目のRectを取る
             let mut drect = RECT::default();
             let pvattribute = &mut drect as *mut RECT as *mut c_void;
@@ -638,9 +631,7 @@ pub fn set_window_size(hwnd: HWND, x: Option<i32>, y: Option<i32>, w: Option<i32
 
                 // 見た目と実際の差分から最適な移動位置を得る
                 let fix= |o, v| {
-                    let d = dpi_factor * 100.0;
-                    let t = ((v as f64 / d) * 100.0).round();
-                    o - t as i32
+                    o - v
                 };
                 let new_x = fix(x, drect.left - wrect.left);
                 let new_y = fix(y, drect.top - wrect.top);
@@ -925,6 +916,7 @@ pub fn monitor(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         let Some(monitor) = Monitor::from_index(index) else {
             return Ok(BuiltinFuncReturnValue::Result(false.into()))
         };
+        println!("\u{001b}[36m[monitor] monitor: {:?}\u{001b}[0m", &monitor);
         let mon_enum = args.get_as_const::<MonitorEnum>(1, false)?
             .unwrap_or(MonitorEnum::MON_ALL);
         let obj = match mon_enum {
@@ -938,7 +930,7 @@ pub fn monitor(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             MonitorEnum::MON_WORK_Y => monitor.work_y().into(),
             MonitorEnum::MON_WORK_WIDTH => monitor.work_width().into(),
             MonitorEnum::MON_WORK_HEIGHT => monitor.work_height().into(),
-            MonitorEnum::MON_DPI => monitor.dpi().unwrap_or(0.0).into(),
+            MonitorEnum::MON_DPI => monitor.dpi().into(),
             MonitorEnum::MON_SCALING => monitor.scaling().into(),
             MonitorEnum::MON_ALL => {
                 let mut map = HashTbl::new(false, false);
@@ -952,7 +944,7 @@ pub fn monitor(args: BuiltinFuncArgs) -> BuiltinFuncResult {
                 map.insert(MonitorEnum::MON_WORK_Y.to_string(), monitor.work_y().into());
                 map.insert(MonitorEnum::MON_WORK_WIDTH.to_string(), monitor.work_width().into());
                 map.insert(MonitorEnum::MON_WORK_HEIGHT.to_string(), monitor.work_height().into());
-                map.insert(MonitorEnum::MON_DPI.to_string(), monitor.dpi().unwrap_or(0.0).into());
+                map.insert(MonitorEnum::MON_DPI.to_string(), monitor.dpi().into());
                 map.insert(MonitorEnum::MON_SCALING.to_string(), monitor.scaling().into());
                 Object::HashTbl(Arc::new(Mutex::new(map)))
             },

@@ -61,13 +61,7 @@ impl Balloon {
                 let cy = s1.cy + s2.cy;
                 SIZE { cx, cy }
             }).unwrap();
-            let (x, y) = {
-                match Monitor::from_hwnd(self.hwnd) {
-                    Some(m) => (m.to_scaled(self.x), m.to_scaled(self.y)),
-                    None => (self.x, self.y),
-                }
-            };
-            Window::move_window(self.hwnd, x, y, size.cx + BALLOON_MARGIN*2, size.cy + BALLOON_MARGIN*2);
+            Window::move_window(self.hwnd, self.x, self.y, size.cx + BALLOON_MARGIN*2, size.cy + BALLOON_MARGIN*2);
             let mut ps = PAINTSTRUCT::default();
             let mut tm = TEXTMETRICW::default();
             let hdc = BeginPaint(self.hwnd, &mut ps);

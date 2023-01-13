@@ -314,25 +314,15 @@ impl Window {
             }
         }
     }
-    fn move_window_scaled(hwnd: HWND, mut x: i32, mut y: i32, mut width: i32, mut height: i32) {
-        unsafe {
-            MoveWindow(hwnd, x, y, width, height, false);
-            if let Some(monitor) = Monitor::from_hwnd(hwnd) {
-                Self::fix_aero_rect(hwnd, &mut x, &mut y, &mut width, &mut height);
-                let x = monitor.to_scaled(x);
-                let y = monitor.to_scaled(y);
-                MoveWindow(hwnd, x, y, width, height, true);
-            }
-        }
-    }
     fn set_window_pos(hwnd: HWND, x: i32, y: i32, size: SIZE, flags: Option<SET_WINDOW_POS_FLAGS>) {
         unsafe {
             let uflags = flags.unwrap_or_default();
             SetWindowPos(hwnd, HWND::default(), x, y, size.cx, size.cy, uflags);
         }
     }
-    fn move_window(hwnd: HWND, x: i32, y: i32, width: i32, height: i32) {
+    fn move_window(hwnd: HWND, mut x: i32, mut y: i32, mut width: i32, mut height: i32) {
         unsafe {
+            Self::fix_aero_rect(hwnd, &mut x, &mut y, &mut width, &mut height);
             MoveWindow(hwnd, x, y, width, height, true);
         }
     }

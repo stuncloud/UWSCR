@@ -101,15 +101,8 @@ impl LogPrintWin {
     }
     pub fn move_to(&self, left: Option<i32>, top: Option<i32>, width: Option<i32>, height: Option<i32>) {
         let rect = Window::get_window_rect(self.hwnd);
-        let (x, y) = if let Some(m) = Monitor::from_hwnd(self.hwnd) {
-            let x = if let Some(x) = left {m.to_scaled(x)} else {rect.left};
-            let y = if let Some(y) = top {m.to_scaled(y)} else {rect.top};
-            (x, y)
-        } else {
-            let x = left.unwrap_or(rect.left);
-            let y = top.unwrap_or(rect.top);
-            (x, y)
-        };
+        let x = left.unwrap_or(rect.left);
+        let y = top.unwrap_or(rect.top);
         let w = width.unwrap_or(rect.right - rect.left);
         let h = height.unwrap_or(rect.bottom - rect.top);
         Window::move_window(self.hwnd, x, y, w, h);

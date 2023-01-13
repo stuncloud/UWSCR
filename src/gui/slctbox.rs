@@ -96,7 +96,7 @@ impl Slctbox {
             let y = pos_y.unwrap_or(center_y);
             Window::move_window(hwnd, x, y, width, height);
         } else {
-            Window::move_window_scaled(hwnd, pos_x.unwrap(), pos_y.unwrap(), width, height);
+            Window::move_window(hwnd, pos_x.unwrap(), pos_y.unwrap(), width, height);
         }
         Ok(slctbox)
     }

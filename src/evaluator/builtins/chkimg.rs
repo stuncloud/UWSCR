@@ -20,7 +20,16 @@ use windows::{
                 SM_CYVIRTUALSCREEN, SM_CXVIRTUALSCREEN,
                 SM_YVIRTUALSCREEN, SM_XVIRTUALSCREEN,
                 GetSystemMetrics,
-            }
+            },
+            // HiDpi::{
+            //     GetThreadDpiAwarenessContext,
+            //     SetThreadDpiAwarenessContext,
+            //     DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE,
+            //     DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2,
+            //     DPI_AWARENESS_CONTEXT_SYSTEM_AWARE,
+            //     DPI_AWARENESS_CONTEXT_UNAWARE,
+            //     DPI_AWARENESS_CONTEXT_UNAWARE_GDISCALED,
+            // }
         },
     },
 };
@@ -175,10 +184,22 @@ pub type ScreenShotResult = Result<ScreenShot, UError>;
 impl ScreenShot {
     pub fn get(hwnd: Option<HWND>, left: Option<i32>, top: Option<i32>, right: Option<i32>, bottom: Option<i32>) -> ScreenShotResult {
         unsafe {
+            // let context = GetThreadDpiAwarenessContext();
+            // let c  = match context {
+            //     DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE => "DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE",
+            //     DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 => "DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2",
+            //     DPI_AWARENESS_CONTEXT_SYSTEM_AWARE => "DPI_AWARENESS_CONTEXT_SYSTEM_AWARE",
+            //     DPI_AWARENESS_CONTEXT_UNAWARE => "DPI_AWARENESS_CONTEXT_UNAWARE",
+            //     DPI_AWARENESS_CONTEXT_UNAWARE_GDISCALED => "DPI_AWARENESS_CONTEXT_UNAWARE_GDISCALED",
+            //     _ => "",
+            // };
+            // println!("\u{001b}[33m[debug] context: {c}\u{001b}[0m");
+            // SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
             // キャプチャ範囲を確定
             let left = left.unwrap_or(GetSystemMetrics(SM_XVIRTUALSCREEN));
             let top = top.unwrap_or(GetSystemMetrics(SM_YVIRTUALSCREEN));
             let mut width = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+            // SetThreadDpiAwarenessContext(context);
             if right.is_some() {
                 width = right.unwrap() - left;
             } else {

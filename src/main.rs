@@ -22,7 +22,11 @@ use uwscr::winapi::{attach_console,alloc_console,free_console,show_message, FORC
 use uwscr::gui::MainWin;
 use uwscr::error::UWSCRErrorTitle;
 
+use windows::Win32::UI::HiDpi::{SetProcessDpiAwarenessContext, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2};
+
 fn main() {
+    unsafe { SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2); }
+
     if cfg!(debug_assertions) {
         start_uwscr();
     } else {
