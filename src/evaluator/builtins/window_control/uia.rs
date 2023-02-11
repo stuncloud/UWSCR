@@ -25,7 +25,8 @@ use windows::{
                 UIA_HeaderControlTypeId, UIA_HeaderItemControlTypeId,
                 UIA_TextControlTypeId,
                 UIA_TabControlTypeId, UIA_TabItemControlTypeId,
-                // UIA_MenuControlTypeId, UIA_MenuBarControlTypeId, UIA_MenuItemControlTypeId,
+                // UIA_MenuControlTypeId, UIA_MenuBarControlTypeId,
+                UIA_MenuItemControlTypeId,
                 UIA_TreeControlTypeId, UIA_TreeItemControlTypeId,
                 ExpandCollapseState, ExpandCollapseState_Collapsed, ExpandCollapseState_Expanded, ExpandCollapseState_PartiallyExpanded,
                 UIA_DataGridControlTypeId, //UIA_DataItemControlTypeId,
@@ -129,6 +130,21 @@ impl UIA {
         if let Some(element) = found {
             element.write(str);
         }
+    }
+    pub fn chkbtn(hwnd: HWND, name: String, nth: u32) -> Option<i32> {
+        let uia = Self::new(hwnd)?;
+        let condition = uia.automation.create_true_condition()?;
+        let found = uia.element.find_all(TreeScope_Descendants, &condition)?
+            .filter(|e| e.filter_by_type(UIA_CheckBoxControlTypeId) || e.filter_by_type(UIA_MenuItemControlTypeId))
+            .filter(|e| {
+                if let Some(ename) = e.get_name() {
+                    match_title(&ename, &name, true)
+                } else {
+                    false
+                }
+            })
+            .nth(nth as usize - 1)?;
+        found.get_check_state().map(|s| s.0)
     }
 }
 
@@ -501,6 +517,12 @@ impl UIAElement {
         unsafe {
             let pattern = self.element.GetCurrentPatternAs::<IUIAutomationExpandCollapsePattern>(UIA_ExpandCollapsePatternId.0 as i32).ok()?;
             pattern.CurrentExpandCollapseState().ok()
+        }
+    }
+    fn get_check_state(&self) -> Option<ToggleState> {
+        unsafe {
+            let pattern = self.element.GetCurrentPatternAs::<IUIAutomationTogglePattern>(UIA_TogglePatternId.0 as i32).ok()?;
+            pattern.CurrentToggleState().ok()
         }
     }
     fn check(&self, state: &ThreeState) -> Option<UIAClickPoint> {

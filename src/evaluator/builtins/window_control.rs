@@ -1426,7 +1426,12 @@ pub fn chkbtn(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         let result = if acc {
             acc::Acc::get_check_state(hwnd, name, nth).unwrap_or(-1)
         } else {
-            win32::Win32::get_check_state(hwnd, name, nth)
+            let state = win32::Win32::get_check_state(hwnd, name.clone(), nth);
+            if state < 0 {
+                uia::UIA::chkbtn(hwnd, name, nth).unwrap_or(-1)
+            } else {
+                state
+            }
         } as f64;
 
         Ok(BuiltinFuncReturnValue::Result(result.into()))
