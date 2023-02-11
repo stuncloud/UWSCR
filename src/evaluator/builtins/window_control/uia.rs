@@ -17,6 +17,7 @@ use windows::{
                 UIA_SelectionItemPatternId, IUIAutomationSelectionItemPattern,
                 UIA_TogglePatternId, IUIAutomationTogglePattern, ToggleState_On, ToggleState_Off, ToggleState_Indeterminate, ToggleState,
                 UIA_ExpandCollapsePatternId, IUIAutomationExpandCollapsePattern,
+                UIA_ValuePatternId, IUIAutomationValuePattern,
                 // UIA_TextPatternId, IUIAutomationTextPattern,
                 UIA_CONTROLTYPE_ID,
                 UIA_ButtonControlTypeId, UIA_CheckBoxControlTypeId, UIA_RadioButtonControlTypeId,
@@ -30,6 +31,7 @@ use windows::{
                 UIA_DataGridControlTypeId, //UIA_DataItemControlTypeId,
                 UIA_ToolBarControlTypeId,
                 UIA_HyperlinkControlTypeId,
+                UIA_EditControlTypeId,
                 TreeScope, TreeScope_Children, TreeScope_Descendants,
             }
         }
@@ -114,6 +116,20 @@ impl UIA {
             UIAFound::ListViewItem(_, text) => text.get_clickable_point()
         }
     }
+    pub fn sendstr(hwnd: HWND, nth: u32, str: String) {
+        let Some(uia) = Self::new(hwnd) else {return;};
+        let Some(condition) = uia.automation.create_true_condition() else {return;};
+        let Some(elements) = uia.element.find_all(TreeScope_Descendants, &condition) else {return;};
+        let mut edit = elements.filter(|e| e.filter_by_type(UIA_EditControlTypeId));
+        let found = if nth > 0 {
+            edit.nth(nth as usize - 1)
+        } else {
+            edit.find(|e| e.is_focused())
+        };
+        if let Some(element) = found {
+            element.write(str);
+        }
+    }
 }
 
 /// UIA系構造体につけると便利になる
@@ -162,6 +178,14 @@ impl UIAElement {
     fn get_name(&self) -> Option<String> {
         unsafe {
             self.element.CurrentName().into_option()
+        }
+    }
+    fn is_focused(&self) -> bool {
+        unsafe {
+            match self.element.CurrentHasKeyboardFocus() {
+                Ok(b) => b.as_bool(),
+                Err(_) => false,
+            }
         }
     }
     fn search(&self, target: &mut UIATarget) -> Option<UIAFound> {
@@ -540,6 +564,13 @@ impl UIAElement {
             pattern.AddToSelection().ok()?;
             let point = self.get_clickable_point();
             Some(UIAClickPoint(point))
+        }
+    }
+    fn write(&self, str: String) -> Option<()>{
+        unsafe {
+            let pattern = self.element.GetCurrentPatternAs::<IUIAutomationValuePattern>(UIA_ValuePatternId.0 as i32).ok()?;
+            let val = BSTR::from(str);
+            pattern.SetValue(&val).ok()
         }
     }
     fn get_clickable_point(&self) -> Option<(i32, i32)> {

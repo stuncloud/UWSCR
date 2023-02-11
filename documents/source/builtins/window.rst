@@ -450,13 +450,23 @@ ID0について
 
             | APIまたはUIAを使用
 
+            .. hint::
+
+                | APIで検索を行い該当するものがなかった場合はUIAでの検索を試みます
+                | UIA使用時は送信モードは無視され、常に置き換えられます
+
         .. object:: TRUE または 1
 
             | ACCを使用
 
-        .. object:: STR_ACC_CELL
+        .. object:: STR_ACC_CELL (5)
 
             | DataGridView内のCell値の変更 (ACCを使用)
+
+        .. object:: STR_UIA (6)
+
+            | UIAを使用
+            | 送信モードは無視され、常に置き換えられます
 
         .. admonition:: UWSCとの違い
             :class: note

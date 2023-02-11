@@ -1444,6 +1444,7 @@ pub enum GetStrConst {
     STR_ACC_EDIT   = 3,
     STR_ACC_STATIC = 4,
     STR_ACC_CELL   = 5,
+    STR_UIA        = 6,
 }
 
 pub fn getstr(args: BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -1466,6 +1467,7 @@ pub fn getstr(args: BuiltinFuncArgs) -> BuiltinFuncResult {
                 GetStrConst::STR_ACC_EDIT => acc::Acc::get_edit_str(hwnd, nth, mouse),
                 GetStrConst::STR_ACC_STATIC => acc::Acc::get_static_str(hwnd, nth, mouse),
                 GetStrConst::STR_ACC_CELL => acc::Acc::get_cell_str(hwnd, nth, mouse),
+                GetStrConst::STR_UIA => None,
             };
             Ok(BuiltinFuncReturnValue::Result(str.into()))
         } else {
@@ -1475,6 +1477,7 @@ pub fn getstr(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 
 }
 
+#[derive(Clone, Copy)]
 pub enum SendStrMode {
     /// キャレット位置に挿入
     Append,
@@ -1508,8 +1511,13 @@ pub fn sendstr(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         let hwnd = get_hwnd_from_id(id);
         let mode = SendStrMode::from(mode);
         match acc {
-            0 => win32::Win32::sendstr(hwnd, nth, str, mode),
+            0 => {
+                if win32::Win32::sendstr(hwnd, nth, &str, mode).is_none() {
+                    uia::UIA::sendstr(hwnd, nth, str);
+                }
+            },
             5 => acc::Acc::sendstr_cell(hwnd, nth, &str, mode), // cell
+            6 => uia::UIA::sendstr(hwnd, nth, str), // uia
             _ => acc::Acc::sendstr(hwnd, nth, &str, mode), // acc
         };
     }

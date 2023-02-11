@@ -826,14 +826,14 @@ impl Win32 {
             None => None,
         }
     }
-    pub fn sendstr(hwnd: HWND, nth: u32, str: String, mode: super::SendStrMode) {
+    pub fn sendstr(hwnd: HWND, nth: u32, str: &str, mode: super::SendStrMode) -> Option<()>{
         let edit = if nth == 0 {
             let focused = Self::get_focused_control(hwnd);
             let class_name = get_class_name(focused).to_ascii_lowercase();
             if class_name == "edit".to_string() {
                 focused
             } else {
-                return;
+                return None;
             }
         } else {
             let mut item = SearchItem {
@@ -847,7 +847,7 @@ impl Win32 {
             if let Some(found) = item.found {
                 found.hwnd
             } else {
-                return;
+                return None;
             }
         };
         let hstring = HSTRING::from(str);
@@ -868,6 +868,7 @@ impl Win32 {
                 }
             },
         }
+        Some(())
     }
     pub fn get_focused_control(hwnd: HWND) -> HWND {
         unsafe {
