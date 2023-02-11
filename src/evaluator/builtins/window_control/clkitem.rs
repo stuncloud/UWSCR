@@ -1,6 +1,7 @@
 use super::ClkConst;
 use super::acc;
 use super::win32;
+use super::uia;
 use crate::evaluator::builtins::window_low::move_mouse_to;
 use crate::evaluator::object::Object;
 use crate::evaluator::builtins::ThreeState;
@@ -53,7 +54,8 @@ pub struct ClkTarget {
 }
 
 pub enum ClkButton {
-    Left {double: bool},
+    Left,
+    LeftDouble,
     Right,
     Default
 }
@@ -142,31 +144,49 @@ impl ClkItem {
     fn click_win32(&self, hwnd: HWND, check: &ThreeState) -> ClkResult {
         let win32 = win32::Win32::new(hwnd);
         match self.button {
-            ClkButton::Left { double } => {
+            ClkButton::Default => win32.click(self, check),
+            _ => {
                 let mut result = win32.get_point(self);
                 if result.clicked {
                     let point = result.point;
-                    result.clicked = if double {
-                        MouseInput::left_dblclick(result.hwnd, point)
-                    } else {
-                        MouseInput::left_click(result.hwnd, point)
+                    result.clicked = match self.button {
+                        ClkButton::Left => MouseInput::left_click(result.hwnd, point),
+                        ClkButton::LeftDouble => MouseInput::left_dblclick(result.hwnd, point),
+                        ClkButton::Right => MouseInput::right_click(result.hwnd, point),
+                        ClkButton::Default => false
                     };
                 }
                 result
-            },
-            ClkButton::Right => {
-                let mut result = win32.get_point(self);
-                if result.clicked {
-                    let point = result.point;
-                    result.clicked = MouseInput::right_click(result.hwnd, point);
-                }
-                result
-            },
-            ClkButton::Default => win32.click(self, check),
+            }
         }
     }
-    fn click_uia(&self, _hwnd: HWND, _check: &ThreeState) -> ClkResult {
-        ClkResult::default()
+    fn click_uia(&self, hwnd: HWND, check: &ThreeState) -> ClkResult {
+        if let Some(uia) = uia::UIA::new(hwnd) {
+            match self.button {
+                ClkButton::Default => {
+                    if let Some(uia::UIAClickPoint(point)) = uia.click(&self, check) {
+                        ClkResult::new(true, hwnd, point)
+                    } else {
+                        ClkResult::failed()
+                    }
+                },
+                _ => {
+                    if let Some(point) = uia.get_point(&self) {
+                        let clicked = match self.button {
+                            ClkButton::Left => MouseInput::left_click(hwnd, Some(point)),
+                            ClkButton::LeftDouble => MouseInput::left_dblclick(hwnd, Some(point)),
+                            ClkButton::Right => MouseInput::right_click(hwnd, Some(point)),
+                            ClkButton::Default => false
+                        };
+                        ClkResult::new(clicked, hwnd, Some(point))
+                    } else {
+                        ClkResult::failed()
+                    }
+                }
+            }
+        } else {
+            ClkResult::failed()
+        }
     }
     fn click_acc(&self, hwnd: HWND, check: bool) -> ClkResult {
         if let Some(window) = acc::Acc::from_hwnd(hwnd) {
@@ -176,12 +196,13 @@ impl ClkItem {
             match window.search(&item, &mut order, self.backwards) {
                 Some(target) => {
                     let result = match self.button {
-                        ClkButton::Left { double } => if let Some(hwnd) = target.get_hwnd() {
-                            if double {
-                                MouseInput::left_dblclick(hwnd, None)
-                            } else {
-                                MouseInput::left_click(hwnd, None)
-                            }
+                        ClkButton::Left => if let Some(hwnd) = target.get_hwnd() {
+                            MouseInput::left_click(hwnd, None)
+                        } else {
+                            false
+                        },
+                        ClkButton::LeftDouble => if let Some(hwnd) = target.get_hwnd() {
+                            MouseInput::left_dblclick(hwnd, None)
                         } else {
                             false
                         },
@@ -226,7 +247,11 @@ impl ClkTarget {
 impl ClkButton {
     pub fn new(n: usize) -> Self {
         if n.is_available(ClkConst::CLK_LEFTCLK) {
-            Self::Left { double: n.is_available(ClkConst::CLK_DBLCLK) }
+            if n.is_available(ClkConst::CLK_DBLCLK) {
+                Self::LeftDouble
+            } else {
+                Self::Left
+            }
         } else if n.is_available(ClkConst::CLK_RIGHTCLK) {
             Self::Right
         } else {

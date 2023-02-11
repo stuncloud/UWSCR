@@ -2,6 +2,7 @@ mod acc;
 mod clkitem;
 mod win32;
 mod monitor;
+mod uia;
 
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
