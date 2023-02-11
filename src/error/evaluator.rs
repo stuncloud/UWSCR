@@ -434,6 +434,7 @@ pub enum UErrorMessage {
     MemberNotFound(String),
     MissingHashIndex(String),
     ModuleMemberNotFound(DefinitionType, String, String),
+    InvalidModuleMember,
     NestedDefinition,
     NoIdentifierFound(String),
     NoSizeSpecified,
@@ -812,6 +813,10 @@ impl fmt::Display for UErrorMessage {
                 "{}メンバが見つかりません ({}.{})",
                 "{} member not found: {}.{}",
                 t, name, member
+            ),
+            Self::InvalidModuleMember => write_locale!(f,
+                "不正なモジュールメンバ宣言",
+                "Invalid module member was defined",
             ),
             Self::StructGotBadType(name, dlltype, bad) => write_locale!(f,
                 "{}は{}型ですが{}が与えられました",

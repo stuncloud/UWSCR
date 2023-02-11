@@ -2635,6 +2635,7 @@ impl Parser {
                     Statement::Public(_) |
                     Statement::Const(_) |
                     Statement::TextBlock(_, _) |
+                    Statement::DefDll { name: _, params: _, ret_type: _, path: _ } |
                     Statement::HashTbl(_) => block.push(s),
                     Statement::Function{ref name, params: _, body: _, is_proc: _, is_async:_} => {
                         if name == &identifier {

@@ -972,10 +972,18 @@ impl Evaluator {
                         ContainerType::Function,
                     );
                 },
-                _ => return Err(UError::new(
-                    UErrorKind::SyntaxError,
-                    UErrorMessage::Unknown,
-                ))
+                Statement::DefDll { name, params, ret_type, path } => {
+                    let dllfunc = self.eval_def_dll_statement(&name, &path, params, ret_type)?;
+                    module.add(name, dllfunc, ContainerType::Function);
+                },
+                _ => {
+                    let mut err = UError::new(
+                        UErrorKind::ModuleError,
+                        UErrorMessage::InvalidModuleMember,
+                    );
+                    err.set_line(statement.row, statement.line.clone(), statement.script_name.clone());
+                    return Err(err);
+                }
             }
         }
         self.env.restore_scope(&None);

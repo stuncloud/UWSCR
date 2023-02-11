@@ -38,7 +38,7 @@ impl Module {
     }
 
     pub fn get_constructor(&self) -> Option<Function> {
-        match self.get(&self.name, ContainerType::Function)? {
+        match self.get(&self.name, &[ContainerType::Function])? {
             Object::Function(f) |
             Object::AnonFunc(f) => {
                 Some(f)
@@ -58,7 +58,7 @@ impl Module {
 
     pub fn get_destructor(&self) -> Option<Object> {
         let name = format!("_{}_", self.name());
-        self.get(&name, ContainerType::Function)
+        self.get(&name, &[ContainerType::Function])
     }
 
     pub fn add(&mut self, name: String, object: Object, container_type: ContainerType) {
@@ -70,11 +70,14 @@ impl Module {
         self.members.clone().into_iter().any(|obj| obj.name == key && container_type == obj.container_type)
     }
 
-    fn get(&self, name: &str, container_type: ContainerType) -> Option<Object> {
+    fn get(&self, name: &str, container_type: &[ContainerType]) -> Option<Object> {
         let key = name.to_ascii_uppercase();
-        self.members.clone().into_iter().find(
-            |o| o.name == key && o.container_type == container_type
-        ).map(|o| o.object)
+        for ct in container_type {
+            if let Some(o) = self.members.clone().iter().find(|o| o.name == key && o.container_type == *ct) {
+                return Some(o.object.clone())
+            }
+        }
+        None
     }
 
     fn set(&mut self, name: &str, value: Object, container_type: ContainerType) {
@@ -90,36 +93,29 @@ impl Module {
     }
 
     pub fn get_member(&self, name: &str) -> EvalResult<Object> {
-        match self.get(name, ContainerType::Variable) {
+        let container_type = [ContainerType::Variable, ContainerType::Public, ContainerType::Const];
+        match self.get(name, &container_type) {
             Some(o) => Ok(o),
-            None => match self.get(name, ContainerType::Public) {
-                Some(o) => Ok(o),
-                None => match self.get(name, ContainerType::Const) {
-                    Some(o) => Ok(o),
-                    None => Err(UError::new(
-                        UErrorKind::ModuleError,
-                        UErrorMessage::ModuleMemberNotFound(DefinitionType::Any, self.name.to_string(), name.to_string())
-                    ))
-                }
-            }
+            None => Err(UError::new(
+                UErrorKind::ModuleError,
+                UErrorMessage::ModuleMemberNotFound(DefinitionType::Any, self.name.to_string(), name.to_string())
+            ))
         }
     }
 
     pub fn get_public_member(&self, name: &str) -> EvalResult<Object> {
-        match self.get(name, ContainerType::Public) {
+        let container_type = [ContainerType::Public, ContainerType::Const, ContainerType::Function];
+        match self.get(name, &container_type) {
             Some(o) => Ok(o),
-            None => match self.get(name, ContainerType::Const) {
-                Some(o) => Ok(o),
-                None => Err(UError::new(
-                    UErrorKind::ModuleError,
-                    UErrorMessage::ModuleMemberNotFound(DefinitionType::Public, self.name.to_string(), name.to_string())
-                ))
-            }
+            None => Err(UError::new(
+                UErrorKind::ModuleError,
+                UErrorMessage::ModuleMemberNotFound(DefinitionType::Public, self.name.to_string(), name.to_string())
+            ))
         }
     }
 
     pub fn get_function(&self, name: &str) -> EvalResult<Object> {
-        match self.get(name, ContainerType::Function) {
+        match self.get(name, &[ContainerType::Function]) {
             Some(o) => Ok(o),
             None => {
                 let e = UError::new(
