@@ -80,6 +80,7 @@ use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use std::thread;
+use std::path::PathBuf;
 
 use strum_macros::{EnumString, EnumProperty, EnumVariantNames};
 use num_derive::{ToPrimitive, FromPrimitive};
@@ -147,9 +148,6 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("ctrlwin", 2, ctrlwin);
     sets.add("status", 22, status);
     sets.add("acw", 6, acw);
-    sets.add("monitor", 2, monitor);
-    #[cfg(feature="chkimg")]
-    sets.add("chkimg", 7, chkimg);
     sets.add("getallwin", 1, getallwin);
     sets.add("getctlhnd", 3, getctlhnd);
     sets.add("getitem", 6, getitem);
@@ -163,6 +161,11 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("getstr", 4, getstr);
     sets.add("sendstr", 5, sendstr);
     sets.add("getslctlst", 3, getslctlst);
+    sets.add("monitor", 2, monitor);
+    #[cfg(feature="chkimg")]
+    sets.add("chkimg", 7, chkimg);
+    #[cfg(feature="chkimg")]
+    sets.add("saveimg", 9, saveimg);
     sets
 }
 
@@ -973,7 +976,7 @@ pub fn chkimg(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let right = args.get_as_int_or_empty(5)?;
     let bottom = args.get_as_int_or_empty(6)?;
 
-    let ss = ScreenShot::get(None, left, top, right, bottom)?;
+    let ss = ScreenShot::get_screen(left, top, right, bottom)?;
     if save_ss {
         ss.save(None)?;
     }
@@ -1547,4 +1550,57 @@ pub fn getslctlst(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     };
 
     Ok(BuiltinFuncReturnValue::Result(obj))
+}
+
+#[cfg(feature="chkimg")]
+#[allow(non_camel_case_types)]
+#[derive(Debug, EnumString, EnumProperty, EnumVariantNames, ToPrimitive, FromPrimitive)]
+pub enum ImgConst {
+    IMG_AUTO = 0,
+    IMG_FORE = 1,
+    IMG_BACK = 2,
+}
+#[cfg(feature="chkimg")]
+pub fn saveimg(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let filename = args.get_as_string_or_empty(0)?;
+    let id = args.get_as_int(1, Some(0))?;
+    let left = args.get_as_int_or_empty(2)?;
+    let top = args.get_as_int_or_empty(3)?;
+    let width = args.get_as_int_or_empty(4)?;
+    let height = args.get_as_int_or_empty(5)?;
+    let client = args.get_as_bool(6, Some(false))?;
+    let param = args.get_as_int_or_empty(7)?;
+    let style = args.get_as_const(8, false)?.unwrap_or(ImgConst::IMG_AUTO);
+
+    let ss = if id > 0 {
+        let hwnd = get_hwnd_from_id(id);
+        ScreenShot::get_window(hwnd, left, top, width, height, client, style)?
+    } else if id < 0 {
+        return Ok(BuiltinFuncReturnValue::Empty);
+    } else {
+        ScreenShot::get_screen2(left, top, width, height)?
+    };
+    if let Some(filename) = filename {
+        let mut path = PathBuf::from(filename);
+        let ext = path.extension().map(|os| os.to_str()).flatten();
+        let (jpg_quality, png_compression) = match ext {
+            Some("jpg") | Some("jpeg") => {
+                (param.filter(|n| n >= &0 && n <= &100), None)
+            },
+            Some("png") => {
+                (None, param.filter(|n| n >= &0 && n <= &9))
+            },
+            Some(_) => (None, None),
+            None => {
+                path.set_extension("png");
+                (None, param.filter(|n| n >= &0 && n <= &9))
+            }
+        };
+        let filename = path.to_string_lossy();
+        ss.save_to(&filename, jpg_quality, png_compression)?;
+    } else {
+        ss.to_clipboard()?;
+    }
+
+    Ok(BuiltinFuncReturnValue::Empty)
 }

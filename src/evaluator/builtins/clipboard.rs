@@ -5,16 +5,17 @@ use windows::{
         System::{
             DataExchange::{
                 OpenClipboard, CloseClipboard, IsClipboardFormatAvailable,
-                GetClipboardData, SetClipboardData,
+                GetClipboardData, SetClipboardData, EmptyClipboard
             },
             SystemServices::{
-                CF_UNICODETEXT,
+                CF_UNICODETEXT, CF_BITMAP,
             },
             Memory::{
                 GlobalLock, GlobalUnlock, GlobalSize, GlobalFree,
                 GlobalAlloc, GMEM_MOVEABLE,
             }
-        }
+        },
+        Graphics::Gdi::HBITMAP,
     }
 };
 
@@ -55,16 +56,28 @@ impl Clipboard {
     }
     pub fn send_str(&self, str: String) -> bool {
         unsafe {
-            let hstring = HSTRING::from(str);
-            let src = hstring.as_ptr();
-            let len = (hstring.len() + 1) * std::mem::size_of::<u16>();
-            let hmem = GlobalAlloc(GMEM_MOVEABLE, len);
-            let dst = GlobalLock(hmem) as _;
-            std::ptr::copy_nonoverlapping(src, dst, hstring.len());
-            GlobalUnlock(hmem);
-            let result = SetClipboardData(CF_UNICODETEXT.0, HANDLE(hmem)).is_ok();
-            GlobalFree(hmem);
-            result
+            if EmptyClipboard().as_bool() {
+                let hstring = HSTRING::from(str);
+                let src = hstring.as_ptr();
+                let len = (hstring.len() + 1) * std::mem::size_of::<u16>();
+                let hmem = GlobalAlloc(GMEM_MOVEABLE, len);
+                let dst = GlobalLock(hmem) as _;
+                std::ptr::copy_nonoverlapping(src, dst, hstring.len());
+                GlobalUnlock(hmem);
+                let result = SetClipboardData(CF_UNICODETEXT.0, HANDLE(hmem)).is_ok();
+                GlobalFree(hmem);
+                result
+            } else {
+                false
+            }
+        }
+    }
+    pub fn set_bmp(&self, hbmp: HBITMAP) {
+        unsafe {
+            if EmptyClipboard().as_bool() {
+                let hmem = HANDLE(hbmp.0);
+                let _ = SetClipboardData(CF_BITMAP.0, hmem);
+            }
         }
     }
 }

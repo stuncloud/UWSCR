@@ -2,17 +2,26 @@ use std::{ffi::c_void, io::Read};
 use std::fs::File;
 
 use crate::error::evaluator::{UError, UErrorKind, UErrorMessage};
+use super::window_control::ImgConst;
+use super::clipboard::Clipboard;
 
+use opencv::prelude::MatTraitConstManual;
 use windows::{
     Win32::{
-        Foundation::HWND,
+        Foundation::{HWND, RECT, POINT},
         Graphics::{
             Gdi::{
-                ROP_CODE, SRCCOPY, CAPTUREBLT, DIB_RGB_COLORS,
+                SRCCOPY, CAPTUREBLT, DIB_RGB_COLORS,
                 BITMAPINFO, BITMAPINFOHEADER,
-                GetDC, ReleaseDC, DeleteDC, SelectObject, DeleteObject, GetDIBits,
+                GetDC, GetWindowDC, ReleaseDC, DeleteDC, SelectObject, DeleteObject, GetDIBits,
                 StretchBlt,
                 CreateCompatibleDC, CreateCompatibleBitmap,
+                CreateDIBitmap, CBM_INIT,
+                ClientToScreen, IntersectRect,
+                RedrawWindow, RDW_FRAME, RDW_INVALIDATE, RDW_ERASE, RDW_UPDATENOW, RDW_ALLCHILDREN
+            },
+            Dwm::{
+                DwmGetWindowAttribute, DWMWA_EXTENDED_FRAME_BOUNDS,
             }
         },
         UI::{
@@ -20,16 +29,10 @@ use windows::{
                 SM_CYVIRTUALSCREEN, SM_CXVIRTUALSCREEN,
                 SM_YVIRTUALSCREEN, SM_XVIRTUALSCREEN,
                 GetSystemMetrics,
+                GetClientRect, GetWindowRect,
+                GetWindow, GW_HWNDPREV,
+                IsWindowVisible,
             },
-            // HiDpi::{
-            //     GetThreadDpiAwarenessContext,
-            //     SetThreadDpiAwarenessContext,
-            //     DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE,
-            //     DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2,
-            //     DPI_AWARENESS_CONTEXT_SYSTEM_AWARE,
-            //     DPI_AWARENESS_CONTEXT_UNAWARE,
-            //     DPI_AWARENESS_CONTEXT_UNAWARE_GDISCALED,
-            // }
         },
     },
 };
@@ -182,24 +185,94 @@ impl std::fmt::Display for ScreenShot {
 }
 pub type ScreenShotResult = Result<ScreenShot, UError>;
 impl ScreenShot {
-    pub fn get(hwnd: Option<HWND>, left: Option<i32>, top: Option<i32>, right: Option<i32>, bottom: Option<i32>) -> ScreenShotResult {
+    unsafe fn new(hwnd: Option<HWND>, left: i32, top: i32, width: i32, height: i32) -> ScreenShotResult {
+        let hdc = match hwnd {
+            Some(hwnd) => GetWindowDC(hwnd),
+            None => GetDC(None),
+        };
+        let hdc_compat = CreateCompatibleDC(hdc);
+        if hdc_compat.is_invalid() {
+            ReleaseDC(hwnd, hdc);
+            return Err(UError::new(
+                UErrorKind::ScreenShotError,
+                UErrorMessage::GdiError("CreateCompatibleDC".into())
+            ));
+        }
+
+        let hbmp = CreateCompatibleBitmap(hdc, width, height);
+        let mut info = BITMAPINFO::default();
+        info.bmiHeader.biSize = std::mem::size_of::<BITMAPINFOHEADER>() as u32;
+        info.bmiHeader.biWidth = width;
+        info.bmiHeader.biHeight = -height; // 上下反転させる
+        info.bmiHeader.biPlanes = 1;
+        info.bmiHeader.biBitCount = 32;
+
+        let hobj = SelectObject(hdc_compat, hbmp);
+        if hobj.is_invalid() {
+            ReleaseDC(hwnd, hdc);
+            DeleteDC(hdc_compat);
+            DeleteObject(hbmp);
+            return Err(UError::new(
+                UErrorKind::ScreenShotError,
+                UErrorMessage::GdiError("SelectObject".into())
+            ));
+        }
+
+        let res = StretchBlt(
+            hdc_compat,
+            0,
+            0,
+            width,
+            height,
+            hdc,
+            left,
+            top,
+            width,
+            height,
+            SRCCOPY| CAPTUREBLT
+        );
+        if ! res.as_bool() {
+            ReleaseDC(hwnd, hdc);
+            DeleteDC(hdc_compat);
+            DeleteObject(hbmp);
+            return Err(UError::new(
+                UErrorKind::ScreenShotError,
+                UErrorMessage::GdiError("StretchBlt".into())
+            ));
+        }
+
+        let mut data = Mat::new_rows_cols(height, width, core::CV_8UC4)?;
+        let pdata = data.data_mut() as *mut c_void;
+        GetDIBits(
+            hdc_compat,
+            hbmp,
+            0,
+            height as u32,
+            Some(pdata),
+            &mut info,
+            DIB_RGB_COLORS
+        );
+
+        // cleanup
+        ReleaseDC(hwnd, hdc);
+        DeleteDC(hdc_compat);
+        DeleteObject(hbmp);
+
+        Ok(ScreenShot {data, left, top, width, height})
+    }
+    fn to_gray(&mut self) -> Result<(), UError>{
+        let mut data = Mat::default();
+        imgproc::cvt_color(&self.data, &mut data, imgproc::COLOR_RGB2GRAY, 0)?;
+        self.data = data;
+        Ok(())
+    }
+    pub fn get_screen(left: Option<i32>, top: Option<i32>, right: Option<i32>, bottom: Option<i32>) -> ScreenShotResult {
         unsafe {
-            // let context = GetThreadDpiAwarenessContext();
-            // let c  = match context {
-            //     DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE => "DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE",
-            //     DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 => "DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2",
-            //     DPI_AWARENESS_CONTEXT_SYSTEM_AWARE => "DPI_AWARENESS_CONTEXT_SYSTEM_AWARE",
-            //     DPI_AWARENESS_CONTEXT_UNAWARE => "DPI_AWARENESS_CONTEXT_UNAWARE",
-            //     DPI_AWARENESS_CONTEXT_UNAWARE_GDISCALED => "DPI_AWARENESS_CONTEXT_UNAWARE_GDISCALED",
-            //     _ => "",
-            // };
-            // println!("\u{001b}[33m[debug] context: {c}\u{001b}[0m");
-            // SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
             // キャプチャ範囲を確定
             let left = left.unwrap_or(GetSystemMetrics(SM_XVIRTUALSCREEN));
             let top = top.unwrap_or(GetSystemMetrics(SM_YVIRTUALSCREEN));
             let mut width = GetSystemMetrics(SM_CXVIRTUALSCREEN);
-            // SetThreadDpiAwarenessContext(context);
+
             if right.is_some() {
                 width = right.unwrap() - left;
             } else {
@@ -212,74 +285,104 @@ impl ScreenShot {
                 height -= left
             }
 
-            // ディスプレイ全体のHDCを取得
-            let hdc = GetDC(hwnd);
-            let hdc_compat = CreateCompatibleDC(hdc);
-            if hdc_compat.is_invalid() {
-                return Err(UError::new(
-                    UErrorKind::ScreenShotError,
-                    UErrorMessage::GdiError("CreateCompatibleDC".into())
-                ));
+            let mut ss = Self::new(None, left, top, width, height)?;
+            ss.to_gray()?;
+            Ok(ss)
+        }
+    }
+    pub fn get_screen2(left: Option<i32>, top: Option<i32>, width: Option<i32>, height: Option<i32>) -> ScreenShotResult {
+        unsafe {
+            // キャプチャ範囲を確定
+            let left = left.unwrap_or(GetSystemMetrics(SM_XVIRTUALSCREEN));
+            let top = top.unwrap_or(GetSystemMetrics(SM_YVIRTUALSCREEN));
+            let width = width.unwrap_or(GetSystemMetrics(SM_CXVIRTUALSCREEN));
+            let height = height.unwrap_or(GetSystemMetrics(SM_CYVIRTUALSCREEN));
+
+            Self::new(None, left, top, width, height)
+        }
+    }
+    fn is_window_shown(hwnd: HWND) -> bool {
+        unsafe {
+            let mut prev = hwnd;
+            let Ok(rect) = Self::get_visible_rect(hwnd) else {
+                return false;
+            };
+            let mut dest = RECT::default();
+            let mut known_hwnd = vec![];
+            loop {
+                prev = GetWindow(prev, GW_HWNDPREV);
+                if prev.0 == 0 || known_hwnd.contains(&prev) {
+                    break true;
+                } else {
+                    known_hwnd.push(prev);
+                    if IsWindowVisible(prev).as_bool() {
+                        if let Ok(prev_rect) = Self::get_visible_rect(prev) {
+                            if IntersectRect(&mut dest, &rect, &prev_rect).as_bool() {
+                                break false;
+                            }
+                        }
+                    }
+                }
             }
+        }
+    }
+    fn get_visible_rect(hwnd: HWND) -> Result<RECT, UError> {
+        unsafe {
+            let mut rect = RECT::default();
+            let pvattribute = &mut rect as *mut RECT as *mut c_void;
+            let cbattribute = std::mem::size_of::<RECT>() as u32;
+            DwmGetWindowAttribute(hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, pvattribute, cbattribute)?;
+            Ok(rect)
+        }
+    }
+    pub fn get_window(hwnd: HWND, left: Option<i32>, top: Option<i32>, width: Option<i32>, height: Option<i32>, client: bool, style: ImgConst) -> ScreenShotResult {
+        unsafe {
+            let is_fore = match style {
+                ImgConst::IMG_AUTO => Self::is_window_shown(hwnd),
+                ImgConst::IMG_FORE => true,
+                ImgConst::IMG_BACK => false,
+            };
+            let (left, top, width, height) = if client {
+                let mut rect = RECT::default();
+                GetClientRect(hwnd, &mut rect);
+                let mut point = POINT {
+                    x: left.unwrap_or(rect.left),
+                    y: top.unwrap_or(rect.top),
+                };
+                let width = width.unwrap_or(rect.right - rect.left - point.x);
+                let height = height.unwrap_or(rect.bottom - rect.top - point.y);
+                if is_fore {
+                    // IMG_FOREならスクリーン座標を返す
+                    ClientToScreen(hwnd, &mut point);
+                }
+                (point.x, point.y, width, height)
+            } else {
+                let rect = if is_fore {
+                    Self::get_visible_rect(hwnd)?
+                } else {
+                    let mut rect = RECT::default();
+                    GetWindowRect(hwnd, &mut rect);
+                    rect
+                };
+                let (left, top) = {
+                    (left, top)
+                };
+                let left = left.unwrap_or(0);
+                let screen_left = left + rect.left;
+                let top = top.unwrap_or(0);
+                let screen_top = top + rect.top;
+                let width = width.unwrap_or(rect.right - rect.left - left);
+                let height = height.unwrap_or(rect.bottom - rect.top - top);
+                (screen_left, screen_top, width, height)
+            };
 
-            let hbmp = CreateCompatibleBitmap(hdc, width, height);
-            let mut info = BITMAPINFO::default();
-            info.bmiHeader.biSize = std::mem::size_of::<BITMAPINFOHEADER>() as u32;
-            info.bmiHeader.biWidth = width;
-            info.bmiHeader.biHeight = -height; // 上下反転させる
-            info.bmiHeader.biPlanes = 1;
-            info.bmiHeader.biBitCount = 32;
-
-            let hobj = SelectObject(hdc_compat, hbmp);
-            if hobj.is_invalid() {
-                return Err(UError::new(
-                    UErrorKind::ScreenShotError,
-                    UErrorMessage::GdiError("SelectObject".into())
-                ));
+            if ! is_fore {
+                // IMG_BACKの場合は再描画する
+                let flags = RDW_FRAME|RDW_INVALIDATE|RDW_ERASE|RDW_UPDATENOW|RDW_ALLCHILDREN;
+                RedrawWindow(hwnd, None, None, flags);
             }
-
-            let res = StretchBlt(
-                hdc_compat,
-                0,
-                0,
-                width,
-                height,
-                hdc,
-                left,
-                top,
-                width,
-                height,
-                ROP_CODE(SRCCOPY.0 | CAPTUREBLT.0)
-            );
-            if ! res.as_bool() {
-                return Err(UError::new(
-                    UErrorKind::ScreenShotError,
-                    UErrorMessage::GdiError("BitBlt".into())
-                ));
-            }
-
-            let mut mat = Mat::new_rows_cols(height, width, core::CV_8UC4)?;
-            let pmat = mat.data_mut() as *mut c_void;
-            GetDIBits(
-                hdc_compat,
-                hbmp,
-                0,
-                height as u32,
-                Some(pmat),
-                &mut info,
-                DIB_RGB_COLORS
-            );
-
-            // convert to gray image
-            let mut data = Mat::default();
-            imgproc::cvt_color(&mat, &mut data, imgproc::COLOR_RGB2GRAY, 0)?;
-
-            // cleanup
-            ReleaseDC(None, hdc);
-            DeleteDC(hdc_compat);
-            DeleteObject(hbmp);
-
-            Ok(ScreenShot {data, left, top, width, height})
+            let hwnd = if is_fore {None} else {Some(hwnd)};
+            Self::new(hwnd, left, top, width, height)
         }
     }
     pub fn save(&self, filename: Option<&str>) -> ChkImgResult<()> {
@@ -287,6 +390,46 @@ impl ScreenShot {
         let default = format!("chkimg_ss_{}_{}.png", self.width, self.height);
         let filename = filename.unwrap_or(&default);
         imgcodecs::imwrite(filename, &self.data, &vector)?;
+        Ok(())
+    }
+    pub fn save_to(&self, filename: &str, jpg_quality: Option<i32>, png_compression: Option<i32>) -> ChkImgResult<()> {
+        let mut params = core::Vector::new();
+        if let Some(val) = jpg_quality {
+            params.push(imgcodecs::IMWRITE_JPEG_QUALITY);
+            params.push(val);
+        }
+        if let Some(val) = png_compression {
+            params.push(imgcodecs::IMWRITE_PNG_COMPRESSION);
+            params.push(val);
+        }
+        imgcodecs::imwrite(filename, &self.data, &params)?;
+        Ok(())
+    }
+    pub fn to_clipboard(&self) -> ChkImgResult<()> {
+        unsafe {
+            let mut info = BITMAPINFO::default();
+            let size = self.data.size()?;
+            info.bmiHeader.biSize = std::mem::size_of::<BITMAPINFOHEADER>() as u32;
+            info.bmiHeader.biWidth = size.width;
+            info.bmiHeader.biHeight = -size.height; // 上下反転
+            info.bmiHeader.biPlanes = 1;
+            info.bmiHeader.biBitCount = 32;
+
+            let hdc = GetDC(None);
+            if hdc.is_invalid() {
+                return Err(UError::new(
+                    UErrorKind::ScreenShotError,
+                    UErrorMessage::GdiError("GetDC".into())
+                ));
+            }
+            let pjbits = Some(self.data.data() as *const c_void);
+            let hbmp = CreateDIBitmap(hdc, Some(&info.bmiHeader), CBM_INIT as u32, pjbits, Some(&info), DIB_RGB_COLORS);
+
+            if let Ok(cb) = Clipboard::new() {
+                cb.set_bmp(hbmp);
+            }
+            ReleaseDC(None, hdc);
+        }
         Ok(())
     }
 }
