@@ -1552,7 +1552,6 @@ pub fn getslctlst(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(BuiltinFuncReturnValue::Result(obj))
 }
 
-#[cfg(feature="chkimg")]
 #[allow(non_camel_case_types)]
 #[derive(Debug, EnumString, EnumProperty, EnumVariantNames, ToPrimitive, FromPrimitive)]
 pub enum ImgConst {
