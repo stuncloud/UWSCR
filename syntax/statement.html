@@ -3,10 +3,11 @@
   <head><meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <meta name="color-scheme" content="light dark"><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+    <link rel="icon" href="../_static/MAINICON_0016-0256_light.ico" type="image/vnd.microsoft.icon">
 <link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="特殊変数" href="special_variables.html" /><link rel="prev" title="ビルド方法" href="../usage/how_to_build.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>スクリプト構文 - UWSCR 0.9.1</title>
+        <title>スクリプト構文 - UWSCR 0.9.2</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -123,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 0.9.1</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 0.9.2</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -146,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 0.9.1</span>
+  <span class="sidebar-brand-text">UWSCR 0.9.2</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -691,22 +692,13 @@ fend
 <section id="id15">
 <h5>配列表記<a class="headerlink" href="#id15" title="この見出しへのパーマリンク">#</a></h5>
 <div class="line-block">
-<div class="line"><code class="docutils literal notranslate"><span class="pre">引数[]</span></code> とすることで配列変数または連想配列変数を受ける引数にできます</div>
-<div class="line">変数以外が渡されるとエラーになります</div>
-<div class="line">(互換性のため配列ではない変数も渡せる)</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">引数[]</span></code> 形式で記述します</div>
+<div class="line">互換性のため表記自体はできますが、動作は通常の引数と同様です</div>
+<div class="line">受けられる引数を配列や連想配列に限定したい場合は <a class="reference internal" href="#type-check"><span class="std std-ref">引数の型チェック</span></a> を使用してください</div>
 </div>
-<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="kd">dim</span><span class="w"> </span><span class="n">a</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">1</span><span class="o">,</span><span class="m">2</span><span class="o">,</span><span class="m">3</span>
-<span class="n">p</span><span class="p">(</span><span class="n">a</span><span class="p">)</span><span class="w"> </span><span class="c">// 3</span>
-
-<span class="c">// 配列ではない変数も受けられる</span>
-<span class="n">b</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">12345</span>
-<span class="n">p</span><span class="p">(</span><span class="n">b</span><span class="p">)</span><span class="w"> </span><span class="c">// 5</span>
-
-<span class="n">p</span><span class="p">(</span><span class="s">&quot;abc&quot;</span><span class="p">)</span><span class="w"> </span><span class="c">// 変数じゃないのでダメ</span>
-
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// 以下は同じ意味です</span>
 <span class="kd">procedure</span><span class="w"> </span><span class="n">p</span><span class="p">(</span><span class="n">arr</span><span class="p">[])</span>
-<span class="w">    </span><span class="k">print</span><span class="w"> </span><span class="n">length</span><span class="p">(</span><span class="n">arr</span><span class="p">)</span>
-<span class="kd">fend</span>
+<span class="kd">procedure</span><span class="w"> </span><span class="n">p</span><span class="p">(</span><span class="n">arr</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
@@ -779,8 +771,8 @@ fend
 </div>
 </section>
 </section>
-<section id="id19">
-<h4>引数の型チェック<a class="headerlink" href="#id19" title="この見出しへのパーマリンク">#</a></h4>
+<section id="type-check">
+<span id="id19"></span><h4>引数の型チェック<a class="headerlink" href="#type-check" title="この見出しへのパーマリンク">#</a></h4>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">function</span> <span class="n">関数名</span><span class="p">(</span><span class="n">引数名</span><span class="p">:</span> <span class="n">型</span><span class="p">,</span> <span class="n">var</span> <span class="n">引数名</span><span class="p">:</span> <span class="n">型</span><span class="p">,</span> <span class="n">引数名</span><span class="p">:</span> <span class="n">型</span> <span class="o">=</span> <span class="n">デフォルト値</span><span class="p">)</span>
 </pre></div>
 </div>
@@ -3953,7 +3945,7 @@ selend
 <li><a class="reference internal" href="#id18">特殊な引数の組み合わせ</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#id19">引数の型チェック</a></li>
+<li><a class="reference internal" href="#type-check">引数の型チェック</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#id20">無名関数</a></li>
