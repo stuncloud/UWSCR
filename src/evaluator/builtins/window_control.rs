@@ -80,7 +80,6 @@ use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use std::thread;
-use std::path::PathBuf;
 
 use strum_macros::{EnumString, EnumProperty, EnumVariantNames};
 use num_derive::{ToPrimitive, FromPrimitive};
@@ -1580,7 +1579,7 @@ pub fn saveimg(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         ScreenShot::get_screen2(left, top, width, height)?
     };
     if let Some(filename) = filename {
-        let mut path = PathBuf::from(filename);
+        let mut path = std::path::PathBuf::from(filename);
         let ext = path.extension().map(|os| os.to_str()).flatten();
         let (jpg_quality, png_compression) = match ext {
             Some("jpg") | Some("jpeg") => {
