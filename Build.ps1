@@ -140,7 +140,14 @@ function Out-UWSCR {
         $BinPath | Copy-Item -Destination $ArchDir
         $ZipPath = Join-Path -Path $verpath -ChildPath "UWSCR$Arch.zip"
         Get-ChildItem $BinPath | Compress-Archive -DestinationPath $ZipPath -Force
-        Get-Item $ZipPath
+        $item = Get-Item $ZipPath
+
+        # SHA256ハッシュ値をテキストファイルに書き込む
+        $TxtPath = Join-Path -Path $verpath -ChildPath "sha256hash.txt"
+        $hash = Get-FileHash -Path $item -Algorithm SHA256
+        Out-File -Encoding utf8 -FilePath $TxtPath -InputObject "$($item.Name): $($hash.Hash)" -Append
+
+        $item
     }
 }
 
