@@ -1,4 +1,4 @@
-use crate::evaluator::LOGPRINTWIN;
+use crate::evaluator::{LOGPRINTWIN, Evaluator};
 use crate::evaluator::builtins::*;
 use crate::evaluator::object::Object;
 use crate::settings::USETTINGS;
@@ -58,7 +58,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets
 }
 
-pub fn logprint(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn logprint(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let flg = args.get_as_bool(0, None)?;
     let left = args.get_as_int_or_empty(1)?;
     let top = args.get_as_int_or_empty(2)?;
@@ -69,7 +69,7 @@ pub fn logprint(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         lp.set_visibility(flg);
         lp.move_to(left, top, width, height);
     }
-    Ok(BuiltinFuncReturnValue::Result(Object::Empty))
+    Ok(Object::Empty)
 }
 
 fn get_dlg_point(args: &BuiltinFuncArgs, i: (usize,usize), point: &Lazy<Mutex<(Option<i32>, Option<i32>)>>) -> BuiltInResult<(Option<i32>, Option<i32>)> {
@@ -95,7 +95,7 @@ fn set_dlg_point(x: i32, y: i32, point: &Lazy<Mutex<(Option<i32>, Option<i32>)>>
     m.1 = Some(y);
 }
 
-pub fn msgbox(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn msgbox(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let message = args.get_as_string(0, None)?;
     let btns = args.get_as_int::<i32>(1, Some(BtnConst::BTN_OK as i32))?;
     let (x, y) = get_dlg_point(&args, (2, 3), &MSGBOX_POINT)?;
@@ -120,10 +120,10 @@ pub fn msgbox(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 
     set_dlg_point(x, y, &MSGBOX_POINT);
     let pressed = btn.0 as f64;
-    Ok(BuiltinFuncReturnValue::Result(Object::Num(pressed)))
+    Ok(Object::Num(pressed))
 }
 
-pub fn input(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn input(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let mut msg = args.get_as_string_array(0)?;
     let mut label = match msg.len() {
         0 => return Err(builtin_func_error(UErrorMessage::EmptyArrayNotAllowed)),
@@ -165,15 +165,15 @@ pub fn input(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     match result {
         Some(mut vec) => if vec.len() == 1 {
             let s = vec.pop().unwrap_or_default();
-            Ok(BuiltinFuncReturnValue::Result(Object::String(s)))
+            Ok(Object::String(s))
         } else {
             let arr = vec.into_iter().map(|s| Object::String(s)).collect();
-            Ok(BuiltinFuncReturnValue::Result(Object::Array(arr)))
+            Ok(Object::Array(arr))
         },
         None => if count > 1 {
-            Ok(BuiltinFuncReturnValue::Result(Object::Array(vec![])))
+            Ok(Object::Array(vec![]))
         } else {
-            Ok(BuiltinFuncReturnValue::Result(Object::Empty))
+            Ok(Object::Empty)
         },
     }
 }
@@ -190,7 +190,7 @@ pub enum SlctConst {
     SLCT_NUM = 128,
 }
 
-pub fn slctbox(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn slctbox(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     // 第一引数: 種別と戻り値型
     let n = args.get_as_int(0, None)?;
     let (r#type, option) = Slctbox::convert_to_type_and_option(n);
@@ -247,10 +247,10 @@ pub fn slctbox(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         },
         SlctReturnValue::Cancel => (-1).into(),
     };
-    Ok(BuiltinFuncReturnValue::Result(obj))
+    Ok(obj)
 }
 
-pub fn popupmenu(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn popupmenu(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let list = args.get_as_array_include_hashtbl(0, None, true)?;
     let x = args.get_as_int_or_empty(1)?;
     let y = args.get_as_int_or_empty(2)?;
@@ -263,10 +263,10 @@ pub fn popupmenu(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         Some(s) => Object::String(s),
         None => Object::Empty,
     };
-    Ok(BuiltinFuncReturnValue::Result(obj))
+    Ok(obj)
 }
 
-pub fn balloon(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn balloon(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let balloon = if args.len() == 0 {
         // balloon消す
         None
@@ -284,5 +284,17 @@ pub fn balloon(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             .map_err(|e| builtin_func_error(UWindowError(e)))?;
         Some(balloon)
     };
-    Ok(BuiltinFuncReturnValue::Balloon(balloon))
+
+    match balloon {
+        Some(new) => match evaluator.balloon {
+            Some(ref mut old) => old.redraw(new),
+            None => {
+                new.draw();
+                evaluator.balloon = Some(new);
+            },
+        },
+        None => evaluator.balloon = None,
+    }
+
+    Ok(Object::Empty)
 }

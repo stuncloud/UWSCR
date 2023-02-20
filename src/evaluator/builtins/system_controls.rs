@@ -1,5 +1,6 @@
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
+use crate::evaluator::Evaluator;
 use crate::error::evaluator::{UErrorMessage, UErrorKind};
 use crate::winapi::{from_ansi_bytes, to_wide_string, attach_console, free_console, WString, PcwstrExt};
 use windows::{
@@ -72,12 +73,12 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets
 }
 
-pub fn sleep(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn sleep(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let sec = args.get_as_num(0, None)?;
     if sec >= 0.0 {
         thread::sleep(time::Duration::from_secs_f64(sec));
     }
-    Ok(BuiltinFuncReturnValue::Result(Object::Empty))
+    Ok(Object::Empty)
 }
 
 pub fn is_64bit_os() -> Option<bool> {
@@ -189,7 +190,7 @@ pub fn get_os_kind() -> Vec<f64> {
     res
 }
 
-pub fn kindofos(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn kindofos(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let t = args.get_as_bool_or_int(0, Some(0)).unwrap_or(0);
     let osnum = get_os_kind();
     let obj = match FromPrimitive::from_i32(t).unwrap_or(KindOfOsResultType::KIND_OF_OS) {
@@ -204,13 +205,13 @@ pub fn kindofos(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         KindOfOsResultType::OSVER_PLATFORM => Object::Num(osnum[4]),
         KindOfOsResultType::KIND_OF_OS => Object::Num(osnum[0]),
     };
-    Ok(BuiltinFuncReturnValue::Result(obj))
+    Ok(obj)
 }
 
-pub fn env(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn env(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let env_var = args.get_as_string(0, None)?;
     let env_val = std::env::var(env_var).unwrap_or_default();
-    Ok(BuiltinFuncReturnValue::Result(Object::String(env_val)))
+    Ok(Object::String(env_val))
 }
 
 pub fn shell_execute(cmd: String, params: Option<String>) -> bool {
@@ -275,7 +276,7 @@ fn enum_window_proc(hwnd: HWND, lparam: LPARAM) -> BOOL {
     }
 }
 
-pub fn exec(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn exec(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let cmd = args.get_as_string(0, None)?;
     let sync = args.get_as_bool(1, Some(false))?;
     let pi = create_process(cmd)?;
@@ -294,7 +295,7 @@ pub fn exec(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             GetExitCodeProcess(pi.hProcess, &mut exit);
             CloseHandle(pi.hThread);
             CloseHandle(pi.hProcess);
-            Ok(BuiltinFuncReturnValue::Result(Object::Num(exit.into())))
+            Ok(Object::Num(exit.into()))
         } else {
             // idを返す
             CloseHandle(pi.hThread);
@@ -302,46 +303,54 @@ pub fn exec(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             if ph.hwnd.0 > 0 {
                 let id = window_control::get_next_id();
                 window_control::set_new_window(id, ph.hwnd, true);
-                Ok(BuiltinFuncReturnValue::Result(Object::Num(id.into())))
+                Ok(Object::Num(id.into()))
             } else {
-                Ok(BuiltinFuncReturnValue::Result(Object::Num(-1.0)))
+                Ok(Object::Num(-1.0))
             }
         }
     }
 }
 
-pub fn shexec(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn shexec(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let cmd = args.get_as_string(0, None)?;
     let params = args.get_as_string(1, None).map_or(None, |s| Some(s));
-    Ok(BuiltinFuncReturnValue::Result(Object::Bool(shell_execute(cmd, params))))
+    let shell_result = shell_execute(cmd, params);
+    Ok(shell_result.into())
 }
 
-pub fn task(mut args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn task(evaluator: &mut Evaluator, mut args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let obj = args.get_as_object(0, None)?;
     let arguments = args.take_argument(1);
     match obj {
-        Object::Function(f) |
-        Object::AsyncFunction(f) => Ok(BuiltinFuncReturnValue::Task(f, arguments)),
+        Object::Function(func) |
+        Object::AsyncFunction(func) => {
+            let task = evaluator.new_task(func, arguments);
+            let obj = if args.is_await() {
+                evaluator.await_task(task)?
+            } else {
+                Object::Task(task)
+            };
+            Ok(obj)
+        },
         _ => Err(builtin_func_error(UErrorMessage::BuiltinArgIsNotFunction))
     }
 }
 
-pub fn wait_task(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn wait_task(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let task = args.get_as_task(0)?;
     let mut handle = task.handle.lock().unwrap();
-    let result = match handle.take().unwrap().join() {
-        Ok(res) => res.map(|o| BuiltinFuncReturnValue::Result(o)),
+    match handle.take().unwrap().join() {
+        Ok(res) => res.map_err(|err| BuiltinFuncError::UError(err)),
         Err(e) => {
-            Err(UError::new(
+            Err(BuiltinFuncError::new_with_kind(
                 UErrorKind::TaskError,
                 UErrorMessage::TaskEndedIncorrectly(format!("{:?}", e))
             ))
         }
-    };
-    result.map_err(|e| e.into())
+    }
 }
 
-pub fn wmi_query(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn wmi_query(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let wql = args.get_as_string(0, None)?;
     let name_space = args.get_as_string_or_empty(1)?;
     let conn = unsafe {
@@ -360,7 +369,7 @@ pub fn wmi_query(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             Object::UObject(UObject::new(value))
         })
         .collect();
-    Ok(BuiltinFuncReturnValue::Result(Object::Array(obj)))
+    Ok(Object::Array(obj))
 }
 
 impl From<wmi::WMIError> for BuiltinFuncError {
@@ -372,7 +381,7 @@ impl From<wmi::WMIError> for BuiltinFuncError {
     }
 }
 
-pub fn doscmd(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn doscmd(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let command = args.get_as_string(0, None)?;
     // falseが渡されたら終了を待つ
     let wait = ! args.get_as_bool(1, Some(false))?;
@@ -392,7 +401,7 @@ pub fn doscmd(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         Some(out) => Object::String(out),
         None => Object::Empty
     };
-    Ok(BuiltinFuncReturnValue::Result(result))
+    Ok(result)
 }
 
 fn run_powershell(shell: ShellType, args: &BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -414,14 +423,14 @@ fn run_powershell(shell: ShellType, args: &BuiltinFuncArgs) -> BuiltinFuncResult
         Some(out) => Object::String(out),
         None => Object::Empty
     };
-    Ok(BuiltinFuncReturnValue::Result(result))
+    Ok(result)
 }
 
-pub fn powershell(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn powershell(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     run_powershell(ShellType::PowerShell, &args)
 }
 
-pub fn pwsh(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn pwsh(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     run_powershell(ShellType::Pwsh, &args)
 }
 
@@ -555,12 +564,12 @@ impl From<std::io::Error> for BuiltinFuncError {
     }
 }
 
-pub fn _attachconsole(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn _attachconsole(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let attach = args.get_as_bool(0, None)?;
     let result = if attach {
         attach_console()
     } else {
         free_console()
     };
-    Ok(BuiltinFuncReturnValue::Result(Object::Bool(result)))
+    Ok(result.into())
 }

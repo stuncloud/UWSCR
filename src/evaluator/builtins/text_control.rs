@@ -1,5 +1,6 @@
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
+use crate::evaluator::Evaluator;
 use crate::evaluator::com_object::{SAFEARRAYHelper};
 use crate::error::evaluator::UErrorMessage::BuiltinArgCastError;
 use crate::winapi::{
@@ -60,7 +61,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets
 }
 
-pub fn length(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn length(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let len = match args.get_as_object(0, None)? {
         Object::String(s) => s.chars().count(),
         Object::Num(n) => n.to_string().len(),
@@ -78,10 +79,10 @@ pub fn length(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         Object::ByteArray(ref arr) => arr.len(),
         o => return Err(builtin_func_error(UErrorMessage::InvalidArgument(o)))
     };
-    Ok(BuiltinFuncReturnValue::Result(Object::Num(len as f64)))
+    Ok(Object::Num(len as f64))
 }
 
-pub fn lengthb(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn lengthb(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let len = match args.get_as_object(0, None)? {
         Object::String(s) => get_ansi_length(&s),
         Object::Num(n) => n.to_string().len(),
@@ -90,10 +91,10 @@ pub fn lengthb(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         Object::Null => 1,
         o => return Err(builtin_func_error(UErrorMessage::InvalidArgument(o)))
     };
-    Ok(BuiltinFuncReturnValue::Result(Object::Num(len as f64)))
+    Ok(Object::Num(len as f64))
 }
 
-pub fn lengthu(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn lengthu(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let len = match args.get_as_object(0, None)? {
         Object::String(s) => s.as_bytes().len(),
         Object::Num(n) => n.to_string().len(),
@@ -102,20 +103,20 @@ pub fn lengthu(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         Object::Null => 1,
         o => return Err(builtin_func_error(UErrorMessage::InvalidArgument(o)))
     };
-    Ok(BuiltinFuncReturnValue::Result(Object::Num(len as f64)))
+    Ok(Object::Num(len as f64))
 }
 
-pub fn lengths(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn lengths(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let str = args.get_as_string(0, None)?;
     let length = str.chars()
             .map(|char| char.len_utf16())
             .reduce(|a,b| a+b)
             .unwrap_or_default();
-    Ok(BuiltinFuncReturnValue::Result(Object::Num(length as f64)))
+    Ok(Object::Num(length as f64))
 }
 
-pub fn as_string(args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    Ok(BuiltinFuncReturnValue::Result(Object::String(format!("{}", args.get_as_object(0, None)?))))
+pub fn as_string(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    Ok(Object::String(format!("{}", args.get_as_object(0, None)?)))
 }
 
 // 正規表現
@@ -127,7 +128,7 @@ pub enum RegexEnum {
     REGEX_MATCH = 1,
 }
 
-pub fn newre(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn newre(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let mut pattern = args.get_as_string(0, None)?;
     let mut opt = String::new();
     if ! args.get_as_bool(1, Some(false))? {
@@ -143,15 +144,13 @@ pub fn newre(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     if opt.len() > 0 {
         pattern = format!("(?{}){}", opt, pattern);
     }
-    Ok(BuiltinFuncReturnValue::Result(Object::RegEx(pattern)))
+    Ok(Object::RegEx(pattern))
 }
 
 fn test_regex(target: String, pattern: String) -> BuiltinFuncResult {
     match Regex::new(pattern.as_str()) {
         Ok(re) => {
-            Ok(BuiltinFuncReturnValue::Result(Object::Bool(
-                re.is_match(target.as_str())
-            )))
+            Ok(Object::Bool(re.is_match(target.as_str())))
         },
         Err(_) => Err(builtin_func_error(UErrorMessage::InvalidRegexPattern(pattern)))
     }
@@ -176,7 +175,7 @@ fn match_regex(target: String, pattern: String) -> BuiltinFuncResult {
                     ))
                 }
             }
-            Ok(BuiltinFuncReturnValue::Result(Object::Array(matches)))
+            Ok(Object::Array(matches))
         },
         Err(_) => Err(builtin_func_error(UErrorMessage::InvalidRegexPattern(pattern)))
     }
@@ -185,21 +184,19 @@ fn match_regex(target: String, pattern: String) -> BuiltinFuncResult {
 fn replace_regex(target: String, pattern: String, replace_to: String) -> BuiltinFuncResult {
     match Regex::new(pattern.as_str()) {
         Ok(re) => {
-            Ok(BuiltinFuncReturnValue::Result(Object::String(
-                re.replace_all(target.as_str(), replace_to.as_str()).to_string()
-            )))
+            Ok(Object::String(re.replace_all(target.as_str(), replace_to.as_str()).to_string()))
         },
         Err(_) => Err(builtin_func_error(UErrorMessage::InvalidRegexPattern(pattern)))
     }
 }
 
-pub fn testre(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn testre(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let target = args.get_as_string(0, None)?;
     let pattern = args.get_as_string(1, None)?;
     test_regex(target, pattern)
 }
 
-pub fn regex(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn regex(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let target = args.get_as_string(0, None)?;
     let pattern = args.get_as_string(1, None)?;
     match args.get_as_object(2, Some(Object::Empty))? {
@@ -216,13 +213,13 @@ pub fn regex(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     }
 }
 
-pub fn regexmatch(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn regexmatch(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let target = args.get_as_string(0, None)?;
     let pattern = args.get_as_string(1, None)?;
     match_regex(target, pattern)
 }
 
-pub fn replace(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn replace(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let target = args.get_as_string(0, None)?;
     let (pattern, is_regex) = match args.get_as_object(1, None)? {
         Object::String(s) => (s.clone(), args.get_as_bool(3, Some(false))?),
@@ -247,30 +244,30 @@ pub fn replace(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             lower.replace_range(pos..(pos+len), r);
             out.replace_range(pos..(pos+len), r);
         }
-        Ok(BuiltinFuncReturnValue::Result(Object::String(out)))
+        Ok(Object::String(out))
     }
 }
 
-pub fn tojson(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn tojson(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let prettify = args.get_as_bool(1, Some(false))?;
     let to_string = if prettify {serde_json::to_string_pretty} else {serde_json::to_string};
     let uo = args.get_as_uobject(0)?;
     let value = uo.value();
     to_string(&value).map_or_else(
         |e| Err(builtin_func_error(UErrorMessage::Any(e.to_string()))),
-        |s| Ok(BuiltinFuncReturnValue::Result(Object::String(s)))
+        |s| Ok(Object::String(s))
     )
 }
 
-pub fn fromjson(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn fromjson(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let json = args.get_as_string(0, None)?;
     serde_json::from_str::<serde_json::Value>(json.as_str()).map_or_else(
-        |_| Ok(BuiltinFuncReturnValue::Result(Object::Empty)),
-        |v| Ok(BuiltinFuncReturnValue::Result(Object::UObject(UObject::new(v))))
+        |_| Ok(Object::Empty),
+        |v| Ok(Object::UObject(UObject::new(v)))
     )
 }
 
-pub fn copy(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn copy(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let str = args.get_as_string(0, None)?;
     let start = args.get_as_int(1, None::<usize>)?;
     let length = args.get_as_int_or_empty::<usize>(2)?;
@@ -284,7 +281,7 @@ pub fn copy(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     } else {
         skipped.collect()
     };
-    Ok(BuiltinFuncReturnValue::Result(copied.into()))
+    Ok(copied.into())
 }
 
 fn find_pos(str: &str, substr: &str) -> Option<usize>{
@@ -351,7 +348,7 @@ fn find_nth(str: &str, substr: &str, nth: i32) -> Option<usize> {
     }
 }
 
-pub fn pos(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn pos(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let substr = args.get_as_string(0, None)?;
     let mut str = args.get_as_string(1, None)?;
     let nth = args.get_as_int(2, Some(1_i32))?;
@@ -362,7 +359,7 @@ pub fn pos(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     } else {
         0
     };
-    Ok(BuiltinFuncReturnValue::Result(pos.into()))
+    Ok(pos.into())
 }
 
 fn truncate_str(str: &mut String, mut p: usize) {
@@ -474,7 +471,7 @@ fn drain_between(str: &mut String, pos: usize, len: usize) {
     str.truncate(len);
 }
 
-pub fn betweenstr(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn betweenstr(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let mut str = args.get_as_string(0, None)?;
     let from = args.get_as_string_or_empty(1)?;
     let to = args.get_as_string_or_empty(2)?;
@@ -507,12 +504,12 @@ pub fn betweenstr(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         },
     };
 
-    Ok(BuiltinFuncReturnValue::Result(between.unwrap_or_default().into()))
+    Ok(between.unwrap_or_default().into())
 }
 
-pub fn chknum(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn chknum(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let result = args.get_as_int(0, None::<i32>).is_ok();
-    Ok(BuiltinFuncReturnValue::Result(Object::Bool(result)))
+    Ok(Object::Bool(result))
 }
 
 #[allow(non_camel_case_types)]
@@ -521,14 +518,14 @@ pub enum ErrConst {
     ERR_VALUE = -999999,
 }
 
-pub fn val(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn val(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let result = args.get_as_num(0, None::<f64>);
     let err = args.get_as_num(1, Some(ErrConst::ERR_VALUE as i32 as f64))?;
     let val = result.unwrap_or(err);
-    Ok(BuiltinFuncReturnValue::Result(val.into()))
+    Ok(val.into())
 }
 
-pub fn trim(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn trim(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let target = args.get_as_string(0, None)?;
     let trim_option = args.get_as_string_or_bool(1, Some(TwoTypeArg::U(false)))?;
     let trimed = match trim_option {
@@ -543,18 +540,18 @@ pub fn trim(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             target.trim_matches(|c: char| {c.is_ascii_whitespace() || c.is_ascii_control()})
         },
     };
-    Ok(BuiltinFuncReturnValue::Result(trimed.into()))
+    Ok(trimed.into())
 }
 
-pub fn chr(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn chr(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let code = args.get_as_int(0, None::<u32>)?;
     let char = match char::from_u32(code) {
         Some(c) => c.to_string(),
         None => String::new(),
     };
-    Ok(BuiltinFuncReturnValue::Result(char.into()))
+    Ok(char.into())
 }
-pub fn asc(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn asc(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let str = args.get_as_string(0, None)?;
     let code = match str.chars().next() {
         Some(first) => {
@@ -562,10 +559,10 @@ pub fn asc(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         },
         None => 0,
     };
-    Ok(BuiltinFuncReturnValue::Result(Object::Num(code as f64)))
+    Ok(Object::Num(code as f64))
 }
 
-pub fn chrb(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn chrb(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let code = match args.get_as_int(0, None::<u8>) {
         Ok(n) => n,
         Err(e) => match e.message() {
@@ -575,19 +572,19 @@ pub fn chrb(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         }
     };
     let ansi = from_ansi_bytes(&[code]);
-    Ok(BuiltinFuncReturnValue::Result(ansi.into()))
+    Ok(ansi.into())
 }
-pub fn ascb(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn ascb(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let str = args.get_as_string(0, None)?;
     let bytes = to_ansi_bytes(&str);
     let code = bytes.get(0).unwrap_or(&0);
-    Ok(BuiltinFuncReturnValue::Result(Object::Num(*code as f64)))
+    Ok(Object::Num(*code as f64))
 }
 
-pub fn isunicode(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn isunicode(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let str = args.get_as_string(0, None)?;
     let is_unicode = contains_unicode_char(&str);
-    Ok(BuiltinFuncReturnValue::Result(Object::Bool(is_unicode)))
+    Ok(Object::Bool(is_unicode))
 }
 
 #[allow(non_camel_case_types)]
@@ -601,13 +598,13 @@ pub enum StrconvConst {
     SC_FULLWIDTH = 0x800000,
 }
 
-pub fn strconv(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn strconv(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let base = args.get_as_string(0, None)?;
     let opt = args.get_as_int(1, None::<u32>)?;
 
     let mut strconv = StrConv::new(&base);
     let conv = strconv.convert(opt);
-    Ok(BuiltinFuncReturnValue::Result(conv.into()))
+    Ok(conv.into())
 }
 struct StrConvType {
     case: StrConvCase,
@@ -709,7 +706,7 @@ impl Default for FormatConst {
     }
 }
 
-pub fn format(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn format(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let val = args.get_as_f64_or_string(0)?;
     let len = args.get_as_int(1, None::<i32>)?;
     let len = if len < 0 {0_usize} else {len as usize};
@@ -743,10 +740,10 @@ pub fn format(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             }
         },
     };
-    Ok(BuiltinFuncReturnValue::Result(fixed.into()))
+    Ok(fixed.into())
 }
 
-pub fn token(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn token(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let delimiter = args.get_as_string(0, None)?;
     let base = args.get_as_string(1, None)?;
     let expression = args.get_expr(1);
@@ -792,15 +789,13 @@ pub fn token(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             }
             let sfrt = if let Some(p) = deli_pos {
                 let chars = base.chars().collect::<Vec<_>>();
-                let token = chars[..p].iter().collect();
+                let token = chars[..p].iter().collect::<String>();
                 let remained = chars[rem_pos..].iter().collect();
-                BuiltinFuncReturnValue::Token { token, remained, expression }
+                evaluator.update_tokened_variable(expression, remained)?;
+                token.into()
             } else {
-                BuiltinFuncReturnValue::Token {
-                    token: base,
-                    remained: "".to_string(),
-                    expression
-                }
+                evaluator.update_tokened_variable(expression, "".into())?;
+                base.into()
             };
             Ok(sfrt)
 
@@ -822,14 +817,12 @@ pub fn token(args: BuiltinFuncArgs) -> BuiltinFuncResult {
                     }
                 }
             }
-            Ok(BuiltinFuncReturnValue::Token { token, remained, expression })
+            evaluator.update_tokened_variable(expression, remained)?;
+            Ok(token.into())
         }
     } else {
-        Ok(BuiltinFuncReturnValue::Token {
-            token: base,
-            remained: "".to_string(),
-            expression
-        })
+        evaluator.update_tokened_variable(expression, "".into())?;
+        Ok(base.into())
     }
 }
 
@@ -926,10 +919,10 @@ impl ByteArray {
     }
 }
 
-pub fn encode(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn encode(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let str = args.get_as_string(0, None)?;
     let Some(code) = args.get_as_const::<CodeConst>(1, true)? else {
-        return Ok(BuiltinFuncReturnValue::Result(Object::String(str)));
+        return Ok(Object::String(str));
     };
 
     let result = match code {
@@ -961,13 +954,13 @@ pub fn encode(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             bytes.into()
         },
     };
-    Ok(BuiltinFuncReturnValue::Result(result))
+    Ok(result)
 }
 
-pub fn decode(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn decode(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let value = args.get_as_string_or_bytearray(0)?;
     let Some(code) = args.get_as_const::<CodeConst>(1, true)? else {
-        return Ok(BuiltinFuncReturnValue::Result(Object::Empty));
+        return Ok(Object::Empty);
     };
 
     let result = match value {
@@ -991,7 +984,7 @@ pub fn decode(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         },
     };
 
-    Ok(BuiltinFuncReturnValue::Result(result))
+    Ok(result)
 }
 
 #[cfg(test)]

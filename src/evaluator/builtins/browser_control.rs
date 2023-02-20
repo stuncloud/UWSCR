@@ -1,6 +1,7 @@
 
 use crate::{
     evaluator::{
+        Evaluator,
         builtins::*,
         devtools_protocol::{Browser, DevtoolsProtocolError},
     },
@@ -25,8 +26,8 @@ pub enum BcEnum {
     BC_MSEDGE = 2,
 }
 
-// browsercontrol(種類, [フィルタ=EMPTY, ポート=9222, ヘッドレス=FALSE])
-pub fn browser_control(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+/// browsercontrol(種類, [フィルタ=EMPTY, ポート=9222, ヘッドレス=FALSE])
+pub fn browser_control(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let t = args.get_as_int(0, None)?;
     let Some(browser_type) = FromPrimitive::from_i32(t) else {
         return Err(builtin_func_error(UErrorMessage::InvalidBrowserType(t)));
@@ -38,7 +39,7 @@ pub fn browser_control(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         BcEnum::BC_CHROME => Browser::new_chrome(port, filter, headless)?,
         BcEnum::BC_MSEDGE => Browser::new_msedge(port, filter, headless)?,
     };
-    Ok(BuiltinFuncReturnValue::Result(Object::Browser(browser)))
+    Ok(Object::Browser(browser))
 }
 
 impl From<DevtoolsProtocolError> for BuiltinFuncError {

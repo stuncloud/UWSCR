@@ -1,5 +1,6 @@
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
+use crate::evaluator::Evaluator;
 
 use std::{thread, time};
 
@@ -54,20 +55,20 @@ pub fn move_mouse_to(x: i32, y: i32) -> bool {
     }
 }
 
-pub fn mmv(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn mmv(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let x = args.get_as_int(0, Some(0))?;
     let y = args.get_as_int(1, Some(0))?;
     let ms = args.get_as_int::<u64>(2, Some(0))?;
     thread::sleep(time::Duration::from_millis(ms));
     // move_mouse_to_scaled(x, y);
     move_mouse_to(x, y);
-    Ok(BuiltinFuncReturnValue::Result(Object::Empty))
+    Ok(Object::Empty)
 }
 
-pub fn btn(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn btn(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let Some(btn) = args.get_as_const::<MouseButtonEnum>(0, true)? else {
         // 不正な定数の場合何もしない
-        return Ok(BuiltinFuncReturnValue::Result(Object::Empty));
+        return Ok(Object::Empty);
     };
     let mut enigo = Enigo::new();
     let action = args.get_as_int::<i32>(1, Some(KeyActionEnum::CLICK as i32))?;
@@ -84,13 +85,13 @@ pub fn btn(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             thread::sleep(time::Duration::from_millis(ms));
             move_mouse_to(x, y);
             enigo.mouse_scroll_y(action);
-            return Ok(BuiltinFuncReturnValue::Result(Object::Empty));
+            return Ok(Object::Empty);
         },
         MouseButtonEnum::WHEEL2 => {
             thread::sleep(time::Duration::from_millis(ms));
             move_mouse_to(x, y);
             enigo.mouse_scroll_x(action);
-            return Ok(BuiltinFuncReturnValue::Result(Object::Empty));
+            return Ok(Object::Empty);
         },
         MouseButtonEnum::TOUCH => {
             return Err(builtin_func_error(UErrorMessage::NotYetSupported("TOUCH".into())));
@@ -104,7 +105,7 @@ pub fn btn(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         KeyActionEnum::DOWN => enigo.mouse_down(button),
         KeyActionEnum::UP => enigo.mouse_up(button),
     }
-    Ok(BuiltinFuncReturnValue::Result(Object::Empty))
+    Ok(Object::Empty)
 }
 
 pub fn get_current_pos() -> BuiltInResult<POINT>{
@@ -117,7 +118,7 @@ pub fn get_current_pos() -> BuiltInResult<POINT>{
     Ok(point)
 }
 
-pub fn kbd(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn kbd(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let key = args.get_as_num_or_string(0)?;
     let action = args.get_as_const::<KeyActionEnum>(1, false)?
         .unwrap_or(KeyActionEnum::CLICK);
@@ -134,7 +135,7 @@ pub fn kbd(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             Input::send_str(&s, wait);
         }
     };
-    Ok(BuiltinFuncReturnValue::Empty)
+    Ok(Object::Empty)
 }
 
 

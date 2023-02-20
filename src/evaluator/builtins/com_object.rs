@@ -1,5 +1,6 @@
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
+use crate::evaluator::Evaluator;
 use crate::evaluator::com_object::{VARIANTHelper, SAFEARRAYHelper};
 use crate::settings::USETTINGS;
 use crate::winapi::WString;
@@ -99,12 +100,12 @@ fn ignore_ie(prog_id: &str) -> BuiltInResult<()> {
     Ok(())
 }
 
-fn createoleobj(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+fn createoleobj(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let prog_id = args.get_as_string(0, None)?;
     // ignore IE
     ignore_ie(&prog_id)?;
     let idispatch = create_instance(&prog_id)?;
-    Ok(BuiltinFuncReturnValue::Result(Object::ComObject(idispatch)))
+    Ok(Object::ComObject(idispatch))
 }
 
 fn get_clsid_from_progid(prog_id: &str) -> BuiltInResult<GUID> {
@@ -123,7 +124,7 @@ fn create_instance(prog_id: &str) -> BuiltInResult<IDispatch> {
     Ok(obj)
 }
 
-fn getactiveoleobj(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+fn getactiveoleobj(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let prog_id = args.get_as_string(0, None)?;
     // ignore IE
     ignore_ie(&prog_id)?;
@@ -131,7 +132,7 @@ fn getactiveoleobj(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         Some(d) => d,
         None => return Err(builtin_func_error(UErrorMessage::FailedToGetObject))
     };
-    Ok(BuiltinFuncReturnValue::Result(Object::ComObject(disp)))
+    Ok(Object::ComObject(disp))
 }
 
 fn get_active_object(prog_id: &str) -> BuiltInResult<Option<IDispatch>> {
@@ -151,7 +152,7 @@ fn get_active_object(prog_id: &str) -> BuiltInResult<Option<IDispatch>> {
     Ok(obj)
 }
 
-fn vartype(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+fn vartype(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let vt = args.get_as_int::<i32>(1, Some(-1))?;
     let o = args.get_as_object(0, None)?;
     if vt < 0 {
@@ -159,15 +160,15 @@ fn vartype(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             Object::Variant(ref v) => v.0.vt().0 as f64,
             _ => VarType::VAR_UWSCR as u32 as f64
         };
-        Ok(BuiltinFuncReturnValue::Result(Object::Num(n)))
+        Ok(Object::Num(n))
     } else {
         let vt = vt as u16;
         let _is_array = (vt | VarType::VAR_ARRAY) > 0;
         // VARIANT型への変換 VAR_UWSCRの場合は通常のObjectに戻す
         if vt == VarType::VAR_UWSCR {
             match o {
-                Object::Variant(v) => Ok(BuiltinFuncReturnValue::Result(Object::from_variant(&v.0)?)),
-                o => Ok(BuiltinFuncReturnValue::Result(o))
+                Object::Variant(v) => Ok(Object::from_variant(&v.0)?),
+                o => Ok(o)
             }
         } else {
             let variant = match o {
@@ -177,12 +178,12 @@ fn vartype(args: BuiltinFuncArgs) -> BuiltinFuncResult {
                     v.change_type(VARENUM(vt))?
                 }
             };
-            Ok(BuiltinFuncReturnValue::Result(Object::Variant(Variant(variant))))
+            Ok(Object::Variant(Variant(variant)))
         }
     }
 }
 
-fn safearray(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+fn safearray(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let lbound = match args.get_as_int_or_array(0, Some(Object::Num(0.0)))? {
         Object::Num(n) => n as i32,
         Object::Array(arr) => {
@@ -193,7 +194,7 @@ fn safearray(args: BuiltinFuncArgs) -> BuiltinFuncResult {
                 sa.set(i, &mut variant)?;
                 i += 1;
             }
-            return Ok(BuiltinFuncReturnValue::Result(Object::SafeArray(sa)))
+            return Ok(Object::SafeArray(sa))
         },
         _ => 0,
     };
@@ -212,5 +213,5 @@ fn safearray(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         // 一次元
         SAFEARRAY::new(lbound, ubound)
     };
-    Ok(BuiltinFuncReturnValue::Result(Object::SafeArray(safe_array)))
+    Ok(Object::SafeArray(safe_array))
 }

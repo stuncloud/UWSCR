@@ -2,6 +2,7 @@ mod qsort;
 
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
+use crate::evaluator::Evaluator;
 
 use strum_macros::{EnumString, EnumVariantNames};
 use num_derive::{ToPrimitive, FromPrimitive};
@@ -20,7 +21,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets
 }
 
-fn join(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+fn join(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let arr = args.get_as_array_include_hashtbl(0, None, false)?;
     let sep = args.get_as_string(1, Some(" ".into()))?;
     let empty_flg = args.get_as_bool(2, Some(false))?;
@@ -36,7 +37,7 @@ fn join(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             .filter(|s| if empty_flg {s.len() > 0} else {true})
             .collect::<Vec<String>>()
             .join(&sep);
-    Ok(BuiltinFuncReturnValue::Result(Object::String(joined)))
+    Ok(joined.into())
 }
 
 #[allow(non_camel_case_types)]
@@ -67,7 +68,7 @@ impl Into<qsort::SortOrder> for QsrtConst {
     }
 }
 
-pub fn qsort(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn qsort(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let mut array = args.get_as_array(0, None)?;
     let expr = args.get_expr(0);
     let order = args.get_as_const::<QsrtConst>(1, false)?.unwrap_or_default();
@@ -93,18 +94,24 @@ pub fn qsort(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     ];
     let qsort = qsort::Qsort::new(order.into());
     qsort.sort(&mut array, &mut arrays);
-    Ok(BuiltinFuncReturnValue::Qsort(expr, array, exprs, arrays))
+
+    evaluator.invoke_qsort_update(expr, array, exprs, arrays)?;
+    Ok(Object::Empty)
 }
 
-pub fn reverse(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn reverse(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let mut arr = args.get_as_array(0, None)?;
     let expr = args.get_expr(0);
 
     arr.reverse();
-    Ok(BuiltinFuncReturnValue::Reference { refs: vec![(expr, Object::Array(arr))], result: Object::Empty})
+
+    evaluator.update_reference(vec![(expr, Object::Array(arr))])
+        .map_err(|err| BuiltinFuncError::UError(err))?;
+
+    Ok(Object::Empty)
 }
 
-pub fn resize(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn resize(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let mut arr = args.get_as_array(0, None)?;
     let expr = args.get_expr(0);
     let size = args.get_as_int_or_empty::<i32>(1)?;
@@ -117,17 +124,18 @@ pub fn resize(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         } as usize;
         arr.resize(new_len, value);
         let i = arr.len() as isize - 1;
-        Ok(BuiltinFuncReturnValue::Reference {
-            refs: vec![(expr, Object::Array(arr))],
-            result: Object::Num(i as f64)
-        })
+
+        evaluator.update_reference(vec![(expr, Object::Array(arr))])
+            .map_err(|err| BuiltinFuncError::UError(err))?;
+
+        Ok(Object::Num(i as f64))
     } else {
         let i = arr.len() as isize - 1;
-        Ok(BuiltinFuncReturnValue::Result(Object::Num(i as f64)))
+        Ok(Object::Num(i as f64))
     }
 }
 
-pub fn slice(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn slice(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let mut base = args.get_as_array(0, None)?;
     let len = base.len() as i32;
     let from = args.get_as_int(1, Some(0_i32))?
@@ -142,10 +150,10 @@ pub fn slice(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     } else {
         vec![]
     };
-    Ok(BuiltinFuncReturnValue::Result(Object::Array(arr)))
+    Ok(Object::Array(arr))
 }
 
-pub fn split(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn split(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let str = args.get_as_string(0, None)?;
     let delimiter = args.get_as_string(1, Some(" ".to_string()))?;
     let empty_flg = args.get_as_bool(2, Some(false))?;
@@ -161,7 +169,8 @@ pub fn split(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             .trim(csv::Trim::All)
             .flexible(true)
             .from_reader(str.as_bytes());
-        match reader.records()
+
+        let record = reader.records()
             .next()
             .map(|record| {
                 match record {
@@ -173,10 +182,10 @@ pub fn split(args: BuiltinFuncArgs) -> BuiltinFuncResult {
                     },
                     Err(e) => Err(builtin_func_error(UErrorMessage::Any(e.to_string()))),
                 }
-            }) {
-            Some(r) => r.map(|v| BuiltinFuncReturnValue::Result(Object::Array(v))),
-            None => Err(builtin_func_error(UErrorMessage::Any("CSV conversion error".into()))),
-        }
+            });
+        record
+            .map(|r| r.map(|arr| Object::Array(arr)))
+            .unwrap_or(Err(builtin_func_error(UErrorMessage::Any("CSV conversion error".into()))))
     } else {
         let split = str.split(delimiter.as_str());
         let mut arr = if num_flg {
@@ -199,7 +208,7 @@ pub fn split(args: BuiltinFuncArgs) -> BuiltinFuncResult {
                 }
             })
         }
-        Ok(BuiltinFuncReturnValue::Result(Object::Array(arr)))
+        Ok(Object::Array(arr))
     }
 
 }
@@ -213,7 +222,7 @@ pub enum CalcConst {
     CALC_AVR = 4,
 }
 
-pub fn calcarray(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn calcarray(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let mut base = args.get_as_array(0, None)?;
     let len = base.len() as i32;
     let maybe_const = args.get_as_const(1, true)?;
@@ -231,7 +240,7 @@ pub fn calcarray(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     };
 
     let Some(calc_const) = maybe_const else {
-        return Ok(BuiltinFuncReturnValue::Result(Object::Empty));
+        return Ok(Object::Empty);
     };
     let calc_func = match calc_const {
         CalcConst::CALC_ADD |
@@ -247,33 +256,33 @@ pub fn calcarray(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 
     match result {
         Some(n) => if calc_const == CalcConst::CALC_AVR {
-            Ok(BuiltinFuncReturnValue::Result(Object::Num(n / len)))
+            Ok(Object::Num(n / len))
         } else {
-            Ok(BuiltinFuncReturnValue::Result(Object::Num(n)))
+            Ok(Object::Num(n))
         },
-        None => Ok(BuiltinFuncReturnValue::Result(Object::Empty)),
+        None => Ok(Object::Empty),
     }
 }
 
-pub fn setclear(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn setclear(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let mut arr = args.get_as_array(0, None)?;
     let expr = args.get_expr(0);
     let value = args.get_as_object(1, Some(Object::Empty))?;
 
     arr.fill(value);
 
-    Ok(BuiltinFuncReturnValue::Reference {
-        refs: vec![(expr, Object::Array(arr))],
-        result: Object::Empty
-    })
+    evaluator.update_reference(vec![(expr, Object::Array(arr))])
+        .map_err(|err| BuiltinFuncError::UError(err))?;
+
+    Ok(Object::Empty)
 }
 
-pub fn shiftarray(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn shiftarray(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let mut arr = args.get_as_array(0, None)?;
     let expr = args.get_expr(0);
     let shift = args.get_as_int(1, None::<i32>)?;
     if shift == 0 {
-        return Ok(BuiltinFuncReturnValue::Result(Object::Empty))
+        return Ok(Object::Empty)
     }
 
     let len = arr.len();
@@ -286,8 +295,8 @@ pub fn shiftarray(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     }
     arr.resize(len, Object::Empty);
 
-    Ok(BuiltinFuncReturnValue::Reference {
-        refs: vec![(expr, Object::Array(arr))],
-        result: Object::Empty
-    })
+    evaluator.update_reference(vec![(expr, Object::Array(arr))])
+        .map_err(|err| BuiltinFuncError::UError(err))?;
+
+    Ok(Object::Empty)
 }

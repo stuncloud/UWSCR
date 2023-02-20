@@ -4,6 +4,7 @@ mod win32;
 mod monitor;
 mod uia;
 
+use crate::evaluator::{Evaluator, LOGPRINTWIN};
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
 use crate::evaluator::builtins::{
@@ -13,6 +14,7 @@ use crate::evaluator::builtins::{
     clipboard::Clipboard,
 };
 pub use monitor::Monitor;
+use crate::gui::UWindow;
 
 #[cfg(feature="chkimg")]
 use crate::{
@@ -185,7 +187,7 @@ pub enum SpecialWindowId {
     GET_STOPFORM_WIN,  // __GET_STOPFORM_WIN__
 }
 
-pub fn getid(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn getid(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let title = args.get_as_string(0, None)?;
     let hwnd = match title.as_str() {
         "__GET_ACTIVE_WIN__" => unsafe {
@@ -197,10 +199,21 @@ pub fn getid(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             HWND::default()
         },
         "__GET_LOGPRINT_WIN__" => {
-            return Ok(BuiltinFuncReturnValue::GetLogPrintWinId)
+            match LOGPRINTWIN.get() {
+                Some(m) => {
+                    let lp = m.lock().unwrap();
+                    lp.hwnd()
+                },
+                None => HWND::default(),
+            }
         },
         "__GET_BALLOON_WIN__" => {
-            return Ok(BuiltinFuncReturnValue::BalloonID)
+            match evaluator.balloon {
+                Some(ref b) => {
+                    b.hwnd()
+                },
+                None => HWND::default(),
+            }
         },
         "__GET_FORM_WIN__" => {
             HWND::default()
@@ -228,9 +241,9 @@ pub fn getid(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         //     set_new_window(new_id, hwnd, false);
         //     id = new_id as f64;
         // }
-        return Ok(BuiltinFuncReturnValue::Result(Object::Num(id)))
+        Ok(Object::Num(id))
     } else {
-        return Ok(BuiltinFuncReturnValue::Result(Object::Num(-1.0)))
+        Ok(Object::Num(-1.0))
     }
 }
 
@@ -330,20 +343,20 @@ fn get_hwnd_from_mouse_point(toplevel: bool) -> BuiltInResult<HWND> {
 }
 
 // IDTOHND
-pub fn idtohnd(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn idtohnd(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = args.get_as_int::<i32>(0, None)?;
     if id < 0 {
-        return Ok(BuiltinFuncReturnValue::Result(Object::Num(0.0)));
+        return Ok(Object::Num(0.0));
     }
     let h = get_hwnd_from_id(id);
     if h.0 > 0 {
         unsafe {
             if IsWindow(h).as_bool() {
-                return Ok(BuiltinFuncReturnValue::Result(Object::Num(h.0 as f64)));
+                return Ok(Object::Num(h.0 as f64));
             }
         }
     }
-    Ok(BuiltinFuncReturnValue::Result(Object::Num(0.0)))
+    Ok(Object::Num(0.0))
 }
 
 pub fn get_hwnd_from_id(id: i32) -> HWND {
@@ -355,11 +368,11 @@ pub fn get_hwnd_from_id(id: i32) -> HWND {
 }
 
 // HNDTOID
-pub fn hndtoid(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn hndtoid(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let h = args.get_as_int::<isize>(0, None)?;
     let hwnd = HWND(h);
     let id = get_id_from_hwnd(hwnd);
-    Ok(BuiltinFuncReturnValue::Result(Object::Num(id)))
+    Ok(Object::Num(id))
 }
 
 pub fn get_id_from_hwnd(hwnd: HWND) -> f64 {
@@ -388,11 +401,11 @@ pub fn get_id_from_hwnd(hwnd: HWND) -> f64 {
 }
 
 // ACW
-pub fn acw(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn acw(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = args.get_as_int::<i32>(0, None)?;
     let hwnd = get_hwnd_from_id(id);
     if hwnd.0 == 0 {
-        return Ok(BuiltinFuncReturnValue::Result(Object::Empty));
+        return Ok(Object::Empty);
     }
     let x = args.get_as_int(1, None).ok();
     let y = args.get_as_int(2, None).ok();
@@ -402,7 +415,7 @@ pub fn acw(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     thread::sleep(Duration::from_millis(ms));
     set_window_size(hwnd, x, y, w, h);
     set_id_zero(hwnd);
-    Ok(BuiltinFuncReturnValue::Result(Object::Empty))
+    Ok(Object::Empty)
 }
 
 
@@ -434,7 +447,7 @@ pub enum ClkConst {
     CLK_HWND      = 262144,
 }
 
-pub fn clkitem(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn clkitem(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = args.get_as_int(0, None::<i32>)?;
     // let name = args.get_as_string(1, None)?;
     let names = args.get_as_string_array(1)?;
@@ -454,7 +467,7 @@ pub fn clkitem(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let ci = clkitem::ClkItem::new(name, clk_const, order);
     let result = ci.click(hwnd, check);
 
-    Ok(BuiltinFuncReturnValue::Result(result))
+    Ok(result)
 }
 
 // CTRLWIN
@@ -474,11 +487,11 @@ pub enum CtrlWinCmd {
     TOPNOACTV = 11,
 }
 
-pub fn ctrlwin(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn ctrlwin(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = args.get_as_int(0, None)?;
     let hwnd = get_hwnd_from_id(id);
     if hwnd.0 == 0 {
-        return Ok(BuiltinFuncReturnValue::Result(Object::Empty));
+        return Ok(Object::Empty);
     }
     if let Some(cmd) = args.get_as_const(1, true)? {
         match cmd {
@@ -535,7 +548,7 @@ pub fn ctrlwin(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         }
     }
     set_id_zero(hwnd);
-    Ok(BuiltinFuncReturnValue::Result(Object::Empty))
+    Ok(Object::Empty)
 }
 
 // STATUS
@@ -851,10 +864,10 @@ fn get_all_status(hwnd: HWND) -> BuiltinFuncResult {
     stats.insert((StatusEnum::ST_PATH as u8).to_string(), get_process_path_from_hwnd(hwnd)?);
     stats.insert((StatusEnum::ST_PROCESS as u8).to_string(), Object::Num(get_process_id_from_hwnd(hwnd) as f64));
     stats.insert((StatusEnum::ST_MONITOR as u8).to_string(), get_monitor_index_from_hwnd(hwnd));
-    Ok(BuiltinFuncReturnValue::Result(Object::HashTbl(Arc::new(Mutex::new(stats)))))
+    Ok(Object::HashTbl(Arc::new(Mutex::new(stats))))
 }
 
-pub fn status(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn status(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let hwnd = get_hwnd_from_id(
         args.get_as_int(0, None)?
     );
@@ -870,17 +883,17 @@ pub fn status(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             }
             i += 1;
         }
-        Ok(BuiltinFuncReturnValue::Result(Object::HashTbl(Arc::new(Mutex::new(stats)))))
+        Ok(Object::HashTbl(Arc::new(Mutex::new(stats))))
     } else {
         if let Some(cmd) = args.get_as_const::<StatusEnum>(1, true)?{
             if cmd == StatusEnum::ST_ALL {
                 Ok(get_all_status(hwnd)?)
             } else {
                 let st = get_status_result(hwnd, cmd)?;
-                Ok(BuiltinFuncReturnValue::Result(st))
+                Ok(st)
             }
         } else {
-            Ok(BuiltinFuncReturnValue::Result(Object::Empty))
+            Ok(Object::Empty)
         }
     }
 }
@@ -910,14 +923,14 @@ impl fmt::Display for MonitorEnum {
     }
 }
 
-pub fn monitor(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn monitor(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     if args.len() == 0 {
         let count = Monitor::get_count();
-        Ok(BuiltinFuncReturnValue::Result(count.into()))
+        Ok(count.into())
     } else {
         let index = args.get_as_int(0, None)?;
         let Some(monitor) = Monitor::from_index(index) else {
-            return Ok(BuiltinFuncReturnValue::Result(false.into()))
+            return Ok(false.into())
         };
         println!("\u{001b}[36m[monitor] monitor: {:?}\u{001b}[0m", &monitor);
         let mon_enum = args.get_as_const::<MonitorEnum>(1, false)?
@@ -952,12 +965,12 @@ pub fn monitor(args: BuiltinFuncArgs) -> BuiltinFuncResult {
                 Object::HashTbl(Arc::new(Mutex::new(map)))
             },
         };
-        Ok(BuiltinFuncReturnValue::Result(obj))
+        Ok(obj)
     }
 }
 
 #[cfg(feature="chkimg")]
-pub fn chkimg(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn chkimg(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let save_ss = {
         let settings = USETTINGS.lock().unwrap();
         settings.chkimg.save_ss
@@ -992,7 +1005,7 @@ pub fn chkimg(args: BuiltinFuncArgs) -> BuiltinFuncResult {
                                 Object::Array(vec)
                             })
                             .collect::<Vec<_>>();
-    Ok(BuiltinFuncReturnValue::Result(Object::Array(arr)))
+    Ok(Object::Array(arr))
 }
 
 unsafe extern "system"
@@ -1010,10 +1023,10 @@ fn callback_getallwin(hwnd: HWND, lparam: LPARAM) -> BOOL {
 #[derive(Debug)]
 struct HwndList(Vec<HWND>);
 
-pub fn getallwin(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn getallwin(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let target = match args.get_as_int_or_empty::<i32>(0)? {
         Some(id) => match get_hwnd_from_id(id) {
-            HWND(0) => return Ok(BuiltinFuncReturnValue::Result(Object::Array(vec![]))),
+            HWND(0) => return Ok(Object::Array(vec![])),
             h => Some(h)
         },
         None => None,
@@ -1033,7 +1046,7 @@ pub fn getallwin(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             })
             .collect()
     };
-    Ok(BuiltinFuncReturnValue::Result(Object::Array(id_list)))
+    Ok(Object::Array(id_list))
 }
 
 #[allow(non_camel_case_types)]
@@ -1074,7 +1087,7 @@ fn callback_getctlhnd(hwnd: HWND, lparam: LPARAM) -> BOOL {
 
 struct CtlHnd{target: String, hwnd: HWND, order: u32}
 
-pub fn getctlhnd(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn getctlhnd(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = args.get_as_int(0, None::<i32>)?;
     let parent = get_hwnd_from_id(id);
     let target = args.get_as_string(1, None)?;
@@ -1100,7 +1113,7 @@ pub fn getctlhnd(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             ctlhnd.hwnd.0 as f64
         }
     };
-    Ok(BuiltinFuncReturnValue::Result(Object::Num(hwnd)))
+    Ok(hwnd.into())
 }
 
 #[allow(non_camel_case_types)]
@@ -1132,7 +1145,7 @@ impl Into<u32> for GetItemConst {
     }
 }
 
-pub fn getitem(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn getitem(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = args.get_as_int(0, None)?;
     let hwnd = get_hwnd_from_id(id);
     let target = args.get_as_int(1, None)?;
@@ -1148,7 +1161,7 @@ pub fn getitem(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 
     items.extend(acc_items);
     let arr = items.into_iter().map(|s| s.into()).collect();
-    Ok(BuiltinFuncReturnValue::Result(Object::Array(arr)))
+    Ok(Object::Array(arr))
 }
 
 #[allow(non_camel_case_types)]
@@ -1165,7 +1178,7 @@ pub enum AccConst {
     ACC_BACK        = 512,
 }
 
-pub fn posacc(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn posacc(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = args.get_as_int(0, None::<i32>)?;
     let hwnd = get_hwnd_from_id(id);
     let clx = args.get_as_int(1, None::<i32>)?;
@@ -1224,7 +1237,7 @@ pub fn posacc(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         },
         None => Object::Empty,
     };
-    Ok(BuiltinFuncReturnValue::Result(obj))
+    Ok(obj)
 }
 
 #[allow(non_camel_case_types)]
@@ -1246,7 +1259,7 @@ pub enum CurConst {
     CUR_WAIT        = 16,
 }
 
-pub fn muscur(_: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn muscur(_: &mut Evaluator, _: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = unsafe {
         let mut pci = CURSORINFO::default();
         pci.cbSize = std::mem::size_of::<CURSORINFO>() as u32;
@@ -1268,10 +1281,10 @@ pub fn muscur(_: BuiltinFuncArgs) -> BuiltinFuncResult {
         65555 => CurConst::CUR_SIZEWE,
         65549 => CurConst::CUR_UPARROW,
         65545 => CurConst::CUR_WAIT,
-        _ => return Ok(BuiltinFuncReturnValue::Result(Object::Num(0.0))),
+        _ => return Ok(Object::Num(0.0)),
     };
     let n = cursor as i32 as f64;
-    Ok(BuiltinFuncReturnValue::Result(Object::Num(n)))
+    Ok(Object::Num(n))
 }
 
 #[allow(non_camel_case_types)]
@@ -1285,7 +1298,7 @@ pub enum ColConst {
     COL_B   = 6,
 }
 
-pub fn peekcolor(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn peekcolor(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let x = args.get_as_int(0, None::<i32>)?;
     let y = args.get_as_int(1, None::<i32>)?;
     let colconst = args.get_as_const::<ColConst>(2, false)?.unwrap_or_default();
@@ -1314,7 +1327,7 @@ pub fn peekcolor(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             colorref.0
         };
         if bgr > 0xFFFFFF {
-            Ok(BuiltinFuncReturnValue::Result(Object::Num(-1.0)))
+            Ok(Object::Num(-1.0))
         } else {
             let r = |c: u32| c & 0xFF;
             let g = |c: u32| (c >> 8) & 0xFF;
@@ -1330,12 +1343,12 @@ pub fn peekcolor(args: BuiltinFuncArgs) -> BuiltinFuncResult {
                 ColConst::COL_G => g(bgr),
                 ColConst::COL_B => b(bgr),
             };
-            Ok(BuiltinFuncReturnValue::Result(Object::Num(color as f64)))
+            Ok(Object::Num(color as f64))
         }
     }
 }
 
-pub fn sckey(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn sckey(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = args.get_as_int(0, None::<i32>)?;
     let hwnd = get_hwnd_from_id(id);
     let keys = args.get_sckey_codes(1)?;
@@ -1346,7 +1359,7 @@ pub fn sckey(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         }
         SendInput(&pinputs, std::mem::size_of::<INPUT>() as i32);
     }
-    Ok(BuiltinFuncReturnValue::Result(Object::default()))
+    Ok(Object::default())
 }
 
 struct Slider {
@@ -1375,7 +1388,7 @@ impl Slider {
     }
 }
 
-pub fn setslider(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn setslider(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = args.get_as_int(0, None)?;
     let hwnd = get_hwnd_from_id(id);
     let value = args.get_as_int(1, None)?;
@@ -1387,7 +1400,7 @@ pub fn setslider(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     } else {
         false
     };
-    Ok(BuiltinFuncReturnValue::Result(Object::Bool(result)))
+    Ok(result.into())
 
 }
 #[allow(non_camel_case_types)]
@@ -1402,7 +1415,7 @@ pub enum SldConst {
     SLD_X    = 5,
     SLD_Y    = 6,
 }
-pub fn getslider(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn getslider(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = args.get_as_int(0, None)?;
     let hwnd = get_hwnd_from_id(id);
     let nth = args.get_as_nth(1)?;
@@ -1410,14 +1423,14 @@ pub fn getslider(args: BuiltinFuncArgs) -> BuiltinFuncResult {
 
     if let Some(slider) = Slider::new(hwnd, nth) {
         let val = slider.get(param);
-        Ok(BuiltinFuncReturnValue::Result(Object::Num(val as f64)))
+        Ok(Object::Num(val as f64))
     } else {
         let error_value = Object::Num(ErrConst::ERR_VALUE as i32 as f64);
-        Ok(BuiltinFuncReturnValue::Result(error_value))
+        Ok(error_value)
     }
 }
 
-pub fn chkbtn(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn chkbtn(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = args.get_as_int(0, None)?;
     let name = args.get_as_string(1, None)?;
     let nth = args.get_as_nth(2)?;
@@ -1436,9 +1449,9 @@ pub fn chkbtn(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             }
         } as f64;
 
-        Ok(BuiltinFuncReturnValue::Result(result.into()))
+        Ok(result.into())
     } else {
-        Ok(BuiltinFuncReturnValue::Result(false.into()))
+        Ok(false.into())
     }
 }
 
@@ -1454,7 +1467,7 @@ pub enum GetStrConst {
     STR_UIA        = 6,
 }
 
-pub fn getstr(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn getstr(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = args.get_as_int(0, None)?;
     let nth = args.get_as_nth(1)?;
     let item_type = args.get_as_const(2, false)?.unwrap_or(GetStrConst::STR_EDIT);
@@ -1463,7 +1476,7 @@ pub fn getstr(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     if id == 0 {
         // クリップボードから
         let str = Clipboard::new()?.get_str();
-        Ok(BuiltinFuncReturnValue::Result(str.into()))
+        Ok(str.into())
     } else {
         let hwnd = get_hwnd_from_id(id);
         if is_window(hwnd) {
@@ -1476,9 +1489,9 @@ pub fn getstr(args: BuiltinFuncArgs) -> BuiltinFuncResult {
                 GetStrConst::STR_ACC_CELL => acc::Acc::get_cell_str(hwnd, nth, mouse),
                 GetStrConst::STR_UIA => None,
             };
-            Ok(BuiltinFuncReturnValue::Result(str.into()))
+            Ok(str.into())
         } else {
-            Ok(BuiltinFuncReturnValue::Empty)
+            Ok(Object::Empty)
         }
     }
 
@@ -1504,7 +1517,7 @@ impl From<i32> for SendStrMode {
     }
 }
 
-pub fn sendstr(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn sendstr(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = args.get_as_int(0, None)?;
     let str = args.get_as_string(1, None)?;
     let nth = args.get_as_int(2, Some(0))?;
@@ -1528,10 +1541,10 @@ pub fn sendstr(args: BuiltinFuncArgs) -> BuiltinFuncResult {
             _ => acc::Acc::sendstr(hwnd, nth, &str, mode), // acc
         };
     }
-    Ok(BuiltinFuncReturnValue::Empty)
+    Ok(Object::Empty)
 }
 
-pub fn getslctlst(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn getslctlst(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = args.get_as_int(0, None)?;
     let nth = args.get_as_nth(1)?;
     let column = args.get_as_nth(2)? as isize - 1;
@@ -1548,7 +1561,7 @@ pub fn getslctlst(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         }
     };
 
-    Ok(BuiltinFuncReturnValue::Result(obj))
+    Ok(obj)
 }
 
 #[allow(non_camel_case_types)]
@@ -1559,7 +1572,7 @@ pub enum ImgConst {
     IMG_BACK = 2,
 }
 #[cfg(feature="chkimg")]
-pub fn saveimg(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn saveimg(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let filename = args.get_as_string_or_empty(0)?;
     let id = args.get_as_int(1, Some(0))?;
     let left = args.get_as_int_or_empty(2)?;
@@ -1574,7 +1587,7 @@ pub fn saveimg(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         let hwnd = get_hwnd_from_id(id);
         ScreenShot::get_window(hwnd, left, top, width, height, client, style)?
     } else if id < 0 {
-        return Ok(BuiltinFuncReturnValue::Empty);
+        return Ok(Object::Empty);
     } else {
         ScreenShot::get_screen2(left, top, width, height)?
     };
@@ -1600,5 +1613,5 @@ pub fn saveimg(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         ss.to_clipboard()?;
     }
 
-    Ok(BuiltinFuncReturnValue::Empty)
+    Ok(Object::Empty)
 }

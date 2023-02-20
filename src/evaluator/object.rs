@@ -45,7 +45,7 @@ use std::sync::{Arc, Mutex};
 use num_traits::Zero;
 use serde_json::{self, Value};
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub enum Object {
     // Int(i64),
     Num(f64),
@@ -97,6 +97,57 @@ pub enum Object {
     ByteArray(Vec<u8>),
     /// 参照渡しされたパラメータ変数
     Reference(Expression, Arc<Mutex<Layer>>),
+}
+impl std::fmt::Debug for Object {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Num(arg0) => f.debug_tuple("Num").field(arg0).finish(),
+            Self::String(arg0) => f.debug_tuple("String").field(arg0).finish(),
+            Self::Bool(arg0) => f.debug_tuple("Bool").field(arg0).finish(),
+            Self::Array(arg0) => f.debug_tuple("Array").field(arg0).finish(),
+            Self::HashTbl(arg0) => f.debug_tuple("HashTbl").field(arg0).finish(),
+            Self::AnonFunc(arg0) => f.debug_tuple("AnonFunc").field(arg0).finish(),
+            Self::Function(arg0) => f.debug_tuple("Function").field(arg0).finish(),
+            Self::AsyncFunction(arg0) => f.debug_tuple("AsyncFunction").field(arg0).finish(),
+            Self::BuiltinFunction(arg0, arg1, _) => f.debug_tuple("BuiltinFunction").field(arg0).field(arg1).finish(),
+            Self::Module(arg0) => f.debug_tuple("Module").field(arg0).finish(),
+            Self::Class(arg0, arg1) => f.debug_tuple("Class").field(arg0).field(arg1).finish(),
+            Self::Instance(arg0) => f.debug_tuple("Instance").field(arg0).finish(),
+            Self::Null => write!(f, "Null"),
+            Self::Empty => write!(f, "Empty"),
+            Self::EmptyParam => write!(f, "EmptyParam"),
+            Self::Nothing => write!(f, "Nothing"),
+            Self::Continue(arg0) => f.debug_tuple("Continue").field(arg0).finish(),
+            Self::Break(arg0) => f.debug_tuple("Break").field(arg0).finish(),
+            Self::Handle(arg0) => f.debug_tuple("Handle").field(arg0).finish(),
+            Self::RegEx(arg0) => f.debug_tuple("RegEx").field(arg0).finish(),
+            Self::Exit => write!(f, "Exit"),
+            Self::Global => write!(f, "Global"),
+            Self::This(arg0) => f.debug_tuple("This").field(arg0).finish(),
+            Self::UObject(arg0) => f.debug_tuple("UObject").field(arg0).finish(),
+            Self::DynamicVar(arg0) => f.debug_tuple("DynamicVar").field(arg0).finish(),
+            Self::Version(arg0) => f.debug_tuple("Version").field(arg0).finish(),
+            Self::ExpandableTB(arg0) => f.debug_tuple("ExpandableTB").field(arg0).finish(),
+            Self::Enum(arg0) => f.debug_tuple("Enum").field(arg0).finish(),
+            Self::Task(arg0) => f.debug_tuple("Task").field(arg0).finish(),
+            Self::DefDllFunction(arg0, arg1, arg2, arg3) => f.debug_tuple("DefDllFunction").field(arg0).field(arg1).field(arg2).field(arg3).finish(),
+            Self::Struct(arg0, arg1, arg2) => f.debug_tuple("Struct").field(arg0).field(arg1).field(arg2).finish(),
+            Self::UStruct(arg0, arg1, arg2) => f.debug_tuple("UStruct").field(arg0).field(arg1).field(arg2).finish(),
+            Self::ComObject(arg0) => f.debug_tuple("ComObject").field(arg0).finish(),
+            Self::ComMember(arg0, arg1) => f.debug_tuple("ComMember").field(arg0).field(arg1).finish(),
+            Self::Variant(arg0) => f.debug_tuple("Variant").field(arg0).finish(),
+            Self::SafeArray(arg0) => f.debug_tuple("SafeArray").field(arg0).finish(),
+            Self::VarArgument(arg0) => f.debug_tuple("VarArgument").field(arg0).finish(),
+            Self::Browser(arg0) => f.debug_tuple("Browser").field(arg0).finish(),
+            Self::BrowserFunc(arg0, arg1) => f.debug_tuple("BrowserFunc").field(arg0).field(arg1).finish(),
+            Self::Element(arg0) => f.debug_tuple("Element").field(arg0).finish(),
+            Self::ElementFunc(arg0, arg1) => f.debug_tuple("ElementFunc").field(arg0).field(arg1).finish(),
+            Self::ElementProperty(arg0) => f.debug_tuple("ElementProperty").field(arg0).finish(),
+            Self::Fopen(arg0) => f.debug_tuple("Fopen").field(arg0).finish(),
+            Self::ByteArray(arg0) => f.debug_tuple("ByteArray").field(arg0).finish(),
+            Self::Reference(arg0, arg1) => f.debug_tuple("Reference").field(arg0).field(arg1).finish(),
+        }
+    }
 }
 
 unsafe impl Send for Object {}

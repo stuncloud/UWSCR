@@ -28,11 +28,12 @@ use crate::evaluator::object::{
     HashTblEnum,
     UTask
 };
+use crate::evaluator::Evaluator;
 use crate::evaluator::object::{UObject,Fopen,Function};
 use crate::evaluator::environment::NamedObject;
 use crate::evaluator::builtins::key_codes::{SCKeyCode};
 use crate::error::evaluator::{UError,UErrorKind,UErrorMessage};
-use crate::ast::Expression;
+use crate::ast::{Expression, Identifier};
 
 use std::env;
 use std::sync::{Mutex, Arc};
@@ -43,8 +44,8 @@ use strum::{VariantNames, EnumProperty};
 use num_traits::{ToPrimitive, FromPrimitive};
 use strum_macros::{Display, EnumVariantNames, EnumProperty};
 
-pub type BuiltinFunction = fn(BuiltinFuncArgs) -> BuiltinFuncResult;
-pub type BuiltinFuncResult = Result<BuiltinFuncReturnValue, BuiltinFuncError>;
+pub type BuiltinFunction = fn(&mut Evaluator, BuiltinFuncArgs) -> BuiltinFuncResult;
+pub type BuiltinFuncResult = Result<Object, BuiltinFuncError>;
 pub type BuiltInResult<T> = Result<T, BuiltinFuncError>;
 
 pub enum BuiltinFuncError {
@@ -94,13 +95,18 @@ impl From<UError> for BuiltinFuncError {
 #[derive(Debug, Clone)]
 pub struct BuiltinFuncArgs {
     arguments: Vec<(Option<Expression>, Object)>,
+    is_await: bool,
 }
 
 impl BuiltinFuncArgs {
-    pub fn new(arguments: Vec<(Option<Expression>, Object)>) -> Self {
+    pub fn new(arguments: Vec<(Option<Expression>, Object)>, is_await: bool) -> Self {
         BuiltinFuncArgs {
-            arguments
+            arguments,
+            is_await
         }
+    }
+    pub fn is_await(&self) -> bool {
+        self.is_await
     }
     pub fn item(&self, i: usize) -> Object {
         self.arguments.get(i).map(|o| o.1.clone()).unwrap_or_default()
@@ -615,7 +621,6 @@ impl ThreeState {
     }
 }
 
-#[derive(Debug, Clone)]
 pub struct BuiltinFunctionSet {
     name: String,
     len: i32,
@@ -628,7 +633,6 @@ impl BuiltinFunctionSet {
     }
 }
 
-#[derive(Debug, Clone)]
 pub struct BuiltinFunctionSets {
     sets: Vec<BuiltinFunctionSet>
 }
@@ -642,8 +646,8 @@ impl BuiltinFunctionSets {
             BuiltinFunctionSet::new(name, len, func)
         );
     }
-    pub fn set(&self, vec: &mut Vec<NamedObject>) {
-        for set in self.sets.clone() {
+    pub fn set(self, vec: &mut Vec<NamedObject>) {
+        for set in self.sets {
             let name = set.name.to_ascii_uppercase();
             vec.push(
                 NamedObject::new_builtin_func(
@@ -840,33 +844,41 @@ fn set_special_variables(vec: &mut Vec<NamedObject>) {
 
 // 特殊ビルトイン関数の実体
 
-pub fn builtin_eval(args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let s = args.get_as_string(0, None)?;
-    Ok(BuiltinFuncReturnValue::Eval(s))
+pub fn builtin_eval(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let script = args.get_as_string(0, None)?;
+    evaluator.invoke_eval_script(&script)
+        .map_err(|err| BuiltinFuncError::UError(err))
 }
 
-pub fn list_env(_args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    Ok(BuiltinFuncReturnValue ::GetEnv)
+pub fn list_env(evaluator: &mut Evaluator, _: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let env = evaluator.env.get_env();
+    Ok(env)
 }
 
-pub fn list_module_member(args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let s = args.get_as_string(0, None)?;
-    Ok(BuiltinFuncReturnValue ::ListModuleMember(s))
+pub fn list_module_member(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let name = args.get_as_string(0, None)?;
+    let members = evaluator.env.get_module_member(&name);
+    Ok(members)
 }
 
-pub fn name_of(args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    Ok(BuiltinFuncReturnValue ::BuiltinConstName(args.get_expr(0)))
+pub fn name_of(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let name = if let Some(Expression::Identifier(Identifier(name))) = args.get_expr(0) {
+        evaluator.env.get_name_of_builtin_consts(&name)
+    } else {
+        Object::Empty
+    };
+    Ok(name)
 }
 
-pub fn get_settings(_args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn get_settings(_: &mut Evaluator, _: BuiltinFuncArgs) -> BuiltinFuncResult {
     let json = {
         let s = USETTINGS.lock().unwrap();
         s.get_current_settings_as_json()
     };
-    Ok(BuiltinFuncReturnValue::Result(Object::String(json)))
+    Ok(Object::String(json))
 }
 
-pub fn raise(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn raise(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let msg = args.get_as_string(0, None)?;
     let title = args.get_as_string(1, Some(String::new()))?;
     let kind = if title.len() > 0 {
@@ -877,7 +889,7 @@ pub fn raise(args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Err(BuiltinFuncError::new_with_kind(kind, UErrorMessage::Any(msg)))
 }
 
-pub fn panic(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn panic(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let msg = args.get_as_string(0, None)?;
     panic!("{msg}");
 }
@@ -923,7 +935,7 @@ pub enum VariableType {
     TYPE_NOT_VALUE_TYPE,
 }
 
-pub fn type_of(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn type_of(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let arg = args.get_as_object(0, None)?;
     let t = match arg {
         Object::Num(_) => VariableType::TYPE_NUMBER,
@@ -980,14 +992,14 @@ pub fn type_of(args: BuiltinFuncArgs) -> BuiltinFuncResult {
         Object::Break(_) |
         Object::Exit => VariableType::TYPE_NOT_VALUE_TYPE,
     };
-    Ok(BuiltinFuncReturnValue::Result(Object::String(t.to_string())))
+    Ok(Object::String(t.to_string()))
 }
 
-pub fn assert_equal(args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn assert_equal(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let arg1 = args.get_as_object(0, None)?;
     let arg2 = args.get_as_object(1, None)?;
     if arg1.is_equal(&arg2) {
-        Ok(BuiltinFuncReturnValue::Result(Object::Empty))
+        Ok(Object::Empty)
     } else {
         Err(BuiltinFuncError::new_with_kind(UErrorKind::AssertEqError, UErrorMessage::AssertEqLeftAndRight(arg1, arg2)))
     }
