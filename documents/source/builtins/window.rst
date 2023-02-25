@@ -472,6 +472,149 @@ ID0について
 
     :return: なし
 
+.. function:: mouseorg(ID, [基準=MORG_WINDOW, 画面取得=MORG_FORE, HWND=FALSE])
+
+    | 以下の関数にて座標の始点(0, 0)を特定のウィンドウ基準とする
+
+    - :any:`mmv`
+    - :any:`btn`
+    - :any:`chkimg`
+    - :any:`peekcolor`
+
+    | `MORG_DIRECT` を指定した場合は以下も対象となる
+
+    - :any:`kbd`
+
+    :param 数値 ID: ウィンドウID または HWND
+
+        | 該当するIDが存在しない場合は失敗となるが、基準に ``MORG_DIRECT`` が指定されている場合はこの値をHWNDとして扱う
+        | IDまたはHWNDに該当する有効なウィンドウが存在しない場合は失敗となる
+        | ``0`` が指定された場合はスクリーン座標基準に戻す (この場合以下の引数は無視される)
+
+    :param 定数 省略可 基準: 座標の始点を指定する
+
+        .. object:: MORG_WINDOW (0)
+
+            | 対象ウィンドウのウィンドウ領域左上を基準とする
+
+        .. object:: MORG_CLIENT
+
+            | 対象ウィンドウのクライアント領域左上を基準とする
+
+        .. object:: MORG_DIRECT
+
+            | 対象ウィンドウのクライアント領域左上を基準とする
+            | また :any:`mmv`, :any:`btn` 及び :any:`kbd` 関数のマウス・キー操作をウィンドウに直接送信(PostMessage)する
+            | 送信するメッセージは以下 (対象ウィンドウがこれらのメッセージを処理しない場合操作は無効となる)
+
+            .. list-table::
+                :header-rows: 1
+                :align: left
+
+                * - 関数
+                  - 操作
+                  - メッセージ
+                * - mmv
+                  - カーソル移動
+                  - ``WM_MOUSEMOVE``
+                * - btn
+                  - 左ボタン下げ
+                  - ``WM_LBUTTONDOWN``
+                * - btn
+                  - 左ボタン上げ
+                  - ``WM_LBUTTONUP``
+                * - btn
+                  - 右ボタン下げ
+                  - ``WM_RBUTTONDOWN``
+                * - btn
+                  - 右ボタン上げ
+                  - ``WM_RBUTTONUP``
+                * - btn
+                  - 中央ボタン下げ
+                  - ``WM_MBUTTONDOWN``
+                * - btn
+                  - 中央ボタン上げ
+                  - ``WM_MBUTTONUP``
+                * - btn
+                  - マウスホイール回転(縦)
+                  - ``WM_MOUSEWHEEL``
+                * - btn
+                  - マウスホイール回転(横)
+                  - ``WM_MOUSEHWHEEL``
+                * - kbd
+                  - キー下げ
+                  - ``WM_KEYDOWN``
+                * - kbd
+                  - キー上げ
+                  - ``WM_KEYUP``
+                * - kbd
+                  - 文字送信(1文字ずつ)
+                  - ``WM_CHAR``
+
+            .. caution:: ``btn(TOUCH)`` の場合MORG_DIRECTは無視されMORG_CLIENTとして動作します
+
+
+    :param 定数 省略可 画面取得: 画面取得方法を指定する
+
+        .. object:: MORG_FORE
+
+            | スクリーン上から画像を取得する (:any:`chkimg`)、または色を得る (:any:`peekcolor`)
+
+        .. object:: MORG_BACK
+
+            | 対象ウィンドウから直接画像の取得 (:any:`chkimg`)、または色の取得 (:any:`peekcolor`) を試みる
+            | 他のウィンドウに隠れている場合でも使用可能
+
+            .. caution:: 対象ウィンドウによっては正常に動作しない可能性があります
+
+    :param 真偽値またはEMPTY 省略可 HWND: ``MORG_DIRECT`` 指定時の第一引数の振る舞いを限定します (``MORG_DIRECT`` 以外の場合無視される)
+
+        .. object:: FALSE
+
+            | 第一引数をIDとしますが、有効なIDが登録されていない場合はその値をHWNDとして扱います
+
+            .. admonition:: 例
+                :class: hint
+
+                | 30000 を指定
+
+                - ID30000が登録済み→該当ウィンドウを対象とする
+                - ID30000が未登録→HWNDが30000のウィンドウを対象とする
+
+
+        .. object:: TRUE
+
+            | 第一引数をHWNDとして扱います
+
+    :rtype: 真偽値
+    :return: 成功した場合TRUE、失敗時はFALSE
+
+.. function:: chkmorg()
+
+    | mouseorgで基準点となっているスクリーン座標を得る
+
+    :rtype: 数値配列またはEMPTY
+    :return: 基準点が変更されている場合は [x, y]、変更されていない場合はEMPTY
+
+    .. admonition:: サンプルコード
+
+        .. sourcecode:: uwscr
+
+            mouseorg(id)
+            print chkmorg() // [x, y]
+            mouseorg(0)
+            print chkmorg() // EMPTY
+
+            // MORG_DIRECTのHWND指定
+            id = getid(hoge)
+            hnd = getctlhnd(id, class_name)
+            // このとき hnd の値がいずれかの登録済みIDと一致してしまった場合は予期せぬ動作となる
+            mouseorg(hnd, MORG_DIRECT)
+
+            // MORG_DIRECTかつ第四引数をTRUEにした場合hndはHWNDとして扱われる
+            mouseorg(hnd, MORG_DIRECT, , TRUE)
+
+
 ウィンドウ情報取得
 ------------------
 
@@ -1228,7 +1371,13 @@ ID0について
 
         .. object:: TOUCH
 
-            タッチ操作 (未実装)
+            | タッチ操作を行う
+            | 状態をCLICKにした場合指定座標をタッチして離す
+            | 状態をDOWNにした場合指定座標でタッチ
+            | その後状態をUPで再実行した場合同一座標ならそのまま離し、座標が異なるならその座標までスワイプ操作を行う
+            | msを指定した場合はスワイプ速度に影響する (移動区間の一区切り毎の移動速度を変更する)
+
+            .. important:: タッチできるのは一点のみ (複数箇所タッチは不可)
 
     :param 定数 省略可 状態: マウスボタンに対してどのような操作を行うかを指定
 
@@ -1246,14 +1395,30 @@ ID0について
 
                 ボタン開放
 
-        - ``WHEEL``: 数値を指定、正の数なら下方向、負の数なら上方向にスクロール
-        - ``WHEEL2``: 数値を指定、正の数なら下方向、負の数なら上方向にスクロール
+        - ``WHEEL``: ノッチ数を指定 (正なら下方向、負なら上方向に回転)
+        - ``WHEEL2``: ノッチ数を指定 (正なら右方向、負なら左方向に回転)
 
     :param 数値 省略可 x: ボタン操作を行う位置のX座標、省略時は現在のマウスのX座標
     :param 数値 省略可 y: ボタン操作を行う位置のY座標、省略時は現在のマウスのY座標
-    :param 数値 省略可 ms: ボタン操作を行うまでの待機時間 (ミリ秒)
+    :param 数値 省略可 ms:
+
+        | ボタン操作を行うまでの待機時間 (ミリ秒)
+        | またはTOUCHのDOWN後のUPで別座標を指定した場合のスワイプ速度、0 (速)～10 (遅)
 
     :return: なし
+
+    .. admonition:: サンプルコード
+
+        .. sourcecode:: uwscr
+
+            btn(TOUCH, DOWN, 100, 100)
+            btn(TOUCH, UP, 200, 200) // 別座標でUPした場合はスワイプ操作になる
+
+            btn(TOUCH, DOWN, 150, 150)
+            btn(TOUCH, UP, 250, 250, 0) // msが0なら最速
+
+            btn(TOUCH, DOWN, 300, 300)
+            btn(TOUCH, UP, 150, 150, 10) // 10ならとても遅い
 
 .. function:: kbd(仮想キー, [状態=CLICK, ms=0])
 .. function:: kbd(送信文字列, [状態=CLICK, ms=0])

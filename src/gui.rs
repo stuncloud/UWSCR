@@ -13,7 +13,7 @@ pub use popupmenu::*;
 pub mod balloon;
 pub use balloon::*;
 
-use crate::winapi::{to_wide_string, WString, PcwstrExt, from_wide_string};
+use crate::winapi::{to_wide_string, WString, PcwstrExt, SystemError};
 use crate::write_locale;
 use crate::error::{CURRENT_LOCALE, Locale};
 use crate::settings::USETTINGS;
@@ -25,7 +25,6 @@ pub use windows::{
         Foundation::{
             HWND,WPARAM,LPARAM,LRESULT,
             HINSTANCE, SIZE, BOOL, RECT, POINT, COLORREF,
-            GetLastError,
         },
         UI::{
             WindowsAndMessaging::{
@@ -105,12 +104,6 @@ pub use windows::{
                 DwmIsCompositionEnabled, DwmGetWindowAttribute,
             }
         },
-        System::{
-            Diagnostics::Debug::{
-                FormatMessageW, FORMAT_MESSAGE_FROM_SYSTEM, FORMAT_MESSAGE_IGNORE_INSERTS,
-            },
-            SystemServices::{ LANG_NEUTRAL, SUBLANG_DEFAULT }
-        }
     }
 };
 
@@ -692,32 +685,3 @@ impl WparamExt for WPARAM {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct SystemError {
-    code: u32,
-    msg: String,
-}
-impl SystemError {
-    fn new() -> Self {
-        unsafe {
-            let code = GetLastError().0;
-            let mut buf = [0; 512];
-            FormatMessageW(
-                FORMAT_MESSAGE_FROM_SYSTEM|FORMAT_MESSAGE_IGNORE_INSERTS,
-                None,
-                code,
-                SUBLANG_DEFAULT << 10 | LANG_NEUTRAL,
-                PWSTR::from_raw(buf.as_mut_ptr()),
-                buf.len() as u32,
-                None
-            );
-            let msg = from_wide_string(&buf);
-            Self { code, msg }
-        }
-    }
-}
-impl std::fmt::Display for SystemError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "[{}] {}", self.code, self.msg)
-    }
-}

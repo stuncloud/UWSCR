@@ -22,12 +22,15 @@ use crate::logging::{out_log, LogType};
 use crate::settings::*;
 use crate::winapi::{attach_console,free_console,show_message,FORCE_WINDOW_MODE};
 use windows::{
-    Win32::System::{
-        Com::{
-            // COINIT_APARTMENTTHREADED,
-            // COINIT_MULTITHREADED,
-            IDispatch,
-            // CoInitializeEx, CoUninitialize,
+    Win32::{
+        Foundation::{HWND},
+        System::{
+            Com::{
+                // COINIT_APARTMENTTHREADED,
+                // COINIT_MULTITHREADED,
+                IDispatch,
+                // CoInitializeEx, CoUninitialize,
+            },
         },
     },
 };
@@ -60,6 +63,7 @@ pub struct Evaluator {
     pub com_err_flg: bool,
     lines: Vec<String>,
     pub balloon: Option<Balloon>,
+    pub mouseorg: Option<MouseOrg>
 }
 
 impl Evaluator {
@@ -74,6 +78,7 @@ impl Evaluator {
             com_err_flg: false,
             lines: vec![],
             balloon: None,
+            mouseorg: None,
         }
     }
 
@@ -1052,6 +1057,7 @@ impl Evaluator {
                 com_err_flg: false,
                 lines: self.lines.clone(),
                 balloon: None,
+                mouseorg: None,
             };
             thread::spawn(move || {
                 // このスレッドでのCOMを有効化
@@ -2323,6 +2329,7 @@ impl Evaluator {
             com_err_flg: false,
             lines: self.lines.clone(),
             balloon: None,
+            mouseorg: None,
         };
         // 関数を非同期実行し、UTaskを返す
         let handle = thread::spawn(move || {
@@ -3246,6 +3253,35 @@ impl Evaluator {
         Ok(v)
     }
 
+    fn set_mouseorg<T: Into<MorgTarget>, C: Into<MorgContext>>(&mut self, hwnd: HWND, target: T, context: C) {
+        let morg = MouseOrg {
+            hwnd,
+            target: target.into(),
+            context: context.into(),
+        };
+        self.mouseorg = Some(morg);
+    }
+    fn clear_mouseorg(&mut self) {
+        self.mouseorg = None;
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct MouseOrg {
+    hwnd: HWND,
+    target: MorgTarget,
+    context: MorgContext,
+}
+#[derive(Debug, Clone, PartialEq)]
+pub enum MorgTarget {
+    Window,
+    Client,
+    Direct
+}
+#[derive(Debug, Clone)]
+pub enum MorgContext {
+    Fore,
+    Back
 }
 
 #[cfg(test)]

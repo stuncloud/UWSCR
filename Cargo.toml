@@ -18,7 +18,6 @@ chrono = "0.4"
 csv = "1.1"
 dlopen = "0.1"
 encoding_rs = "0.8"
-enigo = "*"
 htmlentity = "1.2.0"
 indexmap = "1.9"
 kanaria = "0.2.0"
@@ -73,6 +72,7 @@ features = [
     "Win32_UI_Controls",
     "Win32_UI_HiDpi",
     "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_Input_Pointer",
     "Win32_UI_Shell",
     "Win32_UI_WindowsAndMessaging",
 ]

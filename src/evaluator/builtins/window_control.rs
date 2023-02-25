@@ -4,7 +4,7 @@ mod win32;
 mod monitor;
 mod uia;
 
-use crate::evaluator::{Evaluator, LOGPRINTWIN};
+use crate::evaluator::{Evaluator, MorgTarget, MorgContext, LOGPRINTWIN};
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
 use crate::evaluator::builtins::{
@@ -163,6 +163,8 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("sendstr", 5, sendstr);
     sets.add("getslctlst", 3, getslctlst);
     sets.add("monitor", 2, monitor);
+    sets.add("mouseorg", 4, mouseorg);
+    sets.add("chkmorg", 0, chkmorg);
     #[cfg(feature="chkimg")]
     sets.add("chkimg", 7, chkimg);
     #[cfg(feature="chkimg")]
@@ -1614,4 +1616,84 @@ pub fn saveimg(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     }
 
     Ok(Object::Empty)
+}
+
+#[allow(non_camel_case_types)]
+#[derive(Debug, EnumString, EnumProperty, EnumVariantNames, ToPrimitive, FromPrimitive, Default)]
+pub enum MorgTargetConst {
+    #[default]
+    MORG_WINDOW = 0,
+    MORG_CLIENT = 1,
+    MORG_DIRECT = 2,
+}
+impl Into<MorgTarget> for MorgTargetConst {
+    fn into(self) -> MorgTarget {
+        match self {
+            MorgTargetConst::MORG_WINDOW => MorgTarget::Window,
+            MorgTargetConst::MORG_CLIENT => MorgTarget::Client,
+            MorgTargetConst::MORG_DIRECT => MorgTarget::Direct,
+        }
+    }
+}
+#[allow(non_camel_case_types)]
+#[derive(Debug, EnumString, EnumProperty, EnumVariantNames, ToPrimitive, FromPrimitive, Default)]
+pub enum MorgContextConst {
+    #[default]
+    MORG_FORE = 1,
+    MORG_BACK = 2,
+}
+impl Into<MorgContext> for MorgContextConst {
+    fn into(self) -> MorgContext {
+        match self {
+            MorgContextConst::MORG_FORE => MorgContext::Fore,
+            MorgContextConst::MORG_BACK => MorgContext::Back,
+        }
+    }
+}
+
+pub fn mouseorg(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let id = args.get_as_int(0, None)?;
+    let target = args.get_as_const::<MorgTargetConst>(1, false)?.unwrap_or_default();
+    let context = args.get_as_const::<MorgContextConst>(2, false)?.unwrap_or_default();
+    let hwnd_flg = args.get_as_bool(3, Some(false))?;
+
+    if id == 0 {
+        evaluator.clear_mouseorg();
+        Ok(true.into())
+    } else {
+        let hwnd = match target {
+            MorgTargetConst::MORG_DIRECT => {
+                if hwnd_flg {
+                    HWND(id as isize)
+                } else {
+                    let hwnd = get_hwnd_from_id(id);
+                    if let HWND(0) = hwnd {
+                        HWND(id as isize)
+                    } else {
+                        hwnd
+                    }
+                }
+            },
+            _ => {
+                get_hwnd_from_id(id)
+            },
+        };
+
+        if is_window(hwnd) {
+            evaluator.set_mouseorg(hwnd, target, context);
+            Ok(true.into())
+        } else {
+            Ok(false.into())
+        }
+    }
+}
+
+pub fn chkmorg(evaluator: &mut Evaluator, _: BuiltinFuncArgs) -> BuiltinFuncResult {
+    match window_low::get_morg_point(&evaluator.mouseorg) {
+        Some((x, y)) => {
+            let arr = vec![ x.into(), y.into() ];
+            Ok(Object::Array(arr))
+        },
+        None => Ok(Object::Empty),
+    }
 }

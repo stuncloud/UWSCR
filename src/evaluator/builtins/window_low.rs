@@ -1,25 +1,56 @@
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
-use crate::evaluator::Evaluator;
+use crate::evaluator::{Evaluator, MouseOrg, MorgTarget};
+use crate::winapi::make_lparam;
 
 use std::{thread, time};
+use std::mem::size_of;
+use std::sync::{Arc, Mutex};
 
-use enigo::*;
 use strum_macros::{EnumString, EnumVariantNames};
 use num_derive::{ToPrimitive, FromPrimitive};
 use num_traits::FromPrimitive;
 use windows::{
+    core::HSTRING,
     Win32::{
-        Foundation::POINT,
+        Foundation::{POINT, HWND, RECT, WPARAM, LPARAM, HANDLE},
         UI::{
             Input::KeyboardAndMouse::{
+                SendInput, INPUT,
+                KEYBDINPUT, INPUT_KEYBOARD, VIRTUAL_KEY,
                 KEYBD_EVENT_FLAGS, KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP, KEYEVENTF_UNICODE,
-                SendInput, INPUT, KEYBDINPUT, INPUT_KEYBOARD, VIRTUAL_KEY,
+                MOUSEINPUT, INPUT_MOUSE, MOUSEEVENTF_ABSOLUTE,
+                MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP,
+                MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP,
+                MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP,
+                MOUSEEVENTF_WHEEL, MOUSEEVENTF_HWHEEL,
             },
-            WindowsAndMessaging::{GetCursorPos, SetCursorPos},
+            Input::Pointer::{
+                InitializeTouchInjection, InjectTouchInput,
+                TOUCH_FEEDBACK_NONE,
+                POINTER_TOUCH_INFO, POINTER_INFO,
+                POINTER_FLAGS, POINTER_FLAG_DOWN, POINTER_FLAG_UP, POINTER_FLAG_UPDATE, POINTER_FLAG_INRANGE, POINTER_FLAG_INCONTACT,
+                POINTER_BUTTON_CHANGE_TYPE,
+            },
+            WindowsAndMessaging::{
+                GetWindowRect, GetClientRect,
+                GetCursorPos, SetCursorPos,
+                PostMessageW, WM_MOUSEMOVE,
+                WM_LBUTTONUP, WM_LBUTTONDOWN,
+                WM_RBUTTONUP, WM_RBUTTONDOWN,
+                WM_MBUTTONUP, WM_MBUTTONDOWN,
+                WM_KEYUP, WM_KEYDOWN, WM_CHAR,
+                WM_MOUSEWHEEL, WM_MOUSEHWHEEL, WHEEL_DELTA,
+                PT_TOUCH, TOUCH_MASK_CONTACTAREA, TOUCH_MASK_ORIENTATION, TOUCH_MASK_PRESSURE,
+            },
         },
+        Graphics::Gdi::ClientToScreen,
     },
 };
+use once_cell::sync::{OnceCell, Lazy};
+
+static INIT_TOUCH_INJECTION: OnceCell<()> = OnceCell::new();
+static TOUCH_POINT: Lazy<Arc<Mutex<TouchPoint>>> = Lazy::new(|| Arc::new(Mutex::new(TouchPoint(None))));
 
 pub fn builtin_func_sets() -> BuiltinFunctionSets {
     let mut sets = BuiltinFunctionSets::new();
@@ -41,8 +72,9 @@ pub enum MouseButtonEnum {
 }
 
 #[allow(non_camel_case_types)]
-#[derive(Debug, EnumString, EnumProperty, EnumVariantNames, ToPrimitive, FromPrimitive)]
+#[derive(Debug, EnumString, EnumProperty, EnumVariantNames, ToPrimitive, FromPrimitive, Default)]
 pub enum KeyActionEnum {
+    #[default]
     CLICK = 0,
     DOWN = 1,
     UP = 2,
@@ -50,61 +82,62 @@ pub enum KeyActionEnum {
 
 pub fn move_mouse_to(x: i32, y: i32) -> bool {
     unsafe {
-        SetCursorPos(x, y);
+        SetCursorPos(x, y).as_bool() &&
         SetCursorPos(x, y).as_bool()
     }
 }
 
-pub fn mmv(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn mmv(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let x = args.get_as_int(0, Some(0))?;
     let y = args.get_as_int(1, Some(0))?;
     let ms = args.get_as_int::<u64>(2, Some(0))?;
-    thread::sleep(time::Duration::from_millis(ms));
-    // move_mouse_to_scaled(x, y);
-    move_mouse_to(x, y);
+
+    sleep(ms);
+    Input::from(&evaluator.mouseorg).move_mouse(x, y);
+
     Ok(Object::Empty)
 }
 
-pub fn btn(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn btn(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let Some(btn) = args.get_as_const::<MouseButtonEnum>(0, true)? else {
         // 不正な定数の場合何もしない
         return Ok(Object::Empty);
     };
-    let mut enigo = Enigo::new();
-    let action = args.get_as_int::<i32>(1, Some(KeyActionEnum::CLICK as i32))?;
+
+    let action = args.get_as_int(1, Some(0))?;
     let p = get_current_pos()?;
     let (cur_x, cur_y) = (p.x, p.y);
     let x = args.get_as_int( 2, Some(cur_x))?;
     let y = args.get_as_int( 3, Some(cur_y))?;
     let ms= args.get_as_int::<u64>(4, Some(0))?;
-    let button = match btn {
-        MouseButtonEnum::LEFT => MouseButton::Left,
-        MouseButtonEnum::RIGHT => MouseButton::Right,
-        MouseButtonEnum::MIDDLE => MouseButton::Middle,
+
+    sleep(ms);
+    let input = Input::from(&evaluator.mouseorg);
+    match btn {
+        MouseButtonEnum::LEFT => {
+            let action = FromPrimitive::from_i32(action).unwrap_or_default();
+            input.mouse_button(x, y, &MouseButton::Left, action);
+        },
+        MouseButtonEnum::RIGHT => {
+            let action = FromPrimitive::from_i32(action).unwrap_or_default();
+            input.mouse_button(x, y, &MouseButton::Right, action);
+        },
+        MouseButtonEnum::MIDDLE => {
+            let action = FromPrimitive::from_i32(action).unwrap_or_default();
+            input.mouse_button(x, y, &MouseButton::Middle, action);
+        },
         MouseButtonEnum::WHEEL => {
-            thread::sleep(time::Duration::from_millis(ms));
-            move_mouse_to(x, y);
-            enigo.mouse_scroll_y(action);
-            return Ok(Object::Empty);
+            input.mouse_wheel(x, y, action, false);
         },
         MouseButtonEnum::WHEEL2 => {
-            thread::sleep(time::Duration::from_millis(ms));
-            move_mouse_to(x, y);
-            enigo.mouse_scroll_x(action);
-            return Ok(Object::Empty);
+            input.mouse_wheel(x, y, action, true);
         },
         MouseButtonEnum::TOUCH => {
-            return Err(builtin_func_error(UErrorMessage::NotYetSupported("TOUCH".into())));
+            let action = FromPrimitive::from_i32(action).unwrap_or_default();
+            input.touch(x, y, action, ms);
         },
-    };
-
-    thread::sleep(time::Duration::from_millis(ms));
-    move_mouse_to(x, y);
-    match FromPrimitive::from_i32(action).unwrap_or(KeyActionEnum::CLICK) {
-        KeyActionEnum::CLICK => enigo.mouse_click(button),
-        KeyActionEnum::DOWN => enigo.mouse_down(button),
-        KeyActionEnum::UP => enigo.mouse_up(button),
     }
+
     Ok(Object::Empty)
 }
 
@@ -118,7 +151,7 @@ pub fn get_current_pos() -> BuiltInResult<POINT>{
     Ok(point)
 }
 
-pub fn kbd(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn kbd(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let key = args.get_as_num_or_string(0)?;
     let action = args.get_as_const::<KeyActionEnum>(1, false)?
         .unwrap_or(KeyActionEnum::CLICK);
@@ -126,95 +159,432 @@ pub fn kbd(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 
     let vk_win = key_codes::VirtualKeyCode::VK_WIN as u8;
     let vk_rwin = key_codes::VirtualKeyCode::VK_START as u8;
+    let input = Input::from(&evaluator.mouseorg);
     match key {
         TwoTypeArg::U(vk) => {
             let extend = vk == vk_win || vk == vk_rwin;
-            Input::send_key(vk, action, wait, extend);
+            input.send_key(vk, action, wait, extend);
         },
         TwoTypeArg::T(s) => {
-            Input::send_str(&s, wait);
+            input.send_str(&s, wait);
         }
     };
     Ok(Object::Empty)
 }
 
+pub fn get_morg_point(morg: &Option<MouseOrg>) -> Option<(i32, i32)> {
+    Input::from(morg).get_offset()
+}
 
-struct Input {}
-
+struct Input {
+    hwnd: Option<HWND>,
+    /// 起点がクライアント領域ならtrue, ウィンドウ領域ならfalse
+    client: bool,
+    /// 直接送信ならtrue
+    direct: bool,
+}
+impl From<&Option<MouseOrg>> for Input {
+    fn from(morg: &Option<MouseOrg>) -> Self {
+        match morg {
+            Some(morg) => {
+                let hwnd = Some(morg.hwnd);
+                let (client, direct) = match morg.target {
+                    MorgTarget::Window => (false, false),
+                    MorgTarget::Client => (true, false),
+                    MorgTarget::Direct => (true, true),
+                };
+                Self { hwnd, client, direct }
+            },
+            None => Self { hwnd: None, client: false, direct: false },
+        }
+    }
+}
 impl Input {
-    fn send_key(vk: u8, action: KeyActionEnum, wait: u64, extend: bool) {
-        thread::sleep(time::Duration::from_millis(wait));
+    fn get_offset(&self) -> Option<(i32, i32)> {
+        unsafe {
+            let hwnd = self.hwnd?;
+            let mut rect = RECT::default();
+            if self.client {
+                GetClientRect(hwnd, &mut rect);
+                let mut point = POINT { x: rect.left, y: rect.top };
+                ClientToScreen(hwnd, &mut point);
+                Some((point.x, point.y))
+            } else {
+                GetWindowRect(hwnd, &mut rect);
+                Some((rect.left, rect.top))
+            }
+        }
+    }
+    fn fix_point(&self, x: i32, y: i32) -> (i32, i32) {
+        if let Some((dx, dy)) = self.get_offset() {
+            (x + dx, y + dy)
+        } else {
+            (x, y)
+        }
+    }
+    fn send_key(&self, vk: u8, action: KeyActionEnum, wait: u64, extend: bool) {
+        sleep(wait);
         match action {
             KeyActionEnum::CLICK => {
-                Self::key_down(vk, extend);
+                self.key_down(vk, extend);
                 // 20ms待って離す
-                thread::sleep(time::Duration::from_millis(20));
-                Self::key_up(vk, extend)
+                sleep(20);
+                self.key_up(vk, extend)
             },
-            KeyActionEnum::DOWN => Self::key_down(vk, extend),
-            KeyActionEnum::UP => Self::key_up(vk, extend),
+            KeyActionEnum::DOWN => self.key_down(vk, extend),
+            KeyActionEnum::UP => self.key_up(vk, extend),
         }
     }
-    fn send_str(str: &str, wait: u64) {
-        thread::sleep(time::Duration::from_millis(wait));
+    fn send_str(&self, str: &str, wait: u64) {
+        sleep(wait);
         unsafe {
-            let pinputs = str.encode_utf16()
-                .map(|scan| {
-                    let mut input = INPUT::default();
-                    input.r#type = INPUT_KEYBOARD;
-                    input.Anonymous.ki = KEYBDINPUT {
-                        wVk: VIRTUAL_KEY(0),
-                        wScan: scan,
-                        dwFlags: KEYEVENTF_UNICODE,
-                        time: 0,
-                        dwExtraInfo: 0,
-                    };
-                    input
-                })
-                .collect::<Vec<_>>();
-            SendInput(&pinputs, std::mem::size_of::<INPUT>() as i32);
-        }
-    }
-    fn key_down(vk: u8, extend: bool) {
-        unsafe {
-            let mut input = INPUT::default();
-            let dwflags = if extend {
-                KEYEVENTF_EXTENDEDKEY
+            if self.direct {
+                let hstring = HSTRING::from(str);
+                hstring.as_wide()
+                    .into_iter()
+                    .map(|n| *n as usize)
+                    .for_each(|char| {PostMessageW(self.hwnd, WM_CHAR, WPARAM(char), LPARAM(1));});
             } else {
-                KEYBD_EVENT_FLAGS(0)
-            };
-            // let scan = MapVirtualKeyW(vk as u32, 0) as u16;
-            let wvk = VIRTUAL_KEY(vk as u16);
-            input.r#type = INPUT_KEYBOARD;
-            input.Anonymous.ki = KEYBDINPUT {
-                wVk: wvk,
-                wScan: 0,
-                dwFlags: dwflags,
-                time: 0,
-                dwExtraInfo: 0,
-            };
-            SendInput(&[input], std::mem::size_of::<INPUT>() as i32);
+                let pinputs = str.encode_utf16()
+                    .map(|scan| {
+                        let mut input = INPUT::default();
+                        input.r#type = INPUT_KEYBOARD;
+                        input.Anonymous.ki = KEYBDINPUT {
+                            wVk: VIRTUAL_KEY(0),
+                            wScan: scan,
+                            dwFlags: KEYEVENTF_UNICODE,
+                            time: 0,
+                            dwExtraInfo: 0,
+                        };
+                        input
+                    })
+                    .collect::<Vec<_>>();
+                SendInput(&pinputs, size_of::<INPUT>() as i32);
+            }
         }
     }
-    fn key_up(vk: u8, extend: bool) {
+    fn key_down(&self, vk: u8, extend: bool) {
         unsafe {
-            let mut input = INPUT::default();
-            let dwflags = if extend {
-                KEYEVENTF_KEYUP | KEYEVENTF_EXTENDEDKEY
+            if self.direct {
+                PostMessageW(self.hwnd, WM_KEYDOWN, WPARAM(vk as usize), LPARAM(0));
             } else {
-                KEYEVENTF_KEYUP
-            };
-            // let scan = MapVirtualKeyW(vk as u32, 0) as u16;
-            let wvk = VIRTUAL_KEY(vk as u16);
-            input.r#type = INPUT_KEYBOARD;
-            input.Anonymous.ki = KEYBDINPUT {
-                wVk: wvk,
-                wScan: 0,
-                dwFlags: dwflags,
-                time: 0,
-                dwExtraInfo: 0,
-            };
-            SendInput(&[input], std::mem::size_of::<INPUT>() as i32);
+                let mut input = INPUT::default();
+                let dwflags = if extend {
+                    KEYEVENTF_EXTENDEDKEY
+                } else {
+                    KEYBD_EVENT_FLAGS(0)
+                };
+                // let scan = MapVirtualKeyW(vk as u32, 0) as u16;
+                let wvk = VIRTUAL_KEY(vk as u16);
+                input.r#type = INPUT_KEYBOARD;
+                input.Anonymous.ki = KEYBDINPUT {
+                    wVk: wvk,
+                    wScan: 0,
+                    dwFlags: dwflags,
+                    time: 0,
+                    dwExtraInfo: 0,
+                };
+                SendInput(&[input], size_of::<INPUT>() as i32);
+            }
         }
     }
+    fn key_up(&self, vk: u8, extend: bool) {
+        unsafe {
+            if self.direct {
+                PostMessageW(self.hwnd, WM_KEYUP, WPARAM(vk as usize), LPARAM(0));
+            } else {
+                let mut input = INPUT::default();
+                let dwflags = if extend {
+                    KEYEVENTF_KEYUP | KEYEVENTF_EXTENDEDKEY
+                } else {
+                    KEYEVENTF_KEYUP
+                };
+                // let scan = MapVirtualKeyW(vk as u32, 0) as u16;
+                let wvk = VIRTUAL_KEY(vk as u16);
+                input.r#type = INPUT_KEYBOARD;
+                input.Anonymous.ki = KEYBDINPUT {
+                    wVk: wvk,
+                    wScan: 0,
+                    dwFlags: dwflags,
+                    time: 0,
+                    dwExtraInfo: 0,
+                };
+                SendInput(&[input], size_of::<INPUT>() as i32);
+            }
+        }
+    }
+    fn move_mouse(&self, x: i32, y: i32) -> bool {
+        unsafe {
+            if self.direct {
+                let lparam = make_lparam(x, y);
+                PostMessageW(self.hwnd, WM_MOUSEMOVE, None, lparam).as_bool()
+            } else {
+                let (x, y) = self.fix_point(x, y);
+                move_mouse_to(x, y)
+            }
+        }
+    }
+    fn mouse_down(&self, x: i32, y: i32, btn: &MouseButton) {
+        unsafe {
+            if self.direct {
+                let msg = match btn {
+                    MouseButton::Left => WM_LBUTTONDOWN,
+                    MouseButton::Right => WM_RBUTTONDOWN,
+                    MouseButton::Middle => WM_MBUTTONDOWN,
+                };
+                let lparam = make_lparam(x, y);
+                PostMessageW(self.hwnd, msg, None, lparam);
+            } else {
+                let (x, y) = self.fix_point(x, y);
+                let dwflags = match btn {
+                    MouseButton::Left => MOUSEEVENTF_LEFTDOWN,
+                    MouseButton::Right => MOUSEEVENTF_RIGHTDOWN,
+                    MouseButton::Middle => MOUSEEVENTF_MIDDLEDOWN,
+                } | MOUSEEVENTF_ABSOLUTE;
+                let mut input = INPUT::default();
+                input.r#type = INPUT_MOUSE;
+                input.Anonymous.mi = MOUSEINPUT {
+                    dx: x,
+                    dy: y,
+                    mouseData: 0,
+                    dwFlags: dwflags,
+                    time: 0,
+                    dwExtraInfo: 0,
+                };
+                SendInput(&[input], size_of::<INPUT>() as i32);
+            }
+        }
+    }
+    fn mouse_up(&self, x: i32, y: i32, btn: &MouseButton) {
+        unsafe {
+            if self.direct {
+                let msg = match btn {
+                    MouseButton::Left => WM_LBUTTONUP,
+                    MouseButton::Right => WM_RBUTTONUP,
+                    MouseButton::Middle => WM_MBUTTONUP,
+                };
+                let lparam = make_lparam(x, y);
+                PostMessageW(self.hwnd, msg, None, lparam);
+            } else {
+                let (x, y) = self.fix_point(x, y);
+                let dwflags = match btn {
+                    MouseButton::Left => MOUSEEVENTF_LEFTUP,
+                    MouseButton::Right => MOUSEEVENTF_RIGHTUP,
+                    MouseButton::Middle => MOUSEEVENTF_MIDDLEUP,
+                } | MOUSEEVENTF_ABSOLUTE;
+                let mut input = INPUT::default();
+                input.r#type = INPUT_MOUSE;
+                input.Anonymous.mi = MOUSEINPUT {
+                    dx: x,
+                    dy: y,
+                    mouseData: 0,
+                    dwFlags: dwflags,
+                    time: 0,
+                    dwExtraInfo: 0,
+                };
+                SendInput(&[input], size_of::<INPUT>() as i32);
+            }
+        }
+    }
+    fn mouse_click(&self, x: i32, y: i32, btn: &MouseButton) {
+        self.mouse_down(x, y, btn);
+        self.mouse_up(x, y, btn);
+    }
+    fn mouse_button(&self, x: i32, y: i32, btn: &MouseButton, action: KeyActionEnum) {
+        self.move_mouse(x, y);
+        match action {
+            KeyActionEnum::CLICK => self.mouse_click(x, y, btn),
+            KeyActionEnum::DOWN => self.mouse_down(x, y, btn),
+            KeyActionEnum::UP => self.mouse_up(x, y, btn),
+        }
+    }
+    fn mouse_wheel(&self, x: i32, y: i32, amount: i32, horizontal: bool) {
+        self.move_mouse(x, y);
+        unsafe {
+            if self.direct {
+                let msg = if horizontal {WM_MOUSEHWHEEL} else {WM_MOUSEWHEEL};
+                let amount = amount * WHEEL_DELTA as i32;
+                let wparam = ((amount & 0xFFFF) << 16) as usize;
+                let (x, y) = self.fix_point(x, y);
+                let lparam = ((x & 0xFFFF) | (y & 0xFFFF) << 16) as isize;
+                PostMessageW(self.hwnd, msg, WPARAM(wparam), LPARAM(lparam));
+            } else {
+                let dwflags = if horizontal {MOUSEEVENTF_HWHEEL} else {MOUSEEVENTF_WHEEL};
+                let mut input = INPUT::default();
+                input.r#type = INPUT_MOUSE;
+                input.Anonymous.mi = MOUSEINPUT {
+                    dx: 0,
+                    dy: 0,
+                    mouseData: amount,
+                    dwFlags: dwflags,
+                    time: 0,
+                    dwExtraInfo: 0,
+                };
+                SendInput(&[input], size_of::<INPUT>() as i32);
+            }
+        }
+    }
+    fn touch(&self, x: i32, y: i32, action: KeyActionEnum, ms: u64) {
+        unsafe {
+            // 初回のみ初期化を行う
+            INIT_TOUCH_INJECTION.get_or_init(|| {
+                InitializeTouchInjection(1, TOUCH_FEEDBACK_NONE);
+            });
+            match action {
+                KeyActionEnum::CLICK => {
+                    self.touch_click(x, y);
+                },
+                KeyActionEnum::DOWN => {
+                    self.touch_down(x, y);
+                },
+                KeyActionEnum::UP => {
+                    self.touch_up(x, y, ms);
+                },
+            }
+        }
+    }
+    fn touch_click(&self, x: i32, y: i32) -> bool {
+        unsafe {
+            let (x, y) = self.fix_point(x, y);
+            let mut info = Self::new_pointer_touch_info(x, y, POINTER_FLAG_DOWN|POINTER_FLAG_INRANGE|POINTER_FLAG_INCONTACT);
+            let down = InjectTouchInput(&[info]).as_bool();
+            info.pointerInfo.pointerFlags = POINTER_FLAG_UP;
+            let up = InjectTouchInput(&[info]).as_bool();
+            down && up
+        }
+    }
+    fn touch_down(&self, x: i32, y: i32) -> bool {
+        unsafe {
+            let (x, y) = self.fix_point(x, y);
+            let info = Self::new_pointer_touch_info(x, y, POINTER_FLAG_DOWN|POINTER_FLAG_INRANGE|POINTER_FLAG_INCONTACT);
+            let r = InjectTouchInput(&[info]).as_bool();
+            if r {
+                // DOWNした座標を登録
+                let mut tp = TOUCH_POINT.lock().unwrap();
+                *tp = TouchPoint(Some((x, y)));
+            }
+            r
+        }
+    }
+    fn touch_up(&self, x: i32, y: i32, ms: u64) -> bool {
+        unsafe {
+            let (x, y) = self.fix_point(x, y);
+            let maybe_moved = {
+                let tp = TOUCH_POINT.lock().unwrap();
+                tp.moved(x, y)
+            };
+            if let Some((moved, p1)) = maybe_moved {
+                if moved {
+                    let wait = ms.max(10);
+                    // タッチを維持しつつ動かす
+                    let points = Self::get_move_points(p1, (x, y));
+                    let mut info = Self::new_pointer_touch_info(p1.0, p1.1, POINTER_FLAG_UPDATE|POINTER_FLAG_INRANGE|POINTER_FLAG_INCONTACT);
+                    InjectTouchInput(&[info]);
+                    for point in points {
+                        info.set_point(point);
+                        sleep(wait);
+                        InjectTouchInput(&[info]);
+                    }
+                    info.set_point((x, y));
+                    InjectTouchInput(&[info]);
+                    info.pointerInfo.pointerFlags = POINTER_FLAG_UP;
+                    let r = InjectTouchInput(&[info]).as_bool();
+                    if r {
+                        // UPしたら座標をリセット
+                        let mut tp = TOUCH_POINT.lock().unwrap();
+                        *tp = TouchPoint(None);
+                    }
+                    r
+                } else {
+                    // 座標が動いていなかったら即UPする
+                    let info = Self::new_pointer_touch_info(x, y, POINTER_FLAG_UP);
+                    let r = InjectTouchInput(&[info]).as_bool();
+                    if r {
+                        // UPしたら座標をリセット
+                        let mut tp = TOUCH_POINT.lock().unwrap();
+                        *tp = TouchPoint(None);
+                    }
+                    r
+                }
+            } else {
+                // downしてないので何もしない
+                false
+            }
+        }
+    }
+    fn get_move_points(p1: (i32, i32), p2: (i32, i32)) -> Vec<(i32, i32)> {
+        let count = (p1.0 - p2.0).abs().min((p1.1 - p2.1).abs());
+        let x1 = p1.0 as f64;
+        let y1 = p1.1 as f64;
+        let x2 = p2.0 as f64;
+        let y2 = p2.1 as f64;
+
+        let m = (y2 - y1) / (x2 - x1);
+        let b = y1 - m * x1;
+
+        let step = (x2 - x1) / (count as f64 - 1.0);
+
+        (0..count).map(|i| {
+            let x = x1 + i as f64 * step;
+            let y = m * x + b;
+            (x as i32, y as i32)
+        }).collect()
+    }
+    fn new_pointer_touch_info(x: i32, y: i32, flags: POINTER_FLAGS) -> POINTER_TOUCH_INFO {
+        let margin = 2;
+        let mut touch_info = POINTER_TOUCH_INFO::default();
+        touch_info.touchMask = TOUCH_MASK_CONTACTAREA|TOUCH_MASK_ORIENTATION|TOUCH_MASK_PRESSURE;
+        touch_info.rcContact = RECT { left: x-margin, top: y-margin, right: x+margin, bottom: y+margin };
+        touch_info.orientation = 90;
+        touch_info.pressure = 1000;
+        touch_info.pointerInfo = POINTER_INFO {
+            pointerType: PT_TOUCH,
+            pointerId: 0,
+            frameId: 0,
+            pointerFlags: flags,
+            sourceDevice: HANDLE::default(),
+            hwndTarget: HWND::default(),
+            ptPixelLocation: POINT { x, y },
+            ptHimetricLocation: POINT::default(),
+            ptPixelLocationRaw: POINT::default(),
+            ptHimetricLocationRaw: POINT::default(),
+            dwTime: 0,
+            historyCount: 0,
+            InputData: 0,
+            dwKeyStates: 0,
+            PerformanceCount: 0,
+            ButtonChangeType: POINTER_BUTTON_CHANGE_TYPE::default(),
+        };
+        touch_info
+    }
+}
+enum MouseButton {
+    Left,
+    Right,
+    Middle,
+}
+struct TouchPoint(Option<(i32, i32)>);
+impl TouchPoint {
+    fn moved(&self, x: i32, y: i32) -> Option<(bool, (i32, i32))> {
+        match self.0 {
+            Some(p) => {
+                let moved = p.0 != x && p.1 != y;
+                Some((moved, p))
+            },
+            None => None,
+        }
+    }
+}
+trait PointerTouchInfoExt {
+    fn set_point(&mut self, point: (i32, i32));
+}
+impl PointerTouchInfoExt for POINTER_TOUCH_INFO {
+    fn set_point(&mut self, point: (i32, i32)) {
+        self.pointerInfo.ptPixelLocation.x = point.0;
+        self.pointerInfo.ptPixelLocation.y = point.1;
+    }
+}
+
+fn sleep(ms: u64) {
+    thread::sleep(time::Duration::from_millis(ms))
 }

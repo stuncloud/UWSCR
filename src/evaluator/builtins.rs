@@ -533,6 +533,7 @@ impl BuiltinFuncArgs {
         self.get_arg_with_required_flag(i, required, |arg| {
             let result = match arg {
                 Object::Num(n) => T::from_f64(n),
+                Object::Empty | Object::EmptyParam => None,
                 arg => return Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg))),
             };
             Ok(result)
@@ -685,6 +686,8 @@ pub fn init_builtins() -> Vec<NamedObject> {
     set_builtin_consts::<window_control::SldConst>(&mut vec);
     set_builtin_consts::<window_control::GetStrConst>(&mut vec);
     set_builtin_consts::<window_control::ImgConst>(&mut vec);
+    set_builtin_consts::<window_control::MorgTargetConst>(&mut vec);
+    set_builtin_consts::<window_control::MorgContextConst>(&mut vec);
 
     // text control
     text_control::builtin_func_sets().set(&mut vec);

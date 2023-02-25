@@ -1,8 +1,9 @@
 use windows::{
-    core::{PCSTR, PCWSTR},
+    core::{PCSTR, PCWSTR, PWSTR},
     Win32::{
         Foundation:: {
             MAX_PATH, HWND, WPARAM, LPARAM,
+            GetLastError
         },
         System::{
             SystemInformation::{
@@ -13,7 +14,11 @@ use windows::{
                 AttachConsole, FreeConsole, AllocConsole,
                 GetConsoleCP,
                 GetStdHandle, STD_OUTPUT_HANDLE, STD_ERROR_HANDLE,
-            }
+            },
+            Diagnostics::Debug::{
+                FormatMessageW, FORMAT_MESSAGE_FROM_SYSTEM, FORMAT_MESSAGE_IGNORE_INSERTS,
+            },
+            SystemServices::{ LANG_NEUTRAL, SUBLANG_DEFAULT }
         },
         UI::{
             WindowsAndMessaging::{
@@ -327,11 +332,41 @@ fn make_dword(lo: u16, hi: u16) -> u32 {
     (lo as u32 & 0xFFFF) | (hi as u32 & 0xFFFF) << 16
 }
 
-pub fn make_lparam(lo: i16, hi: i16) -> LPARAM {
+pub fn make_lparam(lo: i32, hi: i32) -> LPARAM {
     let lparam = make_word(lo, hi);
     LPARAM(lparam)
 }
-pub fn make_word(lo: i16, hi: i16) -> isize {
-    let word = (lo as i32 & 0xFFFF) | (hi as i32 & 0xFFFF) << 16;
+pub fn make_word(lo: i32, hi: i32) -> isize {
+    let word = (lo & 0xFFFF) | (hi & 0xFFFF) << 16;
     word as isize
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SystemError {
+    code: u32,
+    msg: String,
+}
+impl SystemError {
+    pub fn new() -> Self {
+        unsafe {
+            let code = GetLastError().0;
+            let mut buf = [0; 512];
+            FormatMessageW(
+                FORMAT_MESSAGE_FROM_SYSTEM|FORMAT_MESSAGE_IGNORE_INSERTS,
+                None,
+                code,
+                SUBLANG_DEFAULT << 10 | LANG_NEUTRAL,
+                PWSTR::from_raw(buf.as_mut_ptr()),
+                buf.len() as u32,
+                None
+            );
+            let msg = from_wide_string(&buf);
+            Self { code, msg }
+        }
+    }
+}
+impl std::fmt::Display for SystemError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[{}] {}", self.code, self.msg)
+    }
 }
