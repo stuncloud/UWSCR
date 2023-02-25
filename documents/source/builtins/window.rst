@@ -553,7 +553,6 @@ ID0について
 
             .. caution:: ``btn(TOUCH)`` の場合MORG_DIRECTは無視されMORG_CLIENTとして動作します
 
-
     :param 定数 省略可 画面取得: 画面取得方法を指定する
 
         .. object:: MORG_FORE
@@ -969,6 +968,7 @@ ID0について
         .. object:: COL_B
 
             | 青の成分のみ
+
     :param 真偽値 省略可 クリップボード:
 
         .. object:: FALSE

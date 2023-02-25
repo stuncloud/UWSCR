@@ -4,7 +4,7 @@ mod win32;
 mod monitor;
 mod uia;
 
-use crate::evaluator::{Evaluator, MorgTarget, MorgContext, LOGPRINTWIN};
+use crate::evaluator::{Evaluator, MouseOrg, MorgTarget, MorgContext, LOGPRINTWIN};
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
 use crate::evaluator::builtins::{
@@ -67,6 +67,7 @@ use windows::{
                 HBITMAP,
                 SelectObject, DeleteObject,
                 CreateCompatibleDC,
+                RedrawWindow, RDW_FRAME, RDW_INVALIDATE, RDW_ERASE, RDW_UPDATENOW, RDW_ALLCHILDREN
             },
             Dwm::{
                 DWMWA_EXTENDED_FRAME_BOUNDS,
@@ -1300,7 +1301,7 @@ pub enum ColConst {
     COL_B   = 6,
 }
 
-pub fn peekcolor(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn peekcolor(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let x = args.get_as_int(0, None::<i32>)?;
     let y = args.get_as_int(1, None::<i32>)?;
     let colconst = args.get_as_const::<ColConst>(2, false)?.unwrap_or_default();
@@ -1323,9 +1324,12 @@ pub fn peekcolor(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult 
                 0xFFFFFFFF
             }
         } else {
-            let hdc = GetDC(None);
+            let mi = MorgImg::from(&evaluator.mouseorg);
+            let (x, y) = mi.fix_point(x, y);
+            mi.redraw_window();
+            let hdc = GetDC(mi.hwnd);
             let colorref = GetPixel(hdc, x, y);
-            ReleaseDC(None, hdc);
+            ReleaseDC(mi.hwnd, hdc);
             colorref.0
         };
         if bgr > 0xFFFFFF {
@@ -1647,6 +1651,46 @@ impl Into<MorgContext> for MorgContextConst {
         match self {
             MorgContextConst::MORG_FORE => MorgContext::Fore,
             MorgContextConst::MORG_BACK => MorgContext::Back,
+        }
+    }
+}
+struct MorgImg {
+    input: window_low::Input,
+    /// MORG_BACKの場合はHWNDを持つ
+    hwnd: Option<HWND>,
+}
+impl From<&Option<MouseOrg>> for MorgImg {
+    fn from(morg: &Option<MouseOrg>) -> Self {
+        let input = window_low::Input::from(morg);
+        let hwnd = match &morg {
+            Some(morg) => {
+                if morg.is_back() {
+                    Some(morg.hwnd)
+                } else {
+                    None
+                }
+            },
+            None => None,
+        };
+        Self { input, hwnd }
+    }
+}
+impl MorgImg {
+    /// MORG_FOREならmouseorgの座標、MORG_BACKならそのまま返す
+    fn fix_point(&self, x: i32, y: i32) -> (i32, i32) {
+        if self.hwnd.is_some() {
+            (x, y)
+        } else {
+            self.input.fix_point(x, y)
+        }
+    }
+    /// MORG_BACKならウィンドウを再描画
+    fn redraw_window(&self) {
+        unsafe {
+            if let Some(hwnd) = self.hwnd {
+                let flags = RDW_FRAME|RDW_INVALIDATE|RDW_ERASE|RDW_UPDATENOW|RDW_ALLCHILDREN;
+                RedrawWindow(hwnd, None, None, flags);
+            }
         }
     }
 }

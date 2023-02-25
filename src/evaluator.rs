@@ -3278,10 +3278,15 @@ pub enum MorgTarget {
     Client,
     Direct
 }
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum MorgContext {
     Fore,
     Back
+}
+impl MouseOrg {
+    pub fn is_back(&self) -> bool {
+        self.context == MorgContext::Back
+    }
 }
 
 #[cfg(test)]

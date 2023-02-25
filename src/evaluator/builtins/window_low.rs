@@ -176,7 +176,7 @@ pub fn get_morg_point(morg: &Option<MouseOrg>) -> Option<(i32, i32)> {
     Input::from(morg).get_offset()
 }
 
-struct Input {
+pub struct Input {
     hwnd: Option<HWND>,
     /// 起点がクライアント領域ならtrue, ウィンドウ領域ならfalse
     client: bool,
@@ -215,7 +215,7 @@ impl Input {
             }
         }
     }
-    fn fix_point(&self, x: i32, y: i32) -> (i32, i32) {
+    pub fn fix_point(&self, x: i32, y: i32) -> (i32, i32) {
         if let Some((dx, dy)) = self.get_offset() {
             (x + dx, y + dy)
         } else {
