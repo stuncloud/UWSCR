@@ -973,7 +973,7 @@ pub fn monitor(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 }
 
 #[cfg(feature="chkimg")]
-pub fn chkimg(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn chkimg(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let save_ss = {
         let settings = USETTINGS.lock().unwrap();
         settings.chkimg.save_ss
@@ -991,7 +991,36 @@ pub fn chkimg(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let right = args.get_as_int_or_empty(5)?;
     let bottom = args.get_as_int_or_empty(6)?;
 
-    let ss = ScreenShot::get_screen(left, top, right, bottom)?;
+    let mi = MorgImg::from(&evaluator.mouseorg);
+    let ss = match mi.hwnd {
+        Some(hwnd) => {
+            let width = match (left, right) {
+                (None, None) => None,
+                (None, Some(r)) => Some(r),
+                (Some(_), None) => None,
+                (Some(l), Some(r)) => Some(r - l),
+            };
+            let height = match (top, bottom) {
+                (None, None) => None,
+                (None, Some(r)) => Some(r),
+                (Some(_), None) => None,
+                (Some(t), Some(b)) => Some(b - t),
+            };
+            let client = mi.is_client();
+            let style = if mi.is_back {
+                ImgConst::IMG_BACK
+            } else {
+                ImgConst::IMG_FORE
+            };
+            let mut ss = ScreenShot::get_window(hwnd, left, top, width, height, client, style)?;
+            ss.to_gray()?;
+            ss
+        },
+        None => {
+            ScreenShot::get_screen(left, top, right, bottom)?
+        },
+    };
+
     if save_ss {
         ss.save(None)?;
     }
@@ -1000,6 +1029,7 @@ pub fn chkimg(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let arr = result
                             .into_iter()
                             .map(|m| {
+                                // let (x, y) = mi.fix_point(m.x, m.y);
                                 let vec = vec![
                                     Object::Num(m.x as f64),
                                     Object::Num(m.y as f64),
@@ -1656,29 +1686,28 @@ impl Into<MorgContext> for MorgContextConst {
 }
 struct MorgImg {
     input: window_low::Input,
-    /// MORG_BACKの場合はHWNDを持つ
+    is_back: bool,
     hwnd: Option<HWND>,
 }
 impl From<&Option<MouseOrg>> for MorgImg {
     fn from(morg: &Option<MouseOrg>) -> Self {
         let input = window_low::Input::from(morg);
-        let hwnd = match &morg {
+        let (is_back, hwnd) = match &morg {
             Some(morg) => {
-                if morg.is_back() {
-                    Some(morg.hwnd)
-                } else {
-                    None
-                }
+                (morg.is_back(), Some(morg.hwnd))
             },
-            None => None,
+            None => (false, None),
         };
-        Self { input, hwnd }
+        Self { input, is_back, hwnd }
     }
 }
 impl MorgImg {
+    fn is_client(&self) -> bool {
+        self.input.is_client()
+    }
     /// MORG_FOREならmouseorgの座標、MORG_BACKならそのまま返す
     fn fix_point(&self, x: i32, y: i32) -> (i32, i32) {
-        if self.hwnd.is_some() {
+        if self.is_back {
             (x, y)
         } else {
             self.input.fix_point(x, y)
@@ -1687,9 +1716,9 @@ impl MorgImg {
     /// MORG_BACKならウィンドウを再描画
     fn redraw_window(&self) {
         unsafe {
-            if let Some(hwnd) = self.hwnd {
+            if self.is_back {
                 let flags = RDW_FRAME|RDW_INVALIDATE|RDW_ERASE|RDW_UPDATENOW|RDW_ALLCHILDREN;
-                RedrawWindow(hwnd, None, None, flags);
+                RedrawWindow(self.hwnd, None, None, flags);
             }
         }
     }

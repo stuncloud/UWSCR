@@ -478,7 +478,7 @@ ID0について
 
     - :any:`mmv`
     - :any:`btn`
-    - :any:`chkimg`
+    - :any:`chkimg` (指定座標及び戻り値の座標に影響)
     - :any:`peekcolor`
 
     | `MORG_DIRECT` を指定した場合は以下も対象となる
@@ -565,6 +565,8 @@ ID0について
             | 他のウィンドウに隠れている場合でも使用可能
 
             .. caution:: 対象ウィンドウによっては正常に動作しない可能性があります
+
+                saveimgのIMG_BACKで画像が保存できないウィンドウなど
 
     :param 真偽値またはEMPTY 省略可 HWND: ``MORG_DIRECT`` 指定時の第一引数の振る舞いを限定します (``MORG_DIRECT`` 以外の場合無視される)
 

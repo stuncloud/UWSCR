@@ -200,6 +200,9 @@ impl From<&Option<MouseOrg>> for Input {
     }
 }
 impl Input {
+    pub fn is_client(&self) -> bool {
+        self.client
+    }
     fn get_offset(&self) -> Option<(i32, i32)> {
         unsafe {
             let hwnd = self.hwnd?;

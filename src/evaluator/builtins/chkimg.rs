@@ -18,7 +18,7 @@ use windows::{
                 CreateCompatibleDC, CreateCompatibleBitmap,
                 CreateDIBitmap, CBM_INIT,
                 ClientToScreen, IntersectRect,
-                RedrawWindow, RDW_FRAME, RDW_INVALIDATE, RDW_ERASE, RDW_UPDATENOW, RDW_ALLCHILDREN
+                RedrawWindow, RDW_FRAME, RDW_INVALIDATE, RDW_UPDATENOW, RDW_ALLCHILDREN,
             },
             Dwm::{
                 DwmGetWindowAttribute, DWMWA_EXTENDED_FRAME_BOUNDS,
@@ -260,7 +260,7 @@ impl ScreenShot {
 
         Ok(ScreenShot {data, left, top, width, height})
     }
-    fn to_gray(&mut self) -> Result<(), UError>{
+    pub fn to_gray(&mut self) -> Result<(), UError>{
         let mut data = Mat::default();
         imgproc::cvt_color(&self.data, &mut data, imgproc::COLOR_RGB2GRAY, 0)?;
         self.data = data;
@@ -335,6 +335,20 @@ impl ScreenShot {
             Ok(rect)
         }
     }
+    fn get_window_rect(hwnd: HWND) -> RECT {
+        unsafe {
+            let mut rect = RECT::default();
+            GetWindowRect(hwnd, &mut rect);
+            rect
+        }
+    }
+    fn get_client_rect(hwnd: HWND) -> RECT {
+        unsafe {
+            let mut rect = RECT::default();
+            GetClientRect(hwnd, &mut rect);
+            rect
+        }
+    }
     pub fn get_window(hwnd: HWND, left: Option<i32>, top: Option<i32>, width: Option<i32>, height: Option<i32>, client: bool, style: ImgConst) -> ScreenShotResult {
         unsafe {
             let is_fore = match style {
@@ -343,42 +357,48 @@ impl ScreenShot {
                 ImgConst::IMG_BACK => false,
             };
             let (left, top, width, height) = if client {
-                let mut rect = RECT::default();
-                GetClientRect(hwnd, &mut rect);
+                let crect = Self::get_client_rect(hwnd);
                 let mut point = POINT {
-                    x: left.unwrap_or(rect.left),
-                    y: top.unwrap_or(rect.top),
+                    x: left.unwrap_or(crect.left),
+                    y: top.unwrap_or(crect.top),
                 };
-                let width = width.unwrap_or(rect.right - rect.left - point.x);
-                let height = height.unwrap_or(rect.bottom - rect.top - point.y);
+                let width = width.unwrap_or(crect.right - crect.left - point.x);
+                let height = height.unwrap_or(crect.bottom - crect.top - point.y);
+                // スクリーン座標を得る
+                ClientToScreen(hwnd, &mut point);
                 if is_fore {
                     // IMG_FOREならスクリーン座標を返す
-                    ClientToScreen(hwnd, &mut point);
-                }
-                (point.x, point.y, width, height)
-            } else {
-                let rect = if is_fore {
-                    Self::get_visible_rect(hwnd)?
+                    (point.x, point.y, width, height)
                 } else {
-                    let mut rect = RECT::default();
-                    GetWindowRect(hwnd, &mut rect);
-                    rect
-                };
-                let (left, top) = {
-                    (left, top)
+                    // IMG_BACKならクライアント座標へのオフセットを返す
+                    let vrect = Self::get_visible_rect(hwnd)?;
+                    let wrect = Self::get_window_rect(hwnd);
+                    let left = point.x - vrect.left + (vrect.left - wrect.left);
+                    let top = point.y - vrect.top + (vrect.top - wrect.top);
+                    (left, top, width, height)
+                }
+            } else {
+                let (margin_x, margin_y, rect_w, rect_h) = if is_fore {
+                    let rect = Self::get_visible_rect(hwnd)?;
+                    (rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top)
+                } else {
+                    let vrect = Self::get_visible_rect(hwnd)?;
+                    let wrect = Self::get_window_rect(hwnd);
+                    (vrect.left - wrect.left, vrect.top - wrect.top, vrect.right - vrect.left, vrect.bottom - vrect.top)
                 };
                 let left = left.unwrap_or(0);
-                let screen_left = left + rect.left;
                 let top = top.unwrap_or(0);
-                let screen_top = top + rect.top;
-                let width = width.unwrap_or(rect.right - rect.left - left);
-                let height = height.unwrap_or(rect.bottom - rect.top - top);
-                (screen_left, screen_top, width, height)
+                let width = width.unwrap_or(rect_w - left);
+                let height = height.unwrap_or(rect_h - top);
+                (left + margin_x, top + margin_y, width, height)
             };
 
             if ! is_fore {
                 // IMG_BACKの場合は再描画する
-                let flags = RDW_FRAME|RDW_INVALIDATE|RDW_ERASE|RDW_UPDATENOW|RDW_ALLCHILDREN;
+                let mut flags = RDW_INVALIDATE|RDW_UPDATENOW|RDW_ALLCHILDREN;
+                if ! client {
+                    flags |= RDW_FRAME;
+                }
                 RedrawWindow(hwnd, None, None, flags);
             }
             let hwnd = if is_fore {None} else {Some(hwnd)};
