@@ -590,6 +590,19 @@ ID0について
     :rtype: 真偽値
     :return: 成功した場合TRUE、失敗時はFALSE
 
+    .. admonition:: サンプルコード
+
+        .. sourcecode:: uwscr
+
+            // MORG_DIRECTのHWND指定
+            id = getid(hoge)
+            hnd = getctlhnd(id, class_name)
+            // このとき hnd の値がいずれかの登録済みIDと一致してしまった場合は予期せぬ動作となる
+            mouseorg(hnd, MORG_DIRECT)
+
+            // MORG_DIRECTかつ第四引数をTRUEにした場合hndはHWNDとして扱われる
+            mouseorg(hnd, MORG_DIRECT, , TRUE)
+
 .. function:: chkmorg()
 
     | mouseorgで基準点となっているスクリーン座標を得る
@@ -605,15 +618,6 @@ ID0について
             print chkmorg() // [x, y]
             mouseorg(0)
             print chkmorg() // EMPTY
-
-            // MORG_DIRECTのHWND指定
-            id = getid(hoge)
-            hnd = getctlhnd(id, class_name)
-            // このとき hnd の値がいずれかの登録済みIDと一致してしまった場合は予期せぬ動作となる
-            mouseorg(hnd, MORG_DIRECT)
-
-            // MORG_DIRECTかつ第四引数をTRUEにした場合hndはHWNDとして扱われる
-            mouseorg(hnd, MORG_DIRECT, , TRUE)
 
 
 ウィンドウ情報取得
