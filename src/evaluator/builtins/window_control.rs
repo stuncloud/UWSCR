@@ -1702,6 +1702,7 @@ impl From<&Option<MouseOrg>> for MorgImg {
     }
 }
 impl MorgImg {
+    #[cfg(feature="chkimg")]
     fn is_client(&self) -> bool {
         self.input.is_client()
     }
