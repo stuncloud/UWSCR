@@ -7,7 +7,7 @@
 <link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="制御関数" href="control.html" /><link rel="prev" title="文字列操作関数" href="string.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>ウィンドウ操作関数 - UWSCR 0.9.2</title>
+        <title>ウィンドウ操作関数 - UWSCR 0.9.3</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 0.9.2</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 0.9.3</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 0.9.2</span>
+  <span class="sidebar-brand-text">UWSCR 0.9.3</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -983,6 +983,227 @@
 <dd class="field-even"><p>なし</p>
 </dd>
 </dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="mouseorg">
+<span class="sig-name descname"><span class="pre">mouseorg</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ID</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">基準=MORG_WINDOW</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">画面取得=MORG_FORE</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">HWND=FALSE</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#mouseorg" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">以下の関数にて座標の始点(0, 0)を特定のウィンドウ基準とする</div>
+</div>
+<ul class="simple">
+<li><p><a class="reference internal" href="#mmv" title="mmv"><code class="xref any py py-func docutils literal notranslate"><span class="pre">mmv</span></code></a></p></li>
+<li><p><a class="reference internal" href="#btn" title="btn"><code class="xref any py py-func docutils literal notranslate"><span class="pre">btn</span></code></a></p></li>
+<li><p><a class="reference internal" href="#chkimg" title="chkimg"><code class="xref any py py-func docutils literal notranslate"><span class="pre">chkimg</span></code></a> (指定座標及び戻り値の座標に影響)</p></li>
+<li><p><a class="reference internal" href="#peekcolor" title="peekcolor"><code class="xref any py py-func docutils literal notranslate"><span class="pre">peekcolor</span></code></a></p></li>
+</ul>
+<div class="line-block">
+<div class="line"><cite>MORG_DIRECT</cite> を指定した場合は以下も対象となる</div>
+</div>
+<ul class="simple">
+<li><p><a class="reference internal" href="#kbd" title="kbd"><code class="xref any py py-func docutils literal notranslate"><span class="pre">kbd</span></code></a></p></li>
+</ul>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ID</strong> (<em>数値</em>) -- <p>ウィンドウID または HWND</p>
+<div class="line-block">
+<div class="line">該当するIDが存在しない場合は失敗となるが、基準に <code class="docutils literal notranslate"><span class="pre">MORG_DIRECT</span></code> が指定されている場合はこの値をHWNDとして扱う</div>
+<div class="line">IDまたはHWNDに該当する有効なウィンドウが存在しない場合は失敗となる</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">0</span></code> が指定された場合はスクリーン座標基準に戻す (この場合以下の引数は無視される)</div>
+</div>
+</p></li>
+<li><p><strong>基準</strong> (<em>定数 省略可</em>) -- <p>座標の始点を指定する</p>
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">MORG_WINDOW</span> <span class="pre">(0)</span></span></dt>
+<dd><div class="line-block">
+<div class="line">対象ウィンドウのウィンドウ領域左上を基準とする</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">MORG_CLIENT</span></span></dt>
+<dd><div class="line-block">
+<div class="line">対象ウィンドウのクライアント領域左上を基準とする</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">MORG_DIRECT</span></span></dt>
+<dd><div class="line-block">
+<div class="line">対象ウィンドウのクライアント領域左上を基準とする</div>
+<div class="line">また <a class="reference internal" href="#mmv" title="mmv"><code class="xref any py py-func docutils literal notranslate"><span class="pre">mmv</span></code></a>, <a class="reference internal" href="#btn" title="btn"><code class="xref any py py-func docutils literal notranslate"><span class="pre">btn</span></code></a> 及び <a class="reference internal" href="#kbd" title="kbd"><code class="xref any py py-func docutils literal notranslate"><span class="pre">kbd</span></code></a> 関数のマウス・キー操作をウィンドウに直接送信(PostMessage)する</div>
+<div class="line">送信するメッセージは以下 (対象ウィンドウがこれらのメッセージを処理しない場合操作は無効となる)</div>
+</div>
+<div class="table-wrapper docutils container">
+<table class="docutils align-left">
+<thead>
+<tr class="row-odd"><th class="head"><p>関数</p></th>
+<th class="head"><p>操作</p></th>
+<th class="head"><p>メッセージ</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>mmv</p></td>
+<td><p>カーソル移動</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">WM_MOUSEMOVE</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>btn</p></td>
+<td><p>左ボタン下げ</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">WM_LBUTTONDOWN</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>btn</p></td>
+<td><p>左ボタン上げ</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">WM_LBUTTONUP</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>btn</p></td>
+<td><p>右ボタン下げ</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">WM_RBUTTONDOWN</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>btn</p></td>
+<td><p>右ボタン上げ</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">WM_RBUTTONUP</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>btn</p></td>
+<td><p>中央ボタン下げ</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">WM_MBUTTONDOWN</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>btn</p></td>
+<td><p>中央ボタン上げ</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">WM_MBUTTONUP</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>btn</p></td>
+<td><p>マウスホイール回転(縦)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">WM_MOUSEWHEEL</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>btn</p></td>
+<td><p>マウスホイール回転(横)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">WM_MOUSEHWHEEL</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>kbd</p></td>
+<td><p>キー下げ</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">WM_KEYDOWN</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>kbd</p></td>
+<td><p>キー上げ</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">WM_KEYUP</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>kbd</p></td>
+<td><p>文字送信(1文字ずつ)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">WM_CHAR</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="admonition caution">
+<p class="admonition-title">注意</p>
+<p><code class="docutils literal notranslate"><span class="pre">btn(TOUCH)</span></code> の場合MORG_DIRECTは無視されMORG_CLIENTとして動作します</p>
+</div>
+</dd></dl>
+
+</p></li>
+<li><p><strong>画面取得</strong> (<em>定数 省略可</em>) -- <p>画面取得方法を指定する</p>
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">MORG_FORE</span></span></dt>
+<dd><div class="line-block">
+<div class="line">スクリーン上から画像を取得する (<a class="reference internal" href="#chkimg" title="chkimg"><code class="xref any py py-func docutils literal notranslate"><span class="pre">chkimg</span></code></a>)、または色を得る (<a class="reference internal" href="#peekcolor" title="peekcolor"><code class="xref any py py-func docutils literal notranslate"><span class="pre">peekcolor</span></code></a>)</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">MORG_BACK</span></span></dt>
+<dd><div class="line-block">
+<div class="line">対象ウィンドウから直接画像の取得 (<a class="reference internal" href="#chkimg" title="chkimg"><code class="xref any py py-func docutils literal notranslate"><span class="pre">chkimg</span></code></a>)、または色の取得 (<a class="reference internal" href="#peekcolor" title="peekcolor"><code class="xref any py py-func docutils literal notranslate"><span class="pre">peekcolor</span></code></a>) を試みる</div>
+<div class="line">他のウィンドウに隠れている場合でも使用可能</div>
+</div>
+<div class="admonition caution">
+<p class="admonition-title">注意</p>
+<p>対象ウィンドウによっては正常に動作しない可能性があります</p>
+<p>saveimgのIMG_BACKで画像が保存できないウィンドウなど</p>
+</div>
+</dd></dl>
+
+</p></li>
+<li><p><strong>HWND</strong> (<em>真偽値またはEMPTY 省略可</em>) -- <p><code class="docutils literal notranslate"><span class="pre">MORG_DIRECT</span></code> 指定時の第一引数の振る舞いを限定します (<code class="docutils literal notranslate"><span class="pre">MORG_DIRECT</span></code> 以外の場合無視される)</p>
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">FALSE</span></span></dt>
+<dd><div class="line-block">
+<div class="line">第一引数をIDとしますが、有効なIDが登録されていない場合はその値をHWNDとして扱います</div>
+</div>
+<div class="hint admonition">
+<p class="admonition-title">例</p>
+<div class="line-block">
+<div class="line">30000 を指定</div>
+</div>
+<ul>
+<li><p>ID30000が登録済み→該当ウィンドウを対象とする</p></li>
+<li><p>ID30000が未登録→HWNDが30000のウィンドウを対象とする</p></li>
+</ul>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">TRUE</span></span></dt>
+<dd><div class="line-block">
+<div class="line">第一引数をHWNDとして扱います</div>
+</div>
+</dd></dl>
+
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>真偽値</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>成功した場合TRUE、失敗時はFALSE</p>
+</dd>
+</dl>
+<div class="admonition- admonition">
+<p class="admonition-title">サンプルコード</p>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// MORG_DIRECTのHWND指定</span>
+<span class="n">id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">getid</span><span class="p">(</span><span class="n">hoge</span><span class="p">)</span>
+<span class="n">hnd</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">getctlhnd</span><span class="p">(</span><span class="n">id</span><span class="o">,</span><span class="w"> </span><span class="n">class_name</span><span class="p">)</span>
+<span class="c">// このとき hnd の値がいずれかの登録済みIDと一致してしまった場合は予期せぬ動作となる</span>
+<span class="n">mouseorg</span><span class="p">(</span><span class="n">hnd</span><span class="o">,</span><span class="w"> </span><span class="m">MORG_DIRECT</span><span class="p">)</span>
+
+<span class="c">// MORG_DIRECTかつ第四引数をTRUEにした場合hndはHWNDとして扱われる</span>
+<span class="n">mouseorg</span><span class="p">(</span><span class="n">hnd</span><span class="o">,</span><span class="w"> </span><span class="m">MORG_DIRECT</span><span class="o">,</span><span class="w"> </span><span class="o">,</span><span class="w"> </span><span class="m">TRUE</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="chkmorg">
+<span class="sig-name descname"><span class="pre">chkmorg</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#chkmorg" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">mouseorgで基準点となっているスクリーン座標を得る</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-odd"><p>数値配列またはEMPTY</p>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>基準点が変更されている場合は [x, y]、変更されていない場合はEMPTY</p>
+</dd>
+</dl>
+<div class="admonition- admonition">
+<p class="admonition-title">サンプルコード</p>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">mouseorg</span><span class="p">(</span><span class="n">id</span><span class="p">)</span>
+<span class="k">print</span><span class="w"> </span><span class="n">chkmorg</span><span class="p">()</span><span class="w"> </span><span class="c">// [x, y]</span>
+<span class="n">mouseorg</span><span class="p">(</span><span class="m">0</span><span class="p">)</span>
+<span class="k">print</span><span class="w"> </span><span class="n">chkmorg</span><span class="p">()</span><span class="w"> </span><span class="c">// EMPTY</span>
+</pre></div>
+</div>
+</div>
 </dd></dl>
 
 </section>
@@ -2248,7 +2469,17 @@
 <dl class="object">
 <dt class="sig sig-object">
 <span class="sig-name descname"><span class="pre">TOUCH</span></span></dt>
-<dd><p>タッチ操作 (未実装)</p>
+<dd><div class="line-block">
+<div class="line">タッチ操作を行う</div>
+<div class="line">状態をCLICKにした場合指定座標をタッチして離す</div>
+<div class="line">状態をDOWNにした場合指定座標でタッチ</div>
+<div class="line">その後状態をUPで再実行した場合同一座標ならそのまま離し、座標が異なるならその座標までスワイプ操作を行う</div>
+<div class="line">msを指定した場合はスワイプ速度に影響する (移動区間の一区切り毎の移動速度を変更する)</div>
+</div>
+<div class="admonition important">
+<p class="admonition-title">重要</p>
+<p>タッチできるのは一点のみ (複数箇所タッチは不可)</p>
+</div>
 </dd></dl>
 
 </p></li>
@@ -2276,19 +2507,36 @@
 
 </div></blockquote>
 </li>
-<li><p><code class="docutils literal notranslate"><span class="pre">WHEEL</span></code>: 数値を指定、正の数なら下方向、負の数なら上方向にスクロール</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">WHEEL2</span></code>: 数値を指定、正の数なら下方向、負の数なら上方向にスクロール</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">WHEEL</span></code>: ノッチ数を指定 (正なら下方向、負なら上方向に回転)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">WHEEL2</span></code>: ノッチ数を指定 (正なら右方向、負なら左方向に回転)</p></li>
 </ul>
 </p></li>
 <li><p><strong>x</strong> (<em>数値 省略可</em>) -- ボタン操作を行う位置のX座標、省略時は現在のマウスのX座標</p></li>
 <li><p><strong>y</strong> (<em>数値 省略可</em>) -- ボタン操作を行う位置のY座標、省略時は現在のマウスのY座標</p></li>
-<li><p><strong>ms</strong> (<em>数値 省略可</em>) -- ボタン操作を行うまでの待機時間 (ミリ秒)</p></li>
+<li><p><strong>ms</strong> (<em>数値 省略可</em>) -- <div class="line-block">
+<div class="line">ボタン操作を行うまでの待機時間 (ミリ秒)</div>
+<div class="line">またはTOUCHのDOWN後のUPで別座標を指定した場合のスワイプ速度、0 (速)～10 (遅)</div>
+</div>
+</p></li>
 </ul>
 </dd>
 <dt class="field-even">戻り値<span class="colon">:</span></dt>
 <dd class="field-even"><p>なし</p>
 </dd>
 </dl>
+<div class="admonition- admonition">
+<p class="admonition-title">サンプルコード</p>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">btn</span><span class="p">(</span><span class="m">TOUCH</span><span class="o">,</span><span class="w"> </span><span class="m">DOWN</span><span class="o">,</span><span class="w"> </span><span class="m">100</span><span class="o">,</span><span class="w"> </span><span class="m">100</span><span class="p">)</span>
+<span class="n">btn</span><span class="p">(</span><span class="m">TOUCH</span><span class="o">,</span><span class="w"> </span><span class="m">UP</span><span class="o">,</span><span class="w"> </span><span class="m">200</span><span class="o">,</span><span class="w"> </span><span class="m">200</span><span class="p">)</span><span class="w"> </span><span class="c">// 別座標でUPした場合はスワイプ操作になる</span>
+
+<span class="n">btn</span><span class="p">(</span><span class="m">TOUCH</span><span class="o">,</span><span class="w"> </span><span class="m">DOWN</span><span class="o">,</span><span class="w"> </span><span class="m">150</span><span class="o">,</span><span class="w"> </span><span class="m">150</span><span class="p">)</span>
+<span class="n">btn</span><span class="p">(</span><span class="m">TOUCH</span><span class="o">,</span><span class="w"> </span><span class="m">UP</span><span class="o">,</span><span class="w"> </span><span class="m">250</span><span class="o">,</span><span class="w"> </span><span class="m">250</span><span class="o">,</span><span class="w"> </span><span class="m">0</span><span class="p">)</span><span class="w"> </span><span class="c">// msが0なら最速</span>
+
+<span class="n">btn</span><span class="p">(</span><span class="m">TOUCH</span><span class="o">,</span><span class="w"> </span><span class="m">DOWN</span><span class="o">,</span><span class="w"> </span><span class="m">300</span><span class="o">,</span><span class="w"> </span><span class="m">300</span><span class="p">)</span>
+<span class="n">btn</span><span class="p">(</span><span class="m">TOUCH</span><span class="o">,</span><span class="w"> </span><span class="m">UP</span><span class="o">,</span><span class="w"> </span><span class="m">150</span><span class="o">,</span><span class="w"> </span><span class="m">150</span><span class="o">,</span><span class="w"> </span><span class="m">10</span><span class="p">)</span><span class="w"> </span><span class="c">// 10ならとても遅い</span>
+</pre></div>
+</div>
+</div>
 </dd></dl>
 
 <dl class="py function">
@@ -3213,6 +3461,8 @@
 <li><a class="reference internal" href="#sckey"><code class="docutils literal notranslate"><span class="pre">sckey()</span></code></a></li>
 <li><a class="reference internal" href="#setslider"><code class="docutils literal notranslate"><span class="pre">setslider()</span></code></a></li>
 <li><a class="reference internal" href="#sendstr"><code class="docutils literal notranslate"><span class="pre">sendstr()</span></code></a></li>
+<li><a class="reference internal" href="#mouseorg"><code class="docutils literal notranslate"><span class="pre">mouseorg()</span></code></a></li>
+<li><a class="reference internal" href="#chkmorg"><code class="docutils literal notranslate"><span class="pre">chkmorg()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#id3">ウィンドウ情報取得</a><ul>
