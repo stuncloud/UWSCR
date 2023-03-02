@@ -5,7 +5,20 @@
 
 .. object:: GET_UWSC_PRO
 
-    FALSE
+    ``EMPTY``
+
+    .. tip:: 実行環境の判定方法
+
+        .. sourcecode:: uwscr
+
+            select GET_UWSC_PRO
+                case EMPTY
+                    print "UWSCRです"
+                case TRUE
+                    print "UWSC Pro版です"
+                case FALSE
+                    print "UWSC Free版です"
+            selend
 
 .. object:: GET_UWSC_VER
 .. object:: GET_UWSCR_VER

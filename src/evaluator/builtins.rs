@@ -796,7 +796,7 @@ fn builtin_func_sets() -> BuiltinFunctionSets {
 
 fn set_special_variables(vec: &mut Vec<NamedObject>) {
     // 特殊変数
-    vec.push(NamedObject::new_builtin_const("GET_UWSC_PRO".into(), Object::Bool(false)));
+    vec.push(NamedObject::new_builtin_const("GET_UWSC_PRO".into(), Object::Empty));
     vec.push(NamedObject::new_builtin_const("GET_UWSC_VER".into(), Object::Version(
         env!("CARGO_PKG_VERSION").parse::<Version>().unwrap_or(Version::new(0,0,0))
     )));
