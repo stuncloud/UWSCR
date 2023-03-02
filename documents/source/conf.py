@@ -46,11 +46,9 @@ favicons = [
 
 # code highlight
 
-from ast import keyword
-from string import whitespace
 from typing_extensions import Literal
 from pygments.lexer import RegexLexer, words, include, bygroups
-from pygments.token import Keyword, Name, Whitespace, Comment, String, Number, Punctuation, Operator, Text, Literal
+from pygments.token import Keyword, Name, Whitespace, Comment, String, Number, Punctuation, Operator, Literal
 
 class UwscrLexer(RegexLexer):
     name = 'UWSCR'
@@ -80,7 +78,7 @@ class UwscrLexer(RegexLexer):
                 'dim', 'public', 'const',
                 'function', 'procedure', 'fend',
                 'hashtbl', 'hash', 'endhash', 'enum', 'endenum',
-                'select', 'selend', 'with', 'endwith',
+                'select', 'selend', 'case', 'with', 'endwith',
                 'module', 'endmodule', 'class', 'endclass',
             ), suffix=r'\b', prefix=r'\b'), Keyword.Declaration),
             (r'\b[a-zA-Z_][a-zA-Z_0-9]*\b', Name),
