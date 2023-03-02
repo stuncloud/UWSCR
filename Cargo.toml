@@ -43,6 +43,7 @@ winreg = "0.10"
 wmi = "0.11.2"
 zip = "0.6.2"
 scraper = "0.14.0"
+rand = "0.8.5"
 
 [build-dependencies]
 winres = "0.1"

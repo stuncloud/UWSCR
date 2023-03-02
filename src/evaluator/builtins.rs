@@ -148,10 +148,14 @@ impl BuiltinFuncArgs {
     fn get_arg_with_default<T, F: Fn(Object)-> BuiltInResult<T>>(&self, i: usize, default: Option<T>, f: F) -> BuiltInResult<T> {
         if self.len() >= i+ 1 {
             let obj = self.item(i);
-            f(obj)
+            if default.is_none() && obj == Object::EmptyParam {
+                // 必須引数が省略されていた場合はエラー
+                Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgRequiredAt(i + 1)))
+            } else {
+                f(obj)
+            }
         } else {
-            let err = BuiltinFuncError::new(UErrorMessage::BuiltinArgRequiredAt(i + 1));
-            default.ok_or(err)
+            default.ok_or(BuiltinFuncError::new(UErrorMessage::BuiltinArgRequiredAt(i + 1)))
         }
     }
     fn get_arg_with_default2<T, F: Fn(Object, Option<T>)-> BuiltInResult<T>>(&self, i: usize, default: Option<T>, f: F) -> BuiltInResult<T> {
@@ -183,6 +187,18 @@ impl BuiltinFuncArgs {
             Ok(arg)
         })
     }
+    pub fn get_as_f64(&self, i: usize, default: Option<f64>) -> BuiltInResult<f64> {
+        self.get_arg_with_default(i, default, |arg| {
+            match arg {
+                Object::Num(n) => Ok(n),
+                Object::Bool(b) => Ok(b as i32 as f64),
+                Object::String(ref s) => {
+                    s.parse().map_err(|_| BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg)))
+                }
+                _ => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg)))
+            }
+        })
+    }
     /// 引数を任意の整数型として受ける
     pub fn get_as_int<T: Clone>(&self, i: usize, default: Option<T>) -> BuiltInResult<T>
         where T: cast::From<f64, Output=Result<T, cast::Error>>,
@@ -204,8 +220,7 @@ impl BuiltinFuncArgs {
                 Object::EmptyParam => {
                     default.ok_or(BuiltinFuncError::new(UErrorMessage::BuiltinArgRequiredAt(i + 1)))
                 },
-                _ => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg))
-                )
+                _ => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg)))
             }
         })
     }

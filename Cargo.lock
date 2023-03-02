@@ -2295,6 +2295,7 @@ dependencies = [
  "num-traits",
  "once_cell",
  "opencv",
+ "rand 0.8.5",
  "regex",
  "reqwest",
  "schemars",
