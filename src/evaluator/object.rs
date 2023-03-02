@@ -255,27 +255,28 @@ impl fmt::Display for Object {
 impl PartialEq for Object {
     fn eq(&self, other: &Self) -> bool {
         match self {
+            Object::EmptyParam => match other {
+                Object::EmptyParam => true,
+                _ => false
+            },
             Object::Num(n) => match other {
                 Object::Num(n2) => n == n2,
                 Object::String(s) => n.to_string() == s.to_string(),
-                Object::Empty |
-                Object::EmptyParam => 0.0 == *n,
+                Object::Empty => 0.0 == *n,
                 Object::Bool(b) => ! n.is_zero() && *b,
                 _ => false
             },
             Object::String(s) => match other {
                 Object::Num(n) => s.to_string() == n.to_string(),
                 Object::String(s2) => s.to_string() == s2.to_string(),
-                Object::Empty |
-                Object::EmptyParam => false,
+                Object::Empty => false,
                 Object::Bool(b) => b.to_string().to_ascii_lowercase() == s.to_ascii_lowercase(),
                 _ => false
             },
             Object::Bool(b) => match other {
                 Object::Bool(b2) => b == b2,
                 Object::String(s) => b.to_string().to_ascii_lowercase() == s.to_ascii_lowercase(),
-                Object::Empty |
-                Object::EmptyParam => false && *b,
+                Object::Empty => false && *b,
                 _ => false
             },
             Object::Array(a) => if let Object::Array(a2) = other {a == a2} else {false},
@@ -300,9 +301,8 @@ impl PartialEq for Object {
                 Object::Null => true,
                 _ => false
             },
-            Object::Empty |
-            Object::EmptyParam => match other {
-                Object::Empty | Object::EmptyParam => true,
+            Object::Empty => match other {
+                Object::Empty => true,
                 Object::Num(n) => &0.0 == n,
                 Object::String(_) => false,
                 _ => false,

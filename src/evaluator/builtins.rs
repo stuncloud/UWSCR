@@ -961,7 +961,6 @@ pub fn type_of(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
             }
         },
         Object::Null => VariableType::TYPE_NULL,
-        Object::EmptyParam |
         Object::Empty => VariableType::TYPE_EMPTY,
         Object::Nothing => VariableType::TYPE_NOTHING,
         Object::Handle(_) => VariableType::TYPE_HWND,
@@ -989,6 +988,7 @@ pub fn type_of(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
         Object::ByteArray(_) => VariableType::TYPE_BYTE_ARRAY,
         Object::Reference(_, _) => VariableType::TYPE_REFERENCE,
 
+        Object::EmptyParam |
         Object::VarArgument(_) |
         Object::DynamicVar(_) |
         Object::Continue(_) |
