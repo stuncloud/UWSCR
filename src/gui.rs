@@ -104,6 +104,7 @@ pub use windows::{
                 DwmIsCompositionEnabled, DwmGetWindowAttribute,
             }
         },
+        System::LibraryLoader::GetModuleHandleW,
     }
 };
 
@@ -162,17 +163,16 @@ impl Window {
     fn register_class(class_name: &str, wndproc: WNDPROC, color: Option<SYS_COLOR_INDEX>) -> UWindowResult<u16> {
         unsafe {
             let wide = to_wide_string(class_name);
-            let hInstance = HINSTANCE::default();
+            let hInstance = GetModuleHandleW(None)
+                .map_err(|e| UWindowError::FailedToRegisterClass(class_name.into(), e.to_string()))?;
             let hbrBackground = match color {
                 Some(index) => HBRUSH(index.0 as isize),
                 None => HBRUSH(COLOR_WINDOW.0 as isize)
             };
-            let hIcon = LoadIconW(hInstance, IDI_APPLICATION)
+            let hIcon = LoadIconW(hInstance, PCWSTR(1 as _))
                 .map_err(|e| UWindowError::FailedToRegisterClass(class_name.into(), e.to_string()))?;
-            let hCursor = LoadCursorW(hInstance, IDC_ARROW)
-                .map_err(|e| UWindowError::FailedToRegisterClass(class_name.into(), e.to_string()))?;
-            let hIconSm = LoadIconW(hInstance, IDI_APPLICATION)
-                .map_err(|e| UWindowError::FailedToRegisterClass(class_name.into(), e.to_string()))?;
+            let hCursor = HCURSOR(0);
+            let hIconSm = HICON(0);
             let wc = WNDCLASSEXW {
                 cbSize: std::mem::size_of::<WNDCLASSEXW>() as u32,
                 style: CS_HREDRAW | CS_VREDRAW,
