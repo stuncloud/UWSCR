@@ -1,3 +1,5 @@
+pub mod lockhard;
+
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
 use crate::evaluator::Evaluator;
@@ -70,6 +72,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("powershell", 4, powershell);
     sets.add("pwsh", 4, pwsh);
     sets.add("lockhard", 1, lockhard);
+    sets.add("lockhardex", 2, lockhardex);
     // sets.add("attachconsole", 1, attachconsole);
     sets
 }
@@ -578,5 +581,30 @@ pub fn _attachconsole(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncRe
 pub fn lockhard(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let flg = args.get_as_bool(0, Some(false))?;
     let result = lockhard::lock(flg);
+    Ok(result.into())
+}
+
+#[allow(non_camel_case_types)]
+#[derive(Debug, EnumString, EnumProperty, EnumVariantNames, ToPrimitive, FromPrimitive, Default)]
+pub enum LockHardExConst {
+    #[default]
+    LOCK_ALL      = 0,
+    LOCK_KEYBOARD = 1,
+    LOCK_MOUSE    = 2,
+}
+
+pub fn lockhardex(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let result = if args.len() > 0 {
+        let id = args.get_as_int(0, None)?;
+        let mode = args.get_as_const(1, false)?.unwrap_or_default();
+        let hwnd = if id == 0 {
+            None
+        } else {
+            Some(super::window_control::get_hwnd_from_id(id))
+        };
+        lockhard::lock_ex(hwnd, mode)
+    } else {
+        lockhard::free_ex()
+    };
     Ok(result.into())
 }
