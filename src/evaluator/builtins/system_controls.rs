@@ -69,6 +69,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("doscmd", 4, doscmd);
     sets.add("powershell", 4, powershell);
     sets.add("pwsh", 4, pwsh);
+    sets.add("lockhard", 1, lockhard);
     // sets.add("attachconsole", 1, attachconsole);
     sets
 }
@@ -571,5 +572,11 @@ pub fn _attachconsole(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncRe
     } else {
         free_console()
     };
+    Ok(result.into())
+}
+
+pub fn lockhard(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let flg = args.get_as_bool(0, Some(false))?;
+    let result = lockhard::lock(flg);
     Ok(result.into())
 }
