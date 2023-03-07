@@ -11,7 +11,8 @@ use windows::{
     Win32::{
         Foundation::{
             BOOL, HWND, LPARAM,
-            CloseHandle
+            CloseHandle,
+            FILETIME,
         },
         System::{
             WindowsProgramming::{
@@ -30,6 +31,7 @@ use windows::{
                 CREATE_NEW_CONSOLE, CREATE_NO_WINDOW,
                 CreateProcessW, WaitForSingleObject, GetExitCodeProcess,
                 WaitForInputIdle,
+                GetSystemTimes,
             },
             SystemServices::{
                 VER_NT_WORKSTATION,
@@ -73,6 +75,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("pwsh", 4, pwsh);
     sets.add("lockhard", 1, lockhard);
     sets.add("lockhardex", 2, lockhardex);
+    sets.add("cpuuserate", 0, cpuuserate);
     // sets.add("attachconsole", 1, attachconsole);
     sets
 }
@@ -607,4 +610,29 @@ pub fn lockhardex(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult
         lockhard::free_ex()
     };
     Ok(result.into())
+}
+
+pub fn cpuuserate(_: &mut Evaluator, _: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let rate = unsafe {
+        let time = |ft: FILETIME| {
+            (ft.dwHighDateTime as i64) << 32 | ft.dwLowDateTime as i64
+        };
+        let diff = |ft1: FILETIME, ft2: FILETIME| {
+            time(ft2) - time(ft1)
+        };
+        let mut idle1 = FILETIME::default();
+        let mut kernel1 = FILETIME::default();
+        let mut user1 = FILETIME::default();
+        let mut idle2 = FILETIME::default();
+        let mut kernel2 = FILETIME::default();
+        let mut user2 = FILETIME::default();
+        GetSystemTimes(Some(&mut idle1), Some(&mut kernel1), Some(&mut user1));
+        thread::sleep(time::Duration::from_secs(1));
+        GetSystemTimes(Some(&mut idle2), Some(&mut kernel2), Some(&mut user2));
+        let total = diff(kernel2, kernel1) + diff(user2, user1);
+        let idle = diff(idle2, idle1);
+        let usage = 1.0 - idle as f64 / total as f64;
+        usage * 100.0
+    };
+    Ok(rate.into())
 }

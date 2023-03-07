@@ -1,8 +1,8 @@
 システム関数
 ============
 
-OS情報
-------
+システム情報
+------------
 
 .. function:: kindofos(データ種別=FALSE)
 
@@ -85,6 +85,13 @@ OS情報
                 print obj.processid
                 print obj.commandline
             next
+
+.. function:: cpuuserate()
+
+    | システム全体での1秒間のCPU使用率を得る
+
+    :rtype: 数値
+    :return: CPU使用率
 
 プロセス実行
 ------------
