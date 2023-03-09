@@ -93,6 +93,168 @@
     :rtype: 数値
     :return: CPU使用率
 
+.. function:: sensor(種別)
+
+    | 各種センサーから情報を得る (Sensor APIを使用)
+
+    :param 定数 種別: センサー種別を指定する定数
+
+        .. object:: SNSR_Biometric_HumanPresense
+
+            | 人が存在した場合に True
+
+        .. object:: SNSR_Biometric_HumanProximity
+
+            | 人との距離(メートル)
+
+        .. object:: SNSR_Electrical_Capacitance
+
+            | 静電容量(ファラド)
+
+        .. object:: SNSR_Electrical_Resistance
+
+            | 電気抵抗(オーム)
+
+        .. object:: SNSR_Electrical_Inductance
+
+            | 誘導係数(ヘンリー)
+
+        .. object:: SNSR_Electrical_Current
+
+            | 電流(アンペア)
+
+        .. object:: SNSR_Electrical_Voltage
+
+            | 電圧(ボルト)
+
+        .. object:: SNSR_Electrical_Power
+
+            | 電力(ワット)
+
+        .. object:: SNSR_Environmental_Temperature
+
+            | 気温(セ氏)
+
+        .. object:: SNSR_Environmental_Pressure
+
+            | 気圧(バール)
+
+        .. object:: SNSR_Environmental_Humidity
+
+            | 湿度(パーセンテージ)
+
+        .. object:: SNSR_Environmental_WindDirection
+
+            | 風向(度数)
+
+        .. object:: SNSR_Environmental_WindSpeed
+
+            | 風速(メートル毎秒)
+
+        .. object:: SNSR_Light_Lux
+
+            | 照度(ルクス)
+
+        .. object:: SNSR_Light_Temperature
+
+            | 光色温度(ケルビン)
+
+        .. object:: SNSR_Mechanical_Force
+
+            | 力(ニュートン)
+
+        .. object:: SNSR_Mechanical_AbsPressure
+
+            | 絶対圧(パスカル)
+
+        .. object:: SNSR_Mechanical_GaugePressure
+
+            | ゲージ圧(パスカル)
+
+        .. object:: SNSR_Mechanical_Weight
+
+            | 重量(キログラム)
+
+        .. object:: SNSR_Motion_AccelerationX
+        .. object:: SNSR_Motion_AccelerationY
+        .. object:: SNSR_Motion_AccelerationZ
+
+            | X/Y/Z軸 加速度(ガル)
+
+        .. object:: SNSR_Motion_AngleAccelX
+        .. object:: SNSR_Motion_AngleAccelY
+        .. object:: SNSR_Motion_AngleAccelZ
+
+            | X/Y/Z軸 角加速度(度毎秒毎秒)
+
+        .. object:: SNSR_Motion_Speed
+
+            | 速度(メートル毎秒)
+
+        .. object:: SNSR_Scanner_RFIDTag
+
+            | RFIDタグの40ビット値
+
+        .. object:: SNSR_Scanner_BarcodeData
+
+            | バーコードデータを表す文字列
+
+            .. caution:: UWSCRではサポートされません (必ずEMPTYを返します)
+
+
+        .. object:: SNSR_Orientation_TiltX
+        .. object:: SNSR_Orientation_TiltY
+        .. object:: SNSR_Orientation_TiltZ
+
+            | X/Y/Z 軸角(度)
+
+        .. object:: SNSR_Orientation_DistanceX
+        .. object:: SNSR_Orientation_DistanceY
+        .. object:: SNSR_Orientation_DistanceZ
+
+            | X/Y/Z 距離(メートル)
+
+        .. object:: SNSR_Orientation_MagHeading
+
+            | 磁北基準未補正コンパス方位
+
+        .. object:: SNSR_Orientation_TrueHeading
+
+            | 真北基準未補正コンパス方位
+
+        .. object:: SNSR_Orientation_CompMagHeading
+
+            | 磁北基準補正済みコンパス方位
+
+        .. object:: SNSR_Orientation_CompTrueHeading
+
+            | 真北基準補正済みコンパス方位
+
+        .. object:: SNSR_Location_Altitude
+
+            | 海抜(メートル)
+
+        .. object:: SNSR_Location_Latitude
+
+            | 緯度(度数)
+
+        .. object:: SNSR_Location_Longitude
+
+            | 経度(度数)
+
+        .. object:: SNSR_Location_Speed
+
+            | スピード(ノット)
+
+    :rtype: 真偽値、数値、文字列
+    :return: 種別に応じた値、値が取得できない場合はEMPTY
+
+        .. admonition:: UWSCとの違い
+            :class: note
+
+            | 一部のエラーで値が取得できない場合にUWSCはNaNを返していましたが、UWSCRではEMPTYが返ります
+
+
 プロセス実行
 ------------
 

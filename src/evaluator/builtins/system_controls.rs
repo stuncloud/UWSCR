@@ -1,4 +1,5 @@
 pub mod lockhard;
+mod sensor;
 
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
@@ -76,6 +77,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("lockhard", 1, lockhard);
     sets.add("lockhardex", 2, lockhardex);
     sets.add("cpuuserate", 0, cpuuserate);
+    sets.add("sensor", 1, sensor);
     // sets.add("attachconsole", 1, attachconsole);
     sets
 }
@@ -635,4 +637,93 @@ pub fn cpuuserate(_: &mut Evaluator, _: BuiltinFuncArgs) -> BuiltinFuncResult {
         usage * 100.0
     };
     Ok(rate.into())
+}
+
+#[allow(non_camel_case_types)]
+#[derive(Debug, EnumString, EnumProperty, EnumVariantNames, ToPrimitive, FromPrimitive)]
+pub enum SensorConst {
+    /// 人が存在した場合に True
+    SNSR_Biometric_HumanPresense    = 1,
+    /// 人との距離(メートル)
+    SNSR_Biometric_HumanProximity   = 2,
+    /// 静電容量(ファラド)
+    SNSR_Electrical_Capacitance     = 5,
+    /// 電気抵抗(オーム)
+    SNSR_Electrical_Resistance      = 6,
+    /// 誘導係数(ヘンリー)
+    SNSR_Electrical_Inductance      = 7,
+    /// 電流(アンペア)
+    SNSR_Electrical_Current         = 8,
+    /// 電圧(ボルト)
+    SNSR_Electrical_Voltage         = 9,
+    /// 電力(ワット)
+    SNSR_Electrical_Power           = 10,
+    /// 気温(セ氏)
+    SNSR_Environmental_Temperature  = 15,
+    /// 気圧(バール)
+    SNSR_Environmental_Pressure     = 16,
+    /// 湿度(パーセンテージ)
+    SNSR_Environmental_Humidity     = 17,
+    /// 風向(度数)
+    SNSR_Environmental_WindDirection= 18,
+    /// 風速(メートル毎秒)
+    SNSR_Environmental_WindSpeed    = 19,
+    /// 照度(ルクス)
+    SNSR_Light_Lux                  = 20,
+    /// 光色温度(ケルビン)
+    SNSR_Light_Temperature          = 21,
+    /// 力(ニュートン)
+    SNSR_Mechanical_Force           = 25,
+    /// 絶対圧(パスカル)
+    SNSR_Mechanical_AbsPressure     = 26,
+    /// ゲージ圧(パスカル)
+    SNSR_Mechanical_GaugePressure   = 27,
+    /// 重量(キログラム)
+    SNSR_Mechanical_Weight          = 28,
+    /// X/Y/Z軸 加速度(ガル)
+    SNSR_Motion_AccelerationX       = 30,
+    SNSR_Motion_AccelerationY       = 31,
+    SNSR_Motion_AccelerationZ       = 32,
+    /// X/Y/Z軸 角加速度(度毎秒毎秒)
+    SNSR_Motion_AngleAccelX         = 33,
+    SNSR_Motion_AngleAccelY         = 34,
+    SNSR_Motion_AngleAccelZ         = 35,
+    /// 速度(メートル毎秒)
+    SNSR_Motion_Speed               = 36,
+    /// RFIDタグの40ビット値
+    SNSR_Scanner_RFIDTag            = 40,
+    /// バーコードデータを表す文字列
+    SNSR_Scanner_BarcodeData        = 41,
+    /// X/Y/Z 軸角(度)
+    SNSR_Orientation_TiltX          = 45,
+    SNSR_Orientation_TiltY          = 46,
+    SNSR_Orientation_TiltZ          = 47,
+    /// X/Y/Z 距離(メートル)
+    SNSR_Orientation_DistanceX      = 48,
+    SNSR_Orientation_DistanceY      = 49,
+    SNSR_Orientation_DistanceZ      = 50,
+    /// 磁北基準未補正コンパス方位
+    SNSR_Orientation_MagHeading     = 51,
+    /// 真北基準未補正コンパス方位
+    SNSR_Orientation_TrueHeading    = 52,
+    /// 磁北基準補正済みコンパス方位
+    SNSR_Orientation_CompMagHeading = 53,
+    /// 真北基準補正済みコンパス方位
+    SNSR_Orientation_CompTrueHeading= 54,
+    /// 海抜(メートル)
+    SNSR_Location_Altitude          = 60,
+    /// 緯度(度数)
+    SNSR_Location_Latitude          = 61,
+    /// 経度(度数)
+    SNSR_Location_Longitude         = 62,
+    /// スピード(ノット)
+    SNSR_Location_Speed             = 63,
+}
+
+pub fn sensor(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let Some(category) = args.get_as_const::<SensorConst>(0, true)? else {
+        return Ok(Object::Empty);
+    };
+    let obj = sensor::Sensor::new(category).get_as_object();
+    Ok(obj)
 }

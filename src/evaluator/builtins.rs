@@ -716,6 +716,7 @@ pub fn init_builtins() -> Vec<NamedObject> {
     set_builtin_consts::<system_controls::OsKind>(&mut vec);
     set_builtin_consts::<system_controls::KindOfOsResultType>(&mut vec);
     // set_builtin_consts::<system_controls::LockHardExConst>(&mut vec);
+    set_builtin_consts::<system_controls::SensorConst>(&mut vec);
     // math
     math::builtin_func_sets().set(&mut vec);
     // key codes

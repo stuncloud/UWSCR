@@ -6,12 +6,12 @@ use windows::Win32::{
     Foundation::{DISP_E_MEMBERNOTFOUND},
     System::{
         Com::{
-        //     COINIT_APARTMENTTHREADED, CLSCTX_ALL,
-        //     CLSIDFromProgID, CoInitializeEx, CoCreateInstance,
             DISPPARAMS, EXCEPINFO,
             IDispatch,
             DISPATCH_FLAGS,
-            CoInitializeEx, CoUninitialize, COINIT_APARTMENTTHREADED,
+            CoInitializeEx, CoUninitialize,
+            // COINIT_APARTMENTTHREADED,
+            COINIT_MULTITHREADED,
             DISPATCH_PROPERTYGET, DISPATCH_PROPERTYPUT, DISPATCH_METHOD,
             VT_ARRAY,
             // VT_BLOB,
@@ -565,7 +565,7 @@ impl SAFEARRAYBOUNDHelper for SAFEARRAYBOUND {
 
 pub fn com_initialize() -> EvalResult<()> {
     unsafe {
-        CoInitializeEx(None, COINIT_APARTMENTTHREADED)?;
+        CoInitializeEx(None, COINIT_MULTITHREADED)?;
     }
     Ok(())
 }
