@@ -39,7 +39,7 @@ UWSCR |version| オンラインヘルプ
 
     builtins/string
     builtins/window
-    builtins/control
+    builtins/scriptcontrol
     builtins/system
     builtins/file
     builtins/gui

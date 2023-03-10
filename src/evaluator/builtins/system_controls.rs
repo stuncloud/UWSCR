@@ -1,5 +1,6 @@
-pub mod lockhard;
+mod lockhard;
 mod sensor;
+mod sound;
 
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
@@ -78,6 +79,8 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("lockhardex", 2, lockhardex);
     sets.add("cpuuserate", 0, cpuuserate);
     sets.add("sensor", 1, sensor);
+    sets.add("sound", 3, sound);
+    sets.add("beep", 3, beep);
     // sets.add("attachconsole", 1, attachconsole);
     sets
 }
@@ -726,4 +729,24 @@ pub fn sensor(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     };
     let obj = sensor::Sensor::new(category).get_as_object();
     Ok(obj)
+}
+
+pub fn sound(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let name = args.get_as_string_or_empty(0)?;
+    let sync = args.get_as_bool(1, Some(false))?;
+    let device = args.get_as_int(2, Some(0))?;
+    let device = if device < 0 {0} else {device} as u32;
+    match name {
+        Some(name) => sound::play_sound(&name, sync, device),
+        None => sound::stop_sound(),
+    }
+    Ok(Object::Empty)
+}
+
+pub fn beep(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let duration = args.get_as_int(0, Some(300u32))?;
+    let freq = args.get_as_int(1, Some(2000u32))?.min(32767).max(37);
+    let count = args.get_as_int(2, Some(1u32))?.max(1);
+    sound::beep(duration, freq, count);
+    Ok(Object::Empty)
 }
