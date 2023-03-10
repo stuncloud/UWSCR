@@ -387,7 +387,7 @@ CUIシェル
 音声出力
 --------
 
-function:: sound([名前=EMPTY, 同期フラグ=FALSE, 再生デバイス=0])
+.. .. function:: sound([名前=EMPTY, 同期フラグ=FALSE, 再生デバイス=0])
 .. function:: sound([名前=EMPTY, 同期フラグ=FALSE])
 
     | ファイル名、またはサウンドイベント名を指定しそれを再生する
@@ -428,7 +428,9 @@ function:: sound([名前=EMPTY, 同期フラグ=FALSE, 再生デバイス=0])
             | 再生を停止します
 
     :param 真偽値 省略可 同期フラグ: TRUEなら再生終了を待つ
+
     .. :param 数値 省略可 再生デバイス: wavファイルの出力先デバイスを番号で指定 (0から)
+
     :return: なし
 
 .. function:: beep([長さ=300, 周波数=2000, 繰り返し=1])
