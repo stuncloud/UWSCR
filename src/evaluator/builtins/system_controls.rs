@@ -7,12 +7,13 @@ use crate::evaluator::builtins::*;
 use crate::evaluator::Evaluator;
 use crate::error::evaluator::{UErrorMessage, UErrorKind};
 use crate::winapi::{from_ansi_bytes, to_wide_string, attach_console, free_console, WString, PcwstrExt};
+use crate::evaluator::builtins::window_control::get_hwnd_from_id;
 use windows::{
     w,
     core::{PWSTR,PCWSTR},
     Win32::{
         Foundation::{
-            BOOL, HWND, LPARAM,
+            BOOL, HWND, LPARAM, WPARAM,
             CloseHandle,
             FILETIME,
         },
@@ -40,10 +41,22 @@ use windows::{
             }
         },
         UI::{
+            Input::{
+                Ime::{
+                    ImmGetDefaultIMEWnd,
+                    IME_CMODE_KATAKANA,
+                },
+                KeyboardAndMouse::{
+                    GetKeyState,
+                    VK_NUMLOCK, VK_CAPITAL, VK_SCROLL,
+                }
+            },
             WindowsAndMessaging::{
                 SM_SERVERR2,
                 SW_SHOWNORMAL, SW_SHOW,
                 EnumWindows, GetWindowThreadProcessId, GetSystemMetrics,
+                GetForegroundWindow,
+                SendMessageW, WM_IME_CONTROL,
             },
             Shell::{
                 ShellExecuteW,
@@ -81,6 +94,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("sensor", 1, sensor);
     sets.add("sound", 3, sound);
     sets.add("beep", 3, beep);
+    sets.add("getkeystate", 2, getkeystate);
     // sets.add("attachconsole", 1, attachconsole);
     sets
 }
@@ -749,4 +763,62 @@ pub fn beep(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let count = args.get_as_int(2, Some(1u32))?.max(1);
     sound::beep(duration, freq, count);
     Ok(Object::Empty)
+}
+
+#[allow(non_camel_case_types)]
+#[derive(Debug, EnumString, EnumProperty, EnumVariantNames, ToPrimitive, FromPrimitive, PartialEq)]
+pub enum ToggleKey {
+    TGL_NUMLOCK    = 10000,
+    TGL_CAPSLOCK   = 10001,
+    TGL_SCROLLLOCK = 10002,
+    TGL_KANALOCK   = 10003,
+    TGL_IME        = 10004,
+}
+const IMC_GETOPENSTATUS: WPARAM = WPARAM(5);
+const IMC_GETCONVERSIONMODE: WPARAM = WPARAM(1);
+
+pub fn getkeystate(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let code = args.get_as_int(0, None)?;
+    let id = args.get_as_int(1, Some(0))?;
+    let state = get_key_state(code, id);
+    Ok(state.into())
+}
+fn get_key_state(code: i32, id: i32) -> bool {
+    unsafe {
+        let (code, toggle) = match FromPrimitive::from_i32(code) {
+            Some(tk) => {
+                let code = match tk {
+                    ToggleKey::TGL_NUMLOCK => VK_NUMLOCK,
+                    ToggleKey::TGL_CAPSLOCK => VK_CAPITAL,
+                    ToggleKey::TGL_SCROLLLOCK => VK_SCROLL,
+                    tk => {
+                        let hwnd = if id < 1 {
+                            // 0以下はアクティブウィンドウ
+                            GetForegroundWindow()
+                        } else {
+                            get_hwnd_from_id(id)
+                        };
+                        let hime = ImmGetDefaultIMEWnd(hwnd);
+                        if tk == ToggleKey::TGL_KANALOCK {
+                            // TGL_KANALOCK
+                            let mode = SendMessageW(hime, WM_IME_CONTROL, IMC_GETCONVERSIONMODE, LPARAM(0)).0;
+                            return (mode & IME_CMODE_KATAKANA.0 as isize) > 0;
+                        } else {
+                            // TGL_IME
+                            let state = SendMessageW(hime, WM_IME_CONTROL, IMC_GETOPENSTATUS, LPARAM(0)).0;
+                            return state != 0;
+                        }
+                    }
+                }.0 as i32;
+                (code, true)
+            },
+            None => (code, false),
+        };
+        let key_state = GetKeyState(code) as i32;
+        if toggle {
+            (key_state & 0x0001) > 0
+        } else {
+            (key_state & 0x8000) > 0
+        }
+    }
 }

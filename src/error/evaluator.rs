@@ -663,7 +663,7 @@ impl fmt::Display for UErrorMessage {
             ),
             Self::ParserErrors(e) => write!(f, "{}", e),
             Self::TooManyArguments(given, should) => write_locale!(f,
-                "引数が多すぎます ({}/ {}またはそれ以下にしてください)",
+                "引数が多すぎます({})、{}個またはそれ以下にしてください",
                 "{} argument[s] where given, should be {} or less",
                 given, should
             ),
