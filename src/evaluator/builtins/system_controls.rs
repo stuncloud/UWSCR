@@ -602,8 +602,8 @@ pub enum LockHardExConst {
 }
 
 pub fn lockhardex(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let result = if args.len() > 0 {
-        let id = args.get_as_int(0, None)?;
+    let id = args.get_as_int_or_empty(0)?;
+    let result = if let Some(id) = id {
         let mode = args.get_as_const(1, false)?.unwrap_or_default();
         let hwnd = if id == 0 {
             None

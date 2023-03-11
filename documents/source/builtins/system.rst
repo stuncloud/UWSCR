@@ -351,7 +351,7 @@ CUIシェル
     :rtype: 真偽値
     :return: 関数が成功した場合TRUE
 
-.. function:: lockhardex(ID, [モード=LOCK_ALL])
+.. function:: lockhardex([ID=EMPTY, モード=LOCK_ALL])
 
     | ウィンドウに対するマウス、キーボードの入力を禁止する
 
@@ -366,7 +366,7 @@ CUIシェル
         | ロック可能な対象は常に一つです
         | ロック中に別のウィンドウに対してロックを行った場合元のウィンドウは開放されます
 
-    :param 数値 ID: ウィンドウID、0の場合は全体
+    :param 数値 省略可 ID: 入力を禁止するウィンドウのID、0の場合はデスクトップ全体、EMPTYならロックを解除
     :param 定数 省略可 モード: 禁止内容を指定
 
         .. object:: LOCK_ALL (0)
@@ -381,8 +381,8 @@ CUIシェル
 
             | マウスの入力のみ禁止
 
-    :rtype: 戻り値の型
-    :return: 戻り値の説明
+    :rtype: 真偽値
+    :return: 関数が成功した場合TRUE
 
 音声出力
 --------
