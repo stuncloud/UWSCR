@@ -1,6 +1,7 @@
 mod lockhard;
 mod sensor;
 mod sound;
+pub mod poff;
 
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
@@ -95,6 +96,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("sound", 3, sound);
     sets.add("beep", 3, beep);
     sets.add("getkeystate", 2, getkeystate);
+    sets.add("poff", 2, poff);
     // sets.add("attachconsole", 1, attachconsole);
     sets
 }
@@ -821,4 +823,75 @@ fn get_key_state(code: i32, id: i32) -> bool {
             (key_state & 0x8000) > 0
         }
     }
+}
+
+#[allow(non_camel_case_types)]
+#[derive(Debug, EnumString, EnumProperty, EnumVariantNames, ToPrimitive, FromPrimitive, Clone, PartialEq)]
+pub enum POFF {
+    /// 電源断
+    P_POWEROFF    = 16,
+    /// シャットダウン
+    P_SHUTDOWN    = 32,
+    /// ログオフ
+    #[strum(props(alias="P_SIGNOUT"))]
+    P_LOGOFF      = 128,
+    /// リブート
+    P_REBOOT      = 64,
+    /// 休止
+    #[strum(props(alias="P_HIBERNATE"))]
+    P_SUSPEND     = 256,
+    /// スリープ
+    #[strum(props(alias="P_SLEEP"))]
+    P_SUSPEND2    = 512,
+    /// モニターOFF (省電力モード)
+    #[strum(props(alias="P_MONITOR_POWERSAVE"))]
+    P_MONIPOWER   = 1024,
+    /// モニターOFF (電源断)
+    #[strum(props(alias="P_MONITOR_OFF"))]
+    P_MONIPOWER2  = 2048,
+    /// モニターON
+    #[strum(props(alias="P_MONITOR_ON"))]
+    P_MONIPOWER3  = 4096,
+    /// スクリーンセーバ起動
+    P_SCREENSAVE  = 8192,
+    /// UWSCの再起動 （第2引数を True指定するとスクリプト再実行）
+    P_UWSC_REEXEC = 16384,
+    /// 強制実行フラグ
+    P_FORCE       = 8,
+}
+
+pub fn poff(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let n = args.get_as_int(0, None)?;
+    let script = args.get_as_bool(1, Some(true))?;
+    let p_force = POFF::P_FORCE as u32;
+
+    let (maybe_cmd, force) = if n & p_force != 0 {
+        let maybe_cmd = FromPrimitive::from_u32(n ^ p_force);
+        (maybe_cmd, true)
+    } else {
+        let maybe_cmd = FromPrimitive::from_u32(n);
+        (maybe_cmd, false)
+    };
+
+    if let Some(cmd) = maybe_cmd {
+        match cmd {
+            POFF::P_POWEROFF |
+            POFF::P_SHUTDOWN |
+            POFF::P_LOGOFF |
+            POFF::P_REBOOT => {
+                return Err(BuiltinFuncError::Kind(UErrorKind::Poff(cmd, force), UErrorMessage::None));
+            },
+            POFF::P_UWSC_REEXEC => {
+                return Err(BuiltinFuncError::Kind(UErrorKind::Poff(cmd, script), UErrorMessage::None));
+            },
+            POFF::P_SUSPEND => poff::hibernate(),
+            POFF::P_SUSPEND2 => poff::suspend(),
+            POFF::P_MONIPOWER => poff::monitor_save(),
+            POFF::P_MONIPOWER2 => poff::monitor_off(),
+            POFF::P_MONIPOWER3 => poff::monitor_on(),
+            POFF::P_SCREENSAVE => poff::screen_saver(),
+            POFF::P_FORCE => {},
+        }
+    }
+    Ok(Object::Empty)
 }

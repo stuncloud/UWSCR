@@ -7,6 +7,7 @@ pub use crate::write_locale;
 pub use super::{CURRENT_LOCALE, Locale};
 use crate::gui::UWindowError;
 use crate::evaluator::object::fopen::FopenError;
+use crate::evaluator::builtins::system_controls::POFF;
 use serde_json::Value;
 
 #[derive(Debug, Clone)]
@@ -186,6 +187,7 @@ pub enum UErrorKind {
     ExitExit(i32),
     InitializeError,
     ClipboardError,
+    Poff(POFF, bool)
 }
 
 impl fmt::Display for UErrorKind {
@@ -367,6 +369,7 @@ impl fmt::Display for UErrorKind {
                 "クリップボードエラー",
                 "Clipboard error",
             ),
+            Self::Poff(_, _) => write!(f, ""),
         }
     }
 }

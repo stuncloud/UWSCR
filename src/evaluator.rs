@@ -13,6 +13,7 @@ use crate::evaluator::builtins::*;
 use crate::evaluator::def_dll::*;
 use crate::evaluator::com_object::*;
 use crate::evaluator::devtools_protocol::{Browser, Element, ElementProperty};
+use crate::evaluator::builtins::system_controls::{POFF, poff::{sign_out, power_off, shutdown, reboot}};
 use crate::error::UWSCRErrorTitle;
 use crate::error::evaluator::{UError, UErrorKind, UErrorMessage};
 use crate::gui::{LogPrintWin, UWindow, Balloon};
@@ -154,11 +155,60 @@ impl Evaluator {
                     },
                     None => ()
                 },
-                Err(e) => if let UErrorKind::ExitExit(n) = e.kind {
-                    std::process::exit(n);
-                } else {
-                    return Err(e);
-                }
+                Err(e) => {
+                    match e.kind {
+                        UErrorKind::ExitExit(n) => {
+                            self.clear();
+                            std::process::exit(n);
+                        },
+                        UErrorKind::Poff(poff, flg) => {
+                            match poff {
+                                POFF::P_POWEROFF => {
+                                    self.clear();
+                                    power_off(flg);
+                                },
+                                POFF::P_SHUTDOWN => {
+                                    self.clear();
+                                    shutdown(flg);
+                                },
+                                POFF::P_LOGOFF => {
+                                    self.clear();
+                                    sign_out(flg);
+                                },
+                                POFF::P_REBOOT => {
+                                    self.clear();
+                                    reboot(flg);
+                                },
+                                POFF::P_UWSC_REEXEC => {
+                                    use std::process::{self, Command, Stdio};
+                                    // 自身を再実行
+                                    let path = env::current_exe()?;
+                                    let args = env::args().collect::<Vec<_>>();
+                                    let mut cmd = Command::new(path);
+                                    if flg {
+                                        cmd.args(&args[1..]);
+                                    }
+                                    // let vars = env::vars();
+                                    // let dir = env::current_dir()?;
+                                    // cmd.envs(vars)
+                                    //     .stdin(Stdio::inherit())
+                                    //     .stdout(Stdio::inherit())
+                                    //     .stderr(Stdio::inherit())
+                                    //     .current_dir(dir);
+                                    if let Ok(_) = cmd.spawn() {
+                                        self.clear();
+                                        process::exit(0);
+                                    }
+                                },
+                                _ => {},
+                            }
+                        },
+                        _ => {
+                            self.clear();
+                            return Err(e);
+                        }
+                    }
+                },
             }
         }
         if clear {
@@ -1008,21 +1058,25 @@ impl Evaluator {
         };
         let obj = match self.eval_block_statement(try_block) {
             Ok(opt) => opt,
-            Err(e) => if let UErrorKind::ExitExit(_) = e.kind {
-                if opt_finally && finally.is_some() {
-                    self.eval_block_statement(finally.unwrap())?;
-                }
-                return Err(e)
-            } else {
-                self.env.set_try_error_messages(
-                    e.to_string(),
-                    e.get_line().to_string()
-                );
-                if except.is_some() {
-                    self.eval_block_statement(except.unwrap())?
-                } else {
-                    None
-                }
+            Err(e) => match e.kind {
+                UErrorKind::ExitExit(_) |
+                UErrorKind::Poff(_,_) => {
+                    if opt_finally && finally.is_some() {
+                        self.eval_block_statement(finally.unwrap())?;
+                    }
+                    return Err(e)
+                },
+                _ => {
+                    self.env.set_try_error_messages(
+                        e.to_string(),
+                        e.get_line().to_string()
+                    );
+                    if except.is_some() {
+                        self.eval_block_statement(except.unwrap())?
+                    } else {
+                        None
+                    }
+                },
             },
         };
         if ! opt_finally {

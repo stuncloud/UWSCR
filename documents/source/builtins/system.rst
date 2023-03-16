@@ -645,3 +645,143 @@ CUIシェル
       -
       -
       -
+
+システム制御
+------------
+
+.. function:: poff(コマンド, [スクリプト再実行=TRUE])
+
+    | 電源等の制御
+
+    :param 定数 コマンド: 制御方法を示す定数
+
+        .. object:: P_POWEROFF
+
+            | PCの電源オフ
+
+        .. object:: P_SHUTDOWN
+
+            | PCの電源を切れる状態までOSをシャットダウンする
+
+        .. object:: P_LOGOFF または P_SIGNOUT
+
+            | 現在のユーザーをサインアウトする
+
+        .. object:: P_REBOOT
+
+            | PCを再起動する
+
+        .. object:: P_SUSPEND または P_HIBERNATE
+
+            | PCを休止状態にする
+            | システムが休止をサポートしている必要があります
+
+        .. object:: P_SUSPEND2 または P_SLEEP
+
+            | PCをスリープ状態にする
+
+        .. object:: P_MONIPOWER または P_MONITOR_POWERSAVE
+
+            | モニタを省電力モードにする
+            | モニタが省電力機能をサポートしている必要があります
+
+        .. object:: P_MONIPOWER2 または P_MONITOR_OFF
+
+            | モニタの電源を切る
+            | モニタが省電力機能をサポートしている必要があります
+
+        .. object:: P_MONIPOWER3 または P_MONITOR_ON
+
+            | モニタの電源を入れる
+            | モニタが省電力機能をサポートしている必要があります
+
+        .. object:: P_SCREENSAVE
+
+            | スクリーンセーバーを起動
+
+        .. object:: P_UWSC_REEXEC
+
+            | UWSCRの再起動
+            | 第二引数がTRUEならスクリプトを再実行する
+
+            .. admonition:: 無限ループに注意
+                :class: caution
+
+                | スクリプト再実行を行う場合はpoffの実行条件に注意してください
+                | 繰り返しスクリプトの再実行が行われるおそれがあります
+
+            .. admonition:: コンソールモード中の場合
+                :class: important
+
+                | ウィンドウモードで再実行されます
+
+        .. object:: P_FORCE
+
+            | アプリケーションの終了を待たずにサインアウトしたい場合や、シャットダウンを強制したい場合に指定
+            | ``P_POWEROFF``, ``P_SHUTDOWN``, ``P_LOGOFF``, ``P_REBOOT`` のいずれかに ``OR`` で連結指定する
+            | それ以外の場合は無視される
+
+            .. sourcecode:: uwscr
+
+                poff(P_POWEROFF or P_FORCE) // 強制電源断
+
+    :param 真偽値 省略可 スクリプト再実行: TRUEなら ``P_UWSC_REEXEC`` 指定時にスクリプトを再実行する
+
+        .. admonition:: UWSCとの違い
+            :class: note
+
+            | デフォルト値がTRUEになりました
+
+    :return: なし
+
+    .. admonition:: OPTFINALLY指定時の動作
+        :class: hint
+
+        | 自身のプロセス終了を伴う以下のコマンドが ``try`` 節で実行された場合
+        | OPTFINALLY指定時に限り ``finally`` 節が実行されます
+
+        - 自身を終了する前にfinallyを実行
+            - ``P_UWSC_REEXEC``
+        - コマンド呼び出し前にfinallyを実行 (finally節が終了するまでこれらの処理は行われない)
+            - ``P_POWEROFF``
+            - ``P_SHUTDOWN``
+            - ``P_LOGOFF``
+            - ``P_REBOOT``
+
+        .. sourcecode:: uwscr
+
+            OPTION OPTFINALLY
+            try
+                poff(P_UWSC_REEXEC)
+                msgbox("poff以降は実行されない")
+            finally
+                msgbox("finallyが実行される")
+            endtry
+
+        .. sourcecode:: uwscr
+
+            // OPTFINALLYが無い場合
+            try
+                poff(P_UWSC_REEXEC)
+            finally
+                msgbox("OPTFINALLYがないので実行されない")
+            endtry
+
+        .. sourcecode:: uwscr
+
+            OPTION OPTFINALLY
+            // poffがtryの外にある場合
+            poff(P_UWSC_REEXEC)
+            try
+            finally
+                msgbox("OPTFINALLYがあってもtry外だと実行されない")
+            endtry
+
+    .. admonition:: シャットダウンの理由
+        :class: note
+
+        | poffによるシャットダウンは以下の理由で行われます
+
+        - ``SHTDN_REASON_MAJOR_OTHER``
+        - ``SHTDN_REASON_MINOR_OTHER``
+        - ``SHTDN_REASON_FLAG_PLANNED``
