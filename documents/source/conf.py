@@ -73,6 +73,7 @@ class UwscrLexer(RegexLexer):
                 'var', 'ref', 'args', 'prms',
                 'while', 'wend', 'repeat', 'until',
                 'break', 'continue',
+                'try', 'except', 'finally', 'endtry'
             ), suffix=r'\b', prefix=r'\b'), Keyword),
             (words((
                 'dim', 'public', 'const',
