@@ -162,46 +162,7 @@ impl Evaluator {
                             std::process::exit(n);
                         },
                         UErrorKind::Poff(poff, flg) => {
-                            match poff {
-                                POFF::P_POWEROFF => {
-                                    self.clear();
-                                    power_off(flg);
-                                },
-                                POFF::P_SHUTDOWN => {
-                                    self.clear();
-                                    shutdown(flg);
-                                },
-                                POFF::P_LOGOFF => {
-                                    self.clear();
-                                    sign_out(flg);
-                                },
-                                POFF::P_REBOOT => {
-                                    self.clear();
-                                    reboot(flg);
-                                },
-                                POFF::P_UWSC_REEXEC => {
-                                    use std::process::{self, Command};
-                                    // 自身を再実行
-                                    let path = env::current_exe()?;
-                                    let args = env::args().collect::<Vec<_>>();
-                                    let mut cmd = Command::new(path);
-                                    if flg {
-                                        cmd.args(&args[1..]);
-                                    }
-                                    // let vars = env::vars();
-                                    // let dir = env::current_dir()?;
-                                    // cmd.envs(vars)
-                                    //     .stdin(Stdio::inherit())
-                                    //     .stdout(Stdio::inherit())
-                                    //     .stderr(Stdio::inherit())
-                                    //     .current_dir(dir);
-                                    if let Ok(_) = cmd.spawn() {
-                                        self.clear();
-                                        process::exit(0);
-                                    }
-                                },
-                                _ => {},
-                            }
+                            self.invoke_poff(&poff, flg)?;
                         },
                         _ => {
                             self.clear();
@@ -216,6 +177,50 @@ impl Evaluator {
         }
 
         Ok(result)
+    }
+
+    fn invoke_poff(&mut self, poff: &POFF, flg: bool) -> EvalResult<()> {
+        match poff {
+            POFF::P_POWEROFF => {
+                self.clear();
+                power_off(flg);
+            },
+            POFF::P_SHUTDOWN => {
+                self.clear();
+                shutdown(flg);
+            },
+            POFF::P_LOGOFF => {
+                self.clear();
+                sign_out(flg);
+            },
+            POFF::P_REBOOT => {
+                self.clear();
+                reboot(flg);
+            },
+            POFF::P_UWSC_REEXEC => {
+                use std::process::{self, Command};
+                // 自身を再実行
+                let path = env::current_exe()?;
+                let args = env::args().collect::<Vec<_>>();
+                let mut cmd = Command::new(path);
+                if flg {
+                    cmd.args(&args[1..]);
+                }
+                // let vars = env::vars();
+                // let dir = env::current_dir()?;
+                // cmd.envs(vars)
+                //     .stdin(Stdio::inherit())
+                //     .stdout(Stdio::inherit())
+                //     .stderr(Stdio::inherit())
+                //     .current_dir(dir);
+                if let Ok(_) = cmd.spawn() {
+                    self.clear();
+                    process::exit(0);
+                }
+            },
+            _ => {},
+        }
+        Ok(())
     }
 
     fn eval_block_statement(&mut self, block: BlockStatement) -> EvalResult<Option<Object>> {
@@ -1099,7 +1104,7 @@ impl Evaluator {
 
     fn eval_thread_statement(&mut self, expression: Expression) -> EvalResult<Option<Object>> {
         if let Expression::FuncCall{func, args, is_await: _} = expression {
-            let mut thread_self = Evaluator {
+            let mut evaluator = Evaluator {
                 env: Environment {
                     current: Arc::new(Mutex::new(Layer {
                         local: Vec::new(),
@@ -1121,17 +1126,30 @@ impl Evaluator {
                 let old_hook = panic::take_hook();
                 let uerror = Arc::new(Mutex::new(None::<UError>));
                 let uerror2 = uerror.clone();
+                let evaluator2 = evaluator.clone();
                 panic::set_hook(Box::new(move |panic_info|{
                     let maybe_uerror = uerror2.lock().unwrap();
                     attach_console();
-                    match &*maybe_uerror {
-                        Some(e) => if let UErrorKind::ExitExit(n) = e.kind {
-                            std::process::exit(n);
-                        } else {
-                            let err = e.to_string();
-                            out_log(&err, LogType::Error);
-                            let title = UWSCRErrorTitle::RuntimeError.to_string();
-                            show_message(&err, &title, true);
+                    match maybe_uerror.as_ref() {
+                        Some(e) => match &e.kind {
+                            UErrorKind::ExitExit(n) => {
+                                std::process::exit(*n);
+                            }
+                            UErrorKind::Poff(poff, flg) => {
+                                let mut evaluator = evaluator2.clone();
+                                if let Err(e) = evaluator.invoke_poff(poff, *flg) {
+                                    let err = e.to_string();
+                                    out_log(&err, LogType::Error);
+                                    let title = UWSCRErrorTitle::RuntimeError.to_string();
+                                    show_message(&err, &title, true);
+                                }
+                            }
+                            _ => {
+                                let err = e.to_string();
+                                out_log(&err, LogType::Error);
+                                let title = UWSCRErrorTitle::RuntimeError.to_string();
+                                show_message(&err, &title, true);
+                            }
                         },
                         None => {
                             let err = panic_info.to_string();
@@ -1142,7 +1160,7 @@ impl Evaluator {
                     free_console();
                     std::process::exit(0);
                 }));
-                let result = thread_self.eval_function_call_expression(func, args, false);
+                let result = evaluator.eval_function_call_expression(func, args, false);
                 if let Err(e) = result {
                     {
                         let mut m = uerror.lock().unwrap();
@@ -1152,6 +1170,7 @@ impl Evaluator {
                 } else {
                     panic::set_hook(old_hook);
                 }
+                evaluator.clear();
                 com_object::com_uninitialize();
             });
         }
