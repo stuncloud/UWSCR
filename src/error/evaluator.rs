@@ -494,6 +494,7 @@ pub enum UErrorMessage {
     InvalidRightExpression(Expression),
     FailedToOpenClipboard,
     NoOuterScopeFound,
+    IsNotUserFunction(String),
 }
 
 impl fmt::Display for UErrorMessage {
@@ -1023,6 +1024,10 @@ impl fmt::Display for UErrorMessage {
             Self::NoOuterScopeFound => write_locale!(f,
                 "参照渡しが行われましたが外部スコープがありません",
                 "No outer scope found"
+            ),
+            Self::IsNotUserFunction(name) => write_locale!(f,
+                "\"{name}\" はユーザー定義関数ではありません",
+                "\"{name}\" is not a user define function"
             ),
         }
     }

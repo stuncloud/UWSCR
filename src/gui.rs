@@ -160,7 +160,7 @@ impl Window {
     }
 
     #[allow(non_snake_case)]
-    fn register_class(class_name: &str, wndproc: WNDPROC, color: Option<SYS_COLOR_INDEX>) -> UWindowResult<u16> {
+    fn register_class(class_name: &str, wndproc: WNDPROC, color: Option<SYS_COLOR_INDEX>) -> UWindowResult<()> {
         unsafe {
             let wide = to_wide_string(class_name);
             let hInstance = GetModuleHandleW(None)
@@ -187,21 +187,21 @@ impl Window {
                 lpszClassName: PCWSTR(wide.as_ptr()),
                 hIconSm,
             };
-            let n = RegisterClassExW(&wc);
-            Ok(n)
+            if RegisterClassExW(&wc) == 0 {
+                Err(UWindowError::FailedToRegisterClass(class_name.into(), "RegisterClassExW has failed".into()))
+            } else {
+                Ok(())
+            }
         }
     }
     // 初回のみクラス登録を行い成功すればクラス名を返す
-    fn get_class_name(class_name: &str, once_cell: &OnceCell<Result<String, UWindowError>>, wndproc: WNDPROC) -> UWindowResult<String> {
+    pub fn get_class_name(class_name: &str, once_cell: &OnceCell<Result<String, UWindowError>>, wndproc: WNDPROC) -> UWindowResult<String> {
         once_cell.get_or_init(|| {
-            if Window::register_class(class_name, wndproc, None)? == 0 {
-                Err(UWindowError::FailedToRegisterClass(class_name.into(), "RegisterClassExW has failed".into()))
-            } else {
-                Ok(class_name.into())
-            }
+            Window::register_class(class_name, wndproc, None)?;
+            Ok(class_name.into())
         }).clone()
     }
-    fn create_window(
+    pub fn create_window(
         parent: Option<HWND>,
         class_name: &str,
         title: &str,

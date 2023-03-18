@@ -602,6 +602,29 @@ impl BuiltinFuncArgs {
             Ok(result)
         })
     }
+
+    /// ユーザー定義関数を受ける
+    /// 省略時や空文字の場合はNoneを返す
+    pub fn get_as_function_or_string(&self, i: usize, required: bool) -> BuiltInResult<Option<TwoTypeArg<String, Function>>> {
+        self.get_arg_with_required_flag(i, required, |arg| {
+            let value = match arg {
+                Object::Empty |
+                Object::EmptyParam => None,
+                Object::AnonFunc(func) |
+                Object::Function(func) => Some(TwoTypeArg::U(func)),
+                Object::String(str) => {
+                    let name = str.clone();
+                    if name.is_empty() {
+                        None
+                    } else {
+                        Some(TwoTypeArg::T(name))
+                    }
+                },
+                arg => return Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg))),
+            };
+            Ok(value)
+        })
+    }
 }
 
 pub enum TwoTypeArg<T, U> {

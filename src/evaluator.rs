@@ -1136,7 +1136,7 @@ impl Evaluator {
                                 std::process::exit(*n);
                             }
                             UErrorKind::Poff(poff, flg) => {
-                                let mut evaluator = evaluator2.clone();
+                                let mut evaluator = evaluator2.to_owned();
                                 if let Err(e) = evaluator.invoke_poff(poff, *flg) {
                                     let err = e.to_string();
                                     out_log(&err, LogType::Error);

@@ -483,6 +483,57 @@ CUIシェル
     :rtype: 真偽値
     :return: クリックされていたらTRUE、またはトグル状態がオンならTRUE
 
+.. function:: sethotkey(キーコード, [修飾子キー=0, 関数=EMPTY])
+
+    | 関数をホットキーに登録
+
+    :param 定数 キーコード: 登録するキーコードをVK定数で指定 (VK定数は :ref:`virtualkeys` を参照)
+    :param 定数 省略可 修飾子キー: 同時に押す修飾子キーを指定、OR連結で複数指定、0なら修飾子キーなし
+
+        .. object:: MOD_ALT
+
+            | Altキー
+
+        .. object:: MOD_CONTROL
+
+            | Controlキー
+
+        .. object:: MOD_SHIFT
+
+            | Shiftキー
+
+        .. object:: MOD_WIN
+
+            | Winキー
+
+    :param 文字列またはユーザー定義関数 省略可 関数:
+
+        | ホットキー入力時に実行するユーザー定義関数、またはその名前を文字列で指定
+        | 省略時、またはEMPTYや空文字が入力された場合はホットキーを解除する
+
+        .. admonition:: 指定関数の注意点
+            :class: caution
+
+            | 引数を受ける関数の場合、引数は無視されます (引数0の関数として扱われる)
+            | 関数内で引数へのアクセスを行う場合はエラーになります
+            | 関数内でエラーが発生した場合はスクリプトが強制終了されます
+
+        .. admonition:: HOTKEY特殊変数
+            :class: hint
+
+            | ホットキーで呼ばれる関数内では以下の変数が使えます
+
+            .. object:: HOTKEY_VK
+
+                | ホットキーのキーコード
+
+            .. object:: HOTKEY_MOD
+
+                | ホットキーの修飾子キー
+
+    :return: なし
+
+
 .. _virtualkeys:
 
 仮想キーコード一覧

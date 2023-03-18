@@ -2,6 +2,7 @@ mod lockhard;
 mod sensor;
 mod sound;
 pub mod poff;
+mod sethotkey;
 
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
@@ -97,6 +98,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("beep", 3, beep);
     sets.add("getkeystate", 2, getkeystate);
     sets.add("poff", 2, poff);
+    sets.add("sethotkey", 3, sethotkey);
     // sets.add("attachconsole", 1, attachconsole);
     sets
 }
@@ -892,6 +894,44 @@ pub fn poff(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
             POFF::P_SCREENSAVE => poff::screen_saver(),
             POFF::P_FORCE => {},
         }
+    }
+    Ok(Object::Empty)
+}
+
+#[allow(non_camel_case_types)]
+#[derive(Debug, EnumString, EnumProperty, EnumVariantNames, ToPrimitive, FromPrimitive)]
+pub enum SetHotKey {
+    MOD_ALT     = 1,
+    MOD_CONTROL = 2,
+    MOD_SHIFT   = 4,
+    MOD_WIN     = 8,
+}
+
+pub fn sethotkey(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let vk = args.get_as_int(0, None)?;
+    let mo = args.get_as_int(1, Some(0))?;
+    let maybe_func = args.get_as_function_or_string(2, false)?;
+    if let Some(two) = maybe_func {
+        match two {
+            TwoTypeArg::T(name) => {
+                if let Some(func) = evaluator.env.get_function(&name) {
+                    if let Object::Function(func) = func {
+                        sethotkey::set_hot_key(vk, mo, func, evaluator)
+                            .map_err(|e| builtin_func_error(UErrorMessage::UWindowError(e)))?;
+                    } else {
+                        Err(builtin_func_error(UErrorMessage::IsNotUserFunction(name)))?;
+                    }
+                } else {
+                    Err(builtin_func_error(UErrorMessage::FunctionNotFound(name)))?;
+                }
+            },
+            TwoTypeArg::U(func) => {
+                sethotkey::set_hot_key(vk, mo, func, evaluator)
+                    .map_err(|e| builtin_func_error(UErrorMessage::UWindowError(e)))?;
+            },
+        }
+    } else {
+        sethotkey::remove_hot_key(vk, mo);
     }
     Ok(Object::Empty)
 }
