@@ -1027,23 +1027,3 @@ pub fn assert_equal(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResu
     }
 }
 
-pub enum BuiltinFuncReturnValue {
-    Result(Object),
-    /// 戻り値なし
-    Empty,
-    Reference {
-        refs: Vec<(Option<Expression>, Object)>,
-        result: Object
-    },
-    GetEnv,
-    ListModuleMember(String),
-    BuiltinConstName(Option<Expression>),
-    Task(Function, Vec<(Option<Expression>, Object)>),
-    GetLogPrintWinId,
-    Balloon(Option<crate::gui::Balloon>),
-    BalloonID,
-    Token {token: String, remained: String, expression: Option<Expression>},
-    Qsort(Option<Expression>, Vec<Object>, [Option<Expression>; 8], [Option<Vec<Object>>; 8]),
-    Eval(String),
-}
-
