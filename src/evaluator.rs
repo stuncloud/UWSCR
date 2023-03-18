@@ -180,7 +180,7 @@ impl Evaluator {
                                     reboot(flg);
                                 },
                                 POFF::P_UWSC_REEXEC => {
-                                    use std::process::{self, Command, Stdio};
+                                    use std::process::{self, Command};
                                     // 自身を再実行
                                     let path = env::current_exe()?;
                                     let args = env::args().collect::<Vec<_>>();

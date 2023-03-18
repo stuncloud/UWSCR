@@ -82,10 +82,7 @@ impl LockHard {
                         self.keyboard = Some(hhk);
                         true
                     },
-                    Err(e) => {
-                        println!("\u{001b}[31m[WH_KEYBOARD_LL] error: {:?}\u{001b}[0m", e);
-                        false
-                    },
+                    Err(_) => false,
                 }
             } else {true};
             let mo = if mouse {
@@ -94,10 +91,7 @@ impl LockHard {
                         self.mouse = Some(hhk);
                         true
                     },
-                    Err(e) => {
-                        println!("\u{001b}[31m[WH_MOUSE_LL] error: {:?}\u{001b}[0m", e);
-                        false
-                    },
+                    Err(_) => false,
                 }
             } else {true};
 
