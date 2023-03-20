@@ -1027,17 +1027,17 @@ pub fn chkimg(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncRe
     let chk = ChkImg::from_screenshot(ss)?;
     let result = chk.search(&path, score, Some(count))?;
     let arr = result
-                            .into_iter()
-                            .map(|m| {
-                                // let (x, y) = mi.fix_point(m.x, m.y);
-                                let vec = vec![
-                                    Object::Num(m.x as f64),
-                                    Object::Num(m.y as f64),
-                                    Object::Num(m.score * 100.0)
-                                ];
-                                Object::Array(vec)
-                            })
-                            .collect::<Vec<_>>();
+        .into_iter()
+        .map(|m| {
+            // let (x, y) = mi.fix_point(m.x, m.y);
+            let vec = vec![
+                Object::Num(m.x as f64),
+                Object::Num(m.y as f64),
+                Object::Num(m.score * 100.0)
+            ];
+            Object::Array(vec)
+        })
+        .collect::<Vec<_>>();
     Ok(Object::Array(arr))
 }
 

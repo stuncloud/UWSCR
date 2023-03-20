@@ -260,6 +260,12 @@ impl ScreenShot {
 
         Ok(ScreenShot {data, left, top, width, height})
     }
+    unsafe fn new_window(hwnd: Option<HWND>, left: i32, top: i32, width: i32, height: i32, dx: i32, dy: i32) -> ScreenShotResult {
+        let mut ss = Self::new(hwnd, left, top, width, height)?;
+        ss.left = dx;
+        ss.top = dy;
+        Ok(ss)
+    }
     pub fn to_gray(&mut self) -> Result<(), UError>{
         let mut data = Mat::default();
         imgproc::cvt_color(&self.data, &mut data, imgproc::COLOR_RGB2GRAY, 0)?;
@@ -356,6 +362,8 @@ impl ScreenShot {
                 ImgConst::IMG_FORE => true,
                 ImgConst::IMG_BACK => false,
             };
+            let dx = left.unwrap_or(0);
+            let dy = top.unwrap_or(0);
             let (left, top, width, height) = if client {
                 let crect = Self::get_client_rect(hwnd);
                 let mut point = POINT {
@@ -402,7 +410,7 @@ impl ScreenShot {
                 RedrawWindow(hwnd, None, None, flags);
             }
             let hwnd = if is_fore {None} else {Some(hwnd)};
-            Self::new(hwnd, left, top, width, height)
+            Self::new_window(hwnd, left, top, width, height, dx, dy)
         }
     }
     pub fn save(&self, filename: Option<&str>) -> ChkImgResult<()> {
