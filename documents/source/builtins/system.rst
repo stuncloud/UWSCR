@@ -249,7 +249,7 @@
     :rtype: 真偽値、数値、文字列
     :return: 種別に応じた値、値が取得できない場合はEMPTY
 
-        .. admonition:: UWSCとの違い
+        .. admonition:: 戻り値NaNの廃止
             :class: note
 
             | 一部のエラーで値が取得できない場合にUWSCはNaNを返していましたが、UWSCRではEMPTYが返ります
@@ -338,11 +338,13 @@ CUIシェル
 
     | マウス、キーボードの入力を禁止する
 
-    .. important:: 実行には管理者特権が必要です
+    .. admonition:: 要管理者特権
+        :class: important
 
         | UWSCRを **管理者として実行** する必要があります
 
-    .. hint::
+    .. admonition:: ロックの強制解除
+        :class: hint
 
         - ``Ctrl+Alt+Delete`` でロック状態を強制解除できます
         - ロックしたままでもUWSCRのプロセスが終了すればロックは解除されます
@@ -355,13 +357,14 @@ CUIシェル
 
     | ウィンドウに対するマウス、キーボードの入力を禁止する
 
-    .. hint::
+    .. admonition:: ロックの強制解除
+        :class: hint
 
-        - 管理者特権は不要です
         - ``Ctrl+Alt+Delete`` でロック状態を強制解除できます
         - ロックしたままでもUWSCRのプロセスが終了すればロックは解除されます
 
-    .. important::
+    .. admonition:: ロック対象について
+        :class: important
 
         | ロック可能な対象は常に一つです
         | ロック中に別のウィンドウに対してロックを行った場合元のウィンドウは開放されます
