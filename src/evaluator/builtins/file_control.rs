@@ -1,3 +1,4 @@
+mod drop;
 
 use crate::evaluator::Evaluator;
 use crate::evaluator::builtins::*;
@@ -12,6 +13,7 @@ use strum_macros::{EnumString, EnumVariantNames};
 use num_derive::{ToPrimitive, FromPrimitive};
 use once_cell::sync::Lazy;
 
+
 pub fn builtin_func_sets() -> BuiltinFunctionSets {
     let mut sets = BuiltinFunctionSets::new();
     sets.add("fopen", 3, fopen);
@@ -24,7 +26,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("deleteini", 3, deleteini);
     sets.add("deletefile", 1, deletefile);
     sets.add("getdir", 4, getdir);
-    // sets.add("dropfile", 12, dropfile);
+    sets.add("dropfile", 36, dropfile);
     sets.add("zipitems", 1, zipitems);
     sets.add("unzip", 2, unzip);
     sets.add("zip", 11, zip);
@@ -265,31 +267,26 @@ pub fn getdir(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(Object::Array(files))
 }
 
-pub fn _dropfile(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn dropfile(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = args.get_as_int(0, None)?;
-    let mut x = args.get_as_i32(1).ok();
-    let mut y = args.get_as_i32(2).ok();
-    let index = match (x, y) {
-        (None, None) => 1,
-        (None, Some(_)) => {y = None; 1},
-        (Some(_), None) => {x = None; 1},
-        (Some(_), Some(_)) => 3,
-    };
-    let dir = args.get_as_string(index, None)?;
-    let files = args.get_rest_as_string_array(index + 1)?;
-
     let hwnd = window_control::get_hwnd_from_id(id);
+    if hwnd.0 != 0 {
+        // 第二引数がいずれも数値なら座標として扱う
+        let mut x = args.get_as_i32(1).ok();
+        let mut y = args.get_as_i32(2).ok();
+        let index = match (x, y) {
+            (None, None) => 1,
+            (None, Some(_)) => {y = None; 1},
+            (Some(_), None) => {x = None; 1},
+            (Some(_), Some(_)) => 3,
+        };
+        let dir = args.get_as_string(index, None)?;
+        let files = args.get_rest_as_string_array(index + 1, 1)?;
 
-    let buf = PathBuf::from(&dir);
-    let files = files.into_iter()
-            .map(|s| {
-                let p = &buf.join(s);
-                p.to_string_lossy().to_string()
-            })
-            .collect();
-
-    Fopen::drop_file(hwnd, files, x, y);
-
+        let files = drop::get_list_hstring(dir, files);
+        let (x, y) = drop::get_point(hwnd, x, y);
+        drop::dropfile(hwnd, &files, x, y);
+    }
     Ok(Object::Empty)
 }
 
