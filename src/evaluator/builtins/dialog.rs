@@ -207,7 +207,7 @@ pub fn slctbox(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     };
     let message = args.get_as_string_or_empty(msg_index)?;
     // 残りの引数を文字列の配列として受ける
-    let items = args.get_rest_as_string_array(msg_index + 1)?;
+    let items = args.get_rest_as_string_array(msg_index + 1, 0)?;
 
     // 表示位置の決定
     let pos_x = match x {

@@ -384,7 +384,7 @@ pub fn unzip(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 
 pub fn zip(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let path = args.get_as_string(0, None)?;
-    let files = args.get_rest_as_string_array(1)?;
+    let files = args.get_rest_as_string_array(1, 1)?;
     let zip = Zip::new(&path);
     let result = zip.compress(files).is_ok();
     Ok(Object::Bool(result))

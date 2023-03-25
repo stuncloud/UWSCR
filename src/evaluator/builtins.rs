@@ -465,7 +465,8 @@ impl BuiltinFuncArgs {
         })
     }
     /// 残りの引数を文字列の配列として受ける
-    pub fn get_rest_as_string_array(&self, i: usize) -> BuiltInResult<Vec<String>> {
+    /// requires: 最低限必要なアイテム数
+    pub fn get_rest_as_string_array(&self, i: usize, requires: usize) -> BuiltInResult<Vec<String>> {
         self.get_arg(i, |_| {
             let vec = self.split_off(i)
                 .into_iter()
@@ -484,8 +485,12 @@ impl BuiltinFuncArgs {
                     o => vec![o.to_string()]
                 })
                 .flatten()
-                .collect();
-            Ok(vec)
+                .collect::<Vec<_>>();
+            if vec.len() < requires {
+                Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgRequiredAt(i + requires)))
+            } else {
+                Ok(vec)
+            }
         })
     }
     /// 残りの引数をsckey用のキーコードとして得る
