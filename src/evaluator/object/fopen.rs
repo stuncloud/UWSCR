@@ -3,7 +3,6 @@ use crate::evaluator::object::Object;
 use crate::winapi::{
     // to_wide_string,
     WString, PcwstrExt,
-    to_ansi_bytes,
 };
 
 use std::io::{Write, Read, Seek, SeekFrom};
@@ -17,26 +16,11 @@ use std::io::BufWriter;
 
 use windows::Win32::{
     // System::SystemServices::{GENERIC_READ, GENERIC_WRITE},
-    Foundation::{FILETIME, HWND, RECT, WPARAM, LPARAM, POINT},
+    Foundation::{FILETIME},
     Storage::FileSystem::{
         FILE_SHARE_NONE,FILE_SHARE_READ,FILE_SHARE_WRITE,FILE_SHARE_DELETE,
         FindFirstFileW, FindNextFileW, FindClose, WIN32_FIND_DATAW,
     },
-    UI::{
-        WindowsAndMessaging::{
-            WM_DROPFILES,
-            GetWindowRect, GetClientRect,
-            PostMessageA,
-            // PostMessageW, WindowFromPoint,
-        },
-        Shell::{
-            DROPFILES,
-        }
-    },
-    System::Memory::{
-        GHND,
-        GlobalAlloc, GlobalFree, GlobalLock, GlobalUnlock,
-    }
 };
 use once_cell::sync::Lazy;
 use encoding_rs::{UTF_8, SHIFT_JIS};
@@ -769,71 +753,6 @@ impl Fopen {
                 FindClose(hfindfile);
             }
             Ok(result)
-        }
-    }
-
-    pub fn drop_file(hwnd: HWND, files: Vec<String>, x: Option<i32>, y: Option<i32>) {
-        unsafe {
-            let mut rect = RECT::default();
-            let use_screen = true;
-            let (x, y) = if use_screen {
-                // スクリーン座標
-                GetWindowRect(hwnd, &mut rect);
-                let center = |max, min| (max-min) / 2;
-                let x = x.unwrap_or(center(rect.right, rect.left)) + rect.left;
-                let y = y.unwrap_or(center(rect.bottom, rect.top)) + rect.top;
-                (x, y)
-            } else {
-                // クライアント座標
-                GetClientRect(hwnd, &mut rect);
-                let center = |max, min| (max-min) / 2 + min;
-                let x = x.unwrap_or(center(rect.right, rect.left));
-                let y = y.unwrap_or(center(rect.bottom, rect.top));
-                (x, y)
-            };
-
-            let point = POINT { x, y };
-            println!("[debug] point: {:?}", &point);
-            println!("[debug] hwnd: {:?}", &hwnd);
-            // let target = match WindowFromPoint(point) {
-            //     HWND(0) => hwnd,
-            //     h => h
-            // };
-            let target = hwnd;
-            println!("[debug] target: {:?}", &target);
-
-            let joined = format!("{}\0", files.join("\0"));
-            let files = to_ansi_bytes(&joined);
-            println!("[debug] files: {:?}", &files);
-
-            // DROPFILES構造体
-            let dropfiles_size = std::mem::size_of::<DROPFILES>();
-            let size = dropfiles_size + files.len();
-            let hmem = GlobalAlloc(GHND, size);
-            let ptr = GlobalLock(hmem);
-            let df = &mut *(ptr as *mut DROPFILES);
-            df.pFiles = dropfiles_size as u32;
-            df.pt.x = x;
-            df.pt.y = y;
-            df.fNC = use_screen.into(); // trueでスクリーン座標, falseでクライアント座標
-            df.fWide = false.into();
-
-            // ファイル名リストを構造体にコピー
-            let dest = (ptr as usize + dropfiles_size) as *mut libc::c_void;
-            let src = files.as_ptr() as *const libc::c_void;
-            let n = files.len();
-            libc::memcpy(dest, src, n);
-
-            GlobalUnlock(hmem);
-
-            let result = PostMessageA(target, WM_DROPFILES, WPARAM(hmem as usize), LPARAM(0));
-            println!("[debug] result: {:?}", &result);
-            if ! result.as_bool() {
-                GlobalFree(hmem);
-                println!("[debug] 失敗…");
-            } else {
-                println!("[debug] 成功！");
-            }
         }
     }
 }
