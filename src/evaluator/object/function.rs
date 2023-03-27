@@ -60,7 +60,7 @@ impl Function {
             evaluator.env.new_scope();
         }
         /* GET_FUNC_NAME */
-        evaluator.env.define_local("GET_FUNC_NAME", self.name.clone().into())?;
+        evaluator.env.define_local_const("GET_FUNC_NAME", self.name.clone().into())?;
 
         /* 引数の処理 */
 

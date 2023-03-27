@@ -370,13 +370,24 @@ impl Environment {
 
     pub fn define_local(&mut self, name: &str, object: Object) -> Result<(), UError> {
         let key = name.to_ascii_uppercase();
-        if self.contains_in_local(&key, &[ContainerType::Variable]) || self.contains_in_global(&key, &[ContainerType::Const]) {
+        if self.contains_in_local(&key, &[ContainerType::Variable, ContainerType::Const]) || self.contains_in_global(&key, &[ContainerType::Const]) {
             return Err(UError::new(
                 UErrorKind::DefinitionError(DefinitionType::Variable),
                 UErrorMessage::AlreadyDefined(name.into())
             ))
         }
         self.define(key, object, ContainerType::Variable, false)
+    }
+
+    pub fn define_local_const(&mut self, name: &str, object: Object) -> Result<(), UError> {
+        let key = name.to_ascii_uppercase();
+        if self.contains_in_local(&key, &[ContainerType::Variable, ContainerType::Const]) || self.contains_in_global(&key, &[ContainerType::Const]) {
+            return Err(UError::new(
+                UErrorKind::DefinitionError(DefinitionType::Const),
+                UErrorMessage::AlreadyDefined(name.into())
+            ))
+        }
+        self.define(key, object, ContainerType::Const, false)
     }
 
     pub fn define_public(&mut self, name: &str, object: Object) -> Result<(), UError> {
