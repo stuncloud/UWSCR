@@ -59,6 +59,8 @@ impl Function {
             // 通常の関数なら新しいスコープを作る
             evaluator.env.new_scope();
         }
+        /* GET_FUNC_NAME */
+        evaluator.env.define_local("GET_FUNC_NAME", self.name.clone().into())?;
 
         /* 引数の処理 */
 

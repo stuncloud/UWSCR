@@ -39,6 +39,12 @@
 
     スクリプトファイルの名前
 
+.. object:: GET_FUNC_NAME
+
+    | ユーザー定義関数の名前
+    | 関数内でのみ有効(関数外では未定義)
+    | 無名関数の場合はEMPTY
+
 .. object:: GET_WIN_DIR
 
     windowsフォルダのパス
