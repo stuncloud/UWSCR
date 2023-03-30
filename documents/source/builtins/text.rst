@@ -765,8 +765,7 @@ JSON
     :param 数値 秒数: 2000/01/01からの秒数またはミリ秒数
     :param 文字列 日時フォーマット文字列:
 
-        | 日時形式を示すフォーマット文字列
-        | `書式一覧 <https://docs.rs/chrono/latest/chrono/format/strftime/index.html>`_
+        | 日時形式を示すフォーマット文字列 (`書式一覧 <https://docs.rs/chrono/latest/chrono/format/strftime/index.html>`_)
         | 変換される日時はローカルタイムゾーン準拠
 
         .. admonition:: 表記のローカライズについて
@@ -782,31 +781,6 @@ JSON
     .. admonition:: サンプルコード
 
         .. sourcecode:: uwscr
-
-            // 幅指定
-            print format(1, 8)                // '       1'
-            // 小数点
-            print format(1, 8, 2)             // '    1.00'
-            // 丸め
-            print format(1.234, 0, 2)         // 1.23
-            print format(1.235, 0, 2)         // 1.24
-            // 16進数
-            print format(42, 0, -1)           // 2A
-            // 16進数 (小文字)
-            print format(42, 0, -2)           // 2a
-            // 2進数
-            print format(42, 0, -3)           // 101010
-
-            // 0埋め
-            print format(42, 4, -1, FMT_ZERO) // 002A
-            // 右埋め
-            print format(1, 8, 0, FMT_RIGHT)  // '1       '
-            // 右0埋め
-            print format(1, 8, 0, FMT_ZEROR)  // '10000000'
-
-            // 文字列をフォーマット
-            print format("abc", 8) // abcabcab
-            print format("1", 8)   // 11111111
 
             // 日時フォーマット
             timestamp = gettime(, "2023/04/01 10:10:10")
