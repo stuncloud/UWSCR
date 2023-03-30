@@ -37,7 +37,7 @@ UWSCR |version| オンラインヘルプ
     :maxdepth: 3
     :caption: ビルトイン関数
 
-    builtins/string
+    builtins/text
     builtins/window
     builtins/scriptcontrol
     builtins/system

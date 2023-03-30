@@ -708,13 +708,19 @@ impl Default for FormatConst {
 
 pub fn format(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let val = args.get_as_f64_or_string(0)?;
-    let len = args.get_as_int(1, None::<i32>)?;
-    let len = if len < 0 {0_usize} else {len as usize};
-    let digit = args.get_as_int(2, Some(0_i32))?;
-    let fill = args.get_as_const(3, false)?.unwrap_or_default();
+    let fmt = args.get_as_f64_or_string(1)?;
 
     let fixed = match val {
-        TwoTypeArg::T(ref s) => {
+        TwoTypeArg::T(s) => {
+            let len = match fmt {
+                TwoTypeArg::T(s) => {
+                    match s.parse() {
+                        Ok(u) => u,
+                        Err(_) => Err(builtin_func_error(UErrorMessage::NotANumber(s.into())))?,
+                    }
+                },
+                TwoTypeArg::U(num) => if num < 0.0 {0} else {num as usize},
+            };
             let cnt = s.chars().count();
             if cnt == 0 || len == 0 || cnt >= len {
                 s.to_string()
@@ -725,21 +731,66 @@ pub fn format(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
             }
         },
         TwoTypeArg::U(n) => {
-            let s = match digit {
-                1.. => format!("{:.1$}", n, digit as usize),
-                -1 => format!("{:X}", n as i64),
-                -2 => format!("{:x}", n as i64),
-                -3 => format!("{:b}", n as i64),
-                _ => {n.to_string()}
-            };
-            match fill {
-                FormatConst::FMT_DEFAULT => format!("{:>1$}", s, len),
-                FormatConst::FMT_ZERO => format!("{:0>1$}", s, len),
-                FormatConst::FMT_RIGHT => format!("{:<1$}", s, len),
-                FormatConst::FMT_ZEROR => format!("{:0<1$}", s, len),
+            match fmt {
+                TwoTypeArg::T(fmt) => {
+                    let milli = args.get_as_bool(2, Some(false))?;
+                    let secs = n as i64;
+                    let s = system_controls::gettime::format(&fmt, secs, milli)
+                        .map_err(|e| builtin_func_error(UErrorMessage::FormatTimeError(e.to_string())))?;
+                    s.into()
+                },
+                TwoTypeArg::U(num) => {
+                    let digit = args.get_as_int(2, Some(0_i32))?;
+                    let fill = args.get_as_const(3, false)?.unwrap_or_default();
+                    let len = if num < 0.0 {0} else {num as usize};
+                    let s = match digit {
+                        1.. => format!("{:.1$}", n, digit as usize),
+                        -1 => format!("{:X}", n as i64),
+                        -2 => format!("{:x}", n as i64),
+                        -3 => format!("{:b}", n as i64),
+                        _ => {n.to_string()}
+                    };
+                    match fill {
+                        FormatConst::FMT_DEFAULT => format!("{:>1$}", s, len),
+                        FormatConst::FMT_ZERO => format!("{:0>1$}", s, len),
+                        FormatConst::FMT_RIGHT => format!("{:<1$}", s, len),
+                        FormatConst::FMT_ZEROR => format!("{:0<1$}", s, len),
+                    }
+                },
             }
         },
     };
+
+    // let len = args.get_as_int(1, None::<i32>)?;
+    // let len = if len < 0 {0_usize} else {len as usize};
+
+    // let fixed = match val {
+    //     TwoTypeArg::T(ref s) => {
+    //         let cnt = s.chars().count();
+    //         if cnt == 0 || len == 0 || cnt >= len {
+    //             s.to_string()
+    //         } else {
+    //             let t = (len / cnt) + 1;
+    //             let new = s.repeat(t);
+    //             new.to_char_vec()[0..len].into_iter().collect()
+    //         }
+    //     },
+    //     TwoTypeArg::U(n) => {
+    //         let s = match digit {
+    //             1.. => format!("{:.1$}", n, digit as usize),
+    //             -1 => format!("{:X}", n as i64),
+    //             -2 => format!("{:x}", n as i64),
+    //             -3 => format!("{:b}", n as i64),
+    //             _ => {n.to_string()}
+    //         };
+    //         match fill {
+    //             FormatConst::FMT_DEFAULT => format!("{:>1$}", s, len),
+    //             FormatConst::FMT_ZERO => format!("{:0>1$}", s, len),
+    //             FormatConst::FMT_RIGHT => format!("{:<1$}", s, len),
+    //             FormatConst::FMT_ZEROR => format!("{:0<1$}", s, len),
+    //         }
+    //     },
+    // };
     Ok(fixed.into())
 }
 

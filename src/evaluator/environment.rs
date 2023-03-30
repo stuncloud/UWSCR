@@ -126,6 +126,7 @@ impl Environment {
         env.add(NamedObject::new(
             "TRY_ERRMSG".into(), Object::Empty, ContainerType::Variable
         ), false);
+        env.init_g_time_const(1899, 12, 30, 0, 0, 0, 0, 6);
         env
     }
 
@@ -141,6 +142,7 @@ impl Environment {
         self.add(NamedObject::new(
             "TRY_ERRMSG".into(), Object::Empty, ContainerType::Variable
         ), false);
+        self.init_g_time_const(1899, 12, 30, 0, 0, 0, 0, 6);
     }
 
     pub fn get_local_copy(&mut self) -> Vec<NamedObject> {
@@ -658,6 +660,51 @@ impl Environment {
     pub fn set_try_error_messages(&mut self, message: String, line: String) {
         self.set("TRY_ERRMSG", ContainerType::Variable, Object::String(message), false);
         self.set("TRY_ERRLINE", ContainerType::Variable, Object::String(line), false);
+    }
+
+    pub fn init_g_time_const(&mut self, year: i32, month: i32, date: i32, hour: i32, minute: i32, second: i32, millisec: i32, day: i32) {
+        self.add(NamedObject::new("G_TIME_YY".into(), year.into(), ContainerType::Const), false);
+        self.add(NamedObject::new("G_TIME_MM".into(), month.into(), ContainerType::Const), false);
+        self.add(NamedObject::new("G_TIME_DD".into(), date.into(), ContainerType::Const), false);
+        self.add(NamedObject::new("G_TIME_HH".into(), hour.into(), ContainerType::Const), false);
+        self.add(NamedObject::new("G_TIME_NN".into(), minute.into(), ContainerType::Const), false);
+        self.add(NamedObject::new("G_TIME_SS".into(), second.into(), ContainerType::Const), false);
+        self.add(NamedObject::new("G_TIME_ZZ".into(), millisec.into(), ContainerType::Const), false);
+        self.add(NamedObject::new("G_TIME_WW".into(), day.into(), ContainerType::Const), false);
+        let to_str_obj = |n: i32, len: usize| {
+            let str = format!("{:0>1$}", n, len);
+            str.into()
+        };
+        self.add(NamedObject::new("G_TIME_YY2".into(), to_str_obj(year%100, 2), ContainerType::Const), false);
+        self.add(NamedObject::new("G_TIME_MM2".into(), to_str_obj(month, 2), ContainerType::Const), false);
+        self.add(NamedObject::new("G_TIME_DD2".into(), to_str_obj(date, 2), ContainerType::Const), false);
+        self.add(NamedObject::new("G_TIME_HH2".into(), to_str_obj(hour, 2), ContainerType::Const), false);
+        self.add(NamedObject::new("G_TIME_NN2".into(), to_str_obj(minute, 2), ContainerType::Const), false);
+        self.add(NamedObject::new("G_TIME_SS2".into(), to_str_obj(second, 2), ContainerType::Const), false);
+        self.add(NamedObject::new("G_TIME_ZZ2".into(), to_str_obj(millisec, 3), ContainerType::Const), false);
+        self.add(NamedObject::new("G_TIME_YY4".into(), to_str_obj(year, 4), ContainerType::Const), false);
+    }
+    pub fn set_g_time_const(&mut self, year: i32, month: i32, date: i32, hour: i32, minute: i32, second: i32, millisec: i32, day: i32) {
+        self.set("G_TIME_YY", ContainerType::Const, year.into(), false);
+        self.set("G_TIME_MM", ContainerType::Const, month.into(), false);
+        self.set("G_TIME_DD", ContainerType::Const, date.into(), false);
+        self.set("G_TIME_HH", ContainerType::Const, hour.into(), false);
+        self.set("G_TIME_NN", ContainerType::Const, minute.into(), false);
+        self.set("G_TIME_SS", ContainerType::Const, second.into(), false);
+        self.set("G_TIME_ZZ", ContainerType::Const, millisec.into(), false);
+        self.set("G_TIME_WW", ContainerType::Const, day.into(), false);
+        let to_str_obj = |n: i32, len: usize| {
+            let str = format!("{:0>1$}", n, len);
+            str.into()
+        };
+        self.set("G_TIME_YY2", ContainerType::Const, to_str_obj(year%100, 2), false);
+        self.set("G_TIME_MM2", ContainerType::Const, to_str_obj(month, 2), false);
+        self.set("G_TIME_DD2", ContainerType::Const, to_str_obj(date, 2), false);
+        self.set("G_TIME_HH2", ContainerType::Const, to_str_obj(hour, 2), false);
+        self.set("G_TIME_NN2", ContainerType::Const, to_str_obj(minute, 2), false);
+        self.set("G_TIME_SS2", ContainerType::Const, to_str_obj(second, 2), false);
+        self.set("G_TIME_ZZ2", ContainerType::Const, to_str_obj(millisec, 3), false);
+        self.set("G_TIME_YY4", ContainerType::Const, to_str_obj(year, 4), false);
     }
 
     pub fn clone_outer(&self) -> Option<Arc<Mutex<Layer>>> {

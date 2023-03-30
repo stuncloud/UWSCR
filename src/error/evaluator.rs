@@ -495,6 +495,8 @@ pub enum UErrorMessage {
     FailedToOpenClipboard,
     NoOuterScopeFound,
     IsNotUserFunction(String),
+    GetTimeParseError(String),
+    FormatTimeError(String),
 }
 
 impl fmt::Display for UErrorMessage {
@@ -1029,6 +1031,8 @@ impl fmt::Display for UErrorMessage {
                 "\"{name}\" はユーザー定義関数ではありません",
                 "\"{name}\" is not a user define function"
             ),
+            Self::GetTimeParseError(err) => write!(f, "{err}"),
+            Self::FormatTimeError(err) => write!(f, "{err}"),
         }
     }
 }

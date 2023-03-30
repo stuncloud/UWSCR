@@ -839,3 +839,136 @@ CUIシェル
         - ``SHTDN_REASON_MAJOR_OTHER``
         - ``SHTDN_REASON_MINOR_OTHER``
         - ``SHTDN_REASON_FLAG_PLANNED``
+
+日時
+----
+
+.. function:: gettime([補正値=0, 基準日時=EMPTY, 補正値オプション=G_OFFSET_DAYS, ミリ秒=FALSE])
+
+    | 指定日時の2000年1月1日からの経過時間を得る
+    | またその時間に該当する日時情報を ``G_TIME_*`` 特殊変数に格納する
+
+    :param 数値 省略可 補正値: 基準日時を起点として指定値分ずらした日時を得る
+    :param 文字列または配列 省略可 基準日時:
+
+        | 基準となる日時を指定、EMPTYで現在時刻
+
+        .. object:: 文字列
+
+            | 以下の形式で指定
+
+            - "YYYYMMDD"
+            - "YYYY/MM/DD"
+            - "YYYY-MM-DD"
+            - "YYYYMMDDHHNNSS"
+            - "YYYY/MM/DD HH:NN:SS"
+            - "YYYY-MM-DD HH:NN:SS"
+            - RFC 3339 形式
+                - タイムゾーン情報を含めた場合ローカル時間に変換されます
+
+        .. object:: 配列
+
+    :param 定数 省略可 補正値オプション: 補正値の指定方法を指定
+
+        .. object:: G_OFFSET_DAYS
+
+            | 補正値を日数として扱う
+
+        .. object:: G_OFFSET_HOURS
+
+            | 補正値を時間として扱う
+
+        .. object:: G_OFFSET_MINUTES
+
+            | 補正値を分として扱う
+
+        .. object:: G_OFFSET_SECONDS
+
+            | 補正値を秒として扱う
+
+        .. object:: G_OFFSET_MILLIS
+
+            | 補正値をミリ秒として扱う
+
+
+    :param 真偽値 省略可 ミリ秒: 戻り値を秒ではなくミリ秒で返す
+    :rtype: 数値
+    :return: 2000年1月1日からの秒数
+
+    .. admonition:: 実行後に変更される特殊変数
+        :class: note
+
+        | 以下の変数がgettime関数の結果に応じて変更されます
+        | 文字列型の場合は桁数分左0埋めされます
+        | これらの変数の変更が適用されるのはgettimeを呼び出したスコープ内に限定されます
+
+        .. list-table::
+            :header-rows: 1
+            :align: left
+
+            * - 変数
+              - 型
+              - 内容
+            * - ``G_TIME_YY``
+              - 数値
+              - 年
+            * - ``G_TIME_MM``
+              - 数値
+              - 月
+            * - ``G_TIME_DD``
+              - 数値
+              - 日
+            * - ``G_TIME_HH``
+              - 数値
+              - 時
+            * - ``G_TIME_NN``
+              - 数値
+              - 分
+            * - ``G_TIME_SS``
+              - 数値
+              - 秒
+            * - ``G_TIME_ZZ``
+              - 数値
+              - ミリ秒
+            * - ``G_TIME_WW``
+              - 数値
+              - 曜日 (0:日,1:月,2:火,3:水,4:木,5:金,6:土)
+            * - ``G_TIME_YY2``
+              - 文字列
+              - 年 (下2桁)
+            * - ``G_TIME_MM2``
+              - 文字列
+              - 月 (2桁)
+            * - ``G_TIME_DD2``
+              - 文字列
+              - 日 (2桁)
+            * - ``G_TIME_HH2``
+              - 文字列
+              - 時 (2桁)
+            * - ``G_TIME_NN2``
+              - 文字列
+              - 分 (2桁)
+            * - ``G_TIME_SS2``
+              - 文字列
+              - 秒 (2桁)
+            * - ``G_TIME_ZZ2``
+              - 文字列
+              - ミリ秒 (3桁)
+            * - ``G_TIME_YY4``
+              - 文字列
+              - 年 (4桁)
+
+        | 曜日比較用の定数一覧
+
+        - ``G_WEEKDAY_SUN`` (0)
+        - ``G_WEEKDAY_MON`` (1)
+        - ``G_WEEKDAY_TUE`` (2)
+        - ``G_WEEKDAY_WED`` (3)
+        - ``G_WEEKDAY_THU`` (4)
+        - ``G_WEEKDAY_FRI`` (5)
+        - ``G_WEEKDAY_SAT`` (6)
+
+    .. admonition:: サンプルコード
+
+        .. sourcecode:: uwscr
+

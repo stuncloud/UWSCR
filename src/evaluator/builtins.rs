@@ -148,9 +148,9 @@ impl BuiltinFuncArgs {
     fn get_arg_with_default<T, F: Fn(Object)-> BuiltInResult<T>>(&self, i: usize, default: Option<T>, f: F) -> BuiltInResult<T> {
         if self.len() >= i+ 1 {
             let obj = self.item(i);
-            if default.is_none() && obj == Object::EmptyParam {
-                // 必須引数が省略されていた場合はエラー
-                Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgRequiredAt(i + 1)))
+            if obj == Object::EmptyParam {
+                // 引数が省略されていた場合、デフォルト値を返すか必須引数ならエラーにする
+                default.ok_or(BuiltinFuncError::new(UErrorMessage::BuiltinArgRequiredAt(i + 1)))
             } else {
                 f(obj)
             }
@@ -747,6 +747,8 @@ pub fn init_builtins() -> Vec<NamedObject> {
     set_builtin_consts::<system_controls::SensorConst>(&mut vec);
     set_builtin_consts::<system_controls::ToggleKey>(&mut vec);
     set_builtin_consts::<system_controls::POFF>(&mut vec);
+    set_builtin_consts::<system_controls::GTimeOffset>(&mut vec);
+    set_builtin_consts::<system_controls::GTimeWeekDay>(&mut vec);
     // math
     math::builtin_func_sets().set(&mut vec);
     // key codes

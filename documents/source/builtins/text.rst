@@ -663,18 +663,14 @@ JSON
             print strconv('abcde', SC_UPPERCASE)                      // ABCDE
             print strconv('abcde', SC_UPPERCASE or SC_FULLWIDTH)      // ＡＢＣＤＥ
 
-.. function:: format(対象数値, 幅, [桁数=0, 埋め方法=FMT_DEFAULT])
-.. function:: format(対象文字列, 幅)
-    :noindex:
+.. function:: format(数値, 幅, [桁数=0, 埋め方法=FMT_DEFAULT])
 
-    | 数値や文字列をフォーマットします
+    | 数値を指定方法でフォーマットした文字列を返します
 
-    :param 数値 対象数値: フォーマットしたい数値
-    :param 文字列 対象文字列: フォーマットしたい文字列
+    :param 数値 数値: フォーマットしたい数値
     :param 数値 幅: フォーマット後の文字列幅
 
-        | 対象が数値の場合、埋め方法に従い不足分を埋める
-        | 対象が文字列の場合、指定幅まで元の文字を繰り返す
+        | 幅が入力値の桁を越えている場合、埋め方法に従い不足分を埋めます
 
     :param 数値 省略可 桁数: 小数点以下の桁数、または変換方法を指定
 
@@ -745,9 +741,76 @@ JSON
             // 右0埋め
             print format(1, 8, 0, FMT_ZEROR)  // '10000000'
 
+.. function:: format(文字列, 幅)
+    :noindex:
+
+    :param 文字列 文字列: フォーマットしたい文字列
+    :param 数値 幅: フォーマット後の文字列幅
+
+        | 幅が元の文字列長を越えた場合、指定幅まで元の文字を繰り返します
+
+    :return: フォーマットされた文字列
+
+    .. admonition:: サンプルコード
+
+        .. sourcecode:: uwscr
+
             // 文字列をフォーマット
             print format("abc", 8) // abcabcab
             print format("1", 8)   // 11111111
+
+.. function:: format(秒数, 日時フォーマット文字列, [ミリ秒=FALSE])
+    :noindex:
+
+    :param 数値 秒数: 2000/01/01からの秒数またはミリ秒数
+    :param 文字列 日時フォーマット文字列:
+
+        | 日時形式を示すフォーマット文字列
+        | `書式一覧 <https://docs.rs/chrono/latest/chrono/format/strftime/index.html>`_
+        | 変換される日時はローカルタイムゾーン準拠
+
+        .. admonition:: 表記のローカライズについて
+            :class: note
+
+            | 日本語環境でのみ日本語にローカライズされます
+            | それ以外では英語(en-US)表記になります
+
+    :param 真偽値 省略可 ミリ秒: TRUEなら秒数をミリ秒として扱う
+
+    :return: フォーマットされた文字列
+
+    .. admonition:: サンプルコード
+
+        .. sourcecode:: uwscr
+
+            // 幅指定
+            print format(1, 8)                // '       1'
+            // 小数点
+            print format(1, 8, 2)             // '    1.00'
+            // 丸め
+            print format(1.234, 0, 2)         // 1.23
+            print format(1.235, 0, 2)         // 1.24
+            // 16進数
+            print format(42, 0, -1)           // 2A
+            // 16進数 (小文字)
+            print format(42, 0, -2)           // 2a
+            // 2進数
+            print format(42, 0, -3)           // 101010
+
+            // 0埋め
+            print format(42, 4, -1, FMT_ZERO) // 002A
+            // 右埋め
+            print format(1, 8, 0, FMT_RIGHT)  // '1       '
+            // 右0埋め
+            print format(1, 8, 0, FMT_ZEROR)  // '10000000'
+
+            // 文字列をフォーマット
+            print format("abc", 8) // abcabcab
+            print format("1", 8)   // 11111111
+
+            // 日時フォーマット
+            timestamp = gettime(, "2023/04/01 10:10:10")
+            print format(timestamp, "%c") // 2023年04月01日 10時10分10秒
 
 .. function:: encode(元文字列, 変換方式)
 

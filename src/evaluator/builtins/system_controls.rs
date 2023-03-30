@@ -3,6 +3,7 @@ mod sensor;
 mod sound;
 pub mod poff;
 mod sethotkey;
+pub mod gettime;
 
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
@@ -99,6 +100,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("getkeystate", 2, getkeystate);
     sets.add("poff", 2, poff);
     sets.add("sethotkey", 3, sethotkey);
+    sets.add("gettime", 4, gettime);
     // sets.add("attachconsole", 1, attachconsole);
     sets
 }
@@ -934,4 +936,42 @@ pub fn sethotkey(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFun
         sethotkey::remove_hot_key(vk, mo);
     }
     Ok(Object::Empty)
+}
+
+#[allow(non_camel_case_types)]
+#[derive(Debug, EnumString, EnumProperty, EnumVariantNames, ToPrimitive, FromPrimitive, Default)]
+pub enum GTimeOffset {
+    #[default]
+    G_OFFSET_DAYS    = 0,
+    G_OFFSET_HOURS   = 1,
+    G_OFFSET_MINUTES = 2,
+    G_OFFSET_SECONDS = 3,
+    G_OFFSET_MILLIS  = 4,
+}
+#[allow(non_camel_case_types)]
+#[derive(Debug, EnumString, EnumProperty, EnumVariantNames, ToPrimitive, FromPrimitive)]
+pub enum GTimeWeekDay {
+    G_WEEKDAY_SUN = 0,
+    G_WEEKDAY_MON = 1,
+    G_WEEKDAY_TUE = 2,
+    G_WEEKDAY_WED = 3,
+    G_WEEKDAY_THU = 4,
+    G_WEEKDAY_FRI = 5,
+    G_WEEKDAY_SAT = 6,
+}
+
+pub fn gettime(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let offset = args.get_as_f64(0, Some(0.0))?;
+    let dt = args.get_as_string_or_empty(1)?;
+    let opt = args.get_as_const(2, false)?.unwrap_or_default();
+    let milli = args.get_as_bool(3, Some(false))?;
+
+    let val = gettime::get(dt, offset, opt)
+        .map_err(|e| builtin_func_error(UErrorMessage::GetTimeParseError(e.to_string())))?;
+    evaluator.env.set_g_time_const(val.year, val.month, val.date, val.hour, val.minute, val.second, val.millisec, val.day);
+    if milli {
+        Ok(val.timestamp_millis.into())
+    } else {
+        Ok(val.timestamp_seconds.into())
+    }
 }
