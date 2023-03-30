@@ -12,8 +12,7 @@ param(
     [string] $OpenCV64Install,
     # opencv x86版installビルド先のパス
     [string] $OpenCV86Install,
-    [switch] $Document,
-    [switch] $Clean
+    [switch] $Document
 )
 
 trap {
@@ -215,9 +214,6 @@ if ($Schema) {
 }
 
 if ($Document) {
-    if ($Clean) {
-        Invoke-Expression -Command '.\documents\make.bat clean'
-    }
     $nojekyll = '.\documents\build\html\.nojekyll'
     if (!(Test-Path $nojekyll)) {
         $file = New-Item -Path $nojekyll -ItemType File
