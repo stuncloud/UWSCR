@@ -958,7 +958,7 @@ CUIシェル
               - 文字列
               - 年 (4桁)
 
-        | 曜日比較用の定数一覧
+        | 以下の定数で ``G_TIME_WW`` と比較ができます
 
         - ``G_WEEKDAY_SUN`` (0)
         - ``G_WEEKDAY_MON`` (1)
@@ -971,4 +971,27 @@ CUIシェル
     .. admonition:: サンプルコード
 
         .. sourcecode:: uwscr
+
+            dt = "2023/04/01 10:10:10"
+
+            // 戻り値
+            print gettime(, dt)        // 733659010
+            // ミリ秒で返す
+            print gettime(, dt,, TRUE) // 733659010000
+
+            // 第一引数の単位変更
+            // 従来の書き方で6時間ずらす
+            ts1 = gettime(0.25, dt)
+            // 第三引数指定で時間扱いになる
+            ts2 = gettime(6, dt, G_OFFSET_HOURS)
+
+            assert_equal(ts1, ts2)
+
+            // format関数による日時フォーマット
+            ts = gettime(, dt)
+            print format(ts, "%c") // 2023年04月01日 10時10分10秒
+
+            // RFC3339形式
+            ts = gettime(, "2023-10-10T00:00:00+0000")
+            print format(ts, "%c") // 2023年10月10日 09時00分00秒
 
