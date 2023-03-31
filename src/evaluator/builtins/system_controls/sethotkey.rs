@@ -171,7 +171,7 @@ trait LparamExt {
 }
 impl LparamExt for LPARAM {
     fn hi_word(&self) -> u32 {
-        let hi = (self.0 & 0xFFFF0000) >> 16;
+        let hi = (self.0 >> 16) & 0xFFFF;
         hi as u32
     }
 
