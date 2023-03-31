@@ -381,7 +381,7 @@ impl Environment {
         self.define(key, object, ContainerType::Variable, false)
     }
 
-    pub fn define_local_const(&mut self, name: &str, object: Object) -> Result<(), UError> {
+    pub fn _define_local_const(&mut self, name: &str, object: Object) -> Result<(), UError> {
         let key = name.to_ascii_uppercase();
         if self.contains_in_local(&key, &[ContainerType::Variable, ContainerType::Const]) || self.contains_in_global(&key, &[ContainerType::Const]) {
             return Err(UError::new(
@@ -726,6 +726,15 @@ impl Environment {
                 .map(|no| no.object.clone())
         } else {
             value
+        }
+    }
+
+    pub fn set_get_func_name(&mut self, value: Option<String>) {
+        let name = "GET_FUNC_NAME";
+        if self.contains_in_local(name, &[ContainerType::Const]) {
+            self.set(name, ContainerType::Const, value.into(), false);
+        } else {
+            self.add(NamedObject::new(name.into(), value.into(), ContainerType::Const), false);
         }
     }
 
