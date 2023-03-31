@@ -165,7 +165,9 @@ impl Evaluator {
                             self.invoke_poff(&poff, flg)?;
                         },
                         _ => {
-                            self.clear();
+                            if clear {
+                                self.clear();
+                            }
                             return Err(e);
                         }
                     }
@@ -3422,7 +3424,7 @@ mod tests {
                     if ! left.is_equal(&right) {
                         panic!("\nresult: {:?}\nexpected: {:?}\n\ninput: {}\n", left, right, input);
                     }
-                } else if result_obj.is_some() || expected_obj.is_some() {
+                } else {
                     // どちらかがNone
                     panic!("\nresult: {:?}\nexpected: {:?}\n\ninput: {}\n", result_obj, expected_obj, input);
                 },
