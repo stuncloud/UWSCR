@@ -7,7 +7,7 @@
 <link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="特殊変数" href="special_variables.html" /><link rel="prev" title="ビルド方法" href="../usage/how_to_build.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>スクリプト構文 - UWSCR 0.9.3</title>
+        <title>スクリプト構文 - UWSCR 0.10.0</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 0.9.3</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 0.10.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 0.9.3</span>
+  <span class="sidebar-brand-text">UWSCR 0.10.0</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -168,9 +168,9 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">ビルトイン関数</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../builtins/string.html">文字列操作関数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../builtins/text.html">文字列操作関数</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../builtins/window.html">ウィンドウ操作関数</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../builtins/control.html">制御関数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../builtins/scriptcontrol.html">スクリプト制御</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../builtins/system.html">システム関数</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../builtins/file.html">ファイル操作関数</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../builtins/gui.html">GUI</a></li>
@@ -873,11 +873,11 @@ fend
 
 <span class="kd">function</span><span class="w"> </span><span class="n">f2</span><span class="p">(</span><span class="n">n</span><span class="o">:</span><span class="w"> </span><span class="n">Hoge</span><span class="p">)</span>
 <span class="w">    </span><span class="kd">select</span><span class="w"> </span><span class="n">n</span>
-<span class="w">        </span><span class="n">case</span><span class="w"> </span><span class="n">Hoge</span><span class="o">.</span><span class="n">foo</span>
+<span class="w">        </span><span class="kd">case</span><span class="w"> </span><span class="n">Hoge</span><span class="o">.</span><span class="n">foo</span>
 <span class="w">            </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&#39;foo!&#39;</span>
-<span class="w">        </span><span class="n">case</span><span class="w"> </span><span class="n">Hoge</span><span class="o">.</span><span class="n">bar</span>
+<span class="w">        </span><span class="kd">case</span><span class="w"> </span><span class="n">Hoge</span><span class="o">.</span><span class="n">bar</span>
 <span class="w">            </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&#39;bar!&#39;</span>
-<span class="w">        </span><span class="n">case</span><span class="w"> </span><span class="n">Hoge</span><span class="o">.</span><span class="n">baz</span>
+<span class="w">        </span><span class="kd">case</span><span class="w"> </span><span class="n">Hoge</span><span class="o">.</span><span class="n">baz</span>
 <span class="w">            </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&#39;baz!&#39;</span>
 <span class="w">    </span><span class="kd">selend</span>
 <span class="kd">fend</span>
@@ -1257,7 +1257,7 @@ endmodule
 <h3>オブジェクトの作成<a class="headerlink" href="#id30" title="この見出しへのパーマリンク">#</a></h3>
 <ol class="arabic simple">
 <li><p>UObjectリテラル: jsonを <code class="docutils literal notranslate"><span class="pre">&#64;</span></code> で括る</p></li>
-<li><p><a class="reference internal" href="../builtins/string.html#FromJson" title="FromJson"><code class="xref any py py-func docutils literal notranslate"><span class="pre">FromJson</span></code></a> 関数</p></li>
+<li><p><a class="reference internal" href="../builtins/text.html#FromJson" title="FromJson"><code class="xref any py py-func docutils literal notranslate"><span class="pre">FromJson</span></code></a> 関数</p></li>
 </ol>
 <div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="w"> </span><span class="n">obj</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">@{</span>
 <span class="w">    </span><span class="s">&quot;foo&quot;</span><span class="o">:</span><span class="w"> </span><span class="s">&quot;fooooo&quot;</span><span class="o">,</span>
@@ -2707,8 +2707,8 @@ endstruct
 <ul class="simple">
 <li><dl class="simple">
 <dt>タスク関数</dt><dd><ul>
-<li><p><a class="reference internal" href="../builtins/control.html#Task" title="Task"><code class="xref any py py-func docutils literal notranslate"><span class="pre">Task</span></code></a></p></li>
-<li><p><a class="reference internal" href="../builtins/control.html#WaitTask" title="WaitTask"><code class="xref any py py-func docutils literal notranslate"><span class="pre">WaitTask</span></code></a></p></li>
+<li><p><a class="reference internal" href="../builtins/scriptcontrol.html#Task" title="Task"><code class="xref any py py-func docutils literal notranslate"><span class="pre">Task</span></code></a></p></li>
+<li><p><a class="reference internal" href="../builtins/scriptcontrol.html#WaitTask" title="WaitTask"><code class="xref any py py-func docutils literal notranslate"><span class="pre">WaitTask</span></code></a></p></li>
 </ul>
 </dd>
 </dl>
@@ -2981,70 +2981,70 @@ endstruct
 <div class="line-block">
 <div class="line"><code class="docutils literal notranslate"><span class="pre">try-except-finally-endtry</span></code> は</div>
 </div>
-<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">try</span>
-<span class="w">    </span><span class="n">try</span>
-<span class="w">    </span><span class="n">except</span>
-<span class="w">    </span><span class="n">endtry</span>
-<span class="n">finally</span>
-<span class="n">endtry</span>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="k">try</span>
+<span class="w">    </span><span class="k">try</span>
+<span class="w">    </span><span class="k">except</span>
+<span class="w">    </span><span class="k">endtry</span>
+<span class="k">finally</span>
+<span class="k">endtry</span>
 </pre></div>
 </div>
 <p>と同等です</p>
 <section id="except">
 <h3>except例<a class="headerlink" href="#except" title="この見出しへのパーマリンク">#</a></h3>
-<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">try</span>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="k">try</span>
 <span class="w">    </span><span class="k">print</span><span class="w"> </span><span class="m">1</span>
 <span class="w">    </span><span class="n">raise</span><span class="p">(</span><span class="s">&quot;エラー&quot;</span><span class="p">)</span><span class="w"> </span><span class="c">// ここでエラー</span>
 <span class="w">    </span><span class="k">print</span><span class="w"> </span><span class="m">2</span><span class="w"> </span><span class="c">// 実行されない</span>
-<span class="n">except</span>
+<span class="k">except</span>
 <span class="w">    </span><span class="k">print</span><span class="w"> </span><span class="m">TRY_ERRMSG</span><span class="w"> </span><span class="c">// 実行される</span>
-<span class="n">endtry</span>
+<span class="k">endtry</span>
 
-<span class="n">try</span>
+<span class="k">try</span>
 <span class="w">    </span><span class="c">// エラーが発生しない場合</span>
-<span class="n">except</span>
+<span class="k">except</span>
 <span class="w">    </span><span class="k">print</span><span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="c">// 実行されない</span>
-<span class="n">endtry</span>
+<span class="k">endtry</span>
 </pre></div>
 </div>
 </section>
 <section id="finally">
 <h3>finally例<a class="headerlink" href="#finally" title="この見出しへのパーマリンク">#</a></h3>
-<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">try</span>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="k">try</span>
 <span class="w">    </span><span class="k">print</span><span class="w"> </span><span class="m">1</span>
 <span class="w">    </span><span class="n">raise</span><span class="p">(</span><span class="s">&quot;エラー&quot;</span><span class="p">)</span><span class="w"> </span><span class="c">// ここでエラー</span>
 <span class="w">    </span><span class="k">print</span><span class="w"> </span><span class="m">2</span><span class="w"> </span><span class="c">// 実行されない</span>
-<span class="n">finally</span>
+<span class="k">finally</span>
 <span class="w">    </span><span class="k">print</span><span class="w"> </span><span class="m">TRY_ERRMSG</span><span class="w"> </span><span class="c">// 実行される</span>
-<span class="n">endtry</span>
+<span class="k">endtry</span>
 
-<span class="n">try</span>
+<span class="k">try</span>
 <span class="w">    </span><span class="c">// エラーが発生しない場合</span>
-<span class="n">finally</span>
+<span class="k">finally</span>
 <span class="w">    </span><span class="k">print</span><span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="c">// 実行される</span>
-<span class="n">endtry</span>
+<span class="k">endtry</span>
 </pre></div>
 </div>
 </section>
 <section id="except-finally">
 <h3>except-finally例<a class="headerlink" href="#except-finally" title="この見出しへのパーマリンク">#</a></h3>
-<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">try</span>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="k">try</span>
 <span class="w">    </span><span class="k">print</span><span class="w"> </span><span class="m">1</span>
 <span class="w">    </span><span class="n">raise</span><span class="p">(</span><span class="s">&quot;エラー&quot;</span><span class="p">)</span><span class="w"> </span><span class="c">// ここでエラー</span>
 <span class="w">    </span><span class="k">print</span><span class="w"> </span><span class="m">2</span><span class="w"> </span><span class="c">// 実行されない</span>
-<span class="n">except</span>
+<span class="k">except</span>
 <span class="w">    </span><span class="k">print</span><span class="w"> </span><span class="m">TRY_ERRMSG</span><span class="w"> </span><span class="c">// 実行される</span>
-<span class="n">finally</span>
+<span class="k">finally</span>
 <span class="w">    </span><span class="k">print</span><span class="w"> </span><span class="m">TRY_ERRMSG</span><span class="w"> </span><span class="c">// 実行される</span>
-<span class="n">endtry</span>
+<span class="k">endtry</span>
 
-<span class="n">try</span>
+<span class="k">try</span>
 <span class="w">    </span><span class="c">// エラーが発生しない場合</span>
-<span class="n">except</span>
+<span class="k">except</span>
 <span class="w">    </span><span class="k">print</span><span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="c">// 実行されない</span>
-<span class="n">finally</span>
+<span class="k">finally</span>
 <span class="w">    </span><span class="k">print</span><span class="w"> </span><span class="m">2</span><span class="w"> </span><span class="c">// 実行される</span>
-<span class="n">endtry</span>
+<span class="k">endtry</span>
 </pre></div>
 </div>
 </section>
@@ -3401,11 +3401,11 @@ selend
 <li><p>defaultがなくいずれのcaseにも一致しない場合なにも行わない</p></li>
 </ol>
 <div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="w"> </span><span class="kd">select</span><span class="w"> </span><span class="n">hoge</span>
-<span class="w">    </span><span class="n">case</span><span class="w"> </span><span class="m">1</span>
+<span class="w">    </span><span class="kd">case</span><span class="w"> </span><span class="m">1</span>
 <span class="w">        </span><span class="c">// hogeが1なら実行される</span>
-<span class="w">    </span><span class="n">case</span><span class="w"> </span><span class="m">2</span><span class="o">,</span><span class="w"> </span><span class="m">3</span>
+<span class="w">    </span><span class="kd">case</span><span class="w"> </span><span class="m">2</span><span class="o">,</span><span class="w"> </span><span class="m">3</span>
 <span class="w">        </span><span class="c">// hogeが2か3なら実行される</span>
-<span class="w">    </span><span class="n">case</span><span class="w"> </span><span class="m">3</span>
+<span class="w">    </span><span class="kd">case</span><span class="w"> </span><span class="m">3</span>
 <span class="w">        </span><span class="c">// hogeが3でも上のcaseが該当してるので実行されない</span>
 <span class="w">    </span><span class="n">default</span>
 <span class="w">        </span><span class="c">// hogeが1～3以外なら実行される</span>
@@ -3417,7 +3417,7 @@ selend
 <span class="kd">selend</span>
 
 <span class="kd">select</span><span class="w"> </span><span class="m">1</span>
-<span class="w">    </span><span class="n">case</span><span class="w"> </span><span class="m">2</span>
+<span class="w">    </span><span class="kd">case</span><span class="w"> </span><span class="m">2</span>
 <span class="w">        </span><span class="c">// なにも実行されない</span>
 <span class="kd">selend</span>
 </pre></div>
@@ -3693,14 +3693,14 @@ selend
 
 <span class="c">// select文case句の複数条件で改行するとエラー</span>
 <span class="kd">select</span><span class="w"> </span><span class="n">fuga</span>
-<span class="w">    </span><span class="n">case</span><span class="w"> </span><span class="m">1</span><span class="o">,</span>
+<span class="w">    </span><span class="kd">case</span><span class="w"> </span><span class="m">1</span><span class="o">,</span>
 <span class="w">         </span><span class="m">2</span><span class="o">,</span>
 <span class="w">         </span><span class="m">3</span>
 <span class="w">        </span><span class="k">print</span><span class="w"> </span><span class="s">&quot;ng&quot;</span>
 <span class="kd">selend</span>
 <span class="c">// 必ず一行で書く</span>
 <span class="kd">select</span><span class="w"> </span><span class="n">hoge</span>
-<span class="w">    </span><span class="n">case</span><span class="w"> </span><span class="m">1</span><span class="o">,</span><span class="m">2</span><span class="o">,</span><span class="m">3</span>
+<span class="w">    </span><span class="kd">case</span><span class="w"> </span><span class="m">1</span><span class="o">,</span><span class="m">2</span><span class="o">,</span><span class="m">3</span>
 <span class="w">        </span><span class="k">print</span><span class="w"> </span><span class="s">&quot;ok&quot;</span>
 <span class="kd">selend</span>
 </pre></div>

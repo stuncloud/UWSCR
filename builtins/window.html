@@ -4,10 +4,10 @@
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <meta name="color-scheme" content="light dark"><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
     <link rel="icon" href="../_static/MAINICON_0016-0256_light.ico" type="image/vnd.microsoft.icon">
-<link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="制御関数" href="control.html" /><link rel="prev" title="文字列操作関数" href="string.html" />
+<link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="スクリプト制御" href="scriptcontrol.html" /><link rel="prev" title="文字列操作関数" href="text.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>ウィンドウ操作関数 - UWSCR 0.9.3</title>
+        <title>ウィンドウ操作関数 - UWSCR 0.10.0</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 0.9.3</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 0.10.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 0.9.3</span>
+  <span class="sidebar-brand-text">UWSCR 0.10.0</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -168,9 +168,9 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">ビルトイン関数</span></p>
 <ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="string.html">文字列操作関数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="text.html">文字列操作関数</a></li>
 <li class="toctree-l1 current current-page"><a class="current reference internal" href="#">ウィンドウ操作関数</a></li>
-<li class="toctree-l1"><a class="reference internal" href="control.html">制御関数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="scriptcontrol.html">スクリプト制御</a></li>
 <li class="toctree-l1"><a class="reference internal" href="system.html">システム関数</a></li>
 <li class="toctree-l1"><a class="reference internal" href="file.html">ファイル操作関数</a></li>
 <li class="toctree-l1"><a class="reference internal" href="gui.html">GUI</a></li>
@@ -310,8 +310,8 @@
 <dd class="field-even"><p>ウィンドウIDの配列</p>
 </dd>
 </dl>
-<div class="admonition caution">
-<p class="admonition-title">注意</p>
+<div class="caution admonition">
+<p class="admonition-title">特殊変数の廃止</p>
 <div class="line-block">
 <div class="line">UWSCとは異なり見つかったウィンドウの個数ではなくウィンドウIDの配列が返るようになりました</div>
 <div class="line">それに伴い特殊変数 <code class="docutils literal notranslate"><span class="pre">ALL_WIN_ID</span></code> は廃止されました</div>
@@ -697,13 +697,18 @@
 <div class="line">3状態チェックボックスの場合、 <code class="docutils literal notranslate"><span class="pre">2</span></code> を指定することでグレー状態にできます</div>
 <div class="line">それ以外のアイテムの場合FALSEだとクリック動作を行いません (対象が存在していればTRUEを返す)</div>
 </div>
-<div class="admonition caution">
-<p class="admonition-title">注意</p>
-<p>CLK_ACCは3状態チェックボックスをサポートしません</p>
+<div class="caution admonition">
+<p class="admonition-title">3状態チェックボックスのサポート</p>
+<div class="line-block">
+<div class="line">CLK_APIとCLK_UIAのみ</div>
+<div class="line">CLK_ACCは3状態チェックボックスをサポートしません</div>
 </div>
-<div class="admonition hint">
-<p class="admonition-title">ヒント</p>
-<p>2状態チェックボックスに対してCLK_UIAで2を指定した場合は、クリック操作が複数回行われますが元々の状態に戻ります</p>
+</div>
+<div class="note admonition">
+<p class="admonition-title">CLK_UIA指定時の2の動作</p>
+<div class="line-block">
+<div class="line">2状態チェックボックスに対してCLK_UIAで2を指定した場合は、クリック操作が複数回行われますが元々の状態に戻ります</div>
+</div>
 </div>
 </p></li>
 <li><p><strong>n番目</strong> (<em>数値 省略可</em>) -- 同名アイテムの場合何番目をクリックするか</p></li>
@@ -713,9 +718,8 @@
 <dd class="field-even"><p>成功時TRUE、 <code class="docutils literal notranslate"><span class="pre">CLK_HWND</span></code> 指定時は対象のウィンドウハンドル値を返す</p>
 </dd>
 </dl>
-<div class="admonition note">
-<p class="admonition-title">注釈</p>
-<p>アイテム名の一致について</p>
+<div class="note admonition">
+<p class="admonition-title">アイテム名の一致について</p>
 <p><code class="docutils literal notranslate"><span class="pre">CLK_SHORT</span></code> を指定しない場合アイテム名は完全一致する必要がありますが、ニーモニックがある場合はそれを無視することができます</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">&amp;</span></code> の有無は問わない</p></li>
@@ -835,11 +839,10 @@
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>ID</strong> (<em>ウィンドウID</em>) -- アクティブにするウィンドウのID、0指定でどのウィンドウもアクティブにしない</p></li>
-<li><p><strong>キー</strong> (<em>定数または文字列</em>) -- <p><a class="reference internal" href="#virtual-keys"><span class="std std-ref">仮想キーコード一覧</span></a> のいずれか、またはアルファベット一文字</p>
-<div class="admonition note">
-<p class="admonition-title">注釈</p>
+<li><p><strong>キー</strong> (<em>定数または文字列</em>) -- <p><a class="reference internal" href="#virtual-keys"><span class="std std-ref">仮想キーコード一覧</span></a> のいずれかまたはアルファベット一文字、35個まで</p>
+<div class="note admonition">
+<p class="admonition-title">修飾子キー指定について</p>
 <div class="line-block">
-<div class="line">キーは35個まで指定可能</div>
 <div class="line"><code class="docutils literal notranslate"><span class="pre">VK_SHIFT</span></code>, <code class="docutils literal notranslate"><span class="pre">VK_CTRL</span></code>, <code class="docutils literal notranslate"><span class="pre">VK_ALT</span></code>, <code class="docutils literal notranslate"><span class="pre">VK_WIN</span></code> は押し下げられた状態になります (Rも含む)</div>
 <div class="line">これらのキーはすべてのキー入力が終了したあとにキーアップ状態に戻ります</div>
 </div>
@@ -864,8 +867,8 @@
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>ID</strong> (<em>ウィンドウID</em>) -- 対象ウィンドウのID</p></li>
 <li><p><strong>値</strong> (<em>数値</em>) -- <p>スライダーに設定する値</p>
-<div class="admonition hint">
-<p class="admonition-title">ヒント</p>
+<div class="hint admonition">
+<p class="admonition-title">範囲外指定時の動作</p>
 <div class="line-block">
 <div class="line">最大値を上回る値だった場合は最大値に、最小値を下回る値だった場合は最小値に変更されます</div>
 </div>
@@ -1098,9 +1101,11 @@
 </tbody>
 </table>
 </div>
-<div class="admonition caution">
-<p class="admonition-title">注意</p>
-<p><code class="docutils literal notranslate"><span class="pre">btn(TOUCH)</span></code> の場合MORG_DIRECTは無視されMORG_CLIENTとして動作します</p>
+<div class="caution admonition">
+<p class="admonition-title">TOUCH非対応</p>
+<div class="line-block">
+<div class="line">btn関数でTOUCH指定時のMORG_DIRECTは無視されMORG_CLIENTとして動作します</div>
+</div>
 </div>
 </dd></dl>
 
@@ -1121,10 +1126,12 @@
 <div class="line">対象ウィンドウから直接画像の取得 (<a class="reference internal" href="#chkimg" title="chkimg"><code class="xref any py py-func docutils literal notranslate"><span class="pre">chkimg</span></code></a>)、または色の取得 (<a class="reference internal" href="#peekcolor" title="peekcolor"><code class="xref any py py-func docutils literal notranslate"><span class="pre">peekcolor</span></code></a>) を試みる</div>
 <div class="line">他のウィンドウに隠れている場合でも使用可能</div>
 </div>
-<div class="admonition caution">
-<p class="admonition-title">注意</p>
-<p>対象ウィンドウによっては正常に動作しない可能性があります</p>
-<p>saveimgのIMG_BACKで画像が保存できないウィンドウなど</p>
+<div class="caution admonition">
+<p class="admonition-title">動作しない場合</p>
+<div class="line-block">
+<div class="line">対象ウィンドウによっては正常に動作しない可能性があります</div>
+<div class="line">例: saveimgのIMG_BACKで画像が保存できないウィンドウ</div>
+</div>
 </div>
 </dd></dl>
 
@@ -2269,10 +2276,12 @@
 <dd><div class="line-block">
 <div class="line">指定画像をスクリーン上から探してその座標を返します</div>
 </div>
-<div class="admonition caution">
-<p class="admonition-title">注意</p>
-<p>UWSCとは引数や戻り値が異なります</p>
-<p>特殊変数 <code class="docutils literal notranslate"><span class="pre">G_IMG_X</span></code>, <code class="docutils literal notranslate"><span class="pre">G_IMG_Y</span></code>, <code class="docutils literal notranslate"><span class="pre">ALL_IMG_X</span></code>, <code class="docutils literal notranslate"><span class="pre">ALL_IMG_Y</span></code> は廃止</p>
+<div class="caution admonition">
+<p class="admonition-title">UWSCとは互換性がありません</p>
+<ul class="simple">
+<li><p>特殊変数 <code class="docutils literal notranslate"><span class="pre">G_IMG_X</span></code>, <code class="docutils literal notranslate"><span class="pre">G_IMG_Y</span></code>, <code class="docutils literal notranslate"><span class="pre">ALL_IMG_X</span></code>, <code class="docutils literal notranslate"><span class="pre">ALL_IMG_Y</span></code> は廃止</p></li>
+<li><p>戻り値が変更されています</p></li>
+</ul>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
@@ -2318,9 +2327,11 @@
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>ファイル名</strong> (<em>文字列 省略可</em>) -- <p>保存するファイル名 (対応する拡張子は <code class="docutils literal notranslate"><span class="pre">jpg</span></code>, <code class="docutils literal notranslate"><span class="pre">bmp</span></code>, <code class="docutils literal notranslate"><span class="pre">png</span></code>)、EMPTYの場合はクリップボードにコピー</p>
-<div class="admonition hint">
-<p class="admonition-title">ヒント</p>
-<p>有効な拡張子がない場合はpngファイルになります</p>
+<div class="hint admonition">
+<p class="admonition-title">拡張子が有効ではない場合</p>
+<div class="line-block">
+<div class="line">pngファイルとして保存されます</div>
+</div>
 <div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">saveimg</span><span class="p">(</span><span class="s">&quot;hoge&quot;</span><span class="p">)</span><span class="w"> </span><span class="c">// hoge.pngが保存される</span>
 </pre></div>
 </div>
@@ -3393,16 +3404,16 @@
       <footer>
         
         <div class="related-pages">
-          <a class="next-page" href="control.html">
+          <a class="next-page" href="scriptcontrol.html">
               <div class="page-info">
                 <div class="context">
                   <span>Next</span>
                 </div>
-                <div class="title">制御関数</div>
+                <div class="title">スクリプト制御</div>
               </div>
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
             </a>
-          <a class="prev-page" href="string.html">
+          <a class="prev-page" href="text.html">
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
               <div class="page-info">
                 <div class="context">

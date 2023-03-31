@@ -4,10 +4,10 @@
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <meta name="color-scheme" content="light dark"><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
     <link rel="icon" href="../_static/MAINICON_0016-0256_light.ico" type="image/vnd.microsoft.icon">
-<link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="ファイル操作関数" href="file.html" /><link rel="prev" title="制御関数" href="control.html" />
+<link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="ファイル操作関数" href="file.html" /><link rel="prev" title="スクリプト制御" href="scriptcontrol.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>システム関数 - UWSCR 0.9.3</title>
+        <title>システム関数 - UWSCR 0.10.0</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 0.9.3</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 0.10.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 0.9.3</span>
+  <span class="sidebar-brand-text">UWSCR 0.10.0</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -168,9 +168,9 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">ビルトイン関数</span></p>
 <ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="string.html">文字列操作関数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="text.html">文字列操作関数</a></li>
 <li class="toctree-l1"><a class="reference internal" href="window.html">ウィンドウ操作関数</a></li>
-<li class="toctree-l1"><a class="reference internal" href="control.html">制御関数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="scriptcontrol.html">スクリプト制御</a></li>
 <li class="toctree-l1 current current-page"><a class="current reference internal" href="#">システム関数</a></li>
 <li class="toctree-l1"><a class="reference internal" href="file.html">ファイル操作関数</a></li>
 <li class="toctree-l1"><a class="reference internal" href="gui.html">GUI</a></li>
@@ -214,8 +214,8 @@
         <article role="main">
           <section id="id1">
 <h1>システム関数<a class="headerlink" href="#id1" title="この見出しへのパーマリンク">#</a></h1>
-<section id="os">
-<h2>OS情報<a class="headerlink" href="#os" title="この見出しへのパーマリンク">#</a></h2>
+<section id="id2">
+<h2>システム情報<a class="headerlink" href="#id2" title="この見出しへのパーマリンク">#</a></h2>
 <dl class="py function">
 <dt class="sig sig-object py" id="kindofos">
 <span class="sig-name descname"><span class="pre">kindofos</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">データ種別</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">FALSE</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#kindofos" title="この定義へのパーマリンク">#</a></dt>
@@ -392,9 +392,368 @@
 </div>
 </dd></dl>
 
+<dl class="py function">
+<dt class="sig sig-object py" id="cpuuserate">
+<span class="sig-name descname"><span class="pre">cpuuserate</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#cpuuserate" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">システム全体での1秒間のCPU使用率を得る</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-odd"><p>数値</p>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>CPU使用率</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="sensor">
+<span class="sig-name descname"><span class="pre">sensor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">種別</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#sensor" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">各種センサーから情報を得る (Sensor APIを使用)</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>種別</strong> (<em>定数</em>) -- <p>センサー種別を指定する定数</p>
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SNSR_Biometric_HumanPresense</span></span></dt>
+<dd><div class="line-block">
+<div class="line">人が存在した場合に True</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SNSR_Biometric_HumanProximity</span></span></dt>
+<dd><div class="line-block">
+<div class="line">人との距離(メートル)</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SNSR_Electrical_Capacitance</span></span></dt>
+<dd><div class="line-block">
+<div class="line">静電容量(ファラド)</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SNSR_Electrical_Resistance</span></span></dt>
+<dd><div class="line-block">
+<div class="line">電気抵抗(オーム)</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SNSR_Electrical_Inductance</span></span></dt>
+<dd><div class="line-block">
+<div class="line">誘導係数(ヘンリー)</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SNSR_Electrical_Current</span></span></dt>
+<dd><div class="line-block">
+<div class="line">電流(アンペア)</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SNSR_Electrical_Voltage</span></span></dt>
+<dd><div class="line-block">
+<div class="line">電圧(ボルト)</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SNSR_Electrical_Power</span></span></dt>
+<dd><div class="line-block">
+<div class="line">電力(ワット)</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SNSR_Environmental_Temperature</span></span></dt>
+<dd><div class="line-block">
+<div class="line">気温(セ氏)</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SNSR_Environmental_Pressure</span></span></dt>
+<dd><div class="line-block">
+<div class="line">気圧(バール)</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SNSR_Environmental_Humidity</span></span></dt>
+<dd><div class="line-block">
+<div class="line">湿度(パーセンテージ)</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SNSR_Environmental_WindDirection</span></span></dt>
+<dd><div class="line-block">
+<div class="line">風向(度数)</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SNSR_Environmental_WindSpeed</span></span></dt>
+<dd><div class="line-block">
+<div class="line">風速(メートル毎秒)</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SNSR_Light_Lux</span></span></dt>
+<dd><div class="line-block">
+<div class="line">照度(ルクス)</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SNSR_Light_Temperature</span></span></dt>
+<dd><div class="line-block">
+<div class="line">光色温度(ケルビン)</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SNSR_Mechanical_Force</span></span></dt>
+<dd><div class="line-block">
+<div class="line">力(ニュートン)</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SNSR_Mechanical_AbsPressure</span></span></dt>
+<dd><div class="line-block">
+<div class="line">絶対圧(パスカル)</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SNSR_Mechanical_GaugePressure</span></span></dt>
+<dd><div class="line-block">
+<div class="line">ゲージ圧(パスカル)</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SNSR_Mechanical_Weight</span></span></dt>
+<dd><div class="line-block">
+<div class="line">重量(キログラム)</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SNSR_Motion_AccelerationX</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SNSR_Motion_AccelerationY</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SNSR_Motion_AccelerationZ</span></span></dt>
+<dd><div class="line-block">
+<div class="line">X/Y/Z軸 加速度(ガル)</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SNSR_Motion_AngleAccelX</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SNSR_Motion_AngleAccelY</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SNSR_Motion_AngleAccelZ</span></span></dt>
+<dd><div class="line-block">
+<div class="line">X/Y/Z軸 角加速度(度毎秒毎秒)</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SNSR_Motion_Speed</span></span></dt>
+<dd><div class="line-block">
+<div class="line">速度(メートル毎秒)</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SNSR_Scanner_RFIDTag</span></span></dt>
+<dd><div class="line-block">
+<div class="line">RFIDタグの40ビット値</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SNSR_Scanner_BarcodeData</span></span></dt>
+<dd><div class="line-block">
+<div class="line">バーコードデータを表す文字列</div>
+</div>
+<div class="admonition caution">
+<p class="admonition-title">注意</p>
+<p>UWSCRではサポートされません (必ずEMPTYを返します)</p>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SNSR_Orientation_TiltX</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SNSR_Orientation_TiltY</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SNSR_Orientation_TiltZ</span></span></dt>
+<dd><div class="line-block">
+<div class="line">X/Y/Z 軸角(度)</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SNSR_Orientation_DistanceX</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SNSR_Orientation_DistanceY</span></span></dt>
+<dd></dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SNSR_Orientation_DistanceZ</span></span></dt>
+<dd><div class="line-block">
+<div class="line">X/Y/Z 距離(メートル)</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SNSR_Orientation_MagHeading</span></span></dt>
+<dd><div class="line-block">
+<div class="line">磁北基準未補正コンパス方位</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SNSR_Orientation_TrueHeading</span></span></dt>
+<dd><div class="line-block">
+<div class="line">真北基準未補正コンパス方位</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SNSR_Orientation_CompMagHeading</span></span></dt>
+<dd><div class="line-block">
+<div class="line">磁北基準補正済みコンパス方位</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SNSR_Orientation_CompTrueHeading</span></span></dt>
+<dd><div class="line-block">
+<div class="line">真北基準補正済みコンパス方位</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SNSR_Location_Altitude</span></span></dt>
+<dd><div class="line-block">
+<div class="line">海抜(メートル)</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SNSR_Location_Latitude</span></span></dt>
+<dd><div class="line-block">
+<div class="line">緯度(度数)</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SNSR_Location_Longitude</span></span></dt>
+<dd><div class="line-block">
+<div class="line">経度(度数)</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">SNSR_Location_Speed</span></span></dt>
+<dd><div class="line-block">
+<div class="line">スピード(ノット)</div>
+</div>
+</dd></dl>
+
+</p>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>真偽値、数値、文字列</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p><p>種別に応じた値、値が取得できない場合はEMPTY</p>
+<div class="note admonition">
+<p class="admonition-title">戻り値NaNの廃止</p>
+<div class="line-block">
+<div class="line">一部のエラーで値が取得できない場合にUWSCはNaNを返していましたが、UWSCRではEMPTYが返ります</div>
+</div>
+</div>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
 </section>
-<section id="id2">
-<h2>プロセス実行<a class="headerlink" href="#id2" title="この見出しへのパーマリンク">#</a></h2>
+<section id="id3">
+<h2>プロセス実行<a class="headerlink" href="#id3" title="この見出しへのパーマリンク">#</a></h2>
 <dl class="py function">
 <dt class="sig sig-object py" id="exec">
 <span class="sig-name descname"><span class="pre">exec</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ファイル名</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">同期フラグ</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">FALSE</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">width</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">height</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">EMPTY</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#exec" title="この定義へのパーマリンク">#</a></dt>
@@ -517,6 +876,990 @@
 </dd></dl>
 
 </section>
+<section id="id4">
+<h2>入力制御<a class="headerlink" href="#id4" title="この見出しへのパーマリンク">#</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="lockhard">
+<span class="sig-name descname"><span class="pre">lockhard</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">フラグ</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#lockhard" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">マウス、キーボードの入力を禁止する</div>
+</div>
+<div class="important admonition">
+<p class="admonition-title">要管理者特権</p>
+<div class="line-block">
+<div class="line">UWSCRを <strong>管理者として実行</strong> する必要があります</div>
+</div>
+</div>
+<div class="hint admonition">
+<p class="admonition-title">ロックの強制解除</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">Ctrl+Alt+Delete</span></code> でロック状態を強制解除できます</p></li>
+<li><p>ロックしたままでもUWSCRのプロセスが終了すればロックは解除されます</p></li>
+</ul>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>フラグ</strong> (<em>真偽値 省略可</em>) -- TRUEで入力禁止、FALSEで解除</p>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>真偽値</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>関数が成功した場合TRUE</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="lockhardex">
+<span class="sig-name descname"><span class="pre">lockhardex</span></span><span class="sig-paren">(</span><span class="optional">[</span><em class="sig-param"><span class="n"><span class="pre">ID=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">モード=LOCK_ALL</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#lockhardex" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">ウィンドウに対するマウス、キーボードの入力を禁止する</div>
+</div>
+<div class="hint admonition">
+<p class="admonition-title">ロックの強制解除</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">Ctrl+Alt+Delete</span></code> でロック状態を強制解除できます</p></li>
+<li><p>ロックしたままでもUWSCRのプロセスが終了すればロックは解除されます</p></li>
+</ul>
+</div>
+<div class="important admonition">
+<p class="admonition-title">ロック対象について</p>
+<div class="line-block">
+<div class="line">ロック可能な対象は常に一つです</div>
+<div class="line">ロック中に別のウィンドウに対してロックを行った場合元のウィンドウは開放されます</div>
+</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ID</strong> (<em>数値 省略可</em>) -- 入力を禁止するウィンドウのID、0の場合はデスクトップ全体、EMPTYならロックを解除</p></li>
+<li><p><strong>モード</strong> (<em>定数 省略可</em>) -- <p>禁止内容を指定</p>
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">LOCK_ALL</span> <span class="pre">(0)</span></span></dt>
+<dd><div class="line-block">
+<div class="line">マウス、キーボードの入力を禁止</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">LOCK_KEYBOARD</span></span></dt>
+<dd><div class="line-block">
+<div class="line">キーボードの入力のみ禁止</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">LOCK_MOUSE</span></span></dt>
+<dd><div class="line-block">
+<div class="line">マウスの入力のみ禁止</div>
+</div>
+</dd></dl>
+
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>真偽値</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>関数が成功した場合TRUE</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="id5">
+<h2>音声出力<a class="headerlink" href="#id5" title="この見出しへのパーマリンク">#</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="sound">
+<span class="sig-name descname"><span class="pre">sound</span></span><span class="sig-paren">(</span><span class="optional">[</span><em class="sig-param"><span class="n"><span class="pre">名前=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">同期フラグ=FALSE</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#sound" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">ファイル名、またはサウンドイベント名を指定しそれを再生する</div>
+</div>
+<div class="hint admonition">
+<p class="admonition-title">UWSCとの違い</p>
+<div class="line-block">
+<div class="line">&quot;BEEP&quot; 指定のビープ音再生は廃止されました</div>
+<div class="line">代わりに <a class="reference internal" href="#beep" title="beep"><code class="xref any py py-func docutils literal notranslate"><span class="pre">beep</span></code></a> 関数を使用してください</div>
+</div>
+</div>
+<div class="admonition caution">
+<p class="admonition-title">注意</p>
+<p>wavの再生デバイス選択には対応していません</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>名前</strong> (<em>文字列 省略可</em>) -- <dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ファイル名</span></span></dt>
+<dd><div class="line-block">
+<div class="line">再生したいwavファイルのパスを指定</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">サウンドイベント名</span></span></dt>
+<dd><p>システム上で定義されているサウンドイベント名を指定</p>
+<div class="admonition hint">
+<p class="admonition-title">ヒント</p>
+<p>サウンドイベント名について</p>
+<div class="line-block">
+<div class="line">環境により登録されているイベント名が異なる可能性があります</div>
+<div class="line">以下はWin32のドキュメントに記載されていたイベント名です</div>
+</div>
+<ul>
+<li><p>SystemAsterisk</p></li>
+<li><p>SystemExclamation</p></li>
+<li><p>SystemExit</p></li>
+<li><p>SystemHand</p></li>
+<li><p>SystemQuestion</p></li>
+<li><p>SystemStar</p></li>
+</ul>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">EMPTY</span></span></dt>
+<dd><div class="line-block">
+<div class="line">再生を停止します</div>
+</div>
+</dd></dl>
+
+</p></li>
+<li><p><strong>同期フラグ</strong> (<em>真偽値 省略可</em>) -- TRUEなら再生終了を待つ</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>なし</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="beep">
+<span class="sig-name descname"><span class="pre">beep</span></span><span class="sig-paren">(</span><span class="optional">[</span><em class="sig-param"><span class="n"><span class="pre">長さ=300</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">周波数=2000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">繰り返し=1</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#beep" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">ビープ音を再生します</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>長さ</strong> (<em>数値 省略可</em>) -- ビープ音を再生する長さをミリ秒で指定</p></li>
+<li><p><strong>周波数</strong> (<em>数値 省略可</em>) -- ビープ音の周波数(ヘルツ)を37-32767で指定</p></li>
+<li><p><strong>繰り返し</strong> (<em>数値 省略可</em>) -- 同じ長さと周波数のビープ音を繰り返し再生する回数</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>なし</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="id6">
+<h2>キー入力<a class="headerlink" href="#id6" title="この見出しへのパーマリンク">#</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="getkeystate">
+<span class="sig-name descname"><span class="pre">getkeystate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">キーコード</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">ID=0</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#getkeystate" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">マウスやキーボードがクリックされたかどうか、または特定のキーのトグル状態を得る</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>キーコード</strong> (<em>定数</em>) -- <p>VK定数(クリック判定)またはTGL定数(トグル判定)</p>
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">VK定数</span></span></dt>
+<dd><div class="line-block">
+<div class="line"><a class="reference internal" href="#virtualkeys"><span class="std std-ref">仮想キーコード一覧</span></a> を参照</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">TGL_NUMLOCK</span></span></dt>
+<dd><div class="line-block">
+<div class="line">Num Lock</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">TGL_CAPSLOCK</span></span></dt>
+<dd><div class="line-block">
+<div class="line">Caps Lock</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">TGL_SCROLLLOCK</span></span></dt>
+<dd><div class="line-block">
+<div class="line">Scroll Lock</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">TGL_KANALOCK</span></span></dt>
+<dd><div class="line-block">
+<div class="line">カタカナ入力 (要ID指定)</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">TGL_IME</span></span></dt>
+<dd><div class="line-block">
+<div class="line">IME (要ID指定)</div>
+</div>
+</dd></dl>
+
+</p></li>
+<li><p><strong>ID</strong> (<em>数値 省略可</em>) -- <div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">TGL_KANALOCK</span></code>, <code class="docutils literal notranslate"><span class="pre">TGL_IME</span></code> にて入力方式を確認したいウィンドウのID</div>
+<div class="line">0ならアクティブウィンドウ</div>
+</div>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>真偽値</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>クリックされていたらTRUE、またはトグル状態がオンならTRUE</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="sethotkey">
+<span class="sig-name descname"><span class="pre">sethotkey</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">キーコード</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">修飾子キー=0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">関数=EMPTY</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#sethotkey" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">関数をホットキーに登録</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>キーコード</strong> (<em>定数</em>) -- 登録するキーコードをVK定数で指定 (VK定数は <a class="reference internal" href="#virtualkeys"><span class="std std-ref">仮想キーコード一覧</span></a> を参照)</p></li>
+<li><p><strong>修飾子キー</strong> (<em>定数 省略可</em>) -- <p>同時に押す修飾子キーを指定、OR連結で複数指定、0なら修飾子キーなし</p>
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">MOD_ALT</span></span></dt>
+<dd><div class="line-block">
+<div class="line">Altキー</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">MOD_CONTROL</span></span></dt>
+<dd><div class="line-block">
+<div class="line">Controlキー</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">MOD_SHIFT</span></span></dt>
+<dd><div class="line-block">
+<div class="line">Shiftキー</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">MOD_WIN</span></span></dt>
+<dd><div class="line-block">
+<div class="line">Winキー</div>
+</div>
+</dd></dl>
+
+</p></li>
+<li><p><strong>関数</strong> (<em>文字列またはユーザー定義関数 省略可</em>) -- <div class="line-block">
+<div class="line">ホットキー入力時に実行するユーザー定義関数、またはその名前を文字列で指定</div>
+<div class="line">省略時、またはEMPTYや空文字が入力された場合はホットキーを解除する</div>
+</div>
+<div class="caution admonition">
+<p class="admonition-title">指定関数の注意点</p>
+<div class="line-block">
+<div class="line">引数を受ける関数の場合、引数は無視されます (引数0の関数として扱われる)</div>
+<div class="line">関数内で引数へのアクセスを行う場合はエラーになります</div>
+<div class="line">関数内でエラーが発生した場合はスクリプトが強制終了されます</div>
+</div>
+</div>
+<div class="hint admonition">
+<p class="admonition-title">HOTKEY特殊変数</p>
+<div class="line-block">
+<div class="line">ホットキーで呼ばれる関数内では以下の変数が使えます</div>
+</div>
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">HOTKEY_VK</span></span></dt>
+<dd><div class="line-block">
+<div class="line">ホットキーのキーコード</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">HOTKEY_MOD</span></span></dt>
+<dd><div class="line-block">
+<div class="line">ホットキーの修飾子キー</div>
+</div>
+</dd></dl>
+
+</div>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>なし</p>
+</dd>
+</dl>
+</dd></dl>
+
+<section id="virtualkeys">
+<span id="id7"></span><h3>仮想キーコード一覧<a class="headerlink" href="#virtualkeys" title="この見出しへのパーマリンク">#</a></h3>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">VK_A</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_B</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_C</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_D</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_E</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">VK_F</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_G</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_H</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_I</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_J</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">VK_K</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_L</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_M</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_N</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_O</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">VK_P</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_Q</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_R</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_S</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_T</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">VK_U</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_V</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_W</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_X</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_Y</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">VK_Z</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_0</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_1</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_2</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_3</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">VK_4</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_5</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_6</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_7</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_8</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">VK_9</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_BACK</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_TAB</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_CLEAR</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_ESCAPE</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">VK_ESC</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_ENTER</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_RETURN</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_RRETURN</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_SHIFT</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">VK_RSHIFT</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_WIN</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_RWIN</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_START</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_MENU</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">VK_ALT</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_RALT</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_CONTROL</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_CTRL</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_RCTRL</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">VK_PAUSE</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_CAPITAL</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_KANA</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_FINAL</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_KANJI</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">VK_CONVERT</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_NONCONVERT</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_ACCEPT</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_MODECHANGE</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_SPACE</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">VK_PRIOR</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_NEXT</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_END</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_HOME</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_LEFT</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">VK_UP</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_RIGHT</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_DOWN</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_SELECT</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_PRINT</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">VK_EXECUTE</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_SNAPSHOT</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_INSERT</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_DELETE</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_HELP</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">VK_APPS</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_MULTIPLY</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_ADD</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_SEPARATOR</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_SUBTRACT</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">VK_DECIMAL</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_DIVIDE</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_NUMPAD0</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_NUMPAD1</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_NUMPAD2</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">VK_NUMPAD3</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_NUMPAD4</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_NUMPAD5</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_NUMPAD6</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_NUMPAD7</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">VK_NUMPAD8</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_NUMPAD9</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_F1</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_F2</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_F3</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">VK_F4</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_F5</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_F6</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_F7</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_F8</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">VK_F9</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_F10</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_F11</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_F12</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_NUMLOCK</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">VK_SCROLL</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_PLAY</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_ZOOM</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_SLEEP</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_BROWSER_BACK</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">VK_BROWSER_FORWARD</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_BROWSER_REFRESH</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_BROWSER_STOP</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_BROWSER_SEARCH</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_BROWSER_FAVORITES</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">VK_BROWSER_HOME</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_VOLUME_MUTE</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_VOLUME_DOWN</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_VOLUME_UP</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_MEDIA_NEXT_TRACK</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">VK_MEDIA_PREV_TRACK</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_MEDIA_STOP</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_MEDIA_PLAY_PAUSE</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_LAUNCH_MEDIA_SELECT</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_LAUNCH_MAIL</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">VK_LAUNCH_APP1</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_LAUNCH_APP2</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_OEM_PLUS</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_OEM_COMMA</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_OEM_MINUS</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">VK_OEM_PERIOD</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_OEM_1</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_OEM_2</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_OEM_3</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_OEM_4</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">VK_OEM_5</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_OEM_6</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_OEM_7</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_OEM_8</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_OEM_RESET</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">VK_OEM_JUMP</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_OEM_PA1</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_OEM_PA2</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_OEM_PA3</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_LBUTTON</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">VK_RBUTTON</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VK_MBUTTON</span></code></p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<section id="id8">
+<h2>システム制御<a class="headerlink" href="#id8" title="この見出しへのパーマリンク">#</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="poff">
+<span class="sig-name descname"><span class="pre">poff</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">コマンド</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">スクリプト再実行=TRUE</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#poff" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">電源等の制御</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>コマンド</strong> (<em>定数</em>) -- <p>制御方法を示す定数</p>
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">P_POWEROFF</span></span></dt>
+<dd><div class="line-block">
+<div class="line">PCの電源オフ</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">P_SHUTDOWN</span></span></dt>
+<dd><div class="line-block">
+<div class="line">PCの電源を切れる状態までOSをシャットダウンする</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">P_LOGOFF</span> <span class="pre">または</span> <span class="pre">P_SIGNOUT</span></span></dt>
+<dd><div class="line-block">
+<div class="line">現在のユーザーをサインアウトする</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">P_REBOOT</span></span></dt>
+<dd><div class="line-block">
+<div class="line">PCを再起動する</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">P_SUSPEND</span> <span class="pre">または</span> <span class="pre">P_HIBERNATE</span></span></dt>
+<dd><div class="line-block">
+<div class="line">PCを休止状態にする</div>
+<div class="line">システムが休止をサポートしている必要があります</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">P_SUSPEND2</span> <span class="pre">または</span> <span class="pre">P_SLEEP</span></span></dt>
+<dd><div class="line-block">
+<div class="line">PCをスリープ状態にする</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">P_MONIPOWER</span> <span class="pre">または</span> <span class="pre">P_MONITOR_POWERSAVE</span></span></dt>
+<dd><div class="line-block">
+<div class="line">モニタを省電力モードにする</div>
+<div class="line">モニタが省電力機能をサポートしている必要があります</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">P_MONIPOWER2</span> <span class="pre">または</span> <span class="pre">P_MONITOR_OFF</span></span></dt>
+<dd><div class="line-block">
+<div class="line">モニタの電源を切る</div>
+<div class="line">モニタが省電力機能をサポートしている必要があります</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">P_MONIPOWER3</span> <span class="pre">または</span> <span class="pre">P_MONITOR_ON</span></span></dt>
+<dd><div class="line-block">
+<div class="line">モニタの電源を入れる</div>
+<div class="line">モニタが省電力機能をサポートしている必要があります</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">P_SCREENSAVE</span></span></dt>
+<dd><div class="line-block">
+<div class="line">スクリーンセーバーを起動</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">P_UWSC_REEXEC</span></span></dt>
+<dd><div class="line-block">
+<div class="line">UWSCRの再起動</div>
+<div class="line">第二引数がTRUEならスクリプトを再実行する</div>
+</div>
+<div class="caution admonition">
+<p class="admonition-title">無限ループに注意</p>
+<div class="line-block">
+<div class="line">スクリプト再実行を行う場合はpoffの実行条件に注意してください</div>
+<div class="line">繰り返しスクリプトの再実行が行われるおそれがあります</div>
+</div>
+</div>
+<div class="important admonition">
+<p class="admonition-title">コンソールモード中の場合</p>
+<div class="line-block">
+<div class="line">ウィンドウモードで再実行されます</div>
+</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">P_FORCE</span></span></dt>
+<dd><div class="line-block">
+<div class="line">アプリケーションの終了を待たずにサインアウトしたい場合や、シャットダウンを強制したい場合に指定</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">P_POWEROFF</span></code>, <code class="docutils literal notranslate"><span class="pre">P_SHUTDOWN</span></code>, <code class="docutils literal notranslate"><span class="pre">P_LOGOFF</span></code>, <code class="docutils literal notranslate"><span class="pre">P_REBOOT</span></code> のいずれかに <code class="docutils literal notranslate"><span class="pre">OR</span></code> で連結指定する</div>
+<div class="line">それ以外の場合は無視される</div>
+</div>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">poff</span><span class="p">(</span><span class="m">P_POWEROFF</span><span class="w"> </span><span class="n">or</span><span class="w"> </span><span class="m">P_FORCE</span><span class="p">)</span><span class="w"> </span><span class="c">// 強制電源断</span>
+</pre></div>
+</div>
+</dd></dl>
+
+</p></li>
+<li><p><strong>スクリプト再実行</strong> (<em>真偽値 省略可</em>) -- <p>TRUEなら <code class="docutils literal notranslate"><span class="pre">P_UWSC_REEXEC</span></code> 指定時にスクリプトを再実行する</p>
+<div class="note admonition">
+<p class="admonition-title">UWSCとの違い</p>
+<div class="line-block">
+<div class="line">デフォルト値がTRUEになりました</div>
+</div>
+</div>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>なし</p>
+</dd>
+</dl>
+<div class="hint admonition">
+<p class="admonition-title">OPTFINALLY指定時の動作</p>
+<div class="line-block">
+<div class="line">自身のプロセス終了を伴う以下のコマンドが <code class="docutils literal notranslate"><span class="pre">try</span></code> 節で実行された場合</div>
+<div class="line">OPTFINALLY指定時に限り <code class="docutils literal notranslate"><span class="pre">finally</span></code> 節が実行されます</div>
+</div>
+<ul class="simple">
+<li><dl class="simple">
+<dt>自身を終了する前にfinallyを実行</dt><dd><ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">P_UWSC_REEXEC</span></code></p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>コマンド呼び出し前にfinallyを実行 (finally節が終了するまでこれらの処理は行われない)</dt><dd><ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">P_POWEROFF</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">P_SHUTDOWN</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">P_LOGOFF</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">P_REBOOT</span></code></p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="m">OPTION</span><span class="w"> </span><span class="m">OPTFINALLY</span>
+<span class="k">try</span>
+<span class="w">    </span><span class="n">poff</span><span class="p">(</span><span class="m">P_UWSC_REEXEC</span><span class="p">)</span>
+<span class="w">    </span><span class="n">msgbox</span><span class="p">(</span><span class="s">&quot;poff以降は実行されない&quot;</span><span class="p">)</span>
+<span class="k">finally</span>
+<span class="w">    </span><span class="n">msgbox</span><span class="p">(</span><span class="s">&quot;finallyが実行される&quot;</span><span class="p">)</span>
+<span class="k">endtry</span>
+</pre></div>
+</div>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// OPTFINALLYが無い場合</span>
+<span class="k">try</span>
+<span class="w">    </span><span class="n">poff</span><span class="p">(</span><span class="m">P_UWSC_REEXEC</span><span class="p">)</span>
+<span class="k">finally</span>
+<span class="w">    </span><span class="n">msgbox</span><span class="p">(</span><span class="s">&quot;OPTFINALLYがないので実行されない&quot;</span><span class="p">)</span>
+<span class="k">endtry</span>
+</pre></div>
+</div>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="m">OPTION</span><span class="w"> </span><span class="m">OPTFINALLY</span>
+<span class="c">// poffがtryの外にある場合</span>
+<span class="n">poff</span><span class="p">(</span><span class="m">P_UWSC_REEXEC</span><span class="p">)</span>
+<span class="k">try</span>
+<span class="k">finally</span>
+<span class="w">    </span><span class="n">msgbox</span><span class="p">(</span><span class="s">&quot;OPTFINALLYがあってもtry外だと実行されない&quot;</span><span class="p">)</span>
+<span class="k">endtry</span>
+</pre></div>
+</div>
+</div>
+<div class="note admonition">
+<p class="admonition-title">シャットダウンの理由</p>
+<div class="line-block">
+<div class="line">poffによるシャットダウンは以下の理由で行われます</div>
+</div>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">SHTDN_REASON_MAJOR_OTHER</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">SHTDN_REASON_MINOR_OTHER</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">SHTDN_REASON_FLAG_PLANNED</span></code></p></li>
+</ul>
+</div>
+</dd></dl>
+
+</section>
+<section id="id9">
+<h2>日時<a class="headerlink" href="#id9" title="この見出しへのパーマリンク">#</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="gettime">
+<span class="sig-name descname"><span class="pre">gettime</span></span><span class="sig-paren">(</span><span class="optional">[</span><em class="sig-param"><span class="n"><span class="pre">補正値=0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">基準日時=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">補正値オプション=G_OFFSET_DAYS</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ミリ秒=FALSE</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#gettime" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">指定日時の2000年1月1日からの経過時間を得る</div>
+<div class="line">またその時間に該当する日時情報を <code class="docutils literal notranslate"><span class="pre">G_TIME_*</span></code> 特殊変数に格納する</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>補正値</strong> (<em>数値 省略可</em>) -- 基準日時を起点として指定値分ずらした日時を得る</p></li>
+<li><p><strong>基準日時</strong> (<em>文字列または配列 省略可</em>) -- <div class="line-block">
+<div class="line">基準となる日時を指定、EMPTYで現在時刻</div>
+</div>
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">文字列</span></span></dt>
+<dd><div class="line-block">
+<div class="line">以下の形式で指定</div>
+</div>
+<ul>
+<li><p>&quot;YYYYMMDD&quot;</p></li>
+<li><p>&quot;YYYY/MM/DD&quot;</p></li>
+<li><p>&quot;YYYY-MM-DD&quot;</p></li>
+<li><p>&quot;YYYYMMDDHHNNSS&quot;</p></li>
+<li><p>&quot;YYYY/MM/DD HH:NN:SS&quot;</p></li>
+<li><p>&quot;YYYY-MM-DD HH:NN:SS&quot;</p></li>
+<li><dl class="simple">
+<dt>RFC 3339 形式</dt><dd><ul>
+<li><p>タイムゾーン情報を含めた場合ローカル時間に変換されます</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">配列</span></span></dt>
+<dd></dd></dl>
+
+</p></li>
+<li><p><strong>補正値オプション</strong> (<em>定数 省略可</em>) -- <p>補正値の指定方法を指定</p>
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">G_OFFSET_DAYS</span></span></dt>
+<dd><div class="line-block">
+<div class="line">補正値を日数として扱う</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">G_OFFSET_HOURS</span></span></dt>
+<dd><div class="line-block">
+<div class="line">補正値を時間として扱う</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">G_OFFSET_MINUTES</span></span></dt>
+<dd><div class="line-block">
+<div class="line">補正値を分として扱う</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">G_OFFSET_SECONDS</span></span></dt>
+<dd><div class="line-block">
+<div class="line">補正値を秒として扱う</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">G_OFFSET_MILLIS</span></span></dt>
+<dd><div class="line-block">
+<div class="line">補正値をミリ秒として扱う</div>
+</div>
+</dd></dl>
+
+</p></li>
+<li><p><strong>ミリ秒</strong> (<em>真偽値 省略可</em>) -- 戻り値を秒ではなくミリ秒で返す</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>数値</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>2000年1月1日からの秒数</p>
+</dd>
+</dl>
+<div class="note admonition">
+<p class="admonition-title">実行後に変更される特殊変数</p>
+<div class="line-block">
+<div class="line">以下の変数がgettime関数の結果に応じて変更されます</div>
+<div class="line">文字列型の場合は桁数分左0埋めされます</div>
+<div class="line">これらの変数の変更が適用されるのはgettimeを呼び出したスコープ内に限定されます</div>
+</div>
+<div class="table-wrapper docutils container">
+<table class="docutils align-left">
+<thead>
+<tr class="row-odd"><th class="head"><p>変数</p></th>
+<th class="head"><p>型</p></th>
+<th class="head"><p>内容</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">G_TIME_YY</span></code></p></td>
+<td><p>数値</p></td>
+<td><p>年</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">G_TIME_MM</span></code></p></td>
+<td><p>数値</p></td>
+<td><p>月</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">G_TIME_DD</span></code></p></td>
+<td><p>数値</p></td>
+<td><p>日</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">G_TIME_HH</span></code></p></td>
+<td><p>数値</p></td>
+<td><p>時</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">G_TIME_NN</span></code></p></td>
+<td><p>数値</p></td>
+<td><p>分</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">G_TIME_SS</span></code></p></td>
+<td><p>数値</p></td>
+<td><p>秒</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">G_TIME_ZZ</span></code></p></td>
+<td><p>数値</p></td>
+<td><p>ミリ秒</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">G_TIME_WW</span></code></p></td>
+<td><p>数値</p></td>
+<td><p>曜日 (0:日,1:月,2:火,3:水,4:木,5:金,6:土)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">G_TIME_YY2</span></code></p></td>
+<td><p>文字列</p></td>
+<td><p>年 (下2桁)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">G_TIME_MM2</span></code></p></td>
+<td><p>文字列</p></td>
+<td><p>月 (2桁)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">G_TIME_DD2</span></code></p></td>
+<td><p>文字列</p></td>
+<td><p>日 (2桁)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">G_TIME_HH2</span></code></p></td>
+<td><p>文字列</p></td>
+<td><p>時 (2桁)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">G_TIME_NN2</span></code></p></td>
+<td><p>文字列</p></td>
+<td><p>分 (2桁)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">G_TIME_SS2</span></code></p></td>
+<td><p>文字列</p></td>
+<td><p>秒 (2桁)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">G_TIME_ZZ2</span></code></p></td>
+<td><p>文字列</p></td>
+<td><p>ミリ秒 (3桁)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">G_TIME_YY4</span></code></p></td>
+<td><p>文字列</p></td>
+<td><p>年 (4桁)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="line-block">
+<div class="line">以下の定数で <code class="docutils literal notranslate"><span class="pre">G_TIME_WW</span></code> と比較ができます</div>
+</div>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">G_WEEKDAY_SUN</span></code> (0)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">G_WEEKDAY_MON</span></code> (1)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">G_WEEKDAY_TUE</span></code> (2)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">G_WEEKDAY_WED</span></code> (3)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">G_WEEKDAY_THU</span></code> (4)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">G_WEEKDAY_FRI</span></code> (5)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">G_WEEKDAY_SAT</span></code> (6)</p></li>
+</ul>
+</div>
+<div class="admonition- admonition">
+<p class="admonition-title">サンプルコード</p>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">dt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;2023/04/01 10:10:10&quot;</span>
+
+<span class="c">// 戻り値</span>
+<span class="k">print</span><span class="w"> </span><span class="n">gettime</span><span class="p">(</span><span class="o">,</span><span class="w"> </span><span class="n">dt</span><span class="p">)</span><span class="w">        </span><span class="c">// 733659010</span>
+<span class="c">// ミリ秒で返す</span>
+<span class="k">print</span><span class="w"> </span><span class="n">gettime</span><span class="p">(</span><span class="o">,</span><span class="w"> </span><span class="n">dt</span><span class="o">,,</span><span class="w"> </span><span class="m">TRUE</span><span class="p">)</span><span class="w"> </span><span class="c">// 733659010000</span>
+
+<span class="c">// 第一引数の単位変更</span>
+<span class="c">// 従来の書き方で6時間ずらす</span>
+<span class="n">ts1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">gettime</span><span class="p">(</span><span class="m">0</span><span class="o">.</span><span class="m">25</span><span class="o">,</span><span class="w"> </span><span class="n">dt</span><span class="p">)</span>
+<span class="c">// 第三引数指定で時間扱いになる</span>
+<span class="n">ts2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">gettime</span><span class="p">(</span><span class="m">6</span><span class="o">,</span><span class="w"> </span><span class="n">dt</span><span class="o">,</span><span class="w"> </span><span class="m">G_OFFSET_HOURS</span><span class="p">)</span>
+
+<span class="n">assert_equal</span><span class="p">(</span><span class="n">ts1</span><span class="o">,</span><span class="w"> </span><span class="n">ts2</span><span class="p">)</span>
+
+<span class="c">// format関数による日時フォーマット</span>
+<span class="n">ts</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">gettime</span><span class="p">(</span><span class="o">,</span><span class="w"> </span><span class="n">dt</span><span class="p">)</span>
+<span class="k">print</span><span class="w"> </span><span class="n">format</span><span class="p">(</span><span class="n">ts</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;%c&quot;</span><span class="p">)</span><span class="w"> </span><span class="c">// 2023年04月01日 10時10分10秒</span>
+
+<span class="c">// RFC3339形式</span>
+<span class="n">ts</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">gettime</span><span class="p">(</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;2023-10-10T00:00:00+0000&quot;</span><span class="p">)</span>
+<span class="k">print</span><span class="w"> </span><span class="n">format</span><span class="p">(</span><span class="n">ts</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;%c&quot;</span><span class="p">)</span><span class="w"> </span><span class="c">// 2023年10月10日 09時00分00秒</span>
+</pre></div>
+</div>
+</div>
+</dd></dl>
+
+</section>
 </section>
 
         </article>
@@ -533,14 +1876,14 @@
               </div>
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
             </a>
-          <a class="prev-page" href="control.html">
+          <a class="prev-page" href="scriptcontrol.html">
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
               <div class="page-info">
                 <div class="context">
                   <span>Previous</span>
                 </div>
                 
-                <div class="title">制御関数</div>
+                <div class="title">スクリプト制御</div>
                 
               </div>
             </a>
@@ -577,13 +1920,15 @@
           <div class="toc-tree">
             <ul>
 <li><a class="reference internal" href="#">システム関数</a><ul>
-<li><a class="reference internal" href="#os">OS情報</a><ul>
+<li><a class="reference internal" href="#id2">システム情報</a><ul>
 <li><a class="reference internal" href="#kindofos"><code class="docutils literal notranslate"><span class="pre">kindofos()</span></code></a></li>
 <li><a class="reference internal" href="#env"><code class="docutils literal notranslate"><span class="pre">env()</span></code></a></li>
 <li><a class="reference internal" href="#wmi"><code class="docutils literal notranslate"><span class="pre">wmi()</span></code></a></li>
+<li><a class="reference internal" href="#cpuuserate"><code class="docutils literal notranslate"><span class="pre">cpuuserate()</span></code></a></li>
+<li><a class="reference internal" href="#sensor"><code class="docutils literal notranslate"><span class="pre">sensor()</span></code></a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#id2">プロセス実行</a><ul>
+<li><a class="reference internal" href="#id3">プロセス実行</a><ul>
 <li><a class="reference internal" href="#exec"><code class="docutils literal notranslate"><span class="pre">exec()</span></code></a></li>
 <li><a class="reference internal" href="#shexec"><code class="docutils literal notranslate"><span class="pre">shexec()</span></code></a></li>
 </ul>
@@ -592,6 +1937,30 @@
 <li><a class="reference internal" href="#doscmd"><code class="docutils literal notranslate"><span class="pre">doscmd()</span></code></a></li>
 <li><a class="reference internal" href="#powershell"><code class="docutils literal notranslate"><span class="pre">powershell()</span></code></a></li>
 <li><a class="reference internal" href="#pwsh"><code class="docutils literal notranslate"><span class="pre">pwsh()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id4">入力制御</a><ul>
+<li><a class="reference internal" href="#lockhard"><code class="docutils literal notranslate"><span class="pre">lockhard()</span></code></a></li>
+<li><a class="reference internal" href="#lockhardex"><code class="docutils literal notranslate"><span class="pre">lockhardex()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id5">音声出力</a><ul>
+<li><a class="reference internal" href="#sound"><code class="docutils literal notranslate"><span class="pre">sound()</span></code></a></li>
+<li><a class="reference internal" href="#beep"><code class="docutils literal notranslate"><span class="pre">beep()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id6">キー入力</a><ul>
+<li><a class="reference internal" href="#getkeystate"><code class="docutils literal notranslate"><span class="pre">getkeystate()</span></code></a></li>
+<li><a class="reference internal" href="#sethotkey"><code class="docutils literal notranslate"><span class="pre">sethotkey()</span></code></a></li>
+<li><a class="reference internal" href="#virtualkeys">仮想キーコード一覧</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id8">システム制御</a><ul>
+<li><a class="reference internal" href="#poff"><code class="docutils literal notranslate"><span class="pre">poff()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id9">日時</a><ul>
+<li><a class="reference internal" href="#gettime"><code class="docutils literal notranslate"><span class="pre">gettime()</span></code></a></li>
 </ul>
 </li>
 </ul>

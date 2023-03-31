@@ -7,7 +7,7 @@
 <link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="GUI" href="gui.html" /><link rel="prev" title="システム関数" href="system.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>ファイル操作関数 - UWSCR 0.9.3</title>
+        <title>ファイル操作関数 - UWSCR 0.10.0</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 0.9.3</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 0.10.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 0.9.3</span>
+  <span class="sidebar-brand-text">UWSCR 0.10.0</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -168,9 +168,9 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">ビルトイン関数</span></p>
 <ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="string.html">文字列操作関数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="text.html">文字列操作関数</a></li>
 <li class="toctree-l1"><a class="reference internal" href="window.html">ウィンドウ操作関数</a></li>
-<li class="toctree-l1"><a class="reference internal" href="control.html">制御関数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="scriptcontrol.html">スクリプト制御</a></li>
 <li class="toctree-l1"><a class="reference internal" href="system.html">システム関数</a></li>
 <li class="toctree-l1 current current-page"><a class="current reference internal" href="#">ファイル操作関数</a></li>
 <li class="toctree-l1"><a class="reference internal" href="gui.html">GUI</a></li>
@@ -361,9 +361,11 @@
 <dd><div class="line-block">
 <div class="line">ファイルを読み取ります</div>
 </div>
-<div class="admonition caution">
-<p class="admonition-title">注意</p>
-<p><code class="docutils literal notranslate"><span class="pre">F_READ</span></code> を指定してファイルを開く必要があります</p>
+<div class="note admonition">
+<p class="admonition-title">使用条件</p>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">F_READ</span></code> を指定してファイルを開く必要があります</div>
+</div>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
@@ -441,9 +443,11 @@ foo   ,    bar   ,  baz
 <dd><div class="line-block">
 <div class="line">ファイルに書き込みます</div>
 </div>
-<div class="admonition caution">
-<p class="admonition-title">注意</p>
-<p><code class="docutils literal notranslate"><span class="pre">F_WRITE</span></code> 系を指定してファイルを開く必要があります</p>
+<div class="note admonition">
+<p class="admonition-title">使用条件</p>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">F_WRITE</span></code> 系を指定してファイルを開く必要があります</div>
+</div>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
@@ -507,9 +511,11 @@ foo   ,    bar   ,  baz
 <dd><div class="line-block">
 <div class="line">指定行を削除します</div>
 </div>
-<div class="admonition caution">
-<p class="admonition-title">注意</p>
-<p><code class="docutils literal notranslate"><span class="pre">F_READ</span></code> および <code class="docutils literal notranslate"><span class="pre">F_WRITE</span></code> 系を指定してファイルを開く必要があります</p>
+<div class="note admonition">
+<p class="admonition-title">使用条件</p>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">F_READ</span></code> および <code class="docutils literal notranslate"><span class="pre">F_WRITE</span></code> 系を指定してファイルを開く必要があります</div>
+</div>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
@@ -530,9 +536,11 @@ foo   ,    bar   ,  baz
 <dd><div class="line-block">
 <div class="line">ファイルを閉じて変更を適用します</div>
 </div>
-<div class="admonition caution">
-<p class="admonition-title">注意</p>
-<p>ファイルを閉じない限り <code class="docutils literal notranslate"><span class="pre">fput</span></code> や <code class="docutils literal notranslate"><span class="pre">fdelline</span></code> による変更はファイルに反映されません</p>
+<div class="hint admonition">
+<p class="admonition-title">ファイルの更新について</p>
+<div class="line-block">
+<div class="line">ファイルを閉じない限り <code class="docutils literal notranslate"><span class="pre">fput</span></code> や <code class="docutils literal notranslate"><span class="pre">fdelline</span></code> による変更はファイルに反映されません</div>
+</div>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
@@ -599,9 +607,11 @@ foo   ,    bar   ,  baz
 <li><p><strong>セクション</strong> (<em>文字列 省略可</em>) -- 読み出したいキーのあるセクション名を指定、省略時はセクション一覧を得る</p></li>
 <li><p><strong>キー</strong> (<em>文字列 省略可</em>) -- 値を読み出したいキーの名前を指定、省略時はキー一覧を得る</p></li>
 <li><p><strong>ファイル</strong> (<em>文字列またはファイルID 省略可</em>) -- <p>読み出すiniファイルのパス、またはファイルID</p>
-<div class="admonition hint">
-<p class="admonition-title">ヒント</p>
-<p>ファイルIDは <code class="docutils literal notranslate"><span class="pre">F_READ</span></code> を含めてfopenしている必要があります</p>
+<div class="note admonition">
+<p class="admonition-title">ファイルIDを利用する場合</p>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">F_READ</span></code> を含めてfopenしている必要があります</div>
+</div>
 </div>
 </p></li>
 </ul>
@@ -677,8 +687,8 @@ foo   ,    bar   ,  baz
 <li><p><strong>キー</strong> (<em>文字列</em>) -- 書き込みたいキーの名前、存在しない場合新規に作成されます</p></li>
 <li><p><strong>値</strong> (<em>文字列</em>) -- 該当キーに書き込む値</p></li>
 <li><p><strong>ファイル</strong> (<em>文字列またはファイルID 省略可</em>) -- <p>書き込むiniファイルのパス、またはファイルID</p>
-<div class="admonition hint">
-<p class="admonition-title">ヒント</p>
+<div class="note admonition">
+<p class="admonition-title">ファイルIDを利用する場合</p>
 <div class="line-block">
 <div class="line">ファイルIDは <code class="docutils literal notranslate"><span class="pre">F_READ</span></code> 及び <code class="docutils literal notranslate"><span class="pre">F_WRITE</span></code> 系を含めてfopenしている必要があります</div>
 <div class="line">また、ファイルIDを渡した場合はfcloseを呼ぶまで変更が反映されません</div>
@@ -705,8 +715,8 @@ foo   ,    bar   ,  baz
 <li><p><strong>セクション</strong> (<em>文字列</em>) -- 削除したいキーのあるセクション名</p></li>
 <li><p><strong>キー</strong> (<em>文字列</em>) -- 削除したいキーの名前</p></li>
 <li><p><strong>ファイル</strong> (<em>文字列またはファイルID 省略可</em>) -- <p>書き込むiniファイルのパス、またはファイルID</p>
-<div class="admonition hint">
-<p class="admonition-title">ヒント</p>
+<div class="note admonition">
+<p class="admonition-title">ファイルIDを利用する場合</p>
 <div class="line-block">
 <div class="line">ファイルIDは <code class="docutils literal notranslate"><span class="pre">F_READ</span></code> 及び <code class="docutils literal notranslate"><span class="pre">F_WRITE</span></code> 系を含めてfopenしている必要があります</div>
 <div class="line">また、ファイルIDを渡した場合はfcloseを呼ぶまで変更が反映されません</div>
@@ -863,6 +873,65 @@ foo   ,    bar   ,  baz
 </div>
 </dd></dl>
 
+<dl class="py function">
+<dt class="sig sig-object py" id="dropfile">
+<span class="sig-name descname"><span class="pre">dropfile</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ID</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ディレクトリ</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ファイル名</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">ファイル名...</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#dropfile" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">ファイルをウィンドウにドロップします</div>
+<div class="line">ドロップ位置はクライアント領域の中央です</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ID</strong> (<em>数値</em>) -- ファイルをドロップするウィンドウのID</p></li>
+<li><p><strong>ディレクトリ</strong> (<em>数値</em>) -- ドロップするファイルの存在するディレクトリパス</p></li>
+<li><p><strong>ファイル名</strong> (<em>文字列または配列</em>) -- ファイル名を示す文字列、またはファイル名を示す文字列を含む配列変数</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>なし</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">dropfile</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ID</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ディレクトリ</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ファイル名</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">ファイル名...</span></span></em><span class="optional">]</span><span class="sig-paren">)</span></dt>
+<dd><div class="line-block">
+<div class="line">第二、第三引数が数値だった場合はファイルのドロップ座標を指定します</div>
+<div class="line">対象ウィンドウのクライアント座標を指定します</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>数値</em>) -- クライアントX座標</p></li>
+<li><p><strong>y</strong> (<em>数値</em>) -- クライアントY座標</p></li>
+</ul>
+</dd>
+</dl>
+<div class="hint admonition">
+<p class="admonition-title">ファイル名指定数の下限および上限</p>
+<div class="line-block">
+<div class="line">上限は座標未指定時は34、座標指定時は32個まで (すべての引数の個数上限が36)</div>
+<div class="line">ファイル数がそれより多い場合は配列変数を使ってください</div>
+<div class="line">下限は1です (最低1つ指定する必要がある)</div>
+</div>
+</div>
+<div class="caution admonition">
+<p class="admonition-title">マウス移動が行われます</p>
+<div class="line-block">
+<div class="line">ドロップ処理時に瞬間的にマウスカーソルを指定座標に移動しています</div>
+<div class="line">(UWSCと同様の処理)</div>
+</div>
+</div>
+<div class="important admonition">
+<p class="admonition-title">実行要件</p>
+<div class="line-block">
+<div class="line">対象ウィンドウが <code class="docutils literal notranslate"><span class="pre">WM_DROPFILES</span></code> メッセージを処理できる必要があります</div>
+</div>
+</div>
+</dd></dl>
+
 </section>
 <section id="zip">
 <h2>ZIPファイル<a class="headerlink" href="#zip" title="この見出しへのパーマリンク">#</a></h2>
@@ -920,8 +989,8 @@ foo   ,    bar   ,  baz
 </dd>
 <dt class="field-even">戻り値<span class="colon">:</span></dt>
 <dd class="field-even"><p><p>成功時TRUE</p>
-<div class="admonition attention">
-<p class="admonition-title">注意</p>
+<div class="admonition hint">
+<p class="admonition-title">ヒント</p>
 <p>失敗した場合でも一部のファイルが展開されることがあります</p>
 </div>
 </p>
@@ -1057,6 +1126,7 @@ foo   ,    bar   ,  baz
 <li><a class="reference internal" href="#id3">その他のファイル操作</a><ul>
 <li><a class="reference internal" href="#deletefile"><code class="docutils literal notranslate"><span class="pre">deletefile()</span></code></a></li>
 <li><a class="reference internal" href="#getdir"><code class="docutils literal notranslate"><span class="pre">getdir()</span></code></a></li>
+<li><a class="reference internal" href="#dropfile"><code class="docutils literal notranslate"><span class="pre">dropfile()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#zip">ZIPファイル</a><ul>

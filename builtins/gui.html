@@ -7,7 +7,7 @@
 <link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="配列操作関数" href="array.html" /><link rel="prev" title="ファイル操作関数" href="file.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>GUI - UWSCR 0.9.3</title>
+        <title>GUI - UWSCR 0.10.0</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 0.9.3</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 0.10.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 0.9.3</span>
+  <span class="sidebar-brand-text">UWSCR 0.10.0</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -168,9 +168,9 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">ビルトイン関数</span></p>
 <ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="string.html">文字列操作関数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="text.html">文字列操作関数</a></li>
 <li class="toctree-l1"><a class="reference internal" href="window.html">ウィンドウ操作関数</a></li>
-<li class="toctree-l1"><a class="reference internal" href="control.html">制御関数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="scriptcontrol.html">スクリプト制御</a></li>
 <li class="toctree-l1"><a class="reference internal" href="system.html">システム関数</a></li>
 <li class="toctree-l1"><a class="reference internal" href="file.html">ファイル操作関数</a></li>
 <li class="toctree-l1 current current-page"><a class="current reference internal" href="#">GUI</a></li>
@@ -222,9 +222,11 @@
 <dd><div class="line-block">
 <div class="line">メッセージボックスを表示します</div>
 </div>
-<div class="admonition note">
-<p class="admonition-title">注釈</p>
-<p>メッセージボックスのクラス名は <code class="docutils literal notranslate"><span class="pre">UWSCR.MsgBox</span></code> です</p>
+<div class="hint admonition">
+<p class="admonition-title">クラス名</p>
+<div class="line-block">
+<div class="line">メッセージボックスのクラス名は <code class="docutils literal notranslate"><span class="pre">UWSCR.MsgBox</span></code> です</div>
+</div>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
@@ -275,17 +277,16 @@
 
 </p></li>
 <li><p><strong>x</strong> (<em>数値 省略可</em>) -- ダイアログの初期表示位置のX座標を指定、省略時(EMPTY)なら画面中央</p></li>
-<li><p><strong>y</strong> (<em>数値 省略可</em>) -- ダイアログの初期表示位置のY座標を指定、省略時(EMPTY)なら画面中央</p></li>
-</ul>
-</dd>
-</dl>
-<div class="admonition hint">
-<p class="admonition-title">ヒント</p>
-<p>x, yに-1を指定するとそれぞれ前回表示した位置になります</p>
+<li><p><strong>y</strong> (<em>数値 省略可</em>) -- <p>ダイアログの初期表示位置のY座標を指定、省略時(EMPTY)なら画面中央</p>
+<div class="hint admonition">
+<p class="admonition-title">前回表示位置に表示</p>
+<div class="line-block">
+<div class="line">x, yに-1を指定するとそれぞれ前回表示した位置になります</div>
 </div>
-<dl class="field-list simple">
-<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>フォーカス</strong> (<em>ボタン定数 省略可</em>) -- カーソルの初期位置をボタン定数で指定、省略時や該当ボタンがない場合は一番左のボタンがフォーカスされます</p>
+</div>
+</p></li>
+<li><p><strong>フォーカス</strong> (<em>ボタン定数 省略可</em>) -- カーソルの初期位置をボタン定数で指定、省略時や該当ボタンがない場合は一番左のボタンがフォーカスされます</p></li>
+</ul>
 </dd>
 <dt class="field-even">戻り値<span class="colon">:</span></dt>
 <dd class="field-even"><p>押されたボタンを示すボタン定数 (×ボタンで閉じられた場合は <code class="docutils literal notranslate"><span class="pre">BTN_CANCEL</span></code>)</p>
@@ -299,9 +300,11 @@
 <dd><div class="line-block">
 <div class="line">インプットボックスを表示します</div>
 </div>
-<div class="admonition note">
-<p class="admonition-title">注釈</p>
-<p>インプットボックスのクラス名は <code class="docutils literal notranslate"><span class="pre">UWSCR.Input</span></code> です</p>
+<div class="hint admonition">
+<p class="admonition-title">クラス名</p>
+<div class="line-block">
+<div class="line">インプットボックスのクラス名は <code class="docutils literal notranslate"><span class="pre">UWSCR.Input</span></code> です</div>
+</div>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
@@ -350,17 +353,18 @@
 
 </p></li>
 <li><p><strong>x</strong> (<em>数値 省略可</em>) -- ダイアログの初期表示位置のX座標を指定、省略時(EMPTY)なら画面中央</p></li>
-<li><p><strong>y</strong> (<em>数値 省略可</em>) -- ダイアログの初期表示位置のY座標を指定、省略時(EMPTY)なら画面中央</p></li>
+<li><p><strong>y</strong> (<em>数値 省略可</em>) -- <p>ダイアログの初期表示位置のY座標を指定、省略時(EMPTY)なら画面中央</p>
+<div class="hint admonition">
+<p class="admonition-title">前回表示位置に表示</p>
+<div class="line-block">
+<div class="line">x, yに-1を指定するとそれぞれ前回表示した位置になります</div>
+</div>
+</div>
+</p></li>
 </ul>
 </dd>
-</dl>
-<div class="admonition hint">
-<p class="admonition-title">ヒント</p>
-<p>x, yに-1を指定するとそれぞれ前回表示した位置になります</p>
-</div>
-<dl class="field-list simple">
-<dt class="field-odd">戻り値<span class="colon">:</span></dt>
-<dd class="field-odd"><p><dl class="object">
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="object">
 <dt class="sig sig-object">
 <span class="sig-name descname"><span class="pre">入力欄が一つの場合</span></span></dt>
 <dd><p>入力された値、キャンセル時はEMPTY</p>
@@ -404,13 +408,14 @@
 <dd><div class="line-block">
 <div class="line">セレクトボックスを表示します</div>
 </div>
-<div class="admonition note">
-<p class="admonition-title">注釈</p>
-<p>セレクトボックスのクラス名は <code class="docutils literal notranslate"><span class="pre">UWSCR.SlctBox</span></code> です</p>
+<div class="hint admonition">
+<p class="admonition-title">クラス名</p>
+<div class="line-block">
+<div class="line">セレクトボックスのクラス名は <code class="docutils literal notranslate"><span class="pre">UWSCR.SlctBox</span></code> です</div>
 </div>
-<div class="admonition note">
-<p class="admonition-title">注釈</p>
-<p>引数x, yについて</p>
+</div>
+<div class="note admonition">
+<p class="admonition-title">引数x, yについて</p>
 <div class="line-block">
 <div class="line">第3、第4引数が数値であった場合はx, yが指定されたものとします</div>
 <div class="line">&quot;100&quot; など数値に変換できる文字列であってもここでは数値として扱われません</div>
@@ -479,17 +484,14 @@
 </p></li>
 <li><p><strong>タイムアウト秒</strong> (<em>数値</em>) -- 指定秒数経過で自動的にダイアログを閉じる (キャンセル扱い)、0ならタイムアウトなし</p></li>
 <li><p><strong>x</strong> (<em>数値 省略可</em>) -- ダイアログの初期表示位置のX座標を指定、省略時(EMPTY)なら画面中央</p></li>
-<li><p><strong>y</strong> (<em>数値 省略可</em>) -- ダイアログの初期表示位置のY座標を指定、省略時(EMPTY)なら画面中央</p></li>
-</ul>
-</dd>
-</dl>
-<div class="admonition hint">
-<p class="admonition-title">ヒント</p>
-<p>x, yに-1を指定するとそれぞれ前回表示した位置になります</p>
+<li><p><strong>y</strong> (<em>数値 省略可</em>) -- <p>ダイアログの初期表示位置のY座標を指定、省略時(EMPTY)なら画面中央</p>
+<div class="hint admonition">
+<p class="admonition-title">前回表示位置に表示</p>
+<div class="line-block">
+<div class="line">x, yに-1を指定するとそれぞれ前回表示した位置になります</div>
 </div>
-<dl class="field-list simple">
-<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
+</div>
+</p></li>
 <li><p><strong>メッセージ</strong> (<em>文字列 省略可</em>) -- メッセージ欄に表示されるメッセージ</p></li>
 <li><p><strong>表示項目</strong> (<em>文字列または配列</em>) -- 表示される項目名、または項目名を格納した配列</p></li>
 <li><p><strong>表示項目2-31</strong> (<em>文字列または配列</em>) -- 表示される項目名、または項目名を格納した配列</p></li>
@@ -609,18 +611,12 @@
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>メニュー項目</strong> (<em>配列</em>) -- 表示項目を示す配列、要素が配列の場合サブメニューになる</p></li>
-<li><p><strong>x</strong> (<em>数値 省略可</em>) -- ダイアログの初期表示位置のX座標を指定、省略時(EMPTY)なら画面中央</p></li>
-<li><p><strong>y</strong> (<em>数値 省略可</em>) -- ダイアログの初期表示位置のY座標を指定、省略時(EMPTY)なら画面中央</p></li>
+<li><p><strong>x</strong> (<em>数値 省略可</em>) -- メニュー表示位置のX座標を指定、省略時(EMPTY)はマウスカーソル位置</p></li>
+<li><p><strong>y</strong> (<em>数値 省略可</em>) -- メニュー表示位置のY座標を指定、省略時(EMPTY)はマウスカーソル位置</p></li>
 </ul>
 </dd>
-</dl>
-<div class="admonition hint">
-<p class="admonition-title">ヒント</p>
-<p>x, y省略時はマウスカーソル位置</p>
-</div>
-<dl class="field-list simple">
-<dt class="field-odd">戻り値<span class="colon">:</span></dt>
-<dd class="field-odd"><p>選択した項目の表示名、メニューの外側を選んだ場合はEMPTY</p>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>選択した項目の表示名、メニューの外側を選んだ場合はEMPTY</p>
 </dd>
 </dl>
 <div class="admonition- admonition">
