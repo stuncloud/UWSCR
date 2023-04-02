@@ -711,7 +711,15 @@
 </div>
 </div>
 </p></li>
-<li><p><strong>n番目</strong> (<em>数値 省略可</em>) -- 同名アイテムの場合何番目をクリックするか</p></li>
+<li><p><strong>n番目</strong> (<em>数値 省略可</em>) -- <p>同名アイテムの場合何番目をクリックするか</p>
+<div class="caution admonition">
+<p class="admonition-title">UWSCとは順序が異なる場合があります</p>
+<div class="line-block">
+<div class="line">実装の違いによりUWSCとは別の番号を指定しなければならない可能性があります</div>
+<div class="line">ご注意ください</div>
+</div>
+</div>
+</p></li>
 </ul>
 </dd>
 <dt class="field-even">戻り値<span class="colon">:</span></dt>
@@ -905,6 +913,13 @@
 <li><p><strong>n番目</strong> (<em>数値</em>) -- <p>n番目のエディットボックスに送信</p>
 <div class="line-block">
 <div class="line">0ならフォーカスされたエディットボックス</div>
+</div>
+<div class="caution admonition">
+<p class="admonition-title">UWSCとは順序が異なる場合があります</p>
+<div class="line-block">
+<div class="line">実装の違いによりUWSCとは別の番号を指定しなければならない可能性があります</div>
+<div class="line">ご注意ください</div>
+</div>
 </div>
 </p></li>
 <li><p><strong>送信モード</strong> (<em>真偽値または数値</em>) -- <dl class="object">
@@ -1946,7 +1961,15 @@
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>ID</strong> (<em>数値</em>) -- 対象ウィンドウのID</p></li>
 <li><p><strong>アイテム名</strong> (<em>文字列</em>) -- ボタン名 (部分一致)</p></li>
-<li><p><strong>n番目</strong> (<em>数値 省略可</em>) -- n番目に該当するボタンの状態を得る</p></li>
+<li><p><strong>n番目</strong> (<em>数値 省略可</em>) -- <p>n番目に該当するボタンの状態を得る</p>
+<div class="caution admonition">
+<p class="admonition-title">UWSCとは順序が異なる場合があります</p>
+<div class="line-block">
+<div class="line">実装の違いによりUWSCとは別の番号を指定しなければならない可能性があります</div>
+<div class="line">ご注意ください</div>
+</div>
+</div>
+</p></li>
 <li><p><strong>ACC</strong> (<em>真偽値 省略可</em>) -- <dl class="object">
 <dt class="sig sig-object">
 <span class="sig-name descname"><span class="pre">FALSE</span></span></dt>
@@ -2002,7 +2025,15 @@
 <div class="line">0の場合クリップボードから取得します (その場合以降の引数は無視されます)</div>
 </div>
 </p></li>
-<li><p><strong>n番目</strong> (<em>数値 省略可</em>) -- n番目に該当するアイテム種別の文字列を得る</p></li>
+<li><p><strong>n番目</strong> (<em>数値 省略可</em>) -- <p>n番目に該当するアイテム種別の文字列を得る</p>
+<div class="caution admonition">
+<p class="admonition-title">UWSCとは順序が異なる場合があります</p>
+<div class="line-block">
+<div class="line">実装の違いによりUWSCとは別の番号を指定しなければならない可能性があります</div>
+<div class="line">ご注意ください</div>
+</div>
+</div>
+</p></li>
 <li><p><strong>種別</strong> (<em>定数 省略可</em>) -- <p>文字列を取得するアイテム種別</p>
 <dl class="object">
 <dt class="sig sig-object">
@@ -2180,15 +2211,21 @@
 </div>
 </p></li>
 <li><p><strong>n番目</strong> (<em>数値 省略可</em>) -- <p>ITM_LIST、ITM_TREEVIEW、ITM_LISTVIEW指定時かつ対象が複数あった場合にいずれを取得するか指定、-1ならすべて取得</p>
-<div class="admonition hint">
-<p class="admonition-title">ヒント</p>
-<p>複数種別同時指定時の処理について</p>
+<div class="hint admonition">
+<p class="admonition-title">複数種別同時指定時の処理について</p>
 <div class="line-block">
 <div class="line">ITM_LIST、ITM_TREEVIEW、ITM_LISTVIEWのうち複数を同時に指定した場合、それぞれのn番目を検索します</div>
 </div>
 <div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// この場合リストまたはコンボボックスの2番目、及びツリービューの2番目をそれぞれ取得します</span>
 <span class="n">getitem</span><span class="p">(</span><span class="n">id</span><span class="o">,</span><span class="w"> </span><span class="m">ITM_LIST</span><span class="w"> </span><span class="n">or</span><span class="w"> </span><span class="m">ITM_TREEVIEW</span><span class="o">,</span><span class="w"> </span><span class="m">2</span><span class="p">)</span>
 </pre></div>
+</div>
+</div>
+<div class="caution admonition">
+<p class="admonition-title">UWSCとは順序が異なる場合があります</p>
+<div class="line-block">
+<div class="line">実装の違いによりUWSCとは別の番号を指定しなければならない可能性があります</div>
+<div class="line">ご注意ください</div>
 </div>
 </div>
 </p></li>
