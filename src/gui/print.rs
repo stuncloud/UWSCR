@@ -30,9 +30,7 @@ impl LogPrintWin {
         let rect = Window::get_client_rect(hwnd);
         let x = rect.left;
         let y = rect.top;
-        let width = rect.right - rect.left;
-        let height = rect.bottom - rect.top;
-        let dwstyle = WS_CHILD|WS_VSCROLL|
+        let dwstyle = WS_CHILD|WS_VSCROLL|WS_VISIBLE|
             WINDOW_STYLE((ES_LEFT|ES_WANTRETURN|ES_AUTOHSCROLL|ES_AUTOVSCROLL|ES_MULTILINE) as u32);
         let edit = Window::create_window(
             Some(hwnd),
@@ -40,7 +38,7 @@ impl LogPrintWin {
             "",
             WINDOW_EX_STYLE(0),
             dwstyle,
-            x, y, width, height,
+            x, y, 0, 0,
             Some(ID_EDIT)
         )?;
         let hfont = LOG_FONT.as_handle()?;
@@ -74,16 +72,19 @@ impl LogPrintWin {
         let edit = h_edit.unwrap_or(Window::get_dlg_item(hwnd, ID_EDIT));
         Window::move_window(edit, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top);
     }
-    pub fn print(&self, message: &str) {
+    pub fn print(&self, mut message: String) {
         if self.visible {
             self.show();
         }
         unsafe {
+            Self::reset_edit_size(self.hwnd, Some(self.edit));
             let l = GetWindowTextLengthW(self.edit);
             SetFocus(self.edit);
             SendMessageW(self.edit, EM_SETSEL, WPARAM(l as usize), LPARAM(l as isize));
-            let mut wide: Vec<u16> = format!("{}\r\n\0", message).encode_utf16().collect();
-            let lparam = LPARAM(wide.as_mut_ptr() as isize);
+            message.push('\r');
+            message.push('\n');
+            let hmsg = HSTRING::from(message);
+            let lparam = LPARAM(hmsg.as_ptr() as isize);
             SendMessageW(self.edit, EM_REPLACESEL, WPARAM(0), lparam);
         }
     }

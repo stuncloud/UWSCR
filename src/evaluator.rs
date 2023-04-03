@@ -308,7 +308,7 @@ impl Evaluator {
         let obj = self.eval_expression(expression)?;
         out_log(&format!("{}", obj), LogType::Print);
         if let Some(lp) = LOGPRINTWIN.get() {
-            lp.lock().unwrap().print(&obj.to_string());
+            lp.lock().unwrap().print(obj.to_string());
         }
         if ! *FORCE_WINDOW_MODE.get().unwrap_or(&false) {
             let out = stdout();
