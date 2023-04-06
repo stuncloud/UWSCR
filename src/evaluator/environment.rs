@@ -747,7 +747,8 @@ pub fn check_special_assignment(obj1: &Object, obj2: &Object) -> bool {
         // HASH_REMOVEALL
         Object::HashTbl(h) => {
             if let Object::Num(n) = obj2 {
-                if n == &109.0 {
+                let hash_remove_all = super::object::hashtbl::HashTblEnum::HASH_REMOVEALL as i32;
+                if *n as i32 == hash_remove_all {
                     h.lock().unwrap().clear();
                     return false;
                 }
