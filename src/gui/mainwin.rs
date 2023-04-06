@@ -1,5 +1,17 @@
 
-use super::*;
+use super::{Window, UWindow, UWindowResult};
+
+use windows::{
+    Win32::{
+        Foundation::{HWND,},
+        UI::{
+            WindowsAndMessaging::{
+                WINDOW_STYLE , WINDOW_EX_STYLE,
+            },
+        },
+    }
+};
+use once_cell::sync::OnceCell;
 
 static MAINWIN_CLASS: OnceCell<UWindowResult<String>> = OnceCell::new();
 pub static MAINWIN_HWND: OnceCell<MainWin> = OnceCell::new();

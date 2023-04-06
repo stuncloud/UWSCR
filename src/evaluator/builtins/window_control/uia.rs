@@ -210,9 +210,8 @@ impl UIAElement {
             let len = array.Length().ok()?;
             for index in 0..len {
                 if let Ok(elem) = array.GetElement(index) {
-                    if let Ok(type_id) = elem.CurrentControlType() {
+                    if let Ok(controltype_id) = elem.CurrentControlType() {
                         let element: UIAElement = elem.into();
-                        let controltype_id = UIA_CONTROLTYPE_ID(type_id as u32);
                         if target.contains(&controltype_id) {
                             match controltype_id {
                                 UIA_ListControlTypeId => {
@@ -471,7 +470,6 @@ impl UIAElement {
     fn _get_control_type_id(&self) -> Option<UIA_CONTROLTYPE_ID> {
         unsafe {
             self.element.CurrentControlType().ok()
-                .map(|n| UIA_CONTROLTYPE_ID(n as u32))
         }
     }
     fn _get_control_type(&self) -> Option<String> {
@@ -483,7 +481,7 @@ impl UIAElement {
     fn filter_by_type(&self, ucid: UIA_CONTROLTYPE_ID) -> bool {
         unsafe {
             if let Ok(id) = self.element.CurrentControlType() {
-                UIA_CONTROLTYPE_ID(id as u32) == ucid
+                id == ucid
             } else {
                 false
             }
@@ -491,7 +489,7 @@ impl UIAElement {
     }
     fn click(&self) -> Option<UIAClickPoint> {
         unsafe {
-            let pattern = self.element.GetCurrentPatternAs::<IUIAutomationInvokePattern>(UIA_InvokePatternId.0 as i32).ok()?;
+            let pattern = self.element.GetCurrentPatternAs::<IUIAutomationInvokePattern>(UIA_InvokePatternId).ok()?;
             pattern.Invoke().ok()?;
             let point = self.get_clickable_point();
             Some(UIAClickPoint(point))
@@ -499,7 +497,7 @@ impl UIAElement {
     }
     fn expand(&self) -> Option<UIAClickPoint> {
         unsafe {
-            let pattern = self.element.GetCurrentPatternAs::<IUIAutomationExpandCollapsePattern>(UIA_ExpandCollapsePatternId.0 as i32).ok()?;
+            let pattern = self.element.GetCurrentPatternAs::<IUIAutomationExpandCollapsePattern>(UIA_ExpandCollapsePatternId).ok()?;
             pattern.Expand().ok()?;
             let point = self.get_clickable_point();
             Some(UIAClickPoint(point))
@@ -507,7 +505,7 @@ impl UIAElement {
     }
     fn collapse(&self) -> Option<UIAClickPoint> {
         unsafe {
-            let pattern = self.element.GetCurrentPatternAs::<IUIAutomationExpandCollapsePattern>(UIA_ExpandCollapsePatternId.0 as i32).ok()?;
+            let pattern = self.element.GetCurrentPatternAs::<IUIAutomationExpandCollapsePattern>(UIA_ExpandCollapsePatternId).ok()?;
             pattern.Collapse().ok()?;
             let point = self.get_clickable_point();
             Some(UIAClickPoint(point))
@@ -515,19 +513,19 @@ impl UIAElement {
     }
     fn get_expand_collapse_state(&self) -> Option<ExpandCollapseState> {
         unsafe {
-            let pattern = self.element.GetCurrentPatternAs::<IUIAutomationExpandCollapsePattern>(UIA_ExpandCollapsePatternId.0 as i32).ok()?;
+            let pattern = self.element.GetCurrentPatternAs::<IUIAutomationExpandCollapsePattern>(UIA_ExpandCollapsePatternId).ok()?;
             pattern.CurrentExpandCollapseState().ok()
         }
     }
     fn get_check_state(&self) -> Option<ToggleState> {
         unsafe {
-            let pattern = self.element.GetCurrentPatternAs::<IUIAutomationTogglePattern>(UIA_TogglePatternId.0 as i32).ok()?;
+            let pattern = self.element.GetCurrentPatternAs::<IUIAutomationTogglePattern>(UIA_TogglePatternId).ok()?;
             pattern.CurrentToggleState().ok()
         }
     }
     fn check(&self, state: &ThreeState) -> Option<UIAClickPoint> {
         unsafe {
-            let pattern = self.element.GetCurrentPatternAs::<IUIAutomationTogglePattern>(UIA_TogglePatternId.0 as i32).ok()?;
+            let pattern = self.element.GetCurrentPatternAs::<IUIAutomationTogglePattern>(UIA_TogglePatternId).ok()?;
             let toggle: ThreeState = pattern.CurrentToggleState().ok()?.into();
             match (toggle, state) {
                 // 状態と指定値が一致した場合はなにもしない
@@ -574,7 +572,7 @@ impl UIAElement {
     }
     fn select(&self) -> Option<UIAClickPoint> {
         unsafe {
-            let pattern = self.element.GetCurrentPatternAs::<IUIAutomationSelectionItemPattern>(UIA_SelectionItemPatternId.0 as i32).ok()?;
+            let pattern = self.element.GetCurrentPatternAs::<IUIAutomationSelectionItemPattern>(UIA_SelectionItemPatternId).ok()?;
             pattern.Select().ok()?;
             let point = self.get_clickable_point();
             Some(UIAClickPoint(point))
@@ -582,7 +580,7 @@ impl UIAElement {
     }
     fn multi_select(&self) -> Option<UIAClickPoint> {
         unsafe {
-            let pattern = self.element.GetCurrentPatternAs::<IUIAutomationSelectionItemPattern>(UIA_SelectionItemPatternId.0 as i32).ok()?;
+            let pattern = self.element.GetCurrentPatternAs::<IUIAutomationSelectionItemPattern>(UIA_SelectionItemPatternId).ok()?;
             pattern.AddToSelection().ok()?;
             let point = self.get_clickable_point();
             Some(UIAClickPoint(point))
@@ -590,7 +588,7 @@ impl UIAElement {
     }
     fn write(&self, str: String) -> Option<()>{
         unsafe {
-            let pattern = self.element.GetCurrentPatternAs::<IUIAutomationValuePattern>(UIA_ValuePatternId.0 as i32).ok()?;
+            let pattern = self.element.GetCurrentPatternAs::<IUIAutomationValuePattern>(UIA_ValuePatternId).ok()?;
             let val = BSTR::from(str);
             pattern.SetValue(&val).ok()
         }

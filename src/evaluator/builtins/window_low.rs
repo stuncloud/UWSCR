@@ -246,7 +246,7 @@ impl Input {
                 hstring.as_wide()
                     .into_iter()
                     .map(|n| *n as usize)
-                    .for_each(|char| {PostMessageW(self.hwnd, WM_CHAR, WPARAM(char), LPARAM(1));});
+                    .for_each(|char| {PostMessageW(self.hwnd.as_ref(), WM_CHAR, WPARAM(char), LPARAM(1));});
             } else {
                 let pinputs = str.encode_utf16()
                     .map(|scan| {
@@ -269,7 +269,7 @@ impl Input {
     fn key_down(&self, vk: u8, extend: bool) {
         unsafe {
             if self.direct {
-                PostMessageW(self.hwnd, WM_KEYDOWN, WPARAM(vk as usize), LPARAM(0));
+                PostMessageW(self.hwnd.as_ref(), WM_KEYDOWN, WPARAM(vk as usize), LPARAM(0));
             } else {
                 let mut input = INPUT::default();
                 let dwflags = if extend {
@@ -294,7 +294,7 @@ impl Input {
     fn key_up(&self, vk: u8, extend: bool) {
         unsafe {
             if self.direct {
-                PostMessageW(self.hwnd, WM_KEYUP, WPARAM(vk as usize), LPARAM(0));
+                PostMessageW(self.hwnd.as_ref(), WM_KEYUP, WPARAM(vk as usize), LPARAM(0));
             } else {
                 let mut input = INPUT::default();
                 let dwflags = if extend {
@@ -320,7 +320,7 @@ impl Input {
         unsafe {
             if self.direct {
                 let lparam = make_lparam(x, y);
-                PostMessageW(self.hwnd, WM_MOUSEMOVE, None, lparam).as_bool()
+                PostMessageW(self.hwnd.as_ref(), WM_MOUSEMOVE, None, lparam).as_bool()
             } else {
                 let (x, y) = self.fix_point(x, y);
                 move_mouse_to(x, y)
@@ -336,7 +336,7 @@ impl Input {
                     MouseButton::Middle => WM_MBUTTONDOWN,
                 };
                 let lparam = make_lparam(x, y);
-                PostMessageW(self.hwnd, msg, None, lparam);
+                PostMessageW(self.hwnd.as_ref(), msg, None, lparam);
             } else {
                 let (x, y) = self.fix_point(x, y);
                 let dwflags = match btn {
@@ -367,7 +367,7 @@ impl Input {
                     MouseButton::Middle => WM_MBUTTONUP,
                 };
                 let lparam = make_lparam(x, y);
-                PostMessageW(self.hwnd, msg, None, lparam);
+                PostMessageW(self.hwnd.as_ref(), msg, None, lparam);
             } else {
                 let (x, y) = self.fix_point(x, y);
                 let dwflags = match btn {
@@ -410,7 +410,7 @@ impl Input {
                 let wparam = ((amount & 0xFFFF) << 16) as usize;
                 let (x, y) = self.fix_point(x, y);
                 let lparam = ((x & 0xFFFF) | (y & 0xFFFF) << 16) as isize;
-                PostMessageW(self.hwnd, msg, WPARAM(wparam), LPARAM(lparam));
+                PostMessageW(self.hwnd.as_ref(), msg, WPARAM(wparam), LPARAM(lparam));
             } else {
                 let dwflags = if horizontal {MOUSEEVENTF_HWHEEL} else {MOUSEEVENTF_WHEEL};
                 let mut input = INPUT::default();

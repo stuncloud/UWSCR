@@ -1,7 +1,25 @@
-use super::*;
-
+use super::{Window, UWindow, UWindowResult, UWindowError};
 use crate::evaluator::object::Object;
 use crate::winapi::{WString, PcwstrExt};
+
+use windows::{
+    Win32::{
+        Foundation::{
+            HWND, POINT,
+        },
+        UI::{
+            WindowsAndMessaging::{
+                HMENU,
+                WINDOW_STYLE, WINDOW_EX_STYLE,
+                DestroyWindow,
+                GetCursorPos, CreatePopupMenu, TrackPopupMenu, AppendMenuW, SetForegroundWindow,
+                TPM_TOPALIGN,TPM_RETURNCMD,TPM_NONOTIFY,
+                MF_POPUP, MF_ENABLED, MF_STRING,
+            },
+        },
+    }
+};
+use once_cell::sync::OnceCell;
 
 static POPUP_CLASS: OnceCell<Result<String, UWindowError>> = OnceCell::new();
 

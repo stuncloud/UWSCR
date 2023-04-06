@@ -26,7 +26,7 @@ use windows::{
     Win32::{
         Foundation::{
             MAX_PATH,
-            BOOL, HANDLE, HINSTANCE,
+            BOOL, HANDLE, HMODULE,
             HWND, WPARAM, LPARAM, POINT, RECT,
             CloseHandle,
         },
@@ -35,8 +35,8 @@ use windows::{
                 PROCESS_QUERY_INFORMATION, PROCESS_VM_READ,
                 OpenProcess, WaitForInputIdle, IsWow64Process,
             },
-            ProcessStatus::K32GetModuleFileNameExW,
-            SystemServices::CF_BITMAP,
+            ProcessStatus::GetModuleFileNameExW,
+            Ole::CF_BITMAP,
             DataExchange::{
                 OpenClipboard, CloseClipboard, GetClipboardData, IsClipboardFormatAvailable,
             }
@@ -760,7 +760,7 @@ fn get_process_path_from_hwnd(hwnd: HWND) -> BuiltInResult<Object> {
     let mut buffer = [0; MAX_PATH as usize];
     unsafe {
         let handle = get_process_handle_from_hwnd(hwnd)?;
-        K32GetModuleFileNameExW(handle, HINSTANCE::default(), &mut buffer);
+        GetModuleFileNameExW(handle, HMODULE::default(), &mut buffer);
         CloseHandle(handle);
     }
     let path = String::from_utf16_lossy(&buffer);
@@ -1338,8 +1338,8 @@ pub fn peekcolor(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFun
     let clipboard = args.get_as_bool(3, Some(false))?;
     unsafe {
         let bgr = if clipboard {
-            if IsClipboardFormatAvailable(CF_BITMAP.0).as_bool() && OpenClipboard(HWND(0)).as_bool() {
-                let h = GetClipboardData(CF_BITMAP.0)?;
+            if IsClipboardFormatAvailable(CF_BITMAP.0 as u32).as_bool() && OpenClipboard(HWND(0)).as_bool() {
+                let h = GetClipboardData(CF_BITMAP.0 as u32)?;
                 let hbitmap = HBITMAP(h.0);
                 let hdc = CreateCompatibleDC(None);
                 let old = SelectObject(hdc, hbitmap);
@@ -1357,9 +1357,9 @@ pub fn peekcolor(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFun
             let mi = MorgImg::from(&evaluator.mouseorg);
             let (x, y) = mi.fix_point(x, y);
             mi.redraw_window();
-            let hdc = GetDC(mi.hwnd);
+            let hdc = GetDC(mi.hwnd.as_ref());
             let colorref = GetPixel(hdc, x, y);
-            ReleaseDC(mi.hwnd, hdc);
+            ReleaseDC(mi.hwnd.as_ref(), hdc);
             colorref.0
         };
         if bgr > 0xFFFFFF {
@@ -1719,7 +1719,7 @@ impl MorgImg {
         unsafe {
             if self.is_back {
                 let flags = RDW_FRAME|RDW_INVALIDATE|RDW_ERASE|RDW_UPDATENOW|RDW_ALLCHILDREN;
-                RedrawWindow(self.hwnd, None, None, flags);
+                RedrawWindow(self.hwnd.as_ref(), None, None, flags);
             }
         }
     }

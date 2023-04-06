@@ -6,7 +6,7 @@ use crate::settings::USETTINGS;
 use crate::winapi::WString;
 
 use windows::{
-    core::{PCWSTR, GUID, Interface},
+    core::{PCWSTR, GUID, ComInterface},
     Win32::{
         System::{
             Com::{

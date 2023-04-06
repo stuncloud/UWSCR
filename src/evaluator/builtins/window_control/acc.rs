@@ -3,7 +3,7 @@ use std::ffi::c_void;
 use std::mem::{transmute, ManuallyDrop};
 
 use windows::{
-    core::{Interface, HRESULT, BSTR},
+    core::{ComInterface, HRESULT, BSTR},
     Win32::{
         Foundation::{HWND, POINT},
         UI::{
@@ -30,9 +30,6 @@ use windows::{
                 VARIANT, VARIANT_0_0, IDispatch,
                 VT_I4,VT_DISPATCH,
             },
-            Ole::{
-                VariantInit,
-            }
         },
         Graphics::Gdi::ScreenToClient
     }
@@ -90,7 +87,9 @@ impl Acc {
     #[allow(unused)]
     pub fn get_hwnd(&self) -> Option<HWND> {
         unsafe {
-            WindowFromAccessibleObject(&self.obj).ok()
+            let mut hwnd = HWND::default();
+            WindowFromAccessibleObject(&self.obj, Some(&mut hwnd)).ok()?;
+            Some(hwnd)
         }
     }
     pub fn get_child_count(&self) -> i32 {
@@ -136,7 +135,7 @@ impl Acc {
     pub fn get_name(&self) -> Option<String> {
         unsafe {
             let varchild = self.get_varchild();
-            self.obj.get_accName(&varchild)
+            self.obj.get_accName(varchild)
                     .map(|bstr| bstr.to_string())
                     .ok()
         }
@@ -144,7 +143,7 @@ impl Acc {
     pub fn get_default_action(&self) -> Option<String> {
         unsafe {
             let varchild = self.get_varchild();
-            self.obj.get_accDefaultAction(&varchild)
+            self.obj.get_accDefaultAction(varchild)
                     .map(|bstr| bstr.to_string())
                     .ok()
         }
@@ -182,20 +181,20 @@ impl Acc {
                             true
                         } else {
                             // チェックする
-                            self.obj.accDoDefaultAction(&varchild).is_ok()
+                            self.obj.accDoDefaultAction(varchild).is_ok()
                         }
                     } else {
                         // 未チェック状態にする
                         if self.is_checked() {
                             // チェックを外す
-                            self.obj.accDoDefaultAction(&varchild).is_ok()
+                            self.obj.accDoDefaultAction(varchild).is_ok()
                         } else {
                             // すでに未チェックなのでなにもしない
                             true
                         }
                     }
                     _ => if check {
-                        self.obj.accDoDefaultAction(&varchild).is_ok()
+                        self.obj.accDoDefaultAction(varchild).is_ok()
                     } else {
                         true
                     }
@@ -212,7 +211,7 @@ impl Acc {
             } else {
                 SELFLAG_TAKEFOCUS|SELFLAG_TAKESELECTION
             } as i32;
-            self.obj.accSelect(flag, &varchild).is_ok()
+            self.obj.accSelect(flag, varchild).is_ok()
         }
     }
     fn is_checked(&self) -> bool {
@@ -229,7 +228,7 @@ impl Acc {
             let mut pytop = 0;
             let mut pcxwidth = 0;
             let mut pcyheight = 0;
-            self.obj.accLocation(&mut pxleft, &mut pytop, &mut pcxwidth, &mut pcyheight, &varchild).ok()?;
+            self.obj.accLocation(&mut pxleft, &mut pytop, &mut pcxwidth, &mut pcyheight, varchild).ok()?;
             if center {
                 let x = pxleft + pcxwidth / 2;
                 let y = pytop + pcyheight / 2;
@@ -246,7 +245,7 @@ impl Acc {
             let mut pytop = 0;
             let mut pcxwidth = 0;
             let mut pcyheight = 0;
-            self.obj.accLocation(&mut pxleft, &mut pytop, &mut pcxwidth, &mut pcyheight, &varchild).ok()?;
+            self.obj.accLocation(&mut pxleft, &mut pytop, &mut pcxwidth, &mut pcyheight, varchild).ok()?;
             let mut lppoint = POINT { x: pxleft, y: pytop };
             ScreenToClient(hwnd, &mut lppoint);
             Some(vec![lppoint.x, lppoint.y, pcxwidth, pcyheight])
@@ -255,7 +254,7 @@ impl Acc {
     pub fn get_role(&self) -> Option<AccRole> {
         unsafe {
             let varchild = self.get_varchild();
-            let variant = self.obj.get_accRole(&varchild).ok()?;
+            let variant = self.obj.get_accRole(varchild).ok()?;
             let role = i32::from_variant(variant)?.into();
             Some(role)
         }
@@ -263,7 +262,7 @@ impl Acc {
     pub fn get_role_text(&self) -> Option<String> {
         unsafe {
             let varchild = self.get_varchild();
-            let variant = self.obj.get_accRole(&varchild).ok()?;
+            let variant = self.obj.get_accRole(varchild).ok()?;
             let lrole = i32::from_variant(variant)? as u32;
             let size = GetRoleTextW(lrole, None) as usize;
             let mut buf = vec![0; size +1];
@@ -274,7 +273,7 @@ impl Acc {
     pub fn get_value(&self) -> Option<String> {
         unsafe {
             let varchild = self.get_varchild();
-            self.obj.get_accValue(&varchild)
+            self.obj.get_accValue(varchild)
                     .map(|bstr| bstr.to_string())
                     .ok()
         }
@@ -283,7 +282,7 @@ impl Acc {
         unsafe {
             let szvalue = BSTR::from(value);
             let varchild = self.get_varchild();
-            self.obj.put_accValue(&varchild, &szvalue).is_ok()
+            self.obj.put_accValue(varchild, &szvalue).is_ok()
         }
     }
     fn append_value(&self, value: &str) -> bool {
@@ -297,7 +296,7 @@ impl Acc {
     fn _get_focused(&self) -> Option<Self> {
         unsafe {
             let varchild = self.obj.accFocus().ok()?;
-            self.get_acc_from_varchild(&varchild, true)
+            self.get_acc_from_varchild(varchild, true)
         }
     }
 
@@ -312,7 +311,7 @@ impl Acc {
         let varchildren = self.get_varchildren(backwards);
 
         for varchild in varchildren {
-            if let Some(acc) = self.get_acc_from_varchild(&varchild, true) {
+            if let Some(acc) = self.get_acc_from_varchild(varchild, true) {
                 if let Some(role) = acc.get_role() {
                     if item.target.is_valid_parent_role(&role, &acc) {
                         match role {
@@ -353,7 +352,7 @@ impl Acc {
         let varchildren = self.get_varchildren(backwards);
         let ignore_invisible = TargetRole::ignore_invisible(&parent);
         for varchild in varchildren {
-            if let Some(acc) = self.get_acc_from_varchild(&varchild, ignore_invisible) {
+            if let Some(acc) = self.get_acc_from_varchild(varchild, ignore_invisible) {
                 let mut new_path = None;
                 if let Some(role) = acc.get_role() {
                     let name = match acc.get_item_name() {
@@ -423,11 +422,11 @@ impl Acc {
         let mut listitem = None;
         let mut button = None;
         for varchild in self.get_varchildren(backwards) {
-            if let Some(window) = self.get_child_acc_by_role(&varchild, AccRole::Window, false) {
+            if let Some(window) = self.get_child_acc_by_role(varchild.clone(), AccRole::Window, false) {
                 'listitem_loop: for varchild in window.get_varchildren(backwards) {
-                    if let Some(list) = window.get_child_acc_by_role(&varchild, AccRole::List, false) {
+                    if let Some(list) = window.get_child_acc_by_role(varchild, AccRole::List, false) {
                         for varchild in list.get_varchildren(backwards) {
-                            if let Some(li) = list.get_child_acc_by_role(&varchild, AccRole::ListItem, false) {
+                            if let Some(li) = list.get_child_acc_by_role(varchild, AccRole::ListItem, false) {
                                 if let Some(name) = li.get_name() {
                                     if item.matches(&name, order) {
                                         listitem = Some(li);
@@ -439,7 +438,7 @@ impl Acc {
                     }
                 }
             }
-            if let Some(pb) = self.get_child_acc_by_role(&varchild, AccRole::PushButton, false) {
+            if let Some(pb) = self.get_child_acc_by_role(varchild, AccRole::PushButton, false) {
                 button = Some(pb);
             }
         }
@@ -463,8 +462,8 @@ impl Acc {
             return combo.search_combo(item, order, backwards);
         }
         let varchildren = self.get_varchildren(backwards);
-        let list_items = varchildren.iter()
-            .map(|varchild| self.get_acc_from_varchild(&varchild, false));
+        let list_items = varchildren.into_iter()
+            .map(|varchild| self.get_acc_from_varchild(varchild, false));
         let maybe_header = list_items.clone().find_map(|maybe_acc| {
                 match maybe_acc {
                     Some(acc) => match acc.get_role() {
@@ -534,7 +533,7 @@ impl Acc {
         if self.has_child() {
             let varchildren = self.get_varchildren(backwards);
             for varchild in varchildren {
-                if let Some(acc) = self.get_acc_from_varchild(&varchild, false) {
+                if let Some(acc) = self.get_acc_from_varchild(varchild, false) {
                     if let Some(role) = acc.get_role() {
                         match role {
                             AccRole::Text |
@@ -561,7 +560,7 @@ impl Acc {
     fn search_listview_header(&self, item: &SearchItem, order: &mut u32, backwards: bool) ->  Option<SearchResult> {
         let varchildren = self.get_varchildren(backwards);
         for varchild in varchildren {
-            if let Some(acc) = self.get_acc_from_varchild(&varchild, true) {
+            if let Some(acc) = self.get_acc_from_varchild(varchild, true) {
                 if let Some(AccRole::ColumnHeader) = self.get_role() {
                     let name = match acc.get_name() {
                         Some(name) => name,
@@ -584,7 +583,7 @@ impl Acc {
     fn search_menu(&self, item: &SearchItem, order: &mut u32, backwards: bool, path: Option<String>) ->  Option<SearchResult> {
         let varchildren = self.get_varchildren(backwards);
         for varchild in varchildren {
-            if let Some(acc) = self.get_acc_from_varchild(&varchild, false) {
+            if let Some(acc) = self.get_acc_from_varchild(varchild, false) {
                 if let Some(role) = acc.get_role() {
                     match role {
                         AccRole::MenuItem => {
@@ -626,7 +625,7 @@ impl Acc {
     pub fn _search_slider(&self, order: &mut u32) -> Option<Self> {
         let varchildren = self.get_varchildren(false);
         for varchild in varchildren {
-            if let Some(acc) = self.get_acc_from_varchild(&varchild, true) {
+            if let Some(acc) = self.get_acc_from_varchild(varchild, true) {
                 if let Some(role) = acc.get_role() {
                     match role {
                         AccRole::ScrollBar |
@@ -687,13 +686,13 @@ impl Acc {
         }
         rgvarchildren
     }
-    fn get_acc_from_varchild(&self, varchild: &VARIANT, ignore_invisible: bool) -> Option<Self> {
+    fn get_acc_from_varchild(&self, varchild: VARIANT, ignore_invisible: bool) -> Option<Self> {
         unsafe {
             let variant00 = &varchild.Anonymous.Anonymous;
             match variant00.vt {
                 VT_I4 => {
                     let id = variant00.Anonymous.lVal;
-                    let child = self.obj.get_accChild(varchild);
+                    let child = self.obj.get_accChild(varchild.clone());
                     match child {
                         Ok(disp) => Self::from_idispatch(disp, id),//.map(|acc| (acc, true)),
                         Err(e) => if let HRESULT(0) = e.code() {
@@ -721,7 +720,7 @@ impl Acc {
             }
         }
     }
-    fn get_child_acc_by_role(&self, varchild: &VARIANT, role: AccRole, ignore_invisible: bool) -> Option<Self> {
+    fn get_child_acc_by_role(&self, varchild: VARIANT, role: AccRole, ignore_invisible: bool) -> Option<Self> {
         if let Some(acc) = self.get_acc_from_varchild(varchild, ignore_invisible) {
             if acc.get_role() == Some(role) {
                 Some(acc)
@@ -732,13 +731,13 @@ impl Acc {
             None
         }
     }
-    pub fn get_state(&self, varchild: Option<&VARIANT>) -> Option<i32> {
+    pub fn get_state(&self, varchild: Option<VARIANT>) -> Option<i32> {
         unsafe {
             let state = match varchild {
                 Some(varchild) => self.obj.get_accState(varchild).ok()?,
                 None => {
                     let varchild = self.get_varchild();
-                    self.obj.get_accState(&varchild).ok()?
+                    self.obj.get_accState(varchild).ok()?
                 },
             };
             i32::from_variant(state)
@@ -801,12 +800,12 @@ impl Acc {
     pub fn get_description(&self) -> Option<String> {
         unsafe {
             let varchild = self.get_varchild();
-            self.obj.get_accDescription(&varchild)
+            self.obj.get_accDescription(varchild)
                 .map(|bstr| bstr.to_string())
                 .ok()
         }
     }
-    fn is_visible(&self, varchild: Option<&VARIANT>) -> Option<bool> {
+    fn is_visible(&self, varchild: Option<VARIANT>) -> Option<bool> {
         let is_visible = match self.get_role()? {
             // 特定のロールは可視・不可視に関わらず許可
             AccRole::ListItem => true,
@@ -905,7 +904,7 @@ impl Acc {
     fn search_items(&self, gi: &mut GetItem) -> Option<()> {
         let varchildren = self.get_varchildren(gi.backward);
         for varchild in varchildren {
-            if let Some(acc) = self.get_acc_from_varchild(&varchild, false) {
+            if let Some(acc) = self.get_acc_from_varchild(varchild, false) {
                 if let Some(role) = acc.get_role() {
                     match role {
                         AccRole::Text => if gi.edit {
@@ -1213,15 +1212,12 @@ impl TargetRole {
 }
 
 fn to_vt_i4(n: i32) -> VARIANT {
-    unsafe {
-        let mut variant = VARIANT::default();
-        VariantInit(&mut variant);
-        let mut variant00 = VARIANT_0_0::default();
-        variant00.vt = VT_I4;
-        variant00.Anonymous.lVal = n;
-        variant.Anonymous.Anonymous = ManuallyDrop::new(variant00);
-        variant
-    }
+    let mut variant = VARIANT::default();
+    let mut variant00 = VARIANT_0_0::default();
+    variant00.vt = VT_I4;
+    variant00.Anonymous.lVal = n;
+    variant.Anonymous.Anonymous = ManuallyDrop::new(variant00);
+    variant
 }
 
 trait I32Ext {

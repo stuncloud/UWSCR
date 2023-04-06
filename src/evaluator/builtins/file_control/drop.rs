@@ -69,7 +69,9 @@ pub fn dropfile(hwnd: HWND, files: &HSTRING, x: i32, y: i32) -> bool {
         (*p_dropfiles).fWide = true.into();
         std::ptr::copy_nonoverlapping(files.as_ptr(), buffer[dropfiles_size..].as_mut_ptr() as *mut u16, files.len() + 1);
 
-        let hmem = GlobalAlloc(GMEM_MOVEABLE, buffer_size);
+        let Ok(hmem) = GlobalAlloc(GMEM_MOVEABLE, buffer_size) else {
+            return false;
+        };
         let pglobal = GlobalLock(hmem);
         std::ptr::copy_nonoverlapping(buffer.as_ptr(), pglobal as *mut u8, buffer_size);
         GlobalUnlock(hmem);

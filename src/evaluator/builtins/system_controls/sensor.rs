@@ -164,7 +164,7 @@ impl PropVariant {
     fn get_bool(&self) -> bool {
         unsafe {
             let pv00 = &self.0.Anonymous.Anonymous;
-            pv00.Anonymous.boolVal != 0
+            pv00.Anonymous.boolVal.as_bool()
         }
     }
     // fn get_string(&self) -> Option<String> {

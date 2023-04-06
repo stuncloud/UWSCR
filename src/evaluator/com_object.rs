@@ -1,9 +1,9 @@
 use crate::winapi::{
     to_wide_string,
 };
-use windows::core::{PWSTR, BSTR, GUID};
+use windows::core::{PCWSTR, BSTR, GUID};
 use windows::Win32::{
-    Foundation::{DISP_E_MEMBERNOTFOUND},
+    Foundation::{DISP_E_MEMBERNOTFOUND, VARIANT_BOOL},
     System::{
         Com::{
             DISPPARAMS, EXCEPINFO,
@@ -72,6 +72,7 @@ use windows::Win32::{
             VariantChangeType, VariantCopy,
             SafeArrayCreate, SafeArrayGetElement, SafeArrayPutElement,
             SafeArrayGetLBound, SafeArrayGetUBound, SafeArrayGetDim,
+            VarEqv,
         },
         Com::{
             VARIANT, VARIANT_0_0,
@@ -196,7 +197,7 @@ impl Object {
             Object::Num(n) => variant.set_double(*n),
             Object::String(s) => {
                 let wide = to_wide_string(s);
-                let bstr = BSTR::from_wide(&wide);
+                let bstr = BSTR::from_wide(&wide)?;
                 variant.set_bstr(bstr);
             },
             Object::Bool(b) => variant.set_bool(b),
@@ -295,12 +296,15 @@ impl IDispatchHelper for IDispatch {
 
     fn invoke_wrapper(&self, name: &str, dp: *mut DISPPARAMS, wflags: DISPATCH_FLAGS) -> ComResult<VARIANT> {
         unsafe {
-            let mut member: Vec<u16> = to_wide_string(name);
-            let dispidmember = self.GetIDsOfNames(
+            let member: Vec<u16> = to_wide_string(name);
+            let rgsznames = PCWSTR::from_raw(member.as_ptr());
+            let mut dispidmember = 0;
+            self.GetIDsOfNames(
                 &GUID::default(),
-                &PWSTR(member.as_mut_ptr()),
+                &rgsznames,
                 member.len() as u32,
                 1,
+                &mut dispidmember
             )?;
 
             let mut excepinfo = EXCEPINFO::default();
@@ -395,7 +399,7 @@ impl VARIANTHelper for VARIANT {
     fn set_bool(&mut self, b: &bool) {
         let mut v00 = VARIANT_0_0::default();
         v00.vt = VT_BOOL;
-        v00.Anonymous.boolVal = if *b {-1} else {0};
+        v00.Anonymous.boolVal = VARIANT_BOOL::from(b);
         self.Anonymous.Anonymous = ManuallyDrop::new(v00);
     }
     fn set_idispatch(&mut self, idispatch: &IDispatch) {
@@ -441,7 +445,7 @@ impl VARIANTHelper for VARIANT {
     }
     fn get_bool(&self) -> bool {
         unsafe {
-            self.Anonymous.Anonymous.Anonymous.boolVal != 0
+            self.Anonymous.Anonymous.Anonymous.boolVal.as_bool()
         }
     }
     fn change_type(&self, var_enum: VARENUM) -> ComResult<VARIANT> {
@@ -473,7 +477,16 @@ impl VARIANTHelper for VARIANT {
         // } else {
         //     false
         // }
-        self == other
+        // self == other
+        unsafe {
+            match VarEqv(self, other) {
+                Ok(variant) => match variant.vt() {
+                    VT_BOOL => variant.get_bool(),
+                    _ => false,
+                },
+                Err(_) => false,
+            }
+        }
     }
 }
 

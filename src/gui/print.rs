@@ -1,5 +1,30 @@
-use super::*;
+use super::{Window, UWindow, UWindowResult, UWindowError, FontFamily, USETTINGS};
 
+use windows::{
+    core::{HSTRING},
+    Win32::{
+        Foundation::{
+            HWND,WPARAM,LPARAM,LRESULT,
+        },
+        UI::{
+            WindowsAndMessaging::{
+                MSG,
+                WM_DESTROY, WM_CLOSE, WM_SIZE, WM_SYSCOMMAND, WM_QUIT,
+                SW_HIDE,
+                WINDOW_STYLE ,WS_OVERLAPPEDWINDOW, WS_VISIBLE, WS_CHILD, WS_VSCROLL,
+                WINDOW_EX_STYLE,
+                ES_MULTILINE,ES_WANTRETURN, ES_AUTOHSCROLL, ES_AUTOVSCROLL, ES_LEFT,
+
+                SC_CLOSE,
+                ShowWindow,
+                DefWindowProcW,
+                SendMessageW, GetMessageW, TranslateMessage, DispatchMessageW, GetWindowTextLengthW
+            },
+            Input::KeyboardAndMouse::{SetFocus},
+            Controls::{EM_SETSEL, EM_REPLACESEL}
+        },
+    }
+};
 use once_cell::sync::OnceCell;
 use once_cell::sync::Lazy;
 

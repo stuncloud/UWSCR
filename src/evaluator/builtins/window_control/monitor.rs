@@ -148,7 +148,7 @@ impl Monitor {
         unsafe {
             let mut dm = DEVMODE::default();
             dm.dmSize = size_of::<DEVMODE>() as u16;
-            let lpszdevicename = HSTRING::from_wide(name);
+            let lpszdevicename = HSTRING::from_wide(name).ok()?;
             let lpdevmode = <*mut _>::cast(&mut dm);
             if EnumDisplaySettingsW(&lpszdevicename, ENUM_CURRENT_SETTINGS, lpdevmode).as_bool() {
                 Some(dm)
@@ -173,7 +173,7 @@ impl Monitor {
         unsafe {
             let mut dd = DISPLAY_DEVICEW::default();
             dd.cb = size_of::<DISPLAY_DEVICEW>() as u32;
-            let lpdevice = HSTRING::from_wide(szdevice);
+            let lpdevice = HSTRING::from_wide(szdevice).ok()?;
             if EnumDisplayDevicesW(&lpdevice, 0, &mut dd, 0).as_bool() {
                 Some(dd)
             } else {

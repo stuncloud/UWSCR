@@ -1,4 +1,32 @@
-use super::*;
+use super::{Window, UWindow, UWindowResult, FontFamily};
+
+use windows::{
+    Win32::{
+        Foundation::{
+            HWND,WPARAM,LPARAM,LRESULT, SIZE, COLORREF,
+        },
+        UI::{
+            WindowsAndMessaging::{
+                WM_DESTROY, WM_QUIT, WS_VISIBLE, WS_BORDER,
+                DefWindowProcW, PostMessageW, DestroyWindow,
+                // balloon
+                WS_EX_TOOLWINDOW,WS_POPUP,
+            },
+        },
+        Graphics::{
+            Gdi::{
+                HBRUSH, HFONT,
+                SelectObject,
+                // balloon
+                PAINTSTRUCT, TEXTMETRICW,
+                TRANSPARENT,
+                BeginPaint, FillRect, SetBkMode, SetTextColor, GetTextMetricsW, TextOutW, EndPaint,
+            },
+        },
+    }
+};
+
+use once_cell::sync::OnceCell;
 
 static BALLOON_CLASS: OnceCell<UWindowResult<String>> = OnceCell::new();
 static BALLOON_MARGIN: i32 = 10;

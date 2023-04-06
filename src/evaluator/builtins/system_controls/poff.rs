@@ -1,7 +1,7 @@
 
 use windows::{
     Win32::{
-        Foundation::{HWND, LPARAM, WPARAM, LUID, HANDLE},
+        Foundation::{HWND, LPARAM, WPARAM, LUID, HANDLE, BOOLEAN},
         System::{
             Power::SetSuspendState,
             Shutdown::{
@@ -12,12 +12,12 @@ use windows::{
             Threading::{
                 OpenProcessToken, GetCurrentProcess,
             },
-            SystemServices::SE_SHUTDOWN_NAME,
         },
         Security::{
             LookupPrivilegeValueW, AdjustTokenPrivileges,
             TOKEN_PRIVILEGES, LUID_AND_ATTRIBUTES,
             TOKEN_ADJUST_PRIVILEGES, TOKEN_QUERY, SE_PRIVILEGE_ENABLED,
+            SE_SHUTDOWN_NAME,
         },
         UI::WindowsAndMessaging::{
             SendMessageW,
@@ -31,13 +31,16 @@ use windows::{
 
 pub fn hibernate() {
     unsafe {
-        SetSuspendState(true, false, false);
+        let t = BOOLEAN::from(true);
+        let f = BOOLEAN::from(false);
+        SetSuspendState(t, f, f);
     }
 }
 
 pub fn suspend() {
     unsafe {
-        SetSuspendState(false, false, false);
+        let f = BOOLEAN::from(false);
+        SetSuspendState(f, f, f);
     }
 }
 

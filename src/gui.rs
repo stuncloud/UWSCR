@@ -19,85 +19,54 @@ use crate::error::{CURRENT_LOCALE, Locale};
 use crate::settings::USETTINGS;
 pub use crate::evaluator::builtins::window_control::Monitor;
 
-pub use windows::{
-    core::{PWSTR, PCWSTR, HSTRING},
+use windows::{
+    core::{PCWSTR, HSTRING},
     Win32::{
         Foundation::{
             HWND,WPARAM,LPARAM,LRESULT,
-            HINSTANCE, SIZE, BOOL, RECT, POINT, COLORREF,
+            SIZE, BOOL, RECT, COLORREF,
         },
         UI::{
             WindowsAndMessaging::{
                 WNDCLASSEXW, WNDPROC, MSG, HMENU,
                 HICON, HCURSOR,
-                IDI_APPLICATION, IDI_ASTERISK, IDC_ARROW,
-                WM_DESTROY, WM_COMMAND, WM_CLOSE, WM_KEYDOWN, WM_KEYUP, WM_SIZE, WM_SETFONT, WM_GETDLGCODE, WM_SYSCOMMAND, WM_QUIT, WM_CTLCOLORSTATIC, WM_LBUTTONDOWN,
-                BM_CLICK,
+                WM_DESTROY, WM_SETFONT, WM_QUIT,
                 CS_HREDRAW, CS_VREDRAW,
                 SW_SHOW, SW_HIDE,
-                SET_WINDOW_POS_FLAGS, SWP_NOMOVE, SWP_NOSIZE, SWP_DRAWFRAME,
-                WINDOW_STYLE ,WS_OVERLAPPED, WS_OVERLAPPEDWINDOW, WS_CAPTION, WS_VISIBLE, WS_TABSTOP,WS_SYSMENU, WS_CHILD, WS_GROUP, WS_BORDER, WS_VSCROLL,
-                WINDOW_EX_STYLE, WS_EX_TOPMOST,
-                BN_CLICKED,
-                KF_REPEAT,
-                ES_MULTILINE,ES_WANTRETURN, ES_AUTOHSCROLL, ES_AUTOVSCROLL, ES_LOWERCASE, ES_UPPERCASE, ES_LEFT, ES_PASSWORD,
+                SET_WINDOW_POS_FLAGS,
+                WINDOW_STYLE ,WS_VISIBLE, WS_TABSTOP,WS_CHILD,
+                WINDOW_EX_STYLE,
                 EC_LEFTMARGIN, EC_RIGHTMARGIN,
 
                 GWLP_WNDPROC,
-                SC_CLOSE,
                 RegisterClassExW, CreateWindowExW,
-                ShowWindow, CloseWindow, DestroyWindow,
-                PostQuitMessage,
-                UnregisterClassW, IsDialogMessageW,
-                LoadIconW, LoadCursorW,
-                DefWindowProcW, DefDlgProcW,
+                ShowWindow,
+                LoadIconW,
+                DefWindowProcW,
                 SendMessageW, GetMessageW, TranslateMessage, DispatchMessageW, PostMessageW,
                 CallWindowProcW,
-                GetClassInfoExW, SetWindowPos, MoveWindow,
-                GetSystemMetrics, SM_CXSIZEFRAME, SM_CYSIZEFRAME, SM_CXSCREEN, SM_CYSCREEN,
-                GetWindowRect, GetClientRect, FindWindowExW, GetDlgItem, GetDlgCtrlID,
-                GetWindowTextW, GetWindowTextLengthW, SetWindowTextW,
-                IsWindow,
-                // slctbox
-                LBS_NOTIFY, LBS_MULTIPLESEL,
-                LB_ADDSTRING, LB_GETSELCOUNT, LB_GETSELITEMS,
-                CBS_DROPDOWNLIST, CBS_AUTOHSCROLL,
-                CB_ADDSTRING, CB_SETCURSEL, CB_GETCURSEL,
-                BS_AUTOCHECKBOX, BS_AUTORADIOBUTTON,
-                BM_SETCHECK, BM_GETCHECK,
-                PeekMessageW, PM_REMOVE,
-                // poppumenu
-                GetCursorPos, CreatePopupMenu, TrackPopupMenu, AppendMenuW, SetForegroundWindow,
-                TPM_TOPALIGN,TPM_RETURNCMD,TPM_NONOTIFY,
-                MF_POPUP, MF_ENABLED, MF_STRING,
-                // balloon
-                WS_EX_TOOLWINDOW,WS_POPUP,
+                SetWindowPos, MoveWindow,
+                GetSystemMetrics, SM_CXSCREEN, SM_CYSCREEN,
+                GetWindowRect, GetClientRect, GetDlgItem, GetDlgCtrlID,
+                GetWindowTextW, GetWindowTextLengthW,
             },
             Input::KeyboardAndMouse::{
-                VIRTUAL_KEY, VK_TAB, VK_ESCAPE, VK_RETURN, VK_SHIFT, VK_RIGHT, VK_LEFT, VK_DOWN, VK_UP,
-                SetFocus, GetFocus,
+                SetFocus,
             },
             Controls::{
-                EM_SETMARGINS, EM_GETRECT, EM_SETRECT, EM_SETSEL, EM_REPLACESEL,
-                BST_CHECKED,
-                // progress bar
-                PBM_SETRANGE32, PBM_SETSTEP, PBM_STEPIT, PBM_SETPOS, PBM_SETMARQUEE,
-                PBS_SMOOTH,
+                EM_SETMARGINS, EM_GETRECT, EM_SETRECT,
             },
         },
         Graphics::{
             Gdi::{
-                HBRUSH, HDC, HFONT,
-                SYS_COLOR_INDEX, COLOR_BACKGROUND, COLOR_WINDOW,
+                HBRUSH, HFONT,
+                SYS_COLOR_INDEX, COLOR_WINDOW,
                 FW_DONTCARE,CHARSET_UNICODE, OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
-                DEFAULT_PITCH, FF_DONTCARE,
+                FF_DONTCARE,
                 GetDC, ReleaseDC, SelectObject,
                 GetTextExtentPoint32W, CreateFontW,
-                UpdateWindow, SetBkColor,
-                // balloon
-                PAINTSTRUCT, TEXTMETRICW,
-                TRANSPARENT,
-                CreateSolidBrush, BeginPaint, FillRect, SetBkMode, SetTextColor, GetTextMetricsW, TextOutW, EndPaint,
+                UpdateWindow,
+                CreateSolidBrush,
             },
             Dwm::{
                 DWMWA_EXTENDED_FRAME_BOUNDS,
@@ -226,8 +195,8 @@ impl Window {
                 y,
                 width,
                 height,
-                parent,
-                hmenu,
+                parent.as_ref(),
+                hmenu.as_ref(),
                 None,
                 None
             );

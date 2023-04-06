@@ -21,9 +21,6 @@ use windows::{
             FILETIME,
         },
         System::{
-            WindowsProgramming::{
-                INFINITE,
-            },
             SystemInformation::{
                 OSVERSIONINFOEXW, GetVersionExW,
                 SYSTEM_INFO, GetNativeSystemInfo,
@@ -38,6 +35,7 @@ use windows::{
                 CreateProcessW, WaitForSingleObject, GetExitCodeProcess,
                 WaitForInputIdle,
                 GetSystemTimes,
+                INFINITE,
             },
             SystemServices::{
                 VER_NT_WORKSTATION,
@@ -77,6 +75,7 @@ use strum_macros::{EnumString, EnumVariantNames};
 use num_derive::{ToPrimitive, FromPrimitive};
 use num_traits::FromPrimitive;
 use serde_json::{Map, Value};
+use base64::{Engine, engine::general_purpose};
 
 pub fn builtin_func_sets() -> BuiltinFunctionSets {
     let mut sets = BuiltinFunctionSets::new();
@@ -529,12 +528,13 @@ impl Shell {
                 "[console]::OutputEncoding = [System.Text.Encoding]::UTF8;{}",
                 &self.command
             );
+            let b64_cmd = Self::to_base64(&command);
             shell.args([
                 "-Nologo",
                 "-OutputFormat",
                 "Text",
                 "-EncodedCommand",
-                &Self::to_base64(&command)
+                &b64_cmd
             ]);
         }
         if self.show {
@@ -586,7 +586,7 @@ impl Shell {
     fn to_base64(command: &str) -> String {
         let wide = command.encode_utf16().collect::<Vec<u16>>();
         let bytes = wide.into_iter().map(|u| u.to_ne_bytes()).flatten().collect::<Vec<u8>>();
-        base64::encode(bytes)
+        general_purpose::STANDARD_NO_PAD.encode(bytes)
     }
 }
 

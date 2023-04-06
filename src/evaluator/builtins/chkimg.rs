@@ -185,9 +185,9 @@ impl std::fmt::Display for ScreenShot {
 }
 pub type ScreenShotResult = Result<ScreenShot, UError>;
 impl ScreenShot {
-    unsafe fn new(hwnd: Option<HWND>, left: i32, top: i32, width: i32, height: i32) -> ScreenShotResult {
+    unsafe fn new(hwnd: Option<&HWND>, left: i32, top: i32, width: i32, height: i32) -> ScreenShotResult {
         let hdc = match hwnd {
-            Some(hwnd) => GetWindowDC(hwnd),
+            Some(hwnd) => GetWindowDC(*hwnd),
             None => GetDC(None),
         };
         let hdc_compat = CreateCompatibleDC(hdc);
@@ -260,7 +260,7 @@ impl ScreenShot {
 
         Ok(ScreenShot {data, left, top, width, height})
     }
-    unsafe fn new_window(hwnd: Option<HWND>, left: i32, top: i32, width: i32, height: i32, dx: i32, dy: i32) -> ScreenShotResult {
+    unsafe fn new_window(hwnd: Option<&HWND>, left: i32, top: i32, width: i32, height: i32, dx: i32, dy: i32) -> ScreenShotResult {
         let mut ss = Self::new(hwnd, left, top, width, height)?;
         ss.left = dx;
         ss.top = dy;
@@ -409,7 +409,7 @@ impl ScreenShot {
                 }
                 RedrawWindow(hwnd, None, None, flags);
             }
-            let hwnd = if is_fore {None} else {Some(hwnd)};
+            let hwnd = if is_fore {None} else {Some(&hwnd)};
             Self::new_window(hwnd, left, top, width, height, dx, dy)
         }
     }

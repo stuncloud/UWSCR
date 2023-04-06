@@ -1,18 +1,18 @@
 use windows::{
     core::HSTRING,
     Win32::{
-        Foundation::HANDLE,
+        Foundation::{HANDLE, HGLOBAL},
         System::{
             DataExchange::{
                 OpenClipboard, CloseClipboard, IsClipboardFormatAvailable,
                 GetClipboardData, SetClipboardData, EmptyClipboard
             },
-            SystemServices::{
-                CF_UNICODETEXT, CF_BITMAP,
-            },
             Memory::{
                 GlobalLock, GlobalUnlock, GlobalSize, GlobalFree,
                 GlobalAlloc, GMEM_MOVEABLE,
+            },
+            Ole::{
+                CF_UNICODETEXT, CF_BITMAP
             }
         },
         Graphics::Gdi::HBITMAP,
@@ -40,14 +40,15 @@ impl Clipboard {
     }
     pub fn get_str(&self) -> Option<String> {
         unsafe {
-            if IsClipboardFormatAvailable(CF_UNICODETEXT.0).as_bool() {
-                let hmem = GetClipboardData(CF_UNICODETEXT.0).ok()?.0;
+            if IsClipboardFormatAvailable(CF_UNICODETEXT.0 as u32).as_bool() {
+                let handle = GetClipboardData(CF_UNICODETEXT.0 as u32).ok()?;
+                let hmem = HGLOBAL(handle.0);
                 let len = GlobalSize(hmem);
                 let ptr = GlobalLock(hmem) as *mut u16;
                 let wide = std::slice::from_raw_parts(ptr, len / 2 - 1);
                 let str = from_wide_string(&wide);
                 GlobalUnlock(hmem);
-                GlobalFree(hmem);
+                GlobalFree(hmem).ok()?;
                 Some(str)
             } else {
                 None
@@ -60,12 +61,14 @@ impl Clipboard {
                 let hstring = HSTRING::from(str);
                 let src = hstring.as_ptr();
                 let len = (hstring.len() + 1) * std::mem::size_of::<u16>();
-                let hmem = GlobalAlloc(GMEM_MOVEABLE, len);
+                let Ok(hmem) = GlobalAlloc(GMEM_MOVEABLE, len) else {
+                    return  false;
+                };
                 let dst = GlobalLock(hmem) as _;
                 std::ptr::copy_nonoverlapping(src, dst, hstring.len());
                 GlobalUnlock(hmem);
-                let result = SetClipboardData(CF_UNICODETEXT.0, HANDLE(hmem)).is_ok();
-                GlobalFree(hmem);
+                let result = SetClipboardData(CF_UNICODETEXT.0 as u32, HANDLE(hmem.0)).is_ok();
+                let _ = GlobalFree(hmem);
                 result
             } else {
                 false
@@ -76,7 +79,7 @@ impl Clipboard {
         unsafe {
             if EmptyClipboard().as_bool() {
                 let hmem = HANDLE(hbmp.0);
-                let _ = SetClipboardData(CF_BITMAP.0, hmem);
+                let _ = SetClipboardData(CF_BITMAP.0 as u32, hmem);
             }
         }
     }
