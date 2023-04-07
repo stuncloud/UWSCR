@@ -656,14 +656,27 @@ impl Acc {
             if *order == 0 {
                 // フォーカスしてたらtrue
                 if let Some(state) = self.get_state(None) {
-                    println!("\u{001b}[33m[debug] state: {:?}\u{001b}[0m", &state);
                     if (state as u32).includes(STATE_SYSTEM_FOCUSED) {
                         return true;
                     }
                 }
             } else {
-                if SearchItem::is_in_exact_order(order) {
-                    return true;
+                if let Some(state) = self.get_state(None) {
+                    let state = state as u32;
+                    // 条件
+                    let flg = match role {
+                        // エディットコントロールとセルは可視かつフォーカス可能なもの
+                        AccRole::Cell |
+                        AccRole::Text => ! state.includes(STATE_SYSTEM_INVISIBLE.0) && state.includes(STATE_SYSTEM_FOCUSABLE.0),
+                        // スタティックコントロールは可視かどうか
+                        AccRole::StaticText => ! state.includes(STATE_SYSTEM_INVISIBLE.0),
+                        _ => false
+                    };
+                    if flg {
+                        if SearchItem::is_in_exact_order(order) {
+                            return true;
+                        }
+                    }
                 }
             }
         }
@@ -812,7 +825,7 @@ impl Acc {
             _ => {
                 // 可視なら許可
                 match self.get_state(varchild) {
-                    Some(state) => (state & STATE_SYSTEM_INVISIBLE.0 as i32) == 0,
+                    Some(state) => ! (state as u32).includes(STATE_SYSTEM_INVISIBLE.0),
                     None => false,
                 }
             }
