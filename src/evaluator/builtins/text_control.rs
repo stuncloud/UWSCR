@@ -231,18 +231,13 @@ pub fn replace(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     if is_regex {
         replace_regex(target, pattern, replace_to)
     } else {
-        let mut out = target.clone();
-        let mut lower = target.to_ascii_lowercase();
-        let pat_lower = pattern.to_ascii_lowercase();
-        let len = pat_lower.len();
-        let r = replace_to.as_str();
-        loop {
-            let pos = match lower.find(pat_lower.as_str()) {
-                Some(n) => n,
-                None => break,
-            };
-            lower.replace_range(pos..(pos+len), r);
-            out.replace_range(pos..(pos+len), r);
+        let lower = target.to_ascii_lowercase();
+        let pat = pattern.to_ascii_lowercase();
+        let len = pat.len();
+        let mut out = target;
+
+        for (pos, _) in lower.rmatch_indices(&pat) {
+            out.replace_range(pos..pos+len, &replace_to);
         }
         Ok(Object::String(out))
     }
@@ -473,8 +468,10 @@ fn drain_between(str: &mut String, pos: usize, len: usize) {
 
 pub fn betweenstr(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let mut str = args.get_as_string(0, None)?;
-    let from = args.get_as_string_or_empty(1)?;
-    let to = args.get_as_string_or_empty(2)?;
+    let from = args.get_as_string_or_empty(1)?
+        .filter(|s| s.len() > 0);
+    let to = args.get_as_string_or_empty(2)?
+        .filter(|s| s.len() > 0);
     let nth = args.get_as_int(3, Some(1_i32))?;
     let flag = args.get_as_bool(4, Some(false))?;
 
