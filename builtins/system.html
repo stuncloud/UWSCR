@@ -7,7 +7,7 @@
 <link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="ファイル操作関数" href="file.html" /><link rel="prev" title="スクリプト制御" href="scriptcontrol.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>システム関数 - UWSCR 0.10.0</title>
+        <title>システム関数 - UWSCR 0.10.2</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 0.10.0</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 0.10.2</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 0.10.0</span>
+  <span class="sidebar-brand-text">UWSCR 0.10.2</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -1860,6 +1860,120 @@
 </dd></dl>
 
 </section>
+<section id="id10">
+<h2>音声<a class="headerlink" href="#id10" title="この見出しへのパーマリンク">#</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="speak">
+<span class="sig-name descname"><span class="pre">speak</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">発声文字</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">非同期=FALSE</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">中断=FALSE</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#speak" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">指定文字列を音声として再生する</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>発声文字</strong> (<em>文字列</em>) -- 発声させたい文字列</p></li>
+<li><p><strong>非同期</strong> (<em>真偽値 省略可</em>) -- TRUEなら非同期で発声、FALSEなら発声終了を待つ</p></li>
+<li><p><strong>中断</strong> (<em>真偽値 省略可</em>) -- <p>別の音声が発生中の場合にTRUEなら中断し、FALSEなら終了を待ってから発声させる</p>
+<div class="note admonition">
+<p class="admonition-title">終了待ちについて</p>
+<div class="line-block">
+<div class="line">音声の終了待ちは、speak関数を非同期TRUEで事前に実行していた場合のみ有効です</div>
+<div class="line">また、speak関数は同一スレッド上で実行されている必要があります</div>
+</div>
+</div>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>なし</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="recostate">
+<span class="sig-name descname"><span class="pre">recostate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">開始フラグ</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">登録単語...</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#recostate" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">任意の単語を登録し音声認識を開始、または終了する</div>
+</div>
+<div class="note admonition">
+<p class="admonition-title">有効範囲はスレッド単位</p>
+<div class="line-block">
+<div class="line">登録及び解除は同一スレッド上でのみ有効です</div>
+</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>開始フラグ</strong> (<em>真偽値</em>) -- TRUEで音声認識を開始、FALSEで解除</p></li>
+<li><p><strong>登録単語</strong> (<em>文字列または文字列の配列</em>) -- 音声認識させたい言葉を指定、開始フラグがTRUEの場合は1つ以上指定する必要あり</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>文字列</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>使用する認識エンジン名、登録失敗時はEMPTY</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="dictate">
+<span class="sig-name descname"><span class="pre">dictate</span></span><span class="sig-paren">(</span><span class="optional">[</span><em class="sig-param"><span class="n"><span class="pre">拾得待ち=TRUE</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">タイムアウト=10000</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#dictate" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">recostate関数で登録した単語が音声入力されたらその文字列を返す</div>
+</div>
+<div class="note admonition">
+<p class="admonition-title">単語登録について</p>
+<div class="line-block">
+<div class="line">recostate関数で単語を登録していない場合は即座に終了しEMPTYを返します</div>
+<div class="line">また、同一スレッド上でrecostate関数を実行する必要があります</div>
+</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>拾得待ち</strong> (<em>真偽値 省略可</em>) -- TRUEなら入力を待つ、FALSEなら直近の入力を返す(入力がなければEMPTYを返す)</p></li>
+<li><p><strong>タイムアウト</strong> (<em>数値 省略可</em>) -- 拾得待ちがTRUEだった場合に待機する時間(ミリ秒)、0なら無限に待つ、拾得待ちFALSEなら無視される</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>文字列</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>拾得した文字列、拾得待ちTRUEでタイムアウトまたは拾得待ちFALSEで入力がない場合はEMPTY</p>
+</dd>
+</dl>
+<div class="admonition- admonition">
+<p class="admonition-title">サンプルコード</p>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// 単語を登録する</span>
+<span class="k">print</span><span class="w"> </span><span class="n">recostate</span><span class="p">(</span><span class="m">TRUE</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;りんご&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;みかん&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;いちご&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;おわり&quot;</span><span class="p">)</span>
+<span class="k">print</span><span class="w"> </span><span class="s">&quot;「りんご」「みかん」「いちご」に反応します&quot;</span>
+<span class="k">print</span><span class="w"> </span><span class="s">&quot;「おわり」で終了&quot;</span>
+
+<span class="k">while</span><span class="w"> </span><span class="m">TRUE</span>
+<span class="w">    </span><span class="kd">select</span><span class="w"> </span><span class="n">word</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="n">dictate</span><span class="p">(</span><span class="m">TRUE</span><span class="p">)</span>
+<span class="w">        </span><span class="kd">case</span><span class="w"> </span><span class="s">&quot;おわり&quot;</span>
+<span class="w">            </span><span class="k">print</span><span class="w"> </span><span class="s">&quot;終了します&quot;</span>
+<span class="w">            </span><span class="k">break</span>
+<span class="w">        </span><span class="kd">case</span><span class="w"> </span><span class="m">EMPTY</span>
+<span class="w">            </span><span class="c">// デフォルトでは10000ミリ秒経過でタイムアウト</span>
+<span class="w">            </span><span class="k">print</span><span class="w"> </span><span class="s">&quot;タイムアウトしました&quot;</span>
+<span class="w">            </span><span class="k">break</span>
+<span class="w">        </span><span class="kd">default</span>
+<span class="w">            </span><span class="k">print</span><span class="w"> </span><span class="n">word</span>
+<span class="w">    </span><span class="kd">selend</span>
+<span class="k">wend</span>
+
+<span class="c">// 登録を解除</span>
+<span class="n">recostate</span><span class="p">(</span><span class="n">false</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</dd></dl>
+
+</section>
 </section>
 
         </article>
@@ -1961,6 +2075,12 @@
 </li>
 <li><a class="reference internal" href="#id9">日時</a><ul>
 <li><a class="reference internal" href="#gettime"><code class="docutils literal notranslate"><span class="pre">gettime()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id10">音声</a><ul>
+<li><a class="reference internal" href="#speak"><code class="docutils literal notranslate"><span class="pre">speak()</span></code></a></li>
+<li><a class="reference internal" href="#recostate"><code class="docutils literal notranslate"><span class="pre">recostate()</span></code></a></li>
+<li><a class="reference internal" href="#dictate"><code class="docutils literal notranslate"><span class="pre">dictate()</span></code></a></li>
 </ul>
 </li>
 </ul>

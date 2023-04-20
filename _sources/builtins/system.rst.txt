@@ -995,3 +995,77 @@ CUIシェル
             ts = gettime(, "2023-10-10T00:00:00+0000")
             print format(ts, "%c") // 2023年10月10日 09時00分00秒
 
+音声
+----
+
+.. function:: speak(発声文字, [非同期=FALSE, 中断=FALSE])
+
+    | 指定文字列を音声として再生する
+
+    :param 文字列 発声文字: 発声させたい文字列
+    :param 真偽値 省略可 非同期: TRUEなら非同期で発声、FALSEなら発声終了を待つ
+    :param 真偽値 省略可 中断: 別の音声が発生中の場合にTRUEなら中断し、FALSEなら終了を待ってから発声させる
+
+        .. admonition:: 終了待ちについて
+            :class: note
+
+            | 音声の終了待ちは、speak関数を非同期TRUEで事前に実行していた場合のみ有効です
+            | また、speak関数は同一スレッド上で実行されている必要があります
+
+    :return: なし
+
+.. function:: recostate(開始フラグ, [登録単語...])
+
+    | 任意の単語を登録し音声認識を開始、または終了する
+
+    .. admonition:: 有効範囲はスレッド単位
+        :class: note
+
+        | 登録及び解除は同一スレッド上でのみ有効です
+
+    :param 真偽値 開始フラグ: TRUEで音声認識を開始、FALSEで解除
+    :param 文字列または文字列の配列 登録単語: 音声認識させたい言葉を指定、開始フラグがTRUEの場合は1つ以上指定する必要あり
+    :rtype: 文字列
+    :return: 使用する認識エンジン名、登録失敗時はEMPTY
+
+
+.. function:: dictate([拾得待ち=TRUE, タイムアウト=10000])
+
+    | recostate関数で登録した単語が音声入力されたらその文字列を返す
+
+    .. admonition:: 単語登録について
+        :class: note
+
+        | recostate関数で単語を登録していない場合は即座に終了しEMPTYを返します
+        | また、同一スレッド上でrecostate関数を実行する必要があります
+
+    :param 真偽値 省略可 拾得待ち: TRUEなら入力を待つ、FALSEなら直近の入力を返す(入力がなければEMPTYを返す)
+    :param 数値 省略可 タイムアウト: 拾得待ちがTRUEだった場合に待機する時間(ミリ秒)、0なら無限に待つ、拾得待ちFALSEなら無視される
+    :rtype: 文字列
+    :return: 拾得した文字列、拾得待ちTRUEでタイムアウトまたは拾得待ちFALSEで入力がない場合はEMPTY
+
+    .. admonition:: サンプルコード
+
+        .. sourcecode:: uwscr
+
+            // 単語を登録する
+            print recostate(TRUE, "りんご", "みかん", "いちご", "おわり")
+            print "「りんご」「みかん」「いちご」に反応します"
+            print "「おわり」で終了"
+
+            while TRUE
+                select word := dictate(TRUE)
+                    case "おわり"
+                        print "終了します"
+                        break
+                    case EMPTY
+                        // デフォルトでは10000ミリ秒経過でタイムアウト
+                        print "タイムアウトしました"
+                        break
+                    default
+                        print word
+                selend
+            wend
+
+            // 登録を解除
+            recostate(false)
