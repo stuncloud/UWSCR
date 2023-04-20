@@ -248,7 +248,7 @@ pub fn message_box(message: &str, title: &str, utype: MESSAGEBOX_STYLE) {
 
 pub fn show_message(message: &str, title: &str, is_error: bool) {
     match (is_console(), is_error) {
-        (true, true) => eprintln!("{}", message),
+        (true, true) => eprintln!("{title}\n{message}"),
         (true, false) => println!("{}", message),
         (false, true) => message_box(message, title, MB_ICONEXCLAMATION),
         (false, false) => message_box(message, title, MB_OK),

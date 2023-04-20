@@ -69,6 +69,7 @@ pub struct Evaluator {
 
 impl Evaluator {
     pub fn clear(&mut self) {
+        system_controls::sound::remove_recognizer();
         self.env.clear();
     }
 

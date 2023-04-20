@@ -1,6 +1,6 @@
 mod lockhard;
 mod sensor;
-mod sound;
+pub mod sound;
 pub mod poff;
 mod sethotkey;
 pub mod gettime;
@@ -100,6 +100,9 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("poff", 2, poff);
     sets.add("sethotkey", 3, sethotkey);
     sets.add("gettime", 4, gettime);
+    sets.add("speak", 3, speak);
+    sets.add("recostate", 36, recostate);
+    sets.add("dictate", 2, dictate);
     // sets.add("attachconsole", 1, attachconsole);
     sets
 }
@@ -974,4 +977,30 @@ pub fn gettime(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncR
     } else {
         Ok(val.timestamp_seconds.into())
     }
+}
+
+pub fn speak(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let text = args.get_as_string(0, None)?;
+    let unsync = args.get_as_bool(1, Some(false))?;
+    let interrupt = args.get_as_bool(2, Some(false))?;
+    sound::speak(text, unsync, interrupt)?;
+    Ok(Object::Empty)
+}
+
+pub fn recostate(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let flg = args.get_as_bool(0, None)?;
+    let name = if flg {
+        let words = args.get_rest_as_string_array(1, 1)?;
+        sound::recostate(Some(words))?
+    } else {
+        sound::recostate(None)?
+    };
+    Ok(name.into())
+}
+
+pub fn dictate(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let wait = args.get_as_bool(0, Some(true))?;
+    let milli = args.get_as_int(1, Some(10000u32))?;
+    let text = sound::dictate(wait, milli)?;
+    Ok(text.into())
 }
