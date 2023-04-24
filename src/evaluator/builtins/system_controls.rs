@@ -990,7 +990,7 @@ pub fn speak(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 pub fn recostate(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let flg = args.get_as_bool(0, None)?;
     let name = if flg {
-        let words = args.get_rest_as_string_array(1, 1)?;
+        let words = args.get_rest_as_string_array(1, 0)?;
         sound::recostate(Some(words))?
     } else {
         sound::recostate(None)?

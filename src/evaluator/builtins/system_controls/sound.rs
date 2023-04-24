@@ -10,6 +10,7 @@ use windows::{
                 ISpVoice, SPF_ASYNC, SPF_PURGEBEFORESPEAK, SPF_IS_NOT_XML,
                 ISpRecognizer, ISpRecoContext, ISpRecoGrammar, ISpRecoResult, ISpObjectToken, ISpObjectTokenCategory,
                 SPCAT_RECOGNIZERS, SPCAT_AUDIOIN,
+                SPLO_STATIC,
                 SPRS_ACTIVE,
                 SPRAF_TopLevel, SPRAF_Active,
                 SPWT_LEXICAL,
@@ -142,13 +143,20 @@ impl Recognizer {
             let dwattributes = (SPRAF_TopLevel.0|SPRAF_Active.0) as u32;
             grammar.GetRule(None, 1, dwattributes, true, &mut hfromstate)?;
             grammar.ClearRule(hfromstate)?;
-            for word in words {
-                let psz = HSTRING::from(word);
-                grammar.AddWordTransition(hfromstate, ptr::null_mut(), &psz, None, SPWT_LEXICAL, 1.0, ptr::null())?;
+            if words.is_empty() {
+                // 単語リストが空なら標準辞書をロード
+                grammar.LoadDictation(None, SPLO_STATIC)?;
+                grammar.SetDictationState(SPRS_ACTIVE)?;
+            } else {
+                // 単語リストを登録
+                for word in words {
+                    let psz = HSTRING::from(word);
+                    grammar.AddWordTransition(hfromstate, ptr::null_mut(), &psz, None, SPWT_LEXICAL, 1.0, ptr::null())?;
+                }
+                grammar.Commit(0)?;
+                grammar.SetGrammarState(SPGS_ENABLED)?;
+                grammar.SetRuleState(None, ptr::null_mut(), SPRS_ACTIVE)?;
             }
-            grammar.Commit(0)?;
-            grammar.SetGrammarState(SPGS_ENABLED)?;
-            grammar.SetRuleState(None, ptr::null_mut(), SPRS_ACTIVE)?;
 
             self.recognizer = Some(recognizer);
             self.context = Some(context);
