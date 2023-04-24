@@ -465,33 +465,33 @@ impl BuiltinFuncArgs {
         })
     }
     /// 残りの引数を文字列の配列として受ける
-    /// requires: 最低限必要なアイテム数
+    /// (空文字は無視される)
+    /// - requires: 最低限必要なアイテム数
     pub fn get_rest_as_string_array(&self, i: usize, requires: usize) -> BuiltInResult<Vec<String>> {
-        self.get_arg(i, |_| {
-            let vec = self.split_off(i)
-                .into_iter()
-                .map(|o| match o {
-                    Object::Array(vec) => vec.into_iter()
-                            .map(|o| o.to_string())
-                            .collect(),
-                    Object::HashTbl(arc) => {
-                        let hash = arc.lock().unwrap();
-                        hash.keys().into_iter()
-                            .map(|o|o.to_string())
-                            .collect()
-                    }
-                    Object::Empty|
-                    Object::EmptyParam => {vec![]},
-                    o => vec![o.to_string()]
-                })
-                .flatten()
-                .collect::<Vec<_>>();
-            if vec.len() < requires {
-                Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgRequiredAt(i + requires)))
-            } else {
-                Ok(vec)
-            }
-        })
+        let vec = self.split_off(i)
+            .into_iter()
+            .map(|o| match o {
+                Object::Array(vec) => vec.into_iter()
+                        .map(|o| o.to_string())
+                        .collect(),
+                Object::HashTbl(arc) => {
+                    let hash = arc.lock().unwrap();
+                    hash.keys().into_iter()
+                        .map(|o|o.to_string())
+                        .collect()
+                }
+                Object::Empty|
+                Object::EmptyParam => {vec![]},
+                o => vec![o.to_string()]
+            })
+            .flatten()
+            .filter(|s| ! s.is_empty())
+            .collect::<Vec<_>>();
+        if vec.len() < requires {
+            Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgRequiredAt(i + requires)))
+        } else {
+            Ok(vec)
+        }
     }
     /// 残りの引数をsckey用のキーコードとして得る
     pub fn get_sckey_codes(&self, i: usize) -> BuiltInResult<Vec<SCKeyCode>> {
