@@ -29,7 +29,11 @@ html_theme = 'furo'
 html_static_path = ['_static']
 html_js_files = ['custom.js']
 
-extensions = ['sphinx-favicon', 'sphinx.ext.githubpages']
+extensions = [
+    'sphinx-favicon',
+    'sphinx.ext.githubpages',
+]
+
 favicons = [
     {
         "rel": "icon",

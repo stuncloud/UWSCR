@@ -4,7 +4,7 @@ pub mod environment;
 pub mod builtins;
 pub mod def_dll;
 pub mod com_object;
-pub mod devtools_protocol;
+// pub mod devtools_protocol;
 
 use crate::ast::*;
 use crate::evaluator::environment::*;
@@ -12,7 +12,7 @@ use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
 use crate::evaluator::def_dll::*;
 use crate::evaluator::com_object::*;
-use crate::evaluator::devtools_protocol::{Browser, Element, ElementProperty};
+// use crate::evaluator::devtools_protocol::{Browser, Element, ElementProperty};
 use crate::evaluator::builtins::system_controls::{POFF, poff::{sign_out, power_off, shutdown, reboot}};
 use crate::error::UWSCRErrorTitle;
 use crate::error::evaluator::{UError, UErrorKind, UErrorMessage};
@@ -749,6 +749,7 @@ impl Evaluator {
             Object::String(s) => s.chars().map(|c| Object::String(c.to_string())).collect::<Vec<Object>>(),
             Object::HashTbl(h) => h.lock().unwrap().keys(),
             Object::ByteArray(arr) => arr.iter().map(|n| Object::Num(*n as f64)).collect(),
+            Object::Browser(b) => b.get_tabs()?.into_iter().map(|t| Object::TabWindow(t)).collect(),
             _ => return Err(UError::new(
                 UErrorKind::SyntaxError,
                 UErrorMessage::ForInError
@@ -1608,6 +1609,22 @@ impl Evaluator {
                     UErrorMessage::InvalidIndex(index)
                 ))
             },
+            Object::RemoteObject(remote) => {
+                let index = index.to_string();
+                let result = remote.get_by_index(&index)?;
+                Object::RemoteObject(result)
+            },
+            Object::Browser(brwoser) => {
+                if let Object::Num(i) = index {
+                    let tab = brwoser.get_tab(i as usize)?;
+                    Object::TabWindow(tab)
+                } else {
+                    return Err(UError::new(
+                        UErrorKind::EvaluatorError,
+                        UErrorMessage::InvalidIndex(index)
+                    ))
+                }
+            },
             o => return Err(UError::new(
                 UErrorKind::Any("Evaluator::get_index_value".into()),
                 UErrorMessage::NotAnArray(o.to_owned()),
@@ -1758,26 +1775,10 @@ impl Evaluator {
                     disp.set(&member, var_value, Some(keys))?;
                 }
             },
-            Object::Element(ref e) => {
+            Object::RemoteObject(ref remote) => {
                 if let Expression::Identifier(Identifier(name)) = expr_member {
                     let value = Self::object_to_serde_value(new)?;
-                    e.set_property(&name, value)?
-                } else {
-                    return Err(UError::new(
-                        UErrorKind::AssignError,
-                        UErrorMessage::SyntaxError
-                    ));
-                }
-            },
-            Object::ElementProperty(ref ep) => {
-                if let Expression::Identifier(Identifier(name)) = expr_member {
-                    let value = Self::object_to_serde_value(new)?;
-                    ep.set(&name, value)?;
-                } else {
-                    return Err(UError::new(
-                        UErrorKind::AssignError,
-                        UErrorMessage::SyntaxError
-                    ));
+                    remote.set_property_by_index(&name, &index.to_string(), value.into())?;
                 }
             },
             o => return Err(UError::new(
@@ -1926,7 +1927,13 @@ impl Evaluator {
                     return Err(UError::new(UErrorKind::AssignError, UErrorMessage::NotAnByte(new.to_owned())));
                 }
                 Ok((Some(Object::ByteArray(arr)), true))
-            }
+            },
+            Object::RemoteObject(remote) => {
+                let index = index.to_string();
+                let value = Self::object_to_serde_value(new.clone())?;
+                remote.set_by_index(&index, value.into())?;
+                Ok((None, false))
+            },
             _ => Err(UError::new(UErrorKind::AssignError, UErrorMessage::NotAnArray("".into())))
         }
     }
@@ -2010,27 +2017,14 @@ impl Evaluator {
                     ));
                 }
             },
-            Object::Element(ref e) => {
-                if let Expression::Identifier(i) = expr_member {
-                    let name = i.0;
-                    let value = Self::object_to_serde_value(new)?;
-                    e.set_property(&name, value)?
+            Object::RemoteObject(ref remote) => {
+                if let Expression::Identifier(Identifier(name)) = expr_member {
+                    let value = browser::RemoteFuncArg::from_object(new)?;
+                    remote.set_property(&name, value)?;
                 } else {
                     return Err(UError::new(
-                        UErrorKind::AssignError,
-                        UErrorMessage::SyntaxError
-                    ));
-                }
-            },
-            Object::ElementProperty(ref ep) => {
-                if let Expression::Identifier(i) = expr_member {
-                    let name = i.0;
-                    let value = Self::object_to_serde_value(new)?;
-                    ep.set(&name, value)?;
-                } else {
-                    return Err(UError::new(
-                        UErrorKind::AssignError,
-                        UErrorMessage::SyntaxError
+                        UErrorKind::DotOperatorError,
+                        UErrorMessage::SyntaxError,
                     ));
                 }
             },
@@ -2565,16 +2559,36 @@ impl Evaluator {
                 let obj = Object::from_variant(&v)?;
                 Ok(obj)
             },
-            Object::BrowserFunc(ref b, name) => {
-                let args = arguments.into_iter().map(|(_, o)|o).collect();
-                let res =  Self::invoke_browser_function(b.clone(), &name, args)?;
-                Ok(res)
-            },
-            Object::ElementFunc(ref e, name) => {
-                let args = arguments.into_iter().map(|(_, o)|o).collect();
-                let res = Self::invoke_element_function(e.clone(), &name, args)?;
-                Ok(res)
+            Object::BrowserFunction(func) => {
+                match func.object {
+                    browser::BrowserObject::Browser(browser) => {
+                        let args = arguments.into_iter()
+                            .map(|(_, o)| o)
+                            .collect();
+                        browser.invoke_method(&func.member, args)
+                    },
+                    browser::BrowserObject::TabWindow(tab) => {
+                        let args = arguments.into_iter()
+                            .map(|(_, o)| o)
+                            .collect();
+                        tab.invoke_method(&func.member, args)
+                    },
+                    browser::BrowserObject::RemoteObject(remote) => {
+                        let args = arguments.into_iter()
+                            .map(|(_, o)| browser::RemoteFuncArg::from_object(o))
+                            .collect::<EvalResult<Vec<browser::RemoteFuncArg>>>()?;
+                        remote.invoke_method(&func.member, args)
+                            .map(|r| r.into())
+                    },
+                }
             }
+            Object::RemoteObject(ref remote) => {
+                let args = arguments.into_iter()
+                    .map(|(_, o)| browser::RemoteFuncArg::from_object(o))
+                    .collect::<EvalResult<Vec<browser::RemoteFuncArg>>>()?;
+                remote.invoke_as_function(args)
+                    .map(|r| r.into())
+            },
             o => Err(UError::new(
                 UErrorKind::EvaluatorError,
                 UErrorMessage::NotAFunction(o),
@@ -2936,215 +2950,6 @@ impl Evaluator {
         Ok(Object::from_variant(&result)?)
     }
 
-    fn get_browser_property(browser: &Browser, member: &str) -> EvalResult<Object> {
-        match member.to_ascii_lowercase().as_str() {
-            "document" => {
-                let doc = browser.document()?;
-                Ok(Object::Element(doc))
-            },
-            "pageid" => {
-                let id = browser.id.to_string();
-                Ok(Object::String(id))
-            },
-            "source" => match browser.execute_script("document.documentElement.outerHTML", None, None)? {
-                Some(v) => Ok(v.into()),
-                None => Ok(Object::Empty)
-            },
-            "url" => match browser.execute_script("document.URL", None, None)? {
-                Some(v) => Ok(v.into()),
-                None => Ok(Object::Empty)
-            }
-            _ => Err(UError::new(
-                UErrorKind::BrowserControlError,
-                UErrorMessage::InvalidMember(member.to_string())
-            ))
-        }
-    }
-    fn get_element_property(element: &Element, member: &str) -> EvalResult<Object> {
-        // 特定のメンバ名の取得を試みるがなければプロパティ取得に移行
-        match member.to_ascii_lowercase().as_str() {
-            "url" => if let Some(url) = element.url()? {
-                return Ok(url.into());
-            },
-            "parent" => if let Some(elem) = element.get_parent()? {
-                return Ok(Object::Element(elem));
-            },
-            _ => {}
-        }
-        let obj = match element.get_property(&member)? {
-            Value::Array(_) |
-            Value::Object(_) => {
-                let ep = ElementProperty::new(element.clone(), member.to_string());
-                Object::ElementProperty(ep)
-            }
-            v => v.into()
-        };
-        Ok(obj)
-    }
-    fn invoke_browser_function(browser: Browser, name: &str, args: Vec<Object>) -> EvalResult<Object> {
-        let get_arg = |i: usize| args.get(i).unwrap_or(&Object::Empty).to_owned();
-        match name.to_ascii_lowercase().as_str() {
-            "navigate" => {
-                let uri = get_arg(0).to_string();
-                let loaded = browser.navigate(&uri)?;
-                Ok(Object::Bool(loaded))
-            },
-            "wait" => {
-                let limit = match get_arg(0) {
-                    Object::Num(n) => n,
-                    _ => 10.0
-                };
-                let loaded = browser.wait_for_page_load(limit)?;
-                Ok(Object::Bool(loaded))
-            },
-            "execute" => {
-                let script = get_arg(0).to_string();
-                let value = match get_arg(1) {
-                    Object::UObject(uo) => {
-                        Some(uo.value())
-                    },
-                    Object::Empty => None,
-                    o => Some(Self::object_to_serde_value(o.to_owned())?)
-                };
-                let res = match get_arg(2) {
-                    Object::Empty => browser.execute_script(&script, value, None)?,
-                    o => {
-                        let name = o.to_string();
-                        browser.execute_script(&script, value, Some(name.as_str()))?
-                    }
-                };
-                Ok(res.map_or_else(|| Object::Empty, |v| v.into()))
-            }
-            "reload" => {
-                let ignore_cache = get_arg(0).is_truthy();
-                browser.reload(ignore_cache)?;
-                Ok(Object::Empty)
-            }
-            "close" => {
-                browser.close()?;
-                Ok(Object::Empty)
-            },
-            "gettabs" => {
-                let filter = match get_arg(0) {
-                    Object::Empty => None,
-                    o => Some(o.to_string())
-                };
-                let tabs = browser.get_tabs(filter)?;
-                let arr = tabs.into_iter().map(|t| {
-                    Object::Array(vec![
-                        t.title.into(),
-                        t.url.into(),
-                        t.id.into(),
-                    ])
-                }).collect();
-                Ok(Object::Array(arr))
-            },
-            "newtab" => {
-                let uri = get_arg(0).to_string();
-                let new = browser.new_tab(&uri)?;
-                Ok(Object::Browser(new))
-            },
-            "activate" => {
-                browser.activate()?;
-                Ok(Object::Empty)
-            },
-            "windowid" => browser.get_window_id().map_err(|e| e.into()),
-            "dialog" => {
-                let (accept, prompt) = match get_arg(0) {
-                    Object::String(s) => (true, Some(s)),
-                    o => (o.is_truthy(), None)
-                };
-                browser.dialog(accept, prompt)?;
-                Ok(Object::Empty)
-            },
-            "setdownloadpath" => {
-                let path = match get_arg(0) {
-                    Object::Empty |
-                    Object::EmptyParam => None,
-                    o => Some(o.to_string())
-                };
-                browser.set_download_path(path)?;
-                Ok(Object::Empty)
-            },
-            _ => Err(UError::new(
-                UErrorKind::BrowserControlError,
-                UErrorMessage::InvalidMember(name.to_string())
-            ))
-        }
-    }
-    fn invoke_element_function(element: Element, name: &str, args: Vec<Object>) -> EvalResult<Object> {
-        let get_arg = |i: usize| args.get(i).unwrap_or(&Object::Empty).to_owned();
-        match name.to_ascii_lowercase().as_str() {
-            "execute" => {
-                let script = get_arg(0).to_string();
-                let value = match get_arg(1) {
-                    Object::UObject(uo) => {
-                        Some(uo.value())
-                    },
-                    Object::Empty => None,
-                    o => Some(Self::object_to_serde_value(o.to_owned())?)
-                };
-                let res = match get_arg(2) {
-                    Object::Empty => element.execute_script(&script, value, None)?,
-                    o => {
-                        let name = o.to_string();
-                        element.execute_script(&script, value, Some(name.as_str()))?
-                    }
-                };
-                Ok(res.into())
-            },
-            "queryselector" => {
-                let selector = get_arg(0).to_string();
-                let o = match element.query_selector(&selector)? {
-                    Some(e) => Object::Element(e),
-                    None => Object::Empty
-                };
-                Ok(o)
-            },
-            "queryselectorall" => {
-                let selector = get_arg(0).to_string();
-                let arr = element.query_selector_all(&selector)?
-                    .into_iter()
-                    .map(|e| Object::Element(e))
-                    .collect();
-                Ok(Object::Array(arr))
-            },
-            "focus" => {
-                element.focus()?;
-                Ok(Object::Empty)
-            },
-            "input" => {
-                let input = get_arg(0).to_string();
-                element.input(&input)?;
-                Ok(Object::Empty)
-            },
-            "clear" => {
-                element.clear()?;
-                Ok(Object::Empty)
-            },
-            "setfile" => {
-                let files = match get_arg(0) {
-                    Object::Array(arr) => arr.into_iter().map(|o| o.to_string()).collect(),
-                    o => vec![o.to_string()]
-                };
-                element.set_file_input(files)?;
-                Ok(Object::Empty)
-            },
-            "click" => {
-                element.click()?;
-                Ok(Object::Empty)
-            },
-            "select" => {
-                element.select()?;
-                Ok(Object::Empty)
-            },
-            _ => Err(UError::new(
-                UErrorKind::BrowserControlError,
-                UErrorMessage::InvalidMember(name.to_string())
-            ))
-        }
-    }
-
     fn eval_ternary_expression(&mut self, condition: Expression, consequence: Expression, alternative: Expression) -> EvalResult<Object> {
         let condition = self.eval_expression(condition)?;
         if condition.is_truthy() {
@@ -3229,20 +3034,31 @@ impl Evaluator {
                 };
                 Ok(obj)
             },
-            Object::Browser(ref b) => if is_func {
-                Ok(Object::BrowserFunc(b.clone(), member))
-            } else {
-                Self::get_browser_property(b, &member)
+            Object::Browser(browser) => {
+                if is_func {
+                    let func = browser::BrowserFunction::from_browser(browser, member);
+                    Ok(Object::BrowserFunction(func))
+                } else {
+                    browser.get_property(&member)
+                }
             },
-            Object::Element(ref e) => if is_func {
-                Ok(Object::ElementFunc(e.clone(), member))
-            } else {
-                Self::get_element_property(e, &member)
+            Object::TabWindow(tab) => {
+                if is_func {
+                    let func = browser::BrowserFunction::from_tabwindow(tab, member);
+                    Ok(Object::BrowserFunction(func))
+                } else {
+                    tab.get_property(&member)
+                }
             },
-            Object::ElementProperty(ref e) => {
-                let member = e.property(Some(&member));
-                Self::get_element_property(&e.element, &member)
-            },
+            Object::RemoteObject(remote) => {
+                if is_func {
+                    let func = browser::BrowserFunction::from_remote_object(remote, member);
+                    Ok(Object::BrowserFunction(func))
+                } else {
+                    let value = remote.get_property(&member)?;
+                    Ok(value.into())
+                }
+            }
             o => Err(UError::new(
                 UErrorKind::DotOperatorError,
                 UErrorMessage::DotOperatorNotSupported(o)
@@ -3314,7 +3130,7 @@ impl Evaluator {
         Ok(o)
     }
 
-    fn object_to_serde_value(o: Object) -> EvalResult<serde_json::Value> {
+    pub fn object_to_serde_value(o: Object) -> EvalResult<serde_json::Value> {
         let v = match o {
             Object::Null => serde_json::Value::Null,
             Object::Bool(b) => serde_json::Value::Bool(b),

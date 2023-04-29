@@ -29,7 +29,7 @@ use crate::evaluator::object::{
     UTask
 };
 use crate::evaluator::Evaluator;
-use crate::evaluator::object::{UObject,Fopen,Function};
+use crate::evaluator::object::{UObject,Fopen,Function,browser::RemoteObject};
 use crate::evaluator::environment::NamedObject;
 use crate::evaluator::builtins::key_codes::{SCKeyCode};
 use crate::error::evaluator::{UError,UErrorKind,UErrorMessage};
@@ -630,6 +630,15 @@ impl BuiltinFuncArgs {
             Ok(value)
         })
     }
+
+    pub fn get_as_remoteobject(&self, i: usize) -> BuiltInResult<RemoteObject> {
+        self.get_arg(i, |obj| {
+            match obj {
+                Object::RemoteObject(remote) => Ok(remote),
+                o => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(o))),
+            }
+        })
+    }
 }
 
 pub enum TwoTypeArg<T, U> {
@@ -979,7 +988,10 @@ pub enum VariableType {
     TYPE_VARIANT,
     TYPE_SAFEARRAY,
     TYPE_BROWSER_OBJECT,
-    TYPE_ELEMENT_OBJECT,
+    TYPE_TABWINDOW_OBJECT,
+    TYPE_REMOTE_OBJECT,
+    TYPE_BROWSER_FUNCTION,
+    // TYPE_ELEMENT_OBJECT,
     TYPE_FILE_ID,
     TYPE_BYTE_ARRAY,
     TYPE_REFERENCE,
@@ -1028,11 +1040,10 @@ pub fn type_of(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
         Object::ComObject(_) => VariableType::TYPE_COM_OBJECT,
         Object::Variant(_) => VariableType::TYPE_VARIANT,
         Object::SafeArray(_) => VariableType::TYPE_SAFEARRAY,
-        Object::BrowserFunc(_, _) |
         Object::Browser(_) => VariableType::TYPE_BROWSER_OBJECT,
-        Object::ElementFunc(_, _) |
-        Object::ElementProperty(_) |
-        Object::Element(_) => VariableType::TYPE_ELEMENT_OBJECT,
+        Object::TabWindow(_) => VariableType::TYPE_TABWINDOW_OBJECT,
+        Object::RemoteObject(_) => VariableType::TYPE_REMOTE_OBJECT,
+        Object::BrowserFunction(_) => VariableType::TYPE_BROWSER_FUNCTION,
         Object::Fopen(_) => VariableType::TYPE_FILE_ID,
         Object::ByteArray(_) => VariableType::TYPE_BYTE_ARRAY,
         Object::Reference(_, _) => VariableType::TYPE_REFERENCE,

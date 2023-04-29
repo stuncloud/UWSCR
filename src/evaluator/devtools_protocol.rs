@@ -180,8 +180,7 @@ impl Browser {
             Err(DevtoolsProtocolError::new(
                 UErrorKind::BrowserControlError,
                 UErrorMessage::WebResponseWasNotOk(
-                    response.status().as_u16(),
-                    response.status().canonical_reason().unwrap_or("").to_string()
+                    response.status().to_string()
                 )
             ))
         }
@@ -794,7 +793,7 @@ impl DevtoolsProtocol {
         if status.as_u16() >= 400 {
             return Err(DevtoolsProtocolError::new(
                 UErrorKind::WebSocketError,
-                UErrorMessage::WebSocketConnectionError(status.as_u16(), status.as_str().into())
+                UErrorMessage::WebSocketConnectionError(status.to_string())
             ));
         }
 

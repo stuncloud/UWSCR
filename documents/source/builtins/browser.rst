@@ -1,10 +1,10 @@
 ブラウザ操作
 ============
 
-Browserオブジェクト作成
------------------------
+ブラウザ操作
+------------
 
-.. function:: BrowserControl(ブラウザ定数, [フィルタ=EMPTY, ポート=9222, ヘッドレス=FALSE])
+.. function:: BrowserControl(ブラウザ定数, [プロファイル=EMPTY, ポート=9222, ヘッドレス=FALSE])
 
     | Devtools Protocolを利用したブラウザ操作を行うためのBrowserオブジェクトを返します
     | デバッグポート9222 (デフォルト、変更化) でブラウザを起動します
@@ -27,11 +27,21 @@ Browserオブジェクト作成
 
             Microsoft Edgeを操作します
 
-    :param 文字列 省略可 フィルタ: タイトルまたはURLにマッチするタブを操作します、省略時は1番目のタブ
+    :param 文字列 省略可 プロファイル: プロファイル保存先フォルダを指定、省略時はデフォルトプロファイルを使用します
+
+        .. admonition:: ブラウザ起動中に自動化用のブラウザを別途起ち上げる
+            :class: hint
+
+            | プロファイルフォルダを指定することで現在実行中のブラウザとは別のブラウザを起動できます
+            | 自動化用のプロファイルを保存するフォルダを別途指定してください
+            | フォルダが存在しない場合は自動で作成されます
+            | 次回以降も同一フォルダを指定することで自動化用プロファイルとして利用できます
+
     :param 数値 省略可 ポート: デバッグポートを変更します
     :param 真偽値 省略可 ヘッドレス: TRUEにした場合はブラウザを非表示(ヘッドレス)で起動します、再接続時は無視されます
 
-    :return: :ref:`browser_object`
+    :rtype: :ref:`browser_object`
+    :return: 対象ブラウザの :ref:`browser_object`
 
     .. admonition:: ブラウザパスの指定方法
         :class: tip
@@ -42,10 +52,10 @@ Browserオブジェクト作成
         .. code:: json
 
             {
-              "browser": {
-                  "chrome": "C:\\path\\to\\chrome.exe",
-                  "msedge": "C:\\path\\to\\msedge.exe"
-              },
+                "browser": {
+                    "chrome": "C:\\path\\to\\chrome.exe",
+                    "msedge": "C:\\path\\to\\msedge.exe"
+                },
             }
 
         | 自動取得に戻す場合は ``null`` にします
@@ -53,291 +63,310 @@ Browserオブジェクト作成
         .. code:: json
 
             {
-              "browser": {
-                  "chrome": null,
-                  "msedge": null
-              },
+                "browser": {
+                    "chrome": null,
+                    "msedge": null
+                },
             }
 
         | パスは必ずchrome.exeおよびmsedge.exeのものにしてください
         | それ以外は動作保証外です
 
+.. function:: ConvertFromRemoteObject(remote)
+
+    | リモートオブジェクトがプリミティブな値の場合に適切な値型に変換します
+    | 変換できないものはそのまま返ります
+
+    :param RemoteObject remote: 値型に変換したい :ref:`remote_object`
+    :return: 変換された値、変換できない場合は :ref:`remote_object`
+
 .. _browser_object:
 
 Browserオブジェクト
--------------------
+~~~~~~~~~~~~~~~~~~~
 
 | 操作対象となるタブを示すオブジェクト
 
 .. class:: Browser
 
+    .. property:: count
+
+        ブラウザ上の操作可能なタブの数を返します
+
+    .. property:: tabs[i]
+
+        インデックスを指定し :ref:`tabwindow_object` を返します
+
+        .. admonition:: 配列表記対応
+            :class: hint
+
+            | Browserオブジェクトに直接インデックス指定することもできます
+
+            .. sourcecode:: uwscr
+
+                chrome = BrowserControl(BC_CHROME)
+
+                // タブの取得
+                tab = chrome.tabs[0]
+
+                // 以下のようにも書ける
+                tab = chrome[0]
+
+    .. method:: close()
+
+        | ブラウザを閉じます
+
+        :return: なし
+
+    .. method:: new(url)
+
+        | 指定したURLを新しいタブを開きます
+
+        :param 文字列 url: 開きたいサイトのURL
+        :rtype: :ref:`tabwindow_object`
+        :return: 新しく開いたタブの :ref:`tabwindow_object`
+
+    .. method:: id()
+
+        | ブラウザのウィンドウIDを返します
+
+        :rtype: 数値
+        :return: ウィンドウID
+
+.. admonition:: タブ一覧取得が遅い場合がある
+    :class: caution
+
+    | countやtabsの結果を得るまでに数秒かかる場合があります
+    | これは、使用しているDevtools ProtocolのAPI実行速度によるものです
+
+.. _tabwindow_object:
+
+TabWindowオブジェクト
+~~~~~~~~~~~~~~~~~~~~~
+
+| タブごとのWindowオブジェクトを示すオブジェクト
+
+.. class:: TabWindow
+
     .. property:: document
 
-        documentの :ref:`element_object` を返します
+        ``window.document`` に相当する :ref:`remote_object` を返します
 
-    .. property:: url
+        .. admonition:: ブラウザ操作の基本はdocument取得から
+            :class: hint
 
-        開いているページのURLを返します
+            | :ref:`remote_object` はブラウザ上のJavaScriptオブジェクトです
+            | ``document`` を起点に ``querySelector`` 等でエレメントにアクセスできます
+            | :ref:`remote_object` のプロパティやメソッドの実行結果は :ref:`remote_object` として返ります
+            | そのためブラウザ上でJavaScriptを実行するかのようにブラウザ操作を行うことが可能です
+            | 詳しくは :ref:`browser_sample` を参照してください
 
-    .. property:: source
+    .. method:: navigate(uri)
 
-        | 開いているページのHTMLソースを返します
+        | 指定URLを開きます
+        | ページの読み込み完了まで待機します (最大10秒)
 
-        .. note:: その時点でのDOM構造をHTMLとして返すため、もとのhtmlファイルの内容とは異なる場合があります
+        .. admonition:: 読み込み時間が長い場合
+            :class: hint
 
-    .. property:: pageid
+            | 読み込みに10秒以上かかるページに対しては navigate実行後に :any:`wait` メソッドを呼んでください
 
-        | 開いているページのIDを返します
-
-    .. method:: windowid()
-
-        | 対象ブラウザのウィンドウIDを返します
-
-        :rtype: ウィンドウID
-        :return: ブラウザのウィンドウID、失敗時は-1
-
-    .. method:: navigate(URI)
-
-        | 指定したURIを開きます
-        | ページ遷移が完了するまで自動で待機します (最大10秒)
-
-        :param 文字列 URI: 開きたいサイトのURI
+        :param 文字列 uri: 開きたいサイトのURL
         :rtype: 真偽値
-        :return: タイムアウトした場合はFALSE
+        :return: タイムアウトした場合FALSE
 
     .. method:: reload([キャッシュ無視=FALSE])
 
         | ページをリロードします
-        | リロードが完了するまで自動で待機します (最大10秒)
+        | ページの読み込み完了まで待機します (最大10秒)
 
-        :param 真偽値 省略可 キャッシュ無視: TRUEならキャッシュを無視する(`Shift+refresh` と同等)
+        .. admonition:: 読み込み時間が長い場合
+            :class: hint
+
+            | 読み込みに10秒以上かかるページに対しては navigate実行後に :any:`wait` メソッドを呼んでください
+
+        :param 真偽値 キャッシュ無視: TRUEならキャッシュを無視してリロード (`Shift+refresh` と同等)
         :rtype: 真偽値
-        :return: タイムアウトした場合はFALSE
+        :return: タイムアウトした場合FALSE
 
     .. method:: wait([タイムアウト秒=10])
 
         | ページの読み込みが完了するのを待ちます
         | リンクをクリックした後などに使用します
 
-        .. hint:: navigateやreloadは自動的に待機するためこのメソッドを呼ぶ必要はありません
-
         :param 数値 省略可 タイムアウト秒: 読み込み完了まで待機する最大時間 (秒)
         :rtype: 真偽値
         :return: タイムアウトした場合はFALSE
 
-    .. method:: close()
-
-        | 操作中のタブを閉じます
-
-        :return: なし
-
-    .. method:: getTabs([フィルタ])
-
-        | タブ一覧を取得します
-
-        :param 文字列 省略可 フィルタ: 指定時はタイトルまたはURLがマッチするタブのみ取得
-        :rtype: 二次元配列
-        :return: [タイトル, URL, ページID] を要素に持つ二次元配列
-
-        .. admonition:: サンプルコード
-
-            .. sourcecode:: uwscr
-
-                for tab in browser.gettabs()
-                    print 'title : ' + tab[0]
-                    print 'url   : ' + tab[1]
-                    print 'pageid: ' + tab[2]
-                next
-
-    .. method:: newTab(URI)
-
-        | 新しいタブを開き、そのタブのBrowserオブジェクトを返します
-
-        :param 文字列 URI: 開きたいサイトのURI
-        :rtype: Browserオブジェクト
-        :return: 開いたタブのBrowserオブジェクト
-
     .. method:: activate()
 
-        | 操作対象のタブをアクティブにします
+        | タブをアクティブにします
 
         :return: なし
 
-    .. method:: execute(JavaScript, [引数, 変数名="arg"])
+    .. method:: close()
 
-        | ブラウザ上でJavaScriptを実行します
-
-        :param 文字列 JavaScript: 実行するJavaScriptコード
-        :param 値 省略可 引数: 実行するJavaScriptに渡す値、UObjectを渡せばJavaScriptのオブジェクトに変換される
-        :param 文字列 省略可 変数名: JavaScript上で引数を受ける変数名
-        :rtype: 該当する値型
-        :return: スクリプトの実行結果
-
-        .. admonition:: サンプルコード
-
-            .. sourcecode:: uwscr
-
-                print browser.execute('3 + 5') // 8
-
-                // 引数を渡す
-
-                // 変数名が未指定の場合argという変数が使える
-                // UObjectを渡した場合はJavaScript内でオブジェクトに変換される
-                print browser.execute('arg.a * arg.b', @{"a": 3, "b": 5}@) // 15
-
-                // 変数名を指定するとその変数名で引数にアクセスできる
-                print browser.execute('3 * hoge', 6, "hoge") // 18
-
-.. _element_object:
-
-Elementオブジェクト
--------------------
-
-| DOMにおけるエレメントオブジェクトを示すオブジェクト
-
-.. class:: Element
-
-    | UWSCRのElementオブジェクト専用のプロパティおよびメソッドです
-    | 名前の大小文字を区別しません
-
-    .. property:: parent
-
-        親となるElementオブジェクトを取得します
-
-        .. admonition:: サンプルコード
-
-            .. sourcecode:: uwscr
-
-                element = browser.document.querySelector(selector)
-                parent = element.parent
-
-
-    .. method:: querySelector(セレクタ)
-
-        | CSSセレクタを指定し該当するエレメントのElementオブジェクトを取得します
-
-        :param 文字列 セレクタ: エレメントを指定するCSSセレクタ
-        :rtype: Elementオブジェクト
-        :return: 該当するエレメントがなかった場合はEMPTY
-
-        .. admonition:: サンプルコード
-
-            .. sourcecode:: uwscr
-
-                form = browser.document.querySelector("form")
-                input_pwd = form.querySelector('input[type="password"]')
-
-    .. method:: querySelectorAll(セレクタ)
-
-        | CSSセレクタを指定し該当するエレメントすべてのElementオブジェクトを取得します
-
-        :param 文字列 セレクタ: エレメントを指定するCSSセレクタ
-        :rtype: 配列
-        :return: 該当するすべてのElementオブジェクトの配列、該当なしなら空配列
-
-        .. admonition:: サンプルコード
-
-            .. sourcecode:: uwscr
-
-                form = browser.document.querySelector("form")
-                inputs = form.querySelectorAll("input")
-                for input in inputs
-                    print input.type
-                next
-
-    .. method:: focus()
-
-        | エレメントをフォーカスします
+        | タブを閉じます
 
         :return: なし
 
-    .. method:: input(入力値)
+.. _remote_object:
 
-        | input要素などに指定文字列を入力します
+RemoteObject
+~~~~~~~~~~~~
 
-        :param 文字列 入力値: 入力する文字列、入力は一文字ずつ行われる
-        :return: なし
+| ブラウザ上に存在するJavaScriptオブジェクトを示すオブジェクト
 
-    .. method:: clear()
+メソッドの実行
+^^^^^^^^^^^^^^
 
-        | エレメントのvalueを空にします
+| ``RemoteObject.メソッド名(引数)`` でメソッドを実行し、戻り値を :ref:`remote_object` として取得します
+| メソッド名は大文字小文字を区別します
 
-        :return: なし
+.. sourcecode:: uwscr
 
-        .. admonition:: サンプルコード
+    chrome = BrowserControl(BC_CHROME)
+    foo = chrome[0].document.querySelector("#foo")
 
-            .. sourcecode:: uwscr
+プロパティの取得
+^^^^^^^^^^^^^^^^
 
-                element = browser.document.querySelector('input[type="text"]')
-                print element.value // 元の入力値
-                element.clear()
-                print element.value // 空になっている
+| ``RemoteObject.プロパティ名`` とすることでプロパティ値を :ref:`remote_object` として取得します
+| 配列要素であればインデックスを指定します ``RemoteObject.プロパティ名[i]``
+| プロパティ名は大文字小文字を区別します
 
-    .. method:: setFile(ファイルパス)
-    .. method:: setFile(ファイルパス配列)
-        :noindex:
+.. sourcecode:: uwscr
 
-        | ファイル選択(``input[type="file"]``)に値を入力します
+    chrome = BrowserControl(BC_CHROME)
+    url = chrome[0].document.URL
 
-        :param 文字列 ファイルパス: ``input[type="file"]`` に入力するファイルパス
-        :param 配列 ファイルパス配列: ``multiple`` が有効な場合に複数のパスを指定できる
+プロパティの変更
+^^^^^^^^^^^^^^^^
 
-        :return: なし
+| ``RemoteObject.プロパティ名 = 値`` とすることでプロパティ値を変更します
+| 配列要素であればインデックスを指定します ``RemoteObject.プロパティ名[i] = 値``
+| プロパティ名は大文字小文字を区別します
 
-        .. admonition:: サンプルコード
+.. sourcecode:: uwscr
 
-            .. sourcecode:: uwscr
+    chrome = BrowserControl(BC_CHROME)
+    foo = chrome[0].document.querySelector("#foo")
+    foo.value = "ほげほげ"
 
-                element = browser.document.querySelector('input[type="file"]')
-                element.SetFile("hoge.jpg")
+.. 他の値型との演算
+.. ^^^^^^^^^^^^^^^^
 
-    .. method:: click()
+.. | RemoteObjectがプリミティブな値であれば演算を行い、適した値型として値を返します
 
-        | エレメントをクリックします
+.. _browser_sample:
 
-        :return: なし
+ブラウザ操作サンプル
+~~~~~~~~~~~~~~~~~~~~
 
-    .. method:: select()
-
-        | チェックボックスやラジオボタンを選択状態にします
-
-        :return: なし
-
-    .. method:: execute(JavaScript, [引数, 変数名="arg"])
-
-        | JavaScriptを実行します
-        | エレメント自身は ``$0`` でアクセス可能
-
-        :param 文字列 JavaScript: 実行するJavaScriptコード
-        :param 値 省略可 引数: 実行するJavaScriptに渡す値、UObjectを渡せばJavaScriptのオブジェクトに変換される
-        :param 文字列 省略可 変数名: JavaScript上で引数を受ける変数名
-        :rtype: 該当する値型
-        :return: スクリプトの実行結果
-
-        .. admonition:: サンプルコード
-
-            .. sourcecode:: uwscr
-
-                element = browser.document.querySelector('input[type="button"]')
-                element.execute('$0.onclick()') // エレメントのonclickを実行する
-
-属性(アトリビュート)値やプロパティの取得・変更
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-| DOMにおけるエレメントオブジェクトが持つ属性値やプロパティの取得及び変更が可能です
-| ``Elementオブジェクト.名前`` でアクセスできます
-| 属性値やプロパティの名前は大小文字を区別します (ブラウザの仕様)
-| 存在しない名前を指定した場合NULLが返ります
-
-.. admonition:: サンプルコード
+.. admonition:: documentへのアクセス
 
     .. sourcecode:: uwscr
 
-        element = browser.document.querySelector(selector)
-        // valueを得る
-        print element.value
-        // innerHTMLを書き換える
-        inner = element.innerHTML
-        element.innerHTML = "<p><#inner></p>" // innerHTMLをPタグで包む
+        // ブラウザを開く
+        chrome = BrowserControl(BC_CHROME)
 
-.. warning:: メソッドにはアクセスできません
+        // ひとつめのタブを得る
+        tab1 = chrome.tabs[0]
+        // 以下のようにも書けます
+        // tab1 = chrome[0]
+
+        // 任意のサイトを開く
+        tab1.navigate(url)
+
+        // window.documentを得る
+        document = tab1.document
+
+        // URLを得る
+        print document.URL
+
+.. admonition:: タブごとのURLを列挙
+
+    .. sourcecode:: uwscr
+
+        // タブの数を得る
+        print chrome.count
+
+        // URLを列挙
+        for tab in chrome.tabs
+            print tab.document.URL
+        next
+        // 以下のようにも書けます
+        // for tab in chrome
+        //     print tab.document.URL
+        // next
+
+
+.. admonition:: Seleniumテストページの操作
+
+    .. sourcecode:: uwscr
+
+        // ブラウザを開く
+        chrome = BrowserControl(BC_CHROME)
+        // ブラウザをアクティブにする
+        ctrlwin(chrome.id(), ACTIVATE)
+
+        // 新しいタブでSeleniumのテストページを開く
+
+        tab = chrome.new('http://example.selenium.jp/reserveApp_Renewal/')
+        // ドキュメントを取得しておく
+        document = tab.document
+
+        // 宿泊日を入力
+
+        // 3日後の日付を得る
+        date = format(gettime(3, , G_OFFSET_DAYS), '%Y/%m/%d')
+
+        document.querySelector('#datePick').value = date
+        document.querySelector('#reserve_year').value = G_TIME_YY4
+        document.querySelector('#reserve_month').value = G_TIME_MM2
+        document.querySelector('#reserve_day').value = G_TIME_DD2
+
+        // 宿泊日数を選択
+
+        reserve_term = 2
+        document.querySelector("#reserve_term option[value='<#reserve_term>']").selected = TRUE
+
+        // 人数を選択
+
+        headcount = 5
+        document.querySelector("#headcount option[value='<#headcount>']").selected = TRUE
+
+        // プラン選択
+
+        // お得な観光プランをチェック
+        document.querySelector('#plan_b').checked = TRUE
+
+
+        // 名前入力
+
+        document.querySelector('#guestname').value = "おなまえ"
+
+        // 利用規約に同意して次へ をクリック
+
+        document.querySelector('#agree_and_goto_next').click()
+
+        // 読み込み完了を待つ
+
+        tab.wait()
+        // ページを移動したのでdocumentは取得しなおす
+        document = tab.document
+
+        // 合計金額を得る
+
+        price = document.querySelector('#price').textContent
+        // RemoteObjectを値に変換する
+        price = ConvertFromRemoteObject(price)
+
+        // 確定ボタンを押す
+
+        document.querySelector('#commit').click()
+
+        msgbox("宿泊費用は<#price>円でした")
+
+        // タブを閉じる
+        tab.close()

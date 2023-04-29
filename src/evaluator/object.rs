@@ -8,6 +8,7 @@ pub mod function;
 pub mod uobject;
 pub mod fopen;
 pub mod class;
+pub mod browser;
 
 pub use self::hashtbl::{HashTbl, HashTblEnum};
 pub use self::version::Version;
@@ -19,12 +20,13 @@ pub use self::function::Function;
 pub use self::uobject::UObject;
 pub use self::fopen::*;
 pub use self::class::ClassInstance;
+pub use browser::{Browser, TabWindow, RemoteObject, BrowserFunction};
 
 use crate::ast::*;
 use crate::evaluator::environment::Layer;
 use crate::evaluator::builtins::BuiltinFunction;
 use crate::evaluator::com_object::VARIANTHelper;
-use crate::evaluator::devtools_protocol::{Browser, Element, ElementProperty};
+// use crate::evaluator::devtools_protocol::{Browser, Element, ElementProperty};
 
 use windows::{
     Win32::{
@@ -89,10 +91,10 @@ pub enum Object {
     /// COMメソッドのvar引数
     VarArgument(Expression),
     Browser(Browser),
-    BrowserFunc(Browser, String),
-    Element(Element),
-    ElementFunc(Element, String),
-    ElementProperty(ElementProperty),
+    TabWindow(TabWindow),
+    RemoteObject(RemoteObject),
+    /// ブラウザ関連オブジェクトのメソッド実行用の型
+    BrowserFunction(BrowserFunction),
     Fopen(Arc<Mutex<Fopen>>),
     ByteArray(Vec<u8>),
     /// 参照渡しされたパラメータ変数
@@ -139,10 +141,9 @@ impl std::fmt::Debug for Object {
             Self::SafeArray(arg0) => f.debug_tuple("SafeArray").field(arg0).finish(),
             Self::VarArgument(arg0) => f.debug_tuple("VarArgument").field(arg0).finish(),
             Self::Browser(arg0) => f.debug_tuple("Browser").field(arg0).finish(),
-            Self::BrowserFunc(arg0, arg1) => f.debug_tuple("BrowserFunc").field(arg0).field(arg1).finish(),
-            Self::Element(arg0) => f.debug_tuple("Element").field(arg0).finish(),
-            Self::ElementFunc(arg0, arg1) => f.debug_tuple("ElementFunc").field(arg0).field(arg1).finish(),
-            Self::ElementProperty(arg0) => f.debug_tuple("ElementProperty").field(arg0).finish(),
+            Self::TabWindow(arg0) => f.debug_tuple("TabWindow").field(arg0).finish(),
+            Self::RemoteObject(arg0) => f.debug_tuple("RemoteObject").field(arg0).finish(),
+            Self::BrowserFunction(arg0) => f.debug_tuple("BrowserFunction").field(arg0).finish(),
             Self::Fopen(arg0) => f.debug_tuple("Fopen").field(arg0).finish(),
             Self::ByteArray(arg0) => f.debug_tuple("ByteArray").field(arg0).finish(),
             Self::Reference(arg0, arg1) => f.debug_tuple("Reference").field(arg0).field(arg1).finish(),
@@ -237,11 +238,10 @@ impl fmt::Display for Object {
             Object::Variant(ref v) => write!(f, "Variant({})", v.0.vt().0),
             Object::SafeArray(_) => write!(f, "SafeArray"),
             Object::VarArgument(_) => write!(f, "var"),
-            Object::Browser(ref b) => write!(f, "Browser: {}:{} ({})", b.btype, b.port, b.id),
-            Object::BrowserFunc(ref b,ref s) => write!(f, "[Browser({})].{}()", b.id, s),
-            Object::Element(ref e) => write!(f, "Element: {}", e.node_id),
-            Object::ElementFunc(ref e, ref s) => write!(f, "[Element({})].{}()", e.node_id, s),
-            Object::ElementProperty(ref ep) => write!(f, "[Element({})].{}", ep.element.node_id, ep.property),
+            Object::Browser(ref b) => write!(f, "Browser: {b})"),
+            Object::TabWindow(ref t) => write!(f, "TabWindow: {t}"),
+            Object::RemoteObject(ref r) => write!(f, "{r}"),
+            Object::BrowserFunction(_) => write!(f, "BrowserFunction"),
             Object::Fopen(ref arc) => {
                 let fopen = arc.lock().unwrap();
                 write!(f, "{}", &*fopen)
@@ -350,16 +350,9 @@ impl PartialEq for Object {
             Object::SafeArray(_) => false,
             Object::VarArgument(e) => if let Object::VarArgument(e2) = other {e==e2} else {false},
             Object::Browser(b) => if let Object::Browser(b2) = other {b == b2} else {false},
-            Object::BrowserFunc(b, f) => if let Object::BrowserFunc(b2,f2) = other {
-                b == b2 && f == f2
-            } else {false},
-            Object::Element(e) => if let Object::Element(e2) = other {e==e2} else {false},
-            Object::ElementFunc(e, f) => if let Object::ElementFunc(e2,f2) = other {
-                e==e2 && f==f2
-            } else {false},
-            Object::ElementProperty(ep1) => if let Object::ElementProperty(ep2) = other {
-                ep1==ep2
-            } else {false},
+            Object::TabWindow(t) => if let Object::TabWindow(t2) = other {t == t2} else {false},
+            Object::RemoteObject(r) => if let Object::RemoteObject(r2) = other {r == r2} else {false},
+            Object::BrowserFunction(_) => false,
             Object::Fopen(f1) => if let Object::Fopen(f2) = other {
                 let _tmp = f1.lock().unwrap();
                 let result = f2.try_lock().is_err();
