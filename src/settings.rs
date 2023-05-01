@@ -325,6 +325,9 @@ pub struct Browser {
     /// MSEdgeのパス
     #[serde(default)]
     pub msedge: Option<String>,
+    #[serde(skip_serializing, default)]
+    #[schemars(skip)]
+    pub vivaldi: Option<String>,
 }
 
 impl Default for Browser {
@@ -332,6 +335,7 @@ impl Default for Browser {
         Self {
             chrome: None,
             msedge: None,
+            vivaldi: None,
         }
     }
 }

@@ -67,6 +67,7 @@ impl From<reqwest::Error> for UError {
 pub enum BrowserType {
     Chrome,
     MSEdge,
+    Vivaldi,
 }
 
 impl fmt::Display for BrowserType {
@@ -74,26 +75,186 @@ impl fmt::Display for BrowserType {
         match self {
             BrowserType::Chrome => write!(f, "chrome.exe"),
             BrowserType::MSEdge => write!(f, "msedge.exe"),
+            BrowserType::Vivaldi => write!(f, "vivaldi.exe"),
         }
     }
 }
 
+/// BrowserBuilderオブジェクト
+#[derive(Debug, Clone, PartialEq)]
+pub struct BrowserBuilder {
+    pub port: u16,
+    pub r#type: BrowserType,
+    pub headless: bool,
+    pub private: bool,
+    pub profile: Option<String>,
+}
+impl fmt::Display for BrowserBuilder {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}:{}", self.r#type, self.port)
+    }
+}
+impl BrowserBuilder {
+    pub fn new(r#type: BrowserType, port: u16) -> Self {
+        Self { port, r#type, headless: false, private: false, profile: None }
+    }
+    pub fn port(&mut self, port: u16) {
+        self.port = port;
+    }
+    pub fn headless(&mut self, headless: bool) {
+        self.headless = headless;
+    }
+    pub fn private(&mut self, private: bool) {
+        self.private = private;
+    }
+    pub fn profile(&mut self, profile: Option<String>) {
+        self.profile = profile;
+    }
+    pub fn invoke_method(&mut self, name: &str, args: Vec<Object>) -> BrowserResult<Option<Browser>> {
+        match name.to_ascii_lowercase().as_str() {
+            "port" => {
+                let port = args.as_f64(0)? as u16;
+                self.port(port);
+                Ok(None)
+            },
+            "headless" => {
+                let headless = args.as_bool(0).unwrap_or(true);
+                self.headless(headless);
+                Ok(None)
+            },
+            "private" => {
+                let private = args.as_bool(0).unwrap_or(true);
+                self.private(private);
+                Ok(None)
+            },
+            "profile" => {
+                let profile = args.as_string(0).unwrap_or_default();
+                let profile = if profile.is_empty() {None} else {Some(profile)};
+                self.profile(profile);
+                Ok(None)
+            },
+            "start" => {
+                let browser = self.start()?;
+                Ok(Some(browser))
+            }
+            member => Err(UError::new(
+                UErrorKind::BrowserControlError,
+                UErrorMessage::InvalidMember(member.into())
+            ))
+        }
+    }
+
+    /// 以下の順にパスを確認し、いずれも得られなかった場合はエラーを返す
+    /// 1. 設定ファイル
+    /// 2. レジストリ (HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\)
+    /// 3. レジストリ (HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\)
+    fn get_browser_path(&self) -> BrowserResult<String> {
+        let path = {
+            let usettings = USETTINGS.lock().unwrap();
+            match self.r#type {
+                BrowserType::Chrome => usettings.browser.chrome.clone(),
+                BrowserType::MSEdge => usettings.browser.msedge.clone(),
+                BrowserType::Vivaldi => usettings.browser.vivaldi.clone(),
+            }
+        };
+        match path {
+            Some(path) => Ok(path),
+            None => {
+                let key = format!(r#"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\{}"#, self.r#type);
+                let hklm = winreg::RegKey::predef(winreg::enums::HKEY_LOCAL_MACHINE);
+                let subkey = match hklm.open_subkey(&key) {
+                    Ok(subkey) => subkey,
+                    Err(_) => {
+                        let hkcu = winreg::RegKey::predef(winreg::enums::HKEY_CURRENT_USER);
+                        hkcu.open_subkey(&key)?
+                    },
+                };
+                Ok(subkey.get_value("")?)
+            }
+        }
+    }
+    fn run_browser(&self) -> BrowserResult<()> {
+        let mut args = match self.r#type {
+            BrowserType::Chrome |
+            BrowserType::MSEdge |
+            BrowserType::Vivaldi => {
+                vec![
+                    "--enable-automation".into(),
+                    format!("--remote-debugging-port={}", self.port),
+                ]
+            },
+        };
+        if self.headless {
+            args.push("--headless".into());
+            args.push("--disable-gpu".into());
+        }
+        if self.private {
+            let arg = match self.r#type {
+                BrowserType::Chrome |
+                BrowserType::Vivaldi => "-incognito",
+                BrowserType::MSEdge => "-inprivate",
+            }.into();
+            args.push(arg)
+        }
+        if let Some(profile) = &self.profile {
+            let arg = format!("--user-data-dir={profile}");
+            args.push(arg);
+        }
+
+        let path = self.get_browser_path()?;
+        Command::new(&path)
+            .args(args)
+            .spawn()?;
+
+        if Browser::wait_for_connection(self.port) {
+            Browser::get_request(self.port, "/json/version")?;
+            Ok(())
+        } else {
+            Err(UError::new(
+                UErrorKind::DevtoolsProtocolError,
+                UErrorMessage::FailedToOpenPort(self.port)
+            ))
+        }
+    }
+    fn test_connection(&self) -> BrowserResult<bool> {
+        let name = self.r#type.to_string();
+        match BrowserProcess::is_process_available(self.port, &name)? {
+            ProcessFound::None => Ok(false),
+            ProcessFound::Found => Ok(true),
+            ProcessFound::NoPort => {
+                if self.profile.is_some() {
+                    // プロファイルが指定されている場合はエラーにしない
+                    Ok(false)
+                } else {
+                    Err(UError::new(
+                        UErrorKind::BrowserControlError,
+                        UErrorMessage::BrowserHasNoDebugPort(name, self.port)
+                    ))
+                }
+            },
+            ProcessFound::UnMatch => {
+                    Err(UError::new(
+                        UErrorKind::BrowserControlError,
+                        UErrorMessage::BrowserDebuggingPortUnmatch(name, self.port)
+                    ))
+            },
+        }
+    }
+    pub fn start(&self) -> BrowserResult<Browser> {
+        if ! self.test_connection()? {
+            self.run_browser()?;
+        }
+        Ok(Browser::new(self.port, self.r#type))
+    }
+}
+
 /// Browserオブジェクト
-#[derive(Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Browser {
     pub port: u16,
     pub r#type: BrowserType,
-    // dp: DevtoolsProtocol,
 }
 
-impl fmt::Debug for Browser {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Browser")
-            .field("port", &self.port)
-            .field("r#type", &self.r#type)
-            .finish()
-    }
-}
 impl fmt::Display for Browser {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}:{}", self.r#type, self.port)
@@ -101,78 +262,8 @@ impl fmt::Display for Browser {
 }
 
 impl Browser {
-    pub fn new_chrome(port: u16, headless: bool, profile: Option<String>) -> BrowserResult<Self> {
-        Self::connect(port, BrowserType::Chrome, headless, profile)
-    }
-    pub fn new_msedge(port: u16, headless: bool, profile: Option<String>) -> BrowserResult<Self> {
-        Self::connect(port, BrowserType::MSEdge, headless, profile)
-    }
-    pub fn connect(port: u16, r#type: BrowserType, headless: bool, profile: Option<String>) -> BrowserResult<Self> {
-        if ! Self::test_connection(port, &r#type.to_string())? {
-            let path = Self::get_path(r#type)?;
-            Self::start(port, &path, r#type, headless, profile)?;
-        }
-        Ok(Self { port, r#type })
-    }
-    fn test_connection(port: u16, name: &str) -> BrowserResult<bool> {
-        match BrowserProcess::is_process_available(port, name)? {
-            Some(b) => Ok(b),
-            None => Ok(false),
-        }
-    }
-    fn get_path(btype: BrowserType) -> BrowserResult<String> {
-        /*
-            1. 設定ファイル
-            2. レジストリ (HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\)
-            の順にパスを確認し、いずれも得られなかった場合はエラーを返す
-        */
-        let path = {
-            let usettings = USETTINGS.lock().unwrap();
-            match btype {
-                BrowserType::Chrome => usettings.browser.chrome.clone(),
-                BrowserType::MSEdge => usettings.browser.msedge.clone(),
-            }
-        };
-        match path {
-            Some(path) => Ok(path),
-            None => {
-                let key = format!(r#"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\{}"#, btype);
-                let hklm = winreg::RegKey::predef(winreg::enums::HKEY_LOCAL_MACHINE);
-                let subkey = hklm.open_subkey(key)?;
-                Ok(subkey.get_value("")?)
-            }
-        }
-    }
-    fn start(port: u16, path: &str, btype: BrowserType, headless: bool, profile: Option<String>) -> BrowserResult<()> {
-        let mut args = match btype {
-            BrowserType::Chrome |
-            BrowserType::MSEdge => {
-                vec![
-                    "--enable-automation".into(),
-                    format!("--remote-debugging-port={}", port),
-                ]
-            },
-        };
-        if headless {
-            args.push("--headless".into());
-            args.push("--disable-gpu".into());
-        }
-        if let Some(profile) = profile {
-            let arg = format!("--user-data-dir={profile}");
-            args.push(arg);
-        }
-        Command::new(&path)
-                    .args(&args)
-                    .spawn()?;
-        if Self::wait_for_connection(port) {
-            Browser::get_request(port, "/json/version")?;
-            Ok(())
-        } else {
-            Err(UError::new(
-                UErrorKind::DevtoolsProtocolError,
-                UErrorMessage::FailedToOpenPort(port)
-            ))
-        }
+    fn new(port: u16, r#type: BrowserType) -> Self {
+        Self { port, r#type }
     }
     fn wait_for_connection(port: u16) -> bool {
         let addr = format!("localhost:{port}");
@@ -298,17 +389,12 @@ impl Browser {
         }
     }
     pub fn invoke_method(&self, name: &str, args: Vec<Object>) -> BrowserResult<Object> {
-        let get_arg = |i: usize| {
-            args.get(i)
-                .map(|o| o.to_owned())
-                .ok_or(UError::new(UErrorKind::BrowserControlError, UErrorMessage::BuiltinArgRequiredAt(i+1)))
-        };
         match name.to_ascii_lowercase().as_str() {
             "id" => {
                 self.get_window_id()
             },
             "new" => {
-                let uri = get_arg(0)?.to_string();
+                let uri = args.as_string(0)?;
                 let tab = self.new_tab(&uri)?;
                 Ok(Object::TabWindow(tab))
             },
@@ -414,28 +500,19 @@ impl TabWindow {
         }
     }
     pub fn invoke_method(&self, name: &str, args: Vec<Object>) -> BrowserResult<Object> {
-        let get_arg = |i: usize| {
-            args.get(i)
-                .map(|o| o.to_owned())
-                .ok_or(UError::new(UErrorKind::BrowserControlError, UErrorMessage::BuiltinArgRequiredAt(i+1)))
-        };
         match name.to_ascii_lowercase().as_str() {
             "navigate" => {
-                let uri = get_arg(0)?.to_string();
+                let uri = args.as_string(0)?;
                 self.navigate(&uri)
                     .map(|b| b.into())
             },
             "reload" => {
-                let ignore_cache = get_arg(0).unwrap_or(Object::Bool(false)).is_truthy();
+                let ignore_cache = args.as_bool(0)?;
                 self.reload(ignore_cache)
                     .map(|b| b.into())
             },
             "wait" => {
-                let limit = if let Object::Num(n) = get_arg(0).unwrap_or_default() {
-                    n
-                } else {
-                    10.0
-                };
+                let limit = args.as_f64(0).unwrap_or(10.0);
                 self.wait_for_page_load(limit)
                     .map(|b| b.into())
             },
@@ -582,30 +659,47 @@ impl WebSocket {
     }
 }
 
+enum ProcessFound{
+    /// 対象プロセスが起動していない
+    None,
+    /// 対象プロセスが指定ポートを開いている
+    Found,
+    /// 対象プロセスが指定ポートを開いていない
+    NoPort,
+    /// 指定ポートを開いているプロセスとマッチしない
+    UnMatch,
+}
 struct BrowserProcess;
-
 impl BrowserProcess {
-    fn is_process_available(port: u16, name: &str) -> BrowserResult<Option<bool>> {
-        let pcon = Self::new_wmi_connection(None)?;
+    fn is_process_available(port: u16, name: &str) -> BrowserResult<ProcessFound> {
+        // まずポートを確認
+        let ncon = Self::new_wmi_connection(Some("Root\\StandardCimv2"))?;
         let mut filters = HashMap::new();
-        filters.insert("Name".into(), FilterValue::String(name.into()));
-        let processes: Vec<Win32Process> = pcon.filtered_query(&filters)?;
-        if processes.len() > 0 {
-            let ncon = Self::new_wmi_connection(Some("Root\\StandardCimv2"))?;
+        filters.insert("LocalPort".to_string(), FilterValue::Number(port.into()));
+        filters.insert("State".to_string(), FilterValue::Number(2));
+        let tcpcons: Vec<NetTCPConnection> = ncon.filtered_query(&filters)?;
+        if let Some(tcpcon) = tcpcons.first() {
+            // ポートが開かれているのでプロセスを確認する
+            let pcon = Self::new_wmi_connection(None)?;
             let mut filters = HashMap::new();
-            filters.insert("LocalPort".to_string(), FilterValue::Number(port.into()));
-            filters.insert("State".to_string(), FilterValue::Number(2));
-            let tcpcons: Vec<NetTCPConnection> = ncon.filtered_query(&filters)?;
-            if let Some(tcpcon) = tcpcons.first() {
+            filters.insert("Name".into(), FilterValue::String(name.into()));
+            let processes: Vec<Win32Process> = pcon.filtered_query(&filters)?;
+            if processes.len() > 0 {
                 let found = processes.iter()
                     .find(|p| p.process_id == tcpcon.owning_process)
                     .is_some();
-                Ok(Some(found))
+                if found {
+                    Ok(ProcessFound::Found)
+                } else {
+                    Ok(ProcessFound::None)
+                }
             } else {
-                Ok(Some(false))
+                // プロセスが合わない
+                Ok(ProcessFound::UnMatch)
             }
         } else {
-            Ok(None)
+            // ポートが開かれていない
+            Ok(ProcessFound::NoPort)
         }
     }
     fn new_wmi_connection(namespace: Option<&str>) -> WMIResult<WMIConnection> {
@@ -929,6 +1023,7 @@ pub enum BrowserObject {
     Browser(Browser),
     TabWindow(TabWindow),
     RemoteObject(RemoteObject),
+    Builder(Arc<Mutex<BrowserBuilder>>),
 }
 #[derive(Debug, Clone)]
 pub struct BrowserFunction {
@@ -952,6 +1047,43 @@ impl BrowserFunction {
         Self {
             object: BrowserObject::RemoteObject(remote_object),
             member
+        }
+    }
+    pub fn from_builder(builder: Arc<Mutex<BrowserBuilder>>, member: String) -> Self {
+        Self {
+            object: BrowserObject::Builder(builder),
+            member
+        }
+    }
+}
+
+trait BrowserArg {
+    fn as_string(&self, index: usize) -> BrowserResult<String>;
+    fn as_bool(&self, index: usize) -> BrowserResult<bool>;
+    fn as_f64(&self, index: usize) -> BrowserResult<f64>;
+}
+impl BrowserArg for Vec<Object> {
+    fn as_string(&self, index: usize) -> BrowserResult<String> {
+        match self.get(index) {
+            Some(obj) => Ok(obj.to_string()),
+            None => Err(UError::new(UErrorKind::BrowserControlError, UErrorMessage::BuiltinArgRequiredAt(index+1))),
+        }
+    }
+
+    fn as_bool(&self, index: usize) -> BrowserResult<bool> {
+        match self.get(index) {
+            Some(obj) => Ok(obj.is_truthy()),
+            None => Err(UError::new(UErrorKind::BrowserControlError, UErrorMessage::BuiltinArgRequiredAt(index+1))),
+        }
+    }
+
+    fn as_f64(&self, index: usize) -> BrowserResult<f64> {
+        match self.get(index) {
+            Some(obj) => match obj.as_f64() {
+                Some(n) => Ok(n),
+                None => Err(UError::new(UErrorKind::BrowserControlError, UErrorMessage::ArgumentIsNotNumber(index+1, obj.to_string()))),
+            },
+            None => Err(UError::new(UErrorKind::BrowserControlError, UErrorMessage::BuiltinArgRequiredAt(index+1))),
         }
     }
 }

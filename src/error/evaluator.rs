@@ -502,6 +502,9 @@ pub enum UErrorMessage {
     RemoteObjectIsNotFunction(String),
     RemoteObjectIsNotArray(String),
     InvalidTabPage(String),
+    ArgumentIsNotNumber(usize, String),
+    BrowserHasNoDebugPort(String, u16),
+    BrowserDebuggingPortUnmatch(String, u16),
 }
 
 impl fmt::Display for UErrorMessage {
@@ -1052,6 +1055,18 @@ impl fmt::Display for UErrorMessage {
             Self::InvalidTabPage(uri) => write_locale!(f,
                 "操作可能なページではありません ({uri})",
                 "Tab was not a valid page [{uri}]",
+            ),
+            Self::ArgumentIsNotNumber(i, value) => write_locale!(f,
+                "{i}番目の引数が数値ではありません ({value})",
+                "Argument at position {i} should be number",
+            ),
+            Self::BrowserHasNoDebugPort(exe, port) => write_locale!(f,
+                "実行中の{exe}が見つかりましたがデバッグポート({port})が開かれていません",
+                "Found running {exe}, but is not opening port {port}",
+            ),
+            Self::BrowserDebuggingPortUnmatch(exe, port) => write_locale!(f,
+                "デバッグポート({port})が開かれていますがプロセスが{exe}ではありません",
+                "Port {port} is not opened by {exe}",
             ),
         }
     }

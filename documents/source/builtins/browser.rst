@@ -4,18 +4,14 @@
 ブラウザ操作
 ------------
 
-.. function:: BrowserControl(ブラウザ定数, [プロファイル=EMPTY, ポート=9222, ヘッドレス=FALSE])
+.. function:: BrowserControl(ブラウザ定数, [ポート=9222])
 
-    | Devtools Protocolを利用したブラウザ操作を行うためのBrowserオブジェクトを返します
-    | デバッグポート9222 (デフォルト、変更化) でブラウザを起動します
-    | 対応ブラウザは
+    | Devtools Protocolを利用したブラウザ操作を行うための :ref:`browser_object` を返します
+    | デバッグポートを開いたブラウザを起動します
+    | 対応ブラウザは以下
 
         - Google Chrome
         - Microsoft Edge
-
-    | 関数実行時にブラウザを起動します
-    | 指定ポートが開かれているブラウザが既に起動している場合は再接続します
-    | 指定ポートが開かれていないブラウザが既に起動している場合はエラーになります (**ブラウザを閉じて再実行してください**)
 
     :param 定数 ブラウザ定数: 以下のいずれかを指定
 
@@ -27,21 +23,84 @@
 
             Microsoft Edgeを操作します
 
-    :param 文字列 省略可 プロファイル: プロファイル保存先フォルダを指定、省略時はデフォルトプロファイルを使用します
-
-        .. admonition:: ブラウザ起動中に自動化用のブラウザを別途起ち上げる
-            :class: hint
-
-            | プロファイルフォルダを指定することで現在実行中のブラウザとは別のブラウザを起動できます
-            | 自動化用のプロファイルを保存するフォルダを別途指定してください
-            | フォルダが存在しない場合は自動で作成されます
-            | 次回以降も同一フォルダを指定することで自動化用プロファイルとして利用できます
-
-    :param 数値 省略可 ポート: デバッグポートを変更します
-    :param 真偽値 省略可 ヘッドレス: TRUEにした場合はブラウザを非表示(ヘッドレス)で起動します、再接続時は無視されます
-
+    :param 数値 省略可 ポート: デバッグポートを指定する
     :rtype: :ref:`browser_object`
     :return: 対象ブラウザの :ref:`browser_object`
+
+    .. admonition:: ブラウザへの再接続について
+        :class: hint
+
+        | 同じブラウザが同じデバッグポートを開けて起動している場合はそのブラウザに再接続できます
+
+.. function:: Browserbuilder(ブラウザ定数)
+
+    | :ref:`builder_object` を返します
+    | 最低限の設定でブラウザを起動する :any:`BrowserControl` 関数とは異なり :ref:`builder_object` を介して様々な設定が行なえます
+
+    :param 定数 ブラウザ定数: 以下のいずれかを指定
+
+        .. object:: BC_CHROME
+
+            Google Chromeを操作します
+
+        .. object:: BC_MSEDGE
+
+            Microsoft Edgeを操作します
+
+    :rtype: :ref:`builder_object`
+    :return: 対象ブラウザの :ref:`builder_object`
+
+
+    .. admonition:: ブラウザの起動方法
+        :class: hint
+
+        | :ref:`builder_object` の ``start()`` メソッドでブラウザを起動、または再接続します
+
+        .. sourcecode:: uwscr
+
+            // BrowserBuilderオブジェクトを作成し、startメソッドを呼ぶ
+            builder = BrowserBuilder(BC_CHROME)
+            chrome = builder.start()
+
+            // 以下のようにも書ける
+            chrome = BrowserBuilder(BC_CHROME).start()
+
+            // ポートの変更
+            chrome = BrowserBuilder(BC_CHROME)_
+                .port(9999)_
+                .start()
+
+            // ヘッドレス起動
+            chrome = BrowserBuilder(BC_CHROME)_
+                .headless(TRUE)_
+                .start()
+
+            // プロファイルフォルダの変更
+            chrome = BrowserBuilder(BC_CHROME)_
+                .profile("C:\uwscr\chrome\profile1")_
+                .start()
+
+            // 複合設定
+            chrome = BrowserBuilder(BC_CHROME)_
+                .port(12345)_
+                .headless(TRUE)_
+                .start()
+
+    .. admonition:: 自動化用のブラウザを別途起ち上げる
+        :class: hint
+
+        | プロファイルフォルダを指定することで現在実行中のブラウザとは別のブラウザを起動できます
+        | 自動化用のプロファイルを保存するフォルダを別途指定してください
+        | フォルダが存在しない場合は自動で作成されます
+        | 次回以降も同一フォルダを指定することで自動化用プロファイルとして利用できます
+
+.. function:: ConvertFromRemoteObject(remote)
+
+    | リモートオブジェクトがプリミティブな値の場合に適切な値型に変換します
+    | 変換できないものはそのまま返ります
+
+    :param RemoteObject remote: 値型に変換したい :ref:`remote_object`
+    :return: 変換された値、変換できない場合は :ref:`remote_object`
 
     .. admonition:: ブラウザパスの指定方法
         :class: tip
@@ -72,13 +131,56 @@
         | パスは必ずchrome.exeおよびmsedge.exeのものにしてください
         | それ以外は動作保証外です
 
-.. function:: ConvertFromRemoteObject(remote)
+.. _builder_object:
 
-    | リモートオブジェクトがプリミティブな値の場合に適切な値型に変換します
-    | 変換できないものはそのまま返ります
+BrowserBuilderオブジェクト
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    :param RemoteObject remote: 値型に変換したい :ref:`remote_object`
-    :return: 変換された値、変換できない場合は :ref:`remote_object`
+| ブラウザの起動、再接続、起動時設定を行うオブジェクト
+
+.. class:: BrowserBuilder
+
+    .. method:: port(port)
+
+        | ブラウザのデバッグポートを変更します、デフォルトは ``9222``
+
+        :param 数値 port: 変更するデバッグポート
+        :rtype: BrowserBuilder
+        :return: 更新されたBrowserBuilder
+
+    .. method:: headless(有効=TRUE)
+
+        | ブラウザをヘッドレスで起動するかどうかを設定します
+        | この設定は再接続時には無視されます
+
+        :param 真偽値 有効: TRUEの場合ブラウザをヘッドレスで起動
+        :rtype: BrowserBuilder
+        :return: 更新されたBrowserBuilder
+
+    .. method:: private(有効=TRUE)
+
+        | ブラウザをプライベートモードで起動するかどうかを設定します
+        | この設定は再接続時には無視されます
+
+        :param 真偽値 有効: TRUEの場合ブラウザをプライベートモードで起動
+        :rtype: BrowserBuilder
+        :return: 更新されたBrowserBuilder
+
+    .. method:: profile(プロファイルパス)
+
+        | プロファイルを保存するパスを指定します
+        | この設定は再接続時には無視されます
+
+        :param 文字列 プロファイルパス: プロファイルを保存するパス
+        :rtype: BrowserBuilder
+        :return: 更新されたBrowserBuilder
+
+    .. method:: start()
+
+        | ブラウザを起動し :ref:`browser_object` を返します
+
+        :rtype: :ref:`browser_object`
+        :return: 対象ブラウザの :ref:`browser_object`
 
 .. _browser_object:
 
@@ -300,6 +402,16 @@ RemoteObject
         //     print tab.document.URL
         // next
 
+.. admonition:: 自動操作用ブラウザを別途開く
+
+    .. sourcecode:: uwscr
+
+        // デバッグポートを開いていないブラウザがすでに開かれている場合
+        // 以下は再接続ができずエラーになる
+        // chrome = BrowserControl(BC_CHROME)
+
+        // プロファイルフォルダを指定して別のブラウザを起動する
+        chrome = BrowserBuilder(BC_CHROME).profile("C:\chrome\profile1").start()
 
 .. admonition:: Seleniumテストページの操作
 

@@ -2577,6 +2577,20 @@ impl Evaluator {
                         remote.invoke_method(&func.member, args)
                             .map(|r| r.into())
                     },
+                    browser::BrowserObject::Builder(mutex_builder) => {
+                        let args = arguments.into_iter()
+                            .map(|(_, o)| o)
+                            .collect();
+                        let maybe_browser = {
+                            let mut builder = mutex_builder.lock().unwrap();
+                            builder.invoke_method(&func.member, args)?
+                        };
+                        let obj = match maybe_browser {
+                            Some(browser) => Object::Browser(browser),
+                            None => Object::BrowserBuilder(mutex_builder),
+                        };
+                        Ok(obj)
+                    },
                 }
             }
             Object::RemoteObject(ref remote) => {
@@ -3030,6 +3044,17 @@ impl Evaluator {
                     Object::from_variant(&v)?
                 };
                 Ok(obj)
+            },
+            Object::BrowserBuilder(builder) => {
+                if is_func {
+                    let func = browser::BrowserFunction::from_builder(builder, member);
+                    Ok(Object::BrowserFunction(func))
+                } else {
+                    Err(UError::new(
+                        UErrorKind::BrowserControlError,
+                        UErrorMessage::MemberNotFound(member)
+                    ))
+                }
             },
             Object::Browser(browser) => {
                 if is_func {

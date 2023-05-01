@@ -20,7 +20,7 @@ pub use self::function::Function;
 pub use self::uobject::UObject;
 pub use self::fopen::*;
 pub use self::class::ClassInstance;
-pub use browser::{Browser, TabWindow, RemoteObject, BrowserFunction};
+pub use browser::{BrowserBuilder, Browser, TabWindow, RemoteObject, BrowserFunction};
 
 use crate::ast::*;
 use crate::evaluator::environment::Layer;
@@ -90,6 +90,7 @@ pub enum Object {
     SafeArray(SAFEARRAY),
     /// COMメソッドのvar引数
     VarArgument(Expression),
+    BrowserBuilder(Arc<Mutex<BrowserBuilder>>),
     Browser(Browser),
     TabWindow(TabWindow),
     RemoteObject(RemoteObject),
@@ -140,6 +141,7 @@ impl std::fmt::Debug for Object {
             Self::Variant(arg0) => f.debug_tuple("Variant").field(arg0).finish(),
             Self::SafeArray(arg0) => f.debug_tuple("SafeArray").field(arg0).finish(),
             Self::VarArgument(arg0) => f.debug_tuple("VarArgument").field(arg0).finish(),
+            Self::BrowserBuilder(arg0) => f.debug_tuple("BrowserBuilder").field(arg0).finish(),
             Self::Browser(arg0) => f.debug_tuple("Browser").field(arg0).finish(),
             Self::TabWindow(arg0) => f.debug_tuple("TabWindow").field(arg0).finish(),
             Self::RemoteObject(arg0) => f.debug_tuple("RemoteObject").field(arg0).finish(),
@@ -238,6 +240,7 @@ impl fmt::Display for Object {
             Object::Variant(ref v) => write!(f, "Variant({})", v.0.vt().0),
             Object::SafeArray(_) => write!(f, "SafeArray"),
             Object::VarArgument(_) => write!(f, "var"),
+            Object::BrowserBuilder(_) => write!(f, "BrowserBuilder"),
             Object::Browser(ref b) => write!(f, "Browser: {b})"),
             Object::TabWindow(ref t) => write!(f, "TabWindow: {t}"),
             Object::RemoteObject(ref r) => write!(f, "{r}"),
@@ -349,6 +352,10 @@ impl PartialEq for Object {
             Object::Variant(v) => if let Object::Variant(v2) = other {v == v2} else {false},
             Object::SafeArray(_) => false,
             Object::VarArgument(e) => if let Object::VarArgument(e2) = other {e==e2} else {false},
+            Object::BrowserBuilder(b) => if let Object::BrowserBuilder(b2) = other {
+                let _tmp = b.lock().unwrap();
+                b2.try_lock().is_err()
+            } else {false},
             Object::Browser(b) => if let Object::Browser(b2) = other {b == b2} else {false},
             Object::TabWindow(t) => if let Object::TabWindow(t2) = other {t == t2} else {false},
             Object::RemoteObject(r) => if let Object::RemoteObject(r2) = other {r == r2} else {false},
@@ -388,6 +395,17 @@ impl Object {
             Object::Num(n) => ! n.is_zero(),
             Object::Handle(h) => h.0 > 0,
             _ => true
+        }
+    }
+    pub fn as_f64(&self) -> Option<f64> {
+        match self {
+            Object::Num(n) => Some(*n),
+            Object::Bool(b) => Some(*b as i32 as f64),
+            Object::Empty => Some(0.0),
+            Object::String(s) => {
+                s.parse::<f64>().ok()
+            },
+            _ => None
         }
     }
 }
