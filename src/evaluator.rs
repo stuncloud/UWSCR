@@ -1,10 +1,8 @@
 pub mod object;
-// pub mod env;
 pub mod environment;
 pub mod builtins;
 pub mod def_dll;
 pub mod com_object;
-// pub mod devtools_protocol;
 
 use crate::ast::*;
 use crate::evaluator::environment::*;
@@ -12,7 +10,6 @@ use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
 use crate::evaluator::def_dll::*;
 use crate::evaluator::com_object::*;
-// use crate::evaluator::devtools_protocol::{Browser, Element, ElementProperty};
 use crate::evaluator::builtins::system_controls::{POFF, poff::{sign_out, power_off, shutdown, reboot}};
 use crate::error::UWSCRErrorTitle;
 use crate::error::evaluator::{UError, UErrorKind, UErrorMessage};
