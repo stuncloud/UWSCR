@@ -4,6 +4,11 @@
 ブラウザ操作
 ------------
 
+.. admonition:: 破壊的変更が行われました
+    :class: warning
+
+    | バージョン `0.11.0` 以降のブラウザ操作機能はバージョン `0.10.2` 以前とは互換性がありません
+
 .. function:: BrowserControl(ブラウザ定数, [ポート=9222])
 
     | Devtools Protocolを利用したブラウザ操作を行うための :ref:`browser_object` を返します
