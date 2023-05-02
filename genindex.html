@@ -4,7 +4,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <meta name="color-scheme" content="light dark"><link rel="index" title="索引" href="#" /><link rel="search" title="検索" href="search.html" />
 
-    <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/><title>索引 - UWSCR 0.10.2</title>
+    <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/><title>索引 - UWSCR 0.11.0</title>
 <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -121,7 +121,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="index.html"><div class="brand">UWSCR 0.10.2</div></a>
+      <a href="index.html"><div class="brand">UWSCR 0.11.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -144,7 +144,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 0.10.2</span>
+  <span class="sidebar-brand-text">UWSCR 0.11.0</span>
   
 </a><form class="sidebar-search-container" method="get" action="search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -174,7 +174,7 @@
 <li class="toctree-l1"><a class="reference internal" href="builtins/array.html">配列操作関数</a></li>
 <li class="toctree-l1"><a class="reference internal" href="builtins/math.html">数学関数</a></li>
 <li class="toctree-l1"><a class="reference internal" href="builtins/comobject.html">COMオブジェクト</a></li>
-<li class="toctree-l1"><a class="reference internal" href="builtins/browser.html">ブラウザ操作</a></li>
+<li class="toctree-l1"><a class="reference internal" href="builtins/web.html">ウェブ関連</a></li>
 </ul>
 
 </div>
@@ -388,7 +388,7 @@
           <li><a href="builtins/math.html#abs">組み込み関数</a>
 </li>
         </ul></li>
-        <li><a href="builtins/browser.html#Browser.activate">activate() (Browser のメソッド)</a>
+        <li><a href="builtins/web.html#TabWindow.activate">activate() (TabWindow のメソッド)</a>
 </li>
         <li>
     acw()
@@ -470,15 +470,24 @@
           <li><a href="builtins/text.html#betweenstr">組み込み関数</a>
 </li>
         </ul></li>
+        <li><a href="builtins/web.html#Browser">Browser (組み込みクラス)</a>
+</li>
     </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
-        <li><a href="builtins/browser.html#Browser">Browser (組み込みクラス)</a>
+        <li><a href="builtins/web.html#BrowserBuilder">BrowserBuilder (組み込みクラス)</a>
 </li>
+        <li>
+    Browserbuilder()
+
+        <ul>
+          <li><a href="builtins/web.html#Browserbuilder">組み込み関数</a>
+</li>
+        </ul></li>
         <li>
     BrowserControl()
 
         <ul>
-          <li><a href="builtins/browser.html#BrowserControl">組み込み関数</a>
+          <li><a href="builtins/web.html#BrowserControl">組み込み関数</a>
 </li>
         </ul></li>
         <li>
@@ -552,8 +561,6 @@
           <li><a href="builtins/text.html#chr">組み込み関数</a>
 </li>
         </ul></li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li>
     chrb()
 
@@ -561,10 +568,8 @@
           <li><a href="builtins/text.html#chrb">組み込み関数</a>
 </li>
         </ul></li>
-        <li><a href="builtins/browser.html#Element.clear">clear() (Element のメソッド)</a>
-</li>
-        <li><a href="builtins/browser.html#Element.click">click() (Element のメソッド)</a>
-</li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
         <li>
     clkitem()
 
@@ -572,8 +577,19 @@
           <li><a href="builtins/window.html#clkitem">組み込み関数</a>
 </li>
         </ul></li>
-        <li><a href="builtins/browser.html#Browser.close">close() (Browser のメソッド)</a>
+        <li><a href="builtins/web.html#Browser.close">close() (Browser のメソッド)</a>
+
+        <ul>
+          <li><a href="builtins/web.html#TabWindow.close">(TabWindow のメソッド)</a>
 </li>
+        </ul></li>
+        <li>
+    ConvertFromRemoteObject()
+
+        <ul>
+          <li><a href="builtins/web.html#ConvertFromRemoteObject">組み込み関数</a>
+</li>
+        </ul></li>
         <li>
     copy()
 
@@ -588,6 +604,8 @@
           <li><a href="builtins/math.html#cos">組み込み関数</a>
 </li>
         </ul></li>
+        <li><a href="builtins/web.html#Browser.count">count (Browser のプロパティ)</a>
+</li>
         <li>
     cpuuserate()
 
@@ -647,7 +665,7 @@
           <li><a href="builtins/system.html#dictate">組み込み関数</a>
 </li>
         </ul></li>
-        <li><a href="builtins/browser.html#Browser.document">document (Browser のプロパティ)</a>
+        <li><a href="builtins/web.html#TabWindow.document">document (TabWindow のプロパティ)</a>
 </li>
         <li>
     doscmd()
@@ -671,8 +689,6 @@
   <h2>E</h2>
   <table style="width: 100%" class="indextable genindextable"><tr>
     <td style="width: 33%; vertical-align: top;"><ul>
-        <li><a href="builtins/browser.html#Element">Element (組み込みクラス)</a>
-</li>
         <li>
     encode()
 
@@ -701,12 +717,6 @@
 
         <ul>
           <li><a href="builtins/system.html#exec">組み込み関数</a>
-</li>
-        </ul></li>
-        <li><a href="builtins/browser.html#Browser.execute">execute() (Browser のメソッド)</a>
-
-        <ul>
-          <li><a href="builtins/browser.html#Element.execute">(Element のメソッド)</a>
 </li>
         </ul></li>
         <li>
@@ -745,8 +755,6 @@
           <li><a href="builtins/file.html#fget">組み込み関数</a>
 </li>
         </ul></li>
-        <li><a href="builtins/browser.html#Element.focus">focus() (Element のメソッド)</a>
-</li>
         <li>
     fopen()
 
@@ -864,8 +872,6 @@
           <li><a href="builtins/window.html#getstr">組み込み関数</a>
 </li>
         </ul></li>
-        <li><a href="builtins/browser.html#Browser.getTabs">getTabs() (Browser のメソッド)</a>
-</li>
         <li>
     gettime()
 
@@ -880,6 +886,10 @@
 <section id="H" class="genindex-section">
   <h2>H</h2>
   <table style="width: 100%" class="indextable genindextable"><tr>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="builtins/web.html#BrowserBuilder.headless">headless() (BrowserBuilder のメソッド)</a>
+</li>
+    </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
         <li>
     hndtoid()
@@ -896,6 +906,8 @@
   <h2>I</h2>
   <table style="width: 100%" class="indextable genindextable"><tr>
     <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="builtins/web.html#Browser.id">id() (Browser のメソッド)</a>
+</li>
         <li>
     idtohnd()
 
@@ -910,8 +922,6 @@
           <li><a href="builtins/gui.html#input">組み込み関数</a>
 </li>
         </ul></li>
-        <li><a href="builtins/browser.html#Element.input">input() (Element のメソッド)</a>
-</li>
     </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
         <li>
@@ -1114,8 +1124,12 @@
   <h2>N</h2>
   <table style="width: 100%" class="indextable genindextable"><tr>
     <td style="width: 33%; vertical-align: top;"><ul>
-        <li><a href="builtins/browser.html#Browser.navigate">navigate() (Browser のメソッド)</a>
+        <li><a href="builtins/web.html#TabWindow.navigate">navigate() (TabWindow のメソッド)</a>
 </li>
+        <li><a href="builtins/web.html#Browser.new">new() (Browser のメソッド)</a>
+</li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
         <li>
     NewRE()
 
@@ -1124,10 +1138,6 @@
 </li>
         </ul></li>
     </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
-        <li><a href="builtins/browser.html#Browser.newTab">newTab() (Browser のメソッド)</a>
-</li>
-    </ul></td>
   </tr></table>
 </section>
 
@@ -1135,10 +1145,6 @@
   <h2>P</h2>
   <table style="width: 100%" class="indextable genindextable"><tr>
     <td style="width: 33%; vertical-align: top;"><ul>
-        <li><a href="builtins/browser.html#Browser.pageid">pageid (Browser のプロパティ)</a>
-</li>
-        <li><a href="builtins/browser.html#Element.parent">parent (Element のプロパティ)</a>
-</li>
         <li>
     peekcolor()
 
@@ -1160,6 +1166,8 @@
           <li><a href="builtins/gui.html#popupmenu">組み込み関数</a>
 </li>
         </ul></li>
+        <li><a href="builtins/web.html#BrowserBuilder.port">port() (BrowserBuilder のメソッド)</a>
+</li>
         <li>
     pos()
 
@@ -1190,6 +1198,10 @@
           <li><a href="builtins/system.html#powershell">組み込み関数</a>
 </li>
         </ul></li>
+        <li><a href="builtins/web.html#BrowserBuilder.private">private() (BrowserBuilder のメソッド)</a>
+</li>
+        <li><a href="builtins/web.html#BrowserBuilder.profile">profile() (BrowserBuilder のメソッド)</a>
+</li>
         <li>
     pwsh()
 
@@ -1212,12 +1224,6 @@
           <li><a href="builtins/array.html#qsort">組み込み関数</a>
 </li>
         </ul></li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
-        <li><a href="builtins/browser.html#Element.querySelector">querySelector() (Element のメソッド)</a>
-</li>
-        <li><a href="builtins/browser.html#Element.querySelectorAll">querySelectorAll() (Element のメソッド)</a>
-</li>
     </ul></td>
   </tr></table>
 </section>
@@ -1263,7 +1269,7 @@
         </ul></li>
     </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
-        <li><a href="builtins/browser.html#Browser.reload">reload() (Browser のメソッド)</a>
+        <li><a href="builtins/web.html#TabWindow.reload">reload() (TabWindow のメソッド)</a>
 </li>
         <li>
     replace()
@@ -1329,8 +1335,6 @@
           <li><a href="usage/how_to_run.html#cmdoption-uwscr-arg-SCRIPT">uwscr コマンドラインオプション</a>
 </li>
         </ul></li>
-        <li><a href="builtins/browser.html#Element.select">select() (Element のメソッド)</a>
-</li>
         <li>
     sendstr()
 
@@ -1352,8 +1356,6 @@
           <li><a href="builtins/array.html#setclear">組み込み関数</a>
 </li>
         </ul></li>
-        <li><a href="builtins/browser.html#Element.setFile">setFile() (Element のメソッド)</a>
-</li>
         <li>
     sethotkey()
 
@@ -1375,8 +1377,6 @@
           <li><a href="builtins/system.html#shexec">組み込み関数</a>
 </li>
         </ul></li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li>
     shiftarray()
 
@@ -1384,6 +1384,8 @@
           <li><a href="builtins/array.html#shiftarray">組み込み関数</a>
 </li>
         </ul></li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
         <li>
     sin()
 
@@ -1419,8 +1421,6 @@
           <li><a href="builtins/system.html#sound">組み込み関数</a>
 </li>
         </ul></li>
-        <li><a href="builtins/browser.html#Browser.source">source (Browser のプロパティ)</a>
-</li>
         <li>
     speak()
 
@@ -1442,6 +1442,8 @@
           <li><a href="builtins/math.html#sqrt">組み込み関数</a>
 </li>
         </ul></li>
+        <li><a href="builtins/web.html#BrowserBuilder.start">start() (BrowserBuilder のメソッド)</a>
+</li>
         <li>
     status()
 
@@ -1464,6 +1466,8 @@
   <h2>T</h2>
   <table style="width: 100%" class="indextable genindextable"><tr>
     <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="builtins/web.html#TabWindow">TabWindow (組み込みクラス)</a>
+</li>
         <li>
     tan()
 
@@ -1523,8 +1527,6 @@
           <li><a href="builtins/file.html#unzip">組み込み関数</a>
 </li>
         </ul></li>
-        <li><a href="builtins/browser.html#Browser.url">url (Browser のプロパティ)</a>
-</li>
         <li>
     uwscr コマンドラインオプション
 
@@ -1599,7 +1601,7 @@
   <h2>W</h2>
   <table style="width: 100%" class="indextable genindextable"><tr>
     <td style="width: 33%; vertical-align: top;"><ul>
-        <li><a href="builtins/browser.html#Browser.wait">wait() (Browser のメソッド)</a>
+        <li><a href="builtins/web.html#TabWindow.wait">wait() (TabWindow のメソッド)</a>
 </li>
         <li>
     WaitTask()
@@ -1608,8 +1610,6 @@
           <li><a href="builtins/scriptcontrol.html#WaitTask">組み込み関数</a>
 </li>
         </ul></li>
-        <li><a href="builtins/browser.html#Browser.windowid">windowid() (Browser のメソッド)</a>
-</li>
     </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
         <li>
@@ -1691,7 +1691,9 @@
 </li>
           <li><a href="builtins/text.html#betweenstr">betweenstr()</a>
 </li>
-          <li><a href="builtins/browser.html#BrowserControl">BrowserControl()</a>
+          <li><a href="builtins/web.html#Browserbuilder">Browserbuilder()</a>
+</li>
+          <li><a href="builtins/web.html#BrowserControl">BrowserControl()</a>
 </li>
           <li><a href="builtins/window.html#btn">btn()</a>
 </li>
@@ -1714,6 +1716,8 @@
           <li><a href="builtins/text.html#chrb">chrb()</a>
 </li>
           <li><a href="builtins/window.html#clkitem">clkitem()</a>
+</li>
+          <li><a href="builtins/web.html#ConvertFromRemoteObject">ConvertFromRemoteObject()</a>
 </li>
           <li><a href="builtins/text.html#copy">copy()</a>
 </li>

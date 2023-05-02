@@ -7,7 +7,7 @@
 <link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="GUI" href="gui.html" /><link rel="prev" title="システム関数" href="system.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>ファイル操作関数 - UWSCR 0.10.2</title>
+        <title>ファイル操作関数 - UWSCR 0.11.0</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 0.10.2</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 0.11.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 0.10.2</span>
+  <span class="sidebar-brand-text">UWSCR 0.11.0</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -177,7 +177,7 @@
 <li class="toctree-l1"><a class="reference internal" href="array.html">配列操作関数</a></li>
 <li class="toctree-l1"><a class="reference internal" href="math.html">数学関数</a></li>
 <li class="toctree-l1"><a class="reference internal" href="comobject.html">COMオブジェクト</a></li>
-<li class="toctree-l1"><a class="reference internal" href="browser.html">ブラウザ操作</a></li>
+<li class="toctree-l1"><a class="reference internal" href="web.html">ウェブ関連</a></li>
 </ul>
 
 </div>
@@ -413,23 +413,23 @@ foo   ,    bar   ,  baz
 <div class="line-block">
 <div class="line">スクリプト</div>
 </div>
-<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">fid</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fopen</span><span class="p">(</span><span class="s">&quot;test.csv&quot;</span><span class="o">,</span><span class="w"> </span><span class="m">F_READ</span><span class="p">)</span>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">fid</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fopen</span><span class="p">(</span><span class="s">&quot;test.csv&quot;</span><span class="o">,</span><span class="w"> </span><span class="n">F_READ</span><span class="p">)</span>
 
 <span class="k">print</span><span class="w"> </span><span class="n">fget</span><span class="p">(</span><span class="n">fid</span><span class="o">,</span><span class="w"> </span><span class="m">1</span><span class="p">)</span><span class="w"> </span><span class="c">// foo,bar,baz</span>
 <span class="k">print</span><span class="w"> </span><span class="n">fget</span><span class="p">(</span><span class="n">fid</span><span class="o">,</span><span class="w"> </span><span class="m">1</span><span class="o">,</span><span class="w"> </span><span class="m">1</span><span class="p">)</span><span class="w"> </span><span class="c">// foo</span>
 <span class="c">// 前後のホワイトスペースはトリムされる</span>
 <span class="k">print</span><span class="w"> </span><span class="n">fget</span><span class="p">(</span><span class="n">fid</span><span class="o">,</span><span class="w"> </span><span class="m">2</span><span class="o">,</span><span class="w"> </span><span class="m">1</span><span class="p">)</span><span class="w"> </span><span class="c">// 「    foo   」にはならず「foo」が返る</span>
 <span class="c">// ダブルクォートで括られたカラム</span>
-<span class="k">print</span><span class="w"> </span><span class="n">fget</span><span class="p">(</span><span class="n">fid</span><span class="o">,</span><span class="w"> </span><span class="m">3</span><span class="o">,</span><span class="w"> </span><span class="m">1</span><span class="o">,</span><span class="w"> </span><span class="m">FALSE</span><span class="p">)</span><span class="w"> </span><span class="c">// ダブルクォートありのカラム</span>
-<span class="k">print</span><span class="w"> </span><span class="n">fget</span><span class="p">(</span><span class="n">fid</span><span class="o">,</span><span class="w"> </span><span class="m">3</span><span class="o">,</span><span class="w"> </span><span class="m">1</span><span class="o">,</span><span class="w"> </span><span class="m">TRUE</span><span class="p">)</span><span class="w">  </span><span class="c">// &quot;ダブルクォートありのカラム&quot;</span>
+<span class="k">print</span><span class="w"> </span><span class="n">fget</span><span class="p">(</span><span class="n">fid</span><span class="o">,</span><span class="w"> </span><span class="m">3</span><span class="o">,</span><span class="w"> </span><span class="m">1</span><span class="o">,</span><span class="w"> </span><span class="n">FALSE</span><span class="p">)</span><span class="w"> </span><span class="c">// ダブルクォートありのカラム</span>
+<span class="k">print</span><span class="w"> </span><span class="n">fget</span><span class="p">(</span><span class="n">fid</span><span class="o">,</span><span class="w"> </span><span class="m">3</span><span class="o">,</span><span class="w"> </span><span class="m">1</span><span class="o">,</span><span class="w"> </span><span class="n">TRUE</span><span class="p">)</span><span class="w">  </span><span class="c">// &quot;ダブルクォートありのカラム&quot;</span>
 <span class="c">// 第4引数FALSEはUWSCにおける 2 の動作が標準になりました</span>
-<span class="k">print</span><span class="w"> </span><span class="n">fget</span><span class="p">(</span><span class="n">fid</span><span class="o">,</span><span class="w"> </span><span class="m">3</span><span class="o">,</span><span class="w"> </span><span class="m">2</span><span class="o">,</span><span class="w"> </span><span class="m">FALSE</span><span class="p">)</span><span class="w"> </span><span class="c">// ダブルクォートの&quot;エスケープ&quot;</span>
-<span class="k">print</span><span class="w"> </span><span class="n">fget</span><span class="p">(</span><span class="n">fid</span><span class="o">,</span><span class="w"> </span><span class="m">3</span><span class="o">,</span><span class="w"> </span><span class="m">2</span><span class="o">,</span><span class="w"> </span><span class="m">TRUE</span><span class="p">)</span><span class="w">  </span><span class="c">// &quot;ダブルクォートの&quot;&quot;エスケープ&quot;&quot;&quot;</span>
+<span class="k">print</span><span class="w"> </span><span class="n">fget</span><span class="p">(</span><span class="n">fid</span><span class="o">,</span><span class="w"> </span><span class="m">3</span><span class="o">,</span><span class="w"> </span><span class="m">2</span><span class="o">,</span><span class="w"> </span><span class="n">FALSE</span><span class="p">)</span><span class="w"> </span><span class="c">// ダブルクォートの&quot;エスケープ&quot;</span>
+<span class="k">print</span><span class="w"> </span><span class="n">fget</span><span class="p">(</span><span class="n">fid</span><span class="o">,</span><span class="w"> </span><span class="m">3</span><span class="o">,</span><span class="w"> </span><span class="m">2</span><span class="o">,</span><span class="w"> </span><span class="n">TRUE</span><span class="p">)</span><span class="w">  </span><span class="c">// &quot;ダブルクォートの&quot;&quot;エスケープ&quot;&quot;&quot;</span>
 <span class="c">// 改行を含むカラムのサポート</span>
 <span class="c">// 第4引数がFALSEかつ改行を含む文字列がダブルクォートで括られている場合のみ</span>
-<span class="k">print</span><span class="w"> </span><span class="n">fget</span><span class="p">(</span><span class="n">fid</span><span class="o">,</span><span class="w"> </span><span class="m">4</span><span class="o">,</span><span class="w"> </span><span class="m">1</span><span class="o">,</span><span class="w"> </span><span class="m">FALSE</span><span class="p">)</span><span class="w"> </span><span class="c">// 改行を</span>
+<span class="k">print</span><span class="w"> </span><span class="n">fget</span><span class="p">(</span><span class="n">fid</span><span class="o">,</span><span class="w"> </span><span class="m">4</span><span class="o">,</span><span class="w"> </span><span class="m">1</span><span class="o">,</span><span class="w"> </span><span class="n">FALSE</span><span class="p">)</span><span class="w"> </span><span class="c">// 改行を</span>
 <span class="w">                            </span><span class="c">// 含む</span>
-<span class="k">print</span><span class="w"> </span><span class="n">fget</span><span class="p">(</span><span class="n">fid</span><span class="o">,</span><span class="w"> </span><span class="m">4</span><span class="o">,</span><span class="w"> </span><span class="m">2</span><span class="o">,</span><span class="w"> </span><span class="m">FALSE</span><span class="p">)</span><span class="w"> </span><span class="c">// ここはまだ4行目</span>
+<span class="k">print</span><span class="w"> </span><span class="n">fget</span><span class="p">(</span><span class="n">fid</span><span class="o">,</span><span class="w"> </span><span class="m">4</span><span class="o">,</span><span class="w"> </span><span class="m">2</span><span class="o">,</span><span class="w"> </span><span class="n">FALSE</span><span class="p">)</span><span class="w"> </span><span class="c">// ここはまだ4行目</span>
 
 <span class="n">fclose</span><span class="p">(</span><span class="n">fid</span><span class="p">)</span>
 </pre></div>
@@ -561,31 +561,31 @@ foo   ,    bar   ,  baz
 <span class="n">fclose</span><span class="p">(</span><span class="n">fid</span><span class="p">)</span>
 
 <span class="c">// 書き込み</span>
-<span class="n">fid</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fopen</span><span class="p">(</span><span class="n">path</span><span class="o">,</span><span class="w"> </span><span class="m">F_WRITE</span><span class="p">)</span>
+<span class="n">fid</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fopen</span><span class="p">(</span><span class="n">path</span><span class="o">,</span><span class="w"> </span><span class="n">F_WRITE</span><span class="p">)</span>
 <span class="n">fput</span><span class="p">(</span><span class="n">fid</span><span class="o">,</span><span class="w"> </span><span class="n">text</span><span class="p">)</span>
 <span class="n">fclose</span><span class="p">(</span><span class="n">fid</span><span class="p">)</span><span class="w"> </span><span class="c">// 上書きされる</span>
 
 <span class="c">// 読み書き</span>
-<span class="n">fid</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fopen</span><span class="p">(</span><span class="n">path</span><span class="o">,</span><span class="w"> </span><span class="m">F_READ</span><span class="w"> </span><span class="n">or</span><span class="w"> </span><span class="m">F_WRITE</span><span class="p">)</span>
+<span class="n">fid</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fopen</span><span class="p">(</span><span class="n">path</span><span class="o">,</span><span class="w"> </span><span class="n">F_READ</span><span class="w"> </span><span class="n">or</span><span class="w"> </span><span class="n">F_WRITE</span><span class="p">)</span>
 <span class="k">print</span><span class="w"> </span><span class="n">fget</span><span class="p">(</span><span class="n">fid</span><span class="o">,</span><span class="w"> </span><span class="m">1</span><span class="p">)</span>
 <span class="n">fput</span><span class="p">(</span><span class="n">fid</span><span class="o">,</span><span class="w"> </span><span class="n">text</span><span class="p">)</span>
 <span class="n">fclose</span><span class="p">(</span><span class="n">fid</span><span class="p">)</span><span class="w"> </span><span class="c">// 編集して保存</span>
 
 <span class="c">// エンコーディングを変更して保存</span>
-<span class="n">fid</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fopen</span><span class="p">(</span><span class="n">path</span><span class="o">,</span><span class="w"> </span><span class="m">F_WRITE1</span><span class="p">)</span><span class="w"> </span><span class="c">// SJISでファイルを書き込み</span>
+<span class="n">fid</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fopen</span><span class="p">(</span><span class="n">path</span><span class="o">,</span><span class="w"> </span><span class="n">F_WRITE1</span><span class="p">)</span><span class="w"> </span><span class="c">// SJISでファイルを書き込み</span>
 <span class="n">fput</span><span class="p">(</span><span class="n">fid</span><span class="o">,</span><span class="w"> </span><span class="n">text1</span><span class="p">)</span>
 <span class="n">fclose</span><span class="p">(</span><span class="n">fid</span><span class="p">)</span>
 
-<span class="n">fid</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fopen</span><span class="p">(</span><span class="n">path</span><span class="o">,</span><span class="w"> </span><span class="m">F_READ</span><span class="w"> </span><span class="n">or</span><span class="w"> </span><span class="m">F_WRITE16</span><span class="p">)</span>
+<span class="n">fid</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fopen</span><span class="p">(</span><span class="n">path</span><span class="o">,</span><span class="w"> </span><span class="n">F_READ</span><span class="w"> </span><span class="n">or</span><span class="w"> </span><span class="n">F_WRITE16</span><span class="p">)</span>
 <span class="n">fput</span><span class="p">(</span><span class="n">fid</span><span class="o">,</span><span class="w"> </span><span class="n">text2</span><span class="p">)</span>
 <span class="n">fclose</span><span class="p">(</span><span class="n">fid</span><span class="p">)</span><span class="w"> </span><span class="c">// 編集してUTF-16で保存</span>
 
 <span class="c">// 追記</span>
-<span class="n">fopen</span><span class="p">(</span><span class="n">path</span><span class="o">,</span><span class="w"> </span><span class="m">F_APPEND</span><span class="w"> </span><span class="n">or</span><span class="w"> </span><span class="m">F_WRITE16</span><span class="o">,</span><span class="w"> </span><span class="n">text</span><span class="p">)</span><span class="w"> </span><span class="c">// UTF-16で末尾に追記</span>
-<span class="n">fopen</span><span class="p">(</span><span class="n">path</span><span class="o">,</span><span class="w"> </span><span class="m">F_APPEND</span><span class="p">)</span><span class="w"> </span><span class="c">// エラー; F_APPEND指定時は第三引数が必須</span>
+<span class="n">fopen</span><span class="p">(</span><span class="n">path</span><span class="o">,</span><span class="w"> </span><span class="n">F_APPEND</span><span class="w"> </span><span class="n">or</span><span class="w"> </span><span class="n">F_WRITE16</span><span class="o">,</span><span class="w"> </span><span class="n">text</span><span class="p">)</span><span class="w"> </span><span class="c">// UTF-16で末尾に追記</span>
+<span class="n">fopen</span><span class="p">(</span><span class="n">path</span><span class="o">,</span><span class="w"> </span><span class="n">F_APPEND</span><span class="p">)</span><span class="w"> </span><span class="c">// エラー; F_APPEND指定時は第三引数が必須</span>
 
 <span class="c">// 自動ファイルクローズ</span>
-<span class="k">print</span><span class="w"> </span><span class="n">fget</span><span class="p">(</span><span class="n">fopen</span><span class="p">(</span><span class="n">path</span><span class="o">,</span><span class="w"> </span><span class="m">F_READ</span><span class="p">)</span><span class="o">,</span><span class="w"> </span><span class="m">F_ALLTEXT</span><span class="p">)</span>
+<span class="k">print</span><span class="w"> </span><span class="n">fget</span><span class="p">(</span><span class="n">fopen</span><span class="p">(</span><span class="n">path</span><span class="o">,</span><span class="w"> </span><span class="n">F_READ</span><span class="p">)</span><span class="o">,</span><span class="w"> </span><span class="n">F_ALLTEXT</span><span class="p">)</span>
 <span class="c">// ファイル識別子を変数に代入しなかった場合は読み書き関数実行後に自動でファイルが閉じられます</span>
 </pre></div>
 </div>
@@ -738,7 +738,7 @@ foo   ,    bar   ,  baz
 </div>
 <div class="admonition- admonition">
 <p class="admonition-title">サンプルコード</p>
-<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">fid</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fopen</span><span class="p">(</span><span class="s">&quot;hoge.ini&quot;</span><span class="o">,</span><span class="w"> </span><span class="m">F_READ</span><span class="w"> </span><span class="n">or</span><span class="w"> </span><span class="m">F_WRITE</span><span class="p">)</span>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">fid</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fopen</span><span class="p">(</span><span class="s">&quot;hoge.ini&quot;</span><span class="o">,</span><span class="w"> </span><span class="n">F_READ</span><span class="w"> </span><span class="n">or</span><span class="w"> </span><span class="n">F_WRITE</span><span class="p">)</span>
 <span class="c">// ファイルパスの代わりにファイルIDを指定</span>
 <span class="k">print</span><span class="w"> </span><span class="n">readini</span><span class="p">(</span><span class="s">&quot;hoge&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;fuga&quot;</span><span class="o">,</span><span class="w"> </span><span class="n">fid</span><span class="p">)</span><span class="w">        </span><span class="c">// 読む場合はF_READが必要</span>
 <span class="n">writeini</span><span class="p">(</span><span class="s">&quot;hoge&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;fuga&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;fugafuga&quot;</span><span class="o">,</span><span class="w"> </span><span class="n">fid</span><span class="p">)</span><span class="w"> </span><span class="c">// 書き込みにはF_READ or F_WRITEが必要</span>
@@ -863,7 +863,7 @@ foo   ,    bar   ,  baz
 <span class="c">// ファイル名のフィルタ</span>
 <span class="k">print</span><span class="w"> </span><span class="n">getdir</span><span class="p">(</span><span class="s">&#39;C:\test&#39;</span><span class="o">,</span><span class="w"> </span><span class="s">&#39;foo*&#39;</span><span class="p">)</span><span class="w"> </span><span class="c">// [foo1.txt, foo2.txt]</span>
 <span class="c">// 隠しファイルも表示</span>
-<span class="k">print</span><span class="w"> </span><span class="n">getdir</span><span class="p">(</span><span class="s">&#39;C:\test&#39;</span><span class="o">,</span><span class="w"> </span><span class="o">,</span><span class="w"> </span><span class="m">TRUE</span><span class="p">)</span><span class="w"> </span><span class="c">// [foo1.txt, foo2.txt, bar.txt, baz.txt, hidden.txt]</span>
+<span class="k">print</span><span class="w"> </span><span class="n">getdir</span><span class="p">(</span><span class="s">&#39;C:\test&#39;</span><span class="o">,</span><span class="w"> </span><span class="o">,</span><span class="w"> </span><span class="n">TRUE</span><span class="p">)</span><span class="w"> </span><span class="c">// [foo1.txt, foo2.txt, bar.txt, baz.txt, hidden.txt]</span>
 <span class="c">// フォルダ一覧の表示</span>
 <span class="k">print</span><span class="w"> </span><span class="n">getdir</span><span class="p">(</span><span class="s">&#39;C:\test&#39;</span><span class="o">,</span><span class="w"> </span><span class="s">&#39;\&#39;</span><span class="p">)</span><span class="w"> </span><span class="c">// [dir1, dir2, folder1, folder2]</span>
 <span class="c">// フォルダ一名のフィルタ</span>

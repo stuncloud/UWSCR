@@ -7,7 +7,7 @@
 <link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="ウィンドウ操作関数" href="window.html" /><link rel="prev" title="特殊変数" href="../syntax/special_variables.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>文字列操作関数 - UWSCR 0.10.2</title>
+        <title>文字列操作関数 - UWSCR 0.11.0</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 0.10.2</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 0.11.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 0.10.2</span>
+  <span class="sidebar-brand-text">UWSCR 0.11.0</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -177,7 +177,7 @@
 <li class="toctree-l1"><a class="reference internal" href="array.html">配列操作関数</a></li>
 <li class="toctree-l1"><a class="reference internal" href="math.html">数学関数</a></li>
 <li class="toctree-l1"><a class="reference internal" href="comobject.html">COMオブジェクト</a></li>
-<li class="toctree-l1"><a class="reference internal" href="browser.html">ブラウザ操作</a></li>
+<li class="toctree-l1"><a class="reference internal" href="web.html">ウェブ関連</a></li>
 </ul>
 
 </div>
@@ -292,9 +292,9 @@
 
 <span class="n">str</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;?aaa?bbb!ccc?ddd!eee&quot;</span>
 <span class="c">// 数え方指定</span>
-<span class="k">print</span><span class="w"> </span><span class="n">betweenstr</span><span class="p">(</span><span class="n">str</span><span class="o">,</span><span class="w"> </span><span class="s">&#39;?&#39;</span><span class="o">,</span><span class="w"> </span><span class="s">&#39;!&#39;</span><span class="o">,</span><span class="w"> </span><span class="m">2</span><span class="o">,</span><span class="w"> </span><span class="m">TRUE</span><span class="p">)</span>
+<span class="k">print</span><span class="w"> </span><span class="n">betweenstr</span><span class="p">(</span><span class="n">str</span><span class="o">,</span><span class="w"> </span><span class="s">&#39;?&#39;</span><span class="o">,</span><span class="w"> </span><span class="s">&#39;!&#39;</span><span class="o">,</span><span class="w"> </span><span class="m">2</span><span class="o">,</span><span class="w"> </span><span class="n">TRUE</span><span class="p">)</span>
 <span class="c">// bbb</span>
-<span class="k">print</span><span class="w"> </span><span class="n">betweenstr</span><span class="p">(</span><span class="n">str</span><span class="o">,</span><span class="w"> </span><span class="s">&#39;?&#39;</span><span class="o">,</span><span class="w"> </span><span class="s">&#39;!&#39;</span><span class="o">,</span><span class="w"> </span><span class="m">2</span><span class="o">,</span><span class="w"> </span><span class="m">FALSE</span><span class="p">)</span>
+<span class="k">print</span><span class="w"> </span><span class="n">betweenstr</span><span class="p">(</span><span class="n">str</span><span class="o">,</span><span class="w"> </span><span class="s">&#39;?&#39;</span><span class="o">,</span><span class="w"> </span><span class="s">&#39;!&#39;</span><span class="o">,</span><span class="w"> </span><span class="m">2</span><span class="o">,</span><span class="w"> </span><span class="n">FALSE</span><span class="p">)</span>
 <span class="c">// ddd</span>
 </pre></div>
 </div>
@@ -360,15 +360,15 @@
 <span class="c">// FALSEは個別に区切る</span>
 <span class="n">moji</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;あいうabcえお&quot;</span>
 <span class="c">// a で区切る</span>
-<span class="k">print</span><span class="w"> </span><span class="n">token</span><span class="p">(</span><span class="s">&quot;abc&quot;</span><span class="o">,</span><span class="w"> </span><span class="n">moji</span><span class="o">,</span><span class="w"> </span><span class="m">FALSE</span><span class="p">)</span><span class="w"> </span><span class="c">// あいう</span>
+<span class="k">print</span><span class="w"> </span><span class="n">token</span><span class="p">(</span><span class="s">&quot;abc&quot;</span><span class="o">,</span><span class="w"> </span><span class="n">moji</span><span class="o">,</span><span class="w"> </span><span class="n">FALSE</span><span class="p">)</span><span class="w"> </span><span class="c">// あいう</span>
 <span class="k">print</span><span class="w"> </span><span class="n">moji</span><span class="w">                      </span><span class="c">// bcえお</span>
 <span class="c">// b で区切る</span>
-<span class="k">print</span><span class="w"> </span><span class="n">token</span><span class="p">(</span><span class="s">&quot;abc&quot;</span><span class="o">,</span><span class="w"> </span><span class="n">moji</span><span class="o">,</span><span class="w"> </span><span class="m">FALSE</span><span class="p">)</span><span class="w"> </span><span class="c">// (空文字)</span>
+<span class="k">print</span><span class="w"> </span><span class="n">token</span><span class="p">(</span><span class="s">&quot;abc&quot;</span><span class="o">,</span><span class="w"> </span><span class="n">moji</span><span class="o">,</span><span class="w"> </span><span class="n">FALSE</span><span class="p">)</span><span class="w"> </span><span class="c">// (空文字)</span>
 <span class="k">print</span><span class="w"> </span><span class="n">moji</span><span class="w">                      </span><span class="c">// cえお</span>
 
 <span class="c">// TRUEならまとめて区切る</span>
 <span class="n">moji</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;あいうabcえお&quot;</span>
-<span class="k">print</span><span class="w"> </span><span class="n">token</span><span class="p">(</span><span class="s">&quot;abc&quot;</span><span class="o">,</span><span class="w"> </span><span class="n">moji</span><span class="o">,</span><span class="w"> </span><span class="m">TRUE</span><span class="p">)</span><span class="w"> </span><span class="c">// あいう</span>
+<span class="k">print</span><span class="w"> </span><span class="n">token</span><span class="p">(</span><span class="s">&quot;abc&quot;</span><span class="o">,</span><span class="w"> </span><span class="n">moji</span><span class="o">,</span><span class="w"> </span><span class="n">TRUE</span><span class="p">)</span><span class="w"> </span><span class="c">// あいう</span>
 <span class="k">print</span><span class="w"> </span><span class="n">moji</span><span class="w">                     </span><span class="c">// えお</span>
 
 <span class="c">// 該当する区切りがない場合文字列全体が切り出される</span>
@@ -383,7 +383,7 @@
 <span class="k">print</span><span class="w"> </span><span class="n">token</span><span class="p">(</span><span class="s">&quot;,&quot;</span><span class="o">,</span><span class="w"> </span><span class="n">csv</span><span class="p">)</span><span class="w">        </span><span class="c">// &quot;foo</span>
 <span class="k">print</span><span class="w"> </span><span class="n">csv</span><span class="w">                    </span><span class="c">// bar&quot;,baz</span>
 <span class="n">csv</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;&lt;#DBL&gt;foo,bar&lt;#DBL&gt;,baz&quot;</span>
-<span class="k">print</span><span class="w"> </span><span class="n">token</span><span class="p">(</span><span class="s">&quot;,&quot;</span><span class="o">,</span><span class="w"> </span><span class="n">csv</span><span class="o">,</span><span class="w"> </span><span class="o">,</span><span class="m">TRUE</span><span class="p">)</span><span class="w"> </span><span class="c">// &quot;foo,bar&quot;</span>
+<span class="k">print</span><span class="w"> </span><span class="n">token</span><span class="p">(</span><span class="s">&quot;,&quot;</span><span class="o">,</span><span class="w"> </span><span class="n">csv</span><span class="o">,</span><span class="w"> </span><span class="o">,</span><span class="n">TRUE</span><span class="p">)</span><span class="w"> </span><span class="c">// &quot;foo,bar&quot;</span>
 <span class="k">print</span><span class="w"> </span><span class="n">csv</span><span class="w">                    </span><span class="c">// baz</span>
 </pre></div>
 </div>
@@ -442,10 +442,10 @@
 <p class="admonition-title">サンプルコード</p>
 <div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// 正規表現モードの場合は大文字小文字が区別される</span>
 <span class="k">print</span><span class="w"> </span><span class="n">replace</span><span class="p">(</span><span class="s">&quot;aA&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;A&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;B&quot;</span><span class="p">)</span><span class="w">       </span><span class="c">// BB</span>
-<span class="k">print</span><span class="w"> </span><span class="n">replace</span><span class="p">(</span><span class="s">&quot;aA&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;A&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;B&quot;</span><span class="o">,</span><span class="w"> </span><span class="m">TRUE</span><span class="p">)</span><span class="w"> </span><span class="c">// aB</span>
+<span class="k">print</span><span class="w"> </span><span class="n">replace</span><span class="p">(</span><span class="s">&quot;aA&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;A&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;B&quot;</span><span class="o">,</span><span class="w"> </span><span class="n">TRUE</span><span class="p">)</span><span class="w"> </span><span class="c">// aB</span>
 
 <span class="c">// マッチ文字列を使った置換</span>
-<span class="k">print</span><span class="w"> </span><span class="n">replace</span><span class="p">(</span><span class="s">&quot;aa11bb22cc33&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;([a-z]+)(\d+)&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;$1 = $2, &quot;</span><span class="o">,</span><span class="w"> </span><span class="m">TRUE</span><span class="p">)</span>
+<span class="k">print</span><span class="w"> </span><span class="n">replace</span><span class="p">(</span><span class="s">&quot;aa11bb22cc33&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;([a-z]+)(\d+)&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;$1 = $2, &quot;</span><span class="o">,</span><span class="w"> </span><span class="n">TRUE</span><span class="p">)</span>
 <span class="c">// aa = 11, bb = 22, cc = 33,</span>
 </pre></div>
 </div>
@@ -503,11 +503,11 @@
 
 <span class="n">sa</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">safearray</span><span class="p">(</span><span class="m">0</span><span class="o">,</span><span class="w"> </span><span class="m">3</span><span class="p">)</span>
 <span class="k">print</span><span class="w"> </span><span class="n">length</span><span class="p">(</span><span class="n">sa</span><span class="p">)</span><span class="w"> </span><span class="c">// 4</span>
-<span class="k">print</span><span class="w"> </span><span class="n">length</span><span class="p">(</span><span class="n">sa</span><span class="o">,</span><span class="w"> </span><span class="m">TRUE</span><span class="p">)</span><span class="w"> </span><span class="c">// 1 (次元)</span>
+<span class="k">print</span><span class="w"> </span><span class="n">length</span><span class="p">(</span><span class="n">sa</span><span class="o">,</span><span class="w"> </span><span class="n">TRUE</span><span class="p">)</span><span class="w"> </span><span class="c">// 1 (次元)</span>
 
 <span class="n">sa</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">safearray</span><span class="p">(</span><span class="m">0</span><span class="o">,</span><span class="w"> </span><span class="m">5</span><span class="o">,</span><span class="w"> </span><span class="m">0</span><span class="o">,</span><span class="w"> </span><span class="m">2</span><span class="p">)</span>
 <span class="k">print</span><span class="w"> </span><span class="n">length</span><span class="p">(</span><span class="n">sa</span><span class="p">)</span><span class="w"> </span><span class="c">// 6</span>
-<span class="k">print</span><span class="w"> </span><span class="n">length</span><span class="p">(</span><span class="n">sa</span><span class="o">,</span><span class="w"> </span><span class="m">TRUE</span><span class="p">)</span><span class="w"> </span><span class="c">// 2 (次元)</span>
+<span class="k">print</span><span class="w"> </span><span class="n">length</span><span class="p">(</span><span class="n">sa</span><span class="o">,</span><span class="w"> </span><span class="n">TRUE</span><span class="p">)</span><span class="w"> </span><span class="c">// 2 (次元)</span>
 </pre></div>
 </div>
 </div>
@@ -597,7 +597,7 @@
 </dl>
 <div class="admonition- admonition">
 <p class="admonition-title">サンプルコード</p>
-<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="k">print</span><span class="w"> </span><span class="n">NewRe</span><span class="p">(</span><span class="s">&quot;hoge&quot;</span><span class="o">,</span><span class="w"> </span><span class="m">FALSE</span><span class="o">,</span><span class="w"> </span><span class="m">TRUE</span><span class="o">,</span><span class="w"> </span><span class="m">TRUE</span><span class="p">)</span><span class="w"> </span><span class="c">// regex: (?ima)hoge</span>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="k">print</span><span class="w"> </span><span class="n">NewRe</span><span class="p">(</span><span class="s">&quot;hoge&quot;</span><span class="o">,</span><span class="w"> </span><span class="n">FALSE</span><span class="o">,</span><span class="w"> </span><span class="n">TRUE</span><span class="o">,</span><span class="w"> </span><span class="n">TRUE</span><span class="p">)</span><span class="w"> </span><span class="c">// regex: (?ima)hoge</span>
 </pre></div>
 </div>
 </div>
@@ -656,8 +656,8 @@
 <div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">target</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;abc123def&quot;</span>
 <span class="n">re</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;\d+&quot;</span>
 <span class="k">print</span><span class="w"> </span><span class="n">regex</span><span class="p">(</span><span class="n">target</span><span class="o">,</span><span class="w"> </span><span class="n">re</span><span class="p">)</span><span class="w">              </span><span class="c">// True</span>
-<span class="k">print</span><span class="w"> </span><span class="n">regex</span><span class="p">(</span><span class="n">target</span><span class="o">,</span><span class="w"> </span><span class="n">re</span><span class="o">,</span><span class="w"> </span><span class="m">REGEX_TEST</span><span class="p">)</span><span class="w">  </span><span class="c">// True</span>
-<span class="k">print</span><span class="w"> </span><span class="n">regex</span><span class="p">(</span><span class="n">target</span><span class="o">,</span><span class="w"> </span><span class="n">re</span><span class="o">,</span><span class="w"> </span><span class="m">REGEX_MATCH</span><span class="p">)</span><span class="w"> </span><span class="c">// [123]</span>
+<span class="k">print</span><span class="w"> </span><span class="n">regex</span><span class="p">(</span><span class="n">target</span><span class="o">,</span><span class="w"> </span><span class="n">re</span><span class="o">,</span><span class="w"> </span><span class="n">REGEX_TEST</span><span class="p">)</span><span class="w">  </span><span class="c">// True</span>
+<span class="k">print</span><span class="w"> </span><span class="n">regex</span><span class="p">(</span><span class="n">target</span><span class="o">,</span><span class="w"> </span><span class="n">re</span><span class="o">,</span><span class="w"> </span><span class="n">REGEX_MATCH</span><span class="p">)</span><span class="w"> </span><span class="c">// [123]</span>
 <span class="k">print</span><span class="w"> </span><span class="n">regex</span><span class="p">(</span><span class="n">target</span><span class="o">,</span><span class="w"> </span><span class="n">re</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;456&quot;</span><span class="p">)</span><span class="w">       </span><span class="c">// abc456def</span>
 </pre></div>
 </div>
@@ -821,7 +821,7 @@
 <span class="c">// {&quot;bar&quot;:{&quot;baz&quot;:2},&quot;foo&quot;:1}</span>
 
 <span class="c">// 整形する</span>
-<span class="k">print</span><span class="w"> </span><span class="n">tojson</span><span class="p">(</span><span class="n">obj</span><span class="o">,</span><span class="w"> </span><span class="m">TRUE</span><span class="p">)</span>
+<span class="k">print</span><span class="w"> </span><span class="n">tojson</span><span class="p">(</span><span class="n">obj</span><span class="o">,</span><span class="w"> </span><span class="n">TRUE</span><span class="p">)</span>
 <span class="c">// {</span>
 <span class="c">//   &quot;bar&quot;: {</span>
 <span class="c">//     &quot;baz&quot;: 2</span>
@@ -893,7 +893,7 @@
 </dl>
 <div class="admonition- admonition">
 <p class="admonition-title">サンプルコード</p>
-<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="k">for</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="p">[</span><span class="s">&quot;1&quot;</span><span class="o">,</span><span class="w"> </span><span class="m">2</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;３&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;四&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;Ⅴ&quot;</span><span class="o">,</span><span class="w"> </span><span class="m">TRUE</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;FALSE&quot;</span><span class="p">]</span>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="k">for</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="p">[</span><span class="s">&quot;1&quot;</span><span class="o">,</span><span class="w"> </span><span class="m">2</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;３&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;四&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;Ⅴ&quot;</span><span class="o">,</span><span class="w"> </span><span class="n">TRUE</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;FALSE&quot;</span><span class="p">]</span>
 <span class="w">    </span><span class="k">print</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="s">&quot;: &quot;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">chknum</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
 <span class="k">next</span>
 <span class="c">// 1: True</span>
@@ -930,7 +930,7 @@
 <div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="k">print</span><span class="w"> </span><span class="n">val</span><span class="p">(</span><span class="m">1</span><span class="p">)</span><span class="w">         </span><span class="c">// 1</span>
 <span class="k">print</span><span class="w"> </span><span class="n">val</span><span class="p">(</span><span class="s">&quot;2&quot;</span><span class="p">)</span><span class="w">       </span><span class="c">// 2</span>
 <span class="k">print</span><span class="w"> </span><span class="n">val</span><span class="p">(</span><span class="s">&quot;３&quot;</span><span class="p">)</span><span class="w">      </span><span class="c">// -999999</span>
-<span class="k">print</span><span class="w"> </span><span class="n">val</span><span class="p">(</span><span class="m">TRUE</span><span class="p">)</span><span class="w">      </span><span class="c">// 1</span>
+<span class="k">print</span><span class="w"> </span><span class="n">val</span><span class="p">(</span><span class="n">TRUE</span><span class="p">)</span><span class="w">      </span><span class="c">// 1</span>
 <span class="k">print</span><span class="w"> </span><span class="n">val</span><span class="p">(</span><span class="s">&quot;ほげ&quot;</span><span class="o">,</span><span class="w"> </span><span class="m">0</span><span class="p">)</span><span class="w"> </span><span class="c">// 0</span>
 </pre></div>
 </div>
@@ -970,16 +970,16 @@
 <span class="c">// abc</span>
 
 <span class="c">// 制御文字</span>
-<span class="k">print</span><span class="w"> </span><span class="n">trim</span><span class="p">(</span><span class="m">NULL</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="m">3</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="s">&#39;abc&#39;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="m">NULL</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="m">3</span><span class="p">)</span>
+<span class="k">print</span><span class="w"> </span><span class="n">trim</span><span class="p">(</span><span class="n">NULL</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="m">3</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="s">&#39;abc&#39;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">NULL</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="m">3</span><span class="p">)</span>
 <span class="c">// abc</span>
 
 <span class="c">// 全角スペース</span>
 <span class="k">print</span><span class="w"> </span><span class="n">trim</span><span class="p">(</span><span class="s">&quot; 　abc　  &quot;</span><span class="p">)</span>
 <span class="c">// 第2引数省略時は全角空白=FALSEとなる</span>
 <span class="c">// 　abc</span>
-<span class="k">print</span><span class="w"> </span><span class="n">trim</span><span class="p">(</span><span class="s">&quot; 　abc　  &quot;</span><span class="o">,</span><span class="w"> </span><span class="m">FALSE</span><span class="p">)</span>
+<span class="k">print</span><span class="w"> </span><span class="n">trim</span><span class="p">(</span><span class="s">&quot; 　abc　  &quot;</span><span class="o">,</span><span class="w"> </span><span class="n">FALSE</span><span class="p">)</span>
 <span class="c">// 　abc</span>
-<span class="k">print</span><span class="w"> </span><span class="n">trim</span><span class="p">(</span><span class="s">&quot; 　abc　  &quot;</span><span class="o">,</span><span class="w"> </span><span class="m">TRUE</span><span class="p">)</span>
+<span class="k">print</span><span class="w"> </span><span class="n">trim</span><span class="p">(</span><span class="s">&quot; 　abc　  &quot;</span><span class="o">,</span><span class="w"> </span><span class="n">TRUE</span><span class="p">)</span>
 <span class="c">// abc</span>
 
 <span class="c">// 指定文字</span>
@@ -1147,15 +1147,15 @@
 </dl>
 <div class="admonition- admonition">
 <p class="admonition-title">サンプルコード</p>
-<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="k">print</span><span class="w"> </span><span class="n">strconv</span><span class="p">(</span><span class="s">&#39;あいうえお&#39;</span><span class="o">,</span><span class="w"> </span><span class="m">SC_KATAKANA</span><span class="p">)</span><span class="w">                  </span><span class="c">// アイウエオ</span>
-<span class="k">print</span><span class="w"> </span><span class="n">strconv</span><span class="p">(</span><span class="s">&#39;あいうえお&#39;</span><span class="o">,</span><span class="w"> </span><span class="m">SC_HALFWIDTH</span><span class="p">)</span><span class="w">                 </span><span class="c">// あいうえお</span>
-<span class="k">print</span><span class="w"> </span><span class="n">strconv</span><span class="p">(</span><span class="s">&#39;あいうえお&#39;</span><span class="o">,</span><span class="w"> </span><span class="m">SC_KATAKANA</span><span class="w"> </span><span class="n">or</span><span class="w"> </span><span class="m">SC_HALFWIDTH</span><span class="p">)</span><span class="w">  </span><span class="c">// ｱｲｳｴｵ</span>
-<span class="k">print</span><span class="w"> </span><span class="n">strconv</span><span class="p">(</span><span class="s">&#39;カキクケコ&#39;</span><span class="o">,</span><span class="w"> </span><span class="m">SC_HIRAGANA</span><span class="p">)</span><span class="w">                  </span><span class="c">// かきくけこ</span>
-<span class="k">print</span><span class="w"> </span><span class="n">strconv</span><span class="p">(</span><span class="s">&#39;カキクケコ&#39;</span><span class="o">,</span><span class="w"> </span><span class="m">SC_HALFWIDTH</span><span class="p">)</span><span class="w">                 </span><span class="c">// ｶｷｸｹｺ</span>
-<span class="k">print</span><span class="w"> </span><span class="n">strconv</span><span class="p">(</span><span class="s">&#39;ｻｼｽｾｿ&#39;</span><span class="o">,</span><span class="w"> </span><span class="m">SC_FULLWIDTH</span><span class="p">)</span><span class="w">                      </span><span class="c">// サシスセソ</span>
-<span class="k">print</span><span class="w"> </span><span class="n">strconv</span><span class="p">(</span><span class="s">&#39;ｻｼｽｾｿ&#39;</span><span class="o">,</span><span class="w"> </span><span class="m">SC_FULLWIDTH</span><span class="w"> </span><span class="n">or</span><span class="w"> </span><span class="m">SC_HIRAGANA</span><span class="p">)</span><span class="w">       </span><span class="c">// さしすせそ</span>
-<span class="k">print</span><span class="w"> </span><span class="n">strconv</span><span class="p">(</span><span class="s">&#39;abcde&#39;</span><span class="o">,</span><span class="w"> </span><span class="m">SC_UPPERCASE</span><span class="p">)</span><span class="w">                      </span><span class="c">// ABCDE</span>
-<span class="k">print</span><span class="w"> </span><span class="n">strconv</span><span class="p">(</span><span class="s">&#39;abcde&#39;</span><span class="o">,</span><span class="w"> </span><span class="m">SC_UPPERCASE</span><span class="w"> </span><span class="n">or</span><span class="w"> </span><span class="m">SC_FULLWIDTH</span><span class="p">)</span><span class="w">      </span><span class="c">// ＡＢＣＤＥ</span>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="k">print</span><span class="w"> </span><span class="n">strconv</span><span class="p">(</span><span class="s">&#39;あいうえお&#39;</span><span class="o">,</span><span class="w"> </span><span class="n">SC_KATAKANA</span><span class="p">)</span><span class="w">                  </span><span class="c">// アイウエオ</span>
+<span class="k">print</span><span class="w"> </span><span class="n">strconv</span><span class="p">(</span><span class="s">&#39;あいうえお&#39;</span><span class="o">,</span><span class="w"> </span><span class="n">SC_HALFWIDTH</span><span class="p">)</span><span class="w">                 </span><span class="c">// あいうえお</span>
+<span class="k">print</span><span class="w"> </span><span class="n">strconv</span><span class="p">(</span><span class="s">&#39;あいうえお&#39;</span><span class="o">,</span><span class="w"> </span><span class="n">SC_KATAKANA</span><span class="w"> </span><span class="n">or</span><span class="w"> </span><span class="n">SC_HALFWIDTH</span><span class="p">)</span><span class="w">  </span><span class="c">// ｱｲｳｴｵ</span>
+<span class="k">print</span><span class="w"> </span><span class="n">strconv</span><span class="p">(</span><span class="s">&#39;カキクケコ&#39;</span><span class="o">,</span><span class="w"> </span><span class="n">SC_HIRAGANA</span><span class="p">)</span><span class="w">                  </span><span class="c">// かきくけこ</span>
+<span class="k">print</span><span class="w"> </span><span class="n">strconv</span><span class="p">(</span><span class="s">&#39;カキクケコ&#39;</span><span class="o">,</span><span class="w"> </span><span class="n">SC_HALFWIDTH</span><span class="p">)</span><span class="w">                 </span><span class="c">// ｶｷｸｹｺ</span>
+<span class="k">print</span><span class="w"> </span><span class="n">strconv</span><span class="p">(</span><span class="s">&#39;ｻｼｽｾｿ&#39;</span><span class="o">,</span><span class="w"> </span><span class="n">SC_FULLWIDTH</span><span class="p">)</span><span class="w">                      </span><span class="c">// サシスセソ</span>
+<span class="k">print</span><span class="w"> </span><span class="n">strconv</span><span class="p">(</span><span class="s">&#39;ｻｼｽｾｿ&#39;</span><span class="o">,</span><span class="w"> </span><span class="n">SC_FULLWIDTH</span><span class="w"> </span><span class="n">or</span><span class="w"> </span><span class="n">SC_HIRAGANA</span><span class="p">)</span><span class="w">       </span><span class="c">// さしすせそ</span>
+<span class="k">print</span><span class="w"> </span><span class="n">strconv</span><span class="p">(</span><span class="s">&#39;abcde&#39;</span><span class="o">,</span><span class="w"> </span><span class="n">SC_UPPERCASE</span><span class="p">)</span><span class="w">                      </span><span class="c">// ABCDE</span>
+<span class="k">print</span><span class="w"> </span><span class="n">strconv</span><span class="p">(</span><span class="s">&#39;abcde&#39;</span><span class="o">,</span><span class="w"> </span><span class="n">SC_UPPERCASE</span><span class="w"> </span><span class="n">or</span><span class="w"> </span><span class="n">SC_FULLWIDTH</span><span class="p">)</span><span class="w">      </span><span class="c">// ＡＢＣＤＥ</span>
 </pre></div>
 </div>
 </div>
@@ -1262,11 +1262,11 @@
 <span class="k">print</span><span class="w"> </span><span class="n">format</span><span class="p">(</span><span class="m">42</span><span class="o">,</span><span class="w"> </span><span class="m">0</span><span class="o">,</span><span class="w"> </span><span class="o">-</span><span class="m">3</span><span class="p">)</span><span class="w">           </span><span class="c">// 101010</span>
 
 <span class="c">// 0埋め</span>
-<span class="k">print</span><span class="w"> </span><span class="n">format</span><span class="p">(</span><span class="m">42</span><span class="o">,</span><span class="w"> </span><span class="m">4</span><span class="o">,</span><span class="w"> </span><span class="o">-</span><span class="m">1</span><span class="o">,</span><span class="w"> </span><span class="m">FMT_ZERO</span><span class="p">)</span><span class="w"> </span><span class="c">// 002A</span>
+<span class="k">print</span><span class="w"> </span><span class="n">format</span><span class="p">(</span><span class="m">42</span><span class="o">,</span><span class="w"> </span><span class="m">4</span><span class="o">,</span><span class="w"> </span><span class="o">-</span><span class="m">1</span><span class="o">,</span><span class="w"> </span><span class="n">FMT_ZERO</span><span class="p">)</span><span class="w"> </span><span class="c">// 002A</span>
 <span class="c">// 右埋め</span>
-<span class="k">print</span><span class="w"> </span><span class="n">format</span><span class="p">(</span><span class="m">1</span><span class="o">,</span><span class="w"> </span><span class="m">8</span><span class="o">,</span><span class="w"> </span><span class="m">0</span><span class="o">,</span><span class="w"> </span><span class="m">FMT_RIGHT</span><span class="p">)</span><span class="w">  </span><span class="c">// &#39;1       &#39;</span>
+<span class="k">print</span><span class="w"> </span><span class="n">format</span><span class="p">(</span><span class="m">1</span><span class="o">,</span><span class="w"> </span><span class="m">8</span><span class="o">,</span><span class="w"> </span><span class="m">0</span><span class="o">,</span><span class="w"> </span><span class="n">FMT_RIGHT</span><span class="p">)</span><span class="w">  </span><span class="c">// &#39;1       &#39;</span>
 <span class="c">// 右0埋め</span>
-<span class="k">print</span><span class="w"> </span><span class="n">format</span><span class="p">(</span><span class="m">1</span><span class="o">,</span><span class="w"> </span><span class="m">8</span><span class="o">,</span><span class="w"> </span><span class="m">0</span><span class="o">,</span><span class="w"> </span><span class="m">FMT_ZEROR</span><span class="p">)</span><span class="w">  </span><span class="c">// &#39;10000000&#39;</span>
+<span class="k">print</span><span class="w"> </span><span class="n">format</span><span class="p">(</span><span class="m">1</span><span class="o">,</span><span class="w"> </span><span class="m">8</span><span class="o">,</span><span class="w"> </span><span class="m">0</span><span class="o">,</span><span class="w"> </span><span class="n">FMT_ZEROR</span><span class="p">)</span><span class="w">  </span><span class="c">// &#39;10000000&#39;</span>
 </pre></div>
 </div>
 </div>

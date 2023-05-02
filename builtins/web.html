@@ -1,0 +1,1017 @@
+<!doctype html>
+<html class="no-js" lang="ja">
+  <head><meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="color-scheme" content="light dark"><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+    <link rel="icon" href="../_static/MAINICON_0016-0256_light.ico" type="image/vnd.microsoft.icon">
+<link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="prev" title="COMオブジェクト" href="comobject.html" />
+
+    <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
+        <title>ウェブ関連 - UWSCR 0.11.0</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f8f8f8;
+  --color-code-foreground: black;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-half" viewBox="0 0 24 24">
+    <title>Auto light/dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-shadow">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M13 12h5" />
+      <path d="M13 15h4" />
+      <path d="M13 18h1" />
+      <path d="M13 9h4" />
+      <path d="M13 6h1" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc">
+<label class="overlay sidebar-overlay" for="__navigation">
+  <div class="visually-hidden">Hide navigation sidebar</div>
+</label>
+<label class="overlay toc-overlay" for="__toc">
+  <div class="visually-hidden">Hide table of contents sidebar</div>
+</label>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <div class="visually-hidden">Toggle site navigation sidebar</div>
+        <i class="icon"><svg><use href="#svg-menu"></use></svg></i>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../index.html"><div class="brand">UWSCR 0.11.0</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle">
+          <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+          <svg class="theme-icon-when-auto"><use href="#svg-sun-half"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <div class="visually-hidden">Toggle table of contents sidebar</div>
+        <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
+  
+  
+  <span class="sidebar-brand-text">UWSCR 0.11.0</span>
+  
+</a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
+  <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">使い方</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../usage/how_to_run.html">実行方法</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage/settings.html">設定ファイル</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage/how_to_build.html">ビルド方法</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">スクリプト構文</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../syntax/statement.html">スクリプト構文</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../syntax/special_variables.html">特殊変数</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">ビルトイン関数</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="text.html">文字列操作関数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="window.html">ウィンドウ操作関数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="scriptcontrol.html">スクリプト制御</a></li>
+<li class="toctree-l1"><a class="reference internal" href="system.html">システム関数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="file.html">ファイル操作関数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gui.html">GUI</a></li>
+<li class="toctree-l1"><a class="reference internal" href="array.html">配列操作関数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="math.html">数学関数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="comobject.html">COMオブジェクト</a></li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">ウェブ関連</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          
+<div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle">
+              <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+              <svg class="theme-icon-when-auto"><use href="#svg-sun-half"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <div class="visually-hidden">Toggle table of contents sidebar</div>
+            <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+          </label>
+        </div>
+        <article role="main">
+          <section id="id1">
+<h1>ウェブ関連<a class="headerlink" href="#id1" title="この見出しへのパーマリンク">#</a></h1>
+<section id="id2">
+<h2>ブラウザ操作<a class="headerlink" href="#id2" title="この見出しへのパーマリンク">#</a></h2>
+<div class="warning admonition">
+<p class="admonition-title">破壊的変更が行われました</p>
+<div class="line-block">
+<div class="line">バージョン <cite>0.11.0</cite> 以降のブラウザ操作機能はバージョン <cite>0.10.2</cite> 以前とは互換性がありません</div>
+</div>
+</div>
+<dl class="py function">
+<dt class="sig sig-object py" id="BrowserControl">
+<span class="sig-name descname"><span class="pre">BrowserControl</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ブラウザ定数</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">ポート=9222</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#BrowserControl" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">Devtools Protocolを利用したブラウザ操作を行うための <a class="reference internal" href="#browser-object"><span class="std std-ref">Browserオブジェクト</span></a> を返します</div>
+<div class="line">デバッグポートを開いたブラウザを起動します</div>
+<div class="line">対応ブラウザは以下</div>
+</div>
+<blockquote>
+<div><ul class="simple">
+<li><p>Google Chrome</p></li>
+<li><p>Microsoft Edge</p></li>
+</ul>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ブラウザ定数</strong> (<em>定数</em>) -- <p>以下のいずれかを指定</p>
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">BC_CHROME</span></span></dt>
+<dd><p>Google Chromeを操作します</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">BC_MSEDGE</span></span></dt>
+<dd><p>Microsoft Edgeを操作します</p>
+</dd></dl>
+
+</p></li>
+<li><p><strong>ポート</strong> (<em>数値 省略可</em>) -- デバッグポートを指定する</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#browser-object"><span class="std std-ref">Browserオブジェクト</span></a></p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>対象ブラウザの <a class="reference internal" href="#browser-object"><span class="std std-ref">Browserオブジェクト</span></a></p>
+</dd>
+</dl>
+<div class="hint admonition">
+<p class="admonition-title">ブラウザへの再接続について</p>
+<div class="line-block">
+<div class="line">対象ブラウザが同じデバッグポートを開けて起動している場合はそのブラウザに再接続できます</div>
+<div class="line">異なるポートを開いている、またはポートが開かれていない場合は再接続できずエラーになります</div>
+</div>
+</div>
+<div class="hint admonition">
+<p class="admonition-title">起動中のブラウザとは別に自動操作用のブラウザを起ち上げるには</p>
+<div class="line-block">
+<div class="line">起動中のブラウザとは異なるプロファイルで新たなブラウザを起動する必要があります</div>
+<div class="line">このような場合はBrowserControl関数ではなく <a class="reference internal" href="#Browserbuilder" title="Browserbuilder"><code class="xref any py py-func docutils literal notranslate"><span class="pre">Browserbuilder</span></code></a> 関数 を使用してください</div>
+<div class="line"><a class="reference internal" href="#Browserbuilder" title="Browserbuilder"><code class="xref any py py-func docutils literal notranslate"><span class="pre">Browserbuilder</span></code></a> 関数が返す <a class="reference internal" href="#builder-object"><span class="std std-ref">BrowserBuilderオブジェクト</span></a> でプロファイルフォルダを指定します</div>
+</div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="Browserbuilder">
+<span class="sig-name descname"><span class="pre">Browserbuilder</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ブラウザ定数</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Browserbuilder" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line"><a class="reference internal" href="#builder-object"><span class="std std-ref">BrowserBuilderオブジェクト</span></a> を返します</div>
+<div class="line">最低限の設定でブラウザを起動する <a class="reference internal" href="#BrowserControl" title="BrowserControl"><code class="xref any py py-func docutils literal notranslate"><span class="pre">BrowserControl</span></code></a> 関数とは異なり <a class="reference internal" href="#builder-object"><span class="std std-ref">BrowserBuilderオブジェクト</span></a> を介して様々な設定が行なえます</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>ブラウザ定数</strong> (<em>定数</em>) -- <p>以下のいずれかを指定</p>
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">BC_CHROME</span></span></dt>
+<dd><p>Google Chromeを操作します</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">BC_MSEDGE</span></span></dt>
+<dd><p>Microsoft Edgeを操作します</p>
+</dd></dl>
+
+</p>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#builder-object"><span class="std std-ref">BrowserBuilderオブジェクト</span></a></p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>対象ブラウザの <a class="reference internal" href="#builder-object"><span class="std std-ref">BrowserBuilderオブジェクト</span></a></p>
+</dd>
+</dl>
+<div class="hint admonition">
+<p class="admonition-title">ブラウザの起動方法</p>
+<div class="line-block">
+<div class="line"><a class="reference internal" href="#builder-object"><span class="std std-ref">BrowserBuilderオブジェクト</span></a> の <code class="docutils literal notranslate"><span class="pre">start()</span></code> メソッドでブラウザを起動、または再接続します</div>
+</div>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// BrowserBuilderオブジェクトを作成し、startメソッドを呼ぶ</span>
+<span class="n">builder</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">BrowserBuilder</span><span class="p">(</span><span class="n">BC_CHROME</span><span class="p">)</span>
+<span class="n">chrome</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">builder</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+
+<span class="c">// 以下のようにも書ける</span>
+<span class="n">chrome</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">BrowserBuilder</span><span class="p">(</span><span class="n">BC_CHROME</span><span class="p">)</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+
+<span class="c">// ポートの変更</span>
+<span class="n">chrome</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">BrowserBuilder</span><span class="p">(</span><span class="n">BC_CHROME</span><span class="p">)</span><span class="n">_</span>
+<span class="w">    </span><span class="o">.</span><span class="n">port</span><span class="p">(</span><span class="m">9999</span><span class="p">)</span><span class="n">_</span>
+<span class="w">    </span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+
+<span class="c">// ヘッドレス起動</span>
+<span class="n">chrome</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">BrowserBuilder</span><span class="p">(</span><span class="n">BC_CHROME</span><span class="p">)</span><span class="n">_</span>
+<span class="w">    </span><span class="o">.</span><span class="n">headless</span><span class="p">(</span><span class="n">TRUE</span><span class="p">)</span><span class="n">_</span>
+<span class="w">    </span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+
+<span class="c">// プロファイルフォルダの変更</span>
+<span class="n">chrome</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">BrowserBuilder</span><span class="p">(</span><span class="n">BC_CHROME</span><span class="p">)</span><span class="n">_</span>
+<span class="w">    </span><span class="o">.</span><span class="n">profile</span><span class="p">(</span><span class="s">&quot;C:\uwscr\chrome\profile1&quot;</span><span class="p">)</span><span class="n">_</span>
+<span class="w">    </span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+
+<span class="c">// 複合設定</span>
+<span class="n">chrome</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">BrowserBuilder</span><span class="p">(</span><span class="n">BC_CHROME</span><span class="p">)</span><span class="n">_</span>
+<span class="w">    </span><span class="o">.</span><span class="n">port</span><span class="p">(</span><span class="m">12345</span><span class="p">)</span><span class="n">_</span>
+<span class="w">    </span><span class="o">.</span><span class="n">headless</span><span class="p">(</span><span class="n">TRUE</span><span class="p">)</span><span class="n">_</span>
+<span class="w">    </span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="hint admonition">
+<p class="admonition-title">対象ブラウザが指定ポートを開いていなかった場合の動作</p>
+<ul class="simple">
+<li><p>対象ブラウザのプロセスがすでに存在している</p></li>
+<li><p>そのプロセスが指定ポートを開いていない</p></li>
+</ul>
+<div class="line-block">
+<div class="line">の2点を満たす場合、再接続が行えないためエラーになります</div>
+<div class="line">ただし、起動中のブラウザとは異なるプロファイルフォルダを指定した場合は指定ポートで新たなブラウザプロセスを起動します</div>
+<div class="line">(同一プロファイルにつき一つのデバッグポート(またはポートなし)でしかブラウザを起動できないため)</div>
+</div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="ConvertFromRemoteObject">
+<span class="sig-name descname"><span class="pre">ConvertFromRemoteObject</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">remote</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ConvertFromRemoteObject" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">リモートオブジェクトがプリミティブな値の場合に適切な値型に変換します</div>
+<div class="line">変換できないものはそのまま返ります</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>remote</strong> (<em>RemoteObject</em>) -- 値型に変換したい <a class="reference internal" href="#remote-object"><span class="std std-ref">RemoteObject</span></a></p>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>変換された値、変換できない場合は <a class="reference internal" href="#remote-object"><span class="std std-ref">RemoteObject</span></a></p>
+</dd>
+</dl>
+<div class="tip admonition">
+<p class="admonition-title">ブラウザパスの指定方法</p>
+<div class="line-block">
+<div class="line">通常はレジストリ等からブラウザの実行ファイルのパスを取得しそれを実行します (パスの自動取得)</div>
+<div class="line">自動取得を行わずに任意のパスで実行させるには設定ファイルにパスを記述します</div>
+</div>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;browser&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">        </span><span class="nt">&quot;chrome&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;C:\\path\\to\\chrome.exe&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">        </span><span class="nt">&quot;msedge&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;C:\\path\\to\\msedge.exe&quot;</span><span class="w"></span>
+<span class="w">    </span><span class="p">},</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</pre></div>
+</div>
+<div class="line-block">
+<div class="line">自動取得に戻す場合は <code class="docutils literal notranslate"><span class="pre">null</span></code> にします</div>
+</div>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;browser&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">        </span><span class="nt">&quot;chrome&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"></span>
+<span class="w">        </span><span class="nt">&quot;msedge&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="w"></span>
+<span class="w">    </span><span class="p">},</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</pre></div>
+</div>
+<div class="line-block">
+<div class="line">パスは必ずchrome.exeおよびmsedge.exeのものにしてください</div>
+<div class="line">それ以外は動作保証外です</div>
+</div>
+</div>
+</dd></dl>
+
+<section id="browserbuilder">
+<span id="builder-object"></span><h3>BrowserBuilderオブジェクト<a class="headerlink" href="#browserbuilder" title="この見出しへのパーマリンク">#</a></h3>
+<div class="line-block">
+<div class="line">ブラウザの起動、再接続、起動時設定を行うオブジェクト</div>
+</div>
+<dl class="py class">
+<dt class="sig sig-object py" id="BrowserBuilder">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">BrowserBuilder</span></span><a class="headerlink" href="#BrowserBuilder" title="この定義へのパーマリンク">#</a></dt>
+<dd><dl class="py method">
+<dt class="sig sig-object py" id="BrowserBuilder.port">
+<span class="sig-name descname"><span class="pre">port</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">port</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#BrowserBuilder.port" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">ブラウザのデバッグポートを変更します、デフォルトは <code class="docutils literal notranslate"><span class="pre">9222</span></code></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>port</strong> (<em>数値</em>) -- 変更するデバッグポート</p>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#BrowserBuilder" title="BrowserBuilder">BrowserBuilder</a></p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>更新されたBrowserBuilder</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="BrowserBuilder.headless">
+<span class="sig-name descname"><span class="pre">headless</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">有効</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">TRUE</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#BrowserBuilder.headless" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">ブラウザをヘッドレスで起動するかどうかを設定します</div>
+<div class="line">この設定は再接続時には無視されます</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>有効</strong> (<em>真偽値</em>) -- TRUEの場合ブラウザをヘッドレスで起動</p>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#BrowserBuilder" title="BrowserBuilder">BrowserBuilder</a></p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>更新されたBrowserBuilder</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="BrowserBuilder.private">
+<span class="sig-name descname"><span class="pre">private</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">有効</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">TRUE</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#BrowserBuilder.private" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">ブラウザをプライベートモードで起動するかどうかを設定します</div>
+<div class="line">この設定は再接続時には無視されます</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>有効</strong> (<em>真偽値</em>) -- TRUEの場合ブラウザをプライベートモードで起動</p>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#BrowserBuilder" title="BrowserBuilder">BrowserBuilder</a></p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>更新されたBrowserBuilder</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="BrowserBuilder.profile">
+<span class="sig-name descname"><span class="pre">profile</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">プロファイルパス</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#BrowserBuilder.profile" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">プロファイルを保存するパスを指定します</div>
+<div class="line">この設定は再接続時には無視されます</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>プロファイルパス</strong> (<em>文字列</em>) -- プロファイルを保存するパス</p>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#BrowserBuilder" title="BrowserBuilder">BrowserBuilder</a></p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>更新されたBrowserBuilder</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="BrowserBuilder.start">
+<span class="sig-name descname"><span class="pre">start</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#BrowserBuilder.start" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">ブラウザを起動し <a class="reference internal" href="#browser-object"><span class="std std-ref">Browserオブジェクト</span></a> を返します</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#browser-object"><span class="std std-ref">Browserオブジェクト</span></a></p>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>対象ブラウザの <a class="reference internal" href="#browser-object"><span class="std std-ref">Browserオブジェクト</span></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="browser">
+<span id="browser-object"></span><h3>Browserオブジェクト<a class="headerlink" href="#browser" title="この見出しへのパーマリンク">#</a></h3>
+<div class="line-block">
+<div class="line">操作対象となるタブを示すオブジェクト</div>
+</div>
+<dl class="py class">
+<dt class="sig sig-object py" id="Browser">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Browser</span></span><a class="headerlink" href="#Browser" title="この定義へのパーマリンク">#</a></dt>
+<dd><dl class="py property">
+<dt class="sig sig-object py" id="Browser.count">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">count</span></span><a class="headerlink" href="#Browser.count" title="この定義へのパーマリンク">#</a></dt>
+<dd><p>ブラウザ上の操作可能なタブの数を返します</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">tabs[i]</span></span></dt>
+<dd><p>インデックスを指定し <a class="reference internal" href="#tabwindow-object"><span class="std std-ref">TabWindowオブジェクト</span></a> を返します</p>
+<div class="hint admonition">
+<p class="admonition-title">配列表記対応</p>
+<div class="line-block">
+<div class="line">Browserオブジェクトに直接インデックス指定することもできます</div>
+</div>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">chrome</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">BrowserControl</span><span class="p">(</span><span class="n">BC_CHROME</span><span class="p">)</span>
+
+<span class="c">// タブの取得</span>
+<span class="n">tab</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">chrome</span><span class="o">.</span><span class="n">tabs</span><span class="p">[</span><span class="m">0</span><span class="p">]</span>
+
+<span class="c">// 以下のようにも書ける</span>
+<span class="n">tab</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">chrome</span><span class="p">[</span><span class="m">0</span><span class="p">]</span>
+</pre></div>
+</div>
+</div>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Browser.close">
+<span class="sig-name descname"><span class="pre">close</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Browser.close" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">ブラウザを閉じます</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>なし</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Browser.new">
+<span class="sig-name descname"><span class="pre">new</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">url</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Browser.new" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">指定したURLを新しいタブを開きます</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>url</strong> (<em>文字列</em>) -- 開きたいサイトのURL</p>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#tabwindow-object"><span class="std std-ref">TabWindowオブジェクト</span></a></p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>新しく開いたタブの <a class="reference internal" href="#tabwindow-object"><span class="std std-ref">TabWindowオブジェクト</span></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Browser.id">
+<span class="sig-name descname"><span class="pre">id</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Browser.id" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">ブラウザのウィンドウIDを返します</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-odd"><p>数値</p>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>ウィンドウID</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<div class="caution admonition">
+<p class="admonition-title">タブ一覧取得が遅い場合がある</p>
+<div class="line-block">
+<div class="line">countやtabsの結果を得るまでに数秒かかる場合があります</div>
+<div class="line">これは、使用しているDevtools ProtocolのAPI実行速度によるものです</div>
+</div>
+</div>
+</section>
+<section id="tabwindow">
+<span id="tabwindow-object"></span><h3>TabWindowオブジェクト<a class="headerlink" href="#tabwindow" title="この見出しへのパーマリンク">#</a></h3>
+<div class="line-block">
+<div class="line">タブごとのWindowオブジェクトを示すオブジェクト</div>
+</div>
+<dl class="py class">
+<dt class="sig sig-object py" id="TabWindow">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">TabWindow</span></span><a class="headerlink" href="#TabWindow" title="この定義へのパーマリンク">#</a></dt>
+<dd><dl class="py property">
+<dt class="sig sig-object py" id="TabWindow.document">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">document</span></span><a class="headerlink" href="#TabWindow.document" title="この定義へのパーマリンク">#</a></dt>
+<dd><p><code class="docutils literal notranslate"><span class="pre">window.document</span></code> に相当する <a class="reference internal" href="#remote-object"><span class="std std-ref">RemoteObject</span></a> を返します</p>
+<div class="hint admonition">
+<p class="admonition-title">ブラウザ操作の基本はdocument取得から</p>
+<div class="line-block">
+<div class="line"><a class="reference internal" href="#remote-object"><span class="std std-ref">RemoteObject</span></a> はブラウザ上のJavaScriptオブジェクトです</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">document</span></code> を起点に <code class="docutils literal notranslate"><span class="pre">querySelector</span></code> 等でエレメントにアクセスできます</div>
+<div class="line"><a class="reference internal" href="#remote-object"><span class="std std-ref">RemoteObject</span></a> のプロパティやメソッドの実行結果は <a class="reference internal" href="#remote-object"><span class="std std-ref">RemoteObject</span></a> として返ります</div>
+<div class="line">そのためブラウザ上でJavaScriptを実行するかのようにブラウザ操作を行うことが可能です</div>
+<div class="line">詳しくは <a class="reference internal" href="#browser-sample"><span class="std std-ref">ブラウザ操作サンプル</span></a> を参照してください</div>
+</div>
+</div>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="TabWindow.navigate">
+<span class="sig-name descname"><span class="pre">navigate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">uri</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#TabWindow.navigate" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">指定URLを開きます</div>
+<div class="line">ページの読み込み完了まで待機します (最大10秒)</div>
+</div>
+<div class="hint admonition">
+<p class="admonition-title">読み込み時間が長い場合</p>
+<div class="line-block">
+<div class="line">読み込みに10秒以上かかるページに対しては navigate実行後に <a class="reference internal" href="#TabWindow.wait" title="TabWindow.wait"><code class="xref any py py-meth docutils literal notranslate"><span class="pre">wait</span></code></a> メソッドを呼んでください</div>
+</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>uri</strong> (<em>文字列</em>) -- 開きたいサイトのURL</p>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>真偽値</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>タイムアウトした場合FALSE</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="TabWindow.reload">
+<span class="sig-name descname"><span class="pre">reload</span></span><span class="sig-paren">(</span><span class="optional">[</span><em class="sig-param"><span class="n"><span class="pre">キャッシュ無視=FALSE</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#TabWindow.reload" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">ページをリロードします</div>
+<div class="line">ページの読み込み完了まで待機します (最大10秒)</div>
+</div>
+<div class="hint admonition">
+<p class="admonition-title">読み込み時間が長い場合</p>
+<div class="line-block">
+<div class="line">読み込みに10秒以上かかるページに対しては navigate実行後に <a class="reference internal" href="#TabWindow.wait" title="TabWindow.wait"><code class="xref any py py-meth docutils literal notranslate"><span class="pre">wait</span></code></a> メソッドを呼んでください</div>
+</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>キャッシュ無視</strong> (<em>真偽値</em>) -- TRUEならキャッシュを無視してリロード (<cite>Shift+refresh</cite> と同等)</p>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>真偽値</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>タイムアウトした場合FALSE</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="TabWindow.wait">
+<span class="sig-name descname"><span class="pre">wait</span></span><span class="sig-paren">(</span><span class="optional">[</span><em class="sig-param"><span class="n"><span class="pre">タイムアウト秒=10</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#TabWindow.wait" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">ページの読み込みが完了するのを待ちます</div>
+<div class="line">リンクをクリックした後などに使用します</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>タイムアウト秒</strong> (<em>数値 省略可</em>) -- 読み込み完了まで待機する最大時間 (秒)</p>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>真偽値</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>タイムアウトした場合はFALSE</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="TabWindow.activate">
+<span class="sig-name descname"><span class="pre">activate</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#TabWindow.activate" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">タブをアクティブにします</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>なし</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="TabWindow.close">
+<span class="sig-name descname"><span class="pre">close</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#TabWindow.close" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">タブを閉じます</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>なし</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="remoteobject">
+<span id="remote-object"></span><h3>RemoteObject<a class="headerlink" href="#remoteobject" title="この見出しへのパーマリンク">#</a></h3>
+<div class="line-block">
+<div class="line">ブラウザ上に存在するJavaScriptオブジェクトを示すオブジェクト</div>
+</div>
+<section id="id3">
+<h4>メソッドの実行<a class="headerlink" href="#id3" title="この見出しへのパーマリンク">#</a></h4>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">RemoteObject.メソッド名(引数)</span></code> でメソッドを実行し、戻り値を <a class="reference internal" href="#remote-object"><span class="std std-ref">RemoteObject</span></a> として取得します</div>
+<div class="line">メソッド名は大文字小文字を区別します</div>
+</div>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">chrome</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">BrowserControl</span><span class="p">(</span><span class="n">BC_CHROME</span><span class="p">)</span>
+<span class="n">foo</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">chrome</span><span class="p">[</span><span class="m">0</span><span class="p">]</span><span class="o">.</span><span class="n">document</span><span class="o">.</span><span class="n">querySelector</span><span class="p">(</span><span class="s">&quot;#foo&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="id4">
+<h4>プロパティの取得<a class="headerlink" href="#id4" title="この見出しへのパーマリンク">#</a></h4>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">RemoteObject.プロパティ名</span></code> とすることでプロパティ値を <a class="reference internal" href="#remote-object"><span class="std std-ref">RemoteObject</span></a> として取得します</div>
+<div class="line">配列要素であればインデックスを指定します <code class="docutils literal notranslate"><span class="pre">RemoteObject.プロパティ名[i]</span></code></div>
+<div class="line">プロパティ名は大文字小文字を区別します</div>
+</div>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">chrome</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">BrowserControl</span><span class="p">(</span><span class="n">BC_CHROME</span><span class="p">)</span>
+<span class="n">url</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">chrome</span><span class="p">[</span><span class="m">0</span><span class="p">]</span><span class="o">.</span><span class="n">document</span><span class="o">.</span><span class="n">URL</span>
+</pre></div>
+</div>
+</section>
+<section id="id5">
+<h4>プロパティの変更<a class="headerlink" href="#id5" title="この見出しへのパーマリンク">#</a></h4>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">RemoteObject.プロパティ名</span> <span class="pre">=</span> <span class="pre">値</span></code> とすることでプロパティ値を変更します</div>
+<div class="line">配列要素であればインデックスを指定します <code class="docutils literal notranslate"><span class="pre">RemoteObject.プロパティ名[i]</span> <span class="pre">=</span> <span class="pre">値</span></code></div>
+<div class="line">プロパティ名は大文字小文字を区別します</div>
+</div>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">chrome</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">BrowserControl</span><span class="p">(</span><span class="n">BC_CHROME</span><span class="p">)</span>
+<span class="n">foo</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">chrome</span><span class="p">[</span><span class="m">0</span><span class="p">]</span><span class="o">.</span><span class="n">document</span><span class="o">.</span><span class="n">querySelector</span><span class="p">(</span><span class="s">&quot;#foo&quot;</span><span class="p">)</span>
+<span class="n">foo</span><span class="o">.</span><span class="n">value</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;ほげほげ&quot;</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="browser-sample">
+<span id="id6"></span><h3>ブラウザ操作サンプル<a class="headerlink" href="#browser-sample" title="この見出しへのパーマリンク">#</a></h3>
+<div class="admonition-document admonition">
+<p class="admonition-title">documentへのアクセス</p>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// ブラウザを開く</span>
+<span class="n">chrome</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">BrowserControl</span><span class="p">(</span><span class="n">BC_CHROME</span><span class="p">)</span>
+
+<span class="c">// ひとつめのタブを得る</span>
+<span class="n">tab1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">chrome</span><span class="o">.</span><span class="n">tabs</span><span class="p">[</span><span class="m">0</span><span class="p">]</span>
+<span class="c">// 以下のようにも書けます</span>
+<span class="c">// tab1 = chrome[0]</span>
+
+<span class="c">// 任意のサイトを開く</span>
+<span class="n">tab1</span><span class="o">.</span><span class="n">navigate</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+
+<span class="c">// window.documentを得る</span>
+<span class="n">document</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">tab1</span><span class="o">.</span><span class="n">document</span>
+
+<span class="c">// URLを得る</span>
+<span class="k">print</span><span class="w"> </span><span class="n">document</span><span class="o">.</span><span class="n">URL</span>
+</pre></div>
+</div>
+</div>
+<div class="admonition-url admonition">
+<p class="admonition-title">タブごとのURLを列挙</p>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// タブの数を得る</span>
+<span class="k">print</span><span class="w"> </span><span class="n">chrome</span><span class="o">.</span><span class="n">count</span>
+
+<span class="c">// URLを列挙</span>
+<span class="k">for</span><span class="w"> </span><span class="n">tab</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="n">chrome</span><span class="o">.</span><span class="n">tabs</span>
+<span class="w">    </span><span class="k">print</span><span class="w"> </span><span class="n">tab</span><span class="o">.</span><span class="n">document</span><span class="o">.</span><span class="n">URL</span>
+<span class="k">next</span>
+<span class="c">// 以下のようにも書けます</span>
+<span class="c">// for tab in chrome</span>
+<span class="c">//     print tab.document.URL</span>
+<span class="c">// next</span>
+</pre></div>
+</div>
+</div>
+<div class="admonition- admonition">
+<p class="admonition-title">自動操作用ブラウザを別途開く</p>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// デバッグポートを開いていないブラウザがすでに開かれている場合</span>
+<span class="c">// 以下は再接続ができずエラーになる</span>
+<span class="c">// chrome = BrowserControl(BC_CHROME)</span>
+
+<span class="c">// プロファイルフォルダを指定して別のブラウザを起動する</span>
+<span class="n">chrome</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">BrowserBuilder</span><span class="p">(</span><span class="n">BC_CHROME</span><span class="p">)</span><span class="o">.</span><span class="n">profile</span><span class="p">(</span><span class="s">&quot;C:\chrome\profile1&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="admonition-selenium admonition">
+<p class="admonition-title">Seleniumテストページの操作</p>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// ブラウザを開く</span>
+<span class="n">chrome</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">BrowserControl</span><span class="p">(</span><span class="n">BC_CHROME</span><span class="p">)</span>
+<span class="c">// ブラウザをアクティブにする</span>
+<span class="n">ctrlwin</span><span class="p">(</span><span class="n">chrome</span><span class="o">.</span><span class="n">id</span><span class="p">()</span><span class="o">,</span><span class="w"> </span><span class="n">ACTIVATE</span><span class="p">)</span>
+
+<span class="c">// 新しいタブでSeleniumのテストページを開く</span>
+
+<span class="n">tab</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">chrome</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="s">&#39;http://example.selenium.jp/reserveApp_Renewal/&#39;</span><span class="p">)</span>
+<span class="c">// ドキュメントを取得しておく</span>
+<span class="n">document</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">tab</span><span class="o">.</span><span class="n">document</span>
+
+<span class="c">// 宿泊日を入力</span>
+
+<span class="c">// 3日後の日付を得る</span>
+<span class="n">date</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">format</span><span class="p">(</span><span class="n">gettime</span><span class="p">(</span><span class="m">3</span><span class="o">,</span><span class="w"> </span><span class="o">,</span><span class="w"> </span><span class="n">G_OFFSET_DAYS</span><span class="p">)</span><span class="o">,</span><span class="w"> </span><span class="s">&#39;%Y/%m/%d&#39;</span><span class="p">)</span>
+
+<span class="n">document</span><span class="o">.</span><span class="n">querySelector</span><span class="p">(</span><span class="s">&#39;#datePick&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">value</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">date</span>
+<span class="n">document</span><span class="o">.</span><span class="n">querySelector</span><span class="p">(</span><span class="s">&#39;#reserve_year&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">value</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">G_TIME_YY4</span>
+<span class="n">document</span><span class="o">.</span><span class="n">querySelector</span><span class="p">(</span><span class="s">&#39;#reserve_month&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">value</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">G_TIME_MM2</span>
+<span class="n">document</span><span class="o">.</span><span class="n">querySelector</span><span class="p">(</span><span class="s">&#39;#reserve_day&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">value</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">G_TIME_DD2</span>
+
+<span class="c">// 宿泊日数を選択</span>
+
+<span class="n">reserve_term</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">2</span>
+<span class="n">document</span><span class="o">.</span><span class="n">querySelector</span><span class="p">(</span><span class="s">&quot;#reserve_term option[value=&#39;&lt;#reserve_term&gt;&#39;]&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">selected</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">TRUE</span>
+
+<span class="c">// 人数を選択</span>
+
+<span class="n">headcount</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">5</span>
+<span class="n">document</span><span class="o">.</span><span class="n">querySelector</span><span class="p">(</span><span class="s">&quot;#headcount option[value=&#39;&lt;#headcount&gt;&#39;]&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">selected</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">TRUE</span>
+
+<span class="c">// プラン選択</span>
+
+<span class="c">// お得な観光プランをチェック</span>
+<span class="n">document</span><span class="o">.</span><span class="n">querySelector</span><span class="p">(</span><span class="s">&#39;#plan_b&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">checked</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">TRUE</span>
+
+
+<span class="c">// 名前入力</span>
+
+<span class="n">document</span><span class="o">.</span><span class="n">querySelector</span><span class="p">(</span><span class="s">&#39;#guestname&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">value</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;おなまえ&quot;</span>
+
+<span class="c">// 利用規約に同意して次へ をクリック</span>
+
+<span class="n">document</span><span class="o">.</span><span class="n">querySelector</span><span class="p">(</span><span class="s">&#39;#agree_and_goto_next&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">click</span><span class="p">()</span>
+
+<span class="c">// 読み込み完了を待つ</span>
+
+<span class="n">tab</span><span class="o">.</span><span class="n">wait</span><span class="p">()</span>
+<span class="c">// ページを移動したのでdocumentは取得しなおす</span>
+<span class="n">document</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">tab</span><span class="o">.</span><span class="n">document</span>
+
+<span class="c">// 合計金額を得る</span>
+
+<span class="n">price</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">document</span><span class="o">.</span><span class="n">querySelector</span><span class="p">(</span><span class="s">&#39;#price&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">textContent</span>
+<span class="c">// RemoteObjectを値に変換する</span>
+<span class="n">price</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ConvertFromRemoteObject</span><span class="p">(</span><span class="n">price</span><span class="p">)</span>
+
+<span class="c">// 確定ボタンを押す</span>
+
+<span class="n">document</span><span class="o">.</span><span class="n">querySelector</span><span class="p">(</span><span class="s">&#39;#commit&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">click</span><span class="p">()</span>
+
+<span class="n">msgbox</span><span class="p">(</span><span class="s">&quot;宿泊費用は&lt;#price&gt;円でした&quot;</span><span class="p">)</span>
+
+<span class="c">// タブを閉じる</span>
+<span class="n">tab</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</section>
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          
+          <a class="prev-page" href="comobject.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">COMオブジェクト</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2022, stuncloud
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            <div class="icons">
+              
+            </div>
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">ウェブ関連</a><ul>
+<li><a class="reference internal" href="#id2">ブラウザ操作</a><ul>
+<li><a class="reference internal" href="#BrowserControl"><code class="docutils literal notranslate"><span class="pre">BrowserControl()</span></code></a></li>
+<li><a class="reference internal" href="#Browserbuilder"><code class="docutils literal notranslate"><span class="pre">Browserbuilder()</span></code></a></li>
+<li><a class="reference internal" href="#ConvertFromRemoteObject"><code class="docutils literal notranslate"><span class="pre">ConvertFromRemoteObject()</span></code></a></li>
+<li><a class="reference internal" href="#browserbuilder">BrowserBuilderオブジェクト</a><ul>
+<li><a class="reference internal" href="#BrowserBuilder"><code class="docutils literal notranslate"><span class="pre">BrowserBuilder</span></code></a><ul>
+<li><a class="reference internal" href="#BrowserBuilder.port"><code class="docutils literal notranslate"><span class="pre">BrowserBuilder.port()</span></code></a></li>
+<li><a class="reference internal" href="#BrowserBuilder.headless"><code class="docutils literal notranslate"><span class="pre">BrowserBuilder.headless()</span></code></a></li>
+<li><a class="reference internal" href="#BrowserBuilder.private"><code class="docutils literal notranslate"><span class="pre">BrowserBuilder.private()</span></code></a></li>
+<li><a class="reference internal" href="#BrowserBuilder.profile"><code class="docutils literal notranslate"><span class="pre">BrowserBuilder.profile()</span></code></a></li>
+<li><a class="reference internal" href="#BrowserBuilder.start"><code class="docutils literal notranslate"><span class="pre">BrowserBuilder.start()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#browser">Browserオブジェクト</a><ul>
+<li><a class="reference internal" href="#Browser"><code class="docutils literal notranslate"><span class="pre">Browser</span></code></a><ul>
+<li><a class="reference internal" href="#Browser.count"><code class="docutils literal notranslate"><span class="pre">Browser.count</span></code></a></li>
+<li><a class="reference internal" href="#Browser.close"><code class="docutils literal notranslate"><span class="pre">Browser.close()</span></code></a></li>
+<li><a class="reference internal" href="#Browser.new"><code class="docutils literal notranslate"><span class="pre">Browser.new()</span></code></a></li>
+<li><a class="reference internal" href="#Browser.id"><code class="docutils literal notranslate"><span class="pre">Browser.id()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#tabwindow">TabWindowオブジェクト</a><ul>
+<li><a class="reference internal" href="#TabWindow"><code class="docutils literal notranslate"><span class="pre">TabWindow</span></code></a><ul>
+<li><a class="reference internal" href="#TabWindow.document"><code class="docutils literal notranslate"><span class="pre">TabWindow.document</span></code></a></li>
+<li><a class="reference internal" href="#TabWindow.navigate"><code class="docutils literal notranslate"><span class="pre">TabWindow.navigate()</span></code></a></li>
+<li><a class="reference internal" href="#TabWindow.reload"><code class="docutils literal notranslate"><span class="pre">TabWindow.reload()</span></code></a></li>
+<li><a class="reference internal" href="#TabWindow.wait"><code class="docutils literal notranslate"><span class="pre">TabWindow.wait()</span></code></a></li>
+<li><a class="reference internal" href="#TabWindow.activate"><code class="docutils literal notranslate"><span class="pre">TabWindow.activate()</span></code></a></li>
+<li><a class="reference internal" href="#TabWindow.close"><code class="docutils literal notranslate"><span class="pre">TabWindow.close()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#remoteobject">RemoteObject</a><ul>
+<li><a class="reference internal" href="#id3">メソッドの実行</a></li>
+<li><a class="reference internal" href="#id4">プロパティの取得</a></li>
+<li><a class="reference internal" href="#id5">プロパティの変更</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#browser-sample">ブラウザ操作サンプル</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/sphinx_highlight.js"></script>
+    <script src="../_static/scripts/furo.js"></script>
+    <script src="../_static/translations.js"></script>
+    <script src="../_static/custom.js"></script>
+    </body>
+</html>

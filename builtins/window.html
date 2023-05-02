@@ -7,7 +7,7 @@
 <link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="スクリプト制御" href="scriptcontrol.html" /><link rel="prev" title="文字列操作関数" href="text.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>ウィンドウ操作関数 - UWSCR 0.10.2</title>
+        <title>ウィンドウ操作関数 - UWSCR 0.11.0</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 0.10.2</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 0.11.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 0.10.2</span>
+  <span class="sidebar-brand-text">UWSCR 0.11.0</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -177,7 +177,7 @@
 <li class="toctree-l1"><a class="reference internal" href="array.html">配列操作関数</a></li>
 <li class="toctree-l1"><a class="reference internal" href="math.html">数学関数</a></li>
 <li class="toctree-l1"><a class="reference internal" href="comobject.html">COMオブジェクト</a></li>
-<li class="toctree-l1"><a class="reference internal" href="browser.html">ブラウザ操作</a></li>
+<li class="toctree-l1"><a class="reference internal" href="web.html">ウェブ関連</a></li>
 </ul>
 
 </div>
@@ -407,10 +407,10 @@
 </div>
 <div class="admonition- admonition">
 <p class="admonition-title">サンプルコード</p>
-<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">ctrlwin</span><span class="p">(</span><span class="n">getid</span><span class="p">(</span><span class="s">&quot;TEST&quot;</span><span class="p">)</span><span class="o">,</span><span class="w"> </span><span class="m">HIDE</span><span class="p">)</span>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">ctrlwin</span><span class="p">(</span><span class="n">getid</span><span class="p">(</span><span class="s">&quot;TEST&quot;</span><span class="p">)</span><span class="o">,</span><span class="w"> </span><span class="n">HIDE</span><span class="p">)</span>
 <span class="c">// getid(&quot;TEST&quot;)のウィンドウがID0に記憶される</span>
 
-<span class="n">ctrlwin</span><span class="p">(</span><span class="m">0</span><span class="o">,</span><span class="w"> </span><span class="m">SHOW</span><span class="p">)</span><span class="w"> </span><span class="c">// 同じウィンドウに対して実行される</span>
+<span class="n">ctrlwin</span><span class="p">(</span><span class="m">0</span><span class="o">,</span><span class="w"> </span><span class="n">SHOW</span><span class="p">)</span><span class="w"> </span><span class="c">// 同じウィンドウに対して実行される</span>
 </pre></div>
 </div>
 </div>
@@ -470,8 +470,8 @@
 <div class="line">アイテム名をタブ文字 (<code class="docutils literal notranslate"><span class="pre">&lt;#TAB&gt;</span></code>) で区切るか、配列指定で複数選択できます</div>
 </div>
 <div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// foo, bar, bazを選択状態にする</span>
-<span class="n">clkitem</span><span class="p">(</span><span class="n">id</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;foo&lt;#TAB&gt;bar&lt;#TAB&gt;baz&quot;</span><span class="o">,</span><span class="w"> </span><span class="m">CLK_LIST</span><span class="p">)</span><span class="w"> </span><span class="c">// タブ文字区切り</span>
-<span class="n">clkitem</span><span class="p">(</span><span class="n">id</span><span class="o">,</span><span class="w"> </span><span class="p">[</span><span class="s">&quot;foo&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;bar&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;baz&quot;</span><span class="p">]</span><span class="o">,</span><span class="w"> </span><span class="m">CLK_LIST</span><span class="p">)</span><span class="w">   </span><span class="c">// タブ文字区切り</span>
+<span class="n">clkitem</span><span class="p">(</span><span class="n">id</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;foo&lt;#TAB&gt;bar&lt;#TAB&gt;baz&quot;</span><span class="o">,</span><span class="w"> </span><span class="n">CLK_LIST</span><span class="p">)</span><span class="w"> </span><span class="c">// タブ文字区切り</span>
+<span class="n">clkitem</span><span class="p">(</span><span class="n">id</span><span class="o">,</span><span class="w"> </span><span class="p">[</span><span class="s">&quot;foo&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;bar&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;baz&quot;</span><span class="p">]</span><span class="o">,</span><span class="w"> </span><span class="n">CLK_LIST</span><span class="p">)</span><span class="w">   </span><span class="c">// タブ文字区切り</span>
 </pre></div>
 </div>
 </div>
@@ -1194,10 +1194,10 @@
 <span class="n">id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">getid</span><span class="p">(</span><span class="n">hoge</span><span class="p">)</span>
 <span class="n">hnd</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">getctlhnd</span><span class="p">(</span><span class="n">id</span><span class="o">,</span><span class="w"> </span><span class="n">class_name</span><span class="p">)</span>
 <span class="c">// このとき hnd の値がいずれかの登録済みIDと一致してしまった場合は予期せぬ動作となる</span>
-<span class="n">mouseorg</span><span class="p">(</span><span class="n">hnd</span><span class="o">,</span><span class="w"> </span><span class="m">MORG_DIRECT</span><span class="p">)</span>
+<span class="n">mouseorg</span><span class="p">(</span><span class="n">hnd</span><span class="o">,</span><span class="w"> </span><span class="n">MORG_DIRECT</span><span class="p">)</span>
 
 <span class="c">// MORG_DIRECTかつ第四引数をTRUEにした場合hndはHWNDとして扱われる</span>
-<span class="n">mouseorg</span><span class="p">(</span><span class="n">hnd</span><span class="o">,</span><span class="w"> </span><span class="m">MORG_DIRECT</span><span class="o">,</span><span class="w"> </span><span class="o">,</span><span class="w"> </span><span class="m">TRUE</span><span class="p">)</span>
+<span class="n">mouseorg</span><span class="p">(</span><span class="n">hnd</span><span class="o">,</span><span class="w"> </span><span class="n">MORG_DIRECT</span><span class="o">,</span><span class="w"> </span><span class="o">,</span><span class="w"> </span><span class="n">TRUE</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1390,12 +1390,12 @@
 <div class="admonition- admonition">
 <p class="admonition-title">サンプルコード</p>
 <div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">getid</span><span class="p">(</span><span class="s">&quot;uwsc&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;HH&quot;</span><span class="p">)</span><span class="w"> </span><span class="c">// uwscヘルプファイル</span>
-<span class="n">stat</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">status</span><span class="p">(</span><span class="n">id</span><span class="o">,</span><span class="w"> </span><span class="m">ST_TITLE</span><span class="o">,</span><span class="w"> </span><span class="m">ST_CLASS</span><span class="o">,</span><span class="w"> </span><span class="m">ST_HEIGHT</span><span class="o">,</span><span class="w"> </span><span class="m">ST_WIDTH</span><span class="p">)</span>
+<span class="n">stat</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">status</span><span class="p">(</span><span class="n">id</span><span class="o">,</span><span class="w"> </span><span class="n">ST_TITLE</span><span class="o">,</span><span class="w"> </span><span class="n">ST_CLASS</span><span class="o">,</span><span class="w"> </span><span class="n">ST_HEIGHT</span><span class="o">,</span><span class="w"> </span><span class="n">ST_WIDTH</span><span class="p">)</span>
 
-<span class="k">print</span><span class="w"> </span><span class="n">stat</span><span class="p">[</span><span class="m">ST_TITLE</span><span class="p">]</span><span class="w">  </span><span class="c">// uwsc</span>
-<span class="k">print</span><span class="w"> </span><span class="n">stat</span><span class="p">[</span><span class="m">ST_CLASS</span><span class="p">]</span><span class="w">  </span><span class="c">// HH Parent</span>
-<span class="k">print</span><span class="w"> </span><span class="n">stat</span><span class="p">[</span><span class="m">ST_HEIGHT</span><span class="p">]</span><span class="w"> </span><span class="c">// 778</span>
-<span class="k">print</span><span class="w"> </span><span class="n">stat</span><span class="p">[</span><span class="m">ST_WIDTH</span><span class="p">]</span><span class="w">  </span><span class="c">// 1251</span>
+<span class="k">print</span><span class="w"> </span><span class="n">stat</span><span class="p">[</span><span class="n">ST_TITLE</span><span class="p">]</span><span class="w">  </span><span class="c">// uwsc</span>
+<span class="k">print</span><span class="w"> </span><span class="n">stat</span><span class="p">[</span><span class="n">ST_CLASS</span><span class="p">]</span><span class="w">  </span><span class="c">// HH Parent</span>
+<span class="k">print</span><span class="w"> </span><span class="n">stat</span><span class="p">[</span><span class="n">ST_HEIGHT</span><span class="p">]</span><span class="w"> </span><span class="c">// 778</span>
+<span class="k">print</span><span class="w"> </span><span class="n">stat</span><span class="p">[</span><span class="n">ST_WIDTH</span><span class="p">]</span><span class="w">  </span><span class="c">// 1251</span>
 </pre></div>
 </div>
 </div>
@@ -1524,10 +1524,10 @@
 <p class="admonition-title">サンプルコード</p>
 <div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// すべてのモニタのサイズを表示</span>
 <span class="k">for</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="n">to</span><span class="w"> </span><span class="n">monitor</span><span class="p">()</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="m">1</span>
-<span class="w">    </span><span class="n">m</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">monitor</span><span class="p">(</span><span class="n">i</span><span class="o">,</span><span class="w"> </span><span class="m">MON_ALL</span><span class="p">)</span>
-<span class="w">    </span><span class="k">print</span><span class="w"> </span><span class="s">&quot;モニタ&quot;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="s">&quot;: &quot;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">m</span><span class="p">[</span><span class="m">MON_NAME</span><span class="p">]</span>
-<span class="w">    </span><span class="k">print</span><span class="w"> </span><span class="n">m</span><span class="p">[</span><span class="m">MON_X</span><span class="p">]</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="s">&quot;, &quot;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">m</span><span class="p">[</span><span class="m">MON_Y</span><span class="p">]</span>
-<span class="w">    </span><span class="k">print</span><span class="w"> </span><span class="n">m</span><span class="p">[</span><span class="m">MON_WIDTH</span><span class="p">]</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="s">&quot; x &quot;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">m</span><span class="p">[</span><span class="m">MON_HEIGHT</span><span class="p">]</span>
+<span class="w">    </span><span class="n">m</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">monitor</span><span class="p">(</span><span class="n">i</span><span class="o">,</span><span class="w"> </span><span class="n">MON_ALL</span><span class="p">)</span>
+<span class="w">    </span><span class="k">print</span><span class="w"> </span><span class="s">&quot;モニタ&quot;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="s">&quot;: &quot;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">m</span><span class="p">[</span><span class="n">MON_NAME</span><span class="p">]</span>
+<span class="w">    </span><span class="k">print</span><span class="w"> </span><span class="n">m</span><span class="p">[</span><span class="n">MON_X</span><span class="p">]</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="s">&quot;, &quot;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">m</span><span class="p">[</span><span class="n">MON_Y</span><span class="p">]</span>
+<span class="w">    </span><span class="k">print</span><span class="w"> </span><span class="n">m</span><span class="p">[</span><span class="n">MON_WIDTH</span><span class="p">]</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="s">&quot; x &quot;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">m</span><span class="p">[</span><span class="n">MON_HEIGHT</span><span class="p">]</span>
 <span class="k">next</span>
 </pre></div>
 </div>
@@ -2217,7 +2217,7 @@
 <div class="line">ITM_LIST、ITM_TREEVIEW、ITM_LISTVIEWのうち複数を同時に指定した場合、それぞれのn番目を検索します</div>
 </div>
 <div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// この場合リストまたはコンボボックスの2番目、及びツリービューの2番目をそれぞれ取得します</span>
-<span class="n">getitem</span><span class="p">(</span><span class="n">id</span><span class="o">,</span><span class="w"> </span><span class="m">ITM_LIST</span><span class="w"> </span><span class="n">or</span><span class="w"> </span><span class="m">ITM_TREEVIEW</span><span class="o">,</span><span class="w"> </span><span class="m">2</span><span class="p">)</span>
+<span class="n">getitem</span><span class="p">(</span><span class="n">id</span><span class="o">,</span><span class="w"> </span><span class="n">ITM_LIST</span><span class="w"> </span><span class="n">or</span><span class="w"> </span><span class="n">ITM_TREEVIEW</span><span class="o">,</span><span class="w"> </span><span class="m">2</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -2244,7 +2244,7 @@
 <div class="line-block">
 <div class="line">戻り値が配列になったため <code class="docutils literal notranslate"><span class="pre">ALL_ITEM_LIST</span></code> は廃止されました</div>
 </div>
-<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">items</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">getitem</span><span class="p">(</span><span class="n">id</span><span class="o">,</span><span class="w"> </span><span class="m">ITM_BTN</span><span class="p">)</span>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">items</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">getitem</span><span class="p">(</span><span class="n">id</span><span class="o">,</span><span class="w"> </span><span class="n">ITM_BTN</span><span class="p">)</span>
 <span class="c">// 個数を得る</span>
 <span class="k">print</span><span class="w"> </span><span class="n">length</span><span class="p">(</span><span class="n">items</span><span class="p">)</span>
 <span class="c">// アイテム名の表示</span>
@@ -2258,7 +2258,7 @@
 </div>
 <div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// UWSCでは空文字を1つ目のアイテムとして出力していましたが、UWSCRでは空文字はスキップされます</span>
 <span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">0</span>
-<span class="k">for</span><span class="w"> </span><span class="n">item</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="n">getitem</span><span class="p">(</span><span class="n">getid</span><span class="p">(</span><span class="s">&#39;ファイル名を指定して実行&#39;</span><span class="p">)</span><span class="o">,</span><span class="w"> </span><span class="m">ITM_STATIC</span><span class="p">)</span>
+<span class="k">for</span><span class="w"> </span><span class="n">item</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="n">getitem</span><span class="p">(</span><span class="n">getid</span><span class="p">(</span><span class="s">&#39;ファイル名を指定して実行&#39;</span><span class="p">)</span><span class="o">,</span><span class="w"> </span><span class="n">ITM_STATIC</span><span class="p">)</span>
 <span class="w">    </span><span class="n">i</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="m">1</span>
 <span class="w">    </span><span class="k">print</span><span class="w"> </span><span class="s">&quot;&lt;#i&gt;: &lt;#item&gt;&quot;</span>
 <span class="k">next</span>
@@ -2574,14 +2574,14 @@
 </dl>
 <div class="admonition- admonition">
 <p class="admonition-title">サンプルコード</p>
-<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">btn</span><span class="p">(</span><span class="m">TOUCH</span><span class="o">,</span><span class="w"> </span><span class="m">DOWN</span><span class="o">,</span><span class="w"> </span><span class="m">100</span><span class="o">,</span><span class="w"> </span><span class="m">100</span><span class="p">)</span>
-<span class="n">btn</span><span class="p">(</span><span class="m">TOUCH</span><span class="o">,</span><span class="w"> </span><span class="m">UP</span><span class="o">,</span><span class="w"> </span><span class="m">200</span><span class="o">,</span><span class="w"> </span><span class="m">200</span><span class="p">)</span><span class="w"> </span><span class="c">// 別座標でUPした場合はスワイプ操作になる</span>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">btn</span><span class="p">(</span><span class="n">TOUCH</span><span class="o">,</span><span class="w"> </span><span class="n">DOWN</span><span class="o">,</span><span class="w"> </span><span class="m">100</span><span class="o">,</span><span class="w"> </span><span class="m">100</span><span class="p">)</span>
+<span class="n">btn</span><span class="p">(</span><span class="n">TOUCH</span><span class="o">,</span><span class="w"> </span><span class="n">UP</span><span class="o">,</span><span class="w"> </span><span class="m">200</span><span class="o">,</span><span class="w"> </span><span class="m">200</span><span class="p">)</span><span class="w"> </span><span class="c">// 別座標でUPした場合はスワイプ操作になる</span>
 
-<span class="n">btn</span><span class="p">(</span><span class="m">TOUCH</span><span class="o">,</span><span class="w"> </span><span class="m">DOWN</span><span class="o">,</span><span class="w"> </span><span class="m">150</span><span class="o">,</span><span class="w"> </span><span class="m">150</span><span class="p">)</span>
-<span class="n">btn</span><span class="p">(</span><span class="m">TOUCH</span><span class="o">,</span><span class="w"> </span><span class="m">UP</span><span class="o">,</span><span class="w"> </span><span class="m">250</span><span class="o">,</span><span class="w"> </span><span class="m">250</span><span class="o">,</span><span class="w"> </span><span class="m">0</span><span class="p">)</span><span class="w"> </span><span class="c">// msが0なら最速</span>
+<span class="n">btn</span><span class="p">(</span><span class="n">TOUCH</span><span class="o">,</span><span class="w"> </span><span class="n">DOWN</span><span class="o">,</span><span class="w"> </span><span class="m">150</span><span class="o">,</span><span class="w"> </span><span class="m">150</span><span class="p">)</span>
+<span class="n">btn</span><span class="p">(</span><span class="n">TOUCH</span><span class="o">,</span><span class="w"> </span><span class="n">UP</span><span class="o">,</span><span class="w"> </span><span class="m">250</span><span class="o">,</span><span class="w"> </span><span class="m">250</span><span class="o">,</span><span class="w"> </span><span class="m">0</span><span class="p">)</span><span class="w"> </span><span class="c">// msが0なら最速</span>
 
-<span class="n">btn</span><span class="p">(</span><span class="m">TOUCH</span><span class="o">,</span><span class="w"> </span><span class="m">DOWN</span><span class="o">,</span><span class="w"> </span><span class="m">300</span><span class="o">,</span><span class="w"> </span><span class="m">300</span><span class="p">)</span>
-<span class="n">btn</span><span class="p">(</span><span class="m">TOUCH</span><span class="o">,</span><span class="w"> </span><span class="m">UP</span><span class="o">,</span><span class="w"> </span><span class="m">150</span><span class="o">,</span><span class="w"> </span><span class="m">150</span><span class="o">,</span><span class="w"> </span><span class="m">10</span><span class="p">)</span><span class="w"> </span><span class="c">// 10ならとても遅い</span>
+<span class="n">btn</span><span class="p">(</span><span class="n">TOUCH</span><span class="o">,</span><span class="w"> </span><span class="n">DOWN</span><span class="o">,</span><span class="w"> </span><span class="m">300</span><span class="o">,</span><span class="w"> </span><span class="m">300</span><span class="p">)</span>
+<span class="n">btn</span><span class="p">(</span><span class="n">TOUCH</span><span class="o">,</span><span class="w"> </span><span class="n">UP</span><span class="o">,</span><span class="w"> </span><span class="m">150</span><span class="o">,</span><span class="w"> </span><span class="m">150</span><span class="o">,</span><span class="w"> </span><span class="m">10</span><span class="p">)</span><span class="w"> </span><span class="c">// 10ならとても遅い</span>
 </pre></div>
 </div>
 </div>
@@ -2633,12 +2633,12 @@
 <div class="admonition- admonition">
 <p class="admonition-title">サンプルコード</p>
 <div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// a が入力される</span>
-<span class="n">kbd</span><span class="p">(</span><span class="m">VK_A</span><span class="p">)</span>
+<span class="n">kbd</span><span class="p">(</span><span class="n">VK_A</span><span class="p">)</span>
 
 <span class="c">// A が入力される</span>
-<span class="n">kbd</span><span class="p">(</span><span class="m">VK_SHIFT</span><span class="o">,</span><span class="w"> </span><span class="m">DOWN</span><span class="p">)</span>
-<span class="n">kbd</span><span class="p">(</span><span class="m">VK_A</span><span class="o">,</span><span class="w"> </span><span class="m">CLICK</span><span class="o">,</span><span class="w"> </span><span class="m">100</span><span class="p">)</span>
-<span class="n">kbd</span><span class="p">(</span><span class="m">VK_SHIFT</span><span class="o">,</span><span class="w"> </span><span class="m">UP</span><span class="o">,</span><span class="w"> </span><span class="m">100</span><span class="p">)</span>
+<span class="n">kbd</span><span class="p">(</span><span class="n">VK_SHIFT</span><span class="o">,</span><span class="w"> </span><span class="n">DOWN</span><span class="p">)</span>
+<span class="n">kbd</span><span class="p">(</span><span class="n">VK_A</span><span class="o">,</span><span class="w"> </span><span class="n">CLICK</span><span class="o">,</span><span class="w"> </span><span class="m">100</span><span class="p">)</span>
+<span class="n">kbd</span><span class="p">(</span><span class="n">VK_SHIFT</span><span class="o">,</span><span class="w"> </span><span class="n">UP</span><span class="o">,</span><span class="w"> </span><span class="m">100</span><span class="p">)</span>
 
 <span class="c">// A が入力される</span>
 <span class="n">kbd</span><span class="p">(</span><span class="s">&quot;A&quot;</span><span class="p">)</span>
@@ -2677,7 +2677,7 @@
 </dl>
 <div class="admonition- admonition">
 <p class="admonition-title">サンプルコード</p>
-<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">acw</span><span class="p">(</span><span class="n">getid</span><span class="p">(</span><span class="m">GET_ACTIVE_WIN</span><span class="p">)</span><span class="o">,</span><span class="w"> </span><span class="m">100</span><span class="o">,</span><span class="w"> </span><span class="m">100</span><span class="p">)</span><span class="w"> </span><span class="c">// ID0を更新</span>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">acw</span><span class="p">(</span><span class="n">getid</span><span class="p">(</span><span class="n">GET_ACTIVE_WIN</span><span class="p">)</span><span class="o">,</span><span class="w"> </span><span class="m">100</span><span class="o">,</span><span class="w"> </span><span class="m">100</span><span class="p">)</span><span class="w"> </span><span class="c">// ID0を更新</span>
 <span class="n">sleep</span><span class="p">(</span><span class="m">1</span><span class="p">)</span>
 <span class="n">acw</span><span class="p">(</span><span class="m">0</span><span class="o">,</span><span class="w"> </span><span class="m">200</span><span class="o">,</span><span class="w"> </span><span class="m">200</span><span class="p">)</span>
 </pre></div>

@@ -7,7 +7,7 @@
 <link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="ファイル操作関数" href="file.html" /><link rel="prev" title="スクリプト制御" href="scriptcontrol.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>システム関数 - UWSCR 0.10.2</title>
+        <title>システム関数 - UWSCR 0.11.0</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 0.10.2</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 0.11.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 0.10.2</span>
+  <span class="sidebar-brand-text">UWSCR 0.11.0</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -177,7 +177,7 @@
 <li class="toctree-l1"><a class="reference internal" href="array.html">配列操作関数</a></li>
 <li class="toctree-l1"><a class="reference internal" href="math.html">数学関数</a></li>
 <li class="toctree-l1"><a class="reference internal" href="comobject.html">COMオブジェクト</a></li>
-<li class="toctree-l1"><a class="reference internal" href="browser.html">ブラウザ操作</a></li>
+<li class="toctree-l1"><a class="reference internal" href="web.html">ウェブ関連</a></li>
 </ul>
 
 </div>
@@ -839,8 +839,8 @@
 <p class="admonition-title">サンプルコード</p>
 <div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// Unicode出力で文字化けを解消する</span>
 <span class="n">cmd</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;echo 森鷗外𠮟る 🐶&quot;</span>
-<span class="k">print</span><span class="w"> </span><span class="n">doscmd</span><span class="p">(</span><span class="n">cmd</span><span class="o">,</span><span class="w"> </span><span class="m">FALSE</span><span class="o">,</span><span class="w"> </span><span class="m">FALSE</span><span class="o">,</span><span class="w"> </span><span class="m">FALSE</span><span class="p">)</span><span class="w"> </span><span class="c">// 森?外??る ??</span>
-<span class="k">print</span><span class="w"> </span><span class="n">doscmd</span><span class="p">(</span><span class="n">cmd</span><span class="o">,</span><span class="w"> </span><span class="m">FALSE</span><span class="o">,</span><span class="w"> </span><span class="m">FALSE</span><span class="o">,</span><span class="w"> </span><span class="m">TRUE</span><span class="p">)</span><span class="w">  </span><span class="c">// 森鷗外𠮟る 🐶</span>
+<span class="k">print</span><span class="w"> </span><span class="n">doscmd</span><span class="p">(</span><span class="n">cmd</span><span class="o">,</span><span class="w"> </span><span class="n">FALSE</span><span class="o">,</span><span class="w"> </span><span class="n">FALSE</span><span class="o">,</span><span class="w"> </span><span class="n">FALSE</span><span class="p">)</span><span class="w"> </span><span class="c">// 森?外??る ??</span>
+<span class="k">print</span><span class="w"> </span><span class="n">doscmd</span><span class="p">(</span><span class="n">cmd</span><span class="o">,</span><span class="w"> </span><span class="n">FALSE</span><span class="o">,</span><span class="w"> </span><span class="n">FALSE</span><span class="o">,</span><span class="w"> </span><span class="n">TRUE</span><span class="p">)</span><span class="w">  </span><span class="c">// 森鷗外𠮟る 🐶</span>
 </pre></div>
 </div>
 </div>
@@ -1551,7 +1551,7 @@
 <div class="line"><code class="docutils literal notranslate"><span class="pre">P_POWEROFF</span></code>, <code class="docutils literal notranslate"><span class="pre">P_SHUTDOWN</span></code>, <code class="docutils literal notranslate"><span class="pre">P_LOGOFF</span></code>, <code class="docutils literal notranslate"><span class="pre">P_REBOOT</span></code> のいずれかに <code class="docutils literal notranslate"><span class="pre">OR</span></code> で連結指定する</div>
 <div class="line">それ以外の場合は無視される</div>
 </div>
-<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">poff</span><span class="p">(</span><span class="m">P_POWEROFF</span><span class="w"> </span><span class="n">or</span><span class="w"> </span><span class="m">P_FORCE</span><span class="p">)</span><span class="w"> </span><span class="c">// 強制電源断</span>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">poff</span><span class="p">(</span><span class="n">P_POWEROFF</span><span class="w"> </span><span class="n">or</span><span class="w"> </span><span class="n">P_FORCE</span><span class="p">)</span><span class="w"> </span><span class="c">// 強制電源断</span>
 </pre></div>
 </div>
 </dd></dl>
@@ -1596,9 +1596,9 @@
 </dl>
 </li>
 </ul>
-<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="m">OPTION</span><span class="w"> </span><span class="m">OPTFINALLY</span>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">OPTION</span><span class="w"> </span><span class="n">OPTFINALLY</span>
 <span class="k">try</span>
-<span class="w">    </span><span class="n">poff</span><span class="p">(</span><span class="m">P_UWSC_REEXEC</span><span class="p">)</span>
+<span class="w">    </span><span class="n">poff</span><span class="p">(</span><span class="n">P_UWSC_REEXEC</span><span class="p">)</span>
 <span class="w">    </span><span class="n">msgbox</span><span class="p">(</span><span class="s">&quot;poff以降は実行されない&quot;</span><span class="p">)</span>
 <span class="k">finally</span>
 <span class="w">    </span><span class="n">msgbox</span><span class="p">(</span><span class="s">&quot;finallyが実行される&quot;</span><span class="p">)</span>
@@ -1607,15 +1607,15 @@
 </div>
 <div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// OPTFINALLYが無い場合</span>
 <span class="k">try</span>
-<span class="w">    </span><span class="n">poff</span><span class="p">(</span><span class="m">P_UWSC_REEXEC</span><span class="p">)</span>
+<span class="w">    </span><span class="n">poff</span><span class="p">(</span><span class="n">P_UWSC_REEXEC</span><span class="p">)</span>
 <span class="k">finally</span>
 <span class="w">    </span><span class="n">msgbox</span><span class="p">(</span><span class="s">&quot;OPTFINALLYがないので実行されない&quot;</span><span class="p">)</span>
 <span class="k">endtry</span>
 </pre></div>
 </div>
-<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="m">OPTION</span><span class="w"> </span><span class="m">OPTFINALLY</span>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">OPTION</span><span class="w"> </span><span class="n">OPTFINALLY</span>
 <span class="c">// poffがtryの外にある場合</span>
-<span class="n">poff</span><span class="p">(</span><span class="m">P_UWSC_REEXEC</span><span class="p">)</span>
+<span class="n">poff</span><span class="p">(</span><span class="n">P_UWSC_REEXEC</span><span class="p">)</span>
 <span class="k">try</span>
 <span class="k">finally</span>
 <span class="w">    </span><span class="n">msgbox</span><span class="p">(</span><span class="s">&quot;OPTFINALLYがあってもtry外だと実行されない&quot;</span><span class="p">)</span>
@@ -1837,13 +1837,13 @@
 <span class="c">// 戻り値</span>
 <span class="k">print</span><span class="w"> </span><span class="n">gettime</span><span class="p">(</span><span class="o">,</span><span class="w"> </span><span class="n">dt</span><span class="p">)</span><span class="w">        </span><span class="c">// 733659010</span>
 <span class="c">// ミリ秒で返す</span>
-<span class="k">print</span><span class="w"> </span><span class="n">gettime</span><span class="p">(</span><span class="o">,</span><span class="w"> </span><span class="n">dt</span><span class="o">,,</span><span class="w"> </span><span class="m">TRUE</span><span class="p">)</span><span class="w"> </span><span class="c">// 733659010000</span>
+<span class="k">print</span><span class="w"> </span><span class="n">gettime</span><span class="p">(</span><span class="o">,</span><span class="w"> </span><span class="n">dt</span><span class="o">,,</span><span class="w"> </span><span class="n">TRUE</span><span class="p">)</span><span class="w"> </span><span class="c">// 733659010000</span>
 
 <span class="c">// 第一引数の単位変更</span>
 <span class="c">// 従来の書き方で6時間ずらす</span>
 <span class="n">ts1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">gettime</span><span class="p">(</span><span class="m">0</span><span class="o">.</span><span class="m">25</span><span class="o">,</span><span class="w"> </span><span class="n">dt</span><span class="p">)</span>
 <span class="c">// 第三引数指定で時間扱いになる</span>
-<span class="n">ts2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">gettime</span><span class="p">(</span><span class="m">6</span><span class="o">,</span><span class="w"> </span><span class="n">dt</span><span class="o">,</span><span class="w"> </span><span class="m">G_OFFSET_HOURS</span><span class="p">)</span>
+<span class="n">ts2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">gettime</span><span class="p">(</span><span class="m">6</span><span class="o">,</span><span class="w"> </span><span class="n">dt</span><span class="o">,</span><span class="w"> </span><span class="n">G_OFFSET_HOURS</span><span class="p">)</span>
 
 <span class="n">assert_equal</span><span class="p">(</span><span class="n">ts1</span><span class="o">,</span><span class="w"> </span><span class="n">ts2</span><span class="p">)</span>
 
@@ -1906,7 +1906,7 @@
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>開始フラグ</strong> (<em>真偽値</em>) -- TRUEで音声認識を開始、FALSEで解除</p></li>
-<li><p><strong>登録単語</strong> (<em>文字列または文字列の配列</em>) -- 音声認識させたい言葉を指定、開始フラグがTRUEの場合は1つ以上指定する必要あり</p></li>
+<li><p><strong>登録単語</strong> (<em>文字列または文字列の配列</em>) -- 開始フラグがTRUEの場合に音声認識させたい言葉を指定、未指定の場合は認識エンジンの標準辞書を使用する</p></li>
 </ul>
 </dd>
 <dt class="field-even">戻り値の型<span class="colon">:</span></dt>
@@ -1927,8 +1927,8 @@
 <div class="note admonition">
 <p class="admonition-title">単語登録について</p>
 <div class="line-block">
-<div class="line">recostate関数で単語を登録していない場合は即座に終了しEMPTYを返します</div>
-<div class="line">また、同一スレッド上でrecostate関数を実行する必要があります</div>
+<div class="line">recostate関数が開始フラグTRUEで実行されていない場合は即座に終了しEMPTYを返します</div>
+<div class="line">また、recostate関数は同一スレッド上で実行されている必要があります</div>
 </div>
 </div>
 <dl class="field-list simple">
@@ -1948,16 +1948,16 @@
 <div class="admonition- admonition">
 <p class="admonition-title">サンプルコード</p>
 <div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// 単語を登録する</span>
-<span class="k">print</span><span class="w"> </span><span class="n">recostate</span><span class="p">(</span><span class="m">TRUE</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;りんご&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;みかん&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;いちご&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;おわり&quot;</span><span class="p">)</span>
+<span class="k">print</span><span class="w"> </span><span class="n">recostate</span><span class="p">(</span><span class="n">TRUE</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;りんご&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;みかん&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;いちご&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;おわり&quot;</span><span class="p">)</span>
 <span class="k">print</span><span class="w"> </span><span class="s">&quot;「りんご」「みかん」「いちご」に反応します&quot;</span>
 <span class="k">print</span><span class="w"> </span><span class="s">&quot;「おわり」で終了&quot;</span>
 
-<span class="k">while</span><span class="w"> </span><span class="m">TRUE</span>
-<span class="w">    </span><span class="kd">select</span><span class="w"> </span><span class="n">word</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="n">dictate</span><span class="p">(</span><span class="m">TRUE</span><span class="p">)</span>
+<span class="k">while</span><span class="w"> </span><span class="n">TRUE</span>
+<span class="w">    </span><span class="kd">select</span><span class="w"> </span><span class="n">word</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="n">dictate</span><span class="p">(</span><span class="n">TRUE</span><span class="p">)</span>
 <span class="w">        </span><span class="kd">case</span><span class="w"> </span><span class="s">&quot;おわり&quot;</span>
 <span class="w">            </span><span class="k">print</span><span class="w"> </span><span class="s">&quot;終了します&quot;</span>
 <span class="w">            </span><span class="k">break</span>
-<span class="w">        </span><span class="kd">case</span><span class="w"> </span><span class="m">EMPTY</span>
+<span class="w">        </span><span class="kd">case</span><span class="w"> </span><span class="n">EMPTY</span>
 <span class="w">            </span><span class="c">// デフォルトでは10000ミリ秒経過でタイムアウト</span>
 <span class="w">            </span><span class="k">print</span><span class="w"> </span><span class="s">&quot;タイムアウトしました&quot;</span>
 <span class="w">            </span><span class="k">break</span>
