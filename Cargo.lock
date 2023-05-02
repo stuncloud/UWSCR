@@ -2210,7 +2210,7 @@ checksum = "09cc8ee72d2a9becf2f2febe0205bbed8fc6615b7cb429ad062dc7b7ddd036a9"
 
 [[package]]
 name = "uwscr"
-version = "0.10.2"
+version = "0.11.0"
 dependencies = [
  "base64 0.21.0",
  "bincode",
