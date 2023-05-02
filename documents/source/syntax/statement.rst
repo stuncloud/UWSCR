@@ -2114,7 +2114,7 @@ async
 
 タスクを返す関数を宣言します
 
-.. sourcecode:: uwscr
+.. sourcecode::
 
     // function宣言の前に async キーワードを付与
     async function 関数名()

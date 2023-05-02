@@ -68,7 +68,7 @@ class UwscrLexer(RegexLexer):
             (r'\btextblock\b\n', Keyword, 'tbcomment'),
             (r'\b(textblock|textblockex)\b(\s+)(\w+\n)', bygroups(Keyword, Whitespace, Name), 'textblock'),
             (r'(call)(\s+)(url)(\[)([^]]+)(\])', bygroups(Keyword, Whitespace, Keyword, Punctuation, Literal, Punctuation)),
-            (words((',', '=', '.', ':', '?', '>', '<', '|', '_', '+', '-', '*', '/', '!', '#')), Operator),
+            (words((',', '=', '.', ':', '?', '>', '<', '|', '+', '-', '*', '/', '!', '#')), Operator),
             (words(('(', ')', '[', ']', '{', '}', '@', ';')), Punctuation),
             (words((
                 'print', 'for', 'in', 'next', 'endfor',
@@ -87,7 +87,6 @@ class UwscrLexer(RegexLexer):
                 'module', 'endmodule', 'class', 'endclass',
             ), suffix=r'\b', prefix=r'\b'), Keyword.Declaration),
             (r'\b[a-zA-Z_][a-zA-Z_0-9]*\b', Name),
-            # (words(('env'), suffix=r'\b', prefix=r'\b'), Name),
         ],
         'string': [
             (r'"[^"]*"', String),
@@ -110,8 +109,7 @@ class UwscrLexer(RegexLexer):
         ],
         'number': [
             (r'\b[0-9]+\b', Number),
-            (r'\b\$[0-9a-fA-F]+\b', Number),
-            (r'\b[A-Z0-9_]+\b', Number),
+            (r'\$\b[0-9a-fA-F]+\b', Number),
             (r'\bNaN+\b', Number),
         ],
     }
