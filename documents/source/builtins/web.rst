@@ -370,6 +370,19 @@ RemoteObject
     foo = chrome[0].document.querySelector("#foo")
     foo.value = "ほげほげ"
 
+関数として実行
+^^^^^^^^^^^^^^
+
+| :ref:`remote_object` 自身が関数である場合は ``RemoteObject(引数)`` として実行できます
+| この場合も戻り値を :ref:`remote_object` として取得します
+
+非同期関数とPromise
+^^^^^^^^^^^^^^^^^^^
+
+| :ref:`remote_object` 自身、またはそのメソッドが非同期関数であった場合 :ref:`await` 構文でその終了を待ちます
+| :ref:`remote_object` がPromiseであった場合は :any:`WaitTask` 関数でその終了を待ちます
+| いずれの場合も戻り値を :ref:`remote_object` として取得します
+
 .. 他の値型との演算
 .. ^^^^^^^^^^^^^^^^
 

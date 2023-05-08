@@ -2093,6 +2093,7 @@ thread
     - public, const, function/procedure, module/class
 - 呼び出した関数内でエラーが発生した場合スクリプトが終了します
 
+.. _task_object:
 
 タスク
 ------
