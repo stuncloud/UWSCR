@@ -747,6 +747,7 @@ impl Evaluator {
             Object::HashTbl(h) => h.lock().unwrap().keys(),
             Object::ByteArray(arr) => arr.iter().map(|n| Object::Num(*n as f64)).collect(),
             Object::Browser(b) => b.get_tabs()?.into_iter().map(|t| Object::TabWindow(t)).collect(),
+            Object::RemoteObject(remote) => remote.to_object_vec()?,
             _ => return Err(UError::new(
                 UErrorKind::SyntaxError,
                 UErrorMessage::ForInError

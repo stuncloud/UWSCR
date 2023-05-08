@@ -821,7 +821,12 @@ struct ExceptionDetails {
 }
 impl fmt::Display for ExceptionDetails {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "[{}] {}", self.exception_id, self.text)
+        if let Some(remote) = &self.exception {
+            if let Some(description) = &remote.description {
+                return write!(f, "{description}");
+            }
+        }
+        write!(f, "Error text: {}", self.text)
     }
 }
 impl Into<UError> for ExceptionDetails {
@@ -990,6 +995,55 @@ impl RemoteObject {
         } else {
             false
         }
+    }
+    fn to_iter(&self) -> BrowserResult<RemoteObject> {
+        let declaration = format!("function() {{ return this.values(); }}");
+        if let Some(id) = &self.remote.object_id {
+            self.dp.invoke_function(id, &declaration, vec![], false, false)
+                .map_err(|_| UError::new(
+                    UErrorKind::BrowserControlError,
+                    UErrorMessage::RemoteObjectIsNotArray(self.remote.r#type.clone())
+                ))
+        } else {
+            Err(UError::new(
+                UErrorKind::BrowserControlError,
+                UErrorMessage::RemoteObjectIsNotArray(self.remote.r#type.clone())
+            ))
+        }
+    }
+    fn next(&self) -> BrowserResult<RemoteObject> {
+        let declaration = format!("function() {{ return this.next(); }}");
+        if let Some(id) = &self.remote.object_id {
+            self.dp.invoke_function(id, &declaration, vec![], false, false)
+                .map_err(|_| UError::new(
+                    UErrorKind::BrowserControlError,
+                    UErrorMessage::RemoteObjectIsNotArray(self.remote.r#type.clone())
+                ))
+        } else {
+            Err(UError::new(
+                UErrorKind::BrowserControlError,
+                UErrorMessage::RemoteObjectIsNotArray(self.remote.r#type.clone())
+            ))
+        }
+    }
+    pub fn to_object_vec(&self) -> BrowserResult<Vec<Object>> {
+        let iter = self.to_iter()?;
+        let mut vec = vec![];
+        loop {
+            let next = iter.next()?;
+            let done = next.get_property("done")?;
+            if let Some(Value::Bool(b)) = done.remote.value {
+                if b {
+                    break;
+                } else {
+                    let value = next.get_property("value")?;
+                    vec.push(Object::RemoteObject(value));
+                }
+            } else {
+                break;
+            }
+        }
+        Ok(vec)
     }
     pub fn get_type(&self) -> String {
         let mut t = self.remote.r#type.clone();
