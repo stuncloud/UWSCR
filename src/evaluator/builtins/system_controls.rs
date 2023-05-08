@@ -366,21 +366,31 @@ pub fn task(evaluator: &mut Evaluator, mut args: BuiltinFuncArgs) -> BuiltinFunc
             };
             Ok(obj)
         },
+        Object::RemoteObject(remote) => {
+            let await_promise = args.is_await();
+            let func_args = arguments.into_iter()
+                .map(|(_, o)| browser::RemoteFuncArg::from_object(o))
+                .collect::<Result<Vec<browser::RemoteFuncArg>, UError>>()?;
+            let remote2 = remote.invoke_as_function(func_args, await_promise)?;
+            Ok(Object::RemoteObject(remote2))
+        },
         _ => Err(builtin_func_error(UErrorMessage::BuiltinArgIsNotFunction))
     }
 }
 
-pub fn wait_task(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let task = args.get_as_task(0)?;
-    let mut handle = task.handle.lock().unwrap();
-    match handle.take().unwrap().join() {
-        Ok(res) => res.map_err(|err| BuiltinFuncError::UError(err)),
-        Err(e) => {
-            Err(BuiltinFuncError::new_with_kind(
-                UErrorKind::TaskError,
-                UErrorMessage::TaskEndedIncorrectly(format!("{:?}", e))
-            ))
-        }
+pub fn wait_task(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    match args.get_as_task(0)? {
+        TwoTypeArg::T(task) => {
+            evaluator.await_task(task)
+                .map_err(|e| BuiltinFuncError::UError(e))
+        },
+        TwoTypeArg::U(remote) => {
+            let remote = match remote.await_promise()? {
+                Some(remote2) => remote2,
+                None => remote,
+            };
+            Ok(Object::RemoteObject(remote))
+        },
     }
 }
 

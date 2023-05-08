@@ -505,6 +505,7 @@ pub enum UErrorMessage {
     ArgumentIsNotNumber(usize, String),
     BrowserHasNoDebugPort(String, u16),
     BrowserDebuggingPortUnmatch(String, u16),
+    RemoteObjectIsNotPromise,
 }
 
 impl fmt::Display for UErrorMessage {
@@ -1067,6 +1068,10 @@ impl fmt::Display for UErrorMessage {
             Self::BrowserDebuggingPortUnmatch(exe, port) => write_locale!(f,
                 "デバッグポート({port})が開かれていますがプロセスが{exe}ではありません",
                 "Port {port} is not opened by {exe}",
+            ),
+            Self::RemoteObjectIsNotPromise => write_locale!(f,
+                "RemoteObjectがPromiseではありません",
+                "RemoteObject is not Promise",
             ),
         }
     }

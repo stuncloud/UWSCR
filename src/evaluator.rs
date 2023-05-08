@@ -2597,7 +2597,7 @@ impl Evaluator {
                 let args = arguments.into_iter()
                     .map(|(_, o)| browser::RemoteFuncArg::from_object(o))
                     .collect::<EvalResult<Vec<browser::RemoteFuncArg>>>()?;
-                remote.invoke_as_function(args)
+                remote.invoke_as_function(args, is_await)
                     .map(|r| r.into())
             },
             o => Err(UError::new(

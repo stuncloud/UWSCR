@@ -79,7 +79,7 @@ pub fn convert_from_remote_object(_: &mut Evaluator, args: BuiltinFuncArgs) -> B
 pub fn remote_object_type(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let remote = args.get_as_remoteobject(0)?;
     #[cfg(debug_assertions)]
-    println!("\u{001b}[90m[RemoteObjectType] {:?}\u{001b}[0m", remote);
+    println!("\u{001b}[90m{:?}\u{001b}[0m", remote);
     let t = remote.get_type();
     Ok(t.into())
 }

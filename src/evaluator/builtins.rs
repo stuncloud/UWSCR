@@ -447,10 +447,17 @@ impl BuiltinFuncArgs {
         })
     }
     /// タスクを受ける引数
-    pub fn get_as_task(&self, i: usize) -> BuiltInResult<UTask> {
+    pub fn get_as_task(&self, i: usize) -> BuiltInResult<TwoTypeArg<UTask, RemoteObject>> {
         self.get_arg(i, |arg| {
             match arg {
-                Object::Task(utask) => Ok(utask),
+                Object::Task(utask) => Ok(TwoTypeArg::T(utask)),
+                Object::RemoteObject(remote) => {
+                    if remote.is_promise() {
+                        Ok(TwoTypeArg::U(remote))
+                    } else {
+                        Err(BuiltinFuncError::new(UErrorMessage::RemoteObjectIsNotPromise))
+                    }
+                }
                 _ => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg)))
             }
         })
