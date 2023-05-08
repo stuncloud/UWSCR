@@ -662,7 +662,7 @@ impl WebSocket {
 }
 
 enum ProcessFound{
-    /// 対象プロセスが起動していない
+    /// 対象プロセスも指定ポートもない
     None,
     /// 対象プロセスが指定ポートを開いている
     Found,
@@ -674,18 +674,19 @@ enum ProcessFound{
 struct BrowserProcess;
 impl BrowserProcess {
     fn is_process_available(port: u16, name: &str) -> BrowserResult<ProcessFound> {
-        // まずポートを確認
+        // ポートを確認
         let ncon = Self::new_wmi_connection(Some("Root\\StandardCimv2"))?;
         let mut filters = HashMap::new();
         filters.insert("LocalPort".to_string(), FilterValue::Number(port.into()));
         filters.insert("State".to_string(), FilterValue::Number(2));
         let tcpcons: Vec<NetTCPConnection> = ncon.filtered_query(&filters)?;
+        // プロセスを確認
+        let pcon = Self::new_wmi_connection(None)?;
+        let mut filters = HashMap::new();
+        filters.insert("Name".into(), FilterValue::String(name.into()));
+        let processes: Vec<Win32Process> = pcon.filtered_query(&filters)?;
+
         if let Some(tcpcon) = tcpcons.first() {
-            // ポートが開かれているのでプロセスを確認する
-            let pcon = Self::new_wmi_connection(None)?;
-            let mut filters = HashMap::new();
-            filters.insert("Name".into(), FilterValue::String(name.into()));
-            let processes: Vec<Win32Process> = pcon.filtered_query(&filters)?;
             if processes.len() > 0 {
                 let found = processes.iter()
                     .find(|p| p.process_id == tcpcon.owning_process)
@@ -693,15 +694,17 @@ impl BrowserProcess {
                 if found {
                     Ok(ProcessFound::Found)
                 } else {
-                    Ok(ProcessFound::None)
+                    Ok(ProcessFound::UnMatch)
                 }
             } else {
-                // プロセスが合わない
                 Ok(ProcessFound::UnMatch)
             }
         } else {
-            // ポートが開かれていない
-            Ok(ProcessFound::NoPort)
+            if processes.len() > 0 {
+                Ok(ProcessFound::NoPort)
+            } else {
+                Ok(ProcessFound::None)
+            }
         }
     }
     fn new_wmi_connection(namespace: Option<&str>) -> WMIResult<WMIConnection> {
