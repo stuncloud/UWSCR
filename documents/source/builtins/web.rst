@@ -146,6 +146,18 @@
         | パスは必ずchrome.exeおよびmsedge.exeのものにしてください
         | それ以外は動作保証外です
 
+.. function:: RemoteObjectType(remote)
+
+    | :ref:`remote_object` の型を返します
+    | 型名の他に可能であれば以下を含みます
+
+    - 型の詳細
+    - クラス名
+
+    :param RemoteObject remote: 型情報を得たい :ref:`remote_object`
+    :rtype: 文字列
+    :return: 型の情報を示す文字列
+
 .. _builder_object:
 
 BrowserBuilderオブジェクト
