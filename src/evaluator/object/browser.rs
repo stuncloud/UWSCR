@@ -953,10 +953,10 @@ impl RemoteObject {
     pub fn get_value(&self) -> Option<Value> {
         self.remote.value.clone()
     }
-    pub fn invoke_method(&self, name: &str, args: Vec<RemoteFuncArg>) -> BrowserResult<RemoteObject> {
+    pub fn invoke_method(&self, name: &str, args: Vec<RemoteFuncArg>, await_promise: bool) -> BrowserResult<RemoteObject> {
         let declaration = format!("function(...args) {{ return this.{name}(...args); }}");
         if let Some(id) = &self.remote.object_id {
-            self.dp.invoke_function(id, &declaration, args, true, false)
+            self.dp.invoke_function(id, &declaration, args, true, await_promise)
         } else {
             Err(UError::new(
                 UErrorKind::BrowserControlError,

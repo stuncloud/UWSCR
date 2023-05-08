@@ -2574,7 +2574,7 @@ impl Evaluator {
                         let args = arguments.into_iter()
                             .map(|(_, o)| browser::RemoteFuncArg::from_object(o))
                             .collect::<EvalResult<Vec<browser::RemoteFuncArg>>>()?;
-                        remote.invoke_method(&func.member, args)
+                        remote.invoke_method(&func.member, args, is_await)
                             .map(|r| r.into())
                     },
                     browser::BrowserObject::Builder(mutex_builder) => {
