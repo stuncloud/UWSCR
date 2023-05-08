@@ -366,14 +366,6 @@ pub fn task(evaluator: &mut Evaluator, mut args: BuiltinFuncArgs) -> BuiltinFunc
             };
             Ok(obj)
         },
-        Object::RemoteObject(remote) => {
-            let await_promise = args.is_await();
-            let func_args = arguments.into_iter()
-                .map(|(_, o)| browser::RemoteFuncArg::from_object(o))
-                .collect::<Result<Vec<browser::RemoteFuncArg>, UError>>()?;
-            let remote2 = remote.invoke_as_function(func_args, await_promise)?;
-            Ok(Object::RemoteObject(remote2))
-        },
         _ => Err(builtin_func_error(UErrorMessage::BuiltinArgIsNotFunction))
     }
 }
