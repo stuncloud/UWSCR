@@ -19,6 +19,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("browsercontrol", 2, browser_control);
     sets.add("browserbuilder", 1, browser_builder);
     sets.add("convertfromremoteobject", 1, convert_from_remote_object);
+    sets.add("remoteobjecttype", 1, remote_object_type);
     sets
 }
 
@@ -73,4 +74,12 @@ pub fn convert_from_remote_object(_: &mut Evaluator, args: BuiltinFuncArgs) -> B
         }
     };
     Ok(obj)
+}
+
+pub fn remote_object_type(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let remote = args.get_as_remoteobject(0)?;
+    #[cfg(debug_assertions)]
+    println!("\u{001b}[90m[RemoteObjectType] {:?}\u{001b}[0m", remote);
+    let t = remote.get_type();
+    Ok(t.into())
 }

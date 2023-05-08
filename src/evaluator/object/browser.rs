@@ -582,7 +582,7 @@ impl DevtoolsProtocol {
             Ok(RemoteObject::new(self.clone(), result.result))
         }
     }
-    fn invoke_function(&self, id: &str, declaration: &str, args: Vec<RemoteFuncArg>) -> BrowserResult<RemoteObject> {
+    fn invoke_function(&self, id: &str, declaration: &str, args: Vec<RemoteFuncArg>, user_gesture: bool, await_promise: bool) -> BrowserResult<RemoteObject> {
         let args = args.into_iter()
             .map(|v| {
                 match v {
@@ -601,7 +601,9 @@ impl DevtoolsProtocol {
         let result = self.send_t::<RuntimeResult>("Runtime.callFunctionOn", json!({
             "functionDeclaration": declaration,
             "objectId": id,
-            "arguments": arguments
+            "arguments": arguments,
+            "userGesture": user_gesture,
+            "awaitPromise": await_promise,
         }))?;
         if let Some(exception) = result.exception_details {
             Err(exception.into())
@@ -885,7 +887,7 @@ impl RemoteObject {
     pub fn get_property(&self, name: &str) -> BrowserResult<Self> {
         let func = format!("function() {{return this.{name};}}");
         if let Some(id) = &self.remote.object_id {
-            self.dp.invoke_function(id, &func, vec![])
+            self.dp.invoke_function(id, &func, vec![], false, false)
         } else {
             Err(UError::new(
                 UErrorKind::BrowserControlError,
@@ -896,7 +898,7 @@ impl RemoteObject {
     pub fn set_property(&self, name: &str, value: RemoteFuncArg) -> BrowserResult<Self> {
         let func = format!("function(value) {{return this.{name} = value;}}");
         if let Some(id) = &self.remote.object_id {
-            self.dp.invoke_function(id, &func, vec![value])
+            self.dp.invoke_function(id, &func, vec![value], false, false)
         } else {
             Err(UError::new(
                 UErrorKind::BrowserControlError,
@@ -907,7 +909,7 @@ impl RemoteObject {
     pub fn get_property_by_index(&self, name: &str, index: &str) -> BrowserResult<Self> {
         let func = format!("function() {{return this.{name}[{index}];}}");
         if let Some(id) = &self.remote.object_id {
-            self.dp.invoke_function(id, &func, vec![])
+            self.dp.invoke_function(id, &func, vec![], false, false)
         } else {
             Err(UError::new(
                 UErrorKind::BrowserControlError,
@@ -918,7 +920,7 @@ impl RemoteObject {
     pub fn set_property_by_index(&self, name: &str, index: &str, value: RemoteFuncArg) -> BrowserResult<Self> {
         let func = format!("function(value) {{return this.{name}[{index}] = value;}}");
         if let Some(id) = &self.remote.object_id {
-            self.dp.invoke_function(id, &func, vec![value])
+            self.dp.invoke_function(id, &func, vec![value], false, false)
         } else {
             Err(UError::new(
                 UErrorKind::BrowserControlError,
@@ -929,7 +931,7 @@ impl RemoteObject {
     pub fn get_by_index(&self, index: &str) -> BrowserResult<Self> {
         let func = format!("function() {{return this[{index}];}}");
         if let Some(id) = &self.remote.object_id {
-            self.dp.invoke_function(id, &func, vec![])
+            self.dp.invoke_function(id, &func, vec![], false, false)
         } else {
             Err(UError::new(
                 UErrorKind::BrowserControlError,
@@ -940,7 +942,7 @@ impl RemoteObject {
     pub fn set_by_index(&self, index: &str, value: RemoteFuncArg) -> BrowserResult<Self> {
         let func = format!("function(value) {{return this[{index}] = value;}}");
         if let Some(id) = &self.remote.object_id {
-            self.dp.invoke_function(id, &func, vec![value])
+            self.dp.invoke_function(id, &func, vec![value], false, false)
         } else {
             Err(UError::new(
                 UErrorKind::BrowserControlError,
@@ -954,7 +956,7 @@ impl RemoteObject {
     pub fn invoke_method(&self, name: &str, args: Vec<RemoteFuncArg>) -> BrowserResult<RemoteObject> {
         let declaration = format!("function(...args) {{ return this.{name}(...args); }}");
         if let Some(id) = &self.remote.object_id {
-            self.dp.invoke_function(id, &declaration, args)
+            self.dp.invoke_function(id, &declaration, args, true, false)
         } else {
             Err(UError::new(
                 UErrorKind::BrowserControlError,
@@ -962,10 +964,10 @@ impl RemoteObject {
             ))
         }
     }
-    pub fn invoke_as_function(&self, args: Vec<RemoteFuncArg>) -> BrowserResult<RemoteObject> {
+    pub fn invoke_as_function(&self, args: Vec<RemoteFuncArg>, await_promise: bool) -> BrowserResult<RemoteObject> {
         let declaration = format!("function(...args) {{ return this(...args); }}");
         if let Some(id) = &self.remote.object_id {
-            self.dp.invoke_function(id, &declaration, args)
+            self.dp.invoke_function(id, &declaration, args, true, await_promise)
         } else {
             Err(UError::new(
                 UErrorKind::BrowserControlError,
@@ -978,6 +980,46 @@ impl RemoteObject {
     }
     pub fn is_object(&self) -> bool {
         self.remote.object_id.is_some()
+    }
+    pub fn is_promise(&self) -> bool {
+        if let Some(sub) = &self.remote.subtype {
+            sub == "promise"
+        } else {
+            false
+        }
+    }
+    pub fn get_type(&self) -> String {
+        let mut t = self.remote.r#type.clone();
+        if let Some(sub) = &self.remote.subtype {
+            t.push('.');
+            t.push_str(sub);
+        }
+        if let Some(class) = &self.remote.class_name {
+            t.push_str(" [");
+            t.push_str(class);
+            t.push(']')
+        }
+        t
+    }
+    /// Promiseであれば待つ、PromiseでなければNone
+    pub fn await_promise(&self) -> BrowserResult<Option<Self>> {
+        if self.is_promise() {
+            if let Some(id) = &self.remote.object_id {
+                let result = self.dp.send_t::<RuntimeResult>("Runtime.awaitPromise", json!({
+                    "promiseObjectId": id
+                }))?;
+                if let Some(exception) = result.exception_details {
+                    Err(exception.into())
+                } else {
+                    let remote = RemoteObject::new(self.dp.clone(), result.result);
+                    Ok(Some(remote))
+                }
+            } else {
+                Ok(None)
+            }
+        } else {
+            Ok(None)
+        }
     }
 }
 
