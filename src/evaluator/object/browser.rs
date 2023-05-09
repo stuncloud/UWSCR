@@ -1178,7 +1178,7 @@ impl BrowserArg for Vec<Object> {
 
     fn as_f64(&self, index: usize) -> BrowserResult<f64> {
         match self.get(index) {
-            Some(obj) => match obj.as_f64() {
+            Some(obj) => match obj.as_f64(true) {
                 Some(n) => Ok(n),
                 None => Err(UError::new(UErrorKind::BrowserControlError, UErrorMessage::ArgumentIsNotNumber(index+1, obj.to_string()))),
             },

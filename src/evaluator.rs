@@ -42,6 +42,7 @@ use std::sync::{Arc, Mutex};
 use std::ffi::c_void;
 use std::panic;
 use std::io::{stdout, Write, BufWriter};
+use std::ops::{Add, Sub, Mul, Div, Rem, BitOr, BitAnd, BitXor};
 
 use num_traits::FromPrimitive;
 use regex::Regex;
@@ -2043,262 +2044,52 @@ impl Evaluator {
         }
     }
 
-    fn to_number(obj: &Object) -> Option<f64> {
-        match obj {
-            Object::Num(n) => Some(*n),
-            Object::String(s) => match s.parse::<f64>() {
-                Ok(n) => Some(n),
-                Err(_) => None
-            },
-            Object::Empty => Some(0.0),
-            Object::Bool(b) => Some(*b as i32 as f64),
-            Object::Version(v) => Some(v.parse()),
-            _ => None
-        }
-    }
-
     fn eval_infix_expression(&mut self, infix: Infix, left: Object, right: Object) -> EvalResult<Object> {
-        // VARIANT型だったらObjectに戻す
-        if let Object::Variant(variant) = left {
-            return self.eval_infix_expression(infix, Object::from_variant(&variant.0)?, right);
-        }
-        if let Object::Variant(variant) = right {
-            return self.eval_infix_expression(infix, left, Object::from_variant(&variant.0)?);
-        }
-        // 論理演算子なら両辺の真性を評価してから演算する
-        // ビット演算子なら両辺を数値とみなして演算する
         match infix {
-            // 論理演算子
-            Infix::AndL |
-            Infix::OrL |
-            Infix::XorL => return self.eval_infix_logical_operator_expression(
-                infix, left.is_truthy(), right.is_truthy()
-            ),
-            // ビット演算子
-            Infix::AndB |
-            Infix::OrB |
-            Infix::XorB => {
-                let n_left = Self::to_number(&left);
-                let n_right = Self::to_number(&right);
-                if n_left.is_some() && n_right.is_some() {
-                    return self.eval_infix_number_expression(infix, n_left.unwrap(), n_right.unwrap());
+            Infix::Plus => left.add(right),
+            Infix::Minus => left.sub(right),
+            Infix::Multiply => left.mul(right),
+            Infix::Divide => left.div(right),
+            Infix::Equal => left.equal(&right),
+            Infix::NotEqual => left.not_equal(&right),
+            Infix::GreaterThanEqual => left.greater_than_equal(&right),
+            Infix::GreaterThan => left.greater_than(&right),
+            Infix::LessThanEqual => left.less_than_equal(&right),
+            Infix::LessThan => left.less_than(&right),
+            // 数値同士ならビット演算、そうでなければ論理演算
+            Infix::And => {
+                if left.as_f64(true).is_some() && right.as_f64(true).is_some() {
+                    left.bitand(right)
                 } else {
-                    return Err(UError::new(
-                        UErrorKind::BitOperatorError,
-                        UErrorMessage::LeftAndRightShouldBeNumber(left, infix, right),
-                    ));
+                    left.logical_and(&right)
                 }
             },
-            _ => ()
-        }
-        match &left {
-            Object::Num(n1) => {
-                match right {
-                    Object::Num(n) => {
-                        self.eval_infix_number_expression(infix, *n1, n)
-                    },
-                    Object::String(s) => {
-                        if infix == Infix::Plus {
-                            self.eval_infix_string_expression(infix, &n1.to_string(), &s)
-                        } else {
-                            match s.parse::<f64>() {
-                                Ok(n2) => self.eval_infix_number_expression(infix, *n1, n2),
-                                Err(_) => self.eval_infix_string_expression(infix, &n1.to_string(), &s)
-                            }
-                        }
-                    },
-                    Object::Empty => self.eval_infix_number_expression(infix, *n1, 0.0),
-                    Object::Bool(b) => self.eval_infix_number_expression(infix, *n1, b as i64 as f64),
-                    Object::Version(v) => self.eval_infix_number_expression(infix, *n1, v.parse()),
-                    _ => self.eval_infix_misc_expression(infix, left, right),
+            Infix::Or => {
+                if left.as_f64(true).is_some() && right.as_f64(true).is_some() {
+                    left.bitor(right)
+                } else {
+                    left.logical_or(&right)
                 }
             },
-            Object::String(s1) => {
-                match right {
-                    Object::String(s2) => self.eval_infix_string_expression(infix, s1, &s2),
-                    Object::Num(n) => {
-                        if infix == Infix::Plus {
-                            self.eval_infix_string_expression(infix, s1, &n.to_string())
-                        } else {
-                            match s1.parse::<f64>() {
-                                Ok(n2) => self.eval_infix_number_expression(infix, n2, n),
-                                Err(_) => if infix == Infix::Multiply {
-                                    let s = s1.repeat(n as usize);
-                                    Ok(Object::String(s))
-                                } else {
-                                    self.eval_infix_string_expression(infix, s1, &n.to_string())
-                                }
-                            }
-                        }
-                    },
-                    Object::Bool(_) => self.eval_infix_string_expression(infix, s1, &right.to_string()),
-                    Object::Empty => self.eval_infix_empty_expression(infix, left),
-                    Object::Version(v) => self.eval_infix_string_expression(infix, s1, &v.to_string()),
-                    Object::Null => self.eval_infix_null_expression(infix, Some(left), None),
-                    _ => self.eval_infix_string_expression(infix, s1, &right.to_string())
+            Infix::Xor => {
+                if left.as_f64(true).is_some() && right.as_f64(true).is_some() {
+                    left.bitxor(right)
+                } else {
+                    left.logical_xor(&right)
                 }
             },
-            Object::Bool(l) => match right {
-                Object::Bool(b) => self.eval_infix_logical_operator_expression(infix, *l, b),
-                Object::String(s) => self.eval_infix_string_expression(infix, &left.to_string(), &s),
-                Object::Empty => self.eval_infix_empty_expression(infix, left),
-                Object::Num(n) => self.eval_infix_number_expression(infix, *l as i64 as f64, n),
-                _ => self.eval_infix_misc_expression(infix, left, right)
-            },
-            Object::Empty => match right {
-                Object::Num(n) => self.eval_infix_number_expression(infix, 0.0, n),
-                Object::String(_) => self.eval_infix_empty_expression(infix, right),
-                Object::Empty => Ok(Object::Bool(true)),
-                _ => self.eval_infix_misc_expression(infix, left, right)
-            },
-            Object::Version(v1) => match right {
-                Object::Version(v2) => self.eval_infix_number_expression(infix, v1.parse(), v2.parse()),
-                Object::Num(n) => self.eval_infix_number_expression(infix, v1.parse(), n),
-                Object::String(s) => self.eval_infix_string_expression(infix, &v1.to_string(), &s),
-                _ => self.eval_infix_misc_expression(infix, left, right)
-            },
-            Object::Array(a) => if infix == Infix::Plus {
-                let mut new = a.to_owned();
-                new.push(right);
-                Ok(Object::Array(new))
-            } else {
-                self.eval_infix_misc_expression(infix, left, right)
-            },
-            Object::Null => self.eval_infix_null_expression(infix, None, Some(right)),
-            _ => self.eval_infix_misc_expression(infix, left, right)
-        }
-    }
-
-    fn eval_infix_misc_expression(&mut self, infix: Infix, left: Object, right: Object) -> EvalResult<Object> {
-        let obj = match infix {
-            Infix::Plus => if let Object::String(s) = right {
-                Object::String(format!("{}{}", left, s.clone()))
-            } else {
-                return Err(UError::new(
-                    UErrorKind::OperatorError,
-                    UErrorMessage::TypeMismatch(left, infix, right),
-                ))
-            },
-            Infix::Equal => Object::Bool(left == right),
-            Infix::NotEqual => Object::Bool(left != right),
-            _ => return Err(UError::new(
-                UErrorKind::OperatorError,
-                UErrorMessage::TypeMismatch(left, infix, right),
-            ))
-        };
-        Ok(obj)
-    }
-
-    fn eval_infix_null_expression(&mut self, infix: Infix, left: Option<Object>, right: Option<Object>) -> EvalResult<Object> {
-        if let Some(obj) = left {
-            match infix {
-                Infix::Plus => if let Object::Num(n) = obj {
-                    Ok(Object::Num(n))
-                } else if let Object::String(s) = obj {
-                    Ok(Object::String(format!("{s}\0")))
-                } else {
-                    self.eval_infix_misc_expression(infix, obj, Object::Null)
-                },
-                _ => self.eval_infix_misc_expression(infix, obj, Object::Null)
-            }
-        } else if let Some(obj) = right {
-            match infix {
-                Infix::Plus => if let Object::Num(n) = obj {
-                    Ok(Object::Num(n))
-                } else if let Object::String(s) = obj {
-                    Ok(Object::String(format!("\0{s}")))
-                } else {
-                    self.eval_infix_misc_expression(infix, Object::Null, obj)
-                },
-                Infix::Multiply => if let Object::Num(n) = obj {
-                    let repeated = "\0".repeat(n as usize);
-                    Ok(Object::String(repeated))
-                } else {
-                    self.eval_infix_misc_expression(infix, Object::Null, obj)
-                },
-                _ => self.eval_infix_misc_expression(infix, Object::Null, obj)
-            }
-        } else {
-            self.eval_infix_misc_expression(infix, Object::Null, Object::Null)
-        }
-    }
-
-    fn eval_infix_number_expression(&mut self, infix: Infix, left: f64, right: f64) -> EvalResult<Object> {
-        let obj = match infix {
-            Infix::Plus => Object::Num(left + right),
-            Infix::Minus => Object::Num(left - right),
-            Infix::Multiply => Object::Num(left * right),
-            Infix::Divide => match right as i64 {
-                0 => Object::Num(0.0), // 0除算は0を返す
-                _ => Object::Num(left / right),
-            },
-            Infix::Mod => Object::Num(left % right),
-            Infix::LessThan => Object::Bool(left < right),
-            Infix::LessThanEqual => Object::Bool(left <= right),
-            Infix::GreaterThan => Object::Bool(left > right),
-            Infix::GreaterThanEqual => Object::Bool(left >= right),
-            Infix::Equal => Object::Bool(left == right),
-            Infix::NotEqual => Object::Bool(left != right),
-            Infix::And | Infix::AndB => Object::Num((left as i64 & right as i64) as f64),
-            Infix::Or | Infix::OrB => Object::Num((left as i64 | right as i64) as f64),
-            Infix::Xor | Infix::XorB => Object::Num((left as i64 ^ right as i64) as f64),
-            Infix::Assign => return Err(UError::new(
+            Infix::AndL => left.logical_and(&right),
+            Infix::OrL => left.logical_or(&right),
+            Infix::XorL => left.logical_xor(&right),
+            Infix::AndB => left.bitand(right),
+            Infix::OrB => left.bitor(right),
+            Infix::XorB => left.bitxor(right),
+            Infix::Mod => left.rem(right),
+            Infix::Assign => Err(UError::new(
                 UErrorKind::OperatorError,
                 UErrorMessage::SyntaxError
             )),
-            _ => return Err(UError::new(
-                UErrorKind::OperatorError,
-                UErrorMessage::TypeMismatch(left.into(), infix, right.into()),
-            )),
-        };
-        match obj {
-            Object::Num(n) => if ! n.is_finite() {
-                // 無限またはNaNはエラーにする
-                Err(UError::new(
-                    UErrorKind::OperatorError,
-                    UErrorMessage::NotFinite(n),
-                ))
-            } else {
-                Ok(Object::Num(n))
-            },
-            o => Ok(o)
         }
-    }
-
-    fn eval_infix_string_expression(&mut self, infix: Infix, left: &str, right: &str) -> EvalResult<Object> {
-        let obj = match infix {
-            Infix::Plus => Object::String(format!("{}{}", left, right)),
-            Infix::Equal => Object::Bool(left == right),
-            Infix::NotEqual => Object::Bool(left != right),
-            _ => return Err(UError::new(
-                UErrorKind::OperatorError,
-                UErrorMessage::BadStringInfix(infix),
-            ))
-        };
-        Ok(obj)
-    }
-
-    fn eval_infix_empty_expression(&mut self, infix: Infix, other: Object) -> EvalResult<Object> {
-        let obj = match infix {
-            Infix::Plus => Object::String(other.to_string()),
-            Infix::Equal => Object::Bool(other.is_equal(&Object::Empty)),
-            Infix::NotEqual => Object::Bool(! other.is_equal(&Object::Empty)),
-            _ => return Err(UError::new(
-                UErrorKind::OperatorError,
-                UErrorMessage::BadStringInfix(infix),
-            ))
-        };
-        Ok(obj)
-    }
-
-    fn eval_infix_logical_operator_expression(&mut self, infix: Infix, left: bool, right: bool) -> EvalResult<Object> {
-        let obj = match infix {
-            Infix::And | Infix::AndL => Object::Bool(left && right),
-            Infix::Or | Infix::OrL => Object::Bool(left || right),
-            Infix::Xor | Infix::XorL => Object::Bool(left != right),
-            _ => self.eval_infix_number_expression(infix, left as i64 as f64, right as i64 as f64)?
-        };
-        Ok(obj)
     }
 
     fn eval_literal(&mut self, literal: Literal, maybe_outer: Option<&Arc<Mutex<Layer>>>) -> EvalResult<Object> {

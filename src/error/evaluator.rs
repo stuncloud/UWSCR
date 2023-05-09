@@ -458,6 +458,9 @@ pub enum UErrorMessage {
     TaskEndedIncorrectly(String),
     TooManyArguments(usize, usize),
     TypeMismatch(Object, Infix, Object),
+    RightSideTypeInvalid(Infix),
+    LeftSideTypeInvalid(Infix),
+    DivZeroNotAllowed,
     UnableToGetCursorPosition,
     UnableToGetMonitorInfo,
     UnsupportedArchitecture,
@@ -506,6 +509,7 @@ pub enum UErrorMessage {
     BrowserHasNoDebugPort(String, u16),
     BrowserDebuggingPortUnmatch(String, u16),
     RemoteObjectIsNotPromise,
+    RemoteObjectIsNotPrimitiveValue,
 }
 
 impl fmt::Display for UErrorMessage {
@@ -655,6 +659,18 @@ impl fmt::Display for UErrorMessage {
                 "型が不正です ({} {} {})",
                 "Mismatched type: {} {} {}",
                 l, i, r
+            ),
+            Self::RightSideTypeInvalid(i) => write_locale!(f,
+                "{i} の右辺の型が不正です",
+                "The type of the right-hand side of the {i} operator is invalid.",
+            ),
+            Self::LeftSideTypeInvalid(i) => write_locale!(f,
+                "{i} の左辺の型が不正です",
+                "The type of the left-hand side of the {i} operator is invalid.",
+            ),
+            Self::DivZeroNotAllowed => write_locale!(f,
+                "0除算はできません",
+                "Dividing by zero is not allowed",
             ),
             Self::NotFinite(n) => write_locale!(f,
                 "計算結果が無効です ({})",
@@ -1072,6 +1088,10 @@ impl fmt::Display for UErrorMessage {
             Self::RemoteObjectIsNotPromise => write_locale!(f,
                 "RemoteObjectがPromiseではありません",
                 "RemoteObject is not Promise",
+            ),
+            Self::RemoteObjectIsNotPrimitiveValue => write_locale!(f,
+                "RemoteObjectを通常の値型に変換できません",
+                "RemoteObject is not a primitive value",
             ),
         }
     }

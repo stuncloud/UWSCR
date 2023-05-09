@@ -24,9 +24,12 @@ pub use browser::{BrowserBuilder, Browser, TabWindow, RemoteObject, BrowserFunct
 
 use crate::ast::*;
 use crate::evaluator::environment::Layer;
-use crate::evaluator::builtins::BuiltinFunction;
+use crate::evaluator::builtins::{
+    BuiltinFunction,
+    system_controls::gettime::datetime_str_to_f64,
+};
 use crate::evaluator::com_object::VARIANTHelper;
-// use crate::evaluator::devtools_protocol::{Browser, Element, ElementProperty};
+use crate::error::evaluator::{UError, UErrorKind, UErrorMessage};
 
 use windows::{
     Win32::{
@@ -42,10 +45,15 @@ use windows::{
 
 use std::fmt;
 use std::hash::{Hash, Hasher};
+use std::str::FromStr;
 use std::sync::{Arc, Mutex};
+use std::ops::{Add, Sub, Mul, Div, Rem, BitOr, BitAnd, BitXor};
+use std::cmp::{Ordering};
 
 use num_traits::Zero;
 use serde_json::{self, Value};
+
+use super::EvalResult;
 
 #[derive(Clone)]
 pub enum Object {
@@ -397,15 +405,113 @@ impl Object {
             _ => true
         }
     }
-    pub fn as_f64(&self) -> Option<f64> {
+    pub fn as_f64(&self, null_as_zero: bool) -> Option<f64> {
         match self {
             Object::Num(n) => Some(*n),
-            Object::Bool(b) => Some(*b as i32 as f64),
+            Object::Bool(b) => {
+                let n = if *b {1.0} else {0.0};
+                Some(n)
+            },
             Object::Empty => Some(0.0),
             Object::String(s) => {
-                s.parse::<f64>().ok()
+                // 文字列はf64への変換を試みる
+                match s.parse::<f64>() {
+                    Ok(n) => Some(n),
+                    Err(_) => {
+                        // だめなら日時にしてみる
+                        match datetime_str_to_f64(s) {
+                            Some(n) => Some(n),
+                            None => {
+                                // さらにダメならバージョンにしてみる
+                                let version = Version::from_str(s).ok()?.parse();
+                                Some(version)
+                            }
+                        }
+                    },
+                }
+            },
+            Object::Null => if null_as_zero {
+                Some(0.0)
+            } else {
+                None
             },
             _ => None
+        }
+    }
+    /// 以下を通常の値型に変換する
+    /// - RemoteObject
+    /// - Variant
+    fn to_uwscr_object(self) -> Result<Object, UError> {
+        match self {
+            Object::RemoteObject(r) => {
+                if let Some(value) = r.get_value() {
+                    Ok(value.into())
+                } else {
+                    Err(UError::new(
+                        UErrorKind::OperatorError,
+                        UErrorMessage::RemoteObjectIsNotPrimitiveValue,
+                    ))
+                }
+            },
+            Object::Variant(v) => {
+                Object::from_variant(&v.0)
+            },
+            obj => Ok(obj)
+        }
+    }
+    pub fn logical_and(&self, other: &Object) -> EvalResult<Object> {
+        let result = self.is_truthy() && other.is_truthy();
+        Ok(result.into())
+    }
+    pub fn logical_or(&self, other: &Object) -> EvalResult<Object> {
+        let result = self.is_truthy() || other.is_truthy();
+        Ok(result.into())
+    }
+    pub fn logical_xor(&self, other: &Object) -> EvalResult<Object> {
+        let result = self.is_truthy() != other.is_truthy();
+        Ok(result.into())
+    }
+    pub fn equal(&self, other: &Object) -> EvalResult<Object> {
+        let result = self.eq(other);
+        Ok(result.into())
+    }
+    pub fn not_equal(&self, other: &Object) -> EvalResult<Object> {
+        let result = self.ne(other);
+        Ok(result.into())
+    }
+    pub fn greater_than_equal(&self, other: &Object) -> EvalResult<Object> {
+        let result = self.ge(other);
+        Ok(result.into())
+    }
+    pub fn greater_than(&self, other: &Object) -> EvalResult<Object> {
+        let result = self.gt(other);
+        Ok(result.into())
+    }
+    pub fn less_than_equal(&self, other: &Object) -> EvalResult<Object> {
+        let result = self.le(other);
+        Ok(result.into())
+    }
+    pub fn less_than(&self, other: &Object) -> EvalResult<Object> {
+        let result = self.lt(other);
+        Ok(result.into())
+    }
+    fn bit_or(n1: f64, n2: f64) -> Object {
+        let new = n1 as i64 | n2 as i64;
+        Object::Num(new as f64)
+    }
+    fn bit_and(n1: f64, n2: f64) -> Object {
+        let new = n1 as i64 & n2 as i64;
+        Object::Num(new as f64)
+    }
+    fn bit_xor(n1: f64, n2: f64) -> Object {
+        let new = n1 as i64 ^ n2 as i64;
+        Object::Num(new as f64)
+    }
+    fn is_zero(&self) -> bool {
+        if let Some(n) = self.as_f64(false) {
+            n.is_zero()
+        } else {
+            false
         }
     }
 }
@@ -573,6 +679,960 @@ impl ValueExt for Value {
                 }
             },
             _ => None,
+        }
+    }
+}
+
+/* 演算 */
+impl PartialOrd for Object {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        match (self.as_f64(true), other.as_f64(true)) {
+            // ともに数値にできるなら数値として比較
+            (Some(n1), Some(n2)) => n1.partial_cmp(&n2),
+            // そうでなければ文字列として比較
+            _ => self.to_string().partial_cmp(&other.to_string()),
+        }
+    }
+}
+
+impl Add for Object {
+    type Output = Result<Object, UError>;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        let rhs = rhs.to_uwscr_object()?;
+        match self {
+            Object::Num(n) => {
+                if let Some(n2) = rhs.as_f64(true) {
+                    Ok(Object::Num(n + n2))
+                } else {
+                    if let Object::String(s2) = rhs {
+                        let mut s = n.to_string();
+                        s.push_str(&s2);
+                        Ok(Object::String(s))
+                    } else {
+                        Err(UError::new(
+                            UErrorKind::OperatorError,
+                            UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                        ))
+                    }
+                }
+            },
+            Object::String(mut s) => {
+                if rhs == Object::Null {
+                    s.push('\0');
+                } else {
+                    s.push_str(&rhs.to_string());
+                    // let new = format!("{}{}", s, rhs);
+                    // Ok(Object::String(new))
+                }
+                Ok(Object::String(s))
+            },
+            Object::Bool(b) => {
+                if let Some(n) = rhs.as_f64(false) {
+                    let new = if b {1.0 + n} else {n};
+                    Ok(Object::Num(new))
+                } else {
+                    let new = format!("{}{}", self, rhs);
+                    Ok(Object::String(new))
+                }
+            },
+            Object::Array(mut arr) => {
+                arr.push(rhs);
+                Ok(Object::Array(arr))
+            },
+            Object::Null => {
+                match rhs {
+                    Object::Num(_) => Ok(rhs),
+                    Object::Null => Ok(Object::String("\0\0".into())),
+                    Object::Empty => Ok(Object::String("\0".into())),
+                    Object::String(mut s) => {
+                        s.push('\0');
+                        Ok(Object::String(s))
+                    },
+                    _ => {
+                        Err(UError::new(
+                            UErrorKind::OperatorError,
+                            UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                        ))
+                    }
+                }
+            },
+            Object::Empty => {
+                Ok(rhs)
+            },
+            Object::ByteArray(mut arr) => {
+                if let Some(n) = rhs.as_f64(true) {
+                    arr.push(n as u8);
+                    Ok(Object::ByteArray(arr))
+                } else {
+                    Err(UError::new(
+                        UErrorKind::OperatorError,
+                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                    ))
+                }
+            },
+            Object::Version(v) => {
+                if let Some(n) = rhs.as_f64(true) {
+                    Ok(Object::Num(v.parse() + n))
+                } else {
+                    Err(UError::new(
+                        UErrorKind::OperatorError,
+                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                    ))
+                }
+            },
+            Object::RemoteObject(_) => {
+                let obj = self.to_uwscr_object()?;
+                obj.add(rhs)
+            },
+            Object::Variant(_) => {
+                let obj = self.to_uwscr_object()?;
+                obj.add(rhs)
+            }
+            // 以下はエラー
+            Object::HashTbl(_) |
+            Object::AnonFunc(_) |
+            Object::Function(_) |
+            Object::AsyncFunction(_) |
+            Object::BuiltinFunction(_, _, _) |
+            Object::Module(_) |
+            Object::Class(_, _) |
+            Object::Instance(_) |
+            Object::EmptyParam |
+            Object::Nothing |
+            Object::Continue(_) |
+            Object::Break(_) |
+            Object::Handle(_) |
+            Object::RegEx(_) |
+            Object::Exit |
+            Object::Global |
+            Object::This(_) |
+            Object::UObject(_) |
+            Object::DynamicVar(_) |
+            Object::ExpandableTB(_) |
+            Object::Enum(_) |
+            Object::Task(_) |
+            Object::DefDllFunction(_, _, _, _) |
+            Object::Struct(_, _, _) |
+            Object::UStruct(_, _, _) |
+            Object::ComObject(_) |
+            Object::ComMember(_, _) |
+            Object::SafeArray(_) |
+            Object::VarArgument(_) |
+            Object::BrowserBuilder(_) |
+            Object::Browser(_) |
+            Object::TabWindow(_) |
+            Object::BrowserFunction(_) |
+            Object::Fopen(_) |
+            Object::Reference(_, _) => {
+                Err(UError::new(
+                    UErrorKind::OperatorError,
+                    UErrorMessage::LeftSideTypeInvalid(Infix::Plus),
+                ))
+            },
+        }
+    }
+}
+
+impl Sub for Object {
+    type Output = Result<Object, UError>;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        let rhs = rhs.to_uwscr_object()?;
+        match self {
+            Object::Num(n) => {
+                if let Some(n2) = rhs.as_f64(false) {
+                    Ok(Object::Num(n - n2))
+                } else {
+                    Err(UError::new(
+                        UErrorKind::OperatorError,
+                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                    ))
+                }
+            },
+            Object::Bool(b) => {
+                if let Some(n) = rhs.as_f64(false) {
+                    let new = if b {1.0 - n} else {n};
+                    Ok(Object::Num(new))
+                } else {
+                    Err(UError::new(
+                        UErrorKind::OperatorError,
+                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                    ))
+                }
+            },
+            Object::Empty => {
+                Ok(rhs)
+            },
+            Object::Version(v) => {
+                if let Some(n) = rhs.as_f64(false) {
+                    Ok(Object::Num(v.parse() - n))
+                } else {
+                    Err(UError::new(
+                        UErrorKind::OperatorError,
+                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                    ))
+                }
+            },
+            Object::RemoteObject(_) => {
+                let obj = self.to_uwscr_object()?;
+                obj.sub(rhs)
+            },
+            Object::Variant(_) => {
+                let obj = self.to_uwscr_object()?;
+                obj.sub(rhs)
+            }
+            // 以下はエラー
+            Object::String(_) |
+            Object::Array(_) |
+            Object::Null |
+            Object::ByteArray(_) |
+            Object::HashTbl(_) |
+            Object::AnonFunc(_) |
+            Object::Function(_) |
+            Object::AsyncFunction(_) |
+            Object::BuiltinFunction(_, _, _) |
+            Object::Module(_) |
+            Object::Class(_, _) |
+            Object::Instance(_) |
+            Object::EmptyParam |
+            Object::Nothing |
+            Object::Continue(_) |
+            Object::Break(_) |
+            Object::Handle(_) |
+            Object::RegEx(_) |
+            Object::Exit |
+            Object::Global |
+            Object::This(_) |
+            Object::UObject(_) |
+            Object::DynamicVar(_) |
+            Object::ExpandableTB(_) |
+            Object::Enum(_) |
+            Object::Task(_) |
+            Object::DefDllFunction(_, _, _, _) |
+            Object::Struct(_, _, _) |
+            Object::UStruct(_, _, _) |
+            Object::ComObject(_) |
+            Object::ComMember(_, _) |
+            Object::SafeArray(_) |
+            Object::VarArgument(_) |
+            Object::BrowserBuilder(_) |
+            Object::Browser(_) |
+            Object::TabWindow(_) |
+            Object::BrowserFunction(_) |
+            Object::Fopen(_) |
+            Object::Reference(_, _) => {
+                Err(UError::new(
+                    UErrorKind::OperatorError,
+                    UErrorMessage::LeftSideTypeInvalid(Infix::Plus),
+                ))
+            },
+        }
+    }
+}
+impl Mul for Object {
+    type Output = Result<Object, UError>;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        let rhs = rhs.to_uwscr_object()?;
+        match self {
+            Object::Num(n) => {
+                if let Some(n2) = rhs.as_f64(false) {
+                    Ok(Object::Num(n * n2))
+                } else {
+                    Err(UError::new(
+                        UErrorKind::OperatorError,
+                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                    ))
+                }
+            },
+            Object::String(s) => {
+                // 右辺が数値の場合は*演算可能
+                if let Some(n2) = rhs.as_f64(false) {
+                    if let Ok(n) = s.parse::<f64>() {
+                        // 左辺の文字列が数値変換可能であれば数値として演算
+                        Ok(Object::Num(n * n2))
+                    } else {
+                        // 文字列の繰り返し
+                        let new = s.repeat(n2 as usize);
+                        Ok(Object::String(new))
+                    }
+                } else {
+                    Err(UError::new(
+                        UErrorKind::OperatorError,
+                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                    ))
+                }
+            },
+            Object::Null => {
+                // 右辺が数値の場合は*演算可能
+                if let Object::Num(n2) = rhs {
+                    // NULL文字の繰り返し
+                    let new = "\0".repeat(n2 as usize);
+                    Ok(Object::String(new))
+                } else {
+                    Err(UError::new(
+                        UErrorKind::OperatorError,
+                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                    ))
+                }
+            },
+            Object::Bool(b) => {
+                if let Some(n) = rhs.as_f64(false) {
+                    // falseは0を掛ける
+                    let new = if b {n} else {0.0 * n};
+                    Ok(Object::Num(new))
+                } else {
+                    Err(UError::new(
+                        UErrorKind::OperatorError,
+                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                    ))
+                }
+            },
+            Object::Empty => {
+                if let Some(_) = rhs.as_f64(false) {
+                    // 0を掛ける
+                    Ok(Object::Num(0.0))
+                } else {
+                    Err(UError::new(
+                        UErrorKind::OperatorError,
+                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                    ))
+                }
+            },
+            Object::Version(v) => {
+                if let Some(n) = rhs.as_f64(false) {
+                    Ok(Object::Num(v.parse() * n))
+                } else {
+                    Err(UError::new(
+                        UErrorKind::OperatorError,
+                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                    ))
+                }
+            },
+            Object::RemoteObject(_) => {
+                let obj = self.to_uwscr_object()?;
+                obj.mul(rhs)
+            },
+            Object::Variant(_) => {
+                let obj = self.to_uwscr_object()?;
+                obj.mul(rhs)
+            }
+            // 以下はエラー
+            Object::Array(_) |
+            Object::ByteArray(_) |
+            Object::HashTbl(_) |
+            Object::AnonFunc(_) |
+            Object::Function(_) |
+            Object::AsyncFunction(_) |
+            Object::BuiltinFunction(_, _, _) |
+            Object::Module(_) |
+            Object::Class(_, _) |
+            Object::Instance(_) |
+            Object::EmptyParam |
+            Object::Nothing |
+            Object::Continue(_) |
+            Object::Break(_) |
+            Object::Handle(_) |
+            Object::RegEx(_) |
+            Object::Exit |
+            Object::Global |
+            Object::This(_) |
+            Object::UObject(_) |
+            Object::DynamicVar(_) |
+            Object::ExpandableTB(_) |
+            Object::Enum(_) |
+            Object::Task(_) |
+            Object::DefDllFunction(_, _, _, _) |
+            Object::Struct(_, _, _) |
+            Object::UStruct(_, _, _) |
+            Object::ComObject(_) |
+            Object::ComMember(_, _) |
+            Object::SafeArray(_) |
+            Object::VarArgument(_) |
+            Object::BrowserBuilder(_) |
+            Object::Browser(_) |
+            Object::TabWindow(_) |
+            Object::BrowserFunction(_) |
+            Object::Fopen(_) |
+            Object::Reference(_, _) => {
+                Err(UError::new(
+                    UErrorKind::OperatorError,
+                    UErrorMessage::LeftSideTypeInvalid(Infix::Plus),
+                ))
+            },
+        }
+    }
+}
+impl Div for Object {
+    type Output = Result<Object, UError>;
+
+    fn div(self, rhs: Self) -> Self::Output {
+        let rhs = rhs.to_uwscr_object()?;
+        if rhs.is_zero() {
+            // 右辺が0の場合は0を返す
+            return Ok(Object::Num(0.0));
+        }
+        match self {
+            Object::Num(n) => {
+                if let Some(n2) = rhs.as_f64(false) {
+                    Ok(Object::Num(n / n2))
+                } else {
+                    Err(UError::new(
+                        UErrorKind::OperatorError,
+                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                    ))
+                }
+            },
+            Object::String(s) => {
+                // 自身が数値変換可能でかつ右辺が数値の場合は/演算可能
+                match (s.parse::<f64>(), rhs.as_f64(false)) {
+                    (Ok(n1), Some(n2)) => Ok(Object::Num(n1 / n2)),
+                    _ => Err(UError::new(
+                        UErrorKind::OperatorError,
+                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                    )),
+                }
+            },
+            Object::Bool(b) => {
+                if let Some(n) = rhs.as_f64(false) {
+                    let new = if b {1.0 / n} else {0.0};
+                    Ok(Object::Num(new))
+                } else {
+                    Err(UError::new(
+                        UErrorKind::OperatorError,
+                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                    ))
+                }
+            },
+            Object::Empty => {
+                if let Some(_) = rhs.as_f64(false) {
+                    Ok(Object::Num(0.0))
+                } else {
+                    Err(UError::new(
+                        UErrorKind::OperatorError,
+                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                    ))
+                }
+            },
+            Object::Version(v) => {
+                if let Some(n) = rhs.as_f64(false) {
+                    Ok(Object::Num(v.parse() / n))
+                } else {
+                    Err(UError::new(
+                        UErrorKind::OperatorError,
+                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                    ))
+                }
+            },
+            Object::RemoteObject(_) => {
+                let obj = self.to_uwscr_object()?;
+                obj.div(rhs)
+            },
+            Object::Variant(_) => {
+                let obj = self.to_uwscr_object()?;
+                obj.div(rhs)
+            }
+            // 以下はエラー
+            Object::Null |
+            Object::Array(_) |
+            Object::ByteArray(_) |
+            Object::HashTbl(_) |
+            Object::AnonFunc(_) |
+            Object::Function(_) |
+            Object::AsyncFunction(_) |
+            Object::BuiltinFunction(_, _, _) |
+            Object::Module(_) |
+            Object::Class(_, _) |
+            Object::Instance(_) |
+            Object::EmptyParam |
+            Object::Nothing |
+            Object::Continue(_) |
+            Object::Break(_) |
+            Object::Handle(_) |
+            Object::RegEx(_) |
+            Object::Exit |
+            Object::Global |
+            Object::This(_) |
+            Object::UObject(_) |
+            Object::DynamicVar(_) |
+            Object::ExpandableTB(_) |
+            Object::Enum(_) |
+            Object::Task(_) |
+            Object::DefDllFunction(_, _, _, _) |
+            Object::Struct(_, _, _) |
+            Object::UStruct(_, _, _) |
+            Object::ComObject(_) |
+            Object::ComMember(_, _) |
+            Object::SafeArray(_) |
+            Object::VarArgument(_) |
+            Object::BrowserBuilder(_) |
+            Object::Browser(_) |
+            Object::TabWindow(_) |
+            Object::BrowserFunction(_) |
+            Object::Fopen(_) |
+            Object::Reference(_, _) => {
+                Err(UError::new(
+                    UErrorKind::OperatorError,
+                    UErrorMessage::LeftSideTypeInvalid(Infix::Plus),
+                ))
+            },
+        }
+    }
+}
+impl Rem for Object {
+    type Output = Result<Object, UError>;
+
+    fn rem(self, rhs: Self) -> Self::Output {
+        let rhs = rhs.to_uwscr_object()?;
+        if rhs.is_zero() {
+            // 右辺が0の場合はエラー
+            return Err(UError::new(
+                UErrorKind::OperatorError,
+                UErrorMessage::DivZeroNotAllowed,
+            ));
+        }
+        match self {
+            Object::Num(n) => {
+                if let Some(n2) = rhs.as_f64(false) {
+                    Ok(Object::Num(n % n2))
+                } else {
+                    Err(UError::new(
+                        UErrorKind::OperatorError,
+                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                    ))
+                }
+            },
+            Object::String(s) => {
+                // 自身が数値変換可能でかつ右辺が数値の場合は%演算可能
+                match (s.parse::<f64>(), rhs.as_f64(false)) {
+                    (Ok(n1), Some(n2)) => Ok(Object::Num(n1 % n2)),
+                    _ => Err(UError::new(
+                        UErrorKind::OperatorError,
+                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                    )),
+                }
+            },
+            Object::Bool(b) => {
+                if let Some(n) = rhs.as_f64(false) {
+                    let new = if b {1.0 % n} else {0.0};
+                    Ok(Object::Num(new))
+                } else {
+                    Err(UError::new(
+                        UErrorKind::OperatorError,
+                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                    ))
+                }
+            },
+            Object::Empty => {
+                if let Some(_) = rhs.as_f64(false) {
+                    Ok(Object::Num(0.0))
+                } else {
+                    Err(UError::new(
+                        UErrorKind::OperatorError,
+                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                    ))
+                }
+            },
+            Object::Version(v) => {
+                if let Some(n) = rhs.as_f64(false) {
+                    Ok(Object::Num(v.parse() % n))
+                } else {
+                    Err(UError::new(
+                        UErrorKind::OperatorError,
+                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                    ))
+                }
+            },
+            Object::RemoteObject(_) => {
+                let obj = self.to_uwscr_object()?;
+                obj.rem(rhs)
+            },
+            Object::Variant(_) => {
+                let obj = self.to_uwscr_object()?;
+                obj.rem(rhs)
+            }
+            // 以下はエラー
+            Object::Null |
+            Object::Array(_) |
+            Object::ByteArray(_) |
+            Object::HashTbl(_) |
+            Object::AnonFunc(_) |
+            Object::Function(_) |
+            Object::AsyncFunction(_) |
+            Object::BuiltinFunction(_, _, _) |
+            Object::Module(_) |
+            Object::Class(_, _) |
+            Object::Instance(_) |
+            Object::EmptyParam |
+            Object::Nothing |
+            Object::Continue(_) |
+            Object::Break(_) |
+            Object::Handle(_) |
+            Object::RegEx(_) |
+            Object::Exit |
+            Object::Global |
+            Object::This(_) |
+            Object::UObject(_) |
+            Object::DynamicVar(_) |
+            Object::ExpandableTB(_) |
+            Object::Enum(_) |
+            Object::Task(_) |
+            Object::DefDllFunction(_, _, _, _) |
+            Object::Struct(_, _, _) |
+            Object::UStruct(_, _, _) |
+            Object::ComObject(_) |
+            Object::ComMember(_, _) |
+            Object::SafeArray(_) |
+            Object::VarArgument(_) |
+            Object::BrowserBuilder(_) |
+            Object::Browser(_) |
+            Object::TabWindow(_) |
+            Object::BrowserFunction(_) |
+            Object::Fopen(_) |
+            Object::Reference(_, _) => {
+                Err(UError::new(
+                    UErrorKind::OperatorError,
+                    UErrorMessage::LeftSideTypeInvalid(Infix::Plus),
+                ))
+            },
+        }
+    }
+
+}
+impl BitOr for Object {
+    type Output = Result<Object, UError>;
+
+    fn bitor(self, rhs: Self) -> Self::Output {
+        let rhs = rhs.to_uwscr_object()?;
+        match self {
+            Object::Num(n) => {
+                if let Some(n2) = rhs.as_f64(false) {
+                    Ok(Object::bit_or(n, n2))
+                } else {
+                    Err(UError::new(
+                        UErrorKind::OperatorError,
+                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                    ))
+                }
+            },
+            Object::String(s) => {
+                // 自身が数値変換可能でかつ右辺が数値の場合は演算可能
+                match (s.parse::<f64>(), rhs.as_f64(false)) {
+                    (Ok(n1), Some(n2)) => Ok(Object::bit_or(n1, n2)),
+                    _ => Err(UError::new(
+                        UErrorKind::OperatorError,
+                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                    )),
+                }
+            },
+            Object::Bool(b) => {
+                if let Some(n) = rhs.as_f64(false) {
+                    let new = if b {Object::bit_or(1.0, n)} else {Object::bit_or(0.0, n)};
+                    Ok(new)
+                } else {
+                    Err(UError::new(
+                        UErrorKind::OperatorError,
+                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                    ))
+                }
+            },
+            Object::Empty => {
+                if let Some(n) = rhs.as_f64(false) {
+                    Ok(Object::bit_or(0.0, n))
+                } else {
+                    Err(UError::new(
+                        UErrorKind::OperatorError,
+                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                    ))
+                }
+            },
+            Object::Version(v) => {
+                if let Some(n) = rhs.as_f64(false) {
+                    Ok(Object::bit_or(v.parse(), n))
+                } else {
+                    Err(UError::new(
+                        UErrorKind::OperatorError,
+                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                    ))
+                }
+            },
+            Object::RemoteObject(_) => {
+                let obj = self.to_uwscr_object()?;
+                obj.bitor(rhs)
+            },
+            Object::Variant(_) => {
+                let obj = self.to_uwscr_object()?;
+                obj.bitor(rhs)
+            }
+            // 以下はエラー
+            Object::Null |
+            Object::Array(_) |
+            Object::ByteArray(_) |
+            Object::HashTbl(_) |
+            Object::AnonFunc(_) |
+            Object::Function(_) |
+            Object::AsyncFunction(_) |
+            Object::BuiltinFunction(_, _, _) |
+            Object::Module(_) |
+            Object::Class(_, _) |
+            Object::Instance(_) |
+            Object::EmptyParam |
+            Object::Nothing |
+            Object::Continue(_) |
+            Object::Break(_) |
+            Object::Handle(_) |
+            Object::RegEx(_) |
+            Object::Exit |
+            Object::Global |
+            Object::This(_) |
+            Object::UObject(_) |
+            Object::DynamicVar(_) |
+            Object::ExpandableTB(_) |
+            Object::Enum(_) |
+            Object::Task(_) |
+            Object::DefDllFunction(_, _, _, _) |
+            Object::Struct(_, _, _) |
+            Object::UStruct(_, _, _) |
+            Object::ComObject(_) |
+            Object::ComMember(_, _) |
+            Object::SafeArray(_) |
+            Object::VarArgument(_) |
+            Object::BrowserBuilder(_) |
+            Object::Browser(_) |
+            Object::TabWindow(_) |
+            Object::BrowserFunction(_) |
+            Object::Fopen(_) |
+            Object::Reference(_, _) => {
+                Err(UError::new(
+                    UErrorKind::OperatorError,
+                    UErrorMessage::LeftSideTypeInvalid(Infix::Plus),
+                ))
+            },
+        }
+    }
+}
+impl BitAnd for Object {
+    type Output = Result<Object, UError>;
+
+    fn bitand(self, rhs: Self) -> Self::Output {
+        let rhs = rhs.to_uwscr_object()?;
+        match self {
+            Object::Num(n) => {
+                if let Some(n2) = rhs.as_f64(false) {
+                    Ok(Object::bit_and(n, n2))
+                } else {
+                    Err(UError::new(
+                        UErrorKind::OperatorError,
+                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                    ))
+                }
+            },
+            Object::String(s) => {
+                // 自身が数値変換可能でかつ右辺が数値の場合は演算可能
+                match (s.parse::<f64>(), rhs.as_f64(false)) {
+                    (Ok(n1), Some(n2)) => Ok(Object::bit_and(n1, n2)),
+                    _ => Err(UError::new(
+                        UErrorKind::OperatorError,
+                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                    )),
+                }
+            },
+            Object::Bool(b) => {
+                if let Some(n) = rhs.as_f64(false) {
+                    let new = if b {Object::bit_and(1.0, n)} else {Object::bit_and(0.0, n)};
+                    Ok(new)
+                } else {
+                    Err(UError::new(
+                        UErrorKind::OperatorError,
+                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                    ))
+                }
+            },
+            Object::Empty => {
+                if let Some(n) = rhs.as_f64(false) {
+                    Ok(Object::bit_and(0.0, n))
+                } else {
+                    Err(UError::new(
+                        UErrorKind::OperatorError,
+                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                    ))
+                }
+            },
+            Object::Version(v) => {
+                if let Some(n) = rhs.as_f64(false) {
+                    Ok(Object::bit_and(v.parse(), n))
+                } else {
+                    Err(UError::new(
+                        UErrorKind::OperatorError,
+                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                    ))
+                }
+            },
+            Object::RemoteObject(_) => {
+                let obj = self.to_uwscr_object()?;
+                obj.bitand(rhs)
+            },
+            Object::Variant(_) => {
+                let obj = self.to_uwscr_object()?;
+                obj.bitand(rhs)
+            }
+            // 以下はエラー
+            Object::Null |
+            Object::Array(_) |
+            Object::ByteArray(_) |
+            Object::HashTbl(_) |
+            Object::AnonFunc(_) |
+            Object::Function(_) |
+            Object::AsyncFunction(_) |
+            Object::BuiltinFunction(_, _, _) |
+            Object::Module(_) |
+            Object::Class(_, _) |
+            Object::Instance(_) |
+            Object::EmptyParam |
+            Object::Nothing |
+            Object::Continue(_) |
+            Object::Break(_) |
+            Object::Handle(_) |
+            Object::RegEx(_) |
+            Object::Exit |
+            Object::Global |
+            Object::This(_) |
+            Object::UObject(_) |
+            Object::DynamicVar(_) |
+            Object::ExpandableTB(_) |
+            Object::Enum(_) |
+            Object::Task(_) |
+            Object::DefDllFunction(_, _, _, _) |
+            Object::Struct(_, _, _) |
+            Object::UStruct(_, _, _) |
+            Object::ComObject(_) |
+            Object::ComMember(_, _) |
+            Object::SafeArray(_) |
+            Object::VarArgument(_) |
+            Object::BrowserBuilder(_) |
+            Object::Browser(_) |
+            Object::TabWindow(_) |
+            Object::BrowserFunction(_) |
+            Object::Fopen(_) |
+            Object::Reference(_, _) => {
+                Err(UError::new(
+                    UErrorKind::OperatorError,
+                    UErrorMessage::LeftSideTypeInvalid(Infix::Plus),
+                ))
+            },
+        }
+    }
+}
+impl BitXor for Object {
+    type Output = Result<Object, UError>;
+
+    fn bitxor(self, rhs: Self) -> Self::Output {
+        let rhs = rhs.to_uwscr_object()?;
+        match self {
+            Object::Num(n) => {
+                if let Some(n2) = rhs.as_f64(false) {
+                    Ok(Object::bit_xor(n, n2))
+                } else {
+                    Err(UError::new(
+                        UErrorKind::OperatorError,
+                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                    ))
+                }
+            },
+            Object::String(s) => {
+                // 自身が数値変換可能でかつ右辺が数値の場合は演算可能
+                match (s.parse::<f64>(), rhs.as_f64(false)) {
+                    (Ok(n1), Some(n2)) => Ok(Object::bit_xor(n1, n2)),
+                    _ => Err(UError::new(
+                        UErrorKind::OperatorError,
+                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                    )),
+                }
+            },
+            Object::Bool(b) => {
+                if let Some(n) = rhs.as_f64(false) {
+                    let new = if b {Object::bit_xor(1.0, n)} else {Object::bit_xor(0.0, n)};
+                    Ok(new)
+                } else {
+                    Err(UError::new(
+                        UErrorKind::OperatorError,
+                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                    ))
+                }
+            },
+            Object::Empty => {
+                if let Some(n) = rhs.as_f64(false) {
+                    Ok(Object::bit_xor(0.0, n))
+                } else {
+                    Err(UError::new(
+                        UErrorKind::OperatorError,
+                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                    ))
+                }
+            },
+            Object::Version(v) => {
+                if let Some(n) = rhs.as_f64(false) {
+                    Ok(Object::bit_xor(v.parse(), n))
+                } else {
+                    Err(UError::new(
+                        UErrorKind::OperatorError,
+                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                    ))
+                }
+            },
+            Object::RemoteObject(_) => {
+                let obj = self.to_uwscr_object()?;
+                obj.bitxor(rhs)
+            },
+            Object::Variant(_) => {
+                let obj = self.to_uwscr_object()?;
+                obj.bitxor(rhs)
+            }
+            // 以下はエラー
+            Object::Null |
+            Object::Array(_) |
+            Object::ByteArray(_) |
+            Object::HashTbl(_) |
+            Object::AnonFunc(_) |
+            Object::Function(_) |
+            Object::AsyncFunction(_) |
+            Object::BuiltinFunction(_, _, _) |
+            Object::Module(_) |
+            Object::Class(_, _) |
+            Object::Instance(_) |
+            Object::EmptyParam |
+            Object::Nothing |
+            Object::Continue(_) |
+            Object::Break(_) |
+            Object::Handle(_) |
+            Object::RegEx(_) |
+            Object::Exit |
+            Object::Global |
+            Object::This(_) |
+            Object::UObject(_) |
+            Object::DynamicVar(_) |
+            Object::ExpandableTB(_) |
+            Object::Enum(_) |
+            Object::Task(_) |
+            Object::DefDllFunction(_, _, _, _) |
+            Object::Struct(_, _, _) |
+            Object::UStruct(_, _, _) |
+            Object::ComObject(_) |
+            Object::ComMember(_, _) |
+            Object::SafeArray(_) |
+            Object::VarArgument(_) |
+            Object::BrowserBuilder(_) |
+            Object::Browser(_) |
+            Object::TabWindow(_) |
+            Object::BrowserFunction(_) |
+            Object::Fopen(_) |
+            Object::Reference(_, _) => {
+                Err(UError::new(
+                    UErrorKind::OperatorError,
+                    UErrorMessage::LeftSideTypeInvalid(Infix::Plus),
+                ))
+            },
         }
     }
 }

@@ -2,12 +2,6 @@ use crate::evaluator::object::Object;
 
 use std::cmp::Ordering;
 
-impl PartialOrd for Object {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.to_string().partial_cmp(&other.to_string())
-    }
-}
-
 #[derive(Debug)]
 pub struct Qsort {
     order: SortOrder,

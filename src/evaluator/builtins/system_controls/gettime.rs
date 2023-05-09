@@ -189,3 +189,9 @@ pub fn format(fmt: &str, secs: i64, milli: bool) -> GetTimeResult<String> {
 
     Ok(gt.format(fmt))
 }
+
+pub fn datetime_str_to_f64(dt: &str) -> Option<f64> {
+    let gt = GetTime::from_str(dt).ok()?;
+    let milli = gt.millis() as f64;
+    Some(milli)
+}

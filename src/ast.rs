@@ -38,26 +38,47 @@ impl fmt::Display for Prefix {
 
 #[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub enum Infix {
+    /// +
     Plus,
+    /// -
     Minus,
+    /// *
     Multiply,
+    /// /
     Divide,
+    /// =, ==
     Equal,
+    /// <>, !=
     NotEqual,
+    /// >=
     GreaterThanEqual,
+    /// >
     GreaterThan,
+    /// <=
     LessThanEqual,
+    /// <
     LessThan,
+    /// and
     And,
+    /// or
     Or,
+    /// xor
     Xor,
+    /// andl
     AndL, // logical and
+    /// orl
     OrL, // logical or
+    /// xorl
     XorL, // logical xor
+    /// andb
     AndB, // bit and
+    /// orb
     OrB, // bit or
+    /// xorb
     XorB, // bit xor
+    /// mod
     Mod,
+    /// =, :=
     Assign,
 }
 
