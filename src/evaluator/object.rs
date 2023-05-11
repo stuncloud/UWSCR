@@ -402,6 +402,7 @@ impl Object {
             Object::Array(arr) => arr.len() > 0,
             Object::Num(n) => ! n.is_zero(),
             Object::Handle(h) => h.0 > 0,
+            Object::RemoteObject(r) => r.as_bool(),
             _ => true
         }
     }
@@ -448,7 +449,7 @@ impl Object {
                     Ok(value.into())
                 } else {
                     Err(UError::new(
-                        UErrorKind::OperatorError,
+                        UErrorKind::BrowserControlError,
                         UErrorMessage::RemoteObjectIsNotPrimitiveValue,
                     ))
                 }

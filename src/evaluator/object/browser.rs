@@ -1,6 +1,6 @@
 use crate::error::evaluator::{UError, UErrorKind, UErrorMessage};
 use crate::settings::USETTINGS;
-use super::Object;
+use super::{Object, UObject};
 use crate::evaluator::builtins::window_control::get_id_from_hwnd;
 use crate::evaluator::Evaluator;
 
@@ -1098,6 +1098,32 @@ impl RemoteObject {
             }
         } else {
             Ok(None)
+        }
+    }
+    pub fn as_bool(&self) -> bool {
+        if let Some(value) = &self.remote.value {
+            let obj = Object::from(value);
+            obj.is_truthy()
+        } else {
+            true
+        }
+    }
+    pub fn as_num(&self) -> Option<f64> {
+        if let Some(value) = &self.remote.value {
+            value.as_f64()
+        } else {
+            None
+        }
+    }
+    pub fn as_uobject(&self) -> Option<UObject> {
+        if let Some(value) = &self.remote.value {
+            match value {
+                Value::Array(_) |
+                Value::Object(_) => Some(UObject::new(value.clone())),
+                _ => None
+            }
+        } else {
+            None
         }
     }
 }

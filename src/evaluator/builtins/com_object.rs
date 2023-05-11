@@ -184,9 +184,9 @@ fn vartype(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 }
 
 fn safearray(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let lbound = match args.get_as_int_or_array(0, Some(Object::Num(0.0)))? {
-        Object::Num(n) => n as i32,
-        Object::Array(arr) => {
+    let lbound = match args.get_as_int_or_array(0, Some(TwoTypeArg::T(0.0)))? {
+        TwoTypeArg::T(n) => n as i32,
+        TwoTypeArg::U(arr) => {
             let mut sa = SAFEARRAY::new(0, (arr.len() - 1) as i32);
             let mut i = 0;
             for obj in arr {
@@ -196,7 +196,6 @@ fn safearray(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
             }
             return Ok(Object::SafeArray(sa))
         },
-        _ => 0,
     };
     let ubound = args.get_as_int::<i32>(1, Some(-1))?;
     let min = i32::min_value();

@@ -194,7 +194,10 @@ impl BuiltinFuncArgs {
                 Object::Bool(b) => Ok(b as i32 as f64),
                 Object::String(ref s) => {
                     s.parse().map_err(|_| BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg)))
-                }
+                },
+                Object::RemoteObject(ref remote) => {
+                    remote.as_num().ok_or(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg)))
+                },
                 _ => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg)))
             }
         })
@@ -219,6 +222,15 @@ impl BuiltinFuncArgs {
                 },
                 Object::EmptyParam => {
                     default.ok_or(BuiltinFuncError::new(UErrorMessage::BuiltinArgRequiredAt(i + 1)))
+                },
+                Object::RemoteObject(ref remote) => {
+                    if let Some(n) = remote.as_num() {
+                        T::cast(n).or(Err(BuiltinFuncError::new(
+                            UErrorMessage::BuiltinArgCastError(arg, std::any::type_name::<T>().into()),
+                        )))
+                    } else {
+                        Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg)))
+                    }
                 },
                 _ => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg)))
             }
@@ -256,6 +268,16 @@ impl BuiltinFuncArgs {
                     },
                     Err(_) => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg)))
                 },
+                Object::RemoteObject(ref remote) => {
+                    if let Some(n) = remote.as_num() {
+                        let t = T::cast(n).or(Err(BuiltinFuncError::new(
+                            UErrorMessage::BuiltinArgCastError(arg, std::any::type_name::<T>().into()),
+                        )))?;
+                        Ok(Some(t))
+                    } else {
+                        Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg)))
+                    }
+                }
                 Object::Empty |
                 Object::EmptyParam => Ok(None),
                 _ => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg)))
@@ -273,6 +295,10 @@ impl BuiltinFuncArgs {
                 Object::String(ref s) => match s.parse::<f64>() {
                     Ok(n) => Ok(T::cast(n)),
                     Err(_) => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg)))
+                },
+                Object::RemoteObject(ref remote) => {
+                    let n = remote.as_num().ok_or(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg)))?;
+                    Ok(T::cast(n))
                 },
                 _ => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg)))
             }
@@ -376,6 +402,16 @@ impl BuiltinFuncArgs {
                 Object::Num(n) => T::cast(n).or(Err(BuiltinFuncError::new(
                     UErrorMessage::BuiltinArgCastError(arg, type_name),
                 ))),
+                Object::RemoteObject(ref remote) => {
+                    match remote.as_num() {
+                        Some(n) => T::cast(n).or(Err(BuiltinFuncError::new(
+                            UErrorMessage::BuiltinArgCastError(arg, type_name),
+                        ))),
+                        None => Err(BuiltinFuncError::new(
+                            UErrorMessage::BuiltinArgCastError(arg, type_name),
+                        )),
+                    }
+                },
                 _ => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg)))
             }
         })
@@ -386,6 +422,13 @@ impl BuiltinFuncArgs {
             match arg {
                 Object::Bool(b) => Ok(b.into()),
                 Object::Num(n) => Ok(n.into()),
+                Object::RemoteObject(ref remote) => {
+                    if let Some(n) = remote.as_num() {
+                        Ok(n.into())
+                    } else {
+                        Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg)))
+                    }
+                }
                 _ => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg)))
             }
         })
@@ -395,6 +438,13 @@ impl BuiltinFuncArgs {
         self.get_arg(i, |arg| {
             match arg {
                 Object::UObject(ref u) => Ok(u.clone()),
+                Object::RemoteObject(ref remote) => {
+                    if let Some(u) = remote.as_uobject() {
+                        Ok(u)
+                    } else {
+                        Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg)))
+                    }
+                },
                 _ => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg)))
             }
         })
@@ -437,11 +487,18 @@ impl BuiltinFuncArgs {
         })
     }
     /// 数値または配列を受ける引数
-    pub fn get_as_int_or_array(&self, i: usize, default: Option<Object>) -> BuiltInResult<Object> {
+    pub fn get_as_int_or_array(&self, i: usize, default: Option<TwoTypeArg<f64, Vec<Object>>>) -> BuiltInResult<TwoTypeArg<f64, Vec<Object>>> {
         self.get_arg_with_default(i, default, |arg|{
             match arg {
-                Object::Num(_) |
-                Object::Array(_) => Ok(arg),
+                Object::Num(n) => Ok(TwoTypeArg::T(n)),
+                Object::Array(arr) => Ok(TwoTypeArg::U(arr)),
+                Object::RemoteObject(ref remote) => {
+                    if let Some(n) = remote.as_num() {
+                        Ok(TwoTypeArg::T(n))
+                    } else {
+                        Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg)))
+                    }
+                },
                 _ => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg)))
             }
         })
@@ -467,6 +524,13 @@ impl BuiltinFuncArgs {
         self.get_arg(i, |arg| {
             match arg {
                 Object::Num(n) => Ok(n as i32),
+                Object::RemoteObject(ref remote) => {
+                    if let Some(n) = remote.as_num() {
+                        Ok(n as i32)
+                    } else {
+                        Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg)))
+                    }
+                },
                 _ => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg)))
             }
         })
@@ -513,7 +577,15 @@ impl BuiltinFuncArgs {
                     Object::String(s) => {
                         s.chars().next()
                             .map(|char| SCKeyCode::Unicode(char as u16))
-                    }
+                    },
+                    Object::RemoteObject(ref remote) => {
+                        if let Some(n) = remote.as_num() {
+                            FromPrimitive::from_f64(n)
+                                .map(|key| SCKeyCode::VirtualKeyCode(key))
+                        } else {
+                            None
+                        }
+                    },
                     _ => None,
                 })
                 .collect();
@@ -549,6 +621,17 @@ impl BuiltinFuncArgs {
                 Object::EmptyParam => TwoTypeArg::U(false),
                 Object::Bool(b) => TwoTypeArg::U(b),
                 Object::String(s) => TwoTypeArg::T(s),
+                Object::RemoteObject(ref remote) => {
+                    if let Some(value) = remote.get_value() {
+                        match value {
+                            serde_json::Value::Bool(b) => TwoTypeArg::U(b),
+                            serde_json::Value::String(s) => TwoTypeArg::T(s),
+                            _ => return Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg))),
+                        }
+                    } else {
+                        return Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg)));
+                    }
+                },
                 arg => return Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg))),
             };
             Ok(result)
@@ -560,6 +643,13 @@ impl BuiltinFuncArgs {
         self.get_arg_with_required_flag(i, required, |arg| {
             let result = match arg {
                 Object::Num(n) => T::from_f64(n),
+                Object::RemoteObject(ref remote) => {
+                    if let Some(n) = remote.as_num() {
+                        T::from_f64(n)
+                    } else {
+                        return Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg)));
+                    }
+                },
                 Object::Empty | Object::EmptyParam => None,
                 arg => return Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg))),
             };
@@ -584,6 +674,15 @@ impl BuiltinFuncArgs {
                         .or(Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgCastError(arg, std::any::type_name::<T>().into()))))
                         .map(|t| TwoTypeArg::U(t))?
                 },
+                Object::RemoteObject(ref remote) => {
+                    if let Some(n) = remote.as_num() {
+                        T::cast(n)
+                            .or(Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgCastError(arg, std::any::type_name::<T>().into()))))
+                            .map(|t| TwoTypeArg::U(t))?
+                    } else {
+                        TwoTypeArg::T(remote.to_string())
+                    }
+                },
                 arg => TwoTypeArg::T(arg.to_string()),
             };
             Ok(result)
@@ -597,6 +696,13 @@ impl BuiltinFuncArgs {
                 Object::Bool(b) => {
                     let n = if b {1.0} else {0.0};
                     TwoTypeArg::U(n)
+                },
+                Object::RemoteObject(remote) => {
+                    if let Some(n) = remote.as_num() {
+                        TwoTypeArg::U(n)
+                    } else {
+                        TwoTypeArg::T(remote.to_string())
+                    }
                 },
                 arg => TwoTypeArg::T(arg.to_string()),
             };
