@@ -487,18 +487,6 @@ impl TabWindow {
         Browser::get_request(self.port, &path)?;
         Ok(())
     }
-    pub fn get_property(&self, name: &str) -> BrowserResult<Object> {
-        match name.to_ascii_lowercase().as_str() {
-            "document" => {
-                let document = self.document()?;
-                Ok(document.into())
-            },
-            _ => Err(UError::new(
-                UErrorKind::BrowserControlError,
-                UErrorMessage::InvalidMember(name.to_string())
-            ))
-        }
-    }
     fn dialog(&self, accept: bool, prompt: Option<String>) -> BrowserResult<()> {
         let params = match prompt {
             Some(text) => json!({
@@ -584,6 +572,18 @@ impl TabWindow {
                 let y = args.as_f64(1)?;
                 self.middle_click(x, y)?;
                 Ok(Object::Empty)
+            },
+            _ => Err(UError::new(
+                UErrorKind::BrowserControlError,
+                UErrorMessage::InvalidMember(name.to_string())
+            ))
+        }
+    }
+    pub fn get_property(&self, name: &str) -> BrowserResult<Object> {
+        match name.to_ascii_lowercase().as_str() {
+            "document" => {
+                let document = self.document()?;
+                Ok(document.into())
             },
             _ => Err(UError::new(
                 UErrorKind::BrowserControlError,
