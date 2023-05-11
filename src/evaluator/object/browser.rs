@@ -512,6 +512,30 @@ impl TabWindow {
         self.dp.send("Page.handleJavaScriptDialog", params)?;
         Ok(())
     }
+    fn click(&self, button: &str, x: f64, y: f64) -> BrowserResult<()> {
+        self.dp.send("Input.dispatchMouseEvent", json!({
+            "type": "mousePressed",
+            "x": x,
+            "y": y,
+            "button": button
+        }))?;
+        self.dp.send("Input.dispatchMouseEvent", json!({
+            "type": "mouseReleased",
+            "x": x,
+            "y": y,
+            "button": button
+        }))?;
+        Ok(())
+    }
+    fn left_click(&self, x: f64, y: f64) -> BrowserResult<()> {
+        self.click("left", x, y)
+    }
+    fn right_click(&self, x: f64, y: f64) -> BrowserResult<()> {
+        self.click("right", x, y)
+    }
+    fn middle_click(&self, x: f64, y: f64) -> BrowserResult<()> {
+        self.click("middle", x, y)
+    }
     pub fn invoke_method(&self, name: &str, args: Vec<Object>) -> BrowserResult<Object> {
         match name.to_ascii_lowercase().as_str() {
             "navigate" => {
@@ -541,6 +565,24 @@ impl TabWindow {
                 let accept = args.as_bool(0).unwrap_or(true);
                 let prompt = args.as_string(1).ok();
                 self.dialog(accept, prompt)?;
+                Ok(Object::Empty)
+            },
+            "leftclick" => {
+                let x = args.as_f64(0)?;
+                let y = args.as_f64(1)?;
+                self.left_click(x, y)?;
+                Ok(Object::Empty)
+            },
+            "rightclick" => {
+                let x = args.as_f64(0)?;
+                let y = args.as_f64(1)?;
+                self.right_click(x, y)?;
+                Ok(Object::Empty)
+            },
+            "middleclick" => {
+                let x = args.as_f64(0)?;
+                let y = args.as_f64(1)?;
+                self.middle_click(x, y)?;
                 Ok(Object::Empty)
             },
             _ => Err(UError::new(

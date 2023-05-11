@@ -431,6 +431,9 @@ impl Object {
                     },
                 }
             },
+            Object::RemoteObject(remote) => {
+                remote.as_num()
+            }
             Object::Null => if null_as_zero {
                 Some(0.0)
             } else {
