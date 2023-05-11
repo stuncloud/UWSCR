@@ -1522,6 +1522,26 @@ moduleのスコープ
             print hoge         // (なにも表示されない)
             print length(hoge) // 5
 
+.. object:: RemoteObject
+
+    | :ref:`remote_object` が以下の型であった場合、通常の値型と同じように演算が行なえます
+
+    - 文字列
+    - 数値
+    - 真偽値
+    - NULL
+
+    .. sourcecode:: uwscr
+
+        elements = browser[0].document.querySelectorAll(selector)
+        // lengthプロパティはRemoteObjectだが、数値との比較が可能
+        if elements.length > 0 then
+            // innerTextプロパティは文字列型のRemoteObjectを返すがEMPTYを足すことで通常の文字列にできる
+            innerText = elements[0].innerText + EMPTY
+            // ConvertFromRemoteObject関数で通常の型に変換することもできる
+            // innerText = ConvertFromRemoteObject(elements[0].innerText)
+        endif
+
 三項演算子
 ^^^^^^^^^^
 

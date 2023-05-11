@@ -339,6 +339,38 @@ TabWindowオブジェクト
 
         :return: なし
 
+    .. method:: dialog([許可=TRUE, プロンプト=EMPTY])
+
+        | JavaScriptダイアログ(alert, confirm, prompt)を処理します
+
+        :param 真偽値 省略可 許可: ダイアログを閉じる方法を指定、TRUEでOK、FALSEでキャンセル
+        :param 文字列 省略可 プロンプト: promptに入力する文字列
+        :return: なし
+
+    .. method:: leftClick(x, y)
+    .. method:: rightClick(x, y)
+    .. method:: middleClick(x, y)
+
+        | マウスクリックイベントを発生させます
+        | それぞれ左クリック、右クリック、中央クリックを行います
+
+        :param 数値 x: ブラウザのビューポート上のX座標 (CSSピクセル単位、左上から)
+        :param 数値 y: ブラウザのビューポート上のY座標 (CSSピクセル単位、左上から)
+        :return: なし
+
+        .. admonition:: サンプルコード
+
+            .. sourcecode:: uwscr
+
+                // エレメントの取得
+                element = browser[0].document.querySelector(selector)
+                // getBoundingClientRectメソッドでエレメントの座標等の情報を得る
+                rect = element.getBoundingClientRect()
+                // 座標を指定し右クリックする
+                tab.rightClick(rect.x + 10, rect.y + 10)
+
+
+
 .. _remote_object:
 
 RemoteObject
