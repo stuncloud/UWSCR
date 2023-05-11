@@ -77,13 +77,13 @@ fn start_uwscr() {
                             let err = errors.join("\r\n");
                             out_log(&err, LogType::Error);
                             attach_console();
-                            show_message(&err, &UWSCRErrorTitle::StatementError.to_string(), true);
+                            show_message(&err, &UWSCRErrorTitle::RuntimeError.to_string(), true);
                             free_console();
                         }
                     },
                     Err(e) => {
                         attach_console();
-                        show_message(&e.to_string(), &UWSCRErrorTitle::RuntimeError.to_string(), true);
+                        show_message(&e.to_string(), &UWSCRErrorTitle::StatementError.to_string(), true);
                         free_console();
                     }
                 }
