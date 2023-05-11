@@ -896,10 +896,13 @@ impl fmt::Debug for RemoteObject {
 impl fmt::Display for RemoteObject {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(id) = &self.remote.object_id {
-            write!(f, "{id}")
+            write!(f, "RemoteObject: {id}")
         } else {
             match &self.remote.value {
-                Some(value) => write!(f, "{value}"),
+                Some(value) => {
+                    let obj = Object::from(value);
+                    write!(f, "{obj}")
+                },
                 None => write!(f, "NULL"),
             }
         }

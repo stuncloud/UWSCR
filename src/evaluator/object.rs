@@ -585,6 +585,24 @@ impl Into<Object> for Value {
         }
     }
 }
+impl From<&Value> for Object {
+    fn from(v: &Value) -> Self {
+        match v {
+            Value::Null => Object::Null,
+            Value::Bool(b) => Object::Bool(*b),
+            Value::Number(n) => match n.as_f64() {
+                Some(f) => Object::Num(f),
+                None => Object::Num(f64::NAN)
+            },
+            Value::String(s) => Object::String(s.to_string()),
+            Value::Array(_) |
+            Value::Object(_) => {
+                let uobj = UObject::new(v.clone());
+                Object::UObject(uobj)
+            },
+        }
+    }
+}
 impl Into<Object> for Option<String> {
     fn into(self) -> Object {
         if let Some(s) = self {
@@ -722,8 +740,6 @@ impl Add for Object {
                     s.push('\0');
                 } else {
                     s.push_str(&rhs.to_string());
-                    // let new = format!("{}{}", s, rhs);
-                    // Ok(Object::String(new))
                 }
                 Ok(Object::String(s))
             },
