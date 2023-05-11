@@ -499,6 +499,19 @@ impl TabWindow {
             ))
         }
     }
+    fn dialog(&self, accept: bool, prompt: Option<String>) -> BrowserResult<()> {
+        let params = match prompt {
+            Some(text) => json!({
+                "accept": accept,
+                "promptText": text
+            }),
+            None => json!({
+                "accept": accept
+            }),
+        };
+        self.dp.send("Page.handleJavaScriptDialog", params)?;
+        Ok(())
+    }
     pub fn invoke_method(&self, name: &str, args: Vec<Object>) -> BrowserResult<Object> {
         match name.to_ascii_lowercase().as_str() {
             "navigate" => {
@@ -522,6 +535,12 @@ impl TabWindow {
             },
             "close" => {
                 self.close()?;
+                Ok(Object::Empty)
+            },
+            "dialog" => {
+                let accept = args.as_bool(0).unwrap_or(true);
+                let prompt = args.as_string(1).ok();
+                self.dialog(accept, prompt)?;
                 Ok(Object::Empty)
             },
             _ => Err(UError::new(
