@@ -87,16 +87,28 @@
 
     | 関数を非同期に実行し、実行中の状態をタスクとして返します
 
+    .. admonition:: await実行した場合
+        :class: hint
+
+        | Task関数自体をawaitで実行した場合は関数の終了を待ちその戻り値を返します
+
     :param 関数 func: 非同期実行させるユーザー定義関数
     :param 値 省略可 args: 関数に渡す引数 (最大20個まで指定可能)
-    :return: 実行中の ``タスク``
+    :rtype: :ref:`task_object`
+    :return: 実行中の :ref:`task_object`
 
 .. function:: WaitTask(task)
 
-    | タスクの完了を待ち、関数の戻り値を得ます
+    | :ref:`task_object` の完了を待ち、関数の戻り値を得ます
+    | Promiseに相当する :ref:`remote_object` を受けた場合はそのPromiseの完了を待ち :ref:`remote_object` を返します
 
-    :param タスク task: 未完了のタスク
-    :return: タスクとして実行していた関数の戻り値
+    .. admonition:: Promise以外はエラー
+        :class: caution
+
+        | :ref:`remote_object` がPromiseではない場合エラーで終了します
+
+    :param タスク task: 未完了の :ref:`task_object`, または :ref:`remote_object`
+    :return: :ref:`task_object` として実行していた関数の戻り値、または :ref:`remote_object`
 
     .. admonition:: サンプルコード
 
