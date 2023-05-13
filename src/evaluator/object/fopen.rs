@@ -690,52 +690,58 @@ impl Fopen {
         let is_dir = |attr: u32| attr & 16_u32 > 0;
         let buf = PathBuf::from(dir.as_ref());
         let path = buf.join(filter);
-        let mut data = Self::get_dir_item(&path)?
-            .into_iter()
-            // 隠しファイル
-            .filter(|d| {
-                if is_hidden(d.dwFileAttributes) {
-                    show_hidden
-                } else {
-                    true
-                }
-            })
-            // ファイルかフォルダの分岐
-            .filter(|d| is_dir(d.dwFileAttributes) == get_dir)
-            .collect::<Vec<_>>();
-        if order_by != FileOrderBy::Default {
-            data.sort_by(|d1, d2| {
-                match order_by {
-                    FileOrderBy::Size => {
-                        match d1.nFileSizeHigh.cmp(&d2.nFileSizeHigh) {
-                            Ordering::Equal => d1.nFileSizeLow.cmp(&d2.nFileSizeLow),
-                            order => order,
-                        }
-                    },
-                    FileOrderBy::CreateTime => d1.ftCreationTime.cmp(&d2.ftCreationTime),
-                    FileOrderBy::LastWriteTime => d1.ftLastWriteTime.cmp(&d2.ftLastWriteTime),
-                    FileOrderBy::LastAccessTime => d1.ftLastAccessTime.cmp(&d2.ftLastAccessTime),
-                    _ => Ordering::Equal
-                }
-            })
-        }
-        let items = data
-            .into_iter()
-            .filter_map(|d| {
-                let name = String::from_utf16_lossy(&d.cFileName);
-                let trimed = name.trim_end_matches('\0');
-                match trimed {
-                    "." | ".." => None,
-                    _ => if fullpath {
-                        let full = buf.join(trimed).to_string_lossy().to_string();
-                        Some(full)
+
+        if let Ok(data) = Self::get_dir_item(&path) {
+            let mut data = data
+                .into_iter()
+                // 隠しファイル
+                .filter(|d| {
+                    if is_hidden(d.dwFileAttributes) {
+                        show_hidden
                     } else {
-                        Some(trimed.to_string())
+                        true
                     }
-                }
-            })
-            .collect();
-        Ok(items)
+                })
+                // ファイルかフォルダの分岐
+                .filter(|d| is_dir(d.dwFileAttributes) == get_dir)
+                .collect::<Vec<_>>();
+            // ソート
+            if order_by != FileOrderBy::Default {
+                data.sort_by(|d1, d2| {
+                    match order_by {
+                        FileOrderBy::Size => {
+                            match d1.nFileSizeHigh.cmp(&d2.nFileSizeHigh) {
+                                Ordering::Equal => d1.nFileSizeLow.cmp(&d2.nFileSizeLow),
+                                order => order,
+                            }
+                        },
+                        FileOrderBy::CreateTime => d1.ftCreationTime.cmp(&d2.ftCreationTime),
+                        FileOrderBy::LastWriteTime => d1.ftLastWriteTime.cmp(&d2.ftLastWriteTime),
+                        FileOrderBy::LastAccessTime => d1.ftLastAccessTime.cmp(&d2.ftLastAccessTime),
+                        _ => Ordering::Equal
+                    }
+                })
+            }
+            let items = data
+                .into_iter()
+                .filter_map(|d| {
+                    let name = String::from_utf16_lossy(&d.cFileName);
+                    let trimed = name.trim_end_matches('\0');
+                    match trimed {
+                        "." | ".." => None,
+                        _ => if fullpath {
+                            let full = buf.join(trimed).to_string_lossy().to_string();
+                            Some(full)
+                        } else {
+                            Some(trimed.to_string())
+                        }
+                    }
+                })
+                .collect();
+            Ok(items)
+        } else {
+            Ok(vec![])
+        }
     }
     pub fn get_dir_item<P: AsRef<Path>>(path: P) -> FopenResult<Vec<WIN32_FIND_DATAW>> {
         unsafe {
