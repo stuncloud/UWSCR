@@ -109,6 +109,10 @@ impl Environment {
             vec.clear();
         }
     }
+    pub fn clear_local(&mut self) {
+        let mut layer = self.current.lock().unwrap();
+        layer.clear();
+    }
 
     pub fn new(params: Vec<String>) -> Self {
         let mut env = Environment {

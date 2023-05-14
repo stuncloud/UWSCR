@@ -70,6 +70,10 @@ impl Evaluator {
         system_controls::sound::remove_recognizer();
         self.env.clear();
     }
+    pub fn clear_local(&mut self) {
+        system_controls::sound::remove_recognizer();
+        self.env.clear_local();
+    }
 
     pub fn new(env: Environment) -> Self {
         Evaluator {
@@ -1173,7 +1177,7 @@ impl Evaluator {
                 } else {
                     panic::set_hook(old_hook);
                 }
-                evaluator.clear();
+                evaluator.clear_local();
                 com_object::com_uninitialize();
             });
         }

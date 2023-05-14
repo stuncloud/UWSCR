@@ -146,7 +146,7 @@ impl UWindow<()> for SetHotKeyWindow {
                                 shkw.close();
                             }
                         }
-                        evaluator.clear();
+                        evaluator.clear_local();
                         let msg = err.to_string();
                         out_log(&msg, LogType::Error);
                         show_message(&msg, &UWSCRErrorTitle::RuntimeError.to_string(), true);
