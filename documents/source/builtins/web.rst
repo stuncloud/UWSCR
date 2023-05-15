@@ -216,6 +216,12 @@ Browserオブジェクト
 
 | 操作対象となるタブを示すオブジェクト
 
+.. admonition:: Browserオブジェクトの取得に時間がかかる場合がある
+    :class: hint
+
+    | Browserオブジェクト作成時に対象ブラウザに対してWebSocket接続を行います
+    | WebSocket接続が確立されるまでにある程度の時間を要するのが原因です
+
 .. class:: Browser
 
     .. property:: count
@@ -262,18 +268,18 @@ Browserオブジェクト
         :rtype: 数値
         :return: ウィンドウID
 
-.. admonition:: タブ一覧取得が遅い場合がある
-    :class: caution
-
-    | countやtabsの結果を得るまでに数秒かかる場合があります
-    | これは、使用しているDevtools ProtocolのAPI実行速度によるものです
-
 .. _tabwindow_object:
 
 TabWindowオブジェクト
 ~~~~~~~~~~~~~~~~~~~~~
 
 | タブごとのWindowオブジェクトを示すオブジェクト
+
+.. admonition:: 一度目のプロパティ取得やメソッド実行に時間がかかる場合がある
+    :class: hint
+
+    | タブ内のページ操作のためにWebSocketを使用していますが、初回のみWebSocketの接続処理が入ります
+    | WebSocket接続が確立されるまでにある程度の時間を要するのが原因です
 
 .. class:: TabWindow
 

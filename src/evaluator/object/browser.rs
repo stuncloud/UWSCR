@@ -207,7 +207,6 @@ impl BrowserBuilder {
             .spawn()?;
 
         if Browser::wait_for_connection(self.port) {
-            Browser::get_request(self.port, "/json/version")?;
             Ok(())
         } else {
             Err(UError::new(
@@ -244,26 +243,65 @@ impl BrowserBuilder {
         if ! self.test_connection()? {
             self.run_browser()?;
         }
-        Ok(Browser::new(self.port, self.r#type))
+        let version = Browser::get_request_t::<BrowserVersion>(self.port, "/json/version")?;
+        let ws = WebSocket::new(&version.web_socket_debugger_url)?;
+
+        Ok(Browser::new(self.port, self.r#type, version, Arc::new(Mutex::new(ws))))
     }
 }
 
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+struct BrowserVersion {
+    #[serde(rename="Browser")]
+    browser: String,
+    #[serde(rename="Protocol-Version")]
+    protocol_version: String,
+    #[serde(rename="User-Agent")]
+    user_agent: String,
+    #[serde(rename="V8-Version")]
+    v8_version: String,
+    #[serde(rename="WebKit-Version")]
+    webkit_version: String,
+    #[serde(rename="webSocketDebuggerUrl")]
+    web_socket_debugger_url: String,
+}
+
 /// Browserオブジェクト
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone)]
 pub struct Browser {
     pub port: u16,
     pub r#type: BrowserType,
+    version: BrowserVersion,
+    ws: Arc<Mutex<WebSocket>>,
 }
 
 impl fmt::Display for Browser {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}:{}", self.r#type, self.port)
+        write!(f, "port: {}, browser: {}, protocol version: {}", self.port, self.version.browser, self.version.protocol_version)
+    }
+}
+impl fmt::Debug for Browser {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Browser")
+        .field("port", &self.port)
+        .field("r#type", &self.r#type)
+        .field("version", &self.version)
+        .finish()
+    }
+}
+impl PartialEq for Browser {
+    fn eq(&self, other: &Self) -> bool {
+        self.port == other.port &&
+        self.r#type == other.r#type &&
+        self.version == other.version
     }
 }
 
 impl Browser {
-    fn new(port: u16, r#type: BrowserType) -> Self {
-        Self { port, r#type }
+    fn new(port: u16, r#type: BrowserType, version: BrowserVersion, ws: Arc<Mutex<WebSocket>>) -> Self {
+        Self { port, r#type, version, ws }
     }
     fn wait_for_connection(port: u16) -> bool {
         let addr = format!("localhost:{port}");
@@ -307,31 +345,49 @@ impl Browser {
     fn get_request_t<T: DeserializeOwned>(port: u16, path: &str) -> BrowserResult<T> {
         Self::request_t::<T>(port, path, false)
     }
-    fn put_request<T: DeserializeOwned>(port: u16, path: &str) -> BrowserResult<T> {
+    fn _put_request<T: DeserializeOwned>(port: u16, path: &str) -> BrowserResult<T> {
         Self::request_t::<T>(port, path, true)
     }
-    fn tabs(&self) -> BrowserResult<BrowserList> {
-        let list = Self::get_request_t::<BrowserList>(self.port, "/json/list")?;
-        let tabs = list.into_iter()
-            .filter(|item| item.r#type == "page")
+    fn send(&self, method: &str, params: Value) -> BrowserResult<Value> {
+        let mut ws = self.ws.lock().unwrap();
+        let value = ws.send(method, params)?;
+        if let Some(error) = value.get("error") {
+            let code = error["code"].as_i64().unwrap_or_default() as i32;
+            let message = error["message"].as_str().unwrap_or_default().to_string();
+            Err(UError::new(UErrorKind::DevtoolsProtocolError, UErrorMessage::DTPError(code, message)))
+        } else {
+            Ok(value["result"].to_owned())
+        }
+    }
+    fn tabs(&self) -> BrowserResult<Vec<TargetInfo>> {
+        let value = self.send("Target.getTargets", json!({}))?;
+        let infos = serde_json::from_value::<TargetInfos>(value)?;
+        let tabs = infos.target_infos.into_iter()
+            .filter(|target| target.r#type == "page")
             .collect();
         Ok(tabs)
     }
-    pub fn count(&self) -> BrowserResult<usize> {
+    fn count(&self) -> BrowserResult<usize> {
         let count = self.tabs()?.len();
         Ok(count)
     }
+    fn gen_ws_uri(&self, target_id: &str) -> String {
+        format!("ws://localhost:{}/devtools/page/{}", self.port, target_id)
+    }
     pub fn get_tabs(&self) -> BrowserResult<Vec<TabWindow>> {
-        let items = self.tabs()?;
-        items.into_iter()
-            .map(|item| TabWindow::new(self.port, item))
+        let tabs = self.tabs()?;
+        tabs.iter()
+            .map(|target| {
+                let uri = self.gen_ws_uri(&target.target_id);
+                TabWindow::new(self.port, target.target_id.to_string(), uri)
+            })
             .collect()
     }
     pub fn get_tab(&self, index: usize) -> BrowserResult<TabWindow> {
-        let tabs = self.tabs()?;
+        let tabs = self.get_tabs()?;
         let nth = tabs.into_iter().nth(index);
-        if let Some(item) = nth {
-            TabWindow::new(self.port, item)
+        if let Some(tab) = nth {
+            Ok(tab)
         } else {
             Err(UError::new(
                 UErrorKind::BrowserControlError,
@@ -339,20 +395,17 @@ impl Browser {
             ))
         }
     }
-    pub fn close(&self) -> BrowserResult<()> {
-        let tabs = self.tabs()?;
-        for item in tabs.into_iter().rev() {
-            let path = format!("/json/close/{}", item.id);
-            Self::get_request(self.port, &path)?;
-        }
+    fn close(&self) -> BrowserResult<()> {
+        self.send("Browser.close", json!({}))?;
         Ok(())
     }
-    pub fn new_tab(&self, uri: &str) -> BrowserResult<TabWindow> {
-        let path = format!("/json/new?{}", uri);
-        let item = Self::put_request::<BrowserListItem>(self.port, &path)?;
-        if item.r#type == "page" {
-            let tab = TabWindow::new(self.port, item)?;
-            Ok(tab)
+    fn new_tab(&self, uri: &str) -> BrowserResult<TabWindow> {
+        let value = self.send("Target.createTarget", json!({
+            "url": uri
+        }))?;
+        if let Value::String(target_id) = &value["targetId"] {
+            let uri = self.gen_ws_uri(target_id);
+            TabWindow::new(self.port, target_id.to_string(), uri)
         } else {
             Err(UError::new(
                 UErrorKind::BrowserControlError,
@@ -360,7 +413,7 @@ impl Browser {
             ))
         }
     }
-    pub fn get_window_id(&self) -> BrowserResult<Object> {
+    fn get_window_id(&self) -> BrowserResult<Object> {
         let pid = BrowserProcess::get_pid_from_port(self.port)?;
         let hwnd = BrowserProcess::get_hwnd_from_pid(pid);
         let id = get_id_from_hwnd(hwnd);
@@ -368,18 +421,19 @@ impl Browser {
     }
     pub fn get_property(&self, name: &str) -> BrowserResult<Object> {
         match name.to_ascii_lowercase().as_str() {
+            "protocol" => {
+                let vertion = self.version.protocol_version.clone();
+                Ok(vertion.into())
+            },
             "count" => {
                 let count = self.count()?;
                 Ok(count.into())
             },
             "tabs" => {
-                let tabs = self.tabs()?
+                let tabs = self.get_tabs()?
                     .into_iter()
-                    .map(|item| {
-                        TabWindow::new(self.port, item)
-                            .map(|tab| Object::TabWindow(tab))
-                    })
-                    .collect::<BrowserResult<Vec<Object>>>()?;
+                    .map(|tab| Object::TabWindow(tab))
+                    .collect();
                 Ok(Object::Array(tabs))
             },
             _ => Err(UError::new(
@@ -430,17 +484,17 @@ impl fmt::Display for TabWindow {
 }
 
 impl TabWindow {
-    fn new(port: u16, item: BrowserListItem) -> BrowserResult<Self> {
-        let dp = DevtoolsProtocol::new(&item.web_socket_debugger_url)?;
-        let id = item.id;
+    fn new(port: u16, id: String, uri: String) -> BrowserResult<Self> {
+        let dp = DevtoolsProtocol::new(uri)?;
         Ok(Self { port, id, dp })
     }
     pub fn document(&self) -> BrowserResult<RemoteObject> {
         self.dp.runtime_evaluate("document")
     }
     pub fn close(&self) -> BrowserResult<()> {
-        let path = format!("/json/close/{}", self.id);
-        Browser::get_request(self.port, &path)?;
+        self.dp.send("Target.closeTarget", json!({
+            "targetId": &self.id
+        }))?;
         Ok(())
     }
     fn is_navigate_completed(&self) -> bool {
@@ -595,7 +649,8 @@ impl TabWindow {
 
 #[derive(Clone)]
 struct DevtoolsProtocol {
-    ws: Arc<Mutex<WebSocket>>,
+    uri: String,
+    ws: Arc<Mutex<Option<WebSocket>>>,
 }
 impl fmt::Debug for DevtoolsProtocol {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -603,22 +658,21 @@ impl fmt::Debug for DevtoolsProtocol {
     }
 }
 impl DevtoolsProtocol {
-    fn new(uri: &str) -> BrowserResult<Self> {
-        let (socket, response) = tungstenite::connect(uri)?;
-        let status = response.status();
-        if status.as_u16() >= 400 {
-            return Err(UError::new(UErrorKind::WebSocketError, UErrorMessage::WebSocketConnectionError(status.to_string())));
-        }
-        let mut ws = WebSocket {
-            socket,
-            id: 0,
-            // event_handler: HashMap::new(),
-        };
-        ws.init()?;
-        Ok(Self { ws: Arc::new(Mutex::new(ws)) })
+    fn new(uri: String) -> BrowserResult<Self> {
+        let dp = Self { ws: Arc::new(Mutex::new(None)), uri };
+        Ok(dp)
     }
     fn send(&self, method: &str, params: Value) -> BrowserResult<Value> {
-        let mut ws = self.ws.lock().unwrap();
+        let mut mutex = self.ws.lock().unwrap();
+        if mutex.is_none() {
+            // 初回実行時に接続する
+            let mut ws = WebSocket::new(&self.uri)?;
+            // PageとRuntimeを有効にする
+            ws.send("Page.enable", json!({}))?;
+            ws.send("Runtime.enable", json!({}))?;
+            *mutex = Some(ws);
+        }
+        let ws = mutex.as_mut().unwrap();
         let value = ws.send(method, params)?;
         if let Some(error) = value.get("error") {
             let code = error["code"].as_i64().unwrap_or_default() as i32;
@@ -688,6 +742,18 @@ impl Drop for WebSocket {
 }
 
 impl WebSocket {
+    fn new(uri: &str) -> BrowserResult<Self> {
+        let (socket, response) = tungstenite::connect(uri)?;
+        let status = response.status();
+        if status.as_u16() >= 400 {
+            return Err(UError::new(UErrorKind::WebSocketError, UErrorMessage::WebSocketConnectionError(status.to_string())));
+        }
+        let ws = WebSocket {
+            socket,
+            id: 0,
+        };
+        Ok(ws)
+    }
     fn next_id(&mut self) -> u32 {
         self.id += 1;
         self.id
@@ -714,11 +780,6 @@ impl WebSocket {
                 }
             }
         }
-    }
-    fn init(&mut self) -> BrowserResult<()> {
-        self.send("Page.enable", json!({}))?;
-        self.send("Runtime.enable", json!({}))?;
-        Ok(())
     }
 }
 
@@ -848,8 +909,6 @@ struct BrowserListItem {
     #[serde(rename="webSocketDebuggerUrl")]
     web_socket_debugger_url : String,
 }
-
-type BrowserList = Vec<BrowserListItem>;
 
 #[allow(dead_code)]
 #[derive(Debug, Deserialize)]
@@ -1275,4 +1334,29 @@ impl BrowserArg for Vec<Object> {
             None => Err(UError::new(UErrorKind::BrowserControlError, UErrorMessage::BuiltinArgRequiredAt(index+1))),
         }
     }
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+
+struct TargetInfo {
+    #[serde(rename="targetId")]
+    target_id: String,
+    r#type: String,
+    title: String,
+    url: String,
+    attached: bool,
+    #[serde(rename="openerId")]
+    opener_id: Option<String>,
+    #[serde(rename="canAccessOpener")]
+    can_access_opener: Option<bool>,
+    #[serde(rename="openerFrameId")]
+    opener_frame_id: Option<String>,
+    #[serde(rename="browserContextId")]
+    browser_context_id: Option<Value>,
+    subtype: Option<String>,
+}
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+struct TargetInfos {
+    #[serde(rename="targetInfos")]
+    target_infos: Vec<TargetInfo>
 }
