@@ -197,6 +197,7 @@
     :param 配列 値: サイズを得たい配列
     :param 構造体 値: サイズを得たいユーザー定義構造体
     :param SafeArray 値: サイズまたは次元数を得たいSafeArray
+    :param RemoteObject 値: サイズを得たいRemoteObject
     :param 真偽値 省略可 次元数フラグ: SafeArrayの次元数を得る場合は ``TRUE`` (SafeArray以外では無効)
     :return: 文字数やサイズを示す ``数値``
 

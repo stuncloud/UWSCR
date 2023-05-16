@@ -1119,6 +1119,24 @@ impl RemoteObject {
             false
         }
     }
+    pub fn length(&self) -> BrowserResult<f64> {
+        let len = self.get_property("length")?;
+        if let Some(value) = &len.remote.value {
+            if let Some(n) = value.as_f64() {
+                Ok(n)
+            } else {
+                Err(UError::new(
+                    UErrorKind::BrowserControlError,
+                UErrorMessage::RemoteObjectDoesNotHaveValidLength
+                ))
+            }
+        } else {
+            Err(UError::new(
+                UErrorKind::BrowserControlError,
+            UErrorMessage::RemoteObjectDoesNotHaveValidLength
+        ))
+        }
+    }
     fn to_iter(&self) -> BrowserResult<RemoteObject> {
         let declaration = format!("function() {{ return this.values(); }}");
         if let Some(id) = &self.remote.object_id {

@@ -77,6 +77,10 @@ pub fn length(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
             s.len(get_dim)?
         },
         Object::ByteArray(ref arr) => arr.len(),
+        Object::RemoteObject(ref remote) => {
+            let len = remote.length()?;
+            return Ok(Object::Num(len));
+        },
         o => return Err(builtin_func_error(UErrorMessage::InvalidArgument(o)))
     };
     Ok(Object::Num(len as f64))
