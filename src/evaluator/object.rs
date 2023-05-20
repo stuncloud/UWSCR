@@ -9,6 +9,7 @@ pub mod uobject;
 pub mod fopen;
 pub mod class;
 pub mod browser;
+mod web;
 
 pub use self::hashtbl::{HashTbl, HashTblEnum};
 pub use self::version::Version;
@@ -20,7 +21,8 @@ pub use self::function::Function;
 pub use self::uobject::UObject;
 pub use self::fopen::*;
 pub use self::class::ClassInstance;
-pub use browser::{BrowserBuilder, Browser, TabWindow, RemoteObject, BrowserFunction};
+use browser::{BrowserBuilder, Browser, TabWindow, RemoteObject, BrowserFunction};
+pub use web::{WebRequest, WebResponse, WebFunction};
 
 use crate::ast::*;
 use crate::evaluator::environment::Layer;
@@ -108,55 +110,64 @@ pub enum Object {
     ByteArray(Vec<u8>),
     /// 参照渡しされたパラメータ変数
     Reference(Expression, Arc<Mutex<Layer>>),
+    /// WebRequestオブジェクト
+    WebRequest(Arc<Mutex<WebRequest>>),
+    /// WebResponseオブジェクト
+    WebResponse(WebResponse),
+    WebFunction(WebFunction),
 }
 impl std::fmt::Debug for Object {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Num(arg0) => f.debug_tuple("Num").field(arg0).finish(),
-            Self::String(arg0) => f.debug_tuple("String").field(arg0).finish(),
-            Self::Bool(arg0) => f.debug_tuple("Bool").field(arg0).finish(),
-            Self::Array(arg0) => f.debug_tuple("Array").field(arg0).finish(),
-            Self::HashTbl(arg0) => f.debug_tuple("HashTbl").field(arg0).finish(),
-            Self::AnonFunc(arg0) => f.debug_tuple("AnonFunc").field(arg0).finish(),
-            Self::Function(arg0) => f.debug_tuple("Function").field(arg0).finish(),
-            Self::AsyncFunction(arg0) => f.debug_tuple("AsyncFunction").field(arg0).finish(),
-            Self::BuiltinFunction(arg0, arg1, _) => f.debug_tuple("BuiltinFunction").field(arg0).field(arg1).finish(),
-            Self::Module(arg0) => f.debug_tuple("Module").field(arg0).finish(),
-            Self::Class(arg0, arg1) => f.debug_tuple("Class").field(arg0).field(arg1).finish(),
-            Self::Instance(arg0) => f.debug_tuple("Instance").field(arg0).finish(),
-            Self::Null => write!(f, "Null"),
-            Self::Empty => write!(f, "Empty"),
-            Self::EmptyParam => write!(f, "EmptyParam"),
-            Self::Nothing => write!(f, "Nothing"),
-            Self::Continue(arg0) => f.debug_tuple("Continue").field(arg0).finish(),
-            Self::Break(arg0) => f.debug_tuple("Break").field(arg0).finish(),
-            Self::Handle(arg0) => f.debug_tuple("Handle").field(arg0).finish(),
-            Self::RegEx(arg0) => f.debug_tuple("RegEx").field(arg0).finish(),
-            Self::Exit => write!(f, "Exit"),
-            Self::Global => write!(f, "Global"),
-            Self::This(arg0) => f.debug_tuple("This").field(arg0).finish(),
-            Self::UObject(arg0) => f.debug_tuple("UObject").field(arg0).finish(),
-            Self::DynamicVar(arg0) => f.debug_tuple("DynamicVar").field(arg0).finish(),
-            Self::Version(arg0) => f.debug_tuple("Version").field(arg0).finish(),
-            Self::ExpandableTB(arg0) => f.debug_tuple("ExpandableTB").field(arg0).finish(),
-            Self::Enum(arg0) => f.debug_tuple("Enum").field(arg0).finish(),
-            Self::Task(arg0) => f.debug_tuple("Task").field(arg0).finish(),
-            Self::DefDllFunction(arg0, arg1, arg2, arg3) => f.debug_tuple("DefDllFunction").field(arg0).field(arg1).field(arg2).field(arg3).finish(),
-            Self::Struct(arg0, arg1, arg2) => f.debug_tuple("Struct").field(arg0).field(arg1).field(arg2).finish(),
-            Self::UStruct(arg0, arg1, arg2) => f.debug_tuple("UStruct").field(arg0).field(arg1).field(arg2).finish(),
-            Self::ComObject(arg0) => f.debug_tuple("ComObject").field(arg0).finish(),
-            Self::ComMember(arg0, arg1) => f.debug_tuple("ComMember").field(arg0).field(arg1).finish(),
-            Self::Variant(arg0) => f.debug_tuple("Variant").field(arg0).finish(),
-            Self::SafeArray(arg0) => f.debug_tuple("SafeArray").field(arg0).finish(),
-            Self::VarArgument(arg0) => f.debug_tuple("VarArgument").field(arg0).finish(),
-            Self::BrowserBuilder(arg0) => f.debug_tuple("BrowserBuilder").field(arg0).finish(),
-            Self::Browser(arg0) => f.debug_tuple("Browser").field(arg0).finish(),
-            Self::TabWindow(arg0) => f.debug_tuple("TabWindow").field(arg0).finish(),
-            Self::RemoteObject(arg0) => f.debug_tuple("RemoteObject").field(arg0).finish(),
-            Self::BrowserFunction(arg0) => f.debug_tuple("BrowserFunction").field(arg0).finish(),
-            Self::Fopen(arg0) => f.debug_tuple("Fopen").field(arg0).finish(),
-            Self::ByteArray(arg0) => f.debug_tuple("ByteArray").field(arg0).finish(),
-            Self::Reference(arg0, arg1) => f.debug_tuple("Reference").field(arg0).field(arg1).finish(),
+            Object::Num(arg0) => f.debug_tuple("Num").field(arg0).finish(),
+            Object::String(arg0) => f.debug_tuple("String").field(arg0).finish(),
+            Object::Bool(arg0) => f.debug_tuple("Bool").field(arg0).finish(),
+            Object::Array(arg0) => f.debug_tuple("Array").field(arg0).finish(),
+            Object::HashTbl(arg0) => f.debug_tuple("HashTbl").field(arg0).finish(),
+            Object::AnonFunc(arg0) => f.debug_tuple("AnonFunc").field(arg0).finish(),
+            Object::Function(arg0) => f.debug_tuple("Function").field(arg0).finish(),
+            Object::AsyncFunction(arg0) => f.debug_tuple("AsyncFunction").field(arg0).finish(),
+            Object::BuiltinFunction(arg0, arg1, _) => f.debug_tuple("BuiltinFunction").field(arg0).field(arg1).finish(),
+            Object::Module(arg0) => f.debug_tuple("Module").field(arg0).finish(),
+            Object::Class(arg0, arg1) => f.debug_tuple("Class").field(arg0).field(arg1).finish(),
+            Object::Instance(arg0) => f.debug_tuple("Instance").field(arg0).finish(),
+            Object::Null => write!(f, "Null"),
+            Object::Empty => write!(f, "Empty"),
+            Object::EmptyParam => write!(f, "EmptyParam"),
+            Object::Nothing => write!(f, "Nothing"),
+            Object::Continue(arg0) => f.debug_tuple("Continue").field(arg0).finish(),
+            Object::Break(arg0) => f.debug_tuple("Break").field(arg0).finish(),
+            Object::Handle(arg0) => f.debug_tuple("Handle").field(arg0).finish(),
+            Object::RegEx(arg0) => f.debug_tuple("RegEx").field(arg0).finish(),
+            Object::Exit => write!(f, "Exit"),
+            Object::Global => write!(f, "Global"),
+            Object::This(arg0) => f.debug_tuple("This").field(arg0).finish(),
+            Object::UObject(arg0) => f.debug_tuple("UObject").field(arg0).finish(),
+            Object::DynamicVar(arg0) => f.debug_tuple("DynamicVar").field(arg0).finish(),
+            Object::Version(arg0) => f.debug_tuple("Version").field(arg0).finish(),
+            Object::ExpandableTB(arg0) => f.debug_tuple("ExpandableTB").field(arg0).finish(),
+            Object::Enum(arg0) => f.debug_tuple("Enum").field(arg0).finish(),
+            Object::Task(arg0) => f.debug_tuple("Task").field(arg0).finish(),
+            Object::DefDllFunction(arg0, arg1, arg2, arg3) => f.debug_tuple("DefDllFunction").field(arg0).field(arg1).field(arg2).field(arg3).finish(),
+            Object::Struct(arg0, arg1, arg2) => f.debug_tuple("Struct").field(arg0).field(arg1).field(arg2).finish(),
+            Object::UStruct(arg0, arg1, arg2) => f.debug_tuple("UStruct").field(arg0).field(arg1).field(arg2).finish(),
+            Object::ComObject(arg0) => f.debug_tuple("ComObject").field(arg0).finish(),
+            Object::ComMember(arg0, arg1) => f.debug_tuple("ComMember").field(arg0).field(arg1).finish(),
+            Object::Variant(arg0) => f.debug_tuple("Variant").field(arg0).finish(),
+            Object::SafeArray(arg0) => f.debug_tuple("SafeArray").field(arg0).finish(),
+            Object::VarArgument(arg0) => f.debug_tuple("VarArgument").field(arg0).finish(),
+            Object::BrowserBuilder(arg0) => f.debug_tuple("BrowserBuilder").field(arg0).finish(),
+            Object::Browser(arg0) => f.debug_tuple("Browser").field(arg0).finish(),
+            Object::TabWindow(arg0) => f.debug_tuple("TabWindow").field(arg0).finish(),
+            Object::RemoteObject(arg0) => f.debug_tuple("RemoteObject").field(arg0).finish(),
+            Object::BrowserFunction(arg0) => f.debug_tuple("BrowserFunction").field(arg0).finish(),
+            Object::Fopen(arg0) => f.debug_tuple("Fopen").field(arg0).finish(),
+            Object::ByteArray(arg0) => f.debug_tuple("ByteArray").field(arg0).finish(),
+            Object::Reference(arg0, arg1) => f.debug_tuple("Reference").field(arg0).field(arg1).finish(),
+            Object::WebRequest(arg0) => f.debug_tuple("WebRequest").field(arg0).finish(),
+            Object::WebResponse(arg0) => f.debug_tuple("WebResponse").field(arg0).finish(),
+            Object::WebFunction(_) => write!(f, "WebFunction"),
+
         }
     }
 }
@@ -259,6 +270,12 @@ impl fmt::Display for Object {
             },
             Object::ByteArray(ref arr) => write!(f, "{:?}", arr),
             Object::Reference(_, _) => write!(f, "Reference"),
+            Object::WebRequest(ref req) => {
+                let mutex = req.lock().unwrap();
+                write!(f, "{mutex}")
+            },
+            Object::WebResponse(ref res) => write!(f, "{res}"),
+            Object::WebFunction(_) => write!(f, "WebFunction"),
         }
     }
 }
@@ -378,6 +395,16 @@ impl PartialEq for Object {
             } else {false},
             // 比較されることはない
             Object::Reference(_, _) => false,
+            Object::WebRequest(req) => {
+                if let Object::WebRequest(req2) = other {
+                    let _tmp = req.lock();
+                    req2.try_lock().is_err()
+                } else {false}
+            },
+            Object::WebResponse(res) => {
+                if let Object::WebResponse(res2) = other { res == res2 } else {false}
+            },
+            Object::WebFunction(_) => false,
         }
     }
 }
@@ -539,6 +566,11 @@ impl Into<Object> for f64 {
         Object::Num(self)
     }
 }
+impl Into<Object> for u16 {
+    fn into(self) -> Object {
+        Object::Num(self as f64)
+    }
+}
 impl Into<Object> for i32 {
     fn into(self) -> Object {
         Object::Num(self as f64)
@@ -596,6 +628,15 @@ impl Into<Object> for Option<String> {
     fn into(self) -> Object {
         if let Some(s) = self {
             Object::String(s)
+        } else {
+            Object::Empty
+        }
+    }
+}
+impl Into<Object> for Option<&str> {
+    fn into(self) -> Object {
+        if let Some(s) = self {
+            Object::String(s.to_string())
         } else {
             Object::Empty
         }
@@ -826,6 +867,9 @@ impl Add for Object {
             Object::TabWindow(_) |
             Object::BrowserFunction(_) |
             Object::Fopen(_) |
+            Object::WebRequest(_) |
+            Object::WebResponse(_) |
+            Object::WebFunction(_) |
             Object::Reference(_, _) => {
                 Err(UError::new(
                     UErrorKind::OperatorError,
@@ -920,6 +964,9 @@ impl Sub for Object {
             Object::TabWindow(_) |
             Object::BrowserFunction(_) |
             Object::Fopen(_) |
+            Object::WebRequest(_) |
+            Object::WebResponse(_) |
+            Object::WebFunction(_) |
             Object::Reference(_, _) => {
                 Err(UError::new(
                     UErrorKind::OperatorError,
@@ -1051,6 +1098,9 @@ impl Mul for Object {
             Object::TabWindow(_) |
             Object::BrowserFunction(_) |
             Object::Fopen(_) |
+            Object::WebRequest(_) |
+            Object::WebResponse(_) |
+            Object::WebFunction(_) |
             Object::Reference(_, _) => {
                 Err(UError::new(
                     UErrorKind::OperatorError,
@@ -1164,6 +1214,9 @@ impl Div for Object {
             Object::TabWindow(_) |
             Object::BrowserFunction(_) |
             Object::Fopen(_) |
+            Object::WebRequest(_) |
+            Object::WebResponse(_) |
+            Object::WebFunction(_) |
             Object::Reference(_, _) => {
                 Err(UError::new(
                     UErrorKind::OperatorError,
@@ -1280,6 +1333,9 @@ impl Rem for Object {
             Object::TabWindow(_) |
             Object::BrowserFunction(_) |
             Object::Fopen(_) |
+            Object::WebRequest(_) |
+            Object::WebResponse(_) |
+            Object::WebFunction(_) |
             Object::Reference(_, _) => {
                 Err(UError::new(
                     UErrorKind::OperatorError,
@@ -1390,6 +1446,9 @@ impl BitOr for Object {
             Object::TabWindow(_) |
             Object::BrowserFunction(_) |
             Object::Fopen(_) |
+            Object::WebRequest(_) |
+            Object::WebResponse(_) |
+            Object::WebFunction(_) |
             Object::Reference(_, _) => {
                 Err(UError::new(
                     UErrorKind::OperatorError,
@@ -1499,6 +1558,9 @@ impl BitAnd for Object {
             Object::TabWindow(_) |
             Object::BrowserFunction(_) |
             Object::Fopen(_) |
+            Object::WebRequest(_) |
+            Object::WebResponse(_) |
+            Object::WebFunction(_) |
             Object::Reference(_, _) => {
                 Err(UError::new(
                     UErrorKind::OperatorError,
@@ -1608,6 +1670,9 @@ impl BitXor for Object {
             Object::TabWindow(_) |
             Object::BrowserFunction(_) |
             Object::Fopen(_) |
+            Object::WebRequest(_) |
+            Object::WebResponse(_) |
+            Object::WebFunction(_) |
             Object::Reference(_, _) => {
                 Err(UError::new(
                     UErrorKind::OperatorError,

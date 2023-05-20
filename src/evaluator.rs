@@ -2388,6 +2388,27 @@ impl Evaluator {
                     },
                 }
             }
+            Object::WebFunction(func) => {
+                let args = arguments.into_iter()
+                    .map(|(_, o)| o)
+                    .collect();
+                match func {
+                    WebFunction::WebRequest(mutex, name) => {
+                        let maybe_obj = {
+                            let mut req = mutex.lock().unwrap();
+                            req.invoke_method(&name, args)?
+                        };
+                        let obj = match maybe_obj {
+                            Some(obj) => obj,
+                            None => Object::WebRequest(mutex),
+                        };
+                        Ok(obj)
+                    },
+                    WebFunction::WebResponse(res, name) => {
+                        res.invoke_method(&name, args)
+                    },
+                }
+            },
             Object::RemoteObject(ref remote) => {
                 let args = arguments.into_iter()
                     .map(|(_, o)| browser::RemoteFuncArg::from_object(o))
@@ -2874,7 +2895,22 @@ impl Evaluator {
                 } else {
                     remote.get(Some(&member), None)
                 }
-            }
+            },
+            Object::WebRequest(mutex) => {
+                if is_func {
+                    Ok(Object::WebFunction(WebFunction::WebRequest(mutex, member)))
+                } else {
+                    let req = mutex.lock().unwrap();
+                    req.get_property(&member)
+                }
+            },
+            Object::WebResponse(res) => {
+                if is_func {
+                    Ok(Object::WebFunction(WebFunction::WebResponse(res, member)))
+                } else {
+                    res.get_property(&member)
+                }
+            },
             o => Err(UError::new(
                 UErrorKind::DotOperatorError,
                 UErrorMessage::DotOperatorNotSupported(o)

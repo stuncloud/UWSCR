@@ -3,8 +3,10 @@ use crate::{
     evaluator::{
         Evaluator,
         builtins::*,
-        // devtools_protocol::{Browser, DevtoolsProtocolError},
-        object::browser::{BrowserBuilder, BrowserType},
+        object::{
+            browser::{BrowserBuilder, BrowserType},
+            WebRequest,
+        },
     },
 };
 
@@ -19,6 +21,8 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("browsercontrol", 2, browser_control);
     sets.add("browserbuilder", 1, browser_builder);
     sets.add("remoteobjecttype", 1, remote_object_type);
+    sets.add("webrequest", 1, webrequest);
+    sets.add("webrequestbuilder", 0, webrequest_builder);
     sets
 }
 
@@ -68,4 +72,16 @@ pub fn remote_object_type(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFu
     println!("\u{001b}[90m{:?}\u{001b}[0m", remote);
     let t = remote.get_type();
     Ok(t.into())
+}
+
+pub fn webrequest(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let uri = args.get_as_string(0, None)?;
+    let req = WebRequest::new();
+    let res = req.get(&uri)?;
+    Ok(Object::WebResponse(res))
+}
+
+pub fn webrequest_builder(_: &mut Evaluator, _: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let req = WebRequest::new();
+    Ok(Object::WebRequest(Arc::new(Mutex::new(req))))
 }

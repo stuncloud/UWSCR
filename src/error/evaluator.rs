@@ -187,7 +187,7 @@ pub enum UErrorKind {
     ExitExit(i32),
     InitializeError,
     ClipboardError,
-    Poff(POFF, bool)
+    Poff(POFF, bool),
 }
 
 impl fmt::Display for UErrorKind {

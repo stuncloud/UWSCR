@@ -9,6 +9,35 @@
 
     | バージョン `0.11.0` 以降のブラウザ操作機能はバージョン `0.10.2` 以前とは互換性がありません
 
+.. admonition:: ブラウザパスの指定方法
+    :class: hint
+
+    | 通常はレジストリ等からブラウザの実行ファイルのパスを取得しそれを実行します (パスの自動取得)
+    | 自動取得を行わずに任意のパスで実行させるには設定ファイルにパスを記述します
+
+    .. code:: json
+
+        {
+            "browser": {
+                "chrome": "C:\\path\\to\\chrome.exe",
+                "msedge": "C:\\path\\to\\msedge.exe"
+            },
+        }
+
+    | 自動取得に戻す場合は ``null`` にします
+
+    .. code:: json
+
+        {
+            "browser": {
+                "chrome": null,
+                "msedge": null
+            },
+        }
+
+    | パスは必ずchrome.exeおよびmsedge.exeのものにしてください
+    | それ以外は動作保証外です
+
 .. function:: BrowserControl(ブラウザ定数, [ポート=9222])
 
     | Devtools Protocolを利用したブラウザ操作を行うための :ref:`browser_object` を返します
@@ -109,43 +138,6 @@
         | ただし、起動中のブラウザとは異なるプロファイルフォルダを指定した場合は指定ポートで新たなブラウザプロセスを起動します
         | (同一プロファイルにつき一つのデバッグポート(またはポートなし)でしかブラウザを起動できないため)
 
-.. function:: ConvertFromRemoteObject(remote)
-
-    | リモートオブジェクトがプリミティブな値の場合に適切な値型に変換します
-    | 変換できないものはそのまま返ります
-
-    :param RemoteObject remote: 値型に変換したい :ref:`remote_object`
-    :return: 変換された値、変換できない場合は :ref:`remote_object`
-
-    .. admonition:: ブラウザパスの指定方法
-        :class: tip
-
-        | 通常はレジストリ等からブラウザの実行ファイルのパスを取得しそれを実行します (パスの自動取得)
-        | 自動取得を行わずに任意のパスで実行させるには設定ファイルにパスを記述します
-
-        .. code:: json
-
-            {
-                "browser": {
-                    "chrome": "C:\\path\\to\\chrome.exe",
-                    "msedge": "C:\\path\\to\\msedge.exe"
-                },
-            }
-
-        | 自動取得に戻す場合は ``null`` にします
-
-        .. code:: json
-
-            {
-                "browser": {
-                    "chrome": null,
-                    "msedge": null
-                },
-            }
-
-        | パスは必ずchrome.exeおよびmsedge.exeのものにしてください
-        | それ以外は動作保証外です
-
 .. function:: RemoteObjectType(remote)
 
     | :ref:`remote_object` の型を返します
@@ -157,6 +149,7 @@
     :param RemoteObject remote: 型情報を得たい :ref:`remote_object`
     :rtype: 文字列
     :return: 型の情報を示す文字列
+
 
 .. _builder_object:
 
@@ -296,7 +289,7 @@ TabWindowオブジェクト
             | そのためブラウザ上でJavaScriptを実行するかのようにブラウザ操作を行うことが可能です
             | 詳しくは :ref:`browser_sample` を参照してください
 
-    .. method:: navigate(uri)
+    .. method:: navigate(url)
 
         | 指定URLを開きます
         | ページの読み込み完了まで待機します (最大10秒)
@@ -306,7 +299,7 @@ TabWindowオブジェクト
 
             | 読み込みに10秒以上かかるページに対しては navigate実行後に :any:`wait` メソッドを呼んでください
 
-        :param 文字列 uri: 開きたいサイトのURL
+        :param 文字列 url: 開きたいサイトのURL
         :rtype: 真偽値
         :return: タイムアウトした場合FALSE
 
@@ -375,8 +368,6 @@ TabWindowオブジェクト
                 // 座標を指定し右クリックする
                 tab.rightClick(rect.x + 10, rect.y + 10)
 
-
-
 .. _remote_object:
 
 RemoteObject
@@ -387,7 +378,7 @@ RemoteObject
 メソッドの実行
 ^^^^^^^^^^^^^^
 
-| ``RemoteObject.メソッド名(引数)`` でメソッドを実行し、戻り値を :ref:`remote_object` として取得します
+| ``RemoteObject.メソッド名(引数)`` でメソッドを実行します
 | メソッド名は大文字小文字を区別します
 
 .. sourcecode:: uwscr
@@ -398,7 +389,7 @@ RemoteObject
 プロパティの取得
 ^^^^^^^^^^^^^^^^
 
-| ``RemoteObject.プロパティ名`` とすることでプロパティ値を :ref:`remote_object` として取得します
+| ``RemoteObject.プロパティ名`` とすることでプロパティ値を取得します
 | 配列要素であればインデックスを指定します ``RemoteObject.プロパティ名[i]``
 | プロパティ名は大文字小文字を区別します
 
@@ -420,23 +411,52 @@ RemoteObject
     foo = chrome[0].document.querySelector("#foo")
     foo.value = "ほげほげ"
 
+インデックスによるアクセス
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+| :ref:`remote_object` 自身が配列であった場合は ``RemoteObject[i]`` とすることで要素を得られます
+
+.. sourcecode:: uwscr
+
+    chrome = BrowserControl(BC_CHROME)
+    links = chrome[0].document.querySelectorAll("a")
+    print links[0].href
+
 関数として実行
 ^^^^^^^^^^^^^^
 
 | :ref:`remote_object` 自身が関数である場合は ``RemoteObject(引数)`` として実行できます
-| この場合も戻り値を :ref:`remote_object` として取得します
 
 非同期関数とPromise
 ^^^^^^^^^^^^^^^^^^^
 
 | :ref:`remote_object` 自身、またはそのメソッドが非同期関数であった場合 :ref:`await` 構文でその終了を待ちます
 | :ref:`remote_object` がPromiseであった場合は :any:`WaitTask` 関数でその終了を待ちます
-| いずれの場合も戻り値を :ref:`remote_object` として取得します
+| いずれの場合も結果を返します
 
-.. 他の値型との演算
-.. ^^^^^^^^^^^^^^^^
+戻り値について
+^^^^^^^^^^^^^^
 
-.. | RemoteObjectがプリミティブな値であれば演算を行い、適した値型として値を返します
+:ref:`remote_object` のプロパティやメソッド、インデックスから得られる値の型は以下の通りです
+
+.. list-table::
+    :align: left
+    :header-rows: 1
+
+    * - JavaScript型
+      - UWSCR型
+    * - string
+      - 文字列
+    * - number
+      - 数値
+    * - bool
+      - 真偽値
+    * - null
+      - NULL
+    * - 上記以外のオブジェクト
+      - :ref:`remote_object`
+    * - オブジェクトでもプリミティブな値でもない場合 (undefinedなど)
+      - EMPTY
 
 .. _browser_sample:
 
@@ -560,3 +580,160 @@ RemoteObject
 
         // タブを閉じる
         tab.close()
+
+HTTPリクエスト
+--------------
+
+.. function:: Webrequest(url)
+
+    | 指定URLに対してGETリクエストを送信します
+
+    :param 文字列 url: リクエストを送るURL
+    :rtype: :ref:`web_response`
+    :return: レスポンスを示す :ref:`web_response`
+
+    .. admonition:: サンプルコード
+
+        .. sourcecode:: uwscr
+
+            res = WebRequest("http://example.com")
+            print res.status
+            print res.body
+
+.. function:: WebRequestBuilder()
+
+    | :ref:`web_request` を返します
+    | :any:`WebRequest` とは異なり詳細な設定を行い任意のメソッドでリクエストを送信できます
+
+    :rtype: :ref:`web_request`
+    :return: リクエストを行うための :ref:`web_request`
+
+
+.. _web_request:
+
+WebRequestオブジェクト
+~~~~~~~~~~~~~~~~~~~~~~
+
+| HTTPリクエストを行うためのオブジェクト
+
+.. class:: WebRequest
+
+    .. method:: useragent(UA)
+
+        | UserAgent文字列を設定します
+        | 未設定の場合デフォルトの値が使用されます
+
+        :param 文字列 UA: UserAgent文字列
+        :rtype: :ref:`web_request`
+        :return: 更新された :ref:`web_request`
+
+    .. method:: header(キー, 値)
+
+        | ヘッダを設定します
+        | 未設定の場合デフォルトの値が使用されます
+
+        :param 文字列 キー: ヘッダのキー
+        :param 文字列 値: ヘッダの値
+        :rtype: :ref:`web_request`
+        :return: 更新された :ref:`web_request`
+
+    .. method:: timeout(秒)
+
+        | ヘッダを設定します
+        | 未設定の場合タイムアウトしません
+
+        :param 数値 秒: タイムアウト秒
+        :rtype: :ref:`web_request`
+        :return: 更新された :ref:`web_request`
+
+    .. method:: body(本文)
+
+        | リクエスト本文を設定します
+        | 未設定の場合は何も送信しません
+
+        :param 文字列 本文: リクエスト本文
+        :rtype: :ref:`web_request`
+        :return: 更新された :ref:`web_request`
+
+    .. method:: get(url)
+
+        | GETリクエストを送信します
+
+        :param 文字列 url: リクエストを送るURL
+        :rtype: :ref:`web_response`
+        :return: :ref:`web_response`
+
+    .. method:: put(url)
+
+        | PUTリクエストを送信します
+
+        :param 文字列 url: リクエストを送るURL
+        :rtype: :ref:`web_response`
+        :return: :ref:`web_response`
+
+    .. method:: post(url)
+
+        | POSTリクエストを送信します
+
+        :param 文字列 url: リクエストを送るURL
+        :rtype: :ref:`web_response`
+        :return: :ref:`web_response`
+
+    .. method:: delete(url)
+
+        | DELETEリクエストを送信します
+
+        :param 文字列 url: リクエストを送るURL
+        :rtype: :ref:`web_response`
+        :return: :ref:`web_response`
+
+    .. method:: patch(url)
+
+        | PATCHリクエストを送信します
+
+        :param 文字列 url: リクエストを送るURL
+        :rtype: :ref:`web_response`
+        :return: :ref:`web_response`
+
+    .. method:: head(url)
+
+        | HEADリクエストを送信します
+
+        :param 文字列 url: リクエストを送るURL
+        :rtype: :ref:`web_response`
+        :return: :ref:`web_response`
+
+
+.. _web_response:
+
+WebResponseオブジェクト
+~~~~~~~~~~~~~~~~~~~~~~~
+
+| HTTPレスポンスを示すオブジェクト
+
+.. class:: WebResponse
+
+    .. property:: status
+
+        | レスポンスのステータスを数値で返します
+
+    .. property:: statusText
+
+        | レスポンスのステータスを示す文字列を返します
+
+    .. property:: succeed
+
+        | リクエストの成否を真偽値で返します
+
+    .. property:: header
+
+        | レスポンスヘッダを連想配列で返します
+
+    .. property:: body
+
+        | レスポンスボディを文字列で返します、返せない場合はEMPTY
+
+    .. property:: json
+
+        | レスポンスボディがjsonの場合UObjectを返します、返せない場合はEMPTY
+
