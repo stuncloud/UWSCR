@@ -1614,8 +1614,7 @@ impl Evaluator {
             },
             Object::RemoteObject(remote) => {
                 let index = index.to_string();
-                let result = remote.get_by_index(&index)?;
-                Object::RemoteObject(result)
+                remote.get(None, Some(&index))?
             },
             Object::Browser(brwoser) => {
                 if let Object::Num(i) = index {
@@ -1781,7 +1780,7 @@ impl Evaluator {
             Object::RemoteObject(ref remote) => {
                 if let Expression::Identifier(Identifier(name)) = expr_member {
                     let value = Self::object_to_serde_value(new)?;
-                    remote.set_property_by_index(&name, &index.to_string(), value.into())?;
+                    remote.set(Some(&name), Some(&index.to_string()), value.into())?;
                 }
             },
             o => return Err(UError::new(
@@ -1934,7 +1933,7 @@ impl Evaluator {
             Object::RemoteObject(remote) => {
                 let index = index.to_string();
                 let value = Self::object_to_serde_value(new.clone())?;
-                remote.set_by_index(&index, value.into())?;
+                remote.set(None, Some(&index), value.into())?;
                 Ok((None, false))
             },
             _ => Err(UError::new(UErrorKind::AssignError, UErrorMessage::NotAnArray("".into())))
@@ -2023,7 +2022,7 @@ impl Evaluator {
             Object::RemoteObject(ref remote) => {
                 if let Expression::Identifier(Identifier(name)) = expr_member {
                     let value = browser::RemoteFuncArg::from_object(new)?;
-                    remote.set_property(&name, value)?;
+                    remote.set(Some(&name), None, value)?;
                 } else {
                     return Err(UError::new(
                         UErrorKind::DotOperatorError,
@@ -2873,8 +2872,7 @@ impl Evaluator {
                     let func = browser::BrowserFunction::from_remote_object(remote, member);
                     Ok(Object::BrowserFunction(func))
                 } else {
-                    let value = remote.get_property(&member)?;
-                    Ok(value.into())
+                    remote.get(Some(&member), None)
                 }
             }
             o => Err(UError::new(

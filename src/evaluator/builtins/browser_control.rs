@@ -18,7 +18,6 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     let mut sets = BuiltinFunctionSets::new();
     sets.add("browsercontrol", 2, browser_control);
     sets.add("browserbuilder", 1, browser_builder);
-    sets.add("convertfromremoteobject", 1, convert_from_remote_object);
     sets.add("remoteobjecttype", 1, remote_object_type);
     sets
 }
@@ -61,19 +60,6 @@ pub fn browser_builder(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncR
     };
     let builder = BrowserBuilder::new(r#type, DEFAULT_PORT);
     Ok(Object::BrowserBuilder(Arc::new(Mutex::new(builder))))
-}
-
-pub fn convert_from_remote_object(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let remote = args.get_as_remoteobject(0)?;
-    let obj = if remote.is_object() {
-        Object::RemoteObject(remote)
-    } else {
-        match remote.get_value() {
-            Some(value) => value.into(),
-            None => Object::Null,
-        }
-    };
-    Ok(obj)
 }
 
 pub fn remote_object_type(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {

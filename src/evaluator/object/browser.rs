@@ -1,6 +1,6 @@
 use crate::error::evaluator::{UError, UErrorKind, UErrorMessage};
 use crate::settings::USETTINGS;
-use super::{Object, UObject};
+use super::{Object};
 use crate::evaluator::builtins::window_control::get_id_from_hwnd;
 use crate::evaluator::Evaluator;
 
@@ -501,7 +501,7 @@ impl TabWindow {
         // エラーは握りつぶしてfalseを返す
         if let Ok(document) = self.document() {
             if let Ok(state) = document.get_property("readyState") {
-                match state.get_value() {
+                match state.as_value() {
                     Some(v) => v.as_str().unwrap_or_default() == "complete",
                     None => false,
                 }
@@ -1015,7 +1015,7 @@ impl RemoteObject {
         Self { dp, remote }
     }
 
-    pub fn get_property(&self, name: &str) -> BrowserResult<Self> {
+    fn get_property(&self, name: &str) -> BrowserResult<Self> {
         let func = format!("function() {{return this.{name};}}");
         if let Some(id) = &self.remote.object_id {
             self.dp.invoke_function(id, &func, vec![], false, false)
@@ -1026,7 +1026,7 @@ impl RemoteObject {
             ))
         }
     }
-    pub fn set_property(&self, name: &str, value: RemoteFuncArg) -> BrowserResult<Self> {
+    fn set_property(&self, name: &str, value: RemoteFuncArg) -> BrowserResult<Self> {
         let func = format!("function(value) {{return this.{name} = value;}}");
         if let Some(id) = &self.remote.object_id {
             self.dp.invoke_function(id, &func, vec![value], false, false)
@@ -1037,7 +1037,7 @@ impl RemoteObject {
             ))
         }
     }
-    pub fn get_property_by_index(&self, name: &str, index: &str) -> BrowserResult<Self> {
+    fn get_property_by_index(&self, name: &str, index: &str) -> BrowserResult<Self> {
         let func = format!("function() {{return this.{name}[{index}];}}");
         if let Some(id) = &self.remote.object_id {
             self.dp.invoke_function(id, &func, vec![], false, false)
@@ -1048,7 +1048,7 @@ impl RemoteObject {
             ))
         }
     }
-    pub fn set_property_by_index(&self, name: &str, index: &str, value: RemoteFuncArg) -> BrowserResult<Self> {
+    fn set_property_by_index(&self, name: &str, index: &str, value: RemoteFuncArg) -> BrowserResult<Self> {
         let func = format!("function(value) {{return this.{name}[{index}] = value;}}");
         if let Some(id) = &self.remote.object_id {
             self.dp.invoke_function(id, &func, vec![value], false, false)
@@ -1059,7 +1059,7 @@ impl RemoteObject {
             ))
         }
     }
-    pub fn get_by_index(&self, index: &str) -> BrowserResult<Self> {
+    fn get_by_index(&self, index: &str) -> BrowserResult<Self> {
         let func = format!("function() {{return this[{index}];}}");
         if let Some(id) = &self.remote.object_id {
             self.dp.invoke_function(id, &func, vec![], false, false)
@@ -1070,7 +1070,7 @@ impl RemoteObject {
             ))
         }
     }
-    pub fn set_by_index(&self, index: &str, value: RemoteFuncArg) -> BrowserResult<Self> {
+    fn set_by_index(&self, index: &str, value: RemoteFuncArg) -> BrowserResult<Self> {
         let func = format!("function(value) {{return this[{index}] = value;}}");
         if let Some(id) = &self.remote.object_id {
             self.dp.invoke_function(id, &func, vec![value], false, false)
@@ -1081,13 +1081,33 @@ impl RemoteObject {
             ))
         }
     }
-    pub fn get_value(&self) -> Option<Value> {
-        self.remote.value.clone()
+    fn as_value(self) -> Option<Value> {
+        self.remote.value
     }
-    pub fn invoke_method(&self, name: &str, args: Vec<RemoteFuncArg>, await_promise: bool) -> BrowserResult<RemoteObject> {
+    pub fn get(&self, name: Option<&str>, index: Option<&str>) -> BrowserResult<Object> {
+        let result = match (name, index) {
+            (None, None) => todo!(),
+            (None, Some(index)) => self.get_by_index(index),
+            (Some(name), None) => self.get_property(name),
+            (Some(name), Some(index)) => self.get_property_by_index(name, index),
+
+        };
+        result.map(|remote| remote.to_object())
+    }
+    pub fn set(&self, name: Option<&str>, index: Option<&str>, value: RemoteFuncArg) -> BrowserResult<Object> {
+        let result = match (name, index) {
+            (None, None) => todo!(),
+            (None, Some(index)) => self.set_by_index(index, value),
+            (Some(name), None) => self.set_property(name, value),
+            (Some(name), Some(index)) => self.set_property_by_index(name, index, value),
+        };
+        result.map(|remote| remote.to_object())
+    }
+    pub fn invoke_method(&self, name: &str, args: Vec<RemoteFuncArg>, await_promise: bool) -> BrowserResult<Object> {
         let declaration = format!("function(...args) {{ return this.{name}(...args); }}");
         if let Some(id) = &self.remote.object_id {
             self.dp.invoke_function(id, &declaration, args, true, await_promise)
+                .map(|remote| remote.to_object())
         } else {
             Err(UError::new(
                 UErrorKind::BrowserControlError,
@@ -1095,15 +1115,26 @@ impl RemoteObject {
             ))
         }
     }
-    pub fn invoke_as_function(&self, args: Vec<RemoteFuncArg>, await_promise: bool) -> BrowserResult<RemoteObject> {
+    pub fn invoke_as_function(&self, args: Vec<RemoteFuncArg>, await_promise: bool) -> BrowserResult<Object> {
         let declaration = format!("function(...args) {{ return this(...args); }}");
         if let Some(id) = &self.remote.object_id {
             self.dp.invoke_function(id, &declaration, args, true, await_promise)
+                .map(|remote| remote.to_object())
         } else {
             Err(UError::new(
                 UErrorKind::BrowserControlError,
                 UErrorMessage::RemoteObjectIsNotFunction(self.remote.r#type.clone())
             ))
+        }
+    }
+    fn to_object(self) -> Object {
+        if self.remote.object_id.is_some() {
+            Object::RemoteObject(self)
+        } else {
+            match self.remote.value {
+                Some(value) => value.into(),
+                None => Object::Empty,
+            }
         }
     }
     pub fn to_value(&self) -> Option<Value> {
@@ -1189,7 +1220,7 @@ impl RemoteObject {
     pub fn get_type(&self) -> String {
         let mut t = self.remote.r#type.clone();
         if let Some(sub) = &self.remote.subtype {
-            t.push('.');
+            t.push_str(": ");
             t.push_str(sub);
         }
         if let Some(class) = &self.remote.class_name {
@@ -1217,32 +1248,6 @@ impl RemoteObject {
             }
         } else {
             Ok(None)
-        }
-    }
-    pub fn as_bool(&self) -> bool {
-        if let Some(value) = &self.remote.value {
-            let obj = Object::from(value);
-            obj.is_truthy()
-        } else {
-            true
-        }
-    }
-    pub fn as_num(&self) -> Option<f64> {
-        if let Some(value) = &self.remote.value {
-            value.as_f64()
-        } else {
-            None
-        }
-    }
-    pub fn as_uobject(&self) -> Option<UObject> {
-        if let Some(value) = &self.remote.value {
-            match value {
-                Value::Array(_) |
-                Value::Object(_) => Some(UObject::new(value.clone())),
-                _ => None
-            }
-        } else {
-            None
         }
     }
 }

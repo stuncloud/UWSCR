@@ -509,7 +509,7 @@ pub enum UErrorMessage {
     BrowserHasNoDebugPort(String, u16),
     BrowserDebuggingPortUnmatch(String, u16),
     RemoteObjectIsNotPromise,
-    RemoteObjectIsNotNumber,
+    RemoteObjectDoesNotHaveValidLength,
     RemoteObjectIsNotPrimitiveValue,
 }
 
@@ -1094,9 +1094,9 @@ impl fmt::Display for UErrorMessage {
                 "RemoteObjectを通常の値型に変換できません",
                 "RemoteObject is not a primitive value",
             ),
-            Self::RemoteObjectIsNotNumber => write_locale!(f,
-                "RemoteObjectが数値ではありません",
-                "RemoteObject is not number",
+            Self::RemoteObjectDoesNotHaveValidLength => write_locale!(f,
+                "RemoteObjectが有効なlengthを返しませんでした",
+                "RemoteObject did not return valid length value",
             ),
         }
     }

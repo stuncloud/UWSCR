@@ -402,7 +402,6 @@ impl Object {
             Object::Array(arr) => arr.len() > 0,
             Object::Num(n) => ! n.is_zero(),
             Object::Handle(h) => h.0 > 0,
-            Object::RemoteObject(r) => r.as_bool(),
             _ => true
         }
     }
@@ -431,9 +430,6 @@ impl Object {
                     },
                 }
             },
-            Object::RemoteObject(remote) => {
-                remote.as_num()
-            }
             Object::Null => if null_as_zero {
                 Some(0.0)
             } else {
@@ -443,20 +439,9 @@ impl Object {
         }
     }
     /// 以下を通常の値型に変換する
-    /// - RemoteObject
     /// - Variant
     fn to_uwscr_object(self) -> Result<Object, UError> {
         match self {
-            Object::RemoteObject(r) => {
-                if let Some(value) = r.get_value() {
-                    Ok(value.into())
-                } else {
-                    Err(UError::new(
-                        UErrorKind::BrowserControlError,
-                        UErrorMessage::RemoteObjectIsNotPrimitiveValue,
-                    ))
-                }
-            },
             Object::Variant(v) => {
                 Object::from_variant(&v.0)
             },
@@ -801,15 +786,12 @@ impl Add for Object {
                     ))
                 }
             },
-            Object::RemoteObject(_) => {
-                let obj = self.to_uwscr_object()?;
-                obj.add(rhs)
-            },
             Object::Variant(_) => {
                 let obj = self.to_uwscr_object()?;
                 obj.add(rhs)
             }
             // 以下はエラー
+            Object::RemoteObject(_) |
             Object::HashTbl(_) |
             Object::AnonFunc(_) |
             Object::Function(_) |
@@ -894,15 +876,12 @@ impl Sub for Object {
                     ))
                 }
             },
-            Object::RemoteObject(_) => {
-                let obj = self.to_uwscr_object()?;
-                obj.sub(rhs)
-            },
             Object::Variant(_) => {
                 let obj = self.to_uwscr_object()?;
                 obj.sub(rhs)
             }
             // 以下はエラー
+            Object::RemoteObject(_) |
             Object::String(_) |
             Object::Array(_) |
             Object::Null |
@@ -1030,15 +1009,12 @@ impl Mul for Object {
                     ))
                 }
             },
-            Object::RemoteObject(_) => {
-                let obj = self.to_uwscr_object()?;
-                obj.mul(rhs)
-            },
             Object::Variant(_) => {
                 let obj = self.to_uwscr_object()?;
                 obj.mul(rhs)
             }
             // 以下はエラー
+            Object::RemoteObject(_) |
             Object::Array(_) |
             Object::ByteArray(_) |
             Object::HashTbl(_) |
@@ -1145,15 +1121,12 @@ impl Div for Object {
                     ))
                 }
             },
-            Object::RemoteObject(_) => {
-                let obj = self.to_uwscr_object()?;
-                obj.div(rhs)
-            },
             Object::Variant(_) => {
                 let obj = self.to_uwscr_object()?;
                 obj.div(rhs)
             }
             // 以下はエラー
+            Object::RemoteObject(_) |
             Object::Null |
             Object::Array(_) |
             Object::ByteArray(_) |
@@ -1264,15 +1237,12 @@ impl Rem for Object {
                     ))
                 }
             },
-            Object::RemoteObject(_) => {
-                let obj = self.to_uwscr_object()?;
-                obj.rem(rhs)
-            },
             Object::Variant(_) => {
                 let obj = self.to_uwscr_object()?;
                 obj.rem(rhs)
             }
             // 以下はエラー
+            Object::RemoteObject(_) |
             Object::Null |
             Object::Array(_) |
             Object::ByteArray(_) |
@@ -1377,15 +1347,12 @@ impl BitOr for Object {
                     ))
                 }
             },
-            Object::RemoteObject(_) => {
-                let obj = self.to_uwscr_object()?;
-                obj.bitor(rhs)
-            },
             Object::Variant(_) => {
                 let obj = self.to_uwscr_object()?;
                 obj.bitor(rhs)
             }
             // 以下はエラー
+            Object::RemoteObject(_) |
             Object::Null |
             Object::Array(_) |
             Object::ByteArray(_) |
@@ -1489,15 +1456,12 @@ impl BitAnd for Object {
                     ))
                 }
             },
-            Object::RemoteObject(_) => {
-                let obj = self.to_uwscr_object()?;
-                obj.bitand(rhs)
-            },
             Object::Variant(_) => {
                 let obj = self.to_uwscr_object()?;
                 obj.bitand(rhs)
             }
             // 以下はエラー
+            Object::RemoteObject(_) |
             Object::Null |
             Object::Array(_) |
             Object::ByteArray(_) |
@@ -1601,15 +1565,12 @@ impl BitXor for Object {
                     ))
                 }
             },
-            Object::RemoteObject(_) => {
-                let obj = self.to_uwscr_object()?;
-                obj.bitxor(rhs)
-            },
             Object::Variant(_) => {
                 let obj = self.to_uwscr_object()?;
                 obj.bitxor(rhs)
             }
             // 以下はエラー
+            Object::RemoteObject(_) |
             Object::Null |
             Object::Array(_) |
             Object::ByteArray(_) |
