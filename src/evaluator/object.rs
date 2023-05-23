@@ -240,7 +240,7 @@ impl fmt::Display for Object {
             Object::Global => write!(f, "GLOBAL"),
             Object::This(ref m) => write!(f, "THIS ({})", m.lock().unwrap().name()),
             Object::UObject(ref uobj) => {
-                write!(f, "UObject: {}", uobj)
+                write!(f, "{}", uobj)
             },
             Object::DynamicVar(func) => write!(f, "{}", func()),
             Object::Version(ref v) => write!(f, "{}", v),

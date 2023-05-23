@@ -581,6 +581,52 @@ RemoteObject
         // タブを閉じる
         tab.close()
 
+ダウンロード先やその方法の制御について
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+| ダウンロードファイルの保存先フォルダの指定や、確認ダイアログの制御が現時点ではできません
+| ブラウザ操作にて特定のフォルダへのダウンロードを確認なしで行いたい場合は事前に以下の操作を行ってください
+
+1. :ref:`builder_object` で専用のプロファイルフォルダを指定し、ブラウザを起動する
+2. 起動したブラウザの設定を手動で変更する
+   - Chrome
+        1. 設定画面の **ダウンロード** を開く
+        2. **保存先** を任意のフォルダに変更する
+        3. **ダウンロード前に各ファイルの保存場所を確認する** をオフにする
+   - MSEdge
+        1. 設定画面の **ダウンロード** を開く
+        2. **場所** を任意のフォルダに変更する
+        3. **ダウンロード時の動作を毎回確認する** をオフにする
+3. 変更を施したプロファイルを指定して改めてブラウザ操作を行う
+
+.. admonition:: ダウンロード開始と完了の検知
+    :class: hint
+
+    1. getdir関数で ``未確認*.crdownload`` ファイルの数を確認し、1個以上であればダウンロードが開始されていると判定
+    2. | ダウンロードするファイルの名前がわかっている場合、F_EXISTSがTRUEならダウンロード完了
+       | あるいはgetdir関数で ``未確認*.crdownload`` ファイルの数を確認し、0個であればダウンロード完了と判定
+
+    .. sourcecode:: uwscr
+
+        // ダウンロード開始検知
+        repeat
+            sleep(0.1)
+            files = getdir(download_path, "未確認*.crdownload")
+        until length(files) > 0
+
+        if filename != EMPTY then
+            // ファイル名が分かる場合
+            repeat
+                sleep(1)
+            until fopen(filename, F_EXISTS)
+        else
+            // ファイル名が分からない場合
+            repeat
+                sleep(1)
+                files = getdir(download_path, "未確認*.crdownload")
+            until length(files) == 0
+        endif
+
 HTTPリクエスト
 --------------
 
@@ -620,8 +666,8 @@ WebRequestオブジェクト
 
     .. method:: useragent(UA)
 
-        | UserAgent文字列を設定します
-        | 未設定の場合デフォルトの値が使用されます
+        | UserAgent文字列をUser-Agentヘッダに設定します
+        | 未指定の場合設定されません
 
         :param 文字列 UA: UserAgent文字列
         :rtype: :ref:`web_request`
@@ -629,8 +675,7 @@ WebRequestオブジェクト
 
     .. method:: header(キー, 値)
 
-        | ヘッダを設定します
-        | 未設定の場合デフォルトの値が使用されます
+        | リクエストヘッダを追加します
 
         :param 文字列 キー: ヘッダのキー
         :param 文字列 値: ヘッダの値
@@ -640,7 +685,7 @@ WebRequestオブジェクト
     .. method:: timeout(秒)
 
         | ヘッダを設定します
-        | 未設定の場合タイムアウトしません
+        | 未指定の場合タイムアウトしません
 
         :param 数値 秒: タイムアウト秒
         :rtype: :ref:`web_request`
@@ -649,9 +694,28 @@ WebRequestオブジェクト
     .. method:: body(本文)
 
         | リクエスト本文を設定します
-        | 未設定の場合は何も送信しません
+        | 未指定の場合は何も送信しません
 
-        :param 文字列 本文: リクエスト本文
+        :param 文字列またはUObject 本文: リクエスト本文、UObjectはjsonに変換されます
+        :rtype: :ref:`web_request`
+        :return: 更新された :ref:`web_request`
+
+    .. method:: basic(ユーザー名, [パスワード=EMPTY])
+
+        | Basic認証のユーザー名とパスワードを設定したAuthorizationヘッダを追加します
+        | 未指定の場合は追加されません
+
+        :param 文字列 ユーザー名: ユーザー名
+        :param 文字列 省略可 パスワード: パスワード
+        :rtype: :ref:`web_request`
+        :return: 更新された :ref:`web_request`
+
+    .. method:: bearer(トークン)
+
+        | Bearer認証のトークンを設定したAuthorizationヘッダを追加します
+        | 未指定の場合は追加されません
+
+        :param 文字列 トークン: 認証トークン
         :rtype: :ref:`web_request`
         :return: 更新された :ref:`web_request`
 
@@ -703,6 +767,18 @@ WebRequestオブジェクト
         :rtype: :ref:`web_response`
         :return: :ref:`web_response`
 
+.. admonition:: サンプルコード
+
+    .. sourcecode:: uwscr
+
+        request = WebRequestBuilder()
+        // ヘッダと認証情報を設定しておく
+        request.bearer(MY_BEARER_TOKEN)_
+            .header('Content-Type', 'application/json')
+
+        // リクエストを送信
+        res1 = request.body(json1).post(url1)
+        res2 = request.body(json2).put(url2)
 
 .. _web_response:
 

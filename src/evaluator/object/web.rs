@@ -8,7 +8,7 @@ use std::time::Duration;
 use reqwest::{
     StatusCode,
     header::{HeaderMap, HeaderName, HeaderValue, InvalidHeaderName, InvalidHeaderValue},
-    blocking::{Client, Response,},
+    blocking::{Client, Response, RequestBuilder},
     Method,
 };
 
@@ -32,6 +32,8 @@ pub struct WebRequest {
     headers: HeaderMap,
     timeout: Option<Duration>,
     body: Option<String>,
+    basic: Option<(String, Option<String>)>,
+    bearer: Option<String>,
 }
 impl std::fmt::Display for WebRequest {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -40,12 +42,14 @@ impl std::fmt::Display for WebRequest {
 }
 impl WebRequest {
     pub fn new() -> Self {
-        // let builder = Client::builder();
-        let user_agent = None;
-        let headers = HeaderMap::new();
-        let timeout = None;
-        let body = None;
-        Self { user_agent, headers, timeout, body }
+        Self {
+            user_agent: None,
+            headers: HeaderMap::new(),
+            timeout: None,
+            body: None,
+            basic: None,
+            bearer: None,
+        }
     }
     fn add_header(&mut self, key: &str, value: &str) -> WebResult<()> {
         let key = HeaderName::from_str(key)?;
@@ -63,6 +67,12 @@ impl WebRequest {
     fn set_body(&mut self, body: String) {
         self.body = Some(body);
     }
+    fn set_basic_auth(&mut self, name: String, password: Option<String>) {
+        self.basic = Some((name, password));
+    }
+    fn set_bearer_auth(&mut self, token: String) {
+        self.bearer = Some(token);
+    }
     fn client(&self) -> WebResult<Client> {
         let builder = Client::builder();
         let builder = if let Some(ua) = &self.user_agent {
@@ -75,19 +85,12 @@ impl WebRequest {
     }
     fn request(&self, method: Method, url: &str) -> WebResult<WebResponse> {
         let client = self.client()?;
-        let builder = client.request(method, url);
-        // ヘッダ
-        let builder = if self.headers.len() > 0 {
-            builder.headers(self.headers.clone())
-        } else {builder};
-        // タイムアウト
-        let builder = if let Some(timeout) = self.timeout {
-            builder.timeout(timeout)
-        } else {builder};
-        // ボディ
-        let builder = if let Some(body) = &self.body {
-            builder.body(body.to_string())
-        } else {builder};
+        let builder = client.request(method, url)
+            .set_header(&self.headers)
+            .set_timeout(self.timeout)
+            .set_body(&self.body)
+            .set_basic_auth(&self.basic)
+            .set_bearer_auth(&self.bearer);
 
         let res = builder.send()?;
         Ok(res.into())
@@ -116,6 +119,17 @@ impl WebRequest {
             "body" => {
                 let body = args.as_string(0)?;
                 self.set_body(body);
+                None
+            },
+            "basic" => {
+                let name = args.as_string(0)?;
+                let password = args.as_string(1).ok();
+                self.set_basic_auth(name, password);
+                None
+            },
+            "bearer" => {
+                let token = args.as_string(0)?;
+                self.set_bearer_auth(token);
                 None
             },
             "get" => {
@@ -271,4 +285,50 @@ impl WebArg for Vec<Object> {
 pub enum WebFunction {
     WebRequest(Arc<Mutex<WebRequest>>, String),
     WebResponse(WebResponse, String)
+}
+
+trait RequestBuilderExt {
+    fn set_header(self, headers: &HeaderMap<HeaderValue>) -> Self;
+    fn set_timeout(self, timeout: Option<Duration>) -> Self;
+    fn set_body(self, body: &Option<String>) -> Self;
+    fn set_basic_auth(self, basic: &Option<(String, Option<String>)>) -> Self;
+    fn set_bearer_auth(self, token: &Option<String>) -> Self;
+}
+
+impl RequestBuilderExt for RequestBuilder {
+    fn set_header(self, headers: &HeaderMap<HeaderValue>) -> Self {
+        if headers.len() > 0 {
+            self.headers(headers.clone())
+        } else {
+            self
+        }
+    }
+    fn set_timeout(self, timeout: Option<Duration>) -> Self {
+        if let Some(timeout) = timeout {
+            self.timeout(timeout)
+        } else {
+            self
+        }
+    }
+    fn set_body(self, body: &Option<String>) -> Self {
+        if let Some(body) = body {
+            self.body(body.to_string())
+        } else {
+            self
+        }
+    }
+    fn set_basic_auth(self, basic: &Option<(String, Option<String>)>) -> Self {
+        if let Some((username, password)) = basic {
+            self.basic_auth(username, password.as_deref())
+        } else {
+            self
+        }
+    }
+    fn set_bearer_auth(self, token: &Option<String>) -> Self {
+        if let Some(token) = token {
+            self.bearer_auth(token)
+        } else {
+            self
+        }
+    }
 }
