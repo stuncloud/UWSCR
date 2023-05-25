@@ -42,7 +42,7 @@ urlencoding = "2.1.0"
 winreg = "0.11"
 wmi = "0.12.1"
 zip = "0.6.2"
-scraper = "0.15.0"
+scraper = "0.16.0"
 rand = "0.8.5"
 
 [build-dependencies]

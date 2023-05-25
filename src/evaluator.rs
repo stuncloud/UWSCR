@@ -2407,6 +2407,9 @@ impl Evaluator {
                     WebFunction::WebResponse(res, name) => {
                         res.invoke_method(&name, args)
                     },
+                    WebFunction::HtmlNode(node, name) => {
+                        node.invoke_method(&name, args)
+                    },
                 }
             },
             Object::RemoteObject(ref remote) => {
@@ -2911,6 +2914,13 @@ impl Evaluator {
                     res.get_property(&member)
                 }
             },
+            Object::HtmlNode(node) => {
+                if is_func {
+                    Ok(Object::WebFunction(WebFunction::HtmlNode(node, member)))
+                } else {
+                    node.get_property(&member)
+                }
+            }
             o => Err(UError::new(
                 UErrorKind::DotOperatorError,
                 UErrorMessage::DotOperatorNotSupported(o)

@@ -188,6 +188,7 @@ pub enum UErrorKind {
     InitializeError,
     ClipboardError,
     Poff(POFF, bool),
+    HtmlNodeError,
 }
 
 impl fmt::Display for UErrorKind {
@@ -370,6 +371,10 @@ impl fmt::Display for UErrorKind {
                 "Clipboard error",
             ),
             Self::Poff(_, _) => write!(f, ""),
+            Self::HtmlNodeError => write_locale!(f,
+                "HtmlNodeエラー",
+                "HtmlNode error",
+            ),
         }
     }
 }

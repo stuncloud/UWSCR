@@ -589,6 +589,7 @@ RemoteObject
 
 1. :ref:`builder_object` で専用のプロファイルフォルダを指定し、ブラウザを起動する
 2. 起動したブラウザの設定を手動で変更する
+
    - Chrome
         1. 設定画面の **ダウンロード** を開く
         2. **保存先** を任意のフォルダに変更する
@@ -597,6 +598,7 @@ RemoteObject
         1. 設定画面の **ダウンロード** を開く
         2. **場所** を任意のフォルダに変更する
         3. **ダウンロード時の動作を毎回確認する** をオフにする
+
 3. 変更を施したプロファイルを指定して改めてブラウザ操作を行う
 
 .. admonition:: ダウンロード開始と完了の検知
@@ -813,3 +815,94 @@ WebResponseオブジェクト
 
         | レスポンスボディがjsonの場合UObjectを返します、返せない場合はEMPTY
 
+HTTPパーサー
+-------------
+
+.. function:: ParseHTML(html)
+
+    | HTMLをパースし :ref:`node_object` を返します
+
+    :param 文字列またはWebResponse html: HTMLドキュメントまたはその一部を示す文字列、またはHTMLドキュメントとして受けた :ref:`web_response`
+    :rtype: :ref:`node_object`
+    :return: パースされたHTMLドキュメントを示す :ref:`node_object`
+
+    .. admonition:: サンプルコード
+
+        .. sourcecode:: uwscr
+
+            res = WebRequest(url)
+            // WebResponseオブジェクトからHtmlNodeオブジェクトを得る
+            doc = ParseHTML(res)
+
+            // ラジオボタンのvalue値を列挙
+            for radio in doc.find('input[type="radio"]')
+                print radio.attr('value')
+            next
+
+            // 最初のselect要素内のoptionのテキストと値を列挙
+            slct = doc.first('select')
+            for opt in slct.find('option')
+                print opt.text
+                print opt.attr('value')
+            next
+
+.. _node_object:
+
+HtmlNodeオブジェクト
+~~~~~~~~~~~~~~~~~~~~
+
+| パースされたHTMLドキュメントおよびエレメントを示すオブジェクト
+
+.. class:: HtmlNode
+
+    .. method:: find(selector)
+
+        | cssセレクタに該当するエレメント郡を :ref:`node_object` の配列として返す
+        | 空ノードの場合常に空の配列を返す
+
+        :param 文字列 selector: cssセレクタ
+        :rtype: :ref:`node_object` 配列
+        :return: cssセレクタに該当するエレメントの :ref:`node_object` 配列
+
+    .. method:: first(selector)
+    .. method:: findfirst(selector)
+
+        | cssセレクタに該当する最初のエレメントを :ref:`node_object` として返す
+        | 該当するエレメントがない場合は空ノードを返す
+        | 空ノードの場合常に空ノードを返す
+
+        :param 文字列 selector: cssセレクタ
+        :rtype: :ref:`node_object`
+        :return: cssセレクタに該当する最初のエレメントの :ref:`node_object`
+
+    .. method:: attr(属性名)
+    .. method:: attribute(属性名)
+
+        | エレメントの属性名を指定してその値を返す
+        | HTMLドキュメント、空ノードの場合は常にEMPTYを返す
+
+        :param 文字列 属性名: 属性の名前
+        :rtype: 文字列またはEMPTY
+        :return: 該当する属性の値、属性がない場合EMPTY
+
+    .. property:: outerhtml
+
+        - HTMLドキュメント: 全体のHTMLを文字列で返す
+        - エレメント: エレメント自身を含むHTMLを文字列で返す
+        - 空ノード: EMPTY
+
+    .. property:: innerhtml
+
+        - HTMLドキュメント: EMPTY
+        - エレメント: エレメント以下のHTMLを文字列で返す
+        - 空ノード: EMPTY
+
+    .. property:: text
+
+        - HTMLドキュメント: EMPTY
+        - エレメント: エレメントのテキストノードを文字列の配列で返す
+        - 空ノード: EMPTY
+
+    .. property:: isempty
+
+        | 空ノードであればTRUE

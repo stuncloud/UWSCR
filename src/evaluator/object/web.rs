@@ -186,7 +186,10 @@ pub struct WebResponse {
 }
 impl std::fmt::Display for WebResponse {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.status)
+        match &self.body {
+            Some(body) => write!(f, "{}", body),
+            None => write!(f, ""),
+        }
     }
 }
 
@@ -284,7 +287,8 @@ impl WebArg for Vec<Object> {
 #[derive(Debug, Clone)]
 pub enum WebFunction {
     WebRequest(Arc<Mutex<WebRequest>>, String),
-    WebResponse(WebResponse, String)
+    WebResponse(WebResponse, String),
+    HtmlNode(HtmlNode, String),
 }
 
 trait RequestBuilderExt {
@@ -330,5 +334,179 @@ impl RequestBuilderExt for RequestBuilder {
         } else {
             self
         }
+    }
+}
+
+/* ParseHTML */
+use scraper::{Html, node::Element, ElementRef, Selector, error::SelectorErrorKind};
+
+impl From<SelectorErrorKind<'_>> for UError {
+    fn from(e: SelectorErrorKind) -> Self {
+        UError::new(UErrorKind::HtmlNodeError, UErrorMessage::Any(e.to_string()))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+
+pub struct ElementNode {
+    html: String,
+    inner_html: String,
+    text: Vec<String>,
+    element: Element,
+}
+impl From<ElementRef<'_>> for ElementNode {
+    fn from(elem: ElementRef) -> Self {
+        let html = elem.html();
+        let inner_html = elem.inner_html();
+        let text = elem.text().map(|t| t.to_string()).collect();
+        let element = elem.value().to_owned();
+        Self { html, inner_html, text, element }
+    }
+}
+impl Into<Object> for ElementNode {
+    fn into(self) -> Object {
+        Object::HtmlNode(HtmlNode::Element(self))
+    }
+}
+impl ElementNode {
+    fn find(&self, selectors: &str) -> WebResult<Vec<Self>> {
+        let fragment = Html::parse_fragment(&self.inner_html);
+        let selector = Selector::parse(selectors)?;
+        let nodes = fragment.select(&selector)
+            .map(|elem| Self::from(elem))
+            .collect();
+        Ok(nodes)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum HtmlNode {
+    Fragment(Html),
+    Element(ElementNode),
+    None,
+}
+
+impl std::fmt::Display for HtmlNode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            HtmlNode::Fragment(html) => write!(f, "{}", html.html()),
+            HtmlNode::Element(elem) => write!(f, "{}", elem.html),
+            HtmlNode::None => write!(f, ""),
+        }
+    }
+}
+
+impl HtmlNode {
+    pub fn new(html: &str) -> Self {
+        let fragment = Html::parse_fragment(html);
+        Self::Fragment(fragment)
+    }
+
+    pub fn get_property(&self, name: &str) -> WebResult<Object> {
+        match name.to_ascii_lowercase().as_str() {
+            "outerhtml" => self.outer_html(),
+            "innerhtml" => self.inner_html(),
+            "text" => self.texts(),
+            "isempty" => Ok(HtmlNode::None.eq(self).into()),
+            _ => Err(UError::new(
+                UErrorKind::HtmlNodeError,
+                UErrorMessage::InvalidMember(name.to_string())
+            ))
+        }
+    }
+    pub fn invoke_method(&self, name: &str, args: Vec<Object>) -> WebResult<Object> {
+        match name.to_ascii_lowercase().as_str() {
+            "find" => {
+                let selectors = args.as_string(0)?;
+                self.find(&selectors, false)
+            },
+            "first" | "findfirst" => {
+                let selectors = args.as_string(0)?;
+                self.find(&selectors, true)
+            },
+            "attr" | "attribute" => {
+                let name = args.as_string(0)?;
+                self.attr(&name)
+            },
+            _ => Err(UError::new(
+                UErrorKind::HtmlNodeError,
+                UErrorMessage::InvalidMember(name.to_string())
+            ))
+        }
+    }
+    fn outer_html(&self) -> WebResult<Object> {
+        let obj = match self {
+            HtmlNode::Fragment(html) => html.html().into(),
+            HtmlNode::Element(elem) => elem.html.as_str().into(),
+            HtmlNode::None => Object::Empty,
+        };
+        Ok(obj)
+    }
+    fn inner_html(&self) -> WebResult<Object> {
+        let obj = match self {
+            HtmlNode::Fragment(_) => Object::Empty,
+            HtmlNode::Element(elem) => elem.inner_html.as_str().into(),
+            HtmlNode::None => Object::Empty,
+        };
+        Ok(obj)
+    }
+    fn texts(&self) -> WebResult<Object> {
+        let obj = match self {
+            HtmlNode::Fragment(_) => Object::Empty,
+            HtmlNode::Element(elem) => {
+                let arr = elem.text.iter()
+                    .map(|s| s.as_str().into())
+                    .collect();
+                Object::Array(arr)
+            },
+            HtmlNode::None => Object::Empty,
+        };
+        Ok(obj)
+    }
+    fn find(&self, selectors: &str, first: bool) -> WebResult<Object> {
+        let obj = match self {
+            HtmlNode::Fragment(html) => {
+                let selector = Selector::parse(selectors)?;
+                let mut select = html.select(&selector);
+                if first {
+                    match select.next().map(|elem| ElementNode::from(elem)) {
+                        Some(node) => node.into(),
+                        None => Object::HtmlNode(HtmlNode::None),
+                    }
+                } else {
+                    let arr = select
+                        .map(|elem| ElementNode::from(elem).into())
+                        .collect();
+                    Object::Array(arr)
+                }
+            },
+            HtmlNode::Element(elem) => {
+                let mut nodes = elem.find(selectors)?.into_iter();
+                if first {
+                    match nodes.next() {
+                        Some(node) => node.into(),
+                        None => Object::HtmlNode(HtmlNode::None),
+                    }
+                } else {
+                    let arr = nodes
+                        .map(|node| node.into())
+                        .collect();
+                    Object::Array(arr)
+                }
+            },
+            HtmlNode::None => Object::HtmlNode(HtmlNode::None),
+        };
+        Ok(obj)
+    }
+    fn attr(&self, name: &str) -> WebResult<Object> {
+        let obj = match self {
+            HtmlNode::Fragment(_) => Object::Empty,
+            HtmlNode::Element(elem) => {
+                let value = elem.element.attr(name);
+                value.into()
+            },
+            HtmlNode::None => Object::Empty,
+        };
+        Ok(obj)
     }
 }

@@ -22,7 +22,7 @@ pub use self::uobject::UObject;
 pub use self::fopen::*;
 pub use self::class::ClassInstance;
 use browser::{BrowserBuilder, Browser, TabWindow, RemoteObject, BrowserFunction};
-pub use web::{WebRequest, WebResponse, WebFunction};
+pub use web::{WebRequest, WebResponse, WebFunction, HtmlNode};
 
 use crate::ast::*;
 use crate::evaluator::environment::Layer;
@@ -115,6 +115,7 @@ pub enum Object {
     /// WebResponseオブジェクト
     WebResponse(WebResponse),
     WebFunction(WebFunction),
+    HtmlNode(HtmlNode),
 }
 impl std::fmt::Debug for Object {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -167,7 +168,7 @@ impl std::fmt::Debug for Object {
             Object::WebRequest(arg0) => f.debug_tuple("WebRequest").field(arg0).finish(),
             Object::WebResponse(arg0) => f.debug_tuple("WebResponse").field(arg0).finish(),
             Object::WebFunction(_) => write!(f, "WebFunction"),
-
+            Object::HtmlNode(_) => todo!(),
         }
     }
 }
@@ -176,11 +177,11 @@ unsafe impl Send for Object {}
 
 impl fmt::Display for Object {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Object::Num(ref value) => write!(f, "{}", value),
-            Object::String(ref value) => write!(f, "{}", value),
-            Object::Bool(b) => write!(f, "{}", if b {"True"} else {"False"}),
-            Object::Array(ref objects) => {
+        match self {
+            Object::Num(value) => write!(f, "{}", value),
+            Object::String(value) => write!(f, "{}", value),
+            Object::Bool(b) => write!(f, "{}", if *b {"True"} else {"False"}),
+            Object::Array(objects) => {
                 let mut members = String::new();
                 for (i, obj) in objects.iter().enumerate() {
                     if i < 1 {
@@ -191,7 +192,7 @@ impl fmt::Display for Object {
                 }
                 write!(f, "[{}]", members)
             },
-            Object::HashTbl(ref hash) => {
+            Object::HashTbl(hash) => {
                 let mut key_values = String::new();
                 for (i, (k, v)) in hash.lock().unwrap().map().iter().enumerate() {
                     if i < 1 {
@@ -202,32 +203,32 @@ impl fmt::Display for Object {
                 }
                 write!(f, "{{{}}}", key_values)
             },
-            Object::Function(ref func) => {
+            Object::Function(func) => {
                 let title = if func.is_proc {"procedure"} else {"function"};
                 let params = func.params.iter().map(|p| p.to_string()).collect::<Vec<_>>().join(", ");
                 write!(f, "{}: {}({})", title, func.name.as_ref().unwrap(), params)
             },
-            Object::AsyncFunction(ref func) => {
+            Object::AsyncFunction(func) => {
                 let title = if func.is_proc {"procedure"} else {"function"};
                 let params = func.params.iter().map(|p| p.to_string()).collect::<Vec<_>>().join(", ");
                 write!(f, "{}: {}({})", title, func.name.as_ref().unwrap(), params)
             },
-            Object::AnonFunc(ref func) => {
+            Object::AnonFunc(func) => {
                 let title = if func.is_proc {"anonymous procedure"} else {"anonymous function"};
                 let params = func.params.iter().map(|p| p.to_string()).collect::<Vec<_>>().join(", ");
                 write!(f, "{}({})", title, params)
             },
-            Object::BuiltinFunction(ref name, _, _) => write!(f, "builtin: {}()", name),
+            Object::BuiltinFunction(name, _, _) => write!(f, "builtin: {}()", name),
             Object::Null => write!(f, "NULL"),
             Object::Empty => write!(f, ""),
             Object::EmptyParam => write!(f, "__EMPTYPARAM__"),
             Object::Nothing => write!(f, "NOTHING"),
-            Object::Continue(ref n) => write!(f, "Continue {}", n),
-            Object::Break(ref n) => write!(f, "Break {}", n),
+            Object::Continue(n) => write!(f, "Continue {}", n),
+            Object::Break(n) => write!(f, "Break {}", n),
             Object::Exit => write!(f, "Exit"),
-            Object::Module(ref m) => write!(f, "module: {}", m.lock().unwrap().name()),
-            Object::Class(ref name, _) => write!(f, "class: {}", name),
-            Object::Instance(ref m) => {
+            Object::Module(m) => write!(f, "module: {}", m.lock().unwrap().name()),
+            Object::Class(name, _) => write!(f, "class: {}", name),
+            Object::Instance(m) => {
                 let ins = m.lock().unwrap();
                 if ins.is_dropped {
                     write!(f, "NOTHING")
@@ -236,46 +237,47 @@ impl fmt::Display for Object {
                 }
             },
             Object::Handle(h) => write!(f, "{:?}", h),
-            Object::RegEx(ref re) => write!(f, "regex: {}", re),
+            Object::RegEx(re) => write!(f, "regex: {}", re),
             Object::Global => write!(f, "GLOBAL"),
-            Object::This(ref m) => write!(f, "THIS ({})", m.lock().unwrap().name()),
-            Object::UObject(ref uobj) => {
+            Object::This(m) => write!(f, "THIS ({})", m.lock().unwrap().name()),
+            Object::UObject(uobj) => {
                 write!(f, "{}", uobj)
             },
             Object::DynamicVar(func) => write!(f, "{}", func()),
-            Object::Version(ref v) => write!(f, "{}", v),
+            Object::Version(v) => write!(f, "{}", v),
             Object::ExpandableTB(_) => write!(f, "expandable textblock"),
-            Object::Enum(ref e) => write!(f, "Enum {}", e.name),
-            Object::Task(ref t) => write!(f, "Task [{}]", t),
-            Object::DefDllFunction(ref name, _, _, _) => write!(f, "def_dll: {}", name),
-            Object::Struct(ref name, _, _) => write!(f, "struct: {}", name),
-            Object::UStruct(ref name, _, _) => write!(f, "instance of struct: {}", name),
-            // Object::UStruct(_, _, ref m) => {
+            Object::Enum(e) => write!(f, "Enum {}", e.name),
+            Object::Task(t) => write!(f, "Task [{}]", t),
+            Object::DefDllFunction(name, _, _, _) => write!(f, "def_dll: {}", name),
+            Object::Struct(name, _, _) => write!(f, "struct: {}", name),
+            Object::UStruct(name, _, _) => write!(f, "instance of struct: {}", name),
+            // Object::UStruct(_, _, m) => {
             //     let u = m.lock().unwrap();
             //     write!(f, "{:?}", u)
             // },
-            Object::ComObject(ref d) => write!(f, "{:?}", d),
+            Object::ComObject(d) => write!(f, "{:?}", d),
             Object::ComMember(_, _) => write!(f, "Com member"),
-            Object::Variant(ref v) => write!(f, "Variant({})", v.0.vt().0),
+            Object::Variant(v) => write!(f, "Variant({})", v.0.vt().0),
             Object::SafeArray(_) => write!(f, "SafeArray"),
             Object::VarArgument(_) => write!(f, "var"),
             Object::BrowserBuilder(_) => write!(f, "BrowserBuilder"),
-            Object::Browser(ref b) => write!(f, "Browser: {b})"),
-            Object::TabWindow(ref t) => write!(f, "TabWindow: {t}"),
-            Object::RemoteObject(ref r) => write!(f, "{r}"),
+            Object::Browser(b) => write!(f, "Browser: {b})"),
+            Object::TabWindow(t) => write!(f, "TabWindow: {t}"),
+            Object::RemoteObject(r) => write!(f, "{r}"),
             Object::BrowserFunction(_) => write!(f, "BrowserFunction"),
-            Object::Fopen(ref arc) => {
+            Object::Fopen(arc) => {
                 let fopen = arc.lock().unwrap();
                 write!(f, "{}", &*fopen)
             },
-            Object::ByteArray(ref arr) => write!(f, "{:?}", arr),
+            Object::ByteArray(arr) => write!(f, "{:?}", arr),
             Object::Reference(_, _) => write!(f, "Reference"),
-            Object::WebRequest(ref req) => {
+            Object::WebRequest(req) => {
                 let mutex = req.lock().unwrap();
                 write!(f, "{mutex}")
             },
-            Object::WebResponse(ref res) => write!(f, "{res}"),
+            Object::WebResponse(res) => write!(f, "{res}"),
             Object::WebFunction(_) => write!(f, "WebFunction"),
+            Object::HtmlNode(node) => write!(f, "{node}"),
         }
     }
 }
@@ -405,6 +407,7 @@ impl PartialEq for Object {
                 if let Object::WebResponse(res2) = other { res == res2 } else {false}
             },
             Object::WebFunction(_) => false,
+            Object::HtmlNode(_) => todo!(),
         }
     }
 }
@@ -832,6 +835,7 @@ impl Add for Object {
                 obj.add(rhs)
             }
             // 以下はエラー
+            Object::HtmlNode(_) |
             Object::RemoteObject(_) |
             Object::HashTbl(_) |
             Object::AnonFunc(_) |
@@ -925,6 +929,7 @@ impl Sub for Object {
                 obj.sub(rhs)
             }
             // 以下はエラー
+            Object::HtmlNode(_) |
             Object::RemoteObject(_) |
             Object::String(_) |
             Object::Array(_) |
@@ -1061,6 +1066,7 @@ impl Mul for Object {
                 obj.mul(rhs)
             }
             // 以下はエラー
+            Object::HtmlNode(_) |
             Object::RemoteObject(_) |
             Object::Array(_) |
             Object::ByteArray(_) |
@@ -1176,6 +1182,7 @@ impl Div for Object {
                 obj.div(rhs)
             }
             // 以下はエラー
+            Object::HtmlNode(_) |
             Object::RemoteObject(_) |
             Object::Null |
             Object::Array(_) |
@@ -1295,6 +1302,7 @@ impl Rem for Object {
                 obj.rem(rhs)
             }
             // 以下はエラー
+            Object::HtmlNode(_) |
             Object::RemoteObject(_) |
             Object::Null |
             Object::Array(_) |
@@ -1408,6 +1416,7 @@ impl BitOr for Object {
                 obj.bitor(rhs)
             }
             // 以下はエラー
+            Object::HtmlNode(_) |
             Object::RemoteObject(_) |
             Object::Null |
             Object::Array(_) |
@@ -1520,6 +1529,7 @@ impl BitAnd for Object {
                 obj.bitand(rhs)
             }
             // 以下はエラー
+            Object::HtmlNode(_) |
             Object::RemoteObject(_) |
             Object::Null |
             Object::Array(_) |
@@ -1632,6 +1642,7 @@ impl BitXor for Object {
                 obj.bitxor(rhs)
             }
             // 以下はエラー
+            Object::HtmlNode(_) |
             Object::RemoteObject(_) |
             Object::Null |
             Object::Array(_) |

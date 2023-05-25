@@ -1006,6 +1006,7 @@ pub enum VariableType {
     TYPE_WEB_REQUEST,
     TYPE_WEB_RESPONSE,
     TYPE_WEB_FUNCTION,
+    TYPE_HTML_NODE,
 
     TYPE_NOT_VALUE_TYPE,
 }
@@ -1062,6 +1063,7 @@ pub fn type_of(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
         Object::WebRequest(_) => VariableType::TYPE_WEB_REQUEST,
         Object::WebResponse(_) => VariableType::TYPE_WEB_RESPONSE,
         Object::WebFunction(_) => VariableType::TYPE_WEB_FUNCTION,
+        Object::HtmlNode(_) => VariableType::TYPE_HTML_NODE,
 
         Object::EmptyParam |
         Object::VarArgument(_) |

@@ -6,6 +6,7 @@ use crate::{
         object::{
             browser::{BrowserBuilder, BrowserType},
             WebRequest,
+            HtmlNode,
         },
     },
 };
@@ -23,6 +24,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("remoteobjecttype", 1, remote_object_type);
     sets.add("webrequest", 1, webrequest);
     sets.add("webrequestbuilder", 0, webrequest_builder);
+    sets.add("parsehtml", 1, parse_html);
     sets
 }
 
@@ -84,4 +86,10 @@ pub fn webrequest(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult
 pub fn webrequest_builder(_: &mut Evaluator, _: BuiltinFuncArgs) -> BuiltinFuncResult {
     let req = WebRequest::new();
     Ok(Object::WebRequest(Arc::new(Mutex::new(req))))
+}
+
+pub fn parse_html(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let html = args.get_as_string(0, None)?;
+    let node = HtmlNode::new(&html);
+    Ok(Object::HtmlNode(node))
 }
