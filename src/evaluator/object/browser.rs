@@ -88,6 +88,7 @@ pub struct BrowserBuilder {
     pub headless: bool,
     pub private: bool,
     pub profile: Option<String>,
+    args: Vec<String>,
 }
 impl fmt::Display for BrowserBuilder {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -96,19 +97,22 @@ impl fmt::Display for BrowserBuilder {
 }
 impl BrowserBuilder {
     pub fn new(r#type: BrowserType, port: u16) -> Self {
-        Self { port, r#type, headless: false, private: false, profile: None }
+        Self { port, r#type, headless: false, private: false, profile: None, args: vec![] }
     }
     pub fn port(&mut self, port: u16) {
         self.port = port;
     }
-    pub fn headless(&mut self, headless: bool) {
+    fn headless(&mut self, headless: bool) {
         self.headless = headless;
     }
-    pub fn private(&mut self, private: bool) {
+    fn private(&mut self, private: bool) {
         self.private = private;
     }
-    pub fn profile(&mut self, profile: Option<String>) {
+    fn profile(&mut self, profile: Option<String>) {
         self.profile = profile;
+    }
+    fn add_arg(&mut self, arg: String) {
+        self.args.push(arg);
     }
     pub fn invoke_method(&mut self, name: &str, args: Vec<Object>) -> BrowserResult<Option<Browser>> {
         match name.to_ascii_lowercase().as_str() {
@@ -133,10 +137,15 @@ impl BrowserBuilder {
                 self.profile(profile);
                 Ok(None)
             },
+            "argument" => {
+                let arg = args.as_string(0)?;
+                self.add_arg(arg);
+                Ok(None)
+            },
             "start" => {
                 let browser = self.start()?;
                 Ok(Some(browser))
-            }
+            },
             member => Err(UError::new(
                 UErrorKind::BrowserControlError,
                 UErrorMessage::InvalidMember(member.into())
@@ -199,6 +208,10 @@ impl BrowserBuilder {
         if let Some(profile) = &self.profile {
             let arg = format!("--user-data-dir={profile}");
             args.push(arg);
+        }
+        if ! self.args.is_empty() {
+            let mut user_args = self.args.clone();
+            args.append(&mut user_args);
         }
 
         let path = self.get_browser_path()?;

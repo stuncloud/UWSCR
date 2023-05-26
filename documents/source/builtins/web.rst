@@ -195,6 +195,31 @@ BrowserBuilderオブジェクト
         :rtype: BrowserBuilder
         :return: 更新されたBrowserBuilder
 
+    .. method:: argument(起動時オプション)
+
+        | ブラウザの起動時オプションを追加します
+
+        .. admonition:: 動作保証対象外の機能です
+            :class: caution
+
+            | これはブラウザ起動時のオプションを任意に追加できる機能です
+            | この機能を利用した際の動作は保証されません
+            | ブラウザ等への影響を理解している場合のみご利用ください
+            | この機能を利用することにより生じた不具合はUWSCRのバグとしては扱われません
+
+        :param 文字列 起動時オプション: 追加する起動時オプション
+        :rtype: BrowserBuilder
+        :return: 更新されたBrowserBuilder
+
+        .. admonition:: サンプルコード
+
+            .. sourcecode:: uwscr
+
+                // ブラウザの拡張機能を無効にする
+                builder = BrowserBuilder(BC_CHROME)
+                builder.argument("--disable-extensions")
+                chrome = builder.start()
+
     .. method:: start()
 
         | ブラウザを起動し :ref:`browser_object` を返します
