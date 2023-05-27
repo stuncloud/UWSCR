@@ -658,6 +658,128 @@ impl TabWindow {
             ))
         }
     }
+    fn query_selector_all(&self, selector: String) -> BrowserResult<impl Iterator<Item = RemoteObject>> {
+        let document = self.document()?;
+        let args = vec![
+            RemoteFuncArg::Value(Value::String(selector))
+        ];
+        let id = document.remote.object_id.as_ref().unwrap();
+        let declaration = "function(selector) {return this.querySelectorAll(selector);}";
+        let elements = document.dp.invoke_function(id, declaration, args, false, false)?;
+        elements.to_iter()
+    }
+    fn get_nth_element_by_name_value(&self, name: String, value: Option<String>, nth: usize) -> BrowserResult<Option<RemoteObject>> {
+        let selector = match value {
+            Some(value) => format!("*[name=\"{name}\"][value=\"{value}\"]"),
+            None => format!("*[name=\"{name}\"]"),
+        };
+        let mut elements = self.query_selector_all(selector)?;
+        Ok(elements.nth(nth - 1))
+    }
+    fn get_nth_element_by_tagname_and_property(&self, tag: String, prop_name: &str, prop_value: &str, nth: usize) -> BrowserResult<Option<RemoteObject>> {
+        let mut elements = self.query_selector_all(tag)?.filter(|remote| {
+            let prop_val = remote.get_property(prop_name).ok().map(|r| r.as_value()).flatten();
+            match prop_val {
+                Some(val) => {
+                    val.as_str().unwrap_or_default().to_ascii_lowercase() == prop_value.to_ascii_lowercase()
+                },
+                None => false,
+            }
+        });
+        Ok(elements.nth(nth - 1))
+    }
+    pub fn get_data_by_name_value(&self, name: String, value: Option<String>, nth: usize) -> BrowserResult<Object> {
+        match self.get_nth_element_by_name_value(name, value, nth)? {
+            Some(remote) => remote.as_element_value(),
+            None => Ok(Object::Empty),
+        }
+    }
+    pub fn get_data_by_tagname(&self, tag: String, nth: usize) -> BrowserResult<Object> {
+        let mut elements = self.query_selector_all(tag)?;
+        match elements.nth(nth - 1) {
+            Some(remote) => remote.as_element_value(),
+            None => Ok(Object::Empty),
+        }
+    }
+    pub fn get_data_by_tagname_and_property(&self, tag: String, prop_name: &str, prop_value: &str, nth: usize) -> BrowserResult<Object> {
+        match self.get_nth_element_by_tagname_and_property(tag, prop_name, prop_value, nth)? {
+            Some(remote) => remote.as_element_value(),
+            None => Ok(Object::Empty),
+        }
+    }
+    pub fn get_data_by_table_point(&self, nth: usize, row: usize, col: usize) -> BrowserResult<Object> {
+        let mut tables = self.query_selector_all("table".into())?;
+        match tables.nth(nth - 1) {
+            Some(table) => {
+                let row = format!("{}", row - 1);
+                let rows = table.get_property_by_index("rows", &row)?;
+                let col = format!("{}", col - 1);
+                match rows.get_property_by_index("cells", &col) {
+                    Ok(cell) => {
+                        match cell.get_property("textContent")?.as_value() {
+                            Some(v) => Ok(v.into()),
+                            None => Ok(Object::Empty),
+                        }
+                    },
+                    Err(_) => Ok(Object::Empty),
+                }
+            },
+            None => Ok(Object::Empty),
+        }
+    }
+    pub fn set_data_by_name_value(&self, new_value: String, name: String, value: Option<String>, nth: usize) -> BrowserResult<Object> {
+        match self.get_nth_element_by_name_value(name, value, nth)? {
+            Some(remote) => {
+                remote.set_property("value", RemoteFuncArg::Value(json!(&new_value)))?;
+                let v = remote.get_property("value")?;
+                let eq = v.as_value().unwrap_or_default() == json!(new_value);
+                Ok(eq.into())
+            },
+            None => Ok(false.into()),
+        }
+    }
+    pub fn click_by_name_value(&self, name: String, value: Option<String>, nth: usize) -> BrowserResult<Object> {
+        match self.get_nth_element_by_name_value(name, value, nth)? {
+            Some(remote) => remote.set_data_click(),
+            None => Ok(false.into()),
+        }
+    }
+    pub fn click_by_nth_tag(&self, tag: String, nth: usize) -> BrowserResult<Object> {
+        let mut elements = self.query_selector_all(tag)?;
+        match elements.nth(nth - 1) {
+            Some(remote) => remote.set_data_click(),
+            None => Ok(false.into()),
+        }
+    }
+    pub fn click_by_tag_and_property(&self, tag: String, prop_name: &str, prop_value: &str, nth: usize) -> BrowserResult<Object> {
+        match self.get_nth_element_by_tagname_and_property(tag, prop_name, prop_value, nth)? {
+            Some(remote) => remote.set_data_click(),
+            None => Ok(false.into()),
+        }
+    }
+    pub fn click_img(&self, src: Option<String>, nth: usize) -> BrowserResult<Object> {
+        let selector = match src {
+            Some(src) => format!("img[src=\"{src}\"]"),
+            None => "img".into(),
+        };
+        let mut images = self.query_selector_all(selector)?;
+        match images.nth(nth - 1) {
+            Some(remote) => remote.set_data_click(),
+            None => Ok(false.into()),
+        }
+    }
+    pub fn get_source(&self, tag: String, nth: usize) -> BrowserResult<Object> {
+        let mut elements = self.query_selector_all(tag)?;
+        match elements.nth(nth - 1) {
+            Some(remote) => {
+                match remote.get_property("outerHTML")?.as_value() {
+                    Some(value) => Ok(value.into()),
+                    None => Ok(Object::Empty),
+                }
+            },
+            None => Ok(Object::Empty),
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -1010,7 +1132,7 @@ impl fmt::Debug for RemoteObject {
 impl fmt::Display for RemoteObject {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(id) = &self.remote.object_id {
-            write!(f, "RemoteObject: {id}")
+            write!(f, "RemoteObject({id})")
         } else {
             match &self.remote.value {
                 Some(value) => {
@@ -1150,9 +1272,6 @@ impl RemoteObject {
             }
         }
     }
-    pub fn to_value(&self) -> Option<Value> {
-        serde_json::to_value(self.remote.clone()).ok()
-    }
     pub fn is_object(&self) -> bool {
         self.remote.object_id.is_some()
     }
@@ -1181,10 +1300,10 @@ impl RemoteObject {
         ))
         }
     }
-    fn to_iter(&self) -> BrowserResult<RemoteObject> {
-        let declaration = format!("function() {{ return this.values(); }}");
+    fn as_js_iterator(&self) -> BrowserResult<RemoteObject> {
+        let declaration = "function() { return [...this].values(); }";
         if let Some(id) = &self.remote.object_id {
-            self.dp.invoke_function(id, &declaration, vec![], false, false)
+            self.dp.invoke_function(id, declaration, vec![], false, false)
                 .map_err(|_| UError::new(
                     UErrorKind::BrowserControlError,
                     UErrorMessage::RemoteObjectIsNotArray(self.remote.r#type.clone())
@@ -1196,10 +1315,10 @@ impl RemoteObject {
             ))
         }
     }
-    fn next(&self) -> BrowserResult<RemoteObject> {
-        let declaration = format!("function() {{ return this.next(); }}");
+    fn js_iterator_next(&self) -> BrowserResult<RemoteObject> {
+        let declaration = "function() { return this.next(); }";
         if let Some(id) = &self.remote.object_id {
-            self.dp.invoke_function(id, &declaration, vec![], false, false)
+            self.dp.invoke_function(id, declaration, vec![], false, false)
                 .map_err(|_| UError::new(
                     UErrorKind::BrowserControlError,
                     UErrorMessage::RemoteObjectIsNotArray(self.remote.r#type.clone())
@@ -1211,23 +1330,27 @@ impl RemoteObject {
             ))
         }
     }
-    pub fn to_object_vec(&self) -> BrowserResult<Vec<Object>> {
-        let iter = self.to_iter()?;
+    fn to_iter(&self) -> BrowserResult<impl Iterator<Item = RemoteObject>> {
+        let iter = self.as_js_iterator()?;
         let mut vec = vec![];
         loop {
-            let next = iter.next()?;
+            let next = iter.js_iterator_next()?;
             let done = next.get_property("done")?;
             if let Some(Value::Bool(b)) = done.remote.value {
                 if b {
                     break;
                 } else {
                     let value = next.get_property("value")?;
-                    vec.push(Object::RemoteObject(value));
+                    vec.push(value);
                 }
             } else {
                 break;
             }
         }
+        Ok(vec.into_iter())
+    }
+    pub fn to_object_vec(&self) -> BrowserResult<Vec<Object>> {
+        let vec = self.to_iter()?.map(|remote| remote.into()).collect();
         Ok(vec)
     }
     pub fn get_type(&self) -> String {
@@ -1261,6 +1384,69 @@ impl RemoteObject {
             }
         } else {
             Ok(None)
+        }
+    }
+    /// IE関数互換関数群で使うエレメントの値を返す関数
+    fn as_element_value(&self) -> BrowserResult<Object> {
+        if let Some(tag_name) = self.get_property("tagName")?.as_value().unwrap_or_default().as_str() {
+            match tag_name.to_ascii_uppercase().as_str() {
+                "SELECT" => {
+                    // SELECT要素は選択されたOptionのテキストを返す
+                    let texts = self.get_property("selectedOptions")?.to_iter()?
+                        .filter_map(|opt| opt.get_property("textContent").ok())
+                        .filter_map(|text| text.as_value())
+                        .filter_map(|value| value.as_str().map(|s| s.to_string()))
+                        .collect::<Vec<_>>();
+                    return Ok(texts.join(" ").to_string().into());
+                },
+                "INPUT" => {
+                    // 特定のINPUT要素はvalue以外を返す
+                    if let Some(type_name) = self.get_property("type")?.as_value().unwrap_or_default().as_str() {
+                        match type_name.to_ascii_uppercase().as_str() {
+                            "RADIO" | "CHECKBOX" => {
+                                let checked = self.get_property("checked")?.as_value().unwrap_or_default().as_bool().unwrap_or(false);
+                                return Ok(checked.into());
+                            },
+                            _ => {}
+                        }
+                    }
+                },
+                _ => {}
+            }
+        }
+        self.get_property("value").map(|remote| remote.to_object())
+    }
+    fn set_data_click(&self) -> BrowserResult<Object> {
+        if let Some(id) = &self.remote.object_id {
+            // イベントハンドラを作成
+            let func = "(function() {this.uwscr_brsetdata_click_flg = true;})";
+            let handler = self.dp.runtime_evaluate(func)?;
+            let handler_id = handler.remote.object_id.clone().unwrap();
+            // 自身にclickイベントハンドラを追加する
+            self.invoke_method("addEventListener", vec![
+                RemoteFuncArg::Value(json!("click")),
+                RemoteFuncArg::RemoteObject(handler.clone()),
+            ], false)?;
+            // clickメソッドを実行
+            self.invoke_method("click", vec![], false)?;
+            // クリック成否を得る
+            let clicked = self.get_property("uwscr_brsetdata_click_flg")?.as_value().unwrap_or_default().as_bool().unwrap_or(false);
+            // 後始末
+            // イベントハンドラの登録を解除
+            self.invoke_method("removeEventListener", vec![
+                RemoteFuncArg::Value(json!("click")),
+                RemoteFuncArg::RemoteObject(handler),
+            ], false)?;
+            // 一時的なプロパティを消す
+            let declaration = "function() {delete this.uwscr_brsetdata_click_flg;}";
+            self.dp.invoke_function(id, declaration, vec![], false, false)?;
+            // イベントハンドラをリリース
+            self.dp.send("Runtime.releaseObject", json!({
+                "objectId": handler_id
+            }))?;
+            Ok(clicked.into())
+        } else {
+            Ok(false.into())
         }
     }
 }

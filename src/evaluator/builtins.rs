@@ -29,7 +29,7 @@ use crate::evaluator::object::{
     UTask
 };
 use crate::evaluator::Evaluator;
-use crate::evaluator::object::{UObject,Fopen,Function,browser::RemoteObject};
+use crate::evaluator::object::{UObject,Fopen,Function,browser::{RemoteObject, TabWindow}};
 use crate::evaluator::environment::NamedObject;
 use crate::evaluator::builtins::key_codes::{SCKeyCode};
 use crate::error::evaluator::{UError,UErrorKind,UErrorMessage};
@@ -549,7 +549,7 @@ impl BuiltinFuncArgs {
                 Object::EmptyParam => TwoTypeArg::U(false),
                 Object::Bool(b) => TwoTypeArg::U(b),
                 Object::String(s) => TwoTypeArg::T(s),
-                arg => return Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg))),
+                obj => TwoTypeArg::T(obj.to_string()),
             };
             Ok(result)
         })
@@ -638,6 +638,7 @@ impl BuiltinFuncArgs {
         })
     }
 
+    /// RemoteObjectを受ける
     pub fn get_as_remoteobject(&self, i: usize) -> BuiltInResult<RemoteObject> {
         self.get_arg(i, |obj| {
             match obj {
@@ -646,6 +647,16 @@ impl BuiltinFuncArgs {
             }
         })
     }
+    /// TabWindowを受ける
+    pub fn get_as_tabwindow(&self, i: usize) -> BuiltInResult<TabWindow> {
+        self.get_arg(i, |obj| {
+            match obj {
+                Object::TabWindow(tab) => Ok(tab),
+                o => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(o))),
+            }
+        })
+    }
+
 }
 
 pub enum TwoTypeArg<T, U> {

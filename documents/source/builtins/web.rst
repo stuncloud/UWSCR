@@ -150,6 +150,157 @@
     :rtype: 文字列
     :return: 型の情報を示す文字列
 
+IE関数互換
+~~~~~~~~~~
+
+IEGETDATA互換
+^^^^^^^^^^^^^
+
+.. function:: BRGetData(タブ, name, [value=EMPTY, n番目=1])
+
+    | エレメントのnameとvalue属性をもとに値を取得する
+
+    :param TabWindowオブジェクト タブ: 値を取りたいページのタブを示す :ref:`tabwindow_object`
+    :param 文字列 name: 値を取得するエレメントのname属性
+    :param 文字列 省略可 value: nameが同一の場合にvalue属性の値を指定
+    :param 数値 省略可 n番目: nameもvalueも一致する場合順番を1から指定
+    :return: 取得された値、取得できない場合はEMPTY
+
+.. function:: BRGetData(タブ, タグ指定, [n番目=1])
+    :noindex:
+
+    | エレメントのタグ名と順番を指定して値を取得する
+
+    :param TabWindowオブジェクト タブ: 値を取りたいページのタブを示す :ref:`tabwindow_object`
+    :param 文字列 タグ指定: "TAG=タグ名" でタグ指定モードになる
+    :param 数値 省略可 n番目: 該当タグの順番を1から指定
+    :return: 取得された値、取得できない場合はEMPTY
+
+.. function:: BRGetData(タブ, タグ指定, プロパティ指定, [n番目=1])
+    :noindex:
+
+    | エレメントのタグ名とプロパティを指定して値を取得する
+
+    :param TabWindowオブジェクト タブ: 値を取りたいページのタブを示す :ref:`tabwindow_object`
+    :param 文字列 タグ指定: "TAG=タグ名" でタグ指定モードになる
+    :param 文字列 省略可 プロパティ指定: "プロパティ名=値" を指定可("id=hoge" など)、プロパティ名のみ大文字小文字の一致が必須
+    :param 数値 省略可 n番目: タグもプロパティも一致する場合順番を1から指定
+    :return: 取得された値、取得できない場合はEMPTY
+
+    .. admonition:: プロパティ指定について
+        :class: note
+
+        | UWSCとは異なりID, className, innerText, innerHTML以外のプロパティも指定できます
+        | ただし、プロパティ名は大文字小文字が一致する必要があります(case sensitive)
+        | プロパティの値は大文字小文字を無視しますが、完全一致する必要があります
+
+.. function:: BRGetData(タブ, "TAG=TABLE", [n番目=1, 行=1, 列=1])
+    :noindex:
+
+    | テーブルエレメントの座標を指定して値を取得する
+
+    :param TabWindowオブジェクト タブ: 値を取りたいページのタブを示す :ref:`tabwindow_object`
+    :param 文字列 "TAG=TABLE": "TAG=TABLE" を指定(固定)
+    :param 数値 省略可 n番目: テーブルの順番を1から指定
+    :param 数値 省略可 行: テーブルの行番号を1から指定
+    :param 数値 省略可 列: テーブルの列番号を1から指定
+    :return: 取得された値、取得できない場合はEMPTY
+
+IESETDATA互換
+^^^^^^^^^^^^^
+
+.. function:: BRSetData(タブ, 値, name, [value=EMPTY, n番目=1])
+
+    | テキストボックス等の値(value)を変更する
+
+    :param TabWindowオブジェクト タブ: 値を取りたいページのタブを示す :ref:`tabwindow_object`
+    :param 文字列 値: 入力したい値
+    :param 文字列 name: 値を変更するエレメントのname属性
+    :param 文字列 省略可 value: 同一nameのエレメントがある場合にvalue値を指定
+    :param 数値 省略可 n番目: nameとvalueが一致する場合に順番を1から指定
+    :rtype: 真偽値
+    :return: 成功時TRUE
+
+.. function:: BRSetData(タブ, TRUE, name, [value=EMPTY, n番目=1])
+
+    | nameにより指定したエレメントをクリックします
+
+    :param TabWindowオブジェクト タブ: 値を取りたいページのタブを示す :ref:`tabwindow_object`
+    :param 真偽値 TRUE: TRUEを指定 (固定)
+    :param 文字列 name: クリックするエレメントのname属性
+    :param 文字列 省略可 value: 同一nameのエレメントがある場合にvalue値を指定
+    :param 数値 省略可 n番目: nameとvalueが一致する場合に順番を1から指定
+    :rtype: 真偽値
+    :return: 成功時TRUE
+
+.. function:: BRSetData(タブ, TRUE, タグ指定, [n番目=1])
+
+    | タグ名と順番により指定したエレメントをクリックします
+
+    :param TabWindowオブジェクト タブ: 値を取りたいページのタブを示す :ref:`tabwindow_object`
+    :param 真偽値 TRUE: TRUEを指定 (固定)
+    :param 文字列 タグ指定: "TAG=タグ名" でダグ指定モードになる
+    :param 数値 省略可 n番目: タグ名が一致する場合に順番を1から指定
+    :rtype: 真偽値
+    :return: 成功時TRUE
+
+.. function:: BRSetData(タブ, TRUE, タグ指定, プロパティ指定, [n番目=1])
+
+    | タグ名とプロパティにより指定したエレメントをクリックします
+
+    :param TabWindowオブジェクト タブ: 値を取りたいページのタブを示す :ref:`tabwindow_object`
+    :param 真偽値 TRUE: TRUEを指定 (固定)
+    :param 文字列 タグ指定: "TAG=タグ名" でダグ指定モードになる
+    :param 文字列 プロパティ指定: "プロパティ名=値" を指定
+    :param 数値 省略可 n番目: タグ名とプロパティが一致する場合に順番を1から指定
+    :rtype: 真偽値
+    :return: 成功時TRUE
+
+    .. admonition:: プロパティ指定について
+        :class: note
+
+        | UWSCとは異なりID, className, innerText, innerHTML以外のプロパティも指定できます
+        | ただし、プロパティ名は大文字小文字が一致する必要があります(case sensitive)
+        | プロパティの値は大文字小文字を無視しますが、完全一致する必要があります
+
+.. function:: BRSetData(タブ, TRUE, "TAG=IMG", [src=EMPTY, n番目=1])
+
+    | IMGエレメントをクリックします
+
+    :param TabWindowオブジェクト タブ: 値を取りたいページのタブを示す :ref:`tabwindow_object`
+    :param 真偽値 TRUE: TRUEを指定 (固定)
+    :param 文字列 "TAG=IMG": "TAG=IMG" を指定 (固定)
+    :param 数値 省略可 src: 対象imgタグのsrcを指定
+    :param 数値 省略可 n番目: srcが一致する場合に順番を1から指定
+    :rtype: 真偽値
+    :return: 成功時TRUE
+
+IEGETSRC互換
+^^^^^^^^^^^^
+
+.. function:: BRGetSrc(タブ, タグ名, [n番目=1])
+
+    | 指定タグのエレメントのouterHTMLを返します
+
+    :param TabWindowオブジェクト タブ: 値を取りたいページのタブを示す :ref:`tabwindow_object`
+    :param 文字列 タグ名: HTMLを取得したいタグ名
+    :param 数値 省略可 n番目: タグの順番を1から指定
+    :rtype: 文字列
+    :return: 該当タグのHTMLソース、非該当ならEMPTY
+
+IESETSRC互換
+^^^^^^^^^^^^
+
+.. admonition:: 非推奨関数
+    :class: hint
+
+    | ドキュメント全体の書き換えを非推奨としているため、互換関数は存在しません
+
+IELINK互換
+^^^^^^^^^^
+
+IEGETFRAME互換
+^^^^^^^^^^^^^^
 
 .. _builder_object:
 
