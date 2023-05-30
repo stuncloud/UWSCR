@@ -27,6 +27,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("brgetdata", 5, browser_getdata);
     sets.add("brsetdata", 5, browser_setdata);
     sets.add("brgetsrc", 5, browser_getsource);
+    sets.add("brlink", 4, browser_link);
     sets
 }
 
@@ -208,5 +209,14 @@ pub fn browser_getsource(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFun
     let tag = args.get_as_string(1, None)?;
     let nth = args.get_as_nth(2)? as usize;
     let obj = tab.get_source(tag, nth)?;
+    Ok(obj)
+}
+
+pub fn browser_link(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let tab = args.get_as_tabwindow(0)?;
+    let text = args.get_as_string(1, None)?;
+    let nth = args.get_as_nth(2)? as usize;
+    let exact_match = args.get_as_bool(3, Some(false))?;
+    let obj = tab.click_link(text, nth, exact_match)?;
     Ok(obj)
 }

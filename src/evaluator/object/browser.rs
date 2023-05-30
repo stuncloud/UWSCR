@@ -780,6 +780,18 @@ impl TabWindow {
             None => Ok(Object::Empty),
         }
     }
+    pub fn click_link(&self, text: String, nth: usize, exact_match: bool) -> BrowserResult<Object> {
+        let links = self.query_selector_all("a".into())?;
+        let link = links.filter(|remote| remote.match_text_content(&text, exact_match))
+            .nth(nth - 1);
+        match link {
+            Some(remote) => {
+                remote.invoke_method("click", vec![], false)?;
+                Ok(true.into())
+            },
+            None => Ok(false.into()),
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -1449,6 +1461,23 @@ impl RemoteObject {
             Ok(false.into())
         }
     }
+    fn match_text_content(&self, text: &str, exact_match: bool) -> bool {
+        match self.get_property("textContent") {
+            Ok(remote) => match remote.as_value() {
+                Some(value) => match value.as_str() {
+                    Some(t) => if exact_match {
+                        t == text
+                    } else {
+                        t.contains(text)
+                    },
+                    None => false,
+                },
+                None => false,
+            },
+            Err(_) => false,
+        }
+    }
+
 }
 
 impl Into<Value> for RemoteObject {

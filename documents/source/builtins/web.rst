@@ -234,6 +234,7 @@ IESETDATA互換
     :return: 成功時TRUE
 
 .. function:: BRSetData(タブ, TRUE, タグ指定, [n番目=1])
+    :noindex:
 
     | タグ名と順番により指定したエレメントをクリックします
 
@@ -245,6 +246,7 @@ IESETDATA互換
     :return: 成功時TRUE
 
 .. function:: BRSetData(タブ, TRUE, タグ指定, プロパティ指定, [n番目=1])
+    :noindex:
 
     | タグ名とプロパティにより指定したエレメントをクリックします
 
@@ -264,6 +266,7 @@ IESETDATA互換
         | プロパティの値は大文字小文字を無視しますが、完全一致する必要があります
 
 .. function:: BRSetData(タブ, TRUE, "TAG=IMG", [src=EMPTY, n番目=1])
+    :noindex:
 
     | IMGエレメントをクリックします
 
@@ -299,8 +302,24 @@ IESETSRC互換
 IELINK互換
 ^^^^^^^^^^
 
+.. function:: BRLink(タブ, リンク文字, [n番目=1, 完全一致=FALSE])
+
+    | 指定リンクをクリックします
+
+    :param TabWindowオブジェクト タブ: 値を取りたいページのタブを示す :ref:`tabwindow_object`
+    :param 文字列 リンク文字: リンクに表示されている文字列(デフォルトは部分一致)
+    :param 数値 省略可 n番目: リンク文字が同一の場合に順番を1から指定
+    :param 真偽値 省略可 完全一致: TRUEの場合完全一致するリンク文字を検索する
+    :rtype: 真偽値
+    :return: 該当するリンクが存在しクリックを実行した場合TRUE
+
 IEGETFRAME互換
 ^^^^^^^^^^^^^^
+
+.. admonition:: 後日実装予定
+    :class: note
+
+    | TabWindowがフレーム対応し次第実装する予定です
 
 .. _builder_object:
 
