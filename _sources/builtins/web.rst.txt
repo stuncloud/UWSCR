@@ -9,6 +9,35 @@
 
     | バージョン `0.11.0` 以降のブラウザ操作機能はバージョン `0.10.2` 以前とは互換性がありません
 
+.. admonition:: ブラウザパスの指定方法
+    :class: hint
+
+    | 通常はレジストリ等からブラウザの実行ファイルのパスを取得しそれを実行します (パスの自動取得)
+    | 自動取得を行わずに任意のパスで実行させるには設定ファイルにパスを記述します
+
+    .. code:: json
+
+        {
+            "browser": {
+                "chrome": "C:\\path\\to\\chrome.exe",
+                "msedge": "C:\\path\\to\\msedge.exe"
+            },
+        }
+
+    | 自動取得に戻す場合は ``null`` にします
+
+    .. code:: json
+
+        {
+            "browser": {
+                "chrome": null,
+                "msedge": null
+            },
+        }
+
+    | パスは必ずchrome.exeおよびmsedge.exeのものにしてください
+    | それ以外は動作保証外です
+
 .. function:: BrowserControl(ブラウザ定数, [ポート=9222])
 
     | Devtools Protocolを利用したブラウザ操作を行うための :ref:`browser_object` を返します
@@ -109,43 +138,6 @@
         | ただし、起動中のブラウザとは異なるプロファイルフォルダを指定した場合は指定ポートで新たなブラウザプロセスを起動します
         | (同一プロファイルにつき一つのデバッグポート(またはポートなし)でしかブラウザを起動できないため)
 
-.. function:: ConvertFromRemoteObject(remote)
-
-    | リモートオブジェクトがプリミティブな値の場合に適切な値型に変換します
-    | 変換できないものはそのまま返ります
-
-    :param RemoteObject remote: 値型に変換したい :ref:`remote_object`
-    :return: 変換された値、変換できない場合は :ref:`remote_object`
-
-    .. admonition:: ブラウザパスの指定方法
-        :class: tip
-
-        | 通常はレジストリ等からブラウザの実行ファイルのパスを取得しそれを実行します (パスの自動取得)
-        | 自動取得を行わずに任意のパスで実行させるには設定ファイルにパスを記述します
-
-        .. code:: json
-
-            {
-                "browser": {
-                    "chrome": "C:\\path\\to\\chrome.exe",
-                    "msedge": "C:\\path\\to\\msedge.exe"
-                },
-            }
-
-        | 自動取得に戻す場合は ``null`` にします
-
-        .. code:: json
-
-            {
-                "browser": {
-                    "chrome": null,
-                    "msedge": null
-                },
-            }
-
-        | パスは必ずchrome.exeおよびmsedge.exeのものにしてください
-        | それ以外は動作保証外です
-
 .. function:: RemoteObjectType(remote)
 
     | :ref:`remote_object` の型を返します
@@ -157,6 +149,178 @@
     :param RemoteObject remote: 型情報を得たい :ref:`remote_object`
     :rtype: 文字列
     :return: 型の情報を示す文字列
+
+IE関数互換
+~~~~~~~~~~
+
+IEGETDATA互換
+^^^^^^^^^^^^^
+
+.. function:: BRGetData(タブ, name, [value=EMPTY, n番目=1])
+
+    | エレメントのnameとvalue属性をもとに値を取得する
+
+    :param TabWindowオブジェクト タブ: 値を取りたいページのタブを示す :ref:`tabwindow_object`
+    :param 文字列 name: 値を取得するエレメントのname属性
+    :param 文字列 省略可 value: nameが同一の場合にvalue属性の値を指定
+    :param 数値 省略可 n番目: nameもvalueも一致する場合順番を1から指定
+    :return: 取得された値、取得できない場合はEMPTY
+
+.. function:: BRGetData(タブ, タグ指定, [n番目=1])
+    :noindex:
+
+    | エレメントのタグ名と順番を指定して値を取得する
+
+    :param TabWindowオブジェクト タブ: 値を取りたいページのタブを示す :ref:`tabwindow_object`
+    :param 文字列 タグ指定: "TAG=タグ名" でタグ指定モードになる
+    :param 数値 省略可 n番目: 該当タグの順番を1から指定
+    :return: 取得された値、取得できない場合はEMPTY
+
+.. function:: BRGetData(タブ, タグ指定, プロパティ指定, [n番目=1])
+    :noindex:
+
+    | エレメントのタグ名とプロパティを指定して値を取得する
+
+    :param TabWindowオブジェクト タブ: 値を取りたいページのタブを示す :ref:`tabwindow_object`
+    :param 文字列 タグ指定: "TAG=タグ名" でタグ指定モードになる
+    :param 文字列 省略可 プロパティ指定: "プロパティ名=値" を指定可("id=hoge" など)、プロパティ名のみ大文字小文字の一致が必須
+    :param 数値 省略可 n番目: タグもプロパティも一致する場合順番を1から指定
+    :return: 取得された値、取得できない場合はEMPTY
+
+    .. admonition:: プロパティ指定について
+        :class: note
+
+        | UWSCとは異なりID, className, innerText, innerHTML以外のプロパティも指定できます
+        | ただし、プロパティ名は大文字小文字が一致する必要があります(case sensitive)
+        | プロパティの値は大文字小文字を無視しますが、完全一致する必要があります
+
+.. function:: BRGetData(タブ, "TAG=TABLE", [n番目=1, 行=1, 列=1])
+    :noindex:
+
+    | テーブルエレメントの座標を指定して値を取得する
+
+    :param TabWindowオブジェクト タブ: 値を取りたいページのタブを示す :ref:`tabwindow_object`
+    :param 文字列 "TAG=TABLE": "TAG=TABLE" を指定(固定)
+    :param 数値 省略可 n番目: テーブルの順番を1から指定
+    :param 数値 省略可 行: テーブルの行番号を1から指定
+    :param 数値 省略可 列: テーブルの列番号を1から指定
+    :return: 取得された値、取得できない場合はEMPTY
+
+IESETDATA互換
+^^^^^^^^^^^^^
+
+.. function:: BRSetData(タブ, 値, name, [value=EMPTY, n番目=1])
+
+    | テキストボックス等の値(value)を変更する
+
+    :param TabWindowオブジェクト タブ: 値を取りたいページのタブを示す :ref:`tabwindow_object`
+    :param 文字列 値: 入力したい値
+    :param 文字列 name: 値を変更するエレメントのname属性
+    :param 文字列 省略可 value: 同一nameのエレメントがある場合にvalue値を指定
+    :param 数値 省略可 n番目: nameとvalueが一致する場合に順番を1から指定
+    :rtype: 真偽値
+    :return: 成功時TRUE
+
+.. function:: BRSetData(タブ, TRUE, name, [value=EMPTY, n番目=1])
+    :noindex:
+
+    | nameにより指定したエレメントをクリックします
+
+    :param TabWindowオブジェクト タブ: 値を取りたいページのタブを示す :ref:`tabwindow_object`
+    :param 真偽値 TRUE: TRUEを指定 (固定)
+    :param 文字列 name: クリックするエレメントのname属性
+    :param 文字列 省略可 value: 同一nameのエレメントがある場合にvalue値を指定
+    :param 数値 省略可 n番目: nameとvalueが一致する場合に順番を1から指定
+    :rtype: 真偽値
+    :return: 成功時TRUE
+
+.. function:: BRSetData(タブ, TRUE, タグ指定, [n番目=1])
+    :noindex:
+
+    | タグ名と順番により指定したエレメントをクリックします
+
+    :param TabWindowオブジェクト タブ: 値を取りたいページのタブを示す :ref:`tabwindow_object`
+    :param 真偽値 TRUE: TRUEを指定 (固定)
+    :param 文字列 タグ指定: "TAG=タグ名" でダグ指定モードになる
+    :param 数値 省略可 n番目: タグ名が一致する場合に順番を1から指定
+    :rtype: 真偽値
+    :return: 成功時TRUE
+
+.. function:: BRSetData(タブ, TRUE, タグ指定, プロパティ指定, [n番目=1])
+    :noindex:
+
+    | タグ名とプロパティにより指定したエレメントをクリックします
+
+    :param TabWindowオブジェクト タブ: 値を取りたいページのタブを示す :ref:`tabwindow_object`
+    :param 真偽値 TRUE: TRUEを指定 (固定)
+    :param 文字列 タグ指定: "TAG=タグ名" でダグ指定モードになる
+    :param 文字列 プロパティ指定: "プロパティ名=値" を指定
+    :param 数値 省略可 n番目: タグ名とプロパティが一致する場合に順番を1から指定
+    :rtype: 真偽値
+    :return: 成功時TRUE
+
+    .. admonition:: プロパティ指定について
+        :class: note
+
+        | UWSCとは異なりID, className, innerText, innerHTML以外のプロパティも指定できます
+        | ただし、プロパティ名は大文字小文字が一致する必要があります(case sensitive)
+        | プロパティの値は大文字小文字を無視しますが、完全一致する必要があります
+
+.. function:: BRSetData(タブ, TRUE, "TAG=IMG", [src=EMPTY, n番目=1])
+    :noindex:
+
+    | IMGエレメントをクリックします
+
+    :param TabWindowオブジェクト タブ: 値を取りたいページのタブを示す :ref:`tabwindow_object`
+    :param 真偽値 TRUE: TRUEを指定 (固定)
+    :param 文字列 "TAG=IMG": "TAG=IMG" を指定 (固定)
+    :param 数値 省略可 src: 対象imgタグのsrcを指定
+    :param 数値 省略可 n番目: srcが一致する場合に順番を1から指定
+    :rtype: 真偽値
+    :return: 成功時TRUE
+
+IEGETSRC互換
+^^^^^^^^^^^^
+
+.. function:: BRGetSrc(タブ, タグ名, [n番目=1])
+
+    | 指定タグのエレメントのouterHTMLを返します
+
+    :param TabWindowオブジェクト タブ: 値を取りたいページのタブを示す :ref:`tabwindow_object`
+    :param 文字列 タグ名: HTMLを取得したいタグ名
+    :param 数値 省略可 n番目: タグの順番を1から指定
+    :rtype: 文字列
+    :return: 該当タグのHTMLソース、非該当ならEMPTY
+
+IESETSRC互換
+^^^^^^^^^^^^
+
+.. admonition:: 非推奨関数
+    :class: hint
+
+    | ドキュメント全体の書き換えを非推奨としているため、互換関数は存在しません
+
+IELINK互換
+^^^^^^^^^^
+
+.. function:: BRLink(タブ, リンク文字, [n番目=1, 完全一致=FALSE])
+
+    | 指定リンクをクリックします
+
+    :param TabWindowオブジェクト タブ: 値を取りたいページのタブを示す :ref:`tabwindow_object`
+    :param 文字列 リンク文字: リンクに表示されている文字列(デフォルトは部分一致)
+    :param 数値 省略可 n番目: リンク文字が同一の場合に順番を1から指定
+    :param 真偽値 省略可 完全一致: TRUEの場合完全一致するリンク文字を検索する
+    :rtype: 真偽値
+    :return: 該当するリンクが存在しクリックを実行した場合TRUE
+
+IEGETFRAME互換
+^^^^^^^^^^^^^^
+
+.. admonition:: 後日実装予定
+    :class: note
+
+    | TabWindowがフレーム対応し次第実装する予定です
 
 .. _builder_object:
 
@@ -202,6 +366,31 @@ BrowserBuilderオブジェクト
         :rtype: BrowserBuilder
         :return: 更新されたBrowserBuilder
 
+    .. method:: argument(起動時オプション)
+
+        | ブラウザの起動時オプションを追加します
+
+        .. admonition:: 動作保証対象外の機能です
+            :class: caution
+
+            | これはブラウザ起動時のオプションを任意に追加できる機能です
+            | この機能を利用した際の動作は保証されません
+            | ブラウザ等への影響を理解している場合のみご利用ください
+            | この機能を利用することにより生じた不具合はUWSCRのバグとしては扱われません
+
+        :param 文字列 起動時オプション: 追加する起動時オプション
+        :rtype: BrowserBuilder
+        :return: 更新されたBrowserBuilder
+
+        .. admonition:: サンプルコード
+
+            .. sourcecode:: uwscr
+
+                // ブラウザの拡張機能を無効にする
+                builder = BrowserBuilder(BC_CHROME)
+                builder.argument("--disable-extensions")
+                chrome = builder.start()
+
     .. method:: start()
 
         | ブラウザを起動し :ref:`browser_object` を返します
@@ -215,6 +404,12 @@ Browserオブジェクト
 ~~~~~~~~~~~~~~~~~~~
 
 | 操作対象となるタブを示すオブジェクト
+
+.. admonition:: Browserオブジェクトの取得に時間がかかる場合がある
+    :class: hint
+
+    | Browserオブジェクト作成時に対象ブラウザに対してWebSocket接続を行います
+    | WebSocket接続が確立されるまでにある程度の時間を要するのが原因です
 
 .. class:: Browser
 
@@ -262,18 +457,18 @@ Browserオブジェクト
         :rtype: 数値
         :return: ウィンドウID
 
-.. admonition:: タブ一覧取得が遅い場合がある
-    :class: caution
-
-    | countやtabsの結果を得るまでに数秒かかる場合があります
-    | これは、使用しているDevtools ProtocolのAPI実行速度によるものです
-
 .. _tabwindow_object:
 
 TabWindowオブジェクト
 ~~~~~~~~~~~~~~~~~~~~~
 
 | タブごとのWindowオブジェクトを示すオブジェクト
+
+.. admonition:: 一度目のプロパティ取得やメソッド実行に時間がかかる場合がある
+    :class: hint
+
+    | タブ内のページ操作のためにWebSocketを使用していますが、初回のみWebSocketの接続処理が入ります
+    | WebSocket接続が確立されるまでにある程度の時間を要するのが原因です
 
 .. class:: TabWindow
 
@@ -290,7 +485,7 @@ TabWindowオブジェクト
             | そのためブラウザ上でJavaScriptを実行するかのようにブラウザ操作を行うことが可能です
             | 詳しくは :ref:`browser_sample` を参照してください
 
-    .. method:: navigate(uri)
+    .. method:: navigate(url)
 
         | 指定URLを開きます
         | ページの読み込み完了まで待機します (最大10秒)
@@ -300,7 +495,7 @@ TabWindowオブジェクト
 
             | 読み込みに10秒以上かかるページに対しては navigate実行後に :any:`wait` メソッドを呼んでください
 
-        :param 文字列 uri: 開きたいサイトのURL
+        :param 文字列 url: 開きたいサイトのURL
         :rtype: 真偽値
         :return: タイムアウトした場合FALSE
 
@@ -369,8 +564,6 @@ TabWindowオブジェクト
                 // 座標を指定し右クリックする
                 tab.rightClick(rect.x + 10, rect.y + 10)
 
-
-
 .. _remote_object:
 
 RemoteObject
@@ -381,7 +574,7 @@ RemoteObject
 メソッドの実行
 ^^^^^^^^^^^^^^
 
-| ``RemoteObject.メソッド名(引数)`` でメソッドを実行し、戻り値を :ref:`remote_object` として取得します
+| ``RemoteObject.メソッド名(引数)`` でメソッドを実行します
 | メソッド名は大文字小文字を区別します
 
 .. sourcecode:: uwscr
@@ -392,7 +585,7 @@ RemoteObject
 プロパティの取得
 ^^^^^^^^^^^^^^^^
 
-| ``RemoteObject.プロパティ名`` とすることでプロパティ値を :ref:`remote_object` として取得します
+| ``RemoteObject.プロパティ名`` とすることでプロパティ値を取得します
 | 配列要素であればインデックスを指定します ``RemoteObject.プロパティ名[i]``
 | プロパティ名は大文字小文字を区別します
 
@@ -414,23 +607,52 @@ RemoteObject
     foo = chrome[0].document.querySelector("#foo")
     foo.value = "ほげほげ"
 
+インデックスによるアクセス
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+| :ref:`remote_object` 自身が配列であった場合は ``RemoteObject[i]`` とすることで要素を得られます
+
+.. sourcecode:: uwscr
+
+    chrome = BrowserControl(BC_CHROME)
+    links = chrome[0].document.querySelectorAll("a")
+    print links[0].href
+
 関数として実行
 ^^^^^^^^^^^^^^
 
 | :ref:`remote_object` 自身が関数である場合は ``RemoteObject(引数)`` として実行できます
-| この場合も戻り値を :ref:`remote_object` として取得します
 
 非同期関数とPromise
 ^^^^^^^^^^^^^^^^^^^
 
 | :ref:`remote_object` 自身、またはそのメソッドが非同期関数であった場合 :ref:`await` 構文でその終了を待ちます
 | :ref:`remote_object` がPromiseであった場合は :any:`WaitTask` 関数でその終了を待ちます
-| いずれの場合も戻り値を :ref:`remote_object` として取得します
+| いずれの場合も結果を返します
 
-.. 他の値型との演算
-.. ^^^^^^^^^^^^^^^^
+戻り値について
+^^^^^^^^^^^^^^
 
-.. | RemoteObjectがプリミティブな値であれば演算を行い、適した値型として値を返します
+:ref:`remote_object` のプロパティやメソッド、インデックスから得られる値の型は以下の通りです
+
+.. list-table::
+    :align: left
+    :header-rows: 1
+
+    * - JavaScript型
+      - UWSCR型
+    * - string
+      - 文字列
+    * - number
+      - 数値
+    * - bool
+      - 真偽値
+    * - null
+      - NULL
+    * - 上記以外のオブジェクト
+      - :ref:`remote_object`
+    * - オブジェクトでもプリミティブな値でもない場合 (undefinedなど)
+      - EMPTY
 
 .. _browser_sample:
 
@@ -554,3 +776,329 @@ RemoteObject
 
         // タブを閉じる
         tab.close()
+
+ダウンロード先やその方法の制御について
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+| ダウンロードファイルの保存先フォルダの指定や、確認ダイアログの制御が現時点ではできません
+| ブラウザ操作にて特定のフォルダへのダウンロードを確認なしで行いたい場合は事前に以下の操作を行ってください
+
+1. :ref:`builder_object` で専用のプロファイルフォルダを指定し、ブラウザを起動する
+2. 起動したブラウザの設定を手動で変更する
+
+   - Chrome
+        1. 設定画面の **ダウンロード** を開く
+        2. **保存先** を任意のフォルダに変更する
+        3. **ダウンロード前に各ファイルの保存場所を確認する** をオフにする
+   - MSEdge
+        1. 設定画面の **ダウンロード** を開く
+        2. **場所** を任意のフォルダに変更する
+        3. **ダウンロード時の動作を毎回確認する** をオフにする
+
+3. 変更を施したプロファイルを指定して改めてブラウザ操作を行う
+
+.. admonition:: ダウンロード開始と完了の検知
+    :class: hint
+
+    1. getdir関数で ``未確認*.crdownload`` ファイルの数を確認し、1個以上であればダウンロードが開始されていると判定
+    2. | ダウンロードするファイルの名前がわかっている場合、F_EXISTSがTRUEならダウンロード完了
+       | あるいはgetdir関数で ``未確認*.crdownload`` ファイルの数を確認し、0個であればダウンロード完了と判定
+
+    .. sourcecode:: uwscr
+
+        // ダウンロード開始検知
+        repeat
+            sleep(0.1)
+            files = getdir(download_path, "未確認*.crdownload")
+        until length(files) > 0
+
+        if filename != EMPTY then
+            // ファイル名が分かる場合
+            repeat
+                sleep(1)
+            until fopen(filename, F_EXISTS)
+        else
+            // ファイル名が分からない場合
+            repeat
+                sleep(1)
+                files = getdir(download_path, "未確認*.crdownload")
+            until length(files) == 0
+        endif
+
+HTTPリクエスト
+--------------
+
+.. function:: Webrequest(url)
+
+    | 指定URLに対してGETリクエストを送信します
+
+    :param 文字列 url: リクエストを送るURL
+    :rtype: :ref:`web_response`
+    :return: レスポンスを示す :ref:`web_response`
+
+    .. admonition:: サンプルコード
+
+        .. sourcecode:: uwscr
+
+            res = WebRequest("http://example.com")
+            print res.status
+            print res.body
+
+.. function:: WebRequestBuilder()
+
+    | :ref:`web_request` を返します
+    | :any:`WebRequest` とは異なり詳細な設定を行い任意のメソッドでリクエストを送信できます
+
+    :rtype: :ref:`web_request`
+    :return: リクエストを行うための :ref:`web_request`
+
+
+.. _web_request:
+
+WebRequestオブジェクト
+~~~~~~~~~~~~~~~~~~~~~~
+
+| HTTPリクエストを行うためのオブジェクト
+
+.. class:: WebRequest
+
+    .. method:: useragent(UA)
+
+        | UserAgent文字列をUser-Agentヘッダに設定します
+        | 未指定の場合設定されません
+
+        :param 文字列 UA: UserAgent文字列
+        :rtype: :ref:`web_request`
+        :return: 更新された :ref:`web_request`
+
+    .. method:: header(キー, 値)
+
+        | リクエストヘッダを追加します
+
+        :param 文字列 キー: ヘッダのキー
+        :param 文字列 値: ヘッダの値
+        :rtype: :ref:`web_request`
+        :return: 更新された :ref:`web_request`
+
+    .. method:: timeout(秒)
+
+        | ヘッダを設定します
+        | 未指定の場合タイムアウトしません
+
+        :param 数値 秒: タイムアウト秒
+        :rtype: :ref:`web_request`
+        :return: 更新された :ref:`web_request`
+
+    .. method:: body(本文)
+
+        | リクエスト本文を設定します
+        | 未指定の場合は何も送信しません
+
+        :param 文字列またはUObject 本文: リクエスト本文、UObjectはjsonに変換されます
+        :rtype: :ref:`web_request`
+        :return: 更新された :ref:`web_request`
+
+    .. method:: basic(ユーザー名, [パスワード=EMPTY])
+
+        | Basic認証のユーザー名とパスワードを設定したAuthorizationヘッダを追加します
+        | 未指定の場合は追加されません
+
+        :param 文字列 ユーザー名: ユーザー名
+        :param 文字列 省略可 パスワード: パスワード
+        :rtype: :ref:`web_request`
+        :return: 更新された :ref:`web_request`
+
+    .. method:: bearer(トークン)
+
+        | Bearer認証のトークンを設定したAuthorizationヘッダを追加します
+        | 未指定の場合は追加されません
+
+        :param 文字列 トークン: 認証トークン
+        :rtype: :ref:`web_request`
+        :return: 更新された :ref:`web_request`
+
+    .. method:: get(url)
+
+        | GETリクエストを送信します
+
+        :param 文字列 url: リクエストを送るURL
+        :rtype: :ref:`web_response`
+        :return: :ref:`web_response`
+
+    .. method:: put(url)
+
+        | PUTリクエストを送信します
+
+        :param 文字列 url: リクエストを送るURL
+        :rtype: :ref:`web_response`
+        :return: :ref:`web_response`
+
+    .. method:: post(url)
+
+        | POSTリクエストを送信します
+
+        :param 文字列 url: リクエストを送るURL
+        :rtype: :ref:`web_response`
+        :return: :ref:`web_response`
+
+    .. method:: delete(url)
+
+        | DELETEリクエストを送信します
+
+        :param 文字列 url: リクエストを送るURL
+        :rtype: :ref:`web_response`
+        :return: :ref:`web_response`
+
+    .. method:: patch(url)
+
+        | PATCHリクエストを送信します
+
+        :param 文字列 url: リクエストを送るURL
+        :rtype: :ref:`web_response`
+        :return: :ref:`web_response`
+
+    .. method:: head(url)
+
+        | HEADリクエストを送信します
+
+        :param 文字列 url: リクエストを送るURL
+        :rtype: :ref:`web_response`
+        :return: :ref:`web_response`
+
+.. admonition:: サンプルコード
+
+    .. sourcecode:: uwscr
+
+        request = WebRequestBuilder()
+        // ヘッダと認証情報を設定しておく
+        request.bearer(MY_BEARER_TOKEN)_
+            .header('Content-Type', 'application/json')
+
+        // リクエストを送信
+        res1 = request.body(json1).post(url1)
+        res2 = request.body(json2).put(url2)
+
+.. _web_response:
+
+WebResponseオブジェクト
+~~~~~~~~~~~~~~~~~~~~~~~
+
+| HTTPレスポンスを示すオブジェクト
+
+.. class:: WebResponse
+
+    .. property:: status
+
+        | レスポンスのステータスを数値で返します
+
+    .. property:: statusText
+
+        | レスポンスのステータスを示す文字列を返します
+
+    .. property:: succeed
+
+        | リクエストの成否を真偽値で返します
+
+    .. property:: header
+
+        | レスポンスヘッダを連想配列で返します
+
+    .. property:: body
+
+        | レスポンスボディを文字列で返します、返せない場合はEMPTY
+
+    .. property:: json
+
+        | レスポンスボディがjsonの場合UObjectを返します、返せない場合はEMPTY
+
+HTTPパーサー
+-------------
+
+.. function:: ParseHTML(html)
+
+    | HTMLをパースし :ref:`node_object` を返します
+
+    :param 文字列またはWebResponse html: HTMLドキュメントまたはその一部を示す文字列、またはHTMLドキュメントとして受けた :ref:`web_response`
+    :rtype: :ref:`node_object`
+    :return: パースされたHTMLドキュメントを示す :ref:`node_object`
+
+    .. admonition:: サンプルコード
+
+        .. sourcecode:: uwscr
+
+            res = WebRequest(url)
+            // WebResponseオブジェクトからHtmlNodeオブジェクトを得る
+            doc = ParseHTML(res)
+
+            // ラジオボタンのvalue値を列挙
+            for radio in doc.find('input[type="radio"]')
+                print radio.attr('value')
+            next
+
+            // 最初のselect要素内のoptionのテキストと値を列挙
+            slct = doc.first('select')
+            for opt in slct.find('option')
+                print opt.text
+                print opt.attr('value')
+            next
+
+.. _node_object:
+
+HtmlNodeオブジェクト
+~~~~~~~~~~~~~~~~~~~~
+
+| パースされたHTMLドキュメントおよびエレメントを示すオブジェクト
+
+.. class:: HtmlNode
+
+    .. method:: find(selector)
+
+        | cssセレクタに該当するエレメント郡を :ref:`node_object` の配列として返す
+        | 空ノードの場合常に空の配列を返す
+
+        :param 文字列 selector: cssセレクタ
+        :rtype: :ref:`node_object` 配列
+        :return: cssセレクタに該当するエレメントの :ref:`node_object` 配列
+
+    .. method:: first(selector)
+    .. method:: findfirst(selector)
+
+        | cssセレクタに該当する最初のエレメントを :ref:`node_object` として返す
+        | 該当するエレメントがない場合は空ノードを返す
+        | 空ノードの場合常に空ノードを返す
+
+        :param 文字列 selector: cssセレクタ
+        :rtype: :ref:`node_object`
+        :return: cssセレクタに該当する最初のエレメントの :ref:`node_object`
+
+    .. method:: attr(属性名)
+    .. method:: attribute(属性名)
+
+        | エレメントの属性名を指定してその値を返す
+        | HTMLドキュメント、空ノードの場合は常にEMPTYを返す
+
+        :param 文字列 属性名: 属性の名前
+        :rtype: 文字列またはEMPTY
+        :return: 該当する属性の値、属性がない場合EMPTY
+
+    .. property:: outerhtml
+
+        - HTMLドキュメント: 全体のHTMLを文字列で返す
+        - エレメント: エレメント自身を含むHTMLを文字列で返す
+        - 空ノード: EMPTY
+
+    .. property:: innerhtml
+
+        - HTMLドキュメント: EMPTY
+        - エレメント: エレメント以下のHTMLを文字列で返す
+        - 空ノード: EMPTY
+
+    .. property:: text
+
+        - HTMLドキュメント: EMPTY
+        - エレメント: エレメントのテキストノードを文字列の配列で返す
+        - 空ノード: EMPTY
+
+    .. property:: isempty
+
+        | 空ノードであればTRUE

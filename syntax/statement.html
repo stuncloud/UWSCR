@@ -7,7 +7,7 @@
 <link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="特殊変数" href="special_variables.html" /><link rel="prev" title="ビルド方法" href="../usage/how_to_build.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>スクリプト構文 - UWSCR 0.11.1</title>
+        <title>スクリプト構文 - UWSCR 0.11.2</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 0.11.1</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 0.11.2</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 0.11.1</span>
+  <span class="sidebar-brand-text">UWSCR 0.11.2</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -3726,9 +3726,9 @@ selend
 </section>
 <section id="id73">
 <h2>値型<a class="headerlink" href="#id73" title="この見出しへのパーマリンク">#</a></h2>
-<p>UWSCRで使われる値の型</p>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
+<div class="table-wrapper docutils container" id="id74">
+<table class="docutils align-default" id="id74">
+<caption><span class="caption-text">UWSCRで使われる値の型</span><a class="headerlink" href="#id74" title="このテーブルへのパーマリンク">#</a></caption>
 <thead>
 <tr class="row-odd"><th class="head"><p>型</p></th>
 <th class="head"><p>詳細</p></th>
@@ -3738,131 +3738,139 @@ selend
 <tbody>
 <tr class="row-even"><td><p>数値</p></td>
 <td><p>double (倍精度浮動小数点型)</p></td>
-<td></td>
+<td><p>no</p></td>
 </tr>
 <tr class="row-odd"><td><p>文字列</p></td>
 <td><p>文字列</p></td>
-<td></td>
+<td><p>no</p></td>
 </tr>
 <tr class="row-even"><td><p>真偽値</p></td>
 <td><p>TRUE/FALSE</p></td>
-<td></td>
+<td><p>no</p></td>
 </tr>
 <tr class="row-odd"><td><p>配列</p></td>
 <td><p>要素として異なる値型を格納できる</p></td>
-<td></td>
+<td><p>no</p></td>
 </tr>
 <tr class="row-even"><td><p>連想配列</p></td>
 <td><p>連想配列</p></td>
-<td><p>✓</p></td>
+<td><p>yes</p></td>
 </tr>
 <tr class="row-odd"><td><p>無名関数</p></td>
 <td><p>名前なしで定義されたfunction/procedure</p></td>
-<td></td>
+<td><p>no</p></td>
 </tr>
 <tr class="row-even"><td><p>関数</p></td>
 <td><p>名前ありで定義されたfunction/procedure</p></td>
-<td></td>
+<td><p>no</p></td>
 </tr>
 <tr class="row-odd"><td><p>非同期関数</p></td>
 <td><p>async宣言した関数</p></td>
-<td></td>
+<td><p>no</p></td>
 </tr>
 <tr class="row-even"><td><p>組み込み関数</p></td>
 <td><p>組み込み(ビルトイン)関数</p></td>
-<td></td>
+<td><p>no</p></td>
 </tr>
 <tr class="row-odd"><td><p>モジュール</p></td>
 <td><p>module定義</p></td>
-<td><p>✓</p></td>
+<td><p>yes</p></td>
 </tr>
 <tr class="row-even"><td><p>クラス定義</p></td>
 <td><p>class定義</p></td>
-<td></td>
+<td><p>no</p></td>
 </tr>
 <tr class="row-odd"><td><p>クラスインスタンス</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">クラス名()</span></code> で得られる</p></td>
-<td><p>✓</p></td>
+<td><p>yes</p></td>
 </tr>
 <tr class="row-even"><td><p>NULL</p></td>
 <td><p>def_dllにおけるNULL文字(chr(0))、UObjectのnull値</p></td>
-<td></td>
+<td><p>no</p></td>
 </tr>
 <tr class="row-odd"><td><p>EMPTY</p></td>
 <td><p>空の値、場合により空文字や0として扱われる</p></td>
-<td></td>
+<td><p>no</p></td>
 </tr>
 <tr class="row-even"><td><p>NOTHING</p></td>
 <td><p>空オブジェクト</p></td>
-<td></td>
+<td><p>no</p></td>
 </tr>
 <tr class="row-odd"><td><p>正規表現</p></td>
 <td><p>正規表現パターン</p></td>
-<td></td>
+<td><p>no</p></td>
 </tr>
 <tr class="row-even"><td><p>UObject</p></td>
 <td><p>UObject</p></td>
-<td></td>
+<td><p>no</p></td>
 </tr>
 <tr class="row-odd"><td><p>列挙型</p></td>
 <td><p>enum定義</p></td>
-<td></td>
+<td><p>no</p></td>
 </tr>
 <tr class="row-even"><td><p>タスク</p></td>
 <td><p>非同期に行われる処理</p></td>
-<td><p>✓</p></td>
+<td><p>yes</p></td>
 </tr>
 <tr class="row-odd"><td><p>DLL関数</p></td>
 <td><p>def_dll定義</p></td>
-<td></td>
+<td><p>no</p></td>
 </tr>
 <tr class="row-even"><td><p>構造体</p></td>
 <td><p>struct定義</p></td>
-<td></td>
+<td><p>no</p></td>
 </tr>
 <tr class="row-odd"><td><p>構造体インスタンス</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">構造体名()</span></code> で得られる</p></td>
-<td><p>✓</p></td>
+<td><p>yes</p></td>
 </tr>
 <tr class="row-even"><td><p>COMオブジェクト</p></td>
 <td><p>createoleobj/getactiveoleobj</p></td>
-<td></td>
+<td><p>no</p></td>
 </tr>
 <tr class="row-odd"><td><p>VARIANT</p></td>
 <td><p>COMで使われる値型</p></td>
-<td></td>
+<td><p>no</p></td>
 </tr>
 <tr class="row-even"><td><p>SafeArray</p></td>
 <td><p>COMで使われる配列</p></td>
-<td></td>
+<td><p>no</p></td>
 </tr>
-<tr class="row-odd"><td><p>Browserオブジェクト</p></td>
-<td><p>BrowserControl</p></td>
-<td></td>
+<tr class="row-odd"><td><p>BrowserBuilderオブジェクト</p></td>
+<td><p>起動するブラウザを構成するためのオブジェクト</p></td>
+<td><p>yes</p></td>
 </tr>
-<tr class="row-even"><td><p>Browser関数</p></td>
-<td><p>Browserオブジェクトの関数</p></td>
-<td></td>
+<tr class="row-even"><td><p>Browserオブジェクト</p></td>
+<td><p>操作対象のブラウザを示すオブジェクト</p></td>
+<td><p>no</p></td>
 </tr>
-<tr class="row-odd"><td><p>Elementオブジェクト</p></td>
-<td><p>WebElementを示すオブジェクト</p></td>
-<td></td>
+<tr class="row-odd"><td><p>TabWindowオブジェクト</p></td>
+<td><p>ブラウザのタブを示すオブジェクト</p></td>
+<td><p>no</p></td>
 </tr>
-<tr class="row-even"><td><p>Element関数</p></td>
-<td><p>Elementオブジェクトの関数</p></td>
-<td></td>
+<tr class="row-even"><td><p>RemoteObjectオブジェクト</p></td>
+<td><p>Webページ上のJavaScriptオブジェクト</p></td>
+<td><p>no</p></td>
 </tr>
-<tr class="row-odd"><td><p>Elementプロパティ</p></td>
-<td><p>Elementオブジェクトのプロパティ</p></td>
-<td></td>
+<tr class="row-odd"><td><p>WebRequestオブジェクト</p></td>
+<td><p>HTTPリクエストを構成するためのオブジェクト</p></td>
+<td><p>yes</p></td>
+</tr>
+<tr class="row-even"><td><p>WebResponseオブジェクト</p></td>
+<td><p>HTTPレスポンスを示すオブジェクト</p></td>
+<td><p>no</p></td>
+</tr>
+<tr class="row-odd"><td><p>HtmlNodeオブジェクト</p></td>
+<td><p>パースされたHTMLドキュメントを示すオブジェクト</p></td>
+<td><p>no</p></td>
 </tr>
 <tr class="row-even"><td><p>ファイルID</p></td>
 <td><p>fopen</p></td>
-<td><p>✓</p></td>
+<td><p>yes</p></td>
 </tr>
 <tr class="row-odd"><td><p>バイト配列</p></td>
 <td><p>encode</p></td>
-<td></td>
+<td><p>no</p></td>
 </tr>
 </tbody>
 </table>
@@ -3899,7 +3907,7 @@ selend
         <div class="bottom-of-page">
           <div class="left-details">
             <div class="copyright">
-                Copyright &#169; 2022, stuncloud
+                Copyright &#169; 2023, stuncloud
             </div>
             Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
             

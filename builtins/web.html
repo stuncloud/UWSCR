@@ -7,7 +7,7 @@
 <link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="prev" title="COMオブジェクト" href="comobject.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>ウェブ関連 - UWSCR 0.11.1</title>
+        <title>ウェブ関連 - UWSCR 0.11.2</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 0.11.1</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 0.11.2</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 0.11.1</span>
+  <span class="sidebar-brand-text">UWSCR 0.11.2</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -220,6 +220,36 @@
 <p class="admonition-title">破壊的変更が行われました</p>
 <div class="line-block">
 <div class="line">バージョン <cite>0.11.0</cite> 以降のブラウザ操作機能はバージョン <cite>0.10.2</cite> 以前とは互換性がありません</div>
+</div>
+</div>
+<div class="hint admonition">
+<p class="admonition-title">ブラウザパスの指定方法</p>
+<div class="line-block">
+<div class="line">通常はレジストリ等からブラウザの実行ファイルのパスを取得しそれを実行します (パスの自動取得)</div>
+<div class="line">自動取得を行わずに任意のパスで実行させるには設定ファイルにパスを記述します</div>
+</div>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;browser&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">        </span><span class="nt">&quot;chrome&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;C:\\path\\to\\chrome.exe&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">        </span><span class="nt">&quot;msedge&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;C:\\path\\to\\msedge.exe&quot;</span><span class="w"></span>
+<span class="w">    </span><span class="p">},</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</pre></div>
+</div>
+<div class="line-block">
+<div class="line">自動取得に戻す場合は <code class="docutils literal notranslate"><span class="pre">null</span></code> にします</div>
+</div>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;browser&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">        </span><span class="nt">&quot;chrome&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"></span>
+<span class="w">        </span><span class="nt">&quot;msedge&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="w"></span>
+<span class="w">    </span><span class="p">},</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</pre></div>
+</div>
+<div class="line-block">
+<div class="line">パスは必ずchrome.exeおよびmsedge.exeのものにしてください</div>
+<div class="line">それ以外は動作保証外です</div>
 </div>
 </div>
 <dl class="py function">
@@ -361,53 +391,6 @@
 </dd></dl>
 
 <dl class="py function">
-<dt class="sig sig-object py" id="ConvertFromRemoteObject">
-<span class="sig-name descname"><span class="pre">ConvertFromRemoteObject</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">remote</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ConvertFromRemoteObject" title="この定義へのパーマリンク">#</a></dt>
-<dd><div class="line-block">
-<div class="line">リモートオブジェクトがプリミティブな値の場合に適切な値型に変換します</div>
-<div class="line">変換できないものはそのまま返ります</div>
-</div>
-<dl class="field-list simple">
-<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>remote</strong> (<em>RemoteObject</em>) -- 値型に変換したい <a class="reference internal" href="#remote-object"><span class="std std-ref">RemoteObject</span></a></p>
-</dd>
-<dt class="field-even">戻り値<span class="colon">:</span></dt>
-<dd class="field-even"><p>変換された値、変換できない場合は <a class="reference internal" href="#remote-object"><span class="std std-ref">RemoteObject</span></a></p>
-</dd>
-</dl>
-<div class="tip admonition">
-<p class="admonition-title">ブラウザパスの指定方法</p>
-<div class="line-block">
-<div class="line">通常はレジストリ等からブラウザの実行ファイルのパスを取得しそれを実行します (パスの自動取得)</div>
-<div class="line">自動取得を行わずに任意のパスで実行させるには設定ファイルにパスを記述します</div>
-</div>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;browser&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
-<span class="w">        </span><span class="nt">&quot;chrome&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;C:\\path\\to\\chrome.exe&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">        </span><span class="nt">&quot;msedge&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;C:\\path\\to\\msedge.exe&quot;</span><span class="w"></span>
-<span class="w">    </span><span class="p">},</span><span class="w"></span>
-<span class="p">}</span><span class="w"></span>
-</pre></div>
-</div>
-<div class="line-block">
-<div class="line">自動取得に戻す場合は <code class="docutils literal notranslate"><span class="pre">null</span></code> にします</div>
-</div>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="w"></span>
-<span class="w">    </span><span class="nt">&quot;browser&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
-<span class="w">        </span><span class="nt">&quot;chrome&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"></span>
-<span class="w">        </span><span class="nt">&quot;msedge&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="w"></span>
-<span class="w">    </span><span class="p">},</span><span class="w"></span>
-<span class="p">}</span><span class="w"></span>
-</pre></div>
-</div>
-<div class="line-block">
-<div class="line">パスは必ずchrome.exeおよびmsedge.exeのものにしてください</div>
-<div class="line">それ以外は動作保証外です</div>
-</div>
-</div>
-</dd></dl>
-
-<dl class="py function">
 <dt class="sig sig-object py" id="RemoteObjectType">
 <span class="sig-name descname"><span class="pre">RemoteObjectType</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">remote</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#RemoteObjectType" title="この定義へのパーマリンク">#</a></dt>
 <dd><div class="line-block">
@@ -431,6 +414,310 @@
 </dl>
 </dd></dl>
 
+<section id="ie">
+<h3>IE関数互換<a class="headerlink" href="#ie" title="この見出しへのパーマリンク">#</a></h3>
+<section id="iegetdata">
+<h4>IEGETDATA互換<a class="headerlink" href="#iegetdata" title="この見出しへのパーマリンク">#</a></h4>
+<dl class="py function">
+<dt class="sig sig-object py" id="BRGetData">
+<span class="sig-name descname"><span class="pre">BRGetData</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">タブ</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">value=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n番目=1</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#BRGetData" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">エレメントのnameとvalue属性をもとに値を取得する</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>タブ</strong> (<em>TabWindowオブジェクト</em>) -- 値を取りたいページのタブを示す <a class="reference internal" href="#tabwindow-object"><span class="std std-ref">TabWindowオブジェクト</span></a></p></li>
+<li><p><strong>name</strong> (<em>文字列</em>) -- 値を取得するエレメントのname属性</p></li>
+<li><p><strong>value</strong> (<em>文字列 省略可</em>) -- nameが同一の場合にvalue属性の値を指定</p></li>
+<li><p><strong>n番目</strong> (<em>数値 省略可</em>) -- nameもvalueも一致する場合順番を1から指定</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>取得された値、取得できない場合はEMPTY</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">BRGetData</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">タブ</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">タグ指定</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">n番目=1</span></span></em><span class="optional">]</span><span class="sig-paren">)</span></dt>
+<dd><div class="line-block">
+<div class="line">エレメントのタグ名と順番を指定して値を取得する</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>タブ</strong> (<em>TabWindowオブジェクト</em>) -- 値を取りたいページのタブを示す <a class="reference internal" href="#tabwindow-object"><span class="std std-ref">TabWindowオブジェクト</span></a></p></li>
+<li><p><strong>タグ指定</strong> (<em>文字列</em>) -- &quot;TAG=タグ名&quot; でタグ指定モードになる</p></li>
+<li><p><strong>n番目</strong> (<em>数値 省略可</em>) -- 該当タグの順番を1から指定</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>取得された値、取得できない場合はEMPTY</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">BRGetData</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">タブ</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">タグ指定</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">プロパティ指定</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">n番目=1</span></span></em><span class="optional">]</span><span class="sig-paren">)</span></dt>
+<dd><div class="line-block">
+<div class="line">エレメントのタグ名とプロパティを指定して値を取得する</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>タブ</strong> (<em>TabWindowオブジェクト</em>) -- 値を取りたいページのタブを示す <a class="reference internal" href="#tabwindow-object"><span class="std std-ref">TabWindowオブジェクト</span></a></p></li>
+<li><p><strong>タグ指定</strong> (<em>文字列</em>) -- &quot;TAG=タグ名&quot; でタグ指定モードになる</p></li>
+<li><p><strong>プロパティ指定</strong> (<em>文字列 省略可</em>) -- &quot;プロパティ名=値&quot; を指定可(&quot;id=hoge&quot; など)、プロパティ名のみ大文字小文字の一致が必須</p></li>
+<li><p><strong>n番目</strong> (<em>数値 省略可</em>) -- タグもプロパティも一致する場合順番を1から指定</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>取得された値、取得できない場合はEMPTY</p>
+</dd>
+</dl>
+<div class="note admonition">
+<p class="admonition-title">プロパティ指定について</p>
+<div class="line-block">
+<div class="line">UWSCとは異なりID, className, innerText, innerHTML以外のプロパティも指定できます</div>
+<div class="line">ただし、プロパティ名は大文字小文字が一致する必要があります(case sensitive)</div>
+<div class="line">プロパティの値は大文字小文字を無視しますが、完全一致する必要があります</div>
+</div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">BRGetData</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">タブ</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">&quot;TAG=TABLE&quot;</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">n番目=1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">行=1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">列=1</span></span></em><span class="optional">]</span><span class="sig-paren">)</span></dt>
+<dd><div class="line-block">
+<div class="line">テーブルエレメントの座標を指定して値を取得する</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>タブ</strong> (<em>TabWindowオブジェクト</em>) -- 値を取りたいページのタブを示す <a class="reference internal" href="#tabwindow-object"><span class="std std-ref">TabWindowオブジェクト</span></a></p></li>
+<li><p><strong>&quot;TAG=TABLE&quot;</strong> (<em>文字列</em>) -- &quot;TAG=TABLE&quot; を指定(固定)</p></li>
+<li><p><strong>n番目</strong> (<em>数値 省略可</em>) -- テーブルの順番を1から指定</p></li>
+<li><p><strong>行</strong> (<em>数値 省略可</em>) -- テーブルの行番号を1から指定</p></li>
+<li><p><strong>列</strong> (<em>数値 省略可</em>) -- テーブルの列番号を1から指定</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>取得された値、取得できない場合はEMPTY</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="iesetdata">
+<h4>IESETDATA互換<a class="headerlink" href="#iesetdata" title="この見出しへのパーマリンク">#</a></h4>
+<dl class="py function">
+<dt class="sig sig-object py" id="BRSetData">
+<span class="sig-name descname"><span class="pre">BRSetData</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">タブ</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">値</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">value=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n番目=1</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#BRSetData" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">テキストボックス等の値(value)を変更する</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>タブ</strong> (<em>TabWindowオブジェクト</em>) -- 値を取りたいページのタブを示す <a class="reference internal" href="#tabwindow-object"><span class="std std-ref">TabWindowオブジェクト</span></a></p></li>
+<li><p><strong>値</strong> (<em>文字列</em>) -- 入力したい値</p></li>
+<li><p><strong>name</strong> (<em>文字列</em>) -- 値を変更するエレメントのname属性</p></li>
+<li><p><strong>value</strong> (<em>文字列 省略可</em>) -- 同一nameのエレメントがある場合にvalue値を指定</p></li>
+<li><p><strong>n番目</strong> (<em>数値 省略可</em>) -- nameとvalueが一致する場合に順番を1から指定</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>真偽値</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>成功時TRUE</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">BRSetData</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">タブ</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">TRUE</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">value=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n番目=1</span></span></em><span class="optional">]</span><span class="sig-paren">)</span></dt>
+<dd><div class="line-block">
+<div class="line">nameにより指定したエレメントをクリックします</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>タブ</strong> (<em>TabWindowオブジェクト</em>) -- 値を取りたいページのタブを示す <a class="reference internal" href="#tabwindow-object"><span class="std std-ref">TabWindowオブジェクト</span></a></p></li>
+<li><p><strong>TRUE</strong> (<em>真偽値</em>) -- TRUEを指定 (固定)</p></li>
+<li><p><strong>name</strong> (<em>文字列</em>) -- クリックするエレメントのname属性</p></li>
+<li><p><strong>value</strong> (<em>文字列 省略可</em>) -- 同一nameのエレメントがある場合にvalue値を指定</p></li>
+<li><p><strong>n番目</strong> (<em>数値 省略可</em>) -- nameとvalueが一致する場合に順番を1から指定</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>真偽値</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>成功時TRUE</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">BRSetData</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">タブ</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">TRUE</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">タグ指定</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">n番目=1</span></span></em><span class="optional">]</span><span class="sig-paren">)</span></dt>
+<dd><div class="line-block">
+<div class="line">タグ名と順番により指定したエレメントをクリックします</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>タブ</strong> (<em>TabWindowオブジェクト</em>) -- 値を取りたいページのタブを示す <a class="reference internal" href="#tabwindow-object"><span class="std std-ref">TabWindowオブジェクト</span></a></p></li>
+<li><p><strong>TRUE</strong> (<em>真偽値</em>) -- TRUEを指定 (固定)</p></li>
+<li><p><strong>タグ指定</strong> (<em>文字列</em>) -- &quot;TAG=タグ名&quot; でダグ指定モードになる</p></li>
+<li><p><strong>n番目</strong> (<em>数値 省略可</em>) -- タグ名が一致する場合に順番を1から指定</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>真偽値</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>成功時TRUE</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">BRSetData</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">タブ</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">TRUE</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">タグ指定</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">プロパティ指定</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">n番目=1</span></span></em><span class="optional">]</span><span class="sig-paren">)</span></dt>
+<dd><div class="line-block">
+<div class="line">タグ名とプロパティにより指定したエレメントをクリックします</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>タブ</strong> (<em>TabWindowオブジェクト</em>) -- 値を取りたいページのタブを示す <a class="reference internal" href="#tabwindow-object"><span class="std std-ref">TabWindowオブジェクト</span></a></p></li>
+<li><p><strong>TRUE</strong> (<em>真偽値</em>) -- TRUEを指定 (固定)</p></li>
+<li><p><strong>タグ指定</strong> (<em>文字列</em>) -- &quot;TAG=タグ名&quot; でダグ指定モードになる</p></li>
+<li><p><strong>プロパティ指定</strong> (<em>文字列</em>) -- &quot;プロパティ名=値&quot; を指定</p></li>
+<li><p><strong>n番目</strong> (<em>数値 省略可</em>) -- タグ名とプロパティが一致する場合に順番を1から指定</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>真偽値</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>成功時TRUE</p>
+</dd>
+</dl>
+<div class="note admonition">
+<p class="admonition-title">プロパティ指定について</p>
+<div class="line-block">
+<div class="line">UWSCとは異なりID, className, innerText, innerHTML以外のプロパティも指定できます</div>
+<div class="line">ただし、プロパティ名は大文字小文字が一致する必要があります(case sensitive)</div>
+<div class="line">プロパティの値は大文字小文字を無視しますが、完全一致する必要があります</div>
+</div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">BRSetData</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">タブ</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">TRUE</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">&quot;TAG=IMG&quot;</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">src=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n番目=1</span></span></em><span class="optional">]</span><span class="sig-paren">)</span></dt>
+<dd><div class="line-block">
+<div class="line">IMGエレメントをクリックします</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>タブ</strong> (<em>TabWindowオブジェクト</em>) -- 値を取りたいページのタブを示す <a class="reference internal" href="#tabwindow-object"><span class="std std-ref">TabWindowオブジェクト</span></a></p></li>
+<li><p><strong>TRUE</strong> (<em>真偽値</em>) -- TRUEを指定 (固定)</p></li>
+<li><p><strong>&quot;TAG=IMG&quot;</strong> (<em>文字列</em>) -- &quot;TAG=IMG&quot; を指定 (固定)</p></li>
+<li><p><strong>src</strong> (<em>数値 省略可</em>) -- 対象imgタグのsrcを指定</p></li>
+<li><p><strong>n番目</strong> (<em>数値 省略可</em>) -- srcが一致する場合に順番を1から指定</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>真偽値</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>成功時TRUE</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="iegetsrc">
+<h4>IEGETSRC互換<a class="headerlink" href="#iegetsrc" title="この見出しへのパーマリンク">#</a></h4>
+<dl class="py function">
+<dt class="sig sig-object py" id="BRGetSrc">
+<span class="sig-name descname"><span class="pre">BRGetSrc</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">タブ</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">タグ名</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">n番目=1</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#BRGetSrc" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">指定タグのエレメントのouterHTMLを返します</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>タブ</strong> (<em>TabWindowオブジェクト</em>) -- 値を取りたいページのタブを示す <a class="reference internal" href="#tabwindow-object"><span class="std std-ref">TabWindowオブジェクト</span></a></p></li>
+<li><p><strong>タグ名</strong> (<em>文字列</em>) -- HTMLを取得したいタグ名</p></li>
+<li><p><strong>n番目</strong> (<em>数値 省略可</em>) -- タグの順番を1から指定</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>文字列</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>該当タグのHTMLソース、非該当ならEMPTY</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="iesetsrc">
+<h4>IESETSRC互換<a class="headerlink" href="#iesetsrc" title="この見出しへのパーマリンク">#</a></h4>
+<div class="hint admonition">
+<p class="admonition-title">非推奨関数</p>
+<div class="line-block">
+<div class="line">ドキュメント全体の書き換えを非推奨としているため、互換関数は存在しません</div>
+</div>
+</div>
+</section>
+<section id="ielink">
+<h4>IELINK互換<a class="headerlink" href="#ielink" title="この見出しへのパーマリンク">#</a></h4>
+<dl class="py function">
+<dt class="sig sig-object py" id="BRLink">
+<span class="sig-name descname"><span class="pre">BRLink</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">タブ</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">リンク文字</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">n番目=1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">完全一致=FALSE</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#BRLink" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">指定リンクをクリックします</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>タブ</strong> (<em>TabWindowオブジェクト</em>) -- 値を取りたいページのタブを示す <a class="reference internal" href="#tabwindow-object"><span class="std std-ref">TabWindowオブジェクト</span></a></p></li>
+<li><p><strong>リンク文字</strong> (<em>文字列</em>) -- リンクに表示されている文字列(デフォルトは部分一致)</p></li>
+<li><p><strong>n番目</strong> (<em>数値 省略可</em>) -- リンク文字が同一の場合に順番を1から指定</p></li>
+<li><p><strong>完全一致</strong> (<em>真偽値 省略可</em>) -- TRUEの場合完全一致するリンク文字を検索する</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>真偽値</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>該当するリンクが存在しクリックを実行した場合TRUE</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="iegetframe">
+<h4>IEGETFRAME互換<a class="headerlink" href="#iegetframe" title="この見出しへのパーマリンク">#</a></h4>
+<div class="note admonition">
+<p class="admonition-title">後日実装予定</p>
+<div class="line-block">
+<div class="line">TabWindowがフレーム対応し次第実装する予定です</div>
+</div>
+</div>
+</section>
+</section>
 <section id="browserbuilder">
 <span id="builder-object"></span><h3>BrowserBuilderオブジェクト<a class="headerlink" href="#browserbuilder" title="この見出しへのパーマリンク">#</a></h3>
 <div class="line-block">
@@ -519,6 +806,43 @@
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="BrowserBuilder.argument">
+<span class="sig-name descname"><span class="pre">argument</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">起動時オプション</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#BrowserBuilder.argument" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">ブラウザの起動時オプションを追加します</div>
+</div>
+<div class="caution admonition">
+<p class="admonition-title">動作保証対象外の機能です</p>
+<div class="line-block">
+<div class="line">これはブラウザ起動時のオプションを任意に追加できる機能です</div>
+<div class="line">この機能を利用した際の動作は保証されません</div>
+<div class="line">ブラウザ等への影響を理解している場合のみご利用ください</div>
+<div class="line">この機能を利用することにより生じた不具合はUWSCRのバグとしては扱われません</div>
+</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>起動時オプション</strong> (<em>文字列</em>) -- 追加する起動時オプション</p>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#BrowserBuilder" title="BrowserBuilder">BrowserBuilder</a></p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>更新されたBrowserBuilder</p>
+</dd>
+</dl>
+<div class="admonition- admonition">
+<p class="admonition-title">サンプルコード</p>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// ブラウザの拡張機能を無効にする</span>
+<span class="n">builder</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">BrowserBuilder</span><span class="p">(</span><span class="n">BC_CHROME</span><span class="p">)</span>
+<span class="n">builder</span><span class="o">.</span><span class="n">argument</span><span class="p">(</span><span class="s">&quot;--disable-extensions&quot;</span><span class="p">)</span>
+<span class="n">chrome</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">builder</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="BrowserBuilder.start">
 <span class="sig-name descname"><span class="pre">start</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#BrowserBuilder.start" title="この定義へのパーマリンク">#</a></dt>
 <dd><div class="line-block">
@@ -541,6 +865,13 @@
 <span id="browser-object"></span><h3>Browserオブジェクト<a class="headerlink" href="#browser" title="この見出しへのパーマリンク">#</a></h3>
 <div class="line-block">
 <div class="line">操作対象となるタブを示すオブジェクト</div>
+</div>
+<div class="hint admonition">
+<p class="admonition-title">Browserオブジェクトの取得に時間がかかる場合がある</p>
+<div class="line-block">
+<div class="line">Browserオブジェクト作成時に対象ブラウザに対してWebSocket接続を行います</div>
+<div class="line">WebSocket接続が確立されるまでにある程度の時間を要するのが原因です</div>
+</div>
 </div>
 <dl class="py class">
 <dt class="sig sig-object py" id="Browser">
@@ -622,18 +953,18 @@
 
 </dd></dl>
 
-<div class="caution admonition">
-<p class="admonition-title">タブ一覧取得が遅い場合がある</p>
-<div class="line-block">
-<div class="line">countやtabsの結果を得るまでに数秒かかる場合があります</div>
-<div class="line">これは、使用しているDevtools ProtocolのAPI実行速度によるものです</div>
-</div>
-</div>
 </section>
 <section id="tabwindow">
 <span id="tabwindow-object"></span><h3>TabWindowオブジェクト<a class="headerlink" href="#tabwindow" title="この見出しへのパーマリンク">#</a></h3>
 <div class="line-block">
 <div class="line">タブごとのWindowオブジェクトを示すオブジェクト</div>
+</div>
+<div class="hint admonition">
+<p class="admonition-title">一度目のプロパティ取得やメソッド実行に時間がかかる場合がある</p>
+<div class="line-block">
+<div class="line">タブ内のページ操作のためにWebSocketを使用していますが、初回のみWebSocketの接続処理が入ります</div>
+<div class="line">WebSocket接続が確立されるまでにある程度の時間を要するのが原因です</div>
+</div>
 </div>
 <dl class="py class">
 <dt class="sig sig-object py" id="TabWindow">
@@ -656,7 +987,7 @@
 
 <dl class="py method">
 <dt class="sig sig-object py" id="TabWindow.navigate">
-<span class="sig-name descname"><span class="pre">navigate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">uri</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#TabWindow.navigate" title="この定義へのパーマリンク">#</a></dt>
+<span class="sig-name descname"><span class="pre">navigate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">url</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#TabWindow.navigate" title="この定義へのパーマリンク">#</a></dt>
 <dd><div class="line-block">
 <div class="line">指定URLを開きます</div>
 <div class="line">ページの読み込み完了まで待機します (最大10秒)</div>
@@ -669,7 +1000,7 @@
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>uri</strong> (<em>文字列</em>) -- 開きたいサイトのURL</p>
+<dd class="field-odd"><p><strong>url</strong> (<em>文字列</em>) -- 開きたいサイトのURL</p>
 </dd>
 <dt class="field-even">戻り値の型<span class="colon">:</span></dt>
 <dd class="field-even"><p>真偽値</p>
@@ -823,7 +1154,7 @@
 <section id="id3">
 <h4>メソッドの実行<a class="headerlink" href="#id3" title="この見出しへのパーマリンク">#</a></h4>
 <div class="line-block">
-<div class="line"><code class="docutils literal notranslate"><span class="pre">RemoteObject.メソッド名(引数)</span></code> でメソッドを実行し、戻り値を <a class="reference internal" href="#remote-object"><span class="std std-ref">RemoteObject</span></a> として取得します</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">RemoteObject.メソッド名(引数)</span></code> でメソッドを実行します</div>
 <div class="line">メソッド名は大文字小文字を区別します</div>
 </div>
 <div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">chrome</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">BrowserControl</span><span class="p">(</span><span class="n">BC_CHROME</span><span class="p">)</span>
@@ -834,7 +1165,7 @@
 <section id="id4">
 <h4>プロパティの取得<a class="headerlink" href="#id4" title="この見出しへのパーマリンク">#</a></h4>
 <div class="line-block">
-<div class="line"><code class="docutils literal notranslate"><span class="pre">RemoteObject.プロパティ名</span></code> とすることでプロパティ値を <a class="reference internal" href="#remote-object"><span class="std std-ref">RemoteObject</span></a> として取得します</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">RemoteObject.プロパティ名</span></code> とすることでプロパティ値を取得します</div>
 <div class="line">配列要素であればインデックスを指定します <code class="docutils literal notranslate"><span class="pre">RemoteObject.プロパティ名[i]</span></code></div>
 <div class="line">プロパティ名は大文字小文字を区別します</div>
 </div>
@@ -857,10 +1188,20 @@
 </div>
 </section>
 <section id="id6">
-<h4>関数として実行<a class="headerlink" href="#id6" title="この見出しへのパーマリンク">#</a></h4>
+<h4>インデックスによるアクセス<a class="headerlink" href="#id6" title="この見出しへのパーマリンク">#</a></h4>
+<div class="line-block">
+<div class="line"><a class="reference internal" href="#remote-object"><span class="std std-ref">RemoteObject</span></a> 自身が配列であった場合は <code class="docutils literal notranslate"><span class="pre">RemoteObject[i]</span></code> とすることで要素を得られます</div>
+</div>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">chrome</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">BrowserControl</span><span class="p">(</span><span class="n">BC_CHROME</span><span class="p">)</span>
+<span class="n">links</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">chrome</span><span class="p">[</span><span class="m">0</span><span class="p">]</span><span class="o">.</span><span class="n">document</span><span class="o">.</span><span class="n">querySelectorAll</span><span class="p">(</span><span class="s">&quot;a&quot;</span><span class="p">)</span>
+<span class="k">print</span><span class="w"> </span><span class="n">links</span><span class="p">[</span><span class="m">0</span><span class="p">]</span><span class="o">.</span><span class="n">href</span>
+</pre></div>
+</div>
+</section>
+<section id="id7">
+<h4>関数として実行<a class="headerlink" href="#id7" title="この見出しへのパーマリンク">#</a></h4>
 <div class="line-block">
 <div class="line"><a class="reference internal" href="#remote-object"><span class="std std-ref">RemoteObject</span></a> 自身が関数である場合は <code class="docutils literal notranslate"><span class="pre">RemoteObject(引数)</span></code> として実行できます</div>
-<div class="line">この場合も戻り値を <a class="reference internal" href="#remote-object"><span class="std std-ref">RemoteObject</span></a> として取得します</div>
 </div>
 </section>
 <section id="promise">
@@ -868,12 +1209,45 @@
 <div class="line-block">
 <div class="line"><a class="reference internal" href="#remote-object"><span class="std std-ref">RemoteObject</span></a> 自身、またはそのメソッドが非同期関数であった場合 <a class="reference internal" href="../syntax/statement.html#await"><span class="std std-ref">await</span></a> 構文でその終了を待ちます</div>
 <div class="line"><a class="reference internal" href="#remote-object"><span class="std std-ref">RemoteObject</span></a> がPromiseであった場合は <a class="reference internal" href="scriptcontrol.html#WaitTask" title="WaitTask"><code class="xref any py py-func docutils literal notranslate"><span class="pre">WaitTask</span></code></a> 関数でその終了を待ちます</div>
-<div class="line">いずれの場合も戻り値を <a class="reference internal" href="#remote-object"><span class="std std-ref">RemoteObject</span></a> として取得します</div>
+<div class="line">いずれの場合も結果を返します</div>
+</div>
+</section>
+<section id="id8">
+<h4>戻り値について<a class="headerlink" href="#id8" title="この見出しへのパーマリンク">#</a></h4>
+<p><a class="reference internal" href="#remote-object"><span class="std std-ref">RemoteObject</span></a> のプロパティやメソッド、インデックスから得られる値の型は以下の通りです</p>
+<div class="table-wrapper docutils container">
+<table class="docutils align-left">
+<thead>
+<tr class="row-odd"><th class="head"><p>JavaScript型</p></th>
+<th class="head"><p>UWSCR型</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>string</p></td>
+<td><p>文字列</p></td>
+</tr>
+<tr class="row-odd"><td><p>number</p></td>
+<td><p>数値</p></td>
+</tr>
+<tr class="row-even"><td><p>bool</p></td>
+<td><p>真偽値</p></td>
+</tr>
+<tr class="row-odd"><td><p>null</p></td>
+<td><p>NULL</p></td>
+</tr>
+<tr class="row-even"><td><p>上記以外のオブジェクト</p></td>
+<td><p><a class="reference internal" href="#remote-object"><span class="std std-ref">RemoteObject</span></a></p></td>
+</tr>
+<tr class="row-odd"><td><p>オブジェクトでもプリミティブな値でもない場合 (undefinedなど)</p></td>
+<td><p>EMPTY</p></td>
+</tr>
+</tbody>
+</table>
 </div>
 </section>
 </section>
 <section id="browser-sample">
-<span id="id7"></span><h3>ブラウザ操作サンプル<a class="headerlink" href="#browser-sample" title="この見出しへのパーマリンク">#</a></h3>
+<span id="id9"></span><h3>ブラウザ操作サンプル<a class="headerlink" href="#browser-sample" title="この見出しへのパーマリンク">#</a></h3>
 <div class="admonition-document admonition">
 <p class="admonition-title">documentへのアクセス</p>
 <div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// ブラウザを開く</span>
@@ -993,6 +1367,601 @@
 </div>
 </div>
 </section>
+<section id="id10">
+<h3>ダウンロード先やその方法の制御について<a class="headerlink" href="#id10" title="この見出しへのパーマリンク">#</a></h3>
+<div class="line-block">
+<div class="line">ダウンロードファイルの保存先フォルダの指定や、確認ダイアログの制御が現時点ではできません</div>
+<div class="line">ブラウザ操作にて特定のフォルダへのダウンロードを確認なしで行いたい場合は事前に以下の操作を行ってください</div>
+</div>
+<ol class="arabic simple">
+<li><p><a class="reference internal" href="#builder-object"><span class="std std-ref">BrowserBuilderオブジェクト</span></a> で専用のプロファイルフォルダを指定し、ブラウザを起動する</p></li>
+<li><p>起動したブラウザの設定を手動で変更する</p>
+<ul class="simple">
+<li><dl class="simple">
+<dt>Chrome</dt><dd><ol class="arabic simple">
+<li><p>設定画面の <strong>ダウンロード</strong> を開く</p></li>
+<li><p><strong>保存先</strong> を任意のフォルダに変更する</p></li>
+<li><p><strong>ダウンロード前に各ファイルの保存場所を確認する</strong> をオフにする</p></li>
+</ol>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>MSEdge</dt><dd><ol class="arabic simple">
+<li><p>設定画面の <strong>ダウンロード</strong> を開く</p></li>
+<li><p><strong>場所</strong> を任意のフォルダに変更する</p></li>
+<li><p><strong>ダウンロード時の動作を毎回確認する</strong> をオフにする</p></li>
+</ol>
+</dd>
+</dl>
+</li>
+</ul>
+</li>
+<li><p>変更を施したプロファイルを指定して改めてブラウザ操作を行う</p></li>
+</ol>
+<div class="hint admonition">
+<p class="admonition-title">ダウンロード開始と完了の検知</p>
+<ol class="arabic">
+<li><p>getdir関数で <code class="docutils literal notranslate"><span class="pre">未確認*.crdownload</span></code> ファイルの数を確認し、1個以上であればダウンロードが開始されていると判定</p></li>
+<li><div class="line-block">
+<div class="line">ダウンロードするファイルの名前がわかっている場合、F_EXISTSがTRUEならダウンロード完了</div>
+<div class="line">あるいはgetdir関数で <code class="docutils literal notranslate"><span class="pre">未確認*.crdownload</span></code> ファイルの数を確認し、0個であればダウンロード完了と判定</div>
+</div>
+</li>
+</ol>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// ダウンロード開始検知</span>
+<span class="k">repeat</span>
+<span class="w">    </span><span class="n">sleep</span><span class="p">(</span><span class="m">0</span><span class="o">.</span><span class="m">1</span><span class="p">)</span>
+<span class="w">    </span><span class="n">files</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">getdir</span><span class="p">(</span><span class="n">download_path</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;未確認*.crdownload&quot;</span><span class="p">)</span>
+<span class="k">until</span><span class="w"> </span><span class="n">length</span><span class="p">(</span><span class="n">files</span><span class="p">)</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="m">0</span>
+
+<span class="k">if</span><span class="w"> </span><span class="n">filename</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">EMPTY</span><span class="w"> </span><span class="k">then</span>
+<span class="w">    </span><span class="c">// ファイル名が分かる場合</span>
+<span class="w">    </span><span class="k">repeat</span>
+<span class="w">        </span><span class="n">sleep</span><span class="p">(</span><span class="m">1</span><span class="p">)</span>
+<span class="w">    </span><span class="k">until</span><span class="w"> </span><span class="n">fopen</span><span class="p">(</span><span class="n">filename</span><span class="o">,</span><span class="w"> </span><span class="n">F_EXISTS</span><span class="p">)</span>
+<span class="k">else</span>
+<span class="w">    </span><span class="c">// ファイル名が分からない場合</span>
+<span class="w">    </span><span class="k">repeat</span>
+<span class="w">        </span><span class="n">sleep</span><span class="p">(</span><span class="m">1</span><span class="p">)</span>
+<span class="w">        </span><span class="n">files</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">getdir</span><span class="p">(</span><span class="n">download_path</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;未確認*.crdownload&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="k">until</span><span class="w"> </span><span class="n">length</span><span class="p">(</span><span class="n">files</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="m">0</span>
+<span class="k">endif</span>
+</pre></div>
+</div>
+</div>
+</section>
+</section>
+<section id="http">
+<h2>HTTPリクエスト<a class="headerlink" href="#http" title="この見出しへのパーマリンク">#</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="Webrequest">
+<span class="sig-name descname"><span class="pre">Webrequest</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">url</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Webrequest" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">指定URLに対してGETリクエストを送信します</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>url</strong> (<em>文字列</em>) -- リクエストを送るURL</p>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#web-response"><span class="std std-ref">WebResponseオブジェクト</span></a></p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>レスポンスを示す <a class="reference internal" href="#web-response"><span class="std std-ref">WebResponseオブジェクト</span></a></p>
+</dd>
+</dl>
+<div class="admonition- admonition">
+<p class="admonition-title">サンプルコード</p>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">res</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">WebRequest</span><span class="p">(</span><span class="s">&quot;http://example.com&quot;</span><span class="p">)</span>
+<span class="k">print</span><span class="w"> </span><span class="n">res</span><span class="o">.</span><span class="n">status</span>
+<span class="k">print</span><span class="w"> </span><span class="n">res</span><span class="o">.</span><span class="n">body</span>
+</pre></div>
+</div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="WebRequestBuilder">
+<span class="sig-name descname"><span class="pre">WebRequestBuilder</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#WebRequestBuilder" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line"><a class="reference internal" href="#web-request"><span class="std std-ref">WebRequestオブジェクト</span></a> を返します</div>
+<div class="line"><a class="reference internal" href="#WebRequest" title="WebRequest"><code class="xref any py py-class docutils literal notranslate"><span class="pre">WebRequest</span></code></a> とは異なり詳細な設定を行い任意のメソッドでリクエストを送信できます</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#web-request"><span class="std std-ref">WebRequestオブジェクト</span></a></p>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>リクエストを行うための <a class="reference internal" href="#web-request"><span class="std std-ref">WebRequestオブジェクト</span></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<section id="webrequest">
+<span id="web-request"></span><h3>WebRequestオブジェクト<a class="headerlink" href="#webrequest" title="この見出しへのパーマリンク">#</a></h3>
+<div class="line-block">
+<div class="line">HTTPリクエストを行うためのオブジェクト</div>
+</div>
+<dl class="py class">
+<dt class="sig sig-object py" id="WebRequest">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">WebRequest</span></span><a class="headerlink" href="#WebRequest" title="この定義へのパーマリンク">#</a></dt>
+<dd><dl class="py method">
+<dt class="sig sig-object py" id="WebRequest.useragent">
+<span class="sig-name descname"><span class="pre">useragent</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">UA</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#WebRequest.useragent" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">UserAgent文字列をUser-Agentヘッダに設定します</div>
+<div class="line">未指定の場合設定されません</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>UA</strong> (<em>文字列</em>) -- UserAgent文字列</p>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#web-request"><span class="std std-ref">WebRequestオブジェクト</span></a></p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>更新された <a class="reference internal" href="#web-request"><span class="std std-ref">WebRequestオブジェクト</span></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="WebRequest.header">
+<span class="sig-name descname"><span class="pre">header</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">キー</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">値</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#WebRequest.header" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">リクエストヘッダを追加します</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>キー</strong> (<em>文字列</em>) -- ヘッダのキー</p></li>
+<li><p><strong>値</strong> (<em>文字列</em>) -- ヘッダの値</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#web-request"><span class="std std-ref">WebRequestオブジェクト</span></a></p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>更新された <a class="reference internal" href="#web-request"><span class="std std-ref">WebRequestオブジェクト</span></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="WebRequest.timeout">
+<span class="sig-name descname"><span class="pre">timeout</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">秒</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#WebRequest.timeout" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">ヘッダを設定します</div>
+<div class="line">未指定の場合タイムアウトしません</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>秒</strong> (<em>数値</em>) -- タイムアウト秒</p>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#web-request"><span class="std std-ref">WebRequestオブジェクト</span></a></p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>更新された <a class="reference internal" href="#web-request"><span class="std std-ref">WebRequestオブジェクト</span></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="WebRequest.body">
+<span class="sig-name descname"><span class="pre">body</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">本文</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#WebRequest.body" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">リクエスト本文を設定します</div>
+<div class="line">未指定の場合は何も送信しません</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>本文</strong> (<em>文字列またはUObject</em>) -- リクエスト本文、UObjectはjsonに変換されます</p>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#web-request"><span class="std std-ref">WebRequestオブジェクト</span></a></p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>更新された <a class="reference internal" href="#web-request"><span class="std std-ref">WebRequestオブジェクト</span></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="WebRequest.basic">
+<span class="sig-name descname"><span class="pre">basic</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ユーザー名</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">パスワード=EMPTY</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#WebRequest.basic" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">Basic認証のユーザー名とパスワードを設定したAuthorizationヘッダを追加します</div>
+<div class="line">未指定の場合は追加されません</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ユーザー名</strong> (<em>文字列</em>) -- ユーザー名</p></li>
+<li><p><strong>パスワード</strong> (<em>文字列 省略可</em>) -- パスワード</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#web-request"><span class="std std-ref">WebRequestオブジェクト</span></a></p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>更新された <a class="reference internal" href="#web-request"><span class="std std-ref">WebRequestオブジェクト</span></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="WebRequest.bearer">
+<span class="sig-name descname"><span class="pre">bearer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">トークン</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#WebRequest.bearer" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">Bearer認証のトークンを設定したAuthorizationヘッダを追加します</div>
+<div class="line">未指定の場合は追加されません</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>トークン</strong> (<em>文字列</em>) -- 認証トークン</p>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#web-request"><span class="std std-ref">WebRequestオブジェクト</span></a></p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>更新された <a class="reference internal" href="#web-request"><span class="std std-ref">WebRequestオブジェクト</span></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="WebRequest.get">
+<span class="sig-name descname"><span class="pre">get</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">url</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#WebRequest.get" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">GETリクエストを送信します</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>url</strong> (<em>文字列</em>) -- リクエストを送るURL</p>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#web-response"><span class="std std-ref">WebResponseオブジェクト</span></a></p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#web-response"><span class="std std-ref">WebResponseオブジェクト</span></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="WebRequest.put">
+<span class="sig-name descname"><span class="pre">put</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">url</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#WebRequest.put" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">PUTリクエストを送信します</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>url</strong> (<em>文字列</em>) -- リクエストを送るURL</p>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#web-response"><span class="std std-ref">WebResponseオブジェクト</span></a></p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#web-response"><span class="std std-ref">WebResponseオブジェクト</span></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="WebRequest.post">
+<span class="sig-name descname"><span class="pre">post</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">url</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#WebRequest.post" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">POSTリクエストを送信します</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>url</strong> (<em>文字列</em>) -- リクエストを送るURL</p>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#web-response"><span class="std std-ref">WebResponseオブジェクト</span></a></p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#web-response"><span class="std std-ref">WebResponseオブジェクト</span></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="WebRequest.delete">
+<span class="sig-name descname"><span class="pre">delete</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">url</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#WebRequest.delete" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">DELETEリクエストを送信します</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>url</strong> (<em>文字列</em>) -- リクエストを送るURL</p>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#web-response"><span class="std std-ref">WebResponseオブジェクト</span></a></p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#web-response"><span class="std std-ref">WebResponseオブジェクト</span></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="WebRequest.patch">
+<span class="sig-name descname"><span class="pre">patch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">url</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#WebRequest.patch" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">PATCHリクエストを送信します</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>url</strong> (<em>文字列</em>) -- リクエストを送るURL</p>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#web-response"><span class="std std-ref">WebResponseオブジェクト</span></a></p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#web-response"><span class="std std-ref">WebResponseオブジェクト</span></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="WebRequest.head">
+<span class="sig-name descname"><span class="pre">head</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">url</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#WebRequest.head" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">HEADリクエストを送信します</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>url</strong> (<em>文字列</em>) -- リクエストを送るURL</p>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#web-response"><span class="std std-ref">WebResponseオブジェクト</span></a></p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#web-response"><span class="std std-ref">WebResponseオブジェクト</span></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<div class="admonition- admonition">
+<p class="admonition-title">サンプルコード</p>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">request</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">WebRequestBuilder</span><span class="p">()</span>
+<span class="c">// ヘッダと認証情報を設定しておく</span>
+<span class="n">request</span><span class="o">.</span><span class="n">bearer</span><span class="p">(</span><span class="n">MY_BEARER_TOKEN</span><span class="p">)</span><span class="n">_</span>
+<span class="w">    </span><span class="o">.</span><span class="n">header</span><span class="p">(</span><span class="s">&#39;Content-Type&#39;</span><span class="o">,</span><span class="w"> </span><span class="s">&#39;application/json&#39;</span><span class="p">)</span>
+
+<span class="c">// リクエストを送信</span>
+<span class="n">res1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">request</span><span class="o">.</span><span class="n">body</span><span class="p">(</span><span class="n">json1</span><span class="p">)</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="n">url1</span><span class="p">)</span>
+<span class="n">res2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">request</span><span class="o">.</span><span class="n">body</span><span class="p">(</span><span class="n">json2</span><span class="p">)</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="n">url2</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</section>
+<section id="webresponse">
+<span id="web-response"></span><h3>WebResponseオブジェクト<a class="headerlink" href="#webresponse" title="この見出しへのパーマリンク">#</a></h3>
+<div class="line-block">
+<div class="line">HTTPレスポンスを示すオブジェクト</div>
+</div>
+<dl class="py class">
+<dt class="sig sig-object py" id="WebResponse">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">WebResponse</span></span><a class="headerlink" href="#WebResponse" title="この定義へのパーマリンク">#</a></dt>
+<dd><dl class="py property">
+<dt class="sig sig-object py" id="WebResponse.status">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">status</span></span><a class="headerlink" href="#WebResponse.status" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">レスポンスのステータスを数値で返します</div>
+</div>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="WebResponse.statusText">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">statusText</span></span><a class="headerlink" href="#WebResponse.statusText" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">レスポンスのステータスを示す文字列を返します</div>
+</div>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="WebResponse.succeed">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">succeed</span></span><a class="headerlink" href="#WebResponse.succeed" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">リクエストの成否を真偽値で返します</div>
+</div>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="WebResponse.header">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">header</span></span><a class="headerlink" href="#WebResponse.header" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">レスポンスヘッダを連想配列で返します</div>
+</div>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="WebResponse.body">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">body</span></span><a class="headerlink" href="#WebResponse.body" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">レスポンスボディを文字列で返します、返せない場合はEMPTY</div>
+</div>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="WebResponse.json">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">json</span></span><a class="headerlink" href="#WebResponse.json" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">レスポンスボディがjsonの場合UObjectを返します、返せない場合はEMPTY</div>
+</div>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+</section>
+<section id="id11">
+<h2>HTTPパーサー<a class="headerlink" href="#id11" title="この見出しへのパーマリンク">#</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="ParseHTML">
+<span class="sig-name descname"><span class="pre">ParseHTML</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">html</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ParseHTML" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">HTMLをパースし <a class="reference internal" href="#node-object"><span class="std std-ref">HtmlNodeオブジェクト</span></a> を返します</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>html</strong> (<em>文字列またはWebResponse</em>) -- HTMLドキュメントまたはその一部を示す文字列、またはHTMLドキュメントとして受けた <a class="reference internal" href="#web-response"><span class="std std-ref">WebResponseオブジェクト</span></a></p>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#node-object"><span class="std std-ref">HtmlNodeオブジェクト</span></a></p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>パースされたHTMLドキュメントを示す <a class="reference internal" href="#node-object"><span class="std std-ref">HtmlNodeオブジェクト</span></a></p>
+</dd>
+</dl>
+<div class="admonition- admonition">
+<p class="admonition-title">サンプルコード</p>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">res</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">WebRequest</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+<span class="c">// WebResponseオブジェクトからHtmlNodeオブジェクトを得る</span>
+<span class="n">doc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ParseHTML</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
+
+<span class="c">// ラジオボタンのvalue値を列挙</span>
+<span class="k">for</span><span class="w"> </span><span class="n">radio</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="n">doc</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s">&#39;input[type=&quot;radio&quot;]&#39;</span><span class="p">)</span>
+<span class="w">    </span><span class="k">print</span><span class="w"> </span><span class="n">radio</span><span class="o">.</span><span class="n">attr</span><span class="p">(</span><span class="s">&#39;value&#39;</span><span class="p">)</span>
+<span class="k">next</span>
+
+<span class="c">// 最初のselect要素内のoptionのテキストと値を列挙</span>
+<span class="n">slct</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">doc</span><span class="o">.</span><span class="n">first</span><span class="p">(</span><span class="s">&#39;select&#39;</span><span class="p">)</span>
+<span class="k">for</span><span class="w"> </span><span class="n">opt</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="n">slct</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s">&#39;option&#39;</span><span class="p">)</span>
+<span class="w">    </span><span class="k">print</span><span class="w"> </span><span class="n">opt</span><span class="o">.</span><span class="n">text</span>
+<span class="w">    </span><span class="k">print</span><span class="w"> </span><span class="n">opt</span><span class="o">.</span><span class="n">attr</span><span class="p">(</span><span class="s">&#39;value&#39;</span><span class="p">)</span>
+<span class="k">next</span>
+</pre></div>
+</div>
+</div>
+</dd></dl>
+
+<section id="htmlnode">
+<span id="node-object"></span><h3>HtmlNodeオブジェクト<a class="headerlink" href="#htmlnode" title="この見出しへのパーマリンク">#</a></h3>
+<div class="line-block">
+<div class="line">パースされたHTMLドキュメントおよびエレメントを示すオブジェクト</div>
+</div>
+<dl class="py class">
+<dt class="sig sig-object py" id="HtmlNode">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">HtmlNode</span></span><a class="headerlink" href="#HtmlNode" title="この定義へのパーマリンク">#</a></dt>
+<dd><dl class="py method">
+<dt class="sig sig-object py" id="HtmlNode.find">
+<span class="sig-name descname"><span class="pre">find</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">selector</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#HtmlNode.find" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">cssセレクタに該当するエレメント郡を <a class="reference internal" href="#node-object"><span class="std std-ref">HtmlNodeオブジェクト</span></a> の配列として返す</div>
+<div class="line">空ノードの場合常に空の配列を返す</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>selector</strong> (<em>文字列</em>) -- cssセレクタ</p>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#node-object"><span class="std std-ref">HtmlNodeオブジェクト</span></a> 配列</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>cssセレクタに該当するエレメントの <a class="reference internal" href="#node-object"><span class="std std-ref">HtmlNodeオブジェクト</span></a> 配列</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="HtmlNode.first">
+<span class="sig-name descname"><span class="pre">first</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">selector</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#HtmlNode.first" title="この定義へのパーマリンク">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="HtmlNode.findfirst">
+<span class="sig-name descname"><span class="pre">findfirst</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">selector</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#HtmlNode.findfirst" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">cssセレクタに該当する最初のエレメントを <a class="reference internal" href="#node-object"><span class="std std-ref">HtmlNodeオブジェクト</span></a> として返す</div>
+<div class="line">該当するエレメントがない場合は空ノードを返す</div>
+<div class="line">空ノードの場合常に空ノードを返す</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>selector</strong> (<em>文字列</em>) -- cssセレクタ</p>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#node-object"><span class="std std-ref">HtmlNodeオブジェクト</span></a></p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>cssセレクタに該当する最初のエレメントの <a class="reference internal" href="#node-object"><span class="std std-ref">HtmlNodeオブジェクト</span></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="HtmlNode.attr">
+<span class="sig-name descname"><span class="pre">attr</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">属性名</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#HtmlNode.attr" title="この定義へのパーマリンク">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="HtmlNode.attribute">
+<span class="sig-name descname"><span class="pre">attribute</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">属性名</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#HtmlNode.attribute" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">エレメントの属性名を指定してその値を返す</div>
+<div class="line">HTMLドキュメント、空ノードの場合は常にEMPTYを返す</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>属性名</strong> (<em>文字列</em>) -- 属性の名前</p>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>文字列またはEMPTY</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>該当する属性の値、属性がない場合EMPTY</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="HtmlNode.outerhtml">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">outerhtml</span></span><a class="headerlink" href="#HtmlNode.outerhtml" title="この定義へのパーマリンク">#</a></dt>
+<dd><ul class="simple">
+<li><p>HTMLドキュメント: 全体のHTMLを文字列で返す</p></li>
+<li><p>エレメント: エレメント自身を含むHTMLを文字列で返す</p></li>
+<li><p>空ノード: EMPTY</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="HtmlNode.innerhtml">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">innerhtml</span></span><a class="headerlink" href="#HtmlNode.innerhtml" title="この定義へのパーマリンク">#</a></dt>
+<dd><ul class="simple">
+<li><p>HTMLドキュメント: EMPTY</p></li>
+<li><p>エレメント: エレメント以下のHTMLを文字列で返す</p></li>
+<li><p>空ノード: EMPTY</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="HtmlNode.text">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">text</span></span><a class="headerlink" href="#HtmlNode.text" title="この定義へのパーマリンク">#</a></dt>
+<dd><ul class="simple">
+<li><p>HTMLドキュメント: EMPTY</p></li>
+<li><p>エレメント: エレメントのテキストノードを文字列の配列で返す</p></li>
+<li><p>空ノード: EMPTY</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="HtmlNode.isempty">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">isempty</span></span><a class="headerlink" href="#HtmlNode.isempty" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">空ノードであればTRUE</div>
+</div>
+</dd></dl>
+
+</dd></dl>
+
+</section>
 </section>
 </section>
 
@@ -1017,7 +1986,7 @@
         <div class="bottom-of-page">
           <div class="left-details">
             <div class="copyright">
-                Copyright &#169; 2022, stuncloud
+                Copyright &#169; 2023, stuncloud
             </div>
             Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
             
@@ -1049,14 +2018,35 @@
 <li><a class="reference internal" href="#id2">ブラウザ操作</a><ul>
 <li><a class="reference internal" href="#BrowserControl"><code class="docutils literal notranslate"><span class="pre">BrowserControl()</span></code></a></li>
 <li><a class="reference internal" href="#Browserbuilder"><code class="docutils literal notranslate"><span class="pre">Browserbuilder()</span></code></a></li>
-<li><a class="reference internal" href="#ConvertFromRemoteObject"><code class="docutils literal notranslate"><span class="pre">ConvertFromRemoteObject()</span></code></a></li>
 <li><a class="reference internal" href="#RemoteObjectType"><code class="docutils literal notranslate"><span class="pre">RemoteObjectType()</span></code></a></li>
+<li><a class="reference internal" href="#ie">IE関数互換</a><ul>
+<li><a class="reference internal" href="#iegetdata">IEGETDATA互換</a><ul>
+<li><a class="reference internal" href="#BRGetData"><code class="docutils literal notranslate"><span class="pre">BRGetData()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#iesetdata">IESETDATA互換</a><ul>
+<li><a class="reference internal" href="#BRSetData"><code class="docutils literal notranslate"><span class="pre">BRSetData()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#iegetsrc">IEGETSRC互換</a><ul>
+<li><a class="reference internal" href="#BRGetSrc"><code class="docutils literal notranslate"><span class="pre">BRGetSrc()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#iesetsrc">IESETSRC互換</a></li>
+<li><a class="reference internal" href="#ielink">IELINK互換</a><ul>
+<li><a class="reference internal" href="#BRLink"><code class="docutils literal notranslate"><span class="pre">BRLink()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#iegetframe">IEGETFRAME互換</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#browserbuilder">BrowserBuilderオブジェクト</a><ul>
 <li><a class="reference internal" href="#BrowserBuilder"><code class="docutils literal notranslate"><span class="pre">BrowserBuilder</span></code></a><ul>
 <li><a class="reference internal" href="#BrowserBuilder.port"><code class="docutils literal notranslate"><span class="pre">BrowserBuilder.port()</span></code></a></li>
 <li><a class="reference internal" href="#BrowserBuilder.headless"><code class="docutils literal notranslate"><span class="pre">BrowserBuilder.headless()</span></code></a></li>
 <li><a class="reference internal" href="#BrowserBuilder.private"><code class="docutils literal notranslate"><span class="pre">BrowserBuilder.private()</span></code></a></li>
 <li><a class="reference internal" href="#BrowserBuilder.profile"><code class="docutils literal notranslate"><span class="pre">BrowserBuilder.profile()</span></code></a></li>
+<li><a class="reference internal" href="#BrowserBuilder.argument"><code class="docutils literal notranslate"><span class="pre">BrowserBuilder.argument()</span></code></a></li>
 <li><a class="reference internal" href="#BrowserBuilder.start"><code class="docutils literal notranslate"><span class="pre">BrowserBuilder.start()</span></code></a></li>
 </ul>
 </li>
@@ -1092,11 +2082,68 @@
 <li><a class="reference internal" href="#id3">メソッドの実行</a></li>
 <li><a class="reference internal" href="#id4">プロパティの取得</a></li>
 <li><a class="reference internal" href="#id5">プロパティの変更</a></li>
-<li><a class="reference internal" href="#id6">関数として実行</a></li>
+<li><a class="reference internal" href="#id6">インデックスによるアクセス</a></li>
+<li><a class="reference internal" href="#id7">関数として実行</a></li>
 <li><a class="reference internal" href="#promise">非同期関数とPromise</a></li>
+<li><a class="reference internal" href="#id8">戻り値について</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#browser-sample">ブラウザ操作サンプル</a></li>
+<li><a class="reference internal" href="#id10">ダウンロード先やその方法の制御について</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#http">HTTPリクエスト</a><ul>
+<li><a class="reference internal" href="#Webrequest"><code class="docutils literal notranslate"><span class="pre">Webrequest()</span></code></a></li>
+<li><a class="reference internal" href="#WebRequestBuilder"><code class="docutils literal notranslate"><span class="pre">WebRequestBuilder()</span></code></a></li>
+<li><a class="reference internal" href="#webrequest">WebRequestオブジェクト</a><ul>
+<li><a class="reference internal" href="#WebRequest"><code class="docutils literal notranslate"><span class="pre">WebRequest</span></code></a><ul>
+<li><a class="reference internal" href="#WebRequest.useragent"><code class="docutils literal notranslate"><span class="pre">WebRequest.useragent()</span></code></a></li>
+<li><a class="reference internal" href="#WebRequest.header"><code class="docutils literal notranslate"><span class="pre">WebRequest.header()</span></code></a></li>
+<li><a class="reference internal" href="#WebRequest.timeout"><code class="docutils literal notranslate"><span class="pre">WebRequest.timeout()</span></code></a></li>
+<li><a class="reference internal" href="#WebRequest.body"><code class="docutils literal notranslate"><span class="pre">WebRequest.body()</span></code></a></li>
+<li><a class="reference internal" href="#WebRequest.basic"><code class="docutils literal notranslate"><span class="pre">WebRequest.basic()</span></code></a></li>
+<li><a class="reference internal" href="#WebRequest.bearer"><code class="docutils literal notranslate"><span class="pre">WebRequest.bearer()</span></code></a></li>
+<li><a class="reference internal" href="#WebRequest.get"><code class="docutils literal notranslate"><span class="pre">WebRequest.get()</span></code></a></li>
+<li><a class="reference internal" href="#WebRequest.put"><code class="docutils literal notranslate"><span class="pre">WebRequest.put()</span></code></a></li>
+<li><a class="reference internal" href="#WebRequest.post"><code class="docutils literal notranslate"><span class="pre">WebRequest.post()</span></code></a></li>
+<li><a class="reference internal" href="#WebRequest.delete"><code class="docutils literal notranslate"><span class="pre">WebRequest.delete()</span></code></a></li>
+<li><a class="reference internal" href="#WebRequest.patch"><code class="docutils literal notranslate"><span class="pre">WebRequest.patch()</span></code></a></li>
+<li><a class="reference internal" href="#WebRequest.head"><code class="docutils literal notranslate"><span class="pre">WebRequest.head()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#webresponse">WebResponseオブジェクト</a><ul>
+<li><a class="reference internal" href="#WebResponse"><code class="docutils literal notranslate"><span class="pre">WebResponse</span></code></a><ul>
+<li><a class="reference internal" href="#WebResponse.status"><code class="docutils literal notranslate"><span class="pre">WebResponse.status</span></code></a></li>
+<li><a class="reference internal" href="#WebResponse.statusText"><code class="docutils literal notranslate"><span class="pre">WebResponse.statusText</span></code></a></li>
+<li><a class="reference internal" href="#WebResponse.succeed"><code class="docutils literal notranslate"><span class="pre">WebResponse.succeed</span></code></a></li>
+<li><a class="reference internal" href="#WebResponse.header"><code class="docutils literal notranslate"><span class="pre">WebResponse.header</span></code></a></li>
+<li><a class="reference internal" href="#WebResponse.body"><code class="docutils literal notranslate"><span class="pre">WebResponse.body</span></code></a></li>
+<li><a class="reference internal" href="#WebResponse.json"><code class="docutils literal notranslate"><span class="pre">WebResponse.json</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id11">HTTPパーサー</a><ul>
+<li><a class="reference internal" href="#ParseHTML"><code class="docutils literal notranslate"><span class="pre">ParseHTML()</span></code></a></li>
+<li><a class="reference internal" href="#htmlnode">HtmlNodeオブジェクト</a><ul>
+<li><a class="reference internal" href="#HtmlNode"><code class="docutils literal notranslate"><span class="pre">HtmlNode</span></code></a><ul>
+<li><a class="reference internal" href="#HtmlNode.find"><code class="docutils literal notranslate"><span class="pre">HtmlNode.find()</span></code></a></li>
+<li><a class="reference internal" href="#HtmlNode.first"><code class="docutils literal notranslate"><span class="pre">HtmlNode.first()</span></code></a></li>
+<li><a class="reference internal" href="#HtmlNode.findfirst"><code class="docutils literal notranslate"><span class="pre">HtmlNode.findfirst()</span></code></a></li>
+<li><a class="reference internal" href="#HtmlNode.attr"><code class="docutils literal notranslate"><span class="pre">HtmlNode.attr()</span></code></a></li>
+<li><a class="reference internal" href="#HtmlNode.attribute"><code class="docutils literal notranslate"><span class="pre">HtmlNode.attribute()</span></code></a></li>
+<li><a class="reference internal" href="#HtmlNode.outerhtml"><code class="docutils literal notranslate"><span class="pre">HtmlNode.outerhtml</span></code></a></li>
+<li><a class="reference internal" href="#HtmlNode.innerhtml"><code class="docutils literal notranslate"><span class="pre">HtmlNode.innerhtml</span></code></a></li>
+<li><a class="reference internal" href="#HtmlNode.text"><code class="docutils literal notranslate"><span class="pre">HtmlNode.text</span></code></a></li>
+<li><a class="reference internal" href="#HtmlNode.isempty"><code class="docutils literal notranslate"><span class="pre">HtmlNode.isempty</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
