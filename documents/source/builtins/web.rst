@@ -222,6 +222,7 @@ IESETDATA互換
     :return: 成功時TRUE
 
 .. function:: BRSetData(タブ, TRUE, name, [value=EMPTY, n番目=1])
+    :noindex:
 
     | nameにより指定したエレメントをクリックします
 
