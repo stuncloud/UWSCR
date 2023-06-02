@@ -8,12 +8,42 @@ Windows 10以上
 
 ## 導入方法
 
+### リリースページからダウンロード
+
 [最新版のリリースページ](https://github.com/stuncloud/UWSCR/releases/latest/#:~:text=Assets)下部のAssetsからzipファイルをダウンロードし、中の`uwscr.exe`を任意のフォルダに展開してください
 
 - UWSCRx64.zip
     - 64ビット版uwscr
 - UWSCRx86.zip
     - 32ビット版uwscr
+    
+### wingetによるインストール
+
+winget (Windows Package Manager) を使ってUWSCRをインストールできます  
+wingetがインストールされていない場合はMicrosoftストアにて[アプリインストーラー](https://www.microsoft.com/p/app-installer/9nblggh4nns1)をインストールしてください  
+wingetはバージョン1.4.11071以上をご利用ください
+
+```powershell
+# バージョンを確認
+PS> winget --version
+v1.4.11071
+```
+
+以下のコマンドによりUWSCRがインストールされます
+
+```powershell
+winget install UWSCR
+# または
+winget install --id stuncloud.uwscr
+```
+
+`uwscr.exe` のインストール先は以下です
+
+- `%LOCALAPPDATA%\Microsoft\WinGet\Links`
+
+インストール時にこのパスがユーザー環境変数 `%PATH%` に登録されます  
+実行環境(PowerShellやExplorer)の再起動を行うことでどこからでも `uwscr.exe` を実行できるようになります  
+うまく行かない場合は再ログインするか、手動で `%PATH%` に追加登録してください
 
 ## 実行方法
 
