@@ -1009,15 +1009,15 @@ pub enum VariableType {
     TYPE_BROWSER_OBJECT,
     TYPE_TABWINDOW_OBJECT,
     TYPE_REMOTE_OBJECT,
-    TYPE_BROWSER_FUNCTION,
     // TYPE_ELEMENT_OBJECT,
     TYPE_FILE_ID,
     TYPE_BYTE_ARRAY,
     TYPE_REFERENCE,
     TYPE_WEB_REQUEST,
     TYPE_WEB_RESPONSE,
-    TYPE_WEB_FUNCTION,
     TYPE_HTML_NODE,
+
+    TYPE_METHOD_CALLER,
 
     TYPE_NOT_VALUE_TYPE,
 }
@@ -1067,14 +1067,13 @@ pub fn type_of(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
         Object::Browser(_) => VariableType::TYPE_BROWSER_OBJECT,
         Object::TabWindow(_) => VariableType::TYPE_TABWINDOW_OBJECT,
         Object::RemoteObject(_) => VariableType::TYPE_REMOTE_OBJECT,
-        Object::BrowserFunction(_) => VariableType::TYPE_BROWSER_FUNCTION,
         Object::Fopen(_) => VariableType::TYPE_FILE_ID,
         Object::ByteArray(_) => VariableType::TYPE_BYTE_ARRAY,
         Object::Reference(_, _) => VariableType::TYPE_REFERENCE,
         Object::WebRequest(_) => VariableType::TYPE_WEB_REQUEST,
         Object::WebResponse(_) => VariableType::TYPE_WEB_RESPONSE,
-        Object::WebFunction(_) => VariableType::TYPE_WEB_FUNCTION,
         Object::HtmlNode(_) => VariableType::TYPE_HTML_NODE,
+        Object::MethodCaller(_, _) => VariableType::TYPE_METHOD_CALLER,
 
         Object::EmptyParam |
         Object::VarArgument(_) |

@@ -169,6 +169,7 @@ pub enum UErrorKind {
     OperatorError,
     ProgIdError,
     StructDefError,
+    StructError,
     TaskError,
     UObjectError,
     UserDefinedError,
@@ -237,6 +238,10 @@ impl fmt::Display for UErrorKind {
             Self::StructDefError => write_locale!(f,
                 "構造体定義エラー",
                 "UStruct definition Error"
+            ),
+            Self::StructError => write_locale!(f,
+                "構造体エラー",
+                "UStruct Error"
             ),
             Self::ArrayError => write_locale!(f,
                 "配列エラー",
@@ -516,6 +521,7 @@ pub enum UErrorMessage {
     RemoteObjectIsNotPromise,
     RemoteObjectDoesNotHaveValidLength,
     RemoteObjectIsNotPrimitiveValue,
+    CanNotCallMethod(String),
 }
 
 impl fmt::Display for UErrorMessage {
@@ -1102,6 +1108,10 @@ impl fmt::Display for UErrorMessage {
             Self::RemoteObjectDoesNotHaveValidLength => write_locale!(f,
                 "RemoteObjectが有効なlengthを返しませんでした",
                 "RemoteObject did not return valid length value",
+            ),
+            Self::CanNotCallMethod(member) => write_locale!(f,
+                "{member}というメソッドがありません",
+                "Method named {member} does not exist",
             ),
         }
     }

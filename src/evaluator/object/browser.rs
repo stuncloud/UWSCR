@@ -1517,45 +1517,6 @@ impl RemoteFuncArg {
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum BrowserObject {
-    Browser(Browser),
-    TabWindow(TabWindow),
-    RemoteObject(RemoteObject),
-    Builder(Arc<Mutex<BrowserBuilder>>),
-}
-#[derive(Debug, Clone)]
-pub struct BrowserFunction {
-    pub object: BrowserObject,
-    pub member: String,
-}
-impl BrowserFunction {
-    pub fn from_browser(browser: Browser, member: String) -> Self {
-        Self {
-            object: BrowserObject::Browser(browser),
-            member
-        }
-    }
-    pub fn from_tabwindow(tabwindow: TabWindow, member: String) -> Self {
-        Self {
-            object: BrowserObject::TabWindow(tabwindow),
-            member
-        }
-    }
-    pub fn from_remote_object(remote_object: RemoteObject, member: String) -> Self {
-        Self {
-            object: BrowserObject::RemoteObject(remote_object),
-            member
-        }
-    }
-    pub fn from_builder(builder: Arc<Mutex<BrowserBuilder>>, member: String) -> Self {
-        Self {
-            object: BrowserObject::Builder(builder),
-            member
-        }
-    }
-}
-
 trait BrowserArg {
     fn as_string(&self, index: usize) -> BrowserResult<String>;
     fn as_bool(&self, index: usize) -> BrowserResult<bool>;

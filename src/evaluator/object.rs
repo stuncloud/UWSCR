@@ -21,8 +21,8 @@ pub use self::function::Function;
 pub use self::uobject::UObject;
 pub use self::fopen::*;
 pub use self::class::ClassInstance;
-use browser::{BrowserBuilder, Browser, TabWindow, RemoteObject, BrowserFunction};
-pub use web::{WebRequest, WebResponse, WebFunction, HtmlNode};
+use browser::{BrowserBuilder, Browser, TabWindow, RemoteObject};
+pub use web::{WebRequest, WebResponse, HtmlNode};
 
 use crate::ast::*;
 use crate::evaluator::environment::Layer;
@@ -104,8 +104,6 @@ pub enum Object {
     Browser(Browser),
     TabWindow(TabWindow),
     RemoteObject(RemoteObject),
-    /// ブラウザ関連オブジェクトのメソッド実行用の型
-    BrowserFunction(BrowserFunction),
     Fopen(Arc<Mutex<Fopen>>),
     ByteArray(Vec<u8>),
     /// 参照渡しされたパラメータ変数
@@ -114,8 +112,9 @@ pub enum Object {
     WebRequest(Arc<Mutex<WebRequest>>),
     /// WebResponseオブジェクト
     WebResponse(WebResponse),
-    WebFunction(WebFunction),
     HtmlNode(HtmlNode),
+    /// 組み込みオブジェクトのメソッド呼び出し
+    MethodCaller(MethodCaller, String)
 }
 impl std::fmt::Debug for Object {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -161,14 +160,13 @@ impl std::fmt::Debug for Object {
             Object::Browser(arg0) => f.debug_tuple("Browser").field(arg0).finish(),
             Object::TabWindow(arg0) => f.debug_tuple("TabWindow").field(arg0).finish(),
             Object::RemoteObject(arg0) => f.debug_tuple("RemoteObject").field(arg0).finish(),
-            Object::BrowserFunction(arg0) => f.debug_tuple("BrowserFunction").field(arg0).finish(),
             Object::Fopen(arg0) => f.debug_tuple("Fopen").field(arg0).finish(),
             Object::ByteArray(arg0) => f.debug_tuple("ByteArray").field(arg0).finish(),
             Object::Reference(arg0, arg1) => f.debug_tuple("Reference").field(arg0).field(arg1).finish(),
             Object::WebRequest(arg0) => f.debug_tuple("WebRequest").field(arg0).finish(),
             Object::WebResponse(arg0) => f.debug_tuple("WebResponse").field(arg0).finish(),
-            Object::WebFunction(_) => write!(f, "WebFunction"),
             Object::HtmlNode(_) => todo!(),
+            Object::MethodCaller(_, _) => todo!(),
         }
     }
 }
@@ -264,7 +262,6 @@ impl fmt::Display for Object {
             Object::Browser(b) => write!(f, "Browser: {b})"),
             Object::TabWindow(t) => write!(f, "TabWindow: {t}"),
             Object::RemoteObject(r) => write!(f, "{r}"),
-            Object::BrowserFunction(_) => write!(f, "BrowserFunction"),
             Object::Fopen(arc) => {
                 let fopen = arc.lock().unwrap();
                 write!(f, "{}", &*fopen)
@@ -276,8 +273,18 @@ impl fmt::Display for Object {
                 write!(f, "{mutex}")
             },
             Object::WebResponse(res) => write!(f, "{res}"),
-            Object::WebFunction(_) => write!(f, "WebFunction"),
             Object::HtmlNode(node) => write!(f, "{node}"),
+            Object::MethodCaller(method, member) => {
+                match method {
+                    MethodCaller::BrowserBuilder(_) => write!(f, "BrowserBuilder.{member}"),
+                    MethodCaller::Browser(_) => write!(f, "Browser.{member}"),
+                    MethodCaller::TabWindow(_) => write!(f, "TabWindow.{member}"),
+                    MethodCaller::RemoteObject(_) => write!(f, "RemoteObject.{member}"),
+                    MethodCaller::WebRequest(_) => write!(f, "WebRequest.{member}"),
+                    MethodCaller::WebResponse(_) => write!(f, "WebResponse.{member}"),
+                    MethodCaller::HtmlNode(_) => write!(f, "HtmlNode.{member}"),
+                }
+            },
         }
     }
 }
@@ -386,7 +393,6 @@ impl PartialEq for Object {
             Object::Browser(b) => if let Object::Browser(b2) = other {b == b2} else {false},
             Object::TabWindow(t) => if let Object::TabWindow(t2) = other {t == t2} else {false},
             Object::RemoteObject(r) => if let Object::RemoteObject(r2) = other {r == r2} else {false},
-            Object::BrowserFunction(_) => false,
             Object::Fopen(f1) => if let Object::Fopen(f2) = other {
                 let _tmp = f1.lock().unwrap();
                 let result = f2.try_lock().is_err();
@@ -406,8 +412,14 @@ impl PartialEq for Object {
             Object::WebResponse(res) => {
                 if let Object::WebResponse(res2) = other { res == res2 } else {false}
             },
-            Object::WebFunction(_) => false,
-            Object::HtmlNode(_) => todo!(),
+            Object::HtmlNode(node) => {
+                if let Object::HtmlNode(node2) = other {node == node2} else {false}
+            },
+            Object::MethodCaller(method, member) => {
+                if let Object::MethodCaller(method2, member2) = other {
+                    method == method2 && member == member2
+                } else {false}
+            },
         }
     }
 }
@@ -835,6 +847,7 @@ impl Add for Object {
                 obj.add(rhs)
             }
             // 以下はエラー
+            Object::MethodCaller(_, _) |
             Object::HtmlNode(_) |
             Object::RemoteObject(_) |
             Object::HashTbl(_) |
@@ -869,11 +882,9 @@ impl Add for Object {
             Object::BrowserBuilder(_) |
             Object::Browser(_) |
             Object::TabWindow(_) |
-            Object::BrowserFunction(_) |
             Object::Fopen(_) |
             Object::WebRequest(_) |
             Object::WebResponse(_) |
-            Object::WebFunction(_) |
             Object::Reference(_, _) => {
                 Err(UError::new(
                     UErrorKind::OperatorError,
@@ -929,6 +940,7 @@ impl Sub for Object {
                 obj.sub(rhs)
             }
             // 以下はエラー
+            Object::MethodCaller(_, _) |
             Object::HtmlNode(_) |
             Object::RemoteObject(_) |
             Object::String(_) |
@@ -967,11 +979,9 @@ impl Sub for Object {
             Object::BrowserBuilder(_) |
             Object::Browser(_) |
             Object::TabWindow(_) |
-            Object::BrowserFunction(_) |
             Object::Fopen(_) |
             Object::WebRequest(_) |
             Object::WebResponse(_) |
-            Object::WebFunction(_) |
             Object::Reference(_, _) => {
                 Err(UError::new(
                     UErrorKind::OperatorError,
@@ -1066,6 +1076,7 @@ impl Mul for Object {
                 obj.mul(rhs)
             }
             // 以下はエラー
+            Object::MethodCaller(_, _) |
             Object::HtmlNode(_) |
             Object::RemoteObject(_) |
             Object::Array(_) |
@@ -1102,11 +1113,9 @@ impl Mul for Object {
             Object::BrowserBuilder(_) |
             Object::Browser(_) |
             Object::TabWindow(_) |
-            Object::BrowserFunction(_) |
             Object::Fopen(_) |
             Object::WebRequest(_) |
             Object::WebResponse(_) |
-            Object::WebFunction(_) |
             Object::Reference(_, _) => {
                 Err(UError::new(
                     UErrorKind::OperatorError,
@@ -1182,6 +1191,7 @@ impl Div for Object {
                 obj.div(rhs)
             }
             // 以下はエラー
+            Object::MethodCaller(_, _) |
             Object::HtmlNode(_) |
             Object::RemoteObject(_) |
             Object::Null |
@@ -1219,11 +1229,9 @@ impl Div for Object {
             Object::BrowserBuilder(_) |
             Object::Browser(_) |
             Object::TabWindow(_) |
-            Object::BrowserFunction(_) |
             Object::Fopen(_) |
             Object::WebRequest(_) |
             Object::WebResponse(_) |
-            Object::WebFunction(_) |
             Object::Reference(_, _) => {
                 Err(UError::new(
                     UErrorKind::OperatorError,
@@ -1302,6 +1310,7 @@ impl Rem for Object {
                 obj.rem(rhs)
             }
             // 以下はエラー
+            Object::MethodCaller(_, _) |
             Object::HtmlNode(_) |
             Object::RemoteObject(_) |
             Object::Null |
@@ -1339,11 +1348,9 @@ impl Rem for Object {
             Object::BrowserBuilder(_) |
             Object::Browser(_) |
             Object::TabWindow(_) |
-            Object::BrowserFunction(_) |
             Object::Fopen(_) |
             Object::WebRequest(_) |
             Object::WebResponse(_) |
-            Object::WebFunction(_) |
             Object::Reference(_, _) => {
                 Err(UError::new(
                     UErrorKind::OperatorError,
@@ -1416,6 +1423,7 @@ impl BitOr for Object {
                 obj.bitor(rhs)
             }
             // 以下はエラー
+            Object::MethodCaller(_, _) |
             Object::HtmlNode(_) |
             Object::RemoteObject(_) |
             Object::Null |
@@ -1453,11 +1461,9 @@ impl BitOr for Object {
             Object::BrowserBuilder(_) |
             Object::Browser(_) |
             Object::TabWindow(_) |
-            Object::BrowserFunction(_) |
             Object::Fopen(_) |
             Object::WebRequest(_) |
             Object::WebResponse(_) |
-            Object::WebFunction(_) |
             Object::Reference(_, _) => {
                 Err(UError::new(
                     UErrorKind::OperatorError,
@@ -1529,6 +1535,7 @@ impl BitAnd for Object {
                 obj.bitand(rhs)
             }
             // 以下はエラー
+            Object::MethodCaller(_, _) |
             Object::HtmlNode(_) |
             Object::RemoteObject(_) |
             Object::Null |
@@ -1566,11 +1573,9 @@ impl BitAnd for Object {
             Object::BrowserBuilder(_) |
             Object::Browser(_) |
             Object::TabWindow(_) |
-            Object::BrowserFunction(_) |
             Object::Fopen(_) |
             Object::WebRequest(_) |
             Object::WebResponse(_) |
-            Object::WebFunction(_) |
             Object::Reference(_, _) => {
                 Err(UError::new(
                     UErrorKind::OperatorError,
@@ -1642,6 +1647,7 @@ impl BitXor for Object {
                 obj.bitxor(rhs)
             }
             // 以下はエラー
+            Object::MethodCaller(_, _) |
             Object::HtmlNode(_) |
             Object::RemoteObject(_) |
             Object::Null |
@@ -1679,17 +1685,47 @@ impl BitXor for Object {
             Object::BrowserBuilder(_) |
             Object::Browser(_) |
             Object::TabWindow(_) |
-            Object::BrowserFunction(_) |
             Object::Fopen(_) |
             Object::WebRequest(_) |
             Object::WebResponse(_) |
-            Object::WebFunction(_) |
             Object::Reference(_, _) => {
                 Err(UError::new(
                     UErrorKind::OperatorError,
                     UErrorMessage::LeftSideTypeInvalid(Infix::Plus),
                 ))
             },
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum MethodCaller {
+    BrowserBuilder(Arc<Mutex<BrowserBuilder>>),
+    Browser(Browser),
+    TabWindow(TabWindow),
+    RemoteObject(RemoteObject),
+    WebRequest(Arc<Mutex<WebRequest>>),
+    WebResponse(WebResponse),
+    HtmlNode(HtmlNode),
+}
+
+impl PartialEq for MethodCaller {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::BrowserBuilder(l0), Self::BrowserBuilder(r0)) => {
+                let _tmp = l0.lock().unwrap();
+                r0.try_lock().is_err()
+            },
+            (Self::Browser(l0), Self::Browser(r0)) => l0 == r0,
+            (Self::TabWindow(l0), Self::TabWindow(r0)) => l0 == r0,
+            (Self::RemoteObject(l0), Self::RemoteObject(r0)) => l0 == r0,
+            (Self::WebRequest(l0), Self::WebRequest(r0)) => {
+                let _tmp = l0.lock().unwrap();
+                r0.try_lock().is_err()
+            },
+            (Self::WebResponse(l0), Self::WebResponse(r0)) => l0 == r0,
+            (Self::HtmlNode(l0), Self::HtmlNode(r0)) => l0 == r0,
+            _ => false,
         }
     }
 }

@@ -1302,8 +1302,8 @@ impl Evaluator {
             },
             Expression::Index(l, i, h) => {
                 let left = match *l {
-                    Expression::DotCall(l, r) => {
-                        self.eval_dotcall_expression(*l, *r, false, true)?
+                    Expression::DotCall(left, right) => {
+                        self.eval_object_member(*left, *right)?
                     },
                     e => self.eval_expression(e)?
                 };
@@ -1342,8 +1342,8 @@ impl Evaluator {
             Expression::Ternary {condition, consequence, alternative} => {
                 self.eval_ternary_expression(*condition, *consequence, *alternative)?
             },
-            Expression::DotCall(l, r) => {
-                self.eval_dotcall_expression(*l, *r, false, false)?
+            Expression::DotCall(left, right) => {
+                self.eval_object_member(*left, *right)?
             },
             Expression::UObject(json) => {
                 // 文字列展開する
@@ -2170,10 +2170,10 @@ impl Evaluator {
                     }
                 }
             },
-            Expression::DotCall(left, right) => Ok(
-                self.eval_dotcall_expression(*left, *right, true, false)?
-            ),
-            _ => Ok(self.eval_expression(expression)?)
+            Expression::DotCall(left, right) => {
+                self.eval_object_method(*left, *right)
+            },
+            e => self.eval_expression(e)
         }
     }
 
@@ -2351,67 +2351,6 @@ impl Evaluator {
                 let obj = Object::from_variant(&v)?;
                 Ok(obj)
             },
-            Object::BrowserFunction(func) => {
-                match func.object {
-                    browser::BrowserObject::Browser(browser) => {
-                        let args = arguments.into_iter()
-                            .map(|(_, o)| o)
-                            .collect();
-                        browser.invoke_method(&func.member, args)
-                    },
-                    browser::BrowserObject::TabWindow(tab) => {
-                        let args = arguments.into_iter()
-                            .map(|(_, o)| o)
-                            .collect();
-                        tab.invoke_method(&func.member, args)
-                    },
-                    browser::BrowserObject::RemoteObject(remote) => {
-                        let args = arguments.into_iter()
-                            .map(|(_, o)| browser::RemoteFuncArg::from_object(o))
-                            .collect::<EvalResult<Vec<browser::RemoteFuncArg>>>()?;
-                        remote.invoke_method(&func.member, args, is_await)
-                            .map(|r| r.into())
-                    },
-                    browser::BrowserObject::Builder(mutex_builder) => {
-                        let args = arguments.into_iter()
-                            .map(|(_, o)| o)
-                            .collect();
-                        let maybe_browser = {
-                            let mut builder = mutex_builder.lock().unwrap();
-                            builder.invoke_method(&func.member, args)?
-                        };
-                        let obj = match maybe_browser {
-                            Some(browser) => Object::Browser(browser),
-                            None => Object::BrowserBuilder(mutex_builder),
-                        };
-                        Ok(obj)
-                    },
-                }
-            }
-            Object::WebFunction(func) => {
-                let args = arguments.into_iter()
-                    .map(|(_, o)| o)
-                    .collect();
-                match func {
-                    WebFunction::WebRequest(mutex, name) => {
-                        let maybe_obj = {
-                            let mut req = mutex.lock().unwrap();
-                            req.invoke_method(&name, args)?
-                        };
-                        let obj = match maybe_obj {
-                            Some(obj) => obj,
-                            None => Object::WebRequest(mutex),
-                        };
-                        Ok(obj)
-                    },
-                    WebFunction::WebResponse(res, name) => {
-                        res.invoke_method(&name, args)
-                    },
-                    WebFunction::HtmlNode(node, name) => {
-                        node.invoke_method(&name, args)
-                    },
-                }
-            },
             Object::RemoteObject(ref remote) => {
                 let args = arguments.into_iter()
                     .map(|(_, o)| browser::RemoteFuncArg::from_object(o))
@@ -2419,11 +2358,59 @@ impl Evaluator {
                 remote.invoke_as_function(args, is_await)
                     .map(|r| r.into())
             },
+            Object::MethodCaller(method, member) => {
+                let args = arguments.into_iter()
+                    .map(|(_, o)| o)
+                    .collect();
+                match method {
+                    MethodCaller::BrowserBuilder(mutex) => {
+                        let maybe_browser = {
+                            let mut builder = mutex.lock().unwrap();
+                            builder.invoke_method(&member, args)?
+                        };
+                        let obj = match maybe_browser {
+                            Some(browser) => Object::Browser(browser),
+                            None => Object::BrowserBuilder(mutex),
+                        };
+                        Ok(obj)
+                    },
+                    MethodCaller::Browser(browser) => {
+                        browser.invoke_method(&member, args)
+                    },
+                    MethodCaller::TabWindow(tab) => {
+                        tab.invoke_method(&member, args)
+                    },
+                    MethodCaller::RemoteObject(remote) => {
+                        let args = args.into_iter()
+                            .map(|o| browser::RemoteFuncArg::from_object(o))
+                            .collect::<EvalResult<Vec<browser::RemoteFuncArg>>>()?;
+                        remote.invoke_method(&member, args, is_await)
+                    },
+                    MethodCaller::WebRequest(mutex) => {
+                        let maybe_obj = {
+                            let mut req = mutex.lock().unwrap();
+                            req.invoke_method(&member, args)?
+                        };
+                        let obj = match maybe_obj {
+                            Some(obj) => obj,
+                            None => Object::WebRequest(mutex),
+                        };
+                        Ok(obj)
+                    },
+                    MethodCaller::WebResponse(res) => {
+                        res.invoke_method(&member, args)
+                    },
+                    MethodCaller::HtmlNode(node) => {
+                        node.invoke_method(&member, args)
+                    },
+                }
+            },
             o => Err(UError::new(
                 UErrorKind::EvaluatorError,
                 UErrorMessage::NotAFunction(o),
             )),
         }
+
     }
 
     fn invoke_def_dll_function(&mut self, name: String, dll_path: String, params: Vec<DefDllParam>, ret_type: DllType, arguments: Vec<(Option<Expression>, Object)>) -> EvalResult<Object> {
@@ -2789,7 +2776,15 @@ impl Evaluator {
         }
     }
 
-    fn eval_dotcall_expression(&mut self, left: Expression, right: Expression, is_func: bool, is_com_property: bool) -> EvalResult<Object> {
+    fn eval_object_member(&mut self, left: Expression, right: Expression) -> EvalResult<Object> {
+        let (instance, member) = self.eval_dot_operator(left, right)?;
+        self.get_member(instance, member, false, false)
+    }
+    fn eval_object_method(&mut self, left: Expression, right: Expression) -> EvalResult<Object> {
+        let (instance, member) = self.eval_dot_operator(left, right)?;
+        self.get_member(instance, member, true, true)
+    }
+    fn eval_dot_operator(&mut self, left: Expression, right: Expression) -> EvalResult<(Object, String)> {
         let instance = match left {
             Expression::Identifier(_) |
             Expression::Index(_, _, _) |
@@ -2809,7 +2804,7 @@ impl Evaluator {
                 UErrorMessage::InvalidRightExpression(right)
             ));
         };
-        self.get_member(instance, member, is_func, is_com_property)
+        Ok((instance, member))
     }
     fn get_member(&self, instance: Object, member: String, is_func: bool, is_com_property: bool) -> EvalResult<Object> {
         match instance {
@@ -2839,21 +2834,42 @@ impl Evaluator {
                 UErrorMessage::ClassMemberCannotBeCalledDirectly(name)
             )),
             Object::UObject(u) => {
-                self.eval_uobject(&u, member.into())
+                if is_func {
+                    Err(UError::new(
+                        UErrorKind::UObjectError,
+                        UErrorMessage::CanNotCallMethod(member)
+                    ))
+                } else {
+                    self.eval_uobject(&u, member.into())
+                }
             },
             Object::Enum(e) => {
-                if let Some(n) = e.get(&member) {
-                    Ok(Object::Num(n))
-                } else {
+                if is_func {
                     Err(UError::new(
                         UErrorKind::EnumError,
-                        UErrorMessage::MemberNotFound(member)
+                        UErrorMessage::CanNotCallMethod(member)
                     ))
+                } else {
+                    if let Some(n) = e.get(&member) {
+                        Ok(Object::Num(n))
+                    } else {
+                        Err(UError::new(
+                            UErrorKind::EnumError,
+                            UErrorMessage::MemberNotFound(member)
+                        ))
+                    }
                 }
             },
             Object::UStruct(_, _, m) => {
-                let u = m.lock().unwrap();
-                u.get(member)
+                if is_func {
+                    Err(UError::new(
+                        UErrorKind::UStructError,
+                        UErrorMessage::CanNotCallMethod(member)
+                    ))
+                } else {
+                    let u = m.lock().unwrap();
+                    u.get(member)
+                }
             },
             Object::ComObject(ref disp) => {
                 let obj = if is_func || is_com_property {
@@ -2866,8 +2882,7 @@ impl Evaluator {
             },
             Object::BrowserBuilder(builder) => {
                 if is_func {
-                    let func = browser::BrowserFunction::from_builder(builder, member);
-                    Ok(Object::BrowserFunction(func))
+                    Ok(Object::MethodCaller(MethodCaller::BrowserBuilder(builder), member))
                 } else {
                     Err(UError::new(
                         UErrorKind::BrowserControlError,
@@ -2877,46 +2892,43 @@ impl Evaluator {
             },
             Object::Browser(browser) => {
                 if is_func {
-                    let func = browser::BrowserFunction::from_browser(browser, member);
-                    Ok(Object::BrowserFunction(func))
+                    Ok(Object::MethodCaller(MethodCaller::Browser(browser), member))
                 } else {
                     browser.get_property(&member)
                 }
             },
             Object::TabWindow(tab) => {
                 if is_func {
-                    let func = browser::BrowserFunction::from_tabwindow(tab, member);
-                    Ok(Object::BrowserFunction(func))
+                    Ok(Object::MethodCaller(MethodCaller::TabWindow(tab), member))
                 } else {
                     tab.get_property(&member)
                 }
             },
             Object::RemoteObject(remote) => {
                 if is_func {
-                    let func = browser::BrowserFunction::from_remote_object(remote, member);
-                    Ok(Object::BrowserFunction(func))
+                    Ok(Object::MethodCaller(MethodCaller::RemoteObject(remote), member))
                 } else {
                     remote.get(Some(&member), None)
                 }
             },
-            Object::WebRequest(mutex) => {
+            Object::WebRequest(req) => {
                 if is_func {
-                    Ok(Object::WebFunction(WebFunction::WebRequest(mutex, member)))
+                    Ok(Object::MethodCaller(MethodCaller::WebRequest(req), member))
                 } else {
-                    let req = mutex.lock().unwrap();
+                    let req = req.lock().unwrap();
                     req.get_property(&member)
                 }
             },
             Object::WebResponse(res) => {
                 if is_func {
-                    Ok(Object::WebFunction(WebFunction::WebResponse(res, member)))
+                    Ok(Object::MethodCaller(MethodCaller::WebResponse(res), member))
                 } else {
                     res.get_property(&member)
                 }
             },
             Object::HtmlNode(node) => {
                 if is_func {
-                    Ok(Object::WebFunction(WebFunction::HtmlNode(node, member)))
+                    Ok(Object::MethodCaller(MethodCaller::HtmlNode(node), member))
                 } else {
                     node.get_property(&member)
                 }
@@ -3042,6 +3054,8 @@ impl MouseOrg {
         self.context == MorgContext::Back
     }
 }
+
+
 
 #[cfg(test)]
 mod tests {

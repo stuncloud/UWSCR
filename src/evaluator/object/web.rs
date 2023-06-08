@@ -284,12 +284,6 @@ impl WebArg for Vec<Object> {
             .ok_or(UError::new(UErrorKind::WebRequestError, UErrorMessage::ArgumentIsNotNumber(index+1, obj.to_string())))
     }
 }
-#[derive(Debug, Clone)]
-pub enum WebFunction {
-    WebRequest(Arc<Mutex<WebRequest>>, String),
-    WebResponse(WebResponse, String),
-    HtmlNode(HtmlNode, String),
-}
 
 trait RequestBuilderExt {
     fn set_header(self, headers: &HeaderMap<HeaderValue>) -> Self;
