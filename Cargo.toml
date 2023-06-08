@@ -4,7 +4,7 @@ edition = "2021"
 name = "uwscr"
 version = "0.11.2"
 build = "build.rs"
-rust-version = "1.65"
+rust-version = "1.70"
 
 [features]
 default = []
