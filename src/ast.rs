@@ -424,19 +424,32 @@ pub struct Program(pub BlockStatement, pub Vec<String>); // Vec<String>は行情
 
 #[derive(PartialEq, PartialOrd, Debug, Clone)]
 pub enum Precedence {
+    /// 優先度最低
     Lowest,
-    Assign,         // :=
-    Ternary,        // ?:
-    Or,             // or xor
-    And,            // and
-    Equality,       // == != <>
-    Relational,     // > < >= <=
-    Additive,       // + -
-    Multiplicative, // * / mod
-    Prefix,         // X or !X
-    FuncCall,       // myfunc(x)
-    Index,          // array[index]
-    DotCall,        // hoge.fuga
+    /// :=
+    Assign,
+    /// ?:
+    Ternary,
+    /// or xor
+    Or,
+    /// and
+    And,
+    /// == != <>
+    Equality,
+    /// > < >= <=
+    Relational,
+    /// + -
+    Additive,
+    /// * / mod
+    Multiplicative,
+    /// X or !X
+    Prefix,
+    /// func(x)
+    FuncCall,
+    /// array[index]
+    Index,
+    /// foo.bar
+    DotCall,
 }
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
