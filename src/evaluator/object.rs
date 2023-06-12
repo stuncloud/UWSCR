@@ -53,6 +53,7 @@ use std::ops::{Add, Sub, Mul, Div, Rem, BitOr, BitAnd, BitXor};
 use std::cmp::{Ordering};
 
 use num_traits::Zero;
+use strum_macros::{EnumVariantNames, Display};
 use serde_json::{self, Value};
 
 use super::EvalResult;
@@ -425,6 +426,62 @@ impl PartialEq for Object {
 }
 
 impl Object {
+    pub fn get_type(&self) -> ObjectType {
+        match self {
+            Object::Num(_) => ObjectType::TYPE_NUMBER,
+            Object::String(_) => ObjectType::TYPE_STRING,
+            Object::Bool(_) => ObjectType::TYPE_BOOL,
+            Object::Array(_) => ObjectType::TYPE_ARRAY,
+            Object::HashTbl(_) => ObjectType::TYPE_HASHTBL,
+            Object::AnonFunc(_) => ObjectType::TYPE_ANONYMOUS_FUNCTION,
+            Object::Function(_) => ObjectType::TYPE_FUNCTION,
+            Object::BuiltinFunction(_,_,_) => ObjectType::TYPE_BUILTIN_FUNCTION,
+            Object::AsyncFunction(_) => ObjectType::TYPE_ASYNC_FUNCTION,
+            Object::Module(_) => ObjectType::TYPE_MODULE,
+            Object::Class(_,_) => ObjectType::TYPE_CLASS,
+            Object::Instance(ref m) => {
+                let ins = m.lock().unwrap();
+                if ins.is_dropped {
+                    ObjectType::TYPE_NOTHING
+                } else {
+                    ObjectType::TYPE_CLASS_INSTANCE
+                }
+            },
+            Object::Null => ObjectType::TYPE_NULL,
+            Object::Empty => ObjectType::TYPE_EMPTY,
+            Object::Nothing => ObjectType::TYPE_NOTHING,
+            Object::Handle(_) => ObjectType::TYPE_HWND,
+            Object::RegEx(_) => ObjectType::TYPE_REGEX,
+            Object::This(_) => ObjectType::TYPE_THIS,
+            Object::Global => ObjectType::TYPE_GLOBAL,
+            Object::UObject(_) => ObjectType::TYPE_UOBJECT,
+            Object::Version(_) => ObjectType::TYPE_VERSION,
+            Object::ExpandableTB(_) => ObjectType::TYPE_STRING,
+            Object::Enum(_) => ObjectType::TYPE_ENUM,
+            Object::Task(_) => ObjectType::TYPE_TASK,
+            Object::DefDllFunction(_,_,_,_) => ObjectType::TYPE_DLL_FUNCTION,
+            Object::Struct(_,_,_) => ObjectType::TYPE_STRUCT,
+            Object::UStruct(_,_,_) => ObjectType::TYPE_STRUCT_INSTANCE,
+            Object::ComObject(_) => ObjectType::TYPE_COM_OBJECT,
+            Object::BrowserBuilder(_) => ObjectType::TYPE_BROWSERBUILDER_OBJECT,
+            Object::Browser(_) => ObjectType::TYPE_BROWSER_OBJECT,
+            Object::TabWindow(_) => ObjectType::TYPE_TABWINDOW_OBJECT,
+            Object::RemoteObject(_) => ObjectType::TYPE_REMOTE_OBJECT,
+            Object::Fopen(_) => ObjectType::TYPE_FILE_ID,
+            Object::ByteArray(_) => ObjectType::TYPE_BYTE_ARRAY,
+            Object::Reference(_, _) => ObjectType::TYPE_REFERENCE,
+            Object::WebRequest(_) => ObjectType::TYPE_WEB_REQUEST,
+            Object::WebResponse(_) => ObjectType::TYPE_WEB_RESPONSE,
+            Object::HtmlNode(_) => ObjectType::TYPE_HTML_NODE,
+            Object::MemberCaller(_, _) => ObjectType::TYPE_MEMBER_CALLER,
+
+            Object::EmptyParam |
+            Object::DynamicVar(_) |
+            Object::Continue(_) |
+            Object::Break(_) |
+            Object::Exit => ObjectType::TYPE_NOT_VALUE_TYPE,
+        }
+    }
     pub fn is_equal(&self, other: &Object) -> bool {
         self == other
     }
@@ -1728,4 +1785,52 @@ impl PartialEq for MethodCaller {
             _ => false,
         }
     }
+}
+
+
+#[allow(non_camel_case_types)]
+#[derive(Debug, EnumVariantNames, Display)]
+pub enum ObjectType {
+    TYPE_NUMBER,
+    TYPE_STRING,
+    TYPE_BOOL,
+    TYPE_ARRAY,
+    TYPE_HASHTBL,
+    TYPE_ANONYMOUS_FUNCTION,
+    TYPE_FUNCTION,
+    TYPE_BUILTIN_FUNCTION,
+    TYPE_ASYNC_FUNCTION,
+    TYPE_MODULE,
+    TYPE_CLASS,
+    TYPE_CLASS_INSTANCE,
+    TYPE_NULL,
+    TYPE_EMPTY,
+    TYPE_NOTHING,
+    TYPE_HWND,
+    TYPE_REGEX,
+    TYPE_UOBJECT,
+    TYPE_VERSION,
+    TYPE_THIS,
+    TYPE_GLOBAL,
+    TYPE_ENUM,
+    TYPE_TASK,
+    TYPE_DLL_FUNCTION,
+    TYPE_STRUCT,
+    TYPE_STRUCT_INSTANCE,
+    TYPE_COM_OBJECT,
+    TYPE_VARIANT,
+    TYPE_SAFEARRAY,
+    TYPE_BROWSERBUILDER_OBJECT,
+    TYPE_BROWSER_OBJECT,
+    TYPE_TABWINDOW_OBJECT,
+    TYPE_REMOTE_OBJECT,
+    TYPE_FILE_ID,
+    TYPE_BYTE_ARRAY,
+    TYPE_REFERENCE,
+    TYPE_WEB_REQUEST,
+    TYPE_WEB_RESPONSE,
+    TYPE_HTML_NODE,
+
+    TYPE_MEMBER_CALLER,
+    TYPE_NOT_VALUE_TYPE,
 }

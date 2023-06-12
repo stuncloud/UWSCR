@@ -29,7 +29,7 @@ use crate::evaluator::object::{
     UTask
 };
 use crate::evaluator::Evaluator;
-use crate::evaluator::object::{UObject,Fopen,Function,browser::{RemoteObject, TabWindow}};
+use crate::evaluator::object::{UObject,Fopen,Function,browser::{RemoteObject, TabWindow}, ObjectType};
 use crate::evaluator::environment::NamedObject;
 use crate::evaluator::builtins::key_codes::{SCKeyCode};
 use crate::error::evaluator::{UError,UErrorKind,UErrorMessage};
@@ -734,7 +734,7 @@ pub fn init_builtins() -> Vec<NamedObject> {
     let mut vec = Vec::new();
     // builtin debug functions
     builtin_func_sets().set(&mut vec);
-    set_builtin_str_consts::<VariableType>(&mut vec, "", "");
+    set_builtin_str_consts::<ObjectType>(&mut vec, "", "");
     // hashtbl
     set_builtin_consts::<HashTblEnum>(&mut vec);
     // window_low
@@ -973,115 +973,9 @@ pub fn panic(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     panic!("{msg}");
 }
 
-#[allow(non_camel_case_types)]
-#[derive(Debug, EnumVariantNames, Display)]
-pub enum VariableType {
-    TYPE_NUMBER,
-    TYPE_STRING,
-    TYPE_BOOL,
-    TYPE_ARRAY,
-    TYPE_HASHTBL,
-    TYPE_ANONYMOUS_FUNCTION,
-    TYPE_FUNCTION,
-    TYPE_BUILTIN_FUNCTION,
-    TYPE_ASYNC_FUNCTION,
-    TYPE_MODULE,
-    TYPE_CLASS,
-    TYPE_CLASS_INSTANCE,
-    TYPE_NULL,
-    TYPE_EMPTY,
-    TYPE_NOTHING,
-    TYPE_HWND,
-    TYPE_REGEX,
-    TYPE_UOBJECT,
-    TYPE_VERSION,
-    TYPE_THIS,
-    TYPE_GLOBAL,
-    TYPE_ENUM,
-    TYPE_TASK,
-    TYPE_DLL_FUNCTION,
-    TYPE_STRUCT,
-    TYPE_STRUCT_INSTANCE,
-    TYPE_COM_OBJECT,
-    TYPE_VARIANT,
-    TYPE_SAFEARRAY,
-    TYPE_BROWSERBUILDER_OBJECT,
-    TYPE_BROWSER_OBJECT,
-    TYPE_TABWINDOW_OBJECT,
-    TYPE_REMOTE_OBJECT,
-    // TYPE_ELEMENT_OBJECT,
-    TYPE_FILE_ID,
-    TYPE_BYTE_ARRAY,
-    TYPE_REFERENCE,
-    TYPE_WEB_REQUEST,
-    TYPE_WEB_RESPONSE,
-    TYPE_HTML_NODE,
-
-    TYPE_METHOD_CALLER,
-
-    TYPE_NOT_VALUE_TYPE,
-}
-
 pub fn type_of(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let arg = args.get_as_object(0, None)?;
-    let t = match arg {
-        Object::Num(_) => VariableType::TYPE_NUMBER,
-        Object::String(_) => VariableType::TYPE_STRING,
-        Object::Bool(_) => VariableType::TYPE_BOOL,
-        Object::Array(_) => VariableType::TYPE_ARRAY,
-        Object::HashTbl(_) => VariableType::TYPE_HASHTBL,
-        Object::AnonFunc(_) => VariableType::TYPE_ANONYMOUS_FUNCTION,
-        Object::Function(_) => VariableType::TYPE_FUNCTION,
-        Object::BuiltinFunction(_,_,_) => VariableType::TYPE_BUILTIN_FUNCTION,
-        Object::AsyncFunction(_) => VariableType::TYPE_ASYNC_FUNCTION,
-        Object::Module(_) => VariableType::TYPE_MODULE,
-        Object::Class(_,_) => VariableType::TYPE_CLASS,
-        Object::Instance(ref m) => {
-            let ins = m.lock().unwrap();
-            if ins.is_dropped {
-                VariableType::TYPE_NOTHING
-            } else {
-                VariableType::TYPE_CLASS_INSTANCE
-            }
-        },
-        Object::Null => VariableType::TYPE_NULL,
-        Object::Empty => VariableType::TYPE_EMPTY,
-        Object::Nothing => VariableType::TYPE_NOTHING,
-        Object::Handle(_) => VariableType::TYPE_HWND,
-        Object::RegEx(_) => VariableType::TYPE_REGEX,
-        Object::This(_) => VariableType::TYPE_THIS,
-        Object::Global => VariableType::TYPE_GLOBAL,
-        Object::UObject(_) => VariableType::TYPE_UOBJECT,
-        Object::Version(_) => VariableType::TYPE_VERSION,
-        Object::ExpandableTB(_) => VariableType::TYPE_STRING,
-        Object::Enum(_) => VariableType::TYPE_ENUM,
-        Object::Task(_) => VariableType::TYPE_TASK,
-        Object::DefDllFunction(_,_,_,_) => VariableType::TYPE_DLL_FUNCTION,
-        Object::Struct(_,_,_) => VariableType::TYPE_STRUCT,
-        Object::UStruct(_,_,_) => VariableType::TYPE_STRUCT_INSTANCE,
-        Object::ComMember(_, _) |
-        Object::ComObject(_) => VariableType::TYPE_COM_OBJECT,
-        Object::Variant(_) => VariableType::TYPE_VARIANT,
-        Object::SafeArray(_) => VariableType::TYPE_SAFEARRAY,
-        Object::BrowserBuilder(_) => VariableType::TYPE_BROWSERBUILDER_OBJECT,
-        Object::Browser(_) => VariableType::TYPE_BROWSER_OBJECT,
-        Object::TabWindow(_) => VariableType::TYPE_TABWINDOW_OBJECT,
-        Object::RemoteObject(_) => VariableType::TYPE_REMOTE_OBJECT,
-        Object::Fopen(_) => VariableType::TYPE_FILE_ID,
-        Object::ByteArray(_) => VariableType::TYPE_BYTE_ARRAY,
-        Object::Reference(_, _) => VariableType::TYPE_REFERENCE,
-        Object::WebRequest(_) => VariableType::TYPE_WEB_REQUEST,
-        Object::WebResponse(_) => VariableType::TYPE_WEB_RESPONSE,
-        Object::HtmlNode(_) => VariableType::TYPE_HTML_NODE,
-        Object::MethodCaller(_, _) => VariableType::TYPE_METHOD_CALLER,
-
-        Object::EmptyParam |
-        Object::VarArgument(_) |
-        Object::DynamicVar(_) |
-        Object::Continue(_) |
-        Object::Break(_) |
-        Object::Exit => VariableType::TYPE_NOT_VALUE_TYPE,
-    };
+    let t = arg.get_type();
     Ok(Object::String(t.to_string()))
 }
 
