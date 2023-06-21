@@ -1,5 +1,5 @@
 use windows::{
-    core::HSTRING,
+    core::{HSTRING, PWSTR},
     Win32::{
         Foundation::{HANDLE, HGLOBAL},
         System::{
@@ -8,7 +8,7 @@ use windows::{
                 GetClipboardData, SetClipboardData, EmptyClipboard
             },
             Memory::{
-                GlobalLock, GlobalUnlock, GlobalSize, GlobalFree,
+                GlobalLock, GlobalUnlock,
                 GlobalAlloc, GMEM_MOVEABLE,
             },
             Ole::{
@@ -24,7 +24,6 @@ use crate::error::evaluator::{
     UErrorKind::ClipboardError,
     UErrorMessage::FailedToOpenClipboard,
 };
-use crate::winapi::from_wide_string;
 
 pub struct Clipboard;
 
@@ -43,12 +42,10 @@ impl Clipboard {
             if IsClipboardFormatAvailable(CF_UNICODETEXT.0 as u32).as_bool() {
                 let handle = GetClipboardData(CF_UNICODETEXT.0 as u32).ok()?;
                 let hmem = HGLOBAL(handle.0);
-                let len = GlobalSize(hmem);
                 let ptr = GlobalLock(hmem) as *mut u16;
-                let wide = std::slice::from_raw_parts(ptr, len / 2 - 1);
-                let str = from_wide_string(&wide);
-                GlobalUnlock(hmem);
-                GlobalFree(hmem).ok()?;
+                let pwstr = PWSTR::from_raw(ptr);
+                let str = pwstr.to_hstring().ok()?.to_string_lossy();
+                GlobalUnlock(hmem).as_bool();
                 Some(str)
             } else {
                 None
@@ -67,9 +64,7 @@ impl Clipboard {
                 let dst = GlobalLock(hmem) as _;
                 std::ptr::copy_nonoverlapping(src, dst, hstring.len());
                 GlobalUnlock(hmem);
-                let result = SetClipboardData(CF_UNICODETEXT.0 as u32, HANDLE(hmem.0)).is_ok();
-                let _ = GlobalFree(hmem);
-                result
+                SetClipboardData(CF_UNICODETEXT.0 as u32, HANDLE(hmem.0)).is_ok()
             } else {
                 false
             }
