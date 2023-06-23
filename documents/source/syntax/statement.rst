@@ -2875,64 +2875,193 @@ print
 COMオブジェクト
 ---------------
 
-書式について
-^^^^^^^^^^^^
+| :func:`createoleobj`, :func:`getactiveoleobj` により取得可能
+| またCOMオブジェクトのプロパティやメソッドが別のCOMオブジェクトを返す場合もあります
 
-| COMオブジェクトのメンバへのアクセス方法
+プロパティの取得
+^^^^^^^^^^^^^^^^
 
-- プロパティ
+| ``COMオブジェクト.プロパティ名`` でプロパティの値を取得できます
 
-    .. sourcecode:: uwscr
-
-        // 値の取得
-        print obj.foo
-        // 代入
-        obj.foo = "hoge"
-
-- 引数付きプロパティ
-
-    | ``[]`` または ``()`` に添え字を入れる
+プロパティ取得
+++++++++++++++
 
     .. sourcecode:: uwscr
 
-        // 値の取得
-        print obj.foo[0]
-        print obj.foo(0)
-        print obj.bar["fuga"]
-        print obj.bar("fuga")
-        // 代入は[]のみ
-        obj.foo[0] = "hoge"
-        obj.bar["fuga"] = "fuga"
-        // ()の場合は取得した値との比較になるため代入できない
-        obj.foo(0) = "hoge" // true or false
+        ws = createoleobj("WScript.Shell")
+        print ws.CurrentDirectory // 現在のワーキングフォルダのパスが表示される
 
-- メソッド
+
+インデックス指定
+++++++++++++++++
 
     .. sourcecode:: uwscr
 
-        print obj.baz()
-        print obj.qux(hoge)
-        dim fuga
-        print obj.quux(var fuga) // fugaで値を受ける
-        print fuga
+        ws = createoleobj("WScript.Shell")
+        print ws.Environment.item["windir"] // %SystemRoot%
+        print ws.Environment.item("windir") // () も可
 
-- ``Item()`` プロパティの糖衣構文
+コレクションに対するインデックス指定
+++++++++++++++++++++++++++++++++++++
 
-    | COMオブジェクトに直接 ``[]`` または ``()`` をつけた場合 ``Item()`` と同等
+    | COMオブジェクトがコレクションの場合、インデックス指定で要素を得られる
+    | Item(i)の糖衣構文として実装されているため、Itemメソッドを持たない場合はエラーになる
 
     .. sourcecode:: uwscr
 
-        print obj.Item(0)
-        // ↑同じ↓
-        print obj(0)
+        ws = createoleobj("WScript.Shell")
+        // ws.SpecialFoldersはIWshCollectionというコレクション
+        print ws.SpecialFolders[0] // いずれかの特殊フォルダのパスが表示される
+        print ws.SpecialFolders(0) // ()でもOK
+        // これらは以下と同じ
+        print ws.SpecialFolders.Item(0)
 
-        // []の場合代入もできる
-        obj.Item[0] = "hoge"
-        // ↑同じ↓
-        obj[0] = "hoge"
+プロパティの変更
+^^^^^^^^^^^^^^^^
+
+| プロパティに対して値を代入することでプロパティを変更できます
+
+代入
+++++
+
+.. sourcecode:: uwscr
+
+    ws = createoleobj("WScript.Shell")
+    print ws.CurrentDirectory // 元々のカレントディレクトリ
+    ws.CurrentDirectory = "D:\Hoge"
+    print ws.CurrentDirectory // D:\Hoge
+
+インデックス指定による代入
+++++++++++++++++++++++++++
+
+.. sourcecode:: uwscr
+
+    excel = createoleobj("Excel.Application")
+    excel.visible = TRUE
+    excel.Workbooks.Add()
+
+    range = excel.ActiveSheet.Range("A1:A2")
+    // A1に値を代入
+    range[1].Value = "hoge"
+    print range[1].Value // hoge
+    // A2にA1を代入
+    range[2] = range[1]
+    print range[2].Value // hoge
+
+メソッドの実行
+^^^^^^^^^^^^^^
+
+| ``COMオブジェクト.メソッド名([引数, 引数, ...])`` でメソッドを実行できます
+| 通常の引数に加え、名前付き引数(``名前 := 値``)や参照渡し(``ref 変数``)が利用可能です
+
+名前なし引数
+++++++++++++
+
+.. sourcecode:: uwscr
+
+    ws = createoleobj("WScript.Shell")
+    print ws.Popup("テキスト", 0, "タイトル")
+
+名前付き引数
+++++++++++++
+
+    | 名前を指定してメソッドに引数を渡すことができます
+    | ``引数名 := 値`` と記述します
+
+    .. sourcecode:: uwscr
+
+        ws = createoleobj("WScript.Shell")
+        print ws.Popup(Text := "テキスト", Title := "タイトル")
+
+        // 名前なし引数との併記
+        // 名前なし引数は正しい位置に書く必要がある
+        print ws.Popup("テキスト", Title := "タイトル")
+
+        // 名前付き引数のあとに名前なしは書けない
+        print ws.Popup(Text := "テキスト", 0, "タイトル") // エラー
+
+参照渡し
+++++++++
+
+    | ``ref`` または ``var`` キーワードで参照渡しになります
+
+    .. sourcecode:: uwscr
+
+        // uwscr x86でのみ動作
+
+        sc = createoleobj("ScriptControl")
+        sc.language = "VBScript"
+        sc.ExecuteStatement(script)
+
+        dim n = 50
+        print sc.CodeObject.Hoge(ref n) // 50
+        print n                         // 100
+
+        textblock script
+        Function Hoge(ByRef n)
+            Hoge = n '引数をそのまま返す
+            n = 100  '引数の値を更新する
+        End Function
+        endtextblock
+
+一部のWMIオブジェクトのメソッドについて
++++++++++++++++++++++++++++++++++++++++
+
+.. admonition:: 一部WMIメソッドの注意点
+    :class: important
+
+    | 一部のWMIオブジェクトのメソッドは通常のCOMオブジェクトのようなメソッド実行ができません
+    | このようなメソッドに対しては内部で自動的にWMIオブジェクトのメソッド実行処理に切り替わります
+    | この場合以下の制限があります
+
+    - 名前付き引数が利用できません
+
+    | 該当するWMIオブジェクトは以下になります
+
+    - ISWbemObject
+    - ISWbemObjectEx
+
+    | 以下は実行例です
+
+    .. sourcecode:: uwscr
+
+        dim hDefKey = $80000002
+        dim sSubKeyName = "SOFTWARE\Microsoft\Windows NT\CurrentVersion\"
+        dim sValueName = "CurrentVersion"
+
+        locator = CreateOleObj("Wbemscripting.SWbemLocator")
+        service = locator.ConnectServer("", "root\default")
+        stdRegProv = service.Get("StdRegProv")
+        print stdRegProv // ComObject(ISWbemObjectEx)
+
+        // stdRegProv.GetStringValueは通常の実行ができないためWMIメソッド処理で実行される
+        dim sValue
+        print stdRegProv.GetStringValue(hDefKey, sSubKeyName, sValueName, ref sValue)
+        print sValue
+
+        // 上記のメソッド実行は以下のコードと同等の処理を内部的に行っています
+        inparam = stdRegProv.Methods_.Item("GetStringValue").InParameters.SpawnInstance_()
+        inparam.hDefKey = hDefKey
+        inparam.sSubKeyName = sSubKeyName
+        inparam.sValueName = sValueName
+        out = stdRegProv.ExecMethod_("GetStringValue", inparam)
+        print out.ReturnValue
+        print out.sValue
+
+型の確認
+^^^^^^^^
+
+| COMオブジェクトをprintすることで型の名前を確認できます
+| オブジェクトがコレクションの場合は ``型名[]`` と表示されます
+
+.. sourcecode:: uwscr
+
+    ws = createoleobj("WScript.Shell")
+    print ws                // ComObject(IWshShell3)
+    print ws.specialfolders // ComObject(IWshCollection[])
 
 COM_ERR_IGN-COM_ERR_RET
-+++++++++++++++++++++++
+^^^^^^^^^^^^^^^^^^^^^^^
 
 | COMエラーの発生を無視して処理を続行させることができます
 
@@ -3135,13 +3264,7 @@ COM_ERR_IGN-COM_ERR_RET
       - yes
     * - COMオブジェクト
       - createoleobj/getactiveoleobj
-      - no
-    * - VARIANT
-      - COMで使われる値型
-      - no
-    * - SafeArray
-      - COMで使われる配列
-      - no
+      - yes
     * - BrowserBuilderオブジェクト
       - 起動するブラウザを構成するためのオブジェクト
       - yes

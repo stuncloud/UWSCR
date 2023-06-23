@@ -1916,7 +1916,7 @@ impl Parser {
                 // var <Identifier> とならなければいけない
                 self.bump();
                 match self.parse_expression(Precedence::Lowest, false) {
-                    Some(e) => return Some(Expression::VarArgument(Box::new(e))),
+                    Some(e) => return Some(Expression::RefArg(Box::new(e))),
                     None => {
                         self.errors.push(ParseError::new(
                             ParseErrorKind::MissingIdentifierAfterVar,

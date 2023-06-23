@@ -42,7 +42,7 @@ use std::string::ToString;
 use cast;
 use strum::{VariantNames, EnumProperty};
 use num_traits::{ToPrimitive, FromPrimitive};
-use strum_macros::{Display, EnumVariantNames, EnumProperty};
+use strum_macros::{EnumProperty};
 
 pub type BuiltinFunction = fn(&mut Evaluator, BuiltinFuncArgs) -> BuiltinFuncResult;
 pub type BuiltinFuncResult = Result<Object, BuiltinFuncError>;

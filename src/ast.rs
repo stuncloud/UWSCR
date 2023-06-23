@@ -185,10 +185,9 @@ pub enum Expression {
     UObject(String),
     /// COM_ERR_FLG
     ComErrFlg,
-    /// COM関数のvar引数
-    ///
-    /// 0. var 式
-    VarArgument(Box<Expression>),
+    /// COMメソッドの参照渡し
+    /// 1. var 式 または ref 式
+    RefArg(Box<Expression>),
     /// 省略された引数
     /// func( , )
     EmptyArgument,
@@ -229,7 +228,7 @@ impl fmt::Display for Expression {
             Expression::DotCall(l, r) => write!(f, "{}.{}", l, r),
             Expression::UObject(o) => write!(f, "{}", o),
             Expression::ComErrFlg => write!(f, ""),
-            Expression::VarArgument(a) => write!(f, "var {}", a),
+            Expression::RefArg(a) => write!(f, "var {}", a),
             Expression::EmptyArgument => write!(f, ""),
         }
     }

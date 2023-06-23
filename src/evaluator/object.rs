@@ -1,6 +1,5 @@
 pub mod hashtbl;
 pub mod version;
-pub mod variant;
 pub mod utask;
 pub mod ustruct;
 pub mod module;
@@ -10,10 +9,10 @@ pub mod fopen;
 pub mod class;
 pub mod browser;
 mod web;
+mod comobject;
 
 pub use self::hashtbl::{HashTbl, HashTblEnum};
 pub use self::version::Version;
-pub use self::variant::Variant;
 pub use self::utask::UTask;
 pub use self::ustruct::{UStruct, UStructMember};
 pub use self::module::Module;
@@ -23,6 +22,7 @@ pub use self::fopen::*;
 pub use self::class::ClassInstance;
 use browser::{BrowserBuilder, Browser, TabWindow, RemoteObject};
 pub use web::{WebRequest, WebResponse, HtmlNode};
+pub use comobject::{ComObject, ComError, ComArg};
 
 use crate::ast::*;
 use crate::evaluator::environment::Layer;
@@ -30,18 +30,11 @@ use crate::evaluator::builtins::{
     BuiltinFunction,
     system_controls::gettime::datetime_str_to_f64,
 };
-use crate::evaluator::com_object::VARIANTHelper;
 use crate::error::evaluator::{UError, UErrorKind, UErrorMessage};
 
 use windows::{
     Win32::{
         Foundation::HWND,
-        System::{
-            Com::{
-                IDispatch,
-                SAFEARRAY,
-            }
-        },
     }
 };
 
@@ -93,14 +86,7 @@ pub enum Object {
     DefDllFunction(String, String, Vec<DefDllParam>, DllType), // 関数名, dllパス, 引数の型, 戻り値の型
     Struct(String, usize, Vec<(String, DllType)>), // 構造体定義: name, size, [(member name, type)]
     UStruct(String, usize, Arc<Mutex<UStruct>>), // 構造体インスタンス
-    ComObject(IDispatch),
-    ComMember(IDispatch, String),
-    Variant(Variant),
-    // ComObject(Arc<Mutex<IDispatch>>),
-    // Variant(Arc<Mutex<VARIANT>>),
-    SafeArray(SAFEARRAY),
-    /// COMメソッドのvar引数
-    VarArgument(Expression),
+    ComObject(ComObject),
     BrowserBuilder(Arc<Mutex<BrowserBuilder>>),
     Browser(Browser),
     TabWindow(TabWindow),
@@ -115,7 +101,7 @@ pub enum Object {
     WebResponse(WebResponse),
     HtmlNode(HtmlNode),
     /// 組み込みオブジェクトのメソッド呼び出し
-    MethodCaller(MethodCaller, String)
+    MemberCaller(MemberCaller, String)
 }
 impl std::fmt::Debug for Object {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -152,11 +138,6 @@ impl std::fmt::Debug for Object {
             Object::DefDllFunction(arg0, arg1, arg2, arg3) => f.debug_tuple("DefDllFunction").field(arg0).field(arg1).field(arg2).field(arg3).finish(),
             Object::Struct(arg0, arg1, arg2) => f.debug_tuple("Struct").field(arg0).field(arg1).field(arg2).finish(),
             Object::UStruct(arg0, arg1, arg2) => f.debug_tuple("UStruct").field(arg0).field(arg1).field(arg2).finish(),
-            Object::ComObject(arg0) => f.debug_tuple("ComObject").field(arg0).finish(),
-            Object::ComMember(arg0, arg1) => f.debug_tuple("ComMember").field(arg0).field(arg1).finish(),
-            Object::Variant(arg0) => f.debug_tuple("Variant").field(arg0).finish(),
-            Object::SafeArray(arg0) => f.debug_tuple("SafeArray").field(arg0).finish(),
-            Object::VarArgument(arg0) => f.debug_tuple("VarArgument").field(arg0).finish(),
             Object::BrowserBuilder(arg0) => f.debug_tuple("BrowserBuilder").field(arg0).finish(),
             Object::Browser(arg0) => f.debug_tuple("Browser").field(arg0).finish(),
             Object::TabWindow(arg0) => f.debug_tuple("TabWindow").field(arg0).finish(),
@@ -167,7 +148,8 @@ impl std::fmt::Debug for Object {
             Object::WebRequest(arg0) => f.debug_tuple("WebRequest").field(arg0).finish(),
             Object::WebResponse(arg0) => f.debug_tuple("WebResponse").field(arg0).finish(),
             Object::HtmlNode(_) => todo!(),
-            Object::MethodCaller(_, _) => todo!(),
+            Object::MemberCaller(_, _) => todo!(),
+            Object::ComObject(_) => todo!(),
         }
     }
 }
@@ -254,11 +236,6 @@ impl fmt::Display for Object {
             //     let u = m.lock().unwrap();
             //     write!(f, "{:?}", u)
             // },
-            Object::ComObject(d) => write!(f, "{:?}", d),
-            Object::ComMember(_, _) => write!(f, "Com member"),
-            Object::Variant(v) => write!(f, "Variant({})", v.0.vt().0),
-            Object::SafeArray(_) => write!(f, "SafeArray"),
-            Object::VarArgument(_) => write!(f, "var"),
             Object::BrowserBuilder(_) => write!(f, "BrowserBuilder"),
             Object::Browser(b) => write!(f, "Browser: {b})"),
             Object::TabWindow(t) => write!(f, "TabWindow: {t}"),
@@ -275,17 +252,19 @@ impl fmt::Display for Object {
             },
             Object::WebResponse(res) => write!(f, "{res}"),
             Object::HtmlNode(node) => write!(f, "{node}"),
-            Object::MethodCaller(method, member) => {
+            Object::MemberCaller(method, member) => {
                 match method {
-                    MethodCaller::BrowserBuilder(_) => write!(f, "BrowserBuilder.{member}"),
-                    MethodCaller::Browser(_) => write!(f, "Browser.{member}"),
-                    MethodCaller::TabWindow(_) => write!(f, "TabWindow.{member}"),
-                    MethodCaller::RemoteObject(_) => write!(f, "RemoteObject.{member}"),
-                    MethodCaller::WebRequest(_) => write!(f, "WebRequest.{member}"),
-                    MethodCaller::WebResponse(_) => write!(f, "WebResponse.{member}"),
-                    MethodCaller::HtmlNode(_) => write!(f, "HtmlNode.{member}"),
+                    MemberCaller::BrowserBuilder(_) => write!(f, "BrowserBuilder.{member}"),
+                    MemberCaller::Browser(_) => write!(f, "Browser.{member}"),
+                    MemberCaller::TabWindow(_) => write!(f, "TabWindow.{member}"),
+                    MemberCaller::RemoteObject(_) => write!(f, "RemoteObject.{member}"),
+                    MemberCaller::WebRequest(_) => write!(f, "WebRequest.{member}"),
+                    MemberCaller::WebResponse(_) => write!(f, "WebResponse.{member}"),
+                    MemberCaller::HtmlNode(_) => write!(f, "HtmlNode.{member}"),
+                    MemberCaller::ComObject(_) => write!(f, "ComObject.{member}"),
                 }
             },
+            Object::ComObject(com) => write!(f, "{com}"),
         }
     }
 }
@@ -378,15 +357,6 @@ impl PartialEq for Object {
                 let is_same_struct = u2.try_lock().is_err();
                 n==n2 && s==s2 && is_same_struct
             } else {false},
-            Object::ComObject(d) => if let Object::ComObject(d2) = other {
-                format!("{:?}", d) == format!("{:?}", d2)
-            } else {false},
-            Object::ComMember(d, n) => if let Object::ComMember(d2,n2) = other {
-                format!("{:?}.{}", d, n) == format!("{:?}.{}", d2, n2)
-            } else {false},
-            Object::Variant(v) => if let Object::Variant(v2) = other {v == v2} else {false},
-            Object::SafeArray(_) => false,
-            Object::VarArgument(e) => if let Object::VarArgument(e2) = other {e==e2} else {false},
             Object::BrowserBuilder(b) => if let Object::BrowserBuilder(b2) = other {
                 let _tmp = b.lock().unwrap();
                 b2.try_lock().is_err()
@@ -416,11 +386,14 @@ impl PartialEq for Object {
             Object::HtmlNode(node) => {
                 if let Object::HtmlNode(node2) = other {node == node2} else {false}
             },
-            Object::MethodCaller(method, member) => {
-                if let Object::MethodCaller(method2, member2) = other {
+            Object::MemberCaller(method, member) => {
+                if let Object::MemberCaller(method2, member2) = other {
                     method == method2 && member == member2
                 } else {false}
             },
+            Object::ComObject(com1) => {
+                if let Object::ComObject(com2) = other {com1 == com2} else {false}
+            }
         }
     }
 }
@@ -541,9 +514,9 @@ impl Object {
     /// - Variant
     fn to_uwscr_object(self) -> Result<Object, UError> {
         match self {
-            Object::Variant(v) => {
-                Object::from_variant(&v.0)
-            },
+            // Object::Variant(v) => {
+            //     Object::from_variant(&v.0)
+            // },
             obj => Ok(obj)
         }
     }
@@ -899,12 +872,9 @@ impl Add for Object {
                     ))
                 }
             },
-            Object::Variant(_) => {
-                let obj = self.to_uwscr_object()?;
-                obj.add(rhs)
-            }
             // 以下はエラー
-            Object::MethodCaller(_, _) |
+            Object::ComObject(_) |
+            Object::MemberCaller(_, _) |
             Object::HtmlNode(_) |
             Object::RemoteObject(_) |
             Object::HashTbl(_) |
@@ -932,10 +902,6 @@ impl Add for Object {
             Object::DefDllFunction(_, _, _, _) |
             Object::Struct(_, _, _) |
             Object::UStruct(_, _, _) |
-            Object::ComObject(_) |
-            Object::ComMember(_, _) |
-            Object::SafeArray(_) |
-            Object::VarArgument(_) |
             Object::BrowserBuilder(_) |
             Object::Browser(_) |
             Object::TabWindow(_) |
@@ -992,12 +958,9 @@ impl Sub for Object {
                     ))
                 }
             },
-            Object::Variant(_) => {
-                let obj = self.to_uwscr_object()?;
-                obj.sub(rhs)
-            }
             // 以下はエラー
-            Object::MethodCaller(_, _) |
+            Object::ComObject(_) |
+            Object::MemberCaller(_, _) |
             Object::HtmlNode(_) |
             Object::RemoteObject(_) |
             Object::String(_) |
@@ -1029,10 +992,6 @@ impl Sub for Object {
             Object::DefDllFunction(_, _, _, _) |
             Object::Struct(_, _, _) |
             Object::UStruct(_, _, _) |
-            Object::ComObject(_) |
-            Object::ComMember(_, _) |
-            Object::SafeArray(_) |
-            Object::VarArgument(_) |
             Object::BrowserBuilder(_) |
             Object::Browser(_) |
             Object::TabWindow(_) |
@@ -1128,12 +1087,9 @@ impl Mul for Object {
                     ))
                 }
             },
-            Object::Variant(_) => {
-                let obj = self.to_uwscr_object()?;
-                obj.mul(rhs)
-            }
             // 以下はエラー
-            Object::MethodCaller(_, _) |
+            Object::ComObject(_) |
+            Object::MemberCaller(_, _) |
             Object::HtmlNode(_) |
             Object::RemoteObject(_) |
             Object::Array(_) |
@@ -1163,10 +1119,6 @@ impl Mul for Object {
             Object::DefDllFunction(_, _, _, _) |
             Object::Struct(_, _, _) |
             Object::UStruct(_, _, _) |
-            Object::ComObject(_) |
-            Object::ComMember(_, _) |
-            Object::SafeArray(_) |
-            Object::VarArgument(_) |
             Object::BrowserBuilder(_) |
             Object::Browser(_) |
             Object::TabWindow(_) |
@@ -1243,12 +1195,9 @@ impl Div for Object {
                     ))
                 }
             },
-            Object::Variant(_) => {
-                let obj = self.to_uwscr_object()?;
-                obj.div(rhs)
-            }
             // 以下はエラー
-            Object::MethodCaller(_, _) |
+            Object::ComObject(_) |
+            Object::MemberCaller(_, _) |
             Object::HtmlNode(_) |
             Object::RemoteObject(_) |
             Object::Null |
@@ -1279,10 +1228,6 @@ impl Div for Object {
             Object::DefDllFunction(_, _, _, _) |
             Object::Struct(_, _, _) |
             Object::UStruct(_, _, _) |
-            Object::ComObject(_) |
-            Object::ComMember(_, _) |
-            Object::SafeArray(_) |
-            Object::VarArgument(_) |
             Object::BrowserBuilder(_) |
             Object::Browser(_) |
             Object::TabWindow(_) |
@@ -1362,12 +1307,9 @@ impl Rem for Object {
                     ))
                 }
             },
-            Object::Variant(_) => {
-                let obj = self.to_uwscr_object()?;
-                obj.rem(rhs)
-            }
             // 以下はエラー
-            Object::MethodCaller(_, _) |
+            Object::ComObject(_) |
+            Object::MemberCaller(_, _) |
             Object::HtmlNode(_) |
             Object::RemoteObject(_) |
             Object::Null |
@@ -1398,10 +1340,6 @@ impl Rem for Object {
             Object::DefDllFunction(_, _, _, _) |
             Object::Struct(_, _, _) |
             Object::UStruct(_, _, _) |
-            Object::ComObject(_) |
-            Object::ComMember(_, _) |
-            Object::SafeArray(_) |
-            Object::VarArgument(_) |
             Object::BrowserBuilder(_) |
             Object::Browser(_) |
             Object::TabWindow(_) |
@@ -1475,12 +1413,9 @@ impl BitOr for Object {
                     ))
                 }
             },
-            Object::Variant(_) => {
-                let obj = self.to_uwscr_object()?;
-                obj.bitor(rhs)
-            }
             // 以下はエラー
-            Object::MethodCaller(_, _) |
+            Object::ComObject(_) |
+            Object::MemberCaller(_, _) |
             Object::HtmlNode(_) |
             Object::RemoteObject(_) |
             Object::Null |
@@ -1511,10 +1446,6 @@ impl BitOr for Object {
             Object::DefDllFunction(_, _, _, _) |
             Object::Struct(_, _, _) |
             Object::UStruct(_, _, _) |
-            Object::ComObject(_) |
-            Object::ComMember(_, _) |
-            Object::SafeArray(_) |
-            Object::VarArgument(_) |
             Object::BrowserBuilder(_) |
             Object::Browser(_) |
             Object::TabWindow(_) |
@@ -1587,12 +1518,9 @@ impl BitAnd for Object {
                     ))
                 }
             },
-            Object::Variant(_) => {
-                let obj = self.to_uwscr_object()?;
-                obj.bitand(rhs)
-            }
             // 以下はエラー
-            Object::MethodCaller(_, _) |
+            Object::ComObject(_) |
+            Object::MemberCaller(_, _) |
             Object::HtmlNode(_) |
             Object::RemoteObject(_) |
             Object::Null |
@@ -1623,10 +1551,6 @@ impl BitAnd for Object {
             Object::DefDllFunction(_, _, _, _) |
             Object::Struct(_, _, _) |
             Object::UStruct(_, _, _) |
-            Object::ComObject(_) |
-            Object::ComMember(_, _) |
-            Object::SafeArray(_) |
-            Object::VarArgument(_) |
             Object::BrowserBuilder(_) |
             Object::Browser(_) |
             Object::TabWindow(_) |
@@ -1699,12 +1623,9 @@ impl BitXor for Object {
                     ))
                 }
             },
-            Object::Variant(_) => {
-                let obj = self.to_uwscr_object()?;
-                obj.bitxor(rhs)
-            }
             // 以下はエラー
-            Object::MethodCaller(_, _) |
+            Object::ComObject(_) |
+            Object::MemberCaller(_, _) |
             Object::HtmlNode(_) |
             Object::RemoteObject(_) |
             Object::Null |
@@ -1735,10 +1656,6 @@ impl BitXor for Object {
             Object::DefDllFunction(_, _, _, _) |
             Object::Struct(_, _, _) |
             Object::UStruct(_, _, _) |
-            Object::ComObject(_) |
-            Object::ComMember(_, _) |
-            Object::SafeArray(_) |
-            Object::VarArgument(_) |
             Object::BrowserBuilder(_) |
             Object::Browser(_) |
             Object::TabWindow(_) |
@@ -1756,7 +1673,7 @@ impl BitXor for Object {
 }
 
 #[derive(Debug, Clone)]
-pub enum MethodCaller {
+pub enum MemberCaller {
     BrowserBuilder(Arc<Mutex<BrowserBuilder>>),
     Browser(Browser),
     TabWindow(TabWindow),
@@ -1764,9 +1681,10 @@ pub enum MethodCaller {
     WebRequest(Arc<Mutex<WebRequest>>),
     WebResponse(WebResponse),
     HtmlNode(HtmlNode),
+    ComObject(ComObject),
 }
 
-impl PartialEq for MethodCaller {
+impl PartialEq for MemberCaller {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::BrowserBuilder(l0), Self::BrowserBuilder(r0)) => {
@@ -1782,6 +1700,7 @@ impl PartialEq for MethodCaller {
             },
             (Self::WebResponse(l0), Self::WebResponse(r0)) => l0 == r0,
             (Self::HtmlNode(l0), Self::HtmlNode(r0)) => l0 == r0,
+            (Self::ComObject(l0), Self::ComObject(r0)) => l0 == r0,
             _ => false,
         }
     }

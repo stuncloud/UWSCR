@@ -1,7 +1,6 @@
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
 use crate::evaluator::Evaluator;
-use crate::evaluator::com_object::{SAFEARRAYHelper};
 use crate::error::evaluator::UErrorMessage::BuiltinArgCastError;
 use crate::winapi::{
     get_ansi_length, from_ansi_bytes, to_ansi_bytes, contains_unicode_char,
@@ -72,10 +71,6 @@ pub fn length(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
         Object::UStruct(_, n, _) => n,
         Object::Empty => 0,
         Object::Null => 1,
-        Object::SafeArray(ref s) => {
-            let get_dim = args.get_as_bool(1, Some(false))?;
-            s.len(get_dim)?
-        },
         Object::ByteArray(ref arr) => arr.len(),
         Object::RemoteObject(ref remote) => {
             let len = remote.length()?;

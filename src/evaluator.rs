@@ -2,14 +2,13 @@ pub mod object;
 pub mod environment;
 pub mod builtins;
 pub mod def_dll;
-pub mod com_object;
 
+use crate::com::Com;
 use crate::ast::*;
 use crate::evaluator::environment::*;
 use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
 use crate::evaluator::def_dll::*;
-use crate::evaluator::com_object::*;
 use crate::evaluator::builtins::system_controls::{POFF, poff::{sign_out, power_off, shutdown, reboot}};
 use crate::error::UWSCRErrorTitle;
 use crate::error::evaluator::{UError, UErrorKind, UErrorMessage};
@@ -22,14 +21,6 @@ use crate::winapi::{attach_console,free_console,show_message,FORCE_WINDOW_MODE};
 use windows::{
     Win32::{
         Foundation::{HWND},
-        System::{
-            Com::{
-                // COINIT_APARTMENTTHREADED,
-                // COINIT_MULTITHREADED,
-                IDispatch,
-                // CoInitializeEx, CoUninitialize,
-            },
-        },
     },
 };
 
@@ -753,6 +744,7 @@ impl Evaluator {
             Object::ByteArray(arr) => arr.iter().map(|n| Object::Num(*n as f64)).collect(),
             Object::Browser(b) => b.get_tabs()?.into_iter().map(|t| Object::TabWindow(t)).collect(),
             Object::RemoteObject(remote) => remote.to_object_vec()?,
+            Object::ComObject(com) => com.to_object_vec()?,
             _ => return Err(UError::new(
                 UErrorKind::SyntaxError,
                 UErrorMessage::ForInError
@@ -1127,9 +1119,12 @@ impl Evaluator {
             };
             thread::spawn(move || {
                 // このスレッドでのCOMを有効化
-                if let Err(_) = com_object::com_initialize() {
-                    panic!("Failed to initialize COM on new thread");
-                }
+                let com = match Com::init() {
+                    Ok(com) => com,
+                    Err(_) => {
+                        panic!("Failed to initialize COM on new thread");
+                    }
+                };
                 let old_hook = panic::take_hook();
                 let uerror = Arc::new(Mutex::new(None::<UError>));
                 let uerror2 = uerror.clone();
@@ -1168,6 +1163,8 @@ impl Evaluator {
                     std::process::exit(0);
                 }));
                 let result = evaluator.eval_function_call_expression(func, args, false);
+                evaluator.clear_local();
+                com.uninit();
                 if let Err(e) = result {
                     {
                         let mut m = uerror.lock().unwrap();
@@ -1177,8 +1174,6 @@ impl Evaluator {
                 } else {
                     panic::set_hook(old_hook);
                 }
-                evaluator.clear_local();
-                com_object::com_uninitialize();
             });
         }
         Ok(None)
@@ -1303,7 +1298,7 @@ impl Evaluator {
             Expression::Index(l, i, h) => {
                 let left = match *l {
                     Expression::DotCall(left, right) => {
-                        self.eval_object_member(*left, *right)?
+                        self.eval_object_member(*left, *right, true)?
                     },
                     e => self.eval_expression(e)?
                 };
@@ -1343,7 +1338,7 @@ impl Evaluator {
                 self.eval_ternary_expression(*condition, *consequence, *alternative)?
             },
             Expression::DotCall(left, right) => {
-                self.eval_object_member(*left, *right)?
+                self.eval_object_member(*left, *right, false)?
             },
             Expression::UObject(json) => {
                 // 文字列展開する
@@ -1361,7 +1356,7 @@ impl Evaluator {
             },
             Expression::ComErrFlg => Object::Bool(self.com_err_flg),
             Expression::EmptyArgument => Object::EmptyParam,
-            Expression::VarArgument(e) => Object::VarArgument(*e),
+            Expression::RefArg(e) => self.eval_expr(*e)?,
         };
         Ok(obj)
     }
@@ -1491,7 +1486,7 @@ impl Evaluator {
     }
 
     fn get_index_value(&mut self, left: Object, index: Object, hash_enum: Option<Object>) -> EvalResult<Object> {
-        let obj = match &left {
+        let obj = match left {
             Object::Array(ref a) => if hash_enum.is_some() {
                 return Err(UError::new(
                     UErrorKind::EvaluatorError,
@@ -1565,34 +1560,10 @@ impl Evaluator {
                     UErrorMessage::InvalidKeyOrIndex(format!("[{}, {}]", index, hash_enum.unwrap())),
                 ));
             } else {
-                self.eval_uobject(u, index)?
+                self.eval_uobject(&u, index)?
             },
-            Object::ComMember(ref disp, ref member) => {
-                let key = index.to_variant()?;
-                let keys = vec![key];
-                let v = disp.get(member, Some(keys))?;
-                Object::from_variant(&v)?
-            },
-            Object::ComObject(ref disp) => {
-                // Item(key) の糖衣構文
-                let key = index.to_variant()?;
-                let keys = vec![key];
-                let v = disp.get("Item", Some(keys))?;
-                Object::from_variant(&v)?
-            },
-            Object::SafeArray(mut sa) => if hash_enum.is_some() {
-                return Err(UError::new(
-                    UErrorKind::EvaluatorError,
-                    UErrorMessage::InvalidKeyOrIndex(format!("[{}, {}]", index, hash_enum.unwrap()))
-                ));
-            } else if let Object::Num(i) = index {
-                let v = sa.get(i as i32)?;
-                Object::from_variant(&v)?
-            } else {
-                return Err(UError::new(
-                    UErrorKind::EvaluatorError,
-                    UErrorMessage::InvalidIndex(index),
-                ))
+            Object::ComObject(com) => {
+                com.get_by_index(vec![index])?
             },
             Object::ByteArray(arr) => if hash_enum.is_some() {
                 return Err(UError::new(
@@ -1625,6 +1596,28 @@ impl Evaluator {
                         UErrorKind::EvaluatorError,
                         UErrorMessage::InvalidIndex(index)
                     ))
+                }
+            },
+            Object::MemberCaller(ref method, ref name) => {
+                match method {
+                    MemberCaller::RemoteObject(remote) => {
+                        let index = index.to_string();
+                        remote.get(Some(&name), Some(&index))?
+                    },
+                    MemberCaller::ComObject(com) => {
+                        com.get_property_by_index(name, vec![index.clone()])?
+                    },
+                    MemberCaller::BrowserBuilder(_) |
+                    MemberCaller::Browser(_) |
+                    MemberCaller::TabWindow(_) |
+                    MemberCaller::WebRequest(_) |
+                    MemberCaller::WebResponse(_) |
+                    MemberCaller::HtmlNode(_) => {
+                        return Err(UError::new(
+                            UErrorKind::DotOperatorError,
+                            UErrorMessage::NotAnArray(left)
+                        ))
+                    },
                 }
             },
             o => return Err(UError::new(
@@ -1724,6 +1717,9 @@ impl Evaluator {
     /// メンバ配列要素の更新
     fn update_member_array(&mut self, expr_object: Expression, expr_member: Expression, expr_index: Expression, dimensions: Option<Vec<Object>>, new: Object) -> EvalResult<()> {
         let index = self.eval_expression(expr_index)?;
+        let Expression::Identifier(Identifier(member)) = expr_member else {
+            return Err(UError::new(UErrorKind::AssignError, UErrorMessage::MemberShouldBeIdentifier));
+        };
         let dimension = match dimensions {
             Some(mut d) => {
                 d.push(index.clone());
@@ -1735,53 +1731,24 @@ impl Evaluator {
         match instance {
             Object::Module(mutex) |
             Object::This(mutex) => {
-                match expr_member {
-                    Expression::Identifier(Identifier(name)) => {
-                        mutex.lock().unwrap().assign(&name, new, dimension)?;
-                    },
-                    _ => return Err(UError::new(
-                        UErrorKind::AssignError,
-                        UErrorMessage::SyntaxError
-                    ))
-                }
+                mutex.lock().unwrap().assign(&member, new, dimension)?;
             },
             Object::Instance(mutex) => {
-                if let Expression::Identifier(Identifier(name)) = expr_member {
-                    let ins = mutex.lock().unwrap();
-                    let mut module = ins.module.lock().unwrap();
-                    module.assign(&name, new, dimension)?;
-                } else {
-                    return Err(UError::new(
-                        UErrorKind::AssignError,
-                        UErrorMessage::SyntaxError
-                    ));
-                }
+                let ins = mutex.lock().unwrap();
+                let mut module = ins.module.lock().unwrap();
+                module.assign(&member, new, dimension)?;
             },
             // Value::Array
             Object::UObject(uo) => {
-                if let Expression::Identifier(Identifier(name)) = expr_member {
-                    let new_value = Self::object_to_serde_value(new)?;
-                    uo.set(index, new_value, Some(name))?;
-                } else {
-                    return Err(UError::new(
-                        UErrorKind::AssignError,
-                        UErrorMessage::SyntaxError
-                    ));
-                }
+                let new_value = Self::object_to_serde_value(new)?;
+                uo.set(index, new_value, Some(member))?;
             },
-            Object::ComObject(ref disp) => {
-                if let Expression::Identifier(Identifier(member)) = expr_member {
-                    let key = index.to_variant()?;
-                    let keys = vec![key];
-                    let var_value = new.to_variant()?;
-                    disp.set(&member, var_value, Some(keys))?;
-                }
+            Object::ComObject(com) => {
+                com.set_property_by_index(&member, index, new)?;
             },
             Object::RemoteObject(ref remote) => {
-                if let Expression::Identifier(Identifier(name)) = expr_member {
-                    let value = Self::object_to_serde_value(new)?;
-                    remote.set(Some(&name), Some(&index.to_string()), value.into())?;
-                }
+                let value = Self::object_to_serde_value(new)?;
+                remote.set(Some(&member), Some(&index.to_string()), value.into())?;
             },
             o => return Err(UError::new(
                 UErrorKind::DotOperatorError,
@@ -1887,25 +1854,9 @@ impl Evaluator {
                 }
                 Ok((None, false))
             },
-            Object::ComObject(disp) => {
-                // Item(key) の糖衣構文
-                let key = index.to_variant()?;
-                let keys = vec![key];
-                let var_value = new.to_variant()?;
-                disp.set("Item", var_value, Some(keys))?;
-                Ok((Some(Object::ComObject(disp)), true))
-            },
-            Object::SafeArray(mut sa) => {
-                if let Object::Num(i) = index {
-                    let mut var_value = new.to_variant()?;
-                    sa.set(i as i32, &mut var_value)?;
-                    Ok((Some(Object::SafeArray(sa)), true))
-                } else {
-                    Err(UError::new(
-                        UErrorKind::AssignError,
-                        UErrorMessage::InvalidIndex(index)
-                    ))
-                }
+            Object::ComObject(com) => {
+                com.set_by_index(index, new.to_owned())?;
+                Ok((None, false))
             },
             Object::ByteArray(mut arr) => {
                 let Object::Num(i) = index else {
@@ -2008,10 +1959,9 @@ impl Evaluator {
                     ));
                 }
             },
-            Object::ComObject(ref disp) => {
-                if let Expression::Identifier(Identifier(name)) = expr_member {
-                    let var_arg = new.to_variant()?;
-                    disp.set(&name, var_arg, None)?;
+            Object::ComObject(com) => {
+                if let Expression::Identifier(Identifier(prop)) = expr_member {
+                    com.set_property(&prop, new)?;
                 } else {
                     return Err(UError::new(
                         UErrorKind::DotOperatorError,
@@ -2196,12 +2146,9 @@ impl Evaluator {
         // 関数を非同期実行し、UTaskを返す
         let handle = thread::spawn(move || {
             // このスレッドでのCOMを有効化
-            com_object::com_initialize()?;
-
+            let com = Com::init()?;
             let ret = func.invoke(&mut task_self, arguments, false);
-
-            com_object::com_uninitialize();
-
+            com.uninit();
             ret
         });
         let task = UTask {
@@ -2270,145 +2217,152 @@ impl Evaluator {
     }
 
     fn eval_function_call_expression(&mut self, func: Box<Expression>, args: Vec<Expression>, is_await: bool) -> EvalResult<Object> {
-        type Argument = (Option<Expression>, Object);
-        let mut arguments: Vec<Argument> = vec![];
-        for arg in args {
-            arguments.push((Some(arg.clone()), self.eval_expression(arg)?));
-        }
-
         let func_object = self.eval_expression_for_func_call(*func)?;
-        match func_object {
-            Object::Function(f) => f.invoke(self, arguments, false),
-            Object::AsyncFunction(f) => {
-                let task = self.new_task(f, arguments);
-                if is_await {
-                    self.await_task(task)
-                } else {
-                    Ok(Object::Task(task))
+        if let Object::MemberCaller(MemberCaller::ComObject(com), member) = func_object {
+            // COMのメソッド呼び出し
+            let mut comargs = ComObject::to_comarg(self, args)?;
+            let obj =  com.invoke_method(&member, &mut comargs)?;
+            for arg in comargs {
+                if let ComArg::ByRef(left, value) = arg {
+                    self.eval_assign_expression(left, value)?;
                 }
-            },
-            Object::AnonFunc(f) => f.invoke(self, arguments, false),
-            Object::BuiltinFunction(name, expected_len, builtin) => {
-                if expected_len >= arguments.len() as i32 {
-                    builtin(self, BuiltinFuncArgs::new(arguments, is_await))
-                        .map_err(|err| err.to_uerror(name))
-                } else {
-                    let l = arguments.len();
-                    Err(UError::new(
-                        UErrorKind::BuiltinFunctionError(name),
-                        UErrorMessage::TooManyArguments(l, expected_len as usize)
-                    ))
-                }
-            },
-            // class constructor
-            Object::Class(name, block) => {
-                let m = self.eval_module_statement(&name, block)?;
-                let constructor = {
-                    let module = m.lock().unwrap();
-                    match module.get_constructor() {
-                        Some(constructor) => {
-                            constructor
-                        },
-                        None => return Err(UError::new(
-                            UErrorKind::ClassError,
-                            UErrorMessage::ConstructorNotDefined(name.clone()),
-                        )),
+            }
+            Ok(obj)
+        } else {
+            // COMメソッド以外の関数呼び出し
+            let arguments = args.into_iter()
+                .map(|arg| Ok((Some(arg.clone()), self.eval_expression(arg)?)))
+                .collect::<EvalResult<Vec<(Option<Expression>, Object)>>>()?;
+            match func_object {
+                Object::Function(f) => f.invoke(self, arguments, false),
+                Object::AsyncFunction(f) => {
+                    let task = self.new_task(f, arguments);
+                    if is_await {
+                        self.await_task(task)
+                    } else {
+                        Ok(Object::Task(task))
                     }
-                };
-                constructor.invoke(self, arguments, true)?;
-                let ins = Arc::new(Mutex::new(ClassInstance::new(name, m, self.clone())));
-                Ok(Object::Instance(ins))
-            },
-            Object::Struct(name, size, members) => {
-                let ustruct =match arguments.len() {
-                    0 => self.new_ustruct(&name, size, members, None)?,
-                    1 => match arguments[0].1 {
-                        Object::Num(n) => self.new_ustruct(&name, size, members, Some(n as usize))?,
-                        _ => return Err(UError::new(
-                            UErrorKind::UStructError,
-                            UErrorMessage::InvalidStructArgument(name)
+                },
+                Object::AnonFunc(f) => f.invoke(self, arguments, false),
+                Object::BuiltinFunction(name, expected_len, builtin) => {
+                    if expected_len >= arguments.len() as i32 {
+                        builtin(self, BuiltinFuncArgs::new(arguments, is_await))
+                            .map_err(|err| err.to_uerror(name))
+                    } else {
+                        let l = arguments.len();
+                        Err(UError::new(
+                            UErrorKind::BuiltinFunctionError(name),
+                            UErrorMessage::TooManyArguments(l, expected_len as usize)
                         ))
-                    },
-                    n => return Err(UError::new(
-                        UErrorKind::UStructError,
-                        UErrorMessage::TooManyArguments(n, 1)
-                    ))
-                };
-                Ok(ustruct)
-            },
-            Object::DefDllFunction(name, dll_path, params, ret_type) => {
-                self.invoke_def_dll_function(name, dll_path, params, ret_type, arguments)
-            },
-            Object::ComMember(ref disp, name) => self.invoke_com_function(disp, &name, arguments),
-            Object::ComObject(ref disp) => {
-                // Item(key)の糖衣構文
-                let mut keys = vec![];
-                for (_, obj) in arguments {
-                    let key = obj.to_variant()?;
-                    keys.push(key)
-                }
-                let v = disp.get("Item", Some(keys))?;
-                let obj = Object::from_variant(&v)?;
-                Ok(obj)
-            },
-            Object::RemoteObject(ref remote) => {
-                let args = arguments.into_iter()
-                    .map(|(_, o)| browser::RemoteFuncArg::from_object(o))
-                    .collect::<EvalResult<Vec<browser::RemoteFuncArg>>>()?;
-                remote.invoke_as_function(args, is_await)
-                    .map(|r| r.into())
-            },
-            Object::MethodCaller(method, member) => {
-                let args = arguments.into_iter()
-                    .map(|(_, o)| o)
-                    .collect();
-                match method {
-                    MethodCaller::BrowserBuilder(mutex) => {
-                        let maybe_browser = {
-                            let mut builder = mutex.lock().unwrap();
-                            builder.invoke_method(&member, args)?
-                        };
-                        let obj = match maybe_browser {
-                            Some(browser) => Object::Browser(browser),
-                            None => Object::BrowserBuilder(mutex),
-                        };
-                        Ok(obj)
-                    },
-                    MethodCaller::Browser(browser) => {
-                        browser.invoke_method(&member, args)
-                    },
-                    MethodCaller::TabWindow(tab) => {
-                        tab.invoke_method(&member, args)
-                    },
-                    MethodCaller::RemoteObject(remote) => {
-                        let args = args.into_iter()
-                            .map(|o| browser::RemoteFuncArg::from_object(o))
-                            .collect::<EvalResult<Vec<browser::RemoteFuncArg>>>()?;
-                        remote.invoke_method(&member, args, is_await)
-                    },
-                    MethodCaller::WebRequest(mutex) => {
-                        let maybe_obj = {
-                            let mut req = mutex.lock().unwrap();
-                            req.invoke_method(&member, args)?
-                        };
-                        let obj = match maybe_obj {
-                            Some(obj) => obj,
-                            None => Object::WebRequest(mutex),
-                        };
-                        Ok(obj)
-                    },
-                    MethodCaller::WebResponse(res) => {
-                        res.invoke_method(&member, args)
-                    },
-                    MethodCaller::HtmlNode(node) => {
-                        node.invoke_method(&member, args)
-                    },
-                }
-            },
-            o => Err(UError::new(
-                UErrorKind::EvaluatorError,
-                UErrorMessage::NotAFunction(o),
-            )),
+                    }
+                },
+                // class constructor
+                Object::Class(name, block) => {
+                    let m = self.eval_module_statement(&name, block)?;
+                    let constructor = {
+                        let module = m.lock().unwrap();
+                        match module.get_constructor() {
+                            Some(constructor) => {
+                                constructor
+                            },
+                            None => return Err(UError::new(
+                                UErrorKind::ClassError,
+                                UErrorMessage::ConstructorNotDefined(name.clone()),
+                            )),
+                        }
+                    };
+                    constructor.invoke(self, arguments, true)?;
+                    let ins = Arc::new(Mutex::new(ClassInstance::new(name, m, self.clone())));
+                    Ok(Object::Instance(ins))
+                },
+                Object::Struct(name, size, members) => {
+                    let ustruct =match arguments.len() {
+                        0 => self.new_ustruct(&name, size, members, None)?,
+                        1 => match arguments[0].1 {
+                            Object::Num(n) => self.new_ustruct(&name, size, members, Some(n as usize))?,
+                            _ => return Err(UError::new(
+                                UErrorKind::UStructError,
+                                UErrorMessage::InvalidStructArgument(name)
+                            ))
+                        },
+                        n => return Err(UError::new(
+                            UErrorKind::UStructError,
+                            UErrorMessage::TooManyArguments(n, 1)
+                        ))
+                    };
+                    Ok(ustruct)
+                },
+                Object::DefDllFunction(name, dll_path, params, ret_type) => {
+                    self.invoke_def_dll_function(name, dll_path, params, ret_type, arguments)
+                },
+                Object::ComObject(com) => {
+                    let index = arguments.into_iter().map(|(_, o)| o).collect();
+                    let obj = com.get_by_index(index)?;
+                    Ok(obj)
+                },
+                Object::RemoteObject(ref remote) => {
+                    let args = arguments.into_iter()
+                        .map(|(_, o)| browser::RemoteFuncArg::from_object(o))
+                        .collect::<EvalResult<Vec<browser::RemoteFuncArg>>>()?;
+                    remote.invoke_as_function(args, is_await)
+                        .map(|r| r.into())
+                },
+                Object::MemberCaller(method, member) => {
+                    let args = arguments.into_iter()
+                        .map(|(_, arg)| arg)
+                        .collect();
+                    match method {
+                        MemberCaller::BrowserBuilder(mutex) => {
+                            let maybe_browser = {
+                                let mut builder = mutex.lock().unwrap();
+                                builder.invoke_method(&member, args)?
+                            };
+                            let obj = match maybe_browser {
+                                Some(browser) => Object::Browser(browser),
+                                None => Object::BrowserBuilder(mutex),
+                            };
+                            Ok(obj)
+                        },
+                        MemberCaller::Browser(browser) => {
+                            browser.invoke_method(&member, args)
+                        },
+                        MemberCaller::TabWindow(tab) => {
+                            tab.invoke_method(&member, args)
+                        },
+                        MemberCaller::RemoteObject(remote) => {
+                            let args = args.into_iter()
+                                .map(|o| browser::RemoteFuncArg::from_object(o))
+                                .collect::<EvalResult<Vec<browser::RemoteFuncArg>>>()?;
+                            remote.invoke_method(&member, args, is_await)
+                        },
+                        MemberCaller::WebRequest(mutex) => {
+                            let maybe_obj = {
+                                let mut req = mutex.lock().unwrap();
+                                req.invoke_method(&member, args)?
+                            };
+                            let obj = match maybe_obj {
+                                Some(obj) => obj,
+                                None => Object::WebRequest(mutex),
+                            };
+                            Ok(obj)
+                        },
+                        MemberCaller::WebResponse(res) => {
+                            res.invoke_method(&member, args)
+                        },
+                        MemberCaller::HtmlNode(node) => {
+                            node.invoke_method(&member, args)
+                        },
+                        MemberCaller::ComObject(_) => {
+                            // ここには来ない
+                            Err(UError::new(UErrorKind::DotOperatorError, UErrorMessage::None))
+                        }
+                    }
+                },
+                o => Err(UError::new(
+                    UErrorKind::EvaluatorError,
+                    UErrorMessage::NotAFunction(o),
+                )),
+            }
         }
 
     }
@@ -2741,32 +2695,6 @@ impl Evaluator {
         Ok(t)
     }
 
-    fn invoke_com_function(&mut self, disp: &IDispatch, name: &str, arguments: Vec<(Option<Expression>, Object)>) -> EvalResult<Object> {
-        let mut var_index = vec![];
-        let mut var_args = vec![];
-        for (_, obj) in arguments {
-            let v = if let Object::VarArgument(e) = obj {
-                let o = self.eval_expression(e.clone())?;
-                let i = var_args.len();
-                var_index.push((i, e));
-                o.to_variant()?
-            } else {
-                obj.to_variant()?
-            };
-            var_args.push(v);
-        }
-
-        let result = disp.run(name, &mut var_args)?;
-        if var_index.len() > 0 {
-            for (i, e) in var_index {
-                let var = &var_args[i];
-                let o = Object::from_variant(var)?;
-                self.eval_assign_expression(e, o)?;
-            }
-        }
-        Ok(Object::from_variant(&result)?)
-    }
-
     fn eval_ternary_expression(&mut self, condition: Expression, consequence: Expression, alternative: Expression) -> EvalResult<Object> {
         let condition = self.eval_expression(condition)?;
         if condition.is_truthy() {
@@ -2776,9 +2704,9 @@ impl Evaluator {
         }
     }
 
-    fn eval_object_member(&mut self, left: Expression, right: Expression) -> EvalResult<Object> {
+    fn eval_object_member(&mut self, left: Expression, right: Expression, is_indexed_property: bool) -> EvalResult<Object> {
         let (instance, member) = self.eval_dot_operator(left, right)?;
-        self.get_member(instance, member, false, false)
+        self.get_member(instance, member, false, is_indexed_property)
     }
     fn eval_object_method(&mut self, left: Expression, right: Expression) -> EvalResult<Object> {
         let (instance, member) = self.eval_dot_operator(left, right)?;
@@ -2806,7 +2734,7 @@ impl Evaluator {
         };
         Ok((instance, member))
     }
-    fn get_member(&self, instance: Object, member: String, is_func: bool, is_com_property: bool) -> EvalResult<Object> {
+    fn get_member(&self, instance: Object, member: String, is_func: bool, is_indexed_property: bool) -> EvalResult<Object> {
         match instance {
             Object::Module(m) => {
                 self.get_module_member(&m, &member, is_func)
@@ -2871,18 +2799,17 @@ impl Evaluator {
                     u.get(member)
                 }
             },
-            Object::ComObject(ref disp) => {
-                let obj = if is_func || is_com_property {
-                    Object::ComMember(disp.clone(), member)
+            Object::ComObject(com) => {
+                if is_func || is_indexed_property {
+                    Ok(Object::MemberCaller(MemberCaller::ComObject(com), member))
                 } else {
-                    let v = disp.get(&member, None)?;
-                    Object::from_variant(&v)?
-                };
-                Ok(obj)
+                    let obj = com.get_property(&member)?;
+                    Ok(obj)
+                }
             },
             Object::BrowserBuilder(builder) => {
                 if is_func {
-                    Ok(Object::MethodCaller(MethodCaller::BrowserBuilder(builder), member))
+                    Ok(Object::MemberCaller(MemberCaller::BrowserBuilder(builder), member))
                 } else {
                     Err(UError::new(
                         UErrorKind::BrowserControlError,
@@ -2892,28 +2819,28 @@ impl Evaluator {
             },
             Object::Browser(browser) => {
                 if is_func {
-                    Ok(Object::MethodCaller(MethodCaller::Browser(browser), member))
+                    Ok(Object::MemberCaller(MemberCaller::Browser(browser), member))
                 } else {
                     browser.get_property(&member)
                 }
             },
             Object::TabWindow(tab) => {
                 if is_func {
-                    Ok(Object::MethodCaller(MethodCaller::TabWindow(tab), member))
+                    Ok(Object::MemberCaller(MemberCaller::TabWindow(tab), member))
                 } else {
                     tab.get_property(&member)
                 }
             },
             Object::RemoteObject(remote) => {
-                if is_func {
-                    Ok(Object::MethodCaller(MethodCaller::RemoteObject(remote), member))
+                if is_func || is_indexed_property {
+                    Ok(Object::MemberCaller(MemberCaller::RemoteObject(remote), member))
                 } else {
                     remote.get(Some(&member), None)
                 }
             },
             Object::WebRequest(req) => {
                 if is_func {
-                    Ok(Object::MethodCaller(MethodCaller::WebRequest(req), member))
+                    Ok(Object::MemberCaller(MemberCaller::WebRequest(req), member))
                 } else {
                     let req = req.lock().unwrap();
                     req.get_property(&member)
@@ -2921,14 +2848,14 @@ impl Evaluator {
             },
             Object::WebResponse(res) => {
                 if is_func {
-                    Ok(Object::MethodCaller(MethodCaller::WebResponse(res), member))
+                    Ok(Object::MemberCaller(MemberCaller::WebResponse(res), member))
                 } else {
                     res.get_property(&member)
                 }
             },
             Object::HtmlNode(node) => {
                 if is_func {
-                    Ok(Object::MethodCaller(MethodCaller::HtmlNode(node), member))
+                    Ok(Object::MemberCaller(MemberCaller::HtmlNode(node), member))
                 } else {
                     node.get_property(&member)
                 }
@@ -3054,7 +2981,6 @@ impl MouseOrg {
         self.context == MorgContext::Back
     }
 }
-
 
 
 #[cfg(test)]

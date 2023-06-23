@@ -3,12 +3,12 @@ use std::env;
 
 use crate::evaluator::environment::Environment;
 use crate::evaluator::object::Object;
-use crate::evaluator::com_object::{com_initialize, com_uninitialize};
 use crate::evaluator::Evaluator;
 use crate::parser::Parser;
 use crate::error::parser::ParseErrorKind;
 use crate::lexer::Lexer;
 use crate::script::{get_parent_full_path, get_script_name};
+use crate::com::Com;
 
 pub fn run(script: Option<String>, exe_path: String, script_path: Option<String>) {
     match get_parent_full_path(&exe_path) {
@@ -43,10 +43,13 @@ pub fn run(script: Option<String>, exe_path: String, script_path: Option<String>
     }
 
     // このスレッドでのCOMを有効化
-    if let Err(e) = com_initialize() {
-        eprintln!("failed to initialize COM: {e}");
-        return;
-    }
+    let _com = match Com::init() {
+        Ok(com) => com,
+        Err(e) => {
+            eprintln!("failed to initialize COM: {e}");
+            return;
+        },
+    };
 
     let env = Environment::new(vec![]);
     let mut evaluator = Evaluator::new(env);
@@ -121,8 +124,5 @@ pub fn run(script: Option<String>, exe_path: String, script_path: Option<String>
             }
         }
     }
-
-    // COM解除
-    com_uninitialize();
 }
 

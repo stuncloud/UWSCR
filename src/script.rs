@@ -3,7 +3,7 @@ use std::env;
 
 use crate::evaluator::environment::Environment;
 use crate::evaluator::Evaluator;
-use crate::evaluator::com_object::{com_initialize, com_uninitialize};
+use crate::com::Com;
 use crate::parser::*;
 use crate::lexer::Lexer;
 use crate::winapi::{
@@ -66,9 +66,12 @@ pub fn run(script: String, exe_path: &str, script_path: &str, params: Vec<String
     }
 
     // このスレッドでのCOMを有効化
-    if let Err(e) = com_initialize() {
-        return Err(vec![e.to_string()]);
-    }
+    let com = match Com::init() {
+        Ok(com) => com,
+        Err(e) => {
+            return Err(vec![e.to_string()]);
+        },
+    };
 
     let env = Environment::new(params);
     let mut evaluator = Evaluator::new(env);
@@ -79,10 +82,9 @@ pub fn run(script: String, exe_path: &str, script_path: &str, params: Vec<String
         return Err(vec![line.to_string(), e.to_string()])
     }
     Evaluator::stop_logprint_win();
+    com.uninit();
     free_console();
 
-    // COM解除
-    com_uninitialize();
     Ok(())
 }
 
@@ -95,9 +97,12 @@ pub fn run_code(code: String) -> Result<(), Vec<String>> {
     }
 
     // このスレッドでのCOMを有効化
-    if let Err(e) = com_initialize() {
-        return Err(vec![e.to_string()]);
-    }
+    let com = match Com::init() {
+        Ok(com) => com,
+        Err(e) => {
+            return Err(vec![e.to_string()]);
+        },
+    };
 
     let env = Environment::new(vec![]);
     let mut evaluator = Evaluator::new(env);
@@ -105,8 +110,7 @@ pub fn run_code(code: String) -> Result<(), Vec<String>> {
         let line = &e.get_line();
         return Err(vec![line.to_string(), e.to_string()])
     }
-    // COM解除
-    com_uninitialize();
+    com.uninit();
     Ok(())
 }
 

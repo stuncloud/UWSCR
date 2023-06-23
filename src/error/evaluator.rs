@@ -190,6 +190,9 @@ pub enum UErrorKind {
     ClipboardError,
     Poff(POFF, bool),
     HtmlNodeError,
+    VariantError,
+    ComArgError,
+    ComCollectionError,
 }
 
 impl fmt::Display for UErrorKind {
@@ -380,6 +383,18 @@ impl fmt::Display for UErrorKind {
                 "HtmlNodeエラー",
                 "HtmlNode error",
             ),
+            Self::VariantError => write_locale!(f,
+                "VARIANT変換エラー",
+                "VARIANT conversion error",
+            ),
+            Self::ComArgError => write_locale!(f,
+                "COMメソッド呼び出しエラー",
+                "COM method error",
+            ),
+            Self::ComCollectionError => write_locale!(f,
+                "COMコレクションエラー",
+                "COM collection error",
+            ),
         }
     }
 }
@@ -522,6 +537,15 @@ pub enum UErrorMessage {
     RemoteObjectDoesNotHaveValidLength,
     RemoteObjectIsNotPrimitiveValue,
     CanNotCallMethod(String),
+    MemberShouldBeIdentifier,
+    FromVariant(u16),
+    ToVariant(String),
+    InvalidComMethodArgOrder,
+    NamedArgNotFound(String),
+    FailedToConvertToCollection,
+    VariantIsNotIDispatch,
+    NamedArgNotAllowed,
+    MissingArgument,
 }
 
 impl fmt::Display for UErrorMessage {
@@ -533,13 +557,12 @@ impl fmt::Display for UErrorMessage {
             Self::Any(s) => write!(f, "{}", s),
             Self::DlopenError(msg) => write!(f, "{}", msg),
             Self::CastError(msg) => write!(f, "{}", msg),
-            Self::ComError(msg, desc) => write!(f,
-                "{}{}",
-                msg, match desc {
-                    Some(s) => format!(" ({})", s),
-                    None => String::new()
+            Self::ComError(msg, desc) => {
+                match desc {
+                    Some(desc) => write!(f, "{msg} ({desc})"),
+                    None => write!(f, "{msg}")
                 }
-            ),
+            }
             Self::VariantConvertionError(o) => write_locale!(f,
                 "{} をVARIANT型に変換できません",
                 "Failed to convert {} to VARIANT",
@@ -1112,6 +1135,42 @@ impl fmt::Display for UErrorMessage {
             Self::CanNotCallMethod(member) => write_locale!(f,
                 "{member}というメソッドがありません",
                 "Method named {member} does not exist",
+            ),
+            Self::MemberShouldBeIdentifier => write_locale!(f,
+                "不正なメンバ指定",
+                "Object member name should be Identifier",
+            ),
+            Self::FromVariant(vt) => write_locale!(f,
+                "不正なVARIANT型({vt})",
+                "Invalid VARIANT type: {vt}",
+            ),
+            Self::ToVariant(vt) => write_locale!(f,
+                "VARIANT型に変換できません({vt})",
+                "{vt} can not be converted to VARIANT",
+            ),
+            Self::InvalidComMethodArgOrder => write_locale!(f,
+                "名前付き引数の後に名前なし引数は指定できません",
+                "You can not pass unnamed argument after named argument",
+            ),
+            Self::NamedArgNotFound(name) => write_locale!(f,
+                "{name}という引数が見つかりません",
+                "No argument named {name} has found",
+            ),
+            Self::FailedToConvertToCollection => write_locale!(f,
+                "COMオブジェクトがコレクションではありません",
+                "COM object is not a collection",
+            ),
+            Self::VariantIsNotIDispatch => write_locale!(f,
+                "VARIANTがIDispatchではありません",
+                "VARIANT is not IDispatch",
+            ),
+            Self::NamedArgNotAllowed => write_locale!(f,
+                "名前付き引数は許可されていません",
+                "Named argument not allowed",
+            ),
+            Self::MissingArgument => write_locale!(f,
+                "引数が不足しています",
+                "1 or more arguments are missing",
             ),
         }
     }
