@@ -919,9 +919,9 @@ impl fmt::Display for UErrorMessage {
                 i
             ),
             Self::BuiltinArgInvalid(o) => write_locale!(f,
-                "不正な引数: {}",
-                "Invalid argument: {}",
-                o
+                "引数の型が不正です: {}",
+                "Invalid argument type: {}",
+                o.get_type()
             ),
             Self::UnsupportedArchitecture => write_locale!(f,
                 "サポート外OSアーキテクチャ",

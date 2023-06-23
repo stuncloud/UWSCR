@@ -30,6 +30,30 @@ COMオブジェクトの作成・取得
         print ws // ComObject(IWshShell3)
         ws.Popup("Hello!")
 
+コレクション
+------------
+
+.. function:: getoleitem(コレクション)
+
+    | コレクションを配列に変換します
+
+    :param COMオブジェクト コレクション: コレクションを示すCOMオブジェクト
+    :rtype: 配列
+    :return: コレクションの要素を格納した配列
+
+    .. admonition:: UWSCとの違い
+        :class: caution
+
+        | 要素の数ではなく要素の配列を返すようになりました
+        | それに伴い ``ALL_OLE_ITEM`` は廃止されました
+
+    .. admonition:: サンプルコード
+
+        .. sourcecode:: uwscr
+
+            ws = createoleobj("WScript.Shell")
+            col = getoleitem(ws.SpecialFolders)
+            print col[0]
 
 非推奨関数
 ----------

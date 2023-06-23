@@ -12,6 +12,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     let mut sets = BuiltinFunctionSets::new();
     sets.add("createoleobj", 1, createoleobj);
     sets.add("getactiveoleobj", 2, getactiveoleobj);
+    sets.add("getoleitem", 1, getoleitem);
     sets.add("vartype", 2, vartype);
     sets.add("safearray", 4, safearray);
     sets
@@ -94,6 +95,11 @@ fn getactiveoleobj(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResul
     }
 }
 
+pub fn getoleitem(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let com = args.get_as_comobject(0)?;
+    let vec = com.to_object_vec()?;
+    Ok(Object::Array(vec))
+}
 
 fn vartype(_: &mut Evaluator, _args: BuiltinFuncArgs) -> BuiltinFuncResult {
     // let vt = args.get_as_int::<i32>(1, Some(-1))?;

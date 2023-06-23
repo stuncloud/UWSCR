@@ -29,7 +29,7 @@ use crate::evaluator::object::{
     UTask
 };
 use crate::evaluator::Evaluator;
-use crate::evaluator::object::{UObject,Fopen,Function,browser::{RemoteObject, TabWindow}, ObjectType};
+use crate::evaluator::object::{UObject,Fopen,Function,browser::{RemoteObject, TabWindow}, ObjectType, ComObject};
 use crate::evaluator::environment::NamedObject;
 use crate::evaluator::builtins::key_codes::{SCKeyCode};
 use crate::error::evaluator::{UError,UErrorKind,UErrorMessage};
@@ -652,6 +652,15 @@ impl BuiltinFuncArgs {
         self.get_arg(i, |obj| {
             match obj {
                 Object::TabWindow(tab) => Ok(tab),
+                o => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(o))),
+            }
+        })
+    }
+    /// COMオブジェクトを受ける
+    pub fn get_as_comobject(&self, i: usize) -> BuiltInResult<ComObject> {
+        self.get_arg(i, |obj| {
+            match obj {
+                Object::ComObject(com) => Ok(com),
                 o => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(o))),
             }
         })
