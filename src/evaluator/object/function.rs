@@ -40,7 +40,7 @@ impl PartialEq for Function {
 }
 
 impl Function {
-    pub fn invoke(&self, evaluator: &mut Evaluator, mut arguments: Vec<(Option<Expression>, Object)>, is_instance: bool) -> EvalResult<Object> {
+    pub fn invoke(&self, evaluator: &mut Evaluator, mut arguments: Vec<(Option<Expression>, Object)>) -> EvalResult<Object> {
         let param_len = self.params.len();
         let mut params = self.params.clone();
         if param_len > arguments.len() {
@@ -143,9 +143,9 @@ impl Function {
             evaluator.env.define_local(&variadic_name.unwrap(), Object::Array(variadic))?;
         }
 
-        // モジュール・クラスインスタンスのプライメートメンバをセット
+        // モジュール・クラスインスタンスであればthisとglobalをセットする
         if let Some(ref m) = self.module {
-            evaluator.env.set_module_private_member(m);
+            evaluator.env.set_this_and_global(m);
         }
 
         // functionならresult変数を初期化
@@ -164,10 +164,7 @@ impl Function {
         }
 
         /* 戻り値 */
-        let result = if is_instance {
-            // この戻り値は使われない
-            Object::Empty
-        } else if self.is_proc {
+        let result = if self.is_proc {
             Object::Empty
         } else {
             evaluator.env.get_variable("result", true).unwrap_or_default()

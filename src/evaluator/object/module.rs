@@ -67,7 +67,11 @@ impl Module {
 
     fn contains(&self, name: &str, container_type: ContainerType) -> bool {
         let key = name.to_ascii_uppercase();
-        self.members.clone().into_iter().any(|obj| obj.name == key && container_type == obj.container_type)
+        self.members.iter().any(|obj| obj.name == key && container_type == obj.container_type)
+    }
+    pub fn has_member(&self, name: &str) -> bool {
+        let key = name.to_ascii_uppercase();
+        self.members.iter().any(|obj| obj.name == key)
     }
 
     fn get(&self, name: &str, container_type: &[ContainerType]) -> Option<Object> {
@@ -115,24 +119,33 @@ impl Module {
     }
 
     pub fn get_function(&self, name: &str) -> EvalResult<Object> {
-        match self.get(name, &[ContainerType::Function]) {
-            Some(o) => Ok(o),
-            None => {
-                let e = UError::new(
-                    UErrorKind::ModuleError,
-                    UErrorMessage::ModuleMemberNotFound(DefinitionType::Function, self.name.to_string(), name.to_string())
-                );
-                match self.get_public_member(name) {
+        let func = match self.get(name, &[ContainerType::Function]) {
+            // 関数定義から探す
+            Some(o) => Some(o),
+            None => match self.get(name, &[ContainerType::Variable]) {
+                // プライベート関数を探す (dim宣言した無名関数等)
+                Some(o) => match o {
+                    Object::AnonFunc(_) |
+                    Object::Function(_) |
+                    Object::BuiltinFunction(_,_,_) => Some(o),
+                    _ => None
+                },
+                None => match self.get_public_member(name) {
+                    // パブリック関数を探す
                     Ok(o) => match o {
                         Object::AnonFunc(_) |
                         Object::Function(_) |
-                        Object::BuiltinFunction(_,_,_) => Ok(o),
-                        _ => Err(e)
+                        Object::BuiltinFunction(_,_,_) => Some(o),
+                        _ => None
                     },
-                    Err(_) => Err(e)
-                }
-            },
-        }
+                    Err(_) => None
+                },
+            }
+        };
+        func.ok_or(UError::new(
+            UErrorKind::ModuleError,
+            UErrorMessage::ModuleMemberNotFound(DefinitionType::Function, self.name.to_string(), name.to_string())
+        ))
     }
 
     fn assign_index(&mut self, name: &str, new: Object, dimension: Vec<Object>, container_type: ContainerType) -> Result<(), UError> {
@@ -199,13 +212,20 @@ impl Module {
         self.contains(&key, ContainerType::Variable)
     }
 
-    pub fn set_module_reference_to_member_functions(&mut self, m: Arc<Mutex<Module>>) {
+    /// 自身のメンバ関数に自身のポインタを渡す
+    /// thisとglobalもセットする
+    pub fn set_module_reference(&mut self, m: Arc<Mutex<Module>>) {
         for o in self.members.iter_mut() {
-            if o.container_type == ContainerType::Function {
-                if let Object::Function(mut f) = o.object.clone() {
-                    f.set_module(Arc::clone(&m));
-                    o.object = Object::Function(f);
+            match o.object.as_mut() {
+                Object::Function(f) => {
+                    f.set_module(m.clone());
                 }
+                Object::AnonFunc(f) => {
+                    f.set_module(m.clone());
+                    // 無名関数ならスコープ情報を消す
+                    f.outer = None;
+                },
+                _ => {},
             }
         }
     }

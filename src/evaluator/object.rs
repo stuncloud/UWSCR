@@ -1672,6 +1672,12 @@ impl BitXor for Object {
     }
 }
 
+impl AsMut<Object> for Object {
+    fn as_mut(&mut self) -> &mut Object {
+        self
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum MemberCaller {
     BrowserBuilder(Arc<Mutex<BrowserBuilder>>),

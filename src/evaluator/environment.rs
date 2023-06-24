@@ -590,12 +590,7 @@ impl Environment {
     }
 
     // module関数呼び出し時にメンバをローカル変数としてセット
-    pub fn set_module_private_member(&mut self, module: &Arc<Mutex<Module>>) {
-        let vec = module.lock().unwrap().get_members();
-        for obj in vec {
-            self.add(obj, false)
-        }
-        // thisとglobalも定義
+    pub fn set_this_and_global(&mut self, module: &Arc<Mutex<Module>>) {
         self.add(NamedObject::new(
             "THIS".into(),
             Object::This(Arc::clone(module)),

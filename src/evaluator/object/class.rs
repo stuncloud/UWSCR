@@ -39,7 +39,7 @@ impl ClassInstance {
                 }
             };
             if let Some(f) = destructor {
-                let _ = f.invoke(&mut self.evaluator, vec![], false);
+                let _ = f.invoke(&mut self.evaluator, vec![]);
             }
             self.module.lock().unwrap().dispose();
         }

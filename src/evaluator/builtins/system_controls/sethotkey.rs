@@ -140,7 +140,7 @@ impl UWindow<()> for SetHotKeyWindow {
                         (Some(Expression::EmptyArgument), vk.into()),
                         (Some(Expression::EmptyArgument), mo.into()),
                     ];
-                    if let Err(err) = function.invoke(&mut evaluator, arguments, false) {
+                    if let Err(err) = function.invoke(&mut evaluator, arguments) {
                         if let Ok(mutex) = HOTKEY_WINDOW.lock() {
                             if let Some(shkw) = mutex.as_ref() {
                                 shkw.close();

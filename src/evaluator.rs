@@ -461,7 +461,7 @@ impl Evaluator {
                     module: None,
                     outer: None,
                 };
-                let result = match func.invoke(self, arguments, false) {
+                let result = match func.invoke(self, arguments,) {
                     Ok(_) => Ok(None),
                     Err(e) => Err(e),
                 };
@@ -520,7 +520,7 @@ impl Evaluator {
                         None
                     };
                     if let Some(f) = maybe_constructor {
-                        f.invoke(self, vec![], false)?;
+                        f.invoke(self, vec![])?;
                     }
                 };
                 Ok(None)
@@ -1049,8 +1049,7 @@ impl Evaluator {
         let m = Arc::new(Mutex::new(module));
         {
             let mut module = m.lock().unwrap();
-            module.set_module_reference_to_member_functions(Arc::clone(&m));
-
+            module.set_module_reference(m.clone());
         }
         Ok(m)
     }
@@ -1417,9 +1416,19 @@ impl Evaluator {
         }
     }
 
+    fn get_ident_from_module(&self, name: &str) -> Option<Object> {
+        if let Object::This(mutex) = self.env.get_variable("this", true)? {
+            let this = mutex.lock().unwrap();
+            match this.get_member(name) {
+                Ok(o) => Some(o),
+                Err(_) => this.get_public_member(name).ok(),
+            }
+        } else {
+            None
+        }
+    }
     fn eval_identifier(&self, identifier: Identifier) -> EvalResult<Object> {
         let Identifier(name) = identifier;
-        // let env = self.env.lock().unwrap();
         let obj = match self.env.get_variable(&name, true) {
             Some(o) => o,
             None => match self.env.get_function(&name) {
@@ -1430,10 +1439,13 @@ impl Evaluator {
                         Some(o) => o,
                         None => match self.env.get_struct(&name) {
                             Some(o) => o,
-                            None => return Err(UError::new(
-                                UErrorKind::EvaluatorError,
-                                UErrorMessage::NoIdentifierFound(name)
-                            ))
+                            None => match self.get_ident_from_module(&name) {
+                                Some(o) => o,
+                                None => return Err(UError::new(
+                                    UErrorKind::EvaluatorError,
+                                    UErrorMessage::NoIdentifierFound(name)
+                                ))
+                            }
                         }
                     }
                 }
@@ -1674,40 +1686,47 @@ impl Evaluator {
         Ok(assigned_value)
     }
     fn assign_identifier(&mut self, name: &str, new: Object) -> EvalResult<()> {
-        let maybe_this = self.env.get_variable("this", true);
-        if let Some(Object::This(mutex)) = maybe_this {
-            if let Ok(mut module) = mutex.lock() {
-                // module/classスコープ内であれば該当するメンバの値も更新してする
-                module.assign(name, new.clone(), None)?;
+        if let Some(Object::This(mutex)) = self.env.get_variable("this", true) {
+            let mut this = mutex.lock().unwrap();
+            if this.has_member(name) {
+                this.assign(name, new, None)?;
+            } else {
+                self.env.assign(name.into(), new)?;
             }
+        } else {
+            self.env.assign(name.into(), new)?;
         }
-        self.env.assign(name.into(), new)?;
         Ok(())
     }
 
     /// 配列要素の更新
     fn update_array(&mut self, name: &str, expr_index: Expression, dimensions: Option<Vec<Object>>, new: Object) -> EvalResult<()> {
         let index = self.eval_expression(expr_index)?;
-        let maybe_object = self.env.get_variable(name, true);
-        if let Some(object) = maybe_object {
-            let dimension = match dimensions {
-                Some(mut d) => {
-                    d.push(index.clone());
-                    d
-                },
-                None => vec![index.clone()],
-            };
-            let dimension2 = Some(dimension.clone());
-            let (maybe_new, update) = Self::update_array_object(object.clone(), dimension, &new)
-                .map_err(|mut e| {
-                    if let UErrorMessage::NotAnArray(_) = e.message {
-                        e.message = UErrorMessage::NotAnArray(name.into());
+        let object = self.eval_identifier(Identifier(name.into()))?;
+        let dimension = match dimensions {
+            Some(mut d) => {
+                d.push(index.clone());
+                d
+            },
+            None => vec![index.clone()],
+        };
+        let (maybe_new, update) = Self::update_array_object(object.clone(), dimension, &new)
+            .map_err(|mut e| {
+                if let UErrorMessage::NotAnArray(_) = e.message {
+                    e.message = UErrorMessage::NotAnArray(name.into());
+                }
+                e
+            })?;
+        if update {
+            if let Some(new_value) = maybe_new {
+                if let Some(Object::This(mutex)) = self.env.get_variable("this", true) {
+                    let mut this = mutex.lock().unwrap();
+                    if this.has_member(name) {
+                        this.assign(name, new_value, None)?;
+                    } else {
+                        self.env.assign(name.into(), new_value)?;
                     }
-                    e
-                })?;
-            if update {
-                if let Some(new_value) = maybe_new {
-                    self.update_module_member_on_assignment(name, new.clone(), dimension2)?;
+                } else {
                     self.env.assign(name.into(), new_value)?;
                 }
             }
@@ -2098,11 +2117,20 @@ impl Evaluator {
         Ok(Object::Array(arr))
     }
 
+    /// モジュールスコープ内であればモジュールメンバから探す
+    fn get_func_from_module(&mut self, name: &str) -> Option<Object> {
+        if let Object::This(mutex) = self.env.get_variable("this", true)? {
+            let this = mutex.lock().unwrap();
+            this.get_function(name).ok()
+        } else {
+            None
+        }
+    }
+
     fn eval_expression_for_func_call(&mut self, expression: Expression) -> EvalResult<Object> {
         // 関数定義から探してなかったら変数を見る
         match expression {
-            Expression::Identifier(i) => {
-                let Identifier(name) = i;
+            Expression::Identifier(Identifier(name)) => {
                 match self.env.get_function(&name) {
                     Some(o) => Ok(o),
                     None => match self.env.get_class(&name) {
@@ -2111,10 +2139,13 @@ impl Evaluator {
                             Some(o) => Ok(o),
                             None => match self.env.get_variable(&name, true) {
                                 Some(o) => Ok(o),
-                                None => return Err(UError::new(
-                                    UErrorKind::UndefinedError,
-                                    UErrorMessage::FunctionNotFound(name),
-                                )),
+                                None => match self.get_func_from_module(&name) {
+                                    Some(o) => Ok(o),
+                                    None => return Err(UError::new(
+                                        UErrorKind::UndefinedError,
+                                        UErrorMessage::FunctionNotFound(name),
+                                    )),
+                                }
                             }
                         }
                     }
@@ -2147,7 +2178,7 @@ impl Evaluator {
         let handle = thread::spawn(move || {
             // このスレッドでのCOMを有効化
             let com = Com::init()?;
-            let ret = func.invoke(&mut task_self, arguments, false);
+            let ret = func.invoke(&mut task_self, arguments);
             com.uninit();
             ret
         });
@@ -2234,7 +2265,7 @@ impl Evaluator {
                 .map(|arg| Ok((Some(arg.clone()), self.eval_expression(arg)?)))
                 .collect::<EvalResult<Vec<(Option<Expression>, Object)>>>()?;
             match func_object {
-                Object::Function(f) => f.invoke(self, arguments, false),
+                Object::Function(f) => f.invoke(self, arguments),
                 Object::AsyncFunction(f) => {
                     let task = self.new_task(f, arguments);
                     if is_await {
@@ -2243,7 +2274,7 @@ impl Evaluator {
                         Ok(Object::Task(task))
                     }
                 },
-                Object::AnonFunc(f) => f.invoke(self, arguments, false),
+                Object::AnonFunc(f) => f.invoke(self, arguments),
                 Object::BuiltinFunction(name, expected_len, builtin) => {
                     if expected_len >= arguments.len() as i32 {
                         builtin(self, BuiltinFuncArgs::new(arguments, is_await))
@@ -2271,7 +2302,7 @@ impl Evaluator {
                             )),
                         }
                     };
-                    constructor.invoke(self, arguments, true)?;
+                    constructor.invoke(self, arguments)?;
                     let ins = Arc::new(Mutex::new(ClassInstance::new(name, m, self.clone())));
                     Ok(Object::Instance(ins))
                 },
@@ -2889,16 +2920,6 @@ impl Evaluator {
                 res => res
             }
         }
-    }
-    /// 代入処理時にmodule/classスコープ内であれば同名メンバも更新する
-    fn update_module_member_on_assignment(&self, name: &str, new: Object, dimension: Option<Vec<Object>>) -> EvalResult<()> {
-        // thisがあればmodule/classスコープ
-        if let Some(Object::This(mutex)) = self.env.get_variable("this", true) {
-            if let Ok(mut module) = mutex.lock() {
-                module.assign(name, new, dimension)?;
-            }
-        }
-        Ok(())
     }
 
     fn eval_uobject(&self, uobject: &UObject, index: Object) -> EvalResult<Object> {
