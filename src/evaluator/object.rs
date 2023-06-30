@@ -22,7 +22,7 @@ pub use self::fopen::*;
 pub use self::class::ClassInstance;
 use browser::{BrowserBuilder, Browser, TabWindow, RemoteObject};
 pub use web::{WebRequest, WebResponse, HtmlNode};
-pub use comobject::{ComObject, ComError, ComArg};
+pub use comobject::{ComObject, ComError, ComArg, Unknown};
 
 use crate::ast::*;
 use crate::evaluator::environment::Layer;
@@ -87,6 +87,7 @@ pub enum Object {
     Struct(String, usize, Vec<(String, DllType)>), // 構造体定義: name, size, [(member name, type)]
     UStruct(String, usize, Arc<Mutex<UStruct>>), // 構造体インスタンス
     ComObject(ComObject),
+    Unknown(Unknown),
     BrowserBuilder(Arc<Mutex<BrowserBuilder>>),
     Browser(Browser),
     TabWindow(TabWindow),
@@ -149,7 +150,8 @@ impl std::fmt::Debug for Object {
             Object::WebResponse(arg0) => f.debug_tuple("WebResponse").field(arg0).finish(),
             Object::HtmlNode(_) => todo!(),
             Object::MemberCaller(_, _) => todo!(),
-            Object::ComObject(_) => todo!(),
+            Object::ComObject(arg0) => f.debug_tuple("ComObject").field(arg0).finish(),
+            Object::Unknown(arg0) => f.debug_tuple("Unknown").field(arg0).finish(),
         }
     }
 }
@@ -265,6 +267,7 @@ impl fmt::Display for Object {
                 }
             },
             Object::ComObject(com) => write!(f, "{com}"),
+            Object::Unknown(unk) => write!(f, "{unk}"),
         }
     }
 }
@@ -394,6 +397,9 @@ impl PartialEq for Object {
             Object::ComObject(com1) => {
                 if let Object::ComObject(com2) = other {com1 == com2} else {false}
             }
+            Object::Unknown(unk1) => {
+                if let Object::Unknown(unk2) = other {unk1 == unk2} else {false}
+            }
         }
     }
 }
@@ -436,6 +442,7 @@ impl Object {
             Object::Struct(_,_,_) => ObjectType::TYPE_STRUCT,
             Object::UStruct(_,_,_) => ObjectType::TYPE_STRUCT_INSTANCE,
             Object::ComObject(_) => ObjectType::TYPE_COM_OBJECT,
+            Object::Unknown(_) => ObjectType::TYPE_IUNKNOWN,
             Object::BrowserBuilder(_) => ObjectType::TYPE_BROWSERBUILDER_OBJECT,
             Object::Browser(_) => ObjectType::TYPE_BROWSER_OBJECT,
             Object::TabWindow(_) => ObjectType::TYPE_TABWINDOW_OBJECT,
@@ -873,6 +880,7 @@ impl Add for Object {
                 }
             },
             // 以下はエラー
+            Object::Unknown(_) |
             Object::ComObject(_) |
             Object::MemberCaller(_, _) |
             Object::HtmlNode(_) |
@@ -959,6 +967,7 @@ impl Sub for Object {
                 }
             },
             // 以下はエラー
+            Object::Unknown(_) |
             Object::ComObject(_) |
             Object::MemberCaller(_, _) |
             Object::HtmlNode(_) |
@@ -1088,6 +1097,7 @@ impl Mul for Object {
                 }
             },
             // 以下はエラー
+            Object::Unknown(_) |
             Object::ComObject(_) |
             Object::MemberCaller(_, _) |
             Object::HtmlNode(_) |
@@ -1196,6 +1206,7 @@ impl Div for Object {
                 }
             },
             // 以下はエラー
+            Object::Unknown(_) |
             Object::ComObject(_) |
             Object::MemberCaller(_, _) |
             Object::HtmlNode(_) |
@@ -1308,6 +1319,7 @@ impl Rem for Object {
                 }
             },
             // 以下はエラー
+            Object::Unknown(_) |
             Object::ComObject(_) |
             Object::MemberCaller(_, _) |
             Object::HtmlNode(_) |
@@ -1414,6 +1426,7 @@ impl BitOr for Object {
                 }
             },
             // 以下はエラー
+            Object::Unknown(_) |
             Object::ComObject(_) |
             Object::MemberCaller(_, _) |
             Object::HtmlNode(_) |
@@ -1519,6 +1532,7 @@ impl BitAnd for Object {
                 }
             },
             // 以下はエラー
+            Object::Unknown(_) |
             Object::ComObject(_) |
             Object::MemberCaller(_, _) |
             Object::HtmlNode(_) |
@@ -1624,6 +1638,7 @@ impl BitXor for Object {
                 }
             },
             // 以下はエラー
+            Object::Unknown(_) |
             Object::ComObject(_) |
             Object::MemberCaller(_, _) |
             Object::HtmlNode(_) |
@@ -1743,6 +1758,7 @@ pub enum ObjectType {
     TYPE_STRUCT,
     TYPE_STRUCT_INSTANCE,
     TYPE_COM_OBJECT,
+    TYPE_IUNKNOWN,
     TYPE_VARIANT,
     TYPE_SAFEARRAY,
     TYPE_BROWSERBUILDER_OBJECT,
