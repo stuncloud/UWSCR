@@ -245,20 +245,17 @@ impl Environment {
     pub fn get_variable(&self, name: &str, expand: bool) -> Option<Object> {
         let obj = match self.get(&name, ContainerType::Variable) {
             Some(value) => Some(value),
-            None => match self.get(&name, ContainerType::Const) { // module関数から呼ばれた場合のみ
+            None => match self.get_from_this(&name) {
                 Some(value) => Some(value),
-                None => match self.get(&name, ContainerType::Public) { // module関数から呼ばれた場合のみ
+                None => match self.get_from_global(&name, ContainerType::Const) {
                     Some(value) => Some(value),
-                    None => match self.get_from_global(&name, ContainerType::Const) {
+                    None => match self.get_from_global(&name, ContainerType::Public) {
                         Some(value) => Some(value),
-                        None => match self.get_from_global(&name, ContainerType::Public) {
+                        None => match self.get_from_global(&name, ContainerType::BuiltinConst) {
                             Some(value) => Some(value),
-                            None => match self.get_from_global(&name, ContainerType::BuiltinConst) {
+                            None => match self.get_from_global(&name, ContainerType::Variable) { // インスタンス自動破棄
                                 Some(value) => Some(value),
-                                None => match self.get_from_global(&name, ContainerType::Variable) { // インスタンス自動破棄
-                                    Some(value) => Some(value),
-                                    None => None
-                                }
+                                None => None
                             }
                         }
                     }
@@ -280,6 +277,18 @@ impl Environment {
             o => o
         }
     }
+    // Module/Classメンバを探す
+    fn get_from_this(&self, name: &str) -> Option<Object> {
+        if let Object::This(mutex) = self.get("this", ContainerType::Variable)? {
+            let this = mutex.lock().unwrap();
+            match this.get_member(name) {
+                Ok(o) => Some(o),
+                Err(_) => this.get_public_member(name).ok(),
+            }
+        } else {
+            None
+        }
+    }
 
     pub fn get_tmp_instance(&self, name: &str, from_global: bool) -> Option<Object> {
         if from_global {
@@ -290,7 +299,7 @@ impl Environment {
     }
 
     pub fn get_function(&self, name: &str) -> Option<Object> {
-        match self.get(&name, ContainerType::Function) { // module関数から呼ばれた場合のみ
+        match self.get_function_from_this(&name) {
             Some(func) => Some(func),
             None =>  match self.get_from_global(&name, ContainerType::Function) {
                 Some(func) => Some(func),
@@ -299,6 +308,15 @@ impl Environment {
                     None => None
                 }
             }
+        }
+    }
+    // Module/Classメンバ関数を探す
+    fn get_function_from_this(&self, name: &str) -> Option<Object> {
+        if let Object::This(mutex) = self.get("this", ContainerType::Variable)? {
+            let this = mutex.lock().unwrap();
+            this.get_function(name).ok()
+        } else {
+            None
         }
     }
 

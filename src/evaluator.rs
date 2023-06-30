@@ -1416,17 +1416,6 @@ impl Evaluator {
         }
     }
 
-    fn get_ident_from_module(&self, name: &str) -> Option<Object> {
-        if let Object::This(mutex) = self.env.get_variable("this", true)? {
-            let this = mutex.lock().unwrap();
-            match this.get_member(name) {
-                Ok(o) => Some(o),
-                Err(_) => this.get_public_member(name).ok(),
-            }
-        } else {
-            None
-        }
-    }
     fn eval_identifier(&self, identifier: Identifier) -> EvalResult<Object> {
         let Identifier(name) = identifier;
         let obj = match self.env.get_variable(&name, true) {
@@ -1439,13 +1428,10 @@ impl Evaluator {
                         Some(o) => o,
                         None => match self.env.get_struct(&name) {
                             Some(o) => o,
-                            None => match self.get_ident_from_module(&name) {
-                                Some(o) => o,
-                                None => return Err(UError::new(
-                                    UErrorKind::EvaluatorError,
-                                    UErrorMessage::NoIdentifierFound(name)
-                                ))
-                            }
+                            None => return Err(UError::new(
+                                UErrorKind::EvaluatorError,
+                                UErrorMessage::NoIdentifierFound(name)
+                            ))
                         }
                     }
                 }
@@ -2117,16 +2103,6 @@ impl Evaluator {
         Ok(Object::Array(arr))
     }
 
-    /// モジュールスコープ内であればモジュールメンバから探す
-    fn get_func_from_module(&mut self, name: &str) -> Option<Object> {
-        if let Object::This(mutex) = self.env.get_variable("this", true)? {
-            let this = mutex.lock().unwrap();
-            this.get_function(name).ok()
-        } else {
-            None
-        }
-    }
-
     fn eval_expression_for_func_call(&mut self, expression: Expression) -> EvalResult<Object> {
         // 関数定義から探してなかったら変数を見る
         match expression {
@@ -2139,13 +2115,10 @@ impl Evaluator {
                             Some(o) => Ok(o),
                             None => match self.env.get_variable(&name, true) {
                                 Some(o) => Ok(o),
-                                None => match self.get_func_from_module(&name) {
-                                    Some(o) => Ok(o),
-                                    None => return Err(UError::new(
-                                        UErrorKind::UndefinedError,
-                                        UErrorMessage::FunctionNotFound(name),
-                                    )),
-                                }
+                                None => return Err(UError::new(
+                                    UErrorKind::UndefinedError,
+                                    UErrorMessage::FunctionNotFound(name),
+                                )),
                             }
                         }
                     }
