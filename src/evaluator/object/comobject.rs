@@ -1,20 +1,21 @@
 use windows::{
-    core::{self, BSTR, HRESULT, HSTRING, PCWSTR, ComInterface, GUID, Interface},
+    core::{self, BSTR, HRESULT, HSTRING, PCWSTR, PWSTR, ComInterface, GUID, Interface, implement, IUnknown},
     Win32::{
         Foundation::{VARIANT_TRUE, VARIANT_FALSE, DISP_E_MEMBERNOTFOUND},
         System::{
             Com::{
                 CLSCTX_ALL, CLSCTX_LOCAL_SERVER,
-                IDispatch,
+                IDispatch, IDispatch_Impl, //IDispatch_Vtbl,
                 CLSIDFromString, CoCreateInstance,
                 DISPPARAMS,
                 DISPATCH_FLAGS, DISPATCH_PROPERTYGET, DISPATCH_PROPERTYPUT, DISPATCH_METHOD,
                 EXCEPINFO,
                 VARIANT, VARIANT_0_0,
                 VARENUM, VT_ARRAY,VT_BYREF,VT_BOOL,VT_BSTR,VT_CY,VT_DATE,VT_DECIMAL,VT_DISPATCH,VT_EMPTY,VT_ERROR,VT_I1,VT_I2,VT_I4,VT_INT,VT_NULL,VT_R4,VT_R8,VT_UI1,VT_UI2,VT_UI4,VT_UINT,VT_UNKNOWN,VT_VARIANT,
-                VT_PTR, VT_SAFEARRAY,
+                // VT_PTR, VT_SAFEARRAY,
                 SAFEARRAY, SAFEARRAYBOUND,
-                ITypeInfo, ELEMDESC,
+                ITypeInfo, //ELEMDESC,
+                IConnectionPoint, IConnectionPointContainer,
             },
             Ole::{
                 GetActiveObject,
@@ -31,12 +32,14 @@ use windows::{
     }
 };
 
-use crate::evaluator::{Object, Evaluator, EvalResult};
+use crate::evaluator::{Object, Evaluator, EvalResult, Function};
 use crate::ast::{Expression, Identifier};
 use crate::error::evaluator::{UError, UErrorKind, UErrorMessage};
+use crate::winapi::WString;
 
 use std::mem::ManuallyDrop;
 use std::ffi::c_void;
+use std::sync::{Arc, Mutex};
 
 const LOCALE_SYSTEM_DEFAULT: u32 = 0x0800;
 const LOCALE_USER_DEFAULT: u32 = 0x400;
@@ -50,7 +53,6 @@ pub enum ComError {
         description: Option<String>
     },
     UError(UError),
-    None,
 }
 impl ComError {
     fn new(err: core::Error, description: Option<String>) -> Self {
@@ -73,7 +75,6 @@ impl ComError {
                 *code == DISP_E_MEMBERNOTFOUND.0
             },
             ComError::UError(_) => false,
-            ComError::None => false,
         }
     }
     fn as_hresult(&self) -> HRESULT {
@@ -81,8 +82,29 @@ impl ComError {
             ComError::WindowsError { message: _, code, description: _ } => {
                 HRESULT(*code)
             },
-            ComError::UError(_) |
-            ComError::None => HRESULT(0),
+            ComError::UError(err) => {
+                if let UErrorKind::ComError(n) = err.kind {
+                    HRESULT(n)
+                } else {
+                    HRESULT(0)
+                }
+            },
+        }
+    }
+    fn as_windows_error(self) -> core::Error {
+        match self {
+            ComError::WindowsError { message, code, description: _ } => {
+                core::Error::new(HRESULT(code), HSTRING::from(message))
+            },
+            ComError::UError(err) => {
+                if let UErrorKind::ComError(n) = err.kind {
+                    core::Error::from(HRESULT(n))
+                } else {
+                    let code = HRESULT(-1);
+                    let message = HSTRING::from(err.to_string());
+                    core::Error::new(code, message)
+                }
+            },
         }
     }
 }
@@ -122,16 +144,14 @@ impl From<ComError> for UError {
                 e.is_com_error = true;
                 e
             },
-            ComError::None => {
-                UError::new(UErrorKind::UnknownError, UErrorMessage::None)
-            }
         }
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone)]
 pub struct ComObject {
     idispatch: IDispatch,
+    handlers: Arc<Mutex<EventHandlers>>
 }
 impl std::fmt::Display for ComObject {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -158,6 +178,26 @@ impl std::fmt::Display for ComObject {
         }
     }
 }
+impl std::fmt::Debug for ComObject {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ComObject")
+            .field("idispatch", &self.idispatch)
+            .finish()
+    }
+}
+impl PartialEq for ComObject {
+    fn eq(&self, other: &Self) -> bool {
+        self.idispatch == other.idispatch
+    }
+}
+
+impl From<IDispatch> for ComObject {
+    fn from(idispatch: IDispatch) -> Self {
+        let handlers = Arc::new(Mutex::new(EventHandlers::new()));
+        Self { idispatch, handlers }
+    }
+}
+
 #[allow(unused)]
 impl ComObject {
     // IEの実行を防ぐ
@@ -182,7 +222,8 @@ impl ComObject {
             let lpsz = HSTRING::from(id);
             let rclsid = CLSIDFromString(&lpsz)?;
             let idispatch = Self::create_instance(&rclsid)?;
-            let obj = Self {idispatch};
+            let handlers = Arc::new(Mutex::new(EventHandlers::new()));
+            let obj = Self {idispatch, handlers};
             Ok(obj)
         }
     }
@@ -210,7 +251,8 @@ impl ComObject {
             let maybe_obj = match ppunk {
                 Some(unk) => {
                     let idispatch = unk.cast::<IDispatch>()?;
-                    let obj = Self {idispatch};
+                    let handlers = Arc::new(Mutex::new(EventHandlers::new()));
+                    let obj = Self {idispatch, handlers};
                     Some(obj)
                 },
                 None => None,
@@ -509,20 +551,16 @@ impl ComObject {
         } else {
             // IEnumVARIANTが実装されていない場合CountとItemを試す
             let cnt = self.get_property("Count")
-                .map_err(|_| Self::not_collection_error())?;
-            let cnt = cnt.as_f64(false).ok_or(Self::not_collection_error())? as u32;
+                .map_err(|_| ComError::new_u(UErrorKind::ComCollectionError, UErrorMessage::FailedToConvertToCollection))?;
+            let cnt = cnt.as_f64(false).ok_or(ComError::new_u(UErrorKind::ComCollectionError, UErrorMessage::FailedToConvertToCollection))? as u32;
             (0..cnt).into_iter()
                 .map(|i| {
                     let index = vec![i.into()];
                     self.get_property_by_index("Item", index)
-                        .map_err(|_| Self::not_collection_error())
+                        .map_err(|_| ComError::new_u(UErrorKind::ComCollectionError, UErrorMessage::FailedToConvertToCollection))
                 })
                 .collect()
         }
-    }
-    fn not_collection_error() -> ComError {
-        let err = UError::new(UErrorKind::ComCollectionError, UErrorMessage::FailedToConvertToCollection);
-        ComError::UError(err)
     }
     fn is_collection(&self) -> bool {
         ComCollection::try_from(self).is_ok()
@@ -613,6 +651,23 @@ impl ComObject {
         let t = self.idispatch.cast::<T>()?;
         Ok(t)
     }
+    pub fn set_event_handler(&mut self, interface: &str, event_name: &str, func: Function, evaluator: Evaluator) -> ComResult<()> {
+        let type_info = self.get_type_info()?;
+        let info = type_info.get_event_interface_type_info(interface)?;
+        let riid = info.get_riid()?;
+        let memid = info.get_ids_of_names(event_name)?;
+        let event = EventDisp::new(func, memid, evaluator);
+
+        let container = self.cast()?;
+        let handler = EventHandler::new(event, container, &riid)?;
+        let mut handlers = self.handlers.lock().unwrap();
+        handlers.set(handler);
+        Ok(())
+    }
+    pub fn remove_event_handler(&mut self) -> ComResult<()> {
+        let mut handlers = self.handlers.lock().unwrap();
+        handlers.remove()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -668,6 +723,7 @@ impl TryFrom<Object> for VARIANT {
             Object::EmptyParam => VARIANT::null(),
             Object::Empty => VARIANT::default(),
             Object::ComObject(disp) => VARIANT::from_idispatch(disp.idispatch),
+            Object::Unknown(unk) => VARIANT::from_iunknown(unk.0),
             o => {
                 let t = o.get_type().to_string();
                 let e = UError::new(UErrorKind::VariantError, UErrorMessage::ToVariant(t));
@@ -745,7 +801,7 @@ impl TryInto<Object> for VARIANT {
                         match v00.Anonymous.ppdispVal.as_mut() {
                             Some(maybe_disp) => match maybe_disp {
                                 Some(disp) => {
-                                    let obj = ComObject { idispatch: disp.clone() };
+                                    let obj = ComObject::from(disp.clone());
                                     Ok(Object::ComObject(obj))
                                 },
                                 None => Err(ComError::from_variant_error(vt)),
@@ -755,7 +811,7 @@ impl TryInto<Object> for VARIANT {
                     } else {
                         match &*v00.Anonymous.pdispVal {
                             Some(disp) => {
-                                let obj = ComObject { idispatch: disp.clone() };
+                                let obj = ComObject::from(disp.clone());
                                 Ok(Object::ComObject(obj))
                             },
                             None => Err(ComError::from_variant_error(vt)),
@@ -767,9 +823,8 @@ impl TryInto<Object> for VARIANT {
                         match v00.Anonymous.ppunkVal.as_mut() {
                             Some(maybe_unk) => match maybe_unk {
                                 Some(unk) => {
-                                    let idispatch = unk.cast()?;
-                                    let obj = ComObject { idispatch };
-                                    Ok(Object::ComObject(obj))
+                                    let unk = unk.clone();
+                                    Ok(Object::Unknown(unk.into()))
                                 },
                                 None => Err(ComError::from_variant_error(vt)),
                             },
@@ -778,9 +833,8 @@ impl TryInto<Object> for VARIANT {
                     } else {
                         match &*v00.Anonymous.punkVal {
                             Some(unk) => {
-                                let idispatch = unk.cast()?;
-                                let obj = ComObject { idispatch };
-                                Ok(Object::ComObject(obj))
+                                let unk = unk.clone();
+                                Ok(Object::Unknown(unk.into()))
                             },
                             None => Err(ComError::from_variant_error(vt)),
                         }
@@ -833,6 +887,7 @@ trait VariantExt {
     fn from_string(s: String) -> VARIANT;
     fn from_bool(b: bool) -> VARIANT;
     fn from_idispatch(disp: IDispatch) -> VARIANT;
+    fn from_iunknown(unk: IUnknown) -> VARIANT;
     fn from_safearray(psa: *mut SAFEARRAY) -> VARIANT;
     fn vt(&self) -> VARENUM;
     fn as_byref(&mut self) -> ComResult<()>;
@@ -880,6 +935,14 @@ impl VariantExt for VARIANT {
         let mut v00 = VARIANT_0_0::default();
         v00.vt = VT_DISPATCH;
         v00.Anonymous.pdispVal = ManuallyDrop::new(Some(disp));
+        variant.Anonymous.Anonymous = ManuallyDrop::new(v00);
+        variant
+    }
+    fn from_iunknown(unk: IUnknown) -> VARIANT {
+        let mut variant = VARIANT::default();
+        let mut v00 = VARIANT_0_0::default();
+        v00.vt = VT_UNKNOWN;
+        v00.Anonymous.punkVal = ManuallyDrop::new(Some(unk));
         variant.Anonymous.Anonymous = ManuallyDrop::new(v00);
         variant
     }
@@ -1001,6 +1064,7 @@ impl Object {
 }
 
 #[allow(unused)]
+#[derive(Debug)]
 struct ParamName {
     name: String,
     vt: Option<VARENUM>
@@ -1010,6 +1074,7 @@ struct ParamName {
 //         self.vt == Some(VT_VARIANT)
 //     }
 // }
+#[derive(Debug)]
 struct ParamNames {
     names: Vec<ParamName>
 }
@@ -1042,12 +1107,12 @@ impl ParamNames {
 
 struct TypeInfo {
     info: ITypeInfo,
-    _cnt: u32
+    // _cnt: u32
 }
 impl TypeInfo {
     fn get_param_names(&self, memid: i32) -> ComResult<ParamNames> {
         unsafe {
-            let vts = self.get_param_vts(memid)?;
+            // let vts = self.get_param_vts(memid)?;
             let mut rgbstrnames = vec![BSTR::new(); 100];
             let cmaxnames = rgbstrnames.len() as u32;
             let mut pcnames = 0;
@@ -1055,59 +1120,98 @@ impl TypeInfo {
             rgbstrnames.resize(pcnames as usize, Default::default());
             // 名前の1つ目は関数名なので除外
             let names = rgbstrnames.drain(1..).collect();
-            Ok(ParamNames::new(names, vts))
+            // Ok(ParamNames::new(names, vts))
+            Ok(ParamNames::new(names, None))
         }
     }
-    fn get_func_count(&self) -> ComResult<u32> {
-        unsafe {
-            let ptypeattr = self.info.GetTypeAttr()?;
-            let count = (*ptypeattr).cFuncs as u32;
-            self.info.ReleaseTypeAttr(ptypeattr);
-            Ok(count)
-        }
-    }
-    fn get_param_vts(&self, memid: i32) -> ComResult<Option<Vec<VARENUM>>> {
-        unsafe {
-            let count = self.get_func_count()?;
-            for index in 0..count {
-                let desc = self.info.GetFuncDesc(index)?;
-                if (*desc).memid == memid {
-                    let desc = *desc;
-                    let len = desc.cParams as usize;
-                    let ptr = desc.lprgelemdescParam;
-                    let elems = Vec::from_raw_parts(ptr, len, len);
-                    let vts = elems.into_iter()
-                    .map(|elem| Self::vt_from_elemdesc(elem))
-                    .collect();
-                    return Ok(Some(vts));
-                } else {
-                    self.info.ReleaseFuncDesc(desc);
-                }
-            }
-            Ok(None)
-        }
-    }
-    fn vt_from_elemdesc(elem: ELEMDESC) -> VARENUM {
-        unsafe {
-            match elem.tdesc.vt {
-                VT_PTR => {
-                    let desc = elem.tdesc.Anonymous.lptdesc;
-                    (*desc).vt
-                },
-                VT_SAFEARRAY => {
-                    let desc = elem.tdesc.Anonymous.lptdesc;
-                    (*desc).vt
-                },
-                vt => vt
-            }
-        }
-    }
+    // fn get_func_count(&self) -> ComResult<u32> {
+    //     unsafe {
+    //         let ptypeattr = self.info.GetTypeAttr()?;
+    //         let count = (*ptypeattr).cFuncs as u32;
+    //         self.info.ReleaseTypeAttr(ptypeattr);
+    //         Ok(count)
+    //     }
+    // }
+    // fn get_param_vts(&self, memid: i32) -> ComResult<Option<Vec<VARENUM>>> {
+    //     unsafe {
+    //         let count = self.get_func_count()?;
+    //         for index in 0..count {
+    //             let desc = self.info.GetFuncDesc(index)?;
+    //             if (*desc).memid == memid {
+    //                 println!("\u{001b}[33m[debug] index: {index:?}\u{001b}[0m");
+    //                 // let desc = *desc;
+    //                 let len = (*desc).cParams as usize;
+    //                 let ptr = (*desc).lprgelemdescParam;
+    //                 println!("\u{001b}[35m[debug] {len}: {ptr:?}\u{001b}[0m");
+    //                 let elems = Vec::from_raw_parts(ptr, len, len);
+    //                 let vts = elems.into_iter()
+    //                     .map(|elem| Self::vt_from_elemdesc(elem))
+    //                     .collect();
+    //                 self.info.ReleaseFuncDesc(desc);
+    //                 return Ok(Some(vts));
+    //             } else {
+    //                 self.info.ReleaseFuncDesc(desc);
+    //             }
+    //         }
+    //         Ok(None)
+    //     }
+    // }
+    // fn vt_from_elemdesc(elem: ELEMDESC) -> VARENUM {
+    //     unsafe {
+    //         match elem.tdesc.vt {
+    //             VT_PTR => {
+    //                 let desc = elem.tdesc.Anonymous.lptdesc;
+    //                 (*desc).vt
+    //             },
+    //             VT_SAFEARRAY => {
+    //                 let desc = elem.tdesc.Anonymous.lptdesc;
+    //                 (*desc).vt
+    //             },
+    //             vt => vt
+    //         }
+    //     }
+    // }
     fn get_type_name(&self) -> Option<String> {
         unsafe {
             let mut pbstrname = BSTR::new();
             self.info.GetDocumentation(-1, Some(&mut pbstrname), None, &mut 0, None).ok()?;
             let name = pbstrname.to_string();
             Some(name)
+        }
+    }
+    fn get_event_interface_type_info(&self, interface: &str) -> ComResult<Self> {
+        unsafe {
+            let mut pptlib = None;
+            self.info.GetContainingTypeLib(&mut pptlib, &mut 0)?;
+            let lib = pptlib
+                .ok_or(ComError::new_u(UErrorKind::ComEventError, UErrorMessage::EventInterfaceNotFound))?;
+
+            // let hstring = HSTRING::from(interface);
+            // let ptr = hstring.as_ptr() as *mut _;
+            let mut wide = interface.to_wide_null_terminated();
+            let sznamebuf = PWSTR::from_raw(wide.as_mut_ptr());
+            let mut pptinfo = None;
+            lib.FindName(sznamebuf, 0, &mut pptinfo, &mut 0, &mut 1)?;
+            let info = pptinfo
+                .ok_or(ComError::new_u(UErrorKind::ComEventError, UErrorMessage::EventInterfaceNotFound))?;
+            Ok(Self {info})
+        }
+    }
+    fn get_riid(&self) -> ComResult<GUID> {
+        unsafe {
+            let attr = self.info.GetTypeAttr()?;
+            let riid = (*attr).guid;
+            self.info.ReleaseTypeAttr(attr);
+            Ok(riid)
+        }
+    }
+    fn get_ids_of_names(&self, name: &str) -> ComResult<i32> {
+        unsafe {
+            let hstring = HSTRING::from(name);
+            let rgsznames = PCWSTR::from_raw(hstring.as_ptr());
+            let mut pmemid = 0;
+            self.info.GetIDsOfNames(&rgsznames, 1, &mut pmemid)?;
+            Ok(pmemid)
         }
     }
 }
@@ -1117,9 +1221,9 @@ impl TryFrom<&IDispatch> for TypeInfo {
 
     fn try_from(disp: &IDispatch) -> Result<Self, Self::Error> {
         unsafe {
-            let _cnt = disp.GetTypeInfoCount()?;
+            // let _cnt = disp.GetTypeInfoCount()?;
             let info = disp.GetTypeInfo(0, 0)?;
-            Ok(Self { info, _cnt })
+            Ok(Self { info })
         }
     }
 }
@@ -1139,7 +1243,7 @@ impl TryFrom<&ComObject> for ComCollection {
                 let col = unk.cast()?;
                 Ok(Self {col})
             } else {
-                Err(ComError::None)
+                Err(ComError::new_u(UErrorKind::ComCollectionError, UErrorMessage::FailedToConvertToCollection))
             }
         }
     }
@@ -1176,7 +1280,7 @@ impl ComCollection {
         match self.next()? {
             Some(variant) => {
                 variant.to_idispatch()
-                    .map(|idispatch| ComObject {idispatch})
+                    .map(|idispatch| ComObject::from(idispatch))
             },
             None => Err(ComError::new_u(
                 UErrorKind::VariantError,
@@ -1224,5 +1328,147 @@ impl TryFrom<Option<VARIANT>> for Object {
             Some(variant) => variant.try_into(),
             None => Ok(Object::Empty),
         }
+    }
+}
+
+pub struct EventHandlers {
+    handlers: Vec<EventHandler>
+}
+impl EventHandlers {
+    fn new() -> Self {
+        Self {handlers: Vec::new()}
+    }
+    fn set(&mut self, handler: EventHandler) {
+        self.handlers.push(handler);
+    }
+    fn remove(&mut self) -> ComResult<()>{
+        for handler in &self.handlers {
+            handler.unset()?;
+        }
+        self.handlers.clear();
+        Ok(())
+    }
+}
+
+pub struct EventHandler {
+    _event: EventDisp,
+    cp: IConnectionPoint,
+    cookie: u32,
+}
+impl EventHandler {
+    fn new(_event: EventDisp, container: IConnectionPointContainer, riid: &GUID) -> ComResult<Self> {
+        unsafe {
+            let disp = _event.cast::<IDispatch>()?;
+
+            let cp = container.FindConnectionPoint(riid)?;
+            let cookie = cp.Advise(&disp)?;
+            Ok(Self {_event, cp, cookie})
+        }
+    }
+    fn unset(&self) -> ComResult<()> {
+        unsafe {
+            self.cp.Unadvise(self.cookie)?;
+            Ok(())
+        }
+    }
+}
+
+#[implement(IDispatch)]
+pub struct EventDisp {
+    evaluator: Evaluator,
+    func: Function,
+    memid: i32,
+}
+
+impl EventDisp {
+    fn new(func: Function, memid: i32, evaluator: Evaluator) -> Self {
+        Self { evaluator, func, memid }
+    }
+}
+impl IDispatch_Impl for EventDisp {
+    fn GetTypeInfoCount(&self) ->  ::windows::core::Result<u32> {
+        unimplemented!()
+    }
+
+    fn GetTypeInfo(&self,_itinfo:u32,_lcid:u32) ->  ::windows::core::Result<ITypeInfo> {
+        unimplemented!()
+    }
+
+    fn GetIDsOfNames(&self,_riid: *const ::windows::core::GUID,_rgsznames: *const ::windows::core::PCWSTR,_cnames:u32,_lcid:u32,_rgdispid: *mut i32) ->  ::windows::core::Result<()> {
+        unimplemented!()
+    }
+
+    fn Invoke(&self,dispidmember:i32,_riid: *const ::windows::core::GUID,_lcid:u32,_wflags:DISPATCH_FLAGS,pdispparams: *const DISPPARAMS,pvarresult: *mut VARIANT,_pexcepinfo: *mut EXCEPINFO,_puargerr: *mut u32) ->  ::windows::core::Result<()> {
+        unsafe {
+            if self.memid == dispidmember {
+                // DISPPARAMSをObject配列に変換
+                let dp = &*pdispparams;
+                let args = dp.as_object_vec().map_err(|e| e.as_windows_error())?;
+                // DISPPARAMSの値をEVENT_PRMをセット
+                let new = Object::Array(args.clone());
+                let mut evaluator = self.evaluator.clone();
+                evaluator.assign_identifier("EVENT_PRM", new)
+                    .map_err(|e| ComError::UError(e).as_windows_error())?;
+                // 関数の引数にもセット
+                let arguments = args.into_iter()
+                    .map(|o| (None, o))
+                    .collect();
+                // イベントハンドラ関数を実行
+                let obj = self.func.invoke(&mut evaluator, arguments)
+                    .map_err(|e| ComError::UError(e).as_windows_error())?;
+                // 関数の戻り値をpvarresultに渡す
+                *pvarresult = VARIANT::try_from(obj).map_err(|e| e.as_windows_error())?;
+            } else {
+                *pvarresult = VARIANT::from_bool(false);
+            }
+            Ok(())
+        }
+    }
+}
+// unsafe impl Interface for EventDisp {
+//     type Vtable = IDispatch_Vtbl;
+// }
+// impl Clone for EventDisp {
+//     fn clone(&self) -> Self {
+//         Self { evaluator: self.evaluator.clone(), func: self.func.clone(), memid: self.memid.clone() }
+//     }
+// }
+
+trait DispParamsExt {
+    fn as_object_vec(&self) -> ComResult<Vec<Object>>;
+}
+
+impl DispParamsExt for DISPPARAMS {
+    fn as_object_vec(&self) -> ComResult<Vec<Object>> {
+        unsafe {
+            let len = self.cArgs as usize;
+            let ptr = self.rgvarg;
+            let variants = Vec::from_raw_parts(ptr, len, len);
+            variants.into_iter()
+                .map(|v| v.try_into())
+                .collect()
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Unknown(IUnknown);
+
+impl std::fmt::Display for Unknown {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let ptr = self.0.as_raw() as isize;
+        #[cfg(target_arch="x86_64")]
+        {
+            write!(f, "IUnknown(0x{ptr:016X})")
+        }
+        #[cfg(target_arch="x86")]
+        {
+            write!(f, "IUnknown(0x{ptr:08X})")
+        }
+    }
+}
+impl From<IUnknown> for Unknown {
+    fn from(unk: IUnknown) -> Self {
+        Self(unk)
     }
 }

@@ -193,6 +193,7 @@ pub enum UErrorKind {
     VariantError,
     ComArgError,
     ComCollectionError,
+    ComEventError,
 }
 
 impl fmt::Display for UErrorKind {
@@ -395,6 +396,10 @@ impl fmt::Display for UErrorKind {
                 "COMコレクションエラー",
                 "COM collection error",
             ),
+            Self::ComEventError => write_locale!(f,
+                "COMイベントエラー",
+                "COM event error",
+            ),
         }
     }
 }
@@ -546,6 +551,8 @@ pub enum UErrorMessage {
     VariantIsNotIDispatch,
     NamedArgNotAllowed,
     MissingArgument,
+    FunctionRequired,
+    EventInterfaceNotFound,
 }
 
 impl fmt::Display for UErrorMessage {
@@ -1171,6 +1178,14 @@ impl fmt::Display for UErrorMessage {
             Self::MissingArgument => write_locale!(f,
                 "引数が不足しています",
                 "1 or more arguments are missing",
+            ),
+            Self::FunctionRequired => write_locale!(f,
+                "関数が指定されていません",
+                "User defined function is required",
+            ),
+            Self::EventInterfaceNotFound => write_locale!(f,
+                "インターフェースが見つかりません",
+                "Interface not found",
             ),
         }
     }
