@@ -7,7 +7,7 @@
 <link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="特殊変数" href="special_variables.html" /><link rel="prev" title="ビルド方法" href="../usage/how_to_build.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>スクリプト構文 - UWSCR 0.11.2</title>
+        <title>スクリプト構文 - UWSCR 0.12.0</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 0.11.2</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 0.12.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 0.11.2</span>
+  <span class="sidebar-brand-text">UWSCR 0.12.0</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -3192,7 +3192,8 @@ endstruct
 <li><p>配列</p></li>
 <li><p>連想配列</p></li>
 <li><p>文字列</p></li>
-<li><p>COMのコレクション (未対応)</p></li>
+<li><p>COMのコレクション</p></li>
+<li><p>Iteratorを実装するRemoteObject</p></li>
 </ul>
 <div class="line-block">
 <div class="line"><cite>式</cite> が返す値をその種類に応じて分解し <cite>変数</cite> に代入していきます</div>
@@ -3520,72 +3521,205 @@ selend
 </section>
 <section id="com">
 <span id="com-object"></span><h2>COMオブジェクト<a class="headerlink" href="#com" title="この見出しへのパーマリンク">#</a></h2>
-<section id="id71">
-<h3>書式について<a class="headerlink" href="#id71" title="この見出しへのパーマリンク">#</a></h3>
 <div class="line-block">
-<div class="line">COMオブジェクトのメンバへのアクセス方法</div>
+<div class="line"><a class="reference internal" href="../builtins/comobject.html#createoleobj" title="createoleobj"><code class="xref py py-func docutils literal notranslate"><span class="pre">createoleobj()</span></code></a>, <a class="reference internal" href="../builtins/comobject.html#getactiveoleobj" title="getactiveoleobj"><code class="xref py py-func docutils literal notranslate"><span class="pre">getactiveoleobj()</span></code></a> により取得可能</div>
+<div class="line">またCOMオブジェクトのプロパティやメソッドが別のCOMオブジェクトを返す場合もあります</div>
 </div>
-<ul>
-<li><p>プロパティ</p>
+<section id="id71">
+<h3>プロパティの取得<a class="headerlink" href="#id71" title="この見出しへのパーマリンク">#</a></h3>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">COMオブジェクト.プロパティ名</span></code> でプロパティの値を取得できます</div>
+</div>
+<section id="id72">
+<h4>プロパティ取得<a class="headerlink" href="#id72" title="この見出しへのパーマリンク">#</a></h4>
 <blockquote>
-<div><div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// 値の取得</span>
-<span class="k">print</span><span class="w"> </span><span class="n">obj</span><span class="o">.</span><span class="n">foo</span>
-<span class="c">// 代入</span>
-<span class="n">obj</span><span class="o">.</span><span class="n">foo</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;hoge&quot;</span>
+<div><div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">ws</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">createoleobj</span><span class="p">(</span><span class="s">&quot;WScript.Shell&quot;</span><span class="p">)</span>
+<span class="k">print</span><span class="w"> </span><span class="n">ws</span><span class="o">.</span><span class="n">CurrentDirectory</span><span class="w"> </span><span class="c">// 現在のワーキングフォルダのパスが表示される</span>
 </pre></div>
 </div>
 </div></blockquote>
-</li>
-<li><p>引数付きプロパティ</p>
+</section>
+<section id="id73">
+<h4>インデックス指定<a class="headerlink" href="#id73" title="この見出しへのパーマリンク">#</a></h4>
+<blockquote>
+<div><div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">ws</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">createoleobj</span><span class="p">(</span><span class="s">&quot;WScript.Shell&quot;</span><span class="p">)</span>
+<span class="k">print</span><span class="w"> </span><span class="n">ws</span><span class="o">.</span><span class="n">Environment</span><span class="o">.</span><span class="n">item</span><span class="p">[</span><span class="s">&quot;windir&quot;</span><span class="p">]</span><span class="w"> </span><span class="c">// %SystemRoot%</span>
+<span class="k">print</span><span class="w"> </span><span class="n">ws</span><span class="o">.</span><span class="n">Environment</span><span class="o">.</span><span class="n">item</span><span class="p">(</span><span class="s">&quot;windir&quot;</span><span class="p">)</span><span class="w"> </span><span class="c">// () も可</span>
+</pre></div>
+</div>
+</div></blockquote>
+</section>
+<section id="id74">
+<h4>コレクションに対するインデックス指定<a class="headerlink" href="#id74" title="この見出しへのパーマリンク">#</a></h4>
 <blockquote>
 <div><div class="line-block">
-<div class="line"><code class="docutils literal notranslate"><span class="pre">[]</span></code> または <code class="docutils literal notranslate"><span class="pre">()</span></code> に添え字を入れる</div>
+<div class="line">COMオブジェクトがコレクションの場合、インデックス指定で要素を得られる</div>
+<div class="line">Item(i)の糖衣構文として実装されているため、Itemメソッドを持たない場合はエラーになる</div>
 </div>
-<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// 値の取得</span>
-<span class="k">print</span><span class="w"> </span><span class="n">obj</span><span class="o">.</span><span class="n">foo</span><span class="p">[</span><span class="m">0</span><span class="p">]</span>
-<span class="k">print</span><span class="w"> </span><span class="n">obj</span><span class="o">.</span><span class="n">foo</span><span class="p">(</span><span class="m">0</span><span class="p">)</span>
-<span class="k">print</span><span class="w"> </span><span class="n">obj</span><span class="o">.</span><span class="n">bar</span><span class="p">[</span><span class="s">&quot;fuga&quot;</span><span class="p">]</span>
-<span class="k">print</span><span class="w"> </span><span class="n">obj</span><span class="o">.</span><span class="n">bar</span><span class="p">(</span><span class="s">&quot;fuga&quot;</span><span class="p">)</span>
-<span class="c">// 代入は[]のみ</span>
-<span class="n">obj</span><span class="o">.</span><span class="n">foo</span><span class="p">[</span><span class="m">0</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;hoge&quot;</span>
-<span class="n">obj</span><span class="o">.</span><span class="n">bar</span><span class="p">[</span><span class="s">&quot;fuga&quot;</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;fuga&quot;</span>
-<span class="c">// ()の場合は取得した値との比較になるため代入できない</span>
-<span class="n">obj</span><span class="o">.</span><span class="n">foo</span><span class="p">(</span><span class="m">0</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;hoge&quot;</span><span class="w"> </span><span class="c">// true or false</span>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">ws</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">createoleobj</span><span class="p">(</span><span class="s">&quot;WScript.Shell&quot;</span><span class="p">)</span>
+<span class="c">// ws.SpecialFoldersはIWshCollectionというコレクション</span>
+<span class="k">print</span><span class="w"> </span><span class="n">ws</span><span class="o">.</span><span class="n">SpecialFolders</span><span class="p">[</span><span class="m">0</span><span class="p">]</span><span class="w"> </span><span class="c">// いずれかの特殊フォルダのパスが表示される</span>
+<span class="k">print</span><span class="w"> </span><span class="n">ws</span><span class="o">.</span><span class="n">SpecialFolders</span><span class="p">(</span><span class="m">0</span><span class="p">)</span><span class="w"> </span><span class="c">// ()でもOK</span>
+<span class="c">// これらは以下と同じ</span>
+<span class="k">print</span><span class="w"> </span><span class="n">ws</span><span class="o">.</span><span class="n">SpecialFolders</span><span class="o">.</span><span class="n">Item</span><span class="p">(</span><span class="m">0</span><span class="p">)</span>
 </pre></div>
 </div>
 </div></blockquote>
-</li>
-<li><p>メソッド</p>
-<blockquote>
-<div><div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="k">print</span><span class="w"> </span><span class="n">obj</span><span class="o">.</span><span class="n">baz</span><span class="p">()</span>
-<span class="k">print</span><span class="w"> </span><span class="n">obj</span><span class="o">.</span><span class="n">qux</span><span class="p">(</span><span class="n">hoge</span><span class="p">)</span>
-<span class="kd">dim</span><span class="w"> </span><span class="n">fuga</span>
-<span class="k">print</span><span class="w"> </span><span class="n">obj</span><span class="o">.</span><span class="n">quux</span><span class="p">(</span><span class="k">var</span><span class="w"> </span><span class="n">fuga</span><span class="p">)</span><span class="w"> </span><span class="c">// fugaで値を受ける</span>
-<span class="k">print</span><span class="w"> </span><span class="n">fuga</span>
+</section>
+</section>
+<section id="id75">
+<h3>プロパティの変更<a class="headerlink" href="#id75" title="この見出しへのパーマリンク">#</a></h3>
+<div class="line-block">
+<div class="line">プロパティに対して値を代入することでプロパティを変更できます</div>
+</div>
+<section id="id76">
+<h4>代入<a class="headerlink" href="#id76" title="この見出しへのパーマリンク">#</a></h4>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">ws</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">createoleobj</span><span class="p">(</span><span class="s">&quot;WScript.Shell&quot;</span><span class="p">)</span>
+<span class="k">print</span><span class="w"> </span><span class="n">ws</span><span class="o">.</span><span class="n">CurrentDirectory</span><span class="w"> </span><span class="c">// 元々のカレントディレクトリ</span>
+<span class="n">ws</span><span class="o">.</span><span class="n">CurrentDirectory</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;D:\Hoge&quot;</span>
+<span class="k">print</span><span class="w"> </span><span class="n">ws</span><span class="o">.</span><span class="n">CurrentDirectory</span><span class="w"> </span><span class="c">// D:\Hoge</span>
 </pre></div>
 </div>
-</div></blockquote>
-</li>
-<li><p><code class="docutils literal notranslate"><span class="pre">Item()</span></code> プロパティの糖衣構文</p>
-<blockquote>
-<div><div class="line-block">
-<div class="line">COMオブジェクトに直接 <code class="docutils literal notranslate"><span class="pre">[]</span></code> または <code class="docutils literal notranslate"><span class="pre">()</span></code> をつけた場合 <code class="docutils literal notranslate"><span class="pre">Item()</span></code> と同等</div>
-</div>
-<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="k">print</span><span class="w"> </span><span class="n">obj</span><span class="o">.</span><span class="n">Item</span><span class="p">(</span><span class="m">0</span><span class="p">)</span>
-<span class="c">// ↑同じ↓</span>
-<span class="k">print</span><span class="w"> </span><span class="n">obj</span><span class="p">(</span><span class="m">0</span><span class="p">)</span>
+</section>
+<section id="id77">
+<h4>インデックス指定による代入<a class="headerlink" href="#id77" title="この見出しへのパーマリンク">#</a></h4>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">excel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">createoleobj</span><span class="p">(</span><span class="s">&quot;Excel.Application&quot;</span><span class="p">)</span>
+<span class="n">excel</span><span class="o">.</span><span class="n">visible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">TRUE</span>
+<span class="n">excel</span><span class="o">.</span><span class="n">Workbooks</span><span class="o">.</span><span class="n">Add</span><span class="p">()</span>
 
-<span class="c">// []の場合代入もできる</span>
-<span class="n">obj</span><span class="o">.</span><span class="n">Item</span><span class="p">[</span><span class="m">0</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;hoge&quot;</span>
-<span class="c">// ↑同じ↓</span>
-<span class="n">obj</span><span class="p">[</span><span class="m">0</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;hoge&quot;</span>
+<span class="n">range</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">excel</span><span class="o">.</span><span class="n">ActiveSheet</span><span class="o">.</span><span class="n">Range</span><span class="p">(</span><span class="s">&quot;A1:A2&quot;</span><span class="p">)</span>
+<span class="c">// A1に値を代入</span>
+<span class="n">range</span><span class="p">[</span><span class="m">1</span><span class="p">]</span><span class="o">.</span><span class="n">Value</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;hoge&quot;</span>
+<span class="k">print</span><span class="w"> </span><span class="n">range</span><span class="p">[</span><span class="m">1</span><span class="p">]</span><span class="o">.</span><span class="n">Value</span><span class="w"> </span><span class="c">// hoge</span>
+<span class="c">// A2にA1を代入</span>
+<span class="n">range</span><span class="p">[</span><span class="m">2</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">range</span><span class="p">[</span><span class="m">1</span><span class="p">]</span>
+<span class="k">print</span><span class="w"> </span><span class="n">range</span><span class="p">[</span><span class="m">2</span><span class="p">]</span><span class="o">.</span><span class="n">Value</span><span class="w"> </span><span class="c">// hoge</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="id78">
+<h3>メソッドの実行<a class="headerlink" href="#id78" title="この見出しへのパーマリンク">#</a></h3>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">COMオブジェクト.メソッド名([引数,</span> <span class="pre">引数,</span> <span class="pre">...])</span></code> でメソッドを実行できます</div>
+<div class="line">通常の引数に加え、名前付き引数(<code class="docutils literal notranslate"><span class="pre">名前</span> <span class="pre">:=</span> <span class="pre">値</span></code>)や参照渡し(<code class="docutils literal notranslate"><span class="pre">ref</span> <span class="pre">変数</span></code>)が利用可能です</div>
+</div>
+<section id="id79">
+<h4>名前なし引数<a class="headerlink" href="#id79" title="この見出しへのパーマリンク">#</a></h4>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">ws</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">createoleobj</span><span class="p">(</span><span class="s">&quot;WScript.Shell&quot;</span><span class="p">)</span>
+<span class="k">print</span><span class="w"> </span><span class="n">ws</span><span class="o">.</span><span class="n">Popup</span><span class="p">(</span><span class="s">&quot;テキスト&quot;</span><span class="o">,</span><span class="w"> </span><span class="m">0</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;タイトル&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="id80">
+<h4>名前付き引数<a class="headerlink" href="#id80" title="この見出しへのパーマリンク">#</a></h4>
+<blockquote>
+<div><div class="line-block">
+<div class="line">名前を指定してメソッドに引数を渡すことができます</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">引数名</span> <span class="pre">:=</span> <span class="pre">値</span></code> と記述します</div>
+</div>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">ws</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">createoleobj</span><span class="p">(</span><span class="s">&quot;WScript.Shell&quot;</span><span class="p">)</span>
+<span class="k">print</span><span class="w"> </span><span class="n">ws</span><span class="o">.</span><span class="n">Popup</span><span class="p">(</span><span class="n">Text</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="s">&quot;テキスト&quot;</span><span class="o">,</span><span class="w"> </span><span class="n">Title</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="s">&quot;タイトル&quot;</span><span class="p">)</span>
+
+<span class="c">// 名前なし引数との併記</span>
+<span class="c">// 名前なし引数は正しい位置に書く必要がある</span>
+<span class="k">print</span><span class="w"> </span><span class="n">ws</span><span class="o">.</span><span class="n">Popup</span><span class="p">(</span><span class="s">&quot;テキスト&quot;</span><span class="o">,</span><span class="w"> </span><span class="n">Title</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="s">&quot;タイトル&quot;</span><span class="p">)</span>
+
+<span class="c">// 名前付き引数のあとに名前なしは書けない</span>
+<span class="k">print</span><span class="w"> </span><span class="n">ws</span><span class="o">.</span><span class="n">Popup</span><span class="p">(</span><span class="n">Text</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="s">&quot;テキスト&quot;</span><span class="o">,</span><span class="w"> </span><span class="m">0</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;タイトル&quot;</span><span class="p">)</span><span class="w"> </span><span class="c">// エラー</span>
 </pre></div>
 </div>
 </div></blockquote>
-</li>
+</section>
+<section id="id81">
+<h4>参照渡し<a class="headerlink" href="#id81" title="この見出しへのパーマリンク">#</a></h4>
+<blockquote>
+<div><div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">ref</span></code> または <code class="docutils literal notranslate"><span class="pre">var</span></code> キーワードで参照渡しになります</div>
+</div>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// uwscr x86でのみ動作</span>
+
+<span class="n">sc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">createoleobj</span><span class="p">(</span><span class="s">&quot;ScriptControl&quot;</span><span class="p">)</span>
+<span class="n">sc</span><span class="o">.</span><span class="n">language</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;VBScript&quot;</span>
+<span class="n">sc</span><span class="o">.</span><span class="n">ExecuteStatement</span><span class="p">(</span><span class="n">script</span><span class="p">)</span>
+
+<span class="kd">dim</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">50</span>
+<span class="k">print</span><span class="w"> </span><span class="n">sc</span><span class="o">.</span><span class="n">CodeObject</span><span class="o">.</span><span class="n">Hoge</span><span class="p">(</span><span class="k">ref</span><span class="w"> </span><span class="n">n</span><span class="p">)</span><span class="w"> </span><span class="c">// 50</span>
+<span class="k">print</span><span class="w"> </span><span class="n">n</span><span class="w">                         </span><span class="c">// 100</span>
+
+<span class="k">textblock</span><span class="w"> </span><span class="n">script</span>
+<span class="s">Function Hoge(ByRef n)</span>
+<span class="s">    Hoge = n &#39;引数をそのまま返す</span>
+<span class="s">    n = 100  &#39;引数の値を更新する</span>
+<span class="s">End Function</span>
+<span class="k">endtextblock</span>
+</pre></div>
+</div>
+</div></blockquote>
+</section>
+<section id="wmi">
+<h4>一部のWMIオブジェクトのメソッドについて<a class="headerlink" href="#wmi" title="この見出しへのパーマリンク">#</a></h4>
+<div class="important admonition">
+<p class="admonition-title">一部WMIメソッドの注意点</p>
+<div class="line-block">
+<div class="line">一部のWMIオブジェクトのメソッドは通常のCOMオブジェクトのようなメソッド実行ができません</div>
+<div class="line">このようなメソッドに対しては内部で自動的にWMIオブジェクトのメソッド実行処理に切り替わります</div>
+<div class="line">この場合以下の制限があります</div>
+</div>
+<ul class="simple">
+<li><p>名前付き引数が利用できません</p></li>
 </ul>
+<div class="line-block">
+<div class="line">該当するWMIオブジェクトは以下になります</div>
+</div>
+<ul class="simple">
+<li><p>ISWbemObject</p></li>
+<li><p>ISWbemObjectEx</p></li>
+</ul>
+<div class="line-block">
+<div class="line">以下は実行例です</div>
+</div>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="kd">dim</span><span class="w"> </span><span class="n">hDefKey</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">$80000002</span>
+<span class="kd">dim</span><span class="w"> </span><span class="n">sSubKeyName</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;SOFTWARE\Microsoft\Windows NT\CurrentVersion\&quot;</span>
+<span class="kd">dim</span><span class="w"> </span><span class="n">sValueName</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;CurrentVersion&quot;</span>
+
+<span class="n">locator</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">CreateOleObj</span><span class="p">(</span><span class="s">&quot;Wbemscripting.SWbemLocator&quot;</span><span class="p">)</span>
+<span class="n">service</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">locator</span><span class="o">.</span><span class="n">ConnectServer</span><span class="p">(</span><span class="s">&quot;&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;root\default&quot;</span><span class="p">)</span>
+<span class="n">stdRegProv</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">service</span><span class="o">.</span><span class="n">Get</span><span class="p">(</span><span class="s">&quot;StdRegProv&quot;</span><span class="p">)</span>
+<span class="k">print</span><span class="w"> </span><span class="n">stdRegProv</span><span class="w"> </span><span class="c">// ComObject(ISWbemObjectEx)</span>
+
+<span class="c">// stdRegProv.GetStringValueは通常の実行ができないためWMIメソッド処理で実行される</span>
+<span class="kd">dim</span><span class="w"> </span><span class="n">sValue</span>
+<span class="k">print</span><span class="w"> </span><span class="n">stdRegProv</span><span class="o">.</span><span class="n">GetStringValue</span><span class="p">(</span><span class="n">hDefKey</span><span class="o">,</span><span class="w"> </span><span class="n">sSubKeyName</span><span class="o">,</span><span class="w"> </span><span class="n">sValueName</span><span class="o">,</span><span class="w"> </span><span class="k">ref</span><span class="w"> </span><span class="n">sValue</span><span class="p">)</span>
+<span class="k">print</span><span class="w"> </span><span class="n">sValue</span>
+
+<span class="c">// 上記のメソッド実行は以下のコードと同等の処理を内部的に行っています</span>
+<span class="n">inparam</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">stdRegProv</span><span class="o">.</span><span class="n">Methods_</span><span class="o">.</span><span class="n">Item</span><span class="p">(</span><span class="s">&quot;GetStringValue&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">InParameters</span><span class="o">.</span><span class="n">SpawnInstance_</span><span class="p">()</span>
+<span class="n">inparam</span><span class="o">.</span><span class="n">hDefKey</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">hDefKey</span>
+<span class="n">inparam</span><span class="o">.</span><span class="n">sSubKeyName</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">sSubKeyName</span>
+<span class="n">inparam</span><span class="o">.</span><span class="n">sValueName</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">sValueName</span>
+<span class="n">out</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">stdRegProv</span><span class="o">.</span><span class="n">ExecMethod_</span><span class="p">(</span><span class="s">&quot;GetStringValue&quot;</span><span class="o">,</span><span class="w"> </span><span class="n">inparam</span><span class="p">)</span>
+<span class="k">print</span><span class="w"> </span><span class="n">out</span><span class="o">.</span><span class="n">ReturnValue</span>
+<span class="k">print</span><span class="w"> </span><span class="n">out</span><span class="o">.</span><span class="n">sValue</span>
+</pre></div>
+</div>
+</div>
+</section>
+</section>
+<section id="id82">
+<h3>型の確認<a class="headerlink" href="#id82" title="この見出しへのパーマリンク">#</a></h3>
+<div class="line-block">
+<div class="line">COMオブジェクトをprintすることで型の名前を確認できます</div>
+<div class="line">オブジェクトがコレクションの場合は <code class="docutils literal notranslate"><span class="pre">型名[]</span></code> と表示されます</div>
+</div>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">ws</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">createoleobj</span><span class="p">(</span><span class="s">&quot;WScript.Shell&quot;</span><span class="p">)</span>
+<span class="k">print</span><span class="w"> </span><span class="n">ws</span><span class="w">                </span><span class="c">// ComObject(IWshShell3)</span>
+<span class="k">print</span><span class="w"> </span><span class="n">ws</span><span class="o">.</span><span class="n">specialfolders</span><span class="w"> </span><span class="c">// ComObject(IWshCollection[])</span>
+</pre></div>
+</div>
+</section>
 <section id="com-err-ign-com-err-ret">
-<h4>COM_ERR_IGN-COM_ERR_RET<a class="headerlink" href="#com-err-ign-com-err-ret" title="この見出しへのパーマリンク">#</a></h4>
+<h3>COM_ERR_IGN-COM_ERR_RET<a class="headerlink" href="#com-err-ign-com-err-ret" title="この見出しへのパーマリンク">#</a></h3>
 <div class="line-block">
 <div class="line">COMエラーの発生を無視して処理を続行させることができます</div>
 </div>
@@ -3625,9 +3759,8 @@ selend
 </div>
 </section>
 </section>
-</section>
-<section id="id72">
-<h2>リストの改行表記<a class="headerlink" href="#id72" title="この見出しへのパーマリンク">#</a></h2>
+<section id="id83">
+<h2>リストの改行表記<a class="headerlink" href="#id83" title="この見出しへのパーマリンク">#</a></h2>
 <div class="line-block">
 <div class="line">一部リスト表記 (<code class="docutils literal notranslate"><span class="pre">,</span></code> 区切りの式) で改行を含めることができます</div>
 <div class="line">従来では <code class="docutils literal notranslate"><span class="pre">_</span></code> による行連結が必要だったところを簡潔に記述できるようになりました</div>
@@ -3724,11 +3857,11 @@ selend
 </pre></div>
 </div>
 </section>
-<section id="id73">
-<h2>値型<a class="headerlink" href="#id73" title="この見出しへのパーマリンク">#</a></h2>
-<div class="table-wrapper docutils container" id="id74">
-<table class="docutils align-default" id="id74">
-<caption><span class="caption-text">UWSCRで使われる値の型</span><a class="headerlink" href="#id74" title="このテーブルへのパーマリンク">#</a></caption>
+<section id="id84">
+<h2>値型<a class="headerlink" href="#id84" title="この見出しへのパーマリンク">#</a></h2>
+<div class="table-wrapper docutils container" id="id85">
+<table class="docutils align-default" id="id85">
+<caption><span class="caption-text">UWSCRで使われる値の型</span><a class="headerlink" href="#id85" title="このテーブルへのパーマリンク">#</a></caption>
 <thead>
 <tr class="row-odd"><th class="head"><p>型</p></th>
 <th class="head"><p>詳細</p></th>
@@ -3826,15 +3959,7 @@ selend
 </tr>
 <tr class="row-even"><td><p>COMオブジェクト</p></td>
 <td><p>createoleobj/getactiveoleobj</p></td>
-<td><p>no</p></td>
-</tr>
-<tr class="row-odd"><td><p>VARIANT</p></td>
-<td><p>COMで使われる値型</p></td>
-<td><p>no</p></td>
-</tr>
-<tr class="row-even"><td><p>SafeArray</p></td>
-<td><p>COMで使われる配列</p></td>
-<td><p>no</p></td>
+<td><p>yes</p></td>
 </tr>
 <tr class="row-odd"><td><p>BrowserBuilderオブジェクト</p></td>
 <td><p>起動するブラウザを構成するためのオブジェクト</p></td>
@@ -4100,14 +4225,30 @@ selend
 </ul>
 </li>
 <li><a class="reference internal" href="#com">COMオブジェクト</a><ul>
-<li><a class="reference internal" href="#id71">書式について</a><ul>
+<li><a class="reference internal" href="#id71">プロパティの取得</a><ul>
+<li><a class="reference internal" href="#id72">プロパティ取得</a></li>
+<li><a class="reference internal" href="#id73">インデックス指定</a></li>
+<li><a class="reference internal" href="#id74">コレクションに対するインデックス指定</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id75">プロパティの変更</a><ul>
+<li><a class="reference internal" href="#id76">代入</a></li>
+<li><a class="reference internal" href="#id77">インデックス指定による代入</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id78">メソッドの実行</a><ul>
+<li><a class="reference internal" href="#id79">名前なし引数</a></li>
+<li><a class="reference internal" href="#id80">名前付き引数</a></li>
+<li><a class="reference internal" href="#id81">参照渡し</a></li>
+<li><a class="reference internal" href="#wmi">一部のWMIオブジェクトのメソッドについて</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id82">型の確認</a></li>
 <li><a class="reference internal" href="#com-err-ign-com-err-ret">COM_ERR_IGN-COM_ERR_RET</a></li>
 </ul>
 </li>
-</ul>
-</li>
-<li><a class="reference internal" href="#id72">リストの改行表記</a></li>
-<li><a class="reference internal" href="#id73">値型</a></li>
+<li><a class="reference internal" href="#id83">リストの改行表記</a></li>
+<li><a class="reference internal" href="#id84">値型</a></li>
 </ul>
 </li>
 </ul>

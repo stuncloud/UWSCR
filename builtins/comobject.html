@@ -7,7 +7,7 @@
 <link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="ウェブ関連" href="web.html" /><link rel="prev" title="数学関数" href="math.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>COMオブジェクト - UWSCR 0.11.2</title>
+        <title>COMオブジェクト - UWSCR 0.12.0</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 0.11.2</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 0.12.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 0.11.2</span>
+  <span class="sidebar-brand-text">UWSCR 0.12.0</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -215,14 +215,7 @@
           <section id="com">
 <h1>COMオブジェクト<a class="headerlink" href="#com" title="この見出しへのパーマリンク">#</a></h1>
 <section id="id1">
-<h2>COMオブジェクトの作成<a class="headerlink" href="#id1" title="この見出しへのパーマリンク">#</a></h2>
-<div class="admonition attention">
-<p class="admonition-title">注意</p>
-<div class="line-block">
-<div class="line">以下の関数はCOM関連の実装が壊れているため現時点では利用不可となっています</div>
-<div class="line">呼び出した場合エラーになります (<strong>[未定義エラー] 関数が未定義です</strong>)</div>
-</div>
-</div>
+<h2>COMオブジェクトの作成・取得<a class="headerlink" href="#id1" title="この見出しへのパーマリンク">#</a></h2>
 <dl class="py function">
 <dt class="sig sig-object py" id="createoleobj">
 <span class="sig-name descname"><span class="pre">createoleobj</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ProgID</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#createoleobj" title="この定義へのパーマリンク">#</a></dt>
@@ -231,7 +224,7 @@
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>ProgID</strong> (<em>文字列</em>) -- COMオブジェクトのProgID</p>
+<dd class="field-odd"><p><strong>ProgID</strong> (<em>文字列</em>) -- COMオブジェクトのProgIDまたはCLSID</p>
 </dd>
 <dt class="field-even">戻り値<span class="colon">:</span></dt>
 <dd class="field-even"><p><a class="reference internal" href="../syntax/statement.html#com-object"><span class="std std-ref">COMオブジェクト</span></a></p>
@@ -247,7 +240,7 @@
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>ProgID</strong> (<em>文字列</em>) -- COMオブジェクトのProgID</p>
+<dd class="field-odd"><p><strong>ProgID</strong> (<em>文字列</em>) -- COMオブジェクトのProgIDまたはCLSID</p>
 </dd>
 <dt class="field-even">戻り値<span class="colon">:</span></dt>
 <dd class="field-even"><p><a class="reference internal" href="../syntax/statement.html#com-object"><span class="std std-ref">COMオブジェクト</span></a></p>
@@ -255,227 +248,103 @@
 </dl>
 </dd></dl>
 
+<div class="hint admonition">
+<p class="admonition-title">CLSIDの入力</p>
+<div class="line-block">
+<div class="line">CLSIDは <code class="docutils literal notranslate"><span class="pre">{XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX}</span></code> の形式で入力します</div>
+</div>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// WScript.ShellのCLSIDを指定</span>
+<span class="n">ws</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">createoleobj</span><span class="p">(</span><span class="s">&quot;{72C24DD5-D70A-438B-8A42-98424B88AFB8}&quot;</span><span class="p">)</span>
+<span class="k">print</span><span class="w"> </span><span class="n">ws</span><span class="w"> </span><span class="c">// ComObject(IWshShell3)</span>
+<span class="n">ws</span><span class="o">.</span><span class="n">Popup</span><span class="p">(</span><span class="s">&quot;Hello!&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
 </section>
-<section id="variant">
-<h2>VARIANT型<a class="headerlink" href="#variant" title="この見出しへのパーマリンク">#</a></h2>
+<section id="id2">
+<h2>コレクション<a class="headerlink" href="#id2" title="この見出しへのパーマリンク">#</a></h2>
 <dl class="py function">
-<dt class="sig sig-object py">
-<span class="sig-name descname"><span class="pre">vartype</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">値</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">VAR定数</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">-1</span></span></em><span class="sig-paren">)</span></dt>
+<dt class="sig sig-object py" id="getoleitem">
+<span class="sig-name descname"><span class="pre">getoleitem</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">コレクション</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#getoleitem" title="この定義へのパーマリンク">#</a></dt>
 <dd><div class="line-block">
-<div class="line">VARIANT型変数の型を調べます</div>
-<div class="line">または、指定した型へのキャストを行います</div>
+<div class="line">コレクションを配列に変換します</div>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>値</strong> (<em>VARIANT型</em>) -- VARIANT型の値</p></li>
-<li><p><strong>VAR定数</strong> (<em>定数 省略可</em>) -- <p>型変換を行う場合に指定</p>
-<dl class="object">
-<dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">VAR_EMPTY</span></span></dt>
-<dd><p>Empty</p>
-</dd></dl>
-
-<dl class="object">
-<dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">VAR_NULL</span></span></dt>
-<dd><p>Null</p>
-</dd></dl>
-
-<dl class="object">
-<dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">VAR_SMALLINT</span></span></dt>
-<dd><p>符号あり16ビット整数</p>
-</dd></dl>
-
-<dl class="object">
-<dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">VAR_INTEGER</span></span></dt>
-<dd><p>符号あり32ビット整数</p>
-</dd></dl>
-
-<dl class="object">
-<dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">VAR_SINGLE</span></span></dt>
-<dd><p>単精度浮動小数点数</p>
-</dd></dl>
-
-<dl class="object">
-<dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">VAR_DOUBLE</span></span></dt>
-<dd><p>倍精度浮動小数点数</p>
-</dd></dl>
-
-<dl class="object">
-<dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">VAR_CURRENCY</span></span></dt>
-<dd><p>通貨型</p>
-</dd></dl>
-
-<dl class="object">
-<dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">VAR_DATE</span></span></dt>
-<dd><p>日付型</p>
-</dd></dl>
-
-<dl class="object">
-<dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">VAR_BSTR</span></span></dt>
-<dd><p>BSTR型</p>
-</dd></dl>
-
-<dl class="object">
-<dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">VAR_DISPATCH</span></span></dt>
-<dd><p>COMオブジェクト</p>
-</dd></dl>
-
-<dl class="object">
-<dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">VAR_ERROR</span></span></dt>
-<dd><p>エラー値</p>
-</dd></dl>
-
-<dl class="object">
-<dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">VAR_BOOLEAN</span></span></dt>
-<dd><p>bool値</p>
-</dd></dl>
-
-<dl class="object">
-<dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">VAR_VARIANT</span></span></dt>
-<dd><p>VARIANT型</p>
-</dd></dl>
-
-<dl class="object">
-<dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">VAR_UNKNOWN</span></span></dt>
-<dd><p>IUnknown型</p>
-</dd></dl>
-
-<dl class="object">
-<dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">VAR_SBYTE</span></span></dt>
-<dd><p>符号あり8ビット整数</p>
-</dd></dl>
-
-<dl class="object">
-<dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">VAR_BYTE</span></span></dt>
-<dd><p>符号なし8ビット整数</p>
-</dd></dl>
-
-<dl class="object">
-<dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">VAR_WORD</span></span></dt>
-<dd><p>符号なし16ビット整数</p>
-</dd></dl>
-
-<dl class="object">
-<dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">VAR_DWORD</span></span></dt>
-<dd><p>符号なし32ビット整数</p>
-</dd></dl>
-
-<dl class="object">
-<dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">VAR_INT64</span></span></dt>
-<dd><p>符号あり64ビット整数</p>
-</dd></dl>
-
-<dl class="object">
-<dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">VAR_ARRAY</span></span></dt>
-<dd><p>SafeArray</p>
-</dd></dl>
-
-<dl class="object">
-<dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">VAR_UWSCR</span></span></dt>
-<dd><p>VARIANTではない値 (UWSCRの値型)</p>
-</dd></dl>
-
-</p></li>
-</ul>
+<dd class="field-odd"><p><strong>コレクション</strong> (<em>COMオブジェクト</em>) -- コレクションを示すCOMオブジェクト</p>
 </dd>
-<dt class="field-even">戻り値<span class="colon">:</span></dt>
-<dd class="field-even"><p><dl class="object">
-<dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">VAR定数が未指定</span></span></dt>
-<dd><p>渡された値の型を示すVAR定数</p>
-</dd></dl>
-
-<dl class="object">
-<dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">VAR定数を指定した場合</span></span></dt>
-<dd><div class="line-block">
-<div class="line">VAR定数で指定した型にキャストされたVARIANT型の値</div>
-<div class="line"><code class="docutils literal notranslate"><span class="pre">VAR_UWSCR</span></code> 指定時は対応するUWSCRの値型に変換される</div>
-</div>
-</dd></dl>
-
-</p>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>配列</p>
 </dd>
-</dl>
-</dd></dl>
-
-</section>
-<section id="safearray">
-<h2>SafeArray<a class="headerlink" href="#safearray" title="この見出しへのパーマリンク">#</a></h2>
-<dl class="py function">
-<dt class="sig sig-object py" id="id0">
-<span class="sig-name descname"><span class="pre">safearray</span></span><span class="sig-paren">(</span><span class="optional">[</span><em class="sig-param"><span class="n"><span class="pre">下限=0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">上限=-1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">二次元下限=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">二次元上限=(二次元下限-1)</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#id0" title="この定義へのパーマリンク">#</a></dt>
-<dd></dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py">
-<span class="sig-name descname"><span class="pre">safearray</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">一次元配列</span></span></em><span class="sig-paren">)</span></dt>
-<dd><div class="line-block">
-<div class="line">空のSafeArrayを作成します</div>
-<div class="line">または通常の配列変数(一次元)をSafeArrayに変換します</div>
-</div>
-<dl class="field-list simple">
-<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>下限</strong> (<em>数値 省略可</em>) -- SafeArrayのインデックス下限</p></li>
-<li><p><strong>上限</strong> (<em>数値 省略可</em>) -- SafeArrayのインデックス上限</p></li>
-<li><p><strong>二次元下限</strong> (<em>数値 省略可</em>) -- 二次元目のインデックス下限、省略時は二次元にしない</p></li>
-<li><p><strong>二次元上限</strong> (<em>数値 省略可</em>) -- 二次元目のインデックス上限</p></li>
-<li><p><strong>一次元配列</strong> (<em>配列</em>) -- 通常の配列 (一次元のみ)</p></li>
-</ul>
-</dd>
-<dt class="field-even">戻り値<span class="colon">:</span></dt>
-<dd class="field-even"><p>SafeArray</p>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>コレクションの要素を格納した配列</p>
 </dd>
 </dl>
 <div class="caution admonition">
 <p class="admonition-title">UWSCとの違い</p>
 <div class="line-block">
-<div class="line">UWSCでは下限省略時は1、上限省略時は0になっていましたが、下限は0、上限は-1となるように変更されました</div>
-<div class="line">これにより引数省略でサイズ0のSafeArrayが作成されます</div>
-<div class="line">また、引数に配列変数を渡すことで通常の配列をSafeArrayに変換できるようになりました</div>
+<div class="line">要素の数ではなく要素の配列を返すようになりました</div>
+<div class="line">それに伴い <code class="docutils literal notranslate"><span class="pre">ALL_OLE_ITEM</span></code> は廃止されました</div>
 </div>
 </div>
 <div class="admonition- admonition">
 <p class="admonition-title">サンプルコード</p>
-<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">sa</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">safearray</span><span class="p">(</span><span class="m">0</span><span class="o">,</span><span class="w"> </span><span class="m">1</span><span class="p">)</span><span class="w"> </span><span class="c">// サイズ2の配列</span>
-
-<span class="n">sa</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">safearray</span><span class="p">(</span><span class="o">-</span><span class="m">2</span><span class="o">,</span><span class="w"> </span><span class="m">2</span><span class="p">)</span><span class="w"> </span><span class="c">// 添字が -2,-1,0,1,2</span>
-<span class="k">print</span><span class="w"> </span><span class="n">length</span><span class="p">(</span><span class="n">sa</span><span class="p">)</span><span class="w"> </span><span class="c">// 5</span>
-
-<span class="n">sa</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">safearray</span><span class="p">()</span><span class="w"> </span><span class="c">// サイズ0の配列</span>
-<span class="c">// safearray(0, -1) と同等</span>
-
-<span class="n">sa</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">safearray</span><span class="p">(</span><span class="m">0</span><span class="o">,</span><span class="w"> </span><span class="m">1</span><span class="o">,</span><span class="w"> </span><span class="m">0</span><span class="o">,</span><span class="w"> </span><span class="m">3</span><span class="p">)</span>
-<span class="k">print</span><span class="w"> </span><span class="n">length</span><span class="p">(</span><span class="n">sa</span><span class="o">,</span><span class="w"> </span><span class="m">2</span><span class="p">)</span><span class="w"> </span><span class="c">// 4 (lengthの第2引数に次元数を指定できる)</span>
-
-<span class="c">// 配列→SafeArray</span>
-<span class="n">sa</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">safearray</span><span class="p">([</span><span class="s">&quot;foo&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;bar&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;baz&quot;</span><span class="p">])</span>
-<span class="k">print</span><span class="w"> </span><span class="n">sa</span><span class="p">[</span><span class="m">0</span><span class="p">]</span><span class="w"> </span><span class="c">// foo</span>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">ws</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">createoleobj</span><span class="p">(</span><span class="s">&quot;WScript.Shell&quot;</span><span class="p">)</span>
+<span class="n">col</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">getoleitem</span><span class="p">(</span><span class="n">ws</span><span class="o">.</span><span class="n">SpecialFolders</span><span class="p">)</span>
+<span class="k">print</span><span class="w"> </span><span class="n">col</span><span class="p">[</span><span class="m">0</span><span class="p">]</span>
 </pre></div>
 </div>
 </div>
+</dd></dl>
+
+</section>
+<section id="id3">
+<h2>非推奨関数<a class="headerlink" href="#id3" title="この見出しへのパーマリンク">#</a></h2>
+<div class="caution admonition">
+<p class="admonition-title">非推奨の理由</p>
+<div class="line-block">
+<div class="line">UWSCRではVARIANT型及びSAFEARRAY型の値が存在しないため以下の関数は非推奨となりました</div>
+<div class="line">互換性のため関数は残していますが、UWSCとは結果が異なります</div>
+</div>
+</div>
+<dl class="py function">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">vartype</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">値</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">VAR定数</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">-1</span></span></em><span class="sig-paren">)</span></dt>
+<dd><div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">VAR_UWSCR</span></code> を返します</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>値</strong> (<em>全て</em>) -- 値</p></li>
+<li><p><strong>VAR定数</strong> (<em>定数 省略可</em>) -- 無視されます</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p><code class="docutils literal notranslate"><span class="pre">VAR_UWSCR</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="safearray">
+<span class="sig-name descname"><span class="pre">safearray</span></span><span class="sig-paren">(</span><span class="optional">[</span><em class="sig-param"><span class="n"><span class="pre">下限=0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">上限=-1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">二次元下限=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">二次元上限=(二次元下限-1)</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#safearray" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">EMPTYを返します</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>下限</strong> (<em>数値 省略可</em>) -- 無視されます</p></li>
+<li><p><strong>上限</strong> (<em>数値 省略可</em>) -- 無視されます</p></li>
+<li><p><strong>二次元下限</strong> (<em>数値 省略可</em>) -- 無視されます</p></li>
+<li><p><strong>二次元上限</strong> (<em>数値 省略可</em>) -- 無視されます</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>EMPTY</p>
+</dd>
+</dl>
 </dd></dl>
 
 </section>
@@ -539,14 +408,17 @@
           <div class="toc-tree">
             <ul>
 <li><a class="reference internal" href="#">COMオブジェクト</a><ul>
-<li><a class="reference internal" href="#id1">COMオブジェクトの作成</a><ul>
+<li><a class="reference internal" href="#id1">COMオブジェクトの作成・取得</a><ul>
 <li><a class="reference internal" href="#createoleobj"><code class="docutils literal notranslate"><span class="pre">createoleobj()</span></code></a></li>
 <li><a class="reference internal" href="#getactiveoleobj"><code class="docutils literal notranslate"><span class="pre">getactiveoleobj()</span></code></a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#variant">VARIANT型</a></li>
-<li><a class="reference internal" href="#safearray">SafeArray</a><ul>
-<li><a class="reference internal" href="#id0"><code class="docutils literal notranslate"><span class="pre">safearray()</span></code></a></li>
+<li><a class="reference internal" href="#id2">コレクション</a><ul>
+<li><a class="reference internal" href="#getoleitem"><code class="docutils literal notranslate"><span class="pre">getoleitem()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id3">非推奨関数</a><ul>
+<li><a class="reference internal" href="#safearray"><code class="docutils literal notranslate"><span class="pre">safearray()</span></code></a></li>
 </ul>
 </li>
 </ul>
