@@ -289,9 +289,7 @@ impl ComObject {
         }
     }
     /// プロパティの値を取得
-    /// ```
     /// obj.prop
-    /// ```
     pub fn get_property(&self, prop: &str) -> ComResult<Object> {
         let variant = self.get_raw_property(prop)?;
         variant.try_into()
@@ -302,9 +300,7 @@ impl ComObject {
         self.invoke_raw(dispidmember, &mut dp, DISPATCH_PROPERTYGET)
     }
     /// プロパティへの代入
-    /// ```
     /// obj.prop = value
-    /// ```
     pub fn set_property(&self, prop: &str, value: Object) -> ComResult<()> {
         let dispidmember = self.get_id_from_name(prop)?;
         let mut dp = DISPPARAMS::default();
@@ -320,9 +316,7 @@ impl ComObject {
         Ok(())
     }
     /// インデックス指定でプロパティの値を得る
-    /// ```
     /// obj.prop[index]
-    /// ```
     pub fn get_property_by_index(&self, prop: &str, index: Vec<Object>) -> ComResult<Object> {
         let dispidmember = self.get_id_from_name(prop)?;
         let mut dp = DISPPARAMS::default();
@@ -353,9 +347,7 @@ impl ComObject {
         }
     }
     /// インデックス指定でプロパティへ代入
-    /// ```
     /// obj.prop[index] = value
-    /// ```
     pub fn set_property_by_index(&self, prop: &str, index: Object, value: Object) -> ComResult<()> {
         let dispidmember = self.get_id_from_name(prop)?;
         let mut dp = DISPPARAMS::default();
@@ -373,17 +365,13 @@ impl ComObject {
     }
     /// オブジェクト自身にインデックス指定
     /// Itemプロパティの糖衣構文
-    /// ```
     /// obj[index]
-    /// ```
     pub fn get_by_index(&self, index: Vec<Object>) -> ComResult<Object> {
         self.get_item_property(index)
     }
     /// オブジェクト自身にインデックス指定で代入
     /// Itemプロパティの糖衣構文
-    /// ```
     /// obj[index] = value
-    /// ```
     pub fn set_by_index(&self, index: Object, value: Object) -> ComResult<()> {
         self.set_property_by_index("Item", index, value)
     }
@@ -400,9 +388,7 @@ impl ComObject {
         self.invoke(dispidmember, &mut dp, DISPATCH_PROPERTYGET|DISPATCH_METHOD)
     }
     /// メソッドの実行
-    /// ```
     /// obj.method(args)
-    /// ```
     pub fn invoke_method(&self, method: &str, args: &mut Vec<ComArg>) -> ComResult<Object> {
         if self.is_wmi_object() {
             // ISWbemObject(Ex)であればWMIメソッドとして処理
