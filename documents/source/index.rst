@@ -46,6 +46,7 @@ UWSCR |version| オンラインヘルプ
     builtins/array
     builtins/math
     builtins/comobject
+    builtins/excel
     builtins/web
 
 コミュニティ

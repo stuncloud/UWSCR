@@ -194,6 +194,7 @@ pub enum UErrorKind {
     ComArgError,
     ComCollectionError,
     ComEventError,
+    ExcelError,
 }
 
 impl fmt::Display for UErrorKind {
@@ -400,6 +401,10 @@ impl fmt::Display for UErrorKind {
                 "COMイベントエラー",
                 "COM event error",
             ),
+            Self::ExcelError => write_locale!(f,
+                "Excelエラー",
+                "Excel error",
+            ),
         }
     }
 }
@@ -553,6 +558,7 @@ pub enum UErrorMessage {
     MissingArgument,
     FunctionRequired,
     EventInterfaceNotFound,
+    ThirdPartyNotImplemented,
 }
 
 impl fmt::Display for UErrorMessage {
@@ -1186,6 +1192,10 @@ impl fmt::Display for UErrorMessage {
             Self::EventInterfaceNotFound => write_locale!(f,
                 "インターフェースが見つかりません",
                 "Interface not found",
+            ),
+            Self::ThirdPartyNotImplemented => write_locale!(f,
+                "XL_OOOCはサポートされていません",
+                "XL_OOOC is not supported",
             ),
         }
     }

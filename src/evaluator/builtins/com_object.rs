@@ -16,6 +16,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     // sets.add("oleevent", 4, oleevent);
     sets.add("vartype", 2, vartype);
     sets.add("safearray", 4, safearray);
+    sets.add("xlopen", 36, xlopen);
     sets
 }
 
@@ -143,4 +144,23 @@ impl From<ComError> for BuiltinFuncError {
     fn from(e: ComError) -> Self {
         BuiltinFuncError::UError(e.into())
     }
+}
+
+// Excel
+
+#[allow(non_camel_case_types)]
+#[derive(Debug, EnumString, EnumProperty, EnumVariantNames, ToPrimitive, FromPrimitive)]
+pub enum ExcelConst {
+    XL_DEFAULT = 0,
+    XL_NEW     = 1,
+    XL_BOOK    = 2,
+    XL_OOOC    = 3,
+}
+
+pub fn xlopen(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let file = args.get_as_string_or_empty(0)?;
+    let flg = args.get_as_const::<ExcelOpenFlag>(1, false)?.unwrap_or_default();
+    let params = args.get_rest_as_string_array(2, 0)?;
+    let com = Excel::open(file, flg, params)?;
+    Ok(Object::ComObject(com))
 }

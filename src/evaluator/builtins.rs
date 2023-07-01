@@ -560,6 +560,11 @@ impl BuiltinFuncArgs {
         self.get_arg_with_required_flag(i, required, |arg| {
             let result = match arg {
                 Object::Num(n) => T::from_f64(n),
+                Object::Bool(b) => if b {
+                    T::from_i32(1)
+                } else {
+                    T::from_i32(0)
+                },
                 Object::Empty | Object::EmptyParam => None,
                 arg => return Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg))),
             };
@@ -793,6 +798,7 @@ pub fn init_builtins() -> Vec<NamedObject> {
     // com_object
     com_object::builtin_func_sets().set(&mut vec);
     set_builtin_consts::<com_object::VarType>(&mut vec);
+    set_builtin_consts::<com_object::ExcelConst>(&mut vec);
     // browser_control
     browser_control::builtin_func_sets().set(&mut vec);
     set_builtin_consts::<browser_control::BcEnum>(&mut vec);

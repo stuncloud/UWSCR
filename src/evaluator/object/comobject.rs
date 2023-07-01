@@ -1,7 +1,10 @@
 use windows::{
     core::{self, BSTR, HRESULT, HSTRING, PCWSTR, PWSTR, ComInterface, GUID, Interface, implement, IUnknown},
     Win32::{
-        Foundation::{VARIANT_TRUE, VARIANT_FALSE, DISP_E_MEMBERNOTFOUND},
+        Foundation::{VARIANT_TRUE, VARIANT_FALSE, DISP_E_MEMBERNOTFOUND, HWND},
+        UI::WindowsAndMessaging::{
+            SetForegroundWindow,
+        },
         System::{
             Com::{
                 CLSCTX_ALL, CLSCTX_LOCAL_SERVER,
@@ -880,6 +883,7 @@ trait VariantExt {
     fn to_vt_variant(&mut self) -> ComResult<VARIANT>;
     fn to_idispatch(&self) -> ComResult<IDispatch>;
     fn to_t<T: ComInterface>(&self) -> ComResult<T>;
+    fn to_i32(&self) -> ComResult<i32>;
 }
 
 impl VariantExt for VARIANT {
@@ -980,6 +984,15 @@ impl VariantExt for VARIANT {
         let disp = self.to_idispatch()?;
         let t = disp.cast::<T>()?;
         Ok(t)
+    }
+    fn to_i32(&self) -> ComResult<i32> {
+        unsafe {
+            let mut new = VARIANT::default();
+            VariantChangeType(&mut new, self, 0, VT_I4)?;
+            let v00 = &new.Anonymous.Anonymous;
+            let n = v00.Anonymous.lVal;
+            Ok(n)
+        }
     }
 }
 
@@ -1456,5 +1469,128 @@ impl std::fmt::Display for Unknown {
 impl From<IUnknown> for Unknown {
     fn from(unk: IUnknown) -> Self {
         Self(unk)
+    }
+}
+
+/* Excel */
+use num_derive::FromPrimitive;
+
+#[derive(FromPrimitive, Default)]
+pub enum ExcelOpenFlag {
+    /// Excelが存在すればそれを使いなければ新規
+    #[default]
+    Default    = 0,
+    /// 常に新規
+    New        = 1,
+    /// Workbookを返す、起動はDefaultと同じ条件
+    Book       = 2,
+    /// 互換製品を起動、未対応
+    ThirdParty = 3,
+}
+pub struct Excel {
+    obj: ComObject,
+    hwnd: HWND,
+}
+
+impl Excel {
+    const EXCEL_PROGID: &str = "Excel.Application";
+    fn create (file: Option<String>, params: Vec<String>) -> ComResult<Self> {
+        let obj = ComObject::new(Self::EXCEL_PROGID.into())?;
+        let e = Self::new(obj)?;
+        e.open_book(file, params)?;
+        e.show()?;
+        Ok(e)
+
+    }
+    fn get_or_create(file: Option<String>, params: Vec<String>) -> ComResult<Self> {
+        let obj = match ComObject::get_instance(Self::EXCEL_PROGID.into()).ok().flatten() {
+            Some(obj) => obj,
+            None => ComObject::new(Self::EXCEL_PROGID.into())?,
+        };
+        let e = Self::new(obj)?;
+        e.show()?;
+        e.open_book(file, params)?;
+        Ok(e)
+    }
+    fn get_or_create_book(file: Option<String>, params: Vec<String>) -> ComResult<Self> {
+        let obj = match ComObject::get_instance(Self::EXCEL_PROGID.into()).ok().flatten() {
+            Some(obj) => obj,
+            None => ComObject::new(Self::EXCEL_PROGID.into())?,
+        };
+        let e = Self::new(obj)?;
+        e.show()?;
+        if let Object::ComObject(book) = e.open_book(file, params)? {
+            Ok(Self::new_book(book, e.hwnd))
+        } else {
+            Ok(e)
+        }
+    }
+    pub fn open(file: Option<String>, flg: ExcelOpenFlag, params: Vec<String>) -> ComResult<ComObject> {
+        let excel = match flg {
+            ExcelOpenFlag::Default => Self::get_or_create(file, params),
+            ExcelOpenFlag::New => Self::create(file, params),
+            ExcelOpenFlag::Book => Self::get_or_create_book(file, params),
+            ExcelOpenFlag::ThirdParty => Err(ComError::new_u(UErrorKind::ExcelError, UErrorMessage::ThirdPartyNotImplemented)),
+        }?;
+        excel.activate();
+        Ok(excel.obj)
+    }
+    fn new(obj: ComObject) -> ComResult<Self> {
+        let hwnd = obj.get_raw_property("Hwnd")?.to_i32()?;
+        let hwnd = HWND(hwnd as isize);
+        Ok(Self {obj, hwnd})
+    }
+    fn new_book(obj: ComObject, hwnd: HWND) -> Self {
+        Self {obj, hwnd}
+    }
+    /// - ファイル名指定あり
+    ///     1. Open
+    /// - ファイル名指定なし
+    ///     - Workbookが0
+    ///         1. Add
+    ///     - Workbookがある
+    ///         1. なにもしない
+    fn open_book(&self, file: Option<String>, params: Vec<String>) -> ComResult<Object> {
+        match file {
+            Some(path) => {
+                let books = self.workbooks()?;
+                let mut args = vec![ComArg::Arg(path.into())];
+                let named = params.into_iter()
+                    .filter_map(|p| {
+                        p.split_once(":=")
+                            .map(|(param, value)| ComArg::NamedArg(param.into(), value.into()))
+                    });
+                args.extend(named);
+                books.invoke_method("Open", &mut args)
+            },
+            None => {
+                self.add_book_if_none()?;
+                Ok(Object::Empty)
+            }
+        }
+    }
+    fn add_book_if_none(&self) -> ComResult<()> {
+        if self.count()? == 0 {
+            let books = self.workbooks()?;
+            let mut args = vec![];
+            books.invoke_method("Add", &mut args)?;
+        }
+        Ok(())
+    }
+    fn count(&self) -> ComResult<i32> {
+        let books = self.workbooks()?;
+        books.get_raw_property("Count")?.to_i32()
+    }
+    fn workbooks(&self) -> ComResult<ComObject> {
+        let com = self.obj.get_raw_property("Workbooks")?.to_idispatch()?.into();
+        Ok(com)
+    }
+    fn show(&self) -> ComResult<()> {
+        self.obj.set_property("Visible", true.into())
+    }
+    fn activate(&self) {
+        unsafe {
+            SetForegroundWindow(self.hwnd);
+        }
     }
 }
