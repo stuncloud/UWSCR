@@ -37,9 +37,17 @@ winget install UWSCR
 winget install --id stuncloud.uwscr
 ```
 
+旧バージョンがインストール済みの場合は以下のコマンドで更新できます
+
+```powershell
+winget upgrade UWSCR
+# または
+winget upgrade --id stuncloud.uwscr
+```
+
 `uwscr.exe` のインストール先は以下です
 
-- `%LOCALAPPDATA%\Microsoft\WinGet\Links`
+- `%LOCALAPPDATA%\Microsoft\WinGet\Packages\stuncloud.uwscr_Microsoft.Winget.Source_8wekyb3d8bbwe\`
 
 インストール時にこのパスがユーザー環境変数 `%PATH%` に登録されます  
 実行環境(PowerShellやExplorer)の再起動を行うことでどこからでも `uwscr.exe` を実行できるようになります  
