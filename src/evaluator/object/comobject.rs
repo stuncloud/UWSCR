@@ -23,7 +23,7 @@ use windows::{
             Ole::{
                 GetActiveObject,
                 DISPID_PROPERTYPUT, DISPID_NEWENUM,
-                VariantChangeType,
+                VariantChangeType, VariantClear,
                 SafeArrayCreate, SafeArrayPutElement, SafeArrayGetElement, SafeArrayGetElemsize,
                 IEnumVARIANT,
                 IDispatchEx,fdexNameCaseInsensitive
@@ -301,6 +301,11 @@ impl ComObject {
         let dispidmember = self.get_id_from_name(prop)?;
         let mut dp = DISPPARAMS::default();
         self.invoke_raw(dispidmember, &mut dp, DISPATCH_PROPERTYGET)
+    }
+    fn get_property_as_comobject(&self, prop: &str) -> ComResult<Self> {
+        let variant = self.get_raw_property(prop)?;
+        let disp = variant.to_idispatch()?;
+        Ok(Self::from(disp))
     }
     /// プロパティへの代入
     /// obj.prop = value
@@ -582,21 +587,22 @@ impl ComObject {
                 .into_iter();
 
             for _ in (0..count) {
-                let com = props.next_idispatch()?;
-                let prop = com.cast::<ISWbemProperty>()?;
-                let value = match wargs.next() {
-                    Some(w) => match w {
-                        WrapperArg::NamedArg(_, _) => {
-                            return Err(ComError::new_u(UErrorKind::WmiError, UErrorMessage::NamedArgNotAllowed));
+                if let Some(com) = props.next_idispatch()? {
+                    let prop = com.cast::<ISWbemProperty>()?;
+                    let value = match wargs.next() {
+                        Some(w) => match w {
+                            WrapperArg::NamedArg(_, _) => {
+                                return Err(ComError::new_u(UErrorKind::WmiError, UErrorMessage::NamedArgNotAllowed));
+                            },
+                            WrapperArg::Arg(v) |
+                            WrapperArg::ByRef(v) => v.to_variant(),
                         },
-                        WrapperArg::Arg(v) |
-                        WrapperArg::ByRef(v) => v.to_variant(),
-                    },
-                    None => {
-                        return Err(ComError::new_u(UErrorKind::WmiError, UErrorMessage::MissingArgument))
-                    },
-                }?;
-                prop.SetValue(&value)?;
+                        None => {
+                            return Err(ComError::new_u(UErrorKind::WmiError, UErrorMessage::MissingArgument))
+                        },
+                    }?;
+                    prop.SetValue(&value)?;
+                }
             }
 
             let outparam = wbemobj.ExecMethod_(&strname, &inparams, 0, None)?;
@@ -884,6 +890,7 @@ trait VariantExt {
     fn to_idispatch(&self) -> ComResult<IDispatch>;
     fn to_t<T: ComInterface>(&self) -> ComResult<T>;
     fn to_i32(&self) -> ComResult<i32>;
+    fn to_string(&self) -> ComResult<String>;
 }
 
 impl VariantExt for VARIANT {
@@ -991,7 +998,18 @@ impl VariantExt for VARIANT {
             VariantChangeType(&mut new, self, 0, VT_I4)?;
             let v00 = &new.Anonymous.Anonymous;
             let n = v00.Anonymous.lVal;
+            VariantClear(&mut new)?;
             Ok(n)
+        }
+    }
+    fn to_string(&self) -> ComResult<String> {
+        unsafe {
+            let mut new = VARIANT::default();
+            VariantChangeType(&mut new, self, 0, VT_BSTR)?;
+            let v00 = &new.Anonymous.Anonymous;
+            let str = v00.Anonymous.bstrVal.to_string();
+            VariantClear(&mut new)?;
+            Ok(str)
         }
     }
 }
@@ -1275,16 +1293,13 @@ impl ComCollection {
             }
         }
     }
-    fn next_idispatch(&self) -> ComResult<ComObject> {
+    fn next_idispatch(&self) -> ComResult<Option<ComObject>> {
         match self.next()? {
             Some(variant) => {
                 variant.to_idispatch()
-                    .map(|idispatch| ComObject::from(idispatch))
+                    .map(|idispatch| Some(ComObject::from(idispatch)))
             },
-            None => Err(ComError::new_u(
-                UErrorKind::VariantError,
-                UErrorMessage::VariantIsNotIDispatch
-            )),
+            None => Ok(None),
         }
     }
     fn reset(&self) -> core::Result<()> {
@@ -1487,9 +1502,15 @@ pub enum ExcelOpenFlag {
     /// 互換製品を起動、未対応
     ThirdParty = 3,
 }
+enum ObjectType {
+    Application,
+    Workbook,
+    Other,
+}
 pub struct Excel {
     obj: ComObject,
     hwnd: HWND,
+    r#type: ObjectType
 }
 
 impl Excel {
@@ -1535,13 +1556,27 @@ impl Excel {
         excel.activate();
         Ok(excel.obj)
     }
-    fn new(obj: ComObject) -> ComResult<Self> {
-        let hwnd = obj.get_raw_property("Hwnd")?.to_i32()?;
+    pub fn new(obj: ComObject) -> ComResult<Self> {
+        let hwnd = match obj.get_raw_property("Hwnd") {
+            Ok(variant) => variant.to_i32()?,
+            Err(_) => {
+                let app = obj.get_property_as_comobject("Application")?;
+                app.get_raw_property("Hwnd")?.to_i32()?
+            }
+        };
         let hwnd = HWND(hwnd as isize);
-        Ok(Self {obj, hwnd})
+        let r#type = match obj.get_type_name() {
+            Some(name) => match name.as_str() {
+                "_Application" => ObjectType::Application,
+                "_Workbook" => ObjectType::Workbook,
+                _ => ObjectType::Other
+            },
+            None => ObjectType::Other,
+        };
+        Ok(Self {obj, hwnd, r#type})
     }
     fn new_book(obj: ComObject, hwnd: HWND) -> Self {
-        Self {obj, hwnd}
+        Self {obj, hwnd, r#type: ObjectType::Workbook}
     }
     /// - ファイル名指定あり
     ///     1. Open
@@ -1582,8 +1617,7 @@ impl Excel {
         books.get_raw_property("Count")?.to_i32()
     }
     fn workbooks(&self) -> ComResult<ComObject> {
-        let com = self.obj.get_raw_property("Workbooks")?.to_idispatch()?.into();
-        Ok(com)
+        self.obj.get_property_as_comobject("Workbooks")
     }
     fn show(&self) -> ComResult<()> {
         self.obj.set_property("Visible", true.into())
@@ -1592,5 +1626,42 @@ impl Excel {
         unsafe {
             SetForegroundWindow(self.hwnd);
         }
+    }
+    /// path
+    /// - None: 強制終了
+    /// - Some(None): 上書き保存
+    /// - Some(Some(path)): pathに保存
+    pub fn close(&self, path: Option<Option<String>>) -> Option<()> {
+        let book = match self.r#type {
+            ObjectType::Application => {
+                self.obj.get_property_as_comobject("ActiveWorkbook").ok()
+            },
+            ObjectType::Workbook => Some(self.obj.clone()),
+            ObjectType::Other => None,
+        }?;
+        let app = book.get_property_as_comobject("Application").ok()?;
+        match path {
+            Some(Some(path)) => {
+                app.set_property("DisplayAlerts", false.into()).ok()?;
+                let mut args = vec![
+                    ComArg::Arg(path.into()),
+                ];
+                book.invoke_method("SaveAs", &mut args).ok()?;
+                app.set_property("DisplayAlerts", true.into()).ok()?;
+            },
+            Some(None) => {
+                let mut args = vec![];
+                book.invoke_method("Save", &mut args).ok()?;
+            },
+            None => {
+                let mut args = vec![
+                    ComArg::Arg(false.into())
+                ];
+                book.invoke_method("Close", &mut args).ok()?;
+            },
+        }
+        let mut args = vec![];
+        app.invoke_method("Quit", &mut args).ok()?;
+        Some(())
     }
 }

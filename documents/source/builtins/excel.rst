@@ -26,8 +26,8 @@ Excel
 
     :param 文字列 可変長 パラメータ:
 
-        | ファイルオープン時の追加パラメータを ``"パラメータ名:=値"`` で指定する
-        | 書式が不正な場合は無視される
+        | ファイルオープン時の追加パラメータを ``"パラメータ名:=値"`` 形式の文字列で指定する
+        | 書式が不正な場合は無視される (エラーにはなりません)
         | 以下は有効なパラメータ例
 
         .. object:: UpdateLinks
@@ -64,7 +64,6 @@ Excel
 
             | 「読み取り専用を推奨する」のダイアログを抑止したい場合にTrue
 
-
         .. sourcecode:: uwscr
 
             // パスワード付きファイルを読み取り専用で開く
@@ -75,3 +74,38 @@ Excel
 
     :rtype: :ref:`com_object`
     :return: Excel自身、またはWorkbookを示すCOMオブジェクト
+
+.. function:: xlclose(Excel, [ファイル名=FALSE])
+
+    | Excelを終了します
+    | ファイル名指定の有無で保存方法が異なります
+
+    :param COMオブジェクト Excel: Excel.ApplicationまたはWorkbookを示すCOMオブジェクト
+    :param 文字列 省略可 ファイル名: 保存するファイル名を指定、省略時は上書き保存
+    :rtype: 真偽値
+    :return: 引数が不正なCOMオブジェクトであったり、エラー発生による失敗時はFALSE
+
+.. function:: xlclose(Excel, TRUE)
+
+    | 変更内容を保存せずに終了します
+
+    :param COMオブジェクト Excel: Excel.ApplicationまたはWorkbookを示すCOMオブジェクト
+    :param 真偽値 TRUE: ``TRUE`` を指定 (固定値)
+    :rtype: 真偽値
+    :return: 引数が不正なCOMオブジェクトであったり、エラー発生による失敗時はFALSE
+
+    .. admonition:: サンプルコード
+
+        .. sourcecode:: uwscr
+
+            excel = xlopen("foo.xlsx")
+            // ブックが編集される
+            xlclose(excel, "bar.xlsx") // 別名で保存
+
+            excel = xlopen("bar.xlsx")
+            // ブックが編集される
+            xlclose(excel) // 上書き保存
+
+            excel = xlopen("foo.xlsx")
+            // ブックが編集される
+            xlclose(excel, TRUE) // 保存せず終了

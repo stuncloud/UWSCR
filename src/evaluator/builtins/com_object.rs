@@ -17,6 +17,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("vartype", 2, vartype);
     sets.add("safearray", 4, safearray);
     sets.add("xlopen", 36, xlopen);
+    sets.add("xlclose", 2, xlclose);
     sets
 }
 
@@ -163,4 +164,21 @@ pub fn xlopen(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let params = args.get_rest_as_string_array(2, 0)?;
     let com = Excel::open(file, flg, params)?;
     Ok(Object::ComObject(com))
+}
+
+pub fn xlclose(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let com = args.get_as_comobject(0)?;
+    let Ok(excel) = Excel::new(com) else {
+        return Ok(false.into());
+    };
+    let path = match args.get_as_string_or_bool(1, Some(TwoTypeArg::U(false)))? {
+        TwoTypeArg::T(path) => Some(Some(path)),
+        TwoTypeArg::U(b) => if b {
+            None
+        } else {
+            Some(None)
+        },
+    };
+    let result = excel.close(path).is_some();
+    Ok(result.into())
 }
