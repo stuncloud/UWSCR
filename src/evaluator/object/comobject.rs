@@ -1,9 +1,14 @@
 use windows::{
     core::{self, BSTR, HRESULT, HSTRING, PCWSTR, PWSTR, ComInterface, GUID, Interface, implement, IUnknown},
     Win32::{
-        Foundation::{VARIANT_TRUE, VARIANT_FALSE, DISP_E_MEMBERNOTFOUND, HWND},
-        UI::WindowsAndMessaging::{
-            SetForegroundWindow,
+        Foundation::{VARIANT_TRUE, VARIANT_FALSE, DISP_E_MEMBERNOTFOUND, HWND, LPARAM, BOOL},
+        UI::{
+            WindowsAndMessaging::{
+                SetForegroundWindow,
+                GetWindowTextW, EnumWindows, EnumChildWindows,
+                OBJID_NATIVEOM,
+            },
+            Accessibility::AccessibleObjectFromWindow,
         },
         System::{
             Com::{
@@ -26,23 +31,23 @@ use windows::{
                 VariantChangeType, VariantClear,
                 SafeArrayCreate, SafeArrayPutElement, SafeArrayGetElement, SafeArrayGetElemsize,
                 IEnumVARIANT,
-                IDispatchEx,fdexNameCaseInsensitive
+                IDispatchEx,fdexNameCaseInsensitive,
             },
             Wmi::{
                 ISWbemObject, ISWbemProperty,
             }
-        }
+        },
     }
 };
 
-use crate::evaluator::{Object, Evaluator, EvalResult, Function};
+use crate::{evaluator::{Object, Evaluator, EvalResult, Function}};
 use crate::ast::{Expression, Identifier};
 use crate::error::evaluator::{UError, UErrorKind, UErrorMessage};
 use crate::winapi::WString;
 
 use std::mem::ManuallyDrop;
 use std::ffi::c_void;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 
 const LOCALE_SYSTEM_DEFAULT: u32 = 0x0800;
 const LOCALE_USER_DEFAULT: u32 = 0x400;
@@ -244,23 +249,35 @@ impl ComObject {
             }
         }
     }
-    pub fn get_instance(id: String) -> ComResult<Option<Self>> {
+    pub fn get_instance(id: String, title: Option<ObjectTitle>) -> ComResult<Option<Self>> {
         unsafe {
             let lpsz = HSTRING::from(id);
             let rclsid = CLSIDFromString(&lpsz)?;
-            let pvreserved = std::ptr::null_mut() as *mut std::ffi::c_void;
-            let mut ppunk = None;
-            GetActiveObject(&rclsid, pvreserved, &mut ppunk)?;
-            let maybe_obj = match ppunk {
-                Some(unk) => {
-                    let idispatch = unk.cast::<IDispatch>()?;
-                    let handlers = Arc::new(Mutex::new(EventHandlers::new()));
-                    let obj = Self {idispatch, handlers};
-                    Some(obj)
+            match title {
+                Some(title) => {
+                    let (title, nth) = title.get();
+                    if let Some(mut go) = GetObject::new(title, rclsid) {
+                        Ok(go.search(nth))
+                    } else {
+                        Ok(None)
+                    }
                 },
-                None => None,
-            };
-            Ok(maybe_obj)
+                None => {
+                    let pvreserved = std::ptr::null_mut() as *mut std::ffi::c_void;
+                    let mut ppunk = None;
+                    GetActiveObject(&rclsid, pvreserved, &mut ppunk)?;
+                    let maybe_obj = match ppunk {
+                        Some(unk) => {
+                            let idispatch = unk.cast::<IDispatch>()?;
+                            let handlers = Arc::new(Mutex::new(EventHandlers::new()));
+                            let obj = Self {idispatch, handlers};
+                            Some(obj)
+                        },
+                        None => None,
+                    };
+                    Ok(maybe_obj)
+                }
+            }
         }
     }
     fn invoke_raw(&self, dispidmember: i32, pdispparams: *const DISPPARAMS, wflags: DISPATCH_FLAGS) -> ComResult<VARIANT> {
@@ -1486,6 +1503,165 @@ impl From<IUnknown> for Unknown {
         Self(unk)
     }
 }
+pub struct ObjectTitle {
+    title: String,
+    nth: u32,
+}
+impl ObjectTitle {
+    pub fn new(title: String, nth: u32) -> Self {
+        Self {title, nth}
+    }
+    fn get(self) -> (String, u32) {
+        (self.title, self.nth)
+    }
+}
+static CLSIDS: OnceLock<Clsids> = OnceLock::new();
+struct Clsids {
+    excel: Option<GUID>,
+    word: Option<GUID>,
+    access: Option<GUID>,
+}
+impl Clsids {
+    fn get_type(&self, clsid: GUID) -> GetObjectType {
+        if Some(clsid) == self.excel {
+            GetObjectType::Excel
+        } else if Some(clsid) == self.word {
+            GetObjectType::Word
+        } else if Some(clsid) == self.access {
+            GetObjectType::Access
+        } else {
+            GetObjectType::Other
+        }
+    }
+}
+#[derive(PartialEq)]
+enum GetObjectType {
+    Excel,
+    Word,
+    Access,
+    Other,
+}
+impl From<GUID> for GetObjectType {
+    fn from(clsid: GUID) -> Self {
+        let ids = CLSIDS.get_or_init(|| {
+            unsafe {
+                let lpsz = HSTRING::from("Excel.Application");
+                let excel = CLSIDFromString(&lpsz).ok();
+                let lpsz = HSTRING::from("Word.Application");
+                let word = CLSIDFromString(&lpsz).ok();
+                let lpsz = HSTRING::from("Access.Application");
+                let access = CLSIDFromString(&lpsz).ok();
+                Clsids { excel, word, access }
+            }
+        });
+        ids.get_type(clsid)
+    }
+}
+impl GetObjectType {
+    fn compare(&self, name: &str) -> bool {
+        let name = name.to_ascii_lowercase();
+        match self {
+            GetObjectType::Excel => name.contains("excel"),
+            GetObjectType::Word => name.contains("word"),
+            GetObjectType::Access => name.contains("access"),
+            GetObjectType::Other => false,
+        }
+    }
+}
+struct GetObject {
+    hwnds: Vec<HWND>,
+    title: String,
+    r#type: GetObjectType
+}
+impl GetObject {
+    fn new(title: String, clsid: GUID) -> Option<Self> {
+        let title = title.to_ascii_lowercase();
+        let r#type = GetObjectType::from(clsid);
+        if r#type == GetObjectType::Other {
+            None
+        } else {
+            Some(Self {hwnds: vec![], title, r#type})
+        }
+    }
+    fn search(&mut self, mut nth: u32) -> Option<ComObject> {
+        unsafe {
+            let lparam = self as *mut Self as isize;
+            EnumWindows(Some(Self::callback), LPARAM(lparam));
+            for hwnd in &self.hwnds {
+                let mut ec = EnumChildren::new(*hwnd);
+                ec.run();
+                for child in &ec.children {
+                    let mut pvobject = std::ptr::null_mut() as *mut c_void;
+                    if AccessibleObjectFromWindow(*child, OBJID_NATIVEOM.0 as u32, &IDispatch::IID, &mut pvobject).is_ok() {
+                        let disp = IDispatch::from_raw(pvobject);
+                        let com = ComObject::from(disp);
+                        let name = com.get_type_name().unwrap_or_default();
+                        match name.as_str() {
+                            "Window" => {
+                                if let Ok(app) = com.get_property_as_comobject("Application") {
+                                    if let Ok(variant) = app.get_raw_property("Name") {
+                                        let name = variant.to_string().unwrap_or_default();
+                                        if self.r#type.compare(&name) {
+                                            nth -= 1;
+                                            if nth == 0 {
+                                                return Some(app);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+            None
+        }
+    }
+    fn compare(&self, title: &String) -> bool {
+        let title = title.to_ascii_lowercase();
+        title.contains(&self.title)
+    }
+    fn push(&mut self, hwnd: HWND) {
+        self.hwnds.push(hwnd);
+    }
+    unsafe extern "system"
+    fn callback(hwnd: HWND, lparam: LPARAM) -> BOOL {
+        let go = lparam.0 as *mut Self;
+
+        let mut buf = [0; 512];
+        let len = GetWindowTextW(hwnd, &mut buf) as usize;
+        let title = String::from_utf16_lossy(&buf[..len]);
+        if (*go).compare(&title) {
+            (*go).push(hwnd);
+        }
+        true.into()
+    }
+}
+struct EnumChildren {
+    parent: HWND,
+    children: Vec<HWND>
+}
+impl EnumChildren {
+    fn new(parent: HWND) -> Self {
+        Self {parent, children: Vec::new()}
+    }
+    fn push(&mut self, hwnd: HWND) {
+        self.children.push(hwnd);
+    }
+    fn run(&mut self) {
+        unsafe {
+            let lparam = self as *mut Self as isize;
+            EnumChildWindows(self.parent, Some(Self::callback), LPARAM(lparam));
+        }
+    }
+    unsafe extern "system"
+    fn callback(hwnd: HWND, lparam: LPARAM) -> BOOL {
+        let vec = lparam.0 as *mut Self;
+        (*vec).push(hwnd);
+        true.into()
+    }
+}
 
 /* Excel */
 use num_derive::FromPrimitive;
@@ -1524,7 +1700,7 @@ impl Excel {
 
     }
     fn get_or_create(file: Option<String>, params: Vec<String>) -> ComResult<Self> {
-        let obj = match ComObject::get_instance(Self::EXCEL_PROGID.into()).ok().flatten() {
+        let obj = match ComObject::get_instance(Self::EXCEL_PROGID.into(), None).ok().flatten() {
             Some(obj) => obj,
             None => ComObject::new(Self::EXCEL_PROGID.into())?,
         };
@@ -1534,7 +1710,7 @@ impl Excel {
         Ok(e)
     }
     fn get_or_create_book(file: Option<String>, params: Vec<String>) -> ComResult<Self> {
-        let obj = match ComObject::get_instance(Self::EXCEL_PROGID.into()).ok().flatten() {
+        let obj = match ComObject::get_instance(Self::EXCEL_PROGID.into(), None).ok().flatten() {
             Some(obj) => obj,
             None => ComObject::new(Self::EXCEL_PROGID.into())?,
         };

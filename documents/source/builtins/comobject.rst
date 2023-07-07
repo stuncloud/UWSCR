@@ -11,11 +11,21 @@ COMオブジェクトの作成・取得
     :param 文字列 ProgID: COMオブジェクトのProgIDまたはCLSID
     :return: :ref:`COMオブジェクト <com_object>`
 
-.. function:: getactiveoleobj(ProgID)
+.. function:: getactiveoleobj(ProgID, [タイトル=EMPTY, n番目=1])
 
     | 既に起動中のCOMオブジェクトを得ます
+    | タイトルが未指定の場合は指定ProgIDに該当しアクティブなオブジェクトを返します
+    | タイトルを指定した場合はウィンドウタイトルに部分一致するウィンドウからProgIDに該当するオブジェクトを返します
 
     :param 文字列 ProgID: COMオブジェクトのProgIDまたはCLSID
+    :param 文字列 省略可 タイトル: ExcelやWordなど、オブジェクトを取得したいウィンドウのタイトルを指定 (部分一致)
+
+        .. admonition:: MDI非対応
+            :class: caution
+
+            | MDIウィンドウは対象外です
+
+    :param 数値 省略可 n番目: タイトルに一致するウィンドウが複数ある場合、n番目を取得
     :return: :ref:`COMオブジェクト <com_object>`
 
 .. admonition:: CLSIDの入力

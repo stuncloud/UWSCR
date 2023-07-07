@@ -22,7 +22,7 @@ pub use self::fopen::*;
 pub use self::class::ClassInstance;
 use browser::{BrowserBuilder, Browser, TabWindow, RemoteObject};
 pub use web::{WebRequest, WebResponse, HtmlNode};
-pub use comobject::{ComObject, ComError, ComArg, Unknown, Excel, ExcelOpenFlag};
+pub use comobject::{ComObject, ComError, ComArg, Unknown, Excel, ExcelOpenFlag, ObjectTitle};
 
 use crate::ast::*;
 use crate::evaluator::environment::Layer;

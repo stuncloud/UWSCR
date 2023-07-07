@@ -11,7 +11,7 @@ use num_traits::ToPrimitive;
 pub fn builtin_func_sets() -> BuiltinFunctionSets {
     let mut sets = BuiltinFunctionSets::new();
     sets.add("createoleobj", 1, createoleobj);
-    sets.add("getactiveoleobj", 2, getactiveoleobj);
+    sets.add("getactiveoleobj", 3, getactiveoleobj);
     sets.add("getoleitem", 1, getoleitem);
     // sets.add("oleevent", 4, oleevent);
     sets.add("vartype", 2, vartype);
@@ -90,9 +90,12 @@ fn createoleobj(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 
 fn getactiveoleobj(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = args.get_as_string(0, None)?;
+    let title = args.get_as_string_or_empty(1)?;
+    let nth = args.get_as_nth(2)?;
+    let title = title.map(|title| ObjectTitle::new(title, nth));
     // ignore IE
     ignore_ie(&id)?;
-    match ComObject::get_instance(id)? {
+    match ComObject::get_instance(id, title)? {
         Some(obj) => Ok(Object::ComObject(obj)),
         None => Err(builtin_func_error(UErrorMessage::FailedToGetObject))
     }
