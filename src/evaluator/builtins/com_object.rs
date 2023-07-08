@@ -18,6 +18,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("safearray", 4, safearray);
     sets.add("xlopen", 36, xlopen);
     sets.add("xlclose", 2, xlclose);
+    sets.add("xlactivate", 3, xlactivate);
     sets
 }
 
@@ -183,5 +184,23 @@ pub fn xlclose(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
         },
     };
     let result = excel.close(path).is_some();
+    Ok(result.into())
+}
+
+pub fn xlactivate(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let com = args.get_as_comobject(0)?;
+    let sheet_id = match args.get_as_f64_or_string(1)? {
+        TwoTypeArg::T(s) => s.into(),
+        TwoTypeArg::U(n) => n.into(),
+    };
+    let book_id = args.get_as_f64_or_string_or_empty(2)?
+        .map(|two| match two {
+            TwoTypeArg::T(s) => s.into(),
+            TwoTypeArg::U(n) => n.into(),
+        });
+    let Ok(excel) = Excel::new(com) else {
+        return Ok(false.into());
+    };
+    let result = excel.activate_sheet(sheet_id, book_id).is_some();
     Ok(result.into())
 }

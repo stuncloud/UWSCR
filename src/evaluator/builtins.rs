@@ -608,6 +608,22 @@ impl BuiltinFuncArgs {
             Ok(result)
         })
     }
+    /// 数値または文字列を受けるが省略時はNone
+    pub fn get_as_f64_or_string_or_empty(&self, i: usize) -> BuiltInResult<Option<TwoTypeArg<String, f64>>> {
+        self.get_arg_with_required_flag( i, false, |arg| {
+            let result = match arg {
+                Object::Num(n) => Some(TwoTypeArg::U(n)),
+                Object::Bool(b) => {
+                    let n = if b {1.0} else {0.0};
+                    Some(TwoTypeArg::U(n))
+                },
+                Object::Empty |
+                Object::EmptyParam => None,
+                arg => Some(TwoTypeArg::T(arg.to_string())),
+            };
+            Ok(result)
+        })
+    }
 
     pub fn get_as_string_or_bytearray(&self, i: usize) -> BuiltInResult<TwoTypeArg<String, Vec<u8>>> {
         self.get_arg(i, |arg| {

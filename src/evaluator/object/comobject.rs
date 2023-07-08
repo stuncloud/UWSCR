@@ -343,6 +343,22 @@ impl ComObject {
     /// インデックス指定でプロパティの値を得る
     /// obj.prop[index]
     pub fn get_property_by_index(&self, prop: &str, index: Vec<Object>) -> ComResult<Object> {
+        match self.get_raw_property_by_index(prop, index.clone()) {
+            Ok(variant) => variant.try_into(),
+            Err(e) => {
+                if e.is_member_not_found() {
+                    // DISP_E_MEMBERNOTFOUNDの場合は
+                    // foo.barがコレクションでfoo.bar[i]でItem(i)を得たい可能性がある
+                    // 一旦プロパティとして取得し、それがCOMオブジェクトならItem取得を試みる
+                    let com2 = self.get_property_as_comobject(prop)?;
+                    com2.get_item_property(index)
+                } else {
+                    Err(e)
+                }
+            },
+        }
+    }
+    fn get_raw_property_by_index(&self, prop: &str, index: Vec<Object>) -> ComResult<VARIANT> {
         let dispidmember = self.get_id_from_name(prop)?;
         let mut dp = DISPPARAMS::default();
         let mut args = index.clone().into_iter()
@@ -351,25 +367,11 @@ impl ComObject {
         args.reverse();
         dp.cArgs = args.len() as u32;
         dp.rgvarg = args.as_mut_ptr();
-        match self.invoke(dispidmember, &mut dp, DISPATCH_PROPERTYGET|DISPATCH_METHOD) {
-            Ok(obj) => Ok(obj),
-            Err(e) => {
-                if e.is_member_not_found() {
-                    // DISP_E_MEMBERNOTFOUNDの場合は
-                    // foo.barがコレクションでfoo.bar[i]でItem(i)を得たい可能性がある
-                    match self.get_property(prop)? {
-                        // プロパティとして取得し、COMオブジェクトならItemを得る
-                        Object::ComObject(com2) => {
-                            com2.get_item_property(index)
-                        },
-                        // それ以外はそのままエラーを返す
-                        _ => Err(e)
-                    }
-                } else {
-                    Err(e)
-                }
-            },
-        }
+        self.invoke_raw(dispidmember, &mut dp, DISPATCH_PROPERTYGET|DISPATCH_METHOD)
+    }
+    fn get_property_by_index_as_comobject(&self, prop: &str, index: Vec<Object>) -> ComResult<Self> {
+        let variant = self.get_raw_property_by_index(prop, index)?;
+        variant.to_idispatch().map(|disp| Self::from(disp))
     }
     /// インデックス指定でプロパティへ代入
     /// obj.prop[index] = value
@@ -1838,6 +1840,23 @@ impl Excel {
         }
         let mut args = vec![];
         app.invoke_method("Quit", &mut args).ok()?;
+        Some(())
+    }
+    pub fn activate_sheet(&self, sheet_id: Object, book_id: Option<Object>) -> Option<()> {
+        let book = match self.r#type {
+            ObjectType::Application => {
+                match book_id {
+                    Some(index) => {
+                        self.obj.get_property_by_index_as_comobject("Workbooks", vec![index]).ok()
+                    },
+                    None => self.obj.get_property_as_comobject("ActiveWorkbook").ok()
+                }
+            },
+            ObjectType::Workbook => Some(self.obj.clone()),
+            ObjectType::Other => None,
+        }?;
+        let sheet = book.get_property_by_index_as_comobject("Worksheets", vec![sheet_id]).ok()?;
+        sheet.invoke_method("Activate", &mut vec![]).ok()?;
         Some(())
     }
 }

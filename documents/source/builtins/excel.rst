@@ -82,17 +82,16 @@ Excel
 
     :param COMオブジェクト Excel: Excel.ApplicationまたはWorkbookを示すCOMオブジェクト
     :param 文字列 省略可 ファイル名: 保存するファイル名を指定、省略時は上書き保存
-    :rtype: 真偽値
-    :return: 引数が不正なCOMオブジェクトであったり、エラー発生による失敗時はFALSE
 
 .. function:: xlclose(Excel, TRUE)
+    :noindex:
 
     | 変更内容を保存せずに終了します
 
     :param COMオブジェクト Excel: Excel.ApplicationまたはWorkbookを示すCOMオブジェクト
     :param 真偽値 TRUE: ``TRUE`` を指定 (固定値)
     :rtype: 真偽値
-    :return: 引数が不正なCOMオブジェクトであったり、エラー発生による失敗時はFALSE
+    :return: 引数が不正なCOMオブジェクトであったり、内部エラーによる失敗時はFALSE
 
     .. admonition:: サンプルコード
 
@@ -109,3 +108,25 @@ Excel
             excel = xlopen("foo.xlsx")
             // ブックが編集される
             xlclose(excel, TRUE) // 保存せず終了
+
+.. function:: xlactivate(Excel, シート識別子, [ブック識別子=EMPTY])
+
+    | 指定したシートをアクティブにします
+
+    :param COMオブジェクト Excel: Excel.ApplicationまたはWorkbookを示すCOMオブジェクト
+    :param 文字列または数値 シート識別子: アクティブにするシート名またはインデックス番号(1から)
+    :param 文字列または数値 省略可 ブック識別子: アクティブにするブック名またはインデックス番号(1から)
+    :rtype: 真偽値
+    :return: 引数が不正なCOMオブジェクトであったり、内部エラーによる失敗時はFALSE
+
+    .. admonition:: シート・ブックの識別子について
+        :class: hint
+
+        - シート名は各シートの表示名を完全一致で指定する必要があります
+        - シートのインデックス番号は左から数えた順番です
+        - ブック名はファイル名を完全一致で指定する必要があります
+            - 新規作成したブックの場合は ``Book1`` のようになります
+        - ブックのインデックス番号はブックを開いた順番です
+        - ブック識別子を省略した場合はアクティブなブックが対象となります
+        - Workbookオブジェクトを指定した場合ブック識別子は無視され、そのWorkbook内のシートをアクティブにします
+
