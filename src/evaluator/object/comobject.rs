@@ -819,9 +819,9 @@ impl TryInto<Object> for VARIANT {
                                     let obj = ComObject::from(disp.clone());
                                     Ok(Object::ComObject(obj))
                                 },
-                                None => Err(ComError::from_variant_error(vt)),
+                                None => Ok(Object::Nothing),
                             },
-                            None => Err(ComError::from_variant_error(vt)),
+                            None => Ok(Object::Nothing),
                         }
                     } else {
                         match &*v00.Anonymous.pdispVal {
@@ -829,7 +829,7 @@ impl TryInto<Object> for VARIANT {
                                 let obj = ComObject::from(disp.clone());
                                 Ok(Object::ComObject(obj))
                             },
-                            None => Err(ComError::from_variant_error(vt)),
+                            None => Ok(Object::Nothing),
                         }
                     },
                     VT_EMPTY => Ok(Object::Empty),
