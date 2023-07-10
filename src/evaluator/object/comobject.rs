@@ -475,14 +475,15 @@ impl ComObject {
         dp.rgvarg = vargs.as_mut_ptr();
 
         // 名前付き引数
-        let mut ids = ids.into_iter();
-        if ids.any(|name| name.is_some()) {
-            let mut named_args = ids
+        if ids.iter().any(|name| name.is_some()) {
+            let mut named_args = ids.into_iter()
                 .filter_map(|maybe_id| maybe_id)
                 .collect::<Vec<_>>();
             named_args.reverse();
-            dp.cNamedArgs = named_args.len() as u32;
-            dp.rgdispidNamedArgs = named_args.as_mut_ptr();
+            if ! named_args.is_empty() {
+                dp.cNamedArgs = named_args.len() as u32;
+                dp.rgdispidNamedArgs = named_args.as_mut_ptr();
+            }
         }
         match self.invoke(dispidmember, &dp, DISPATCH_METHOD|DISPATCH_PROPERTYGET) {
             Ok(obj) => {
