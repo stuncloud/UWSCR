@@ -1720,11 +1720,7 @@ impl Evaluator {
         Ok(())
     }
     /// メンバ配列要素の更新
-    fn update_member_array(&mut self, expr_object: Expression, expr_member: Expression, expr_index: Expression, dimensions: Option<Vec<Object>>, new: Object) -> EvalResult<()> {
-        let index = self.eval_expression(expr_index)?;
-        let Expression::Identifier(Identifier(member)) = expr_member else {
-            return Err(UError::new(UErrorKind::AssignError, UErrorMessage::MemberShouldBeIdentifier));
-        };
+    fn update_member_array(&mut self, expr_object: Expression, member: String, index: Object, dimensions: Option<Vec<Object>>, new: Object) -> EvalResult<()> {
         let dimension = match dimensions {
             Some(mut d) => {
                 d.push(index.clone());
@@ -1732,7 +1728,7 @@ impl Evaluator {
             },
             None => Some(vec![index.clone()]),
         };
-        let instance = self.eval_expression(expr_object)?;
+        let instance = self.eval_expr(expr_object)?;
         match instance {
             Object::Module(mutex) |
             Object::This(mutex) => {
@@ -1754,6 +1750,11 @@ impl Evaluator {
             Object::RemoteObject(ref remote) => {
                 let value = Self::object_to_serde_value(new)?;
                 remote.set(Some(&member), Some(&index.to_string()), value.into())?;
+            },
+            Object::Reference(e, outer) => {
+                let mut outer_env = self.clone();
+                outer_env.env.current = outer;
+                outer_env.update_member_array(e, member, index, dimension, new)?;
             },
             o => return Err(UError::new(
                 UErrorKind::DotOperatorError,
@@ -1780,13 +1781,11 @@ impl Evaluator {
             },
             // オブジェクトメンバの配列要素の更新
             Expression::DotCall(expr_object, expr_member) => {
-                if let Ok(Object::Reference(e, outer)) = self.eval_expr(*expr_object.clone()) {
-                    let mut outer_env = self.clone();
-                    outer_env.env.current = outer;
-                    outer_env.update_member_array(e, *expr_member, expr_index, dimensions, new)?;
-                } else {
-                    self.update_member_array(*expr_object, *expr_member, expr_index, dimensions, new)?;
-                }
+                let index = self.eval_expression(expr_index)?;
+                let Expression::Identifier(Identifier(member)) = *expr_member else {
+                    return Err(UError::new(UErrorKind::AssignError, UErrorMessage::MemberShouldBeIdentifier));
+                };
+                self.update_member_array(*expr_object, member, index, dimensions, new)?;
             },
             // 多次元配列の場合添字の式をexpr_dimensionsに積む
             Expression::Index(expr_inner_array, expr_inner_index, _) => {
