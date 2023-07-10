@@ -1806,18 +1806,23 @@ impl Excel {
             SetForegroundWindow(self.hwnd);
         }
     }
+    /// 自身からWorkbookオブジェクトを得る
+    /// 自身が_Applicationの場合にWorkbookを得る為の関数を渡す
+    fn get_wookbook<F: Fn() -> Option<ComObject>>(&self, from_app: F) -> Option<ComObject> {
+        match self.r#type {
+            ObjectType::Application => from_app(),
+            ObjectType::Workbook => Some(self.obj.clone()),
+            ObjectType::Other => None,
+        }
+    }
     /// path
     /// - None: 強制終了
     /// - Some(None): 上書き保存
     /// - Some(Some(path)): pathに保存
     pub fn close(&self, path: Option<Option<String>>) -> Option<()> {
-        let book = match self.r#type {
-            ObjectType::Application => {
-                self.obj.get_property_as_comobject("ActiveWorkbook").ok()
-            },
-            ObjectType::Workbook => Some(self.obj.clone()),
-            ObjectType::Other => None,
-        }?;
+        let book = self.get_wookbook(|| {
+            self.obj.get_property_as_comobject("ActiveWorkbook").ok()
+        })?;
         let app = book.get_property_as_comobject("Application").ok()?;
         match path {
             Some(Some(path)) => {
@@ -1844,20 +1849,46 @@ impl Excel {
         Some(())
     }
     pub fn activate_sheet(&self, sheet_id: Object, book_id: Option<Object>) -> Option<()> {
-        let book = match self.r#type {
-            ObjectType::Application => {
-                match book_id {
-                    Some(index) => {
-                        self.obj.get_property_by_index_as_comobject("Workbooks", vec![index]).ok()
-                    },
-                    None => self.obj.get_property_as_comobject("ActiveWorkbook").ok()
-                }
-            },
-            ObjectType::Workbook => Some(self.obj.clone()),
-            ObjectType::Other => None,
-        }?;
+        let book = self.get_wookbook(|| {
+            match book_id.to_owned() {
+                Some(index) => {
+                    self.obj.get_property_by_index_as_comobject("Workbooks", vec![index]).ok()
+                },
+                None => self.obj.get_property_as_comobject("ActiveWorkbook").ok()
+            }
+        })?;
         let sheet = book.get_property_by_index_as_comobject("Worksheets", vec![sheet_id]).ok()?;
         sheet.invoke_method("Activate", &mut vec![]).ok()?;
         Some(())
+    }
+    pub fn add_sheet(&self, sheet_id: &str) -> Option<()> {
+        let book = self.get_wookbook(|| {
+            self.obj.get_property_as_comobject("ActiveWorkbook").ok()
+        })?;
+        let sheets = book.get_property_as_comobject("WorkSheets").ok()?;
+        if sheets.get_property_by_index_as_comobject("Item", vec![sheet_id.into()]).is_err() {
+            // 同名シートが存在しない場合は追加
+            let count = sheets.get_raw_property("Count").ok()?.to_i32().ok()?;
+            let after = sheets.get_property_by_index_as_comobject("Item", vec![count.into()]).ok()?;
+            // let name = after.get_raw_property("Name").unwrap_or_default().to_string().unwrap_or_default();
+            // println!("\u{001b}[33m[debug] after: {name}\u{001b}[0m");
+            let mut args = vec![
+                ComArg::NamedArg("After".into(), Object::ComObject(after)),
+            ];
+            if let Ok(Object::ComObject(sheet)) = sheets.invoke_method("Add", &mut args) {
+                sheet.set_property("Name", sheet_id.into()).ok()
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+    pub fn delete_sheet(&self, sheet_id: Object) -> Option<()> {
+        let book = self.get_wookbook(|| {
+            self.obj.get_property_as_comobject("ActiveWorkbook").ok()
+        })?;
+        let sheet = book.get_property_by_index_as_comobject("WorkSheets", vec![sheet_id]).ok()?;
+        sheet.invoke_method("Delete", &mut vec![]).map(|_| ()).ok()
     }
 }

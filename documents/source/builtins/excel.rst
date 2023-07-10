@@ -91,7 +91,7 @@ Excel
     :param COMオブジェクト Excel: Excel.ApplicationまたはWorkbookを示すCOMオブジェクト
     :param 真偽値 TRUE: ``TRUE`` を指定 (固定値)
     :rtype: 真偽値
-    :return: 引数が不正なCOMオブジェクトであったり、内部エラーによる失敗時はFALSE
+    :return: 成功時TRUE、失敗時FALSE
 
     .. admonition:: サンプルコード
 
@@ -117,7 +117,7 @@ Excel
     :param 文字列または数値 シート識別子: アクティブにするシート名またはインデックス番号(1から)
     :param 文字列または数値 省略可 ブック識別子: アクティブにするブック名またはインデックス番号(1から)
     :rtype: 真偽値
-    :return: 引数が不正なCOMオブジェクトであったり、内部エラーによる失敗時はFALSE
+    :return: 成功時TRUE、失敗時FALSE
 
     .. admonition:: シート・ブックの識別子について
         :class: hint
@@ -130,3 +130,31 @@ Excel
         - ブック識別子を省略した場合はアクティブなブックが対象となります
         - Workbookオブジェクトを指定した場合ブック識別子は無視され、そのWorkbook内のシートをアクティブにします
 
+.. function:: xlsheet(Excel, シート識別子, [削除=FALSE])
+
+    | アクティブなブックへのシートの追加、または削除を行う
+
+    :param COMオブジェクト Excel: Excel.ApplicationまたはWorkbookを示すCOMオブジェクト
+    :param 文字列または数値 シート識別子: アクティブにするシート名、削除時のみインデックス番号(1から)も可
+    :param 真偽値 省略可 削除: FALSEなら指定名のシートを追加、TRUEなら該当シートを削除
+    :rtype: 真偽値
+    :return: 成功時TRUE、失敗時FALSE
+
+        .. admonition:: インデックス指定について
+            :class: hint
+
+            | シート追加時はインデックス番号を文字列として扱います
+
+            .. sourcecode:: uwscr
+
+                xlsheet(excel, 1, FALSE) // "1" という名前のシートが追加される
+
+            | シート削除時はインデックスとシート名を厳密に区別します
+            | そのためUWSCとは一部動作が異なります
+
+            .. sourcecode:: uwscr
+
+                xlsheet(excel, 1, FALSE) // "1" という名前のシートを追加しておく
+                xlsheet(excel, 1, TRUE)  // 1を指定して削除を試みた場合
+                // UWSCの場合: "1" という名前のシートがあればそれを削除、なければ1番目のシートを削除
+                // UWSCRの場合: 必ず1番目のシートを削除、2番目以降にある"1"という名前のシートは対象とならない
