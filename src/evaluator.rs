@@ -1662,7 +1662,7 @@ impl Evaluator {
                 self.assign_index(*expr_array, *expr_index, value, None)?;
             },
             Expression::DotCall(expr_object, expr_member) => {
-                self.assign_object_member(*expr_object, *expr_member, value)?;
+                self.update_object_member(*expr_object, *expr_member, value)?;
             },
             e => return Err(UError::new(
                 UErrorKind::AssignError,
@@ -1896,7 +1896,7 @@ impl Evaluator {
         }
     }
     fn update_object_member(&mut self, expr_object: Expression, expr_member: Expression, new: Object) -> EvalResult<()>{
-        let instance = self.eval_expression(expr_object)?;
+        let instance = self.eval_expr(expr_object)?;
         match instance {
             Object::Module(m) => {
                 match expr_member {
@@ -1985,21 +1985,17 @@ impl Evaluator {
                     ));
                 }
             },
+            Object::Reference(e, outer) => {
+                let mut outer_env = self.clone();
+                outer_env.env.current = outer;
+                outer_env.update_object_member(e, expr_member, new)?;
+            },
             o => return Err(UError::new(
                 UErrorKind::DotOperatorError,
                 UErrorMessage::InvalidObject(o)
             )),
         }
         Ok(())
-    }
-    fn assign_object_member(&mut self, expr_object: Expression, expr_member: Expression, new: Object) -> EvalResult<()> {
-        if let Ok(Object::Reference(e, outer)) = self.eval_expr(expr_object.clone()) {
-            let mut outer_env = self.clone();
-            outer_env.env.current = outer;
-            outer_env.update_object_member(e, expr_member, new)
-        } else {
-            self.update_object_member(expr_object, expr_member, new)
-        }
     }
 
     fn eval_infix_expression(&mut self, infix: Infix, left: Object, right: Object) -> EvalResult<Object> {
