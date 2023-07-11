@@ -559,6 +559,7 @@ pub enum UErrorMessage {
     FunctionRequired,
     EventInterfaceNotFound,
     ThirdPartyNotImplemented,
+    GlobalCanNotBeAssigned,
 }
 
 impl fmt::Display for UErrorMessage {
@@ -1196,6 +1197,10 @@ impl fmt::Display for UErrorMessage {
             Self::ThirdPartyNotImplemented => write_locale!(f,
                 "XL_OOOCはサポートされていません",
                 "XL_OOOC is not supported",
+            ),
+            Self::GlobalCanNotBeAssigned => write_locale!(f,
+                "GLOBALは代入できません",
+                "Assigning GLOBAL to variable is not allowed",
             ),
         }
     }

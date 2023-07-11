@@ -1639,6 +1639,9 @@ impl Evaluator {
     }
 
     fn eval_assign_expression(&mut self, left: Expression, value: Object) -> EvalResult<Object> {
+        if let Object::Global = value {
+            return Err(UError::new(UErrorKind::AssignError, UErrorMessage::GlobalCanNotBeAssigned))
+        }
         let assigned_value = value.clone();
         match left {
             Expression::Identifier(Identifier(ref name)) => {
