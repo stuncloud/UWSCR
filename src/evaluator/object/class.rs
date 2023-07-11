@@ -44,6 +44,22 @@ impl ClassInstance {
             self.module.lock().unwrap().dispose();
         }
     }
+    pub fn set_instance_reference(&mut self, ins: Arc<Mutex<Self>>) {
+        let mut mutex = self.module.lock().unwrap();
+        for o in mutex.get_members_mut() {
+            match o.object.as_mut() {
+                Object::Function(f) => {
+                    f.set_instance(ins.clone());
+                }
+                Object::AnonFunc(f) => {
+                    f.set_instance(ins.clone());
+                    // 無名関数ならスコープ情報を消す
+                    f.outer = None;
+                },
+                _ => {},
+            }
+        }
+    }
 }
 
 impl std::fmt::Display for ClassInstance {

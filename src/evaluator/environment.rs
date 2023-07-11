@@ -279,14 +279,23 @@ impl Environment {
     }
     // Module/Classメンバを探す
     fn get_from_this(&self, name: &str) -> Option<Object> {
-        if let Object::This(mutex) = self.get("this", ContainerType::Variable)? {
-            let this = mutex.lock().unwrap();
-            match this.get_member(name) {
-                Ok(o) => Some(o),
-                Err(_) => this.get_public_member(name).ok(),
-            }
-        } else {
-            None
+        match self.get("this", ContainerType::Variable)? {
+            Object::Module(mutex) => {
+                let this = mutex.lock().unwrap();
+                match this.get_member(name) {
+                    Ok(o) => Some(o),
+                    Err(_) => this.get_public_member(name).ok(),
+                }
+            },
+            Object::Instance(mutex) => {
+                let ins = mutex.lock().unwrap();
+                let this = ins.module.lock().unwrap();
+                match this.get_member(name) {
+                    Ok(o) => Some(o),
+                    Err(_) => this.get_public_member(name).ok(),
+                }
+            },
+            _ => None
         }
     }
 
@@ -312,11 +321,17 @@ impl Environment {
     }
     // Module/Classメンバ関数を探す
     fn get_function_from_this(&self, name: &str) -> Option<Object> {
-        if let Object::This(mutex) = self.get("this", ContainerType::Variable)? {
-            let this = mutex.lock().unwrap();
-            this.get_function(name).ok()
-        } else {
-            None
+        match self.get("this", ContainerType::Variable)? {
+            Object::Module(mutex) => {
+                let this = mutex.lock().unwrap();
+                this.get_function(name).ok()
+            },
+            Object::Instance(mutex) => {
+                let ins = mutex.lock().unwrap();
+                let this = ins.module.lock().unwrap();
+                this.get_function(name).ok()
+            },
+            _ => None
         }
     }
 
@@ -608,17 +623,30 @@ impl Environment {
     }
 
     // module関数呼び出し時にメンバをローカル変数としてセット
-    pub fn set_this_and_global(&mut self, module: &Arc<Mutex<Module>>) {
-        self.add(NamedObject::new(
-            "THIS".into(),
-            Object::This(Arc::clone(module)),
-            ContainerType::Variable
-        ), false);
-        self.add(NamedObject::new(
-            "GLOBAL".into(),
-            Object::Global,
-            ContainerType::Variable
-        ), false);
+    pub fn set_this_and_global(&mut self, func: &function::Function) {
+        if let Some(m) = &func.module {
+            // GLOBALをセット
+            self.add(NamedObject::new(
+                "GLOBAL".into(),
+                Object::Global,
+                ContainerType::Variable
+            ), false);
+            // THISをセット
+            if let Some(ins) = &func.instance {
+                // クラスインスタンス
+                self.add(NamedObject::new(
+                    "THIS".into(),
+                    Object::Instance(ins.clone()),
+                    ContainerType::Variable
+                ), false);
+            } else {
+                self.add(NamedObject::new(
+                    "THIS".into(),
+                    Object::Module(m.clone()),
+                    ContainerType::Variable
+                ), false);
+            }
+        }
     }
 
     pub fn has_function(&mut self, name: &str) -> bool {

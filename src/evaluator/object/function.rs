@@ -1,7 +1,7 @@
 use crate::ast::{Expression, BlockStatement, FuncParam, ParamType, ParamKind};
 use crate::evaluator::environment::{NamedObject};
 use crate::error::evaluator::{UError, UErrorKind, UErrorMessage, ParamTypeDetail};
-use super::{Object, Module};
+use super::{Object, Module, ClassInstance};
 use super::super::{EvalResult, Evaluator};
 
 
@@ -14,6 +14,7 @@ pub struct Function {
     pub body: BlockStatement,
     pub is_proc: bool,
     pub module: Option<Arc<Mutex<Module>>>, // module, classの実装
+    pub instance: Option<Arc<Mutex<ClassInstance>>>, // クラスインスタンス
     pub outer: Option<Arc<Mutex<Vec<NamedObject>>>>, // 無名関数にコピーするスコープ情報
 }
 
@@ -25,6 +26,7 @@ impl Default for Function {
             body: vec![],
             is_proc: true,
             module: None,
+            instance: None,
             outer: None,
         }
     }
@@ -40,6 +42,39 @@ impl PartialEq for Function {
 }
 
 impl Function {
+    pub fn new_named(name: String, params: Vec<FuncParam>, body: BlockStatement, is_proc: bool) -> Self {
+        Self {
+            name: Some(name),
+            params,
+            body,
+            is_proc,
+            module: None,
+            instance: None,
+            outer: None,
+        }
+    }
+    pub fn new_anon(params: Vec<FuncParam>, body: BlockStatement, is_proc: bool, outer: Arc<Mutex<Vec<NamedObject>>>) -> Self {
+        Self {
+            name: None,
+            params,
+            body,
+            is_proc,
+            module: None,
+            instance: None,
+            outer: Some(outer),
+        }
+    }
+    pub fn new_call(params: Vec<FuncParam>, body: BlockStatement) -> Self {
+        Self {
+            name: None,
+            params,
+            body,
+            is_proc: true,
+            module: None,
+            instance: None,
+            outer: None,
+        }
+    }
     pub fn invoke(&self, evaluator: &mut Evaluator, mut arguments: Vec<(Option<Expression>, Object)>) -> EvalResult<Object> {
         let param_len = self.params.len();
         let mut params = self.params.clone();
@@ -144,9 +179,7 @@ impl Function {
         }
 
         // モジュール・クラスインスタンスであればthisとglobalをセットする
-        if let Some(ref m) = self.module {
-            evaluator.env.set_this_and_global(m);
-        }
+        evaluator.env.set_this_and_global(self);
 
         // functionならresult変数を初期化
         if ! self.is_proc {
@@ -179,6 +212,9 @@ impl Function {
 
     pub fn set_module(&mut self, m: Arc<Mutex<Module>>) {
         self.module = Some(m)
+    }
+    pub fn set_instance(&mut self, ins: Arc<Mutex<ClassInstance>>) {
+        self.instance = Some(ins);
     }
 }
 

@@ -237,4 +237,8 @@ impl Module {
     pub fn dispose(&mut self) {
         self.members = vec![];
     }
+
+    pub fn get_members_mut(&mut self) -> &mut Vec<NamedObject>{
+        self.members.as_mut()
+    }
 }

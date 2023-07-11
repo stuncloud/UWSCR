@@ -76,7 +76,6 @@ pub enum Object {
     RegEx(String),
     Exit,
     Global, // globalを示す
-    This(Arc<Mutex<Module>>),   // thisを示す
     UObject(UObject),
     DynamicVar(fn()->Object), // 特殊変数とか
     Version(Version),
@@ -129,7 +128,6 @@ impl std::fmt::Debug for Object {
             Object::RegEx(arg0) => f.debug_tuple("RegEx").field(arg0).finish(),
             Object::Exit => write!(f, "Exit"),
             Object::Global => write!(f, "Global"),
-            Object::This(arg0) => f.debug_tuple("This").field(arg0).finish(),
             Object::UObject(arg0) => f.debug_tuple("UObject").field(arg0).finish(),
             Object::DynamicVar(arg0) => f.debug_tuple("DynamicVar").field(arg0).finish(),
             Object::Version(arg0) => f.debug_tuple("Version").field(arg0).finish(),
@@ -222,7 +220,6 @@ impl fmt::Display for Object {
             Object::Handle(h) => write!(f, "{:?}", h),
             Object::RegEx(re) => write!(f, "regex: {}", re),
             Object::Global => write!(f, "GLOBAL"),
-            Object::This(m) => write!(f, "THIS ({})", m.lock().unwrap().name()),
             Object::UObject(uobj) => {
                 write!(f, "{}", uobj)
             },
@@ -337,10 +334,6 @@ impl PartialEq for Object {
             Object::RegEx(r) => if let Object::RegEx(r2) = other {r==r2} else {false},
             Object::Exit => false,
             Object::Global => false,
-            Object::This(m) => if let Object::This(m2) = other {
-                let _tmp = m.lock().unwrap();
-                m2.try_lock().is_err()
-            } else {false},
             Object::UObject(uobj) => if let Object::UObject(uobj2) = other {
                 uobj == uobj2
             } else {false},
@@ -431,7 +424,6 @@ impl Object {
             Object::Nothing => ObjectType::TYPE_NOTHING,
             Object::Handle(_) => ObjectType::TYPE_HWND,
             Object::RegEx(_) => ObjectType::TYPE_REGEX,
-            Object::This(_) => ObjectType::TYPE_THIS,
             Object::Global => ObjectType::TYPE_GLOBAL,
             Object::UObject(_) => ObjectType::TYPE_UOBJECT,
             Object::Version(_) => ObjectType::TYPE_VERSION,
@@ -901,7 +893,6 @@ impl Add for Object {
             Object::RegEx(_) |
             Object::Exit |
             Object::Global |
-            Object::This(_) |
             Object::UObject(_) |
             Object::DynamicVar(_) |
             Object::ExpandableTB(_) |
@@ -992,7 +983,6 @@ impl Sub for Object {
             Object::RegEx(_) |
             Object::Exit |
             Object::Global |
-            Object::This(_) |
             Object::UObject(_) |
             Object::DynamicVar(_) |
             Object::ExpandableTB(_) |
@@ -1120,7 +1110,6 @@ impl Mul for Object {
             Object::RegEx(_) |
             Object::Exit |
             Object::Global |
-            Object::This(_) |
             Object::UObject(_) |
             Object::DynamicVar(_) |
             Object::ExpandableTB(_) |
@@ -1230,7 +1219,6 @@ impl Div for Object {
             Object::RegEx(_) |
             Object::Exit |
             Object::Global |
-            Object::This(_) |
             Object::UObject(_) |
             Object::DynamicVar(_) |
             Object::ExpandableTB(_) |
@@ -1343,7 +1331,6 @@ impl Rem for Object {
             Object::RegEx(_) |
             Object::Exit |
             Object::Global |
-            Object::This(_) |
             Object::UObject(_) |
             Object::DynamicVar(_) |
             Object::ExpandableTB(_) |
@@ -1450,7 +1437,6 @@ impl BitOr for Object {
             Object::RegEx(_) |
             Object::Exit |
             Object::Global |
-            Object::This(_) |
             Object::UObject(_) |
             Object::DynamicVar(_) |
             Object::ExpandableTB(_) |
@@ -1556,7 +1542,6 @@ impl BitAnd for Object {
             Object::RegEx(_) |
             Object::Exit |
             Object::Global |
-            Object::This(_) |
             Object::UObject(_) |
             Object::DynamicVar(_) |
             Object::ExpandableTB(_) |
@@ -1662,7 +1647,6 @@ impl BitXor for Object {
             Object::RegEx(_) |
             Object::Exit |
             Object::Global |
-            Object::This(_) |
             Object::UObject(_) |
             Object::DynamicVar(_) |
             Object::ExpandableTB(_) |

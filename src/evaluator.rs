@@ -453,14 +453,7 @@ impl Evaluator {
                 let arguments = vec![
                     (Some(params_str.clone()), self.eval_expression(params_str)?)
                 ];
-                let func = Function {
-                    name: None,
-                    params,
-                    body,
-                    is_proc: true,
-                    module: None,
-                    outer: None,
-                };
+                let func = Function::new_call(params, body);
                 let result = match func.invoke(self, arguments,) {
                     Ok(_) => Ok(None),
                     Err(e) => Err(e),
@@ -839,14 +832,7 @@ impl Evaluator {
                 _ => {},
             };
         }
-        let func = Function {
-            name: Some(name.into()),
-            params,
-            body,
-            is_proc,
-            module: None,
-            outer: None,
-        };
+        let func = Function::new_named(name.into(), params, body, is_proc);
         if is_async {
             Ok(Object::AsyncFunction(func))
         } else {
@@ -1011,14 +997,7 @@ impl Evaluator {
                             _ => new_body.push(statement),
                         };
                     }
-                    let func = Function {
-                        name: Some(func_name.clone()),
-                        params,
-                        body: new_body,
-                        is_proc,
-                        module: None,
-                        outer: None,
-                    };
+                    let func = Function::new_named(func_name.clone(), params, new_body, is_proc);
                     let func_obj = if is_async {
                         Object::AsyncFunction(func)
                     } else {
@@ -1311,14 +1290,8 @@ impl Evaluator {
             },
             Expression::AnonymusFunction {params, body, is_proc} => {
                 let outer_local = self.env.get_local_copy();
-                Object::AnonFunc(Function {
-                    name: None,
-                    params,
-                    body,
-                    is_proc,
-                    module: None,
-                    outer: Some(Arc::new(Mutex::new(outer_local))),
-                })
+                let func = Function::new_anon(params, body, is_proc, Arc::new(Mutex::new(outer_local)));
+                Object::AnonFunc(func)
             },
             Expression::FuncCall {func, args, is_await} => {
                 self.eval_function_call_expression(func, args, is_await)?
@@ -1675,15 +1648,27 @@ impl Evaluator {
         Ok(assigned_value)
     }
     fn assign_identifier(&mut self, name: &str, new: Object) -> EvalResult<()> {
-        if let Some(Object::This(mutex)) = self.env.get_variable("this", true) {
-            let mut this = mutex.lock().unwrap();
-            if this.has_member(name) {
-                this.assign(name, new, None)?;
-            } else {
+        match self.env.get_variable("this", true).unwrap_or_default() {
+            Object::Module(mutex) => {
+                let mut this = mutex.lock().unwrap();
+                if this.has_member(name) {
+                    this.assign(name, new, None)?;
+                } else {
+                    self.env.assign(name.into(), new)?;
+                }
+            },
+            Object::Instance(mutex) => {
+                let ins = mutex.lock().unwrap();
+                let mut this = ins.module.lock().unwrap();
+                if this.has_member(name) {
+                    this.assign(name, new, None)?;
+                } else {
+                    self.env.assign(name.into(), new)?;
+                }
+            }
+            _ => {
                 self.env.assign(name.into(), new)?;
             }
-        } else {
-            self.env.assign(name.into(), new)?;
         }
         Ok(())
     }
@@ -1708,15 +1693,27 @@ impl Evaluator {
             })?;
         if update {
             if let Some(new_value) = maybe_new {
-                if let Some(Object::This(mutex)) = self.env.get_variable("this", true) {
-                    let mut this = mutex.lock().unwrap();
-                    if this.has_member(name) {
-                        this.assign(name, new_value, None)?;
-                    } else {
+                match self.env.get_variable("this", true).unwrap_or_default() {
+                    Object::Module(mutex) => {
+                        let mut this = mutex.lock().unwrap();
+                        if this.has_member(name) {
+                            this.assign(name, new_value, None)?;
+                        } else {
+                            self.env.assign(name.into(), new_value)?;
+                        }
+                    },
+                    Object::Instance(mutex) => {
+                        let ins = mutex.lock().unwrap();
+                        let mut this = ins.module.lock().unwrap();
+                        if this.has_member(name) {
+                            this.assign(name, new_value, None)?;
+                        } else {
+                            self.env.assign(name.into(), new_value)?;
+                        }
+                    }
+                    _ => {
                         self.env.assign(name.into(), new_value)?;
                     }
-                } else {
-                    self.env.assign(name.into(), new_value)?;
                 }
             }
         }
@@ -1733,8 +1730,7 @@ impl Evaluator {
         };
         let instance = self.eval_expr(expr_object)?;
         match instance {
-            Object::Module(mutex) |
-            Object::This(mutex) => {
+            Object::Module(mutex) => {
                 mutex.lock().unwrap().assign(&member, new, dimension)?;
             },
             Object::Instance(mutex) => {
@@ -1915,17 +1911,6 @@ impl Evaluator {
                 if let Expression::Identifier(Identifier(name)) = expr_member {
                     let ins = m.lock().unwrap();
                     ins.module.lock().unwrap().assign_public(&name, new, None)?;
-                } else {
-                    return Err(UError::new(
-                        UErrorKind::AssignError,
-                        UErrorMessage::SyntaxError
-                    ));
-                }
-            },
-            Object::This(m) => {
-                if let Expression::Identifier(Identifier(member)) = expr_member {
-                    let mut module = m.lock().unwrap();
-                    module.assign(&member, new, None)?;
                 } else {
                     return Err(UError::new(
                         UErrorKind::AssignError,
@@ -2275,6 +2260,10 @@ impl Evaluator {
                     };
                     constructor.invoke(self, arguments)?;
                     let ins = Arc::new(Mutex::new(ClassInstance::new(name, m, self.clone())));
+                    {
+                        let mut guard = ins.lock().unwrap();
+                        guard.set_instance_reference(ins.clone());
+                    }
                     Ok(Object::Instance(ins))
                 },
                 Object::Struct(name, size, members) => {
@@ -2745,17 +2734,6 @@ impl Evaluator {
                 let ins = m.lock().unwrap();
                 self.get_module_member(&ins.module, &member, is_func)
             },
-            Object::This(m) => {
-                let module = m.lock().unwrap();
-                if is_func {
-                    module.get_function(&member)
-                } else {
-                    match module.get_member(&member) {
-                        Ok(Object::ExpandableTB(text)) => Ok(self.expand_string(text, true, None)),
-                        res => res
-                    }
-                }
-            },
             Object::Global => {
                 self.env.get_global(&member, is_func)
             },
@@ -2874,12 +2852,20 @@ impl Evaluator {
         if is_func {
             module.get_function(&member)
         } else if module.is_local_member(&member) {
-            if let Some(Object::This(this)) = self.env.get_variable("this", true) {
-                if this.try_lock().is_err() {
-                    // ロックに失敗した場合、上でロックしているMutexと同じだと判断
-                    // なので自分のモジュールメンバの値を返す
-                    return module.get_member(&member);
+            match self.env.get_variable("this", true).unwrap_or_default() {
+                Object::Module(this) => {
+                    if this.try_lock().is_err() {
+                        // ロックに失敗した場合thisと呼び出し元が同一と判断し、自身のメンバの値を返す
+                        return module.get_member(&member);
+                    }
                 }
+                Object::Instance(this) => {
+                    if this.try_lock().is_err() {
+                        // ロックに失敗した場合thisと呼び出し元が同一と判断し、自身のメンバの値を返す
+                        return module.get_member(&member);
+                    }
+                }
+                _ => {}
             }
             Err(UError::new(
                 UErrorKind::DotOperatorError,
