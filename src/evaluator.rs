@@ -1731,12 +1731,12 @@ impl Evaluator {
         let instance = self.eval_expr(expr_object)?;
         match instance {
             Object::Module(mutex) => {
-                mutex.lock().unwrap().assign(&member, new, dimension)?;
+                mutex.lock().unwrap().assign_public(&member, new, dimension)?;
             },
             Object::Instance(mutex) => {
                 let ins = mutex.lock().unwrap();
                 let mut module = ins.module.lock().unwrap();
-                module.assign(&member, new, dimension)?;
+                module.assign_public(&member, new, dimension)?;
             },
             // Value::Array
             Object::UObject(uo) => {
