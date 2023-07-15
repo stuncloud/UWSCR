@@ -20,6 +20,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("xlclose", 2, xlclose);
     sets.add("xlactivate", 3, xlactivate);
     sets.add("xlsheet", 3, xlsheet);
+    sets.add("xlgetdata", 4, xlgetdata);
     sets
 }
 
@@ -227,4 +228,44 @@ pub fn xlsheet(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
         excel.add_sheet(&sheet_id).is_some()
     };
     Ok(result.into())
+}
+
+pub fn xlgetdata(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let com = args.get_as_comobject(0)?;
+    let excel = Excel::new(com)?;
+    let get_sheet = |index: usize| {
+        args.get_as_f64_or_string_or_empty(index).map(|opt| {
+            match opt {
+                Some(tts) => match tts {
+                    TwoTypeArg::T(s) => Some(s.into()),
+                    TwoTypeArg::U(n) => Some(n.into()),
+                },
+                None => None
+            }
+        })
+    };
+    let value = match args.get_as_f64_or_string_or_empty(1)? {
+        Some(tta) => match tta {
+            TwoTypeArg::T(a1) => {
+                let sheet = match get_sheet(2)? {
+                    Some(obj) => Some(obj),
+                    None => get_sheet(3)?,
+                };
+                excel.get_range(Some(a1), sheet)?
+            },
+            TwoTypeArg::U(row) => {
+                let column = args.get_as_f64(2, None)?;
+                let sheet = get_sheet(3)?;
+                excel.get_cell(row, column, sheet)?
+            },
+        },
+        None => {
+            let sheet = match get_sheet(2)? {
+                Some(obj) => Some(obj),
+                None => get_sheet(3)?,
+            };
+            excel.get_range(None, sheet)?
+        },
+    };
+    Ok(value)
 }

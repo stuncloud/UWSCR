@@ -158,3 +158,43 @@ Excel
                 xlsheet(excel, 1, TRUE)  // 1を指定して削除を試みた場合
                 // UWSCの場合: "1" という名前のシートがあればそれを削除、なければ1番目のシートを削除
                 // UWSCRの場合: 必ず1番目のシートを削除、2番目以降にある"1"という名前のシートは対象とならない
+
+.. function:: xlgetdata(Excel, [範囲=EMPTY, シート識別子=EMPTY])
+.. function:: xlgetdata(Excel, [範囲=EMPTY, , シート識別子=EMPTY])
+    :noindex:
+
+    | 範囲をA1形式の文字列で指定し、その値を返します
+
+    :param COMオブジェクト Excel: Excel.ApplicationまたはWorkbookを示すCOMオブジェクト
+    :param 文字列 省略可 範囲: 単一セル指定なら"A1"、範囲なら"A1:C3"のように指定
+    :param 文字列または数値 省略可 シート識別子: 得たい値のあるシート名またはインデックス番号(1から)を指定、省略時はアクティブシート
+
+        .. admonition:: 第三引数について
+            :class: hint
+
+            | 互換性のために第三引数を省略し、第四引数にシート名を指定することもできます
+
+    :rtype: 値または配列、値の型はセルによる
+    :return: 範囲の指定方法により異なります
+
+        - 単一セル指定: セルの値を返す
+        - 範囲指定: 範囲内の値を順に格納した配列を返す
+
+        .. admonition:: 範囲指定時の注意
+            :class: caution
+
+            | UWSCではインデックスが1から始まるSafeArrayが返っていましたが
+            | UWSCRでは通常の配列が返るためインデックスが0からになります
+            | ご注意ください
+
+.. function:: xlgetdata(Excel, 行番号, 列番号, [シート識別子=EMPTY])
+    :noindex:
+
+    | セルの行と列の番号を指定しその値を得ます
+
+    :param COMオブジェクト Excel: Excel.ApplicationまたはWorkbookを示すCOMオブジェクト
+    :param 数値 行番号: 値を得たいセルの行番号 (1から)
+    :param 数値 列番号: 値を得たいセルの列番号 (1から)
+    :param 文字列または数値 省略可 シート識別子: 得たい値のあるシート名またはインデックス番号(1から)を指定、省略時はアクティブシート
+    :rtype: セルによる
+    :return: 指定セルの値

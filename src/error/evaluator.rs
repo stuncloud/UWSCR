@@ -560,6 +560,7 @@ pub enum UErrorMessage {
     EventInterfaceNotFound,
     ThirdPartyNotImplemented,
     GlobalCanNotBeAssigned,
+    IsNotValidExcelObject,
 }
 
 impl fmt::Display for UErrorMessage {
@@ -1201,6 +1202,10 @@ impl fmt::Display for UErrorMessage {
             Self::GlobalCanNotBeAssigned => write_locale!(f,
                 "GLOBALは代入できません",
                 "Assigning GLOBAL to variable is not allowed",
+            ),
+            Self::IsNotValidExcelObject => write_locale!(f,
+                "有効なExcelオブジェクトではありません",
+                "Object is not valid Excel object",
             ),
         }
     }

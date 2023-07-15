@@ -1339,6 +1339,19 @@ impl ComCollection {
             },
         }
     }
+    fn to_comobject_vec(&self) -> ComResult<Vec<ComObject>> {
+        let mut vec = vec![];
+        loop {
+            if let Some(variant) = self.next()? {
+                let disp = variant.to_idispatch()?;
+                vec.push(ComObject::from(disp));
+            } else {
+                break;
+            }
+        }
+        self.reset()?;
+        Ok(vec)
+    }
     fn to_object_vec(&self) -> ComResult<Vec<Object>> {
         let mut vec = vec![];
         loop {
@@ -1694,7 +1707,7 @@ pub struct Excel {
 
 impl Excel {
     const EXCEL_PROGID: &str = "Excel.Application";
-    fn create (file: Option<String>, params: Vec<String>) -> ComResult<Self> {
+    fn create(file: Option<String>, params: Vec<String>) -> ComResult<Self> {
         let obj = ComObject::new(Self::EXCEL_PROGID.into())?;
         let e = Self::new(obj)?;
         e.open_book(file, params)?;
@@ -1808,11 +1821,24 @@ impl Excel {
     }
     /// 自身からWorkbookオブジェクトを得る
     /// 自身が_Applicationの場合にWorkbookを得る為の関数を渡す
-    fn get_wookbook<F: Fn() -> Option<ComObject>>(&self, from_app: F) -> Option<ComObject> {
+    fn get_wookbook<F: Fn() -> ComResult<ComObject>>(&self, from_app: F) -> ComResult<ComObject> {
         match self.r#type {
             ObjectType::Application => from_app(),
-            ObjectType::Workbook => Some(self.obj.clone()),
-            ObjectType::Other => None,
+            ObjectType::Workbook => Ok(self.obj.clone()),
+            ObjectType::Other => Err(ComError::new_u(
+                UErrorKind::ExcelError,
+                UErrorMessage::IsNotValidExcelObject
+            )),
+        }
+    }
+    /// ブック自身またはアクティブブックから指定シートを得る
+    fn get_sheet(&self, sheet_id: Option<Object>) -> ComResult<ComObject> {
+        let book = self.get_wookbook(|| {
+            self.obj.get_property_as_comobject("ActiveWorkbook")
+        })?;
+        match sheet_id {
+            Some(id) => book.get_property_by_index_as_comobject("WorkSheets", vec![id]),
+            None => book.get_property_as_comobject("ActiveSheet"),
         }
     }
     /// path
@@ -1821,8 +1847,8 @@ impl Excel {
     /// - Some(Some(path)): pathに保存
     pub fn close(&self, path: Option<Option<String>>) -> Option<()> {
         let book = self.get_wookbook(|| {
-            self.obj.get_property_as_comobject("ActiveWorkbook").ok()
-        })?;
+            self.obj.get_property_as_comobject("ActiveWorkbook")
+        }).ok()?;
         let app = book.get_property_as_comobject("Application").ok()?;
         match path {
             Some(Some(path)) => {
@@ -1852,19 +1878,19 @@ impl Excel {
         let book = self.get_wookbook(|| {
             match book_id.to_owned() {
                 Some(index) => {
-                    self.obj.get_property_by_index_as_comobject("Workbooks", vec![index]).ok()
+                    self.obj.get_property_by_index_as_comobject("Workbooks", vec![index])
                 },
-                None => self.obj.get_property_as_comobject("ActiveWorkbook").ok()
+                None => self.obj.get_property_as_comobject("ActiveWorkbook")
             }
-        })?;
+        }).ok()?;
         let sheet = book.get_property_by_index_as_comobject("Worksheets", vec![sheet_id]).ok()?;
         sheet.invoke_method("Activate", &mut vec![]).ok()?;
         Some(())
     }
     pub fn add_sheet(&self, sheet_id: &str) -> Option<()> {
         let book = self.get_wookbook(|| {
-            self.obj.get_property_as_comobject("ActiveWorkbook").ok()
-        })?;
+            self.obj.get_property_as_comobject("ActiveWorkbook")
+        }).ok()?;
         let sheets = book.get_property_as_comobject("WorkSheets").ok()?;
         if sheets.get_property_by_index_as_comobject("Item", vec![sheet_id.into()]).is_err() {
             // 同名シートが存在しない場合は追加
@@ -1886,9 +1912,37 @@ impl Excel {
     }
     pub fn delete_sheet(&self, sheet_id: Object) -> Option<()> {
         let book = self.get_wookbook(|| {
-            self.obj.get_property_as_comobject("ActiveWorkbook").ok()
-        })?;
+            self.obj.get_property_as_comobject("ActiveWorkbook")
+        }).ok()?;
         let sheet = book.get_property_by_index_as_comobject("WorkSheets", vec![sheet_id]).ok()?;
         sheet.invoke_method("Delete", &mut vec![]).map(|_| ()).ok()
+    }
+    pub fn get_range(&self, a1: Option<String>, sheet_id: Option<Object>) -> ComResult<Object> {
+        let sheet = self.get_sheet(sheet_id)?;
+        let range = match a1 {
+            Some(a1) => {
+                sheet.get_property_by_index_as_comobject("Range", vec![a1.into()])?
+            },
+            None => {
+                sheet.invoke_method("Activate", &mut vec![])?;
+                self.obj.get_property_as_comobject("Selection")?
+            },
+        };
+        let col = ComCollection::try_from(&range)?.to_comobject_vec()?;
+        let arr = col.into_iter()
+            .map(|com| com.get_property("Value"))
+            .collect::<ComResult<Vec<Object>>>()?;
+        if arr.len() == 1 {
+            let obj = arr[0].to_owned();
+            Ok(obj)
+        } else {
+            Ok(Object::Array(arr))
+        }
+    }
+    pub fn get_cell(&self, row: f64, column: f64, sheet_id: Option<Object>) -> ComResult<Object> {
+        let sheet = self.get_sheet(sheet_id)?;
+        let row = sheet.get_property_by_index_as_comobject("Rows", vec![row.into()])?;
+        let cell = row.get_property_by_index_as_comobject("Columns", vec![column.into()])?;
+        cell.get_property("Value")
     }
 }

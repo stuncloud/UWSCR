@@ -9,7 +9,7 @@ pub mod fopen;
 pub mod class;
 pub mod browser;
 mod web;
-mod comobject;
+pub mod comobject;
 
 pub use self::hashtbl::{HashTbl, HashTblEnum};
 pub use self::version::Version;
