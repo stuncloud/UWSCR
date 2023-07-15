@@ -69,6 +69,11 @@ impl BitOr<VarType> for u16 {
         }
     }
 }
+impl Into<Object> for VarType {
+    fn into(self) -> Object {
+        ToPrimitive::to_f64(&self).unwrap_or(0.0).into()
+    }
+}
 
 fn ignore_ie(prog_id: &str) -> BuiltInResult<()> {
     if ComObject::is_ie(prog_id)? {
@@ -139,8 +144,25 @@ pub fn getoleitem(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult
 //     Ok(Object::Empty)
 // }
 
-fn vartype(_: &mut Evaluator, _args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    Ok((-1).into())
+fn vartype(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let obj = args.get_as_object(0, None)?;
+    let vt = args.get_as_int_or_empty::<u16>(1)?;
+    match (obj, vt) {
+        (Object::Variant(variant), Some(vt)) => {
+            let new = variant.change_type(vt)?;
+            Ok(new.into())
+        },
+        (Object::Variant(variant), None) => {
+            let vt = variant.get_type();
+            Ok(vt.into())
+        }
+        (obj, Some(vt)) => {
+            let variant = Variant::try_from(obj)?;
+            let new = variant.change_type(vt)?;
+            Ok(new.into())
+        },
+        (obj, None) => Ok(VarType::VAR_UWSCR.into())
+    }
 }
 
 fn safearray(_: &mut Evaluator, _args: BuiltinFuncArgs) -> BuiltinFuncResult {

@@ -19,7 +19,7 @@ use windows::{
                 DISPATCH_FLAGS, DISPATCH_PROPERTYGET, DISPATCH_PROPERTYPUT, DISPATCH_METHOD,
                 EXCEPINFO,
                 VARIANT, VARIANT_0_0,
-                VARENUM, VT_ARRAY,VT_BYREF,VT_BOOL,VT_BSTR,VT_CY,VT_DATE,VT_DECIMAL,VT_DISPATCH,VT_EMPTY,VT_ERROR,VT_I1,VT_I2,VT_I4,VT_INT,VT_NULL,VT_R4,VT_R8,VT_UI1,VT_UI2,VT_UI4,VT_UINT,VT_UNKNOWN,VT_VARIANT,
+                VARENUM, VT_ARRAY,VT_BYREF,VT_BOOL,VT_BSTR,VT_CY,VT_DATE,VT_DECIMAL,VT_DISPATCH,VT_EMPTY,VT_I1,VT_I2,VT_I4,VT_INT,VT_NULL,VT_R4,VT_R8,VT_UI1,VT_UI2,VT_UI4,VT_UINT,VT_UNKNOWN,VT_VARIANT,
                 // VT_PTR, VT_SAFEARRAY,
                 SAFEARRAY, SAFEARRAYBOUND,
                 ITypeInfo, //ELEMDESC,
@@ -51,7 +51,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 
 const LOCALE_SYSTEM_DEFAULT: u32 = 0x0800;
 const LOCALE_USER_DEFAULT: u32 = 0x400;
-type ComResult<T> = Result<T, ComError>;
+pub type ComResult<T> = Result<T, ComError>;
 
 #[derive(Debug)]
 pub enum ComError {
@@ -739,6 +739,7 @@ impl TryFrom<Object> for VARIANT {
             Object::Empty => VARIANT::default(),
             Object::ComObject(disp) => VARIANT::from_idispatch(disp.idispatch),
             Object::Unknown(unk) => VARIANT::from_iunknown(unk.0),
+            Object::Variant(variant) => variant.get(),
             o => {
                 let t = o.get_type().to_string();
                 let e = UError::new(UErrorKind::VariantError, UErrorMessage::ToVariant(t));
@@ -788,9 +789,13 @@ impl TryInto<Object> for VARIANT {
                     } else {
                         Ok(v00.Anonymous.bstrVal.to_string().into())
                     },
+                    VT_DATE => {
+                        let mut variant = VARIANT::default();
+                        VariantChangeType(&mut variant, &self, 0, VT_BSTR)?;
+                        variant.try_into()
+                    },
                     // 数値系
                     VT_CY | // 通貨
-                    VT_DATE | // 日付
                     VT_DECIMAL |
                     VT_I1 |
                     VT_I2 |
@@ -800,7 +805,6 @@ impl TryInto<Object> for VARIANT {
                     VT_UI2 |
                     VT_UI4 |
                     VT_UINT |
-                    VT_ERROR |
                     VT_R4 => {
                         let mut variant = VARIANT::default();
                         VariantChangeType(&mut variant, &self, 0, VT_R8)?;
@@ -841,9 +845,9 @@ impl TryInto<Object> for VARIANT {
                                     let unk = unk.clone();
                                     Ok(Object::Unknown(unk.into()))
                                 },
-                                None => Err(ComError::from_variant_error(vt)),
+                                None => Ok(Object::Nothing),
                             },
-                            None => Err(ComError::from_variant_error(vt)),
+                            None => Ok(Object::Nothing),
                         }
                     } else {
                         match &*v00.Anonymous.punkVal {
@@ -860,7 +864,7 @@ impl TryInto<Object> for VARIANT {
                             None => Err(ComError::from_variant_error(vt)),
                         }
                     },
-                    vt => Err(ComError::from_variant_error(vt))
+                    _ => Ok(Object::Variant(self.into()))
                 }
             }
         }
@@ -896,7 +900,7 @@ impl TryInto<Object> for *mut *mut SAFEARRAY {
     }
 }
 
-trait VariantExt {
+pub trait VariantExt {
     fn null() -> VARIANT;
     fn from_f64(n: f64) -> VARIANT;
     fn from_string(s: String) -> VARIANT;
@@ -911,6 +915,7 @@ trait VariantExt {
     fn to_t<T: ComInterface>(&self) -> ComResult<T>;
     fn to_i32(&self) -> ComResult<i32>;
     fn to_string(&self) -> ComResult<String>;
+    fn to_bool(&self) -> ComResult<bool>;
 }
 
 impl VariantExt for VARIANT {
@@ -1030,6 +1035,16 @@ impl VariantExt for VARIANT {
             let str = v00.Anonymous.bstrVal.to_string();
             VariantClear(&mut new)?;
             Ok(str)
+        }
+    }
+    fn to_bool(&self) -> ComResult<bool> {
+        unsafe {
+            let mut new = VARIANT::default();
+            VariantChangeType(&mut new, self, 0, VT_BOOL)?;
+            let v00 = &new.Anonymous.Anonymous;
+            let b = v00.Anonymous.boolVal.as_bool();
+            VariantClear(&mut new)?;
+            Ok(b)
         }
     }
 }

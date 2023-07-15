@@ -10,6 +10,7 @@ pub mod class;
 pub mod browser;
 mod web;
 pub mod comobject;
+mod variant;
 
 pub use self::hashtbl::{HashTbl, HashTblEnum};
 pub use self::version::Version;
@@ -20,6 +21,7 @@ pub use self::function::Function;
 pub use self::uobject::UObject;
 pub use self::fopen::*;
 pub use self::class::ClassInstance;
+pub use variant::Variant;
 use browser::{BrowserBuilder, Browser, TabWindow, RemoteObject};
 pub use web::{WebRequest, WebResponse, HtmlNode};
 pub use comobject::{ComObject, ComError, ComArg, Unknown, Excel, ExcelOpenFlag, ObjectTitle};
@@ -87,6 +89,7 @@ pub enum Object {
     UStruct(String, usize, Arc<Mutex<UStruct>>), // 構造体インスタンス
     ComObject(ComObject),
     Unknown(Unknown),
+    Variant(Variant),
     BrowserBuilder(Arc<Mutex<BrowserBuilder>>),
     Browser(Browser),
     TabWindow(TabWindow),
@@ -150,6 +153,7 @@ impl std::fmt::Debug for Object {
             Object::MemberCaller(_, _) => todo!(),
             Object::ComObject(arg0) => f.debug_tuple("ComObject").field(arg0).finish(),
             Object::Unknown(arg0) => f.debug_tuple("Unknown").field(arg0).finish(),
+            Object::Variant(arg0) => f.debug_tuple("Variant").field(arg0).finish(),
         }
     }
 }
@@ -265,6 +269,7 @@ impl fmt::Display for Object {
             },
             Object::ComObject(com) => write!(f, "{com}"),
             Object::Unknown(unk) => write!(f, "{unk}"),
+            Object::Variant(variant) => write!(f, "{variant}"),
         }
     }
 }
@@ -389,10 +394,13 @@ impl PartialEq for Object {
             },
             Object::ComObject(com1) => {
                 if let Object::ComObject(com2) = other {com1 == com2} else {false}
-            }
+            },
             Object::Unknown(unk1) => {
                 if let Object::Unknown(unk2) = other {unk1 == unk2} else {false}
-            }
+            },
+            Object::Variant(var1) => {
+                if let Object::Variant(var2) = other {var1 == var2} else {false}
+            },
         }
     }
 }
@@ -435,6 +443,7 @@ impl Object {
             Object::UStruct(_,_,_) => ObjectType::TYPE_STRUCT_INSTANCE,
             Object::ComObject(_) => ObjectType::TYPE_COM_OBJECT,
             Object::Unknown(_) => ObjectType::TYPE_IUNKNOWN,
+            Object::Variant(_) => ObjectType::TYPE_VARIANT,
             Object::BrowserBuilder(_) => ObjectType::TYPE_BROWSERBUILDER_OBJECT,
             Object::Browser(_) => ObjectType::TYPE_BROWSER_OBJECT,
             Object::TabWindow(_) => ObjectType::TYPE_TABWINDOW_OBJECT,
@@ -507,16 +516,6 @@ impl Object {
                 None
             },
             _ => None
-        }
-    }
-    /// 以下を通常の値型に変換する
-    /// - Variant
-    fn to_uwscr_object(self) -> Result<Object, UError> {
-        match self {
-            // Object::Variant(v) => {
-            //     Object::from_variant(&v.0)
-            // },
-            obj => Ok(obj)
         }
     }
     pub fn logical_and(&self, other: &Object) -> EvalResult<Object> {
@@ -791,7 +790,6 @@ impl Add for Object {
     type Output = Result<Object, UError>;
 
     fn add(self, rhs: Self) -> Self::Output {
-        let rhs = rhs.to_uwscr_object()?;
         match self {
             Object::Num(n) => {
                 if let Some(n2) = rhs.as_f64(true) {
@@ -872,6 +870,7 @@ impl Add for Object {
                 }
             },
             // 以下はエラー
+            Object::Variant(_) |
             Object::Unknown(_) |
             Object::ComObject(_) |
             Object::MemberCaller(_, _) |
@@ -921,7 +920,6 @@ impl Sub for Object {
     type Output = Result<Object, UError>;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        let rhs = rhs.to_uwscr_object()?;
         match self {
             Object::Num(n) => {
                 if let Some(n2) = rhs.as_f64(false) {
@@ -958,6 +956,7 @@ impl Sub for Object {
                 }
             },
             // 以下はエラー
+            Object::Variant(_) |
             Object::Unknown(_) |
             Object::ComObject(_) |
             Object::MemberCaller(_, _) |
@@ -1010,7 +1009,6 @@ impl Mul for Object {
     type Output = Result<Object, UError>;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        let rhs = rhs.to_uwscr_object()?;
         match self {
             Object::Num(n) => {
                 if let Some(n2) = rhs.as_f64(false) {
@@ -1087,6 +1085,7 @@ impl Mul for Object {
                 }
             },
             // 以下はエラー
+            Object::Variant(_) |
             Object::Unknown(_) |
             Object::ComObject(_) |
             Object::MemberCaller(_, _) |
@@ -1137,7 +1136,6 @@ impl Div for Object {
     type Output = Result<Object, UError>;
 
     fn div(self, rhs: Self) -> Self::Output {
-        let rhs = rhs.to_uwscr_object()?;
         if rhs.is_zero() {
             // 右辺が0の場合は0を返す
             return Ok(Object::Num(0.0));
@@ -1195,6 +1193,7 @@ impl Div for Object {
                 }
             },
             // 以下はエラー
+            Object::Variant(_) |
             Object::Unknown(_) |
             Object::ComObject(_) |
             Object::MemberCaller(_, _) |
@@ -1246,7 +1245,6 @@ impl Rem for Object {
     type Output = Result<Object, UError>;
 
     fn rem(self, rhs: Self) -> Self::Output {
-        let rhs = rhs.to_uwscr_object()?;
         if rhs.is_zero() {
             // 右辺が0の場合はエラー
             return Err(UError::new(
@@ -1307,6 +1305,7 @@ impl Rem for Object {
                 }
             },
             // 以下はエラー
+            Object::Variant(_) |
             Object::Unknown(_) |
             Object::ComObject(_) |
             Object::MemberCaller(_, _) |
@@ -1359,7 +1358,6 @@ impl BitOr for Object {
     type Output = Result<Object, UError>;
 
     fn bitor(self, rhs: Self) -> Self::Output {
-        let rhs = rhs.to_uwscr_object()?;
         match self {
             Object::Num(n) => {
                 if let Some(n2) = rhs.as_f64(false) {
@@ -1413,6 +1411,7 @@ impl BitOr for Object {
                 }
             },
             // 以下はエラー
+            Object::Variant(_) |
             Object::Unknown(_) |
             Object::ComObject(_) |
             Object::MemberCaller(_, _) |
@@ -1464,7 +1463,6 @@ impl BitAnd for Object {
     type Output = Result<Object, UError>;
 
     fn bitand(self, rhs: Self) -> Self::Output {
-        let rhs = rhs.to_uwscr_object()?;
         match self {
             Object::Num(n) => {
                 if let Some(n2) = rhs.as_f64(false) {
@@ -1518,6 +1516,7 @@ impl BitAnd for Object {
                 }
             },
             // 以下はエラー
+            Object::Variant(_) |
             Object::Unknown(_) |
             Object::ComObject(_) |
             Object::MemberCaller(_, _) |
@@ -1569,7 +1568,6 @@ impl BitXor for Object {
     type Output = Result<Object, UError>;
 
     fn bitxor(self, rhs: Self) -> Self::Output {
-        let rhs = rhs.to_uwscr_object()?;
         match self {
             Object::Num(n) => {
                 if let Some(n2) = rhs.as_f64(false) {
@@ -1623,6 +1621,7 @@ impl BitXor for Object {
                 }
             },
             // 以下はエラー
+            Object::Variant(_) |
             Object::Unknown(_) |
             Object::ComObject(_) |
             Object::MemberCaller(_, _) |
