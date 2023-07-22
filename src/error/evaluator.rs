@@ -195,6 +195,7 @@ pub enum UErrorKind {
     ComCollectionError,
     ComEventError,
     ExcelError,
+    SafeArrayError,
 }
 
 impl fmt::Display for UErrorKind {
@@ -405,6 +406,10 @@ impl fmt::Display for UErrorKind {
                 "Excelエラー",
                 "Excel error",
             ),
+            Self::SafeArrayError => write_locale!(f,
+                "SafeArrayエラー",
+                "SafeArray error",
+            ),
         }
     }
 }
@@ -561,6 +566,7 @@ pub enum UErrorMessage {
     ThirdPartyNotImplemented,
     GlobalCanNotBeAssigned,
     IsNotValidExcelObject,
+    CanNotConvertToSafeArray,
 }
 
 impl fmt::Display for UErrorMessage {
@@ -1206,6 +1212,10 @@ impl fmt::Display for UErrorMessage {
             Self::IsNotValidExcelObject => write_locale!(f,
                 "有効なExcelオブジェクトではありません",
                 "Object is not valid Excel object",
+            ),
+            Self::CanNotConvertToSafeArray => write_locale!(f,
+                "配列をSafeArrayに変換できません",
+                "Can not convert array to SafeArray",
             ),
         }
     }

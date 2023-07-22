@@ -1,7 +1,7 @@
 use windows::{
     core::{self, BSTR, HRESULT, HSTRING, PCWSTR, PWSTR, ComInterface, GUID, Interface, implement, IUnknown},
     Win32::{
-        Foundation::{VARIANT_TRUE, VARIANT_FALSE, DISP_E_MEMBERNOTFOUND, HWND, LPARAM, BOOL},
+        Foundation::{VARIANT_BOOL, DISP_E_MEMBERNOTFOUND, HWND, LPARAM, BOOL},
         UI::{
             WindowsAndMessaging::{
                 SetForegroundWindow,
@@ -329,8 +329,7 @@ impl ComObject {
     pub fn set_property(&self, prop: &str, value: Object) -> ComResult<()> {
         let dispidmember = self.get_id_from_name(prop)?;
         let mut dp = DISPPARAMS::default();
-        let wrapper = value.to_variant_wrapper()?;
-        let new = wrapper.to_variant()?;
+        let new = value.try_into()?;
         let mut args = vec![new];
         dp.cArgs = 1;
         dp.rgvarg = args.as_mut_ptr();
@@ -378,8 +377,7 @@ impl ComObject {
     pub fn set_property_by_index(&self, prop: &str, index: Object, value: Object) -> ComResult<()> {
         let dispidmember = self.get_id_from_name(prop)?;
         let mut dp = DISPPARAMS::default();
-        let wrapper = value.to_variant_wrapper()?;
-        let new = wrapper.to_variant()?;
+        let new = value.try_into()?;
         let i = index.try_into()?;
         let mut args = vec![new, i];
         dp.cArgs = 2;
@@ -417,6 +415,10 @@ impl ComObject {
     /// メソッドの実行
     /// obj.method(args)
     pub fn invoke_method(&self, method: &str, args: &mut Vec<ComArg>) -> ComResult<Object> {
+        let variant = self.invoke_method_raw(method, args)?;
+        variant.try_into()
+    }
+    pub fn invoke_method_raw(&self, method: &str, args: &mut Vec<ComArg>) -> ComResult<VARIANT> {
         if self.is_wmi_object() {
             // ISWbemObject(Ex)であればWMIメソッドとして処理
             let result = self.invoke_wmi_method(method, args);
@@ -427,41 +429,37 @@ impl ComObject {
         }
         let dispidmember = self.get_id_from_name(method)?;
         let mut dp = DISPPARAMS::default();
-        let wargs = args.iter()
-            .map(|arg| WrapperArg::try_from(arg.clone()))
-            .collect::<ComResult<Vec<WrapperArg>>>()?;
+        let mut wargs = args.iter()
+            .map(|arg| ComArgType::try_from(arg.clone()))
+            .collect::<ComResult<Vec<ComArgType>>>()?;
 
         let info = self.get_type_info()?;
         let pnames = info.get_param_names(dispidmember)?;
 
         let mut named_flg = false;
 
-        let (ids, mut vargs): (Vec<_>, Vec<_>) = wargs.iter()
+        let (ids, mut vargs): (Vec<_>, Vec<_>) = wargs.iter_mut()
             .map(|arg| {
                 match arg {
-                    WrapperArg::Arg(w) => {
+                    ComArgType::Arg(v) => {
                         if named_flg {
                             Err(ComError::UError(UError::new(UErrorKind::ComArgError, UErrorMessage::InvalidComMethodArgOrder)))
                         } else {
-                            let v = w.to_variant()?;
-                            Ok((None, v))
+                            Ok((None, v.clone()))
                         }
                     },
-                    WrapperArg::ByRef(w) => {
+                    ComArgType::ByRef(v) => {
                         if named_flg {
                             Err(ComError::UError(UError::new(UErrorKind::ComArgError, UErrorMessage::InvalidComMethodArgOrder)))
                         } else {
-                            let mut v = w.to_variant()?;
-                            let mut vv = v.to_vt_variant()?;
-                            vv.as_byref()?;
+                            let vv = VARIANT::by_ref(v);
                             Ok((None, vv))
                         }
                     },
-                    WrapperArg::NamedArg(name, w) => {
+                    ComArgType::NamedArg(name, v) => {
                         let id = pnames.get_id_of(&name)?;
-                        let v = w.to_variant()?;
                         named_flg = true;
-                        Ok((Some(id), v))
+                        Ok((Some(id), v.clone()))
                     },
                 }
             })
@@ -485,8 +483,8 @@ impl ComObject {
                 dp.rgdispidNamedArgs = named_args.as_mut_ptr();
             }
         }
-        match self.invoke(dispidmember, &dp, DISPATCH_METHOD|DISPATCH_PROPERTYGET) {
-            Ok(obj) => {
+        match self.invoke_raw(dispidmember, &dp, DISPATCH_METHOD|DISPATCH_PROPERTYGET) {
+            Ok(variant) => {
                 vargs.reverse();
                 // 参照渡しは値を更新する
                 for (arg, varg) in args.iter_mut().zip(vargs.into_iter()) {
@@ -495,7 +493,7 @@ impl ComObject {
                         _ => {}
                     }
                 }
-                Ok(obj)
+                Ok(variant)
             },
             Err(e) => {
                 match e.as_hresult() {
@@ -508,10 +506,10 @@ impl ComObject {
                                 let index = args.iter()
                                     .map(|comarg| comarg.clone().into())
                                     .collect();
-                                let obj = com2.get_item_property(index)?;
+                                let variant = com2.get_raw_property_by_index("Item", index)?;
                                 // この場合余計な代入が発生しないように引数は空にする
                                 args.clear();
-                                Ok(obj)
+                                Ok(variant)
                             },
                             // それ以外はそのままエラーを返す
                             _ => Err(e)
@@ -590,7 +588,7 @@ impl ComObject {
             false
         }
     }
-    fn invoke_wmi_method(&self, method: &str, args: &mut Vec<ComArg>) -> ComResult<Object> {
+    fn invoke_wmi_method(&self, method: &str, args: &mut Vec<ComArg>) -> ComResult<VARIANT> {
         unsafe {
             let wbemobj = self.idispatch.cast::<ISWbemObject>()?;
             let strname = BSTR::from(method);
@@ -602,8 +600,8 @@ impl ComObject {
             let props = ComCollection {col: newenum};
 
             let mut wargs = args.iter()
-                .map(|arg| WrapperArg::try_from(arg.clone()))
-                .collect::<ComResult<Vec<WrapperArg>>>()?
+                .map(|arg| ComArgType::try_from(arg.clone()))
+                .collect::<ComResult<Vec<ComArgType>>>()?
                 .into_iter();
 
             for _ in (0..count) {
@@ -611,16 +609,16 @@ impl ComObject {
                     let prop = com.cast::<ISWbemProperty>()?;
                     let value = match wargs.next() {
                         Some(w) => match w {
-                            WrapperArg::NamedArg(_, _) => {
+                            ComArgType::NamedArg(_, _) => {
                                 return Err(ComError::new_u(UErrorKind::WmiError, UErrorMessage::NamedArgNotAllowed));
                             },
-                            WrapperArg::Arg(v) |
-                            WrapperArg::ByRef(v) => v.to_variant(),
+                            ComArgType::Arg(v) |
+                            ComArgType::ByRef(v) => v,
                         },
                         None => {
-                            return Err(ComError::new_u(UErrorKind::WmiError, UErrorMessage::MissingArgument))
+                            return Err(ComError::new_u(UErrorKind::WmiError, UErrorMessage::MissingArgument));
                         },
-                    }?;
+                    };
                     prop.SetValue(&value)?;
                 }
             }
@@ -630,9 +628,9 @@ impl ComObject {
             let retrun_value = match outparamenum.next()? {
                 Some(variant) => {
                     let prop = variant.to_t::<ISWbemProperty>()?;
-                    prop.Value()?.try_into()
+                    prop.Value().map_err(|e| e.into())
                 },
-                None => Ok(Object::Empty),
+                None => Ok(VARIANT::default()),
             };
             for arg in args {
                 if let ComArg::ByRef(_, byref) = arg {
@@ -700,27 +698,27 @@ impl Into<Object> for ComArg {
         }
     }
 }
-enum WrapperArg {
-    Arg(VariantWrapper),
-    ByRef(VariantWrapper),
-    NamedArg(String, VariantWrapper),
+enum ComArgType {
+    Arg(VARIANT),
+    ByRef(VARIANT),
+    NamedArg(String, VARIANT),
 }
-impl TryFrom<ComArg> for WrapperArg {
+impl TryFrom<ComArg> for ComArgType {
     type Error = ComError;
 
     fn try_from(arg: ComArg) -> Result<Self, Self::Error> {
         match arg {
             ComArg::Arg(obj) => {
-                let wrapper = obj.to_variant_wrapper()?;
-                Ok(Self::Arg(wrapper))
+                let variant = obj.try_into()?;
+                Ok(Self::Arg(variant))
             },
             ComArg::ByRef(_, obj) => {
-                let wrapper = obj.to_variant_wrapper()?;
-                Ok(Self::ByRef(wrapper))
+                let variant = obj.try_into()?;
+                Ok(Self::ByRef(variant))
             },
             ComArg::NamedArg(name, obj) => {
-                let wrapper = obj.to_variant_wrapper()?;
-                Ok(Self::NamedArg(name, wrapper))
+                let variant = obj.try_into()?;
+                Ok(Self::NamedArg(name, variant))
             },
         }
     }
@@ -740,6 +738,31 @@ impl TryFrom<Object> for VARIANT {
             Object::ComObject(disp) => VARIANT::from_idispatch(disp.idispatch),
             Object::Unknown(unk) => VARIANT::from_iunknown(unk.0),
             Object::Variant(variant) => variant.get(),
+            Object::Array(_) => {
+                unsafe {
+                    let flat = obj.flatten(vec![])
+                        .ok_or(ComError::new_u(UErrorKind::SafeArrayError, UErrorMessage::CanNotConvertToSafeArray))?;
+                    let sizes = flat.iter()
+                        .map(|(_, i)| i.clone())
+                        .reduce(|a, b| {
+                            a.into_iter().zip(b.into_iter())
+                                .map(|(a, b)| a.max(b))
+                                .collect()
+                        })
+                        .ok_or(ComError::new_u(UErrorKind::SafeArrayError, UErrorMessage::CanNotConvertToSafeArray))?;
+                    let cdims = sizes.len() as u32;
+                    let rgsabound = sizes.into_iter()
+                        .map(|i| SAFEARRAYBOUND { cElements: i as u32 + 1, lLbound: 0 })
+                        .collect::<Vec<_>>();
+                    let psa = SafeArrayCreate(VT_VARIANT, cdims, rgsabound.as_ptr());
+                    for (obj, index) in flat {
+                        let v = VARIANT::try_from(obj)?;
+                        let pv = &v as *const VARIANT as *const c_void;
+                        SafeArrayPutElement(psa, index.as_ptr(), pv)?;
+                    }
+                    VARIANT::from_safearray(psa)
+                }
+            }
             o => {
                 let t = o.get_type().to_string();
                 let e = UError::new(UErrorKind::VariantError, UErrorMessage::ToVariant(t));
@@ -902,6 +925,8 @@ impl TryInto<Object> for *mut *mut SAFEARRAY {
 
 pub trait VariantExt {
     fn null() -> VARIANT;
+    /// 他のVARIANTの参照を持つVARIANT型を新たに作る
+    fn by_ref(var_val: *mut VARIANT) -> VARIANT;
     fn from_f64(n: f64) -> VARIANT;
     fn from_string(s: String) -> VARIANT;
     fn from_bool(b: bool) -> VARIANT;
@@ -909,8 +934,6 @@ pub trait VariantExt {
     fn from_iunknown(unk: IUnknown) -> VARIANT;
     fn from_safearray(psa: *mut SAFEARRAY) -> VARIANT;
     fn vt(&self) -> VARENUM;
-    fn as_byref(&mut self) -> ComResult<()>;
-    fn to_vt_variant(&mut self) -> ComResult<VARIANT>;
     fn to_idispatch(&self) -> ComResult<IDispatch>;
     fn to_t<T: ComInterface>(&self) -> ComResult<T>;
     fn to_i32(&self) -> ComResult<i32>;
@@ -923,6 +946,14 @@ impl VariantExt for VARIANT {
         let mut variant = VARIANT::default();
         let mut v00 = VARIANT_0_0::default();
         v00.vt = VT_NULL;
+        variant.Anonymous.Anonymous = ManuallyDrop::new(v00);
+        variant
+    }
+    fn by_ref(var_val: *mut VARIANT) -> VARIANT {
+        let mut variant = VARIANT::default();
+        let mut v00 = VARIANT_0_0::default();
+        v00.vt = VARENUM(VT_VARIANT.0|VT_BYREF.0);
+        v00.Anonymous.pvarVal = var_val;
         variant.Anonymous.Anonymous = ManuallyDrop::new(v00);
         variant
     }
@@ -947,8 +978,7 @@ impl VariantExt for VARIANT {
         let mut variant = VARIANT::default();
         let mut v00 = VARIANT_0_0::default();
         v00.vt = VT_BOOL;
-        let vb = if b {VARIANT_TRUE} else {VARIANT_FALSE};
-        v00.Anonymous.boolVal = vb;
+        v00.Anonymous.boolVal = VARIANT_BOOL::from(b);
         variant.Anonymous.Anonymous = ManuallyDrop::new(v00);
         variant
     }
@@ -981,22 +1011,6 @@ impl VariantExt for VARIANT {
             let v00 = &self.Anonymous.Anonymous;
             v00.vt
         }
-    }
-    fn as_byref(&mut self) -> ComResult<()> {
-        unsafe {
-            let vt = self.vt();
-            let v00 = &mut self.Anonymous.Anonymous;
-            v00.vt = VARENUM(vt.0|VT_BYREF.0);
-            Ok(())
-        }
-    }
-    fn to_vt_variant(&mut self) -> ComResult<VARIANT> {
-        let mut variant = VARIANT::default();
-        let mut v00 = VARIANT_0_0::default();
-        v00.vt = VT_VARIANT;
-        v00.Anonymous.pvarVal = self;
-        variant.Anonymous.Anonymous = ManuallyDrop::new(v00);
-        Ok(variant)
     }
     fn to_idispatch(&self) -> ComResult<IDispatch> {
         unsafe {
@@ -1049,68 +1063,51 @@ impl VariantExt for VARIANT {
     }
 }
 
-enum VariantWrapper {
-    Array(Vec<Self>),
-    Value(VARIANT),
-}
-impl VariantWrapper {
-    fn to_variant(&self) -> ComResult<VARIANT> {
-        match self {
-            VariantWrapper::Array(arr) => {
-                let psa = safearray_from_variant_array(arr, 1)?;
-                let v = VARIANT::from_safearray(psa);
-                Ok(v)
-            },
-            VariantWrapper::Value(v) => Ok(v.clone()),
-        }
-    }
-}
-
-fn safearray_from_variant_array(arr: &Vec<VariantWrapper>, dimension: u32) -> ComResult<*mut SAFEARRAY> {
-    unsafe {
-        let cdims = dimension;
-        let rgsabound = SAFEARRAYBOUND {
-            cElements: arr.len() as u32,
-            lLbound: 0
-        };
-        let psa = SafeArrayCreate(VT_VARIANT, cdims, &rgsabound);
-        let mut rgindices = 0;
-        for variant in arr {
-            match variant {
-                VariantWrapper::Array(carr) => {
-                    let p = safearray_from_variant_array(carr, 1)?;
-                    let v = VARIANT::from_safearray(p);
-                    let pv = &v as *const _ as *const c_void;
-                    SafeArrayPutElement(psa, &rgindices, pv)?;
-                },
-                VariantWrapper::Value(v) => {
-                    let pv = v as *const _ as *const c_void;
-                    SafeArrayPutElement(psa, &rgindices, pv)?;
-                },
-            }
-            rgindices += 1;
-        }
-        Ok(psa)
-    }
-}
 
 impl Object {
-    fn to_variant_wrapper(self) -> ComResult<VariantWrapper> {
+    // 二次元までの配列サイズを得る、配列でない場合はNone
+    pub fn get_array_size(&self) -> Option<(usize, Option<usize>)> {
         if let Object::Array(arr) = self {
-            let varr = arr.into_iter()
-                .map(|o| {
-                    if let Object::Array(_) = o {
-                        o.to_variant_wrapper()
-                    } else {
-                        let variant = o.try_into()?;
-                        Ok(VariantWrapper::Value(variant))
-                    }
-                })
-                .collect::<ComResult<Vec<VariantWrapper>>>()?;
-            Ok(VariantWrapper::Array(varr))
+            let size = arr.len();
+            let size2 = arr.iter()
+                .filter_map(|obj| obj.get_array_size())
+                .map(|(s, _)| s)
+                .reduce(|a, b| a.max(b));
+            Some((size, size2))
         } else {
-            let variant = self.try_into()?;
-            Ok(VariantWrapper::Value(variant))
+            None
+        }
+    }
+    fn flatten(self, index: Vec<i32>) -> Option<Vec<(Object, Vec<i32>)>>{
+        if let Object::Array(arr) = self {
+            let is_all_array = arr.iter().all(|o| if let Object::Array(_) = o {true} else {false});
+            let is_all_value = arr.iter().all(|o| if let Object::Array(_) = o {false} else {true});
+            if is_all_array {
+                let mut arr2 = vec![];
+                let mut i = 0;
+                for obj in arr {
+                    let mut index2 = index.clone();
+                    index2.push(i);
+                    let v = obj.flatten(index2)?;
+                    arr2.extend(v);
+                    i += 1;
+                }
+                Some(arr2)
+            } else if is_all_value {
+                let mut arr2 = vec![];
+                let mut i = 0;
+                for obj in arr {
+                    let mut index2 = index.clone();
+                    index2.push(i);
+                    arr2.push((obj, index2));
+                    i += 1;
+                }
+                Some(arr2)
+            } else {
+                None
+            }
+        } else {
+            None
         }
     }
 }
@@ -1911,8 +1908,6 @@ impl Excel {
             // 同名シートが存在しない場合は追加
             let count = sheets.get_raw_property("Count").ok()?.to_i32().ok()?;
             let after = sheets.get_property_by_index_as_comobject("Item", vec![count.into()]).ok()?;
-            // let name = after.get_raw_property("Name").unwrap_or_default().to_string().unwrap_or_default();
-            // println!("\u{001b}[33m[debug] after: {name}\u{001b}[0m");
             let mut args = vec![
                 ComArg::NamedArg("After".into(), Object::ComObject(after)),
             ];
@@ -1932,17 +1927,25 @@ impl Excel {
         let sheet = book.get_property_by_index_as_comobject("WorkSheets", vec![sheet_id]).ok()?;
         sheet.invoke_method("Delete", &mut vec![]).map(|_| ()).ok()
     }
-    pub fn get_range(&self, a1: Option<String>, sheet_id: Option<Object>) -> ComResult<Object> {
+    pub fn get_a1_range(&self, a1: Option<String>, sheet_id: Option<Object>) -> ComResult<ComObject> {
         let sheet = self.get_sheet(sheet_id)?;
-        let range = match a1 {
+        match a1 {
             Some(a1) => {
-                sheet.get_property_by_index_as_comobject("Range", vec![a1.into()])?
+                sheet.get_property_by_index_as_comobject("Range", vec![a1.into()])
             },
             None => {
                 sheet.invoke_method("Activate", &mut vec![])?;
-                self.obj.get_property_as_comobject("Selection")?
+                self.obj.get_property_as_comobject("Selection")
             },
-        };
+        }
+    }
+    pub fn get_cell_range(&self, row: f64, column: f64, sheet_id: Option<Object>) -> ComResult<ComObject> {
+        let sheet = self.get_sheet(sheet_id)?;
+        let row = sheet.get_property_by_index_as_comobject("Rows", vec![row.into()])?;
+        row.get_property_by_index_as_comobject("Columns", vec![column.into()])
+    }
+    pub fn get_range_value(&self, a1: Option<String>, sheet_id: Option<Object>) -> ComResult<Object> {
+        let range = self.get_a1_range(a1, sheet_id)?;
         let col = ComCollection::try_from(&range)?.to_comobject_vec()?;
         let arr = col.into_iter()
             .map(|com| com.get_property("Value"))
@@ -1954,10 +1957,58 @@ impl Excel {
             Ok(Object::Array(arr))
         }
     }
-    pub fn get_cell(&self, row: f64, column: f64, sheet_id: Option<Object>) -> ComResult<Object> {
-        let sheet = self.get_sheet(sheet_id)?;
-        let row = sheet.get_property_by_index_as_comobject("Rows", vec![row.into()])?;
-        let cell = row.get_property_by_index_as_comobject("Columns", vec![column.into()])?;
+    pub fn get_cell_value(&self, row: f64, column: f64, sheet_id: Option<Object>) -> ComResult<Object> {
+        let cell = self.get_cell_range(row, column, sheet_id)?;
         cell.get_property("Value")
+    }
+    pub fn set_range(&self, value: Object, range: ComObject, color: Option<i32>, bg_color: Option<i32>) -> Option<()> {
+        let count = range.get_raw_property("Count")
+            .unwrap_or_default()
+            .to_i32()
+            .unwrap_or_default();
+        let range = match count {
+            1 => {
+                // Rangeが単一セルの場合
+                match value.get_array_size() {
+                    // セットする値が配列の場合はそれに合ったサイズのRangeにする
+                    Some((s, s2)) => {
+                        let mut args = match s2 {
+                            Some(s2) => vec![ComArg::Arg(s.into()), ComArg::Arg(s2.into())],
+                            None => vec![ComArg::Arg(1.into()), ComArg::Arg(s.into())],
+                        };
+                        // let mut args = vec![
+                        //     ComArg::Arg(s.into()),
+                        //     ComArg::Arg(s2.unwrap_or(1).into()),
+                        // ];
+                        let variant = range.invoke_method_raw("Resize", &mut args).ok()?;
+                        let disp = variant.to_idispatch().ok()?;
+                        let new_range = ComObject::from(disp);
+                        Some(new_range)
+                    },
+                    // セットする値が配列ではないのでそのままセット
+                    None => {
+                        Some(range)
+                    }
+                }
+            },
+            0 => {
+                // Rangeが0要素の場合は失敗
+                None
+            },
+            _ => {
+                // 範囲
+                Some(range)
+            }
+        }?;
+        range.set_property("Value", value).ok()?;
+        if let Some(color) = color {
+            let font = range.get_property_as_comobject("Font").ok()?;
+            font.set_property("Color", color.into()).ok()?;
+        }
+        if let Some(bg_color) = bg_color {
+            let interior = range.get_property_as_comobject("Interior").ok()?;
+            interior.set_property("Color", bg_color.into()).ok()?;
+        }
+        Some(())
     }
 }

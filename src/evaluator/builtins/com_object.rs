@@ -21,6 +21,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("xlactivate", 3, xlactivate);
     sets.add("xlsheet", 3, xlsheet);
     sets.add("xlgetdata", 4, xlgetdata);
+    sets.add("xlsetdata", 7, xlsetdata);
     sets
 }
 
@@ -161,7 +162,7 @@ fn vartype(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
             let new = variant.change_type(vt)?;
             Ok(new.into())
         },
-        (obj, None) => Ok(VarType::VAR_UWSCR.into())
+        (_, None) => Ok(VarType::VAR_UWSCR.into())
     }
 }
 
@@ -273,12 +274,12 @@ pub fn xlgetdata(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult 
                     Some(obj) => Some(obj),
                     None => get_sheet(3)?,
                 };
-                excel.get_range(Some(a1), sheet)?
+                excel.get_range_value(Some(a1), sheet)?
             },
             TwoTypeArg::U(row) => {
                 let column = args.get_as_f64(2, None)?;
                 let sheet = get_sheet(3)?;
-                excel.get_cell(row, column, sheet)?
+                excel.get_cell_value(row, column, sheet)?
             },
         },
         None => {
@@ -286,8 +287,64 @@ pub fn xlgetdata(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult 
                 Some(obj) => Some(obj),
                 None => get_sheet(3)?,
             };
-            excel.get_range(None, sheet)?
+            excel.get_range_value(None, sheet)?
         },
     };
     Ok(value)
+}
+
+pub fn xlsetdata(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let com = args.get_as_comobject(0)?;
+    let Ok(excel) = Excel::new(com) else {
+        return Ok(false.into());
+    };
+    let value = args.get_as_object(1, None)?;
+
+    let get_sheet = |index: usize| {
+        args.get_as_f64_or_string_or_empty(index).map(|opt| {
+            match opt {
+                Some(tts) => match tts {
+                    TwoTypeArg::T(s) => Some(s.into()),
+                    TwoTypeArg::U(n) => Some(n.into()),
+                },
+                None => None
+            }
+        })
+    };
+
+    let range = match args.get_as_f64_or_string_or_empty(2)? {
+        Some(tta) => match tta {
+            TwoTypeArg::T(a1) => {
+                let sheet_id = match get_sheet(3)? {
+                    Some(obj) => Some(obj),
+                    None => get_sheet(4)?,
+                };
+                excel.get_a1_range(Some(a1), sheet_id)
+            },
+            TwoTypeArg::U(row) => {
+                let column = args.get_as_f64(3, None)?;
+                let sheet_id = get_sheet(4)?;
+                excel.get_cell_range(row, column, sheet_id)
+            },
+        },
+        None => {
+            let sheet_id = match get_sheet(3)? {
+                Some(obj) => Some(obj),
+                None => get_sheet(4)?,
+            };
+            excel.get_a1_range(None, sheet_id)
+        },
+    };
+
+    if let Ok(range) = range {
+        let color = args.get_as_int_or_empty(5)?;
+        let bg_color = args.get_as_int_or_empty(6)?;
+
+        let result = excel.set_range(value, range, color, bg_color).is_some();
+
+        Ok(result.into())
+    } else {
+        Ok(false.into())
+    }
+
 }
