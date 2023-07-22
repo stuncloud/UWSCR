@@ -11,11 +11,21 @@ COMオブジェクトの作成・取得
     :param 文字列 ProgID: COMオブジェクトのProgIDまたはCLSID
     :return: :ref:`COMオブジェクト <com_object>`
 
-.. function:: getactiveoleobj(ProgID)
+.. function:: getactiveoleobj(ProgID, [タイトル=EMPTY, n番目=1])
 
     | 既に起動中のCOMオブジェクトを得ます
+    | タイトルが未指定の場合は指定ProgIDに該当しアクティブなオブジェクトを返します
+    | タイトルを指定した場合はウィンドウタイトルに部分一致するウィンドウからProgIDに該当するオブジェクトを返します
 
     :param 文字列 ProgID: COMオブジェクトのProgIDまたはCLSID
+    :param 文字列 省略可 タイトル: ExcelやWordなど、オブジェクトを取得したいウィンドウのタイトルを指定 (部分一致)
+
+        .. admonition:: MDI非対応
+            :class: caution
+
+            | MDIウィンドウは対象外です
+
+    :param 数値 省略可 n番目: タイトルに一致するウィンドウが複数ある場合、n番目を取得
     :return: :ref:`COMオブジェクト <com_object>`
 
 .. admonition:: CLSIDの入力
@@ -76,23 +86,130 @@ COMオブジェクトの作成・取得
 ..     :param COMオブジェクト COMオブジェクト: イベントを解除したい :ref:`com_object`
 ..     :return: なし
 
+VARIANT
+-------
+
+.. function:: vartype(値, VAR定数=EMPTY)
+
+    | Variant型のデータ型をVAR定数で返します
+    | または指定した型のVariant型に変換します
+
+    :param 全て 値: 任意の値
+    :param 定数 省略可 VAR定数: Variant型を得る場合に指定
+
+        .. admonition:: 以下の定数は使用できません
+            :class: caution
+
+            - ``VAR_ASTR``
+            - ``VAR_USTR``
+            - ``VAR_UWSCR``
+
+    :rtype: VAR定数、またはVariant型
+    :return:
+
+        - VAR定数指定時: 変換されたVariant型
+        - VAR定数未指定時: 渡された値の型を示すVAR定数
+
+    .. sourcecode:: uwscr
+
+        // 開いているExcelを取得
+        excel = getactiveoleobj("Excel.Application")
+        // 日付型のVariantに変換
+        date = vartype("2023/07/15", VAR_DATE)
+        // Excelのアクティブセルに日付型の値を入力
+        excel.ActiveCell.value = date
+
+
+VAR定数
+^^^^^^^
+
+.. list-table:: VAR定数一覧
+    :header-rows: 1
+
+    * - 定数
+      - 値
+      - 詳細
+    * - VAR_EMPTY
+      - 0
+      - EMPTY
+    * - VAR_NULL
+      - 1
+      - NULL
+    * - VAR_SMALLINT
+      - 2
+      - 符号付き2バイト整数
+    * - VAR_INTEGER
+      - 3
+      - 符号付き4バイト整数
+    * - VAR_SINGLE
+      - 4
+      - 単精度浮動小数点数
+    * - VAR_DOUBLE
+      - 5
+      - 倍精度浮動小数点数
+    * - VAR_CURRENCY
+      - 6
+      - 通貨型
+    * - VAR_DATE
+      - 7
+      - 日付型
+    * - VAR_BSTR
+      - 8
+      - 文字列型
+    * - VAR_DISPATCH
+      - 9
+      - IDispatch型 (COMオブジェクト)
+    * - VAR_ERROR
+      - 10
+      - エラー
+    * - VAR_BOOLEAN
+      - 11
+      - 真偽値
+    * - VAR_VARIANT
+      - 12
+      - VARIANT型
+    * - VAR_UNKNOWN
+      - 13
+      - IUnknown型
+    * - VAR_SBYTE
+      - 16
+      - 符号付き1バイト整数
+    * - VAR_BYTE
+      - 17
+      - 符号なし1バイト整数
+    * - VAR_WORD
+      - 18
+      - 符号なし2バイト整数
+    * - VAR_DWORD
+      - 19
+      - 符号なし4バイト整数
+    * - VAR_INT64
+      - 20
+      - 符号付き8バイト整数
+    * - VAR_ASTR
+      - 256
+      - 互換性のために残していますが実際には使用できません
+    * - VAR_USTR
+      - 258
+      - 互換性のために残していますが実際には使用できません
+    * - VAR_UWSCR
+      - 512
+      - UWSCRのデータ型
+    * - VAR_ARRAY
+      - $2000 (8192)
+      - 配列
+
+
+
+
 非推奨関数
 ----------
 
 .. admonition:: 非推奨の理由
     :class: caution
 
-    | UWSCRではVARIANT型及びSAFEARRAY型の値が存在しないため以下の関数は非推奨となりました
+    | UWSCRにはSAFEARRAY型の値が存在しないため以下の関数は非推奨となりました
     | 互換性のため関数は残していますが、UWSCとは結果が異なります
-
-.. function:: vartype(値, VAR定数=-1)
-    :noindex:
-
-    | ``VAR_UWSCR`` を返します
-
-    :param 全て 値: 値
-    :param 定数 省略可 VAR定数: 無視されます
-    :return: ``VAR_UWSCR``
 
 .. function:: safearray([下限=0, 上限=-1, 二次元下限=EMPTY, 二次元上限=(二次元下限-1)])
 

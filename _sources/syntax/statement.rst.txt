@@ -3266,6 +3266,12 @@ COM_ERR_IGN-COM_ERR_RET
     * - COMオブジェクト
       - createoleobj/getactiveoleobj
       - yes
+    * - Unknownオブジェクト
+      - COMオブジェクトのプロパティ・メソッドが返す場合がある
+      - yes
+    * - VARIANT
+      - COMオブジェクトのプロパティ・メソッドが返す値でUWSCR値型に変換できなかったもの
+      - no
     * - BrowserBuilderオブジェクト
       - 起動するブラウザを構成するためのオブジェクト
       - yes

@@ -4,10 +4,10 @@
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <meta name="color-scheme" content="light dark"><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
     <link rel="icon" href="../_static/MAINICON_0016-0256_light.ico" type="image/vnd.microsoft.icon">
-<link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="ウェブ関連" href="web.html" /><link rel="prev" title="数学関数" href="math.html" />
+<link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="Excel" href="excel.html" /><link rel="prev" title="数学関数" href="math.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>COMオブジェクト - UWSCR 0.12.0</title>
+        <title>COMオブジェクト - UWSCR 0.12.1</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 0.12.0</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 0.12.1</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 0.12.0</span>
+  <span class="sidebar-brand-text">UWSCR 0.12.1</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -177,6 +177,7 @@
 <li class="toctree-l1"><a class="reference internal" href="array.html">配列操作関数</a></li>
 <li class="toctree-l1"><a class="reference internal" href="math.html">数学関数</a></li>
 <li class="toctree-l1 current current-page"><a class="current reference internal" href="#">COMオブジェクト</a></li>
+<li class="toctree-l1"><a class="reference internal" href="excel.html">Excel</a></li>
 <li class="toctree-l1"><a class="reference internal" href="web.html">ウェブ関連</a></li>
 </ul>
 
@@ -234,13 +235,26 @@
 
 <dl class="py function">
 <dt class="sig sig-object py" id="getactiveoleobj">
-<span class="sig-name descname"><span class="pre">getactiveoleobj</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ProgID</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#getactiveoleobj" title="この定義へのパーマリンク">#</a></dt>
+<span class="sig-name descname"><span class="pre">getactiveoleobj</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ProgID</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">タイトル=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n番目=1</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#getactiveoleobj" title="この定義へのパーマリンク">#</a></dt>
 <dd><div class="line-block">
 <div class="line">既に起動中のCOMオブジェクトを得ます</div>
+<div class="line">タイトルが未指定の場合は指定ProgIDに該当しアクティブなオブジェクトを返します</div>
+<div class="line">タイトルを指定した場合はウィンドウタイトルに部分一致するウィンドウからProgIDに該当するオブジェクトを返します</div>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>ProgID</strong> (<em>文字列</em>) -- COMオブジェクトのProgIDまたはCLSID</p>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ProgID</strong> (<em>文字列</em>) -- COMオブジェクトのProgIDまたはCLSID</p></li>
+<li><p><strong>タイトル</strong> (<em>文字列 省略可</em>) -- <p>ExcelやWordなど、オブジェクトを取得したいウィンドウのタイトルを指定 (部分一致)</p>
+<div class="caution admonition">
+<p class="admonition-title">MDI非対応</p>
+<div class="line-block">
+<div class="line">MDIウィンドウは対象外です</div>
+</div>
+</div>
+</p></li>
+<li><p><strong>n番目</strong> (<em>数値 省略可</em>) -- タイトルに一致するウィンドウが複数ある場合、n番目を取得</p></li>
+</ul>
 </dd>
 <dt class="field-even">戻り値<span class="colon">:</span></dt>
 <dd class="field-even"><p><a class="reference internal" href="../syntax/statement.html#com-object"><span class="std std-ref">COMオブジェクト</span></a></p>
@@ -298,34 +312,170 @@
 </dd></dl>
 
 </section>
+<section id="variant">
+<h2>VARIANT<a class="headerlink" href="#variant" title="この見出しへのパーマリンク">#</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="vartype">
+<span class="sig-name descname"><span class="pre">vartype</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">値</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">VAR定数</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">EMPTY</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vartype" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">Variant型のデータ型をVAR定数で返します</div>
+<div class="line">または指定した型のVariant型に変換します</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>値</strong> (<em>全て</em>) -- 任意の値</p></li>
+<li><p><strong>VAR定数</strong> (<em>定数 省略可</em>) -- <p>Variant型を得る場合に指定</p>
+<div class="caution admonition">
+<p class="admonition-title">以下の定数は使用できません</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">VAR_ASTR</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">VAR_USTR</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">VAR_UWSCR</span></code></p></li>
+</ul>
+</div>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>VAR定数、またはVariant型</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p><ul class="simple">
+<li><p>VAR定数指定時: 変換されたVariant型</p></li>
+<li><p>VAR定数未指定時: 渡された値の型を示すVAR定数</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// 開いているExcelを取得</span>
+<span class="n">excel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">getactiveoleobj</span><span class="p">(</span><span class="s">&quot;Excel.Application&quot;</span><span class="p">)</span>
+<span class="c">// 日付型のVariantに変換</span>
+<span class="n">date</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">vartype</span><span class="p">(</span><span class="s">&quot;2023/07/15&quot;</span><span class="o">,</span><span class="w"> </span><span class="n">VAR_DATE</span><span class="p">)</span>
+<span class="c">// Excelのアクティブセルに日付型の値を入力</span>
+<span class="n">excel</span><span class="o">.</span><span class="n">ActiveCell</span><span class="o">.</span><span class="n">value</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">date</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<section id="var">
+<h3>VAR定数<a class="headerlink" href="#var" title="この見出しへのパーマリンク">#</a></h3>
+<div class="table-wrapper docutils container" id="id4">
+<table class="docutils align-default" id="id4">
+<caption><span class="caption-text">VAR定数一覧</span><a class="headerlink" href="#id4" title="このテーブルへのパーマリンク">#</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>定数</p></th>
+<th class="head"><p>値</p></th>
+<th class="head"><p>詳細</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>VAR_EMPTY</p></td>
+<td><p>0</p></td>
+<td><p>EMPTY</p></td>
+</tr>
+<tr class="row-odd"><td><p>VAR_NULL</p></td>
+<td><p>1</p></td>
+<td><p>NULL</p></td>
+</tr>
+<tr class="row-even"><td><p>VAR_SMALLINT</p></td>
+<td><p>2</p></td>
+<td><p>符号付き2バイト整数</p></td>
+</tr>
+<tr class="row-odd"><td><p>VAR_INTEGER</p></td>
+<td><p>3</p></td>
+<td><p>符号付き4バイト整数</p></td>
+</tr>
+<tr class="row-even"><td><p>VAR_SINGLE</p></td>
+<td><p>4</p></td>
+<td><p>単精度浮動小数点数</p></td>
+</tr>
+<tr class="row-odd"><td><p>VAR_DOUBLE</p></td>
+<td><p>5</p></td>
+<td><p>倍精度浮動小数点数</p></td>
+</tr>
+<tr class="row-even"><td><p>VAR_CURRENCY</p></td>
+<td><p>6</p></td>
+<td><p>通貨型</p></td>
+</tr>
+<tr class="row-odd"><td><p>VAR_DATE</p></td>
+<td><p>7</p></td>
+<td><p>日付型</p></td>
+</tr>
+<tr class="row-even"><td><p>VAR_BSTR</p></td>
+<td><p>8</p></td>
+<td><p>文字列型</p></td>
+</tr>
+<tr class="row-odd"><td><p>VAR_DISPATCH</p></td>
+<td><p>9</p></td>
+<td><p>IDispatch型 (COMオブジェクト)</p></td>
+</tr>
+<tr class="row-even"><td><p>VAR_ERROR</p></td>
+<td><p>10</p></td>
+<td><p>エラー</p></td>
+</tr>
+<tr class="row-odd"><td><p>VAR_BOOLEAN</p></td>
+<td><p>11</p></td>
+<td><p>真偽値</p></td>
+</tr>
+<tr class="row-even"><td><p>VAR_VARIANT</p></td>
+<td><p>12</p></td>
+<td><p>VARIANT型</p></td>
+</tr>
+<tr class="row-odd"><td><p>VAR_UNKNOWN</p></td>
+<td><p>13</p></td>
+<td><p>IUnknown型</p></td>
+</tr>
+<tr class="row-even"><td><p>VAR_SBYTE</p></td>
+<td><p>16</p></td>
+<td><p>符号付き1バイト整数</p></td>
+</tr>
+<tr class="row-odd"><td><p>VAR_BYTE</p></td>
+<td><p>17</p></td>
+<td><p>符号なし1バイト整数</p></td>
+</tr>
+<tr class="row-even"><td><p>VAR_WORD</p></td>
+<td><p>18</p></td>
+<td><p>符号なし2バイト整数</p></td>
+</tr>
+<tr class="row-odd"><td><p>VAR_DWORD</p></td>
+<td><p>19</p></td>
+<td><p>符号なし4バイト整数</p></td>
+</tr>
+<tr class="row-even"><td><p>VAR_INT64</p></td>
+<td><p>20</p></td>
+<td><p>符号付き8バイト整数</p></td>
+</tr>
+<tr class="row-odd"><td><p>VAR_ASTR</p></td>
+<td><p>256</p></td>
+<td><p>互換性のために残していますが実際には使用できません</p></td>
+</tr>
+<tr class="row-even"><td><p>VAR_USTR</p></td>
+<td><p>258</p></td>
+<td><p>互換性のために残していますが実際には使用できません</p></td>
+</tr>
+<tr class="row-odd"><td><p>VAR_UWSCR</p></td>
+<td><p>512</p></td>
+<td><p>UWSCRのデータ型</p></td>
+</tr>
+<tr class="row-even"><td><p>VAR_ARRAY</p></td>
+<td><p>$2000 (8192)</p></td>
+<td><p>配列</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
 <section id="id3">
 <h2>非推奨関数<a class="headerlink" href="#id3" title="この見出しへのパーマリンク">#</a></h2>
 <div class="caution admonition">
 <p class="admonition-title">非推奨の理由</p>
 <div class="line-block">
-<div class="line">UWSCRではVARIANT型及びSAFEARRAY型の値が存在しないため以下の関数は非推奨となりました</div>
+<div class="line">UWSCRにはSAFEARRAY型の値が存在しないため以下の関数は非推奨となりました</div>
 <div class="line">互換性のため関数は残していますが、UWSCとは結果が異なります</div>
 </div>
 </div>
-<dl class="py function">
-<dt class="sig sig-object py">
-<span class="sig-name descname"><span class="pre">vartype</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">値</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">VAR定数</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">-1</span></span></em><span class="sig-paren">)</span></dt>
-<dd><div class="line-block">
-<div class="line"><code class="docutils literal notranslate"><span class="pre">VAR_UWSCR</span></code> を返します</div>
-</div>
-<dl class="field-list simple">
-<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>値</strong> (<em>全て</em>) -- 値</p></li>
-<li><p><strong>VAR定数</strong> (<em>定数 省略可</em>) -- 無視されます</p></li>
-</ul>
-</dd>
-<dt class="field-even">戻り値<span class="colon">:</span></dt>
-<dd class="field-even"><p><code class="docutils literal notranslate"><span class="pre">VAR_UWSCR</span></code></p>
-</dd>
-</dl>
-</dd></dl>
-
 <dl class="py function">
 <dt class="sig sig-object py" id="safearray">
 <span class="sig-name descname"><span class="pre">safearray</span></span><span class="sig-paren">(</span><span class="optional">[</span><em class="sig-param"><span class="n"><span class="pre">下限=0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">上限=-1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">二次元下限=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">二次元上限=(二次元下限-1)</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#safearray" title="この定義へのパーマリンク">#</a></dt>
@@ -355,12 +505,12 @@
       <footer>
         
         <div class="related-pages">
-          <a class="next-page" href="web.html">
+          <a class="next-page" href="excel.html">
               <div class="page-info">
                 <div class="context">
                   <span>Next</span>
                 </div>
-                <div class="title">ウェブ関連</div>
+                <div class="title">Excel</div>
               </div>
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
             </a>
@@ -415,6 +565,11 @@
 </li>
 <li><a class="reference internal" href="#id2">コレクション</a><ul>
 <li><a class="reference internal" href="#getoleitem"><code class="docutils literal notranslate"><span class="pre">getoleitem()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#variant">VARIANT</a><ul>
+<li><a class="reference internal" href="#vartype"><code class="docutils literal notranslate"><span class="pre">vartype()</span></code></a></li>
+<li><a class="reference internal" href="#var">VAR定数</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#id3">非推奨関数</a><ul>

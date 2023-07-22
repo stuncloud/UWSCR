@@ -1,0 +1,757 @@
+<!doctype html>
+<html class="no-js" lang="ja">
+  <head><meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="color-scheme" content="light dark"><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+    <link rel="icon" href="../_static/MAINICON_0016-0256_light.ico" type="image/vnd.microsoft.icon">
+<link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="ウェブ関連" href="web.html" /><link rel="prev" title="COMオブジェクト" href="comobject.html" />
+
+    <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
+        <title>Excel - UWSCR 0.12.1</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f8f8f8;
+  --color-code-foreground: black;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-half" viewBox="0 0 24 24">
+    <title>Auto light/dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-shadow">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M13 12h5" />
+      <path d="M13 15h4" />
+      <path d="M13 18h1" />
+      <path d="M13 9h4" />
+      <path d="M13 6h1" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc">
+<label class="overlay sidebar-overlay" for="__navigation">
+  <div class="visually-hidden">Hide navigation sidebar</div>
+</label>
+<label class="overlay toc-overlay" for="__toc">
+  <div class="visually-hidden">Hide table of contents sidebar</div>
+</label>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <div class="visually-hidden">Toggle site navigation sidebar</div>
+        <i class="icon"><svg><use href="#svg-menu"></use></svg></i>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../index.html"><div class="brand">UWSCR 0.12.1</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle">
+          <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+          <svg class="theme-icon-when-auto"><use href="#svg-sun-half"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <div class="visually-hidden">Toggle table of contents sidebar</div>
+        <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
+  
+  
+  <span class="sidebar-brand-text">UWSCR 0.12.1</span>
+  
+</a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
+  <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">使い方</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../usage/how_to_run.html">実行方法</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage/settings.html">設定ファイル</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage/how_to_build.html">ビルド方法</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">スクリプト構文</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../syntax/statement.html">スクリプト構文</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../syntax/special_variables.html">特殊変数</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">ビルトイン関数</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="text.html">文字列操作関数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="window.html">ウィンドウ操作関数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="scriptcontrol.html">スクリプト制御</a></li>
+<li class="toctree-l1"><a class="reference internal" href="system.html">システム関数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="file.html">ファイル操作関数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gui.html">GUI</a></li>
+<li class="toctree-l1"><a class="reference internal" href="array.html">配列操作関数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="math.html">数学関数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="comobject.html">COMオブジェクト</a></li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Excel</a></li>
+<li class="toctree-l1"><a class="reference internal" href="web.html">ウェブ関連</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          
+<div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle">
+              <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+              <svg class="theme-icon-when-auto"><use href="#svg-sun-half"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <div class="visually-hidden">Toggle table of contents sidebar</div>
+            <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+          </label>
+        </div>
+        <article role="main">
+          <section id="excel">
+<h1>Excel<a class="headerlink" href="#excel" title="この見出しへのパーマリンク">#</a></h1>
+<dl class="py function">
+<dt class="sig sig-object py" id="xlopen">
+<span class="sig-name descname"><span class="pre">xlopen</span></span><span class="sig-paren">(</span><span class="optional">[</span><em class="sig-param"><span class="n"><span class="pre">ファイル名=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">起動フラグ=XL_DEFAULT</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">パラメータ...</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#xlopen" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">Excelを起動します</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ファイル名</strong> (<em>文字列 省略可</em>) -- 開きたいファイル名、EMPTYならExcelを新規に起動</p></li>
+<li><p><strong>起動フラグ</strong> (<em>定数 省略可</em>) -- <p>Excelの起動方法を指定</p>
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">XL_DEFAULT</span> <span class="pre">(0)</span></span></dt>
+<dd><div class="line-block">
+<div class="line">起動済みのExcelがあればそれを使い、なければ新規起動します</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">XL_NEW</span> <span class="pre">(1)</span></span></dt>
+<dd><div class="line-block">
+<div class="line">常にExcelを新規に起動します</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">XL_BOOK</span> <span class="pre">(2)</span></span></dt>
+<dd><div class="line-block">
+<div class="line">applicationではなくWorkbookオブジェクトを返します</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">XL_OOOC</span> <span class="pre">(3)</span></span></dt>
+<dd><div class="line-block">
+<div class="line">使用できません</div>
+</div>
+</dd></dl>
+
+</p></li>
+<li><p><strong>パラメータ</strong> (<em>文字列 可変長</em>) -- <div class="line-block">
+<div class="line">ファイルオープン時の追加パラメータを <code class="docutils literal notranslate"><span class="pre">&quot;パラメータ名:=値&quot;</span></code> 形式の文字列で指定する</div>
+<div class="line">書式が不正な場合は無視される (エラーにはなりません)</div>
+<div class="line">以下は有効なパラメータ例</div>
+</div>
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">UpdateLinks</span></span></dt>
+<dd><div class="line-block">
+<div class="line">リンク更新方法</div>
+</div>
+<ul>
+<li><p>0: 更新しない</p></li>
+<li><p>1: 外部更新のみ</p></li>
+<li><p>2: リモート更新のみ</p></li>
+<li><p>3: 外部、リモート共に更新</p></li>
+</ul>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ReadOnly</span></span></dt>
+<dd><div class="line-block">
+<div class="line">読み取り専用で開く場合にTrueを指定</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">Format</span></span></dt>
+<dd><div class="line-block">
+<div class="line">CSVファイル時を開く場合にその区切り文字</div>
+</div>
+<ul>
+<li><p>1: タブ</p></li>
+<li><p>2: カンマ</p></li>
+<li><p>3: スペース</p></li>
+<li><p>4: セミコロン</p></li>
+</ul>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">Password</span></span></dt>
+<dd><div class="line-block">
+<div class="line">パスワード保護されたブックを開くためのパスワード</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">WriteResPassword</span></span></dt>
+<dd><div class="line-block">
+<div class="line">書き込み保護されたブックに書き込むためのパスワード</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">IgnoreReadOnly</span></span></dt>
+<dd><div class="line-block">
+<div class="line">「読み取り専用を推奨する」のダイアログを抑止したい場合にTrue</div>
+</div>
+</dd></dl>
+
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// パスワード付きファイルを読み取り専用で開く</span>
+<span class="n">excel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">xlopen</span><span class="p">(</span><span class="s">&quot;hoge.xlsx&quot;</span><span class="o">,</span><span class="w"> </span><span class="n">XL_NEW</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;ReadOnly:=True&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;Password:=hogehoge&quot;</span><span class="p">)</span>
+
+<span class="c">// カンマ区切りcsvファイルを開く</span>
+<span class="n">excel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">xlopen</span><span class="p">(</span><span class="s">&quot;hoge.xlsx&quot;</span><span class="o">,</span><span class="w"> </span><span class="n">XL_NEW</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;Format:=2&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="../syntax/statement.html#com-object"><span class="std std-ref">COMオブジェクト</span></a></p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Excel自身、またはWorkbookを示すCOMオブジェクト</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="xlclose">
+<span class="sig-name descname"><span class="pre">xlclose</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Excel</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">ファイル名</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#xlclose" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">Excelを終了します</div>
+<div class="line">ファイル名指定の有無で保存方法が異なります</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Excel</strong> (<em>COMオブジェクト</em>) -- Excel.ApplicationまたはWorkbookを示すCOMオブジェクト</p></li>
+<li><p><strong>ファイル名</strong> (<em>文字列 省略可</em>) -- 保存するファイル名を指定、省略時は上書き保存</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">xlclose</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Excel</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">TRUE</span></span></em><span class="sig-paren">)</span></dt>
+<dd><div class="line-block">
+<div class="line">変更内容を保存せずに終了します</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Excel</strong> (<em>COMオブジェクト</em>) -- Excel.ApplicationまたはWorkbookを示すCOMオブジェクト</p></li>
+<li><p><strong>TRUE</strong> (<em>真偽値</em>) -- <code class="docutils literal notranslate"><span class="pre">TRUE</span></code> を指定 (固定値)</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>真偽値</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>成功時TRUE、失敗時FALSE</p>
+</dd>
+</dl>
+<div class="admonition- admonition">
+<p class="admonition-title">サンプルコード</p>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">excel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">xlopen</span><span class="p">(</span><span class="s">&quot;foo.xlsx&quot;</span><span class="p">)</span>
+<span class="c">// ブックが編集される</span>
+<span class="n">xlclose</span><span class="p">(</span><span class="n">excel</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;bar.xlsx&quot;</span><span class="p">)</span><span class="w"> </span><span class="c">// 別名で保存</span>
+
+<span class="n">excel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">xlopen</span><span class="p">(</span><span class="s">&quot;bar.xlsx&quot;</span><span class="p">)</span>
+<span class="c">// ブックが編集される</span>
+<span class="n">xlclose</span><span class="p">(</span><span class="n">excel</span><span class="p">)</span><span class="w"> </span><span class="c">// 上書き保存</span>
+
+<span class="n">excel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">xlopen</span><span class="p">(</span><span class="s">&quot;foo.xlsx&quot;</span><span class="p">)</span>
+<span class="c">// ブックが編集される</span>
+<span class="n">xlclose</span><span class="p">(</span><span class="n">excel</span><span class="o">,</span><span class="w"> </span><span class="n">TRUE</span><span class="p">)</span><span class="w"> </span><span class="c">// 保存せず終了</span>
+</pre></div>
+</div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="xlactivate">
+<span class="sig-name descname"><span class="pre">xlactivate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Excel</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">シート識別子</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">ブック識別子=EMPTY</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#xlactivate" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">指定したシートをアクティブにします</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Excel</strong> (<em>COMオブジェクト</em>) -- Excel.ApplicationまたはWorkbookを示すCOMオブジェクト</p></li>
+<li><p><strong>シート識別子</strong> (<em>文字列または数値</em>) -- アクティブにするシート名またはインデックス番号(1から)</p></li>
+<li><p><strong>ブック識別子</strong> (<em>文字列または数値 省略可</em>) -- アクティブにするブック名またはインデックス番号(1から)</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>真偽値</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>成功時TRUE、失敗時FALSE</p>
+</dd>
+</dl>
+<div class="hint admonition">
+<p class="admonition-title">シート・ブックの識別子について</p>
+<ul class="simple">
+<li><p>シート名は各シートの表示名を完全一致で指定する必要があります</p></li>
+<li><p>シートのインデックス番号は左から数えた順番です</p></li>
+<li><dl class="simple">
+<dt>ブック名は拡張子を含めたファイル名を完全一致で指定する必要があります</dt><dd><ul>
+<li><p>新規作成したブックの場合は <code class="docutils literal notranslate"><span class="pre">Book1</span></code> のようになります(拡張子がありません)</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p>ブックのインデックス番号はブックを開いた順番です</p></li>
+<li><p>ブック識別子を省略した場合はアクティブなブックが対象となります</p></li>
+<li><p>Workbookオブジェクトを指定した場合ブック識別子は無視され、そのWorkbook内のシートをアクティブにします</p></li>
+</ul>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="xlsheet">
+<span class="sig-name descname"><span class="pre">xlsheet</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Excel</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">シート識別子</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">削除=FALSE</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#xlsheet" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">アクティブなブックへのシートの追加、または削除を行う</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Excel</strong> (<em>COMオブジェクト</em>) -- Excel.ApplicationまたはWorkbookを示すCOMオブジェクト</p></li>
+<li><p><strong>シート識別子</strong> (<em>文字列または数値</em>) -- アクティブにするシート名、削除時のみインデックス番号(1から)も可</p></li>
+<li><p><strong>削除</strong> (<em>真偽値 省略可</em>) -- FALSEなら指定名のシートを追加、TRUEなら該当シートを削除</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>真偽値</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p><p>成功時TRUE、失敗時FALSE</p>
+<div class="hint admonition">
+<p class="admonition-title">インデックス指定について</p>
+<div class="line-block">
+<div class="line">シート追加時はインデックス番号を文字列として扱います</div>
+</div>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">xlsheet</span><span class="p">(</span><span class="n">excel</span><span class="o">,</span><span class="w"> </span><span class="m">1</span><span class="o">,</span><span class="w"> </span><span class="n">FALSE</span><span class="p">)</span><span class="w"> </span><span class="c">// &quot;1&quot; という名前のシートが追加される</span>
+</pre></div>
+</div>
+<div class="line-block">
+<div class="line">シート削除時はインデックスとシート名を厳密に区別します</div>
+<div class="line">そのためUWSCとは一部動作が異なります</div>
+</div>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">xlsheet</span><span class="p">(</span><span class="n">excel</span><span class="o">,</span><span class="w"> </span><span class="m">1</span><span class="o">,</span><span class="w"> </span><span class="n">FALSE</span><span class="p">)</span><span class="w"> </span><span class="c">// &quot;1&quot; という名前のシートを追加しておく</span>
+<span class="n">xlsheet</span><span class="p">(</span><span class="n">excel</span><span class="o">,</span><span class="w"> </span><span class="m">1</span><span class="o">,</span><span class="w"> </span><span class="n">TRUE</span><span class="p">)</span><span class="w">  </span><span class="c">// 1を指定して削除を試みた場合</span>
+<span class="c">// UWSCの場合: &quot;1&quot; という名前のシートがあればそれを削除、なければ1番目のシートを削除</span>
+<span class="c">// UWSCRの場合: 必ず1番目のシートを削除、2番目以降にある&quot;1&quot;という名前のシートは対象とならない</span>
+</pre></div>
+</div>
+</div>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="xlgetdata">
+<span class="sig-name descname"><span class="pre">xlgetdata</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Excel</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">範囲=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">シート識別子=EMPTY</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#xlgetdata" title="この定義へのパーマリンク">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">xlgetdata</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Excel</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">範囲=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">&lt;EMPTYPARAM&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">シート識別子=EMPTY</span></span></em><span class="optional">]</span><span class="sig-paren">)</span></dt>
+<dd><div class="line-block">
+<div class="line">範囲をA1形式の文字列で指定し、その値を返します</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Excel</strong> (<em>COMオブジェクト</em>) -- Excel.ApplicationまたはWorkbookを示すCOMオブジェクト</p></li>
+<li><p><strong>範囲</strong> (<em>文字列 省略可</em>) -- 単一セル指定なら&quot;A1&quot;、範囲なら&quot;A1:C3&quot;のように指定</p></li>
+<li><p><strong>シート識別子</strong> (<em>文字列または数値 省略可</em>) -- <p>得たい値のあるシート名またはインデックス番号(1から)を指定、省略時はアクティブシート</p>
+<div class="hint admonition">
+<p class="admonition-title">第三引数について</p>
+<div class="line-block">
+<div class="line">互換性のために第三引数を省略し、第四引数にシート名を指定することもできます</div>
+</div>
+</div>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>値または配列、値の型はセルによる</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p><p>範囲の指定方法により異なります</p>
+<ul class="simple">
+<li><p>単一セル指定: セルの値を返す</p></li>
+<li><p>範囲指定: 範囲内の値を順に格納した配列を返す</p></li>
+</ul>
+<div class="caution admonition">
+<p class="admonition-title">範囲指定時の注意</p>
+<div class="line-block">
+<div class="line">UWSCではインデックスが1から始まるSafeArrayが返っていましたが</div>
+<div class="line">UWSCRでは通常の配列が返るためインデックスが0からになります</div>
+</div>
+</div>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">xlgetdata</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Excel</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">行番号</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">列番号</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">シート識別子=EMPTY</span></span></em><span class="optional">]</span><span class="sig-paren">)</span></dt>
+<dd><div class="line-block">
+<div class="line">セルの行と列の番号を指定しその値を得ます</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Excel</strong> (<em>COMオブジェクト</em>) -- Excel.ApplicationまたはWorkbookを示すCOMオブジェクト</p></li>
+<li><p><strong>行番号</strong> (<em>数値</em>) -- 値を得たいセルの行番号 (1から)</p></li>
+<li><p><strong>列番号</strong> (<em>数値</em>) -- 値を得たいセルの列番号 (1から)</p></li>
+<li><p><strong>シート識別子</strong> (<em>文字列または数値 省略可</em>) -- 得たい値のあるシート名またはインデックス番号(1から)を指定、省略時はアクティブシート</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>セルによる</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>指定セルの値</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="xlsetdata">
+<span class="sig-name descname"><span class="pre">xlsetdata</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Excel</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">値</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">範囲=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">シート識別子=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">文字色=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">背景色=EMPTY</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#xlsetdata" title="この定義へのパーマリンク">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">xlsetdata</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Excel</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">値</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">範囲=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">&lt;EMPTYPARAM&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">シート識別子=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">文字色=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">背景色=EMPTY</span></span></em><span class="optional">]</span><span class="sig-paren">)</span></dt>
+<dd><div class="line-block">
+<div class="line">A1形式で指定したセルまたはセル範囲に値を入力します</div>
+<div class="line">入力したい値が配列で、かつ単一セルを指定した場合は指定セルを起点として配列の値を入力します</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Excel</strong> (<em>COMオブジェクト</em>) -- Excel.ApplicationまたはWorkbookを示すCOMオブジェクト</p></li>
+<li><p><strong>値</strong> (<em>値</em>) -- <p>入力したい値 (配列可)</p>
+<div class="hint admonition">
+<p class="admonition-title">入力値ごとの入力パターン</p>
+<p>入力値により入力方法が代わります</p>
+<ul>
+<li><p>単一の値: 指定範囲すべてに同一の値が入力されます</p></li>
+<li><p>一次元配列: 指定行の列ごとに配列要素がそれぞれ入力されます、範囲が複数行の場合それぞれの行に入力されます</p></li>
+<li><p>二次元配列: 配列を行列とみなし各要素を該当するセルに入力します</p></li>
+</ul>
+<div class="line-block">
+<div class="line">配列サイズが指定範囲を超える場合、超過分は入力されません</div>
+<div class="line">指定範囲が配列サイズを超える場合、不足箇所には <code class="docutils literal notranslate"><span class="pre">#N/A</span></code> が入力されます</div>
+</div>
+</div>
+</p></li>
+<li><p><strong>範囲</strong> (<em>文字列 省略可</em>) -- A1形式でセルまたはセル範囲を指定</p></li>
+<li><p><strong>シート識別子</strong> (<em>文字列または数値 省略可</em>) -- <p>得たい値のあるシート名またはインデックス番号(1から)を指定、省略時はアクティブシート</p>
+<div class="hint admonition">
+<p class="admonition-title">第三引数について</p>
+<div class="line-block">
+<div class="line">互換性のために第三引数を省略し、第四引数にシート名を指定することもできます</div>
+</div>
+</div>
+</p></li>
+<li><p><strong>文字色</strong> (<em>数値 省略可</em>) -- 該当セルの文字色を変更する場合にBGRで指定</p></li>
+<li><p><strong>背景色</strong> (<em>数値 省略可</em>) -- 該当セルの背景色を変更する場合にBGRで指定</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>真偽値</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>成功時TRUE、失敗時FALSE</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">xlsetdata</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Excel</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">値</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">行</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">列</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">シート識別子=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">文字色=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">背景色=EMPTY</span></span></em><span class="optional">]</span><span class="sig-paren">)</span></dt>
+<dd><div class="line-block">
+<div class="line">行列番号で指定したセルに値をセットする</div>
+<div class="line">入力したい値が配列の場合は指定セルを起点に配列の値を入力します</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Excel</strong> (<em>COMオブジェクト</em>) -- Excel.ApplicationまたはWorkbookを示すCOMオブジェクト</p></li>
+<li><p><strong>値</strong> (<em>値</em>) -- 入力したい値 (配列可)</p></li>
+<li><p><strong>行</strong> (<em>数値</em>) -- 入力したいセルの行番号 (1から)</p></li>
+<li><p><strong>列</strong> (<em>数値</em>) -- 入力したいセルの列番号 (1から)</p></li>
+<li><p><strong>シート識別子</strong> (<em>文字列または数値 省略可</em>) -- 得たい値のあるシート名またはインデックス番号(1から)を指定、省略時はアクティブシート</p></li>
+<li><p><strong>文字色</strong> (<em>数値 省略可</em>) -- 該当セルの文字色を変更する場合にBGRで指定</p></li>
+<li><p><strong>背景色</strong> (<em>数値 省略可</em>) -- 該当セルの背景色を変更する場合にBGRで指定</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>真偽値</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>成功時TRUE、失敗時FALSE</p>
+</dd>
+</dl>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// A1セルに100が入力される</span>
+<span class="n">xlsetdata</span><span class="p">(</span><span class="n">excel</span><span class="o">,</span><span class="w"> </span><span class="m">100</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;A1&quot;</span><span class="p">)</span>
+
+<span class="c">// A2,B2,C2に200が入力される</span>
+<span class="n">xlsetdata</span><span class="p">(</span><span class="n">excel</span><span class="o">,</span><span class="w"> </span><span class="m">200</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;A2:C2&quot;</span><span class="p">)</span>
+
+<span class="c">// A3に301, B3に302, C3に303が入力される</span>
+<span class="n">xlsetdata</span><span class="p">(</span><span class="n">excel</span><span class="o">,</span><span class="w"> </span><span class="p">[</span><span class="m">301</span><span class="o">,</span><span class="m">302</span><span class="o">,</span><span class="m">303</span><span class="p">]</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;A3:C3&quot;</span><span class="p">)</span>
+
+<span class="c">// 単一セル指定で配列を渡した場合はそのセルを起点に配列の値が入力される</span>
+<span class="c">// A4に401, B4に402, C4に403になる</span>
+<span class="n">xlsetdata</span><span class="p">(</span><span class="n">excel</span><span class="o">,</span><span class="w"> </span><span class="p">[</span><span class="m">401</span><span class="o">,</span><span class="m">402</span><span class="o">,</span><span class="m">403</span><span class="p">]</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;A4&quot;</span><span class="p">)</span>
+
+<span class="c">// 配列サイズが範囲より大きい場合</span>
+<span class="c">// C5に503は入力されない</span>
+<span class="n">xlsetdata</span><span class="p">(</span><span class="n">excel</span><span class="o">,</span><span class="w"> </span><span class="p">[</span><span class="m">501</span><span class="o">,</span><span class="m">502</span><span class="o">,</span><span class="m">503</span><span class="p">]</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;A5:B5&quot;</span><span class="p">)</span>
+
+<span class="c">// 配列サイズが範囲より小さい場合</span>
+<span class="c">// 配列を超えた部分であるD6は#N/A</span>
+<span class="n">xlsetdata</span><span class="p">(</span><span class="n">excel</span><span class="o">,</span><span class="w"> </span><span class="p">[</span><span class="m">601</span><span class="o">,</span><span class="m">602</span><span class="o">,</span><span class="m">603</span><span class="p">]</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;A6:D6&quot;</span><span class="p">)</span>
+
+<span class="c">// 二次元配列は行列になる</span>
+<span class="c">//   |  A  |  B  |</span>
+<span class="c">// 7 |  701|  702|</span>
+<span class="c">// 8 |  801|  802|</span>
+<span class="n">xlsetdata</span><span class="p">(</span><span class="n">excel</span><span class="o">,</span><span class="w"> </span><span class="p">[[</span><span class="m">701</span><span class="o">,</span><span class="m">702</span><span class="p">]</span><span class="o">,</span><span class="p">[</span><span class="m">801</span><span class="o">,</span><span class="m">802</span><span class="p">]]</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;A7:B8&quot;</span><span class="p">)</span>
+
+<span class="c">// 二次元配列で単一セルを指定した場合でもそのセルを起点に入力される</span>
+<span class="n">xlsetdata</span><span class="p">(</span><span class="n">excel</span><span class="o">,</span><span class="w"> </span><span class="p">[[</span><span class="m">901</span><span class="o">,</span><span class="m">902</span><span class="o">,</span><span class="m">903</span><span class="p">]</span><span class="o">,</span><span class="p">[</span><span class="m">1001</span><span class="o">,</span><span class="m">1002</span><span class="o">,</span><span class="m">1003</span><span class="p">]]</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;A9&quot;</span><span class="p">)</span>
+
+<span class="c">// 行列番号指定</span>
+<span class="n">xlsetdata</span><span class="p">(</span><span class="n">excel</span><span class="o">,</span><span class="w"> </span><span class="p">[[</span><span class="m">1101</span><span class="o">,</span><span class="m">1102</span><span class="p">]</span><span class="o">,</span><span class="p">[</span><span class="m">1201</span><span class="o">,</span><span class="m">1202</span><span class="p">]</span><span class="o">,</span><span class="p">[</span><span class="m">1301</span><span class="o">,</span><span class="m">1302</span><span class="p">]]</span><span class="o">,</span><span class="w"> </span><span class="m">11</span><span class="o">,</span><span class="w"> </span><span class="m">1</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="web.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">ウェブ関連</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="comobject.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">COMオブジェクト</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2023, stuncloud
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            <div class="icons">
+              
+            </div>
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">Excel</a><ul>
+<li><a class="reference internal" href="#xlopen"><code class="docutils literal notranslate"><span class="pre">xlopen()</span></code></a></li>
+<li><a class="reference internal" href="#xlclose"><code class="docutils literal notranslate"><span class="pre">xlclose()</span></code></a></li>
+<li><a class="reference internal" href="#xlactivate"><code class="docutils literal notranslate"><span class="pre">xlactivate()</span></code></a></li>
+<li><a class="reference internal" href="#xlsheet"><code class="docutils literal notranslate"><span class="pre">xlsheet()</span></code></a></li>
+<li><a class="reference internal" href="#xlgetdata"><code class="docutils literal notranslate"><span class="pre">xlgetdata()</span></code></a></li>
+<li><a class="reference internal" href="#xlsetdata"><code class="docutils literal notranslate"><span class="pre">xlsetdata()</span></code></a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/sphinx_highlight.js"></script>
+    <script src="../_static/scripts/furo.js"></script>
+    <script src="../_static/translations.js"></script>
+    <script src="../_static/custom.js"></script>
+    </body>
+</html>
