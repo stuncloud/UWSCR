@@ -475,8 +475,8 @@ impl Evaluator {
             Statement::For {loopvar, from, to, step, block, alt} => {
                 self.eval_for_statement(loopvar, from, to, step, block, alt)
             },
-            Statement::ForIn {loopvar, collection, block, alt} => {
-                self.eval_for_in_statement(loopvar, collection, block, alt)
+            Statement::ForIn {loopvar, index_var, islast_var, collection, block, alt} => {
+                self.eval_for_in_statement(loopvar, index_var, islast_var, collection, block, alt)
             },
             Statement::While(e, b) => self.eval_while_statement(e, b),
             Statement::Repeat(e, b) => self.eval_repeat_statement(e, b),
@@ -695,7 +695,7 @@ impl Evaluator {
                 UErrorMessage::ForError("step can not be 0".into()),
             ));
         }
-        self.env.assign(var.clone(), Object::Num(counter as f64))?;
+        self.env.assign(&var, Object::Num(counter as f64))?;
         let broke = loop {
             if step > 0 && counter > counter_end || step < 0 && counter < counter_end {
                 break false;
@@ -706,7 +706,7 @@ impl Evaluator {
                             return Ok(Some(Object::Continue(n - 1)));
                         } else {
                             counter += step;
-                            self.env.assign(var.clone(), Object::Num(counter as f64))?;
+                            self.env.assign(&var, Object::Num(counter as f64))?;
                             continue;
                         },
                         Object::Break(n) => if n > 1 {
@@ -719,7 +719,7 @@ impl Evaluator {
                 _ => ()
             };
             counter += step;
-            self.env.assign(var.clone(), Object::Num(counter as f64))?;
+            self.env.assign(&var, Object::Num(counter as f64))?;
         };
         if ! broke && alt.is_some() {
             let block = alt.unwrap();
@@ -728,7 +728,7 @@ impl Evaluator {
         Ok(None)
     }
 
-    fn eval_for_in_statement(&mut self, loopvar: Identifier, collection: Expression, block: BlockStatement, alt: Option<BlockStatement>) -> EvalResult<Option<Object>> {
+    fn eval_for_in_statement(&mut self, loopvar: Identifier, index_var: Option<Identifier>, islast_var: Option<Identifier>, collection: Expression, block: BlockStatement, alt: Option<BlockStatement>) -> EvalResult<Option<Object>> {
         let Identifier(var) = loopvar;
         let col_obj = match self.eval_expression(collection)? {
             Object::Array(a) => a,
@@ -745,8 +745,16 @@ impl Evaluator {
         };
 
         let mut broke = false;
-        for o in col_obj {
-            self.env.assign(var.clone(), o)?;
+        let len = col_obj.len();
+        for (i, o) in col_obj.into_iter().enumerate() {
+            self.env.assign(&var, o)?;
+            if let Some(Identifier(name)) = &index_var {
+                self.env.assign(name, i.into())?;
+            }
+            if let Some(Identifier(name)) = &islast_var {
+                let is_last = i + 1 == len;
+                self.env.assign(name, is_last.into())?;
+            }
             match self.eval_loopblock_statement(block.clone())? {
                 Some(Object::Continue(n)) => if n > 1 {
                     return Ok(Some(Object::Continue(n - 1)));
@@ -1920,7 +1928,7 @@ impl Evaluator {
             },
             Object::Global => {
                 if let Expression::Identifier(Identifier(name)) = expr_member {
-                    self.env.assign_public(name, new)?;
+                    self.env.assign_public(&name, new)?;
                 } else {
                     return Err(UError::new(
                         UErrorKind::AssignError,
@@ -2617,9 +2625,9 @@ impl Evaluator {
                 match arg {
                     DllArg::Struct(p, m) => {
                         for (name, offset, arg) in m {
-                            if name.is_some() {
+                            if let Some(name) = name {
                                 let obj = get_value_from_structure(*p, *offset, arg);
-                                self.env.assign(name.to_owned().unwrap(), obj)?;
+                                self.env.assign(name, obj)?;
                             }
                         }
                         free_dll_structure(*p);
@@ -2632,7 +2640,7 @@ impl Evaluator {
                     },
                     _ => {
                         let obj = arg.to_object();
-                        self.env.assign(name, obj)?;
+                        self.env.assign(&name, obj)?;
                     },
                 }
                 // if let DllArg::Struct(p, m) = arg {

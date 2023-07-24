@@ -296,6 +296,8 @@ pub enum Statement {
     },
     ForIn {
         loopvar: Identifier,
+        index_var: Option<Identifier>,
+        islast_var: Option<Identifier>,
         collection: Expression,
         block: BlockStatement,
         alt: Option<BlockStatement>, // else区

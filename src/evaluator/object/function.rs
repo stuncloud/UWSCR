@@ -183,7 +183,7 @@ impl Function {
 
         // functionならresult変数を初期化
         if ! self.is_proc {
-            evaluator.env.assign("result".into(), Object::Empty)?;
+            evaluator.env.assign("result", Object::Empty)?;
         }
 
         /* 関数を実行 */

@@ -557,7 +557,7 @@ impl Environment {
         self.define(key, object, ContainerType::Struct, true)
     }
 
-    fn assignment(&mut self, name: String, value: Object, include_local: bool) -> EvalResult<bool> {
+    fn assignment(&mut self, name: &str, value: Object, include_local: bool) -> EvalResult<bool> {
         let key = name.to_ascii_uppercase();
         let mut is_public = false;
         if self.is_reserved(&key) {
@@ -605,11 +605,11 @@ impl Environment {
         Ok(is_public)
     }
 
-    pub fn assign(&mut self, name: String, value: Object) -> EvalResult<bool> {
+    pub fn assign(&mut self, name: &str, value: Object) -> EvalResult<bool> {
         self.assignment(name, value, true)
     }
 
-    pub fn assign_public(&mut self, name: String, value: Object) -> EvalResult<bool> {
+    pub fn assign_public(&mut self, name: &str, value: Object) -> EvalResult<bool> {
         self.assignment(name, value, false)
     }
 

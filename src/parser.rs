@@ -1220,9 +1220,49 @@ impl Parser {
                 return None;
             }
         };
+        let comma_pos = self.next_token.pos;
+        let index_var = if let Token::Comma = self.next_token.token {
+            self.bump();
+            if let Token::Comma = self.next_token.token {
+                None
+            } else {
+                self.bump();
+                match self.parse_identifier() {
+                    Some(i) => Some(i),
+                    None => {
+                        self.error_token_is_not_identifier();
+                        return None;
+                    },
+                }
+            }
+        } else {
+            None
+        };
+        let islast_var = if let Token::Comma = self.next_token.token {
+            self.bump();
+            self.bump();
+            match self.parse_identifier() {
+                Some(i) => Some(i),
+                None => {
+                    self.error_token_is_not_identifier();
+                    return None;
+                },
+            }
+        } else {
+            None
+        };
         match self.next_token.token {
             Token::EqualOrAssign => {
-                // for
+                // for文
+                // for-inの特殊記法はNG
+                if index_var.is_some() || islast_var.is_some() {
+                    self.errors.push(ParseError::new(
+                        ParseErrorKind::UnexpectedToken(Token::EqualOrAssign, Token::Comma),
+                        comma_pos,
+                        self.script_name()
+                    ));
+                    return None;
+                }
                 self.bump();
                 self.bump();
                 let from = match self.parse_expression(Precedence::Lowest, false) {
@@ -1295,7 +1335,7 @@ impl Parser {
                         return None;
                     },
                 };
-                Some(Statement::ForIn{loopvar, collection, block, alt})
+                Some(Statement::ForIn{loopvar, index_var, islast_var, collection, block, alt})
             },
             _ => {
                 self.error_got_unexpected_token();
@@ -4573,6 +4613,8 @@ next
                     StatementWithRow::new_expected(
                         Statement::ForIn {
                             loopvar: Identifier(String::from("item")),
+                            index_var: None,
+                            islast_var: None,
                             collection: Expression::Identifier(Identifier(String::from("col"))),
                             block: vec![
                                 StatementWithRow::new_expected(
@@ -4580,6 +4622,42 @@ next
                                     3
                                 )
                             ],
+                            alt: None
+                        }, 2
+                    )
+                ]
+            ),
+            (
+                r#"
+for item, i in col
+next
+                "#,
+                vec![
+                    StatementWithRow::new_expected(
+                        Statement::ForIn {
+                            loopvar: Identifier(String::from("item")),
+                            index_var: Some(Identifier("i".into())),
+                            islast_var: None,
+                            collection: Expression::Identifier(Identifier(String::from("col"))),
+                            block: vec![],
+                            alt: None
+                        }, 2
+                    )
+                ]
+            ),
+            (
+                r#"
+for item, i, last in col
+next
+                "#,
+                vec![
+                    StatementWithRow::new_expected(
+                        Statement::ForIn {
+                            loopvar: Identifier(String::from("item")),
+                            index_var: Some(Identifier("i".into())),
+                            islast_var: Some(Identifier("last".into())),
+                            collection: Expression::Identifier(Identifier(String::from("col"))),
+                            block: vec![],
                             alt: None
                         }, 2
                     )
@@ -4628,6 +4706,8 @@ endfor
                     StatementWithRow::new_expected(
                         Statement::ForIn {
                             loopvar: Identifier(String::from("item")),
+                            index_var: None,
+                            islast_var: None,
                             collection: Expression::Identifier(Identifier(String::from("col"))),
                             block: vec![
                                 StatementWithRow::new_expected(
@@ -4663,6 +4743,8 @@ fend
             StatementWithRow::new_expected(
                 Statement::ForIn {
                     loopvar: Identifier(String::from("item")),
+                    index_var: None,
+                    islast_var: None,
                     collection: Expression::Identifier(Identifier(String::from("col"))),
                     block: vec![
                         StatementWithRow::new_expected(
