@@ -877,10 +877,12 @@ impl IniLine {
             .map(|inikey| inikey.value.clone())
     }
     fn is_in_section(&self, section: &str) -> bool {
-        if let Self::Key(inikey) = self {
-            inikey.is_in(section)
-        } else {
-            false
+        match self {
+            IniLine::Section(section2) => {
+                section2.to_ascii_uppercase() == section.to_ascii_uppercase()
+            },
+            IniLine::Key(inikey) => inikey.is_in(section),
+            IniLine::Other(_) => false,
         }
     }
 }
