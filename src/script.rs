@@ -10,6 +10,7 @@ use crate::winapi::{
     attach_console, free_console,
     WString, PcwstrExt,
 };
+use crate::error::UWSCRErrorTitle;
 use windows::{
     core::{PWSTR},
     Win32::{
@@ -25,18 +26,22 @@ use windows::{
 };
 use crate::logging;
 
-pub fn run(script: String, exe_path: &str, script_path: &str, params: Vec<String>) -> Result<(), Vec<String>> {
+pub struct ScriptError(pub UWSCRErrorTitle, pub Vec<String>);
+
+pub fn run(script: String, exe_path: &str, script_path: &str, params: Vec<String>) -> Result<(), ScriptError> {
     let uwscr_dir = match get_parent_full_path(exe_path) {
         Ok(s) => s,
-        Err(_) => return Err(vec![
-            "unable to get uwscr path".into()
-        ])
+        Err(_) => return Err(ScriptError(
+            UWSCRErrorTitle::InitializeError,
+            vec!["unable to get uwscr path".into()]
+        ))
     };
     let script_dir = match get_parent_full_path(script_path) {
         Ok(s) => s,
-        Err(_) => return Err(vec![
-            "unable to get script path".into()
-        ])
+        Err(_) => return Err(ScriptError(
+            UWSCRErrorTitle::InitializeError,
+            vec!["unable to get script path".into()]
+        ))
     };
     logging::init(&script_dir);
     env::set_var("GET_UWSC_DIR", &uwscr_dir);
@@ -50,9 +55,10 @@ pub fn run(script: String, exe_path: &str, script_path: &str, params: Vec<String
         None => {}
     }
     match env::set_current_dir(&script_dir) {
-        Err(_)=> return Err(vec![
-            "unable to set current directory".into()
-        ]),
+        Err(_)=> return Err(ScriptError(
+            UWSCRErrorTitle::InitializeError,
+            vec!["unable to set current directory".into()]
+        )),
         _ => {}
     };
     let visible = ! attach_console();
@@ -62,24 +68,34 @@ pub fn run(script: String, exe_path: &str, script_path: &str, params: Vec<String
     let program = parser.parse();
     let errors = parser.get_errors();
     if errors.len() > 0 {
-        return Err(errors.into_iter().map(|e| format!("{}", e)).collect());
+        return Err(ScriptError(
+            UWSCRErrorTitle::StatementError,
+            errors.into_iter().map(|e| format!("{}", e)).collect()
+        ));
     }
 
     // このスレッドでのCOMを有効化
     let com = match Com::init() {
         Ok(com) => com,
         Err(e) => {
-            return Err(vec![e.to_string()]);
+            return Err(ScriptError(
+                UWSCRErrorTitle::InitializeError,
+                vec![e.to_string()]
+            ));
         },
     };
 
     let env = Environment::new(params);
     let mut evaluator = Evaluator::new(env);
-    Evaluator::start_logprint_win(visible)?;
+    Evaluator::start_logprint_win(visible)
+        .map_err(|e| ScriptError(UWSCRErrorTitle::InitializeError, e))?;
     if let Err(e) = evaluator.eval(program, true) {
         #[cfg(debug_assertions)] println!("\u{001b}[90m[script::run] Evaluator Error: {:#?}\u{001b}[0m", &e);
         let line = &e.get_line();
-        return Err(vec![line.to_string(), e.to_string()])
+        return Err(ScriptError(
+            UWSCRErrorTitle::RuntimeError,
+            vec![line.to_string(), e.to_string()]
+        ))
     }
     Evaluator::stop_logprint_win();
     com.uninit();
