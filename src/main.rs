@@ -250,8 +250,8 @@ struct Args {
 impl Args {
     fn new() -> Self {
         let mut version = env!("CARGO_PKG_VERSION").to_owned();
-        if cfg!(feature="chkimg") {
-            version.push_str(" chkimg");
+        if ! cfg!(feature="chkimg") {
+            version.push_str(" (chkimg not included)");
         }
         let args: Vec<String> = env::args().collect();
         Args { args, version }
