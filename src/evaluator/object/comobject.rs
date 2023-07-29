@@ -483,43 +483,16 @@ impl ComObject {
                 dp.rgdispidNamedArgs = named_args.as_mut_ptr();
             }
         }
-        match self.invoke_raw(dispidmember, &dp, DISPATCH_METHOD|DISPATCH_PROPERTYGET) {
-            Ok(variant) => {
-                vargs.reverse();
-                // 参照渡しは値を更新する
-                for (arg, varg) in args.iter_mut().zip(vargs.into_iter()) {
-                    match arg {
-                        ComArg::ByRef(_, byref) => *byref = varg.try_into()?,
-                        _ => {}
-                    }
-                }
-                Ok(variant)
-            },
-            Err(e) => {
-                match e.as_hresult() {
-                    DISP_E_MEMBERNOTFOUND => {
-                        // DISP_E_MEMBERNOTFOUNDの場合は
-                        // foo.barがコレクションでfoo.bar(i)でItem(i)を得たい可能性がある
-                        match self.get_property(method)? {
-                            // プロパティとして取得し、COMオブジェクトならItemを得る
-                            Object::ComObject(com2) => {
-                                let index = args.iter()
-                                    .map(|comarg| comarg.clone().into())
-                                    .collect();
-                                let variant = com2.get_raw_property_by_index("Item", index)?;
-                                // この場合余計な代入が発生しないように引数は空にする
-                                args.clear();
-                                Ok(variant)
-                            },
-                            // それ以外はそのままエラーを返す
-                            _ => Err(e)
-                        }
-                    },
-                    _ => Err(e)
-                }
-            },
+        let variant = self.invoke_raw(dispidmember, &dp, DISPATCH_METHOD|DISPATCH_PROPERTYGET)?;
+        vargs.reverse();
+        // 参照渡しは値を更新する
+        for (arg, varg) in args.iter_mut().zip(vargs.into_iter()) {
+            match arg {
+                ComArg::ByRef(_, byref) => *byref = varg.try_into()?,
+                _ => {}
+            }
         }
-
+        Ok(variant)
     }
     /// メソッド引数への変換
     pub fn to_comarg(evaluator: &mut Evaluator, exprs: Vec<Expression>) -> EvalResult<Vec<ComArg>> {
