@@ -67,8 +67,8 @@ pub fn length(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
         Object::Array(v) => v.len(),
         Object::Bool(b) => b.to_string().len(),
         Object::HashTbl(h) => h.lock().unwrap().len(),
-        Object::Struct(_, n, _) |
-        Object::UStruct(_, n, _) => n,
+        Object::StructDef(sdef) => sdef.size,
+        Object::UStruct(ust) => ust.size(),
         Object::Empty => 0,
         Object::Null => 1,
         Object::ByteArray(ref arr) => arr.len(),

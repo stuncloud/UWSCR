@@ -469,7 +469,7 @@ pub enum UErrorMessage {
     InvalidKeyOrIndex(String),
     InvalidObject(Object),
     InvalidRegexPattern(String),
-    InvalidStructArgument(String),
+    StructConstructorArgumentError,
     IsNotStruct(String),
     IsPrivateMember(String, String),
     JsonParseError(String),
@@ -567,6 +567,8 @@ pub enum UErrorMessage {
     GlobalCanNotBeAssigned,
     IsNotValidExcelObject,
     CanNotConvertToSafeArray,
+    StructMemberSizeError(usize),
+    StructMemberTypeError,
 }
 
 impl fmt::Display for UErrorMessage {
@@ -769,10 +771,9 @@ impl fmt::Display for UErrorMessage {
                 "{} is not a class",
                 name
             ),
-            Self::InvalidStructArgument(name) => write_locale!(f,
-                "不正な引数 ({}): 構造体のアドレスを指定してください",
-                "{} is not a valid argument; should be the address of structure",
-                name
+            Self::StructConstructorArgumentError => write_locale!(f,
+                "構造体のアドレスを指定してください",
+                "Argument must be the address of exsisting structure",
             ),
             Self::NotAFunction(o) => write_locale!(f,
                 "関数ではありません ({})",
@@ -1216,6 +1217,14 @@ impl fmt::Display for UErrorMessage {
             Self::CanNotConvertToSafeArray => write_locale!(f,
                 "配列をSafeArrayに変換できません",
                 "Can not convert array to SafeArray",
+            ),
+            Self::StructMemberSizeError(size) => write_locale!(f,
+                "配列サイズが大きすぎます、{size}以下にしてください",
+                "Array size is too large, should be less or equal to {size}"
+            ),
+            Self::StructMemberTypeError => write_locale!(f,
+                "型が合いません、メンバの型に該当する値を入れてください",
+                "Type missmatch",
             ),
         }
     }

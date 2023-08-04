@@ -337,7 +337,8 @@ pub enum Statement {
     ExitExit(i32),
     Module(Identifier, BlockStatement),
     Class(Identifier, BlockStatement),
-    Struct(Identifier, Vec<(String, DllType)>),
+    /// (名前, 型, [配列サイズ])
+    Struct(Identifier, Vec<(String, String, Option<usize>)>),
     TextBlock(Identifier, Literal),
     With(Option<Expression>, BlockStatement),
     Try {
@@ -589,6 +590,7 @@ pub enum DefDllParam {
         is_var: bool,
         is_array: bool,
     },
+    /// `{}`定義された構造体
     Struct(Vec<DefDllParam>),
 }
 
@@ -678,8 +680,8 @@ impl DllType {
             DllType::Pointer |
             DllType::Struct |
             DllType::CallBack |
-            DllType::Unknown(_) => mem::size_of::<usize>(),
             DllType::SafeArray |
+            DllType::Unknown(_) => mem::size_of::<usize>(),
             DllType::Void => 0,
         }
     }

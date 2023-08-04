@@ -26,7 +26,6 @@ use windows::{
 
 use std::borrow::Cow;
 use std::env;
-use std::mem;
 use std::path::PathBuf;
 use std::thread;
 use std::sync::{Arc, Mutex};
@@ -467,8 +466,8 @@ impl Evaluator {
             },
             Statement::Struct(identifier, members) => {
                 let name = identifier.0;
-                let s = self.eval_struct_statement(&name, members)?;
-                self.env.define_struct(&name, s)?;
+                let sdef = StructDef::new(name.clone(), members, self)?;
+                self.env.define_struct(&name, Object::StructDef(sdef))?;
                 Ok(None)
             }
             Statement::Expression(e) => Ok(Some(self.eval_expression(e)?)),
@@ -852,65 +851,42 @@ impl Evaluator {
         Ok(Object::DefDllFunction(name.into(), dll_path.into(), params, ret_type))
     }
 
-    fn eval_struct_statement(&mut self, name: &str, members: Vec<(String, DllType)>) -> EvalResult<Object> {
-        let mut total_size = 0;
-        for (_, t) in &members {
-            match t {
-                DllType::Int |
-                DllType::Long |
-                DllType::Bool => total_size += mem::size_of::<i32>(),
-                DllType::Uint |
-                DllType::Dword => total_size += mem::size_of::<u32>(),
-                DllType::Word |
-                DllType::Wchar => total_size += mem::size_of::<u16>(),
-                DllType::Byte |
-                DllType::Char => total_size += mem::size_of::<u8>(),
-                DllType::Float => total_size += mem::size_of::<f32>(),
-                DllType::Double => total_size += mem::size_of::<f64>(),
-                DllType::Longlong => total_size += mem::size_of::<i64>(),
-                DllType::Void => {},
-                _ => total_size += mem::size_of::<usize>(),
-            }
-        }
-        Ok(Object::Struct(name.into(), total_size, members))
-    }
-
-    fn new_ustruct(&self, name: &str, size: usize, members: Vec<(String, DllType)>, address: Option<usize>) -> EvalResult<Object> {
-        let mut ustruct = UStruct::new(&name);
-        for (n, t) in members {
-            let o = match &t {
-                DllType::String |
-                DllType::Wstring |
-                DllType::Pchar |
-                DllType::PWchar => Object::Null,
-                DllType::Unknown(s) => {
-                    match self.env.get_struct(s) {
-                        Some(o) => match o {
-                            Object::Struct(name, size, members) => {
-                                let o = self.new_ustruct(&name, size, members, None)?;
-                                ustruct.add_struct(n, o, t);
-                                continue;
-                            },
-                            _ => return Err(UError::new(
-                                UErrorKind::StructDefError,
-                                UErrorMessage::IsNotStruct(s.to_string()),
-                            )),
-                        },
-                        None => return Err(UError::new(
-                            UErrorKind::StructDefError,
-                            UErrorMessage::StructNotDefined(s.to_string())
-                        ))
-                    }
-                },
-                _ => Object::Num(0.0)
-            };
-            ustruct.add(n, o, t)?;
-        }
-        if address.is_some() {
-            ustruct.from_pointer(address.unwrap(), false);
-        }
-        Ok(Object::UStruct(name.to_string(), size, Arc::new(Mutex::new(ustruct))))
-    }
+    // fn hoge_new_ustruct(&self, name: &str, size: usize, members: Vec<(String, DllType)>, address: Option<usize>) -> EvalResult<Object> {
+    //     let mut ustruct = UStruct::new(&name);
+    //     for (n, t) in members {
+    //         let o = match &t {
+    //             DllType::String |
+    //             DllType::Wstring |
+    //             DllType::Pchar |
+    //             DllType::PWchar => Object::Null,
+    //             DllType::Unknown(s) => {
+    //                 match self.env.get_struct(s) {
+    //                     Some(o) => match o {
+    //                         Object::Struct(name, size, members) => {
+    //                             let o = self.new_ustruct(&name, size, members, None)?;
+    //                             ustruct.add_struct(n, o, t);
+    //                             continue;
+    //                         },
+    //                         _ => return Err(UError::new(
+    //                             UErrorKind::StructDefError,
+    //                             UErrorMessage::IsNotStruct(s.to_string()),
+    //                         )),
+    //                     },
+    //                     None => return Err(UError::new(
+    //                         UErrorKind::StructDefError,
+    //                         UErrorMessage::StructNotDefined(s.to_string())
+    //                     ))
+    //                 }
+    //             },
+    //             _ => Object::Num(0.0)
+    //         };
+    //         ustruct.add(n, o, t)?;
+    //     }
+    //     if address.is_some() {
+    //         ustruct.from_pointer(address.unwrap(), false);
+    //     }
+    //     Ok(Object::UStruct(name.to_string(), size, Arc::new(Mutex::new(ustruct))))
+    // }
 
     fn eval_module_statement(&mut self, module_name: &String, block: BlockStatement) -> EvalResult<Arc<Mutex<Module>>> {
         self.env.new_scope();
@@ -1586,6 +1562,7 @@ impl Evaluator {
                     MemberCaller::ComObject(com) => {
                         com.get_property_by_index(name, vec![index.clone()])?
                     },
+                    MemberCaller::UStruct(_) |
                     MemberCaller::BrowserBuilder(_) |
                     MemberCaller::Browser(_) |
                     MemberCaller::TabWindow(_) |
@@ -1948,10 +1925,12 @@ impl Evaluator {
                     ));
                 }
             },
-            Object::UStruct(_, _, m) => {
+            Object::UStruct(ust) => {
                 if let Expression::Identifier(Identifier(name)) = expr_member {
-                    let mut u = m.lock().unwrap();
-                    u.set(name, new)?;
+                    ust.set(&name, new)?;
+                    /*
+                        文字列バッファを持たせるとしたらUStructそのものを更新しないといけないよね？
+                    */
                 } else {
                     return Err(UError::new(
                         UErrorKind::UStructError,
@@ -2274,22 +2253,30 @@ impl Evaluator {
                     }
                     Ok(Object::Instance(ins))
                 },
-                Object::Struct(name, size, members) => {
-                    let ustruct =match arguments.len() {
-                        0 => self.new_ustruct(&name, size, members, None)?,
-                        1 => match arguments[0].1 {
-                            Object::Num(n) => self.new_ustruct(&name, size, members, Some(n as usize))?,
-                            _ => return Err(UError::new(
-                                UErrorKind::UStructError,
-                                UErrorMessage::InvalidStructArgument(name)
-                            ))
+                Object::StructDef(sdef) => {
+                    match arguments.len() {
+                        0 => {
+                            let ust = UStruct::try_from(&sdef)?;
+                            Ok(Object::UStruct(ust))
                         },
-                        n => return Err(UError::new(
+                        1 => {
+                            let o = &arguments[0].1;
+                            if let Some(n) = o.as_f64(false) {
+                                let ptr = n as isize as *const c_void;
+                                let ust = UStruct::new_from_pointer(ptr, &sdef);
+                                Ok(Object::UStruct(ust))
+                            } else {
+                                Err(UError::new(
+                                    UErrorKind::UStructError,
+                                    UErrorMessage::StructConstructorArgumentError
+                                ))
+                            }
+                        },
+                        n => Err(UError::new(
                             UErrorKind::UStructError,
                             UErrorMessage::TooManyArguments(n, 1)
                         ))
-                    };
-                    Ok(ustruct)
+                    }
                 },
                 Object::DefDllFunction(name, dll_path, params, ret_type) => {
                     self.invoke_def_dll_function(name, dll_path, params, ret_type, arguments)
@@ -2354,6 +2341,9 @@ impl Evaluator {
                         MemberCaller::ComObject(_) => {
                             // ここには来ない
                             Err(UError::new(UErrorKind::DotOperatorError, UErrorMessage::None))
+                        },
+                        MemberCaller::UStruct(ust) => {
+                            ust.invoke_method(&member)
                         }
                     }
                 },
@@ -2632,29 +2622,13 @@ impl Evaluator {
                         }
                         free_dll_structure(*p);
                     },
-                    DllArg::UStruct(p, m) => {
-                        // 値をコピーしたらmallocした構造体は用済みなのでfreeする
-                        let mut u = m.lock().unwrap();
-                        u.from_pointer(*p as usize, true);
-                        free_dll_structure(*p);
+                    DllArg::UStruct(_) => {
                     },
                     _ => {
                         let obj = arg.to_object();
                         self.env.assign(&name, obj)?;
                     },
                 }
-                // if let DllArg::Struct(p, m) = arg {
-                //     for (name, offset, arg) in m {
-                //         if name.is_some() {
-                //             let obj = get_value_from_structure(*p, *offset, arg);
-                //             self.env.assign(name.to_owned().unwrap(), obj)?;
-                //         }
-                //     }
-                //     free_dll_structure(*p);
-                // } else {
-                //     let obj = arg.to_object();
-                //     self.env.assign(name, obj)?;
-                // }
             }
 
             Ok(result)
@@ -2776,15 +2750,11 @@ impl Evaluator {
                     }
                 }
             },
-            Object::UStruct(_, _, m) => {
+            Object::UStruct(ust) => {
                 if is_func {
-                    Err(UError::new(
-                        UErrorKind::UStructError,
-                        UErrorMessage::CanNotCallMethod(member)
-                    ))
+                    Ok(Object::MemberCaller(MemberCaller::UStruct(ust), member))
                 } else {
-                    let u = m.lock().unwrap();
-                    u.get(member)
+                    ust.get(&member)
                 }
             },
             Object::ComObject(com) => {

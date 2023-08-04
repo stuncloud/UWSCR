@@ -7,7 +7,6 @@ use crate::winapi::{
 use libffi::middle::{Arg, arg};
 use std::ffi::c_void;
 use std::mem;
-use std::sync::{Arc, Mutex};
 use cast;
 use libc;
 
@@ -35,7 +34,7 @@ pub enum DllArg {
     WString(Vec<u16>, bool), // wstring, wpchar boolはnullで切るかどうか
     Pointer(usize),
     Struct(*mut c_void, Vec<(Option<String>, usize, DllArg)>), // pointer, [(name, offset, DllArg)]
-    UStruct(*mut c_void, Arc<Mutex<UStruct>>),
+    UStruct(UStruct),
     SafeArray,
     Null, // null
 }
@@ -153,18 +152,9 @@ impl DllArg {
                 DllType::Boolean => Self::Byte(*b as u8),
                 _ => return Err("unexpected argument type: bool".into())
             },
-            Object::UStruct(_, size, members) => match dll_type {
+            Object::UStruct(ust) => match dll_type {
                 DllType::Struct => {
-                    let p = new_dll_structure(*size);
-                    let m = Arc::clone(members);
-                    {
-                        let u = m.lock().unwrap();
-                        match u.to_pointer(p as usize) {
-                            Ok(()) => {},
-                            Err(e) => return Err(format!("{}", e))
-                        }
-                    }
-                    Self::UStruct(p, m)
+                    Self::UStruct(ust.clone())
                 },
                 _ => return Err("unexpected argument type: struct".into())
             },
@@ -243,7 +233,7 @@ impl DllArg {
             DllArg::WString(_, _) |
             DllArg::Pointer(_) => mem::size_of::<usize>(),
             DllArg::Struct(_, _) => 0,
-            &DllArg::UStruct(_, _) => mem::size_of::<usize>(),
+            &DllArg::UStruct(_) => mem::size_of::<usize>(),
             DllArg::SafeArray=> 0,
             DllArg::Null => mem::size_of::<usize>(),
         }
@@ -270,7 +260,10 @@ impl DllArg {
             DllArg::String(v, _) => arg(v),
             DllArg::WString(v, _) => arg(v),
             DllArg::Struct(v, _) => arg(v),
-            DllArg::UStruct(v, _) => arg(v),
+            DllArg::UStruct(ust) => {
+                let ptr = ust.as_ptr();
+                arg(&ptr)
+            },
             DllArg::Pointer(v) => arg(v),
             DllArg::SafeArray => arg(&0),
             DllArg::Null => arg(&0),
@@ -341,7 +334,7 @@ impl DllArg {
             DllArg::Null => Object::Null,
             DllArg::Pointer(v) => Object::Num(*v as f64),
             DllArg::Struct(_, _) => Object::Null,
-            DllArg::UStruct(_, _) => Object::Null,
+            DllArg::UStruct(ust) => Object::UStruct(ust.clone()),
         }
     }
 }

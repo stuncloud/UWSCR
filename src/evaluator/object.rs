@@ -15,7 +15,7 @@ mod variant;
 pub use self::hashtbl::{HashTbl, HashTblEnum};
 pub use self::version::Version;
 pub use self::utask::UTask;
-pub use self::ustruct::{UStruct, UStructMember};
+pub use self::ustruct::{StructDef, UStruct, UStructMember};
 pub use self::module::Module;
 pub use self::function::Function;
 pub use self::uobject::UObject;
@@ -85,8 +85,8 @@ pub enum Object {
     Enum(UEnum),
     Task(UTask),
     DefDllFunction(String, String, Vec<DefDllParam>, DllType), // 関数名, dllパス, 引数の型, 戻り値の型
-    Struct(String, usize, Vec<(String, DllType)>), // 構造体定義: name, size, [(member name, type)]
-    UStruct(String, usize, Arc<Mutex<UStruct>>), // 構造体インスタンス
+    StructDef(StructDef), // 構造体定義
+    UStruct(UStruct), // 構造体インスタンス
     ComObject(ComObject),
     Unknown(Unknown),
     Variant(Variant),
@@ -138,8 +138,8 @@ impl std::fmt::Debug for Object {
             Object::Enum(arg0) => f.debug_tuple("Enum").field(arg0).finish(),
             Object::Task(arg0) => f.debug_tuple("Task").field(arg0).finish(),
             Object::DefDllFunction(arg0, arg1, arg2, arg3) => f.debug_tuple("DefDllFunction").field(arg0).field(arg1).field(arg2).field(arg3).finish(),
-            Object::Struct(arg0, arg1, arg2) => f.debug_tuple("Struct").field(arg0).field(arg1).field(arg2).finish(),
-            Object::UStruct(arg0, arg1, arg2) => f.debug_tuple("UStruct").field(arg0).field(arg1).field(arg2).finish(),
+            Object::StructDef(arg0) => f.debug_tuple("StructDef").field(arg0).finish(),
+            Object::UStruct(arg0) => f.debug_tuple("UStruct").field(arg0).finish(),
             Object::BrowserBuilder(arg0) => f.debug_tuple("BrowserBuilder").field(arg0).finish(),
             Object::Browser(arg0) => f.debug_tuple("Browser").field(arg0).finish(),
             Object::TabWindow(arg0) => f.debug_tuple("TabWindow").field(arg0).finish(),
@@ -233,12 +233,8 @@ impl fmt::Display for Object {
             Object::Enum(e) => write!(f, "Enum {}", e.name),
             Object::Task(t) => write!(f, "Task [{}]", t),
             Object::DefDllFunction(name, _, _, _) => write!(f, "def_dll: {}", name),
-            Object::Struct(name, _, _) => write!(f, "struct: {}", name),
-            Object::UStruct(name, _, _) => write!(f, "instance of struct: {}", name),
-            // Object::UStruct(_, _, m) => {
-            //     let u = m.lock().unwrap();
-            //     write!(f, "{:?}", u)
-            // },
+            Object::StructDef(s) => write!(f, "{s}"),
+            Object::UStruct(ustruct) => write!(f, "{ustruct}"),
             Object::BrowserBuilder(_) => write!(f, "BrowserBuilder"),
             Object::Browser(b) => write!(f, "Browser: {b})"),
             Object::TabWindow(t) => write!(f, "TabWindow: {t}"),
@@ -265,6 +261,7 @@ impl fmt::Display for Object {
                     MemberCaller::WebResponse(_) => write!(f, "WebResponse.{member}"),
                     MemberCaller::HtmlNode(_) => write!(f, "HtmlNode.{member}"),
                     MemberCaller::ComObject(_) => write!(f, "ComObject.{member}"),
+                    MemberCaller::UStruct(ust) => write!(f, "{}.{member}", ust.name),
                 }
             },
             Object::ComObject(com) => write!(f, "{com}"),
@@ -350,14 +347,8 @@ impl PartialEq for Object {
             Object::DefDllFunction(n, p, v, t) => if let Object::DefDllFunction(n2,p2,v2,t2) = other {
                 n==n2 && p==p2 && v==v2 && t==t2
             } else {false},
-            Object::Struct(n, s, v) => if let Object::Struct(n2,s2,v2) = other {
-                n==n2 && s==s2 && v==v2
-            } else {false},
-            Object::UStruct(n, s, u) => if let Object::UStruct(n2,s2,u2) = other {
-                let _tmp = u.lock().unwrap();
-                let is_same_struct = u2.try_lock().is_err();
-                n==n2 && s==s2 && is_same_struct
-            } else {false},
+            Object::StructDef(s1) => if let Object::StructDef(s2) = other { s1 == s2 } else {false},
+            Object::UStruct(u1) => if let Object::UStruct(u2) = other { u1 == u2 } else {false},
             Object::BrowserBuilder(b) => if let Object::BrowserBuilder(b2) = other {
                 let _tmp = b.lock().unwrap();
                 b2.try_lock().is_err()
@@ -439,8 +430,8 @@ impl Object {
             Object::Enum(_) => ObjectType::TYPE_ENUM,
             Object::Task(_) => ObjectType::TYPE_TASK,
             Object::DefDllFunction(_,_,_,_) => ObjectType::TYPE_DLL_FUNCTION,
-            Object::Struct(_,_,_) => ObjectType::TYPE_STRUCT,
-            Object::UStruct(_,_,_) => ObjectType::TYPE_STRUCT_INSTANCE,
+            Object::StructDef(_) => ObjectType::TYPE_STRUCT_DEFINITION,
+            Object::UStruct(_) => ObjectType::TYPE_STRUCT_INSTANCE,
             Object::ComObject(_) => ObjectType::TYPE_COM_OBJECT,
             Object::Unknown(_) => ObjectType::TYPE_IUNKNOWN,
             Object::Variant(_) => ObjectType::TYPE_VARIANT,
@@ -898,8 +889,8 @@ impl Add for Object {
             Object::Enum(_) |
             Object::Task(_) |
             Object::DefDllFunction(_, _, _, _) |
-            Object::Struct(_, _, _) |
-            Object::UStruct(_, _, _) |
+            Object::StructDef(_) |
+            Object::UStruct(_) |
             Object::BrowserBuilder(_) |
             Object::Browser(_) |
             Object::TabWindow(_) |
@@ -988,8 +979,8 @@ impl Sub for Object {
             Object::Enum(_) |
             Object::Task(_) |
             Object::DefDllFunction(_, _, _, _) |
-            Object::Struct(_, _, _) |
-            Object::UStruct(_, _, _) |
+            Object::StructDef(_) |
+            Object::UStruct(_) |
             Object::BrowserBuilder(_) |
             Object::Browser(_) |
             Object::TabWindow(_) |
@@ -1115,8 +1106,8 @@ impl Mul for Object {
             Object::Enum(_) |
             Object::Task(_) |
             Object::DefDllFunction(_, _, _, _) |
-            Object::Struct(_, _, _) |
-            Object::UStruct(_, _, _) |
+            Object::StructDef(_) |
+            Object::UStruct(_) |
             Object::BrowserBuilder(_) |
             Object::Browser(_) |
             Object::TabWindow(_) |
@@ -1224,8 +1215,8 @@ impl Div for Object {
             Object::Enum(_) |
             Object::Task(_) |
             Object::DefDllFunction(_, _, _, _) |
-            Object::Struct(_, _, _) |
-            Object::UStruct(_, _, _) |
+            Object::StructDef(_) |
+            Object::UStruct(_) |
             Object::BrowserBuilder(_) |
             Object::Browser(_) |
             Object::TabWindow(_) |
@@ -1336,8 +1327,8 @@ impl Rem for Object {
             Object::Enum(_) |
             Object::Task(_) |
             Object::DefDllFunction(_, _, _, _) |
-            Object::Struct(_, _, _) |
-            Object::UStruct(_, _, _) |
+            Object::StructDef(_) |
+            Object::UStruct(_) |
             Object::BrowserBuilder(_) |
             Object::Browser(_) |
             Object::TabWindow(_) |
@@ -1442,8 +1433,8 @@ impl BitOr for Object {
             Object::Enum(_) |
             Object::Task(_) |
             Object::DefDllFunction(_, _, _, _) |
-            Object::Struct(_, _, _) |
-            Object::UStruct(_, _, _) |
+            Object::StructDef(_) |
+            Object::UStruct(_) |
             Object::BrowserBuilder(_) |
             Object::Browser(_) |
             Object::TabWindow(_) |
@@ -1547,8 +1538,8 @@ impl BitAnd for Object {
             Object::Enum(_) |
             Object::Task(_) |
             Object::DefDllFunction(_, _, _, _) |
-            Object::Struct(_, _, _) |
-            Object::UStruct(_, _, _) |
+            Object::StructDef(_) |
+            Object::UStruct(_) |
             Object::BrowserBuilder(_) |
             Object::Browser(_) |
             Object::TabWindow(_) |
@@ -1652,8 +1643,8 @@ impl BitXor for Object {
             Object::Enum(_) |
             Object::Task(_) |
             Object::DefDllFunction(_, _, _, _) |
-            Object::Struct(_, _, _) |
-            Object::UStruct(_, _, _) |
+            Object::StructDef(_) |
+            Object::UStruct(_) |
             Object::BrowserBuilder(_) |
             Object::Browser(_) |
             Object::TabWindow(_) |
@@ -1686,6 +1677,7 @@ pub enum MemberCaller {
     WebResponse(WebResponse),
     HtmlNode(HtmlNode),
     ComObject(ComObject),
+    UStruct(UStruct),
 }
 
 impl PartialEq for MemberCaller {
@@ -1705,6 +1697,7 @@ impl PartialEq for MemberCaller {
             (Self::WebResponse(l0), Self::WebResponse(r0)) => l0 == r0,
             (Self::HtmlNode(l0), Self::HtmlNode(r0)) => l0 == r0,
             (Self::ComObject(l0), Self::ComObject(r0)) => l0 == r0,
+            (Self::UStruct(l0), Self::UStruct(r0)) => l0 == r0,
             _ => false,
         }
     }
@@ -1738,7 +1731,7 @@ pub enum ObjectType {
     TYPE_ENUM,
     TYPE_TASK,
     TYPE_DLL_FUNCTION,
-    TYPE_STRUCT,
+    TYPE_STRUCT_DEFINITION,
     TYPE_STRUCT_INSTANCE,
     TYPE_COM_OBJECT,
     TYPE_IUNKNOWN,

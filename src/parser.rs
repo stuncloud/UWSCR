@@ -1146,13 +1146,35 @@ impl Parser {
             }
             self.bump();
             let member_type = match self.parse_identifier_expression() {
-                Some(Expression::Identifier(Identifier(s))) => s.parse::<DllType>().unwrap(),
+                Some(Expression::Identifier(Identifier(s))) => s.to_ascii_lowercase(),
                 _ => {
                     self.error_token_is_not_identifier();
                     return None;
                 },
             };
-            struct_definition.push((member, member_type));
+            let len = if let Token::Lbracket = self.next_token.token {
+                self.bump();
+                self.bump();
+                match (&self.current_token.token, &self.next_token.token) {
+                    (Token::Num(n), Token::Rbracket) => {
+                        Some(*n as usize)
+                    },
+                    (Token::Num(_), _) => {
+                        self.error_got_unexpected_next_token();
+                        return None;
+                    },
+                    _ => {
+                        self.error_got_unexpected_token();
+                        return None;
+                    },
+                }
+            } else {
+                None
+            };
+            if len.is_some() {
+                self.bump();
+            }
+            struct_definition.push((member, member_type, len));
             self.bump();
             self.bump();
         }
@@ -5828,15 +5850,17 @@ endmodule
     fn test_struct() {
         let input = r#"
 struct Point
-    x: long
+    x: Long
     y: long
+    b: byte[100]
 endstruct
         "#;
         parser_test(input, vec![
             StatementWithRow::new_expected(
                 Statement::Struct(Identifier("Point".into()), vec![
-                    ("x".into(), DllType::Long),
-                    ("y".into(), DllType::Long),
+                    ("x".into(), "long".into(), None),
+                    ("y".into(), "long".into(), None),
+                    ("b".into(), "byte".into(), Some(100)),
                 ]), 2
             ),
         ]);
