@@ -4,6 +4,7 @@ use crate::evaluator::Evaluator;
 use crate::error::evaluator::UErrorMessage::BuiltinArgCastError;
 use crate::winapi::{
     get_ansi_length, from_ansi_bytes, to_ansi_bytes, contains_unicode_char,
+    to_wide_string,
 };
 
 use regex::Regex;
@@ -32,6 +33,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("lengthb", 1, lengthb);
     sets.add("lengthu", 1, lengthu);
     sets.add("lengths", 1, lengths);
+    sets.add("lengthw", 1, lengthw);
     sets.add("as_string", 1, as_string);
     sets.add("newre", 4, newre);
     sets.add("regex", 3, regex);
@@ -112,6 +114,12 @@ pub fn lengths(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
             .reduce(|a,b| a+b)
             .unwrap_or_default();
     Ok(Object::Num(length as f64))
+}
+
+pub fn lengthw(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let str = args.get_as_string(0, None)?;
+    let len = to_wide_string(&str).len();
+    Ok(len.into())
 }
 
 pub fn as_string(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {

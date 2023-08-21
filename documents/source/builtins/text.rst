@@ -263,6 +263,12 @@
             print length(str)  // 5
             print lengths(str) // 6
 
+.. function:: lengthw(文字列)
+
+    | NULL終端Unicode文字列としての長さを得ます
+
+    :param 文字列 文字列: 長さを得たい文字列
+    :return: 符号なし16ビット整数の配列長
 
 正規表現
 --------
