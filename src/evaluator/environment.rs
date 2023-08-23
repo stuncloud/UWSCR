@@ -244,18 +244,28 @@ impl Environment {
     // 変数評価の際に呼ばれる
     pub fn get_variable(&self, name: &str, expand: bool) -> Option<Object> {
         let obj = match self.get(&name, ContainerType::Variable) {
+            // ローカル変数
             Some(value) => Some(value),
-            None => match self.get_from_this(&name) {
+            None => match self.get(&name, ContainerType::Const) {
+                // ローカル定数 (一部の特殊変数)
                 Some(value) => Some(value),
-                None => match self.get_from_global(&name, ContainerType::Const) {
+                None => match self.get_from_this(&name) {
+                    // Class/Moduleメンバ変数
                     Some(value) => Some(value),
-                    None => match self.get_from_global(&name, ContainerType::Public) {
+                    None => match self.get_from_global(&name, ContainerType::Const) {
+                        // グローバル定数
                         Some(value) => Some(value),
-                        None => match self.get_from_global(&name, ContainerType::BuiltinConst) {
+                        None => match self.get_from_global(&name, ContainerType::Public) {
+                            // パブリック変数
                             Some(value) => Some(value),
-                            None => match self.get_from_global(&name, ContainerType::Variable) { // インスタンス自動破棄
+                            None => match self.get_from_global(&name, ContainerType::BuiltinConst) {
+                                // ビルトイン定数
                                 Some(value) => Some(value),
-                                None => None
+                                None => match self.get_from_global(&name, ContainerType::Variable) {
+                                    // グローバル変数
+                                    Some(value) => Some(value),
+                                    None => None
+                                }
                             }
                         }
                     }
