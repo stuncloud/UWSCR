@@ -531,7 +531,12 @@ impl Environment {
 
     pub fn define_dll_function(&mut self, name: &str, object: Object) -> Result<(), UError> {
         let key = name.to_ascii_uppercase();
-        self.define(key, object, ContainerType::Function, true)
+        if self.contains_in_global(&key, &[ContainerType::Function]) {
+            self.set(&key, ContainerType::Function, object, true);
+            Ok(())
+        } else {
+            self.define(key, object, ContainerType::Function, true)
+        }
     }
 
     pub fn define_module(&mut self, name: &str, object: Object) -> Result<(), UError> {
