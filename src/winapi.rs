@@ -1,5 +1,5 @@
 use windows::{
-    core::{PCSTR, PCWSTR, PWSTR},
+    core::{PCSTR, PCWSTR, PWSTR, HSTRING},
     Win32::{
         Foundation:: {
             MAX_PATH, HWND, WPARAM, LPARAM,
@@ -28,15 +28,11 @@ use windows::{
                 GetClassNameW, GetWindowTextW,
                 GetWindowLongW, GWL_STYLE,
             },
-            Shell::{
-                SHGetSpecialFolderPathW,
-            },
+            Shell::SHGetSpecialFolderPathW,
         },
-        Graphics::{
-            Gdi::{
-                BITSPIXEL,
-                GetDC, GetDeviceCaps,
-            },
+        Graphics::Gdi::{
+            BITSPIXEL,
+            GetDC, GetDeviceCaps,
         },
         Globalization::{
             CP_ACP, WC_COMPOSITECHECK, MB_PRECOMPOSED,
@@ -48,7 +44,7 @@ use windows::{
 
 use crate::error::evaluator::{UError, UErrorKind, UErrorMessage};
 
-use std::{ffi::OsStr};
+use std::ffi::OsStr;
 use std::os::windows::ffi::OsStrExt;
 
 use once_cell::sync::OnceCell;
@@ -240,9 +236,9 @@ pub fn is_console() -> bool {
 
 pub fn message_box(message: &str, title: &str, utype: MESSAGEBOX_STYLE) {
     unsafe {
-        let lptext = message.to_wide_null_terminated().to_pcwstr();
-        let lpcaption = title.to_wide_null_terminated().to_pcwstr();
-        MessageBoxW(HWND(0), lptext, lpcaption, utype);
+        let lptext = HSTRING::from(message);
+        let lpcaption = HSTRING::from(title);
+        MessageBoxW(HWND(0), &lptext, &lpcaption, utype);
     }
 }
 
