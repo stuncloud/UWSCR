@@ -2,7 +2,7 @@ use std::error;
 use std::fmt;
 
 use crate::ast::{Expression, Infix, DllType};
-use crate::evaluator::object::Object;
+use crate::evaluator::object::{Object, ObjectType};
 pub use crate::write_locale;
 pub use super::{CURRENT_LOCALE, Locale};
 use crate::gui::UWindowError;
@@ -445,6 +445,14 @@ pub enum UErrorMessage {
     DllMissingArgument(DllType, usize),
     DllNestedStruct,
     DllUnknownType(String),
+    DllResultTypeNotAllowed,
+    DllArgCountMismatch,
+    DllArgTypeMismatch(String, ObjectType),
+    DllArrayArgTypeMismatch(String),
+    DllArrayArgLengthMismatch,
+    /// - 0: 指定サイズ
+    /// - 1: 引数のサイズ
+    DllStringArgToLarge(usize, usize),
     DlopenError(String),
     DotOperatorNotSupported(Object),
     ExplicitError(String),
@@ -492,6 +500,7 @@ pub enum UErrorMessage {
     Reserved(String),
     StructGotBadType(String, DllType, String),
     StructMemberNotFound(String, String),
+    StructMemberNotFound2(String, usize),
     StructNotDefined(String),
     StructTypeNotValid(String, String),
     StructTypeUnsupported(DllType),
@@ -569,6 +578,10 @@ pub enum UErrorMessage {
     CanNotConvertToSafeArray,
     StructMemberSizeError(usize),
     StructMemberTypeError,
+    /// 構造体の文字列メンバへの代入する文字列のサイズが大きすぎる
+    /// - .0: バッファサイズ
+    /// - .1: 代入する文字列のサイズ
+    UStructStringMemberSizeOverflow(usize, usize),
 }
 
 impl fmt::Display for UErrorMessage {
@@ -801,7 +814,7 @@ impl fmt::Display for UErrorMessage {
                 dlltype, pos, err
             ),
             Self::DllArgumentTypeUnexpected(dlltype, pos, unexpected) => write_locale!(f,
-                "{1}番目の引数({0}型)のに不正な型が渡されました: {2}",
+                "{1}番目の引数({0}型)に不正な型が渡されました: {2}",
                 "unexpected argument type {2} was given to {0} at position {1}",
                 dlltype, pos, unexpected
             ),
@@ -817,6 +830,30 @@ impl fmt::Display for UErrorMessage {
                 "不明な型です ({})",
                 "Invalid parameter type: {}",
                 name
+            ),
+            Self::DllResultTypeNotAllowed => write_locale!(f,
+                "Dll関数の戻り値に指定できない型です",
+                "Invalid return type for dll function",
+            ),
+            Self::DllArgCountMismatch => write_locale!(f,
+                "Dll関数の引数の数が一致しません",
+                "The number of arguments to the Dll function does not match",
+            ),
+            Self::DllArgTypeMismatch(dlltype, argtype) => write_locale!(f,
+                "Dll関数の引数の型が一致しません、{dlltype}型に{argtype}が渡されました",
+                "Dll function argument type mismatch, {argtype} passed to {dlltype} type",
+            ),
+            Self::DllArrayArgTypeMismatch(dlltype) => write_locale!(f,
+                "Dll関数の引数の型が一致しません、配列引数に{dlltype}型以外の型が渡されました",
+                "Dll function argument type mismatch, array argument passed type other than {dlltype}",
+            ),
+            Self::DllArrayArgLengthMismatch => write_locale!(f,
+                "Dll関数の配列引数のサイズが一致しません",
+                "Dll function array argument length mismatch",
+            ),
+            Self::DllStringArgToLarge(s1, s2) => write_locale!(f,
+                "代入された文字列のサイズ({s2})が大きすぎます、{s1}以下にしてください",
+                "The size of the assigned string ({s2}) is too large, should be less than {s1}.",
             ),
             Self::FuncBadParameter(e) => write_locale!(f,
                 "不正なパラメータ ({:?})",
@@ -915,6 +952,10 @@ impl fmt::Display for UErrorMessage {
                 "メンバが見つかりません ({}.{})",
                 "Member not found: {}.{}",
                 name, member
+            ),
+            Self::StructMemberNotFound2(name, index) => write_locale!(f,
+                "{name}に{index}番目のメンバが存在しません",
+                "{name} has no member with index {index}",
             ),
             Self::StructTypeNotValid(name, t) => write_locale!(f,
                 "{}は{}型です",
@@ -1226,6 +1267,10 @@ impl fmt::Display for UErrorMessage {
                 "型が合いません、メンバの型に該当する値を入れてください",
                 "Type missmatch",
             ),
+            Self::UStructStringMemberSizeOverflow(bufsize, strsize) => write_locale!(f,
+                "バッファサイズ({bufsize})より大きいサイズ({strsize})の文字列は代入できません",
+                "You can not assign string value larger than buffersize",
+            ),
         }
     }
 }
@@ -1239,6 +1284,7 @@ pub enum DefinitionType {
     Module,
     Class,
     Struct,
+    DefDll,
     Any
 }
 
@@ -1252,6 +1298,7 @@ impl fmt::Display for DefinitionType {
             Self::Module => write_locale!(f, "モジュール", "Module"),
             Self::Class => write_locale!(f, "クラス", "Class"),
             Self::Struct => write_locale!(f, "構造体", "Struct"),
+            Self::DefDll => write_locale!(f, "Dll関数", "Dll function"),
             Self::Any => write!(f, ""),
         }
     }

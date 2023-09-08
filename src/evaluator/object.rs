@@ -28,17 +28,14 @@ pub use comobject::{ComObject, ComError, ComArg, Unknown, Excel, ExcelOpenFlag, 
 
 use crate::ast::*;
 use crate::evaluator::environment::Layer;
+use crate::evaluator::def_dll::DefDll;
 use crate::evaluator::builtins::{
     BuiltinFunction,
     system_controls::gettime::datetime_str_to_f64,
 };
 use crate::error::evaluator::{UError, UErrorKind, UErrorMessage};
 
-use windows::{
-    Win32::{
-        Foundation::HWND,
-    }
-};
+use windows::Win32::Foundation::HWND;
 
 use std::fmt;
 use std::hash::{Hash, Hasher};
@@ -84,7 +81,7 @@ pub enum Object {
     ExpandableTB(String),
     Enum(UEnum),
     Task(UTask),
-    DefDllFunction(String, String, Vec<DefDllParam>, DllType), // 関数名, dllパス, 引数の型, 戻り値の型
+    DefDllFunction(DefDll),
     StructDef(StructDef), // 構造体定義
     UStruct(UStruct), // 構造体インスタンス
     ComObject(ComObject),
@@ -137,7 +134,7 @@ impl std::fmt::Debug for Object {
             Object::ExpandableTB(arg0) => f.debug_tuple("ExpandableTB").field(arg0).finish(),
             Object::Enum(arg0) => f.debug_tuple("Enum").field(arg0).finish(),
             Object::Task(arg0) => f.debug_tuple("Task").field(arg0).finish(),
-            Object::DefDllFunction(arg0, arg1, arg2, arg3) => f.debug_tuple("DefDllFunction").field(arg0).field(arg1).field(arg2).field(arg3).finish(),
+            Object::DefDllFunction(arg0) => f.debug_tuple("DefDllFunction").field(arg0).finish(),
             Object::StructDef(arg0) => f.debug_tuple("StructDef").field(arg0).finish(),
             Object::UStruct(arg0) => f.debug_tuple("UStruct").field(arg0).finish(),
             Object::BrowserBuilder(arg0) => f.debug_tuple("BrowserBuilder").field(arg0).finish(),
@@ -204,7 +201,7 @@ impl fmt::Display for Object {
                 write!(f, "{}({})", title, params)
             },
             Object::BuiltinFunction(name, _, _) => write!(f, "builtin: {}()", name),
-            Object::Null => write!(f, "NULL"),
+            Object::Null => write!(f, "\0"),
             Object::Empty => write!(f, ""),
             Object::EmptyParam => write!(f, "__EMPTYPARAM__"),
             Object::Nothing => write!(f, "NOTHING"),
@@ -232,7 +229,7 @@ impl fmt::Display for Object {
             Object::ExpandableTB(_) => write!(f, "expandable textblock"),
             Object::Enum(e) => write!(f, "Enum {}", e.name),
             Object::Task(t) => write!(f, "Task [{}]", t),
-            Object::DefDllFunction(name, _, _, _) => write!(f, "def_dll: {}", name),
+            Object::DefDllFunction(defdll) => write!(f, "{defdll}"),
             Object::StructDef(s) => write!(f, "{s}"),
             Object::UStruct(ustruct) => write!(f, "{ustruct}"),
             Object::BrowserBuilder(_) => write!(f, "BrowserBuilder"),
@@ -344,9 +341,7 @@ impl PartialEq for Object {
             Object::ExpandableTB(_) => false,
             Object::Enum(e) => if let Object::Enum(e2) = other {e==e2} else {false},
             Object::Task(_) => false,
-            Object::DefDllFunction(n, p, v, t) => if let Object::DefDllFunction(n2,p2,v2,t2) = other {
-                n==n2 && p==p2 && v==v2 && t==t2
-            } else {false},
+            Object::DefDllFunction(d1) => if let Object::DefDllFunction(d2) = other { d1 == d2 } else {false},
             Object::StructDef(s1) => if let Object::StructDef(s2) = other { s1 == s2 } else {false},
             Object::UStruct(u1) => if let Object::UStruct(u2) = other { u1 == u2 } else {false},
             Object::BrowserBuilder(b) => if let Object::BrowserBuilder(b2) = other {
@@ -429,7 +424,7 @@ impl Object {
             Object::ExpandableTB(_) => ObjectType::TYPE_STRING,
             Object::Enum(_) => ObjectType::TYPE_ENUM,
             Object::Task(_) => ObjectType::TYPE_TASK,
-            Object::DefDllFunction(_,_,_,_) => ObjectType::TYPE_DLL_FUNCTION,
+            Object::DefDllFunction(_) => ObjectType::TYPE_DLL_FUNCTION,
             Object::StructDef(_) => ObjectType::TYPE_STRUCT_DEFINITION,
             Object::UStruct(_) => ObjectType::TYPE_STRUCT_INSTANCE,
             Object::ComObject(_) => ObjectType::TYPE_COM_OBJECT,
@@ -605,6 +600,11 @@ impl Into<Object> for u16 {
         Object::Num(self as f64)
     }
 }
+impl Into<Object> for u8 {
+    fn into(self) -> Object {
+        Object::Num(self as f64)
+    }
+}
 impl Into<Object> for i32 {
     fn into(self) -> Object {
         Object::Num(self as f64)
@@ -616,6 +616,11 @@ impl Into<Object> for i64 {
     }
 }
 impl Into<Object> for u32 {
+    fn into(self) -> Object {
+        Object::Num(self as f64)
+    }
+}
+impl Into<Object> for f32 {
     fn into(self) -> Object {
         Object::Num(self as f64)
     }
@@ -888,7 +893,7 @@ impl Add for Object {
             Object::ExpandableTB(_) |
             Object::Enum(_) |
             Object::Task(_) |
-            Object::DefDllFunction(_, _, _, _) |
+            Object::DefDllFunction(_) |
             Object::StructDef(_) |
             Object::UStruct(_) |
             Object::BrowserBuilder(_) |
@@ -978,7 +983,7 @@ impl Sub for Object {
             Object::ExpandableTB(_) |
             Object::Enum(_) |
             Object::Task(_) |
-            Object::DefDllFunction(_, _, _, _) |
+            Object::DefDllFunction(_) |
             Object::StructDef(_) |
             Object::UStruct(_) |
             Object::BrowserBuilder(_) |
@@ -1105,7 +1110,7 @@ impl Mul for Object {
             Object::ExpandableTB(_) |
             Object::Enum(_) |
             Object::Task(_) |
-            Object::DefDllFunction(_, _, _, _) |
+            Object::DefDllFunction(_) |
             Object::StructDef(_) |
             Object::UStruct(_) |
             Object::BrowserBuilder(_) |
@@ -1214,7 +1219,7 @@ impl Div for Object {
             Object::ExpandableTB(_) |
             Object::Enum(_) |
             Object::Task(_) |
-            Object::DefDllFunction(_, _, _, _) |
+            Object::DefDllFunction(_) |
             Object::StructDef(_) |
             Object::UStruct(_) |
             Object::BrowserBuilder(_) |
@@ -1326,7 +1331,7 @@ impl Rem for Object {
             Object::ExpandableTB(_) |
             Object::Enum(_) |
             Object::Task(_) |
-            Object::DefDllFunction(_, _, _, _) |
+            Object::DefDllFunction(_) |
             Object::StructDef(_) |
             Object::UStruct(_) |
             Object::BrowserBuilder(_) |
@@ -1432,7 +1437,7 @@ impl BitOr for Object {
             Object::ExpandableTB(_) |
             Object::Enum(_) |
             Object::Task(_) |
-            Object::DefDllFunction(_, _, _, _) |
+            Object::DefDllFunction(_) |
             Object::StructDef(_) |
             Object::UStruct(_) |
             Object::BrowserBuilder(_) |
@@ -1537,7 +1542,7 @@ impl BitAnd for Object {
             Object::ExpandableTB(_) |
             Object::Enum(_) |
             Object::Task(_) |
-            Object::DefDllFunction(_, _, _, _) |
+            Object::DefDllFunction(_) |
             Object::StructDef(_) |
             Object::UStruct(_) |
             Object::BrowserBuilder(_) |
@@ -1642,7 +1647,7 @@ impl BitXor for Object {
             Object::ExpandableTB(_) |
             Object::Enum(_) |
             Object::Task(_) |
-            Object::DefDllFunction(_, _, _, _) |
+            Object::DefDllFunction(_) |
             Object::StructDef(_) |
             Object::UStruct(_) |
             Object::BrowserBuilder(_) |
@@ -1705,7 +1710,7 @@ impl PartialEq for MemberCaller {
 
 
 #[allow(non_camel_case_types)]
-#[derive(Debug, EnumVariantNames, Display)]
+#[derive(Debug, EnumVariantNames, Display, Clone, PartialEq)]
 pub enum ObjectType {
     TYPE_NUMBER,
     TYPE_STRING,

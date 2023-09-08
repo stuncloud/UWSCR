@@ -710,6 +710,7 @@ impl Environment {
                 "CR" => Some("\r\n".into()),
                 "TAB" => Some("\t".into()),
                 "DBL" => Some("\"".into()),
+                "NULL" => Some("\0".into()),
                 text =>  self.get_variable(text, false).map(|o| format!("{}", o).into()),
             };
             new_string = rep_to.map_or(new_string.clone(), |to| new_string.replace(format!("<#{}>", expandable).as_str(), to.as_ref()));

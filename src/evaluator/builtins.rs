@@ -29,7 +29,7 @@ use crate::evaluator::object::{
     UTask
 };
 use crate::evaluator::Evaluator;
-use crate::evaluator::object::{UObject,Fopen,Function,browser::{RemoteObject, TabWindow}, ObjectType, ComObject};
+use crate::evaluator::object::{UObject,Fopen,Function,browser::{RemoteObject, TabWindow}, ObjectType, ComObject, StructDef};
 use crate::evaluator::environment::NamedObject;
 use crate::evaluator::builtins::key_codes::{SCKeyCode};
 use crate::error::evaluator::{UError,UErrorKind,UErrorMessage};
@@ -687,6 +687,15 @@ impl BuiltinFuncArgs {
         })
     }
 
+    fn get_as_structdef(&self, i: usize) -> BuiltInResult<StructDef> {
+        self.get_arg(i, |obj| {
+            match obj {
+                Object::StructDef(sdef) => Ok(sdef),
+                o => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(o))),
+            }
+        })
+    }
+
 }
 
 pub enum TwoTypeArg<T, U> {
@@ -872,20 +881,6 @@ pub fn set_builtin_str_consts<E: VariantNames>(vec: &mut Vec<NamedObject>, prefi
     }
 }
 
-fn builtin_func_sets() -> BuiltinFunctionSets {
-    let mut sets = BuiltinFunctionSets::new();
-    sets.add("eval", 1, builtin_eval);
-    sets.add("list_env", 0, list_env);
-    sets.add("list_module_member", 1, list_module_member);
-    sets.add("name_of", 1, name_of);
-    sets.add("assert_equal", 2, assert_equal);
-    sets.add("raise", 2, raise);
-    sets.add("type_of", 2, type_of);
-    sets.add("get_settings", 0, get_settings);
-    sets.add("__p_a_n_i_c__", 1, panic);
-    sets
-}
-
 fn set_special_variables(vec: &mut Vec<NamedObject>) {
     // 特殊変数
     vec.push(NamedObject::new_builtin_const("GET_UWSC_PRO".into(), Object::Empty));
@@ -950,6 +945,23 @@ fn set_special_variables(vec: &mut Vec<NamedObject>) {
     vec.push(NamedObject::new_builtin_const("G_SCREEN_C".into(), Object::DynamicVar(
         || Object::Num(get_color_depth() as f64)
     )));
+}
+
+
+/// 特殊ビルトイン関数をセット
+fn builtin_func_sets() -> BuiltinFunctionSets {
+    let mut sets = BuiltinFunctionSets::new();
+    sets.add("eval", 1, builtin_eval);
+    sets.add("list_env", 0, list_env);
+    sets.add("list_module_member", 1, list_module_member);
+    sets.add("name_of", 1, name_of);
+    sets.add("assert_equal", 2, assert_equal);
+    sets.add("raise", 2, raise);
+    sets.add("type_of", 2, type_of);
+    sets.add("get_settings", 0, get_settings);
+    sets.add("__p_a_n_i_c__", 1, panic);
+    sets.add("get_struct_layout", 1, get_struct_layout);
+    sets
 }
 
 // 特殊ビルトイン関数の実体
@@ -1020,3 +1032,8 @@ pub fn assert_equal(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResu
     }
 }
 
+pub fn get_struct_layout(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let sdef = args.get_as_structdef(0)?;
+    let layout = sdef.layout(None);
+    Ok(layout.into())
+}

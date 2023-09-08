@@ -40,7 +40,7 @@ use windows::{
     }
 };
 
-use crate::{evaluator::{Object, Evaluator, EvalResult, Function}};
+use crate::evaluator::{Object, Evaluator, EvalResult, Function};
 use crate::ast::{Expression, Identifier};
 use crate::error::evaluator::{UError, UErrorKind, UErrorMessage};
 use crate::winapi::WString;
@@ -85,7 +85,7 @@ impl ComError {
             ComError::UError(_) => false,
         }
     }
-    fn as_hresult(&self) -> HRESULT {
+    fn _as_hresult(&self) -> HRESULT {
         match self {
             ComError::WindowsError { message: _, code, description: _ } => {
                 HRESULT(*code)
@@ -1417,6 +1417,7 @@ impl EventDisp {
         Self { evaluator, func, memid }
     }
 }
+#[allow(non_snake_case)]
 impl IDispatch_Impl for EventDisp {
     fn GetTypeInfoCount(&self) ->  ::windows::core::Result<u32> {
         unimplemented!()

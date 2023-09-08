@@ -18,11 +18,7 @@ use crate::lexer::Lexer;
 use crate::logging::{out_log, LogType};
 use crate::settings::*;
 use crate::winapi::{attach_console,free_console,show_message,FORCE_WINDOW_MODE};
-use windows::{
-    Win32::{
-        Foundation::{HWND},
-    },
-};
+use windows::Win32::Foundation::HWND;
 
 use std::borrow::Cow;
 use std::env;
@@ -37,7 +33,6 @@ use std::ops::{Add, Sub, Mul, Div, Rem, BitOr, BitAnd, BitXor};
 use num_traits::FromPrimitive;
 use regex::Regex;
 use serde_json;
-use libffi::middle::{Cif, CodePtr, Type};
 use once_cell::sync::OnceCell;
 use serde_json::Value;
 
@@ -298,15 +293,19 @@ impl Evaluator {
     }
 
     fn eval_print_statement(&mut self, expression: Expression) -> EvalResult<Option<Object>> {
-        let obj = self.eval_expression(expression)?;
-        out_log(&format!("{}", obj), LogType::Print);
+        let msg = match self.eval_expression(expression)? {
+            Object::Null => "NULL".to_string(),
+            obj => obj.to_string()
+        };
+
+        out_log(&msg, LogType::Print);
         if let Some(lp) = LOGPRINTWIN.get() {
-            lp.lock().unwrap().print(obj.to_string());
+            lp.lock().unwrap().print(msg.to_string());
         }
         if ! *FORCE_WINDOW_MODE.get().unwrap_or(&false) {
             let out = stdout();
             let mut out = BufWriter::new(out.lock());
-            writeln!(out, "{}", obj)?;
+            writeln!(out, "{}", msg)?;
         }
         Ok(None)
     }
@@ -460,13 +459,14 @@ impl Evaluator {
                 result
             },
             Statement::DefDll{name, params, ret_type, path} => {
-                let func = self.eval_def_dll_statement(&name, &path, params, ret_type)?;
-                self.env.define_dll_function(&name, func)?;
+                let defdll = DefDll::new(name.clone(), path, params, ret_type)?;
+                self.env.define_dll_function(&name, Object::DefDllFunction(defdll))?;
                 Ok(None)
             },
             Statement::Struct(identifier, members) => {
                 let name = identifier.0;
-                let sdef = StructDef::new(name.clone(), members, self)?;
+                let memberdef = ustruct::MemberDefVec::new(members, self)?;
+                let sdef = StructDef::new(name.clone(), memberdef);
                 self.env.define_struct(&name, Object::StructDef(sdef))?;
                 Ok(None)
             }
@@ -847,47 +847,6 @@ impl Evaluator {
         }
     }
 
-    fn eval_def_dll_statement(&mut self, name: &str, dll_path: &str, params: Vec<DefDllParam>, ret_type: DllType) -> EvalResult<Object> {
-        Ok(Object::DefDllFunction(name.into(), dll_path.into(), params, ret_type))
-    }
-
-    // fn hoge_new_ustruct(&self, name: &str, size: usize, members: Vec<(String, DllType)>, address: Option<usize>) -> EvalResult<Object> {
-    //     let mut ustruct = UStruct::new(&name);
-    //     for (n, t) in members {
-    //         let o = match &t {
-    //             DllType::String |
-    //             DllType::Wstring |
-    //             DllType::Pchar |
-    //             DllType::PWchar => Object::Null,
-    //             DllType::Unknown(s) => {
-    //                 match self.env.get_struct(s) {
-    //                     Some(o) => match o {
-    //                         Object::Struct(name, size, members) => {
-    //                             let o = self.new_ustruct(&name, size, members, None)?;
-    //                             ustruct.add_struct(n, o, t);
-    //                             continue;
-    //                         },
-    //                         _ => return Err(UError::new(
-    //                             UErrorKind::StructDefError,
-    //                             UErrorMessage::IsNotStruct(s.to_string()),
-    //                         )),
-    //                     },
-    //                     None => return Err(UError::new(
-    //                         UErrorKind::StructDefError,
-    //                         UErrorMessage::StructNotDefined(s.to_string())
-    //                     ))
-    //                 }
-    //             },
-    //             _ => Object::Num(0.0)
-    //         };
-    //         ustruct.add(n, o, t)?;
-    //     }
-    //     if address.is_some() {
-    //         ustruct.from_pointer(address.unwrap(), false);
-    //     }
-    //     Ok(Object::UStruct(name.to_string(), size, Arc::new(Mutex::new(ustruct))))
-    // }
-
     fn eval_module_statement(&mut self, module_name: &String, block: BlockStatement) -> EvalResult<Arc<Mutex<Module>>> {
         self.env.new_scope();
         let mut module = Module::new(module_name.to_string());
@@ -995,8 +954,8 @@ impl Evaluator {
                     );
                 },
                 Statement::DefDll { name, params, ret_type, path } => {
-                    let dllfunc = self.eval_def_dll_statement(&name, &path, params, ret_type)?;
-                    module.add(name, dllfunc, ContainerType::Function);
+                    let defdll = DefDll::new(name.clone(), path, params, ret_type)?;
+                    module.add(name, Object::DefDllFunction(defdll), ContainerType::Function);
                 },
                 _ => {
                     let mut err = UError::new(
@@ -1927,10 +1886,7 @@ impl Evaluator {
             },
             Object::UStruct(ust) => {
                 if let Expression::Identifier(Identifier(name)) = expr_member {
-                    ust.set(&name, new)?;
-                    /*
-                        文字列バッファを持たせるとしたらUStructそのものを更新しないといけないよね？
-                    */
+                    ust.set_by_name(&name, new)?;
                 } else {
                     return Err(UError::new(
                         UErrorKind::UStructError,
@@ -2049,6 +2005,7 @@ impl Evaluator {
                 "CR" => Some("\r\n".into()),
                 "TAB" => Some("\t".into()),
                 "DBL" => Some("\"".into()),
+                "NULL" => Some("\0".into()),
                 name => if expand_var {
                     if let Some(outer) = maybe_outer {
                         self.env.get_from_reference(name, outer)
@@ -2278,8 +2235,8 @@ impl Evaluator {
                         ))
                     }
                 },
-                Object::DefDllFunction(name, dll_path, params, ret_type) => {
-                    self.invoke_def_dll_function(name, dll_path, params, ret_type, arguments)
+                Object::DefDllFunction(defdll) => {
+                    defdll.invoke(arguments, self)
                 },
                 Object::ComObject(com) => {
                     let index = arguments.into_iter().map(|(_, o)| o).collect();
@@ -2343,7 +2300,7 @@ impl Evaluator {
                             Err(UError::new(UErrorKind::DotOperatorError, UErrorMessage::None))
                         },
                         MemberCaller::UStruct(ust) => {
-                            ust.invoke_method(&member)
+                            ust.invoke_method(&member, args)
                         }
                     }
                 },
@@ -2356,317 +2313,285 @@ impl Evaluator {
 
     }
 
-    fn invoke_def_dll_function(&mut self, name: String, dll_path: String, params: Vec<DefDllParam>, ret_type: DllType, arguments: Vec<(Option<Expression>, Object)>) -> EvalResult<Object> {
-        // dllを開く
-        let lib = dlopen::raw::Library::open(&dll_path)?;
-        unsafe {
-            // 関数のシンボルを得る
-            let f: *const c_void = lib.symbol(&name)?;
-            // cifで使う
-            let mut arg_types = vec![];
-            let mut args = vec![];
-            // 渡された引数のインデックス
-            let mut i = 0;
-            // 引数の実の値を保持するリスト
-            let mut dll_args: Vec<DllArg> = vec![];
-            // varされた場合に値を返す変数のリスト
-            let mut var_list: Vec<(String, usize)> = vec![];
+    // fn invoke_def_dll_function(&mut self, name: String, dll_path: String, params: Vec<DefDllParam>, ret_type: DllType, arguments: Vec<(Option<Expression>, Object)>) -> EvalResult<Object> {
+    //     // dllを開く
+    //     let lib = dlopen::raw::Library::open(&dll_path)?;
+    //     unsafe {
+    //         // 関数のシンボルを得る
+    //         let f: *const c_void = lib.symbol(&name)?;
+    //         // cifで使う
+    //         let mut arg_types = vec![];
+    //         let mut args = vec![];
+    //         // 渡された引数のインデックス
+    //         let mut i = 0;
+    //         // 引数の実の値を保持するリスト
+    //         let mut dll_args: Vec<DllArg> = vec![];
+    //         // varされた場合に値を返す変数のリスト
+    //         let mut var_list: Vec<(String, usize)> = vec![];
 
-            for param in params {
-                match param {
-                    DefDllParam::Param {dll_type, is_var, is_array} => {
-                        let (arg_exp, obj) = match arguments.get(i) {
-                            Some((a, o)) => (a, o),
-                            None => return Err(UError::new(
-                                UErrorKind::DllFuncError,
-                                UErrorMessage::DllMissingArgument(dll_type, i + 1),
-                            ))
-                        };
-                        // 引数が変数なら変数名を得ておく
-                        let arg_name = if let Some(Expression::Identifier(Identifier(ref name))) = arg_exp {
-                            Some(name.to_string())
-                        } else {
-                            None
-                        };
+    //         for param in params {
+    //             match param {
+    //                 DefDllParam::Param {dll_type, is_var, is_array} => {
+    //                     let (arg_exp, obj) = match arguments.get(i) {
+    //                         Some((a, o)) => (a, o),
+    //                         None => return Err(UError::new(
+    //                             UErrorKind::DllFuncError,
+    //                             UErrorMessage::DllMissingArgument(dll_type, i + 1),
+    //                         ))
+    //                     };
+    //                     // 引数が変数なら変数名を得ておく
+    //                     let arg_name = if let Some(Expression::Identifier(Identifier(ref name))) = arg_exp {
+    //                         Some(name.to_string())
+    //                     } else {
+    //                         None
+    //                     };
 
-                        if is_array {
-                            match obj {
-                                Object::Array(_) => {
-                                    let arr_arg = match DllArg::new_array(obj, &dll_type) {
-                                        Ok(a) => a,
-                                        Err(_) => return Err(UError::new(
-                                            UErrorKind::DllFuncError,
-                                            UErrorMessage::DllArrayHasInvalidType(dll_type, i + 1),
-                                        ))
-                                    };
+    //                     if is_array {
+    //                         match obj {
+    //                             Object::Array(_) => {
+    //                                 let arr_arg = match DllArg::new_array(obj, &dll_type) {
+    //                                     Ok(a) => a,
+    //                                     Err(_) => return Err(UError::new(
+    //                                         UErrorKind::DllFuncError,
+    //                                         UErrorMessage::DllArrayHasInvalidType(dll_type, i + 1),
+    //                                     ))
+    //                                 };
 
-                                    dll_args.push(arr_arg);
-                                    arg_types.push(Type::pointer());
-                                    // 配列はvarの有無に関係なく値を更新する
-                                    if arg_name.is_some() {
-                                        var_list.push((arg_name.unwrap(), i));
-                                    }
-                                },
-                                _ => return Err(UError::new(
-                                    UErrorKind::DllFuncError,
-                                    UErrorMessage::DllArgumentIsNotArray(dll_type, i + 1)
-                                ))
-                            }
-                        } else {
-                            let t = Self::convert_to_libffi_type(&dll_type)?;
-                            let dllarg = match DllArg::new(obj, &dll_type) {
-                                Ok(a) => a,
-                                Err(e) => return Err(UError::new(
-                                    UErrorKind::DllFuncError,
-                                    UErrorMessage::DllConversionError(dll_type, i + 1, e)
-                                ))
-                            };
-                            match dllarg {
-                                // null文字列の場合はvoid型にしておく
-                                DllArg::Null => arg_types.push(Type::void()),
-                                _ => arg_types.push(t)
-                            }
-                            dll_args.push(dllarg);
-                            if is_var && arg_name.is_some() {
-                                // var/ref が付いていれば後に値を更新
-                                var_list.push((arg_name.unwrap(), dll_args.len() - 1));
-                            }
-                        }
-                        i += 1;
-                    },
-                    DefDllParam::Struct(params) => {
-                        let mut struct_size: usize = 0;
-                        let mut members: Vec<(Option<String>, usize, DllArg)> = vec![];
-                        // let mut struct_args: Vec<DllArg> = vec![];
-                        for param in params {
-                            match param {
-                                DefDllParam::Param {dll_type, is_var: _, is_array} => {
-                                    let (arg_exp, obj) = match arguments.get(i) {
-                                        Some((a, o)) => (a, o),
-                                        None => return Err(UError::new(
-                                            UErrorKind::DllFuncError,
-                                            UErrorMessage::DllMissingArgument(dll_type, i + 1)
-                                        ))
-                                    };
-                                    // 引数が変数なら変数名を得ておく
-                                    let arg_name = if let Some(Expression::Identifier(Identifier(ref name))) = arg_exp {
-                                        Some(name.to_string())
-                                    } else {
-                                        None
-                                    };
+    //                                 dll_args.push(arr_arg);
+    //                                 arg_types.push(Type::pointer());
+    //                                 // 配列はvarの有無に関係なく値を更新する
+    //                                 if arg_name.is_some() {
+    //                                     var_list.push((arg_name.unwrap(), i));
+    //                                 }
+    //                             },
+    //                             _ => return Err(UError::new(
+    //                                 UErrorKind::DllFuncError,
+    //                                 UErrorMessage::DllArgumentIsNotArray(dll_type, i + 1)
+    //                             ))
+    //                         }
+    //                     } else {
+    //                         let t = Self::convert_to_libffi_type(&dll_type)?;
+    //                         let dllarg = match DllArg::new(obj, &dll_type) {
+    //                             Ok(a) => a,
+    //                             Err(e) => return Err(UError::new(
+    //                                 UErrorKind::DllFuncError,
+    //                                 UErrorMessage::DllConversionError(dll_type, i + 1, e)
+    //                             ))
+    //                         };
+    //                         match dllarg {
+    //                             // null文字列の場合はvoid型にしておく
+    //                             DllArg::Null => arg_types.push(Type::void()),
+    //                             _ => arg_types.push(t)
+    //                         }
+    //                         dll_args.push(dllarg);
+    //                         if is_var && arg_name.is_some() {
+    //                             // var/ref が付いていれば後に値を更新
+    //                             var_list.push((arg_name.unwrap(), dll_args.len() - 1));
+    //                         }
+    //                     }
+    //                     i += 1;
+    //                 },
+    //                 DefDllParam::Struct(params) => {
+    //                     let mut struct_size: usize = 0;
+    //                     let mut members: Vec<(Option<String>, usize, DllArg)> = vec![];
+    //                     // let mut struct_args: Vec<DllArg> = vec![];
+    //                     for param in params {
+    //                         match param {
+    //                             DefDllParam::Param {dll_type, is_var: _, is_array} => {
+    //                                 let (arg_exp, obj) = match arguments.get(i) {
+    //                                     Some((a, o)) => (a, o),
+    //                                     None => return Err(UError::new(
+    //                                         UErrorKind::DllFuncError,
+    //                                         UErrorMessage::DllMissingArgument(dll_type, i + 1)
+    //                                     ))
+    //                                 };
+    //                                 // 引数が変数なら変数名を得ておく
+    //                                 let arg_name = if let Some(Expression::Identifier(Identifier(ref name))) = arg_exp {
+    //                                     Some(name.to_string())
+    //                                 } else {
+    //                                     None
+    //                                 };
 
-                                    let arg = if is_array {
-                                        match DllArg::new_array(obj, &dll_type) {
-                                            Ok(a) => a,
-                                            Err(_) => return Err(UError::new(
-                                                UErrorKind::DllFuncError,
-                                                UErrorMessage::DllArrayHasInvalidType(dll_type, i + 1)
-                                            ))
-                                        }
-                                    } else {
-                                        match DllArg::new(obj, &dll_type) {
-                                            Ok(a) => a,
-                                            Err(e) => return Err(UError::new(
-                                                UErrorKind::DllFuncError,
-                                                UErrorMessage::DllArgumentTypeUnexpected(dll_type, i + 1, e)
-                                            ))
-                                        }
-                                    };
-                                    let size = arg.size();
-                                    // struct_args.push(arg);
-                                    members.push((arg_name, struct_size, arg));
-                                    struct_size += size;
-                                    i += 1;
-                                },
-                                DefDllParam::Struct(_) => return Err(UError::new(
-                                    UErrorKind::DllFuncError,
-                                    UErrorMessage::DllNestedStruct
-                                )),
-                            }
-                        }
-                        let structure = new_dll_structure(struct_size);
-                        for (_, offset, arg) in &members {
-                            match arg {
-                                DllArg::Int(v) => set_value_to_structure(structure, *offset, *v),
-                                DllArg::Uint(v) => set_value_to_structure(structure, *offset, *v),
-                                DllArg::Hwnd(v) => set_value_to_structure(structure, *offset, *v),
-                                DllArg::Float(v) => set_value_to_structure(structure, *offset, *v),
-                                DllArg::Double(v) => set_value_to_structure(structure, *offset, *v),
-                                DllArg::Word(v) => set_value_to_structure(structure, *offset, *v),
-                                DllArg::Byte(v) => set_value_to_structure(structure, *offset, *v),
-                                DllArg::LongLong(v) => set_value_to_structure(structure, *offset, *v),
-                                DllArg::IntArray(v) => {
-                                    let p = *v.as_ptr() as usize;
-                                    set_value_to_structure(structure, *offset, p);
-                                },
-                                DllArg::UintArray(v) => {
-                                    let p = *v.as_ptr() as usize;
-                                    set_value_to_structure(structure, *offset, p);
-                                },
-                                DllArg::HwndArray(v) => {
-                                    let p = *v.as_ptr() as usize;
-                                    set_value_to_structure(structure, *offset, p);
-                                },
-                                DllArg::FloatArray(v) => {
-                                    let p = *v.as_ptr() as usize;
-                                    set_value_to_structure(structure, *offset, p);
-                                },
-                                DllArg::DoubleArray(v) => {
-                                    let p = *v.as_ptr() as usize;
-                                    set_value_to_structure(structure, *offset, p);
-                                },
-                                DllArg::WordArray(v) => {
-                                    let p = *v.as_ptr() as usize;
-                                    set_value_to_structure(structure, *offset, p);
-                                },
-                                DllArg::ByteArray(v) => {
-                                    let p = *v.as_ptr() as usize;
-                                    set_value_to_structure(structure, *offset, p);
-                                },
-                                DllArg::LongLongArray(v) => {
-                                    let p = *v.as_ptr() as usize;
-                                    set_value_to_structure(structure, *offset, p);
-                                },
-                                DllArg::String(v, _) => {
-                                    let p = *v.as_ptr() as usize;
-                                    set_value_to_structure(structure, *offset, p);
-                                },
-                                DllArg::WString(v, _) => {
-                                    let p = *v.as_ptr() as usize;
-                                    set_value_to_structure(structure, *offset, p);
-                                },
-                                DllArg::Pointer(v) => set_value_to_structure(structure, *offset, v),
-                                _ => return Err(UError::new(
-                                    UErrorKind::DllFuncError,
-                                    UErrorMessage::DllArgNotAllowedInStruct
-                                )),
-                            }
-                        }
-                        dll_args.push(DllArg::Struct(structure, members));
-                        arg_types.push(Type::pointer());
-                        var_list.push(("".into(), dll_args.len() -1));
-                    },
-                }
-            }
+    //                                 let arg = if is_array {
+    //                                     match DllArg::new_array(obj, &dll_type) {
+    //                                         Ok(a) => a,
+    //                                         Err(_) => return Err(UError::new(
+    //                                             UErrorKind::DllFuncError,
+    //                                             UErrorMessage::DllArrayHasInvalidType(dll_type, i + 1)
+    //                                         ))
+    //                                     }
+    //                                 } else {
+    //                                     match DllArg::new(obj, &dll_type) {
+    //                                         Ok(a) => a,
+    //                                         Err(e) => return Err(UError::new(
+    //                                             UErrorKind::DllFuncError,
+    //                                             UErrorMessage::DllArgumentTypeUnexpected(dll_type, i + 1, e)
+    //                                         ))
+    //                                     }
+    //                                 };
+    //                                 let size = arg.size();
+    //                                 // struct_args.push(arg);
+    //                                 members.push((arg_name, struct_size, arg));
+    //                                 struct_size += size;
+    //                                 i += 1;
+    //                             },
+    //                             DefDllParam::Struct(_) => return Err(UError::new(
+    //                                 UErrorKind::DllFuncError,
+    //                                 UErrorMessage::DllNestedStruct
+    //                             )),
+    //                         }
+    //                     }
+    //                     let structure = new_dll_structure(struct_size);
+    //                     for (_, offset, arg) in &members {
+    //                         match arg {
+    //                             DllArg::Int(v) => set_value_to_structure(structure, *offset, *v),
+    //                             DllArg::Uint(v) => set_value_to_structure(structure, *offset, *v),
+    //                             DllArg::Hwnd(v) => set_value_to_structure(structure, *offset, *v),
+    //                             DllArg::Float(v) => set_value_to_structure(structure, *offset, *v),
+    //                             DllArg::Double(v) => set_value_to_structure(structure, *offset, *v),
+    //                             DllArg::Word(v) => set_value_to_structure(structure, *offset, *v),
+    //                             DllArg::Byte(v) => set_value_to_structure(structure, *offset, *v),
+    //                             DllArg::LongLong(v) => set_value_to_structure(structure, *offset, *v),
+    //                             DllArg::IntArray(v) => {
+    //                                 let p = *v.as_ptr() as usize;
+    //                                 set_value_to_structure(structure, *offset, p);
+    //                             },
+    //                             DllArg::UintArray(v) => {
+    //                                 let p = *v.as_ptr() as usize;
+    //                                 set_value_to_structure(structure, *offset, p);
+    //                             },
+    //                             DllArg::HwndArray(v) => {
+    //                                 let p = *v.as_ptr() as usize;
+    //                                 set_value_to_structure(structure, *offset, p);
+    //                             },
+    //                             DllArg::FloatArray(v) => {
+    //                                 let p = *v.as_ptr() as usize;
+    //                                 set_value_to_structure(structure, *offset, p);
+    //                             },
+    //                             DllArg::DoubleArray(v) => {
+    //                                 let p = *v.as_ptr() as usize;
+    //                                 set_value_to_structure(structure, *offset, p);
+    //                             },
+    //                             DllArg::WordArray(v) => {
+    //                                 let p = *v.as_ptr() as usize;
+    //                                 set_value_to_structure(structure, *offset, p);
+    //                             },
+    //                             DllArg::ByteArray(v) => {
+    //                                 let p = *v.as_ptr() as usize;
+    //                                 set_value_to_structure(structure, *offset, p);
+    //                             },
+    //                             DllArg::LongLongArray(v) => {
+    //                                 let p = *v.as_ptr() as usize;
+    //                                 set_value_to_structure(structure, *offset, p);
+    //                             },
+    //                             DllArg::String(v, _) => {
+    //                                 let p = *v.as_ptr() as usize;
+    //                                 set_value_to_structure(structure, *offset, p);
+    //                             },
+    //                             DllArg::WString(v, _) => {
+    //                                 let p = *v.as_ptr() as usize;
+    //                                 set_value_to_structure(structure, *offset, p);
+    //                             },
+    //                             DllArg::Pointer(v) => set_value_to_structure(structure, *offset, v),
+    //                             _ => return Err(UError::new(
+    //                                 UErrorKind::DllFuncError,
+    //                                 UErrorMessage::DllArgNotAllowedInStruct
+    //                             )),
+    //                         }
+    //                     }
+    //                     dll_args.push(DllArg::Struct(structure, members));
+    //                     arg_types.push(Type::pointer());
+    //                     var_list.push(("".into(), dll_args.len() -1));
+    //                 },
+    //             }
+    //         }
 
-            for dll_arg in &dll_args {
-                args.push(dll_arg.to_arg());
-            }
+    //         for dll_arg in &dll_args {
+    //             args.push(dll_arg.to_arg());
+    //         }
 
-            let cif = Cif::new(arg_types.into_iter(), Self::convert_to_libffi_type(&ret_type)?);
+    //         let cif = Cif::new(arg_types.into_iter(), Self::convert_to_libffi_type(&ret_type)?);
 
-            // 関数実行
-            let result = match ret_type {
-                DllType::Int |
-                DllType::Long |
-                DllType::Bool => {
-                    let result = cif.call::<i32>(CodePtr::from_ptr(f), &args);
-                    Object::Num(result as f64)
-                },
-                DllType::Uint |
-                DllType::Dword => {
-                    let result = cif.call::<u32>(CodePtr::from_ptr(f), &args);
-                    Object::Num(result as f64)
-                },
-                DllType::Hwnd => {
-                    let result = cif.call::<isize>(CodePtr::from_ptr(f), &args);
-                    Object::Num(result as f64)
-                },
-                DllType::Float => {
-                    let result = cif.call::<f32>(CodePtr::from_ptr(f), &args);
-                    Object::Num(result as f64)
-                },
-                DllType::Double => {
-                    let result = cif.call::<f64>(CodePtr::from_ptr(f), &args);
-                    Object::Num(result as f64)
-                },
-                DllType::Word => {
-                    let result = cif.call::<u16>(CodePtr::from_ptr(f), &args);
-                    Object::Num(result as f64)
-                },
-                DllType::Byte |
-                DllType::Char |
-                DllType::Boolean => {
-                    let result = cif.call::<u8>(CodePtr::from_ptr(f), &args);
-                    Object::Num(result as f64)
-                },
-                DllType::Longlong => {
-                    let result = cif.call::<i64>(CodePtr::from_ptr(f), &args);
-                    Object::Num(result as f64)
-                },
-                DllType::Pointer => {
-                    let result = cif.call::<usize>(CodePtr::from_ptr(f), &args);
-                    Object::Num(result as f64)
-                },
-                DllType::Void => {
-                    cif.call::<*mut c_void>(CodePtr::from_ptr(f), &args);
-                    Object::Empty
-                }
-                _ =>  {
-                    let result = cif.call::<*mut c_void>(CodePtr::from_ptr(f), &args);
-                    println!("[warning] {} is not fully supported for return type.", ret_type);
-                    Object::Num(result as isize as f64)
-                }
-            };
+    //         // 関数実行
+    //         let result = match ret_type {
+    //             DllType::Int |
+    //             DllType::Long |
+    //             DllType::Bool => {
+    //                 let result = cif.call::<i32>(CodePtr::from_ptr(f), &args);
+    //                 Object::Num(result as f64)
+    //             },
+    //             DllType::Uint |
+    //             DllType::Dword => {
+    //                 let result = cif.call::<u32>(CodePtr::from_ptr(f), &args);
+    //                 Object::Num(result as f64)
+    //             },
+    //             DllType::Hwnd => {
+    //                 let result = cif.call::<isize>(CodePtr::from_ptr(f), &args);
+    //                 Object::Num(result as f64)
+    //             },
+    //             DllType::Float => {
+    //                 let result = cif.call::<f32>(CodePtr::from_ptr(f), &args);
+    //                 Object::Num(result as f64)
+    //             },
+    //             DllType::Double => {
+    //                 let result = cif.call::<f64>(CodePtr::from_ptr(f), &args);
+    //                 Object::Num(result as f64)
+    //             },
+    //             DllType::Word => {
+    //                 let result = cif.call::<u16>(CodePtr::from_ptr(f), &args);
+    //                 Object::Num(result as f64)
+    //             },
+    //             DllType::Byte |
+    //             DllType::Char |
+    //             DllType::Boolean => {
+    //                 let result = cif.call::<u8>(CodePtr::from_ptr(f), &args);
+    //                 Object::Num(result as f64)
+    //             },
+    //             DllType::Longlong => {
+    //                 let result = cif.call::<i64>(CodePtr::from_ptr(f), &args);
+    //                 Object::Num(result as f64)
+    //             },
+    //             DllType::Pointer => {
+    //                 let result = cif.call::<usize>(CodePtr::from_ptr(f), &args);
+    //                 Object::Num(result as f64)
+    //             },
+    //             DllType::Void => {
+    //                 cif.call::<*mut c_void>(CodePtr::from_ptr(f), &args);
+    //                 Object::Empty
+    //             }
+    //             _ =>  {
+    //                 let result = cif.call::<*mut c_void>(CodePtr::from_ptr(f), &args);
+    //                 println!("[warning] {} is not fully supported for return type.", ret_type);
+    //                 Object::Num(result as isize as f64)
+    //             }
+    //         };
 
-            // varの処理
-            for (name, index) in var_list {
-                let arg = &dll_args[index];
-                match arg {
-                    DllArg::Struct(p, m) => {
-                        for (name, offset, arg) in m {
-                            if let Some(name) = name {
-                                let obj = get_value_from_structure(*p, *offset, arg);
-                                self.env.assign(name, obj)?;
-                            }
-                        }
-                        free_dll_structure(*p);
-                    },
-                    DllArg::UStruct(_) => {
-                    },
-                    _ => {
-                        let obj = arg.to_object();
-                        self.env.assign(&name, obj)?;
-                    },
-                }
-            }
+    //         // varの処理
+    //         for (name, index) in var_list {
+    //             let arg = &dll_args[index];
+    //             match arg {
+    //                 DllArg::Struct(p, m) => {
+    //                     for (name, offset, arg) in m {
+    //                         if let Some(name) = name {
+    //                             let obj = get_value_from_structure(*p, *offset, arg);
+    //                             self.env.assign(name, obj)?;
+    //                         }
+    //                     }
+    //                     free_dll_structure(*p);
+    //                 },
+    //                 DllArg::UStruct(_) => {
+    //                 },
+    //                 _ => {
+    //                     let obj = arg.to_object();
+    //                     self.env.assign(&name, obj)?;
+    //                 },
+    //             }
+    //         }
 
-            Ok(result)
-        }
-    }
+    //         Ok(result)
+    //     }
+    // }
 
-    fn convert_to_libffi_type(dll_type: &DllType) -> EvalResult<Type> {
-        let t = match dll_type {
-            DllType::Int |
-            DllType::Long |
-            DllType::Bool => Type::i32(),
-            DllType::Uint => Type::u32(),
-            DllType::Hwnd => Type::isize(),
-            DllType::String |
-            DllType::Wstring => Type::pointer(),
-            DllType::Float => Type::f32(),
-            DllType::Double => Type::f64(),
-            DllType::Word => Type::u16(),
-            DllType::Dword => Type::u32(),
-            DllType::Byte => Type::u8(),
-            DllType::Char => Type::u8(),
-            DllType::Pchar => Type::pointer(), // pointer to char
-            DllType::Wchar => Type::u16(), // utf-16
-            DllType::PWchar => Type::pointer(), // pointer to wchar
-            DllType::Boolean => Type::u8(),
-            DllType::Longlong => Type::i64(),
-            DllType::SafeArray => Type::pointer(),
-            DllType::Void => Type::void(),
-            DllType::Pointer => Type::usize(),
-            DllType::Struct => Type::pointer(),
-            DllType::CallBack => Type::pointer(),
-            DllType::Unknown(u) => return Err(UError::new(
-                UErrorKind::DllFuncError,
-                UErrorMessage::DllUnknownType(u.to_string())
-            )),
-        };
-        Ok(t)
-    }
 
     fn eval_ternary_expression(&mut self, condition: Expression, consequence: Expression, alternative: Expression) -> EvalResult<Object> {
         let condition = self.eval_expression(condition)?;
@@ -2754,7 +2679,7 @@ impl Evaluator {
                 if is_func {
                     Ok(Object::MemberCaller(MemberCaller::UStruct(ust), member))
                 } else {
-                    ust.get(&member)
+                    ust.get_by_name(&member)
                 }
             },
             Object::ComObject(com) => {

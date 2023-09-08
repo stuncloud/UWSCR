@@ -587,16 +587,49 @@ impl fmt::Display for FuncParam {
 pub enum DefDllParam {
     Param {
         dll_type: DllType,
-        is_var: bool,
-        is_array: bool,
+        is_ref: bool,
+        size: Option<usize>,
     },
     /// `{}`定義された構造体
     Struct(Vec<DefDllParam>),
 }
-
+impl std::fmt::Display for DefDllParam {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            DefDllParam::Param { dll_type, is_ref, size } => {
+                match (is_ref, size) {
+                    (true, Some(n)) => write!(f, "var {dll_type}[{n}]"),
+                    (true, None) => write!(f, "var {dll_type}"),
+                    (false, Some(n)) => write!(f, "{dll_type}[{n}]"),
+                    (false, None) => write!(f, "{dll_type}"),
+                }
+            },
+            DefDllParam::Struct(v) => {
+                let s = v.iter()
+                    .map(|d| d.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                write!(f, "{{{s}}}")
+            },
+        }
+    }
+}
+impl DefDllParam {
+    pub fn len(&self) -> usize {
+        match self {
+            DefDllParam::Param { dll_type:_, is_ref:_, size:_ } => 1,
+            DefDllParam::Struct(params) => {
+                params.iter()
+                    .map(|p| p.len())
+                    .reduce(|a,b| a + b)
+                    .unwrap_or_default()
+            },
+        }
+    }
+}
 
 impl FromStr for DllType {
-    type Err = std::string::ParseError;
+    type Err = String;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let t = match s.to_ascii_lowercase().as_str() {
             "int" => DllType::Int,
@@ -604,6 +637,7 @@ impl FromStr for DllType {
             "bool" => DllType::Bool,
             "uint" => DllType::Uint,
             "hwnd" => DllType::Hwnd,
+            "handle" => DllType::Handle,
             "string" => DllType::String,
             "wstring" => DllType::Wstring,
             "float" => DllType::Float,
@@ -620,9 +654,12 @@ impl FromStr for DllType {
             "safearray" => DllType::SafeArray,
             "void" => DllType::Void,
             "pointer" => DllType::Pointer,
-            "struct" => DllType::Struct,
+            "size" => DllType::Size,
+            "struct" => DllType::UStruct,
             "callback" => DllType::CallBack,
-            unknown => DllType::Unknown(unknown.to_string()),
+            _ => {
+                return Err(s.to_string());
+            },
         };
         Ok(t)
     }
@@ -635,6 +672,7 @@ pub enum DllType {
     Bool,
     Uint,
     Hwnd,
+    Handle,
     String,
     Wstring,
     Float,
@@ -651,9 +689,9 @@ pub enum DllType {
     SafeArray,
     Void,
     Pointer,
-    Struct,
+    Size,
+    UStruct,
     CallBack,
-    Unknown(String),
 }
 
 impl DllType {
@@ -664,7 +702,6 @@ impl DllType {
             DllType::Bool => mem::size_of::<i32>(),
             DllType::Uint |
             DllType::Dword => mem::size_of::<u32>(),
-            DllType::Hwnd => mem::size_of::<isize>(),
             DllType::Float => mem::size_of::<f32>(),
             DllType::Double => mem::size_of::<f64>(),
             DllType::Word |
@@ -673,15 +710,17 @@ impl DllType {
             DllType::Boolean |
             DllType::Char => mem::size_of::<u8>(),
             DllType::Longlong => mem::size_of::<i64>(),
+            DllType::Hwnd |
+            DllType::Handle |
             DllType::String |
             DllType::Wstring |
             DllType::Pchar |
             DllType::PWchar |
             DllType::Pointer |
-            DllType::Struct |
+            DllType::Size |
+            DllType::UStruct |
             DllType::CallBack |
-            DllType::SafeArray |
-            DllType::Unknown(_) => mem::size_of::<usize>(),
+            DllType::SafeArray => mem::size_of::<usize>(),
             DllType::Void => 0,
         }
     }
@@ -695,6 +734,7 @@ impl fmt::Display for DllType {
             DllType::Bool => write!(f, "bool"),
             DllType::Uint => write!(f, "uint"),
             DllType::Hwnd => write!(f, "hwnd"),
+            DllType::Handle => write!(f, "handle"),
             DllType::String => write!(f, "string"),
             DllType::Wstring => write!(f, "wstring"),
             DllType::Float => write!(f, "float"),
@@ -711,9 +751,9 @@ impl fmt::Display for DllType {
             DllType::SafeArray => write!(f, "safearray"),
             DllType::Void => write!(f, "void"),
             DllType::Pointer => write!(f, "pointer"),
-            DllType::Struct => write!(f, "struct"),
+            DllType::Size => write!(f, "size"),
+            DllType::UStruct => write!(f, "struct"),
             DllType::CallBack => write!(f, "callback"),
-            DllType::Unknown(ref s) => write!(f, "Unknown({})", s),
         }
     }
 }

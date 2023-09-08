@@ -17,12 +17,10 @@ use kanaria::{
     utils::{ConvertTarget, CharExtend}
 };
 use windows::{
-    core::{PCSTR},
-    Win32::{
-        Globalization::{
-            CP_ACP, WC_COMPOSITECHECK, MB_PRECOMPOSED,
-            WideCharToMultiByte, MultiByteToWideChar,
-        },
+    core::PCSTR,
+    Win32::Globalization::{
+        CP_ACP, WC_COMPOSITECHECK, MB_PRECOMPOSED,
+        WideCharToMultiByte, MultiByteToWideChar,
     },
 };
 
@@ -231,7 +229,7 @@ pub fn replace(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let (pattern, is_regex) = match args.get_as_object(1, None)? {
         Object::String(s) => (s.clone(), args.get_as_bool(3, Some(false))?),
         Object::RegEx(re) => (re.clone(), true),
-        o => return Err(builtin_func_error(UErrorMessage::InvalidArgument(o)))
+        o => (o.to_string(), false)
     };
     let replace_to = args.get_as_string(2, None)?;
 
