@@ -1998,6 +1998,9 @@ impl TryFrom<Object> for SafeArray {
     }
 }
 impl SafeArray {
+    pub fn from_raw(ptr: *mut c_void) -> Self {
+        Self(ptr as *mut SAFEARRAY)
+    }
     pub fn as_ptr(&self) -> *mut c_void {
         self.0 as *mut c_void
     }

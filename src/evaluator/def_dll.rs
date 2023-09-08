@@ -145,8 +145,12 @@ impl DefDll {
                     s.into()
                 },
                 DllType::Void => Object::Empty,
+                DllType::SafeArray => {
+                    let ptr = cif.call::<*mut c_void>(fun, &args);
+                    let sa = SafeArray::from_raw(ptr);
+                    sa.to_object()?
+                }
                 // 戻り値型として使用不可
-                DllType::SafeArray |
                 DllType::UStruct |
                 DllType::CallBack => Object::Empty,
             };
