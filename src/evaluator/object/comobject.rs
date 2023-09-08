@@ -29,7 +29,7 @@ use windows::{
                 GetActiveObject,
                 DISPID_PROPERTYPUT, DISPID_NEWENUM,
                 VariantChangeType, VariantClear,
-                SafeArrayCreate, SafeArrayPutElement, SafeArrayGetElement, SafeArrayGetElemsize,
+                SafeArrayCreate, SafeArrayPutElement, SafeArrayGetElement, SafeArrayGetElemsize, SafeArrayDestroy,
                 IEnumVARIANT,
                 IDispatchEx,fdexNameCaseInsensitive,
             },
@@ -712,29 +712,8 @@ impl TryFrom<Object> for VARIANT {
             Object::Unknown(unk) => VARIANT::from_iunknown(unk.0),
             Object::Variant(variant) => variant.get(),
             Object::Array(_) => {
-                unsafe {
-                    let flat = obj.flatten(vec![])
-                        .ok_or(ComError::new_u(UErrorKind::SafeArrayError, UErrorMessage::CanNotConvertToSafeArray))?;
-                    let sizes = flat.iter()
-                        .map(|(_, i)| i.clone())
-                        .reduce(|a, b| {
-                            a.into_iter().zip(b.into_iter())
-                                .map(|(a, b)| a.max(b))
-                                .collect()
-                        })
-                        .ok_or(ComError::new_u(UErrorKind::SafeArrayError, UErrorMessage::CanNotConvertToSafeArray))?;
-                    let cdims = sizes.len() as u32;
-                    let rgsabound = sizes.into_iter()
-                        .map(|i| SAFEARRAYBOUND { cElements: i as u32 + 1, lLbound: 0 })
-                        .collect::<Vec<_>>();
-                    let psa = SafeArrayCreate(VT_VARIANT, cdims, rgsabound.as_ptr());
-                    for (obj, index) in flat {
-                        let v = VARIANT::try_from(obj)?;
-                        let pv = &v as *const VARIANT as *const c_void;
-                        SafeArrayPutElement(psa, index.as_ptr(), pv)?;
-                    }
-                    VARIANT::from_safearray(psa)
-                }
+                let sa = SafeArray::try_from(obj)?;
+                sa.as_variant()
             }
             o => {
                 let t = o.get_type().to_string();
@@ -1984,5 +1963,53 @@ impl Excel {
             interior.set_property("Color", bg_color.into()).ok()?;
         }
         Some(())
+    }
+}
+
+#[derive(Debug)]
+pub struct SafeArray(*mut SAFEARRAY);
+impl TryFrom<Object> for SafeArray {
+    type Error = ComError;
+
+    fn try_from(obj: Object) -> Result<Self, Self::Error> {
+        unsafe {
+            let flat = obj.flatten(vec![])
+                .ok_or(ComError::new_u(UErrorKind::SafeArrayError, UErrorMessage::CanNotConvertToSafeArray))?;
+            let sizes = flat.iter()
+                .map(|(_, i)| i.clone())
+                .reduce(|a, b| {
+                    a.into_iter().zip(b.into_iter())
+                        .map(|(a, b)| a.max(b))
+                        .collect()
+                })
+                .ok_or(ComError::new_u(UErrorKind::SafeArrayError, UErrorMessage::CanNotConvertToSafeArray))?;
+            let cdims = sizes.len() as u32;
+            let rgsabound = sizes.into_iter()
+                .map(|i| SAFEARRAYBOUND { cElements: i as u32 + 1, lLbound: 0 })
+                .collect::<Vec<_>>();
+            let psa = SafeArrayCreate(VT_VARIANT, cdims, rgsabound.as_ptr());
+            for (obj, index) in flat {
+                let v = VARIANT::try_from(obj)?;
+                let pv = &v as *const VARIANT as *const c_void;
+                SafeArrayPutElement(psa, index.as_ptr(), pv)?;
+            }
+            Ok(Self(psa))
+        }
+    }
+}
+impl SafeArray {
+    pub fn as_ptr(&self) -> *mut c_void {
+        self.0 as *mut c_void
+    }
+    fn as_variant(&self) -> VARIANT {
+        VARIANT::from_safearray(self.0)
+    }
+    pub fn to_object(&self) -> ComResult<Object> {
+        self.0.try_into()
+    }
+    pub fn destroy(&self) {
+        unsafe {
+            let _ = SafeArrayDestroy(self.0);
+        }
     }
 }

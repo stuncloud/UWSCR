@@ -42,7 +42,7 @@ use std::hash::{Hash, Hasher};
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use std::ops::{Add, Sub, Mul, Div, Rem, BitOr, BitAnd, BitXor};
-use std::cmp::{Ordering};
+use std::cmp::Ordering;
 
 use num_traits::Zero;
 use strum_macros::{EnumVariantNames, Display};

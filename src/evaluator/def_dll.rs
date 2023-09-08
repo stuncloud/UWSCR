@@ -3,7 +3,8 @@ use crate::evaluator::{Evaluator, EvalResult, UError, UErrorKind, UErrorMessage}
 use crate::error::evaluator::DefinitionType;
 use crate::evaluator::object::{
     Object,
-    ustruct::{StructDef, MemberDefVec, UStruct, MemberType}
+    ustruct::{StructDef, MemberDefVec, UStruct, MemberType},
+    comobject::SafeArray
 };
 use crate::winapi::{
     to_ansi_bytes, to_wide_string, from_ansi_bytes, from_wide_string,
@@ -303,7 +304,10 @@ impl DllArg {
                 Arg::new(&ust.address)
             },
             DllArgVal::NullPtr => Arg::new(&0),
-            DllArgVal::SafeArray => todo!(),
+            DllArgVal::SafeArray(sa) => {
+                let ptr = sa.as_ptr();
+                Arg::new(&ptr)
+            },
             DllArgVal::CallBack => todo!(),
             DllArgVal::ArgValPtr(p) => Arg::new(&p.ptr),
         };
@@ -352,8 +356,8 @@ impl From<&DllArg> for Type {
             DllArgVal::Struct(_) |
             DllArgVal::UStruct(_) => Self::usize(),
             DllArgVal::NullPtr => Self::usize(),
-            DllArgVal::SafeArray => todo!(),
             DllArgVal::CallBack => todo!(),
+            DllArgVal::SafeArray(_) |
             DllArgVal::ArgValPtr(_) => Self::pointer(),
         }
         // if arg.refexpr.is_some() {
@@ -487,7 +491,7 @@ enum DllArgVal {
     /// ユーザー定義構造体
     UStruct(UStruct),
     /// SafeArray
-    SafeArray,
+    SafeArray(SafeArray),
     /// コールバック関数
     CallBack,
     /// ポインタ
@@ -711,7 +715,14 @@ impl DllArgVal {
                     _ => None
                 }
             }
-            DllType::SafeArray => todo!(),
+            DllType::SafeArray => {
+                if let Object::Array(_) = &value {
+                    let sa = SafeArray::try_from(value)?;
+                    Some(Self::SafeArray(sa))
+                } else {
+                    None
+                }
+            },
             DllType::CallBack => todo!(),
             DllType::Void => None,
         };
@@ -730,40 +741,43 @@ impl DllArgVal {
             },
         }
     }
+    /// var/refされたときに返すオブジェクトを得る
     fn into_object(self) -> Option<Object> {
-        let p = match self {
-            DllArgVal::ArgValPtr(p) => Some(p),
+        match self {
+            DllArgVal::ArgValPtr(p) => {
+                let obj = match &p.r#type {
+                    DllType::Int |
+                    DllType::Long => p.into_object::<i32>(),
+                    DllType::Bool => p.into_object::<i32>().to_bool_obj(),
+                    DllType::Uint |
+                    DllType::Dword => p.into_object::<u32>(),
+                    DllType::Hwnd |
+                    DllType::Handle |
+                    DllType::Size |
+                    DllType::Pointer => p.into_object::<usize>(),
+                    DllType::Float => p.into_object::<f32>(),
+                    DllType::Double => p.into_object::<f64>(),
+                    DllType::Word => p.into_object::<u16>(),
+                    DllType::Byte => p.into_object::<u8>(),
+                    DllType::Boolean => p.into_object::<u8>().to_bool_obj(),
+                    DllType::Longlong => p.into_object::<i64>(),
+                    DllType::Char |
+                    DllType::Pchar => p.into_string_object(true, true),
+                    DllType::String => p.into_string_object(true, false),
+                    DllType::Wchar |
+                    DllType::PWchar => p.into_string_object(false, true),
+                    DllType::Wstring => p.into_string_object(false, false),
+                    DllType::CallBack |
+                    DllType::Void => Object::Empty,
+                    // ここには来ないはず
+                    DllType::SafeArray => todo!(),
+                    DllType::UStruct => todo!(),
+                };
+                Some(obj)
+            },
+            DllArgVal::SafeArray(sa) => sa.to_object().ok(),
             _ => None
-        }?;
-        let obj = match &p.r#type {
-            DllType::Int |
-            DllType::Long => p.into_object::<i32>(),
-            DllType::Bool => p.into_object::<i32>().to_bool_obj(),
-            DllType::Uint |
-            DllType::Dword => p.into_object::<u32>(),
-            DllType::Hwnd |
-            DllType::Handle |
-            DllType::Size |
-            DllType::Pointer => p.into_object::<usize>(),
-            DllType::Float => p.into_object::<f32>(),
-            DllType::Double => p.into_object::<f64>(),
-            DllType::Word => p.into_object::<u16>(),
-            DllType::Byte => p.into_object::<u8>(),
-            DllType::Boolean => p.into_object::<u8>().to_bool_obj(),
-            DllType::Longlong => p.into_object::<i64>(),
-            DllType::Char |
-            DllType::Pchar => p.into_string_object(true, true),
-            DllType::String => p.into_string_object(true, false),
-            DllType::Wchar |
-            DllType::PWchar => p.into_string_object(false, true),
-            DllType::Wstring => p.into_string_object(false, false),
-            DllType::SafeArray => todo!(),
-            DllType::Void => todo!(),
-            DllType::CallBack => todo!(),
-            // ここには来ないはず
-            DllType::UStruct => todo!(),
-        };
-        Some(obj)
+        }
     }
 }
 enum NumArg<T> {
