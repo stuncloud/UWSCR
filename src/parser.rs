@@ -5581,44 +5581,23 @@ func(
     fn test_def_dll() {
         let tests = vec![
             (
-                "def_dll hoge(int, dword[6], byte[100], var string, var long[2], {word,word}):bool:hoge.dll",
+                "def_dll nest({long, long, {long, long}}):bool:nest.dll",
                 vec![
                     StatementWithRow::new_expected(
                         Statement::DefDll {
-                            name: "hoge".into(),
-                            params: vec![
-                                DefDllParam::Param{dll_type: DllType::Int, is_ref: false, size: None},
-                                DefDllParam::Param{dll_type: DllType::Dword, is_ref: false, size: Some(6)},
-                                DefDllParam::Param{dll_type: DllType::Byte, is_ref: false, size: Some(100)},
-                                DefDllParam::Param{dll_type: DllType::String, is_ref: true, size: None},
-                                DefDllParam::Param{dll_type: DllType::Long, is_ref: true, size: Some(2)},
-                                DefDllParam::Struct(vec![
-                                    DefDllParam::Param{dll_type: DllType::Word, is_ref: false, size: None},
-                                    DefDllParam::Param{dll_type: DllType::Word, is_ref: false, size: None},
-                                ]),
-                            ],
-                            ret_type: DllType::Bool,
-                            path: "hoge.dll".into()
-                        }, 1
-                    )
-                ]
-            ),
-            (
-                "def_dll hoge({long, long, {long, long}}):bool:hoge.dll",
-                vec![
-                    StatementWithRow::new_expected(
-                        Statement::DefDll {
-                            name: "hoge".into(),
+                            name: "nest".into(),
                             params: vec![
                                 DefDllParam::Struct(vec![
                                     DefDllParam::Param{dll_type: DllType::Long, is_ref: false, size: None},
                                     DefDllParam::Param{dll_type: DllType::Long, is_ref: false, size: None},
-                                    DefDllParam::Param{dll_type: DllType::Long, is_ref: false, size: None},
-                                    DefDllParam::Param{dll_type: DllType::Long, is_ref: false, size: None},
+                                    DefDllParam::Struct(vec![
+                                        DefDllParam::Param{dll_type: DllType::Long, is_ref: false, size: None},
+                                        DefDllParam::Param{dll_type: DllType::Long, is_ref: false, size: None},
+                                    ]),
                                 ]),
                             ],
                             ret_type: DllType::Bool,
-                            path: "hoge.dll".into()
+                            path: "nest.dll".into()
                         }, 1
                     )
                 ]
@@ -5637,20 +5616,46 @@ func(
                 ]
             ),
             (
-                "def_dll hoge():hoge.dll",
+                "def_dll fuga():fuga.dll",
                 vec![
                     StatementWithRow::new_expected(
                         Statement::DefDll {
-                            name: "hoge".into(),
+                            name: "fuga".into(),
                             params: vec![],
                             ret_type: DllType::Void,
-                            path: "hoge.dll".into()
+                            path: "fuga.dll".into()
+                        }, 1
+                    )
+                ]
+            ),
+            (
+                "def_dll size(int, dword[6], byte[100], var string, var long[2], {word,word}):bool:size.dll",
+                vec![
+                    StatementWithRow::new_expected(
+                        Statement::DefDll {
+                            name: "size".into(),
+                            params: vec![
+                                DefDllParam::Param{dll_type: DllType::Int, is_ref: false, size: None},
+                                DefDllParam::Param{dll_type: DllType::Dword, is_ref: false, size: Some(6)},
+                                DefDllParam::Param{dll_type: DllType::Byte, is_ref: false, size: Some(100)},
+                                DefDllParam::Param{dll_type: DllType::String, is_ref: true, size: None},
+                                DefDllParam::Param{dll_type: DllType::Long, is_ref: true, size: Some(2)},
+                                DefDllParam::Struct(vec![
+                                    DefDllParam::Param{dll_type: DllType::Word, is_ref: false, size: None},
+                                    DefDllParam::Param{dll_type: DllType::Word, is_ref: false, size: None},
+                                ]),
+                            ],
+                            ret_type: DllType::Bool,
+                            path: "size.dll".into()
                         }, 1
                     )
                 ]
             ),
         ];
         for (input, expected) in tests {
+            let st1 = expected[0].to_owned();
+            let st2 = st1.clone();
+            let expected = vec![st1, st2];
             parser_test(input, expected);
         }
     }
@@ -6017,7 +6022,21 @@ fend
                             path: "user32".into()
                         },
                         2
-                    )
+                    ),
+                    StatementWithRow::new_expected(
+                        Statement::DefDll {
+                            name: "MessageBoxA".into(),
+                            params: vec![
+                                DefDllParam::Param { dll_type: DllType::Hwnd, is_ref: false, size: None },
+                                DefDllParam::Param { dll_type: DllType::String, is_ref: false, size: None },
+                                DefDllParam::Param { dll_type: DllType::String, is_ref: false, size: None },
+                                DefDllParam::Param { dll_type: DllType::Uint, is_ref: false, size: None },
+                            ],
+                            ret_type: DllType::Int,
+                            path: "user32".into()
+                        },
+                        2
+                    ),
                 ]
             ),
         ];
