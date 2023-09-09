@@ -7,7 +7,7 @@
 <link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="ウィンドウ操作関数" href="window.html" /><link rel="prev" title="特殊変数" href="../syntax/special_variables.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>文字列操作関数 - UWSCR 0.12.1</title>
+        <title>文字列操作関数 - UWSCR 0.13.0</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 0.12.1</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 0.13.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 0.12.1</span>
+  <span class="sidebar-brand-text">UWSCR 0.13.0</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -569,6 +569,22 @@
 </pre></div>
 </div>
 </div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="lengthw">
+<span class="sig-name descname"><span class="pre">lengthw</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">文字列</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#lengthw" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">NULL終端Unicode文字列としての長さを得ます</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>文字列</strong> (<em>文字列</em>) -- 長さを得たい文字列</p>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>符号なし16ビット整数の配列長</p>
+</dd>
+</dl>
 </dd></dl>
 
 </section>
@@ -1209,7 +1225,8 @@
 <dl class="object">
 <dt class="sig sig-object">
 <span class="sig-name descname"><span class="pre">-3</span></span></dt>
-<dd></dd></dl>
+<dd><p>2進数に変換</p>
+</dd></dl>
 
 </p></li>
 <li><p><strong>埋め方法</strong> (<em>定数 省略可</em>) -- <p>幅に対する不足分を埋める方法</p>
@@ -1627,6 +1644,7 @@
 <li><a class="reference internal" href="#lengthb"><code class="docutils literal notranslate"><span class="pre">lengthb()</span></code></a></li>
 <li><a class="reference internal" href="#lengthu"><code class="docutils literal notranslate"><span class="pre">lengthu()</span></code></a></li>
 <li><a class="reference internal" href="#lengths"><code class="docutils literal notranslate"><span class="pre">lengths()</span></code></a></li>
+<li><a class="reference internal" href="#lengthw"><code class="docutils literal notranslate"><span class="pre">lengthw()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#id5">正規表現</a><ul>
