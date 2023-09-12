@@ -1271,6 +1271,7 @@ impl Evaluator {
             },
             Expression::ComErrFlg => Object::Bool(self.com_err_flg),
             Expression::EmptyArgument => Object::EmptyParam,
+            Expression::Callback => Object::Empty,
             Expression::RefArg(e) => self.eval_expr(*e)?,
         };
         Ok(obj)

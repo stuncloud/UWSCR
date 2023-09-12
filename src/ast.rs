@@ -191,6 +191,8 @@ pub enum Expression {
     /// 省略された引数
     /// func( , )
     EmptyArgument,
+    /// コールバック関数の引数であることを示す
+    Callback,
 }
 
 impl fmt::Display for Expression {
@@ -230,6 +232,7 @@ impl fmt::Display for Expression {
             Expression::ComErrFlg => write!(f, ""),
             Expression::RefArg(a) => write!(f, "var {}", a),
             Expression::EmptyArgument => write!(f, ""),
+            Expression::Callback => write!(f, "callback"),
         }
     }
 }
@@ -592,6 +595,8 @@ pub enum DefDllParam {
     },
     /// `{}`定義された構造体
     Struct(Vec<DefDllParam>),
+    /// コールバック関数
+    Callback(Vec<DllType>, DllType),
 }
 impl std::fmt::Display for DefDllParam {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -611,10 +616,18 @@ impl std::fmt::Display for DefDllParam {
                     .join(", ");
                 write!(f, "{{{s}}}")
             },
+            DefDllParam::Callback(argtypes, rtype) => {
+                let types = argtypes.iter()
+                    .map(|t| t.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                write!(f, "callback({}):{}", types, rtype)
+            },
         }
     }
 }
 impl DefDllParam {
+    /// パラメータの数を得る
     pub fn len(&self) -> usize {
         match self {
             DefDllParam::Param { dll_type:_, is_ref:_, size:_ } => 1,
@@ -624,6 +637,7 @@ impl DefDllParam {
                     .reduce(|a,b| a + b)
                     .unwrap_or_default()
             },
+            DefDllParam::Callback(_, _) => 1,
         }
     }
 }

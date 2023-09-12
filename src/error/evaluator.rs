@@ -431,6 +431,7 @@ pub enum UErrorMessage {
     CanNotConvertToNumber(serde_json::Number),
     CanNotConvertToUObject(Object),
     CastError(String),
+    CastError2(f64, String),
     ComError(String, Option<String>),
     ConstantCantBeAssigned(String),
     ClassMemberCannotBeCalledDirectly(String),
@@ -578,10 +579,14 @@ pub enum UErrorMessage {
     CanNotConvertToSafeArray,
     StructMemberSizeError(usize),
     StructMemberTypeError,
+    StructMemberIsNotArray,
     /// 構造体の文字列メンバへの代入する文字列のサイズが大きすぎる
     /// - .0: バッファサイズ
     /// - .1: 代入する文字列のサイズ
     UStructStringMemberSizeOverflow(usize, usize),
+    InvalidCallbackReturnType(DllType),
+    InvalidCallbackArgType(DllType),
+    CallbackReturnValueCastError,
 }
 
 impl fmt::Display for UErrorMessage {
@@ -593,6 +598,10 @@ impl fmt::Display for UErrorMessage {
             Self::Any(s) => write!(f, "{}", s),
             Self::DlopenError(msg) => write!(f, "{}", msg),
             Self::CastError(msg) => write!(f, "{}", msg),
+            Self::CastError2(n, t) => write_locale!(f,
+                "{n} を{t}型に変換できません",
+                "Failed to convert {n} to type {t}",
+            ),
             Self::ComError(msg, desc) => {
                 match desc {
                     Some(desc) => write!(f, "{msg} ({desc})"),
@@ -791,7 +800,7 @@ impl fmt::Display for UErrorMessage {
             Self::NotAFunction(o) => write_locale!(f,
                 "関数ではありません ({})",
                 "Not a function: {}",
-                o
+                o.get_type()
             ),
             Self::DllMissingArgument(dlltype, pos) => write_locale!(f,
                 "{1}番目の引数({0}型)がありません",
@@ -1267,9 +1276,25 @@ impl fmt::Display for UErrorMessage {
                 "型が合いません、メンバの型に該当する値を入れてください",
                 "Type missmatch",
             ),
+            Self::StructMemberIsNotArray => write_locale!(f,
+                "メンバが数値配列型ではありません",
+                "Struct member is not an array of number",
+            ),
             Self::UStructStringMemberSizeOverflow(bufsize, strsize) => write_locale!(f,
                 "バッファサイズ({bufsize})より大きいサイズ({strsize})の文字列は代入できません",
                 "You can not assign string value larger than buffersize",
+            ),
+            Self::InvalidCallbackReturnType(t) => write_locale!(f,
+                "コールバック関数の戻り値の型が不正です: {t}",
+                "Return type of callback function is invalid: {t}",
+            ),
+            Self::InvalidCallbackArgType(t) => write_locale!(f,
+                "コールバック関数の引数の型が不正です: {t}",
+                "Parameter type of callback function is invalid: {t}",
+            ),
+            Self::CallbackReturnValueCastError => write_locale!(f,
+                "コールバック関数の戻り値のキャストに失敗",
+                "Failed to cast return value of callback function",
             ),
         }
     }

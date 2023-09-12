@@ -7,6 +7,7 @@ use crate::error::parser::{ParseError, ParseErrorKind};
 
 use std::path::PathBuf;
 use std::env;
+use std::str::FromStr;
 
 pub type PareseErrors = Vec<ParseError>;
 
@@ -123,6 +124,9 @@ impl Parser {
         self.next_token.token == *token
     }
 
+    /// 次のトークンが期待通りであればbumpする
+    ///
+    /// 異なる場合はエラーを積む
     fn is_next_token_expected(&mut self, token: Token) -> bool {
         if self.is_next_token(&token) {
             self.bump();
@@ -926,22 +930,16 @@ impl Parser {
             match self.current_token.token {
                 Token::Identifier(_) |
                 Token::Struct => {
-                    let def_dll_param = self.parse_dll_param(false);
-                    if def_dll_param.is_none() {
-                        return None;
-                    }
-                    params.push(def_dll_param.unwrap());
+                    let def_dll_param = self.parse_dll_param(false)?;
+                    params.push(def_dll_param);
                 },
                 Token::Ref => {
                     self.bump();
                     match self.current_token.token {
                         Token::Identifier(_) |
                         Token::Struct => {
-                            let def_dll_param = self.parse_dll_param(true);
-                            if def_dll_param.is_none() {
-                                return None;
-                            }
-                            params.push(def_dll_param.unwrap());
+                            let def_dll_param = self.parse_dll_param(true)?;
+                            params.push(def_dll_param);
                         },
                         _ => {
                             self.error_got_unexpected_token();
@@ -1108,24 +1106,85 @@ impl Parser {
                 return None;
             },
         };
-        if self.is_next_token(&Token::Lbracket) {
-            self.bump(); // [ に移動
-            self.bump(); // 数値または ] に移動
-            match self.current_token.token {
-                Token::Rbracket => Some(DefDllParam::Param{ dll_type, is_ref, size: Some(0) }),
-                Token::Num(n) => {
-                    if ! self.is_next_token_expected(Token::Rbracket) {
+        if dll_type == DllType::CallBack {
+            if ! self.is_next_token_expected(Token::Lparen) {
+                return None;
+            }
+            self.bump(); // ( の次のトークンに移動
+            let mut argtypes = vec![];
+            loop {
+                let t = match &self.current_token.token {
+                    Token::Identifier(i) => match DllType::from_str(&i) {
+                        Ok(t) => t,
+                        Err(name) => {
+                            self.error_got_invalid_dlltype(name);
+                            return None;
+                        },
+                    },
+                    Token::Rparen => {
+                        break;
+                    }
+                    _ => {
+                        self.error_got_unexpected_token();
                         return None;
                     }
-                    Some(DefDllParam::Param { dll_type, is_ref, size: Some(n as usize) })
-                },
-                _ => {
-                    self.error_got_unexpected_token();
-                    return None;
-                },
+                };
+                argtypes.push(t);
+                match &self.next_token.token {
+                    Token::Comma => {
+                        self.bump(); // , に移動
+                        self.bump(); // , の次のトークンに移動
+                    },
+                    Token::Rparen => {
+                        self.bump(); // ) に移動
+                        break;
+                    },
+                    _ => {
+                        self.error_got_unexpected_token();
+                        return None;
+                    }
+                }
             }
+            let rtype = if self.is_next_token(&Token::Colon) {
+                self.bump();
+                self.bump();
+                match &self.current_token.token {
+                    Token::Identifier(i) => match DllType::from_str(&i) {
+                        Ok(t) => t,
+                        Err(name) => {
+                            self.error_got_invalid_dlltype(name);
+                            return None;
+                        },
+                    },
+                    _ => {
+                        self.error_got_unexpected_token();
+                        return None;
+                    }
+                }
+            } else {
+                DllType::Void
+            };
+            Some(DefDllParam::Callback(argtypes, rtype))
         } else {
-            Some(DefDllParam::Param{dll_type, is_ref, size: None})
+            if self.is_next_token(&Token::Lbracket) {
+                self.bump(); // [ に移動
+                self.bump(); // 数値または ] に移動
+                match self.current_token.token {
+                    Token::Rbracket => Some(DefDllParam::Param{ dll_type, is_ref, size: Some(0) }),
+                    Token::Num(n) => {
+                        if ! self.is_next_token_expected(Token::Rbracket) {
+                            return None;
+                        }
+                        Some(DefDllParam::Param { dll_type, is_ref, size: Some(n as usize) })
+                    },
+                    _ => {
+                        self.error_got_unexpected_token();
+                        return None;
+                    },
+                }
+            } else {
+                Some(DefDllParam::Param{dll_type, is_ref, size: None})
+            }
         }
     }
 
@@ -3114,34 +3173,32 @@ mod tests {
         }
     }
 
-    fn check_parse_errors(parser: &mut Parser, out: bool, msg: String) {
+    fn check_parse_errors(parser: &mut Parser, out: bool, input: &str, msg: &str) {
         let errors = parser.get_errors();
-        if errors.len() == 0 {
-            return;
-        }
-
-        if out {
-            println!("parser has {} errors", errors.len());
-            for error in errors {
-                println!("{:?}", error);
+        if errors.len() > 0 {
+            println!("input: {input}");
+            if out {
+                println!("parser got {} errors", errors.len());
+                for error in errors {
+                    println!("{:?}", error);
+                }
             }
+            panic!("{msg}");
         }
 
-        panic!("{}", msg);
     }
 
     fn parser_test(input: &str, expected: Vec<StatementWithRow>) {
         let mut parser = Parser::new(Lexer::new(input));
         let program = parser.parse();
-        let msg = format!("Test failed with input: \r\r{}\r", input);
-        check_parse_errors(&mut parser, true, msg);
+        check_parse_errors(&mut parser, true, input, "parser error");
         assert_eq!(program.0, expected);
     }
 
-    fn parser_panic_test(input: &str, expected: Vec<StatementWithRow>, msg: String) {
+    fn parser_panic_test(input: &str, expected: Vec<StatementWithRow>, msg: &str) {
         let mut parser = Parser::new(Lexer::new(input));
         let program = parser.parse();
-        check_parse_errors(&mut parser, false, msg);
+        check_parse_errors(&mut parser, false, input, msg);
         assert_eq!(program.0, expected);
     }
 
@@ -4793,7 +4850,7 @@ fend
                 }, 2
             )
         ];
-        parser_panic_test(input, expected, String::from("end of block should be NEXT"));
+        parser_panic_test(input, expected, "end of block should be NEXT");
     }
 
     #[test]
@@ -5647,6 +5704,51 @@ func(
                             ],
                             ret_type: DllType::Bool,
                             path: "size.dll".into()
+                        }, 1
+                    )
+                ]
+            ),
+            (
+                "def_dll cb1(callback(int, bool):long):cb1.dll",
+                vec![
+                    StatementWithRow::new_expected(
+                        Statement::DefDll {
+                            name: "cb1".into(),
+                            params: vec![
+                                DefDllParam::Callback(vec![DllType::Int, DllType::Bool], DllType::Long),
+                            ],
+                            ret_type: DllType::Void,
+                            path: "cb1.dll".into()
+                        }, 1
+                    )
+                ]
+            ),
+            (
+                "def_dll cb2(callback(int)):cb2.dll",
+                vec![
+                    StatementWithRow::new_expected(
+                        Statement::DefDll {
+                            name: "cb2".into(),
+                            params: vec![
+                                DefDllParam::Callback(vec![DllType::Int], DllType::Void),
+                            ],
+                            ret_type: DllType::Void,
+                            path: "cb2.dll".into()
+                        }, 1
+                    )
+                ]
+            ),
+            (
+                "def_dll cb3(callback():int):cb3.dll",
+                vec![
+                    StatementWithRow::new_expected(
+                        Statement::DefDll {
+                            name: "cb3".into(),
+                            params: vec![
+                                DefDllParam::Callback(vec![], DllType::Int),
+                            ],
+                            ret_type: DllType::Void,
+                            path: "cb3.dll".into()
                         }, 1
                     )
                 ]
