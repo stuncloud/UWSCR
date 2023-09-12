@@ -1,5 +1,5 @@
 use crate::ast::{Expression, BlockStatement, FuncParam, ParamType, ParamKind};
-use crate::evaluator::environment::{NamedObject};
+use crate::evaluator::environment::NamedObject;
 use crate::error::evaluator::{UError, UErrorKind, UErrorMessage, ParamTypeDetail};
 use super::{Object, Module, ClassInstance};
 use super::super::{EvalResult, Evaluator};

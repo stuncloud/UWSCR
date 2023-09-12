@@ -22,6 +22,7 @@ use crate::{
     evaluator::builtins::chkimg::{ChkImg, ScreenShot},
 };
 
+#[allow(unused_braces)]
 use windows::{
     Win32::{
         Foundation::{
