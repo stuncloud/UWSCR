@@ -1699,6 +1699,9 @@ impl Evaluator {
                 outer_env.env.current = outer;
                 outer_env.update_member_array(e, member, index, dimension, new)?;
             },
+            Object::UStruct(ust) => {
+                ust.set_array_member_by_name(&member, index, new)?;
+            }
             o => return Err(UError::new(
                 UErrorKind::DotOperatorError,
                 UErrorMessage::InvalidObject(o),

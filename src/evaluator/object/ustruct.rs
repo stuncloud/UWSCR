@@ -18,6 +18,8 @@ use windows::Win32::System::Memory::{
     HEAP_ZERO_MEMORY, HEAP_NONE, HEAP_GENERATE_EXCEPTIONS,
 };
 
+use num_traits::FromPrimitive;
+
 pub struct MemberDefVec(pub Vec<(String, MemberType, Option<usize>)>);
 impl MemberDefVec {
     pub fn new(members: Vec<(String, String, Option<usize>)>, e: &mut Evaluator) -> EvalResult<Self> {
@@ -829,6 +831,23 @@ impl UStruct {
             }
         }
     }
+    fn set_array_num<T: FromPrimitive>(addr: usize, index: usize, value: Object) -> EvalResult<()> {
+        if let Some(n) = value.as_f64(true) {
+            let t = T::from_f64(n)
+                .ok_or(UError::new(
+                    UErrorKind::UStructError,
+                    UErrorMessage::CastError2(n, std::any::type_name::<T>().to_string())
+                ))?;
+            let offset = mem::size_of::<T>() * index;
+            let dst = (addr + offset) as *mut _;
+            unsafe {
+                ptr::copy_nonoverlapping(&t, dst, 1);
+            }
+            Ok(())
+        } else {
+            Err(UError::new(UErrorKind::UStructError, UErrorMessage::StructMemberTypeError))
+        }
+    }
     fn set_num<T>(addr: usize, count: usize, value: Object) -> EvalResult<()>
         where T: cast::From<f64, Output=Result<T, cast::Error>>,
     {
@@ -887,6 +906,19 @@ impl UStruct {
     pub fn set_by_name(&self, name: &str, value: Object) -> EvalResult<()> {
         let member = self.get_member(name)?;
         self.set(member, value)
+    }
+    pub fn set_array_member_by_name(&self, name: &str, index: Object, value: Object) -> EvalResult<()> {
+        let index = match &index.as_f64(true) {
+            Some(n) => {
+                match usize::from_f64(*n) {
+                    Some(index) => Ok(index),
+                    None => Err(UError::new(UErrorKind::UStructError, UErrorMessage::CastError2(*n, "usize".into()))),
+                }
+            },
+            None => Err(UError::new(UErrorKind::UStructError, UErrorMessage::NotANumber(index))),
+        }?;
+        let member = self.get_member(name)?;
+        self.set_array(member, index, value)
     }
     /// def_dllの引数の値をセットするために使う
     ///
@@ -961,6 +993,64 @@ impl UStruct {
                 // 何もしない
                 Ok(())
             },
+        }
+    }
+    fn set_array(&self, member: &UStructMember, index: usize, value: Object) -> EvalResult<()> {
+        if index < member.len.unwrap_or(0) {
+            let addr = self.address + member.offset;
+            match &member.r#type {
+                MemberType::Int |
+                MemberType::Long |
+                MemberType::Bool => {
+                    Self::set_array_num::<i32>(addr, index, value)
+                },
+                MemberType::Uint |
+                MemberType::Dword => {
+                    Self::set_array_num::<u32>(addr, index, value)
+                },
+                MemberType::Float => {
+                    Self::set_array_num::<f32>(addr, index, value)
+                },
+                MemberType::Double => {
+                    Self::set_f64(addr, index, value)
+                },
+                MemberType::Word => {
+                    Self::set_array_num::<u16>(addr, index, value)
+                },
+                MemberType::Wchar => {
+                    Self::set_char(addr, false, index, value)
+                },
+                MemberType::Byte |
+                MemberType::Boolean => {
+                    Self::set_array_num::<u8>(addr, index, value)
+                },
+                MemberType::Char => {
+                    Self::set_char(addr, true, index, value)
+                },
+                MemberType::Longlong => {
+                    Self::set_array_num::<i64>(addr, index, value)
+                },
+                MemberType::Hwnd |
+                MemberType::Handle |
+                MemberType::Pointer |
+                MemberType::Size => {
+                    Self::set_array_num::<usize>(addr, index, value)
+                },
+                MemberType::String |
+                MemberType::Pchar |
+                MemberType::Wstring |
+                MemberType::PWchar |
+                MemberType::Struct(_) |
+                MemberType::UStruct(_) => {
+                    Err(UError::new(UErrorKind::UStructError, UErrorMessage::StructMemberIsNotArray))
+                },
+                MemberType::Void => {
+                    // 何もしない
+                    Ok(())
+                },
+            }
+        } else {
+            Err(UError::new(UErrorKind::UStructError, UErrorMessage::IndexOutOfBounds(index.into())))
         }
     }
     pub fn invoke_method(&self, name: &str, args: Vec<Object>) -> EvalResult<Object> {
