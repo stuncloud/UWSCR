@@ -29,7 +29,7 @@ use windows::{
                 GetActiveObject,
                 DISPID_PROPERTYPUT, DISPID_NEWENUM,
                 VariantChangeType, VariantClear,
-                SafeArrayCreate, SafeArrayPutElement, SafeArrayGetElement, SafeArrayGetElemsize, SafeArrayDestroy,
+                SafeArrayCreate, SafeArrayPutElement, SafeArrayGetElement, SafeArrayGetLBound, SafeArrayGetUBound, SafeArrayDestroy,
                 IEnumVARIANT,
                 IDispatchEx,fdexNameCaseInsensitive,
             },
@@ -317,7 +317,7 @@ impl ComObject {
     pub fn get_raw_property(&self, prop: &str) -> ComResult<VARIANT> {
         let dispidmember = self.get_id_from_name(prop)?;
         let mut dp = DISPPARAMS::default();
-        self.invoke_raw(dispidmember, &mut dp, DISPATCH_PROPERTYGET)
+        self.invoke_raw(dispidmember, &mut dp, DISPATCH_PROPERTYGET|DISPATCH_METHOD)
     }
     fn get_property_as_comobject(&self, prop: &str) -> ComResult<Self> {
         let variant = self.get_raw_property(prop)?;
@@ -851,7 +851,9 @@ impl TryInto<Object> for *mut SAFEARRAY {
 
     fn try_into(self) -> Result<Object, Self::Error> {
         unsafe {
-            let size = SafeArrayGetElemsize(self) as i32;
+            let lbound = SafeArrayGetLBound(self, 1)?;
+            let ubound = SafeArrayGetUBound(self, 1)?;
+            let size = ubound - lbound + 1;
             let arr = (0..size).into_iter()
                 .map(|rgindices| {
                     let mut variant = VARIANT::default();
