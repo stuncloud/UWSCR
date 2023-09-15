@@ -3,8 +3,7 @@ use super::{
     BTN_OK, BTN_CANCEL, MsgBoxButton, WparamExt,
 };
 
-use windows::{
-    Win32::{
+use windows::Win32::{
         Foundation::{
             HWND,WPARAM,LPARAM,LRESULT, RECT,
         },
@@ -26,11 +25,8 @@ use windows::{
                 VIRTUAL_KEY, VK_TAB, VK_ESCAPE, VK_RETURN, VK_SHIFT, VK_RIGHT, VK_LEFT, VK_DOWN, VK_UP,
             },
         },
-        Graphics::{
-            Gdi::{HFONT,},
-        },
-    }
-};
+        Graphics::Gdi::HFONT,
+    };
 use once_cell::sync::OnceCell;
 
 static INPUTBOX_CLASS: OnceCell<Result<String, UWindowError>> = OnceCell::new();
@@ -258,7 +254,7 @@ impl UWindow<InputBoxResult> for InputBox {
                     }
                 }
             };
-            DestroyWindow(self.hwnd);
+            let _ = DestroyWindow(self.hwnd);
             Ok((result, rect.left, rect.top))
         }
     }
@@ -268,11 +264,11 @@ impl UWindow<InputBoxResult> for InputBox {
         match umsg {
             WM_DESTROY => {
                 // LPARAMでhwndも伝える
-                PostMessageW(HWND(0), WM_QUIT, WPARAM(0), LPARAM(hwnd.0));
+                let _ = PostMessageW(HWND(0), WM_QUIT, WPARAM(0), LPARAM(hwnd.0));
                 LRESULT(0)
             },
             WM_COMMAND => {
-                PostMessageW(HWND::default(), umsg, wparam, lparam);
+                let _ = PostMessageW(HWND::default(), umsg, wparam, lparam);
                 LRESULT(0)
             },
             msg => DefWindowProcW(hwnd, msg, wparam, lparam)

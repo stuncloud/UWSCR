@@ -31,7 +31,7 @@ use crate::evaluator::object::{
 use crate::evaluator::Evaluator;
 use crate::evaluator::object::{UObject,Fopen,Function,browser::{RemoteObject, TabWindow}, ObjectType, ComObject, StructDef};
 use crate::evaluator::environment::NamedObject;
-use crate::evaluator::builtins::key_codes::{SCKeyCode};
+use crate::evaluator::builtins::key_codes::SCKeyCode;
 use crate::error::evaluator::{UError,UErrorKind,UErrorMessage};
 use crate::ast::{Expression, Identifier};
 
@@ -42,7 +42,7 @@ use std::string::ToString;
 use cast;
 use strum::{VariantNames, EnumProperty};
 use num_traits::{ToPrimitive, FromPrimitive};
-use strum_macros::{EnumProperty};
+use strum_macros::EnumProperty;
 
 pub type BuiltinFunction = fn(&mut Evaluator, BuiltinFuncArgs) -> BuiltinFuncResult;
 pub type BuiltinFuncResult = Result<Object, BuiltinFuncError>;

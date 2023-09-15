@@ -1,9 +1,10 @@
 use std::fmt;
 use windows::Win32::System::{
-    Com::{
+    Ole::VarEqv,
+    Variant::{
         VARIANT, VARENUM,
-    },
-    Ole::{VariantClear, VarEqv, VariantChangeType},
+        VariantClear,
+    }
 };
 use super::{
     Object,
@@ -33,12 +34,8 @@ impl Variant {
         vt.0
     }
     pub fn change_type(&self, vt: u16) -> ComResult<Self> {
-        unsafe {
-            let mut new = VARIANT::default();
-            let vt = VARENUM(vt);
-            VariantChangeType(&mut new, &self.0, 0, vt)?;
-            Ok(Self(new))
-        }
+        let new = self.0.change_type(VARENUM(vt))?;
+        Ok(Self(new))
     }
 }
 

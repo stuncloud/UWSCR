@@ -1,5 +1,5 @@
 use windows::{
-    core::{PCSTR, PCWSTR, PWSTR, HSTRING},
+    core::{PCSTR, PCWSTR, HSTRING},
     Win32::{
         Foundation:: {
             MAX_PATH, HWND, WPARAM, LPARAM,
@@ -15,10 +15,6 @@ use windows::{
                 GetConsoleCP,
                 GetStdHandle, STD_OUTPUT_HANDLE, STD_ERROR_HANDLE,
             },
-            Diagnostics::Debug::{
-                FormatMessageW, FORMAT_MESSAGE_FROM_SYSTEM, FORMAT_MESSAGE_IGNORE_INSERTS,
-            },
-            SystemServices::{ LANG_NEUTRAL, SUBLANG_DEFAULT }
         },
         UI::{
             WindowsAndMessaging::{
@@ -194,7 +190,7 @@ pub fn get_color_depth() -> i32 {
 pub fn attach_console() -> bool {
     use libc::{setvbuf, open_osfhandle, fdopen, _IONBF, O_TEXT};
     unsafe {
-        if AttachConsole(ATTACH_PARENT_PROCESS).as_bool() {
+        if AttachConsole(ATTACH_PARENT_PROCESS).is_ok() {
             let redirect = |nstdhandle| {
                 let mode = std::ffi::CString::new("w").unwrap();
                 let buf = std::ptr::null_mut();
@@ -214,12 +210,12 @@ pub fn attach_console() -> bool {
 }
 pub fn free_console() -> bool {
     unsafe {
-        FreeConsole().as_bool()
+        FreeConsole().is_ok()
     }
 }
 pub fn alloc_console() -> bool {
     unsafe {
-        AllocConsole().as_bool()
+        AllocConsole().is_ok()
     }
 }
 
@@ -345,19 +341,14 @@ pub struct SystemError {
 impl SystemError {
     pub fn new() -> Self {
         unsafe {
-            let code = GetLastError().0;
-            let mut buf = [0; 512];
-            FormatMessageW(
-                FORMAT_MESSAGE_FROM_SYSTEM|FORMAT_MESSAGE_IGNORE_INSERTS,
-                None,
-                code,
-                SUBLANG_DEFAULT << 10 | LANG_NEUTRAL,
-                PWSTR::from_raw(buf.as_mut_ptr()),
-                buf.len() as u32,
-                None
-            );
-            let msg = from_wide_string(&buf);
-            Self { code, msg }
+            match GetLastError() {
+                Ok(_) => Self { code: 0, msg: "".into() },
+                Err(err) => {
+                    let code = err.code().0 as u32;
+                    let msg = err.message().to_string_lossy();
+                    Self { code, msg }
+                },
+            }
         }
     }
 }

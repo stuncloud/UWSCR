@@ -18,9 +18,6 @@ use windows::{
                 DISPPARAMS,
                 DISPATCH_FLAGS, DISPATCH_PROPERTYGET, DISPATCH_PROPERTYPUT, DISPATCH_METHOD,
                 EXCEPINFO,
-                VARIANT, VARIANT_0_0,
-                VARENUM, VT_ARRAY,VT_BYREF,VT_BOOL,VT_BSTR,VT_CY,VT_DATE,VT_DECIMAL,VT_DISPATCH,VT_EMPTY,VT_I1,VT_I2,VT_I4,VT_INT,VT_NULL,VT_R4,VT_R8,VT_UI1,VT_UI2,VT_UI4,VT_UINT,VT_UNKNOWN,VT_VARIANT,
-                // VT_PTR, VT_SAFEARRAY,
                 SAFEARRAY, SAFEARRAYBOUND,
                 ITypeInfo, //ELEMDESC,
                 IConnectionPoint, IConnectionPointContainer,
@@ -28,10 +25,16 @@ use windows::{
             Ole::{
                 GetActiveObject,
                 DISPID_PROPERTYPUT, DISPID_NEWENUM,
-                VariantChangeType, VariantClear,
                 SafeArrayCreate, SafeArrayPutElement, SafeArrayGetElement, SafeArrayGetLBound, SafeArrayGetUBound, SafeArrayDestroy,
                 IEnumVARIANT,
                 IDispatchEx,fdexNameCaseInsensitive,
+            },
+            Variant::{
+                VARIANT, VARIANT_0_0,
+                VARENUM, VT_ARRAY,VT_BYREF,VT_BOOL,VT_BSTR,VT_CY,VT_DATE,VT_DECIMAL,VT_DISPATCH,VT_EMPTY,VT_I1,VT_I2,VT_I4,VT_INT,VT_NULL,VT_R4,VT_R8,VT_UI1,VT_UI2,VT_UI4,VT_UINT,VT_UNKNOWN,VT_VARIANT,
+                // VT_PTR, VT_SAFEARRAY,
+                VAR_CHANGE_FLAGS,
+                VariantChangeType, VariantClear,
             },
             Wmi::{
                 ISWbemObject, ISWbemProperty,
@@ -265,7 +268,7 @@ impl ComObject {
                 None => {
                     let pvreserved = std::ptr::null_mut() as *mut std::ffi::c_void;
                     let mut ppunk = None;
-                    GetActiveObject(&rclsid, pvreserved, &mut ppunk)?;
+                    GetActiveObject(&rclsid, None, &mut ppunk)?;
                     let maybe_obj = match ppunk {
                         Some(unk) => {
                             let idispatch = unk.cast::<IDispatch>()?;
@@ -765,8 +768,7 @@ impl TryInto<Object> for VARIANT {
                         Ok(v00.Anonymous.bstrVal.to_string().into())
                     },
                     VT_DATE => {
-                        let mut variant = VARIANT::default();
-                        VariantChangeType(&mut variant, &self, 0, VT_BSTR)?;
+                        let variant = self.change_type(VT_BSTR)?;
                         variant.try_into()
                     },
                     // 数値系
@@ -781,8 +783,7 @@ impl TryInto<Object> for VARIANT {
                     VT_UI4 |
                     VT_UINT |
                     VT_R4 => {
-                        let mut variant = VARIANT::default();
-                        VariantChangeType(&mut variant, &self, 0, VT_R8)?;
+                        let variant = self.change_type(VT_R8)?;
                         variant.try_into()
                     },
                     VT_R8 => if is_ref {
@@ -893,6 +894,7 @@ pub trait VariantExt {
     fn to_i32(&self) -> ComResult<i32>;
     fn to_string(&self) -> ComResult<String>;
     fn to_bool(&self) -> ComResult<bool>;
+    fn change_type(&self, vt: VARENUM) -> ComResult<VARIANT>;
 }
 
 impl VariantExt for VARIANT {
@@ -987,8 +989,7 @@ impl VariantExt for VARIANT {
     }
     fn to_i32(&self) -> ComResult<i32> {
         unsafe {
-            let mut new = VARIANT::default();
-            VariantChangeType(&mut new, self, 0, VT_I4)?;
+            let mut new = self.change_type(VT_I4)?;
             let v00 = &new.Anonymous.Anonymous;
             let n = v00.Anonymous.lVal;
             VariantClear(&mut new)?;
@@ -997,8 +998,7 @@ impl VariantExt for VARIANT {
     }
     fn to_string(&self) -> ComResult<String> {
         unsafe {
-            let mut new = VARIANT::default();
-            VariantChangeType(&mut new, self, 0, VT_BSTR)?;
+            let mut new = self.change_type(VT_BSTR)?;
             let v00 = &new.Anonymous.Anonymous;
             let str = v00.Anonymous.bstrVal.to_string();
             VariantClear(&mut new)?;
@@ -1007,12 +1007,18 @@ impl VariantExt for VARIANT {
     }
     fn to_bool(&self) -> ComResult<bool> {
         unsafe {
-            let mut new = VARIANT::default();
-            VariantChangeType(&mut new, self, 0, VT_BOOL)?;
+            let mut new = self.change_type(VT_BOOL)?;
             let v00 = &new.Anonymous.Anonymous;
             let b = v00.Anonymous.boolVal.as_bool();
             VariantClear(&mut new)?;
             Ok(b)
+        }
+    }
+    fn change_type(&self, vt: VARENUM) -> ComResult<VARIANT> {
+        unsafe {
+            let mut new = VARIANT::default();
+            VariantChangeType(&mut new, self, VAR_CHANGE_FLAGS(0), vt)?;
+            Ok(new)
         }
     }
 }
@@ -1117,9 +1123,8 @@ impl TypeInfo {
         unsafe {
             // let vts = self.get_param_vts(memid)?;
             let mut rgbstrnames = vec![BSTR::new(); 100];
-            let cmaxnames = rgbstrnames.len() as u32;
             let mut pcnames = 0;
-            self.info.GetNames(memid, rgbstrnames.as_mut_ptr(), cmaxnames, &mut pcnames)?;
+            self.info.GetNames(memid, &mut rgbstrnames, &mut pcnames)?;
             rgbstrnames.resize(pcnames as usize, Default::default());
             // 名前の1つ目は関数名なので除外
             let names = rgbstrnames.drain(1..).collect();
@@ -1569,7 +1574,7 @@ impl GetObject {
     fn search(&mut self, mut nth: u32) -> Option<ComObject> {
         unsafe {
             let lparam = self as *mut Self as isize;
-            EnumWindows(Some(Self::callback), LPARAM(lparam));
+            let _ = EnumWindows(Some(Self::callback), LPARAM(lparam));
             for hwnd in &self.hwnds {
                 let mut ec = EnumChildren::new(*hwnd);
                 ec.run();

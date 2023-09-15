@@ -26,10 +26,11 @@ use windows::{
             },
         },
         System::{
-            Com::{
-                VARIANT, VARIANT_0_0, IDispatch,
+            Com::IDispatch,
+            Variant::{
+                VARIANT, VARIANT_0_0,
                 VT_I4,VT_DISPATCH,
-            },
+            }
         },
         Graphics::Gdi::ScreenToClient
     }

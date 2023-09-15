@@ -6,8 +6,7 @@ use crate::evaluator::builtins::window_low::move_mouse_to;
 use crate::evaluator::object::Object;
 use crate::evaluator::builtins::ThreeState;
 
-use windows::{
-    Win32::{
+use windows::Win32::{
         Foundation::{
             HWND, RECT, WPARAM, LPARAM, POINT
         },
@@ -19,15 +18,10 @@ use windows::{
                 GetWindowRect, PostMessageW,
                 SetForegroundWindow,
             },
-            Input::{
-                KeyboardAndMouse::{
-                    IsWindowEnabled,
-                }
-            },
+            Input::KeyboardAndMouse::IsWindowEnabled,
         },
         Graphics::Gdi::ScreenToClient,
-    }
-};
+    };
 
 pub struct ClkItem {
     pub name: String,
@@ -309,7 +303,7 @@ impl MouseInput {
                 let mut result = true;
                 for msg in msgs {
                     let r = PostMessageW(hwnd, msg, WPARAM(0), LPARAM(lparam));
-                    result = result && r.as_bool()
+                    result = result && r.is_ok()
                 }
                 result
             } else {
@@ -320,7 +314,7 @@ impl MouseInput {
     pub fn point_from_hwnd(hwnd: HWND) -> (i32, i32) {
         unsafe {
             let mut lprect = RECT::default();
-            GetWindowRect(hwnd, &mut lprect);
+            let _ = GetWindowRect(hwnd, &mut lprect);
             // だいたい真ん中あたりを狙う
             let x = lprect.left + (lprect.right - lprect.left) / 2;
             let y = lprect.top + (lprect.bottom - lprect.top) / 2;

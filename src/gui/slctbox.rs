@@ -1,7 +1,6 @@
 use super::{Window, Child, UWindow, UWindowResult, UWindowError, FontFamily, WparamExt};
 
-use windows::{
-    Win32::{
+use windows::Win32::{
         Foundation::{
             HWND,WPARAM,LPARAM,LRESULT,RECT,
         },
@@ -30,8 +29,7 @@ use windows::{
                 PBS_SMOOTH,
             },
         },
-    }
-};
+    };
 use once_cell::sync::OnceCell;
 
 static SLCTBOX_CLASS: OnceCell<UWindowResult<String>> = OnceCell::new();
@@ -438,7 +436,7 @@ impl UWindow<SlctboxResult> for Slctbox {
                 TranslateMessage(&msg);
                 DispatchMessageW(&msg);
             };
-            DestroyWindow(self.hwnd);
+            let _ = DestroyWindow(self.hwnd);
             Ok((result, rect.left, rect.top))
         }
     }
@@ -447,11 +445,11 @@ impl UWindow<SlctboxResult> for Slctbox {
     fn wndproc(hwnd: HWND, umsg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
         match umsg {
             WM_DESTROY => {
-                PostMessageW(HWND(0), WM_QUIT, WPARAM(0), LPARAM(hwnd.0));
+                let _ = PostMessageW(HWND(0), WM_QUIT, WPARAM(0), LPARAM(hwnd.0));
                 LRESULT(0)
             },
             WM_COMMAND => {
-                PostMessageW(HWND(0), umsg, wparam, lparam);
+                let _ = PostMessageW(HWND(0), umsg, wparam, lparam);
                 LRESULT(0)
             },
             msg => DefWindowProcW(hwnd, msg, wparam, lparam)

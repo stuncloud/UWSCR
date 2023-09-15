@@ -2,23 +2,19 @@ use super::{Window, UWindow, UWindowResult, UWindowError};
 use crate::evaluator::object::Object;
 use crate::winapi::{WString, PcwstrExt};
 
-use windows::{
-    Win32::{
+use windows::Win32::{
         Foundation::{
             HWND, POINT,
         },
-        UI::{
-            WindowsAndMessaging::{
+        UI::WindowsAndMessaging::{
                 HMENU,
                 WINDOW_STYLE, WINDOW_EX_STYLE,
                 DestroyWindow,
-                GetCursorPos, CreatePopupMenu, TrackPopupMenu, AppendMenuW, SetForegroundWindow,
+                GetCursorPos, CreatePopupMenu, AppendMenuW, SetForegroundWindow,
                 TPM_TOPALIGN,TPM_RETURNCMD,TPM_NONOTIFY,
                 MF_POPUP, MF_ENABLED, MF_STRING,
             },
-        },
-    }
-};
+    };
 use once_cell::sync::OnceCell;
 
 static POPUP_CLASS: OnceCell<Result<String, UWindowError>> = OnceCell::new();
@@ -42,7 +38,7 @@ impl PoupupDummyWin {
     }
     fn destroy(&self) {
         unsafe {
-            DestroyWindow(self.hwnd);
+            let _ = DestroyWindow(self.hwnd);
         }
     }
 }
@@ -50,6 +46,11 @@ impl UWindow<()> for PoupupDummyWin {
     fn hwnd(&self) -> HWND {
         self.hwnd
     }
+}
+
+#[link(name = "user32")]
+extern "stdcall" {
+    fn TrackPopupMenu(hmenu: isize, uflags: u32, x: i32, y: i32, nreserved: i32, hwnd: isize, prcrect: isize) -> i32;
 }
 
 #[derive(Debug)]
@@ -65,7 +66,7 @@ impl PopupMenu {
     fn get_point(x: Option<i32>, y: Option<i32>) -> (i32, i32) {
         unsafe {
             let mut p = POINT::default();
-            GetCursorPos(&mut p);
+            let _ = GetCursorPos(&mut p);
             let x = x.unwrap_or(p.x);
             let y = y.unwrap_or(p.y);
             (x, y)
@@ -75,15 +76,19 @@ impl PopupMenu {
         unsafe {
             let dummy = PoupupDummyWin::new()?;
             let (x, y) = Self::get_point(x, y);
-            let b = TrackPopupMenu(
-                self.menu.hmenu(),
-                TPM_TOPALIGN|TPM_RETURNCMD|TPM_NONOTIFY,
-                x, y, 0,
-                dummy.hwnd(),
-                None
-            );
+            // let b = TrackPopupMenu(
+            //     self.menu.hmenu(),
+            //     TPM_TOPALIGN|TPM_RETURNCMD|TPM_NONOTIFY,
+            //     x, y, 0,
+            //     dummy.hwnd(),
+            //     None
+            // );
+            let hmenu = self.menu.hmenu.0;
+            let uflags = (TPM_TOPALIGN|TPM_RETURNCMD|TPM_NONOTIFY).0;
+            let hwnd = dummy.hwnd.0;
+            let id = TrackPopupMenu(hmenu, uflags, x, y, 0, hwnd, 0);
             dummy.destroy();
-            Ok(self.menu.get_item(b.0))
+            Ok(self.menu.get_item(id))
         }
     }
     fn create_menu(list: Vec<Object>) -> UWindowResult<Menu> {
@@ -139,7 +144,7 @@ trait MenuTrait {
     fn set_submenu(&mut self, sub: &mut SubMenu) {
         unsafe {
             let lpnewitem = sub.get_name().to_wide_null_terminated().to_pcwstr();
-            AppendMenuW(self.hmenu(), MF_POPUP, sub.get_id(), lpnewitem);
+            let _ = AppendMenuW(self.hmenu(), MF_POPUP, sub.get_id(), lpnewitem);
             let list = self.get_mut_list();
             sub.push_list_to_parent(list);
         }
@@ -149,7 +154,7 @@ trait MenuTrait {
             let id = self.id();
             self.set_list(id, &item);
             let lpnewitem = item.to_wide_null_terminated().to_pcwstr();
-            AppendMenuW(self.hmenu(), MF_ENABLED|MF_STRING, self.id(), lpnewitem);
+            let _ = AppendMenuW(self.hmenu(), MF_ENABLED|MF_STRING, self.id(), lpnewitem);
         }
         self.increase_id();
     }

@@ -1,6 +1,6 @@
 use crate::error::evaluator::{UError, UErrorKind, UErrorMessage};
 use crate::settings::USETTINGS;
-use super::{Object};
+use super::Object;
 use crate::evaluator::builtins::window_control::get_id_from_hwnd;
 use crate::evaluator::Evaluator;
 
@@ -17,15 +17,13 @@ use serde_json::{Value, json};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use wmi::{WMIConnection, FilterValue, COMLibrary, WMIResult, WMIError};
 
-use windows::{
-    Win32::{
+use windows::Win32::{
         Foundation::{LPARAM, HWND, BOOL},
         UI::WindowsAndMessaging::{
             GW_OWNER,
             EnumWindows, GetWindowThreadProcessId, IsWindowVisible, GetWindow,
         }
-    }
-};
+    };
 
 type BrowserResult<T> = Result<T, UError>;
 
@@ -1002,7 +1000,7 @@ impl BrowserProcess {
         let mut data = LparamData::new(pid);
         let lparam = &mut data as *mut LparamData as isize;
         unsafe {
-            EnumWindows(Some(Self::enum_window_proc), LPARAM(lparam));
+            let _ = EnumWindows(Some(Self::enum_window_proc), LPARAM(lparam));
         }
         data.1
     }

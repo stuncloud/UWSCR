@@ -12,10 +12,12 @@ use std::{mem, ptr};
 use std::sync::{Arc, Mutex};
 
 use windows::core::{PCSTR, PCWSTR};
-use windows::Win32::System::Memory::{
-    HeapHandle,
-    HeapAlloc, HeapFree, HeapCreate, HeapDestroy,
-    HEAP_ZERO_MEMORY, HEAP_NONE, HEAP_GENERATE_EXCEPTIONS,
+use windows::Win32::{
+    Foundation::HANDLE,
+    System::Memory::{
+        HeapAlloc, HeapFree, HeapCreate, HeapDestroy,
+        HEAP_ZERO_MEMORY, HEAP_NONE, HEAP_GENERATE_EXCEPTIONS,
+    }
 };
 
 use num_traits::FromPrimitive;
@@ -187,15 +189,15 @@ impl std::fmt::Display for MemberDef {
 #[derive(Debug, Clone, PartialEq)]
 pub struct StringBuffer {
     ptr: *mut c_void,
-    hheap: HeapHandle,
+    hheap: HANDLE,
     len :usize,
     ansi: bool,
 }
 impl Drop for StringBuffer {
     fn drop(&mut self) {
         unsafe {
-            HeapFree(self.hheap, HEAP_NONE, Some(self.ptr));
-            HeapDestroy(self.hheap);
+            let _ = HeapFree(self.hheap, HEAP_NONE, Some(self.ptr));
+            let _ = HeapDestroy(self.hheap);
         }
     }
 }
@@ -514,18 +516,18 @@ impl UStructMember {
 #[derive(Debug, Clone, PartialEq)]
 pub struct UStructPointer {
     ptr: *mut c_void,
-    hheap: HeapHandle
+    hheap: HANDLE
 }
 impl UStructPointer {
-    pub fn new(ptr: *mut c_void, hheap: HeapHandle) -> Self {
+    pub fn new(ptr: *mut c_void, hheap: HANDLE) -> Self {
         Self { ptr, hheap }
     }
 }
 impl Drop for UStructPointer {
     fn drop(&mut self) {
         unsafe {
-            HeapFree(self.hheap, HEAP_NONE, Some(self.ptr));
-            HeapDestroy(self.hheap);
+            let _ = HeapFree(self.hheap, HEAP_NONE, Some(self.ptr));
+            let _ = HeapDestroy(self.hheap);
         }
     }
 }

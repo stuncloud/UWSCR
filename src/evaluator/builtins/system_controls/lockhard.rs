@@ -1,14 +1,9 @@
 use super::LockHardExConst;
 
-use windows::{
-    Win32::{
+use windows::Win32::{
         Foundation::{HWND, WPARAM, LPARAM, LRESULT, POINT},
         UI::{
-            Input::{
-                KeyboardAndMouse::{
-                    BlockInput,
-                },
-            },
+            Input::KeyboardAndMouse::BlockInput,
             WindowsAndMessaging::{
                 SetWindowsHookExW, UnhookWindowsHookEx, CallNextHookEx,
                 GetForegroundWindow,
@@ -27,14 +22,13 @@ use windows::{
                 HWINEVENTHOOK,
             }
         },
-    }
-};
+    };
 
-use once_cell::sync::{Lazy};
+use once_cell::sync::Lazy;
 use std::sync::{Arc, Mutex};
 
 pub fn lock(flg: bool) -> bool {
-    unsafe { BlockInput(flg).as_bool() }
+    unsafe { BlockInput(flg).is_ok() }
 }
 
 pub fn lock_ex(hwnd: Option<HWND>, mode: LockHardExConst) -> bool {
@@ -108,13 +102,13 @@ impl LockHard {
     fn free(&mut self) -> bool {
         unsafe {
             let kb = if let Some(hhk) = self.keyboard {
-                if UnhookWindowsHookEx(hhk).as_bool() {
+                if UnhookWindowsHookEx(hhk).is_ok() {
                     self.keyboard = None;
                     true
                 } else {false}
             } else {true};
             let mo = if let Some(hhk) = self.mouse {
-                if UnhookWindowsHookEx(hhk).as_bool() {
+                if UnhookWindowsHookEx(hhk).is_ok() {
                     self.mouse = None;
                     true
                 } else {false}

@@ -18,10 +18,13 @@ use std::ptr::copy_nonoverlapping;
 use num_traits::FromPrimitive;
 
 use windows::core::{PCSTR, PCWSTR};
-use windows::Win32::System::Memory::{
-    HeapCreate, HeapAlloc, HeapFree,
-    HEAP_GENERATE_EXCEPTIONS, HEAP_ZERO_MEMORY, HEAP_NONE,
-    HeapHandle, HeapDestroy,
+use windows::Win32::{
+    Foundation::HANDLE,
+    System::Memory::{
+        HeapCreate, HeapAlloc, HeapFree,
+        HEAP_GENERATE_EXCEPTIONS, HEAP_ZERO_MEMORY, HEAP_NONE,
+        HeapDestroy,
+    }
 };
 
 
@@ -397,15 +400,15 @@ impl DllArg {
 #[derive(Debug)]
 struct ArgValPtr {
     ptr: *mut c_void,
-    hheap: HeapHandle,
+    hheap: HANDLE,
     count: usize,
     r#type: DllType,
 }
 impl Drop for ArgValPtr {
     fn drop(&mut self) {
         unsafe {
-            HeapFree(self.hheap, HEAP_NONE, Some(self.ptr));
-            HeapDestroy(self.hheap);
+            let _ = HeapFree(self.hheap, HEAP_NONE, Some(self.ptr));
+            let _ = HeapDestroy(self.hheap);
         }
     }
 }
@@ -428,7 +431,7 @@ impl ArgValPtr {
     fn null_ptr() -> Self {
         Self {
             ptr: std::ptr::null_mut(),
-            hheap: HeapHandle(0),
+            hheap: HANDLE(0),
             count: 0,
             r#type: DllType::Void,
         }

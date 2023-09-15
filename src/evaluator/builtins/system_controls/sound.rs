@@ -16,7 +16,8 @@ use windows::{
                 SPWT_LEXICAL,
                 SPGS_ENABLED,
                 SPEVENT, SPEVENTENUM, SPEI_RECOGNITION, SPEI_RESERVED1, SPEI_RESERVED2, SPEI_UNDEFINED,
-                SPEVENTLPARAMTYPE, SPET_LPARAM_IS_OBJECT
+                SPEVENTLPARAMTYPE, SPET_LPARAM_IS_OBJECT,
+                SPSTATEHANDLE, SPPROPERTYINFO,
             }
         },
         System::{
@@ -50,7 +51,7 @@ pub fn stop_sound() {
 pub fn beep(duration: u32, freq: u32, count: u32) {
     unsafe {
         for _ in 0..count {
-            Beep(freq, duration);
+            let _ = Beep(freq, duration);
         }
     }
 }
@@ -139,10 +140,10 @@ impl Recognizer {
             context.SetInterest(interest, interest)?;
 
             let grammar = context.CreateGrammar(0)?;
-            let mut hfromstate = ptr::null_mut();
+            let mut hstate = SPSTATEHANDLE::default();
             let dwattributes = (SPRAF_TopLevel.0|SPRAF_Active.0) as u32;
-            grammar.GetRule(None, 1, dwattributes, true, &mut hfromstate)?;
-            grammar.ClearRule(hfromstate)?;
+            grammar.GetRule(None, 1, dwattributes, true, &mut hstate)?;
+            grammar.ClearRule(hstate)?;
             if words.is_empty() {
                 // 単語リストが空なら標準辞書をロード
                 grammar.LoadDictation(None, SPLO_STATIC)?;
@@ -151,7 +152,9 @@ impl Recognizer {
                 // 単語リストを登録
                 for word in words {
                     let psz = HSTRING::from(word);
-                    grammar.AddWordTransition(hfromstate, ptr::null_mut(), &psz, None, SPWT_LEXICAL, 1.0, ptr::null())?;
+                    let htostate = SPSTATEHANDLE::default();
+                    let ppropinfo = SPPROPERTYINFO::default();
+                    grammar.AddWordTransition(hstate, htostate, &psz, None, SPWT_LEXICAL, 1.0, &ppropinfo)?;
                 }
                 grammar.Commit(0)?;
                 grammar.SetGrammarState(SPGS_ENABLED)?;

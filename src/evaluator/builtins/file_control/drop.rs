@@ -1,4 +1,4 @@
-use std::ffi::{OsStr};
+use std::ffi::OsStr;
 use std::path::PathBuf;
 
 use windows::{
@@ -15,12 +15,10 @@ use windows::{
                 GetClientRect, SetForegroundWindow,
             },
         },
-        System::{
-            Memory::{
+        System::Memory::{
                 GlobalLock, GlobalUnlock,
                 GlobalAlloc, GMEM_MOVEABLE,
             }
-        }
     }
 };
 
@@ -46,7 +44,7 @@ pub fn get_point(hwnd: HWND, x: Option<i32>, y: Option<i32>) -> (i32, i32) {
         _ => {
             unsafe {
                 let mut rect = RECT::default();
-                GetClientRect(hwnd, &mut rect);
+                let _ = GetClientRect(hwnd, &mut rect);
                 let x = (rect.right - rect.left) / 2;
                 let y = (rect.bottom - rect.top) / 2;
                 (x, y)
@@ -74,14 +72,14 @@ pub fn dropfile(hwnd: HWND, files: &HSTRING, x: i32, y: i32) -> bool {
         };
         let pglobal = GlobalLock(hmem);
         std::ptr::copy_nonoverlapping(buffer.as_ptr(), pglobal as *mut u8, buffer_size);
-        GlobalUnlock(hmem);
+        let _ = GlobalUnlock(hmem);
         let wparam = WPARAM(pglobal as usize);
 
         let cur_pos = get_current_pos().ok();
         SetForegroundWindow(hwnd);
         ClientToScreen(hwnd, &mut pt);
         move_mouse_to(pt.x, pt.y);
-        let result = PostMessageW(hwnd, WM_DROPFILES, wparam, None).as_bool();
+        let result = PostMessageW(hwnd, WM_DROPFILES, wparam, None).is_ok();
         if let Some(p) = cur_pos {
             std::thread::sleep(std::time::Duration::from_millis(30));
             move_mouse_to(p.x, p.y);

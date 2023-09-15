@@ -46,7 +46,7 @@ use windows::{
                 HMENU, GetMenu, GetMenuItemCount, GetSubMenu, GetMenuItemID, GetMenuItemRect,
                 MIIM_TYPE, MIIM_STATE, MENUITEMINFOW, GetMenuItemInfoW, MENUITEMINFOA, GetMenuItemInfoA,
                 MFS_CHECKED,
-                GetWindowThreadProcessId, PostThreadMessageW, GetParent,
+                GetWindowThreadProcessId, GetParent,
                 // slider
                 IsWindowVisible, GetWindowRect,
                 GetScrollInfo, SCROLLBAR_CONSTANTS, SB_HORZ, SB_VERT, SCROLLINFO, SIF_ALL,
@@ -540,7 +540,7 @@ impl Win32 {
 
     fn post_message(hwnd: HWND, msg: u32, wparam: usize, lparam: isize) -> bool {
         unsafe {
-            PostMessageW(hwnd, msg, WPARAM(wparam), LPARAM(lparam)).as_bool()
+            PostMessageW(hwnd, msg, WPARAM(wparam), LPARAM(lparam)).is_ok()
         }
     }
     fn send_message(hwnd: HWND, msg: u32, wparam: usize, lparam: isize) -> isize {
@@ -548,12 +548,12 @@ impl Win32 {
             SendMessageW(hwnd, msg, WPARAM(wparam), LPARAM(lparam)).0
         }
     }
-    fn _post_thread_message(hwnd: HWND, msg: u32, wparam: usize, lparam: isize) -> bool {
-        unsafe {
-            let idthread = GetWindowThreadProcessId(hwnd, None);
-            PostThreadMessageW(idthread, msg, WPARAM(wparam), LPARAM(lparam)).as_bool()
-        }
-    }
+    // fn _post_thread_message(hwnd: HWND, msg: u32, wparam: usize, lparam: isize) -> bool {
+    //     unsafe {
+    //         let idthread = GetWindowThreadProcessId(hwnd, None);
+    //         PostThreadMessageW(idthread, msg, WPARAM(wparam), LPARAM(lparam)).as_bool()
+    //     }
+    // }
     fn get_parent(hwnd: HWND) -> HWND {
         unsafe {
             GetParent(hwnd)
@@ -719,8 +719,8 @@ impl Win32 {
             let dwdesiredaccess = PROCESS_VM_READ|PROCESS_VM_WRITE|PROCESS_VM_OPERATION|PROCESS_QUERY_INFORMATION;
             let hprocess = OpenProcess(dwdesiredaccess, false, pid).ok()?;
             let mut wow64process = true.into();
-            IsWow64Process(hprocess, &mut wow64process);
-            CloseHandle(hprocess);
+            let _ = IsWow64Process(hprocess, &mut wow64process);
+            let _ = CloseHandle(hprocess);
             let is_x64 = ! wow64process.as_bool();
             Some(is_x64)
         }
@@ -875,7 +875,7 @@ impl Win32 {
             let idthread = GetWindowThreadProcessId(hwnd, None);
             let mut pgui = GUITHREADINFO::default();
             pgui.cbSize = std::mem::size_of::<GUITHREADINFO>() as u32;
-            GetGUIThreadInfo(idthread, &mut pgui);
+            let _ = GetGUIThreadInfo(idthread, &mut pgui);
             pgui.hwndFocus
         }
     }
@@ -1402,7 +1402,7 @@ impl<T> ProcessMemory<T> {
         unsafe {
             let lpbuffer = value as *const T as *const c_void;
             let nsize = mem::size_of::<T>();
-            WriteProcessMemory(self.hprocess, self.pointer, lpbuffer, nsize, None).as_bool()
+            WriteProcessMemory(self.hprocess, self.pointer, lpbuffer, nsize, None).is_ok()
         }
     }
     fn write2<U>(&self, value: U) -> bool {
@@ -1413,7 +1413,7 @@ impl<T> ProcessMemory<T> {
                 // 書き込むデータのサイズが確保したメモリサイズを超えたらダメ
                 false
             } else {
-                WriteProcessMemory(self.hprocess, self.pointer, lpbuffer, nsize, None).as_bool()
+                WriteProcessMemory(self.hprocess, self.pointer, lpbuffer, nsize, None).is_ok()
             }
         }
     }
@@ -1421,7 +1421,7 @@ impl<T> ProcessMemory<T> {
         let lpbuffer = buf as *mut T as *mut c_void;
         let nsize = mem::size_of::<T>();
         unsafe {
-            ReadProcessMemory(self.hprocess, self.pointer, lpbuffer, nsize, None);
+            let _ = ReadProcessMemory(self.hprocess, self.pointer, lpbuffer, nsize, None);
         }
     }
     fn _as_ptr(&self) -> *mut T {
@@ -1432,8 +1432,8 @@ impl<T> ProcessMemory<T> {
 impl<T> Drop for ProcessMemory<T> {
     fn drop(&mut self) {
         unsafe {
-            VirtualFreeEx(self.hprocess, self.pointer, 0, MEM_RELEASE);
-            CloseHandle(self.hprocess);
+            let _ = VirtualFreeEx(self.hprocess, self.pointer, 0, MEM_RELEASE);
+            let _ = CloseHandle(self.hprocess);
         }
     }
 }
@@ -1570,7 +1570,7 @@ impl Menu {
                 if found {
                     let id = GetMenuItemID(hmenu, npos) as usize;
                     let mut rect = RECT::default();
-                    GetMenuItemRect(self.hwnd, hmenu, npos as u32, &mut rect);
+                    let _ = GetMenuItemRect(self.hwnd, hmenu, npos as u32, &mut rect);
                     let (x, y) = Win32::get_center(rect);
                     let (x, y) = Win32::client_to_screen(self.hwnd, x, y);
                     item.found = Some(ItemFound::new(self.hwnd, TargetClass::Menu, ItemInfo::Menu(id, checked, x, y)));
@@ -1613,7 +1613,7 @@ impl Menu {
         info.fMask = MIIM_TYPE|MIIM_STATE;
         info.cch = buf.len() as u32;
         info.dwTypeData = PWSTR::from_raw(buf.as_mut_ptr());
-        unsafe { GetMenuItemInfoW(hmenu, npos, true, &mut info) };
+        let _ = unsafe { GetMenuItemInfoW(hmenu, npos, true, &mut info) };
         let checked = (info.fState & MFS_CHECKED) == MFS_CHECKED;
         let name = from_wide_string(&buf);
         (name, checked)
@@ -1625,7 +1625,7 @@ impl Menu {
         info.fMask = MIIM_TYPE|MIIM_STATE;
         info.cch = buf.len() as u32;
         info.dwTypeData = PSTR::from_raw(buf.as_mut_ptr());
-        unsafe { GetMenuItemInfoA(hmenu, npos, true, &mut info) };
+        let _ = unsafe { GetMenuItemInfoA(hmenu, npos, true, &mut info) };
         let checked = (info.fState & MFS_CHECKED) == MFS_CHECKED;
         let name = from_ansi_bytes(&buf);
         (name, checked)
@@ -2221,7 +2221,7 @@ struct TBBUTTON86 {
 
 pub enum Slider {
     /// parent, SCROLLINFO, 縦横, (X, Y)
-    ScrollBar(HWND, SCROLLINFO, u32, (i32, i32)),
+    ScrollBar(HWND, SCROLLINFO, i32, (i32, i32)),
     /// trackbar, parent
     TrackBar(HWND, HWND)
 }
@@ -2308,7 +2308,7 @@ impl Slider {
             Self::TrackBar(hwnd, parent) => {
                 unsafe {
                     let mut rect = RECT::default();
-                    GetWindowRect(*hwnd, &mut rect);
+                    let _ = GetWindowRect(*hwnd, &mut rect);
                     let mut point = POINT { x: rect.left, y: rect.top };
                     ScreenToClient(*parent, &mut point);
                     (point.x, point.y)
@@ -2320,12 +2320,9 @@ impl Slider {
         let mut info = SCROLLINFO::default();
         info.cbSize = std::mem::size_of::<SCROLLINFO>() as u32;
         info.fMask = SIF_ALL;
-        if GetScrollInfo(hwnd, nbar, &mut info).as_bool() {
-            if info.nPage > 0 {
-                Some(info)
-            } else {
-                None
-            }
+        GetScrollInfo(hwnd, nbar, &mut info).ok()?;
+        if info.nPage > 0 {
+            Some(info)
         } else {
             None
         }
@@ -2333,7 +2330,7 @@ impl Slider {
     unsafe fn get_scrollbar_point(hwnd: HWND, idobject: OBJECT_IDENTIFIER) -> (i32, i32) {
         let mut info = SCROLLBARINFO::default();
         info.cbSize = std::mem::size_of::<SCROLLBARINFO>() as u32;
-        GetScrollBarInfo(hwnd, idobject, &mut info);
+        let _ = GetScrollBarInfo(hwnd, idobject, &mut info);
         (info.rcScrollBar.left, info.rcScrollBar.top)
     }
 }

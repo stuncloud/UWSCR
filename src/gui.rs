@@ -50,9 +50,7 @@ use windows::{
                 GetWindowRect, GetClientRect, GetDlgItem, GetDlgCtrlID,
                 GetWindowTextW, GetWindowTextLengthW,
             },
-            Input::KeyboardAndMouse::{
-                SetFocus,
-            },
+            Input::KeyboardAndMouse::SetFocus,
             Controls::{
                 EM_SETMARGINS, EM_GETRECT, EM_SETRECT,
             },
@@ -133,6 +131,7 @@ impl Window {
         unsafe {
             let wide = to_wide_string(class_name);
             let hInstance = GetModuleHandleW(None)
+                .map(|hmod| hmod.into())
                 .map_err(|e| UWindowError::FailedToRegisterClass(class_name.into(), e.to_string()))?;
             let hbrBackground = match color {
                 Some(index) => HBRUSH(index.0 as isize),
@@ -267,7 +266,7 @@ impl Window {
                 let cbattribute = std::mem::size_of::<RECT>() as u32;
                 if DwmGetWindowAttribute(hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, pvattribute, cbattribute).is_ok() {
                     let mut wrect = RECT::default();
-                    GetWindowRect(hwnd, &mut wrect);
+                    let _ = GetWindowRect(hwnd, &mut wrect);
                     *x = *x - (drect.left - wrect.left);
                     *y = *y - (drect.top - wrect.top);
                     *width = *width - ((drect.right - drect.left) - (wrect.right - wrect.left));
@@ -279,13 +278,13 @@ impl Window {
     fn set_window_pos(hwnd: HWND, x: i32, y: i32, size: SIZE, flags: Option<SET_WINDOW_POS_FLAGS>) {
         unsafe {
             let uflags = flags.unwrap_or_default();
-            SetWindowPos(hwnd, HWND::default(), x, y, size.cx, size.cy, uflags);
+            let _ = SetWindowPos(hwnd, HWND::default(), x, y, size.cx, size.cy, uflags);
         }
     }
     fn move_window(hwnd: HWND, mut x: i32, mut y: i32, mut width: i32, mut height: i32) {
         unsafe {
             Self::fix_aero_rect(hwnd, &mut x, &mut y, &mut width, &mut height);
-            MoveWindow(hwnd, x, y, width, height, true);
+            let _ = MoveWindow(hwnd, x, y, width, height, true);
         }
     }
     fn set_child(parent: HWND, class_name: &str, title: &str, x: i32, y: i32, size_opt: Option<SizeOption>, font: Option<HFONT>, styles: Option<WINDOW_STYLE>, id: Option<i32>) -> UWindowResult<Child> {
@@ -374,8 +373,8 @@ impl Window {
         let mut wrect = RECT::default();
         let mut crect = RECT::default();
         unsafe {
-            GetWindowRect(hwnd, &mut wrect);
-            GetClientRect(hwnd, &mut crect);
+            let _ = GetWindowRect(hwnd, &mut wrect);
+            let _ = GetClientRect(hwnd, &mut crect);
         }
         let w = (wrect.right - wrect.left) - crect.right;
         let h = (wrect.bottom - wrect.top) - crect.bottom;
@@ -402,14 +401,14 @@ impl Window {
     fn get_window_rect(hwnd: HWND) -> RECT {
         unsafe {
             let mut rect = RECT::default();
-            GetWindowRect(hwnd, &mut rect);
+            let _ = GetWindowRect(hwnd, &mut rect);
             rect
         }
     }
     fn get_client_rect(hwnd: HWND) -> RECT {
         unsafe {
             let mut rect = RECT::default();
-            GetClientRect(hwnd, &mut rect);
+            let _ = GetClientRect(hwnd, &mut rect);
             rect
         }
     }
@@ -550,7 +549,7 @@ pub trait UWindow<T: Default> {
     fn wndproc(hwnd: HWND, umsg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
         match umsg {
             WM_DESTROY => {
-                PostMessageW(HWND(0), WM_QUIT, WPARAM(0), LPARAM(hwnd.0));
+                let _ = PostMessageW(HWND(0), WM_QUIT, WPARAM(0), LPARAM(hwnd.0));
                 LRESULT(0)
             },
             msg => DefWindowProcW(hwnd, msg, wparam, lparam)

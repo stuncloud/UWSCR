@@ -5,7 +5,7 @@ use crate::error::{CURRENT_LOCALE, Locale};
 use std::str::FromStr;
 
 use chrono::{
-    DateTime, Datelike, Timelike, Weekday, NaiveDate, Duration,
+    DateTime, Datelike, Timelike, Weekday, NaiveDate, Duration, NaiveDateTime,
     offset::{Local, TimeZone},
     format,
     ParseError
@@ -25,23 +25,25 @@ impl GetTime {
         Self { dt }
     }
     fn from_str(dt: &str) -> GetTimeResult<Self> {
-        let dt = match dt.len() {
+        let naive = match dt.len() {
             8 => {
                 let s = format!("{dt}000000");
-                Local.datetime_from_str(&s, "%Y%m%d%H%M%S")
+                NaiveDateTime::parse_from_str(&s, "%Y%m%d%H%M%S")
             },
             10 => {
                 let mut s = dt.replace("/", "-");
                 s.push_str("000000");
-                Local.datetime_from_str(&s, "%F%H%M%S")
+                NaiveDateTime::parse_from_str(&s, "%F%H%M%S")
             },
-            14 => Local.datetime_from_str(dt, "%Y%m%d%H%M%S"),
+            14 => NaiveDateTime::parse_from_str(dt, "%Y%m%d%H%M%S"),
             19 => {
                 let s = dt.replace("/", "-");
-                Local.datetime_from_str(&s, "%Y-%m-%d %T")
+                NaiveDateTime::parse_from_str(&s, "%Y-%m-%d %T")
             },
-            _ => DateTime::from_str(dt),
+            _ => NaiveDateTime::from_str(dt),
         }?;
+        let dt = Local.from_local_datetime(&naive).single()
+            .ok_or(GetTimeError::NaiveToLocalError)?;
         let gt = Self { dt };
         Ok(gt)
     }
@@ -105,7 +107,8 @@ pub type GetTimeResult<T> = Result<T, GetTimeError>;
 pub enum GetTimeError {
     ParseError(ParseError),
     InvalidSecond(i64),
-    InvalidMilliSecond(i64)
+    InvalidMilliSecond(i64),
+    NaiveToLocalError,
 }
 impl From<ParseError> for GetTimeError {
     fn from(e: ParseError) -> Self {
@@ -124,6 +127,10 @@ impl std::fmt::Display for GetTimeError {
             GetTimeError::InvalidMilliSecond(m) => write_locale!(f,
                 "{m}は有効なミリ秒数ではありません",
                 "{m} is not a valid millisecond",
+            ),
+            GetTimeError::NaiveToLocalError => write_locale!(f,
+                "ローカル時間への変換に失敗しました",
+                "Failed to convert NaiveDateTime to Local",
             ),
         }
     }

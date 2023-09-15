@@ -313,11 +313,11 @@ fn find_window(title: String, class_name: String, timeout: f64) -> windows::core
     unsafe {
         let lparam = &mut target as *mut TargetWindow as isize;
         loop {
-            EnumWindows(Some(callback_find_window), LPARAM(lparam));
+            let _ = EnumWindows(Some(callback_find_window), LPARAM(lparam));
             if target.found {
                 let h = get_process_handle_from_hwnd(target.hwnd)?;
                 WaitForInputIdle(h, 1000); // 入力可能になるまで最大1秒待つ
-                CloseHandle(h);
+                let _ = CloseHandle(h);
                 break;
             }
             if limit.is_some() && now.elapsed() >= limit.unwrap() {
@@ -500,10 +500,10 @@ pub fn ctrlwin(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     if let Some(cmd) = args.get_as_const(1, true)? {
         match cmd {
             CtrlWinCmd::CLOSE => unsafe {
-                PostMessageW(hwnd, WM_CLOSE, WPARAM(0), LPARAM(0));
+                let _ = PostMessageW(hwnd, WM_CLOSE, WPARAM(0), LPARAM(0));
             },
             CtrlWinCmd::CLOSE2 => unsafe {
-                PostMessageW(hwnd, WM_DESTROY, WPARAM(0), LPARAM(0));
+                let _ = PostMessageW(hwnd, WM_DESTROY, WPARAM(0), LPARAM(0));
             },
             CtrlWinCmd::ACTIVATE => unsafe {
                 SetForegroundWindow(hwnd);
@@ -524,7 +524,7 @@ pub fn ctrlwin(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
                 ShowWindow(hwnd, SW_SHOWNORMAL);
             },
             CtrlWinCmd::TOPMOST => unsafe {
-                SetWindowPos(
+                let _ = SetWindowPos(
                     hwnd,
                     HWND_TOPMOST,
                     0, 0, 0, 0,
@@ -532,7 +532,7 @@ pub fn ctrlwin(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
                 );
             },
             CtrlWinCmd::NOTOPMOST => unsafe {
-                SetWindowPos(
+                let _ = SetWindowPos(
                     hwnd,
                     HWND_NOTOPMOST,
                     0, 0, 0, 0,
@@ -541,7 +541,7 @@ pub fn ctrlwin(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
             },
             CtrlWinCmd::TOPNOACTV => unsafe {
                 for h in vec![HWND_TOPMOST, HWND_NOTOPMOST] {
-                    SetWindowPos(
+                    let _ = SetWindowPos(
                         hwnd,
                         h,
                         0, 0, 0, 0,
@@ -612,11 +612,11 @@ fn get_window_size(h: HWND) -> WindowSize {
             // 見た目のRectを取る
             if DwmGetWindowAttribute(h, DWMWA_EXTENDED_FRAME_BOUNDS, pvattribute, cbattribute).is_err() {
                 // 失敗時はGetWindowRect
-                GetWindowRect(h, &mut rect);
+                let _ = GetWindowRect(h, &mut rect);
             }
         } else {
             // AEROがオフならGetWindowRect
-            GetWindowRect(h, &mut rect);
+            let _ = GetWindowRect(h, &mut rect);
         };
         WindowSize(rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top)
     }
@@ -625,7 +625,7 @@ fn get_window_size(h: HWND) -> WindowSize {
 fn get_window_rect(h: HWND) -> WindowSize {
     let mut rect = RECT {left: 0, top: 0, right: 0, bottom: 0};
     unsafe {
-        GetWindowRect(h, &mut rect);
+        let _ = GetWindowRect(h, &mut rect);
     }
     WindowSize(rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top)
 }
@@ -638,7 +638,7 @@ pub fn set_window_size(hwnd: HWND, x: Option<i32>, y: Option<i32>, w: Option<i32
     let w = w.unwrap_or(default_rect.width());
     let h = h.unwrap_or(default_rect.height());
     unsafe {
-        MoveWindow(hwnd, x, y, w, h, true);
+        let _ = MoveWindow(hwnd, x, y, w, h, true);
         if DwmIsCompositionEnabled().unwrap_or(BOOL(0)).as_bool() {
             // 見た目のRectを取る
             let mut drect = RECT::default();
@@ -647,7 +647,7 @@ pub fn set_window_size(hwnd: HWND, x: Option<i32>, y: Option<i32>, w: Option<i32
             if DwmGetWindowAttribute(hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, pvattribute, cbattribute).is_ok() {
                 // 実際のRectを取る
                 let mut wrect = RECT::default();
-                GetWindowRect(hwnd, &mut wrect);
+                let _ = GetWindowRect(hwnd, &mut wrect);
 
                 // 見た目と実際の差分から最適な移動位置を得る
                 let fix= |o, v| {
@@ -658,7 +658,7 @@ pub fn set_window_size(hwnd: HWND, x: Option<i32>, y: Option<i32>, w: Option<i32
                 let new_w = fix(w, (drect.right - drect.left) - (wrect.right - wrect.left));
                 let new_h = fix(h, (drect.bottom - drect.top) - (wrect.bottom - wrect.top));
                 // 移動し直し
-                MoveWindow(hwnd, new_x, new_y, new_w, new_h, true);
+                let _ = MoveWindow(hwnd, new_x, new_y, new_w, new_h, true);
             }
         }
     }
@@ -668,7 +668,7 @@ pub fn set_window_size(hwnd: HWND, x: Option<i32>, y: Option<i32>, w: Option<i32
 fn get_client_size(h: HWND) -> WindowSize {
     let mut rect = RECT {left: 0, top: 0, right: 0, bottom: 0};
     unsafe {
-        GetClientRect(h, &mut rect);
+        let _ = GetClientRect(h, &mut rect);
         let mut point = POINT {x: rect.left, y: rect.top};
         ClientToScreen(h, &mut point);
         WindowSize(
@@ -708,8 +708,8 @@ fn get_parent(hwnd: HWND) -> Object {
 fn is_maximized(hwnd: HWND)-> Object {
     let mut wp = WINDOWPLACEMENT::default();
     unsafe {
-        GetWindowPlacement(hwnd, &mut wp);
-        Object::Bool(wp.showCmd == SW_MAXIMIZE)
+        let _ = GetWindowPlacement(hwnd, &mut wp);
+        Object::Bool(wp.showCmd == SW_MAXIMIZE.0 as u32)
     }
 }
 
@@ -741,7 +741,7 @@ fn is_process_64bit(hwnd: HWND) -> BuiltInResult<Object> {
     let h = get_process_handle_from_hwnd(hwnd)?;
     let mut is_wow64 = false.into();
     unsafe {
-        IsWow64Process(h, &mut is_wow64);
+        let _ = IsWow64Process(h, &mut is_wow64);
     }
     let is_64 = ! is_wow64.as_bool();
     Ok(Object::Bool(is_64))
@@ -762,7 +762,7 @@ fn get_process_path_from_hwnd(hwnd: HWND) -> BuiltInResult<Object> {
     unsafe {
         let handle = get_process_handle_from_hwnd(hwnd)?;
         GetModuleFileNameExW(handle, HMODULE::default(), &mut buffer);
-        CloseHandle(handle);
+        let _ = CloseHandle(handle);
     }
     let path = String::from_utf16_lossy(&buffer);
     Ok(Object::String(path))
@@ -1069,8 +1069,12 @@ pub fn getallwin(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult 
         let mut list = HwndList(vec![]);
         let lparam = LPARAM(&mut list as *mut HwndList as isize);
         match target {
-            Some(h) => EnumChildWindows(h, Some(callback_getallwin), lparam),
-            None => EnumWindows(Some(callback_getallwin), lparam),
+            Some(h) => {
+                EnumChildWindows(h, Some(callback_getallwin), lparam);
+            },
+            None => {
+                let _ = EnumWindows(Some(callback_getallwin), lparam);
+            },
         };
 
         list.0.into_iter()
@@ -1297,7 +1301,7 @@ pub fn muscur(_: &mut Evaluator, _: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = unsafe {
         let mut pci = CURSORINFO::default();
         pci.cbSize = std::mem::size_of::<CURSORINFO>() as u32;
-        GetCursorInfo(&mut pci);
+        let _ = GetCursorInfo(&mut pci);
         pci.hCursor.0
     };
     let cursor = match id {
@@ -1339,17 +1343,17 @@ pub fn peekcolor(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFun
     let clipboard = args.get_as_bool(3, Some(false))?;
     unsafe {
         let bgr = if clipboard {
-            if IsClipboardFormatAvailable(CF_BITMAP.0 as u32).as_bool() && OpenClipboard(HWND(0)).as_bool() {
+            if IsClipboardFormatAvailable(CF_BITMAP.0 as u32).is_ok() && OpenClipboard(HWND(0)).is_ok() {
                 let h = GetClipboardData(CF_BITMAP.0 as u32)?;
                 let hbitmap = HBITMAP(h.0);
                 let hdc = CreateCompatibleDC(None);
                 let old = SelectObject(hdc, hbitmap);
                 let colorref = GetPixel(hdc, x, y);
                 SelectObject(hdc, old);
-                CloseHandle(h);
+                let _ = CloseHandle(h);
                 DeleteObject(hbitmap);
                 DeleteDC(hdc);
-                CloseClipboard();
+                let _ = CloseClipboard();
                 colorref.0
             } else {
                 0xFFFFFFFF

@@ -12,8 +12,7 @@ use crate::error::evaluator::{UErrorMessage, UErrorKind};
 use crate::winapi::{from_ansi_bytes, to_wide_string, attach_console, free_console, WString, PcwstrExt};
 use crate::evaluator::builtins::window_control::get_hwnd_from_id;
 use windows::{
-    w,
-    core::{PWSTR,PCWSTR},
+    core::{PWSTR,PCWSTR,w},
     Win32::{
         Foundation::{
             BOOL, HWND, LPARAM, WPARAM,
@@ -24,8 +23,6 @@ use windows::{
             SystemInformation::{
                 OSVERSIONINFOEXW, GetVersionExW,
                 SYSTEM_INFO, GetNativeSystemInfo,
-            },
-            Diagnostics::Debug::{
                 PROCESSOR_ARCHITECTURE_AMD64, PROCESSOR_ARCHITECTURE_INTEL,
             },
             Threading::{
@@ -37,9 +34,7 @@ use windows::{
                 GetSystemTimes,
                 INFINITE,
             },
-            SystemServices::{
-                VER_NT_WORKSTATION,
-            }
+            SystemServices::VER_NT_WORKSTATION
         },
         UI::{
             Input::{
@@ -59,9 +54,7 @@ use windows::{
                 GetForegroundWindow,
                 SendMessageW, WM_IME_CONTROL,
             },
-            Shell::{
-                ShellExecuteW,
-            }
+            Shell::ShellExecuteW
         },
     }
 };
@@ -165,7 +158,7 @@ pub fn get_os_kind() -> Vec<f64> {
     info.dwOSVersionInfoSize = std::mem::size_of::<OSVERSIONINFOEXW>() as u32;
     let p_info = <*mut _>::cast(&mut info);
     unsafe {
-        GetVersionExW(p_info);
+        let _ = GetVersionExW(p_info);
     }
     let mut res = vec![];
     let win11_build_version = 21996;
@@ -271,7 +264,7 @@ fn create_process(cmd: String) -> BuiltInResult<PROCESS_INFORMATION> {
         let mut pi = PROCESS_INFORMATION::default();
         let mut command = to_wide_string(&cmd);
 
-        let r = CreateProcessW(
+        CreateProcessW(
             PCWSTR::null(),
             PWSTR(command.as_mut_ptr()),
             None,
@@ -282,13 +275,9 @@ fn create_process(cmd: String) -> BuiltInResult<PROCESS_INFORMATION> {
             PCWSTR::null(),
             &mut si,
             &mut pi
-        );
-        if r.as_bool() {
-            WaitForInputIdle(pi.hProcess, 1000);
-            Ok(pi)
-        } else {
-            Err(builtin_func_error(UErrorMessage::FailedToCreateProcess))
-        }
+        )?;
+        WaitForInputIdle(pi.hProcess, 1000);
+        Ok(pi)
     }
 }
 
@@ -316,7 +305,7 @@ pub fn exec(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let pi = create_process(cmd)?;
     unsafe{
         let mut ph = ProcessHwnd{pid: pi.dwProcessId, hwnd: HWND::default()};
-        EnumWindows(Some(enum_window_proc), LPARAM(&mut ph as *mut ProcessHwnd as isize));
+        let _ = EnumWindows(Some(enum_window_proc), LPARAM(&mut ph as *mut ProcessHwnd as isize));
         let x = args.get_as_int(2, None).ok();
         let y = args.get_as_int(3, None).ok();
         let w = args.get_as_int(4, None).ok();
@@ -326,14 +315,14 @@ pub fn exec(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
             // 同期する場合は終了コード
             let mut exit: u32 = 0;
             WaitForSingleObject(pi.hProcess, INFINITE);
-            GetExitCodeProcess(pi.hProcess, &mut exit);
-            CloseHandle(pi.hThread);
-            CloseHandle(pi.hProcess);
+            let _ = GetExitCodeProcess(pi.hProcess, &mut exit);
+            let _ = CloseHandle(pi.hThread);
+            let _ = CloseHandle(pi.hProcess);
             Ok(Object::Num(exit.into()))
         } else {
             // idを返す
-            CloseHandle(pi.hThread);
-            CloseHandle(pi.hProcess);
+            let _ = CloseHandle(pi.hThread);
+            let _ = CloseHandle(pi.hProcess);
             if ph.hwnd.0 > 0 {
                 let id = window_control::get_next_id();
                 window_control::set_new_window(id, ph.hwnd, true);
@@ -656,9 +645,9 @@ pub fn cpuuserate(_: &mut Evaluator, _: BuiltinFuncArgs) -> BuiltinFuncResult {
         let mut idle2 = FILETIME::default();
         let mut kernel2 = FILETIME::default();
         let mut user2 = FILETIME::default();
-        GetSystemTimes(Some(&mut idle1), Some(&mut kernel1), Some(&mut user1));
+        let _ = GetSystemTimes(Some(&mut idle1), Some(&mut kernel1), Some(&mut user1));
         thread::sleep(time::Duration::from_secs(1));
-        GetSystemTimes(Some(&mut idle2), Some(&mut kernel2), Some(&mut user2));
+        let _ = GetSystemTimes(Some(&mut idle2), Some(&mut kernel2), Some(&mut user2));
         let total = diff(kernel2, kernel1) + diff(user2, user1);
         let idle = diff(idle2, idle1);
         let usage = 1.0 - idle as f64 / total as f64;

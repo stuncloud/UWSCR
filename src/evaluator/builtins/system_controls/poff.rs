@@ -1,6 +1,5 @@
 
-use windows::{
-    Win32::{
+use windows::Win32::{
         Foundation::{HWND, LPARAM, WPARAM, LUID, HANDLE, BOOLEAN},
         System::{
             Power::SetSuspendState,
@@ -26,8 +25,7 @@ use windows::{
             EWX_FORCE,
         },
         Graphics::Gdi::SC_SCREENSAVE,
-    }
-};
+    };
 
 pub fn hibernate() {
     unsafe {
@@ -57,7 +55,7 @@ pub fn sign_out(force: bool) {
     unsafe {
         let uflags = if force {EXIT_WINDOWS_FLAGS(EWX_LOGOFF.0|EWX_FORCE)} else {EWX_LOGOFF};
         let dwreason = SHUTDOWN_REASON(0);
-        ExitWindowsEx(uflags, dwreason);
+        let _ = ExitWindowsEx(uflags, dwreason);
     }
 }
 
@@ -66,11 +64,11 @@ fn exit_windows_ex(flags: EXIT_WINDOWS_FLAGS, force: bool) {
         // SE_SHUTDOWN_NAME 特権を得る
         let processhandle = GetCurrentProcess();
         let mut tokenhandle = HANDLE::default();
-        if ! OpenProcessToken(processhandle, TOKEN_ADJUST_PRIVILEGES|TOKEN_QUERY, &mut tokenhandle).as_bool() {
+        if OpenProcessToken(processhandle, TOKEN_ADJUST_PRIVILEGES|TOKEN_QUERY, &mut tokenhandle).is_err() {
             return;
         }
         let mut lpluid = LUID::default();
-        LookupPrivilegeValueW(None, SE_SHUTDOWN_NAME, &mut lpluid);
+        let _ = LookupPrivilegeValueW(None, SE_SHUTDOWN_NAME, &mut lpluid);
         let mut laa = LUID_AND_ATTRIBUTES::default();
         laa.Luid = lpluid;
         laa.Attributes = SE_PRIVILEGE_ENABLED;
@@ -78,13 +76,13 @@ fn exit_windows_ex(flags: EXIT_WINDOWS_FLAGS, force: bool) {
         tkp.PrivilegeCount = 1;
         tkp.Privileges = [laa];
 
-        if ! AdjustTokenPrivileges(tokenhandle, false, Some(&tkp), 0, None, None).as_bool() {
+        if AdjustTokenPrivileges(tokenhandle, false, Some(&tkp), 0, None, None).is_err() {
             return;
         }
 
         let uflags = if force {EXIT_WINDOWS_FLAGS(flags.0|EWX_FORCE)} else {EWX_LOGOFF};
         let dwreason = SHTDN_REASON_MAJOR_OTHER|SHTDN_REASON_MINOR_OTHER|SHTDN_REASON_FLAG_PLANNED;
-        ExitWindowsEx(uflags, dwreason);
+        let _ = ExitWindowsEx(uflags, dwreason);
     }
 }
 

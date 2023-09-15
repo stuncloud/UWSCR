@@ -2,7 +2,7 @@ use super::SensorConst;
 use crate::evaluator::object::Object;
 
 use windows::{
-    core::{GUID},
+    core::GUID,
     Win32::{
         Devices::Sensors::{
             ISensorManager,
@@ -29,8 +29,10 @@ use windows::{
             Com::{
                 CoCreateInstance,
                 CLSCTX_INPROC_SERVER,
-                VARENUM, VT_BOOL, VT_R4, VT_R8, VT_UI8, VT_LPWSTR,
                 StructuredStorage::{PROPVARIANT, PropVariantClear},
+            },
+            Variant::{
+                VARENUM, VT_BOOL, VT_R4, VT_R8, VT_UI8, VT_LPWSTR,
             }
         },
         UI::Shell::PropertiesSystem::PROPERTYKEY,

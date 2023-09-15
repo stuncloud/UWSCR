@@ -986,13 +986,17 @@ pub fn encode(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
         },
         CodeConst::CODE_UTF8 => str.into(),
         CodeConst::CODE_HTML => {
+            let content = str.as_bytes();
             let encoded = htmlentity::entity::encode(
-                &str,
-                htmlentity::entity::EntitySet::SpecialChars,
-                htmlentity::entity::EncodeType::Named,
+                content,
+                &htmlentity::entity::EncodeType::Named,
+                &htmlentity::entity::CharacterSet::SpecialChars,
             );
-            let enc_str = encoded.iter().collect::<String>();
-            enc_str.into()
+            let string_result: htmlentity::types::StringResult = encoded.into();
+            match string_result {
+                Ok(enc) => enc.into(),
+                Err(_) => str.into(),
+            }
         },
         CodeConst::CODE_BYTEARRAY => {
             let bytes = ByteArray::as_ansi(&str);
@@ -1023,9 +1027,13 @@ pub fn decode(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
                 Err(_) => Object::Empty,
             },
             CodeConst::CODE_HTML => {
-                let decoded = htmlentity::entity::decode(&s);
-                let dec_str = decoded.iter().collect::<String>();
-                dec_str.into()
+                let content = s.as_bytes();
+                let decoded = htmlentity::entity::decode(content);
+                let string_result: htmlentity::types::StringResult = decoded.into();
+                match string_result {
+                    Ok(dec) => dec.into(),
+                    Err(_) => s.into(),
+                }
             },
             _ => s.into()
         },

@@ -1,20 +1,16 @@
 use super::{Window, UWindow, UWindowResult, FontFamily};
 
-use windows::{
-    Win32::{
+use windows::Win32::{
         Foundation::{
             HWND,WPARAM,LPARAM,LRESULT, SIZE, COLORREF,
         },
-        UI::{
-            WindowsAndMessaging::{
+        UI::WindowsAndMessaging::{
                 WM_DESTROY, WM_QUIT, WS_VISIBLE, WS_BORDER,
                 DefWindowProcW, PostMessageW, DestroyWindow,
                 // balloon
                 WS_EX_TOOLWINDOW,WS_POPUP,
             },
-        },
-        Graphics::{
-            Gdi::{
+        Graphics::Gdi::{
                 HBRUSH, HFONT,
                 SelectObject,
                 // balloon
@@ -22,9 +18,7 @@ use windows::{
                 TRANSPARENT,
                 BeginPaint, FillRect, SetBkMode, SetTextColor, GetTextMetricsW, TextOutW, EndPaint,
             },
-        },
-    }
-};
+    };
 
 use once_cell::sync::OnceCell;
 
@@ -115,7 +109,7 @@ impl Balloon {
         }
     }
     pub fn close(&self) {
-        unsafe { DestroyWindow(self.hwnd()) };
+        let _ = unsafe { DestroyWindow(self.hwnd()) };
     }
 }
 
@@ -133,7 +127,7 @@ impl UWindow<()> for Balloon {
     fn wndproc(hwnd: HWND, umsg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
         match umsg {
             WM_DESTROY => {
-                PostMessageW(HWND(0), WM_QUIT, WPARAM(0), LPARAM(hwnd.0));
+                let _ = PostMessageW(HWND(0), WM_QUIT, WPARAM(0), LPARAM(hwnd.0));
                 LRESULT(0)
             },
             msg => DefWindowProcW(hwnd, msg, wparam, lparam)

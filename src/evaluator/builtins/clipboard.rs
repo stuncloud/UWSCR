@@ -30,41 +30,37 @@ pub struct Clipboard;
 impl Clipboard {
     pub fn new() -> Result<Self, UError> {
         unsafe {
-            if OpenClipboard(None).as_bool() {
-                Ok(Self)
-            } else {
-                Err(UError::new(ClipboardError, FailedToOpenClipboard))
-            }
+            OpenClipboard(None)
+                .map(|_| Self)
+                .map_err(|_| UError::new(ClipboardError, FailedToOpenClipboard))
         }
     }
     pub fn get_str(&self) -> Option<String> {
         unsafe {
-            if IsClipboardFormatAvailable(CF_UNICODETEXT.0 as u32).as_bool() {
-                let handle = GetClipboardData(CF_UNICODETEXT.0 as u32).ok()?;
-                let hmem = HGLOBAL(handle.0);
-                let ptr = GlobalLock(hmem) as *mut u16;
-                let pwstr = PWSTR::from_raw(ptr);
-                let str = pwstr.to_hstring().ok()?.to_string_lossy();
-                GlobalUnlock(hmem).as_bool();
-                Some(str)
-            } else {
-                None
-            }
+            IsClipboardFormatAvailable(CF_UNICODETEXT.0 as u32).ok()?;
+            let handle = GetClipboardData(CF_UNICODETEXT.0 as u32).ok()?;
+            let hmem = HGLOBAL(handle.0 as *mut std::ffi::c_void);
+            let ptr = GlobalLock(hmem) as *mut u16;
+            let pwstr = PWSTR::from_raw(ptr);
+            let str = pwstr.to_hstring().ok()?.to_string_lossy();
+            let _ = GlobalUnlock(hmem);
+            Some(str)
         }
     }
     pub fn send_str(&self, str: String) -> bool {
         unsafe {
-            if EmptyClipboard().as_bool() {
+            if EmptyClipboard().is_ok() {
                 let hstring = HSTRING::from(str);
                 let src = hstring.as_ptr();
                 let len = (hstring.len() + 1) * std::mem::size_of::<u16>();
-                let Ok(hmem) = GlobalAlloc(GMEM_MOVEABLE, len) else {
+                let Ok(hglobal) = GlobalAlloc(GMEM_MOVEABLE, len) else {
                     return  false;
                 };
-                let dst = GlobalLock(hmem) as _;
+                let dst = GlobalLock(hglobal) as _;
                 std::ptr::copy_nonoverlapping(src, dst, hstring.len());
-                GlobalUnlock(hmem);
-                SetClipboardData(CF_UNICODETEXT.0 as u32, HANDLE(hmem.0)).is_ok()
+                let hmem = HANDLE(hglobal.0 as isize);
+                let _ = GlobalUnlock(hglobal);
+                SetClipboardData(CF_UNICODETEXT.0 as u32, hmem).is_ok()
             } else {
                 false
             }
@@ -72,7 +68,7 @@ impl Clipboard {
     }
     pub fn set_bmp(&self, hbmp: HBITMAP) {
         unsafe {
-            if EmptyClipboard().as_bool() {
+            if EmptyClipboard().is_ok() {
                 let hmem = HANDLE(hbmp.0);
                 let _ = SetClipboardData(CF_BITMAP.0 as u32, hmem);
             }
@@ -83,7 +79,7 @@ impl Clipboard {
 impl Drop for Clipboard {
     fn drop(&mut self) {
         unsafe {
-            CloseClipboard();
+            let _ = CloseClipboard();
         }
     }
 }

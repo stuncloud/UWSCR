@@ -6,8 +6,7 @@ use super::window_control::ImgConst;
 use super::clipboard::Clipboard;
 
 use opencv::prelude::MatTraitConstManual;
-use windows::{
-    Win32::{
+use windows::Win32::{
         Foundation::{HWND, RECT, POINT},
         Graphics::{
             Gdi::{
@@ -24,8 +23,7 @@ use windows::{
                 DwmGetWindowAttribute, DWMWA_EXTENDED_FRAME_BOUNDS,
             }
         },
-        UI::{
-            WindowsAndMessaging::{
+        UI::WindowsAndMessaging::{
                 SM_CYVIRTUALSCREEN, SM_CXVIRTUALSCREEN,
                 SM_YVIRTUALSCREEN, SM_XVIRTUALSCREEN,
                 GetSystemMetrics,
@@ -33,9 +31,7 @@ use windows::{
                 GetWindow, GW_HWNDPREV,
                 IsWindowVisible,
             },
-        },
-    },
-};
+    };
 
 use opencv::{
     core::{self, Mat, MatTrait, MatTraitConst, MatExprTraitConst, Vector},
@@ -344,14 +340,14 @@ impl ScreenShot {
     fn get_window_rect(hwnd: HWND) -> RECT {
         unsafe {
             let mut rect = RECT::default();
-            GetWindowRect(hwnd, &mut rect);
+            let _ = GetWindowRect(hwnd, &mut rect);
             rect
         }
     }
     fn get_client_rect(hwnd: HWND) -> RECT {
         unsafe {
             let mut rect = RECT::default();
-            GetClientRect(hwnd, &mut rect);
+            let _ = GetClientRect(hwnd, &mut rect);
             rect
         }
     }

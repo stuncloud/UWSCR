@@ -12,8 +12,7 @@ use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 use once_cell::sync::{Lazy, OnceCell};
 
-use windows::{
-    Win32::{
+use windows::Win32::{
         Foundation::{HWND, WPARAM, LPARAM, LRESULT},
         UI::{
             WindowsAndMessaging::{
@@ -21,15 +20,12 @@ use windows::{
                 DefWindowProcW, PostQuitMessage, SendMessageW,
                 WM_HOTKEY, WM_DESTROY, WM_CLOSE,
             },
-            Input::{
-                KeyboardAndMouse::{
+            Input::KeyboardAndMouse::{
                     RegisterHotKey, UnregisterHotKey,
                     HOT_KEY_MODIFIERS,
                 },
-            },
         },
-    },
-};
+    };
 
 static HOTKEY_WINDOW: Lazy<Arc<Mutex<Option<SetHotKeyWindow>>>> = Lazy::new(|| {Arc::new(Mutex::new(None))});
 static CLASS_NAME: OnceCell<Result<String, UWindowError>> = OnceCell::new();
@@ -85,7 +81,7 @@ impl SetHotKeyWindow {
                 self.next_id()
             };
             let fsmodifiers = HOT_KEY_MODIFIERS(mo);
-            if RegisterHotKey(self.hwnd, id, fsmodifiers, vk).as_bool() {
+            if RegisterHotKey(self.hwnd, id, fsmodifiers, vk).is_ok() {
                 // 関数の引数を書き換える
                 func.params = vec![
                     FuncParam::new(Some("HOTKEY_VK".into()), ParamKind::Identifier),
@@ -99,7 +95,7 @@ impl SetHotKeyWindow {
         unsafe {
             let k = (vk, mo);
             if let Some((id, _)) = self.keymap.get(&k) {
-                UnregisterHotKey(self.hwnd, *id);
+                let _ = UnregisterHotKey(self.hwnd, *id);
                 self.keymap.remove(&k);
             }
             self.keymap.len()

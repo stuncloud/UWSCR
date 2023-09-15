@@ -82,8 +82,8 @@ pub enum KeyActionEnum {
 
 pub fn move_mouse_to(x: i32, y: i32) -> bool {
     unsafe {
-        SetCursorPos(x, y).as_bool() &&
-        SetCursorPos(x, y).as_bool()
+        SetCursorPos(x, y).is_ok() &&
+        SetCursorPos(x, y).is_ok()
     }
 }
 
@@ -144,7 +144,7 @@ pub fn btn(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResul
 pub fn get_current_pos() -> BuiltInResult<POINT>{
     let mut point = POINT {x: 0, y: 0};
     unsafe {
-        if GetCursorPos(&mut point).as_bool() == false {
+        if GetCursorPos(&mut point).is_ok() == false {
             return Err(builtin_func_error(UErrorMessage::UnableToGetCursorPosition));
         };
     }
@@ -208,12 +208,12 @@ impl Input {
             let hwnd = self.hwnd?;
             let mut rect = RECT::default();
             if self.client {
-                GetClientRect(hwnd, &mut rect);
+                let _ = GetClientRect(hwnd, &mut rect);
                 let mut point = POINT { x: rect.left, y: rect.top };
                 ClientToScreen(hwnd, &mut point);
                 Some((point.x, point.y))
             } else {
-                GetWindowRect(hwnd, &mut rect);
+                let _ = GetWindowRect(hwnd, &mut rect);
                 Some((rect.left, rect.top))
             }
         }
@@ -246,7 +246,7 @@ impl Input {
                 hstring.as_wide()
                     .into_iter()
                     .map(|n| *n as usize)
-                    .for_each(|char| {PostMessageW(self.hwnd.as_ref(), WM_CHAR, WPARAM(char), LPARAM(1));});
+                    .for_each(|char| {let _ = PostMessageW(self.hwnd.as_ref(), WM_CHAR, WPARAM(char), LPARAM(1));});
             } else {
                 let pinputs = str.encode_utf16()
                     .map(|scan| {
@@ -269,7 +269,7 @@ impl Input {
     fn key_down(&self, vk: u8, extend: bool) {
         unsafe {
             if self.direct {
-                PostMessageW(self.hwnd.as_ref(), WM_KEYDOWN, WPARAM(vk as usize), LPARAM(0));
+                let _ = PostMessageW(self.hwnd.as_ref(), WM_KEYDOWN, WPARAM(vk as usize), LPARAM(0));
             } else {
                 let mut input = INPUT::default();
                 let dwflags = if extend {
@@ -294,7 +294,7 @@ impl Input {
     fn key_up(&self, vk: u8, extend: bool) {
         unsafe {
             if self.direct {
-                PostMessageW(self.hwnd.as_ref(), WM_KEYUP, WPARAM(vk as usize), LPARAM(0));
+                let _ = PostMessageW(self.hwnd.as_ref(), WM_KEYUP, WPARAM(vk as usize), LPARAM(0));
             } else {
                 let mut input = INPUT::default();
                 let dwflags = if extend {
@@ -320,7 +320,7 @@ impl Input {
         unsafe {
             if self.direct {
                 let lparam = make_lparam(x, y);
-                PostMessageW(self.hwnd.as_ref(), WM_MOUSEMOVE, None, lparam).as_bool()
+                PostMessageW(self.hwnd.as_ref(), WM_MOUSEMOVE, None, lparam).is_ok()
             } else {
                 let (x, y) = self.fix_point(x, y);
                 move_mouse_to(x, y)
@@ -336,7 +336,7 @@ impl Input {
                     MouseButton::Middle => WM_MBUTTONDOWN,
                 };
                 let lparam = make_lparam(x, y);
-                PostMessageW(self.hwnd.as_ref(), msg, None, lparam);
+                let _ = PostMessageW(self.hwnd.as_ref(), msg, None, lparam);
             } else {
                 let (x, y) = self.fix_point(x, y);
                 let dwflags = match btn {
@@ -367,7 +367,7 @@ impl Input {
                     MouseButton::Middle => WM_MBUTTONUP,
                 };
                 let lparam = make_lparam(x, y);
-                PostMessageW(self.hwnd.as_ref(), msg, None, lparam);
+                let _ = PostMessageW(self.hwnd.as_ref(), msg, None, lparam);
             } else {
                 let (x, y) = self.fix_point(x, y);
                 let dwflags = match btn {
@@ -410,7 +410,7 @@ impl Input {
                 let wparam = ((amount & 0xFFFF) << 16) as usize;
                 let (x, y) = self.fix_point(x, y);
                 let lparam = ((x & 0xFFFF) | (y & 0xFFFF) << 16) as isize;
-                PostMessageW(self.hwnd.as_ref(), msg, WPARAM(wparam), LPARAM(lparam));
+                let _ = PostMessageW(self.hwnd.as_ref(), msg, WPARAM(wparam), LPARAM(lparam));
             } else {
                 let dwflags = if horizontal {MOUSEEVENTF_HWHEEL} else {MOUSEEVENTF_WHEEL};
                 let mut input = INPUT::default();
@@ -431,7 +431,7 @@ impl Input {
         unsafe {
             // 初回のみ初期化を行う
             INIT_TOUCH_INJECTION.get_or_init(|| {
-                InitializeTouchInjection(1, TOUCH_FEEDBACK_NONE);
+                let _ = InitializeTouchInjection(1, TOUCH_FEEDBACK_NONE);
             });
             match action {
                 KeyActionEnum::CLICK => {
@@ -450,9 +450,9 @@ impl Input {
         unsafe {
             let (x, y) = self.fix_point(x, y);
             let mut info = Self::new_pointer_touch_info(x, y, POINTER_FLAG_DOWN|POINTER_FLAG_INRANGE|POINTER_FLAG_INCONTACT);
-            let down = InjectTouchInput(&[info]).as_bool();
+            let down = InjectTouchInput(&[info]).is_ok();
             info.pointerInfo.pointerFlags = POINTER_FLAG_UP;
-            let up = InjectTouchInput(&[info]).as_bool();
+            let up = InjectTouchInput(&[info]).is_ok();
             down && up
         }
     }
@@ -460,7 +460,7 @@ impl Input {
         unsafe {
             let (x, y) = self.fix_point(x, y);
             let info = Self::new_pointer_touch_info(x, y, POINTER_FLAG_DOWN|POINTER_FLAG_INRANGE|POINTER_FLAG_INCONTACT);
-            let r = InjectTouchInput(&[info]).as_bool();
+            let r = InjectTouchInput(&[info]).is_ok();
             if r {
                 // DOWNした座標を登録
                 let mut tp = TOUCH_POINT.lock().unwrap();
@@ -482,16 +482,16 @@ impl Input {
                     // タッチを維持しつつ動かす
                     let points = Self::get_move_points(p1, (x, y));
                     let mut info = Self::new_pointer_touch_info(p1.0, p1.1, POINTER_FLAG_UPDATE|POINTER_FLAG_INRANGE|POINTER_FLAG_INCONTACT);
-                    InjectTouchInput(&[info]);
+                    let _ = InjectTouchInput(&[info]);
                     for point in points {
                         info.set_point(point);
                         sleep(wait);
-                        InjectTouchInput(&[info]);
+                        let _ = InjectTouchInput(&[info]);
                     }
                     info.set_point((x, y));
-                    InjectTouchInput(&[info]);
+                    let _ = InjectTouchInput(&[info]);
                     info.pointerInfo.pointerFlags = POINTER_FLAG_UP;
-                    let r = InjectTouchInput(&[info]).as_bool();
+                    let r = InjectTouchInput(&[info]).is_ok();
                     if r {
                         // UPしたら座標をリセット
                         let mut tp = TOUCH_POINT.lock().unwrap();
@@ -501,7 +501,7 @@ impl Input {
                 } else {
                     // 座標が動いていなかったら即UPする
                     let info = Self::new_pointer_touch_info(x, y, POINTER_FLAG_UP);
-                    let r = InjectTouchInput(&[info]).as_bool();
+                    let r = InjectTouchInput(&[info]).is_ok();
                     if r {
                         // UPしたら座標をリセット
                         let mut tp = TOUCH_POINT.lock().unwrap();

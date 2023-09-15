@@ -2,8 +2,7 @@ use super::{Window, UWindow, Child, UWindowResult, UWindowError, FontFamily, Wpa
 use crate::write_locale;
 use crate::error::{CURRENT_LOCALE, Locale};
 
-use windows::{
-    Win32::{
+use windows::Win32::{
         Foundation::{
             HWND,WPARAM,LPARAM,LRESULT,
             SIZE, RECT,
@@ -28,8 +27,7 @@ use windows::{
                 SetFocus,
             },
         },
-    }
-};
+    };
 use std::{ops::{Add, BitOr, BitAnd}, fmt::Display};
 use once_cell::sync::OnceCell;
 
@@ -232,7 +230,7 @@ impl UWindow<MsgBoxResult> for Msgbox {
                 TranslateMessage(&msg);
                 DispatchMessageW(&msg);
             };
-            DestroyWindow(self.hwnd);
+            let _ = DestroyWindow(self.hwnd);
             // UnregisterClassW(MSGBOX_CLASS.to_string(), HINSTANCE::default());
             Ok((clicked, rect.left, rect.top))
         }
@@ -242,11 +240,11 @@ impl UWindow<MsgBoxResult> for Msgbox {
         match umsg {
             WM_DESTROY => {
                 // LPARAMでhwndも伝える
-                PostMessageW(HWND(0), WM_QUIT, WPARAM(0), LPARAM(hwnd.0));
+                let _ = PostMessageW(HWND(0), WM_QUIT, WPARAM(0), LPARAM(hwnd.0));
                 LRESULT(0)
             },
             WM_COMMAND => {
-                PostMessageW(HWND(0), umsg, wparam, lparam);
+                let _ = PostMessageW(HWND(0), umsg, wparam, lparam);
                 LRESULT(0)
             },
             msg => {
