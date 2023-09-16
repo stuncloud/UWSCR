@@ -459,6 +459,7 @@ impl Evaluator {
                 result
             },
             Statement::DefDll{name, alias, params, ret_type, path} => {
+                let params = DefDll::convert_params(params, self)?;
                 let defdll = DefDll::new(name, alias, path, params, ret_type)?;
                 self.env.define_dll_function(defdll)?;
                 Ok(None)
@@ -954,6 +955,7 @@ impl Evaluator {
                     );
                 },
                 Statement::DefDll { name, alias, params, ret_type, path } => {
+                    let params = DefDll::convert_params(params, self)?;
                     let defdll = DefDll::new(name, alias, path, params, ret_type)?;
                     match &defdll.alias {
                         Some(alias) => module.add(alias.clone(), Object::DefDllFunction(defdll), ContainerType::Function),

@@ -27,14 +27,66 @@ use windows::Win32::{
     }
 };
 
-
+#[derive(Debug, Clone, PartialEq)]
+pub enum DllParam {
+    Param {
+        dll_type: DllType,
+        is_ref: bool,
+        size: Option<usize>
+    },
+    Struct(Vec<Self>),
+    Callback(Vec<DllType>, DllType),
+}
+impl std::fmt::Display for DllParam {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DllParam::Param { dll_type, is_ref, size } => {
+                let r = if *is_ref {"var "} else {""};
+                let s = match size {
+                    Some(n) => format!("[{n}]"),
+                    None => format!(""),
+                };
+                write!(f, "{r}{dll_type}{s}")
+            },
+            DllParam::Struct(v) => {
+                let s = v.iter()
+                    .map(|d| d.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                write!(f, "{{{s}}}")
+            },
+            DllParam::Callback(argtypes, rtype) => {
+                let types = argtypes.iter()
+                    .map(|t| t.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                write!(f, "callback({}):{}", types, rtype)
+            },
+        }
+    }
+}
+impl DllParam {
+    /// パラメータの数を得る
+    pub fn len(&self) -> usize {
+        match self {
+            Self::Param { dll_type:_, is_ref:_, size:_ } => 1,
+            Self::Struct(params) => {
+                params.iter()
+                    .map(|p| p.len())
+                    .reduce(|a,b| a + b)
+                    .unwrap_or_default()
+            },
+            Self::Callback(_, _) => 1,
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct DefDll {
     pub name: String,
     pub alias: Option<String>,
     path: String,
-    params: Vec<DefDllParam>,
+    params: Vec<DllParam>,
     rtype: DllType,
 }
 impl std::fmt::Display for DefDll {
@@ -50,7 +102,35 @@ impl std::fmt::Display for DefDll {
     }
 }
 impl DefDll {
-    pub fn new(name: String, alias: Option<String>, path: String, params: Vec<DefDllParam>, rtype: DllType) -> EvalResult<Self> {
+    pub fn convert_params(params: Vec<DefDllParam>, e: &mut Evaluator) -> EvalResult<Vec<DllParam>> {
+        params.into_iter()
+            .map(|p| {
+                match p {
+                    DefDllParam::Param { dll_type, is_ref, size } => {
+                        let size = match size {
+                            crate::ast::DefDllParamSize::Const(c) => {
+                                match e.env.get_const_num(&c) {
+                                    Some(n) => Ok(Some(n)),
+                                    None => Err(UError::new(UErrorKind::DllFuncError, UErrorMessage::DllArgConstSizeIsNotValid)),
+                                }
+                            },
+                            crate::ast::DefDllParamSize::Size(n) => Ok(Some(n)),
+                            crate::ast::DefDllParamSize::None => Ok(None),
+                        }?;
+                        Ok(DllParam::Param { dll_type, is_ref, size })
+                    },
+                    DefDllParam::Struct(p) => {
+                        let p = Self::convert_params(p, e)?;
+                        Ok(DllParam::Struct(p))
+                    },
+                    DefDllParam::Callback(a, r) => {
+                        Ok(DllParam::Callback(a, r))
+                    },
+                }
+            })
+            .collect()
+    }
+    pub fn new(name: String, alias: Option<String>, path: String, params: Vec<DllParam>, rtype: DllType) -> EvalResult<Self> {
         match rtype {
             DllType::SafeArray |
             DllType::UStruct |
@@ -312,7 +392,7 @@ struct DllArgs {
     args: Vec<DllArg>,
 }
 impl DllArgs {
-    fn new(params: &Vec<DefDllParam>, arguments: Vec<(Option<Expression>, Object)>, e: &mut Evaluator) -> EvalResult<Self> {
+    fn new(params: &Vec<DllParam>, arguments: Vec<(Option<Expression>, Object)>, e: &mut Evaluator) -> EvalResult<Self> {
         let mut iter_args = arguments.into_iter();
         let args = params.iter()
             .map(|param| DllArg::new(param, &mut iter_args, e) )
@@ -327,21 +407,21 @@ struct DllArg {
     value: DllArgVal,
 }
 impl DllArg {
-    fn new(param: &DefDllParam, iter_args: &mut IntoIter<(Option<Expression>, Object)>, e: &mut Evaluator) -> EvalResult<Self> {
+    fn new(param: &DllParam, iter_args: &mut IntoIter<(Option<Expression>, Object)>, e: &mut Evaluator) -> EvalResult<Self> {
         match param {
-            DefDllParam::Param { dll_type, is_ref, size } => {
+            DllParam::Param { dll_type, is_ref, size } => {
                 let (expr, value) = iter_args.next()
                         .ok_or(UError::new(UErrorKind::DllFuncError, UErrorMessage::DllArgCountMismatch))?;
                     let value = DllArgVal::new(dll_type, *size, *is_ref, Some(value))?;
                 let refexpr = if *is_ref { expr } else { None };
                 Ok(Self { refexpr, value })
             },
-            DefDllParam::Struct(params) => {
+            DllParam::Struct(params) => {
                 let sarg = StructArg::from(params, iter_args)?;
                 let value = DllArgVal::Struct(sarg);
                 Ok(Self { refexpr: None, value })
             },
-            DefDllParam::Callback(arg_types, rtype) => {
+            DllParam::Callback(arg_types, rtype) => {
                 let (_, value) = iter_args.next()
                         .ok_or(UError::new(UErrorKind::DllFuncError, UErrorMessage::DllArgCountMismatch))?;
                 match value {
@@ -800,10 +880,10 @@ struct StructArg {
     ustruct: UStruct,
 }
 impl StructArg {
-    fn set_values(params: &Vec<DefDllParam>, ustruct: &mut UStruct, iter_args: &mut IntoIter<(Option<Expression>, Object)>) -> EvalResult<()> {
+    fn set_values(params: &Vec<DllParam>, ustruct: &mut UStruct, iter_args: &mut IntoIter<(Option<Expression>, Object)>) -> EvalResult<()> {
         for (index, param) in params.iter().enumerate() {
             match param {
-                DefDllParam::Param { dll_type:_, is_ref:_, size:_ } => {
+                DllParam::Param { dll_type:_, is_ref:_, size:_ } => {
                     if let Some((refexpr, value)) = iter_args.next() {
                         ustruct.set_by_index(index, value, refexpr)
                             .map_err(|e|
@@ -817,7 +897,7 @@ impl StructArg {
                         return Err(UError::new(UErrorKind::DllFuncError, UErrorMessage::DllArgCountMismatch));
                     }
                 },
-                DefDllParam::Struct(subparams) => {
+                DllParam::Struct(subparams) => {
                     if let Some(member) = ustruct.get_member_mut(index) {
                         if let Some(ust) = member.get_ustruct_mut() {
                             Self::set_values(subparams, ust, iter_args)?;
@@ -826,14 +906,14 @@ impl StructArg {
                     }
                     return Err(UError::new(UErrorKind::DllFuncError, UErrorMessage::DllArgCountMismatch));
                 },
-                DefDllParam::Callback(_, _) => {
+                DllParam::Callback(_, _) => {
                     todo!()
                 }
             }
         }
         Ok(())
     }
-    fn from(params: &Vec<DefDllParam>, iter_args: &mut IntoIter<(Option<Expression>, Object)>) -> EvalResult<Self> {
+    fn from(params: &Vec<DllParam>, iter_args: &mut IntoIter<(Option<Expression>, Object)>) -> EvalResult<Self> {
 
         let sdef = StructDef::from(params);
         let mut ustruct = UStruct::try_from(&sdef)?;
@@ -860,20 +940,20 @@ impl StructArg {
     }
 }
 
-impl From<&Vec<DefDllParam>> for StructDef {
-    fn from(params: &Vec<DefDllParam>) -> Self {
+impl From<&Vec<DllParam>> for StructDef {
+    fn from(params: &Vec<DllParam>) -> Self {
         let members = params.iter()
             .map(|param| {
                 match param {
-                    DefDllParam::Param { dll_type, is_ref: _, size } => {
+                    DllParam::Param { dll_type, is_ref: _, size } => {
                         let member_type = MemberType::from(dll_type);
                         (String::default(), member_type, *size)
                     },
-                    DefDllParam::Struct(params) => {
+                    DllParam::Struct(params) => {
                         let sdef = Self::from(params);
                         (String::default(), MemberType::UStruct(sdef), None)
                     },
-                    DefDllParam::Callback(_, _) => {
+                    DllParam::Callback(_, _) => {
                         todo!()
                     }
                 }

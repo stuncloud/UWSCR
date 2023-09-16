@@ -1186,13 +1186,19 @@ impl Parser {
             if self.is_next_token(&Token::Lbracket) {
                 self.bump(); // [ に移動
                 self.bump(); // 数値または ] に移動
-                match self.current_token.token {
-                    Token::Rbracket => Some(DefDllParam::Param{ dll_type, is_ref, size: Some(0) }),
+                match self.current_token.token() {
+                    Token::Rbracket => Some(DefDllParam::Param{ dll_type, is_ref, size: DefDllParamSize::Size(0) }),
+                    Token::Identifier(i) => {
+                        if ! self.is_next_token_expected(Token::Rbracket) {
+                            return None;
+                        }
+                        Some(DefDllParam::Param{ dll_type, is_ref, size: DefDllParamSize::Const(i) })
+                    },
                     Token::Num(n) => {
                         if ! self.is_next_token_expected(Token::Rbracket) {
                             return None;
                         }
-                        Some(DefDllParam::Param { dll_type, is_ref, size: Some(n as usize) })
+                        Some(DefDllParam::Param { dll_type, is_ref, size: DefDllParamSize::Size(n as usize) })
                     },
                     _ => {
                         self.error_got_unexpected_token();
@@ -1200,7 +1206,7 @@ impl Parser {
                     },
                 }
             } else {
-                Some(DefDllParam::Param{dll_type, is_ref, size: None})
+                Some(DefDllParam::Param{dll_type, is_ref, size: DefDllParamSize::None})
             }
         }
     }
@@ -1243,12 +1249,15 @@ impl Parser {
                     return None;
                 },
             };
-            let len = if let Token::Lbracket = self.next_token.token {
+            let size = if let Token::Lbracket = self.next_token.token {
                 self.bump();
                 self.bump();
                 match (&self.current_token.token, &self.next_token.token) {
                     (Token::Num(n), Token::Rbracket) => {
-                        Some(*n as usize)
+                        DefDllParamSize::Size(*n as usize)
+                    },
+                    (Token::Identifier(i), Token::Rbracket) => {
+                        DefDllParamSize::Const(i.to_string())
                     },
                     (Token::Num(_), _) => {
                         self.error_got_unexpected_next_token();
@@ -1260,12 +1269,12 @@ impl Parser {
                     },
                 }
             } else {
-                None
+                DefDllParamSize::None
             };
-            if len.is_some() {
+            if size != DefDllParamSize::None {
                 self.bump();
             }
-            struct_definition.push((member, member_type, len));
+            struct_definition.push((member, member_type, size));
             self.bump();
             self.bump();
         }
@@ -5663,11 +5672,11 @@ func(
                             alias: None,
                             params: vec![
                                 DefDllParam::Struct(vec![
-                                    DefDllParam::Param{dll_type: DllType::Long, is_ref: false, size: None},
-                                    DefDllParam::Param{dll_type: DllType::Long, is_ref: false, size: None},
+                                    DefDllParam::Param{dll_type: DllType::Long, is_ref: false, size: DefDllParamSize::None},
+                                    DefDllParam::Param{dll_type: DllType::Long, is_ref: false, size: DefDllParamSize::None},
                                     DefDllParam::Struct(vec![
-                                        DefDllParam::Param{dll_type: DllType::Long, is_ref: false, size: None},
-                                        DefDllParam::Param{dll_type: DllType::Long, is_ref: false, size: None},
+                                        DefDllParam::Param{dll_type: DllType::Long, is_ref: false, size: DefDllParamSize::None},
+                                        DefDllParam::Param{dll_type: DllType::Long, is_ref: false, size: DefDllParamSize::None},
                                     ]),
                                 ]),
                             ],
@@ -5706,21 +5715,21 @@ func(
                 ]
             ),
             (
-                "def_dll size(int, dword[6], byte[100], var string, var long[2], {word,word}):bool:size.dll",
+                "def_dll size(int, dword[6], byte[BYTE_SIZE], var string, var long[2], {word,word}):bool:size.dll",
                 vec![
                     StatementWithRow::new_expected(
                         Statement::DefDll {
                             name: "size".into(),
                             alias: None,
                             params: vec![
-                                DefDllParam::Param{dll_type: DllType::Int, is_ref: false, size: None},
-                                DefDllParam::Param{dll_type: DllType::Dword, is_ref: false, size: Some(6)},
-                                DefDllParam::Param{dll_type: DllType::Byte, is_ref: false, size: Some(100)},
-                                DefDllParam::Param{dll_type: DllType::String, is_ref: true, size: None},
-                                DefDllParam::Param{dll_type: DllType::Long, is_ref: true, size: Some(2)},
+                                DefDllParam::Param{dll_type: DllType::Int, is_ref: false, size: DefDllParamSize::None},
+                                DefDllParam::Param{dll_type: DllType::Dword, is_ref: false, size: DefDllParamSize::Size(6)},
+                                DefDllParam::Param{dll_type: DllType::Byte, is_ref: false, size: DefDllParamSize::Const("BYTE_SIZE".into())},
+                                DefDllParam::Param{dll_type: DllType::String, is_ref: true, size: DefDllParamSize::None},
+                                DefDllParam::Param{dll_type: DllType::Long, is_ref: true, size: DefDllParamSize::Size(2)},
                                 DefDllParam::Struct(vec![
-                                    DefDllParam::Param{dll_type: DllType::Word, is_ref: false, size: None},
-                                    DefDllParam::Param{dll_type: DllType::Word, is_ref: false, size: None},
+                                    DefDllParam::Param{dll_type: DllType::Word, is_ref: false, size: DefDllParamSize::None},
+                                    DefDllParam::Param{dll_type: DllType::Word, is_ref: false, size: DefDllParamSize::None},
                                 ]),
                             ],
                             ret_type: DllType::Bool,
@@ -6009,18 +6018,20 @@ endmodule
     #[test]
     fn test_struct() {
         let input = r#"
-struct Point
+struct Hoge
     x: Long
     y: long
     b: byte[100]
+    c: byte[BYTE_SIZE]
 endstruct
         "#;
         parser_test(input, vec![
             StatementWithRow::new_expected(
-                Statement::Struct(Identifier("Point".into()), vec![
-                    ("x".into(), "long".into(), None),
-                    ("y".into(), "long".into(), None),
-                    ("b".into(), "byte".into(), Some(100)),
+                Statement::Struct(Identifier("Hoge".into()), vec![
+                    ("x".into(), "long".into(), DefDllParamSize::None),
+                    ("y".into(), "long".into(), DefDllParamSize::None),
+                    ("b".into(), "byte".into(), DefDllParamSize::Size(100)),
+                    ("c".into(), "byte".into(), DefDllParamSize::Const("BYTE_SIZE".into())),
                 ]), 2
             ),
         ]);
@@ -6154,10 +6165,10 @@ fend
                             name: "MessageBoxA".into(),
                             alias: None,
                             params: vec![
-                                DefDllParam::Param { dll_type: DllType::Hwnd, is_ref: false, size: None },
-                                DefDllParam::Param { dll_type: DllType::String, is_ref: false, size: None },
-                                DefDllParam::Param { dll_type: DllType::String, is_ref: false, size: None },
-                                DefDllParam::Param { dll_type: DllType::Uint, is_ref: false, size: None },
+                                DefDllParam::Param { dll_type: DllType::Hwnd, is_ref: false, size: DefDllParamSize::None },
+                                DefDllParam::Param { dll_type: DllType::String, is_ref: false, size: DefDllParamSize::None },
+                                DefDllParam::Param { dll_type: DllType::String, is_ref: false, size: DefDllParamSize::None },
+                                DefDllParam::Param { dll_type: DllType::Uint, is_ref: false, size: DefDllParamSize::None },
                             ],
                             ret_type: DllType::Int,
                             path: "user32".into()
@@ -6169,10 +6180,10 @@ fend
                             name: "MessageBoxA".into(),
                             alias: None,
                             params: vec![
-                                DefDllParam::Param { dll_type: DllType::Hwnd, is_ref: false, size: None },
-                                DefDllParam::Param { dll_type: DllType::String, is_ref: false, size: None },
-                                DefDllParam::Param { dll_type: DllType::String, is_ref: false, size: None },
-                                DefDllParam::Param { dll_type: DllType::Uint, is_ref: false, size: None },
+                                DefDllParam::Param { dll_type: DllType::Hwnd, is_ref: false, size: DefDllParamSize::None },
+                                DefDllParam::Param { dll_type: DllType::String, is_ref: false, size: DefDllParamSize::None },
+                                DefDllParam::Param { dll_type: DllType::String, is_ref: false, size: DefDllParamSize::None },
+                                DefDllParam::Param { dll_type: DllType::Uint, is_ref: false, size: DefDllParamSize::None },
                             ],
                             ret_type: DllType::Int,
                             path: "user32".into()

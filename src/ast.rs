@@ -343,7 +343,7 @@ pub enum Statement {
     Module(Identifier, BlockStatement),
     Class(Identifier, BlockStatement),
     /// (名前, 型, [配列サイズ])
-    Struct(Identifier, Vec<(String, String, Option<usize>)>),
+    Struct(Identifier, Vec<(String, String, DefDllParamSize)>),
     TextBlock(Identifier, Literal),
     With(Option<Expression>, BlockStatement),
     Try {
@@ -589,11 +589,18 @@ impl fmt::Display for FuncParam {
 }
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
+pub enum DefDllParamSize {
+    Const(String),
+    Size(usize),
+    None
+}
+
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub enum DefDllParam {
     Param {
         dll_type: DllType,
         is_ref: bool,
-        size: Option<usize>,
+        size: DefDllParamSize,
     },
     /// `{}`定義された構造体
     Struct(Vec<DefDllParam>),
@@ -604,12 +611,13 @@ impl std::fmt::Display for DefDllParam {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             DefDllParam::Param { dll_type, is_ref, size } => {
-                match (is_ref, size) {
-                    (true, Some(n)) => write!(f, "var {dll_type}[{n}]"),
-                    (true, None) => write!(f, "var {dll_type}"),
-                    (false, Some(n)) => write!(f, "{dll_type}[{n}]"),
-                    (false, None) => write!(f, "{dll_type}"),
-                }
+                let r = if *is_ref {"var "} else {""};
+                let s = match size {
+                    DefDllParamSize::Const(c) => format!("[{c}]"),
+                    DefDllParamSize::Size(n) => format!("[{n}]"),
+                    DefDllParamSize::None => format!(""),
+                };
+                write!(f, "{r}{dll_type}{s}")
             },
             DefDllParam::Struct(v) => {
                 let s = v.iter()
@@ -625,21 +633,6 @@ impl std::fmt::Display for DefDllParam {
                     .join(", ");
                 write!(f, "callback({}):{}", types, rtype)
             },
-        }
-    }
-}
-impl DefDllParam {
-    /// パラメータの数を得る
-    pub fn len(&self) -> usize {
-        match self {
-            DefDllParam::Param { dll_type:_, is_ref:_, size:_ } => 1,
-            DefDllParam::Struct(params) => {
-                params.iter()
-                    .map(|p| p.len())
-                    .reduce(|a,b| a + b)
-                    .unwrap_or_default()
-            },
-            DefDllParam::Callback(_, _) => 1,
         }
     }
 }

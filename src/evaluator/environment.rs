@@ -234,6 +234,13 @@ impl Environment {
             |o| o.name == key && o.container_type == container_type
         ).map(|o| o.object.clone())
     }
+    pub fn get_const_num(&self, name: &str) -> Option<usize> {
+        let obj = self.get_from_global(name, ContainerType::Const)?;
+        match obj {
+            Object::Num(n) => Some(n as usize),
+            _ => None,
+        }
+    }
 
     pub fn get_name_of_builtin_consts(&self, name: &str) -> Object {
         let key = name.to_ascii_uppercase();

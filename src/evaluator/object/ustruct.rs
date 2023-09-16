@@ -1,7 +1,7 @@
 use super::Object;
 use super::super::{EvalResult, Evaluator};
 use crate::error::evaluator::{UError, UErrorKind, UErrorMessage};
-use crate::ast::Expression;
+use crate::ast::{Expression, DefDllParamSize};
 use crate::winapi::{
     to_ansi_bytes, from_ansi_bytes, to_wide_string, from_wide_string,
 };
@@ -24,9 +24,9 @@ use num_traits::FromPrimitive;
 
 pub struct MemberDefVec(pub Vec<(String, MemberType, Option<usize>)>);
 impl MemberDefVec {
-    pub fn new(members: Vec<(String, String, Option<usize>)>, e: &mut Evaluator) -> EvalResult<Self> {
+    pub fn new(members: Vec<(String, String, DefDllParamSize)>, e: &mut Evaluator) -> EvalResult<Self> {
         let members = members.into_iter()
-            .map(|(name, type_name, len)| {
+            .map(|(name, type_name, size)| {
                 let r#type = match MemberType::from_str(&type_name) {
                     Ok(t) => Ok(t),
                     Err(err) => {
@@ -37,7 +37,16 @@ impl MemberDefVec {
                         }
                     },
                 }?;
-                Ok((name, r#type, len))
+                let size = match size {
+                    DefDllParamSize::Const(name) => {
+                        e.env.get_const_num(&name)
+                            .ok_or(UError::new(UErrorKind::StructDefError, UErrorMessage::DllArgConstSizeIsNotValid))
+                            .map(|n| Some(n))
+                    },
+                    DefDllParamSize::Size(n) => Ok(Some(n)),
+                    DefDllParamSize::None => Ok(None),
+                }?;
+                Ok((name, r#type, size))
             })
             .collect::<EvalResult<Vec<_>>>()?;
         Ok(Self(members))

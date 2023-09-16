@@ -587,6 +587,7 @@ pub enum UErrorMessage {
     InvalidCallbackReturnType(DllType),
     InvalidCallbackArgType(DllType),
     CallbackReturnValueCastError,
+    DllArgConstSizeIsNotValid,
 }
 
 impl fmt::Display for UErrorMessage {
@@ -1295,6 +1296,10 @@ impl fmt::Display for UErrorMessage {
             Self::CallbackReturnValueCastError => write_locale!(f,
                 "コールバック関数の戻り値のキャストに失敗",
                 "Failed to cast return value of callback function",
+            ),
+            Self::DllArgConstSizeIsNotValid => write_locale!(f,
+                "サイズを示す定数がない、または数値ではありません",
+                "Constant indicating size is not valid",
             ),
         }
     }
