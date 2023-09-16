@@ -84,7 +84,7 @@ class UwscrLexer(RegexLexer):
                 'function', 'procedure', 'fend',
                 'hashtbl', 'hash', 'endhash', 'enum', 'endenum',
                 'select', 'selend', 'case', 'default', 'with', 'endwith',
-                'module', 'endmodule', 'class', 'endclass',
+                'module', 'endmodule', 'class', 'endclass', 'def_dll',
             ), suffix=r'\b', prefix=r'\b'), Keyword.Declaration),
             (r'\b[a-zA-Z_][a-zA-Z_0-9]*\b', Name),
         ],

@@ -458,9 +458,9 @@ impl Evaluator {
                 };
                 result
             },
-            Statement::DefDll{name, params, ret_type, path} => {
-                let defdll = DefDll::new(name.clone(), path, params, ret_type)?;
-                self.env.define_dll_function(&name, Object::DefDllFunction(defdll))?;
+            Statement::DefDll{name, alias, params, ret_type, path} => {
+                let defdll = DefDll::new(name, alias, path, params, ret_type)?;
+                self.env.define_dll_function(defdll)?;
                 Ok(None)
             },
             Statement::Struct(identifier, members) => {
@@ -953,9 +953,12 @@ impl Evaluator {
                         ContainerType::Function,
                     );
                 },
-                Statement::DefDll { name, params, ret_type, path } => {
-                    let defdll = DefDll::new(name.clone(), path, params, ret_type)?;
-                    module.add(name, Object::DefDllFunction(defdll), ContainerType::Function);
+                Statement::DefDll { name, alias, params, ret_type, path } => {
+                    let defdll = DefDll::new(name, alias, path, params, ret_type)?;
+                    match &defdll.alias {
+                        Some(alias) => module.add(alias.clone(), Object::DefDllFunction(defdll), ContainerType::Function),
+                        None => module.add(defdll.name.clone(), Object::DefDllFunction(defdll), ContainerType::Function),
+                    }
                 },
                 _ => {
                     let mut err = UError::new(

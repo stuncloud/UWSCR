@@ -3,6 +3,7 @@ use crate::{
         EvalResult,
         object::*,
         builtins::init_builtins,
+        DefDll,
     },
     settings::USETTINGS,
     error::evaluator::{
@@ -529,8 +530,12 @@ impl Environment {
         self.define(key, object, ContainerType::Variable, false)
     }
 
-    pub fn define_dll_function(&mut self, name: &str, object: Object) -> Result<(), UError> {
-        let key = name.to_ascii_uppercase();
+    pub fn define_dll_function(&mut self, defdll: DefDll) -> Result<(), UError> {
+        let key = match &defdll.alias {
+            Some(alias) => alias.to_ascii_uppercase(),
+            None => defdll.name.to_ascii_uppercase(),
+        };
+        let object = Object::DefDllFunction(defdll);
         if self.contains_in_global(&key, &[ContainerType::Function]) {
             self.set(&key, ContainerType::Function, object, true);
             Ok(())

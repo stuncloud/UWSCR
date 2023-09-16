@@ -301,7 +301,7 @@ impl Parser {
                                     program.insert(pub_counter, row);
                                     pub_counter += 1;
                                 },
-                                Statement::DefDll { name:_, params:_, ret_type:_, path:_ } => {
+                                Statement::DefDll { name:_, alias:_, params:_, ret_type:_, path:_ } => {
                                     program.insert(pub_counter + opt_counter + func_counter, row.clone());
                                     new_body.push(row);
                                     func_counter += 1;
@@ -319,7 +319,7 @@ impl Parser {
                         ));
                         func_counter += 1;
                     },
-                    Statement::DefDll { name:_, params:_, ret_type:_, path:_ } => {
+                    Statement::DefDll { name:_, alias:_, params:_, ret_type:_, path:_ } => {
                         program.insert(pub_counter + opt_counter + func_counter, s.clone());
                         program.push(s);
                         func_counter += 1;
@@ -357,7 +357,7 @@ impl Parser {
                                     program.insert(pub_counter + opt_counter + func_counter, statement);
                                     func_counter += 1;
                                 },
-                                Statement::DefDll { name:_, params:_, ret_type:_, path:_ } => {
+                                Statement::DefDll { name:_, alias:_, params:_, ret_type:_, path:_ } => {
                                     program.insert(pub_counter + opt_counter + func_counter, statement.clone());
                                     program.push(statement);
                                     func_counter += 1;
@@ -921,9 +921,31 @@ impl Parser {
                 return None;
             }
         };
+        let (name, alias) = match &self.next_token.token {
+            Token::Lparen => {
+                (name, None)
+            },
+            Token::Colon => {
+                self.bump();
+                self.bump();
+                let alias = Some(name);
+                let name = if let Token::Identifier(ident) = &self.current_token.token() {
+                    ident.to_string()
+                } else {
+                    self.error_token_is_not_identifier();
+                    return None;
+                };
+                (name, alias)
+            },
+            _ => {
+                self.error_got_unexpected_next_token();
+                return None;
+            }
+        };
         if ! self.is_next_token_expected(Token::Lparen) {
             return None;
         }
+
         self.bump();
         let mut params = Vec::new();
         while ! self.is_current_token_in(vec![Token::Rparen, Token::Eof]) {
@@ -1013,12 +1035,7 @@ impl Parser {
             },
         };
 
-        Some(Statement::DefDll {
-            name,
-            params,
-            ret_type,
-            path
-        })
+        Some(Statement::DefDll { name, alias, params, ret_type, path })
     }
 
     fn parse_dll_struct(&mut self) -> Option<DefDllParam> {
@@ -2771,7 +2788,7 @@ impl Parser {
                     Statement::Public(_) |
                     Statement::Const(_) |
                     Statement::TextBlock(_, _) |
-                    Statement::DefDll { name: _, params: _, ret_type: _, path: _ } |
+                    Statement::DefDll { name: _, alias:_, params: _, ret_type: _, path: _ } |
                     Statement::HashTbl(_) => block.push(s),
                     Statement::Function{ref name, params: _, body: _, is_proc: _, is_async:_} => {
                         if name == &identifier {
@@ -5643,6 +5660,7 @@ func(
                     StatementWithRow::new_expected(
                         Statement::DefDll {
                             name: "nest".into(),
+                            alias: None,
                             params: vec![
                                 DefDllParam::Struct(vec![
                                     DefDllParam::Param{dll_type: DllType::Long, is_ref: false, size: None},
@@ -5665,6 +5683,7 @@ func(
                     StatementWithRow::new_expected(
                         Statement::DefDll {
                             name: "hoge".into(),
+                            alias: None,
                             params: vec![],
                             ret_type: DllType::Void,
                             path: "hoge.dll".into()
@@ -5678,6 +5697,7 @@ func(
                     StatementWithRow::new_expected(
                         Statement::DefDll {
                             name: "fuga".into(),
+                            alias: None,
                             params: vec![],
                             ret_type: DllType::Void,
                             path: "fuga.dll".into()
@@ -5691,6 +5711,7 @@ func(
                     StatementWithRow::new_expected(
                         Statement::DefDll {
                             name: "size".into(),
+                            alias: None,
                             params: vec![
                                 DefDllParam::Param{dll_type: DllType::Int, is_ref: false, size: None},
                                 DefDllParam::Param{dll_type: DllType::Dword, is_ref: false, size: Some(6)},
@@ -5714,6 +5735,7 @@ func(
                     StatementWithRow::new_expected(
                         Statement::DefDll {
                             name: "cb1".into(),
+                            alias: None,
                             params: vec![
                                 DefDllParam::Callback(vec![DllType::Int, DllType::Bool], DllType::Long),
                             ],
@@ -5729,6 +5751,7 @@ func(
                     StatementWithRow::new_expected(
                         Statement::DefDll {
                             name: "cb2".into(),
+                            alias: None,
                             params: vec![
                                 DefDllParam::Callback(vec![DllType::Int], DllType::Void),
                             ],
@@ -5744,11 +5767,26 @@ func(
                     StatementWithRow::new_expected(
                         Statement::DefDll {
                             name: "cb3".into(),
+                            alias: None,
                             params: vec![
                                 DefDllParam::Callback(vec![], DllType::Int),
                             ],
                             ret_type: DllType::Void,
                             path: "cb3.dll".into()
+                        }, 1
+                    )
+                ]
+            ),
+            (
+                "def_dll alias:real():alias.dll",
+                vec![
+                    StatementWithRow::new_expected(
+                        Statement::DefDll {
+                            name: "real".into(),
+                            alias: Some("alias".into()),
+                            params: vec![],
+                            ret_type: DllType::Void,
+                            path: "alias.dll".into()
                         }, 1
                     )
                 ]
@@ -6114,6 +6152,7 @@ fend
                     StatementWithRow::new_expected(
                         Statement::DefDll {
                             name: "MessageBoxA".into(),
+                            alias: None,
                             params: vec![
                                 DefDllParam::Param { dll_type: DllType::Hwnd, is_ref: false, size: None },
                                 DefDllParam::Param { dll_type: DllType::String, is_ref: false, size: None },
@@ -6128,6 +6167,7 @@ fend
                     StatementWithRow::new_expected(
                         Statement::DefDll {
                             name: "MessageBoxA".into(),
+                            alias: None,
                             params: vec![
                                 DefDllParam::Param { dll_type: DllType::Hwnd, is_ref: false, size: None },
                                 DefDllParam::Param { dll_type: DllType::String, is_ref: false, size: None },

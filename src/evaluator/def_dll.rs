@@ -31,7 +31,8 @@ use windows::Win32::{
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct DefDll {
-    name: String,
+    pub name: String,
+    pub alias: Option<String>,
     path: String,
     params: Vec<DefDllParam>,
     rtype: DllType,
@@ -42,16 +43,19 @@ impl std::fmt::Display for DefDll {
             .map(|p| p.to_string())
             .collect::<Vec<_>>()
             .join(", ");
-        write!(f, "{}({}):{}:{}", self.name, params, self.rtype, self.path)
+        match &self.alias {
+            Some(alias) => write!(f, "{}({}):{}:{} as {}", self.name, params, self.rtype, self.path, alias),
+            None => write!(f, "{}({}):{}:{}", self.name, params, self.rtype, self.path)
+        }
     }
 }
 impl DefDll {
-    pub fn new(name: String, path: String, params: Vec<DefDllParam>, rtype: DllType) -> EvalResult<Self> {
+    pub fn new(name: String, alias: Option<String>, path: String, params: Vec<DefDllParam>, rtype: DllType) -> EvalResult<Self> {
         match rtype {
             DllType::SafeArray |
             DllType::UStruct |
             DllType::CallBack => Err(UError::new(UErrorKind::DefinitionError(DefinitionType::DefDll), UErrorMessage::DllResultTypeNotAllowed)),
-            rtype => Ok(Self { name, path, params, rtype })
+            rtype => Ok(Self { name, alias, path, params, rtype })
         }
     }
     fn param_len(&self) -> usize {

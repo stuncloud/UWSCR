@@ -281,9 +281,11 @@ pub enum Statement {
     HashTbl(Vec<(Identifier, Option<Expression>, bool)>),
     Hash(HashSugar),
     Print(Expression),
-    Call(Program, Vec<Expression>), // スクリプトの実行部分、引数(param_str)
+    /// スクリプトの実行部分, 引数(param_str)
+    Call(Program, Vec<Expression>),
     DefDll {
         name: String,
+        alias: Option<String>,
         params: Vec<DefDllParam>,
         ret_type: DllType,
         path: String,
