@@ -1242,6 +1242,12 @@ impl Parser {
                 return None;
             }
             self.bump();
+            let is_ref = if self.is_current_token(&Token::Ref) {
+                self.bump();
+                true
+            } else {
+                false
+            };
             let member_type = match self.parse_identifier_expression() {
                 Some(Expression::Identifier(Identifier(s))) => s.to_ascii_lowercase(),
                 _ => {
@@ -1274,7 +1280,7 @@ impl Parser {
             if size != DefDllParamSize::None {
                 self.bump();
             }
-            struct_definition.push((member, member_type, size));
+            struct_definition.push((member, member_type, size, is_ref));
             self.bump();
             self.bump();
         }
@@ -6023,15 +6029,17 @@ struct Hoge
     y: long
     b: byte[100]
     c: byte[BYTE_SIZE]
+    r: ref long
 endstruct
         "#;
         parser_test(input, vec![
             StatementWithRow::new_expected(
                 Statement::Struct(Identifier("Hoge".into()), vec![
-                    ("x".into(), "long".into(), DefDllParamSize::None),
-                    ("y".into(), "long".into(), DefDllParamSize::None),
-                    ("b".into(), "byte".into(), DefDllParamSize::Size(100)),
-                    ("c".into(), "byte".into(), DefDllParamSize::Const("BYTE_SIZE".into())),
+                    ("x".into(), "long".into(), DefDllParamSize::None, false),
+                    ("y".into(), "long".into(), DefDllParamSize::None, false),
+                    ("b".into(), "byte".into(), DefDllParamSize::Size(100), false),
+                    ("c".into(), "byte".into(), DefDllParamSize::Const("BYTE_SIZE".into()), false),
+                    ("r".into(), "long".into(), DefDllParamSize::None, true),
                 ]), 2
             ),
         ]);

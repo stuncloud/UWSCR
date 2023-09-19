@@ -467,8 +467,8 @@ impl Evaluator {
             Statement::Struct(identifier, members) => {
                 let name = identifier.0;
                 let memberdef = ustruct::MemberDefVec::new(members, self)?;
-                let sdef = StructDef::new(name.clone(), memberdef);
-                self.env.define_struct(&name, Object::StructDef(sdef))?;
+                let sdef = StructDef::new(name, memberdef);
+                self.env.define_struct(sdef)?;
                 Ok(None)
             }
             Statement::Expression(e) => Ok(Some(self.eval_expression(e)?)),

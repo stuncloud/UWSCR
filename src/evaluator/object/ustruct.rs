@@ -22,11 +22,11 @@ use windows::Win32::{
 
 use num_traits::FromPrimitive;
 
-pub struct MemberDefVec(pub Vec<(String, MemberType, Option<usize>)>);
+pub struct MemberDefVec(pub Vec<(String, MemberType, Option<usize>, bool)>);
 impl MemberDefVec {
-    pub fn new(members: Vec<(String, String, DefDllParamSize)>, e: &mut Evaluator) -> EvalResult<Self> {
+    pub fn new(members: Vec<(String, String, DefDllParamSize, bool)>, e: &mut Evaluator) -> EvalResult<Self> {
         let members = members.into_iter()
-            .map(|(name, type_name, size)| {
+            .map(|(name, type_name, size, is_ref)| {
                 let r#type = match MemberType::from_str(&type_name) {
                     Ok(t) => Ok(t),
                     Err(err) => {
@@ -46,7 +46,7 @@ impl MemberDefVec {
                     DefDllParamSize::Size(n) => Ok(Some(n)),
                     DefDllParamSize::None => Ok(None),
                 }?;
-                Ok((name, r#type, size))
+                Ok((name, r#type, size, is_ref))
             })
             .collect::<EvalResult<Vec<_>>>()?;
         Ok(Self(members))
@@ -60,20 +60,35 @@ pub struct MemberDef {
     /// 配列指定であればそのサイズ
     len: Option<usize>,
     offset: usize,
+    is_ref: bool,
 }
 impl MemberDef {
-    fn new(name: String, r#type: MemberType, len: Option<usize>, offset: usize) -> Self {
-        Self {name, r#type, len, offset}
+    fn new(name: String, r#type: MemberType, len: Option<usize>, offset: usize, is_ref: bool) -> Self {
+        Self {name, r#type, len, offset, is_ref }
     }
     fn size(&self) -> usize {
-        match &self.r#type {
-            MemberType::String |
-            MemberType::Pchar |
-            MemberType::Wstring |
-            MemberType::PWchar |
-            MemberType::Struct(_) => self.r#type.size(),
-            t => t.size() * self.len.unwrap_or(1)
+        if self.is_ref {
+            Self::p_size()
+        } else {
+            match &self.r#type {
+                MemberType::String |
+                MemberType::Pchar |
+                MemberType::Wstring |
+                MemberType::PWchar |
+                MemberType::Struct(_) => self.r#type.size(),
+                t => t.size() * self.len.unwrap_or(1)
+            }
         }
+    }
+    fn alignment(&self) -> usize {
+        if self.is_ref {
+            Self::p_size()
+        } else {
+            self.r#type.alignment()
+        }
+    }
+    fn p_size() -> usize {
+        mem::size_of::<usize>()
     }
 }
 /// 構造体定義
@@ -87,19 +102,23 @@ impl StructDef {
     pub fn new(name: String, memberdef: MemberDefVec) -> Self {
         let members = memberdef.0;
         // アラインメントの最大値を得る
-        let max_alignment = members.iter().map(|(_,t,_)| t.alignment()).reduce(|a,b| a.max(b)).unwrap_or_default();
+        let max_alignment = members.iter().map(|(_,t,_,_)| t.alignment()).reduce(|a,b| a.max(b)).unwrap_or_default();
         let mut offset = 0;
         let mut last_alignment = None::<usize>;
 
         let members = members.into_iter()
-            .map(|(name, mut r#type, len)| {
+            .map(|(name, mut r#type, len, is_ref)| {
                 if let MemberType::Struct(sdef) = &mut r#type {
                     let soffset = sdef.fix_layout(max_alignment, &mut offset, &mut last_alignment);
-                    MemberDef::new(name, r#type, len, soffset)
+                    MemberDef::new(name, r#type, len, soffset, is_ref)
                 } else {
-                    let alignment = r#type.alignment();
+                    let alignment = if is_ref {
+                        mem::size_of::<usize>()
+                    } else {
+                        r#type.alignment()
+                    };
                     offset = Self::pad_offset(alignment, max_alignment, offset, last_alignment);
-                    let mdef = MemberDef::new(name, r#type, len, offset);
+                    let mdef = MemberDef::new(name, r#type, len, offset, is_ref);
                     // 合計サイズ分オフセットを進める
                     last_alignment = Some(alignment);
                     offset += mdef.size();
@@ -148,7 +167,7 @@ impl StructDef {
                     member.offset = sdef.fix_layout(max_alignment, &mut o, last_alignment);
                 },
                 _ => {
-                    let alignment = member.r#type.alignment();
+                    let alignment = member.alignment();
                     member.offset = Self::pad_offset(alignment, max_alignment, o, *last_alignment);
                     o += alignment * member.len.unwrap_or(1);
                     *last_alignment = Some(alignment)
@@ -170,7 +189,7 @@ impl StructDef {
                     let nested = sdef.layout(Some(&name));
                     format!("{}: {}\r\n{}", name, m.offset, nested)
                 },
-                _ => format!("{} [{}]: {} ", name, m.r#type.size(), m.offset)
+                _ => format!("{}: alignment: {}, size: {}, offset: {}", name, m.alignment(), m.size(), m.offset)
             }
         })
         .collect::<Vec<_>>()
@@ -192,6 +211,46 @@ impl std::fmt::Display for MemberDef {
             Some(l) => write!(f, "{}: {}[{}]", self.name, self.r#type, l),
             None => write!(f, "{}: {}", self.name, self.r#type)
         }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RefVal {
+    ptr: *mut c_void,
+    hheap: HANDLE,
+    len: usize
+}
+impl Drop for RefVal {
+    fn drop(&mut self) {
+        unsafe {
+            let _ = HeapFree(self.hheap, HEAP_NONE, Some(self.ptr));
+            let _ = HeapDestroy(self.hheap);
+        }
+    }
+}
+impl RefVal {
+    fn new<T>(len: usize) -> EvalResult<Self> {
+        unsafe {
+            let bytes = mem::size_of::<T>() * len;
+            let hheap = HeapCreate(HEAP_GENERATE_EXCEPTIONS, bytes, bytes)?;
+            let ptr = HeapAlloc(hheap, HEAP_ZERO_MEMORY, bytes);
+            Ok(Self { ptr, hheap, len })
+        }
+    }
+    fn new_ptr() -> EvalResult<Self> {
+        Self::new::<usize>(1)
+    }
+    fn set<T>(&self, v: &Vec<T>) {
+        unsafe {
+            let dst = self.ptr as *mut T;
+            ptr::copy_nonoverlapping(v.as_ptr(), dst, v.len());
+        }
+    }
+    fn set_ptr(&self, addr: usize) {
+        self.set::<usize>(&vec![addr]);
+    }
+    fn address(&self) -> usize {
+        self.ptr as usize
     }
 }
 
@@ -304,11 +363,20 @@ impl StringBuffer {
     }
     /// メンバが示すポインタとバッファ自身のポインタが一致するかどうか
     ///
-    /// addr: メンバのアドレス
-    fn check_ptr(&self, addr: usize) -> bool {
+    /// - addr: メンバのアドレス
+    /// - is_ref: ポインタのポインタかどうか
+    fn check_ptr(&self, addr: usize, is_ref: bool) -> bool {
         unsafe {
+            let src = if is_ref {
+                // バッファのポインタを得る
+                let mut dst = 0usize;
+                let src = addr as *const usize;
+                ptr::copy_nonoverlapping(src, &mut dst, 1);
+                dst as *const usize
+            } else {
+                addr as *const usize
+            };
             let mut dst = 0usize;
-            let src = addr as *const usize;
             ptr::copy_nonoverlapping(src, &mut dst, 1);
             dst == self.address()
         }
@@ -346,12 +414,14 @@ impl StringBuffer {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct UStructMember {
     name: String,
     r#type: MemberType,
     offset: usize,
     len: Option<usize>,
+    is_ref: bool,
+    refval: Arc<Mutex<Option<RefVal>>>,
     buffer: Arc<Mutex<Option<StringBuffer>>>,
     ustruct: Option<UStruct>,
     /// def_dllの構造体内包定義でrefパラメータだった場合にExpressionを持つ
@@ -362,27 +432,15 @@ impl PartialEq for UStructMember {
         self.name == other.name && self.r#type == other.r#type && self.offset == other.offset && self.len == other.len
     }
 }
-impl std::fmt::Debug for UStructMember {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let buffer = self.buffer.lock().unwrap();
-        f.debug_struct("UStructMember")
-            .field("name", &self.name)
-            .field("r#type", &self.r#type)
-            .field("offset", &self.offset)
-            .field("len", &self.len)
-            .field("buffer", &buffer)
-            .field("ustruct", &self.ustruct)
-            .field("refexpr", &self.refexpr)
-            .finish()
-    }
-}
 impl UStructMember {
-    pub fn new(name: &str, r#type: &MemberType, offset: usize, len: Option<usize>) -> Self {
+    pub fn new(memdef: &MemberDef) -> Self {
         Self {
-            name: name.to_ascii_lowercase(),
-            r#type: r#type.clone(),
-            offset,
-            len,
+            name: memdef.name.to_ascii_lowercase(),
+            r#type: memdef.r#type.clone(),
+            offset: memdef.offset,
+            len: memdef.len,
+            is_ref: memdef.is_ref,
+            refval: Arc::new(Mutex::new(None)),
             buffer: Arc::new(Mutex::new(None)),
             ustruct: None,
             refexpr: None,
@@ -408,74 +466,39 @@ impl UStructMember {
     fn matches(&self, name: &str) -> bool {
         name.to_ascii_lowercase() == self.name
     }
-    /// addr: メンバのアドレス
+    /// 新たな文字列バッファをセットし、バッファとそのアドレスを返す
+    fn set_new_string(&self, string: &str, is_ansi: bool) -> EvalResult<(StringBuffer, usize)> {
+        let buf = StringBuffer::from_str(&string, is_ansi)?;
+        let addr = if self.is_ref {
+            // バッファのポインタのポインタ
+            self.set_string_ptr_ref(buf.address())?
+        } else {
+            // バッファのポインタ
+            buf.address()
+        };
+        Ok((buf, addr))
+    }
+    /// 新たな文字列バッファをセットし、バッファとそのアドレスを返す
     ///
-    /// - サイズ指定がある場合は既存のバッファに書き込む
-    /// - サイズ指定がない場合はバッファを新規に作成する
-    fn set_string(&self, addr: usize, value: Object) -> EvalResult<bool> {
-        unsafe {
-            let is_string = if self.is_ansi_string() {
-                Some(true)
-            } else if self.is_wide_string() {
-                Some(false)
-            } else {
-                None
-            };
-            let maybe_string = value.to_string_nullable();
-            match is_string {
-                Some(is_ansi) => {
-                    match &maybe_string {
-                        Some(s) => {
-                            match self.len {
-                                // サイズ指定あり
-                                Some(len) => {
-                                    let mut guard = self.buffer.lock().unwrap();
-                                    match guard.as_ref() {
-                                        Some(buf) => {
-                                            // バッファが存在していれば書き換える
-                                            buf.set_string(s, is_ansi)?;
-                                        },
-                                        None => {
-                                            // バッファがない場合は指定サイズで作成して文字列を書き込む
-                                            let buf = StringBuffer::new(len, is_ansi)?;
-                                            buf.set_string(s, is_ansi)?;
-                                            let src = buf.address();
-                                            let dst = addr as *mut _;
-                                            ptr::copy_nonoverlapping(&src, dst, 1);
-                                            *guard = Some(buf);
-                                        },
-                                    }
-                                },
-                                // サイズ指定なし
-                                None => {
-                                    // 文字列からStringBufferを作りセットする
-                                    let buf = StringBuffer::from_str(s, is_ansi)?;
-                                    let src = buf.address();
-                                    let dst = addr as *mut _;
-                                    ptr::copy_nonoverlapping(&src, dst, 1);
-                                    let mut guard = self.buffer.lock().unwrap();
-                                    *guard = Some(buf);
-                                },
-                            }
-                        },
-                        None => {
-                            // null代入
-                            let mut guard = self.buffer.lock().unwrap();
-                            if guard.is_some() {
-                                // ポインタを0に
-                                let src = 0usize;
-                                let dst = (addr + self.offset) as *mut _;
-                                ptr::copy_nonoverlapping(&src, dst, 1);
-                                // StringBufferを消す
-                                *guard = None;
-                            }
-                        },
-                    }
-                    Ok(true)
-                },
-                None => Ok(false),
-            }
-        }
+    /// サイズ指定版
+    fn set_new_string_sized(&self, string: &str, len: usize, is_ansi: bool) -> EvalResult<(StringBuffer, usize)> {
+        let buf = StringBuffer::new(len, is_ansi)?;
+        buf.set_string(&string, is_ansi)?;
+        let addr = if self.is_ref {
+            self.set_string_ptr_ref(buf.address())?
+        } else {
+            buf.address()
+        };
+        Ok((buf, addr))
+    }
+    /// 文字列バッファのポインタをRefValにセットしてRefValのポインタを返す
+    fn set_string_ptr_ref(&self, addr: usize) -> EvalResult<usize> {
+        let refval = RefVal::new_ptr()?;
+        refval.set_ptr(addr);
+        let r_addr = refval.address();
+        let mut guard = self.refval.lock().unwrap();
+        *guard = Some(refval);
+        Ok(r_addr)
     }
     /// addr: 親構造体のアドレス
     ///
@@ -585,7 +608,7 @@ impl TryFrom<&StructDef> for UStruct {
 impl UStruct {
     fn new(sdef: &StructDef) -> Self {
         let members = sdef.members.iter()
-            .map(|mdef| UStructMember::new(&mdef.name, &mdef.r#type, mdef.offset, mdef.len))
+            .map(|mdef| UStructMember::new(mdef))
             .collect();
         Self {
             name: sdef.name.clone(),
@@ -657,247 +680,211 @@ impl UStruct {
             )),
         }
     }
-    pub fn get(&self, member: &UStructMember) -> EvalResult<Object> {
+    fn get_num<T>(&self, member: &UStructMember) -> EvalResult<Vec<T>>
+        where T: FromPrimitive + Default + Clone
+    {
         unsafe {
             let addr = self.address + member.offset;
             let count = member.len.unwrap_or(1);
-            match &member.r#type {
-                MemberType::Int |
-                MemberType::Long => {
-                    let mut dst = vec![0i32; count];
-                    let src = addr as *const i32;
-                    ptr::copy_nonoverlapping(src, dst.as_mut_ptr(), count);
-                    if count == 1 {
-                        let n = dst[0];
-                        Ok(n.into())
-                    } else {
-                        let arr = dst.into_iter().map(|n| n.into()).collect();
-                        Ok(Object::Array(arr))
-                    }
-                },
-                MemberType::Bool => {
-                    let mut dst = vec![0i32; count];
-                    let src = addr as *const i32;
-                    ptr::copy_nonoverlapping(src, dst.as_mut_ptr(), count);
-                    if count == 1 {
-                        let b = dst[0] != 0;
-                        Ok(b.into())
-                    } else {
-                        let arr = dst.into_iter().map(|n| (n != 0).into()).collect();
-                        Ok(Object::Array(arr))
-                    }
-                },
-                MemberType::Uint |
-                MemberType::Dword => {
-                    let mut dst = vec![0u32; count];
-                    let src = addr as *const u32;
-                    ptr::copy_nonoverlapping(src, dst.as_mut_ptr(), count);
-                    if count == 1 {
-                        let n = dst[0];
-                        Ok(n.into())
-                    } else {
-                        let arr = dst.into_iter().map(|n| n.into()).collect();
-                        Ok(Object::Array(arr))
-                    }
-                },
-                MemberType::Float => {
-                    let mut dst = vec![0f32; count];
-                    let src = addr as *const f32;
-                    ptr::copy_nonoverlapping(src, dst.as_mut_ptr(), count);
-                    if count == 1 {
-                        let n = dst[0];
-                        Ok((n as f64).into())
-                    } else {
-                        let arr = dst.into_iter().map(|n| (n as f64).into()).collect();
-                        Ok(Object::Array(arr))
-                    }
-                },
-                MemberType::Double => {
-                    let mut dst = vec![0f64; count];
-                    let src = addr as *const f64;
-                    ptr::copy_nonoverlapping(src, dst.as_mut_ptr(), count);
-                    if count == 1 {
-                        let n = dst[0];
-                        Ok(n.into())
-                    } else {
-                        let arr = dst.into_iter().map(|n| n.into()).collect();
-                        Ok(Object::Array(arr))
-                    }
-                },
-                MemberType::Word => {
-                    let mut dst = vec![0u16; count];
-                    let src = addr as *const u16;
-                    ptr::copy_nonoverlapping(src, dst.as_mut_ptr(), count);
-                    if count == 1 {
-                        let n = dst[0];
-                        Ok(n.into())
-                    } else {
-                        let arr = dst.into_iter().map(|n| n.into()).collect();
-                        Ok(Object::Array(arr))
-                    }
-                },
-                MemberType::Wchar => {
-                    let mut dst = vec![0u16; count];
-                    let src = addr as *const u16;
-                    ptr::copy_nonoverlapping(src, dst.as_mut_ptr(), count);
-                    let s = from_wide_string(&dst);
-                    Ok(s.into())
-                },
-                MemberType::Byte => {
-                    let mut dst = vec![0u8; count];
-                    let src = addr as *const u8;
-                    ptr::copy_nonoverlapping(src, dst.as_mut_ptr(), count);
-                    if count == 1 {
-                        let n = dst[0];
-                        Ok((n as u16).into())
-                    } else {
-                        let arr = dst.into_iter().map(|n| (n as u16).into()).collect();
-                        Ok(Object::Array(arr))
-                    }
-                },
-                MemberType::Char => {
-                    let mut dst = vec![0u8; count];
-                    let src = addr as *const u8;
-                    ptr::copy_nonoverlapping(src, dst.as_mut_ptr(), count);
-                    let s = from_ansi_bytes(&dst);
-                    Ok(s.into())
-                },
-                MemberType::Boolean => {
-                    let mut dst = vec![0u8; count];
-                    let src = addr as *const u8;
-                    ptr::copy_nonoverlapping(src, dst.as_mut_ptr(), count);
-                    if count == 1 {
-                        let n = dst[0];
-                        Ok((n != 0).into())
-                    } else {
-                        let arr = dst.into_iter().map(|n| (n != 0).into()).collect();
-                        Ok(Object::Array(arr))
-                    }
-                },
-                MemberType::Longlong => {
-                    let mut dst = vec![0i64; count];
-                    let src = addr as *const i64;
-                    ptr::copy_nonoverlapping(src, dst.as_mut_ptr(), count);
-                    if count == 1 {
-                        let n = dst[0];
-                        Ok(n.into())
-                    } else {
-                        let arr = dst.into_iter().map(|n| n.into()).collect();
-                        Ok(Object::Array(arr))
-                    }
-                },
-                MemberType::String |
-                MemberType::Pchar |
-                MemberType::Wstring |
-                MemberType::PWchar => {
-                    let is_char = member.r#type.is_char();
-                    let is_ansi = member.r#type.is_ansi();
-                    let guard = member.buffer.lock().unwrap();
-                    match &*guard {
-                        Some(buf) => {
-                            if buf.check_ptr(addr) {
-                                let s = buf.to_string(is_char);
-                                Ok(s.into())
-                            } else {
-                                let s = StringBuffer::get_string_from_pointer(addr, is_ansi, is_char);
-                                Ok(s.into())
-                            }
-                        },
-                        None => {
+            let mut vec = vec![T::default(); count];
+            let dst = vec.as_mut_ptr();
+            if member.is_ref {
+                let mut ptr = 0usize;
+                let src = addr as *const usize;
+                ptr::copy_nonoverlapping(src, &mut ptr, 1);
+                if ptr == 0 {
+                    Err(UError::new(UErrorKind::UStructError, UErrorMessage::StructMemberWasNullPointer))
+                } else {
+                    let src = ptr as *const T;
+                    ptr::copy_nonoverlapping(src, dst, count);
+                    Ok(vec)
+                }
+            } else {
+                let src = addr as *const T;
+                ptr::copy_nonoverlapping(src, dst, count);
+                Ok(vec)
+            }
+        }
+    }
+    pub fn get(&self, member: &UStructMember) -> EvalResult<Object> {
+        let as_array = member.len.is_some();
+        match &member.r#type {
+            MemberType::Int |
+            MemberType::Long => {
+                let vec = self.get_num::<i32>(member)?;
+                Ok(Object::from_vec_t(vec, as_array))
+            },
+            MemberType::Bool => {
+                let vec = self.get_num::<i32>(member)?;
+                Ok(Object::from_vec_t_bool(vec, as_array))
+            },
+            MemberType::Uint |
+            MemberType::Dword => {
+                let vec = self.get_num::<u32>(member)?;
+                Ok(Object::from_vec_t(vec, as_array))
+            },
+            MemberType::Float => {
+                let vec = self.get_num::<f32>(member)?;
+                Ok(Object::from_vec_t(vec, as_array))
+            },
+            MemberType::Double => {
+                let vec = self.get_num::<f64>(member)?;
+                Ok(Object::from_vec_t(vec, as_array))
+            },
+            MemberType::Word => {
+                let vec = self.get_num::<u16>(member)?;
+                Ok(Object::from_vec_t(vec, as_array))
+            },
+            MemberType::Wchar => {
+                let wide = self.get_num::<u16>(member)?;
+                let s = from_wide_string(&wide);
+                Ok(s.into())
+            },
+            MemberType::Byte => {
+                let vec = self.get_num::<u8>(member)?;
+                Ok(Object::from_vec_t(vec, as_array))
+            },
+            MemberType::Char => {
+                let ansi = self.get_num::<u8>(member)?;
+                let s = from_ansi_bytes(&ansi);
+                Ok(s.into())
+            },
+            MemberType::Boolean => {
+                let vec = self.get_num::<u8>(member)?;
+                Ok(Object::from_vec_t_bool(vec, as_array))
+            },
+            MemberType::Longlong => {
+                let vec = self.get_num::<i64>(member)?;
+                Ok(Object::from_vec_t(vec, as_array))
+            },
+            MemberType::String |
+            MemberType::Pchar |
+            MemberType::Wstring |
+            MemberType::PWchar => {
+                let is_char = member.r#type.is_char();
+                let is_ansi = member.r#type.is_ansi();
+                let addr = self.address + member.offset;
+                let guard = member.buffer.lock().unwrap();
+                match &*guard {
+                    Some(buf) => {
+                        if buf.check_ptr(addr, member.is_ref) {
+                            let s = buf.to_string(is_char);
+                            Ok(s.into())
+                        } else {
                             let s = StringBuffer::get_string_from_pointer(addr, is_ansi, is_char);
                             Ok(s.into())
-                        },
-                    }
-                },
-                MemberType::Hwnd |
-                MemberType::Handle |
-                MemberType::Pointer |
-                MemberType::Size => {
-                    let mut dst = vec![0usize; count];
-                    let src = addr as *const usize;
-                    ptr::copy_nonoverlapping(src, dst.as_mut_ptr(), count);
-                    if count == 1 {
-                        let n = dst[0];
-                        Ok(n.into())
-                    } else {
-                        let arr = dst.into_iter().map(|n| n.into()).collect();
-                        Ok(Object::Array(arr))
-                    }
-                },
-                MemberType::Struct(sdef) => {
-                    if let Some(ustruct) = &member.ustruct {
-                        Ok(Object::UStruct(ustruct.clone()))
-                    } else {
-                        Err(UError::new(
-                            UErrorKind::UStructError,
-                            UErrorMessage::Any(format!("{} is null; {} was not allocated", member.name, sdef.name))
-                        ))
-                    }
-                },
-                MemberType::Void => Ok(Object::Empty),
-                MemberType::UStruct(_) => {
-                    // ここには来ないはず
-                    unimplemented!()
-                },
-            }
+                        }
+                    },
+                    None => {
+                        let s = StringBuffer::get_string_from_pointer(addr, is_ansi, is_char);
+                        Ok(s.into())
+                    },
+                }
+            },
+            MemberType::Hwnd |
+            MemberType::Handle |
+            MemberType::Pointer |
+            MemberType::Size => {
+                let vec = self.get_num::<usize>(member)?;
+                Ok(Object::from_vec_t(vec, as_array))
+            },
+            MemberType::Struct(sdef) => {
+                if let Some(ustruct) = &member.ustruct {
+                    Ok(Object::UStruct(ustruct.clone()))
+                } else {
+                    Err(UError::new(
+                        UErrorKind::UStructError,
+                        UErrorMessage::Any(format!("{} is null; {} was not allocated", member.name, sdef.name))
+                    ))
+                }
+            },
+            MemberType::Void => Ok(Object::Empty),
+            MemberType::UStruct(_) => {
+                unreachable!()
+            },
         }
     }
-    fn set_array_num<T: FromPrimitive>(addr: usize, index: usize, value: Object) -> EvalResult<()> {
-        if let Some(n) = value.as_f64(true) {
-            let t = T::from_f64(n)
-                .ok_or(UError::new(
-                    UErrorKind::UStructError,
-                    UErrorMessage::CastError2(n, std::any::type_name::<T>().to_string())
-                ))?;
-            let offset = mem::size_of::<T>() * index;
-            let dst = (addr + offset) as *mut _;
+    fn set_array_num<T: FromPrimitive>(&self, member: &UStructMember, index: usize, value: Object) -> EvalResult<()> {
+        let t = value.cast2::<T>()?;
+        let offset = mem::size_of::<T>() * index;
+        if member.is_ref {
+            let mut ptr = 0usize;
+            let addr = self.address + member.offset;
+            let src = addr as *mut _;
             unsafe {
-                ptr::copy_nonoverlapping(&t, dst, 1);
+                ptr::copy_nonoverlapping(src, &mut ptr, 1)
+            }
+            if ptr == 0 {
+                Err(UError::new(UErrorKind::UStructError, UErrorMessage::StructMemberWasNullPointer))
+            } else {
+                let addr = ptr + offset;
+                let dst = addr as *mut _;
+                unsafe {
+                    ptr::copy_nonoverlapping(&t, dst, 1);
+                }
+                Ok(())
+            }
+        } else {
+            let addr = self.address + member.offset + offset;
+            let dst = addr as *mut _;
+            unsafe {
+                ptr::copy_nonoverlapping(&t, dst, 1)
             }
             Ok(())
-        } else {
-            Err(UError::new(UErrorKind::UStructError, UErrorMessage::StructMemberTypeError))
         }
     }
-    fn set_num<T>(addr: usize, count: usize, value: Object) -> EvalResult<()>
-        where T: cast::From<f64, Output=Result<T, cast::Error>>,
+    fn set_num<T>(&self, member: &UStructMember, value: Object) -> EvalResult<()>
+        where T: FromPrimitive,
     {
+        let addr = self.address + member.offset;
+        let count = member.len.unwrap_or(1);
         let v = value.to_num_vec::<T>()?;
         if v.len() > count {
             Err(UError::new(UErrorKind::UStructError, UErrorMessage::StructMemberSizeError(count)))
         } else {
-            let src = v.as_ptr();
-            let dst = addr as *mut _;
-            unsafe {
-                ptr::copy_nonoverlapping(src, dst, v.len());
+            if member.is_ref {
+                let refval = RefVal::new::<T>(count)?;
+                refval.set(&v);
+                unsafe {
+                    let src = refval.ptr as usize;
+                    let dst = addr as *mut _;
+                    ptr::copy_nonoverlapping(&src, dst, 1);
+                }
+                let mut guard = member.refval.lock().unwrap();
+                *guard = Some(refval);
+            } else {
+                let src = v.as_ptr();
+                let dst = addr as *mut _;
+                unsafe {
+                    ptr::copy_nonoverlapping(src, dst, v.len());
+                }
             }
             Ok(())
         }
     }
-    fn set_f64(addr: usize, count: usize, value: Object) -> EvalResult<()> {
-        let v = value.to_f64_vec()?;
-        if v.len() > count {
-            Err(UError::new(UErrorKind::UStructError, UErrorMessage::StructMemberSizeError(count)))
-        } else {
-            let src = v.as_ptr();
-            let dst = addr as *mut _;
-            unsafe {
-                ptr::copy_nonoverlapping(src, dst, v.len());
-            }
-            Ok(())
-        }
-    }
-    fn set_char(addr: usize, is_ansi: bool, count: usize, value: Object) -> EvalResult<()> {
-        let s = value.to_string();
+    fn set_char(&self, member: &UStructMember, is_ansi: bool, value: Object) -> EvalResult<()> {
+        let s = value.to_string_nullable().unwrap_or_default();
+        let addr = self.address + member.offset;
+        let count = member.len.unwrap_or(1);
         if is_ansi {
             let ansi = to_ansi_bytes(&s);
             if ansi.len() > count {
                 return Err(UError::new(UErrorKind::UStructError, UErrorMessage::StructMemberSizeError(count)));
             } else {
-                let src = ansi.as_ptr();
-                let dst = addr as *mut u8;
-                unsafe {
-                    ptr::copy_nonoverlapping(src, dst, ansi.len());
+                if member.is_ref {
+                    let refval = RefVal::new::<u8>(count)?;
+                    refval.set(&ansi);
+                    unsafe {
+                        let src = refval.ptr as usize;
+                        let dst = addr as *mut _;
+                        ptr::copy_nonoverlapping(&src, dst, 1);
+                    }
+                } else {
+                    let src = ansi.as_ptr();
+                    let dst = addr as *mut u8;
+                    unsafe {
+                        ptr::copy_nonoverlapping(src, dst, ansi.len());
+                    }
                 }
             }
         } else {
@@ -905,12 +892,91 @@ impl UStruct {
             if wide.len() > count {
                 return Err(UError::new(UErrorKind::UStructError, UErrorMessage::StructMemberSizeError(count)));
             } else {
-                let src = wide.as_ptr();
-                let dst = addr as *mut u16;
-                unsafe {
-                    ptr::copy_nonoverlapping(src, dst, wide.len());
+                if member.is_ref {
+                    let refval = RefVal::new::<u16>(count)?;
+                    refval.set(&wide);
+                    unsafe {
+                        let src = refval.ptr as usize;
+                        let dst = addr as *mut _;
+                        ptr::copy_nonoverlapping(&src, dst, 1);
+                    }
+                } else {
+                    let src = wide.as_ptr();
+                    let dst = addr as *mut u16;
+                    unsafe {
+                        ptr::copy_nonoverlapping(src, dst, wide.len());
+                    }
                 }
             }
+        }
+        Ok(())
+    }
+    fn set_string(&self, member: &UStructMember, value: Object) -> EvalResult<()> {
+        let addr = self.address + member.offset;
+        let is_ansi = if member.is_ansi_string() {
+            true
+        } else if member.is_wide_string() {
+            false
+        } else {
+            return Err(UError::new(UErrorKind::UStructError, UErrorMessage::StructMemberTypeError));
+        };
+        let opt_str = value.to_string_nullable();
+        match opt_str {
+            Some(string) => {
+                match member.len {
+                    Some(len) => {
+                        let mut guard = member.buffer.lock().unwrap();
+                        match guard.as_ref() {
+                            Some(buf) => {
+                                if buf.check_ptr(addr, member.is_ref) {
+                                    // バッファに上書き
+                                    buf.set_string(&string, is_ansi)?;
+                                } else {
+                                    // ポインタがバッファを示していないので新規にセット
+                                    let (buf, src) = member.set_new_string_sized(&string, len, is_ansi)?;
+                                    unsafe {
+                                        let dst = addr as *mut _;
+                                        ptr::copy_nonoverlapping(&src, dst, 1);
+                                    }
+                                    *guard = Some(buf);
+                                }
+                            },
+                            None => {
+                                // バッファがないので新規に作る
+                                let (buf, src) = member.set_new_string_sized(&string, len, is_ansi)?;
+                                unsafe {
+                                    let dst = addr as *mut _;
+                                    ptr::copy_nonoverlapping(&src, dst, 1);
+                                }
+                                *guard = Some(buf);
+                            },
+                        }
+                    },
+                    None => {
+                        // サイズ指定がない場合は常に新規バッファを作ってセット
+                        let (buf, src) = member.set_new_string(&string, is_ansi)?;
+                        unsafe {
+                            let dst = addr as *mut _;
+                            ptr::copy_nonoverlapping(&src, dst, 1);
+                        }
+                        let mut guard = member.buffer.lock().unwrap();
+                        *guard = Some(buf);
+                    },
+                }
+            },
+            None => {
+                // NULL代入
+                let mut guard = member.buffer.lock().unwrap();
+                if guard.is_some() {
+                    // StringBufferがあったら消して構造体にはNULLポインタをセット
+                    let src = 0usize;
+                    let dst = addr as *mut _;
+                    unsafe {
+                        ptr::copy_nonoverlapping(&src, dst, 1)
+                    }
+                    *guard = None;
+                }
+            },
         }
         Ok(())
     }
@@ -946,55 +1012,49 @@ impl UStruct {
         Ok(())
     }
     fn set(&self, member: &UStructMember, value: Object) -> EvalResult<()> {
-        let addr = self.address + member.offset;
-        let count = member.len.unwrap_or(1);
         match &member.r#type {
             MemberType::Int |
             MemberType::Long |
             MemberType::Bool => {
-                Self::set_num::<i32>(addr, count, value)
+                self.set_num::<i32>(member, value)
             },
             MemberType::Uint |
             MemberType::Dword => {
-                Self::set_num::<u32>(addr, count, value)
+                self.set_num::<u32>(member, value)
             },
             MemberType::Float => {
-                Self::set_num::<f32>(addr, count, value)
+                self.set_num::<f32>(member, value)
             },
             MemberType::Double => {
-                Self::set_f64(addr, count, value)
+                self.set_num::<f64>(member, value)
             },
             MemberType::Word => {
-                Self::set_num::<u16>(addr, count, value)
+                self.set_num::<u16>(member, value)
             },
             MemberType::Wchar => {
-                Self::set_char(addr, false, count, value)
+                self.set_char(member, false, value)
             },
             MemberType::Byte |
             MemberType::Boolean => {
-                Self::set_num::<u8>(addr, count, value)
+                self.set_num::<u8>(member, value)
             },
             MemberType::Char => {
-                Self::set_char(addr, true, count, value)
+                self.set_char(member, true, value)
             },
             MemberType::Longlong => {
-                Self::set_num::<i64>(addr, count, value)
+                self.set_num::<i64>(member, value)
             },
             MemberType::String |
             MemberType::Pchar |
             MemberType::Wstring |
             MemberType::PWchar => {
-                if member.set_string(addr, value)? {
-                    Ok(())
-                } else {
-                    Err(UError::new(UErrorKind::UStructError, UErrorMessage::StructMemberTypeError))
-                }
+                self.set_string(member, value)
             },
             MemberType::Hwnd |
             MemberType::Handle |
             MemberType::Pointer |
             MemberType::Size => {
-                Self::set_num::<usize>(addr, count, value)
+                self.set_num::<usize>(member, value)
             },
             MemberType::Struct(_) |
             MemberType::UStruct(_) => {
@@ -1008,45 +1068,40 @@ impl UStruct {
     }
     fn set_array(&self, member: &UStructMember, index: usize, value: Object) -> EvalResult<()> {
         if index < member.len.unwrap_or(0) {
-            let addr = self.address + member.offset;
             match &member.r#type {
                 MemberType::Int |
                 MemberType::Long |
                 MemberType::Bool => {
-                    Self::set_array_num::<i32>(addr, index, value)
+                    self.set_array_num::<i32>(member, index, value)
                 },
                 MemberType::Uint |
                 MemberType::Dword => {
-                    Self::set_array_num::<u32>(addr, index, value)
+                    self.set_array_num::<u32>(member, index, value)
                 },
                 MemberType::Float => {
-                    Self::set_array_num::<f32>(addr, index, value)
+                    self.set_array_num::<f32>(member, index, value)
                 },
                 MemberType::Double => {
-                    Self::set_f64(addr, index, value)
+                    self.set_array_num::<f64>(member, index, value)
                 },
                 MemberType::Word => {
-                    Self::set_array_num::<u16>(addr, index, value)
-                },
-                MemberType::Wchar => {
-                    Self::set_char(addr, false, index, value)
+                    self.set_array_num::<u16>(member, index, value)
                 },
                 MemberType::Byte |
                 MemberType::Boolean => {
-                    Self::set_array_num::<u8>(addr, index, value)
-                },
-                MemberType::Char => {
-                    Self::set_char(addr, true, index, value)
+                    self.set_array_num::<u8>(member, index, value)
                 },
                 MemberType::Longlong => {
-                    Self::set_array_num::<i64>(addr, index, value)
+                    self.set_array_num::<i64>(member, index, value)
                 },
                 MemberType::Hwnd |
                 MemberType::Handle |
                 MemberType::Pointer |
                 MemberType::Size => {
-                    Self::set_array_num::<usize>(addr, index, value)
+                    self.set_array_num::<usize>(member, index, value)
                 },
+                MemberType::Wchar |
+                MemberType::Char |
                 MemberType::String |
                 MemberType::Pchar |
                 MemberType::Wstring |
@@ -1242,55 +1297,29 @@ impl std::str::FromStr for MemberType {
 }
 
 impl Object {
-    fn to_num_vec<T>(&self) -> EvalResult<Vec<T>>
-        where T: cast::From<f64, Output=Result<T, cast::Error>>,
-    {
-        match self {
-            Object::Num(f) => {
-                let n = T::cast(*f)?;
-                Ok(vec![n])
+    fn cast2<T: FromPrimitive>(&self) -> EvalResult<T> {
+        match self.as_f64(true) {
+            Some(f) => {
+                T::from_f64(f)
+                    .ok_or(UError::new(
+                        UErrorKind::UStructError,
+                        UErrorMessage::CastError2(f, std::any::type_name::<T>().to_string())
+                    ))
             },
-            Object::Bool(b) => {
-                let n = if *b {1.0} else {0.0};
-                let n= T::cast(n)?;
-                Ok(vec![n])
-            }
-            Object::Array(arr) => {
-                let vec = arr.iter()
-                    .filter_map(|o| o.as_f64(false))
-                    .map(|f| T::cast(f))
-                    .collect::<Result<Vec<T>, cast::Error>>()?;
-                Ok(vec)
-            },
-            Object::Empty |
-            Object::EmptyParam => {
-                let n = T::cast(0.0)?;
-                Ok(vec![n])
-            }
-            _ => {
-                Err(UError::new(UErrorKind::UStructError, UErrorMessage::StructMemberTypeError))
-            }
+            None => Err(UError::new(UErrorKind::UStructError, UErrorMessage::StructMemberTypeError))
         }
     }
-    fn to_f64_vec(&self) -> EvalResult<Vec<f64>> {
+    fn to_num_vec<T>(&self) -> EvalResult<Vec<T>>
+        where T: FromPrimitive,
+    {
         match self {
-            Object::Num(n) => {
-                Ok(vec![*n])
-            },
-            Object::Bool(b) => {
-                let n = if *b {1.0} else {0.0};
-                Ok(vec![n])
-            }
             Object::Array(arr) => {
-                let vec = arr.iter()
-                    .filter_map(|o| o.as_f64(false))
-                    .collect();
-                Ok(vec)
+                arr.iter()
+                    .map(|o| o.cast2::<T>())
+                    .collect::<EvalResult<Vec<T>>>()
             },
-            Object::Empty |
-            Object::EmptyParam => Ok(vec![0.0]),
-            _ => {
-                Err(UError::new(UErrorKind::UStructError, UErrorMessage::StructMemberTypeError))
+            obj => {
+                obj.cast2::<T>().map(|t| vec![t])
             }
         }
     }
@@ -1301,6 +1330,29 @@ impl Object {
             Object::Nothing |
             Object::Null => None,
             o => Some(o.to_string())
+        }
+    }
+    fn from_vec_t<T>(vec: Vec<T>, as_array: bool) -> Object
+        where T: Into<Object> + Copy
+    {
+        if as_array {
+            let arr = vec.into_iter().map(|n| n.into()).collect();
+            Object::Array(arr)
+        } else {
+            let n = vec[0];
+            n.into()
+        }
+    }
+    fn from_vec_t_bool<T>(vec: Vec<T>, as_array: bool) -> Object
+        where T: FromPrimitive + Default + PartialEq
+    {
+        let zero = T::from_i32(0).unwrap_or_default();
+        if as_array {
+            let arr = vec.into_iter().map(|n| (n != zero).into()).collect();
+            Object::Array(arr)
+        } else {
+            let b = vec[0] != zero;
+            b.into()
         }
     }
 }

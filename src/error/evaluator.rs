@@ -431,6 +431,7 @@ pub enum UErrorMessage {
     CanNotConvertToNumber(serde_json::Number),
     CanNotConvertToUObject(Object),
     CastError(String),
+    /// キャストしたい数値, 型名
     CastError2(f64, String),
     ComError(String, Option<String>),
     ConstantCantBeAssigned(String),
@@ -580,6 +581,7 @@ pub enum UErrorMessage {
     StructMemberSizeError(usize),
     StructMemberTypeError,
     StructMemberIsNotArray,
+    StructMemberWasNullPointer,
     /// 構造体の文字列メンバへの代入する文字列のサイズが大きすぎる
     /// - .0: バッファサイズ
     /// - .1: 代入する文字列のサイズ
@@ -1280,6 +1282,10 @@ impl fmt::Display for UErrorMessage {
             Self::StructMemberIsNotArray => write_locale!(f,
                 "メンバが数値配列型ではありません",
                 "Struct member is not an array of number",
+            ),
+            Self::StructMemberWasNullPointer => write_locale!(f,
+                "メンバがNULLポインタです",
+                "Struct member was null pointer",
             ),
             Self::UStructStringMemberSizeOverflow(bufsize, strsize) => write_locale!(f,
                 "バッファサイズ({bufsize})より大きいサイズ({strsize})の文字列は代入できません",

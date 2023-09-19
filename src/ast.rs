@@ -342,8 +342,8 @@ pub enum Statement {
     ExitExit(i32),
     Module(Identifier, BlockStatement),
     Class(Identifier, BlockStatement),
-    /// (名前, 型, [配列サイズ])
-    Struct(Identifier, Vec<(String, String, DefDllParamSize)>),
+    /// (名前, 型, 配列サイズ, var/ref)
+    Struct(Identifier, Vec<(String, String, DefDllParamSize, bool)>),
     TextBlock(Identifier, Literal),
     With(Option<Expression>, BlockStatement),
     Try {

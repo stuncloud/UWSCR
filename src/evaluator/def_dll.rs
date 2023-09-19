@@ -945,13 +945,13 @@ impl From<&Vec<DllParam>> for StructDef {
         let members = params.iter()
             .map(|param| {
                 match param {
-                    DllParam::Param { dll_type, is_ref: _, size } => {
+                    DllParam::Param { dll_type, is_ref, size } => {
                         let member_type = MemberType::from(dll_type);
-                        (String::default(), member_type, *size)
+                        (String::default(), member_type, *size, *is_ref)
                     },
                     DllParam::Struct(params) => {
                         let sdef = Self::from(params);
-                        (String::default(), MemberType::UStruct(sdef), None)
+                        (String::default(), MemberType::UStruct(sdef), None, false)
                     },
                     DllParam::Callback(_, _) => {
                         todo!()

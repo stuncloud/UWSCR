@@ -573,15 +573,15 @@ impl Environment {
         self.define(key, object, ContainerType::Class, true)
     }
 
-    pub fn define_struct(&mut self, name: &str, object: Object) -> Result<(), UError> {
-        let key = name.to_ascii_uppercase();
+    pub fn define_struct(&mut self, sdef: StructDef) -> Result<(), UError> {
+        let key = sdef.name.to_ascii_uppercase();
         if self.contains_in_global(&key, &[ContainerType::Struct]) {
             return Err(UError::new(
                 UErrorKind::DefinitionError(DefinitionType::Struct),
-                UErrorMessage::AlreadyDefined(name.into())
+                UErrorMessage::AlreadyDefined(sdef.name)
             ));
         }
-        self.define(key, object, ContainerType::Struct, true)
+        self.define(key, Object::StructDef(sdef), ContainerType::Struct, true)
     }
 
     fn assignment(&mut self, name: &str, value: Object, include_local: bool) -> EvalResult<bool> {
