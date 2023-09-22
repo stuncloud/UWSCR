@@ -1007,7 +1007,7 @@ impl BrowserProcess {
 
     unsafe extern "system"
     fn enum_window_proc(hwnd: HWND, lparam: LPARAM) -> BOOL {
-        let mut data = &mut *(lparam.0 as *mut LparamData);
+        let data = &mut *(lparam.0 as *mut LparamData);
         let mut pid = 0;
         GetWindowThreadProcessId(hwnd, Some(&mut pid));
         if data.0 == pid && GetWindow(hwnd, GW_OWNER) == HWND::default() && IsWindowVisible(hwnd).as_bool() {
