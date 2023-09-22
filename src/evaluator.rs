@@ -295,6 +295,7 @@ impl Evaluator {
     fn eval_print_statement(&mut self, expression: Expression) -> EvalResult<Option<Object>> {
         let msg = match self.eval_expression(expression)? {
             Object::Null => "NULL".to_string(),
+            Object::Empty => "EMPTY".to_string(),
             obj => obj.to_string()
         };
 
