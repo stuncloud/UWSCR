@@ -1378,15 +1378,6 @@ impl From<dlopen::Error> for UError {
     }
 }
 
-impl From<cast::Error> for UError {
-    fn from(e: cast::Error) -> Self {
-        Self::new(
-            UErrorKind::DlopenError,
-            UErrorMessage::Any(e.to_string())
-        )
-    }
-}
-
 impl From<std::io::Error> for UError {
     fn from(e: std::io::Error) -> Self {
         Self::new(

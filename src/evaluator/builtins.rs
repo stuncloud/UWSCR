@@ -39,7 +39,6 @@ use std::env;
 use std::sync::{Mutex, Arc};
 use std::string::ToString;
 
-use cast;
 use strum::{VariantNames, EnumProperty};
 use num_traits::{ToPrimitive, FromPrimitive};
 use strum_macros::EnumProperty;
@@ -200,21 +199,18 @@ impl BuiltinFuncArgs {
         })
     }
     /// 引数を任意の整数型として受ける
-    pub fn get_as_int<T: Clone>(&self, i: usize, default: Option<T>) -> BuiltInResult<T>
-        where T: cast::From<f64, Output=Result<T, cast::Error>>,
+    pub fn get_as_int<T>(&self, i: usize, default: Option<T>) -> BuiltInResult<T>
+        where T: FromPrimitive + Clone,
     {
         self.get_arg_with_default2(i, default, |arg, default| {
             match arg {
-                Object::Num(n) => T::cast(n).or(Err(BuiltinFuncError::new(
-                    UErrorMessage::BuiltinArgCastError(arg, std::any::type_name::<T>().into()),
-                ))),
-                Object::Bool(b) => T::cast(b as i32 as f64).or(Err(BuiltinFuncError::new(
-                    UErrorMessage::BuiltinArgCastError(arg, std::any::type_name::<T>().into()),
-                ))),
+                Object::Num(n) => T::from_f64(n)
+                    .ok_or(BuiltinFuncError::new(UErrorMessage::BuiltinArgCastError(arg, std::any::type_name::<T>().into()))),
+                Object::Bool(b) => T::from_i32(b as i32)
+                    .ok_or(BuiltinFuncError::new(UErrorMessage::BuiltinArgCastError(arg, std::any::type_name::<T>().into()),)),
                 Object::String(ref s) => match s.parse::<f64>() {
-                    Ok(n) => T::cast(n).or(Err(BuiltinFuncError::new(
-                        UErrorMessage::BuiltinArgCastError(arg, std::any::type_name::<T>().into()),
-                    ))),
+                    Ok(n) => T::from_f64(n)
+                        .ok_or(BuiltinFuncError::new(UErrorMessage::BuiltinArgCastError(arg, std::any::type_name::<T>().into()))),
                     Err(_) => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg)))
                 },
                 Object::EmptyParam => {
@@ -232,28 +228,21 @@ impl BuiltinFuncArgs {
     }
     /// 整数として受けるがEMPTYの場合は引数が省略されたとみなす
     pub fn get_as_int_or_empty<T>(&self, i: usize) -> BuiltInResult<Option<T>>
-        where T: cast::From<f64, Output=Result<T, cast::Error>>,
+        where T: FromPrimitive,
     {
         let default = Some(None);
         self.get_arg_with_default(i, default, |arg| {
             match arg {
-                Object::Num(n) => match T::cast(n) {
-                    Ok(t) => Ok(Some(t)),
-                    Err(_) => Err(BuiltinFuncError::new(
-                        UErrorMessage::BuiltinArgCastError(arg, std::any::type_name::<T>().into()),
-
-                    ))
-                },
-                Object::Bool(b) => T::cast(b as i32 as f64).or(Err(BuiltinFuncError::new(
-                    UErrorMessage::BuiltinArgCastError(arg, std::any::type_name::<T>().into()),
-                ))).map(|t| Some(t)),
+                Object::Num(n) => T::from_f64(n)
+                    .ok_or(BuiltinFuncError::new(UErrorMessage::BuiltinArgCastError(arg, std::any::type_name::<T>().into())))
+                    .map(|t| Some(t)),
+                Object::Bool(b) => T::from_i32(b as i32)
+                    .ok_or(BuiltinFuncError::new(UErrorMessage::BuiltinArgCastError(arg, std::any::type_name::<T>().into())))
+                    .map(|t| Some(t)),
                 Object::String(ref s) => match s.parse::<f64>() {
-                    Ok(n) => match T::cast(n) {
-                        Ok(t) => Ok(Some(t)),
-                        Err(_) => Err(BuiltinFuncError::new(
-                            UErrorMessage::BuiltinArgCastError(arg, std::any::type_name::<T>().into())
-                        ))
-                    },
+                    Ok(n) => T::from_f64(n)
+                        .ok_or(BuiltinFuncError::new(UErrorMessage::BuiltinArgCastError(arg, std::any::type_name::<T>().into())))
+                        .map(|t| Some(t)),
                     Err(_) => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg)))
                 },
                 Object::Empty |
@@ -264,14 +253,17 @@ impl BuiltinFuncArgs {
     }
     /// 引数を任意の数値型として受ける
     pub fn get_as_num<T>(&self, i: usize, default: Option<T>) -> BuiltInResult<T>
-        where T: cast::From<f64, Output=T>,
+        where T: FromPrimitive
     {
         self.get_arg_with_default(i, default, |arg| {
             match arg {
-                Object::Num(n) => Ok(T::cast(n)),
-                Object::Bool(b) => Ok(T::cast(b as i32 as f64)),
+                Object::Num(n) => T::from_f64(n)
+                    .ok_or(BuiltinFuncError::new(UErrorMessage::BuiltinArgCastError(arg, std::any::type_name::<T>().into()))),
+                Object::Bool(b) => T::from_i32(b as i32)
+                    .ok_or(BuiltinFuncError::new(UErrorMessage::BuiltinArgCastError(arg, std::any::type_name::<T>().into()))),
                 Object::String(ref s) => match s.parse::<f64>() {
-                    Ok(n) => Ok(T::cast(n)),
+                    Ok(n) => T::from_f64(n)
+                        .ok_or(BuiltinFuncError::new(UErrorMessage::BuiltinArgCastError(arg, std::any::type_name::<T>().into()))),
                     Err(_) => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg)))
                 },
                 _ => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg)))
@@ -365,17 +357,15 @@ impl BuiltinFuncArgs {
     }
     /// bool及び数値を数値として受ける
     pub fn get_as_bool_or_int<T>(&self, i: usize, default: Option<T>) -> BuiltInResult<T>
-        where T: cast::From<f64, Output=Result<T, cast::Error>>,
+        where T: FromPrimitive,
     {
         self.get_arg_with_default(i, default, |arg|{
             let type_name = std::any::type_name::<T>().to_string();
             match arg {
-                Object::Bool(b) => T::cast(b as i32 as f64).or(Err(BuiltinFuncError::new(
-                    UErrorMessage::BuiltinArgCastError(arg, type_name),
-                ))),
-                Object::Num(n) => T::cast(n).or(Err(BuiltinFuncError::new(
-                    UErrorMessage::BuiltinArgCastError(arg, type_name),
-                ))),
+                Object::Bool(b) => T::from_i32(b as i32)
+                    .ok_or(BuiltinFuncError::new(UErrorMessage::BuiltinArgCastError(arg, type_name))),
+                Object::Num(n) => T::from_f64(n)
+                    .ok_or(BuiltinFuncError::new(UErrorMessage::BuiltinArgCastError(arg, type_name))),
                 _ => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg)))
             }
         })
@@ -574,19 +564,18 @@ impl BuiltinFuncArgs {
 
     /// 数値は数値として受けるがそれ以外は文字列として受ける
     pub fn get_as_num_or_string<T>(&self, i: usize) -> BuiltInResult<TwoTypeArg<String, T>>
-        where T: cast::From<f64, Output=Result<T, cast::Error>>
+        where T: FromPrimitive
     {
         self.get_arg( i, |arg| {
             let result = match arg {
                 Object::Num(n) => {
-                    T::cast(n)
-                        .or(Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgCastError(arg, std::any::type_name::<T>().into()))))
+                    T::from_f64(n)
+                        .ok_or(BuiltinFuncError::new(UErrorMessage::BuiltinArgCastError(arg, std::any::type_name::<T>().into())))
                         .map(|t| TwoTypeArg::U(t))?
                 },
                 Object::Bool(b) => {
-                    let n = if b {1.0} else {0.0};
-                    T::cast(n)
-                        .or(Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgCastError(arg, std::any::type_name::<T>().into()))))
+                    T::from_i32(b as i32)
+                        .ok_or(BuiltinFuncError::new(UErrorMessage::BuiltinArgCastError(arg, std::any::type_name::<T>().into())))
                         .map(|t| TwoTypeArg::U(t))?
                 },
                 arg => TwoTypeArg::T(arg.to_string()),

@@ -13,7 +13,6 @@ chkimg = ["opencv"]
 [dependencies]
 base64 = "0.21.0"
 bincode = "1"
-cast = "0.3.0"
 chrono = {version = "0.4.30", features = ["unstable-locales"]}
 csv = "1.1"
 dlopen = "0.1"
