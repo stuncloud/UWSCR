@@ -52,6 +52,8 @@ use std::mem::ManuallyDrop;
 use std::ffi::c_void;
 use std::sync::{Arc, Mutex, OnceLock};
 
+use num_traits::FromPrimitive;
+
 const LOCALE_SYSTEM_DEFAULT: u32 = 0x0800;
 const LOCALE_USER_DEFAULT: u32 = 0x400;
 pub type ComResult<T> = Result<T, ComError>;
@@ -705,7 +707,16 @@ impl TryFrom<Object> for VARIANT {
 
     fn try_from(obj: Object) -> Result<Self, Self::Error> {
         let variant = match obj {
-            Object::Num(n) => VARIANT::from_f64(n),
+            Object::Num(n) => {
+                if n.fract() == 0.0 {
+                    match i32::from_f64(n) {
+                        Some(i) => VARIANT::from_i32(i),
+                        None => VARIANT::from_f64(n),
+                    }
+                } else {
+                    VARIANT::from_f64(n)
+                }
+            },
             Object::String(s) => VARIANT::from_string(s),
             Object::Bool(b) => VARIANT::from_bool(b),
             Object::Null => VARIANT::null(),
@@ -883,6 +894,7 @@ pub trait VariantExt {
     /// 他のVARIANTの参照を持つVARIANT型を新たに作る
     fn by_ref(var_val: *mut VARIANT) -> VARIANT;
     fn from_f64(n: f64) -> VARIANT;
+    fn from_i32(n: i32) -> VARIANT;
     fn from_string(s: String) -> VARIANT;
     fn from_bool(b: bool) -> VARIANT;
     fn from_idispatch(disp: IDispatch) -> VARIANT;
@@ -918,6 +930,14 @@ impl VariantExt for VARIANT {
         let mut v00 = VARIANT_0_0::default();
         v00.vt = VT_R8;
         v00.Anonymous.dblVal = n;
+        variant.Anonymous.Anonymous = ManuallyDrop::new(v00);
+        variant
+    }
+    fn from_i32(n: i32) -> VARIANT {
+        let mut variant = VARIANT::default();
+        let mut v00 = VARIANT_0_0::default();
+        v00.vt = VT_I4;
+        v00.Anonymous.intVal = n;
         variant.Anonymous.Anonymous = ManuallyDrop::new(v00);
         variant
     }
