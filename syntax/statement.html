@@ -7,7 +7,7 @@
 <link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="特殊変数" href="special_variables.html" /><link rel="prev" title="ビルド方法" href="../usage/how_to_build.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>スクリプト構文 - UWSCR 0.13.0</title>
+        <title>スクリプト構文 - UWSCR 0.13.1</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 0.13.0</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 0.13.1</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 0.13.0</span>
+  <span class="sidebar-brand-text">UWSCR 0.13.1</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -2307,22 +2307,27 @@ baz
 <div class="line">32bit版UWSCRでは32bitのDLL、64bit版では64bitのDLLに対応します</div>
 <div class="line">呼び出す関数の名前、引数の型、戻り値の型、dllのパスを指定します</div>
 <div class="line">dllパスは拡張子(.dll)を省略できます</div>
+<div class="line">別名を指定して本来の関数名ではなく別名で呼び出せるようにもできます</div>
 </div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">def_dll</span> <span class="n">関数名</span><span class="p">(</span><span class="n">型名</span><span class="p">,</span> <span class="n">型名</span><span class="p">,</span> <span class="o">...</span><span class="p">):</span> <span class="n">型名</span><span class="p">:</span> <span class="n">DLLパス</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">def_dll</span> <span class="n">関数名</span><span class="p">(</span><span class="n">型名</span><span class="p">,</span> <span class="n">型名</span><span class="p">,</span> <span class="o">...</span><span class="p">):</span><span class="n">型名</span><span class="p">:</span><span class="n">DLLパス</span>
 <span class="o">//</span> <span class="n">戻り値がvoidの場合省略できる</span>
-<span class="n">def_dll</span> <span class="n">関数名</span><span class="p">(</span><span class="n">型名</span><span class="p">,</span> <span class="n">型名</span><span class="p">,</span> <span class="o">...</span><span class="p">):</span> <span class="n">DLLパス</span>
+<span class="n">def_dll</span> <span class="n">関数名</span><span class="p">(</span><span class="n">型名</span><span class="p">,</span> <span class="n">型名</span><span class="p">,</span> <span class="o">...</span><span class="p">):</span><span class="n">DLLパス</span>
 
 <span class="o">//</span> <span class="n">配列引数指定</span>
-<span class="n">def_dll</span> <span class="n">関数名</span><span class="p">(</span> <span class="n">型名</span><span class="p">[]</span> <span class="p">):</span> <span class="n">型名</span><span class="p">:</span> <span class="n">DLLパス</span>
+<span class="n">def_dll</span> <span class="n">関数名</span><span class="p">(</span> <span class="n">型名</span><span class="p">[]</span> <span class="p">):</span><span class="n">型名</span><span class="p">:</span><span class="n">DLLパス</span>
 <span class="o">//</span> <span class="n">配列サイズ指定</span>
-<span class="n">def_dll</span> <span class="n">関数名</span><span class="p">(</span> <span class="n">型名</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="p">):</span> <span class="n">型名</span><span class="p">:</span> <span class="n">DLLパス</span>
+<span class="n">def_dll</span> <span class="n">関数名</span><span class="p">(</span> <span class="n">型名</span><span class="p">[</span><span class="n">サイズ</span><span class="p">]</span> <span class="p">):</span><span class="n">型名</span><span class="p">:</span><span class="n">DLLパス</span>
 
 <span class="o">//</span> <span class="n">参照渡し</span>
-<span class="n">def_dll</span> <span class="n">関数名</span><span class="p">(</span> <span class="n">var</span> <span class="n">型名</span> <span class="p">):</span> <span class="n">型名</span><span class="p">:</span> <span class="n">DLLパス</span>
-<span class="n">def_dll</span> <span class="n">関数名</span><span class="p">(</span> <span class="n">ref</span> <span class="n">型名</span> <span class="p">):</span> <span class="n">型名</span><span class="p">:</span> <span class="n">DLLパス</span>
+<span class="n">def_dll</span> <span class="n">関数名</span><span class="p">(</span> <span class="n">var</span> <span class="n">型名</span> <span class="p">):</span><span class="n">型名</span><span class="p">:</span><span class="n">DLLパス</span>
+<span class="n">def_dll</span> <span class="n">関数名</span><span class="p">(</span> <span class="n">ref</span> <span class="n">型名</span> <span class="p">):</span><span class="n">型名</span><span class="p">:</span><span class="n">DLLパス</span>
 
 <span class="o">//</span> <span class="n">構造体</span>
-<span class="n">def_dll</span> <span class="n">関数名</span><span class="p">(</span> <span class="p">{</span><span class="n">型名</span><span class="p">,</span> <span class="o">...</span><span class="p">}</span> <span class="p">):</span> <span class="n">型名</span><span class="p">:</span> <span class="n">DLLパス</span>
+<span class="n">def_dll</span> <span class="n">関数名</span><span class="p">(</span> <span class="p">{</span><span class="n">型名</span><span class="p">,</span> <span class="o">...</span><span class="p">}</span> <span class="p">):</span><span class="n">型名</span><span class="p">:</span><span class="n">DLLパス</span>
+
+<span class="o">//</span> <span class="n">関数名エイリアス</span>
+<span class="o">//</span> <span class="n">dll関数に呼び出すための別の名前をつける</span>
+<span class="n">def_dll</span> <span class="n">別名</span><span class="p">:</span><span class="n">関数名</span><span class="p">(</span><span class="n">型名</span><span class="p">,</span> <span class="o">...</span><span class="p">):</span><span class="n">型名</span><span class="p">:</span><span class="n">DLLパス</span>
 </pre></div>
 </div>
 <section id="id53">
@@ -2341,7 +2346,7 @@ baz
 <th class="head"><p>詳細</p></th>
 <th class="head"><p>対応する値型</p></th>
 <th class="head"><p>引数</p></th>
-<th class="head"><p>戻り値</p></th>
+<th class="head"><p>戻り型</p></th>
 <th class="head"><p>備考</p></th>
 </tr>
 </thead>
@@ -2350,95 +2355,95 @@ baz
 <td><p>4</p></td>
 <td><p>符号あり32ビット整数</p></td>
 <td><p>数値</p></td>
-<td><p>✅</p></td>
-<td><p>✅</p></td>
+<td><p>可</p></td>
+<td><p>可</p></td>
 <td></td>
 </tr>
 <tr class="row-odd"><td><p>bool</p></td>
 <td><p>4</p></td>
 <td><p>符号あり32ビット整数</p></td>
 <td><p>真偽値</p></td>
-<td><p>✅</p></td>
-<td><p>✅</p></td>
+<td><p>可</p></td>
+<td><p>可</p></td>
 <td></td>
 </tr>
 <tr class="row-even"><td><p>uint, dword</p></td>
 <td><p>4</p></td>
 <td><p>符号なし32ビット整数</p></td>
 <td><p>数値</p></td>
-<td><p>✅</p></td>
-<td><p>✅</p></td>
+<td><p>可</p></td>
+<td><p>可</p></td>
 <td></td>
 </tr>
 <tr class="row-odd"><td><p>float</p></td>
 <td><p>4</p></td>
 <td><p>単精度浮動小数点数</p></td>
 <td><p>数値(小数)</p></td>
-<td><p>✅</p></td>
-<td><p>✅</p></td>
+<td><p>可</p></td>
+<td><p>可</p></td>
 <td></td>
 </tr>
 <tr class="row-even"><td><p>double</p></td>
 <td><p>8</p></td>
 <td><p>倍精度浮動小数点数</p></td>
 <td><p>数値(小数)</p></td>
-<td><p>✅</p></td>
-<td><p>✅</p></td>
+<td><p>可</p></td>
+<td><p>可</p></td>
 <td></td>
 </tr>
 <tr class="row-odd"><td><p>word</p></td>
 <td><p>2</p></td>
 <td><p>符号なし16ビット整数</p></td>
 <td><p>数値</p></td>
-<td><p>✅</p></td>
-<td><p>✅</p></td>
+<td><p>可</p></td>
+<td><p>可</p></td>
 <td></td>
 </tr>
 <tr class="row-even"><td><p>wchar</p></td>
 <td><p>2</p></td>
 <td><p>符号なし16ビット整数</p></td>
 <td><p><a class="reference internal" href="#about-dll-string-param"><span class="std std-ref">文字(列)</span></a></p></td>
-<td><p>✅</p></td>
-<td><p>✅</p></td>
+<td><p>可</p></td>
+<td><p>可</p></td>
 <td></td>
 </tr>
 <tr class="row-odd"><td><p>byte</p></td>
 <td><p>1</p></td>
 <td><p>符号なし8ビット整数</p></td>
 <td><p>数値</p></td>
-<td><p>✅</p></td>
-<td><p>✅</p></td>
+<td><p>可</p></td>
+<td><p>可</p></td>
 <td></td>
 </tr>
 <tr class="row-even"><td><p>char</p></td>
 <td><p>1</p></td>
 <td><p>符号なし8ビット整数</p></td>
 <td><p><a class="reference internal" href="#about-dll-string-param"><span class="std std-ref">文字(列)</span></a></p></td>
-<td><p>✅</p></td>
-<td><p>✅</p></td>
+<td><p>可</p></td>
+<td><p>可</p></td>
 <td></td>
 </tr>
 <tr class="row-odd"><td><p>boolean</p></td>
 <td><p>1</p></td>
 <td><p>符号なし8ビット整数</p></td>
 <td><p>真偽値</p></td>
-<td><p>✅</p></td>
-<td><p>✅</p></td>
+<td><p>可</p></td>
+<td><p>可</p></td>
 <td></td>
 </tr>
 <tr class="row-even"><td><p>longlong</p></td>
 <td><p>8</p></td>
 <td><p>符号あり64ビット整数</p></td>
 <td><p>数値</p></td>
-<td><p>✅</p></td>
-<td><p>✅</p></td>
+<td><p>可</p></td>
+<td><p>可</p></td>
 <td></td>
 </tr>
 <tr class="row-odd"><td><p>string</p></td>
 <td><p>可変</p></td>
 <td><p>ANSI文字列のポインタ</p></td>
 <td><p><a class="reference internal" href="#about-dll-string-param"><span class="std std-ref">文字列</span></a></p></td>
-<td><p>✅</p></td>
+<td><p>可</p></td>
 <td></td>
 <td></td>
 </tr>
@@ -2446,7 +2451,7 @@ baz
 <td><p>可変</p></td>
 <td><p>ANSI文字列のポインタ</p></td>
 <td><p><a class="reference internal" href="#about-dll-string-param"><span class="std std-ref">文字列</span></a></p></td>
-<td><p>✅</p></td>
+<td><p>可</p></td>
 <td></td>
 <td></td>
 </tr>
@@ -2454,7 +2459,7 @@ baz
 <td><p>可変</p></td>
 <td><p>ワイド文字列のポインタ</p></td>
 <td><p><a class="reference internal" href="#about-dll-string-param"><span class="std std-ref">文字列</span></a></p></td>
-<td><p>✅</p></td>
+<td><p>可</p></td>
 <td></td>
 <td></td>
 </tr>
@@ -2462,7 +2467,7 @@ baz
 <td><p>可変</p></td>
 <td><p>ワイド文字列のポインタ</p></td>
 <td><p><a class="reference internal" href="#about-dll-string-param"><span class="std std-ref">文字列</span></a></p></td>
-<td><p>✅</p></td>
+<td><p>可</p></td>
 <td></td>
 <td></td>
 </tr>
@@ -2470,56 +2475,56 @@ baz
 <td><p>可変</p></td>
 <td><p>ウィンドウハンドル</p></td>
 <td><p>数値</p></td>
-<td><p>✅</p></td>
-<td><p>✅</p></td>
+<td><p>可</p></td>
+<td><p>可</p></td>
 <td></td>
 </tr>
 <tr class="row-even"><td><p>handle</p></td>
 <td><p>可変</p></td>
 <td><p>各種ハンドル</p></td>
 <td><p>数値</p></td>
-<td><p>✅</p></td>
-<td><p>✅</p></td>
+<td><p>可</p></td>
+<td><p>可</p></td>
 <td></td>
 </tr>
 <tr class="row-odd"><td><p>pointer</p></td>
 <td><p>可変</p></td>
 <td><p>ポインタを示す数値(符号なし)</p></td>
 <td><p>数値</p></td>
-<td><p>✅</p></td>
-<td></td>
+<td><p>可</p></td>
+<td><p>可</p></td>
 <td></td>
 </tr>
 <tr class="row-even"><td><p>struct</p></td>
 <td><p>可変</p></td>
 <td><p>ユーザー定義構造体のポインタ</p></td>
 <td><p>構造体</p></td>
-<td><p>✅</p></td>
+<td><p>可</p></td>
 <td></td>
 <td></td>
 </tr>
 <tr class="row-odd"><td><p>callback</p></td>
-<td></td>
+<td><p>可変</p></td>
 <td><p>コールバック関数のポインタ</p></td>
-<td><p>関数</p></td>
-<td><p>✅</p></td>
+<td><p>ユーザー定義関数</p></td>
+<td><p>可</p></td>
 <td></td>
-<td><p><strong>動作未定義</strong></p></td>
+<td><p><a class="reference internal" href="#about-callback"><span class="std std-ref">コールバック関数の型定義</span></a> を行う</p></td>
 </tr>
 <tr class="row-even"><td><p>safearray</p></td>
+<td><p>可変</p></td>
+<td><p>SAFEARRAYのポインタ</p></td>
+<td><p>配列</p></td>
+<td><p>可</p></td>
 <td></td>
-<td><p>SafeArray型</p></td>
-<td><p>SafeArray</p></td>
 <td></td>
-<td></td>
-<td><p><strong>動作未定義</strong></p></td>
 </tr>
 <tr class="row-odd"><td><p>void</p></td>
-<td></td>
+<td><p>1</p></td>
 <td><p>型がないことを示す</p></td>
 <td></td>
 <td></td>
-<td><p>✅</p></td>
+<td><p>可</p></td>
 <td></td>
 </tr>
 </tbody>
@@ -2543,7 +2548,7 @@ baz
 <h3>配列引数<a class="headerlink" href="#id54" title="この見出しへのパーマリンク">#</a></h3>
 <div class="line-block">
 <div class="line"><code class="docutils literal notranslate"><span class="pre">型名[]</span></code> と記述することでその型に該当する値型の配列を渡せるようになります</div>
-<div class="line"><code class="docutils literal notranslate"><span class="pre">型名[n]</span></code> でサイズnの配列を受けることを明示できます</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">型名[サイズ]</span></code> のように配列サイズを数値または定数でしていすることで、そのサイズの配列を受けることを明示します</div>
 <div class="line">サイズ指定時は異なるサイズの配列を渡した場合エラーになります</div>
 <div class="line">サイズ未指定時は渡す配列のサイズは可変ですが、十分なサイズを確保してください</div>
 </div>
@@ -2563,7 +2568,7 @@ baz
 <div class="line">関数呼び出し時に型名に該当する値を渡す必要があります</div>
 <div class="line">構造体の場合は参照渡しにしなくても変数に値が返ります</div>
 </div>
-<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">def_dll</span><span class="w"> </span><span class="n">GetCursorPos</span><span class="p">({</span><span class="n">long</span><span class="o">,</span><span class="w"> </span><span class="n">long</span><span class="p">})</span><span class="o">:</span><span class="n">bool</span><span class="o">:</span><span class="n">user32</span><span class="o">.</span><span class="n">dll</span>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="kd">def_dll</span><span class="w"> </span><span class="n">GetCursorPos</span><span class="p">({</span><span class="n">long</span><span class="o">,</span><span class="w"> </span><span class="n">long</span><span class="p">})</span><span class="o">:</span><span class="n">bool</span><span class="o">:</span><span class="n">user32</span><span class="o">.</span><span class="n">dll</span>
 <span class="kd">dim</span><span class="w"> </span><span class="n">x</span><span class="o">,</span><span class="w"> </span><span class="n">y</span>
 <span class="c">// 呼び出し時は{}内に書いた型名の分引数を渡す必要がある</span>
 <span class="n">GetCursorPos</span><span class="p">(</span><span class="n">x</span><span class="o">,</span><span class="w"> </span><span class="n">y</span><span class="p">)</span>
@@ -2579,7 +2584,7 @@ baz
 </div>
 <div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// MonitorFromPointは引数としてPOINT構造体とDWORDを受けます</span>
 <span class="c">// POINT構造体は2つのLONGで構成されているため、以下のように記述できます</span>
-<span class="n">def_dll</span><span class="w"> </span><span class="n">MonitorFromPoint</span><span class="p">(</span><span class="n">long</span><span class="o">,</span><span class="w"> </span><span class="n">long</span><span class="o">,</span><span class="w"> </span><span class="n">dword</span><span class="p">)</span><span class="o">:</span><span class="n">dword</span><span class="o">:</span><span class="n">user32</span>
+<span class="kd">def_dll</span><span class="w"> </span><span class="n">MonitorFromPoint</span><span class="p">(</span><span class="n">long</span><span class="o">,</span><span class="w"> </span><span class="n">long</span><span class="o">,</span><span class="w"> </span><span class="n">dword</span><span class="p">)</span><span class="o">:</span><span class="n">dword</span><span class="o">:</span><span class="n">user32</span>
 </pre></div>
 </div>
 </section>
@@ -2599,7 +2604,7 @@ baz
 <span class="p">}</span><span class="w"> </span><span class="n">WINDOWPLACEMENT</span><span class="p">;</span><span class="w"></span>
 </pre></div>
 </div>
-<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">def_dll</span><span class="w"> </span><span class="n">GetWindowPlacement</span><span class="p">(</span><span class="n">hwnd</span><span class="o">,</span><span class="w"> </span><span class="p">{</span><span class="n">uint</span><span class="o">,</span><span class="w"> </span><span class="n">uint</span><span class="o">,</span><span class="w"> </span><span class="n">uint</span><span class="o">,</span><span class="w"> </span><span class="n">long</span><span class="o">,</span><span class="w"> </span><span class="n">long</span><span class="o">,</span><span class="w"> </span><span class="n">long</span><span class="o">,</span><span class="w"> </span><span class="n">long</span><span class="o">,</span><span class="w"> </span><span class="n">long</span><span class="o">,</span><span class="w"> </span><span class="n">long</span><span class="o">,</span><span class="w"> </span><span class="n">long</span><span class="o">,</span><span class="w"> </span><span class="n">long</span><span class="p">})</span><span class="o">:</span><span class="n">bool</span><span class="o">:</span><span class="n">user32</span><span class="o">.</span><span class="n">dll</span>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="kd">def_dll</span><span class="w"> </span><span class="n">GetWindowPlacement</span><span class="p">(</span><span class="n">hwnd</span><span class="o">,</span><span class="w"> </span><span class="p">{</span><span class="n">uint</span><span class="o">,</span><span class="w"> </span><span class="n">uint</span><span class="o">,</span><span class="w"> </span><span class="n">uint</span><span class="o">,</span><span class="w"> </span><span class="n">long</span><span class="o">,</span><span class="w"> </span><span class="n">long</span><span class="o">,</span><span class="w"> </span><span class="n">long</span><span class="o">,</span><span class="w"> </span><span class="n">long</span><span class="o">,</span><span class="w"> </span><span class="n">long</span><span class="o">,</span><span class="w"> </span><span class="n">long</span><span class="o">,</span><span class="w"> </span><span class="n">long</span><span class="o">,</span><span class="w"> </span><span class="n">long</span><span class="p">})</span><span class="o">:</span><span class="n">bool</span><span class="o">:</span><span class="n">user32</span><span class="o">.</span><span class="n">dll</span>
 <span class="kd">dim</span><span class="w"> </span><span class="n">len</span><span class="o">,</span><span class="w"> </span><span class="n">flags</span><span class="o">,</span><span class="w"> </span><span class="n">cmd</span><span class="o">,</span><span class="w"> </span><span class="n">minx</span><span class="o">,</span><span class="w"> </span><span class="n">miny</span><span class="o">,</span><span class="w"> </span><span class="n">maxx</span><span class="o">,</span><span class="w"> </span><span class="n">maxy</span><span class="o">,</span><span class="w"> </span><span class="n">left</span><span class="o">,</span><span class="w"> </span><span class="n">top</span><span class="o">,</span><span class="w"> </span><span class="n">right</span><span class="o">,</span><span class="w"> </span><span class="n">bottom</span>
 <span class="n">len</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">44</span>
 <span class="n">h</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">hndtoid</span><span class="p">(</span><span class="n">getid</span><span class="p">(</span><span class="s">&quot;hoge&quot;</span><span class="p">))</span>
@@ -2608,8 +2613,190 @@ baz
 </div>
 </section>
 </section>
+<section id="about-callback">
+<span id="id59"></span><h3>コールバック<a class="headerlink" href="#about-callback" title="この見出しへのパーマリンク">#</a></h3>
+<div class="line-block">
+<div class="line">以下の書式でコールバック関数の引数と戻り値の型を定義します</div>
+</div>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// callback(型名, 型名, ...):型名</span>
+<span class="kd">def_dll</span><span class="w"> </span><span class="n">hoge</span><span class="p">(</span><span class="w"> </span><span class="n">callback</span><span class="p">(</span><span class="n">dword</span><span class="o">,</span><span class="w"> </span><span class="n">dword</span><span class="p">)</span><span class="o">:</span><span class="n">bool</span><span class="w"> </span><span class="p">)</span><span class="o">:</span><span class="n">hoge</span><span class="o">.</span><span class="n">dll</span>
+<span class="c">// 戻り値型は省略可能</span>
+<span class="kd">def_dll</span><span class="w"> </span><span class="n">fuga</span><span class="p">(</span><span class="w"> </span><span class="n">callback</span><span class="p">(</span><span class="n">int</span><span class="p">)</span><span class="w"> </span><span class="p">)</span><span class="o">:</span><span class="n">fuga</span><span class="o">.</span><span class="n">dll</span>
+</pre></div>
+</div>
+<div class="line-block">
+<div class="line">dll関数呼び出し時に対応したユーザー定義関数を渡します</div>
+</div>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="kd">function</span><span class="w"> </span><span class="n">hoge_callback</span><span class="p">(</span><span class="n">foo</span><span class="o">,</span><span class="w"> </span><span class="n">bar</span><span class="p">)</span>
+<span class="w">    </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">foo</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">bar</span>
+<span class="kd">fend</span>
+
+<span class="n">hoge</span><span class="p">(</span><span class="n">hoge_callback</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="line-block">
+<div class="line">コールバック定義に使える型は以下の通りです</div>
+</div>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>型名</p></th>
+<th class="head"><p>サイズ</p></th>
+<th class="head"><p>詳細</p></th>
+<th class="head"><p>対応する値型</p></th>
+<th class="head"><p>引数</p></th>
+<th class="head"><p>戻り型</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>int, long</p></td>
+<td><p>4</p></td>
+<td><p>符号あり32ビット整数</p></td>
+<td><p>数値</p></td>
+<td><p>可</p></td>
+<td><p>可</p></td>
+</tr>
+<tr class="row-odd"><td><p>bool</p></td>
+<td><p>4</p></td>
+<td><p>符号あり32ビット整数</p></td>
+<td><p>真偽値</p></td>
+<td><p>可</p></td>
+<td><p>可</p></td>
+</tr>
+<tr class="row-even"><td><p>uint, dword</p></td>
+<td><p>4</p></td>
+<td><p>符号なし32ビット整数</p></td>
+<td><p>数値</p></td>
+<td><p>可</p></td>
+<td><p>可</p></td>
+</tr>
+<tr class="row-odd"><td><p>float</p></td>
+<td><p>4</p></td>
+<td><p>単精度浮動小数点数</p></td>
+<td><p>数値(小数)</p></td>
+<td><p>可</p></td>
+<td><p>可</p></td>
+</tr>
+<tr class="row-even"><td><p>double</p></td>
+<td><p>8</p></td>
+<td><p>倍精度浮動小数点数</p></td>
+<td><p>数値(小数)</p></td>
+<td><p>可</p></td>
+<td><p>可</p></td>
+</tr>
+<tr class="row-odd"><td><p>word</p></td>
+<td><p>2</p></td>
+<td><p>符号なし16ビット整数</p></td>
+<td><p>数値</p></td>
+<td><p>可</p></td>
+<td><p>可</p></td>
+</tr>
+<tr class="row-even"><td><p>byte</p></td>
+<td><p>1</p></td>
+<td><p>符号なし8ビット整数</p></td>
+<td><p>数値</p></td>
+<td><p>可</p></td>
+<td><p>可</p></td>
+</tr>
+<tr class="row-odd"><td><p>boolean</p></td>
+<td><p>1</p></td>
+<td><p>符号なし8ビット整数</p></td>
+<td><p>真偽値</p></td>
+<td><p>可</p></td>
+<td><p>可</p></td>
+</tr>
+<tr class="row-even"><td><p>longlong</p></td>
+<td><p>8</p></td>
+<td><p>符号あり64ビット整数</p></td>
+<td><p>数値</p></td>
+<td><p>可</p></td>
+<td><p>可</p></td>
+</tr>
+<tr class="row-odd"><td><p>hwnd</p></td>
+<td><p>可変</p></td>
+<td><p>ウィンドウハンドル</p></td>
+<td><p>数値</p></td>
+<td><p>可</p></td>
+<td><p>可</p></td>
+</tr>
+<tr class="row-even"><td><p>handle</p></td>
+<td><p>可変</p></td>
+<td><p>各種ハンドル</p></td>
+<td><p>数値</p></td>
+<td><p>可</p></td>
+<td><p>可</p></td>
+</tr>
+<tr class="row-odd"><td><p>pointer</p></td>
+<td><p>可変</p></td>
+<td><p>ポインタを示す数値(符号なし)</p></td>
+<td><p>数値</p></td>
+<td><p>可</p></td>
+<td><p>可</p></td>
+</tr>
+<tr class="row-even"><td><p>void</p></td>
+<td><p>1</p></td>
+<td><p>型がないことを示す</p></td>
+<td></td>
+<td></td>
+<td><p>可</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="admonition- admonition">
+<p class="admonition-title">コールバック実行例</p>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// 1: デバイスコンテキストハンドル</span>
+<span class="c">// 2: RECT構造体のポインタ、今回は使わないのでstructではなくpointerを指定</span>
+<span class="c">// 3: コールバック関数</span>
+<span class="c">//     1. モニタハンドル</span>
+<span class="c">//     2. デバイスコンテキストハンドル</span>
+<span class="c">//     3. モニタのRECTのポインタ</span>
+<span class="c">//     4. LPARAM</span>
+<span class="c">// 4: LPARAM</span>
+<span class="kd">def_dll</span><span class="w"> </span><span class="n">EnumDisplayMonitors</span><span class="p">(</span><span class="n">handle</span><span class="o">,</span><span class="w"> </span><span class="n">pointer</span><span class="o">,</span><span class="w"> </span><span class="n">callback</span><span class="p">(</span><span class="n">handle</span><span class="o">,</span><span class="w"> </span><span class="n">handle</span><span class="o">,</span><span class="w"> </span><span class="n">pointer</span><span class="o">,</span><span class="w"> </span><span class="n">pointer</span><span class="p">)</span><span class="o">:</span><span class="n">bool</span><span class="o">,</span><span class="w"> </span><span class="n">pointer</span><span class="p">)</span><span class="o">:</span><span class="n">bool</span><span class="o">:</span><span class="n">user32</span><span class="o">.</span><span class="n">dll</span>
+
+<span class="c">// lparamとして渡される構造体</span>
+<span class="n">struct</span><span class="w"> </span><span class="n">UserData</span>
+<span class="w">    </span><span class="c">// モニタハンドルを入れる配列</span>
+<span class="w">    </span><span class="n">handles</span><span class="o">:</span><span class="w"> </span><span class="n">handle</span><span class="p">[</span><span class="m">10</span><span class="p">]</span>
+<span class="w">    </span><span class="c">// ハンドル数</span>
+<span class="w">    </span><span class="n">count</span><span class="w">  </span><span class="o">:</span><span class="w"> </span><span class="n">uint</span>
+<span class="n">endstruct</span>
+
+<span class="c">// UserData構造体を初期化</span>
+<span class="n">data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">UserData</span><span class="p">()</span>
+<span class="c">// 構造体アドレスをLPARAMとして渡す</span>
+<span class="n">lparam</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">data</span><span class="o">.</span><span class="n">address</span><span class="p">()</span>
+
+<span class="c">// callbackにはコールバック関数として呼ばれるユーザー定義関数を渡す</span>
+<span class="n">EnumDisplayMonitors</span><span class="p">(</span><span class="n">null</span><span class="o">,</span><span class="w"> </span><span class="n">null</span><span class="o">,</span><span class="w"> </span><span class="n">MonitorEnumProc</span><span class="o">,</span><span class="w"> </span><span class="n">lparam</span><span class="p">)</span>
+
+<span class="k">for</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="n">to</span><span class="w"> </span><span class="n">data</span><span class="o">.</span><span class="n">count</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="m">1</span>
+<span class="w">    </span><span class="n">handle</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">data</span><span class="o">.</span><span class="n">handles</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+<span class="w">    </span><span class="k">print</span><span class="w"> </span><span class="s">&quot;モニタ&lt;#i&gt;: &lt;#handle&gt;&quot;</span>
+<span class="k">next</span>
+
+<span class="kd">function</span><span class="w"> </span><span class="n">MonitorEnumProc</span><span class="p">(</span><span class="n">hmonitor</span><span class="o">,</span><span class="w"> </span><span class="n">hdc</span><span class="o">,</span><span class="w"> </span><span class="n">prect</span><span class="o">,</span><span class="w"> </span><span class="n">lparam</span><span class="p">)</span>
+<span class="w">    </span><span class="c">// lparamからUserData構造体を得る</span>
+<span class="w">    </span><span class="n">data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">UserData</span><span class="p">(</span><span class="n">lparam</span><span class="p">)</span>
+<span class="w">    </span><span class="c">// モニタハンドルを配列に入れる</span>
+<span class="w">    </span><span class="n">data</span><span class="o">.</span><span class="n">handles</span><span class="p">[</span><span class="n">data</span><span class="o">.</span><span class="n">count</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">hmonitor</span>
+<span class="w">    </span><span class="c">// カウントを進める</span>
+<span class="w">    </span><span class="n">data</span><span class="o">.</span><span class="n">count</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="m">1</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="n">data</span><span class="o">.</span><span class="n">count</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">length</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">handles</span><span class="p">)</span><span class="w"> </span><span class="k">then</span>
+<span class="w">        </span><span class="c">// 取得上限を超えたら終了する</span>
+<span class="w">        </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">false</span>
+<span class="w">    </span><span class="k">else</span>
+<span class="w">        </span><span class="c">// trueを返して次に進む</span>
+<span class="w">        </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">true</span>
+<span class="w">    </span><span class="k">endif</span>
+<span class="kd">fend</span>
+</pre></div>
+</div>
+</div>
+</section>
 <section id="about-dll-string-param">
-<span id="id59"></span><h3>文字列型について<a class="headerlink" href="#about-dll-string-param" title="この見出しへのパーマリンク">#</a></h3>
+<span id="id60"></span><h3>文字列型について<a class="headerlink" href="#about-dll-string-param" title="この見出しへのパーマリンク">#</a></h3>
 <div class="line-block">
 <div class="line">以下の型は引数として文字列を受けますが、それぞれ性質が異なります</div>
 <div class="line">戻り値の場合、可能な限り文字列として返します</div>
@@ -2665,16 +2852,16 @@ baz
 <section id="dll">
 <h3>DLL関数定義およびその呼び出し方の例<a class="headerlink" href="#dll" title="この見出しへのパーマリンク">#</a></h3>
 <div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// Win32のA関数ではstringかpcharを使う</span>
-<span class="n">def_dll</span><span class="w"> </span><span class="n">MessageBoxA</span><span class="p">(</span><span class="n">hwnd</span><span class="o">,</span><span class="w"> </span><span class="n">string</span><span class="o">,</span><span class="w"> </span><span class="n">pchar</span><span class="o">,</span><span class="w"> </span><span class="n">uint</span><span class="p">)</span><span class="o">:</span><span class="n">int</span><span class="o">:</span><span class="n">user32</span><span class="o">.</span><span class="n">dll</span>
+<span class="kd">def_dll</span><span class="w"> </span><span class="n">MessageBoxA</span><span class="p">(</span><span class="n">hwnd</span><span class="o">,</span><span class="w"> </span><span class="n">string</span><span class="o">,</span><span class="w"> </span><span class="n">pchar</span><span class="o">,</span><span class="w"> </span><span class="n">uint</span><span class="p">)</span><span class="o">:</span><span class="n">int</span><span class="o">:</span><span class="n">user32</span><span class="o">.</span><span class="n">dll</span>
 <span class="c">// Win32のW関数ではwstringかpwcharを使う</span>
-<span class="n">def_dll</span><span class="w"> </span><span class="n">MessageBoxW</span><span class="p">(</span><span class="n">hwnd</span><span class="o">,</span><span class="w"> </span><span class="n">wstring</span><span class="o">,</span><span class="w"> </span><span class="n">pwchar</span><span class="o">,</span><span class="w"> </span><span class="n">uint</span><span class="p">)</span><span class="o">:</span><span class="n">int</span><span class="o">:</span><span class="n">user32</span><span class="o">.</span><span class="n">dll</span>
+<span class="kd">def_dll</span><span class="w"> </span><span class="n">MessageBoxW</span><span class="p">(</span><span class="n">hwnd</span><span class="o">,</span><span class="w"> </span><span class="n">wstring</span><span class="o">,</span><span class="w"> </span><span class="n">pwchar</span><span class="o">,</span><span class="w"> </span><span class="n">uint</span><span class="p">)</span><span class="o">:</span><span class="n">int</span><span class="o">:</span><span class="n">user32</span><span class="o">.</span><span class="n">dll</span>
 
 <span class="c">// 呼び出す際は単に文字列を渡すだけで良い</span>
 <span class="k">print</span><span class="w"> </span><span class="n">MessageBoxA</span><span class="p">(</span><span class="m">0</span><span class="o">,</span><span class="w"> </span><span class="s">&#39;メッセージ&#39;</span><span class="o">,</span><span class="w"> </span><span class="s">&#39;タイトル&#39;</span><span class="o">,</span><span class="w"> </span><span class="m">0</span><span class="p">)</span>
 <span class="k">print</span><span class="w"> </span><span class="n">MessageBoxW</span><span class="p">(</span><span class="m">0</span><span class="o">,</span><span class="w"> </span><span class="s">&#39;メッセージ&#39;</span><span class="o">,</span><span class="w"> </span><span class="s">&#39;タイトル&#39;</span><span class="o">,</span><span class="w"> </span><span class="m">0</span><span class="p">)</span>
 
 <span class="c">// 構造体定義は{}</span>
-<span class="n">def_dll</span><span class="w"> </span><span class="n">SetWindowPlacement</span><span class="p">(</span><span class="n">hwnd</span><span class="o">,</span><span class="w"> </span><span class="p">{</span><span class="n">uint</span><span class="o">,</span><span class="w"> </span><span class="n">uint</span><span class="o">,</span><span class="w"> </span><span class="n">uint</span><span class="o">,</span><span class="w"> </span><span class="n">long</span><span class="o">,</span><span class="w"> </span><span class="n">long</span><span class="o">,</span><span class="w"> </span><span class="n">long</span><span class="o">,</span><span class="w"> </span><span class="n">long</span><span class="o">,</span><span class="w"> </span><span class="n">long</span><span class="o">,</span><span class="w"> </span><span class="n">long</span><span class="o">,</span><span class="w"> </span><span class="n">long</span><span class="o">,</span><span class="w"> </span><span class="n">long</span><span class="p">})</span><span class="o">:</span><span class="n">bool</span><span class="o">:</span><span class="n">user32</span><span class="o">.</span><span class="n">dll</span>
+<span class="kd">def_dll</span><span class="w"> </span><span class="n">SetWindowPlacement</span><span class="p">(</span><span class="n">hwnd</span><span class="o">,</span><span class="w"> </span><span class="p">{</span><span class="n">uint</span><span class="o">,</span><span class="w"> </span><span class="n">uint</span><span class="o">,</span><span class="w"> </span><span class="n">uint</span><span class="o">,</span><span class="w"> </span><span class="n">long</span><span class="o">,</span><span class="w"> </span><span class="n">long</span><span class="o">,</span><span class="w"> </span><span class="n">long</span><span class="o">,</span><span class="w"> </span><span class="n">long</span><span class="o">,</span><span class="w"> </span><span class="n">long</span><span class="o">,</span><span class="w"> </span><span class="n">long</span><span class="o">,</span><span class="w"> </span><span class="n">long</span><span class="o">,</span><span class="w"> </span><span class="n">long</span><span class="p">})</span><span class="o">:</span><span class="n">bool</span><span class="o">:</span><span class="n">user32</span><span class="o">.</span><span class="n">dll</span>
 <span class="n">id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">getid</span><span class="p">(</span><span class="s">&quot;メモ帳&quot;</span><span class="p">)</span>
 <span class="n">h</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">idtohnd</span><span class="p">(</span><span class="n">id</span><span class="p">)</span>
 <span class="c">// 構造体を渡すときは定義した型の数だけ値を並べる</span>
@@ -2686,12 +2873,12 @@ baz
 <span class="n">writeini</span><span class="p">(</span><span class="s">&quot;bar&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;bar&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;bar&quot;</span><span class="o">,</span><span class="w"> </span><span class="n">path</span><span class="p">)</span>
 <span class="n">writeini</span><span class="p">(</span><span class="s">&quot;baz&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;baz&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;baz&quot;</span><span class="o">,</span><span class="w"> </span><span class="n">path</span><span class="p">)</span>
 <span class="k">print</span><span class="w"> </span><span class="n">path</span>
-<span class="n">def_dll</span><span class="w"> </span><span class="n">GetPrivateProfileStringA</span><span class="p">(</span><span class="n">string</span><span class="o">,</span><span class="w"> </span><span class="n">string</span><span class="o">,</span><span class="w"> </span><span class="n">string</span><span class="o">,</span><span class="w"> </span><span class="k">var</span><span class="w"> </span><span class="n">pchar</span><span class="o">,</span><span class="w"> </span><span class="n">dword</span><span class="o">,</span><span class="w"> </span><span class="n">string</span><span class="p">)</span><span class="o">:</span><span class="n">dword</span><span class="o">:</span><span class="n">kernel32</span>
+<span class="kd">def_dll</span><span class="w"> </span><span class="n">GetPrivateProfileStringA</span><span class="p">(</span><span class="n">string</span><span class="o">,</span><span class="w"> </span><span class="n">string</span><span class="o">,</span><span class="w"> </span><span class="n">string</span><span class="o">,</span><span class="w"> </span><span class="k">var</span><span class="w"> </span><span class="n">pchar</span><span class="o">,</span><span class="w"> </span><span class="n">dword</span><span class="o">,</span><span class="w"> </span><span class="n">string</span><span class="p">)</span><span class="o">:</span><span class="n">dword</span><span class="o">:</span><span class="n">kernel32</span>
 <span class="n">buffer</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">NULL</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="m">100</span>
 <span class="c">// bufferがpcharなのでNULLを含んだ文字列が返ってくる</span>
 <span class="k">print</span><span class="w"> </span><span class="n">GetPrivateProfileStringA</span><span class="p">(</span><span class="n">NULL</span><span class="o">,</span><span class="w"> </span><span class="n">NULL</span><span class="o">,</span><span class="w"> </span><span class="n">NULL</span><span class="o">,</span><span class="w"> </span><span class="n">buffer</span><span class="o">,</span><span class="w"> </span><span class="n">length</span><span class="p">(</span><span class="n">buffer</span><span class="p">)</span><span class="o">,</span><span class="w"> </span><span class="n">path</span><span class="p">)</span>
 <span class="k">print</span><span class="w"> </span><span class="n">split</span><span class="p">(</span><span class="n">buffer</span><span class="o">,</span><span class="w"> </span><span class="n">NULL</span><span class="p">)</span>
-<span class="n">def_dll</span><span class="w"> </span><span class="n">GetPrivateProfileStringA</span><span class="p">(</span><span class="n">string</span><span class="o">,</span><span class="w"> </span><span class="n">string</span><span class="o">,</span><span class="w"> </span><span class="n">string</span><span class="o">,</span><span class="w"> </span><span class="k">var</span><span class="w"> </span><span class="n">string</span><span class="o">,</span><span class="w"> </span><span class="n">dword</span><span class="o">,</span><span class="w"> </span><span class="n">string</span><span class="p">)</span><span class="o">:</span><span class="n">dword</span><span class="o">:</span><span class="n">kernel32</span>
+<span class="kd">def_dll</span><span class="w"> </span><span class="n">GetPrivateProfileStringA</span><span class="p">(</span><span class="n">string</span><span class="o">,</span><span class="w"> </span><span class="n">string</span><span class="o">,</span><span class="w"> </span><span class="n">string</span><span class="o">,</span><span class="w"> </span><span class="k">var</span><span class="w"> </span><span class="n">string</span><span class="o">,</span><span class="w"> </span><span class="n">dword</span><span class="o">,</span><span class="w"> </span><span class="n">string</span><span class="p">)</span><span class="o">:</span><span class="n">dword</span><span class="o">:</span><span class="n">kernel32</span>
 <span class="n">buffer</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">NULL</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="m">100</span>
 <span class="c">// bufferをstringにすると最初のNULL以前の文字列のみ返ってくる</span>
 <span class="k">print</span><span class="w"> </span><span class="n">GetPrivateProfileStringA</span><span class="p">(</span><span class="n">NULL</span><span class="o">,</span><span class="w"> </span><span class="n">NULL</span><span class="o">,</span><span class="w"> </span><span class="n">null</span><span class="o">,</span><span class="w"> </span><span class="n">buffer</span><span class="o">,</span><span class="w"> </span><span class="n">length</span><span class="p">(</span><span class="n">buffer</span><span class="p">)</span><span class="o">,</span><span class="w"> </span><span class="n">path</span><span class="p">)</span>
@@ -2699,14 +2886,14 @@ baz
 
 <span class="c">// 構造体で値を受ける</span>
 <span class="c">// varは不要</span>
-<span class="n">def_dll</span><span class="w"> </span><span class="n">GetCursorPos</span><span class="p">({</span><span class="n">long</span><span class="o">,</span><span class="w"> </span><span class="n">long</span><span class="p">})</span><span class="o">:</span><span class="n">bool</span><span class="o">:</span><span class="n">user32</span><span class="o">.</span><span class="n">dll</span>
+<span class="kd">def_dll</span><span class="w"> </span><span class="n">GetCursorPos</span><span class="p">({</span><span class="n">long</span><span class="o">,</span><span class="w"> </span><span class="n">long</span><span class="p">})</span><span class="o">:</span><span class="n">bool</span><span class="o">:</span><span class="n">user32</span><span class="o">.</span><span class="n">dll</span>
 <span class="kd">dim</span><span class="w"> </span><span class="n">x</span><span class="o">,</span><span class="w"> </span><span class="n">y</span>
 <span class="k">print</span><span class="w"> </span><span class="n">GetCursorPos</span><span class="p">(</span><span class="n">x</span><span class="o">,</span><span class="w"> </span><span class="n">y</span><span class="p">)</span>
 <span class="k">print</span><span class="w"> </span><span class="p">[</span><span class="n">x</span><span class="o">,</span><span class="w"> </span><span class="n">y</span><span class="p">]</span>
 
 <span class="c">// 構造体はそのサイズに合う配列でも代用可能</span>
 <span class="c">// varで渡す</span>
-<span class="n">def_dll</span><span class="w"> </span><span class="n">GetCursorPos</span><span class="p">(</span><span class="k">var</span><span class="w"> </span><span class="n">long</span><span class="p">[])</span><span class="o">:</span><span class="n">bool</span><span class="o">:</span><span class="n">user32</span><span class="o">.</span><span class="n">dll</span>
+<span class="kd">def_dll</span><span class="w"> </span><span class="n">GetCursorPos</span><span class="p">(</span><span class="k">var</span><span class="w"> </span><span class="n">long</span><span class="p">[])</span><span class="o">:</span><span class="n">bool</span><span class="o">:</span><span class="n">user32</span><span class="o">.</span><span class="n">dll</span>
 <span class="kd">dim</span><span class="w"> </span><span class="n">point</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="m">0</span><span class="o">,</span><span class="w"> </span><span class="m">0</span><span class="p">]</span><span class="w"> </span><span class="c">// long, long</span>
 <span class="k">print</span><span class="w"> </span><span class="n">GetCursorPos</span><span class="p">(</span><span class="n">point</span><span class="p">)</span>
 <span class="k">print</span><span class="w"> </span><span class="n">point</span>
@@ -2715,22 +2902,48 @@ baz
 </pre></div>
 </div>
 </section>
-</section>
-<section id="id60">
-<h2>構造体<a class="headerlink" href="#id60" title="この見出しへのパーマリンク">#</a></h2>
-<p>def_dllのstruct型に渡す構造体を定義します</p>
 <section id="id61">
-<h3>構造体定義<a class="headerlink" href="#id61" title="この見出しへのパーマリンク">#</a></h3>
+<h3>別名による呼び出し例<a class="headerlink" href="#id61" title="この見出しへのパーマリンク">#</a></h3>
+<div class="line-block">
+<div class="line">本来のDLL関数名とは異なる名前でそのDLL関数を呼び出すことができます</div>
+<div class="line">例: MessageBoxWをMessageBoxという名前で呼び出す</div>
+</div>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="kd">def_dll</span><span class="w"> </span><span class="n">MessageBox</span><span class="o">:</span><span class="n">MessageBoxW</span><span class="p">(</span><span class="n">hwnd</span><span class="o">,</span><span class="w"> </span><span class="n">wstring</span><span class="o">,</span><span class="w"> </span><span class="n">wstring</span><span class="o">,</span><span class="w"> </span><span class="n">uint</span><span class="p">)</span><span class="o">:</span><span class="n">int</span><span class="o">:</span><span class="n">user32</span><span class="o">.</span><span class="n">dll</span>
+
+<span class="k">print</span><span class="w"> </span><span class="n">MessageBox</span><span class="p">(</span><span class="m">0</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;別名呼び出しサンプル&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;テスト&quot;</span><span class="o">,</span><span class="w"> </span><span class="m">0</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="line-block">
+<div class="line">Win32 APIの <code class="docutils literal notranslate"><span class="pre">GetKeyState</span></code> 関数を登録した場合、組み込み関数の <code class="docutils literal notranslate"><span class="pre">getkeystate</span></code> と競合してしまうという問題がありました</div>
+<div class="line">この場合も別名を登録することで関数の使い分けが可能になります</div>
+</div>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// GetKeyStateWin32という別名でGetKeyState関数を登録</span>
+<span class="kd">def_dll</span><span class="w"> </span><span class="n">GetKeyStateWin32</span><span class="o">:</span><span class="n">GetKeyState</span><span class="p">(</span><span class="n">int</span><span class="p">)</span><span class="o">:</span><span class="n">word</span><span class="o">:</span><span class="n">user32</span>
+
+<span class="k">print</span><span class="w"> </span><span class="n">GetKeyStateWin32</span><span class="w"> </span><span class="c">// GetKeyState(int):word:user32 as GetKeyStateWin32</span>
+<span class="k">print</span><span class="w"> </span><span class="n">GetKeyStateWin32</span><span class="p">(</span><span class="n">VK_RETURN</span><span class="p">)</span><span class="w"> </span><span class="c">// Win32のGetKeyStateが呼ばれる</span>
+<span class="k">print</span><span class="w"> </span><span class="n">getkeystate</span><span class="p">(</span><span class="n">VK_RETURN</span><span class="p">)</span><span class="w">      </span><span class="c">// 組み込み関数が呼ばれる</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="id62">
+<h2>構造体<a class="headerlink" href="#id62" title="この見出しへのパーマリンク">#</a></h2>
+<p>def_dllのstruct型に渡す構造体を定義します</p>
+<section id="id63">
+<h3>構造体定義<a class="headerlink" href="#id63" title="この見出しへのパーマリンク">#</a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>struct 構造体名
     メンバ名: 型名
     メンバ名: 型名[サイズ]
+    メンバ名: var 型名
     ︙
 endstruct
 </pre></div>
 </div>
 <div class="line-block">
 <div class="line"><code class="docutils literal notranslate"><span class="pre">id:</span> <span class="pre">int</span></code> のようにメンバ名と型名を指定します</div>
-<div class="line">メンバが配列の場合は <code class="docutils literal notranslate"><span class="pre">buffer:</span> <span class="pre">byte[260]</span></code> のようにメンバ名、型名に加えてサイズを示す数値を <code class="docutils literal notranslate"><span class="pre">[]</span></code> 内に書きます</div>
+<div class="line">メンバが配列の場合は <code class="docutils literal notranslate"><span class="pre">buffer:</span> <span class="pre">byte[260]</span></code> のようにメンバ名、型名に加えてサイズを示す数値または定数を <code class="docutils literal notranslate"><span class="pre">[]</span></code> 内に記述します</div>
+<div class="line">型名の前に <code class="docutils literal notranslate"><span class="pre">var</span></code> または <code class="docutils literal notranslate"><span class="pre">ref</span></code> キーワードを記述した場合そのメンバは指定した型のポインタとなります</div>
 <div class="line">型名には以下が利用可能です</div>
 </div>
 <div class="table-wrapper docutils container">
@@ -2858,6 +3071,32 @@ endstruct
 <td><p>数値</p></td>
 <td></td>
 </tr>
+<tr class="row-odd"><td><div class="line-block">
+<div class="line">var 型名</div>
+<div class="line">ref 型名</div>
+</div>
+</td>
+<td><div class="line-block">
+<div class="line">可変</div>
+<div class="line"><br /></div>
+</div>
+</td>
+<td><div class="line-block">
+<div class="line">型名のポインタ</div>
+<div class="line"><br /></div>
+</div>
+</td>
+<td><div class="line-block">
+<div class="line">型に対応する値型</div>
+<div class="line"><br /></div>
+</div>
+</td>
+<td><div class="line-block">
+<div class="line"><br /></div>
+<div class="line"><br /></div>
+</div>
+</td>
+</tr>
 </tbody>
 </table>
 </div>
@@ -2920,7 +3159,7 @@ endstruct
 <div><div class="line-block">
 <div class="line">メンバの型名をpointerとしそのメンバに構造体のアドレスを代入するか、メンバの値から構造体を得ます</div>
 </div>
-<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">def_dll</span><span class="w"> </span><span class="n">WNetGetUniversalNameW</span><span class="p">(</span><span class="n">wstring</span><span class="o">,</span><span class="w"> </span><span class="n">long</span><span class="o">,</span><span class="w"> </span><span class="n">struct</span><span class="o">,</span><span class="w"> </span><span class="k">var</span><span class="w"> </span><span class="n">long</span><span class="p">)</span><span class="o">:</span><span class="n">long</span><span class="o">:</span><span class="n">mpr</span>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="kd">def_dll</span><span class="w"> </span><span class="n">WNetGetUniversalNameW</span><span class="p">(</span><span class="n">wstring</span><span class="o">,</span><span class="w"> </span><span class="n">long</span><span class="o">,</span><span class="w"> </span><span class="n">struct</span><span class="o">,</span><span class="w"> </span><span class="k">var</span><span class="w"> </span><span class="n">long</span><span class="p">)</span><span class="o">:</span><span class="n">long</span><span class="o">:</span><span class="n">mpr</span>
 <span class="c">// WNetGetUniversalNameWに渡す構造体</span>
 <span class="n">struct</span><span class="w"> </span><span class="n">BufferStruct</span>
 <span class="w">    </span><span class="n">puni</span><span class="o">:</span><span class="w"> </span><span class="n">pointer</span><span class="w">    </span><span class="c">// UNIVERSAL_NAME_INFOWのポインタが返る</span>
@@ -3005,10 +3244,10 @@ endstruct
 </ul>
 </div>
 </section>
-<section id="id62">
-<h3>構造体の利用方法<a class="headerlink" href="#id62" title="この見出しへのパーマリンク">#</a></h3>
-<section id="id63">
-<h4>構造体の初期化<a class="headerlink" href="#id63" title="この見出しへのパーマリンク">#</a></h4>
+<section id="id64">
+<h3>構造体の利用方法<a class="headerlink" href="#id64" title="この見出しへのパーマリンク">#</a></h3>
+<section id="id65">
+<h4>構造体の初期化<a class="headerlink" href="#id65" title="この見出しへのパーマリンク">#</a></h4>
 <div class="line-block">
 <div class="line"><code class="docutils literal notranslate"><span class="pre">構造体名()</span></code> で構造体を初期化します</div>
 <div class="line">各メンバは0で初期化されます</div>
@@ -3022,8 +3261,8 @@ endstruct
 </pre></div>
 </div>
 </section>
-<section id="id64">
-<h4>構造体メンバへのアクセス<a class="headerlink" href="#id64" title="この見出しへのパーマリンク">#</a></h4>
+<section id="id66">
+<h4>構造体メンバへのアクセス<a class="headerlink" href="#id66" title="この見出しへのパーマリンク">#</a></h4>
 <div class="line-block">
 <div class="line"><code class="docutils literal notranslate"><span class="pre">構造体.メンバ名</span></code> でメンバへアクセスします</div>
 </div>
@@ -3039,8 +3278,8 @@ endstruct
 </pre></div>
 </div>
 </section>
-<section id="id65">
-<h4>構造体のメソッド<a class="headerlink" href="#id65" title="この見出しへのパーマリンク">#</a></h4>
+<section id="id67">
+<h4>構造体のメソッド<a class="headerlink" href="#id67" title="この見出しへのパーマリンク">#</a></h4>
 <div class="line-block">
 <div class="line">構造体は以下のメソッドを持ちます</div>
 </div>
@@ -3074,29 +3313,57 @@ endstruct
 </pre></div>
 </div>
 </section>
-<section id="id66">
-<h4>ポインタから構造体を得る<a class="headerlink" href="#id66" title="この見出しへのパーマリンク">#</a></h4>
+<section id="id68">
+<h4>ポインタから構造体を得る<a class="headerlink" href="#id68" title="この見出しへのパーマリンク">#</a></h4>
 <p>DLL関数が返す構造体のポインタから構造体にアクセスできます</p>
-<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">def_dll</span><span class="w"> </span><span class="n">somefunc</span><span class="p">(</span><span class="k">var</span><span class="w"> </span><span class="n">pointer</span><span class="p">)</span><span class="o">:</span><span class="n">void</span><span class="o">:</span><span class="n">some</span><span class="o">.</span><span class="n">dll</span>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// 第四引数にWTS_SESSION_INFO_1Wのポインタが返る</span>
+<span class="kd">def_dll</span><span class="w"> </span><span class="n">WTSEnumerateSessionsExW</span><span class="p">(</span><span class="n">handle</span><span class="o">,</span><span class="w"> </span><span class="k">var</span><span class="w"> </span><span class="n">dword</span><span class="o">,</span><span class="w"> </span><span class="n">dword</span><span class="o">,</span><span class="w"> </span><span class="k">var</span><span class="w"> </span><span class="n">pointer</span><span class="o">,</span><span class="w"> </span><span class="k">var</span><span class="w"> </span><span class="n">dword</span><span class="p">)</span><span class="o">:</span><span class="n">bool</span><span class="o">:</span><span class="n">Wtsapi32</span>
+<span class="kd">def_dll</span><span class="w"> </span><span class="n">WTSFreeMemory</span><span class="p">(</span><span class="n">pointer</span><span class="p">)</span><span class="o">:</span><span class="n">Wtsapi32</span>
 
-<span class="c">// somefuncが返す構造体を定義</span>
-<span class="n">struct</span><span class="w"> </span><span class="n">SomeStruct</span>
-<span class="w">    </span><span class="n">foo</span><span class="o">:</span><span class="w"> </span><span class="n">long</span>
-<span class="w">    </span><span class="n">bar</span><span class="o">:</span><span class="w"> </span><span class="n">long</span>
-<span class="w">    </span><span class="n">baz</span><span class="o">:</span><span class="w"> </span><span class="n">long</span>
+<span class="n">struct</span><span class="w"> </span><span class="n">WTS_SESSION_INFO_1W</span>
+<span class="w">    </span><span class="n">ExecEnvId</span><span class="w">    </span><span class="o">:</span><span class="w"> </span><span class="n">dword</span>
+<span class="w">    </span><span class="n">State</span><span class="w">        </span><span class="o">:</span><span class="w"> </span><span class="n">int</span>
+<span class="w">    </span><span class="n">SessionId</span><span class="w">    </span><span class="o">:</span><span class="w"> </span><span class="n">dword</span>
+<span class="w">    </span><span class="n">pSessionName</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">wstring</span>
+<span class="w">    </span><span class="n">pHostName</span><span class="w">    </span><span class="o">:</span><span class="w"> </span><span class="n">wstring</span>
+<span class="w">    </span><span class="n">pUserName</span><span class="w">    </span><span class="o">:</span><span class="w"> </span><span class="n">wstring</span>
+<span class="w">    </span><span class="n">pDomainName</span><span class="w">  </span><span class="o">:</span><span class="w"> </span><span class="n">wstring</span>
+<span class="w">    </span><span class="n">pFarmName</span><span class="w">    </span><span class="o">:</span><span class="w"> </span><span class="n">wstring</span>
 <span class="n">endstruct</span>
 
-<span class="kd">dim</span><span class="w"> </span><span class="n">p</span>
-<span class="n">somefunc</span><span class="p">(</span><span class="n">p</span><span class="p">)</span><span class="w"> </span><span class="c">// ポインタを受け取る</span>
-<span class="n">s</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">SomeStruct</span><span class="p">(</span><span class="n">p</span><span class="p">)</span><span class="w"> </span><span class="c">// ポインタから構造体インスタンスを作成</span>
-<span class="k">print</span><span class="w"> </span><span class="n">s</span><span class="o">.</span><span class="n">foo</span>
+<span class="c">// 構造体のアドレスと個数を得るための変数</span>
+<span class="kd">dim</span><span class="w"> </span><span class="n">ptr</span><span class="o">,</span><span class="w"> </span><span class="n">cnt</span>
+<span class="kd">dim</span><span class="w"> </span><span class="n">size</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">length</span><span class="p">(</span><span class="n">WTS_SESSION_INFO_1W</span><span class="p">)</span>
+
+<span class="k">if</span><span class="w"> </span><span class="n">WTSEnumerateSessionsExW</span><span class="p">(</span><span class="n">null</span><span class="o">,</span><span class="w"> </span><span class="m">1</span><span class="o">,</span><span class="w"> </span><span class="m">0</span><span class="o">,</span><span class="w"> </span><span class="n">ptr</span><span class="o">,</span><span class="w"> </span><span class="n">cnt</span><span class="p">)</span><span class="w"> </span><span class="k">then</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="n">to</span><span class="w"> </span><span class="n">cnt</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="m">1</span>
+<span class="w">        </span><span class="c">// 構造体は連続しているため、構造体サイズ分のオフセットを加える</span>
+<span class="w">        </span><span class="n">addr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ptr</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">size</span>
+<span class="w">        </span><span class="c">// アドレスから構造体を得る</span>
+<span class="w">        </span><span class="n">wsi</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">WTS_SESSION_INFO_1W</span><span class="p">(</span><span class="n">addr</span><span class="p">)</span>
+
+<span class="w">        </span><span class="k">print</span><span class="w"> </span><span class="s">&quot;addr: &lt;#addr&gt;&quot;</span>
+<span class="w">        </span><span class="k">print</span><span class="w"> </span><span class="s">&quot;ExecEnvId    : &quot;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">wsi</span><span class="o">.</span><span class="n">ExecEnvId</span>
+<span class="w">        </span><span class="k">print</span><span class="w"> </span><span class="s">&quot;State        : &quot;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">wsi</span><span class="o">.</span><span class="n">State</span>
+<span class="w">        </span><span class="k">print</span><span class="w"> </span><span class="s">&quot;SessionId    : &quot;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">wsi</span><span class="o">.</span><span class="n">SessionId</span>
+<span class="w">        </span><span class="k">print</span><span class="w"> </span><span class="s">&quot;pSessionName : &quot;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">wsi</span><span class="o">.</span><span class="n">pSessionName</span>
+<span class="w">        </span><span class="k">print</span><span class="w"> </span><span class="s">&quot;pHostName    : &quot;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">wsi</span><span class="o">.</span><span class="n">pHostName</span>
+<span class="w">        </span><span class="k">print</span><span class="w"> </span><span class="s">&quot;pUserName    : &quot;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">wsi</span><span class="o">.</span><span class="n">pUserName</span>
+<span class="w">        </span><span class="k">print</span><span class="w"> </span><span class="s">&quot;pDomainName  : &quot;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">wsi</span><span class="o">.</span><span class="n">pDomainName</span>
+<span class="w">        </span><span class="k">print</span><span class="w"> </span><span class="s">&quot;pFarmName    : &quot;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">wsi</span><span class="o">.</span><span class="n">pFarmName</span>
+<span class="w">        </span><span class="k">print</span>
+<span class="w">    </span><span class="k">next</span>
+
+<span class="w">    </span><span class="c">// WTS_SESSION_INFO_1W構造体を開放する</span>
+<span class="w">    </span><span class="n">WTSFreeMemory</span><span class="p">(</span><span class="n">ptr</span><span class="p">)</span>
+<span class="k">endif</span>
 </pre></div>
 </div>
 </section>
 </section>
 </section>
-<section id="id67">
-<h2>スレッド<a class="headerlink" href="#id67" title="この見出しへのパーマリンク">#</a></h2>
+<section id="id69">
+<h2>スレッド<a class="headerlink" href="#id69" title="この見出しへのパーマリンク">#</a></h2>
 <section id="thread">
 <h3>thread<a class="headerlink" href="#thread" title="この見出しへのパーマリンク">#</a></h3>
 <p>関数を別のスレッドで実行します</p>
@@ -3123,7 +3390,7 @@ endstruct
 </section>
 </section>
 <section id="task-object">
-<span id="id68"></span><h2>タスク<a class="headerlink" href="#task-object" title="この見出しへのパーマリンク">#</a></h2>
+<span id="id70"></span><h2>タスク<a class="headerlink" href="#task-object" title="この見出しへのパーマリンク">#</a></h2>
 <div class="line-block">
 <div class="line">関数を非同期実行します</div>
 <div class="line">threadとは異なり関数が完了し次第戻り値を受け取れます</div>
@@ -3147,7 +3414,7 @@ endstruct
 </li>
 </ul>
 <section id="async">
-<span id="id69"></span><h3>async<a class="headerlink" href="#async" title="この見出しへのパーマリンク">#</a></h3>
+<span id="id71"></span><h3>async<a class="headerlink" href="#async" title="この見出しへのパーマリンク">#</a></h3>
 <p>タスクを返す関数を宣言します</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">//</span> <span class="n">function宣言の前に</span> <span class="k">async</span> <span class="n">キーワードを付与</span>
 <span class="k">async</span> <span class="n">function</span> <span class="n">関数名</span><span class="p">()</span>
@@ -3172,7 +3439,7 @@ endstruct
 </div>
 </section>
 <section id="await">
-<span id="id70"></span><h3>await<a class="headerlink" href="#await" title="この見出しへのパーマリンク">#</a></h3>
+<span id="id72"></span><h3>await<a class="headerlink" href="#await" title="この見出しへのパーマリンク">#</a></h3>
 <p>async宣言した関数の終了を待ち、resultの値を得ます</p>
 <div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="k">async</span><span class="w"> </span><span class="kd">function</span><span class="w"> </span><span class="n">MyFuncAsync</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
 <span class="w">    </span><span class="n">sleep</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
@@ -3316,8 +3583,8 @@ endstruct
 </pre></div>
 </div>
 </section>
-<section id="id71">
-<h3>uwslファイルについて<a class="headerlink" href="#id71" title="この見出しへのパーマリンク">#</a></h3>
+<section id="id73">
+<h3>uwslファイルについて<a class="headerlink" href="#id73" title="この見出しへのパーマリンク">#</a></h3>
 <div class="line-block">
 <div class="line">構文木をバイナリとして保存したものです</div>
 <div class="line">以下のコマンドでバイナリファイルを生成できます</div>
@@ -3331,16 +3598,16 @@ endstruct
 <div class="highlight-powershell notranslate"><div class="highlight"><pre><span></span><span class="n">uwscr</span> <span class="n">module</span><span class="p">.</span><span class="n">uwsl</span> <span class="p">//</span> <span class="n">ng</span>
 </pre></div>
 </div>
-<section id="id72">
-<h4>uwslファイル作成の流れ<a class="headerlink" href="#id72" title="この見出しへのパーマリンク">#</a></h4>
+<section id="id74">
+<h4>uwslファイル作成の流れ<a class="headerlink" href="#id74" title="この見出しへのパーマリンク">#</a></h4>
 <ol class="arabic simple">
 <li><p>指定されたスクリプトを読み出す</p></li>
 <li><p>構文解析を行い構文木を生成する</p></li>
 <li><p>構文木をバイナリデータとしてファイルに書き出す</p></li>
 </ol>
 </section>
-<section id="id73">
-<h4>使用例<a class="headerlink" href="#id73" title="この見出しへのパーマリンク">#</a></h4>
+<section id="id75">
+<h4>使用例<a class="headerlink" href="#id75" title="この見出しへのパーマリンク">#</a></h4>
 <ol class="arabic">
 <li><p>多段callしているファイルをまとめてバイナリ化</p>
 <blockquote>
@@ -3383,8 +3650,8 @@ endstruct
 </section>
 </section>
 </section>
-<section id="id74">
-<h2>例外処理<a class="headerlink" href="#id74" title="この見出しへのパーマリンク">#</a></h2>
+<section id="id76">
+<h2>例外処理<a class="headerlink" href="#id76" title="この見出しへのパーマリンク">#</a></h2>
 <ul class="simple">
 <li><p><cite>try-except-endtry</cite></p></li>
 <li><p><cite>try-finally-endtry</cite></p></li>
@@ -3473,8 +3740,8 @@ endstruct
 </div>
 </section>
 </section>
-<section id="id75">
-<h2>制御文<a class="headerlink" href="#id75" title="この見出しへのパーマリンク">#</a></h2>
+<section id="id77">
+<h2>制御文<a class="headerlink" href="#id77" title="この見出しへのパーマリンク">#</a></h2>
 <p>説明文中の <code class="docutils literal notranslate"><span class="pre">式</span></code> とは主に値を返す演算式や関数など
 <code class="docutils literal notranslate"><span class="pre">文</span></code> は制御文のことです
 <code class="docutils literal notranslate"><span class="pre">ブロック文``は</span> <span class="pre">``文</span></code> が複数行ある状態です</p>
@@ -3487,8 +3754,8 @@ endstruct
 <div class="line">どちらも同じものとして扱われます</div>
 </div>
 </div>
-<section id="id76">
-<h4>単行if<a class="headerlink" href="#id76" title="この見出しへのパーマリンク">#</a></h4>
+<section id="id78">
+<h4>単行if<a class="headerlink" href="#id78" title="この見出しへのパーマリンク">#</a></h4>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="n">式</span> <span class="n">then</span> <span class="n">文</span> <span class="p">[</span><span class="k">else</span> <span class="n">文</span><span class="p">]</span>
 </pre></div>
 </div>
@@ -3500,8 +3767,8 @@ endstruct
 </pre></div>
 </div>
 </section>
-<section id="id77">
-<h4>複数行if<a class="headerlink" href="#id77" title="この見出しへのパーマリンク">#</a></h4>
+<section id="id79">
+<h4>複数行if<a class="headerlink" href="#id79" title="この見出しへのパーマリンク">#</a></h4>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="n">式</span> <span class="p">[</span><span class="n">then</span><span class="p">]</span>
     <span class="n">ブロック文</span>
 <span class="p">[</span><span class="n">elseif</span> <span class="n">式</span> <span class="p">[</span><span class="n">then</span><span class="p">]]</span>
@@ -3953,13 +4220,13 @@ selend
 <div class="line"><a class="reference internal" href="../builtins/comobject.html#createoleobj" title="createoleobj"><code class="xref py py-func docutils literal notranslate"><span class="pre">createoleobj()</span></code></a>, <a class="reference internal" href="../builtins/comobject.html#getactiveoleobj" title="getactiveoleobj"><code class="xref py py-func docutils literal notranslate"><span class="pre">getactiveoleobj()</span></code></a> により取得可能</div>
 <div class="line">またCOMオブジェクトのプロパティやメソッドが別のCOMオブジェクトを返す場合もあります</div>
 </div>
-<section id="id78">
-<h3>プロパティの取得<a class="headerlink" href="#id78" title="この見出しへのパーマリンク">#</a></h3>
+<section id="id80">
+<h3>プロパティの取得<a class="headerlink" href="#id80" title="この見出しへのパーマリンク">#</a></h3>
 <div class="line-block">
 <div class="line"><code class="docutils literal notranslate"><span class="pre">COMオブジェクト.プロパティ名</span></code> でプロパティの値を取得できます</div>
 </div>
-<section id="id79">
-<h4>プロパティ取得<a class="headerlink" href="#id79" title="この見出しへのパーマリンク">#</a></h4>
+<section id="id81">
+<h4>プロパティ取得<a class="headerlink" href="#id81" title="この見出しへのパーマリンク">#</a></h4>
 <blockquote>
 <div><div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">ws</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">createoleobj</span><span class="p">(</span><span class="s">&quot;WScript.Shell&quot;</span><span class="p">)</span>
 <span class="k">print</span><span class="w"> </span><span class="n">ws</span><span class="o">.</span><span class="n">CurrentDirectory</span><span class="w"> </span><span class="c">// 現在のワーキングフォルダのパスが表示される</span>
@@ -3967,8 +4234,8 @@ selend
 </div>
 </div></blockquote>
 </section>
-<section id="id80">
-<h4>インデックス指定<a class="headerlink" href="#id80" title="この見出しへのパーマリンク">#</a></h4>
+<section id="id82">
+<h4>インデックス指定<a class="headerlink" href="#id82" title="この見出しへのパーマリンク">#</a></h4>
 <blockquote>
 <div><div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">ws</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">createoleobj</span><span class="p">(</span><span class="s">&quot;WScript.Shell&quot;</span><span class="p">)</span>
 <span class="k">print</span><span class="w"> </span><span class="n">ws</span><span class="o">.</span><span class="n">Environment</span><span class="o">.</span><span class="n">item</span><span class="p">[</span><span class="s">&quot;windir&quot;</span><span class="p">]</span><span class="w"> </span><span class="c">// %SystemRoot%</span>
@@ -3977,8 +4244,8 @@ selend
 </div>
 </div></blockquote>
 </section>
-<section id="id81">
-<h4>コレクションに対するインデックス指定<a class="headerlink" href="#id81" title="この見出しへのパーマリンク">#</a></h4>
+<section id="id83">
+<h4>コレクションに対するインデックス指定<a class="headerlink" href="#id83" title="この見出しへのパーマリンク">#</a></h4>
 <blockquote>
 <div><div class="line-block">
 <div class="line">COMオブジェクトがコレクションの場合、インデックス指定で要素を得られる</div>
@@ -3995,13 +4262,13 @@ selend
 </div></blockquote>
 </section>
 </section>
-<section id="id82">
-<h3>プロパティの変更<a class="headerlink" href="#id82" title="この見出しへのパーマリンク">#</a></h3>
+<section id="id84">
+<h3>プロパティの変更<a class="headerlink" href="#id84" title="この見出しへのパーマリンク">#</a></h3>
 <div class="line-block">
 <div class="line">プロパティに対して値を代入することでプロパティを変更できます</div>
 </div>
-<section id="id83">
-<h4>代入<a class="headerlink" href="#id83" title="この見出しへのパーマリンク">#</a></h4>
+<section id="id85">
+<h4>代入<a class="headerlink" href="#id85" title="この見出しへのパーマリンク">#</a></h4>
 <div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">ws</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">createoleobj</span><span class="p">(</span><span class="s">&quot;WScript.Shell&quot;</span><span class="p">)</span>
 <span class="k">print</span><span class="w"> </span><span class="n">ws</span><span class="o">.</span><span class="n">CurrentDirectory</span><span class="w"> </span><span class="c">// 元々のカレントディレクトリ</span>
 <span class="n">ws</span><span class="o">.</span><span class="n">CurrentDirectory</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;D:\Hoge&quot;</span>
@@ -4009,8 +4276,8 @@ selend
 </pre></div>
 </div>
 </section>
-<section id="id84">
-<h4>インデックス指定による代入<a class="headerlink" href="#id84" title="この見出しへのパーマリンク">#</a></h4>
+<section id="id86">
+<h4>インデックス指定による代入<a class="headerlink" href="#id86" title="この見出しへのパーマリンク">#</a></h4>
 <div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">excel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">createoleobj</span><span class="p">(</span><span class="s">&quot;Excel.Application&quot;</span><span class="p">)</span>
 <span class="n">excel</span><span class="o">.</span><span class="n">visible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">TRUE</span>
 <span class="n">excel</span><span class="o">.</span><span class="n">Workbooks</span><span class="o">.</span><span class="n">Add</span><span class="p">()</span>
@@ -4026,8 +4293,8 @@ selend
 </div>
 </section>
 </section>
-<section id="id85">
-<h3>メソッドの実行<a class="headerlink" href="#id85" title="この見出しへのパーマリンク">#</a></h3>
+<section id="id87">
+<h3>メソッドの実行<a class="headerlink" href="#id87" title="この見出しへのパーマリンク">#</a></h3>
 <div class="line-block">
 <div class="line"><code class="docutils literal notranslate"><span class="pre">COMオブジェクト.メソッド名([引数,</span> <span class="pre">引数,</span> <span class="pre">...])</span></code> でメソッドを実行できます</div>
 <div class="line">通常の引数に加え、名前付き引数(<code class="docutils literal notranslate"><span class="pre">名前</span> <span class="pre">:=</span> <span class="pre">値</span></code>)や参照渡し(<code class="docutils literal notranslate"><span class="pre">ref</span> <span class="pre">変数</span></code>)が利用可能です</div>
@@ -4052,15 +4319,15 @@ selend
 </pre></div>
 </div>
 </div>
-<section id="id86">
-<h4>名前なし引数<a class="headerlink" href="#id86" title="この見出しへのパーマリンク">#</a></h4>
+<section id="id88">
+<h4>名前なし引数<a class="headerlink" href="#id88" title="この見出しへのパーマリンク">#</a></h4>
 <div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">ws</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">createoleobj</span><span class="p">(</span><span class="s">&quot;WScript.Shell&quot;</span><span class="p">)</span>
 <span class="k">print</span><span class="w"> </span><span class="n">ws</span><span class="o">.</span><span class="n">Popup</span><span class="p">(</span><span class="s">&quot;テキスト&quot;</span><span class="o">,</span><span class="w"> </span><span class="m">0</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;タイトル&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
-<section id="id87">
-<h4>名前付き引数<a class="headerlink" href="#id87" title="この見出しへのパーマリンク">#</a></h4>
+<section id="id89">
+<h4>名前付き引数<a class="headerlink" href="#id89" title="この見出しへのパーマリンク">#</a></h4>
 <blockquote>
 <div><div class="line-block">
 <div class="line">名前を指定してメソッドに引数を渡すことができます</div>
@@ -4079,8 +4346,8 @@ selend
 </div>
 </div></blockquote>
 </section>
-<section id="id88">
-<h4>参照渡し<a class="headerlink" href="#id88" title="この見出しへのパーマリンク">#</a></h4>
+<section id="id90">
+<h4>参照渡し<a class="headerlink" href="#id90" title="この見出しへのパーマリンク">#</a></h4>
 <blockquote>
 <div><div class="line-block">
 <div class="line"><code class="docutils literal notranslate"><span class="pre">ref</span></code> または <code class="docutils literal notranslate"><span class="pre">var</span></code> キーワードで参照渡しになります</div>
@@ -4154,8 +4421,8 @@ selend
 </div>
 </section>
 </section>
-<section id="id89">
-<h3>型の確認<a class="headerlink" href="#id89" title="この見出しへのパーマリンク">#</a></h3>
+<section id="id91">
+<h3>型の確認<a class="headerlink" href="#id91" title="この見出しへのパーマリンク">#</a></h3>
 <div class="line-block">
 <div class="line">COMオブジェクトをprintすることで型の名前を確認できます</div>
 <div class="line">オブジェクトがコレクションの場合は <code class="docutils literal notranslate"><span class="pre">型名[]</span></code> と表示されます</div>
@@ -4207,8 +4474,8 @@ selend
 </div>
 </section>
 </section>
-<section id="id90">
-<h2>リストの改行表記<a class="headerlink" href="#id90" title="この見出しへのパーマリンク">#</a></h2>
+<section id="id92">
+<h2>リストの改行表記<a class="headerlink" href="#id92" title="この見出しへのパーマリンク">#</a></h2>
 <div class="line-block">
 <div class="line">一部リスト表記 (<code class="docutils literal notranslate"><span class="pre">,</span></code> 区切りの式) で改行を含めることができます</div>
 <div class="line">従来では <code class="docutils literal notranslate"><span class="pre">_</span></code> による行連結が必要だったところを簡潔に記述できるようになりました</div>
@@ -4274,7 +4541,7 @@ selend
 <span class="kd">fend</span>
 
 <span class="c">// def_dll</span>
-<span class="n">def_dll</span><span class="w"> </span><span class="n">MessageBoxA</span><span class="p">(</span>
+<span class="kd">def_dll</span><span class="w"> </span><span class="n">MessageBoxA</span><span class="p">(</span>
 <span class="w">    </span><span class="n">hwnd</span><span class="o">,</span>
 <span class="w">    </span><span class="n">string</span><span class="o">,</span>
 <span class="w">    </span><span class="n">string</span><span class="o">,</span>
@@ -4305,8 +4572,8 @@ selend
 </pre></div>
 </div>
 </section>
-<section id="id91">
-<h2>値型<a class="headerlink" href="#id91" title="この見出しへのパーマリンク">#</a></h2>
+<section id="id93">
+<h2>値型<a class="headerlink" href="#id93" title="この見出しへのパーマリンク">#</a></h2>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -4623,22 +4890,24 @@ selend
 <li><a class="reference internal" href="#id58">ネストした構造体</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#about-callback">コールバック</a></li>
 <li><a class="reference internal" href="#about-dll-string-param">文字列型について</a></li>
 <li><a class="reference internal" href="#dll">DLL関数定義およびその呼び出し方の例</a></li>
+<li><a class="reference internal" href="#id61">別名による呼び出し例</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#id60">構造体</a><ul>
-<li><a class="reference internal" href="#id61">構造体定義</a></li>
-<li><a class="reference internal" href="#id62">構造体の利用方法</a><ul>
-<li><a class="reference internal" href="#id63">構造体の初期化</a></li>
-<li><a class="reference internal" href="#id64">構造体メンバへのアクセス</a></li>
-<li><a class="reference internal" href="#id65">構造体のメソッド</a></li>
-<li><a class="reference internal" href="#id66">ポインタから構造体を得る</a></li>
+<li><a class="reference internal" href="#id62">構造体</a><ul>
+<li><a class="reference internal" href="#id63">構造体定義</a></li>
+<li><a class="reference internal" href="#id64">構造体の利用方法</a><ul>
+<li><a class="reference internal" href="#id65">構造体の初期化</a></li>
+<li><a class="reference internal" href="#id66">構造体メンバへのアクセス</a></li>
+<li><a class="reference internal" href="#id67">構造体のメソッド</a></li>
+<li><a class="reference internal" href="#id68">ポインタから構造体を得る</a></li>
 </ul>
 </li>
 </ul>
 </li>
-<li><a class="reference internal" href="#id67">スレッド</a><ul>
+<li><a class="reference internal" href="#id69">スレッド</a><ul>
 <li><a class="reference internal" href="#thread">thread</a></li>
 </ul>
 </li>
@@ -4654,23 +4923,23 @@ selend
 </li>
 <li><a class="reference internal" href="#call">call</a><ul>
 <li><a class="reference internal" href="#uwsl">uwslファイルの読み込み</a></li>
-<li><a class="reference internal" href="#id71">uwslファイルについて</a><ul>
-<li><a class="reference internal" href="#id72">uwslファイル作成の流れ</a></li>
-<li><a class="reference internal" href="#id73">使用例</a></li>
+<li><a class="reference internal" href="#id73">uwslファイルについて</a><ul>
+<li><a class="reference internal" href="#id74">uwslファイル作成の流れ</a></li>
+<li><a class="reference internal" href="#id75">使用例</a></li>
 </ul>
 </li>
 </ul>
 </li>
-<li><a class="reference internal" href="#id74">例外処理</a><ul>
+<li><a class="reference internal" href="#id76">例外処理</a><ul>
 <li><a class="reference internal" href="#except">except例</a></li>
 <li><a class="reference internal" href="#finally">finally例</a></li>
 <li><a class="reference internal" href="#except-finally">except-finally例</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#id75">制御文</a><ul>
+<li><a class="reference internal" href="#id77">制御文</a><ul>
 <li><a class="reference internal" href="#if">if</a><ul>
-<li><a class="reference internal" href="#id76">単行if</a></li>
-<li><a class="reference internal" href="#id77">複数行if</a></li>
+<li><a class="reference internal" href="#id78">単行if</a></li>
+<li><a class="reference internal" href="#id79">複数行if</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#for">for</a></li>
@@ -4687,30 +4956,30 @@ selend
 </ul>
 </li>
 <li><a class="reference internal" href="#com">COMオブジェクト</a><ul>
-<li><a class="reference internal" href="#id78">プロパティの取得</a><ul>
-<li><a class="reference internal" href="#id79">プロパティ取得</a></li>
-<li><a class="reference internal" href="#id80">インデックス指定</a></li>
-<li><a class="reference internal" href="#id81">コレクションに対するインデックス指定</a></li>
+<li><a class="reference internal" href="#id80">プロパティの取得</a><ul>
+<li><a class="reference internal" href="#id81">プロパティ取得</a></li>
+<li><a class="reference internal" href="#id82">インデックス指定</a></li>
+<li><a class="reference internal" href="#id83">コレクションに対するインデックス指定</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#id82">プロパティの変更</a><ul>
-<li><a class="reference internal" href="#id83">代入</a></li>
-<li><a class="reference internal" href="#id84">インデックス指定による代入</a></li>
+<li><a class="reference internal" href="#id84">プロパティの変更</a><ul>
+<li><a class="reference internal" href="#id85">代入</a></li>
+<li><a class="reference internal" href="#id86">インデックス指定による代入</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#id85">メソッドの実行</a><ul>
-<li><a class="reference internal" href="#id86">名前なし引数</a></li>
-<li><a class="reference internal" href="#id87">名前付き引数</a></li>
-<li><a class="reference internal" href="#id88">参照渡し</a></li>
+<li><a class="reference internal" href="#id87">メソッドの実行</a><ul>
+<li><a class="reference internal" href="#id88">名前なし引数</a></li>
+<li><a class="reference internal" href="#id89">名前付き引数</a></li>
+<li><a class="reference internal" href="#id90">参照渡し</a></li>
 <li><a class="reference internal" href="#wmi">一部のWMIオブジェクトのメソッドについて</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#id89">型の確認</a></li>
+<li><a class="reference internal" href="#id91">型の確認</a></li>
 <li><a class="reference internal" href="#com-err-ign-com-err-ret">COM_ERR_IGN-COM_ERR_RET</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#id90">リストの改行表記</a></li>
-<li><a class="reference internal" href="#id91">値型</a></li>
+<li><a class="reference internal" href="#id92">リストの改行表記</a></li>
+<li><a class="reference internal" href="#id93">値型</a></li>
 </ul>
 </li>
 </ul>
