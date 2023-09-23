@@ -2,9 +2,9 @@
 authors = ["stuncloud <stuncloud@gmail.com>"]
 edition = "2021"
 name = "uwscr"
-version = "0.13.0"
+version = "0.13.1"
 build = "build.rs"
-rust-version = "1.70"
+rust-version = "1.72.1"
 
 [features]
 default = []
