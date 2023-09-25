@@ -15,6 +15,7 @@ UWSCR |version| オンラインヘルプ
     :maxdepth: 2
     :caption: 使い方
 
+    usage/installation
     usage/how_to_run
     usage/settings
     usage/how_to_build

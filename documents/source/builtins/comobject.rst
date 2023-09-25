@@ -120,6 +120,7 @@ VARIANT
         excel.ActiveCell.value = date
 
 .. function:: vartype(COMオブジェクト, プロパティ名)
+    :noindex:
 
     | COMオブジェクトのプロパティが返す値のVariant型を得ます
 
