@@ -249,6 +249,29 @@ impl Environment {
         .map_or(Object::Empty, |o| Object::String(o.name.to_string()))
     }
 
+    pub fn find_const(&self, value: Object, hint: Option<String>) -> Option<String> {
+        match hint {
+            Some(hint) => {
+                let key = hint.to_ascii_uppercase();
+                self.global.lock().unwrap().iter()
+                    .find(|o| {
+                        o.container_type == ContainerType::BuiltinConst &&
+                        o.name.contains(&key) &&
+                        o.object == value
+                    } )
+                    .map(|o| o.name.clone())
+            },
+            None => {
+                self.global.lock().unwrap().iter()
+                    .find(|o| {
+                        o.container_type == ContainerType::BuiltinConst &&
+                        o.object == value
+                    } )
+                    .map(|o| o.name.clone())
+            },
+        }
+    }
+
     // 変数評価の際に呼ばれる
     pub fn get_variable(&self, name: &str, expand: bool) -> Option<Object> {
         let obj = match self.get(&name, ContainerType::Variable) {

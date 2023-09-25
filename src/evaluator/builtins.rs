@@ -967,6 +967,7 @@ fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("list_env", 0, list_env);
     sets.add("list_module_member", 1, list_module_member);
     sets.add("name_of", 1, name_of);
+    sets.add("const_as_string", 2, const_as_string);
     sets.add("assert_equal", 2, assert_equal);
     sets.add("raise", 2, raise);
     sets.add("type_of", 2, type_of);
@@ -1002,6 +1003,13 @@ pub fn name_of(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncR
         Object::Empty
     };
     Ok(name)
+}
+
+pub fn const_as_string(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let value = args.get_as_object(0, None)?;
+    let hint = args.get_as_string_or_empty(1)?;
+    let name = evaluator.env.find_const(value, hint);
+    Ok(name.into())
 }
 
 pub fn get_settings(_: &mut Evaluator, _: BuiltinFuncArgs) -> BuiltinFuncResult {

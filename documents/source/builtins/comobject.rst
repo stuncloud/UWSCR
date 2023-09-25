@@ -132,54 +132,9 @@ VARIANT
 
         excel = getactiveoleobj("Excel.Application")
         // アクティブセルの型を調べる
-        select vt := vartype(excel.activecell, "value")
-          case VAR_EMPTY
-              PRINT "VAR_EMPTY"
-          case VAR_NULL
-              PRINT "VAR_NULL"
-          case VAR_SMALLINT
-              PRINT "VAR_SMALLINT"
-          case VAR_INTEGER
-              PRINT "VAR_INTEGER"
-          case VAR_SINGLE
-              PRINT "VAR_SINGLE"
-          case VAR_DOUBLE
-              PRINT "VAR_DOUBLE"
-          case VAR_CURRENCY
-              PRINT "VAR_CURRENCY"
-          case VAR_DATE
-              PRINT "VAR_DATE"
-          case VAR_BSTR
-              PRINT "VAR_BSTR"
-          case VAR_DISPATCH
-              PRINT "VAR_DISPATCH"
-          case VAR_ERROR
-              PRINT "VAR_ERROR"
-          case VAR_BOOLEAN
-              PRINT "VAR_BOOLEAN"
-          case VAR_VARIANT
-              PRINT "VAR_VARIANT"
-          case VAR_UNKNOWN
-              PRINT "VAR_UNKNOWN"
-          case VAR_SBYTE
-              PRINT "VAR_SBYTE"
-          case VAR_BYTE
-              PRINT "VAR_BYTE"
-          case VAR_WORD
-              PRINT "VAR_WORD"
-          case VAR_DWORD
-              PRINT "VAR_DWORD"
-          case VAR_INT64
-              PRINT "VAR_INT64"
-          case VAR_ASTR
-              PRINT "VAR_ASTR"
-          case VAR_USTR
-              PRINT "VAR_USTR"
-          case VAR_UWSCR
-              PRINT "VAR_UWSCR"
-          default
-              print "その他の型: <#vt>"
-      selend
+        vt = vartype(excel.activecell, "value")
+        // 得た値をVAR_定数名に変換
+        print const_as_string(vt, "VAR_")
 
 VAR定数
 ^^^^^^^
