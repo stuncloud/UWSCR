@@ -45,9 +45,12 @@ winget upgrade UWSCR
 winget upgrade --id stuncloud.uwscr
 ```
 
-`uwscr.exe` のインストール先は以下です
+`uwscr.exe` のインストール先は以下のいずれかです
 
 - `%LOCALAPPDATA%\Microsoft\WinGet\Packages\stuncloud.uwscr_Microsoft.Winget.Source_8wekyb3d8bbwe\`
+    - `8wekyb3d8bbwe`の部分は変更される場合があります
+- `%LOCALAPPDATA%\Microsoft\WinGet\Links\`
+    - 上記パスに置かれたuwscr.exeのシンボリックリンクが置かれます
 
 インストール時にこのパスがユーザー環境変数 `%PATH%` に登録されます  
 実行環境(PowerShellやExplorer)の再起動を行うことでどこからでも `uwscr.exe` を実行できるようになります  
