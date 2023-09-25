@@ -314,6 +314,7 @@ impl ComObject {
         }
     }
     /// プロパティの値を取得
+    ///
     /// obj.prop
     pub fn get_property(&self, prop: &str) -> ComResult<Object> {
         let variant = self.get_raw_property(prop)?;
@@ -329,7 +330,12 @@ impl ComObject {
         let disp = variant.to_idispatch()?;
         Ok(Self::from(disp))
     }
+    pub fn get_prop_vt(&self, prop: &str) -> ComResult<u16> {
+        let variant = self.get_raw_property(prop)?;
+        Ok(variant.vt().0)
+    }
     /// プロパティへの代入
+    ///
     /// obj.prop = value
     pub fn set_property(&self, prop: &str, value: Object) -> ComResult<()> {
         let dispidmember = self.get_id_from_name(prop)?;

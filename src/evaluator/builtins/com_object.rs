@@ -147,23 +147,57 @@ pub fn getoleitem(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult
 
 fn vartype(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let obj = args.get_as_object(0, None)?;
-    let vt = args.get_as_int_or_empty::<u16>(1)?;
-    match (obj, vt) {
-        (Object::Variant(variant), Some(vt)) => {
-            let new = variant.change_type(vt)?;
-            Ok(new.into())
+    match args.get_as_int_or_string_or_empty::<u16>(1)? {
+        Some(two) => match two {
+            TwoTypeArg::T(prop) => {
+                match obj {
+                    Object::ComObject(com) => {
+                        match com.get_prop_vt(&prop) {
+                            Ok(vt) => Ok(vt.into()),
+                            Err(_) => Ok(Object::Empty),
+                        }
+                    },
+                    _ => Ok(Object::Empty)
+                }
+            },
+            TwoTypeArg::U(vt) => {
+                match obj {
+                    Object::Variant(v) => {
+                        let new = v.change_type(vt)?;
+                        Ok(new.into())
+                    }
+                    obj => {
+                        let v = Variant::try_from(obj)?;
+                        let new = v.change_type(vt)?;
+                        Ok(new.into())
+                    }
+                }
+            },
         },
-        (Object::Variant(variant), None) => {
-            let vt = variant.get_type();
-            Ok(vt.into())
-        }
-        (obj, Some(vt)) => {
-            let variant = Variant::try_from(obj)?;
-            let new = variant.change_type(vt)?;
-            Ok(new.into())
+        None => match obj {
+            Object::Variant(v) => {
+                let vt = v.get_type();
+                Ok(vt.into())
+            },
+            _ => Ok(VarType::VAR_UWSCR.into())
         },
-        (_, None) => Ok(VarType::VAR_UWSCR.into())
     }
+    // match (obj, vt) {
+    //     (Object::Variant(variant), Some(vt)) => {
+    //         let new = variant.change_type(vt)?;
+    //         Ok(new.into())
+    //     },
+    //     (Object::Variant(variant), None) => {
+    //         let vt = variant.get_type();
+    //         Ok(vt.into())
+    //     }
+    //     (obj, Some(vt)) => {
+    //         let variant = Variant::try_from(obj)?;
+    //         let new = variant.change_type(vt)?;
+    //         Ok(new.into())
+    //     },
+    //     (_, None) => Ok(VarType::VAR_UWSCR.into())
+    // }
 }
 
 fn safearray(_: &mut Evaluator, _args: BuiltinFuncArgs) -> BuiltinFuncResult {

@@ -613,6 +613,29 @@ impl BuiltinFuncArgs {
             Ok(result)
         })
     }
+    pub fn get_as_int_or_string_or_empty<T>(&self, i: usize) -> BuiltInResult<Option<TwoTypeArg<String, T>>>
+        where T: FromPrimitive
+    {
+        self.get_arg_with_required_flag(i, false, |arg| {
+            match arg {
+                Object::Num(n) => {
+                    let t = T::from_f64(n)
+                        .map(|t| TwoTypeArg::U(t))
+                        .ok_or(BuiltinFuncError::new(UErrorMessage::CastError2(n, std::any::type_name::<T>().into())))?;
+                    Ok(Some(t))
+                },
+                Object::Bool(b) => {
+                    let t = T::from_i32(b as i32)
+                        .map(|t| TwoTypeArg::U(t))
+                        .ok_or(BuiltinFuncError::new(UErrorMessage::CastError2(b as i32 as f64, std::any::type_name::<T>().into())))?;
+                    Ok(Some(t))
+                },
+                Object::Empty |
+                Object::EmptyParam => Ok(None),
+                obj => Ok(Some(TwoTypeArg::T(obj.to_string())))
+            }
+        })
+    }
 
     pub fn get_as_string_or_bytearray(&self, i: usize) -> BuiltInResult<TwoTypeArg<String, Vec<u8>>> {
         self.get_arg(i, |arg| {
