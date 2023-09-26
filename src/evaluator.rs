@@ -126,9 +126,15 @@ impl Evaluator {
 
     pub fn eval(&mut self, program: Program, clear: bool) -> EvalResult<Option<Object>> {
         let mut result = None;
-        let Program(program_block, mut lines) = program;
+        let Program { global, script, mut lines } = program;
         self.lines.append(&mut lines);
-        for statement in program_block {
+
+        // グローバル定義を評価
+        for statement in global {
+            self.eval_statement(statement)?;
+        }
+        // スクリプト実行部分の評価
+        for statement in script {
             let res = stacker::maybe_grow(2 * 1024 * 1024, 20*1024*1024, || {
                 self.eval_statement(statement)
             });
@@ -444,7 +450,8 @@ impl Evaluator {
             },
             Statement::Print(e) => self.eval_print_statement(e),
             Statement::Call(block, args) => {
-                let Program(body, _) = block;
+                // let Program(body, _) = block;
+                let Program { global:_, script, lines:_ } = block;
                 let params = vec![
                     FuncParam::new(Some("PARAM_STR".into()), ParamKind::Identifier)
                 ];
@@ -452,12 +459,8 @@ impl Evaluator {
                 let arguments = vec![
                     (Some(params_str.clone()), self.eval_expression(params_str)?)
                 ];
-                let func = Function::new_call(params, body);
-                let result = match func.invoke(self, arguments,) {
-                    Ok(_) => Ok(None),
-                    Err(e) => Err(e),
-                };
-                result
+                let func = Function::new_call(params, script);
+                func.invoke(self, arguments).map(|_| None)
             },
             Statement::DefDll{name, alias, params, ret_type, path} => {
                 let params = DefDll::convert_params(params, self)?;
@@ -2112,24 +2115,23 @@ impl Evaluator {
         }
     }
     pub fn invoke_eval_script(&mut self, script: &str) -> EvalResult<Object> {
-        let mut parser = Parser::new(Lexer::new(script));
-        let program = parser.parse();
-        let errors = parser.get_errors();
-        if errors.len() > 0 {
-            let mut parse_errors = String::new();
-            for pe in &errors {
-                if parse_errors.len() > 0 {
-                    parse_errors = format!("{}, {}", parse_errors, pe);
-                } else {
-                    parse_errors = format!("{}", pe);
-                }
-            }
-            Err(UError::new(
-                UErrorKind::EvalParseErrors(errors.len()),
-                UErrorMessage::ParserErrors(parse_errors),
-            ))
-        } else {
-            self.eval(program, false).map(|o| o.unwrap_or_default())
+        let parser = Parser::new(Lexer::new(script));
+        match parser.parse() {
+            Ok(program) => {
+                self.eval(program, false).map(|o| o.unwrap_or_default())
+            },
+            Err(errors) => {
+                let count = errors.len();
+                let errors = errors.into_iter()
+                    .map(|e| e.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+
+                Err(UError::new(
+                    UErrorKind::EvalParseErrors(count),
+                    UErrorMessage::ParserErrors(errors),
+                ))
+            },
         }
     }
     pub fn invoke_qsort_update(&mut self, expr: Option<Expression>, array: Vec<Object>, exprs: [Option<Expression>; 8], arrays: [Option<Vec<Object>>; 8]) -> EvalResult<()> {
@@ -2885,28 +2887,38 @@ mod tests {
 
     fn eval_test(input: &str, expected: Result<Option<Object>, UError>, ast: bool) {
         let mut e = Evaluator::new(Environment::new(vec![]));
-        let program = Parser::new(Lexer::new(input)).parse();
-        if ast {
-            println!("{:?}", program);
-        }
-        let result = e.eval(program, true);
-        match expected {
-            Ok(expected_obj) => match result {
-                Ok(result_obj) => if result_obj.is_some() && expected_obj.is_some() {
-                    let left = result_obj.unwrap();
-                    let right = expected_obj.unwrap();
-                    if ! left.is_equal(&right) {
-                        panic!("\nresult: {:?}\nexpected: {:?}\n\n{}", left, right, input);
-                    }
-                } else if result_obj.is_some() || expected_obj.is_some() {
-                    // どちらかがNone
-                    panic!("\nresult: {:?}\nexpected: {:?}\n\n{}", result_obj, expected_obj, input);
-                },
-                Err(e) => panic!("this test should be ok: {}\n error: {}", input, e),
+        match Parser::new(Lexer::new(input)).parse() {
+            Ok(program) => {
+                if ast {
+                    println!("{:?}", program);
+                }
+                let result = e.eval(program, true);
+                match expected {
+                    Ok(expected_obj) => match result {
+                        Ok(result_obj) => if result_obj.is_some() && expected_obj.is_some() {
+                            let left = result_obj.unwrap();
+                            let right = expected_obj.unwrap();
+                            if ! left.is_equal(&right) {
+                                panic!("\nresult: {:?}\nexpected: {:?}\n\n{}", left, right, input);
+                            }
+                        } else if result_obj.is_some() || expected_obj.is_some() {
+                            // どちらかがNone
+                            panic!("\nresult: {:?}\nexpected: {:?}\n\n{}", result_obj, expected_obj, input);
+                        },
+                        Err(e) => panic!("this test should be ok: {}\n error: {}", input, e),
+                    },
+                    Err(expected_err) => match result {
+                        Ok(_) => panic!("this test should occure error:\n{}", input),
+                        Err(result_err) => assert_eq!(result_err, expected_err),
+                    },
+                }
             },
-            Err(expected_err) => match result {
-                Ok(_) => panic!("this test should occure error:\n{}", input),
-                Err(result_err) => assert_eq!(result_err, expected_err),
+            Err(errors) => {
+                eprintln!("{} parser errors on eval_test", errors.len());
+                for error in errors {
+                    eprintln!("{error}");
+                }
+                panic!("\nParse Error:\n{input}");
             },
         }
     }
@@ -2914,37 +2926,57 @@ mod tests {
 
     // 変数とか関数とか予め定義しておく
     fn eval_env(input: &str) -> Evaluator {
-        let program = Parser::new(Lexer::new(input)).parse();
-        let mut e = Evaluator::new(Environment::new(vec![]));
-        match e.eval(program, false) {
-            Ok(_) => e,
-            Err(err) => panic!("\nError:\n{:#?}\ninput:\n{}\n", err, input)
+        match Parser::new(Lexer::new(input)).parse() {
+            Ok(program) => {
+                let mut e = Evaluator::new(Environment::new(vec![]));
+                match e.eval(program, false) {
+                    Ok(_) => e,
+                    Err(err) => panic!("\nError:\n{:#?}\ninput:\n{}\n", err, input)
+                }
+            },
+            Err(errors) => {
+                eprintln!("{} parser errors on eval_env", errors.len());
+                for error in errors {
+                    eprintln!("{error}");
+                }
+                panic!("\nParse Error:\n{input}");
+            },
         }
     }
 
     //
     fn eval_test_with_env(e: &mut Evaluator, input: &str, expected: Result<Option<Object>, UError>) {
-        let program = Parser::new(Lexer::new(input)).parse();
-        let result = e.eval(program, false);
-        match expected {
-            Ok(expected_obj) => match result {
-                Ok(result_obj) => if result_obj.is_some() && expected_obj.is_some() {
-                    let left = result_obj.unwrap();
-                    let right = expected_obj.unwrap();
-                    if ! left.is_equal(&right) {
-                        panic!("\nresult: {:?}\nexpected: {:?}\n\ninput: {}\n", left, right, input);
-                    }
-                } else {
-                    // どちらかがNone
-                    panic!("\nresult: {:?}\nexpected: {:?}\n\ninput: {}\n", result_obj, expected_obj, input);
-                },
-                Err(e) => panic!("this test should be ok: {}\n error: {}\n", input, e),
+        match Parser::new(Lexer::new(input)).parse() {
+            Ok(program) => {
+                let result = e.eval(program, false);
+                match expected {
+                    Ok(expected_obj) => match result {
+                        Ok(result_obj) => if result_obj.is_some() && expected_obj.is_some() {
+                            let left = result_obj.unwrap();
+                            let right = expected_obj.unwrap();
+                            if ! left.is_equal(&right) {
+                                panic!("\nresult: {:?}\nexpected: {:?}\n\ninput: {}\n", left, right, input);
+                            }
+                        } else {
+                            // どちらかがNone
+                            panic!("\nresult: {:?}\nexpected: {:?}\n\ninput: {}\n", result_obj, expected_obj, input);
+                        },
+                        Err(e) => panic!("this test should be ok: {}\n error: {}\n", input, e),
+                    },
+                    Err(expected_err) => match result {
+                        Ok(_) => panic!("this test should occure error:\n{}", input),
+                        Err(result_err) => if result_err != expected_err {
+                            panic!("\nresult: {}\nexpected: {}\n\ninput: {}\n", result_err, expected_err, input);
+                        },
+                    },
+                }
             },
-            Err(expected_err) => match result {
-                Ok(_) => panic!("this test should occure error:\n{}", input),
-                Err(result_err) => if result_err != expected_err {
-                    panic!("\nresult: {}\nexpected: {}\n\ninput: {}\n", result_err, expected_err, input);
-                },
+            Err(errors) => {
+                eprintln!("{} parser errors on eval_test_with_env", errors.len());
+                for error in errors {
+                    eprintln!("{error}");
+                }
+                panic!("\nParse Error:\n{input}");
             },
         }
     }
@@ -4216,7 +4248,7 @@ public pub_and_const = 1
 const pub_and_const = 2
                 "#,
                 Err(UError::new(
-                    UErrorKind::DefinitionError(DefinitionType::Const),
+                    UErrorKind::DefinitionError(DefinitionType::Public),
                     UErrorMessage::AlreadyDefined("pub_and_const".into())
                 ))
             ),

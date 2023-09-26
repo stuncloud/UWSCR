@@ -1057,38 +1057,46 @@ mod tests {
     fn new_evaluator(input: Option<&str>) -> Evaluator {
         let mut e = Evaluator::new(Environment::new(vec![]));
         if let Some(input) = input {
-            let program = Parser::new(Lexer::new(input)).parse();
-            if let Err(err) = e.eval(program, false) {
-                panic!("\nError:\n{:#?}\ninput:\n{}\n", err, input);
+            match Parser::new(Lexer::new(input)).parse() {
+                Ok(program) => {
+                    if let Err(err) = e.eval(program, false) {
+                        panic!("\nError:\n{:#?}\ninput:\n{}\n", err, input);
+                    }
+                },
+                Err(err) => panic!("{err:#?}"),
             }
         }
         e
     }
 
     fn builtin_test(e: &mut Evaluator, input: &str, expected: EvalResult<Option<Object>>) {
-        let program = Parser::new(Lexer::new(input)).parse();
-        let result = e.eval(program, false);
-        match expected {
-            Ok(expected_obj) => match result {
-                Ok(result_obj) => if result_obj.is_some() && expected_obj.is_some() {
-                    let left = result_obj.unwrap();
-                    let right = expected_obj.unwrap();
-                    if ! left.is_equal(&right) {
-                        panic!("\nresult: {:?}\nexpected: {:?}\n\ninput: {}\n", left, right, input);
-                    }
-                } else if result_obj.is_some() || expected_obj.is_some() {
-                    // どちらかがNone
-                    panic!("\nresult: {:?}\nexpected: {:?}\n\ninput: {}\n", result_obj, expected_obj, input);
-                },
-                Err(e) => panic!("this test should be ok: {}\n error: {}\n", input, e),
+        match Parser::new(Lexer::new(input)).parse() {
+            Ok(program) => {
+                let result = e.eval(program, false);
+                match expected {
+                    Ok(expected_obj) => match result {
+                        Ok(result_obj) => if result_obj.is_some() && expected_obj.is_some() {
+                            let left = result_obj.unwrap();
+                            let right = expected_obj.unwrap();
+                            if ! left.is_equal(&right) {
+                                panic!("\nresult: {:?}\nexpected: {:?}\n\ninput: {}\n", left, right, input);
+                            }
+                        } else if result_obj.is_some() || expected_obj.is_some() {
+                            // どちらかがNone
+                            panic!("\nresult: {:?}\nexpected: {:?}\n\ninput: {}\n", result_obj, expected_obj, input);
+                        },
+                        Err(e) => panic!("this test should be ok: {}\n error: {}\n", input, e),
+                    },
+                    Err(expected_err) => match result {
+                        Ok(_) => panic!("this test should occure error:\n{}", input),
+                        Err(result_err) => if result_err != expected_err {
+                            panic!("\nresult: {:?}\nexpected: {:?}\n\ninput: {}\n", result_err, expected_err, input);
+                        },
+                    },
+                }
             },
-            Err(expected_err) => match result {
-                Ok(_) => panic!("this test should occure error:\n{}", input),
-                Err(result_err) => if result_err != expected_err {
-                    panic!("\nresult: {:?}\nexpected: {:?}\n\ninput: {}\n", result_err, expected_err, input);
-                },
-            },
-        }
+            Err(err) => panic!("{err:#?}"),
+        };
     }
 
     #[test]

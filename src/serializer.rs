@@ -2,23 +2,25 @@ use crate::ast::Program;
 use crate::parser::Parser;
 use crate::lexer::Lexer;
 
-use std::io::{Read};
+use std::io::Read;
 use std::fs;
 use std::path::PathBuf;
 
 pub fn serialize(script: String) -> Option<Vec<u8>> {
-    let mut parser = Parser::new(Lexer::new(&script));
-    let program = parser.parse();
-    let errors = parser.get_errors();
-    if errors.len() > 0 {
-        eprintln!("got {} parse error{}", errors.len(), if errors.len()>1 {"s"} else {""});
-        for err in errors {
-            eprintln!("{}", err);
-        }
-        eprintln!("");
-        return None;
+    let parser = Parser::new(Lexer::new(&script));
+    match parser.parse() {
+        Ok(program) => {
+            bincode::serialize(&program).ok()
+        },
+        Err(errors) => {
+            eprintln!("got {} parse error{}", errors.len(), if errors.len()>1 {"s"} else {""});
+            for err in errors {
+                eprintln!("{}", err);
+            }
+            eprintln!("");
+            None
+        },
     }
-    bincode::serialize(&program).ok()
 }
 
 pub fn save(path: PathBuf, bin: Vec<u8>) {

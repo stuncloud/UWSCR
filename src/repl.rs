@@ -55,23 +55,24 @@ pub fn run(script: Option<String>, exe_path: String, script_path: Option<String>
     let mut evaluator = Evaluator::new(env);
     if script.is_some() {
         println!("loading script...");
-        let mut parser = Parser::new(Lexer::new(&script.unwrap()));
-        let program = parser.parse();
-        let errors = parser.get_errors();
-        if errors.len() > 0 {
-            for error in errors {
-                eprintln!("{}", error);
-            }
-            return;
-        } else {
-            match evaluator.eval(program, false) {
-                Err(e) => {
-                    eprintln!("{}", e);
-                    return;
-                },
-                _ => ()
-            }
-            println!("script loaded.");
+        let parser = Parser::new(Lexer::new(&script.unwrap()));
+        match parser.parse() {
+            Ok(program) => {
+                match evaluator.eval(program, false) {
+                    Err(e) => {
+                        eprintln!("{}", e);
+                        return;
+                    },
+                    _ => ()
+                }
+                println!("script loaded.");
+            },
+            Err(errors) => {
+                for error in errors {
+                    eprintln!("{}", error);
+                }
+                return;
+            },
         }
     }
     let mut require_newline = false;
@@ -93,35 +94,36 @@ pub fn run(script: Option<String>, exe_path: String, script_path: Option<String>
         } else {
             buf
         };
-        let mut parser = Parser::new(Lexer::new(&input));
-        let program = parser.parse();
-        let errors = parser.get_errors();
-        if errors.len() > 0 {
-            for error in errors {
-                match error.clone().get_kind() {
-                    ParseErrorKind::InvalidBlockEnd(_,_) => {
-                        multiline = input.clone();
-                        require_newline = true;
-                        continue;
-                    },
-                    _ => {
-                        eprintln!("{}", error);
-                        require_newline = false;
+        let parser = Parser::new(Lexer::new(&input));
+        match parser.parse() {
+            Ok(program) => {
+                match evaluator.eval(program, false) {
+                    Ok(Some(Object::Exit)) => {
+                        evaluator.clear();
+                        println!("bye!");
                         break;
+                    },
+                    Ok(Some(o)) => println!("{}", o),
+                    Ok(None) => (),
+                    Err(e) => println!("{}", e),
+                }
+            },
+            Err(errors) => {
+                for error in errors {
+                    match error.clone().get_kind() {
+                        ParseErrorKind::InvalidBlockEnd(_,_) => {
+                            multiline = input.clone();
+                            require_newline = true;
+                            continue;
+                        },
+                        _ => {
+                            eprintln!("{}", error);
+                            require_newline = false;
+                            break;
+                        }
                     }
                 }
-            }
-        } else {
-            match evaluator.eval(program, false) {
-                Ok(Some(Object::Exit)) => {
-                    evaluator.clear();
-                    println!("bye!");
-                    break;
-                },
-                Ok(Some(o)) => println!("{}", o),
-                Ok(None) => (),
-                Err(e) => println!("{}", e),
-            }
+            },
         }
     }
 }

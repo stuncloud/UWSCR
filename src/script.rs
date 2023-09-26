@@ -12,16 +12,10 @@ use crate::winapi::{
 };
 use crate::error::UWSCRErrorTitle;
 use windows::{
-    core::{PWSTR},
+    core::PWSTR,
     Win32::{
-        Foundation::{
-            MAX_PATH,
-        },
-        Storage::{
-            FileSystem::{
-                GetFullPathNameW,
-            }
-        }
+        Foundation::MAX_PATH,
+        Storage::FileSystem::GetFullPathNameW
     }
 };
 use crate::logging;
@@ -65,14 +59,13 @@ pub fn run(script: String, exe_path: &str, script_path: &str, params: Vec<String
 
     let mut parser = Parser::new(Lexer::new(&script));
     parser.set_script_dir(script_dir);
-    let program = parser.parse();
-    let errors = parser.get_errors();
-    if errors.len() > 0 {
-        return Err(ScriptError(
-            UWSCRErrorTitle::StatementError,
-            errors.into_iter().map(|e| format!("{}", e)).collect()
-        ));
-    }
+    let program = parser.parse()
+        .map_err(|errors| {
+            ScriptError(
+                UWSCRErrorTitle::StatementError,
+                errors.into_iter().map(|e| e.to_string() ).collect()
+            )
+        })?;
 
     // このスレッドでのCOMを有効化
     let com = match Com::init() {
@@ -105,12 +98,9 @@ pub fn run(script: String, exe_path: &str, script_path: &str, params: Vec<String
 }
 
 pub fn run_code(code: String) -> Result<(), Vec<String>> {
-    let mut parser = Parser::new(Lexer::new(&code));
-    let program = parser.parse();
-    let errors = parser.get_errors();
-    if errors.len() > 0 {
-        return Err(errors.into_iter().map(|e| format!("{}", e)).collect());
-    }
+    let parser = Parser::new(Lexer::new(&code));
+    let program = parser.parse()
+        .map_err(|errors| errors.into_iter().map(|err| err.to_string()).collect::<Vec<_>>() )?;
 
     // このスレッドでのCOMを有効化
     let com = match Com::init() {
@@ -147,13 +137,16 @@ pub fn out_ast(script: String, path: &String) -> Result<(String, Option<String>)
 
     let mut parser = Parser::new(Lexer::new(&script));
     parser.set_script_dir(script_dir);
-    let program = parser.parse();
-    let errors = parser.get_errors();
+    let builder = parser.parse_to_builder();
+    let errors = parser.as_errors();
+
     let err = if errors.len() > 0 {
         let emsg = errors.iter().map(|e| e.to_string()).collect::<Vec<_>>().join("\r\n");
         Some(format!("got {} parse error{}\r\n{}", errors.len(), if errors.len()>1 {"s"} else {""}, emsg))
     } else {None};
-    let ast = program.0.iter().map(|s| format!("{:?}", s)).collect::<Vec<_>>().join("\r\n");
+
+    let program = builder.build(vec![]);
+    let ast = format!("Global: {:?}\nScript: {:?}", program.global, program.script);
     Ok((ast, err))
 }
 

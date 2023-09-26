@@ -427,7 +427,86 @@ impl PartialEq for StatementWithRow {
 pub type BlockStatement = Vec<StatementWithRow>;
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-pub struct Program(pub BlockStatement, pub Vec<String>); // Vec<String>は行情報
+pub struct Program {
+    /// グローバル評価されるもの
+    pub global: BlockStatement,
+    /// 実行されるスクリプト
+    pub script: BlockStatement,
+    /// スクリプトの行情報
+    pub lines: Vec<String>
+}
+
+pub struct ProgramBuilder {
+    /// 定数
+    consts: BlockStatement,
+    /// パブリック変数
+    publics: BlockStatement,
+    /// OPTION定義
+    options: BlockStatement,
+    /// 関数等の定義
+    /// - function/procedure
+    /// - module/class
+    /// - struct
+    /// - def_dll
+    definitions: BlockStatement,
+    /// 実行される部分
+    script: BlockStatement,
+}
+impl ProgramBuilder {
+    pub fn new() -> Self {
+        Self { consts: vec![], publics: vec![], options: vec![], definitions: vec![], script: vec![] }
+    }
+    pub fn build(mut self, lines: Vec<String>) -> Program {
+        let mut global = vec![];
+        global.append(&mut self.consts);
+        global.append(&mut self.publics);
+        global.append(&mut self.options);
+        global.append(&mut self.definitions);
+        let script = self.script;
+        Program { global, script, lines }
+    }
+    pub fn push_const(&mut self, statement: StatementWithRow) {
+        self.consts.push(statement)
+    }
+    pub fn push_public(&mut self, statement: StatementWithRow) {
+        self.publics.push(statement)
+    }
+    pub fn push_option(&mut self, statement: StatementWithRow) {
+        self.options.push(statement)
+    }
+    pub fn push_def(&mut self, statement: StatementWithRow) {
+        self.definitions.push(statement)
+    }
+    pub fn push_script(&mut self, statement: StatementWithRow) {
+        self.script.push(statement)
+    }
+    /// callのProgramのグローバル定義を加える
+    pub fn set_call_program(&mut self, program: Program) -> Program {
+        for s in program.global {
+            match &s.statement {
+                Statement::Option(_) => {
+                    self.push_option(s);
+                },
+                Statement::Const(_) |
+                Statement::TextBlock(_, _) => {
+                    self.push_const(s);
+                },
+                Statement::Public(_) => {
+                    self.push_public(s);
+                },
+                Statement::Function { name:_, params:_, body:_, is_proc:_, is_async:_ } |
+                Statement::Module(_, _) |
+                Statement::Class(_, _) |
+                Statement::Struct(_, _) |
+                Statement::DefDll { name:_, alias:_, params:_, ret_type:_, path:_ } => {
+                    self.push_def(s);
+                },
+                _ => {}
+            }
+        }
+        Program { global: vec![], script: program.script, lines: program.lines }
+    }
+}
 
 #[derive(PartialEq, PartialOrd, Debug, Clone)]
 pub enum Precedence {

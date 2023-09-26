@@ -10,6 +10,7 @@ use std::env;
 use std::str::FromStr;
 
 pub type PareseErrors = Vec<ParseError>;
+pub type ParserResult<T> = Result<T, PareseErrors>;
 
 pub struct Parser {
     lexer: Lexer,
@@ -85,10 +86,6 @@ impl Parser {
             Token::Assign => Precedence::Assign,
             _ => Precedence::Lowest,
         }
-    }
-
-    pub fn get_errors(&mut self) -> PareseErrors {
-        self.errors.clone()
     }
 
     fn bump(&mut self) {
@@ -259,131 +256,94 @@ impl Parser {
         Self::token_to_precedence(&self.next_token.token)
     }
 
-    pub fn parse(&mut self) -> Program {
-        let mut program = vec![];
-        let mut pub_counter = 0;
-        let mut opt_counter = 0;
-        let mut func_counter = 0;
+    pub fn as_errors(self) -> PareseErrors {
+        self.errors
+    }
 
-        /*
-            グローバル定義をASTの上に移動する
-            1. 変数, 定数
-            2. OPTION
-            3. 関数
-            4. module, class, struct
-            5. def_dll
-                - def_dllはグローバルスコープで定義されるが実行中にその定義を変更できる
-                  そのためAST上部と元の位置の双方に置く必要がある
-            6. call (定義部分のみ)
-         */
+    pub fn parse(mut self) -> ParserResult<Program> {
+        let builder = self.parse_to_builder();
 
+        if self.errors.len() == 0 {
+            let program = builder.build(self.lexer.lines);
+            Ok(program)
+        } else {
+            Err(self.errors)
+        }
+    }
+    pub fn parse_to_builder(&mut self) -> ProgramBuilder {
+
+        let mut builder = ProgramBuilder::new();
 
         while ! self.is_current_token(&Token::Eof) {
             match self.parse_statement() {
                 Some(s) => match s.statement {
                     Statement::Option(_) => {
-                        program.insert(pub_counter + opt_counter, s);
-                        opt_counter += 1;
+                        builder.push_option(s);
                     },
-                    Statement::Public(_) |
                     Statement::Const(_) |
                     Statement::TextBlock(_, _) => {
-                        program.insert(pub_counter, s);
-                        pub_counter += 1;
+                        builder.push_const(s);
+                    },
+                    Statement::Public(_) => {
+                        builder.push_public(s);
                     },
                     Statement::Function{name, params, body, is_proc, is_async} => {
                         let mut new_body = Vec::new();
                         for row in body {
                             match row.statement {
-                                Statement::Public(_) |
                                 Statement::Const(_) |
                                 Statement::TextBlock(_, _) => {
-                                    program.insert(pub_counter, row);
-                                    pub_counter += 1;
+                                    builder.push_const(row);
                                 },
+                                Statement::Public(_) => {
+                                    builder.push_public(row);
+                                }
                                 Statement::DefDll { name:_, alias:_, params:_, ret_type:_, path:_ } => {
-                                    program.insert(pub_counter + opt_counter + func_counter, row.clone());
+                                    // グローバルに登録
+                                    builder.push_def(row.clone());
+                                    // スクリプトにも残る
                                     new_body.push(row);
-                                    func_counter += 1;
                                 },
                                 _ => new_body.push(row)
                             }
                         }
-                        program.insert(pub_counter + opt_counter + func_counter, StatementWithRow::new(
+                        let func = StatementWithRow::new(
                             Statement::Function {
                                 name, params, body: new_body, is_proc, is_async
                             },
                             s.row,
                             s.line,
                             s.script_name
-                        ));
-                        func_counter += 1;
+                        );
+                        builder.push_def(func);
                     },
                     Statement::DefDll { name:_, alias:_, params:_, ret_type:_, path:_ } => {
-                        program.insert(pub_counter + opt_counter + func_counter, s.clone());
-                        program.push(s);
-                        func_counter += 1;
+                        // グローバルに登録
+                        builder.push_def(s.clone());
+                        // スクリプトにも残る
+                        builder.push_script(s);
                     },
                     Statement::Module(_, _) |
-                    Statement::Class(_, _) => {
-                        program.insert(pub_counter + opt_counter + func_counter, s);
-                        func_counter += 1;
-                    },
+                    Statement::Class(_, _) |
                     Statement::Struct(_, _) => {
-                        program.insert(pub_counter + opt_counter + func_counter, s);
-                        func_counter += 1;
+                        builder.push_def(s);
                     },
-                    Statement::Call(call_program, params) => {
-                        let mut new_block = vec![];
-                        for statement in call_program.0 {
-                            match statement.statement {
-                                Statement::Option(_) => {
-                                    program.insert(pub_counter + opt_counter, statement);
-                                    opt_counter += 1;
-                                },
-                                Statement::Public(_) |
-                                Statement::Const(_) |
-                                Statement::TextBlock(_, _) => {
-                                    program.insert(pub_counter, statement);
-                                    pub_counter += 1;
-                                },
-                                Statement::Function{name:_,params:_,body:_,is_proc:_,is_async:_} |
-                                Statement::Module(_, _) |
-                                Statement::Class(_, _) => {
-                                    program.insert(pub_counter + opt_counter + func_counter, statement);
-                                    func_counter += 1;
-                                },
-                                Statement::Struct(_, _) => {
-                                    program.insert(pub_counter + opt_counter + func_counter, statement);
-                                    func_counter += 1;
-                                },
-                                Statement::DefDll { name:_, alias:_, params:_, ret_type:_, path:_ } => {
-                                    program.insert(pub_counter + opt_counter + func_counter, statement.clone());
-                                    program.push(statement);
-                                    func_counter += 1;
-                                },
-                                _ => new_block.push(statement)
-                            }
-                        }
-                        if new_block.len() > 0 {
-                            program.push(
-                                StatementWithRow::new(
-                                    Statement::Call(Program(new_block, call_program.1), params),
-                                    s.row,
-                                    s.line,
-                                    s.script_name
-                                )
-                            );
-                        }
+                    Statement::Call(program, params) => {
+                        let program = builder.set_call_program(program);
+                        let call_stmt = StatementWithRow::new(Statement::Call(program, params), s.row, s.line, s.script_name);
+                        builder.push_script(call_stmt);
                     },
-                    _ => program.push(s)
+                    _ => {
+                        // program.push(s)
+                        builder.push_script(s);
+                    }
                 },
                 None => {}
             }
             self.bump();
         }
 
-        Program(program, self.lexer.lines.to_owned())
+        builder
     }
 
     fn parse_block_statement(&mut self) -> BlockStatement {
@@ -898,18 +858,18 @@ impl Parser {
             }
         };
 
-        let mut call_parser = Parser::call(
+        let call_parser = Parser::call(
             Lexer::new(&script),
             name,
             dir
         );
-        let call_program = call_parser.parse();
-        let mut errors = call_parser.get_errors();
-        if errors.len() > 0 {
-            self.errors.append(&mut errors);
-            return None;
+        match call_parser.parse() {
+            Ok(program) => Some(Statement::Call(program, args)),
+            Err(mut e) => {
+                self.errors.append(&mut e);
+                None
+            },
         }
-        Some(Statement::Call(call_program, args))
     }
 
     fn parse_def_dll_statement(&mut self) -> Option<Statement> {
@@ -3197,7 +3157,7 @@ impl Parser {
 mod tests {
     use crate::ast::*;
     use crate::lexer::Lexer;
-    use crate::parser::Parser;
+    use crate::parser::{Parser, PareseErrors};
 
     impl StatementWithRow {
         fn new_expected(statement: Statement, row: usize) -> Self{
@@ -3205,33 +3165,44 @@ mod tests {
         }
     }
 
-    fn check_parse_errors(parser: &mut Parser, out: bool, input: &str, msg: &str) {
-        let errors = parser.get_errors();
-        if errors.len() > 0 {
-            println!("input: {input}");
-            if out {
-                println!("parser got {} errors", errors.len());
-                for error in errors {
-                    println!("{:?}", error);
-                }
+    fn print_errors(errors: PareseErrors, out: bool, input: &str, msg: &str) {
+        println!("input: {input}");
+        if out {
+            println!("parser got {} errors", errors.len());
+            for error in errors {
+                println!("{:?}", error);
             }
-            panic!("{msg}");
         }
-
+        panic!("{msg}");
     }
 
-    fn parser_test(input: &str, expected: Vec<StatementWithRow>) {
-        let mut parser = Parser::new(Lexer::new(input));
-        let program = parser.parse();
-        check_parse_errors(&mut parser, true, input, "parser error");
-        assert_eq!(program.0, expected);
+    /// - input: 入力
+    /// - expected_script: スクリプト部分
+    /// - expected_global: グローバル定義
+    fn parser_test(input: &str, expected_script: Vec<StatementWithRow>, expected_global: Vec<StatementWithRow>) {
+        let parser = Parser::new(Lexer::new(input));
+        match parser.parse() {
+            Ok(program) => {
+                assert_eq!(program.script, expected_script);
+                assert_eq!(program.global, expected_global);
+            },
+            Err(err) => {
+                print_errors(err, true, input, "parser error");
+            },
+        };
     }
 
     fn parser_panic_test(input: &str, expected: Vec<StatementWithRow>, msg: &str) {
-        let mut parser = Parser::new(Lexer::new(input));
-        let program = parser.parse();
-        check_parse_errors(&mut parser, false, input, msg);
-        assert_eq!(program.0, expected);
+        let parser = Parser::new(Lexer::new(input));
+        match parser.parse() {
+            Ok(program) => {
+                assert_eq!(program.script, expected);
+                // assert_eq!(program.global, expected_global);
+            },
+            Err(err) => {
+                print_errors(err, false, input, msg);
+            },
+        };
     }
 
     #[test]
@@ -3251,7 +3222,7 @@ print 2
                 Statement::Print(Expression::Literal(Literal::Num(2 as f64))),
                 5,
             ),
-        ])
+        ], vec![])
     }
 
     #[test]
@@ -3429,7 +3400,7 @@ print 2
         ];
         for (input, expected) in testcases {
             println!("{}", &input);
-            parser_test(input, expected);
+            parser_test(input, expected, vec![]);
         }
     }
 
@@ -3495,7 +3466,7 @@ print []
                 )),
                 9
             ),
-        ]);
+        ], vec![]);
     }
 
     #[test]
@@ -3529,7 +3500,7 @@ endif
                 },
                 2
             ),
-        ]);
+        ], vec![]);
     }
 
     #[test]
@@ -3604,7 +3575,7 @@ endif
             ),
         ];
         for (input, expected) in tests {
-            parser_test(input, expected);
+            parser_test(input, expected, vec![]);
         }
     }
 
@@ -3629,7 +3600,7 @@ endif
                 },
                 2
             )
-        ]);
+        ], vec![]);
     }
 
     #[test]
@@ -3665,7 +3636,7 @@ endif
                 },
                 2
             )
-        ]);
+        ], vec![]);
 
     }
 
@@ -3735,7 +3706,7 @@ endif
                 },
                 2
             )
-        ]);
+        ], vec![]);
     }
     #[test]
     fn test_elseif_without_else() {
@@ -3770,7 +3741,7 @@ endif
                 },
                 2
             )
-        ]);
+        ], vec![]);
     }
 
     #[test]
@@ -3881,7 +3852,7 @@ selend
             ),
         ];
         for (input, expected) in tests {
-            parser_test(input, expected);
+            parser_test(input, expected, vec![]);
         }
     }
 
@@ -3914,7 +3885,7 @@ selend
                 )),
                 4
             )
-        ]);
+        ], vec![]);
     }
 
     #[test]
@@ -4030,7 +4001,7 @@ selend
                 )),
                 13
             ),
-        ]);
+        ], vec![]);
 
     }
 
@@ -4621,7 +4592,7 @@ endif
             ),
         ];
         for (input, expected) in tests {
-            parser_test(input, expected);
+            parser_test(input, expected, vec![]);
         }
     }
 
@@ -4671,7 +4642,7 @@ endif
             ),
         ];
         for (input, expected) in tests {
-            parser_test(input, expected);
+            parser_test(input, expected, vec![]);
         }
     }
 
@@ -4853,7 +4824,7 @@ endfor
             ),
         ];
         for (input, expected) in tests {
-            parser_test(input, expected);
+            parser_test(input, expected, vec![]);
         }
     }
 
@@ -4919,7 +4890,7 @@ wend
                     ]
                 ), 2
             )
-        ]);
+        ], vec![]);
     }
 
     #[test]
@@ -4956,7 +4927,7 @@ until (a == b) and (c >= d)
                     ]
                 ), 2
             )
-        ]);
+        ], vec![]);
     }
 
     #[test]
@@ -5051,7 +5022,7 @@ until (a == b) and (c >= d)
             ),
         ];
         for (input, expected) in tests {
-            parser_test(input, expected);
+            parser_test(input, expected, vec![]);
         }
     }
 
@@ -5114,7 +5085,7 @@ until (a == b) and (c >= d)
             ),
         ];
         for (input, expected) in tests {
-            parser_test(input, expected);
+            parser_test(input, expected, vec![]);
         }
     }
 
@@ -5200,7 +5171,7 @@ until (a == b) and (c >= d)
             ),
         ];
         for (input, expected) in tests {
-            parser_test(input, expected);
+            parser_test(input, expected, vec![]);
         }
     }
 
@@ -5213,6 +5184,7 @@ function hoge(foo, bar, baz)
     result = foo + bar + baz
 fend
                 "#,
+                vec![],
                 vec![
                     StatementWithRow::new_expected(
                         Statement::Function {
@@ -5251,6 +5223,7 @@ fend
 procedure hoge(foo, var bar, baz[], qux = 1)
 fend
                 "#,
+                vec![],
                 vec![
                     StatementWithRow::new_expected(
                         Statement::Function {
@@ -5273,6 +5246,7 @@ fend
 procedure hoge(foo: string, var bar: Hoge, qux: number = 1)
 fend
                 "#,
+                vec![],
                 vec![
                     StatementWithRow::new_expected(
                         Statement::Function {
@@ -5294,6 +5268,7 @@ fend
 procedure hoge(ref foo, args bar)
 fend
                 "#,
+                vec![],
                 vec![
                     StatementWithRow::new_expected(
                         Statement::Function {
@@ -5319,6 +5294,17 @@ fend
                 "#,
                 vec![
                     StatementWithRow::new_expected(
+                        Statement::Print(Expression::FuncCall{
+                            func: Box::new(Expression::Identifier(Identifier("hoge".to_string()))),
+                            args: vec![
+                                Expression::Literal(Literal::Num(1.0)),
+                            ],
+                            is_await: false,
+                        }), 2
+                    )
+                ],
+                vec![
+                    StatementWithRow::new_expected(
                         Statement::Function {
                             name: Identifier("hoge".to_string()),
                             params: vec![
@@ -5338,16 +5324,7 @@ fend
                             is_async: false,
                         }, 4
                     ),
-                    StatementWithRow::new_expected(
-                        Statement::Print(Expression::FuncCall{
-                            func: Box::new(Expression::Identifier(Identifier("hoge".to_string()))),
-                            args: vec![
-                                Expression::Literal(Literal::Num(1.0)),
-                            ],
-                            is_await: false,
-                        }), 2
-                    )
-                ]
+                ],
             ),
             (
                 r#"
@@ -5375,7 +5352,8 @@ fend
                             }),
                         )), 2
                     )
-                ]
+                ],
+                vec![]
             ),
             (
                 r#"
@@ -5402,11 +5380,12 @@ fend
                             }),
                         )), 2
                     )
-                ]
+                ],
+                vec![]
             ),
         ];
-        for (input, expected) in tests {
-            parser_test(input, expected);
+        for (input, expected_script, expected_global) in tests {
+            parser_test(input, expected_script, expected_global);
         }
     }
 
@@ -5556,7 +5535,7 @@ func(
             ),
         ];
         for (input, expected) in tests {
-            parser_test(input, expected);
+            parser_test(input, expected, vec![]);
         }
     }
 
@@ -5613,7 +5592,7 @@ func(
             ),
         ];
         for (input, expected) in tests {
-            parser_test(input, expected);
+            parser_test(input, expected, vec![]);
         }
     }
 
@@ -5662,7 +5641,7 @@ func(
             ),
         ];
         for (input, expected) in tests {
-            parser_test(input, expected);
+            parser_test(input, expected, vec![]);
         }
     }
 
@@ -5808,10 +5787,7 @@ func(
             ),
         ];
         for (input, expected) in tests {
-            let st1 = expected[0].to_owned();
-            let st2 = st1.clone();
-            let expected = vec![st1, st2];
-            parser_test(input, expected);
+            parser_test(input, expected.clone(), expected);
         }
     }
 
@@ -5835,12 +5811,7 @@ fend
 
 public p3 = 1
         "#;
-        parser_test(input, vec![
-            StatementWithRow::new_expected(
-                Statement::Public(vec![
-                    (Identifier("p1".to_string()), Expression::Literal(Literal::Num(1.0)))
-                ]), 3
-            ),
+        let global = vec![
             StatementWithRow::new_expected(
                 Statement::Const(vec![
                     (Identifier("c1".to_string()), Expression::Literal(Literal::Num(1.0)))
@@ -5850,6 +5821,11 @@ public p3 = 1
                 Statement::Const(vec![
                     (Identifier("c2".to_string()), Expression::Literal(Literal::Num(1.0)))
                 ]), 5
+            ),
+            StatementWithRow::new_expected(
+                Statement::Public(vec![
+                    (Identifier("p1".to_string()), Expression::Literal(Literal::Num(1.0)))
+                ]), 3
             ),
             StatementWithRow::new_expected(
                 Statement::Public(vec![
@@ -5888,6 +5864,8 @@ public p3 = 1
                     is_async: false,
                 }, 13
             ),
+        ];
+        let script = vec![
             StatementWithRow::new_expected(
                 Statement::Dim(vec![
                     (Identifier("d1".to_string()), Expression::Literal(Literal::Num(1.0)))
@@ -5898,7 +5876,8 @@ public p3 = 1
                     (Identifier("d2".to_string()), Expression::Literal(Literal::Num(1.0)))
                 ]), 7
             ),
-        ]);
+        ];
+        parser_test(input, script, global);
     }
 
     #[test]
@@ -5922,7 +5901,7 @@ module Hoge
     fend
 endmodule
         "#;
-        parser_test(input, vec![
+        parser_test(input, vec![], vec![
             StatementWithRow::new_expected(
                 Statement::Module(
                     Identifier("Hoge".to_string()),
@@ -6032,7 +6011,7 @@ struct Hoge
     r: ref long
 endstruct
         "#;
-        parser_test(input, vec![
+        parser_test(input, vec![], vec![
             StatementWithRow::new_expected(
                 Statement::Struct(Identifier("Hoge".into()), vec![
                     ("x".into(), "long".into(), DefDllParamSize::None, false),
@@ -6051,7 +6030,7 @@ endstruct
 function hoge(foo: string, bar: BarEnum, baz: number = 1)
 fend
         "#;
-        parser_test(input, vec![
+        parser_test(input, vec![], vec![
             StatementWithRow::new_expected(
                 Statement::Function {
                     name: Identifier("hoge".into()),
@@ -6099,7 +6078,8 @@ fend
                         ]))),
                         2
                     )
-                ]
+                ],
+                vec![]
             ),
             ( // 関数呼び出し
                 r#"
@@ -6129,7 +6109,8 @@ fend
                         ]),
                         2
                     )
-                ]
+                ],
+                vec![]
             ),
             ( // 関数定義
                 r#"
@@ -6140,6 +6121,7 @@ fend
                 )
                 fend
                 "#,
+                vec![],
                 vec![
                     StatementWithRow::new_expected(
                         Statement::Function {
@@ -6183,6 +6165,8 @@ fend
                         },
                         2
                     ),
+                ],
+                vec![
                     StatementWithRow::new_expected(
                         Statement::DefDll {
                             name: "MessageBoxA".into(),
@@ -6201,8 +6185,8 @@ fend
                 ]
             ),
         ];
-        for (input, expected) in testcases {
-            parser_test(input, expected);
+        for (input, expected_script, expected_global) in testcases {
+            parser_test(input, expected_script, expected_global);
         }
     }
 
