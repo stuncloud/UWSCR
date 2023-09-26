@@ -53,6 +53,7 @@ pub enum ParseErrorKind {
     MissingIndex,
     InvalidHashMemberDefinition(Option<Expression>),
     InvalidCallUri(String),
+    ExplicitError(String),
 }
 
 #[derive(Debug, Clone)]
@@ -281,6 +282,10 @@ impl fmt::Display for ParseErrorKind {
                 "不正なスクリプト ({uri})",
                 "Invalid script uri: {uri}",
             ),
+            ParseErrorKind::ExplicitError(ident) => write_locale!(f,
+                "宣言されていない変数への代入です: {ident}",
+                "Variable '{ident}' is not defined",
+            ),
         }
     }
 }
@@ -288,6 +293,12 @@ impl fmt::Display for ParseErrorKind {
 impl ParseError {
     pub fn new(kind: ParseErrorKind, pos: Position, script_name: String) -> Self {
         ParseError {kind, pos, script_name}
+    }
+    pub fn new_explicit_error(ident: String, row: usize, script_name: Option<String>) -> Self {
+        let kind = ParseErrorKind::ExplicitError(ident);
+        let pos = Position { row, column: 0 };
+        let script_name = script_name.unwrap_or_default();
+        Self { kind, pos, script_name }
     }
 
     pub fn get_kind(self) -> ParseErrorKind {

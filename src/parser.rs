@@ -343,6 +343,9 @@ impl Parser {
             self.bump();
         }
 
+        let mut explicit_errors = builder.check_explicit();
+        self.errors.append(&mut explicit_errors);
+
         builder
     }
 
@@ -861,7 +864,7 @@ impl Parser {
         let call_parser = Parser::call(
             Lexer::new(&script),
             name,
-            dir
+            dir,
         );
         match call_parser.parse() {
             Ok(program) => Some(Statement::Call(program, args)),

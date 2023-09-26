@@ -4,6 +4,8 @@ use std::mem;
 
 use serde::{Serialize, Deserialize};
 
+use crate::error::parser::ParseError;
+
 #[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub struct Identifier(pub String);
 
@@ -195,6 +197,16 @@ pub enum Expression {
     Callback,
 }
 
+impl Expression {
+    fn get_identifier(&self) -> Option<String> {
+        match self {
+            Expression::Identifier(Identifier(ident)) => Some(ident.clone()),
+            Expression::Index(e, _, _) => e.get_identifier(),
+            _ => None,
+        }
+    }
+}
+
 impl fmt::Display for Expression {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -357,6 +369,15 @@ pub enum Statement {
     ComErrIgn,
     ComErrRet,
 }
+impl Statement {
+    fn is_explicit(&self) -> bool {
+        if let Statement::Option(OptionSetting::Explicit(b)) = self {
+            *b
+        } else {
+            false
+        }
+    }
+}
 
 #[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub struct UEnum {
@@ -505,6 +526,118 @@ impl ProgramBuilder {
             }
         }
         Program { global: vec![], script: program.script, lines: program.lines }
+    }
+
+    pub fn is_explicit(&self) -> bool {
+        self.options.iter().find(|s| s.statement.is_explicit()).is_some()
+    }
+
+    pub fn check_explicit(&self) -> Vec<ParseError> {
+
+        let is_explicit = {
+            let settings = crate::settings::USETTINGS.lock().unwrap();
+            settings.options.explicit || self.is_explicit()
+        };
+        let mut errors = vec![];
+
+        if is_explicit {
+            let public = self.publics.iter()
+                .map(|s| {
+                    match &s.statement {
+                        Statement::Public(v) => {
+                            v.clone().into_iter().map(|(Identifier(ident), _)| ident.to_ascii_uppercase()).collect::<Vec<_>>()
+                        },
+                        _ => vec![],
+                    }
+                })
+                .flatten()
+                .collect::<Vec<_>>();
+            // 関数定義等
+            for s in &self.definitions {
+                match &s.statement {
+                    Statement::Function { name:_, params, body, is_proc, is_async:_ } => {
+                        let is_func = ! is_proc;
+                        let mut e = self.check_explicit_by_scope(&public, &body, Some(params), is_func);
+                        errors.append(&mut e);
+                    },
+                    Statement::Class(_, block) |
+                    Statement::Module(_, block) => {
+                        // モジュールのパブリック変数名一覧
+                        let mut mod_public = block.iter()
+                            .map(|s| {
+                                match &s.statement {
+                                    Statement::Public(v) => {
+                                        v.clone().into_iter().map(|(Identifier(ident), _)| ident.to_ascii_uppercase()).collect::<Vec<_>>()
+                                    },
+                                    _ => vec![],
+                                }
+                            })
+                            .flatten()
+                            .collect::<Vec<_>>();
+                        // グローバルのパブリック変数と混ぜる
+                        mod_public.append(&mut public.clone());
+                        for s2 in block {
+                            match &s2.statement {
+                                Statement::Function { name:_, params, body, is_proc, is_async:_ } => {
+                                    let is_func = ! is_proc;
+                                    let mut e = self.check_explicit_by_scope(&mod_public, &body, Some(params), is_func);
+                                    errors.append(&mut e);
+                                },
+                                _ => {}
+                            }
+                        }
+                    },
+                    Statement::Call(program, _) => {
+                        let mut e = self.check_explicit_by_scope(&public, &program.script, None, false);
+                        errors.append(&mut e);
+                    }
+                    _ => {}
+                }
+            }
+
+            // スクリプト実行部分
+            let mut e = self.check_explicit_by_scope(&public, &self.script, None, false);
+            errors.append(&mut e);
+        }
+
+        errors
+    }
+    fn check_explicit_by_scope(&self, public: &Vec<String>, block: &BlockStatement, params: Option<&Vec<FuncParam>>, is_func: bool) -> Vec<ParseError> {
+        let mut errors = vec![];
+        let mut dim_defs = vec![];
+        let params = match params {
+            Some(p) => {
+                p.iter().map(|p| p.name().to_ascii_uppercase()).collect()
+            },
+            None => vec![],
+        };
+        for s in block {
+            match &s.statement {
+                Statement::Expression(e) => {
+                    let maybe_ident = match e {
+                        Expression::Assign(e, _) => e.get_identifier(),
+                        Expression::CompoundAssign(e, _, _) => e.get_identifier(),
+                        _ => None
+                    }.map(|s| s.to_ascii_uppercase());
+                    if let Some(ident) = maybe_ident {
+                        // resultかつ関数ならチェックは無視される
+                        if ! (ident == "RESULT" && is_func) {
+                            // 宣言されてない代入はエラー
+                            let defined = public.contains(&ident) || dim_defs.contains(&ident) || params.contains(&ident);
+                            if ! defined {
+                                errors.push(ParseError::new_explicit_error(ident, s.row, s.script_name.clone()));
+                            }
+                        }
+                    }
+                },
+                Statement::Dim(v) => {
+                    let mut dims = v.iter().map(|(Identifier(ident), _)| ident.to_ascii_uppercase()).collect();
+                    dim_defs.append(&mut dims);
+                }
+                _ => {}
+            }
+        }
+        errors
     }
 }
 
