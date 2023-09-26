@@ -942,8 +942,8 @@ impl fmt::Display for UErrorMessage {
                 name
             ),
             Self::ExplicitError(name) => write_locale!(f,
-                "変数定義にはDimが必要 ({})",
-                "Dim is required for defining {}",
+                "未宣言変数 {} への代入は許可されていません",
+                "You can not asign value to undefined variable {}",
                 name
             ),
             Self::ModuleMemberNotFound(t, name, member) => write_locale!(f,
