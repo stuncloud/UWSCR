@@ -49,6 +49,32 @@ dim
     dim fuga = 1 // 値の代入も同時に行える
     piyo = 1     // 未宣言変数への代入式で新たな変数が定義される(dim省略)
 
+.. admonition:: OPTION EXPLICIT指定時の動作
+    :class: caution
+
+    | ``OPTION EXPLICIT`` を指定した場合は未宣言の変数への代入がエラーとなります
+    | 未宣言変数への代入や複合代入は解析エラーとなります
+    | 式の中で行われる ``:=`` による未宣言変数への代入は実行時エラーとなります
+
+    .. sourcecode:: uwscr
+
+        OPTION EXPLICIT
+
+        dim foo = 1 // ok
+        foo = 2     // ok
+        bar = 3     // 解析エラー
+        bar += 4    // 解析エラー
+        baz := 5    // 解析エラー
+
+    .. sourcecode:: uwscr
+
+        // 式の中に代入式がある場合
+        OPTION EXPLICIT
+
+        dim foo
+        // fooとbarへの代入を試みるがbarが未宣言
+        foo = bar := 100 // 実行時エラー
+
 public
 ^^^^^^
 
@@ -1747,15 +1773,15 @@ bool値指定は省略可能で、省略時はtrueになります
 
      OPTION EXPLICIT // explicit設定をtrueにする
 
-もともと設定がtrueになっているものをfalseに設定したい場合に値指定を使う
-
 .. sourcecode:: uwscr
 
     OPTION SHORTCIRCUIT=FALSE // デフォルトtrueなのでfalseにする
 
 .. object:: OPTION EXPLICIT[=bool]
 
-    | ローカル変数初期化時にdim宣言が必須かどうか (初期値:false)
+    | trueの場合未宣言の変数への代入を許可しない (初期値:false)
+    | 未宣言の変数への代入および複合代入が行われる場合に解析エラーとなります
+    | 式の中で ``:=`` による未宣言変数への代入が行われる場合は実行時エラーとなります
 
 .. object:: OPTION SAMESTR[=bool]
 
