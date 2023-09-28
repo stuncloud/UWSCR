@@ -8,6 +8,7 @@ rust-version = "1.72.1"
 
 [features]
 default = []
+gui = []
 chkimg = ["opencv"]
 
 [dependencies]

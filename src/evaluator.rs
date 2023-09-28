@@ -27,7 +27,6 @@ use std::thread;
 use std::sync::{Arc, Mutex};
 use std::ffi::c_void;
 use std::panic;
-use std::io::{stdout, Write, BufWriter};
 use std::ops::{Add, Sub, Mul, Div, Rem, BitOr, BitAnd, BitXor};
 
 use num_traits::FromPrimitive;
@@ -154,7 +153,9 @@ impl Evaluator {
         }
 
         if self.gui_print.is_none() {
-            self.gui_print = {
+            self.gui_print = if cfg!(feature="gui") {
+                Some(true)
+            } else {
                 let mut settings = USETTINGS.lock().unwrap();
                 // --windowが指定されていた場合はOPTION設定に関わらずtrue
                 if let Some(true) = FORCE_WINDOW_MODE.get() {
@@ -352,15 +353,11 @@ impl Evaluator {
                     lp.lock().unwrap().print(msg.to_string());
                 },
                 None => {
-                    let out = stdout();
-                    let mut out = BufWriter::new(out.lock());
-                    writeln!(out, "{}", msg)?;
+                    println!("{msg}");
                 },
             }
         } else {
-            let out = stdout();
-            let mut out = BufWriter::new(out.lock());
-            writeln!(out, "{}", msg)?;
+            println!("{msg}");
         }
         Ok(None)
     }

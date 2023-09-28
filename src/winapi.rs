@@ -187,37 +187,48 @@ pub fn get_color_depth() -> i32 {
     }
 }
 
-// pub fn attach_console() -> bool {
-//     use libc::{setvbuf, open_osfhandle, fdopen, _IONBF, O_TEXT};
-//     unsafe {
-//         if AttachConsole(ATTACH_PARENT_PROCESS).is_ok() {
-//             let redirect = |nstdhandle| {
-//                 let mode = std::ffi::CString::new("w").unwrap();
-//                 let buf = std::ptr::null_mut();
-//                 if let Ok(h)  = GetStdHandle(nstdhandle) {
-//                     let fd = open_osfhandle(h.0, O_TEXT);
-//                     let stream = fdopen(fd, mode.as_ptr());
-//                     setvbuf(stream, buf, _IONBF, 0);
-//                 }
-//             };
-//             redirect(STD_OUTPUT_HANDLE);
-//             redirect(STD_ERROR_HANDLE);
-//             true
-//         } else {
-//             false
-//         }
-//     }
-// }
-// pub fn free_console() -> bool {
-//     unsafe {
-//         FreeConsole().is_ok()
-//     }
-// }
-// pub fn alloc_console() -> bool {
-//     unsafe {
-//         AllocConsole().is_ok()
-//     }
-// }
+#[cfg(feature="gui")]
+use windows::Win32::System::Console::{
+    AttachConsole, FreeConsole, AllocConsole,
+    ATTACH_PARENT_PROCESS,
+    GetStdHandle,
+    STD_OUTPUT_HANDLE, STD_ERROR_HANDLE
+};
+
+#[cfg(feature="gui")]
+pub fn attach_console() -> bool {
+    use libc::{setvbuf, open_osfhandle, fdopen, _IONBF, O_TEXT};
+    unsafe {
+        if AttachConsole(ATTACH_PARENT_PROCESS).is_ok() {
+            let redirect = |nstdhandle| {
+                let mode = std::ffi::CString::new("w").unwrap();
+                let buf = std::ptr::null_mut();
+                if let Ok(h)  = GetStdHandle(nstdhandle) {
+                    let fd = open_osfhandle(h.0, O_TEXT);
+                    let stream = fdopen(fd, mode.as_ptr());
+                    setvbuf(stream, buf, _IONBF, 0);
+                }
+            };
+            redirect(STD_OUTPUT_HANDLE);
+            redirect(STD_ERROR_HANDLE);
+            true
+        } else {
+            false
+        }
+    }
+}
+#[cfg(feature="gui")]
+pub fn free_console() -> bool {
+    unsafe {
+        FreeConsole().is_ok()
+    }
+}
+#[cfg(feature="gui")]
+pub fn alloc_console() -> bool {
+    unsafe {
+        AllocConsole().is_ok()
+    }
+}
 
 pub fn get_console_hwnd() -> HWND {
     unsafe {
@@ -245,12 +256,16 @@ pub fn message_box(message: &str, title: &str, utype: MESSAGEBOX_STYLE) {
 }
 
 pub fn show_message(message: &str, title: &str, is_error: bool) {
+    #[cfg(feature="gui")]
+    attach_console();
     match (is_console(), is_error) {
         (true, true) => eprintln!("{title}\n{message}"),
         (true, false) => println!("{}", message),
         (false, true) => message_box(message, title, MB_ICONEXCLAMATION),
         (false, false) => message_box(message, title, MB_OK),
     }
+    #[cfg(feature="gui")]
+    free_console();
 }
 
 // convert windows::runtime::Error to UError

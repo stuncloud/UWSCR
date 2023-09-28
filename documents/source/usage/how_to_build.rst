@@ -343,6 +343,24 @@ OpenCVをビルドした場合
 
        cargo build --features chkimg --target=i686-pc-windows-msvc
 
+GUIアプリケーションとしてビルド
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+| ``gui`` featureフラグを加えてビルドすることでUWSCRはGUIアプリケーションとして振る舞います
+
+.. code-block:: powershell
+
+    cargo build --features gui
+    cargo build --features gui --release
+    # chkimgも加える
+    cargo build --features gui,chkimg
+
+.. admonition:: このfeatureによるビルドは動作保証外です
+    :class: caution
+
+    | ``gui`` featureは十分なテストが行われていません
+    | このfeatureによるビルドを行った場合の動作については保証されません
+
 cargoによるテスト実行
 ---------------------
 
