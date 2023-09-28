@@ -169,6 +169,9 @@ pub struct UOption {
     /// 大文字小文字を区別する
     #[serde(default)]
     pub same_str: bool,
+    /// print文でGUI出力するかどうか
+    #[serde(default)]
+    pub gui_print: bool,
     /// IEオブジェクトを許可 (非公開)
     #[serde(skip_serializing, default)]
     #[schemars(skip)]
@@ -191,6 +194,7 @@ impl Default for UOption {
             short_circuit: true,
             opt_public: false,
             same_str: false,
+            gui_print: false,
             allow_ie_object: false,
         }
     }

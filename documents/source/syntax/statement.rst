@@ -1878,6 +1878,11 @@ bool値指定は省略可能で、省略時はtrueになります
 
     | ダイアログのタイトルを指定します (初期値:"UWSCR - スクリプト名")
 
+.. object:: OPTION GUIPRINT[=bool]
+
+    | print文実行時にコンソールではなくGUIに出力します
+    | ``uwscr --window`` で実行されている場合はこの設定が強制的にtrueになります
+
 
 def_dll
 -------

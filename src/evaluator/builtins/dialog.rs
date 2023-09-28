@@ -66,7 +66,7 @@ pub fn logprint(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let height = args.get_as_int_or_empty(4)?;
     if let Some(m) = LOGPRINTWIN.get(){
         let mut lp = m.lock().unwrap();
-        lp.set_visibility(flg);
+        lp.set_visibility(flg, true);
         lp.move_to(left, top, width, height);
     }
     Ok(Object::Empty)

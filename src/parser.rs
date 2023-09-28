@@ -1864,6 +1864,20 @@ impl Parser {
                     return None;
                 }
             },
+            "guiprint" => {
+                if ! self.is_next_token(&Token::EqualOrAssign) {
+                    Statement::Option(OptionSetting::GuiPrint(true))
+                } else {
+                    self.bump();
+                    self.bump();
+                    if let Token::Bool(b) = self.current_token.token {
+                        Statement::Option(OptionSetting::GuiPrint(b))
+                    } else {
+                        self.error_got_unexpected_token();
+                        return None;
+                    }
+                }
+            },
             "__allow_ie_object__" => {
                 if ! self.is_next_token(&Token::EqualOrAssign) {
                     Statement::Option(OptionSetting::AllowIEObj(true))

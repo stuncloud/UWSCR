@@ -91,7 +91,9 @@
             // bool  : publicの重複定義を禁止するかどうか
             "opt_public": false,
             // bool  : 文字列比較などで大文字小文字を区別するかどうか
-            "same_str": false
+            "same_str": false,
+            // bool  : print文をGUIに出力するかどうか
+             "gui_print": false
         },
         // BrowserControl設定
         "browser": {

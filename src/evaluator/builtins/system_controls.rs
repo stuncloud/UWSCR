@@ -9,7 +9,7 @@ use crate::evaluator::object::*;
 use crate::evaluator::builtins::*;
 use crate::evaluator::Evaluator;
 use crate::error::evaluator::{UErrorMessage, UErrorKind};
-use crate::winapi::{from_ansi_bytes, to_wide_string, attach_console, free_console, WString, PcwstrExt};
+use crate::winapi::{from_ansi_bytes, to_wide_string, WString, PcwstrExt};
 use crate::evaluator::builtins::window_control::get_hwnd_from_id;
 use windows::{
     core::{PWSTR,PCWSTR,w},
@@ -590,15 +590,15 @@ impl From<std::io::Error> for BuiltinFuncError {
     }
 }
 
-pub fn _attachconsole(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let attach = args.get_as_bool(0, None)?;
-    let result = if attach {
-        attach_console()
-    } else {
-        free_console()
-    };
-    Ok(result.into())
-}
+// pub fn _attachconsole(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+//     let attach = args.get_as_bool(0, None)?;
+//     let result = if attach {
+//         attach_console()
+//     } else {
+//         free_console()
+//     };
+//     Ok(result.into())
+// }
 
 pub fn lockhard(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let flg = args.get_as_bool(0, Some(false))?;

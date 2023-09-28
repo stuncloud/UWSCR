@@ -1,7 +1,7 @@
 use super::{Window, UWindow, UWindowResult, UWindowError, FontFamily, USETTINGS};
 
 use windows::{
-    core::{HSTRING},
+    core::HSTRING,
     Win32::{
         Foundation::{
             HWND,WPARAM,LPARAM,LRESULT,
@@ -20,7 +20,7 @@ use windows::{
                 DefWindowProcW,
                 SendMessageW, GetMessageW, TranslateMessage, DispatchMessageW, GetWindowTextLengthW
             },
-            Input::KeyboardAndMouse::{SetFocus},
+            Input::KeyboardAndMouse::SetFocus,
             Controls::{EM_SETSEL, EM_REPLACESEL}
         },
     }
@@ -119,9 +119,9 @@ impl LogPrintWin {
             SendMessageW(self.hwnd, WM_QUIT, WPARAM(0), LPARAM(self.hwnd.0));
         }
     }
-    pub fn set_visibility(&mut self, visible: bool) {
+    pub fn set_visibility(&mut self, visible: bool, show: bool) {
         self.visible = visible;
-        if visible {
+        if visible && show {
             self.show();
         }
     }

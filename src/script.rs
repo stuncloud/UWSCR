@@ -7,7 +7,6 @@ use crate::com::Com;
 use crate::parser::*;
 use crate::lexer::Lexer;
 use crate::winapi::{
-    attach_console, free_console,
     WString, PcwstrExt,
 };
 use crate::error::UWSCRErrorTitle;
@@ -55,7 +54,7 @@ pub fn run(script: String, exe_path: &str, script_path: &str, params: Vec<String
         )),
         _ => {}
     };
-    let visible = ! attach_console();
+    // let visible = ! attach_console();
 
     let mut parser = Parser::new(Lexer::new(&script));
     parser.set_script_dir(script_dir);
@@ -80,7 +79,7 @@ pub fn run(script: String, exe_path: &str, script_path: &str, params: Vec<String
 
     let env = Environment::new(params);
     let mut evaluator = Evaluator::new(env);
-    Evaluator::start_logprint_win(visible)
+    Evaluator::start_logprint_win(false)
         .map_err(|e| ScriptError(UWSCRErrorTitle::InitializeError, e))?;
     if let Err(e) = evaluator.eval(program, true) {
         #[cfg(debug_assertions)] println!("\u{001b}[90m[script::run] Evaluator Error: {:#?}\u{001b}[0m", &e);
@@ -92,7 +91,7 @@ pub fn run(script: String, exe_path: &str, script_path: &str, params: Vec<String
     }
     Evaluator::stop_logprint_win();
     com.uninit();
-    free_console();
+    // free_console();
 
     Ok(())
 }

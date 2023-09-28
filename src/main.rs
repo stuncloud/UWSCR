@@ -1,4 +1,4 @@
-#![cfg_attr(not(test), windows_subsystem = "windows")]
+// #![cfg_attr(not(test), windows_subsystem = "windows")]
 // #![windows_subsystem = "windows"]
 
 use std::path::PathBuf;
@@ -18,7 +18,7 @@ use uwscr::settings::{
     FileMode,
     out_default_setting_file, out_json_schema_file
 };
-use uwscr::winapi::{attach_console,alloc_console,free_console,show_message, FORCE_WINDOW_MODE};
+use uwscr::winapi::{show_message, FORCE_WINDOW_MODE};
 use uwscr::gui::MainWin;
 use uwscr::error::UWSCRErrorTitle;
 
@@ -50,9 +50,9 @@ fn main() {
         if result.is_err() {
             let err = buffer.lock().unwrap();
             out_log(&err, LogType::Panic);
-            attach_console();
+            // attach_console();
             show_message(&err, &UWSCRErrorTitle::Panic.to_string(), true);
-            free_console();
+            // free_console();
         }
     }
 }
@@ -76,26 +76,26 @@ fn start_uwscr() {
                         Err(script::ScriptError(title, errors)) => {
                             let err = errors.join("\r\n");
                             out_log(&err, LogType::Error);
-                            attach_console();
+                            // attach_console();
                             show_message(&err, &title.to_string(), true);
-                            free_console();
+                            // free_console();
                         }
                     },
                     Err(e) => {
-                        attach_console();
+                        // attach_console();
                         show_message(&e.to_string(), &UWSCRErrorTitle::InitializeError.to_string(), true);
-                        free_console();
+                        // free_console();
                     }
                 }
             },
             Mode::Code(c) => {
-                if ! attach_console() {
-                    if let Err(e) = Evaluator::start_logprint_win(true) {
-                        let err = e.join("\r\n");
-                        show_message(&err, &UWSCRErrorTitle::InitializeError.to_string(), true);
-                        return;
-                    }
-                }
+                // if ! attach_console() {
+                //     if let Err(e) = Evaluator::start_logprint_win(true) {
+                //         let err = e.join("\r\n");
+                //         show_message(&err, &UWSCRErrorTitle::InitializeError.to_string(), true);
+                //         return;
+                //     }
+                // }
                 match script::run_code(c) {
                     Ok(_) => {},
                     Err(errors) => {
@@ -103,14 +103,14 @@ fn start_uwscr() {
                         show_message(&err, "uwscr --code", true);
                     }
                 }
-                if ! free_console() {
-                    Evaluator::stop_logprint_win();
-                }
+                // if ! free_console() {
+                //     Evaluator::stop_logprint_win();
+                // }
             }
             Mode::Repl(p) => {
-                if ! attach_console() {
-                    alloc_console();
-                };
+                // if ! attach_console() {
+                //     alloc_console();
+                // };
                 if let Err(e) = Evaluator::start_logprint_win(false) {
                     let err = e.join("\r\n");
                     show_message(&err, &UWSCRErrorTitle::InitializeError.to_string(), true);
@@ -128,11 +128,11 @@ fn start_uwscr() {
                     repl::run(None, exe_path, None)
                 }
                 Evaluator::stop_logprint_win();
-                free_console();
+                // free_console();
             },
             Mode::Ast(p, b) => {
                 let dlg_title = "uwscr --ast";
-                attach_console();
+                // attach_console();
                 let path = p.clone().into_os_string().into_string().unwrap();
                 match get_script(&p) {
                     Ok(s) => match script::out_ast(s, &path){
@@ -155,11 +155,11 @@ fn start_uwscr() {
                         show_message(&e.to_string(), dlg_title, true);
                     }
                 }
-                free_console();
+                // free_console();
             },
             Mode::Lib(p) => {
                 let dlg_title = "uwscr --lib";
-                attach_console();
+                // attach_console();
                 let path = p.clone();
                 let mut script_fullpath = if p.is_absolute() {
                     p.clone()
@@ -200,20 +200,20 @@ fn start_uwscr() {
                         show_message(&e.to_string(), dlg_title, true);
                     }
                 }
-                free_console();
+                // free_console();
             },
             Mode::Settings(fm) => {
                 let dlg_title = "uwscr --settings";
-                attach_console();
+                // attach_console();
                 match out_default_setting_file(fm) {
                     Ok(ref s) => show_message(s, dlg_title, false),
                     Err(e) => show_message(&e.to_string(), dlg_title, true)
                 }
-                free_console();
+                // free_console();
             },
             Mode::Schema(p) => {
                 let dlg_title = "uwscr --schema";
-                attach_console();
+                // attach_console();
                 let dir = match p {
                     Some(p) => p,
                     None => match PathBuf::from_str(".") {
@@ -228,12 +228,12 @@ fn start_uwscr() {
                     Ok(ref s) => show_message(s, dlg_title, false),
                     Err(e) => show_message(&e.to_string(), dlg_title, true)
                 }
-                free_console();
+                // free_console();
             },
             Mode::Server(_p) => {
-                attach_console();
+                // attach_console();
                 show_message("Language serverは未実装です", "uwscr --language-server", true);
-                free_console();
+                // free_console();
             },
         },
         Err(err) => args.help(Some(err.as_str()))
@@ -336,7 +336,7 @@ impl Args {
     }
 
     pub fn help(&self, err: Option<&str>) {
-        attach_console();
+        // attach_console();
         let usage = "
 Usage:
   uwscr FILE                        : スクリプトの実行
@@ -365,13 +365,13 @@ Usage:
             format!("uwscr {}\r\n{}", self.version, usage)
         };
         show_message(&message, "uwscr --help", err.is_some());
-        free_console();
+        // free_console();
     }
 
     pub fn version(&self) {
-        attach_console();
+        // attach_console();
         show_message(&format!("uwscr {}", self.version), "uwscr --version", false);
-        free_console();
+        // free_console();
     }
 }
 

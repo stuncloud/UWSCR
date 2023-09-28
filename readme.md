@@ -58,38 +58,42 @@ winget upgrade --id stuncloud.uwscr
 
 ## 実行方法
 
+UWSCRはコンソールアプリケーションです
+コマンドプロンプトやPowerShell上で実行してください
+Explorer等から実行した場合はコンソールウィンドウが表示されます
+
 ### スクリプトの実行
 
 ```powershell
-cmd /c uwscr path\to\script.uws
+uwscr path\to\script.uws
 ```
 
 ### REPL
 
 ```powershell
-cmd /c uwscr -r
-cmd /c uwscr --repl
-cmd /c uwscr --repl path\to\script.uws # スクリプトの事前読み込み
+uwscr -r
+uwscr --repl
+uwscr --repl path\to\script.uws # スクリプトの事前読み込み
 ```
 
 ### バージョン確認
 
 ```powershell
-cmd /c uwscr --version
+uwscr --version
 ```
 
 ### ヘルプ表示
 
 ```powershell
-cmd /c uwscr -h
-cmd /c uwscr --help
+uwscr -h
+uwscr --help
 ```
 
 ### オンラインヘルプ
 
 ```powershell
-cmd /c uwscr -o
-cmd /c uwscr --online-help
+uwscr -o
+uwscr --online-help
 ```
 
 ## 詳細な使い方

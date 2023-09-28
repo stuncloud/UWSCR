@@ -17,7 +17,7 @@ use crate::parser::Parser;
 use crate::lexer::Lexer;
 use crate::logging::{out_log, LogType};
 use crate::settings::*;
-use crate::winapi::{attach_console,free_console,show_message,FORCE_WINDOW_MODE};
+use crate::winapi::{show_message,FORCE_WINDOW_MODE};
 use windows::Win32::Foundation::HWND;
 
 use std::borrow::Cow;
@@ -47,7 +47,8 @@ pub struct Evaluator {
     pub com_err_flg: bool,
     lines: Vec<String>,
     pub balloon: Option<Balloon>,
-    pub mouseorg: Option<MouseOrg>
+    pub mouseorg: Option<MouseOrg>,
+    pub gui_print: Option<bool>,
 }
 
 impl Evaluator {
@@ -68,6 +69,24 @@ impl Evaluator {
             lines: vec![],
             balloon: None,
             mouseorg: None,
+            gui_print: None,
+        }
+    }
+    fn new_thread(&mut self) -> Self {
+        Evaluator {
+            env: Environment {
+                current: Arc::new(Mutex::new(Layer {
+                    local: Vec::new(),
+                    outer: None,
+                })),
+                global: self.env.global.clone()
+            },
+            ignore_com_err: false,
+            com_err_flg: false,
+            lines: self.lines.clone(),
+            balloon: None,
+            mouseorg: None,
+            gui_print: self.gui_print,
         }
     }
 
@@ -133,6 +152,26 @@ impl Evaluator {
         for statement in global {
             self.eval_statement(statement)?;
         }
+
+        if self.gui_print.is_none() {
+            self.gui_print = {
+                let mut settings = USETTINGS.lock().unwrap();
+                // --windowが指定されていた場合はOPTION設定に関わらずtrue
+                if let Some(true) = FORCE_WINDOW_MODE.get() {
+                    settings.options.gui_print = true;
+                    Some(true)
+                } else {
+                    Some(settings.options.gui_print)
+                }
+            };
+            if let Some(true) = self.gui_print {
+                if let Some(lp) = LOGPRINTWIN.get() {
+                    let mut guard = lp.lock().unwrap();
+                    guard.set_visibility(true, false);
+                }
+            }
+        }
+
         // スクリプト実行部分の評価
         for statement in script {
             let res = stacker::maybe_grow(2 * 1024 * 1024, 20*1024*1024, || {
@@ -306,10 +345,19 @@ impl Evaluator {
         };
 
         out_log(&msg, LogType::Print);
-        if let Some(lp) = LOGPRINTWIN.get() {
-            lp.lock().unwrap().print(msg.to_string());
-        }
-        if ! *FORCE_WINDOW_MODE.get().unwrap_or(&false) {
+
+        if self.gui_print.unwrap_or(false) {
+            match LOGPRINTWIN.get() {
+                Some(lp) => {
+                    lp.lock().unwrap().print(msg.to_string());
+                },
+                None => {
+                    let out = stdout();
+                    let mut out = BufWriter::new(out.lock());
+                    writeln!(out, "{}", msg)?;
+                },
+            }
+        } else {
             let out = stdout();
             let mut out = BufWriter::new(out.lock());
             writeln!(out, "{}", msg)?;
@@ -365,6 +413,9 @@ impl Evaluator {
                     env::set_var("UWSCR_DEFAULT_TITLE", s.as_str());
                     usettings.options.dlg_title = Some(s.to_string());
                 }
+            },
+            OptionSetting::GuiPrint(b) => {
+                usettings.options.gui_print = b;
             },
             OptionSetting::AllowIEObj(b) => usettings.options.allow_ie_object = b,
         }
@@ -1033,20 +1084,7 @@ impl Evaluator {
 
     fn eval_thread_statement(&mut self, expression: Expression) -> EvalResult<Option<Object>> {
         if let Expression::FuncCall{func, args, is_await: _} = expression {
-            let mut evaluator = Evaluator {
-                env: Environment {
-                    current: Arc::new(Mutex::new(Layer {
-                        local: Vec::new(),
-                        outer: None,
-                    })),
-                    global: Arc::clone(&self.env.global)
-                },
-                ignore_com_err: false,
-                com_err_flg: false,
-                lines: self.lines.clone(),
-                balloon: None,
-                mouseorg: None,
-            };
+            let mut evaluator = self.new_thread();
             thread::spawn(move || {
                 // このスレッドでのCOMを有効化
                 let com = match Com::init() {
@@ -1061,7 +1099,7 @@ impl Evaluator {
                 let evaluator2 = evaluator.clone();
                 panic::set_hook(Box::new(move |panic_info|{
                     let maybe_uerror = uerror2.lock().unwrap();
-                    attach_console();
+                    // attach_console();
                     match maybe_uerror.as_ref() {
                         Some(e) => match &e.kind {
                             UErrorKind::ExitExit(n) => {
@@ -1089,7 +1127,7 @@ impl Evaluator {
                             show_message(&err, "Panic on thread", true);
                         },
                     }
-                    free_console();
+                    // free_console();
                     std::process::exit(0);
                 }));
                 let result = evaluator.eval_function_call_expression(func, args, false);
@@ -2073,25 +2111,12 @@ impl Evaluator {
 
     fn new_task(&mut self, func: Function, arguments: Vec<(Option<Expression>, Object)>) -> UTask {
         // task用のselfを作る
-        let mut task_self = Evaluator {
-            env: Environment {
-                current: Arc::new(Mutex::new(Layer {
-                    local: Vec::new(),
-                    outer: None,
-                })),
-                global: Arc::clone(&self.env.global)
-            },
-            ignore_com_err: false,
-            com_err_flg: false,
-            lines: self.lines.clone(),
-            balloon: None,
-            mouseorg: None,
-        };
+        let mut evaluator = self.new_thread();
         // 関数を非同期実行し、UTaskを返す
         let handle = thread::spawn(move || {
             // このスレッドでのCOMを有効化
             let com = Com::init()?;
-            let ret = func.invoke(&mut task_self, arguments);
+            let ret = func.invoke(&mut evaluator, arguments);
             com.uninit();
             ret
         });

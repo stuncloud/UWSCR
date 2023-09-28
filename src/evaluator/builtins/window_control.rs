@@ -15,6 +15,7 @@ use crate::evaluator::builtins::{
 };
 pub use monitor::Monitor;
 use crate::gui::UWindow;
+use crate::winapi::get_console_hwnd;
 
 #[cfg(feature="chkimg")]
 use crate::{
@@ -189,6 +190,7 @@ pub enum SpecialWindowId {
     GET_FORM_WIN2,     // __GET_FORM_WIN2__
     GET_SCHEDULE_WIN,  // __GET_SCHEDULE_WIN__
     GET_STOPFORM_WIN,  // __GET_STOPFORM_WIN__
+    GET_CONSOLE_WIN    // __GET_CONSOLE_WIN__
 }
 
 pub fn getid(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -199,8 +201,9 @@ pub fn getid(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncRes
         },
         "__GET_FROMPOINT_WIN__" => get_hwnd_from_mouse_point(true)?,
         "__GET_FROMPOINT_OBJ__" => get_hwnd_from_mouse_point(false)?,
+        "__GET_CONSOLE_WIN__" |
         "__GET_THISUWSC_WIN__" => {
-            HWND::default()
+            get_console_hwnd()
         },
         "__GET_LOGPRINT_WIN__" => {
             match LOGPRINTWIN.get() {

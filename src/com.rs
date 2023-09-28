@@ -1,12 +1,8 @@
 use windows::{
     core::{self},
-    Win32::{
-        System::{
-            Com::{
-                CoInitializeEx, CoUninitialize,
-                COINIT_MULTITHREADED,
-            }
-        }
+    Win32::System::Com::{
+        CoInitializeEx, CoUninitialize,
+        COINIT_MULTITHREADED,
     },
 };
 

@@ -10,10 +10,10 @@ use windows::{
                 GetSystemDirectoryW, GetWindowsDirectoryW
             },
             Console::{
-                ATTACH_PARENT_PROCESS,
-                AttachConsole, FreeConsole, AllocConsole,
-                GetConsoleCP,
-                GetStdHandle, STD_OUTPUT_HANDLE, STD_ERROR_HANDLE,
+                // ATTACH_PARENT_PROCESS,
+                // AttachConsole, FreeConsole, AllocConsole,
+                GetConsoleCP, GetConsoleWindow,
+                // GetStdHandle, STD_OUTPUT_HANDLE, STD_ERROR_HANDLE,
             },
         },
         UI::{
@@ -187,35 +187,41 @@ pub fn get_color_depth() -> i32 {
     }
 }
 
-pub fn attach_console() -> bool {
-    use libc::{setvbuf, open_osfhandle, fdopen, _IONBF, O_TEXT};
+// pub fn attach_console() -> bool {
+//     use libc::{setvbuf, open_osfhandle, fdopen, _IONBF, O_TEXT};
+//     unsafe {
+//         if AttachConsole(ATTACH_PARENT_PROCESS).is_ok() {
+//             let redirect = |nstdhandle| {
+//                 let mode = std::ffi::CString::new("w").unwrap();
+//                 let buf = std::ptr::null_mut();
+//                 if let Ok(h)  = GetStdHandle(nstdhandle) {
+//                     let fd = open_osfhandle(h.0, O_TEXT);
+//                     let stream = fdopen(fd, mode.as_ptr());
+//                     setvbuf(stream, buf, _IONBF, 0);
+//                 }
+//             };
+//             redirect(STD_OUTPUT_HANDLE);
+//             redirect(STD_ERROR_HANDLE);
+//             true
+//         } else {
+//             false
+//         }
+//     }
+// }
+// pub fn free_console() -> bool {
+//     unsafe {
+//         FreeConsole().is_ok()
+//     }
+// }
+// pub fn alloc_console() -> bool {
+//     unsafe {
+//         AllocConsole().is_ok()
+//     }
+// }
+
+pub fn get_console_hwnd() -> HWND {
     unsafe {
-        if AttachConsole(ATTACH_PARENT_PROCESS).is_ok() {
-            let redirect = |nstdhandle| {
-                let mode = std::ffi::CString::new("w").unwrap();
-                let buf = std::ptr::null_mut();
-                if let Ok(h)  = GetStdHandle(nstdhandle) {
-                    let fd = open_osfhandle(h.0, O_TEXT);
-                    let stream = fdopen(fd, mode.as_ptr());
-                    setvbuf(stream, buf, _IONBF, 0);
-                }
-            };
-            redirect(STD_OUTPUT_HANDLE);
-            redirect(STD_ERROR_HANDLE);
-            true
-        } else {
-            false
-        }
-    }
-}
-pub fn free_console() -> bool {
-    unsafe {
-        FreeConsole().is_ok()
-    }
-}
-pub fn alloc_console() -> bool {
-    unsafe {
-        AllocConsole().is_ok()
+        GetConsoleWindow()
     }
 }
 
