@@ -68,6 +68,9 @@ fn start_uwscr() {
             Mode::OnlineHelp => {
                 shell_execute("https://stuncloud.github.io/UWSCR/".into(), None);
             },
+            Mode::License => {
+                shell_execute("https://stuncloud.github.io/UWSCR/_static/license.html".into(), None);
+            },
             Mode::Script(p, n) => {
                 let mut vec_args = args.get_args();
                 let params = vec_args.drain(n+1..).collect();
@@ -305,6 +308,9 @@ impl Args {
                 FORCE_WINDOW_MODE.get_or_init(|| true);
                 Ok(Mode::Script(PathBuf::from(self.args[2].clone()), 2))
             },
+            "--license" => {
+                Ok(Mode::License)
+            }
             _ => {
                 Ok(Mode::Script(PathBuf::from(self.args[1].clone()), 1))
             },
@@ -359,6 +365,7 @@ Usage:
   uwscr (-h|--help|-?|/?)           : このヘルプを表示
   uwscr (-v|--version)              : UWSCRのバージョンを表示
   uwscr (-o|--online-help)          : オンラインヘルプを表示
+  uwscr (--license)                 : サードパーティライセンスを表示
 ";
         let message = if err.is_some() {
             format!("error: {}\r\n{}", err.unwrap(), usage)
@@ -387,5 +394,6 @@ enum Mode {
     Version,
     Settings(FileMode),
     OnlineHelp,
+    License,
     Schema(Option<PathBuf>)
 }

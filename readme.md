@@ -100,6 +100,10 @@ uwscr --online-help
 
 [UWSCRオンラインヘルプ](https://stuncloud.github.io/UWSCR/index.html)を参照してください
 
+## ライセンス
+
+[サードパーティライセンス](https://stuncloud.github.io/UWSCR/_static/license.html)
+
 ## お問い合わせ
 
 UWSCRに関する問い合わせはこちら
