@@ -50,6 +50,11 @@ UWSCR |version| オンラインヘルプ
     builtins/excel
     builtins/web
 
+ライセンス
+----------
+
+`サードパーティライセンス <_static/license.html>`__
+
 コミュニティ
 ------------
 
