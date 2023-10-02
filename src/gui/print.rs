@@ -119,10 +119,14 @@ impl LogPrintWin {
             SendMessageW(self.hwnd, WM_QUIT, WPARAM(0), LPARAM(self.hwnd.0));
         }
     }
-    pub fn set_visibility(&mut self, visible: bool, show: bool) {
+    pub fn set_visibility(&mut self, visible: bool, show_now: bool) {
         self.visible = visible;
-        if visible && show {
-            self.show();
+        if visible {
+            if show_now {
+                self.show();
+            }
+        } else {
+            Window::hide(self.hwnd);
         }
     }
     pub fn move_to(&self, left: Option<i32>, top: Option<i32>, width: Option<i32>, height: Option<i32>) {

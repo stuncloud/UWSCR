@@ -58,15 +58,16 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets
 }
 
-pub fn logprint(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn logprint(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let flg = args.get_as_bool(0, None)?;
     let left = args.get_as_int_or_empty(1)?;
     let top = args.get_as_int_or_empty(2)?;
     let width = args.get_as_int_or_empty(3)?;
     let height = args.get_as_int_or_empty(4)?;
     if let Some(m) = LOGPRINTWIN.get(){
+        evaluator.gui_print = Some(flg);
         let mut lp = m.lock().unwrap();
-        lp.set_visibility(flg, true);
+        lp.set_visibility(flg, flg);
         lp.move_to(left, top, width, height);
     }
     Ok(Object::Empty)
