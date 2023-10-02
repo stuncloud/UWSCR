@@ -834,6 +834,21 @@ impl Environment {
         }
     }
 
+    pub fn get_builtin_func_names(&self) -> Vec<String> {
+        let guard = self.global.lock().unwrap();
+        guard.iter()
+            .filter(|o| o.container_type == ContainerType::BuiltinFunc)
+            .map(|o| o.name.to_ascii_lowercase())
+            .collect()
+    }
+    pub fn get_builtin_const_names(&self) -> Vec<String> {
+        let guard = self.global.lock().unwrap();
+        guard.iter()
+            .filter(|o| o.container_type == ContainerType::BuiltinConst)
+            .map(|o| o.name.to_ascii_lowercase())
+            .collect()
+    }
+
 }
 
 // 特殊な代入に対する処理

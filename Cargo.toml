@@ -44,6 +44,7 @@ wmi = "0.13.0"
 zip = "0.6.2"
 scraper = "0.16.0"
 rand = "0.8.5"
+reedline = "0.24.0"
 
 [build-dependencies]
 winres = "0.1"
