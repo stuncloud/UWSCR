@@ -590,6 +590,7 @@ pub enum UErrorMessage {
     InvalidCallbackArgType(DllType),
     CallbackReturnValueCastError,
     DllArgConstSizeIsNotValid,
+    UObjectIsNotAnArray,
 }
 
 impl fmt::Display for UErrorMessage {
@@ -1306,6 +1307,10 @@ impl fmt::Display for UErrorMessage {
             Self::DllArgConstSizeIsNotValid => write_locale!(f,
                 "サイズを示す定数がない、または数値ではありません",
                 "Constant indicating size is not valid",
+            ),
+            Self::UObjectIsNotAnArray => write_locale!(f,
+                "UObjectが配列ではありません",
+                "UObject is not an array",
             ),
         }
     }

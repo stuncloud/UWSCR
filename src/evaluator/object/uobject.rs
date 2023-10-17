@@ -25,9 +25,10 @@ impl UObject {
             pointer: Some(pointer),
         }
     }
+    /// 任意のポインタを持った自身のクローンを作る
     pub fn clone_with_pointer(&self, pointer: String) -> Self {
         Self {
-            value: Arc::clone(&self.value),
+            value: self.value.clone(),
             pointer: Some(pointer),
         }
     }
@@ -98,6 +99,25 @@ impl UObject {
             ))
         }
         Ok(())
+    }
+    pub fn to_object_vec(&self) -> EvalResult<Vec<Object>> {
+        let value = self.value();
+        if let Value::Array(arr) = value {
+            let p = self.pointer.clone().unwrap_or_default();
+            let vec = arr.iter().enumerate()
+                .map(|(i, _)| {
+                    let pointer = format!("{}/{}", p, i);
+                    let uo = self.clone_with_pointer(pointer);
+                    Object::UObject(uo)
+                })
+                .collect();
+            Ok(vec)
+        } else {
+            Err(UError::new(
+                UErrorKind::UObjectError,
+                UErrorMessage::UObjectIsNotAnArray
+            ))
+        }
     }
 }
 

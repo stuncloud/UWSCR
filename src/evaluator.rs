@@ -790,6 +790,7 @@ impl Evaluator {
             Object::Browser(b) => b.get_tabs()?.into_iter().map(|t| Object::TabWindow(t)).collect(),
             Object::RemoteObject(remote) => remote.to_object_vec()?,
             Object::ComObject(com) => com.to_object_vec()?,
+            Object::UObject(uo) => uo.to_object_vec()?,
             _ => return Err(UError::new(
                 UErrorKind::SyntaxError,
                 UErrorMessage::ForInError
