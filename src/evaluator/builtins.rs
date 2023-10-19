@@ -846,6 +846,7 @@ pub fn init_builtins() -> Vec<NamedObject> {
     // dialog.rs
     set_builtin_consts::<dialog::BtnConst>(&mut vec);
     set_builtin_consts::<dialog::SlctConst>(&mut vec);
+    set_builtin_consts::<dialog::FormOptions>(&mut vec);
     // SLCT_* 定数
     for n in 1..=31_u32 {
         let val = 2_i32.pow(n-1);

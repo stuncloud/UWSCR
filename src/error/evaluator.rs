@@ -196,6 +196,7 @@ pub enum UErrorKind {
     ComEventError,
     ExcelError,
     SafeArrayError,
+    FormError,
 }
 
 impl fmt::Display for UErrorKind {
@@ -410,6 +411,10 @@ impl fmt::Display for UErrorKind {
                 "SafeArrayエラー",
                 "SafeArray error",
             ),
+            Self::FormError => write_locale!(f,
+                "Formエラー",
+                "Form error",
+            ),
         }
     }
 }
@@ -590,7 +595,9 @@ pub enum UErrorMessage {
     InvalidCallbackArgType(DllType),
     CallbackReturnValueCastError,
     DllArgConstSizeIsNotValid,
+    FormError(String),
     UObjectIsNotAnArray,
+    UnavailableFunction,
 }
 
 impl fmt::Display for UErrorMessage {
@@ -1308,9 +1315,14 @@ impl fmt::Display for UErrorMessage {
                 "サイズを示す定数がない、または数値ではありません",
                 "Constant indicating size is not valid",
             ),
+            Self::FormError(err) => write!(f, "{err}"),
             Self::UObjectIsNotAnArray => write_locale!(f,
                 "UObjectが配列ではありません",
                 "UObject is not an array",
+            ),
+            Self::UnavailableFunction => write_locale!(f,
+                "この関数は使用できません",
+                "This function can not be used",
             ),
         }
     }

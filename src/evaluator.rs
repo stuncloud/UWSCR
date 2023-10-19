@@ -789,6 +789,7 @@ impl Evaluator {
             Object::ByteArray(arr) => arr.iter().map(|n| Object::Num(*n as f64)).collect(),
             Object::Browser(b) => b.get_tabs()?.into_iter().map(|t| Object::TabWindow(t)).collect(),
             Object::RemoteObject(remote) => remote.to_object_vec()?,
+            Object::WebViewRemoteObject(remote) => remote.to_object_vec()?,
             Object::ComObject(com) => com.to_object_vec()?,
             Object::UObject(uo) => uo.to_object_vec()?,
             _ => return Err(UError::new(
@@ -1567,6 +1568,11 @@ impl Evaluator {
                     MemberCaller::ComObject(com) => {
                         com.get_property_by_index(name, vec![index.clone()])?
                     },
+                    MemberCaller::WebViewRemoteObject(remote) => {
+                        let index = index.to_string();
+                        remote.get_property(&name, Some(&index))?
+                    }
+                    MemberCaller::WebViewForm(_) |
                     MemberCaller::UStruct(_) |
                     MemberCaller::BrowserBuilder(_) |
                     MemberCaller::Browser(_) |
@@ -1739,6 +1745,10 @@ impl Evaluator {
             Object::RemoteObject(ref remote) => {
                 let value = Self::object_to_serde_value(new)?;
                 remote.set(Some(&member), Some(&index.to_string()), value.into())?;
+            },
+            Object::WebViewRemoteObject(ref remote) => {
+                let index = index.to_string();
+                remote.set_property(&member, new, Some(&index))?;
             },
             Object::Reference(e, outer) => {
                 let mut outer_env = self.clone();
@@ -1957,6 +1967,16 @@ impl Evaluator {
                 if let Expression::Identifier(Identifier(name)) = expr_member {
                     let value = browser::RemoteFuncArg::from_object(new)?;
                     remote.set(Some(&name), None, value)?;
+                } else {
+                    return Err(UError::new(
+                        UErrorKind::DotOperatorError,
+                        UErrorMessage::SyntaxError,
+                    ));
+                }
+            },
+            Object::WebViewRemoteObject(ref remote) => {
+                if let Expression::Identifier(Identifier(name)) = expr_member {
+                    remote.set_property(&name, new, None)?;
                 } else {
                     return Err(UError::new(
                         UErrorKind::DotOperatorError,
@@ -2336,7 +2356,15 @@ impl Evaluator {
                         },
                         MemberCaller::UStruct(ust) => {
                             ust.invoke_method(&member, args)
-                        }
+                        },
+                        MemberCaller::WebViewForm(form) => {
+                            let obj = form.invoke_method(&member, args, self)?;
+                            Ok(obj)
+                        },
+                        MemberCaller::WebViewRemoteObject(remote) => {
+                            let obj = remote.invoke_method(&member, args, is_await)?;
+                            Ok(obj)
+                        },
                     }
                 },
                 o => Err(UError::new(
@@ -2345,288 +2373,7 @@ impl Evaluator {
                 )),
             }
         }
-
     }
-
-    // fn invoke_def_dll_function(&mut self, name: String, dll_path: String, params: Vec<DefDllParam>, ret_type: DllType, arguments: Vec<(Option<Expression>, Object)>) -> EvalResult<Object> {
-    //     // dllを開く
-    //     let lib = dlopen::raw::Library::open(&dll_path)?;
-    //     unsafe {
-    //         // 関数のシンボルを得る
-    //         let f: *const c_void = lib.symbol(&name)?;
-    //         // cifで使う
-    //         let mut arg_types = vec![];
-    //         let mut args = vec![];
-    //         // 渡された引数のインデックス
-    //         let mut i = 0;
-    //         // 引数の実の値を保持するリスト
-    //         let mut dll_args: Vec<DllArg> = vec![];
-    //         // varされた場合に値を返す変数のリスト
-    //         let mut var_list: Vec<(String, usize)> = vec![];
-
-    //         for param in params {
-    //             match param {
-    //                 DefDllParam::Param {dll_type, is_var, is_array} => {
-    //                     let (arg_exp, obj) = match arguments.get(i) {
-    //                         Some((a, o)) => (a, o),
-    //                         None => return Err(UError::new(
-    //                             UErrorKind::DllFuncError,
-    //                             UErrorMessage::DllMissingArgument(dll_type, i + 1),
-    //                         ))
-    //                     };
-    //                     // 引数が変数なら変数名を得ておく
-    //                     let arg_name = if let Some(Expression::Identifier(Identifier(ref name))) = arg_exp {
-    //                         Some(name.to_string())
-    //                     } else {
-    //                         None
-    //                     };
-
-    //                     if is_array {
-    //                         match obj {
-    //                             Object::Array(_) => {
-    //                                 let arr_arg = match DllArg::new_array(obj, &dll_type) {
-    //                                     Ok(a) => a,
-    //                                     Err(_) => return Err(UError::new(
-    //                                         UErrorKind::DllFuncError,
-    //                                         UErrorMessage::DllArrayHasInvalidType(dll_type, i + 1),
-    //                                     ))
-    //                                 };
-
-    //                                 dll_args.push(arr_arg);
-    //                                 arg_types.push(Type::pointer());
-    //                                 // 配列はvarの有無に関係なく値を更新する
-    //                                 if arg_name.is_some() {
-    //                                     var_list.push((arg_name.unwrap(), i));
-    //                                 }
-    //                             },
-    //                             _ => return Err(UError::new(
-    //                                 UErrorKind::DllFuncError,
-    //                                 UErrorMessage::DllArgumentIsNotArray(dll_type, i + 1)
-    //                             ))
-    //                         }
-    //                     } else {
-    //                         let t = Self::convert_to_libffi_type(&dll_type)?;
-    //                         let dllarg = match DllArg::new(obj, &dll_type) {
-    //                             Ok(a) => a,
-    //                             Err(e) => return Err(UError::new(
-    //                                 UErrorKind::DllFuncError,
-    //                                 UErrorMessage::DllConversionError(dll_type, i + 1, e)
-    //                             ))
-    //                         };
-    //                         match dllarg {
-    //                             // null文字列の場合はvoid型にしておく
-    //                             DllArg::Null => arg_types.push(Type::void()),
-    //                             _ => arg_types.push(t)
-    //                         }
-    //                         dll_args.push(dllarg);
-    //                         if is_var && arg_name.is_some() {
-    //                             // var/ref が付いていれば後に値を更新
-    //                             var_list.push((arg_name.unwrap(), dll_args.len() - 1));
-    //                         }
-    //                     }
-    //                     i += 1;
-    //                 },
-    //                 DefDllParam::Struct(params) => {
-    //                     let mut struct_size: usize = 0;
-    //                     let mut members: Vec<(Option<String>, usize, DllArg)> = vec![];
-    //                     // let mut struct_args: Vec<DllArg> = vec![];
-    //                     for param in params {
-    //                         match param {
-    //                             DefDllParam::Param {dll_type, is_var: _, is_array} => {
-    //                                 let (arg_exp, obj) = match arguments.get(i) {
-    //                                     Some((a, o)) => (a, o),
-    //                                     None => return Err(UError::new(
-    //                                         UErrorKind::DllFuncError,
-    //                                         UErrorMessage::DllMissingArgument(dll_type, i + 1)
-    //                                     ))
-    //                                 };
-    //                                 // 引数が変数なら変数名を得ておく
-    //                                 let arg_name = if let Some(Expression::Identifier(Identifier(ref name))) = arg_exp {
-    //                                     Some(name.to_string())
-    //                                 } else {
-    //                                     None
-    //                                 };
-
-    //                                 let arg = if is_array {
-    //                                     match DllArg::new_array(obj, &dll_type) {
-    //                                         Ok(a) => a,
-    //                                         Err(_) => return Err(UError::new(
-    //                                             UErrorKind::DllFuncError,
-    //                                             UErrorMessage::DllArrayHasInvalidType(dll_type, i + 1)
-    //                                         ))
-    //                                     }
-    //                                 } else {
-    //                                     match DllArg::new(obj, &dll_type) {
-    //                                         Ok(a) => a,
-    //                                         Err(e) => return Err(UError::new(
-    //                                             UErrorKind::DllFuncError,
-    //                                             UErrorMessage::DllArgumentTypeUnexpected(dll_type, i + 1, e)
-    //                                         ))
-    //                                     }
-    //                                 };
-    //                                 let size = arg.size();
-    //                                 // struct_args.push(arg);
-    //                                 members.push((arg_name, struct_size, arg));
-    //                                 struct_size += size;
-    //                                 i += 1;
-    //                             },
-    //                             DefDllParam::Struct(_) => return Err(UError::new(
-    //                                 UErrorKind::DllFuncError,
-    //                                 UErrorMessage::DllNestedStruct
-    //                             )),
-    //                         }
-    //                     }
-    //                     let structure = new_dll_structure(struct_size);
-    //                     for (_, offset, arg) in &members {
-    //                         match arg {
-    //                             DllArg::Int(v) => set_value_to_structure(structure, *offset, *v),
-    //                             DllArg::Uint(v) => set_value_to_structure(structure, *offset, *v),
-    //                             DllArg::Hwnd(v) => set_value_to_structure(structure, *offset, *v),
-    //                             DllArg::Float(v) => set_value_to_structure(structure, *offset, *v),
-    //                             DllArg::Double(v) => set_value_to_structure(structure, *offset, *v),
-    //                             DllArg::Word(v) => set_value_to_structure(structure, *offset, *v),
-    //                             DllArg::Byte(v) => set_value_to_structure(structure, *offset, *v),
-    //                             DllArg::LongLong(v) => set_value_to_structure(structure, *offset, *v),
-    //                             DllArg::IntArray(v) => {
-    //                                 let p = *v.as_ptr() as usize;
-    //                                 set_value_to_structure(structure, *offset, p);
-    //                             },
-    //                             DllArg::UintArray(v) => {
-    //                                 let p = *v.as_ptr() as usize;
-    //                                 set_value_to_structure(structure, *offset, p);
-    //                             },
-    //                             DllArg::HwndArray(v) => {
-    //                                 let p = *v.as_ptr() as usize;
-    //                                 set_value_to_structure(structure, *offset, p);
-    //                             },
-    //                             DllArg::FloatArray(v) => {
-    //                                 let p = *v.as_ptr() as usize;
-    //                                 set_value_to_structure(structure, *offset, p);
-    //                             },
-    //                             DllArg::DoubleArray(v) => {
-    //                                 let p = *v.as_ptr() as usize;
-    //                                 set_value_to_structure(structure, *offset, p);
-    //                             },
-    //                             DllArg::WordArray(v) => {
-    //                                 let p = *v.as_ptr() as usize;
-    //                                 set_value_to_structure(structure, *offset, p);
-    //                             },
-    //                             DllArg::ByteArray(v) => {
-    //                                 let p = *v.as_ptr() as usize;
-    //                                 set_value_to_structure(structure, *offset, p);
-    //                             },
-    //                             DllArg::LongLongArray(v) => {
-    //                                 let p = *v.as_ptr() as usize;
-    //                                 set_value_to_structure(structure, *offset, p);
-    //                             },
-    //                             DllArg::String(v, _) => {
-    //                                 let p = *v.as_ptr() as usize;
-    //                                 set_value_to_structure(structure, *offset, p);
-    //                             },
-    //                             DllArg::WString(v, _) => {
-    //                                 let p = *v.as_ptr() as usize;
-    //                                 set_value_to_structure(structure, *offset, p);
-    //                             },
-    //                             DllArg::Pointer(v) => set_value_to_structure(structure, *offset, v),
-    //                             _ => return Err(UError::new(
-    //                                 UErrorKind::DllFuncError,
-    //                                 UErrorMessage::DllArgNotAllowedInStruct
-    //                             )),
-    //                         }
-    //                     }
-    //                     dll_args.push(DllArg::Struct(structure, members));
-    //                     arg_types.push(Type::pointer());
-    //                     var_list.push(("".into(), dll_args.len() -1));
-    //                 },
-    //             }
-    //         }
-
-    //         for dll_arg in &dll_args {
-    //             args.push(dll_arg.to_arg());
-    //         }
-
-    //         let cif = Cif::new(arg_types.into_iter(), Self::convert_to_libffi_type(&ret_type)?);
-
-    //         // 関数実行
-    //         let result = match ret_type {
-    //             DllType::Int |
-    //             DllType::Long |
-    //             DllType::Bool => {
-    //                 let result = cif.call::<i32>(CodePtr::from_ptr(f), &args);
-    //                 Object::Num(result as f64)
-    //             },
-    //             DllType::Uint |
-    //             DllType::Dword => {
-    //                 let result = cif.call::<u32>(CodePtr::from_ptr(f), &args);
-    //                 Object::Num(result as f64)
-    //             },
-    //             DllType::Hwnd => {
-    //                 let result = cif.call::<isize>(CodePtr::from_ptr(f), &args);
-    //                 Object::Num(result as f64)
-    //             },
-    //             DllType::Float => {
-    //                 let result = cif.call::<f32>(CodePtr::from_ptr(f), &args);
-    //                 Object::Num(result as f64)
-    //             },
-    //             DllType::Double => {
-    //                 let result = cif.call::<f64>(CodePtr::from_ptr(f), &args);
-    //                 Object::Num(result as f64)
-    //             },
-    //             DllType::Word => {
-    //                 let result = cif.call::<u16>(CodePtr::from_ptr(f), &args);
-    //                 Object::Num(result as f64)
-    //             },
-    //             DllType::Byte |
-    //             DllType::Char |
-    //             DllType::Boolean => {
-    //                 let result = cif.call::<u8>(CodePtr::from_ptr(f), &args);
-    //                 Object::Num(result as f64)
-    //             },
-    //             DllType::Longlong => {
-    //                 let result = cif.call::<i64>(CodePtr::from_ptr(f), &args);
-    //                 Object::Num(result as f64)
-    //             },
-    //             DllType::Pointer => {
-    //                 let result = cif.call::<usize>(CodePtr::from_ptr(f), &args);
-    //                 Object::Num(result as f64)
-    //             },
-    //             DllType::Void => {
-    //                 cif.call::<*mut c_void>(CodePtr::from_ptr(f), &args);
-    //                 Object::Empty
-    //             }
-    //             _ =>  {
-    //                 let result = cif.call::<*mut c_void>(CodePtr::from_ptr(f), &args);
-    //                 println!("[warning] {} is not fully supported for return type.", ret_type);
-    //                 Object::Num(result as isize as f64)
-    //             }
-    //         };
-
-    //         // varの処理
-    //         for (name, index) in var_list {
-    //             let arg = &dll_args[index];
-    //             match arg {
-    //                 DllArg::Struct(p, m) => {
-    //                     for (name, offset, arg) in m {
-    //                         if let Some(name) = name {
-    //                             let obj = get_value_from_structure(*p, *offset, arg);
-    //                             self.env.assign(name, obj)?;
-    //                         }
-    //                     }
-    //                     free_dll_structure(*p);
-    //                 },
-    //                 DllArg::UStruct(_) => {
-    //                 },
-    //                 _ => {
-    //                     let obj = arg.to_object();
-    //                     self.env.assign(&name, obj)?;
-    //                 },
-    //             }
-    //         }
-
-    //         Ok(result)
-    //     }
-    // }
-
 
     fn eval_ternary_expression(&mut self, condition: Expression, consequence: Expression, alternative: Expression) -> EvalResult<Object> {
         let condition = self.eval_expression(condition)?;
@@ -2777,7 +2524,21 @@ impl Evaluator {
                 } else {
                     node.get_property(&member)
                 }
-            }
+            },
+            Object::WebViewForm(form) => {
+                if is_func {
+                    Ok(Object::MemberCaller(MemberCaller::WebViewForm(form), member))
+                } else {
+                    form.get_property(&member).map_err(|e| e.into())
+                }
+            },
+            Object::WebViewRemoteObject(remote) => {
+                if is_func || is_indexed_property {
+                    Ok(Object::MemberCaller(MemberCaller::WebViewRemoteObject(remote), member))
+                } else {
+                    remote.get_property(&member, None).map_err(|e| e.into())
+                }
+            },
             o => Err(UError::new(
                 UErrorKind::DotOperatorError,
                 UErrorMessage::DotOperatorNotSupported(o)

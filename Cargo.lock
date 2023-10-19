@@ -2384,6 +2384,7 @@ dependencies = [
  "tungstenite",
  "url",
  "urlencoding",
+ "webview2-com",
  "windows 0.51.1",
  "winreg 0.51.0",
  "winres",
@@ -2518,6 +2519,42 @@ checksum = "9b85cbef8c220a6abc02aefd892dfc0fc23afb1c6a426316ec33253a3877249b"
 dependencies = [
  "js-sys",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "webview2-com"
+version = "0.27.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cd15556ff1d1d6bc850dbb362762bae86069773dd30177c90d3bfa917080dc73"
+dependencies = [
+ "webview2-com-macros",
+ "webview2-com-sys",
+ "windows 0.51.1",
+ "windows-core",
+ "windows-implement 0.51.1",
+ "windows-interface 0.51.1",
+]
+
+[[package]]
+name = "webview2-com-macros"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ac1345798ecd8122468840bcdf1b95e5dc6d2206c5e4b0eafa078d061f59c9bc"
+dependencies = [
+ "proc-macro2 1.0.67",
+ "quote 1.0.33",
+ "syn 2.0.33",
+]
+
+[[package]]
+name = "webview2-com-sys"
+version = "0.27.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3775bb005c3170497ec411b36005708b57ad486bfa3d23864c92f5973858ce8d"
+dependencies = [
+ "thiserror",
+ "windows 0.51.1",
+ "windows-core",
 ]
 
 [[package]]

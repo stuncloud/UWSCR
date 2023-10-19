@@ -2,7 +2,8 @@ use windows::{
     core::{self},
     Win32::System::Com::{
         CoInitializeEx, CoUninitialize,
-        COINIT_MULTITHREADED,
+        // COINIT_MULTITHREADED,
+        COINIT_APARTMENTTHREADED
     },
 };
 
@@ -12,7 +13,7 @@ impl Com {
     /// COMを初期化する
     pub fn init() -> Result<Self, core::Error> {
         unsafe {
-            CoInitializeEx(None, COINIT_MULTITHREADED)?;
+            CoInitializeEx(None, COINIT_APARTMENTTHREADED)?;
         }
         Ok(Self)
     }

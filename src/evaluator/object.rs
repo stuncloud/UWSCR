@@ -34,6 +34,7 @@ use crate::evaluator::builtins::{
     system_controls::gettime::datetime_str_to_f64,
 };
 use crate::error::evaluator::{UError, UErrorKind, UErrorMessage};
+use crate::gui::form::{WebViewForm, WebViewRemoteObject};
 
 use windows::Win32::Foundation::HWND;
 
@@ -101,7 +102,11 @@ pub enum Object {
     WebResponse(WebResponse),
     HtmlNode(HtmlNode),
     /// 組み込みオブジェクトのメソッド呼び出し
-    MemberCaller(MemberCaller, String)
+    MemberCaller(MemberCaller, String),
+    /// Form
+    WebViewForm(WebViewForm),
+    /// FormのRemoteObject
+    WebViewRemoteObject(WebViewRemoteObject),
 }
 impl std::fmt::Debug for Object {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -151,6 +156,8 @@ impl std::fmt::Debug for Object {
             Object::ComObject(arg0) => f.debug_tuple("ComObject").field(arg0).finish(),
             Object::Unknown(arg0) => f.debug_tuple("Unknown").field(arg0).finish(),
             Object::Variant(arg0) => f.debug_tuple("Variant").field(arg0).finish(),
+            Object::WebViewForm(arg0) => f.debug_tuple("WebViewForm").field(arg0).finish(),
+            Object::WebViewRemoteObject(arg0) => f.debug_tuple("WebViewRemoteObject").field(arg0).finish(),
         }
     }
 }
@@ -259,11 +266,15 @@ impl fmt::Display for Object {
                     MemberCaller::HtmlNode(_) => write!(f, "HtmlNode.{member}"),
                     MemberCaller::ComObject(_) => write!(f, "ComObject.{member}"),
                     MemberCaller::UStruct(ust) => write!(f, "{}.{member}", ust.name),
+                    MemberCaller::WebViewForm(_) => write!(f, "WebViewForm.{member}"),
+                    MemberCaller::WebViewRemoteObject(_) => write!(f, "WebViewRemoteObject.{member}"),
                 }
             },
             Object::ComObject(com) => write!(f, "{com}"),
             Object::Unknown(unk) => write!(f, "{unk}"),
             Object::Variant(variant) => write!(f, "{variant}"),
+            Object::WebViewForm(form) => write!(f, "{form}"),
+            Object::WebViewRemoteObject(remote) => write!(f, "{remote}"),
         }
     }
 }
@@ -387,6 +398,12 @@ impl PartialEq for Object {
             Object::Variant(var1) => {
                 if let Object::Variant(var2) = other {var1 == var2} else {false}
             },
+            Object::WebViewForm(form1) => {
+                if let Object::WebViewForm(form2) = other {form1 == form2} else {false}
+            },
+            Object::WebViewRemoteObject(r1) => {
+                if let Object::WebViewRemoteObject(r2) = other {r1 == r2} else {false}
+            },
         }
     }
 }
@@ -441,6 +458,8 @@ impl Object {
             Object::WebResponse(_) => ObjectType::TYPE_WEB_RESPONSE,
             Object::HtmlNode(_) => ObjectType::TYPE_HTML_NODE,
             Object::MemberCaller(_, _) => ObjectType::TYPE_MEMBER_CALLER,
+            Object::WebViewForm(_) => ObjectType::TYPE_WEBVIEW_FORM,
+            Object::WebViewRemoteObject(_) => ObjectType::TYPE_WEBVIEW_REMOTEOBJECT,
 
             Object::EmptyParam |
             Object::DynamicVar(_) |
@@ -866,6 +885,8 @@ impl Add for Object {
                 }
             },
             // 以下はエラー
+            Object::WebViewForm(_) |
+            Object::WebViewRemoteObject(_) |
             Object::Variant(_) |
             Object::Unknown(_) |
             Object::ComObject(_) |
@@ -952,6 +973,8 @@ impl Sub for Object {
                 }
             },
             // 以下はエラー
+            Object::WebViewForm(_) |
+            Object::WebViewRemoteObject(_) |
             Object::Variant(_) |
             Object::Unknown(_) |
             Object::ComObject(_) |
@@ -1081,6 +1104,8 @@ impl Mul for Object {
                 }
             },
             // 以下はエラー
+            Object::WebViewForm(_) |
+            Object::WebViewRemoteObject(_) |
             Object::Variant(_) |
             Object::Unknown(_) |
             Object::ComObject(_) |
@@ -1189,6 +1214,8 @@ impl Div for Object {
                 }
             },
             // 以下はエラー
+            Object::WebViewForm(_) |
+            Object::WebViewRemoteObject(_) |
             Object::Variant(_) |
             Object::Unknown(_) |
             Object::ComObject(_) |
@@ -1301,6 +1328,8 @@ impl Rem for Object {
                 }
             },
             // 以下はエラー
+            Object::WebViewForm(_) |
+            Object::WebViewRemoteObject(_) |
             Object::Variant(_) |
             Object::Unknown(_) |
             Object::ComObject(_) |
@@ -1407,6 +1436,8 @@ impl BitOr for Object {
                 }
             },
             // 以下はエラー
+            Object::WebViewForm(_) |
+            Object::WebViewRemoteObject(_) |
             Object::Variant(_) |
             Object::Unknown(_) |
             Object::ComObject(_) |
@@ -1512,6 +1543,8 @@ impl BitAnd for Object {
                 }
             },
             // 以下はエラー
+            Object::WebViewForm(_) |
+            Object::WebViewRemoteObject(_) |
             Object::Variant(_) |
             Object::Unknown(_) |
             Object::ComObject(_) |
@@ -1617,6 +1650,8 @@ impl BitXor for Object {
                 }
             },
             // 以下はエラー
+            Object::WebViewForm(_) |
+            Object::WebViewRemoteObject(_) |
             Object::Variant(_) |
             Object::Unknown(_) |
             Object::ComObject(_) |
@@ -1683,6 +1718,8 @@ pub enum MemberCaller {
     HtmlNode(HtmlNode),
     ComObject(ComObject),
     UStruct(UStruct),
+    WebViewForm(WebViewForm),
+    WebViewRemoteObject(WebViewRemoteObject),
 }
 
 impl PartialEq for MemberCaller {
@@ -1703,6 +1740,8 @@ impl PartialEq for MemberCaller {
             (Self::HtmlNode(l0), Self::HtmlNode(r0)) => l0 == r0,
             (Self::ComObject(l0), Self::ComObject(r0)) => l0 == r0,
             (Self::UStruct(l0), Self::UStruct(r0)) => l0 == r0,
+            (Self::WebViewForm(l0), Self::WebViewForm(r0)) => l0 == r0,
+            (Self::WebViewRemoteObject(l0), Self::WebViewRemoteObject(r0)) => l0 == r0,
             _ => false,
         }
     }
@@ -1752,6 +1791,8 @@ pub enum ObjectType {
     TYPE_WEB_REQUEST,
     TYPE_WEB_RESPONSE,
     TYPE_HTML_NODE,
+    TYPE_WEBVIEW_FORM,
+    TYPE_WEBVIEW_REMOTEOBJECT,
 
     TYPE_MEMBER_CALLER,
     TYPE_NOT_VALUE_TYPE,

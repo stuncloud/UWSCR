@@ -1027,6 +1027,8 @@ class
 
     p() // 関数スコープを抜けた がprintされる
 
+.. _uobject:
+
 UObject
 -------
 

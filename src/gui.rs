@@ -12,6 +12,8 @@ pub mod popupmenu;
 pub use popupmenu::*;
 pub mod balloon;
 pub use balloon::*;
+pub mod form;
+pub use form::*;
 
 use crate::winapi::{to_wide_string, WString, PcwstrExt, SystemError};
 use crate::write_locale;

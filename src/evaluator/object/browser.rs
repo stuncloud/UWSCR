@@ -1057,15 +1057,15 @@ struct BrowserListItem {
 
 #[allow(dead_code)]
 #[derive(Debug, Deserialize)]
-struct RuntimeResult {
-    result: RemoteObject0,
+pub struct RuntimeResult {
+    pub result: RemoteObject0,
     #[serde(rename="exceptionDetails")]
-    exception_details: Option<ExceptionDetails>
+    pub exception_details: Option<ExceptionDetails>
 }
 
 #[allow(dead_code)]
 #[derive(Debug, Deserialize)]
-struct ExceptionDetails {
+pub struct ExceptionDetails {
     #[serde(rename="exceptionId")]
     exception_id: i32,
     text: String,
@@ -1091,7 +1091,7 @@ impl fmt::Display for ExceptionDetails {
                 return write!(f, "{description}");
             }
         }
-        write!(f, "Error text: {}", self.text)
+        write!(f, "Runtime Exception: {}", self.text)
     }
 }
 impl Into<UError> for ExceptionDetails {
@@ -1105,19 +1105,19 @@ impl Into<UError> for ExceptionDetails {
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
-struct RemoteObject0 {
-    r#type: String,
+pub struct RemoteObject0 {
+    pub r#type: String,
     subtype: Option<String>,
     #[serde(rename="className")]
     class_name: Option<String>,
-    value: Option<Value>,
+    pub value: Option<Value>,
     #[serde(rename="unserializableValue")]
     unserializable_value: Option<String>,
     description: Option<String>,
     #[serde(rename="webDriverValue")]
     web_driver_value: Option<Value>,
     #[serde(rename="objectId")]
-    object_id: Option<String>,
+    pub object_id: Option<String>,
     preview: Option<Value>,
     #[serde(rename="customPreview")]
     custom_preview: Option<Value>

@@ -346,3 +346,218 @@ GUI
     :param 数値 省略可 幅: 表示サイズ (幅)、EMPTYなら現状維持
     :param 数値 省略可 高さ: 表示サイズ (高さ)、EMPTYなら現状維持
     :return: なし
+
+HTMLフォーム
+------------
+
+.. function:: createform(HTMLファイル, タイトル, [非同期フラグ=FALSE, オプション=FOM_DEFAULT, 幅=EMPTY, 高さ=EMPTY, X=EMPTY, Y=EMPTY])
+
+    | 関数の説明
+
+    .. admonition:: WebView2 Runtimeが必要です
+        :class: caution
+
+        | ``Microsoft Edge WebView2 Runtime`` がインストールされていない場合この関数はエラーになります
+
+    .. admonition:: UWSCとは互換性がありません
+        :class: warning
+
+        | UWSCではIEコンポーネントを利用していたのに対してUWSCRではWebView2を利用しています
+        | そのためUWSCで実行していたコードが動作しない場合があります
+
+    :param 文字列 HTMLファイル: 表示したいHTMLファイルのパス
+    :param 文字列 タイトル: ウィンドウタイトル
+    :param 真偽値 省略可 非同期フラグ: 非同期で実行するかどうか
+
+        - FALSE: submitボタンが押される、またはウィンドウが閉じられるまで待機する
+        - TRUE: 関数実行後にウィンドウが表示されたら制御を返す
+
+    :param 定数 省略可 オプション: 以下の定数の組み合わせ(OR連結)を指定
+
+        .. object:: FOM_NOICON
+
+            | 閉じるボタンを非表示にする
+
+        .. object:: FOM_MINIMIZE
+
+            | 最小化ボタンを表示する
+
+        .. object:: FOM_MAXIMIZE
+
+            | 最大化ボタンを表示する
+
+        .. object:: FOM_NOHIDE
+
+            | submitボタンが押されてもウィンドウを閉じない
+
+        .. object:: FOM_NOSUBMIT
+
+            | submitボタンが押されてもsubmitに割り当てられた処理(action)を行わない
+
+        .. object:: FOM_NORESIZE
+
+            | ウィンドウのサイズ変更不可
+
+        .. object:: FOM_BROWSER
+
+            | 互換性のために残されていますが使用できません (指定しても無視されます)
+
+        .. object:: FOM_FORMHIDE
+
+            | ウィンドウを非表示で起動する
+
+        .. object:: FOM_TOPMOST
+
+            | ウィンドウを最前面に固定
+
+        .. object:: FOM_NOTASKBAR
+
+            | タスクバーにアイコンを表示しない
+
+        .. object:: FOM_FORM2
+
+            | 互換性のために残されていますが使用できません (指定しても無視されます)
+
+        .. object:: FOM_DEFAULT
+
+            | オプションなし (0)
+
+    :param 数値 省略可 幅: ウィンドウの幅
+    :param 数値 省略可 高さ: ウィンドウの高さ
+    :param 数値 省略可 X: ウィンドウのX座標
+    :param 数値 省略可 Y: ウィンドウのY座標
+    :rtype: :ref:`form_data` または :ref:`form_object`
+    :return: 非同期フラグによる
+
+        - FALSE: :ref:`form_data`
+        - TRUE: :ref:`form_object`
+
+.. _form_data:
+
+Form情報
+^^^^^^^^
+
+submit時のform情報を示す :ref:`uobject`
+
+.. code-block:: json
+
+    // submit時
+    {
+        "submit": $submit, // $submitには押されたsubmitボタンのnameが入る
+        "data": [
+            // form内の各要素のnameおよびvalueが格納される
+            { "name": $name, "value", $value},
+        ]
+    }
+    // ウィンドウが閉じられた場合
+    {
+        "submit": null, // NULLになる
+        "data": []      // 空配列
+    }
+
+.. _form_object:
+
+Formオブジェクト
+^^^^^^^^^^^^^^^^
+
+| Formウィンドウを示すオブジェクト
+
+.. admonition:: COMオブジェクトではありません
+    :class: caution
+
+    | UWSCとは異なりCOMオブジェクトではなくUWSCR独自のオブジェクトとなります
+
+.. class:: From
+
+    .. property:: Document
+
+        | フォームに表示されているページのdocumentオブジェクト
+
+        :rtype: :ref:`webview_remote_object`
+
+    .. method:: Wait()
+
+        | ウィンドウが閉じられるのを待つ
+
+        parameter
+        :rtype: :ref:`form_data`
+        :return:
+
+            | submit時のform情報を示す :ref:`form_data` オブジェクト
+            | submitせず閉じた場合は ``submit`` がNULLになります
+
+        .. sourcecode:: uwscr
+
+            // test.htmlにはOKとCancelのsubmitボタンがあるものとする
+            f = createform("test.html", "Test", true)
+            result = f.wait()
+            select result.submit
+                case "OK"
+                    for data in result.data
+                        print data.name + ": " + data.value
+                    next
+                case "Cancel"
+                    print "キャンセルされました"
+                case NULL
+                    print "ウィンドウが閉じられました"
+                default
+                    print "なにかおかしいです"
+            selend
+
+    .. method:: SetVisible([表示フラグ=TRUE])
+
+        | ウィンドウの表示状態を変更する
+
+        :param 真偽値 省略可 表示フラグ: TRUEで表示、FALSEで非表示
+        :return: なし
+
+    .. method:: Close()
+
+        | ウィンドウを閉じる
+
+        :return: なし
+
+    .. method:: SetEventHandler(エレメント, イベント, 関数)
+
+        | 任意のイベント発生時に実行する関数を登録します
+        | 関数は引数を2つまで受けられます、内訳は以下の通りです
+
+        1. イベント発生エレメントのvalue値
+        2. イベント発生エレメントのname属性値
+
+        :param WebViewRemoteObject エレメント: イベント発生元のエレメントを示す :ref:`webview_remote_object`
+        :param 文字列 イベント: イベント名
+        :param ユーザー定義関数 関数: イベント発生時に実行される関数
+        :return: なし
+
+        .. sourcecode:: uwscr
+
+            f = createform("test.html", "Test", true)
+            select = f.document.querySelector("select")
+            f.SetEventHandler(select, "change", on_select_change)
+
+            button = f.document.querySelector("input[type=button]")
+            f.SetEventHandler(button, "click", on_button_click)
+
+            f.wait()
+
+            // 1つ目の引数でイベント発生エレメントのvalue
+            // 2つ目の引数でnameを受ける
+            procedure on_select_change(value, name)
+                print value
+                print name
+            fend
+
+            // 引数は必須ではない
+            procedure on_button_click()
+                print "クリックされました"
+            fend
+
+.. _webview_remote_object:
+
+WebViewRemoteObject
+^^^^^^^^^^^^^^^^^^^
+
+| フォームに表示されているページのJavaScriptオブジェクトを示します
+| 利用方法は :ref:`remote_object` と同等です
+

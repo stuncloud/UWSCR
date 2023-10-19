@@ -11,7 +11,8 @@ use crate::gui::{
     Slctbox, SlctReturnValue,
     PopupMenu,
     Balloon,
-    FONT_FAMILY
+    FONT_FAMILY,
+    WebViewForm, FormSize,
 };
 
 use std::sync::Mutex;
@@ -55,6 +56,9 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("popupmenu", 3, popupmenu);
     sets.add("balloon", 9, balloon);
     sets.add("fukidasi", 9, balloon);
+    sets.add("createform", 8, createform);
+    sets.add("getformdata", 2, getformdata);
+    sets.add("setformdata", 3, setformdata);
     sets
 }
 
@@ -298,4 +302,55 @@ pub fn balloon(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncR
     }
 
     Ok(Object::Empty)
+}
+
+#[allow(non_camel_case_types)]
+#[derive(Debug, EnumString, EnumProperty, EnumVariantNames, ToPrimitive, FromPrimitive)]
+pub enum FormOptions {
+    FOM_NOICON    = 1,
+    FOM_MINIMIZE  = 256,
+    FOM_MAXIMIZE  = 512,
+    FOM_NOHIDE    = 2,
+    FOM_NOSUBMIT  = 4,
+    FOM_NORESIZE  = 8,
+    FOM_BROWSER   = 128,
+    FOM_FORMHIDE  = 4096,
+    FOM_TOPMOST   = 16,
+    FOM_NOTASKBAR = 16384,
+    FOM_FORM2     = 8192,
+    FOM_DEFAULT   = 0,
+}
+impl Into<u32> for FormOptions {
+    fn into(self) -> u32 {
+        ToPrimitive::to_u32(&self).unwrap_or_default()
+    }
+}
+
+pub fn createform(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let file = args.get_as_string(0, None)?;
+    let title = args.get_as_string(1, None)?;
+    let sync = args.get_as_bool(2, Some(false))?;
+    let opt = args.get_as_int::<u32>(3, Some(0))?;
+    let w = args.get_as_int_or_empty::<i32>(4)?;
+    let h = args.get_as_int_or_empty::<i32>(5)?;
+    let x = args.get_as_int_or_empty::<i32>(6)?;
+    let y = args.get_as_int_or_empty::<i32>(7)?;
+    let size = FormSize::new(x, y, w, h);
+
+    let form = WebViewForm::new(&title, size, opt)?;
+    form.run(&file)?;
+    if sync {
+        Ok(Object::WebViewForm(form))
+    } else {
+        let value = form.message_loop()?;
+        Ok(Object::UObject(UObject::new(value)))
+    }
+}
+
+pub fn getformdata(_: &mut Evaluator, _args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    Err(builtin_func_error(UErrorMessage::UnavailableFunction))
+}
+
+pub fn setformdata(_: &mut Evaluator, _args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    Err(builtin_func_error(UErrorMessage::UnavailableFunction))
 }

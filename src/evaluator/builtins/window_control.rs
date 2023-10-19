@@ -14,6 +14,7 @@ use crate::evaluator::builtins::{
     clipboard::Clipboard,
 };
 pub use monitor::Monitor;
+pub use acc::U32Ext;
 use crate::gui::UWindow;
 use crate::winapi::get_console_hwnd;
 
