@@ -366,6 +366,45 @@ HTMLフォーム
         | そのためUWSCで実行していたコードが動作しない場合があります
 
     :param 文字列 HTMLファイル: 表示したいHTMLファイルのパス
+
+        .. admonition:: ファイルの配置について
+            :class: hint
+
+            | HTMLファイルから別のファイルを参照する場合、もとのHTMLファイルを起点とした相対パスを指定します
+            |
+
+            - C:\\Test\\
+                - form.html
+                    - js\\
+                        - form.js
+                    - css\\
+                        - form.css
+                    - img\\
+                        - form.png
+
+            .. code-block:: html
+
+                <!DOCTYPE html>
+                <html lang="ja">
+                <head>
+                    <meta charset="UTF-8">
+                    <title>別ファイル参照例</title>
+                    <link rel="stylesheet" href="css/form.css">
+                    <script src="js/form.js"></script>
+                </head>
+                <body>
+                    <img src="img/form.png">
+                    <form>
+                        <input type="submit" value="OK" name="OK">
+                    </form>
+                </body>
+                </html>
+
+            .. sourcecode:: uwscr
+
+                html = "c:\test\form.html"
+                r = createform(html, "test")
+
     :param 文字列 タイトル: ウィンドウタイトル
     :param 真偽値 省略可 非同期フラグ: 非同期で実行するかどうか
 
@@ -432,6 +471,58 @@ HTMLフォーム
         - FALSE: :ref:`form_data`
         - TRUE: :ref:`form_object`
 
+    .. code-block:: html
+
+        <!DOCTYPE html>
+        <html lang="ja">
+        <head>
+            <meta charset="UTF-8">
+            <title>Sample.html</title>
+        </head>
+        <body>
+            <form>
+                <div>
+                    <span>ユーザー名</span>
+                    <input type="text" name="user">
+                </div>
+                <div>
+                    <span>パスワード</span>
+                    <input type="password" name="pwd">
+                </div>
+                <div>
+                    <select name="slct">
+                        <option value="foo">foo</option>
+                        <option value="bar">bar</option>
+                        <option value="baz">baz</option>
+                    </select>
+                </div>
+                <div>
+                    <textarea name="txt" cols="30" rows="10"></textarea>
+                </div>
+                <div>
+                    <input type="submit" value="OK" name="OK">
+                    <input type="submit" value="Cancel" name="Cancel">
+                </div>
+            </form>
+        </body>
+        </html>
+
+    .. sourcecode:: uwscr
+
+        r = createform("sample.html", "Sample")
+        select r.submit
+            case "OK"
+                print "OKが押されました"
+                print "formの値は以下です"
+                for data in r.data
+                    print data.name + ": " + data.value
+                next
+            case "Cancel"
+                print 'キャンセルされました'
+            case NULL
+                print 'submitされずにウィンドウが閉じられました'
+        selend
+
 .. _form_data:
 
 Form情報
@@ -439,7 +530,7 @@ Form情報
 
 submit時のform情報を示す :ref:`uobject`
 
-.. code-block:: json
+.. code-block:: js
 
     // submit時
     {
@@ -467,7 +558,7 @@ Formオブジェクト
 
     | UWSCとは異なりCOMオブジェクトではなくUWSCR独自のオブジェクトとなります
 
-.. class:: From
+.. class:: Form
 
     .. property:: Document
 
@@ -479,7 +570,6 @@ Formオブジェクト
 
         | ウィンドウが閉じられるのを待つ
 
-        parameter
         :rtype: :ref:`form_data`
         :return:
 
