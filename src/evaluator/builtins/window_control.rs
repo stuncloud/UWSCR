@@ -1364,9 +1364,14 @@ pub fn peekcolor(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFun
             }
         } else {
             let mi = MorgImg::from(&evaluator.mouseorg);
+            let hwnd = if mi.is_back {
+                mi.hwnd.as_ref()
+            } else {
+                None
+            };
             let (x, y) = mi.fix_point(x, y);
             mi.redraw_window();
-            let hdc = GetDC(mi.hwnd.as_ref());
+            let hdc = GetDC(hwnd);
             let colorref = GetPixel(hdc, x, y);
             ReleaseDC(mi.hwnd.as_ref(), hdc);
             colorref.0
