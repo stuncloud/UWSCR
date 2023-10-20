@@ -378,7 +378,7 @@ impl WebViewForm {
                 Ok(Object::UObject(UObject::new(value)))
             },
             "setvisible" => {
-                let visible = args.as_bool(0)?;
+                let visible = args.as_bool(0).unwrap_or(true);
                 if visible {
                     self.show();
                 } else {
