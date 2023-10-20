@@ -51,6 +51,7 @@ use once_cell::sync::{OnceCell, Lazy};
 
 static INIT_TOUCH_INJECTION: OnceCell<()> = OnceCell::new();
 static TOUCH_POINT: Lazy<Arc<Mutex<TouchPoint>>> = Lazy::new(|| Arc::new(Mutex::new(TouchPoint(None))));
+pub static INPUT_EXTRA_INFO: Lazy<usize> = Lazy::new(|| std::process::id() as usize);
 
 pub fn builtin_func_sets() -> BuiltinFunctionSets {
     let mut sets = BuiltinFunctionSets::new();
@@ -257,7 +258,7 @@ impl Input {
                             wScan: scan,
                             dwFlags: KEYEVENTF_UNICODE,
                             time: 0,
-                            dwExtraInfo: 0,
+                            dwExtraInfo: *INPUT_EXTRA_INFO,
                         };
                         input
                     })
@@ -285,7 +286,7 @@ impl Input {
                     wScan: 0,
                     dwFlags: dwflags,
                     time: 0,
-                    dwExtraInfo: 0,
+                    dwExtraInfo: *INPUT_EXTRA_INFO,
                 };
                 SendInput(&[input], size_of::<INPUT>() as i32);
             }
@@ -310,7 +311,7 @@ impl Input {
                     wScan: 0,
                     dwFlags: dwflags,
                     time: 0,
-                    dwExtraInfo: 0,
+                    dwExtraInfo: *INPUT_EXTRA_INFO,
                 };
                 SendInput(&[input], size_of::<INPUT>() as i32);
             }
@@ -352,7 +353,7 @@ impl Input {
                     mouseData: 0,
                     dwFlags: dwflags,
                     time: 0,
-                    dwExtraInfo: 0,
+                    dwExtraInfo: *INPUT_EXTRA_INFO,
                 };
                 SendInput(&[input], size_of::<INPUT>() as i32);
             }
@@ -383,7 +384,7 @@ impl Input {
                     mouseData: 0,
                     dwFlags: dwflags,
                     time: 0,
-                    dwExtraInfo: 0,
+                    dwExtraInfo: *INPUT_EXTRA_INFO,
                 };
                 SendInput(&[input], size_of::<INPUT>() as i32);
             }
@@ -421,7 +422,7 @@ impl Input {
                     mouseData: amount,
                     dwFlags: dwflags,
                     time: 0,
-                    dwExtraInfo: 0,
+                    dwExtraInfo: *INPUT_EXTRA_INFO,
                 };
                 SendInput(&[input], size_of::<INPUT>() as i32);
             }

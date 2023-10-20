@@ -1408,6 +1408,7 @@ pub fn sckey(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
             SetForegroundWindow(hwnd);
         }
         SendInput(&pinputs, std::mem::size_of::<INPUT>() as i32);
+        std::thread::sleep(std::time::Duration::from_millis(100));
     }
     Ok(Object::default())
 }

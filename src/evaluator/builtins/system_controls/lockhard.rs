@@ -1,4 +1,5 @@
 use super::LockHardExConst;
+use super::super::window_low::INPUT_EXTRA_INFO;
 
 use windows::Win32::{
         Foundation::{HWND, WPARAM, LPARAM, LRESULT, POINT},
@@ -12,7 +13,7 @@ use windows::Win32::{
                 HHOOK,
                 HC_ACTION,
                 WH_KEYBOARD_LL, WH_MOUSE_LL,
-                MSLLHOOKSTRUCT, //KBDLLHOOKSTRUCT,
+                MSLLHOOKSTRUCT, KBDLLHOOKSTRUCT,
                 WM_MOUSEMOVE,
                 EVENT_SYSTEM_DESKTOPSWITCH,
                 WINEVENT_OUTOFCONTEXT, WINEVENT_SKIPOWNTHREAD,
@@ -26,6 +27,7 @@ use windows::Win32::{
 
 use once_cell::sync::Lazy;
 use std::sync::{Arc, Mutex};
+
 
 pub fn lock(flg: bool) -> bool {
     unsafe { BlockInput(flg).is_ok() }
@@ -138,15 +140,17 @@ impl LockHard {
     unsafe extern "system"
     fn ll_mouse_hook(ncode: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
         if ncode == HC_ACTION as i32 && wparam.0 != WM_MOUSEMOVE as usize {
-            let s = *(lparam.0 as *mut MSLLHOOKSTRUCT);
             if let Ok(lh) = LOCKHARD.lock() {
-                match lh.hwnd {
-                    Some(hwnd) => {
-                        if hwnd == Self::window_from_point(s.pt) {
-                            return LRESULT(1);
-                        }
-                    },
-                    None => return LRESULT(1),
+                let mhs = *(lparam.0 as *mut MSLLHOOKSTRUCT);
+                if mhs.dwExtraInfo != *INPUT_EXTRA_INFO {
+                    match lh.hwnd {
+                        Some(hwnd) => {
+                            if hwnd == Self::window_from_point(mhs.pt) {
+                                return LRESULT(1);
+                            }
+                        },
+                        None => return LRESULT(1),
+                    }
                 }
             }
         }
@@ -155,14 +159,18 @@ impl LockHard {
     unsafe extern "system"
     fn ll_keyboard_hook(ncode: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
         if ncode == HC_ACTION as i32 {
+
             if let Ok(lh) = LOCKHARD.lock() {
-                match lh.hwnd {
-                    Some(hwnd) => {
-                        if hwnd == GetForegroundWindow() {
-                            return LRESULT(1);
-                        }
-                    },
-                    None => return LRESULT(1),
+                let khs = *(lparam.0 as *mut KBDLLHOOKSTRUCT);
+                if khs.dwExtraInfo != *INPUT_EXTRA_INFO {
+                    match lh.hwnd {
+                        Some(hwnd) => {
+                            if hwnd == GetForegroundWindow() {
+                                return LRESULT(1);
+                            }
+                        },
+                        None => return LRESULT(1),
+                    }
                 }
             }
         }

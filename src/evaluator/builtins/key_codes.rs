@@ -1,6 +1,6 @@
 use strum_macros::{EnumString, EnumVariantNames, EnumProperty};
 use num_derive::{ToPrimitive, FromPrimitive};
-use num_traits::{ToPrimitive};
+use num_traits::ToPrimitive;
 
 use windows::Win32::UI::Input::KeyboardAndMouse::{
     INPUT, INPUT_KEYBOARD, KEYBDINPUT,
@@ -215,6 +215,7 @@ impl SCKeyCode {
                 ki.wScan = *code;
             },
         }
+        ki.dwExtraInfo = *super::window_low::INPUT_EXTRA_INFO;
         input.Anonymous.ki = ki;
         input
     }
