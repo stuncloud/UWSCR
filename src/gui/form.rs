@@ -1051,7 +1051,7 @@ impl RuntimeResult {
 }
 
 #[cfg(target_pointer_width="32")]
-unsafe fn set_window_long(hwnd: HWND, nindex: Wam::WINDOW_LONG_PTR_INDEX, dwnewlong: isize) -> isize {
+unsafe fn set_window_long(hwnd: HWND, nindex: wm::WINDOW_LONG_PTR_INDEX, dwnewlong: isize) -> isize {
     wm::SetWindowLongW(hwnd, nindex, dwnewlong as i32) as isize
 }
 #[cfg(target_pointer_width="32")]
