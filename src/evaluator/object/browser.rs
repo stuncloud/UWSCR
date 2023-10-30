@@ -1398,33 +1398,37 @@ impl RemoteObject {
     }
     /// IE関数互換関数群で使うエレメントの値を返す関数
     fn as_element_value(&self) -> BrowserResult<Object> {
-        if let Some(tag_name) = self.get_property("tagName")?.as_value().unwrap_or_default().as_str() {
-            match tag_name.to_ascii_uppercase().as_str() {
-                "SELECT" => {
-                    // SELECT要素は選択されたOptionのテキストを返す
-                    let texts = self.get_property("selectedOptions")?.to_iter()?
-                        .filter_map(|opt| opt.get_property("textContent").ok())
-                        .filter_map(|text| text.as_value())
-                        .filter_map(|value| value.as_str().map(|s| s.to_string()))
-                        .collect::<Vec<_>>();
-                    return Ok(texts.join(" ").to_string().into());
-                },
-                "INPUT" => {
+        let value = self.get_property("tagName")?.as_value().unwrap_or_default();
+        let tag_name = value.as_str().unwrap_or_default();
+        match tag_name.to_ascii_uppercase().as_str() {
+            "SELECT" => {
+                // SELECT要素は選択されたOptionのテキストを返す
+                let texts = self.get_property("selectedOptions")?.to_iter()?
+                    .filter_map(|opt| opt.get_property("textContent").ok())
+                    .filter_map(|text| text.as_value())
+                    .filter_map(|value| value.as_str().map(|s| s.to_string()))
+                    .collect::<Vec<_>>();
+                Ok(texts.join(" ").to_string().into())
+            },
+            "INPUT" => {
+                let value = self.get_property("type")?.as_value().unwrap_or_default();
+                let type_name = value.as_str().unwrap_or_default();
+                match type_name.to_ascii_uppercase().as_str() {
                     // 特定のINPUT要素はvalue以外を返す
-                    if let Some(type_name) = self.get_property("type")?.as_value().unwrap_or_default().as_str() {
-                        match type_name.to_ascii_uppercase().as_str() {
-                            "RADIO" | "CHECKBOX" => {
-                                let checked = self.get_property("checked")?.as_value().unwrap_or_default().as_bool().unwrap_or(false);
-                                return Ok(checked.into());
-                            },
-                            _ => {}
-                        }
+                    "RADIO" | "CHECKBOX" => {
+                        let checked = self.get_property("checked")?.as_value().unwrap_or_default().as_bool().unwrap_or(false);
+                        Ok(checked.into())
+                    },
+                    _ => {
+                        self.get_property("value").map(|remote| remote.to_object())
                     }
-                },
-                _ => {}
+                }
+            },
+            _ => {
+                // 上記以外の要素はtextContentを返す
+                self.get_property("textContent").map(|remote| remote.to_object())
             }
         }
-        self.get_property("value").map(|remote| remote.to_object())
     }
     fn set_data_click(&self) -> BrowserResult<Object> {
         if let Some(id) = &self.remote.object_id {
