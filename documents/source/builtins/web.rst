@@ -67,6 +67,21 @@
         | 対象ブラウザが同じデバッグポートを開けて起動している場合はそのブラウザに再接続できます
         | 異なるポートを開いている、またはポートが開かれていない場合は再接続できずエラーになります
 
+        .. sourcecode:: uwscr
+
+            // 起動.uws
+
+            chrome = BrowserControl(BC_CHROME, 9999) // ポート9999でChromeを起動
+            chrome[0].navigate("https://example.com") // 0番目のタブで任意のサイトを開く
+
+        .. sourcecode:: uwscr
+
+            // 再接続.uws
+
+            chrome = BrowserControl(BC_CHROME, 9999) // 9999ポートのChromeに再接続される
+            url = chrome[0].document.URL // 0番目のタブのURLを取得
+            print url // https://example.com
+
     .. admonition:: 起動中のブラウザとは別に自動操作用のブラウザを起ち上げるには
         :class: hint
 
