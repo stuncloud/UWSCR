@@ -243,6 +243,21 @@ impl UWindow<()> for Balloon {
         Ok(())
     }
 
+    unsafe extern "system"
+    fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+        match msg {
+            wm::WM_SETCURSOR => {
+                if let Ok(hcursor) = wm::LoadCursorW(None, wm::IDC_ARROW) {
+                    wm::SetCursor(hcursor);
+                    LRESULT(1)
+                } else {
+                    LRESULT(0)
+                }
+            },
+            msg => wm::DefWindowProcW(hwnd, msg, wparam, lparam)
+        }
+    }
+
     fn hwnd(&self) -> HWND {
         self.hwnd
     }
