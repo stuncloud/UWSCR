@@ -100,10 +100,17 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets
 }
 
-pub fn sleep(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let sec = args.get_as_num(0, None)?;
-    if sec >= 0.0 {
-        thread::sleep(time::Duration::from_secs_f64(sec));
+pub fn sleep(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    // let sec = args.get_as_num(0, None)?;
+    match args.get_as_func_or_num(0)? {
+        TwoTypeArg::T(sec) => {
+            if sec >= 0.0 {
+                thread::sleep(time::Duration::from_secs_f64(sec));
+            }
+        },
+        TwoTypeArg::U(func) => {
+            while func.invoke(evaluator, vec![])?.is_truthy() {}
+        },
     }
     Ok(Object::Empty)
 }
