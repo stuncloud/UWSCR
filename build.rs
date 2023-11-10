@@ -8,18 +8,20 @@ fn main() {
         let desc = match std::env::var("TARGET").unwrap().as_str() {
             "x86_64-pc-windows-msvc" => {
                 res.set_icon(r#".\icons\UWSC\ico\MAINICON_0016-0256_light.ico"#);
-                if cfg!(feature="chkimg") {
-                    "UWSCR x64"
-                } else {
-                    "UWSCR x64 (chkimg not included)"
+                match (cfg!(feature="chkimg"), cfg!(feature="gui")) {
+                    (true, false) => "UWSCR x64",
+                    (false, false) => "UWSCR x64 w/o chkimg",
+                    (true, true) => "UWSCR x64 GUI",
+                    (false, true) => "UWSCR x64 GUI w/o chkimg",
                 }
             },
             "i686-pc-windows-msvc" => {
                 res.set_icon(r#".\icons\UWSC\ico\MAINICON_0016-0256_dark.ico"#);
-                if cfg!(feature="chkimg") {
-                    "UWSCR x86"
-                } else {
-                    "UWSCR x86 (chkimg not included)"
+                match (cfg!(feature="chkimg"), cfg!(feature="gui")) {
+                    (true, false) => "UWSCR x86",
+                    (false, false) => "UWSCR x86 w/o chkimg",
+                    (true, true) => "UWSCR x86 GUI",
+                    (false, true) => "UWSCR x86 GUI w/o chkimg",
                 }
             },
             _ => "UWSCR"
