@@ -3,19 +3,11 @@ use crate::evaluator::builtins::*;
 use crate::evaluator::object::Object;
 use crate::settings::USETTINGS;
 use crate::error::evaluator::UErrorMessage::UWindowError;
-use crate::gui::{
-    UWindow,
-    FontFamily,
-    Msgbox, MsgBoxButton,
-    InputBox, InputField,
-    Slctbox, SlctReturnValue,
-    PopupMenu,
-    Balloon,
-    FONT_FAMILY,
-    WebViewForm, FormSize,
-};
+use crate::gui2::*;
 
 use std::sync::Mutex;
+use std::rc::Rc;
+use std::cell::RefCell;
 
 use strum_macros::{EnumString, EnumVariantNames};
 use num_derive::{ToPrimitive, FromPrimitive};
@@ -34,6 +26,13 @@ static DIALOG_TITLE: Lazy<String> = Lazy::new(|| {
         },
     }
 });
+static DIALOG_FONT_FAMILY: Lazy<FontFamily> = Lazy::new(|| {
+    let s = USETTINGS.lock().unwrap();
+    FontFamily::new(&s.options.default_font.name, s.options.default_font.size)
+});
+thread_local! {
+    pub static THREAD_LOCAL_BALLOON: Rc<RefCell<Option<Balloon>>> = Rc::new(RefCell::new(None));
+}
 
 #[allow(non_camel_case_types)]
 #[derive(Debug, EnumString, EnumProperty, EnumVariantNames, ToPrimitive, FromPrimitive)]
@@ -62,17 +61,18 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets
 }
 
-pub fn logprint(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn logprint(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let flg = args.get_as_bool(0, None)?;
-    let left = args.get_as_int_or_empty(1)?;
-    let top = args.get_as_int_or_empty(2)?;
+    let x = args.get_as_int_or_empty(1)?;
+    let y = args.get_as_int_or_empty(2)?;
     let width = args.get_as_int_or_empty(3)?;
     let height = args.get_as_int_or_empty(4)?;
     if let Some(m) = LOGPRINTWIN.get(){
-        evaluator.gui_print = Some(flg);
-        let mut lp = m.lock().unwrap();
+        let mut guard = m.lock().unwrap();
+        let lp = guard.as_mut()
+            .map_err(|e| builtin_func_error(e.message.clone()))?;
         lp.set_visibility(flg, flg);
-        lp.move_to(left, top, width, height);
+        lp.set_new_pos(x, y, width, height);
     }
     Ok(Object::Empty)
 }
@@ -105,27 +105,24 @@ pub fn msgbox(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let btns = args.get_as_int::<i32>(1, Some(BtnConst::BTN_OK as i32))?;
     let (x, y) = get_dlg_point(&args, (2, 3), &MSGBOX_POINT)?;
     let focus = args.get_as_int_or_empty(4)?;
-    let _enable_link = args.get_as_bool(5, Some(false))?;
+    let enable_link = args.get_as_bool(5, Some(false))?;
 
-    let font_family = FONT_FAMILY.clone();
-    let selected = focus.map(|n| MsgBoxButton(n));
-
+    let font = Some(DIALOG_FONT_FAMILY.clone());
+    let defbtn = focus.map(|n| MsgBoxButton(n));
     let title = DIALOG_TITLE.as_str();
-    let msgbox = Msgbox::new(
-        title,
-        &message,
-        MsgBoxButton(btns),
-        Some(font_family),
-        selected,
-        x, y,
-    ).map_err(|e| builtin_func_error(UWindowError(e)))?;
-    msgbox.show();
-    let (btn, x, y) = msgbox.message_loop()
+
+    let msgbox = MsgBox::new(title, &message, x, y, MsgBoxButton(btns), defbtn, font, enable_link)
         .map_err(|e| builtin_func_error(UWindowError(e)))?;
 
+    let result = msgbox.message_loop()
+        .map_err(|e| builtin_func_error(UWindowError(e)))?;
+
+    let x = result.point.x;
+    let y = result.point.y;
+    let pressed = result.result.0;
+
     set_dlg_point(x, y, &MSGBOX_POINT);
-    let pressed = btn.0 as f64;
-    Ok(Object::Num(pressed))
+    Ok(pressed.into())
 }
 
 pub fn input(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -156,18 +153,19 @@ pub fn input(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
         .collect::<Vec<_>>();
     let count = fields.len();
     let title = DIALOG_TITLE.as_str();
-    let font = FONT_FAMILY.clone();
+    let font = DIALOG_FONT_FAMILY.clone();
     let caption = msg.pop().unwrap_or_default();
 
-    let input = InputBox::new(title, Some(font), &caption, fields, x, y)
+    let input = InputBox::new(title, Some(font), caption, fields, x, y)
             .map_err(|e| builtin_func_error(UWindowError(e)))?;
-    input.show();
 
-    let (result, x, y) = input.message_loop()
+    let result = input.message_loop()
         .map_err(|e| builtin_func_error(UWindowError(e)))?;
 
+    let x = result.point.x;
+    let y = result.point.y;
     set_dlg_point(x, y, &INPUT_POINT);
-    match result {
+    match result.result {
         Some(mut vec) => if vec.len() == 1 {
             let s = vec.pop().unwrap_or_default();
             Ok(Object::String(s))
@@ -198,9 +196,10 @@ pub enum SlctConst {
 pub fn slctbox(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     // 第一引数: 種別と戻り値型
     let n = args.get_as_int(0, None)?;
-    let (r#type, option) = Slctbox::convert_to_type_and_option(n);
+    let r#type = SlctType::new(n);
     // 第二引数: タイマー秒数
     let wait = args.get_as_int(1, None)?;
+    let progress = if wait > 0.0 {Some(wait)} else {None};
     // 第三引数・第四引数: いずれも数値なら座標
     let mut x = args.get_as_i32(2).ok();
     let mut y = args.get_as_i32(3).ok();
@@ -226,16 +225,15 @@ pub fn slctbox(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
         None => None
     };
 
-    let font = FONT_FAMILY.clone();
+    let font = Some(DIALOG_FONT_FAMILY.clone());
     let title = DIALOG_TITLE.as_str();
-    let slct = Slctbox::new(title, message, r#type, option, items, font, wait, pos_x, pos_y)
+    let slct = Slctbox::new(title, message, r#type, items, progress, font, pos_x, pos_y)
             .map_err(|e| builtin_func_error(UWindowError(e)))?;
-    slct.show();
-    let (ret, left, top) = slct.message_loop()
+    let result = slct.message_loop()
         .map_err(|e| builtin_func_error(UWindowError(e)))?;
 
-    set_dlg_point(left, top, &SLCTBOX_POINT);
-    let obj = match ret {
+    set_dlg_point(result.point.x, result.point.y, &SLCTBOX_POINT);
+    let obj = match result.result {
         SlctReturnValue::Const(n) |
         SlctReturnValue::Index(n) => n.into(),
         SlctReturnValue::String(s) => s.into(),
@@ -259,47 +257,53 @@ pub fn popupmenu(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult 
     let list = args.get_as_array_include_hashtbl(0, None, true)?;
     let x = args.get_as_int_or_empty(1)?;
     let y = args.get_as_int_or_empty(2)?;
-    let popup = PopupMenu::new(list)
+    let items = list.into_iter()
+        .map(|o| o.into())
+        .collect();
+    let popup = PopupMenu::new(items)
         .map_err(|e| builtin_func_error(UErrorMessage::UWindowError(e)))?;
     let selected = popup.show(x, y)
         .map_err(|e| builtin_func_error(UWindowError(e)))?;
 
-    let obj = match selected {
-        Some(s) => Object::String(s),
-        None => Object::Empty,
-    };
-    Ok(obj)
+    Ok(selected.into())
 }
 
-pub fn balloon(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+#[allow(non_camel_case_types)]
+#[derive(Debug, EnumString, EnumProperty, EnumVariantNames, ToPrimitive, FromPrimitive, Default)]
+pub enum BalloonFlag {
+    #[default]
+    FUKI_DEFAULT = 0,
+    FUKI_UP      = 1,
+    FUKI_DOWN    = 2,
+    FUKI_LEFT    = 3,
+    FUKI_RIGHT   = 4,
+    FUKI_ROUND   = 9,
+    FUKI_POINT   = 0xF0,
+}
+
+pub fn balloon(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let balloon = if args.len() == 0 {
         // balloon消す
         None
     } else {
-        let text = args.get_as_string(0, None)?;
+        let message = args.get_as_string(0, None)?;
         let x = args.get_as_int(1, Some(0_i32))?;
         let y = args.get_as_int(2, Some(0_i32))?;
-        let _dir = args.get_as_int(3, Some(0_u32))?;
+        let shape = args.get_as_int(3, Some(0))?;
         let font_size = args.get_as_int_or_empty::<i32>(4)?;
         let font_name = args.get_as_string_or_empty(5)?;
         let font = Some(FontFamily::from((font_name, font_size)));
-        let font_color = args.get_as_int_or_empty::<u32>(6)?;
-        let bg_color = args.get_as_int_or_empty::<u32>(7)?;
-        let balloon = Balloon::new(&text, x, y, font, font_color, bg_color)
+        let fore_color = args.get_as_int_or_empty::<u32>(6)?;
+        let back_color = args.get_as_int_or_empty::<u32>(7)?;
+        let transparency = args.get_as_int(8, Some(0))?;
+        let balloon = Balloon::new(&message, x, y, font, fore_color, back_color, shape, transparency)
             .map_err(|e| builtin_func_error(UWindowError(e)))?;
         Some(balloon)
     };
 
-    match balloon {
-        Some(new) => match evaluator.balloon {
-            Some(ref mut old) => old.redraw(new),
-            None => {
-                new.draw();
-                evaluator.balloon = Some(new);
-            },
-        },
-        None => evaluator.balloon = None,
-    }
+    let cell = THREAD_LOCAL_BALLOON.with(|b| b.clone());
+    let mut local_balloon = cell.borrow_mut();
+    *local_balloon = balloon;
 
     Ok(Object::Empty)
 }

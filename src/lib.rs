@@ -10,7 +10,8 @@ pub mod serializer;
 pub mod settings;
 pub mod winapi;
 pub mod error;
-pub mod gui;
+// pub mod gui;
+pub mod gui2;
 pub mod com;
 
 use encoding_rs::{UTF_8, SHIFT_JIS};

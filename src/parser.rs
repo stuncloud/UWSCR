@@ -1865,9 +1865,7 @@ impl Parser {
                 }
             },
             "guiprint" => {
-                if ! self.is_next_token(&Token::EqualOrAssign) {
-                    Statement::Option(OptionSetting::GuiPrint(true))
-                } else {
+                if self.is_next_token(&Token::EqualOrAssign) {
                     self.bump();
                     self.bump();
                     if let Token::Bool(b) = self.current_token.token {
@@ -1876,6 +1874,8 @@ impl Parser {
                         self.error_got_unexpected_token();
                         return None;
                     }
+                } else {
+                    Statement::Option(OptionSetting::GuiPrint(true))
                 }
             },
             "__allow_ie_object__" => {

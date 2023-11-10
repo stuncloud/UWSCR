@@ -219,6 +219,7 @@ impl Default for UPosition {
     }
 }
 
+const DEFAULT_FONT_SIZE: i32 = 20;
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct DefaultFont {
     /// フォント名
@@ -230,7 +231,7 @@ pub struct DefaultFont {
 }
 impl Default for DefaultFont {
     fn default() -> Self {
-        Self { name: "Yu Gothic UI".into(), size: 15 }
+        Self { name: "Yu Gothic UI".into(), size: DEFAULT_FONT_SIZE }
     }
 }
 impl DefaultFont {
@@ -243,7 +244,7 @@ impl FromStr for DefaultFont {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let f = s.split(",").collect::<Vec<_>>();
         let name = f[0];
-        let size = f[1].parse().unwrap_or(15);
+        let size = f[1].parse().unwrap_or(DEFAULT_FONT_SIZE);
         Ok(DefaultFont::new(name, size))
     }
 }

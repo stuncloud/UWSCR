@@ -314,8 +314,6 @@ impl WebViewForm {
     }
     pub fn message_loop(&self) -> WebViewResult<Value> {
         unsafe {
-            let mut msg = wm::MSG::default();
-            let hwnd = HWND::default();
             loop {
                 while let Ok(f) = self.webview.rx.try_recv() {
                     match (f)(self.webview.clone()) {
@@ -323,7 +321,7 @@ impl WebViewForm {
                         WebViewValue::Submit(value) => {
                             if self.no_hide {
                                 self.webview.core.remove_WebMessageReceived(self.webview.webmsg_token)?;
-                                WebView::remove_window_webview(hwnd);
+                                WebView::remove_window_webview(self.hwnd);
                             } else {
                                 let _ = wm::DestroyWindow(self.hwnd);
                             }
@@ -332,6 +330,8 @@ impl WebViewForm {
                     }
                 }
 
+                let mut msg = wm::MSG::default();
+                let hwnd = HWND::default();
                 match wm::GetMessageW(&mut msg, hwnd, 0, 0).0 {
                     -1 => break Err(core::Error::from_win32().into()),
                     0 => {

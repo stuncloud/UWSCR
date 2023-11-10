@@ -1,4 +1,4 @@
-use crate::gui::{Window, UWindow, UWindowError, UWindowResult};
+use crate::gui2::{UWindow, UWindowResult, WindowBuilder};
 use crate::ast::{FuncParam, ParamKind, Expression};
 use crate::winapi::show_message;
 use crate::error::UWSCRErrorTitle;
@@ -8,17 +8,17 @@ use crate::evaluator::{
     object::function::Function
 };
 
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::collections::HashMap;
-use once_cell::sync::{Lazy, OnceCell};
+use once_cell::sync::Lazy;
 
+use windows::core::{w, PCWSTR};
 use windows::Win32::{
         Foundation::{HWND, WPARAM, LPARAM, LRESULT},
         UI::{
             WindowsAndMessaging::{
-                WINDOW_STYLE, WINDOW_EX_STYLE,
-                DefWindowProcW, PostQuitMessage, SendMessageW,
-                WM_HOTKEY, WM_DESTROY, WM_CLOSE,
+                DefWindowProcW, DestroyWindow,
+                WM_HOTKEY, WM_CLOSE,
             },
             Input::KeyboardAndMouse::{
                     RegisterHotKey, UnregisterHotKey,
@@ -27,8 +27,8 @@ use windows::Win32::{
         },
     };
 
+static REGISTER_CLASS: OnceLock<UWindowResult<()>> = OnceLock::new();
 static HOTKEY_WINDOW: Lazy<Arc<Mutex<Option<SetHotKeyWindow>>>> = Lazy::new(|| {Arc::new(Mutex::new(None))});
-static CLASS_NAME: OnceCell<Result<String, UWindowError>> = OnceCell::new();
 
 pub fn set_hot_key(vk: u32, mo: u32, func: Function, evaluator: &Evaluator) -> UWindowResult<()> {
     let mut mutex = HOTKEY_WINDOW.lock().unwrap();
@@ -61,12 +61,13 @@ struct SetHotKeyWindow {
 }
 impl SetHotKeyWindow {
     fn new(evaluator: &Evaluator) -> UWindowResult<Self> {
-        let class_name = Window::get_class_name("UWSCR.SetHotKey", &CLASS_NAME, Some(Self::wndproc))?;
-        let hwnd = Window::create_window(None, &class_name, "SetHotKey", WINDOW_EX_STYLE(0), WINDOW_STYLE(0), 0, 0, 0, 0, None)?;
-        let evaluator = evaluator.clone();
-        let keymap = HashMap::new();
-        let id = 0;
-        Ok(Self { hwnd, evaluator, keymap, id })
+        let hwnd = Self::create_window("SetHotKeyDummyWin")?;
+        Ok(Self {
+            hwnd,
+            evaluator: evaluator.clone(),
+            keymap: HashMap::new(),
+            id: 0,
+        })
     }
     fn next_id(&mut self) -> i32 {
         self.id += 1;
@@ -102,9 +103,7 @@ impl SetHotKeyWindow {
         }
     }
     fn close(&self) {
-        unsafe {
-            SendMessageW(self.hwnd, WM_CLOSE, WPARAM(0), LPARAM(0));
-        }
+        self.destroy();
     }
 }
 impl UWindow<()> for SetHotKeyWindow {
@@ -112,8 +111,8 @@ impl UWindow<()> for SetHotKeyWindow {
         self.hwnd
     }
     unsafe extern "system"
-    fn wndproc(hwnd: HWND, umsg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
-        match umsg {
+    fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+        match msg {
             WM_HOTKEY => {
                 let vk = lparam.hi_word();
                 let mo = lparam.lo_word();
@@ -149,15 +148,31 @@ impl UWindow<()> for SetHotKeyWindow {
                         std::process::exit(0);
                     }
                 }
-                DefWindowProcW(hwnd, umsg, wparam, lparam)
+                DefWindowProcW(hwnd, msg, wparam, lparam)
             },
-            WM_CLOSE |
-            WM_DESTROY => {
-                PostQuitMessage(0);
+            WM_CLOSE => {
+                let _ = DestroyWindow(hwnd);
                 LRESULT(0)
             },
             msg => DefWindowProcW(hwnd, msg, wparam, lparam),
         }
+    }
+
+    const CLASS_NAME: PCWSTR = w!("UWSCR.SetHotKeyDummyWin");
+
+    fn create_window(title: &str) -> UWindowResult<HWND> {
+        Self::register_window_class(&REGISTER_CLASS)?;
+        WindowBuilder::new(title, Self::CLASS_NAME)
+            .size(Some(0), Some(0), Some(0), Some(0))
+            .build()
+    }
+
+    fn draw(&self) -> UWindowResult<()> {
+        unimplemented!()
+    }
+
+    fn font(&self) -> windows::Win32::Graphics::Gdi::HFONT {
+        unimplemented!()
     }
 }
 

@@ -11,7 +11,6 @@ use std::sync::{Arc, Mutex};
 use uwscr::script;
 use uwscr::repl;
 use uwscr::evaluator::builtins::system_controls::shell_execute;
-use uwscr::evaluator::Evaluator;
 use uwscr::logging::{out_log, LogType};
 use uwscr::get_script;
 use uwscr::serializer;
@@ -20,7 +19,7 @@ use uwscr::settings::{
     out_default_setting_file, out_json_schema_file
 };
 use uwscr::winapi::{show_message, FORCE_WINDOW_MODE};
-use uwscr::gui::MainWin;
+// use uwscr::gui::MainWin;
 use uwscr::error::UWSCRErrorTitle;
 
 use windows::Win32::UI::HiDpi::{SetProcessDpiAwarenessContext, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2};
@@ -60,7 +59,7 @@ fn main() {
 
 fn start_uwscr() {
     let args = Args::new();
-    let _ = MainWin::new(&args.version);
+    // let _ = MainWin::new(&args.version);
     match args.get() {
         Ok(m) => match m {
             Mode::Help => args.help(None),
@@ -80,26 +79,15 @@ fn start_uwscr() {
                         Err(script::ScriptError(title, errors)) => {
                             let err = errors.join("\r\n");
                             out_log(&err, LogType::Error);
-                            // attach_console();
                             show_message(&err, &title.to_string(), true);
-                            // free_console();
                         }
                     },
                     Err(e) => {
-                        // attach_console();
                         show_message(&e.to_string(), &UWSCRErrorTitle::InitializeError.to_string(), true);
-                        // free_console();
                     }
                 }
             },
             Mode::Code(c) => {
-                // if ! attach_console() {
-                //     if let Err(e) = Evaluator::start_logprint_win(true) {
-                //         let err = e.join("\r\n");
-                //         show_message(&err, &UWSCRErrorTitle::InitializeError.to_string(), true);
-                //         return;
-                //     }
-                // }
                 match script::run_code(c) {
                     Ok(_) => {},
                     Err(errors) => {
@@ -107,19 +95,8 @@ fn start_uwscr() {
                         show_message(&err, "uwscr --code", true);
                     }
                 }
-                // if ! free_console() {
-                //     Evaluator::stop_logprint_win();
-                // }
             }
             Mode::Repl(p) => {
-                // if ! attach_console() {
-                //     alloc_console();
-                // };
-                if let Err(e) = Evaluator::start_logprint_win(false) {
-                    let err = e.join("\r\n");
-                    show_message(&err, &UWSCRErrorTitle::InitializeError.to_string(), true);
-                    return;
-                }
                 let exe_path = args.args[0].clone();
                 if p.is_some() {
                     match get_script(&p.unwrap()) {
@@ -131,8 +108,6 @@ fn start_uwscr() {
                 } else {
                     repl::run(None, exe_path, None)
                 }
-                Evaluator::stop_logprint_win();
-                // free_console();
             },
             Mode::Ast(p, b) => {
                 let dlg_title = "uwscr --ast";

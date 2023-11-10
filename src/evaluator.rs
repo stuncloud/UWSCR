@@ -12,7 +12,8 @@ use crate::evaluator::def_dll::*;
 use crate::evaluator::builtins::system_controls::{POFF, poff::{sign_out, power_off, shutdown, reboot}};
 use crate::error::UWSCRErrorTitle;
 use crate::error::evaluator::{UError, UErrorKind, UErrorMessage};
-use crate::gui::{LogPrintWin, UWindow, Balloon};
+use crate::gui2::UWindow;
+use crate::gui2::{LogPrintWin, FontFamily};
 use crate::parser::Parser;
 use crate::lexer::Lexer;
 use crate::logging::{out_log, LogType};
@@ -35,7 +36,7 @@ use serde_json;
 use once_cell::sync::OnceCell;
 use serde_json::Value;
 
-pub static LOGPRINTWIN: OnceCell<Mutex<LogPrintWin>> = OnceCell::new();
+pub static LOGPRINTWIN: OnceCell<Mutex<Result<LogPrintWin, UError>>> = OnceCell::new();
 
 type EvalResult<T> = Result<T, UError>;
 
@@ -45,7 +46,6 @@ pub struct Evaluator {
     pub ignore_com_err: bool,
     pub com_err_flg: bool,
     lines: Vec<String>,
-    pub balloon: Option<Balloon>,
     pub mouseorg: Option<MouseOrg>,
     pub gui_print: Option<bool>,
 }
@@ -66,7 +66,6 @@ impl Evaluator {
             ignore_com_err: false,
             com_err_flg: false,
             lines: vec![],
-            balloon: None,
             mouseorg: None,
             gui_print: None,
         }
@@ -83,52 +82,43 @@ impl Evaluator {
             ignore_com_err: false,
             com_err_flg: false,
             lines: self.lines.clone(),
-            balloon: None,
             mouseorg: None,
             gui_print: self.gui_print,
         }
     }
 
-    pub fn start_logprint_win(mut visible: bool) -> Result<(), Vec<String>> {
-        if let Some(&true) = FORCE_WINDOW_MODE.get() {
-            visible = true;
-        }
-        thread::spawn(move || {
-            let mut counter = 0;
-            let lp = loop {
-                match LogPrintWin::new(visible) {
-                    Ok(lp) => break lp,
-                    Err(_e) => {
-                        counter += 1;
-                        #[cfg(debug_assertions)]
-                        println!("\u{001b}[31m[debug] {_e}\u{001b}[0m");
-                        if counter > 10 {
-                            panic!("Failed to create logprint win");
-                        }
-                    },
-                }
+    fn start_logprint_win(visible: bool) {
+        if LOGPRINTWIN.get().is_none() {
+            let title = match std::env::var("GET_UWSC_NAME") {
+                Ok(name) => format!("UWSCR - {}", name),
+                Err(_) => format!("UWSCR"),
             };
-            let lp2 = lp.clone();
-            LOGPRINTWIN.get_or_init(move || Mutex::new(lp));
-            lp2.message_loop().ok();
-        });
-        let now = std::time::Instant::now();
-        let limit = std::time::Duration::from_millis(100);
-        while LOGPRINTWIN.get().is_none() {
-            if now.elapsed() > limit {
-                return Err(vec![
-                    UError::new(UErrorKind::InitializeError, UErrorMessage::FailedToInitializeLogPrintWindow).to_string()
-                ]);
-            } else {
-                thread::sleep(std::time::Duration::from_millis(1));
+            let font = {
+                let usettings = USETTINGS.lock().unwrap();
+                FontFamily::new(&usettings.logfont.name, usettings.logfont.size)
+            };
+            thread::spawn(move || {
+                let logprint = LogPrintWin::new(&title, visible, Some(font))
+                    .map_err(|_| UError::new(UErrorKind::InitializeError, UErrorMessage::FailedToInitializeLogPrintWindow));
+                let cloned = logprint.clone();
+                LOGPRINTWIN.get_or_init(move || Mutex::new(logprint));
+                if let Ok(lp) = cloned {
+                    lp.message_loop().ok();
+                }
+            });
+            while LOGPRINTWIN.get().is_none() {
+                std::thread::sleep(std::time::Duration::from_millis(10));
             }
         }
-        Ok(())
     }
-    pub fn stop_logprint_win() {
+    fn stop_logprint_win() -> EvalResult<()> {
         if let Some(m) = LOGPRINTWIN.get() {
-            m.lock().unwrap().close();
+            let guard = m.lock().unwrap();
+            let lp = guard.as_ref()
+                .map_err(|e| e.clone())?;
+            lp.close();
         }
+        Ok(())
     }
 
     pub fn get_line(&self, row: usize) -> EvalResult<String> {
@@ -152,23 +142,25 @@ impl Evaluator {
             self.eval_statement(statement)?;
         }
 
-        if self.gui_print.is_none() {
-            self.gui_print = if cfg!(feature="gui") {
-                Some(true)
-            } else {
-                let mut settings = USETTINGS.lock().unwrap();
-                // --windowが指定されていた場合はOPTION設定に関わらずtrue
-                if let Some(true) = FORCE_WINDOW_MODE.get() {
-                    settings.options.gui_print = true;
+        if cfg!(feature="gui") {
+            Self::start_logprint_win(true);
+            self.gui_print = Some(true);
+        } else {
+            if self.gui_print.is_none() {
+                self.gui_print = if cfg!(feature="gui") {
                     Some(true)
                 } else {
-                    Some(settings.options.gui_print)
-                }
-            };
-            if let Some(true) = self.gui_print {
-                if let Some(lp) = LOGPRINTWIN.get() {
-                    let mut guard = lp.lock().unwrap();
-                    guard.set_visibility(true, false);
+                    let mut settings = USETTINGS.lock().unwrap();
+                    // --windowが指定されていた場合はOPTION設定に関わらずtrue
+                    if let Some(true) = FORCE_WINDOW_MODE.get() {
+                        settings.options.gui_print = true;
+                        Some(true)
+                    } else {
+                        Some(settings.options.gui_print)
+                    }
+                };
+                if let Some(true) = self.gui_print {
+                    Self::start_logprint_win(true);
                 }
             }
         }
@@ -211,7 +203,7 @@ impl Evaluator {
         if clear {
             self.clear();
         }
-
+        Self::stop_logprint_win()?;
         Ok(result)
     }
 
@@ -350,7 +342,10 @@ impl Evaluator {
         if self.gui_print.unwrap_or(false) {
             match LOGPRINTWIN.get() {
                 Some(lp) => {
-                    lp.lock().unwrap().print(msg.to_string());
+                    let guard = lp.lock().unwrap();
+                    let lp = guard.as_ref()
+                        .map_err(|e| e.clone())?;
+                    lp.print(&msg);
                 },
                 None => {
                     println!("{msg}");

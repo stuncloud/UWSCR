@@ -12,10 +12,11 @@ use crate::evaluator::builtins::{
     system_controls::is_64bit_os,
     text_control::ErrConst,
     clipboard::Clipboard,
+    dialog::THREAD_LOCAL_BALLOON,
 };
 pub use monitor::Monitor;
 pub use acc::U32Ext;
-use crate::gui::UWindow;
+use crate::gui2::UWindow;
 use crate::winapi::get_console_hwnd;
 
 #[cfg(feature="chkimg")]
@@ -194,7 +195,7 @@ pub enum SpecialWindowId {
     GET_CONSOLE_WIN    // __GET_CONSOLE_WIN__
 }
 
-pub fn getid(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn getid(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let title = args.get_as_string(0, None)?;
     let hwnd = match title.as_str() {
         "__GET_ACTIVE_WIN__" => unsafe {
@@ -209,19 +210,18 @@ pub fn getid(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncRes
         "__GET_LOGPRINT_WIN__" => {
             match LOGPRINTWIN.get() {
                 Some(m) => {
-                    let lp = m.lock().unwrap();
+                    let guard = m.lock().unwrap();
+                    let lp = guard.as_ref()
+                        .map_err(|e| builtin_func_error(e.message.clone()))?;
                     lp.hwnd()
                 },
                 None => HWND::default(),
             }
         },
         "__GET_BALLOON_WIN__" => {
-            match evaluator.balloon {
-                Some(ref b) => {
-                    b.hwnd()
-                },
-                None => HWND::default(),
-            }
+            let cell = THREAD_LOCAL_BALLOON.with(|b| b.clone());
+            let hwnd = cell.borrow().as_ref().map(|b| b.hwnd());
+            hwnd.unwrap_or_default()
         },
         "__GET_FORM_WIN__" => {
             HWND::default()

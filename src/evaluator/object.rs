@@ -34,7 +34,7 @@ use crate::evaluator::builtins::{
     system_controls::gettime::datetime_str_to_f64,
 };
 use crate::error::evaluator::{UError, UErrorKind, UErrorMessage};
-use crate::gui::form::{WebViewForm, WebViewRemoteObject};
+use crate::gui2::form::{WebViewForm, WebViewRemoteObject};
 
 use windows::Win32::Foundation::HWND;
 

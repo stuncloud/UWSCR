@@ -671,6 +671,21 @@ impl BuiltinFuncArgs {
         })
     }
 
+    pub fn get_as_func_or_num(&self, i: usize) -> BuiltInResult<TwoTypeArg<f64, Function>> {
+        self.get_arg(i, |arg| {
+            match arg {
+                Object::AnonFunc(func) |
+                Object::Function(func) => Ok(TwoTypeArg::U(func)),
+                obj => {
+                    match obj.as_f64(true) {
+                        Some(n) => Ok(TwoTypeArg::T(n)),
+                        None => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(obj))),
+                    }
+                },
+            }
+        })
+    }
+
     /// RemoteObjectを受ける
     pub fn get_as_remoteobject(&self, i: usize) -> BuiltInResult<RemoteObject> {
         self.get_arg(i, |obj| {
@@ -846,6 +861,7 @@ pub fn init_builtins() -> Vec<NamedObject> {
     // dialog.rs
     set_builtin_consts::<dialog::BtnConst>(&mut vec);
     set_builtin_consts::<dialog::SlctConst>(&mut vec);
+    set_builtin_consts::<dialog::BalloonFlag>(&mut vec);
     set_builtin_consts::<dialog::FormOptions>(&mut vec);
     // SLCT_* 定数
     for n in 1..=31_u32 {
