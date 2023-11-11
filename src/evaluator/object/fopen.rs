@@ -204,7 +204,6 @@ pub struct Fopen {
     csv_delimiter: u8,
     share: u32,
     lines: Option<Vec<String>>,
-    text: Option<String>,
 }
 
 impl Fopen {
@@ -221,7 +220,7 @@ impl Fopen {
         };
         let path = PathBuf::from(path);
         let id = Self::new_id();
-        Self { flag, path, id, no_cr, csv_delimiter, share, lines: None, text: None }
+        Self { flag, path, id, no_cr, csv_delimiter, share, lines: None }
     }
     fn new_id() -> u32 {
         let mut m = FILE_ID.lock().unwrap();
@@ -254,7 +253,6 @@ impl Fopen {
             let text = self.decode(&buf)?;
             let lines = text.lines().map(|l| l.to_string()).collect();
             self.lines = Some(lines);
-            self.text = Some(text);
         }
         if self.can_write() {
             file.seek(SeekFrom::Start(0))?;
