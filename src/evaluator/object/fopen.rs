@@ -201,16 +201,19 @@ pub struct Fopen {
     path: PathBuf,
     id: u32,
     no_cr: bool,
-    use_tab: bool,
+    csv_delimiter: u8,
     share: u32,
+    lines: Option<Vec<String>>,
     text: Option<String>,
 }
 
 impl Fopen {
+    const LB: &str = "\r\n";
     pub fn new(path: &str, flag: u32) -> Self {
         let flag = FopenFlag::from(flag);
         let no_cr = flag.option.contains(&FopenOption::NoCR);
         let use_tab = flag.option.contains(&FopenOption::Tab);
+        let csv_delimiter = if use_tab {b'\t'} else {b','};
         let share = if flag.option.contains(&FopenOption::Exclusive) {
             FILE_SHARE_NONE.0
         } else {
@@ -218,7 +221,7 @@ impl Fopen {
         };
         let path = PathBuf::from(path);
         let id = Self::new_id();
-        Self { flag, path, id, no_cr, use_tab, share, text: None }
+        Self { flag, path, id, no_cr, csv_delimiter, share, lines: None, text: None }
     }
     fn new_id() -> u32 {
         let mut m = FILE_ID.lock().unwrap();
@@ -249,6 +252,8 @@ impl Fopen {
             let mut buf = vec![];
             file.read_to_end(&mut buf)?;
             let text = self.decode(&buf)?;
+            let lines = text.lines().map(|l| l.to_string()).collect();
+            self.lines = Some(lines);
             self.text = Some(text);
         }
         if self.can_write() {
@@ -269,7 +274,8 @@ impl Fopen {
         let mut list = FILE_LIST.lock().unwrap();
         if let Some(index) = list.iter().position(|(id, _)| *id == self.id) {
             if self.can_write() {
-                if let Some(ref text) = self.text {
+                if let Some(lines) = &self.lines {
+                    let text = lines.join(Self::LB);
                     if let Some((_, file)) = list.get_mut(index) {
                         let mut stream = BufWriter::new(file);
                         match self.flag.encoding {
@@ -296,7 +302,7 @@ impl Fopen {
                                 }
                             },
                             FopenEncoding::Sjis => {
-                                let (cow,_,_) = SHIFT_JIS.encode(text);
+                                let (cow,_,_) = SHIFT_JIS.encode(&text);
                                 stream.write(cow.as_ref())?;
                                 if ! self.no_cr {
                                     stream.write("\r\n".as_bytes())?;
@@ -391,32 +397,39 @@ impl Fopen {
         Ok(txt)
     }
     pub fn read(&mut self, fget_type: FGetType, column: u32, as_is: bool) -> FopenResult<Object> {
-        let text = self.text.as_ref().ok_or(FopenError::NotReadable)?;
+        let lines = self.lines.as_ref().ok_or(FopenError::NotReadable)?;
         let obj = match fget_type {
             FGetType::Row(n) => {
-                let n = n as usize - 1;
+                let row = n as usize - 1;
+                let text = lines.get(row);
                 if column == 0 {
                     // 行読み出し
-                    text.lines()
-                        .nth(n)
-                        .map_or(Object::Empty, |row| row.to_string().into())
+                    text.map_or(Object::Empty, |row| row.to_string().into())
                 } else {
                     // csv読み出し
-                    self.csv_read(text, n, column, as_is)?
-                        .map_or(Object::Empty, |text| text.into())
+                    match text {
+                        Some(text) => {
+                            Self::csv_read(text, column, as_is, self.csv_delimiter)
+                                .map_or(Object::Empty, |text| text.into())
+                        },
+                        None => Object::Empty,
+                    }
                 }
             },
             FGetType::LineCount => {
-                let len = text.lines().count();
+                let len = lines.len();
                 len.into()
             },
-            FGetType::AllText => Object::String(text.to_string()),
+            FGetType::AllText => {
+                let text = lines.join(Self::LB);
+                text.into()
+            },
         };
         Ok(obj)
     }
-    fn csv_read(&self, text: &str, n: usize, column: u32, as_is: bool) -> FopenResult<Option<String>> {
-        let delimiter = if self.use_tab {b'\t'} else {b','};
+    fn csv_read(text: &String, column: u32, as_is: bool, delimiter: u8) -> FopenResult<Option<String>> {
         let quote = if as_is {0} else {b'"'};
+        let rdr = text.as_bytes();
         let mut reader = csv::ReaderBuilder::new()
             .has_headers(false)
             .delimiter(delimiter)
@@ -424,8 +437,8 @@ impl Fopen {
             .quote(quote)
             .trim(csv::Trim::All)
             .flexible(true)
-            .from_reader(text.as_bytes());
-        let result = match reader.records().nth(n) {
+            .from_reader(rdr);
+        let result = match reader.records().nth(0) {
             Some(record) => {
                 let i = column as usize - 1;
                 record?.get(i).map(|s| s.to_string())
@@ -435,9 +448,8 @@ impl Fopen {
         Ok(result)
     }
     pub fn write(&mut self, value: &str, fput_type: FPutType) -> FopenResult<()> {
-        let written = match &self.text {
-            Some(text) => {
-                let mut lines: Vec<String> = text.lines().map(|l|l.to_string()).collect();
+        match &mut self.lines {
+            Some(lines) => {
                 match fput_type {
                     FPutType::Row(row) => {
                         let row = row as usize;
@@ -447,7 +459,7 @@ impl Fopen {
                         let index = row - 1;
                         lines[index] = value.to_string();
                     },
-                    FPutType::AllText => lines = vec![value.to_string()],
+                    FPutType::AllText => {},
                     FPutType::Insert(row) => {
                         let row = row as usize;
                         if row > lines.len() {
@@ -456,13 +468,12 @@ impl Fopen {
                         let index = row - 1;
                         lines.insert(index, value.to_string());
                     },
-                    FPutType::Csv(row, col) => self.csv_write(&mut lines, value, Some(row), col)?,
+                    FPutType::Csv(row, col) => Self::csv_write(lines, value, Some(row), col, self.csv_delimiter)?,
                     FPutType::Append(col) => match col {
-                        Some(col) => self.csv_write(&mut lines, value, None, col)?,
+                        Some(col) => Self::csv_write(lines, value, None, col, self.csv_delimiter)?,
                         None => lines.push(value.to_string()),
                     },
                 }
-                lines
             },
             None => {
                 let mut lines = vec![];
@@ -473,24 +484,21 @@ impl Fopen {
                         lines.push(value.to_string());
                     },
                     FPutType::AllText => lines.push(value.to_string()),
-                    FPutType::Csv(row, col) => self.csv_write(&mut lines, value, Some(row), col)?,
+                    FPutType::Csv(row, col) => Self::csv_write(&mut lines, value, Some(row), col, self.csv_delimiter)?,
                     FPutType::Append(col) => match col {
-                        Some(col) => self.csv_write(&mut lines, value, None, col)?,
+                        Some(col) => Self::csv_write(&mut lines, value, None, col, self.csv_delimiter)?,
                         None => lines.push(value.to_string()),
                     },
                 }
-                lines
+                self.lines = Some(lines);
             },
         };
-        let new_text = written.join("\r\n");
-        self.text = Some(new_text);
         Ok(())
     }
-    fn csv_write(&self, lines: &mut Vec<String>, value: &str, row: Option<i32>, col: i32) -> FopenResult<()> {
-        let delimiter = if self.use_tab {b'\t'} else {b','};
+    fn csv_write(lines: &mut Vec<String>, value: &str, row: Option<i32>, col: i32, delimiter: u8) -> FopenResult<()> {
         let mut writer = csv::WriterBuilder::new()
-        .delimiter(delimiter)
-        .from_writer(vec![]);
+            .delimiter(delimiter)
+            .from_writer(vec![]);
 
         if let Some(row) = row {
             let row = row as usize;
@@ -545,22 +553,19 @@ impl Fopen {
         Ok(())
     }
     pub fn remove(&mut self, row: usize) {
-        if let Some(text) = &self.text {
+        if let Some(lines) = &mut self.lines {
             let index = row - 1;
-            let mut lines = text.lines().collect::<Vec<_>>();
             if row <= lines.len() {
                 lines.remove(index);
-                let new = lines.join("\r\n");
-                self.text = Some(new);
             }
         }
     }
 
     /* ini */
     pub fn get_sections(&self) -> Vec<String> {
-        match &self.text {
-            Some(buf) => {
-                let ini = Ini::parse(buf);
+        match &self.lines {
+            Some(lines) => {
+                let ini = Ini::parse(lines);
                 ini.get_sections()
             },
             None => vec![],
@@ -581,9 +586,9 @@ impl Fopen {
         Ok(sections)
     }
     pub fn get_keys(&self, section: &str) -> Vec<String> {
-        match &self.text {
-            Some(text) => {
-                let ini = Ini::parse(text);
+        match &self.lines {
+            Some(lines) => {
+                let ini = Ini::parse(lines);
                 ini.get_keys(section)
             },
             None => vec![],
@@ -604,9 +609,9 @@ impl Fopen {
         Ok(keys)
     }
     pub fn ini_read(&self, section: &str, key: &str) -> Option<String> {
-        match &self.text {
-            Some(text) => {
-                let ini = Ini::parse(text);
+        match &self.lines {
+            Some(lines) => {
+                let ini = Ini::parse(lines);
                 ini.get(section, key)
             },
             None => None,
@@ -627,12 +632,12 @@ impl Fopen {
         Ok(value)
     }
     pub fn ini_write(&mut self, section: &str, key: &str, value: &str) {
-        let mut ini = match &self.text {
-            Some(text) => Ini::parse(text),
+        let mut ini = match &self.lines {
+            Some(lines) => Ini::parse(lines),
             None => Ini::new(),
         };
         if ini.set(section, key, value) {
-            self.text = Some(ini.to_string());
+            self.lines = Some(ini.to_lines());
         }
     }
     pub fn ini_write_from_path(path: &str, section: &str, key: &str, value: &str) -> FopenResult<()> {
@@ -644,15 +649,15 @@ impl Fopen {
         Ok(())
     }
     pub fn ini_delete(&mut self, section: &str, key: Option<&str>) {
-        let mut ini = match &self.text {
-            Some(text) => Ini::parse(text),
+        let mut ini = match &self.lines {
+            Some(lines) => Ini::parse(lines),
             None => Ini::new(),
         };
         if match key {
             Some(key) => ini.remove(section, key),
             None => ini.remove_section(section),
         } {
-            self.text = Some(ini.to_string());
+            self.lines = Some(ini.to_lines());
         }
     }
     pub fn ini_delete_from_path(path: &str, section: &str, key: Option<&str>) -> FopenResult<()> {
@@ -914,9 +919,11 @@ impl Ini {
     fn new() -> Self {
         Self {lines: vec![]}
     }
-    fn parse(text: &str) -> Self {
+    // fn parse(text: &str) -> Self {
+    fn parse(lines: &Vec<String>) -> Self {
         let mut current_section = None::<String>;
-        let lines = text.lines()
+        // let lines = text.lines()
+        let lines = lines.iter()
                 .map(|s| {
                     let trim = s.trim();
                     if trim.starts_with("[") && trim.ends_with("]") {
@@ -1038,12 +1045,12 @@ impl Ini {
             .collect()
     }
 
-    fn to_string(&self) -> String {
+    fn to_lines(&self) -> Vec<String> {
         let lines = self.lines
                 .iter()
                 .map(|l| l.to_string())
                 .collect::<Vec<_>>();
-        lines.join("\r\n").to_string()
+        lines
     }
 }
 
