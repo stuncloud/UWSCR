@@ -471,25 +471,26 @@ pub trait UWindow<T> {
             wm::SendMessageW(hwnd, wm::WM_SETFONT, WPARAM(font.0 as usize), LPARAM(1));
 
             // テキスト全体のSIZEを返す
-            self.get_text_size(text)
+            self.get_text_size(hwnd, text)
         }
     }
-    fn get_text_size(&self, text: &str) -> SIZE {
+    fn get_text_size(&self, hwnd: HWND, text: &str) -> SIZE {
         unsafe {
-            let hwnd = self.hwnd();
             let hfont = self.font();
             let mut size = SIZE::default();
             let hdc = Gdi::GetDC(hwnd);
             let old = Gdi::SelectObject(hdc, hfont);
             for line in text.lines() {
-                let mut l_size = SIZE::default();
                 let hstring = HSTRING::from(line);
-                Gdi::GetTextExtentPoint32W(hdc, hstring.as_wide(), &mut l_size);
-                size.cx = size.cx.max(l_size.cx);
-                size.cy += l_size.cy;
+                let thw = Gdi::GetTabbedTextExtentW(hdc, hstring.as_wide(), Some(&[]));
+                let tw = thw & 0xFFFF;
+                let th = (thw & 0xFFFF0000) >> 16;
+                size.cx = size.cx.max(tw as i32);
+                size.cy += th as i32;
             }
             Gdi::SelectObject(hdc, old);
             Gdi::ReleaseDC(hwnd, hdc);
+            println!("\u{001b}[33m[{text}] {size:?}\u{001b}[0m");
             size
         }
     }

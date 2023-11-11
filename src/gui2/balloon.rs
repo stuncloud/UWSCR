@@ -170,7 +170,7 @@ impl UWindow<()> for Balloon {
 
     fn draw(&self) -> UWindowResult<()> {
         unsafe {
-            let size = self.get_text_size(&self.message);
+            let size = self.get_text_size(self.hwnd, &self.message);
             let mut w_margin = ((size.cx as f64 * 0.05) as i32).max(10);
             let width = size.cx + w_margin * 2;
             let mut h_margin = ((size.cy as f64 * 0.1) as i32).max(15);
@@ -222,9 +222,9 @@ impl UWindow<()> for Balloon {
             let x = w_margin;
             let mut y = h_margin;
             for line in self.message.lines() {
-                let size = self.get_text_size(line);
+                let size = self.get_text_size(self.hwnd, line);
                 let hstring = HSTRING::from(line);
-                Gdi::TextOutW(hdc, x, y, hstring.as_wide());
+                Gdi::TabbedTextOutW(hdc, x, y, hstring.as_wide(), Some(&[]), x);
                 y += size.cy;
             }
             Gdi::SelectObject(hdc, old);
