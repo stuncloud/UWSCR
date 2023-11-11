@@ -490,7 +490,6 @@ pub trait UWindow<T> {
             }
             Gdi::SelectObject(hdc, old);
             Gdi::ReleaseDC(hwnd, hdc);
-            println!("\u{001b}[33m[{text}] {size:?}\u{001b}[0m");
             size
         }
     }
