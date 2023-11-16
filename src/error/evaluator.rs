@@ -487,6 +487,7 @@ pub enum UErrorMessage {
     StructConstructorArgumentError,
     IsNotStruct(String),
     IsPrivateMember(String, String),
+    PrivateAssignNotAllowed,
     JsonParseError(String),
     LeftAndRightShouldBeNumber(Object, Infix, Object),
     MemberNotFound(String),
@@ -913,6 +914,10 @@ impl fmt::Display for UErrorMessage {
                 "プライベートメンバの呼び出しは禁止です ({}.{})",
                 "Calling private member is not allowed: {}.{}",
                 name, member
+            ),
+            Self::PrivateAssignNotAllowed => write_locale!(f,
+                "プライベートメンバへの代入は禁止です",
+                "Assigning to private member is not allowed",
             ),
             Self::DotOperatorNotSupported(o) => write_locale!(f,
                 "モジュールまたはオブジェクトではありません ({})",

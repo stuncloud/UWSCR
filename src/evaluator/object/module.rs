@@ -213,7 +213,6 @@ impl Module {
     }
 
     /// 自身のメンバ関数に自身のポインタを渡す
-    /// thisとglobalもセットする
     pub fn set_module_reference(&mut self, m: Arc<Mutex<Module>>) {
         for o in self.members.iter_mut() {
             match o.object.as_mut() {

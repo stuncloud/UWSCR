@@ -1897,7 +1897,21 @@ impl Evaluator {
             Object::Module(m) => {
                 match expr_member {
                     Expression::Identifier(Identifier(name)) => {
-                        m.lock().unwrap().assign_public(&name, new, None)?;
+                        let mut module = m.lock().unwrap();
+                        if module.is_local_member(&name) {
+                            // ローカルメンバだった場合thisと比較し、同一モジュールであればローカルメンバへ代入
+                            if let Some(Object::Module(this)) = self.env.get_variable("this", false) {
+                                if this.try_lock().is_err() {
+                                    module.assign(&name, new, None)?;
+                                } else {
+                                    return Err(UError::new(UErrorKind::AssignError, UErrorMessage::PrivateAssignNotAllowed))
+                                }
+                            } else {
+                                return Err(UError::new(UErrorKind::AssignError, UErrorMessage::PrivateAssignNotAllowed))
+                            }
+                        } else {
+                            module.assign_public(&name, new, None)?;
+                        }
                     },
                     _ => return Err(UError::new(
                         UErrorKind::AssignError,
@@ -1908,7 +1922,22 @@ impl Evaluator {
             Object::Instance(m) => {
                 if let Expression::Identifier(Identifier(name)) = expr_member {
                     let ins = m.lock().unwrap();
-                    ins.module.lock().unwrap().assign_public(&name, new, None)?;
+                    let mut module = ins.module.lock().unwrap();
+                    if module.is_local_member(&name) {
+                        // ローカルメンバだった場合、thisと比較
+                        if let Some(Object::Instance(this)) = self.env.get_variable("this", false) {
+                            if this.try_lock().is_err() {
+                                // thisがロックできない場合に限りローカルメンバの代入を行う
+                                module.assign(&name, new, None)?;
+                            } else {
+                                return Err(UError::new(UErrorKind::AssignError, UErrorMessage::PrivateAssignNotAllowed))
+                            }
+                        } else {
+                            return Err(UError::new(UErrorKind::AssignError, UErrorMessage::PrivateAssignNotAllowed))
+                        }
+                    } else {
+                        module.assign_public(&name, new, None)?;
+                    }
                 } else {
                     return Err(UError::new(
                         UErrorKind::AssignError,
@@ -2542,20 +2571,20 @@ impl Evaluator {
     }
 
     fn get_module_member(&self, mutex: &Arc<Mutex<Module>>, member: &String, is_func: bool) -> EvalResult<Object> {
-        let module = mutex.lock().unwrap(); // Mutex<Module>をロック
+        let module = mutex.try_lock().expect("Dead lock: Evaluator::get_module_member");
         if is_func {
             module.get_function(&member)
         } else if module.is_local_member(&member) {
             match self.env.get_variable("this", true).unwrap_or_default() {
                 Object::Module(this) => {
                     if this.try_lock().is_err() {
-                        // ロックに失敗した場合thisと呼び出し元が同一と判断し、自身のメンバの値を返す
+                        // ロックに失敗した場合thisと呼び出し元が同一と判断し、moduleメンバの値を返す
                         return module.get_member(&member);
                     }
                 }
-                Object::Instance(this) => {
-                    if this.try_lock().is_err() {
-                        // ロックに失敗した場合thisと呼び出し元が同一と判断し、自身のメンバの値を返す
+                Object::Instance(ins) => {
+                    if ins.try_lock().is_err() {
+                        // ロックに失敗した場合moduleとインスタンス内のモジュールは同一と判断し、moduleメンバの値を返す
                         return module.get_member(&member);
                     }
                 }

@@ -310,10 +310,17 @@ impl Environment {
             } else {
                 Some(Object::String(text))
             },
-            Some(Object::Instance(ref ins)) => if ins.lock().unwrap().is_dropped {
-                Some(Object::Nothing)
-            } else {
-                obj
+            Some(Object::Instance(ref ins)) => {
+                let dropped = if let Ok(ins) = ins.try_lock() {
+                    ins.is_dropped
+                } else {
+                    false
+                };
+                if dropped {
+                    Some(Object::Nothing)
+                } else {
+                    obj
+                }
             },
             o => o
         }
