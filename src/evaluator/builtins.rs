@@ -23,6 +23,7 @@ use crate::winapi::{
     get_color_depth,
 };
 use windows::Win32::UI::Shell::CSIDL_APPDATA;
+use windows::Win32::System::Threading::GetCurrentThreadId;
 use crate::evaluator::object::{
     Object, Version,
     HashTblEnum,
@@ -973,6 +974,12 @@ fn set_special_variables(vec: &mut Vec<NamedObject>) {
     )));
     vec.push(NamedObject::new_builtin_const("G_SCREEN_C".into(), Object::DynamicVar(
         || Object::Num(get_color_depth() as f64)
+    )));
+    vec.push(NamedObject::new_builtin_const("THREAD_ID".into(), Object::DynamicVar(
+        || unsafe { GetCurrentThreadId().into() }
+    )));
+    vec.push(NamedObject::new_builtin_const("THREAD_ID2".into(), Object::DynamicVar(
+        || format!("{:?}", std::thread::current().id()).into()
     )));
 }
 
