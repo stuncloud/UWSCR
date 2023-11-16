@@ -46,7 +46,7 @@ use std::ops::{Add, Sub, Mul, Div, Rem, BitOr, BitAnd, BitXor};
 use std::cmp::Ordering;
 
 use num_traits::Zero;
-use strum_macros::{EnumVariantNames, Display};
+use strum_macros::{EnumVariantNames, Display, EnumString, EnumProperty};
 use serde_json::{self, Value};
 
 use super::EvalResult;
@@ -1749,7 +1749,7 @@ impl PartialEq for MemberCaller {
 
 
 #[allow(non_camel_case_types)]
-#[derive(Debug, EnumVariantNames, Display, Clone, PartialEq)]
+#[derive(Debug, EnumVariantNames, EnumString, EnumProperty, Display, Clone, PartialEq)]
 pub enum ObjectType {
     TYPE_NUMBER,
     TYPE_STRING,

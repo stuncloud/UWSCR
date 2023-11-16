@@ -179,19 +179,31 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
 
 // GETID
 #[allow(non_camel_case_types)]
-#[derive(Debug, EnumVariantNames)]
+#[derive(Debug, EnumVariantNames, EnumString, EnumProperty)]
 pub enum SpecialWindowId {
+    #[strum(props(prefix="__", suffix="__"))]
     GET_ACTIVE_WIN,    // __GET_ACTIVE_WIN__
+    #[strum(props(prefix="__", suffix="__"))]
     GET_FROMPOINT_WIN, // __GET_FROMPOINT_WIN__
+    #[strum(props(prefix="__", suffix="__"))]
     GET_FROMPOINT_OBJ, // __GET_FROMPOINT_OBJ__
+    #[strum(props(prefix="__", suffix="__"))]
     GET_THISUWSC_WIN,  // __GET_THISUWSC_WIN__
+    #[strum(props(prefix="__", suffix="__"))]
     GET_LOGPRINT_WIN,  // __GET_LOGPRINT_WIN__
+    #[strum(props(prefix="__", suffix="__"))]
     GET_BALLOON_WIN,   // __GET_BALLOON_WIN__
+    #[strum(props(prefix="__", suffix="__"))]
     GET_FUKIDASI_WIN,  // __GET_FUKIDASI_WIN__
+    #[strum(props(prefix="__", suffix="__"))]
     GET_FORM_WIN,      // __GET_FORM_WIN__
+    #[strum(props(prefix="__", suffix="__"))]
     GET_FORM_WIN2,     // __GET_FORM_WIN2__
+    #[strum(props(prefix="__", suffix="__"))]
     GET_SCHEDULE_WIN,  // __GET_SCHEDULE_WIN__
+    #[strum(props(prefix="__", suffix="__"))]
     GET_STOPFORM_WIN,  // __GET_STOPFORM_WIN__
+    #[strum(props(prefix="__", suffix="__"))]
     GET_CONSOLE_WIN    // __GET_CONSOLE_WIN__
 }
 
@@ -1092,9 +1104,11 @@ pub fn getallwin(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult 
 }
 
 #[allow(non_camel_case_types)]
-#[derive(Debug, EnumVariantNames)]
+#[derive(Debug, EnumVariantNames, EnumString, EnumProperty)]
 pub enum GetHndConst {
+    #[strum(props(prefix="__", suffix="__"))]
     GET_MENU_HND,   // __GET_MENU_HND__
+    #[strum(props(prefix="__", suffix="__"))]
     GET_SYSMENU_HND // __GET_SYSMENU_HND__
 }
 

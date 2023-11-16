@@ -9,7 +9,7 @@ use std::sync::Mutex;
 use std::rc::Rc;
 use std::cell::RefCell;
 
-use strum_macros::{EnumString, EnumVariantNames};
+use strum_macros::{EnumString, EnumVariantNames, EnumProperty};
 use num_derive::{ToPrimitive, FromPrimitive};
 use once_cell::sync::Lazy;
 
@@ -32,6 +32,25 @@ static DIALOG_FONT_FAMILY: Lazy<FontFamily> = Lazy::new(|| {
 });
 thread_local! {
     pub static THREAD_LOCAL_BALLOON: Rc<RefCell<Option<Balloon>>> = Rc::new(RefCell::new(None));
+}
+
+#[allow(non_camel_case_types)]
+#[derive(Debug, EnumString, EnumVariantNames, EnumProperty)]
+pub enum WindowClassName {
+    #[strum(props(value="UWSCR.MsgBox"))]
+    CLASS_MSGBOX,
+    #[strum(props(value="UWSCR.Input"))]
+    CLASS_INPUTBOX,
+    #[strum(props(value="UWSCR.Slctbox"))]
+    CLASS_SLCTBOX,
+    #[strum(props(value="UWSCR.Popup"))]
+    CLASS_POPUPMENU,
+    #[strum(props(value="UWSCR.Balloon"))]
+    CLASS_BALLOON,
+    #[strum(props(value="UWSCR.LogPrintWin"))]
+    CLASS_LOGPRINTWIN,
+    #[strum(props(value="UWSCR.Form"))]
+    CLASS_FORM,
 }
 
 #[allow(non_camel_case_types)]

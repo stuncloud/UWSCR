@@ -801,7 +801,7 @@ pub fn init_builtins() -> Vec<NamedObject> {
     let mut vec = Vec::new();
     // builtin debug functions
     builtin_func_sets().set(&mut vec);
-    set_builtin_str_consts::<ObjectType>(&mut vec, "", "");
+    set_builtin_str_consts::<ObjectType>(&mut vec);
     // hashtbl
     set_builtin_consts::<HashTblEnum>(&mut vec);
     // window_low
@@ -810,11 +810,11 @@ pub fn init_builtins() -> Vec<NamedObject> {
     set_builtin_consts::<window_low::KeyActionEnum>(&mut vec);
     // window_control
     window_control::builtin_func_sets().set(&mut vec);
-    set_builtin_str_consts::<window_control::SpecialWindowId>(&mut vec, "__", "__");
+    set_builtin_str_consts::<window_control::SpecialWindowId>(&mut vec);
     set_builtin_consts::<window_control::CtrlWinCmd>(&mut vec);
     set_builtin_consts::<window_control::StatusEnum>(&mut vec);
     set_builtin_consts::<window_control::MonitorEnum>(&mut vec);
-    set_builtin_str_consts::<window_control::GetHndConst>(&mut vec, "__", "__");
+    set_builtin_str_consts::<window_control::GetHndConst>(&mut vec);
     set_builtin_consts::<window_control::ClkConst>(&mut vec);
     set_builtin_consts::<window_control::GetItemConst>(&mut vec);
     set_builtin_consts::<window_control::AccConst>(&mut vec);
@@ -864,6 +864,7 @@ pub fn init_builtins() -> Vec<NamedObject> {
     set_builtin_consts::<dialog::SlctConst>(&mut vec);
     set_builtin_consts::<dialog::BalloonFlag>(&mut vec);
     set_builtin_consts::<dialog::FormOptions>(&mut vec);
+    set_builtin_str_consts::<dialog::WindowClassName>(&mut vec);
     // SLCT_* 定数
     for n in 1..=31_u32 {
         let val = 2_i32.pow(n-1);
@@ -904,10 +905,18 @@ pub fn set_builtin_consts<E: std::str::FromStr + VariantNames + EnumProperty + T
     }
 }
 
-pub fn set_builtin_str_consts<E: VariantNames>(vec: &mut Vec<NamedObject>, prefix: &str, suffix: &str) {
+pub fn set_builtin_str_consts<E: VariantNames + EnumProperty + std::str::FromStr>(vec: &mut Vec<NamedObject>) {
     for name in E::VARIANTS {
-        let ucase_name = name.to_ascii_uppercase();
-        vec.push(NamedObject::new_builtin_const(ucase_name.clone(), Object::String(format!("{}{}{}", prefix, ucase_name, suffix))));
+        if let Ok(value) = E::from_str(name) {
+            if let Some(msg) = value.get_str("value") {
+                vec.push(NamedObject::new_builtin_const(name.to_ascii_uppercase(), msg.into()))
+            } else {
+                let prefix = value.get_str("prefix").unwrap_or_default();
+                let suffix = value.get_str("suffix").unwrap_or_default();
+                let object = format!("{prefix}{name}{suffix}").into();
+                vec.push(NamedObject::new_builtin_const(name.to_ascii_uppercase(), object))
+            }
+        }
     }
 }
 
