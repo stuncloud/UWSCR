@@ -579,6 +579,36 @@ TabWindowオブジェクト
                 // 座標を指定し右クリックする
                 tab.rightClick(rect.x + 10, rect.y + 10)
 
+    .. method:: eval(JavaScript式)
+
+        | JavaScriptの式を評価し、オブジェクトの場合はRemoteObjectとして返します
+
+        :param 文字列 JavaScript式: JavaScriptの式
+        :rtype: :ref:`remote_object` またはいずれかの値型
+        :return:
+
+            | 評価結果がJavaScriptオブジェクトの場合は :ref:`remote_object` を返します
+            | そうでない場合は該当するUWSCRの値型を返します
+
+        .. admonition:: サンプルコード
+
+            .. sourcecode:: uwscr
+
+                chrome = BrowserControl(BC_CHROME)
+                tab = chrome[0]
+                tab.navigate(url)
+
+                func = tab.eval("(a, b) => a + b") // アロー関数を評価
+                print func(3, 5) // 8 (関数として実行できる)
+
+                // コールバック用のJavaScript関数を作る
+                callback = tab.eval("(event) => event.srcElement.style.backgroundColor = 'red'")
+                slct = tab.document.querySelector("select")
+                // イベントリスナをセット
+                slct.addEventListener("change", callback)
+
+
+
 .. _remote_object:
 
 RemoteObject

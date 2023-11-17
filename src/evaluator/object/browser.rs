@@ -638,6 +638,11 @@ impl TabWindow {
                 self.middle_click(x, y)?;
                 Ok(Object::Empty)
             },
+            "eval" => {
+                let expression = args.as_string(0)?;
+                let remote = self.dp.runtime_evaluate(&expression)?;
+                Ok(remote.into())
+            },
             _ => Err(UError::new(
                 UErrorKind::BrowserControlError,
                 UErrorMessage::InvalidMember(name.to_string())
