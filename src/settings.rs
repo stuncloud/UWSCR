@@ -172,6 +172,9 @@ pub struct UOption {
     /// print文でGUI出力するかどうか
     #[serde(default)]
     pub gui_print: bool,
+    /// 条件式が真偽値を返さなければならないかどうか
+    #[serde(default)]
+    pub force_bool: bool,
     /// IEオブジェクトを許可 (非公開)
     #[serde(skip_serializing, default)]
     #[schemars(skip)]
@@ -195,6 +198,7 @@ impl Default for UOption {
             opt_public: false,
             same_str: false,
             gui_print: false,
+            force_bool: false,
             allow_ie_object: false,
         }
     }

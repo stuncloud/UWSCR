@@ -599,6 +599,7 @@ pub enum UErrorMessage {
     FormError(String),
     UObjectIsNotAnArray,
     UnavailableFunction,
+    ForceBoolError,
 }
 
 impl fmt::Display for UErrorMessage {
@@ -1328,6 +1329,10 @@ impl fmt::Display for UErrorMessage {
             Self::UnavailableFunction => write_locale!(f,
                 "この関数は使用できません",
                 "This function can not be used",
+            ),
+            Self::ForceBoolError => write_locale!(f,
+                "条件式はTRUEまたはFALSEを返す必要があります",
+                "Conditional expression must return true or false",
             ),
         }
     }

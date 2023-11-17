@@ -25,7 +25,7 @@ use std::borrow::Cow;
 use std::env;
 use std::path::PathBuf;
 use std::thread;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::ffi::c_void;
 use std::panic;
 use std::ops::{Add, Sub, Mul, Div, Rem, BitOr, BitAnd, BitXor};
@@ -37,6 +37,7 @@ use once_cell::sync::OnceCell;
 use serde_json::Value;
 
 pub static LOGPRINTWIN: OnceCell<Mutex<Result<LogPrintWin, UError>>> = OnceCell::new();
+static FORCE_BOOL: OnceLock<bool> = OnceLock::new();
 
 type EvalResult<T> = Result<T, UError>;
 
@@ -57,7 +58,7 @@ impl Clone for Evaluator {
             com_err_flg: false,
             lines: self.lines.clone(),
             mouseorg: None,
-            gui_print: self.gui_print.clone()
+            gui_print: self.gui_print.clone(),
         }
     }
 }
@@ -541,7 +542,7 @@ impl Evaluator {
                 self.eval_for_in_statement(loopvar, index_var, islast_var, collection, block, alt)
             },
             Statement::While(e, b) => self.eval_while_statement(e, b),
-            Statement::Repeat(e, b) => self.eval_repeat_statement(e, b),
+            Statement::Repeat(stmt, b) => self.eval_repeat_statement(*stmt, b),
             Statement::Continue(n) => Ok(Some(Object::Continue(n))),
             Statement::Break(n) => Ok(Some(Object::Break(n))),
             Statement::IfSingleLine {condition, consequence, alternative} => {
@@ -614,8 +615,24 @@ impl Evaluator {
         }
     }
 
+    /// 条件式の真偽をboolで返す
+    fn eval_conditional_expression(&mut self, expression: Expression) -> EvalResult<bool> {
+        let force_bool = FORCE_BOOL.get_or_init(|| {
+            let usetttings = USETTINGS.lock().unwrap();
+            usetttings.options.force_bool
+        });
+        if *force_bool {
+            match self.eval_expression(expression)? {
+                Object::Bool(b) => Ok(b),
+                _ => Err(UError::new(UErrorKind::EvaluatorError, UErrorMessage::ForceBoolError))
+            }
+        } else {
+            Ok(self.eval_expression(expression)?.is_truthy())
+        }
+    }
+
     fn eval_if_line_statement(&mut self, condition: Expression, consequence: StatementWithRow, alternative: Option<StatementWithRow>) -> EvalResult<Option<Object>> {
-        if self.eval_expression(condition)?.is_truthy() {
+        if self.eval_conditional_expression(condition)? {
             self.eval_statement(consequence)
         } else {
             match alternative {
@@ -626,7 +643,7 @@ impl Evaluator {
     }
 
     fn eval_if_statement(&mut self, condition: Expression, consequence: BlockStatement, alternative: Option<BlockStatement>) -> EvalResult<Option<Object>> {
-        if self.eval_expression(condition)?.is_truthy() {
+        if self.eval_conditional_expression(condition)? {
             self.eval_block_statement(consequence)
         } else {
             match alternative {
@@ -636,22 +653,29 @@ impl Evaluator {
         }
     }
 
-    fn eval_elseif_statement(&mut self, condition: Expression, consequence: BlockStatement, alternatives: Vec<(Option<Expression>, BlockStatement)>) -> EvalResult<Option<Object>> {
-        if self.eval_expression(condition)?.is_truthy() {
+    fn eval_elseif_statement(&mut self, condition: Expression, consequence: BlockStatement, alternatives: Vec<(Option<StatementWithRow>, BlockStatement)>) -> EvalResult<Option<Object>> {
+        if self.eval_conditional_expression(condition)? {
             return self.eval_block_statement(consequence);
         } else {
             for (altcond, block) in alternatives {
                 match altcond {
-                    Some(cond) => {
+                    Some(StatementWithRow { statement: Statement::Expression(cond), row, line, script_name }) => {
                         // elseif
-                        if self.eval_expression(cond)?.is_truthy() {
-                            return self.eval_block_statement(block);
+                        match self.eval_conditional_expression(cond) {
+                            Ok(b) => if b {
+                                return self.eval_block_statement(block);
+                            },
+                            Err(mut e) => {
+                                e.set_line(row, line, script_name);
+                                return Err(e);
+                            },
                         }
                     },
                     None => {
                         // else
                         return self.eval_block_statement(block);
-                    }
+                    },
+                    _ => unreachable!(),
                 }
             }
         }
@@ -843,7 +867,7 @@ impl Evaluator {
     }
 
     fn eval_loop_flg_expression(&mut self, expression: Expression) -> Result<bool, UError> {
-        Ok(self.eval_expression(expression)?.is_truthy())
+        Ok(self.eval_conditional_expression(expression)?)
     }
 
     fn eval_while_statement(&mut self, expression: Expression, block: BlockStatement) -> EvalResult<Option<Object>> {
@@ -869,27 +893,37 @@ impl Evaluator {
         Ok(None)
     }
 
-    fn eval_repeat_statement(&mut self, expression: Expression, block: BlockStatement) -> EvalResult<Option<Object>> {
-        loop {
-            match self.eval_loopblock_statement(block.clone())? {
-                Some(Object::Continue(n)) => if n > 1 {
-                    return Ok(Some(Object::Continue(n - 1)));
-                } else {
-                    continue;
-                },
-                Some(Object::Break(n)) => if n > 1 {
-                    return Ok(Some(Object::Break(n - 1)));
-                } else {
-                    break;
-                },
-                None => {},
-                o => return Ok(o),
-            };
-            if self.eval_loop_flg_expression(expression.clone())? {
-                break;
+    fn eval_repeat_statement(&mut self, stmt: StatementWithRow, block: BlockStatement) -> EvalResult<Option<Object>> {
+        if let StatementWithRow { statement: Statement::Expression(expr), row, line, script_name } = stmt {
+            loop {
+                match self.eval_loopblock_statement(block.clone())? {
+                    Some(Object::Continue(n)) => if n > 1 {
+                        return Ok(Some(Object::Continue(n - 1)));
+                    } else {
+                        continue;
+                    },
+                    Some(Object::Break(n)) => if n > 1 {
+                        return Ok(Some(Object::Break(n - 1)));
+                    } else {
+                        break;
+                    },
+                    None => {},
+                    o => return Ok(o),
+                };
+                match self.eval_conditional_expression(expr.clone()) {
+                    Ok(b) => if b {
+                        break;
+                    },
+                    Err(mut e) => {
+                        e.set_line(row, line, script_name);
+                        return Err(e);
+                    },
+                }
             }
+            Ok(None)
+        } else {
+            unreachable!();
         }
-        Ok(None)
     }
 
     fn eval_funtcion_definition_statement(&mut self, name: &String, params: Vec<FuncParam>, body: BlockStatement, is_proc: bool, is_async: bool) -> EvalResult<Object> {
@@ -2415,8 +2449,7 @@ impl Evaluator {
     }
 
     fn eval_ternary_expression(&mut self, condition: Expression, consequence: Expression, alternative: Expression) -> EvalResult<Object> {
-        let condition = self.eval_expression(condition)?;
-        if condition.is_truthy() {
+        if self.eval_conditional_expression(condition)? {
             self.eval_expression(consequence)
         } else {
             self.eval_expression(alternative)

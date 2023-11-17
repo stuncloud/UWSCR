@@ -1457,12 +1457,14 @@ impl Parser {
             return None;
         }
         self.bump();
+        let row = self.current_token.pos.row;
+        let line = self.lexer.get_line(row);
         let expression = match self.parse_expression(Precedence::Lowest, false) {
             Some(e) => e,
             None => return None
         };
-
-        Some(Statement::Repeat(expression, block))
+        let stmt = StatementWithRow::new(Statement::Expression(expression), row, line, Some(self.script_name()));
+        Some(Statement::Repeat(Box::new(stmt), block))
     }
 
     fn get_with_temp_name(&mut self) -> String {
@@ -1876,6 +1878,20 @@ impl Parser {
                     }
                 } else {
                     Statement::Option(OptionSetting::GuiPrint(true))
+                }
+            },
+            "forcebool" => {
+                if self.is_next_token(&Token::EqualOrAssign) {
+                    self.bump();
+                    self.bump();
+                    if let Token::Bool(b) = self.current_token.token {
+                        Statement::Option(OptionSetting::GuiPrint(b))
+                    } else {
+                        self.error_got_unexpected_token();
+                        return None;
+                    }
+                } else {
+                    Statement::Option(OptionSetting::ForceBool(true))
                 }
             },
             "__allow_ie_object__" => {
@@ -2608,7 +2624,7 @@ impl Parser {
             });
         }
 
-        let mut alternatives: Vec<(Option<Expression>, BlockStatement)> = vec![];
+        let mut alternatives = vec![];
         while self.is_current_token_in(vec![Token::BlockEnd(BlockEnd::Else), Token::BlockEnd(BlockEnd::ElseIf)]) {
             if self.is_current_token(&Token::BlockEnd(BlockEnd::Else)) {
                 alternatives.push(
@@ -2618,13 +2634,14 @@ impl Parser {
             } else {
                 if self.is_current_token(&Token::BlockEnd(BlockEnd::ElseIf)) {
                     self.bump();
+                    let row = self.current_token.pos.row;
+                    let line = self.lexer.get_line(row);
                     let elseifcond = match self.parse_expression(Precedence::Lowest, false) {
                         Some(e) => e,
                         None => return None
                     };
-                    alternatives.push(
-                        (Some(elseifcond), self.parse_block_statement())
-                    );
+                    let condstmt = StatementWithRow::new(Statement::Expression(elseifcond), row, line, Some(self.script_name()));
+                    alternatives.push((Some(condstmt), self.parse_block_statement()));
                 }
             }
         }
@@ -3684,7 +3701,10 @@ endif
                     ],
                     alternatives: vec![
                         (
-                            Some(Expression::Identifier(Identifier(String::from("b")))),
+                            Some(StatementWithRow::new_expected(
+                                Statement::Expression(Expression::Identifier(Identifier(String::from("b")))),
+                                4
+                            )),
                             vec![
                                 StatementWithRow::new_expected(
                                     Statement::Expression(Expression::Identifier(Identifier(String::from("statement2")))),
@@ -3693,7 +3713,10 @@ endif
                             ],
                         ),
                         (
-                            Some(Expression::Identifier(Identifier(String::from("c")))),
+                            Some(StatementWithRow::new_expected(
+                                Statement::Expression(Expression::Identifier(Identifier(String::from("c")))),
+                                6
+                            )),
                             vec![
                                 StatementWithRow::new_expected(
                                     Statement::Expression(Expression::Identifier(Identifier(String::from("statement3")))),
@@ -3702,7 +3725,10 @@ endif
                             ],
                         ),
                         (
-                            Some(Expression::Identifier(Identifier(String::from("d")))),
+                            Some(StatementWithRow::new_expected(
+                                Statement::Expression(Expression::Identifier(Identifier(String::from("d")))),
+                                8
+                            )),
                             vec![
                                 StatementWithRow::new_expected(
                                     Statement::Expression(Expression::Identifier(Identifier(String::from("statement4")))),
@@ -3746,7 +3772,10 @@ endif
                     ],
                     alternatives: vec![
                         (
-                            Some(Expression::Identifier(Identifier(String::from("b")))),
+                            Some(StatementWithRow::new_expected(
+                                Statement::Expression(Expression::Identifier(Identifier(String::from("b")))),
+                                4
+                            )),
                             vec![
                                 StatementWithRow::new_expected(
                                     Statement::Expression(Expression::Identifier(Identifier(String::from("statement2")))),
@@ -4920,7 +4949,7 @@ until (a == b) and (c >= d)
         parser_test(input, vec![
             StatementWithRow::new_expected(
                 Statement::Repeat(
-                    Expression::Infix(
+                    Box::new(StatementWithRow::new_expected(Statement::Expression(Expression::Infix(
                         Infix::And,
                         Box::new(Expression::Infix(
                             Infix::Equal,
@@ -4932,7 +4961,7 @@ until (a == b) and (c >= d)
                             Box::new(Expression::Identifier(Identifier(String::from("c")))),
                             Box::new(Expression::Identifier(Identifier(String::from("d")))),
                         )),
-                    ),
+                    )), 4)),
                     vec![
                         StatementWithRow::new_expected(
                             Statement::Expression(Expression::FuncCall {

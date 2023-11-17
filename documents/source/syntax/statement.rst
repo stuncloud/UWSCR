@@ -1882,8 +1882,24 @@ bool値指定は省略可能で、省略時はtrueになります
 
 .. object:: OPTION GUIPRINT[=bool]
 
-    | print文実行時にコンソールではなくGUIに出力します
+    | TRUEにした場合print文実行時にコンソールではなくGUIに出力します
     | ``uwscr --window`` で実行されている場合はこの設定が強制的にtrueになります
+
+.. object:: OPTION FORCEBOOL[=bool]
+
+    | TRUEにした場合if文やwhile, repeatの条件式がTRUEまたはFALSEしか受け付けなくなります
+
+    .. sourcecode:: uwscr
+
+        OPTION FORCEBOOL
+
+        if TRUE then
+            print "OK"
+        endif
+
+        if 1 then
+            print "↑はエラーになります"
+        endif
 
 
 def_dll

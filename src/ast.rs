@@ -320,7 +320,7 @@ pub enum Statement {
         alt: Option<BlockStatement>, // else区
     },
     While(Expression, BlockStatement),
-    Repeat(Expression, BlockStatement),
+    Repeat(Box<StatementWithRow>, BlockStatement),
     Continue(u32),
     Break(u32),
     IfSingleLine {
@@ -336,7 +336,7 @@ pub enum Statement {
     ElseIf {
         condition: Expression,
         consequence: BlockStatement,
-        alternatives: Vec<(Option<Expression>, BlockStatement)>
+        alternatives: Vec<(Option<StatementWithRow>, BlockStatement)>
     },
     Select {
         expression: Expression,
@@ -997,6 +997,7 @@ pub enum OptionSetting {
     Logfile(i32),
     Dlgtitle(String),
     GuiPrint(bool),
+    ForceBool(bool),
     AllowIEObj(bool),
 }
 

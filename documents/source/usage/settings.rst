@@ -94,6 +94,8 @@
             "same_str": false,
             // bool  : print文をGUIに出力するかどうか
              "gui_print": false
+            // bool  : if文などの条件式をTRUEかFALSEに限定する
+             "force_bool": false
         },
         // BrowserControl設定
         "browser": {
