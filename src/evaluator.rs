@@ -40,7 +40,7 @@ pub static LOGPRINTWIN: OnceCell<Mutex<Result<LogPrintWin, UError>>> = OnceCell:
 
 type EvalResult<T> = Result<T, UError>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Evaluator {
     pub env: Environment,
     pub ignore_com_err: bool,
@@ -48,6 +48,18 @@ pub struct Evaluator {
     lines: Vec<String>,
     pub mouseorg: Option<MouseOrg>,
     pub gui_print: Option<bool>,
+}
+impl Clone for Evaluator {
+    fn clone(&self) -> Self {
+        Self {
+            env: self.env.clone(),
+            ignore_com_err: false,
+            com_err_flg: false,
+            lines: self.lines.clone(),
+            mouseorg: None,
+            gui_print: self.gui_print.clone()
+        }
+    }
 }
 
 impl Evaluator {
@@ -409,6 +421,9 @@ impl Evaluator {
             OptionSetting::GuiPrint(b) => {
                 usettings.options.gui_print = b;
             },
+            OptionSetting::ForceBool(b) => {
+                usettings.options.force_bool = b;
+            }
             OptionSetting::AllowIEObj(b) => usettings.options.allow_ie_object = b,
         }
     }
