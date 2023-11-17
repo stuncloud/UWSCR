@@ -990,6 +990,12 @@ fn set_special_variables(vec: &mut Vec<NamedObject>) {
     vec.push(NamedObject::new_builtin_const("THREAD_ID2".into(), Object::DynamicVar(
         || format!("{:?}", std::thread::current().id()).into()
     )));
+    vec.push(NamedObject::new_builtin_const("IS_GUI_BUILD".into(), Object::Bool(
+        cfg!(feature="gui")
+    )));
+    vec.push(NamedObject::new_builtin_const("HAS_CHKIMG".into(), Object::Bool(
+        cfg!(feature="chkimg")
+    )));
 }
 
 
