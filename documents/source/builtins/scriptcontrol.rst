@@ -11,6 +11,7 @@
     :param 数値 秒数: スクリプトの実行を停止する秒数
 
 .. function:: sleep(関数)
+    :noindex:
 
     | 関数がTRUEを返す限り実行をブロックします
 
