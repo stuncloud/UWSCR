@@ -7,7 +7,7 @@
 <link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="配列操作関数" href="array.html" /><link rel="prev" title="ファイル操作関数" href="file.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>GUI - UWSCR 0.13.1</title>
+        <title>GUI - UWSCR 0.14.0</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 0.13.1</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 0.14.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 0.13.1</span>
+  <span class="sidebar-brand-text">UWSCR 0.14.0</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -157,6 +157,7 @@
 <div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
   <p class="caption" role="heading"><span class="caption-text">使い方</span></p>
 <ul>
+<li class="toctree-l1"><a class="reference internal" href="../usage/installation.html">インストール方法</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../usage/how_to_run.html">実行方法</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../usage/settings.html">設定ファイル</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../usage/how_to_build.html">ビルド方法</a></li>
@@ -219,7 +220,7 @@
 <h2>ダイアログ<a class="headerlink" href="#id1" title="この見出しへのパーマリンク">#</a></h2>
 <dl class="py function">
 <dt class="sig sig-object py" id="msgbox">
-<span class="sig-name descname"><span class="pre">msgbox</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">メッセージ</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">ボタン種=BTN_OK</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">フォーカス=EMPTY</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#msgbox" title="この定義へのパーマリンク">#</a></dt>
+<span class="sig-name descname"><span class="pre">msgbox</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">メッセージ</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">ボタン種=BTN_OK</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">フォーカス=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">リンク表示=FALSE</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#msgbox" title="この定義へのパーマリンク">#</a></dt>
 <dd><div class="line-block">
 <div class="line">メッセージボックスを表示します</div>
 </div>
@@ -287,6 +288,7 @@
 </div>
 </p></li>
 <li><p><strong>フォーカス</strong> (<em>ボタン定数 省略可</em>) -- カーソルの初期位置をボタン定数で指定、省略時や該当ボタンがない場合は一番左のボタンがフォーカスされます</p></li>
+<li><p><strong>リンク表示</strong> (<em>真偽値 省略可</em>) -- TRUEであればURLをクリック可能なリンクにする</p></li>
 </ul>
 </dd>
 <dt class="field-even">戻り値<span class="colon">:</span></dt>
@@ -394,6 +396,15 @@
 <span class="k">print</span><span class="w"> </span><span class="s">&#39;ユーザー名: &#39;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">user</span><span class="p">[</span><span class="m">0</span><span class="p">]</span>
 <span class="k">print</span><span class="w"> </span><span class="s">&#39;パスワード: &#39;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">user</span><span class="p">[</span><span class="m">1</span><span class="p">]</span>
 </pre></div>
+</div>
+</div>
+<div class="hint admonition">
+<p class="admonition-title">ファイルのドラッグアンドドロップについて</p>
+<div class="line-block">
+<div class="line">インプットボックスに対してExplorerなどからファイルをドラッグアンドドロップすると、そのファイルのパスが入力されます</div>
+<div class="line">複数ファイルをドロップした場合はパスがタブ文字で連結されて入力されます</div>
+<div class="line">入力欄が複数ある場合は、ドロップした入力欄にパスが挿入されます</div>
+<div class="line">入力欄以外にドロップされた場合は一つ目の入力欄にパスが入ります</div>
 </div>
 </div>
 </dd></dl>
@@ -653,12 +664,12 @@
 <h2>メッセージ表示<a class="headerlink" href="#id2" title="この見出しへのパーマリンク">#</a></h2>
 <dl class="py function">
 <dt class="sig sig-object py" id="balloon">
-<span class="sig-name descname"><span class="pre">balloon</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">メッセージ</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">X=0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Y=0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">向き=0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">フォントサイズ=既定値</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">文字色=$000000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">背景色=$00FFFF</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">透過=0</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#balloon" title="この定義へのパーマリンク">#</a></dt>
+<span class="sig-name descname"><span class="pre">balloon</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">メッセージ</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">X=0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Y=0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">変形=FUKI_DEFAULT</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">フォントサイズ=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">文字色=$000000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">背景色=$00FFFF</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">透過=0</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#balloon" title="この定義へのパーマリンク">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="fukidasi">
-<span class="sig-name descname"><span class="pre">fukidasi</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">メッセージ</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">X=0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Y=0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">向き=0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">フォントサイズ=既定値</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">文字色=$000000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">背景色=$00FFFF</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">透過=0</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#fukidasi" title="この定義へのパーマリンク">#</a></dt>
+<span class="sig-name descname"><span class="pre">fukidasi</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">メッセージ</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">X=0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Y=0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">変形=FUKI_DEFAULT</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">フォントサイズ=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">文字色=$000000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">背景色=$00FFFF</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">透過=0</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#fukidasi" title="この定義へのパーマリンク">#</a></dt>
 <dd><div class="line-block">
 <div class="line">吹き出しを表示します</div>
 </div>
@@ -668,9 +679,72 @@
 <li><p><strong>メッセージ</strong> (<em>文字列</em>) -- 表示するメッセージ</p></li>
 <li><p><strong>X</strong> (<em>数値 省略可</em>) -- 表示位置 (X座標)</p></li>
 <li><p><strong>Y</strong> (<em>数値 省略可</em>) -- 表示位置 (Y座標)</p></li>
-<li><p><strong>向き</strong> (<em>数値 省略可</em>) -- <strong>未実装</strong></p></li>
-<li><p><strong>フォントサイズ</strong> (<em>数値 省略可</em>) -- 表示される文字のサイズ、省略時はフォント設定に従う</p></li>
-<li><p><strong>フォント名</strong> (<em>数値 省略可</em>) -- 表示される文字のフォント、省略時はフォント設定に従う</p></li>
+<li><p><strong>変形</strong> (<em>定数 省略可</em>) -- <p>変形方法を示す定数を指定</p>
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">FUKI_DEFAULT</span></span></dt>
+<dd><div class="line-block">
+<div class="line">変形しない</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">FUKI_UP</span></span></dt>
+<dd><div class="line-block">
+<div class="line">吹き出しに上向きの嘴を付ける</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">FUKI_DOWN</span></span></dt>
+<dd><div class="line-block">
+<div class="line">吹き出しに下向きの嘴を付ける</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">FUKI_LEFT</span></span></dt>
+<dd><div class="line-block">
+<div class="line">吹き出しに左向きの嘴を付ける</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">FUKI_RIGHT</span></span></dt>
+<dd><div class="line-block">
+<div class="line">吹き出しに右向きの嘴を付ける</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">FUKI_ROUND</span></span></dt>
+<dd><div class="line-block">
+<div class="line">吹き出しの角を丸くする</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">FUKI_POINT</span></span></dt>
+<dd><div class="line-block">
+<div class="line">嘴定数に加えることで、表示位置の基準を吹き出しの左上ではなく嘴の先にする</div>
+</div>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">balloon</span><span class="p">(</span><span class="s">&quot;マウスカーソル位置が吹き出しの左上&quot;</span><span class="o">,</span><span class="w"> </span><span class="n">G_MOUSE_X</span><span class="o">,</span><span class="w"> </span><span class="n">G_MOUSE_Y</span><span class="o">,</span><span class="w"> </span><span class="n">FUKI_DOWN</span><span class="p">)</span>
+<span class="n">sleep</span><span class="p">(</span><span class="m">2</span><span class="p">)</span>
+<span class="n">balloon</span><span class="p">(</span><span class="s">&quot;マウスカーソル位置に嘴を向ける&quot;</span><span class="o">,</span><span class="w"> </span><span class="n">G_MOUSE_X</span><span class="o">,</span><span class="w"> </span><span class="n">G_MOUSE_Y</span><span class="o">,</span><span class="w"> </span><span class="n">FUKI_DOWN</span><span class="w"> </span><span class="n">or</span><span class="w"> </span><span class="n">FUKI_POINT</span><span class="p">)</span>
+<span class="n">sleep</span><span class="p">(</span><span class="m">2</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+</p></li>
+<li><p><strong>フォントサイズ</strong> (<em>数値 省略可</em>) -- 表示される文字のサイズ、EMPTY時はフォント設定に従う</p></li>
+<li><p><strong>フォント名</strong> (<em>数値 省略可</em>) -- 表示される文字のフォント、EMPTY時はフォント設定に従う</p></li>
 <li><p><strong>文字色</strong> (<em>数値 省略可</em>) -- 文字の色をBGR値で指定、省略時は黒</p></li>
 <li><p><strong>背景色</strong> (<em>数値 省略可</em>) -- <p>背景の色をBGR値で指定、省略時は黄色</p>
 <div class="admonition hint">
@@ -692,16 +766,26 @@
 </div>
 </div>
 </p></li>
-<li><p><strong>透過</strong> (<em>数値 省略可</em>) -- <strong>未実装</strong></p></li>
+<li><p><strong>透過</strong> (<em>数値 省略可</em>) -- <p>ウィンドウを透過させます</p>
+<ul>
+<li><p>0: 透過させない</p></li>
+<li><p>1～255: 数値が大きいほど透明度が高い</p></li>
+<li><p>-1: 背景を透明にするが枠線は残る</p></li>
+<li><p>-2: 背景と枠線を透明にする</p></li>
+</ul>
+</p></li>
 </ul>
 </dd>
 <dt class="field-even">戻り値<span class="colon">:</span></dt>
 <dd class="field-even"><p>なし</p>
 </dd>
 </dl>
-<div class="admonition hint">
-<p class="admonition-title">ヒント</p>
-<p>スレッド毎に一つの吹き出しを表示できます</p>
+<div class="hint admonition">
+<p class="admonition-title">吹き出しの表示は1スレッドにつき1つまで</p>
+<div class="line-block">
+<div class="line">吹き出し表示中にballoon()を呼ぶと、以前の吹き出しは削除され新たな吹き出しが表示されます</div>
+<div class="line">吹き出し表示中に別のスレッドでballoonを呼んだ場合はそれぞれ表示されます</div>
+</div>
 </div>
 </dd></dl>
 
@@ -710,6 +794,19 @@
 <span class="sig-name descname"><span class="pre">logprint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">表示フラグ</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">X=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Y=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">幅=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">高さ=EMPTY</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#logprint" title="この定義へのパーマリンク">#</a></dt>
 <dd><div class="line-block">
 <div class="line">printウィンドウの表示状態を変更します</div>
+</div>
+<div class="caution admonition">
+<p class="admonition-title">print窓が無効の場合</p>
+<div class="line-block">
+<div class="line">print窓が無効の場合この関数は無視されます</div>
+<div class="line">以下のいずれかの場合のみこの関数は有効です</div>
+</div>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">OPTION</span> <span class="pre">GUIPRINT</span></code> がTRUEに指定されている</p></li>
+<li><p>設定ファイルの <code class="docutils literal notranslate"><span class="pre">options.gui_print</span></code> がTRUEになっている</p></li>
+<li><p>ウィンドウ強制モード(<code class="docutils literal notranslate"><span class="pre">uwscr</span> <span class="pre">--window</span></code>)で起動している</p></li>
+<li><p>UWSCRがguiビルドの場合</p></li>
+</ul>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
@@ -744,6 +841,483 @@
 </dl>
 </dd></dl>
 
+</section>
+<section id="html">
+<h2>HTMLフォーム<a class="headerlink" href="#html" title="この見出しへのパーマリンク">#</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="createform">
+<span class="sig-name descname"><span class="pre">createform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">HTMLファイル</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">タイトル</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">非同期フラグ=FALSE</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">オプション=FOM_DEFAULT</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">幅=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">高さ=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">X=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Y=EMPTY</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#createform" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">関数の説明</div>
+</div>
+<div class="caution admonition">
+<p class="admonition-title">WebView2 Runtimeが必要です</p>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">Microsoft</span> <span class="pre">Edge</span> <span class="pre">WebView2</span> <span class="pre">Runtime</span></code> がインストールされていない場合この関数はエラーになります</div>
+</div>
+</div>
+<div class="warning admonition">
+<p class="admonition-title">UWSCとは互換性がありません</p>
+<div class="line-block">
+<div class="line">UWSCではIEコンポーネントを利用していたのに対してUWSCRではWebView2を利用しています</div>
+<div class="line">そのためUWSCで実行していたコードが動作しない場合があります</div>
+</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>HTMLファイル</strong> (<em>文字列</em>) -- <p>表示したいHTMLファイルのパス</p>
+<div class="hint admonition">
+<p class="admonition-title">ファイルの配置について</p>
+<div class="line-block">
+<div class="line">HTMLファイルから別のファイルを参照する場合、もとのHTMLファイルを起点とした相対パスを指定します</div>
+<div class="line"><br /></div>
+</div>
+<ul>
+<li><dl class="simple">
+<dt>C:\Test\</dt><dd><ul>
+<li><dl class="simple">
+<dt>form.html</dt><dd><ul>
+<li><dl class="simple">
+<dt>js\</dt><dd><ul>
+<li><p>form.js</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>css\</dt><dd><ul>
+<li><p>form.css</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>img\</dt><dd><ul>
+<li><p>form.png</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+<div class="highlight-html notranslate"><div class="highlight"><pre><span></span><span class="cp">&lt;!DOCTYPE html&gt;</span>
+<span class="p">&lt;</span><span class="nt">html</span> <span class="na">lang</span><span class="o">=</span><span class="s">&quot;ja&quot;</span><span class="p">&gt;</span>
+<span class="p">&lt;</span><span class="nt">head</span><span class="p">&gt;</span>
+    <span class="p">&lt;</span><span class="nt">meta</span> <span class="na">charset</span><span class="o">=</span><span class="s">&quot;UTF-8&quot;</span><span class="p">&gt;</span>
+    <span class="p">&lt;</span><span class="nt">title</span><span class="p">&gt;</span>別ファイル参照例<span class="p">&lt;/</span><span class="nt">title</span><span class="p">&gt;</span>
+    <span class="p">&lt;</span><span class="nt">link</span> <span class="na">rel</span><span class="o">=</span><span class="s">&quot;stylesheet&quot;</span> <span class="na">href</span><span class="o">=</span><span class="s">&quot;css/form.css&quot;</span><span class="p">&gt;</span>
+    <span class="p">&lt;</span><span class="nt">script</span> <span class="na">src</span><span class="o">=</span><span class="s">&quot;js/form.js&quot;</span><span class="p">&gt;&lt;/</span><span class="nt">script</span><span class="p">&gt;</span>
+<span class="p">&lt;/</span><span class="nt">head</span><span class="p">&gt;</span>
+<span class="p">&lt;</span><span class="nt">body</span><span class="p">&gt;</span>
+    <span class="p">&lt;</span><span class="nt">img</span> <span class="na">src</span><span class="o">=</span><span class="s">&quot;img/form.png&quot;</span><span class="p">&gt;</span>
+    <span class="p">&lt;</span><span class="nt">form</span><span class="p">&gt;</span>
+        <span class="p">&lt;</span><span class="nt">input</span> <span class="na">type</span><span class="o">=</span><span class="s">&quot;submit&quot;</span> <span class="na">value</span><span class="o">=</span><span class="s">&quot;OK&quot;</span> <span class="na">name</span><span class="o">=</span><span class="s">&quot;OK&quot;</span><span class="p">&gt;</span>
+    <span class="p">&lt;/</span><span class="nt">form</span><span class="p">&gt;</span>
+<span class="p">&lt;/</span><span class="nt">body</span><span class="p">&gt;</span>
+<span class="p">&lt;/</span><span class="nt">html</span><span class="p">&gt;</span>
+</pre></div>
+</div>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">html</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;c:\test\form.html&quot;</span>
+<span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">createform</span><span class="p">(</span><span class="n">html</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;test&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</p></li>
+<li><p><strong>タイトル</strong> (<em>文字列</em>) -- ウィンドウタイトル</p></li>
+<li><p><strong>非同期フラグ</strong> (<em>真偽値 省略可</em>) -- <p>非同期で実行するかどうか</p>
+<ul>
+<li><p>FALSE: submitボタンが押される、またはウィンドウが閉じられるまで待機する</p></li>
+<li><p>TRUE: 関数実行後にウィンドウが表示されたら制御を返す</p></li>
+</ul>
+</p></li>
+<li><p><strong>オプション</strong> (<em>定数 省略可</em>) -- <p>以下の定数の組み合わせ(OR連結)を指定</p>
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">FOM_NOICON</span></span></dt>
+<dd><div class="line-block">
+<div class="line">閉じるボタンを非表示にする</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">FOM_MINIMIZE</span></span></dt>
+<dd><div class="line-block">
+<div class="line">最小化ボタンを表示する</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">FOM_MAXIMIZE</span></span></dt>
+<dd><div class="line-block">
+<div class="line">最大化ボタンを表示する</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">FOM_NOHIDE</span></span></dt>
+<dd><div class="line-block">
+<div class="line">submitボタンが押されてもウィンドウを閉じない</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">FOM_NOSUBMIT</span></span></dt>
+<dd><div class="line-block">
+<div class="line">submitボタンが押されてもsubmitに割り当てられた処理(action)を行わない</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">FOM_NORESIZE</span></span></dt>
+<dd><div class="line-block">
+<div class="line">ウィンドウのサイズ変更不可</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">FOM_BROWSER</span></span></dt>
+<dd><div class="line-block">
+<div class="line">互換性のために残されていますが使用できません (指定しても無視されます)</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">FOM_FORMHIDE</span></span></dt>
+<dd><div class="line-block">
+<div class="line">ウィンドウを非表示で起動する</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">FOM_TOPMOST</span></span></dt>
+<dd><div class="line-block">
+<div class="line">ウィンドウを最前面に固定</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">FOM_NOTASKBAR</span></span></dt>
+<dd><div class="line-block">
+<div class="line">タスクバーにアイコンを表示しない</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">FOM_FORM2</span></span></dt>
+<dd><div class="line-block">
+<div class="line">互換性のために残されていますが使用できません (指定しても無視されます)</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">FOM_DEFAULT</span></span></dt>
+<dd><div class="line-block">
+<div class="line">オプションなし (0)</div>
+</div>
+</dd></dl>
+
+</p></li>
+<li><p><strong>幅</strong> (<em>数値 省略可</em>) -- ウィンドウの幅</p></li>
+<li><p><strong>高さ</strong> (<em>数値 省略可</em>) -- ウィンドウの高さ</p></li>
+<li><p><strong>X</strong> (<em>数値 省略可</em>) -- ウィンドウのX座標</p></li>
+<li><p><strong>Y</strong> (<em>数値 省略可</em>) -- ウィンドウのY座標</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#form-data"><span class="std std-ref">Form情報</span></a> または <a class="reference internal" href="#form-object"><span class="std std-ref">Formオブジェクト</span></a></p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p><p>非同期フラグによる</p>
+<ul class="simple">
+<li><p>FALSE: <a class="reference internal" href="#form-data"><span class="std std-ref">Form情報</span></a></p></li>
+<li><p>TRUE: <a class="reference internal" href="#form-object"><span class="std std-ref">Formオブジェクト</span></a></p></li>
+</ul>
+</p>
+</dd>
+</dl>
+<div class="highlight-html notranslate"><div class="highlight"><pre><span></span><span class="cp">&lt;!DOCTYPE html&gt;</span>
+<span class="p">&lt;</span><span class="nt">html</span> <span class="na">lang</span><span class="o">=</span><span class="s">&quot;ja&quot;</span><span class="p">&gt;</span>
+<span class="p">&lt;</span><span class="nt">head</span><span class="p">&gt;</span>
+    <span class="p">&lt;</span><span class="nt">meta</span> <span class="na">charset</span><span class="o">=</span><span class="s">&quot;UTF-8&quot;</span><span class="p">&gt;</span>
+    <span class="p">&lt;</span><span class="nt">title</span><span class="p">&gt;</span>Sample.html<span class="p">&lt;/</span><span class="nt">title</span><span class="p">&gt;</span>
+<span class="p">&lt;/</span><span class="nt">head</span><span class="p">&gt;</span>
+<span class="p">&lt;</span><span class="nt">body</span><span class="p">&gt;</span>
+    <span class="p">&lt;</span><span class="nt">form</span><span class="p">&gt;</span>
+        <span class="p">&lt;</span><span class="nt">div</span><span class="p">&gt;</span>
+            <span class="p">&lt;</span><span class="nt">span</span><span class="p">&gt;</span>ユーザー名<span class="p">&lt;/</span><span class="nt">span</span><span class="p">&gt;</span>
+            <span class="p">&lt;</span><span class="nt">input</span> <span class="na">type</span><span class="o">=</span><span class="s">&quot;text&quot;</span> <span class="na">name</span><span class="o">=</span><span class="s">&quot;user&quot;</span><span class="p">&gt;</span>
+        <span class="p">&lt;/</span><span class="nt">div</span><span class="p">&gt;</span>
+        <span class="p">&lt;</span><span class="nt">div</span><span class="p">&gt;</span>
+            <span class="p">&lt;</span><span class="nt">span</span><span class="p">&gt;</span>パスワード<span class="p">&lt;/</span><span class="nt">span</span><span class="p">&gt;</span>
+            <span class="p">&lt;</span><span class="nt">input</span> <span class="na">type</span><span class="o">=</span><span class="s">&quot;password&quot;</span> <span class="na">name</span><span class="o">=</span><span class="s">&quot;pwd&quot;</span><span class="p">&gt;</span>
+        <span class="p">&lt;/</span><span class="nt">div</span><span class="p">&gt;</span>
+        <span class="p">&lt;</span><span class="nt">div</span><span class="p">&gt;</span>
+            <span class="p">&lt;</span><span class="nt">select</span> <span class="na">name</span><span class="o">=</span><span class="s">&quot;slct&quot;</span><span class="p">&gt;</span>
+                <span class="p">&lt;</span><span class="nt">option</span> <span class="na">value</span><span class="o">=</span><span class="s">&quot;foo&quot;</span><span class="p">&gt;</span>foo<span class="p">&lt;/</span><span class="nt">option</span><span class="p">&gt;</span>
+                <span class="p">&lt;</span><span class="nt">option</span> <span class="na">value</span><span class="o">=</span><span class="s">&quot;bar&quot;</span><span class="p">&gt;</span>bar<span class="p">&lt;/</span><span class="nt">option</span><span class="p">&gt;</span>
+                <span class="p">&lt;</span><span class="nt">option</span> <span class="na">value</span><span class="o">=</span><span class="s">&quot;baz&quot;</span><span class="p">&gt;</span>baz<span class="p">&lt;/</span><span class="nt">option</span><span class="p">&gt;</span>
+            <span class="p">&lt;/</span><span class="nt">select</span><span class="p">&gt;</span>
+        <span class="p">&lt;/</span><span class="nt">div</span><span class="p">&gt;</span>
+        <span class="p">&lt;</span><span class="nt">div</span><span class="p">&gt;</span>
+            <span class="p">&lt;</span><span class="nt">textarea</span> <span class="na">name</span><span class="o">=</span><span class="s">&quot;txt&quot;</span> <span class="na">cols</span><span class="o">=</span><span class="s">&quot;30&quot;</span> <span class="na">rows</span><span class="o">=</span><span class="s">&quot;10&quot;</span><span class="p">&gt;&lt;/</span><span class="nt">textarea</span><span class="p">&gt;</span>
+        <span class="p">&lt;/</span><span class="nt">div</span><span class="p">&gt;</span>
+        <span class="p">&lt;</span><span class="nt">div</span><span class="p">&gt;</span>
+            <span class="p">&lt;</span><span class="nt">input</span> <span class="na">type</span><span class="o">=</span><span class="s">&quot;submit&quot;</span> <span class="na">value</span><span class="o">=</span><span class="s">&quot;OK&quot;</span> <span class="na">name</span><span class="o">=</span><span class="s">&quot;OK&quot;</span><span class="p">&gt;</span>
+            <span class="p">&lt;</span><span class="nt">input</span> <span class="na">type</span><span class="o">=</span><span class="s">&quot;submit&quot;</span> <span class="na">value</span><span class="o">=</span><span class="s">&quot;Cancel&quot;</span> <span class="na">name</span><span class="o">=</span><span class="s">&quot;Cancel&quot;</span><span class="p">&gt;</span>
+        <span class="p">&lt;/</span><span class="nt">div</span><span class="p">&gt;</span>
+    <span class="p">&lt;/</span><span class="nt">form</span><span class="p">&gt;</span>
+<span class="p">&lt;/</span><span class="nt">body</span><span class="p">&gt;</span>
+<span class="p">&lt;/</span><span class="nt">html</span><span class="p">&gt;</span>
+</pre></div>
+</div>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">createform</span><span class="p">(</span><span class="s">&quot;sample.html&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;Sample&quot;</span><span class="p">)</span>
+<span class="kd">select</span><span class="w"> </span><span class="n">r</span><span class="o">.</span><span class="n">submit</span>
+<span class="w">    </span><span class="kd">case</span><span class="w"> </span><span class="s">&quot;OK&quot;</span>
+<span class="w">        </span><span class="k">print</span><span class="w"> </span><span class="s">&quot;OKが押されました&quot;</span>
+<span class="w">        </span><span class="k">print</span><span class="w"> </span><span class="s">&quot;formの値は以下です&quot;</span>
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="n">data</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="n">r</span><span class="o">.</span><span class="n">data</span>
+<span class="w">            </span><span class="k">print</span><span class="w"> </span><span class="n">data</span><span class="o">.</span><span class="n">name</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="s">&quot;: &quot;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">data</span><span class="o">.</span><span class="n">value</span>
+<span class="w">        </span><span class="k">next</span>
+<span class="w">    </span><span class="kd">case</span><span class="w"> </span><span class="s">&quot;Cancel&quot;</span>
+<span class="w">        </span><span class="k">print</span><span class="w"> </span><span class="s">&#39;キャンセルされました&#39;</span>
+<span class="w">    </span><span class="kd">case</span><span class="w"> </span><span class="n">NULL</span>
+<span class="w">        </span><span class="k">print</span><span class="w"> </span><span class="s">&#39;submitされずにウィンドウが閉じられました&#39;</span>
+<span class="kd">selend</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<section id="form">
+<span id="form-data"></span><h3>Form情報<a class="headerlink" href="#form" title="この見出しへのパーマリンク">#</a></h3>
+<p>submit時のform情報を示す <a class="reference internal" href="../syntax/statement.html#uobject"><span class="std std-ref">UObject</span></a></p>
+<div class="highlight-js notranslate"><div class="highlight"><pre><span></span><span class="c1">// submit時</span><span class="w"></span>
+<span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="s2">&quot;submit&quot;</span><span class="o">:</span><span class="w"> </span><span class="nx">$submit</span><span class="p">,</span><span class="w"> </span><span class="c1">// $submitには押されたsubmitボタンのnameが入る</span><span class="w"></span>
+<span class="w">    </span><span class="s2">&quot;data&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
+<span class="w">        </span><span class="c1">// form内の各要素のnameおよびvalueが格納される</span><span class="w"></span>
+<span class="w">        </span><span class="p">{</span><span class="w"> </span><span class="s2">&quot;name&quot;</span><span class="o">:</span><span class="w"> </span><span class="nx">$name</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;value&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">$value</span><span class="p">},</span><span class="w"></span>
+<span class="w">    </span><span class="p">]</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+<span class="c1">// ウィンドウが閉じられた場合</span><span class="w"></span>
+<span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="s2">&quot;submit&quot;</span><span class="o">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="c1">// NULLになる</span><span class="w"></span>
+<span class="w">    </span><span class="s2">&quot;data&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">[]</span><span class="w">      </span><span class="c1">// 空配列</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</pre></div>
+</div>
+</section>
+<section id="form-object">
+<span id="id3"></span><h3>Formオブジェクト<a class="headerlink" href="#form-object" title="この見出しへのパーマリンク">#</a></h3>
+<div class="line-block">
+<div class="line">Formウィンドウを示すオブジェクト</div>
+</div>
+<div class="caution admonition">
+<p class="admonition-title">COMオブジェクトではありません</p>
+<div class="line-block">
+<div class="line">UWSCとは異なりCOMオブジェクトではなくUWSCR独自のオブジェクトとなります</div>
+</div>
+</div>
+<dl class="py class">
+<dt class="sig sig-object py" id="Form">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Form</span></span><a class="headerlink" href="#Form" title="この定義へのパーマリンク">#</a></dt>
+<dd><dl class="py property">
+<dt class="sig sig-object py" id="Form.Document">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Document</span></span><a class="headerlink" href="#Form.Document" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">フォームに表示されているページのdocumentオブジェクト</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#webview-remote-object"><span class="std std-ref">WebViewRemoteObject</span></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Form.Wait">
+<span class="sig-name descname"><span class="pre">Wait</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Form.Wait" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">ウィンドウが閉じられるのを待つ</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#form-data"><span class="std std-ref">Form情報</span></a></p>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p><div class="line-block">
+<div class="line">submit時のform情報を示す <a class="reference internal" href="#form-data"><span class="std std-ref">Form情報</span></a> オブジェクト</div>
+<div class="line">submitせず閉じた場合は <code class="docutils literal notranslate"><span class="pre">submit</span></code> がNULLになります</div>
+</div>
+</p>
+</dd>
+</dl>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// test.htmlにはOKとCancelのsubmitボタンがあるものとする</span>
+<span class="n">f</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">createform</span><span class="p">(</span><span class="s">&quot;test.html&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;Test&quot;</span><span class="o">,</span><span class="w"> </span><span class="n">true</span><span class="p">)</span>
+<span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">f</span><span class="o">.</span><span class="n">wait</span><span class="p">()</span>
+<span class="kd">select</span><span class="w"> </span><span class="n">result</span><span class="o">.</span><span class="n">submit</span>
+<span class="w">    </span><span class="kd">case</span><span class="w"> </span><span class="s">&quot;OK&quot;</span>
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="n">data</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="n">result</span><span class="o">.</span><span class="n">data</span>
+<span class="w">            </span><span class="k">print</span><span class="w"> </span><span class="n">data</span><span class="o">.</span><span class="n">name</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="s">&quot;: &quot;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">data</span><span class="o">.</span><span class="n">value</span>
+<span class="w">        </span><span class="k">next</span>
+<span class="w">    </span><span class="kd">case</span><span class="w"> </span><span class="s">&quot;Cancel&quot;</span>
+<span class="w">        </span><span class="k">print</span><span class="w"> </span><span class="s">&quot;キャンセルされました&quot;</span>
+<span class="w">    </span><span class="kd">case</span><span class="w"> </span><span class="n">NULL</span>
+<span class="w">        </span><span class="k">print</span><span class="w"> </span><span class="s">&quot;ウィンドウが閉じられました&quot;</span>
+<span class="w">    </span><span class="kd">default</span>
+<span class="w">        </span><span class="k">print</span><span class="w"> </span><span class="s">&quot;なにかおかしいです&quot;</span>
+<span class="kd">selend</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Form.SetVisible">
+<span class="sig-name descname"><span class="pre">SetVisible</span></span><span class="sig-paren">(</span><span class="optional">[</span><em class="sig-param"><span class="n"><span class="pre">表示フラグ=TRUE</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#Form.SetVisible" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">ウィンドウの表示状態を変更する</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>表示フラグ</strong> (<em>真偽値 省略可</em>) -- TRUEで表示、FALSEで非表示</p>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>なし</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Form.Close">
+<span class="sig-name descname"><span class="pre">Close</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Form.Close" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">ウィンドウを閉じる</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>なし</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Form.SetEventHandler">
+<span class="sig-name descname"><span class="pre">SetEventHandler</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">エレメント</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">イベント</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">関数</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Form.SetEventHandler" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">任意のイベント発生時に実行する関数を登録します</div>
+<div class="line">関数は引数を2つまで受けられます、内訳は以下の通りです</div>
+</div>
+<ol class="arabic simple">
+<li><p>イベント発生エレメントのvalue値</p></li>
+<li><p>イベント発生エレメントのname属性値</p></li>
+</ol>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>エレメント</strong> (<em>WebViewRemoteObject</em>) -- イベント発生元のエレメントを示す <a class="reference internal" href="#webview-remote-object"><span class="std std-ref">WebViewRemoteObject</span></a></p></li>
+<li><p><strong>イベント</strong> (<em>文字列</em>) -- イベント名</p></li>
+<li><p><strong>関数</strong> (<em>ユーザー定義関数</em>) -- イベント発生時に実行される関数</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>なし</p>
+</dd>
+</dl>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">f</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">createform</span><span class="p">(</span><span class="s">&quot;test.html&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;Test&quot;</span><span class="o">,</span><span class="w"> </span><span class="n">true</span><span class="p">)</span>
+<span class="kd">select</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">f</span><span class="o">.</span><span class="n">document</span><span class="o">.</span><span class="n">querySelector</span><span class="p">(</span><span class="s">&quot;select&quot;</span><span class="p">)</span>
+<span class="n">f</span><span class="o">.</span><span class="n">SetEventHandler</span><span class="p">(</span><span class="kd">select</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;change&quot;</span><span class="o">,</span><span class="w"> </span><span class="n">on_select_change</span><span class="p">)</span>
+
+<span class="n">button</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">f</span><span class="o">.</span><span class="n">document</span><span class="o">.</span><span class="n">querySelector</span><span class="p">(</span><span class="s">&quot;input[type=button]&quot;</span><span class="p">)</span>
+<span class="n">f</span><span class="o">.</span><span class="n">SetEventHandler</span><span class="p">(</span><span class="n">button</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;click&quot;</span><span class="o">,</span><span class="w"> </span><span class="n">on_button_click</span><span class="p">)</span>
+
+<span class="n">f</span><span class="o">.</span><span class="n">wait</span><span class="p">()</span>
+
+<span class="c">// 1つ目の引数でイベント発生エレメントのvalue</span>
+<span class="c">// 2つ目の引数でnameを受ける</span>
+<span class="kd">procedure</span><span class="w"> </span><span class="n">on_select_change</span><span class="p">(</span><span class="n">value</span><span class="o">,</span><span class="w"> </span><span class="n">name</span><span class="p">)</span>
+<span class="w">    </span><span class="k">print</span><span class="w"> </span><span class="n">value</span>
+<span class="w">    </span><span class="k">print</span><span class="w"> </span><span class="n">name</span>
+<span class="kd">fend</span>
+
+<span class="c">// 引数は必須ではない</span>
+<span class="kd">procedure</span><span class="w"> </span><span class="n">on_button_click</span><span class="p">()</span>
+<span class="w">    </span><span class="k">print</span><span class="w"> </span><span class="s">&quot;クリックされました&quot;</span>
+<span class="kd">fend</span>
+</pre></div>
+</div>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="webviewremoteobject">
+<span id="webview-remote-object"></span><h3>WebViewRemoteObject<a class="headerlink" href="#webviewremoteobject" title="この見出しへのパーマリンク">#</a></h3>
+<div class="line-block">
+<div class="line">フォームに表示されているページのJavaScriptオブジェクトを示します</div>
+<div class="line">利用方法は <a class="reference internal" href="web.html#remote-object"><span class="std std-ref">RemoteObject</span></a> と同等です</div>
+</div>
+</section>
+</section>
+<section id="id4">
+<h2>組み込みウィンドウのクラス名一覧<a class="headerlink" href="#id4" title="この見出しへのパーマリンク">#</a></h2>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>関数名</p></th>
+<th class="head"><p>クラス名</p></th>
+<th class="head"><p>定数</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>msgbox</p></td>
+<td><p>UWSCR.MsgBox</p></td>
+<td><p>CLASS_MSGBOX</p></td>
+</tr>
+<tr class="row-odd"><td><p>input</p></td>
+<td><p>UWSCR.Input</p></td>
+<td><p>CLASS_INPUTBOX</p></td>
+</tr>
+<tr class="row-even"><td><p>slctbox</p></td>
+<td><p>UWSCR.Slctbox</p></td>
+<td><p>CLASS_SLCTBOX</p></td>
+</tr>
+<tr class="row-odd"><td><p>popupmenu</p></td>
+<td><p>UWSCR.Popup</p></td>
+<td><p>CLASS_POPUPMENU</p></td>
+</tr>
+<tr class="row-even"><td><p>balloon</p></td>
+<td><p>UWSCR.Balloon</p></td>
+<td><p>CLASS_BALLOON</p></td>
+</tr>
+<tr class="row-odd"><td><p>logprintwin</p></td>
+<td><p>UWSCR.LogPrintWin</p></td>
+<td><p>CLASS_LOGPRINTWIN</p></td>
+</tr>
+<tr class="row-even"><td><p>createform</p></td>
+<td><p>UWSCR.Form</p></td>
+<td><p>CLASS_FORM</p></td>
+</tr>
+</tbody>
+</table>
+</div>
 </section>
 </section>
 
@@ -818,6 +1392,24 @@
 <li><a class="reference internal" href="#logprint"><code class="docutils literal notranslate"><span class="pre">logprint()</span></code></a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#html">HTMLフォーム</a><ul>
+<li><a class="reference internal" href="#createform"><code class="docutils literal notranslate"><span class="pre">createform()</span></code></a></li>
+<li><a class="reference internal" href="#form">Form情報</a></li>
+<li><a class="reference internal" href="#form-object">Formオブジェクト</a><ul>
+<li><a class="reference internal" href="#Form"><code class="docutils literal notranslate"><span class="pre">Form</span></code></a><ul>
+<li><a class="reference internal" href="#Form.Document"><code class="docutils literal notranslate"><span class="pre">Form.Document</span></code></a></li>
+<li><a class="reference internal" href="#Form.Wait"><code class="docutils literal notranslate"><span class="pre">Form.Wait()</span></code></a></li>
+<li><a class="reference internal" href="#Form.SetVisible"><code class="docutils literal notranslate"><span class="pre">Form.SetVisible()</span></code></a></li>
+<li><a class="reference internal" href="#Form.Close"><code class="docutils literal notranslate"><span class="pre">Form.Close()</span></code></a></li>
+<li><a class="reference internal" href="#Form.SetEventHandler"><code class="docutils literal notranslate"><span class="pre">Form.SetEventHandler()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#webviewremoteobject">WebViewRemoteObject</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id4">組み込みウィンドウのクラス名一覧</a></li>
 </ul>
 </li>
 </ul>

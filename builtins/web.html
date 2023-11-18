@@ -7,7 +7,7 @@
 <link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="prev" title="Excel" href="excel.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>ウェブ関連 - UWSCR 0.13.1</title>
+        <title>ウェブ関連 - UWSCR 0.14.0</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 0.13.1</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 0.14.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 0.13.1</span>
+  <span class="sidebar-brand-text">UWSCR 0.14.0</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -157,6 +157,7 @@
 <div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
   <p class="caption" role="heading"><span class="caption-text">使い方</span></p>
 <ul>
+<li class="toctree-l1"><a class="reference internal" href="../usage/installation.html">インストール方法</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../usage/how_to_run.html">実行方法</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../usage/settings.html">設定ファイル</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../usage/how_to_build.html">ビルド方法</a></li>
@@ -299,6 +300,19 @@
 <div class="line-block">
 <div class="line">対象ブラウザが同じデバッグポートを開けて起動している場合はそのブラウザに再接続できます</div>
 <div class="line">異なるポートを開いている、またはポートが開かれていない場合は再接続できずエラーになります</div>
+</div>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// 起動.uws</span>
+
+<span class="n">chrome</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">BrowserControl</span><span class="p">(</span><span class="n">BC_CHROME</span><span class="o">,</span><span class="w"> </span><span class="m">9999</span><span class="p">)</span><span class="w"> </span><span class="c">// ポート9999でChromeを起動</span>
+<span class="n">chrome</span><span class="p">[</span><span class="m">0</span><span class="p">]</span><span class="o">.</span><span class="n">navigate</span><span class="p">(</span><span class="s">&quot;https://example.com&quot;</span><span class="p">)</span><span class="w"> </span><span class="c">// 0番目のタブで任意のサイトを開く</span>
+</pre></div>
+</div>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// 再接続.uws</span>
+
+<span class="n">chrome</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">BrowserControl</span><span class="p">(</span><span class="n">BC_CHROME</span><span class="o">,</span><span class="w"> </span><span class="m">9999</span><span class="p">)</span><span class="w"> </span><span class="c">// 9999ポートのChromeに再接続される</span>
+<span class="n">url</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">chrome</span><span class="p">[</span><span class="m">0</span><span class="p">]</span><span class="o">.</span><span class="n">document</span><span class="o">.</span><span class="n">URL</span><span class="w"> </span><span class="c">// 0番目のタブのURLを取得</span>
+<span class="k">print</span><span class="w"> </span><span class="n">url</span><span class="w"> </span><span class="c">// https://example.com</span>
+</pre></div>
 </div>
 </div>
 <div class="hint admonition">
@@ -1139,6 +1153,46 @@
 <span class="n">rect</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">element</span><span class="o">.</span><span class="n">getBoundingClientRect</span><span class="p">()</span>
 <span class="c">// 座標を指定し右クリックする</span>
 <span class="n">tab</span><span class="o">.</span><span class="n">rightClick</span><span class="p">(</span><span class="n">rect</span><span class="o">.</span><span class="n">x</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="m">10</span><span class="o">,</span><span class="w"> </span><span class="n">rect</span><span class="o">.</span><span class="n">y</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="m">10</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="TabWindow.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">JavaScript式</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#TabWindow.eval" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">JavaScriptの式を評価し、オブジェクトの場合はRemoteObjectとして返します</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>JavaScript式</strong> (<em>文字列</em>) -- JavaScriptの式</p>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#remote-object"><span class="std std-ref">RemoteObject</span></a> またはいずれかの値型</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p><div class="line-block">
+<div class="line">評価結果がJavaScriptオブジェクトの場合は <a class="reference internal" href="#remote-object"><span class="std std-ref">RemoteObject</span></a> を返します</div>
+<div class="line">そうでない場合は該当するUWSCRの値型を返します</div>
+</div>
+</p>
+</dd>
+</dl>
+<div class="admonition- admonition">
+<p class="admonition-title">サンプルコード</p>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">chrome</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">BrowserControl</span><span class="p">(</span><span class="n">BC_CHROME</span><span class="p">)</span>
+<span class="n">tab</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">chrome</span><span class="p">[</span><span class="m">0</span><span class="p">]</span>
+<span class="n">tab</span><span class="o">.</span><span class="n">navigate</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+
+<span class="n">func</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">tab</span><span class="o">.</span><span class="n">eval</span><span class="p">(</span><span class="s">&quot;(a, b) =&gt; a + b&quot;</span><span class="p">)</span><span class="w"> </span><span class="c">// アロー関数を評価</span>
+<span class="k">print</span><span class="w"> </span><span class="n">func</span><span class="p">(</span><span class="m">3</span><span class="o">,</span><span class="w"> </span><span class="m">5</span><span class="p">)</span><span class="w"> </span><span class="c">// 8 (関数として実行できる)</span>
+
+<span class="c">// コールバック用のJavaScript関数を作る</span>
+<span class="n">callback</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">tab</span><span class="o">.</span><span class="n">eval</span><span class="p">(</span><span class="s">&quot;(event) =&gt; event.srcElement.style.backgroundColor = &#39;red&#39;&quot;</span><span class="p">)</span>
+<span class="n">slct</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">tab</span><span class="o">.</span><span class="n">document</span><span class="o">.</span><span class="n">querySelector</span><span class="p">(</span><span class="s">&quot;select&quot;</span><span class="p">)</span>
+<span class="c">// イベントリスナをセット</span>
+<span class="n">slct</span><span class="o">.</span><span class="n">addEventListener</span><span class="p">(</span><span class="s">&quot;change&quot;</span><span class="o">,</span><span class="w"> </span><span class="n">callback</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -2075,6 +2129,7 @@
 <li><a class="reference internal" href="#TabWindow.leftClick"><code class="docutils literal notranslate"><span class="pre">TabWindow.leftClick()</span></code></a></li>
 <li><a class="reference internal" href="#TabWindow.rightClick"><code class="docutils literal notranslate"><span class="pre">TabWindow.rightClick()</span></code></a></li>
 <li><a class="reference internal" href="#TabWindow.middleClick"><code class="docutils literal notranslate"><span class="pre">TabWindow.middleClick()</span></code></a></li>
+<li><a class="reference internal" href="#TabWindow.eval"><code class="docutils literal notranslate"><span class="pre">TabWindow.eval()</span></code></a></li>
 </ul>
 </li>
 </ul>

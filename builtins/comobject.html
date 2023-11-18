@@ -7,7 +7,7 @@
 <link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="Excel" href="excel.html" /><link rel="prev" title="数学関数" href="math.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>COMオブジェクト - UWSCR 0.13.1</title>
+        <title>COMオブジェクト - UWSCR 0.14.0</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 0.13.1</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 0.14.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 0.13.1</span>
+  <span class="sidebar-brand-text">UWSCR 0.14.0</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -157,6 +157,7 @@
 <div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
   <p class="caption" role="heading"><span class="caption-text">使い方</span></p>
 <ul>
+<li class="toctree-l1"><a class="reference internal" href="../usage/installation.html">インストール方法</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../usage/how_to_run.html">実行方法</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../usage/settings.html">設定ファイル</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../usage/how_to_build.html">ビルド方法</a></li>
@@ -354,6 +355,35 @@
 <span class="n">date</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">vartype</span><span class="p">(</span><span class="s">&quot;2023/07/15&quot;</span><span class="o">,</span><span class="w"> </span><span class="n">VAR_DATE</span><span class="p">)</span>
 <span class="c">// Excelのアクティブセルに日付型の値を入力</span>
 <span class="n">excel</span><span class="o">.</span><span class="n">ActiveCell</span><span class="o">.</span><span class="n">value</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">date</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">vartype</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">COMオブジェクト</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">プロパティ名</span></span></em><span class="sig-paren">)</span></dt>
+<dd><div class="line-block">
+<div class="line">COMオブジェクトのプロパティが返す値のVariant型を得ます</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>COMオブジェクト</strong> (<em>COMオブジェクト</em>) -- 型を調べたいプロパティを持つCOMオブジェクト</p></li>
+<li><p><strong>プロパティ名</strong> (<em>文字列</em>) -- 型を調べたいプロパティの名前</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>VAR定数またはEMPTY</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>プロパティの型、COMオブジェクト以外が渡された場合やプロパティが存在しない場合はEMPTY</p>
+</dd>
+</dl>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">excel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">getactiveoleobj</span><span class="p">(</span><span class="s">&quot;Excel.Application&quot;</span><span class="p">)</span>
+<span class="c">// アクティブセルの型を調べる</span>
+<span class="n">vt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">vartype</span><span class="p">(</span><span class="n">excel</span><span class="o">.</span><span class="n">activecell</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;value&quot;</span><span class="p">)</span>
+<span class="c">// 得た値をVAR_定数名に変換</span>
+<span class="k">print</span><span class="w"> </span><span class="n">const_as_string</span><span class="p">(</span><span class="n">vt</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;VAR_&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </dd></dl>

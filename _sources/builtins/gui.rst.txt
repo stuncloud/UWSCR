@@ -4,7 +4,7 @@ GUI
 ダイアログ
 ----------
 
-.. function:: msgbox(メッセージ, [ボタン種=BTN_OK, x=EMPTY, y=EMPTY, フォーカス=EMPTY])
+.. function:: msgbox(メッセージ, [ボタン種=BTN_OK, x=EMPTY, y=EMPTY, フォーカス=EMPTY, リンク表示=FALSE])
 
     | メッセージボックスを表示します
 
@@ -53,6 +53,7 @@ GUI
             | x, yに-1を指定するとそれぞれ前回表示した位置になります
 
     :param ボタン定数 省略可 フォーカス: カーソルの初期位置をボタン定数で指定、省略時や該当ボタンがない場合は一番左のボタンがフォーカスされます
+    :param 真偽値 省略可 リンク表示: TRUEであればURLをクリック可能なリンクにする
 
     :return: 押されたボタンを示すボタン定数 (×ボタンで閉じられた場合は ``BTN_CANCEL``)
 
@@ -130,6 +131,14 @@ GUI
             user = input(labels, default, mask)
             print 'ユーザー名: ' + user[0]
             print 'パスワード: ' + user[1]
+
+    .. admonition:: ファイルのドラッグアンドドロップについて
+        :class: hint
+
+        | インプットボックスに対してExplorerなどからファイルをドラッグアンドドロップすると、そのファイルのパスが入力されます
+        | 複数ファイルをドロップした場合はパスがタブ文字で連結されて入力されます
+        | 入力欄が複数ある場合は、ドロップした入力欄にパスが挿入されます
+        | 入力欄以外にドロップされた場合は一つ目の入力欄にパスが入ります
 
 .. function:: slctbox(表示方法, タイムアウト秒, メッセージ=EMPTY, 表示項目, [表示項目2, ..., 表示項目31])
 .. function:: slctbox(表示方法, タイムアウト秒, x, y, メッセージ=EMPTY, 表示項目, [表示項目2, ..., 表示項目29])
@@ -292,17 +301,54 @@ GUI
 メッセージ表示
 --------------
 
-.. function:: balloon(メッセージ, [X=0, Y=0, 向き=0, フォントサイズ=既定値, 文字色=$000000, 背景色=$00FFFF, 透過=0])
-.. function:: fukidasi(メッセージ, [X=0, Y=0, 向き=0, フォントサイズ=既定値, 文字色=$000000, 背景色=$00FFFF, 透過=0])
+.. function:: balloon(メッセージ, [X=0, Y=0, 変形=FUKI_DEFAULT, フォントサイズ=EMPTY, 文字色=$000000, 背景色=$00FFFF, 透過=0])
+.. function:: fukidasi(メッセージ, [X=0, Y=0, 変形=FUKI_DEFAULT, フォントサイズ=EMPTY, 文字色=$000000, 背景色=$00FFFF, 透過=0])
 
     | 吹き出しを表示します
 
     :param 文字列 メッセージ: 表示するメッセージ
     :param 数値 省略可 X: 表示位置 (X座標)
     :param 数値 省略可 Y: 表示位置 (Y座標)
-    :param 数値 省略可 向き: **未実装**
-    :param 数値 省略可 フォントサイズ: 表示される文字のサイズ、省略時はフォント設定に従う
-    :param 数値 省略可 フォント名: 表示される文字のフォント、省略時はフォント設定に従う
+    :param 定数 省略可 変形: 変形方法を示す定数を指定
+
+        .. object:: FUKI_DEFAULT
+
+            | 変形しない
+
+        .. object:: FUKI_UP
+
+            | 吹き出しに上向きの嘴を付ける
+
+        .. object:: FUKI_DOWN
+
+            | 吹き出しに下向きの嘴を付ける
+
+        .. object:: FUKI_LEFT
+
+            | 吹き出しに左向きの嘴を付ける
+
+        .. object:: FUKI_RIGHT
+
+            | 吹き出しに右向きの嘴を付ける
+
+        .. object:: FUKI_ROUND
+
+            | 吹き出しの角を丸くする
+
+        .. object:: FUKI_POINT
+
+            | 嘴定数に加えることで、表示位置の基準を吹き出しの左上ではなく嘴の先にする
+
+            .. sourcecode:: uwscr
+
+                balloon("マウスカーソル位置が吹き出しの左上", G_MOUSE_X, G_MOUSE_Y, FUKI_DOWN)
+                sleep(2)
+                balloon("マウスカーソル位置に嘴を向ける", G_MOUSE_X, G_MOUSE_Y, FUKI_DOWN or FUKI_POINT)
+                sleep(2)
+
+
+    :param 数値 省略可 フォントサイズ: 表示される文字のサイズ、EMPTY時はフォント設定に従う
+    :param 数値 省略可 フォント名: 表示される文字のフォント、EMPTY時はフォント設定に従う
     :param 数値 省略可 文字色: 文字の色をBGR値で指定、省略時は黒
     :param 数値 省略可 背景色: 背景の色をBGR値で指定、省略時は黄色
 
@@ -320,15 +366,36 @@ GUI
 
             | 色指定を0にした場合、黄色ではなく黒になります
 
-    :param 数値 省略可 透過: **未実装**
+    :param 数値 省略可 透過: ウィンドウを透過させます
+
+        - 0: 透過させない
+        - 1～255: 数値が大きいほど透明度が高い
+        - -1: 背景を透明にするが枠線は残る
+        - -2: 背景と枠線を透明にする
+
     :return: なし
 
-    .. hint:: スレッド毎に一つの吹き出しを表示できます
+    .. admonition:: 吹き出しの表示は1スレッドにつき1つまで
+        :class: hint
+
+        | 吹き出し表示中にballoon()を呼ぶと、以前の吹き出しは削除され新たな吹き出しが表示されます
+        | 吹き出し表示中に別のスレッドでballoonを呼んだ場合はそれぞれ表示されます
 
 
 .. function:: logprint(表示フラグ, [X=EMPTY, Y=EMPTY, 幅=EMPTY, 高さ=EMPTY])
 
     | printウィンドウの表示状態を変更します
+
+    .. admonition:: print窓が無効の場合
+        :class: caution
+
+        | print窓が無効の場合この関数は無視されます
+        | 以下のいずれかの場合のみこの関数は有効です
+
+        - ``OPTION GUIPRINT`` がTRUEに指定されている
+        - 設定ファイルの ``options.gui_print`` がTRUEになっている
+        - ウィンドウ強制モード(``uwscr --window``)で起動している
+        - UWSCRがguiビルドの場合
 
     :param 真偽値 表示フラグ:
 
@@ -346,3 +413,329 @@ GUI
     :param 数値 省略可 幅: 表示サイズ (幅)、EMPTYなら現状維持
     :param 数値 省略可 高さ: 表示サイズ (高さ)、EMPTYなら現状維持
     :return: なし
+
+HTMLフォーム
+------------
+
+.. function:: createform(HTMLファイル, タイトル, [非同期フラグ=FALSE, オプション=FOM_DEFAULT, 幅=EMPTY, 高さ=EMPTY, X=EMPTY, Y=EMPTY])
+
+    | 関数の説明
+
+    .. admonition:: WebView2 Runtimeが必要です
+        :class: caution
+
+        | ``Microsoft Edge WebView2 Runtime`` がインストールされていない場合この関数はエラーになります
+
+    .. admonition:: UWSCとは互換性がありません
+        :class: warning
+
+        | UWSCではIEコンポーネントを利用していたのに対してUWSCRではWebView2を利用しています
+        | そのためUWSCで実行していたコードが動作しない場合があります
+
+    :param 文字列 HTMLファイル: 表示したいHTMLファイルのパス
+
+        .. admonition:: ファイルの配置について
+            :class: hint
+
+            | HTMLファイルから別のファイルを参照する場合、もとのHTMLファイルを起点とした相対パスを指定します
+            |
+
+            - C:\\Test\\
+                - form.html
+                    - js\\
+                        - form.js
+                    - css\\
+                        - form.css
+                    - img\\
+                        - form.png
+
+            .. code-block:: html
+
+                <!DOCTYPE html>
+                <html lang="ja">
+                <head>
+                    <meta charset="UTF-8">
+                    <title>別ファイル参照例</title>
+                    <link rel="stylesheet" href="css/form.css">
+                    <script src="js/form.js"></script>
+                </head>
+                <body>
+                    <img src="img/form.png">
+                    <form>
+                        <input type="submit" value="OK" name="OK">
+                    </form>
+                </body>
+                </html>
+
+            .. sourcecode:: uwscr
+
+                html = "c:\test\form.html"
+                r = createform(html, "test")
+
+    :param 文字列 タイトル: ウィンドウタイトル
+    :param 真偽値 省略可 非同期フラグ: 非同期で実行するかどうか
+
+        - FALSE: submitボタンが押される、またはウィンドウが閉じられるまで待機する
+        - TRUE: 関数実行後にウィンドウが表示されたら制御を返す
+
+    :param 定数 省略可 オプション: 以下の定数の組み合わせ(OR連結)を指定
+
+        .. object:: FOM_NOICON
+
+            | 閉じるボタンを非表示にする
+
+        .. object:: FOM_MINIMIZE
+
+            | 最小化ボタンを表示する
+
+        .. object:: FOM_MAXIMIZE
+
+            | 最大化ボタンを表示する
+
+        .. object:: FOM_NOHIDE
+
+            | submitボタンが押されてもウィンドウを閉じない
+
+        .. object:: FOM_NOSUBMIT
+
+            | submitボタンが押されてもsubmitに割り当てられた処理(action)を行わない
+
+        .. object:: FOM_NORESIZE
+
+            | ウィンドウのサイズ変更不可
+
+        .. object:: FOM_BROWSER
+
+            | 互換性のために残されていますが使用できません (指定しても無視されます)
+
+        .. object:: FOM_FORMHIDE
+
+            | ウィンドウを非表示で起動する
+
+        .. object:: FOM_TOPMOST
+
+            | ウィンドウを最前面に固定
+
+        .. object:: FOM_NOTASKBAR
+
+            | タスクバーにアイコンを表示しない
+
+        .. object:: FOM_FORM2
+
+            | 互換性のために残されていますが使用できません (指定しても無視されます)
+
+        .. object:: FOM_DEFAULT
+
+            | オプションなし (0)
+
+    :param 数値 省略可 幅: ウィンドウの幅
+    :param 数値 省略可 高さ: ウィンドウの高さ
+    :param 数値 省略可 X: ウィンドウのX座標
+    :param 数値 省略可 Y: ウィンドウのY座標
+    :rtype: :ref:`form_data` または :ref:`form_object`
+    :return: 非同期フラグによる
+
+        - FALSE: :ref:`form_data`
+        - TRUE: :ref:`form_object`
+
+    .. code-block:: html
+
+        <!DOCTYPE html>
+        <html lang="ja">
+        <head>
+            <meta charset="UTF-8">
+            <title>Sample.html</title>
+        </head>
+        <body>
+            <form>
+                <div>
+                    <span>ユーザー名</span>
+                    <input type="text" name="user">
+                </div>
+                <div>
+                    <span>パスワード</span>
+                    <input type="password" name="pwd">
+                </div>
+                <div>
+                    <select name="slct">
+                        <option value="foo">foo</option>
+                        <option value="bar">bar</option>
+                        <option value="baz">baz</option>
+                    </select>
+                </div>
+                <div>
+                    <textarea name="txt" cols="30" rows="10"></textarea>
+                </div>
+                <div>
+                    <input type="submit" value="OK" name="OK">
+                    <input type="submit" value="Cancel" name="Cancel">
+                </div>
+            </form>
+        </body>
+        </html>
+
+    .. sourcecode:: uwscr
+
+        r = createform("sample.html", "Sample")
+        select r.submit
+            case "OK"
+                print "OKが押されました"
+                print "formの値は以下です"
+                for data in r.data
+                    print data.name + ": " + data.value
+                next
+            case "Cancel"
+                print 'キャンセルされました'
+            case NULL
+                print 'submitされずにウィンドウが閉じられました'
+        selend
+
+.. _form_data:
+
+Form情報
+^^^^^^^^
+
+submit時のform情報を示す :ref:`uobject`
+
+.. code-block:: js
+
+    // submit時
+    {
+        "submit": $submit, // $submitには押されたsubmitボタンのnameが入る
+        "data": [
+            // form内の各要素のnameおよびvalueが格納される
+            { "name": $name, "value", $value},
+        ]
+    }
+    // ウィンドウが閉じられた場合
+    {
+        "submit": null, // NULLになる
+        "data": []      // 空配列
+    }
+
+.. _form_object:
+
+Formオブジェクト
+^^^^^^^^^^^^^^^^
+
+| Formウィンドウを示すオブジェクト
+
+.. admonition:: COMオブジェクトではありません
+    :class: caution
+
+    | UWSCとは異なりCOMオブジェクトではなくUWSCR独自のオブジェクトとなります
+
+.. class:: Form
+
+    .. property:: Document
+
+        | フォームに表示されているページのdocumentオブジェクト
+
+        :rtype: :ref:`webview_remote_object`
+
+    .. method:: Wait()
+
+        | ウィンドウが閉じられるのを待つ
+
+        :rtype: :ref:`form_data`
+        :return:
+
+            | submit時のform情報を示す :ref:`form_data` オブジェクト
+            | submitせず閉じた場合は ``submit`` がNULLになります
+
+        .. sourcecode:: uwscr
+
+            // test.htmlにはOKとCancelのsubmitボタンがあるものとする
+            f = createform("test.html", "Test", true)
+            result = f.wait()
+            select result.submit
+                case "OK"
+                    for data in result.data
+                        print data.name + ": " + data.value
+                    next
+                case "Cancel"
+                    print "キャンセルされました"
+                case NULL
+                    print "ウィンドウが閉じられました"
+                default
+                    print "なにかおかしいです"
+            selend
+
+    .. method:: SetVisible([表示フラグ=TRUE])
+
+        | ウィンドウの表示状態を変更する
+
+        :param 真偽値 省略可 表示フラグ: TRUEで表示、FALSEで非表示
+        :return: なし
+
+    .. method:: Close()
+
+        | ウィンドウを閉じる
+
+        :return: なし
+
+    .. method:: SetEventHandler(エレメント, イベント, 関数)
+
+        | 任意のイベント発生時に実行する関数を登録します
+        | 関数は引数を2つまで受けられます、内訳は以下の通りです
+
+        1. イベント発生エレメントのvalue値
+        2. イベント発生エレメントのname属性値
+
+        :param WebViewRemoteObject エレメント: イベント発生元のエレメントを示す :ref:`webview_remote_object`
+        :param 文字列 イベント: イベント名
+        :param ユーザー定義関数 関数: イベント発生時に実行される関数
+        :return: なし
+
+        .. sourcecode:: uwscr
+
+            f = createform("test.html", "Test", true)
+            select = f.document.querySelector("select")
+            f.SetEventHandler(select, "change", on_select_change)
+
+            button = f.document.querySelector("input[type=button]")
+            f.SetEventHandler(button, "click", on_button_click)
+
+            f.wait()
+
+            // 1つ目の引数でイベント発生エレメントのvalue
+            // 2つ目の引数でnameを受ける
+            procedure on_select_change(value, name)
+                print value
+                print name
+            fend
+
+            // 引数は必須ではない
+            procedure on_button_click()
+                print "クリックされました"
+            fend
+
+.. _webview_remote_object:
+
+WebViewRemoteObject
+^^^^^^^^^^^^^^^^^^^
+
+| フォームに表示されているページのJavaScriptオブジェクトを示します
+| 利用方法は :ref:`remote_object` と同等です
+
+
+組み込みウィンドウのクラス名一覧
+--------------------------------
+
++-------------+-------------------+-------------------+
+| 関数名      | クラス名          | 定数              |
++=============+===================+===================+
+| msgbox      | UWSCR.MsgBox      | CLASS_MSGBOX      |
++-------------+-------------------+-------------------+
+| input       | UWSCR.Input       | CLASS_INPUTBOX    |
++-------------+-------------------+-------------------+
+| slctbox     | UWSCR.Slctbox     | CLASS_SLCTBOX     |
++-------------+-------------------+-------------------+
+| popupmenu   | UWSCR.Popup       | CLASS_POPUPMENU   |
++-------------+-------------------+-------------------+
+| balloon     | UWSCR.Balloon     | CLASS_BALLOON     |
++-------------+-------------------+-------------------+
+| logprintwin | UWSCR.LogPrintWin | CLASS_LOGPRINTWIN |
++-------------+-------------------+-------------------+
+| createform  | UWSCR.Form        | CLASS_FORM        |
++-------------+-------------------+-------------------+

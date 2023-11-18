@@ -4,10 +4,10 @@
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <meta name="color-scheme" content="light dark"><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
     <link rel="icon" href="../_static/MAINICON_0016-0256_light.ico" type="image/vnd.microsoft.icon">
-<link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="設定ファイル" href="settings.html" /><link rel="prev" title="UWSCR 0.13.1" href="../index.html" />
+<link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="設定ファイル" href="settings.html" /><link rel="prev" title="インストール方法" href="installation.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>実行方法 - UWSCR 0.13.1</title>
+        <title>実行方法 - UWSCR 0.14.0</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 0.13.1</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 0.14.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 0.13.1</span>
+  <span class="sidebar-brand-text">UWSCR 0.14.0</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -157,6 +157,7 @@
 <div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
   <p class="caption" role="heading"><span class="caption-text">使い方</span></p>
 <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">インストール方法</a></li>
 <li class="toctree-l1 current current-page"><a class="current reference internal" href="#">実行方法</a></li>
 <li class="toctree-l1"><a class="reference internal" href="settings.html">設定ファイル</a></li>
 <li class="toctree-l1"><a class="reference internal" href="how_to_build.html">ビルド方法</a></li>
@@ -215,6 +216,11 @@
         <article role="main">
           <section id="id1">
 <h1>実行方法<a class="headerlink" href="#id1" title="この見出しへのパーマリンク">#</a></h1>
+<div class="line-block">
+<div class="line">UWSCRはコンソールアプリケーションです</div>
+<div class="line">コマンドプロンプトやPowerShell上で実行してください</div>
+<div class="line">Explorer等から実行した場合はコンソールウィンドウが表示されます</div>
+</div>
 <section id="id2">
 <h2>コマンドラインオプション<a class="headerlink" href="#id2" title="この見出しへのパーマリンク">#</a></h2>
 <dl class="std option">
@@ -267,8 +273,28 @@
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-uwscr-r">
 <span class="sig-name descname"><span class="pre">-r</span></span><span class="sig-prename descclassname">&#160;&#160;&#160;&#160; <span class="pre">[SCRIPT]</span></span><a class="headerlink" href="#cmdoption-uwscr-r" title="この定義へのパーマリンク">#</a></dt>
-<dd><p>Replを起動します
-スクリプトを渡すとRepl起動前に読み込まれます</p>
+<dd><div class="line-block">
+<div class="line">Replを起動します</div>
+<div class="line">スクリプトを渡すとRepl起動前に読み込まれます</div>
+</div>
+<div class="hint admonition">
+<p class="admonition-title">Replの使い方</p>
+<div class="line-block">
+<div class="line">プロンプトに式や文を入力しEnterキーを押すと実行されます</div>
+<div class="line">変数への代入などは次の入力にも引き継がれます</div>
+<div class="line">スクリプトを読み込ませることで事前に定義した関数等も使用できます</div>
+<div class="line">Tabキーで以下の補完が行なえます、いずれも小文字のみにマッチします</div>
+</div>
+<ul class="simple">
+<li><p>ビルトイン関数</p></li>
+<li><p>ビルトイン定数</p></li>
+<li><p>キーワードの一部</p></li>
+</ul>
+<div class="line-block">
+<div class="line">Alt+Enterで改行します</div>
+<div class="line">ブロック構文の入力や複数行の一括実行が行なえます</div>
+</div>
+</div>
 </dd></dl>
 
 <dl class="std option">
@@ -421,6 +447,12 @@
 <dd><p>オンラインヘルプをブラウザで表示します</p>
 </dd></dl>
 
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-uwscr-license">
+<span class="sig-name descname"><span class="pre">--license</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-uwscr-license" title="この定義へのパーマリンク">#</a></dt>
+<dd><p>サードパーティライセンスをブラウザで表示します</p>
+</dd></dl>
+
 </section>
 <section id="id3">
 <h2>スクリプトファイルのエンコーディング<a class="headerlink" href="#id3" title="この見出しへのパーマリンク">#</a></h2>
@@ -432,93 +464,7 @@
 </ul>
 </section>
 <section id="id4">
-<h2>実行環境について<a class="headerlink" href="#id4" title="この見出しへのパーマリンク">#</a></h2>
-<section id="id5">
-<h3>コンソールからの実行<a class="headerlink" href="#id5" title="この見出しへのパーマリンク">#</a></h3>
-<p>コマンドプロンプトやPowerShellから実行された場合以下のように動作します</p>
-<dl class="object">
-<dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">スクリプトの実行</span></span></dt>
-<dd><div class="line-block">
-<div class="line">print文がコンソールに表示されます</div>
-<div class="line">printウィンドウが表示されません</div>
-</div>
-<div class="admonition note">
-<p class="admonition-title">注釈</p>
-<div class="line-block">
-<div class="line">表示するには <code class="docutils literal notranslate"><span class="pre">logprint(TRUE)</span></code> を実行してください</div>
-</div>
-</div>
-<div class="line-block">
-<div class="line">エラーメッセージがコンソールに表示されます</div>
-</div>
-</dd></dl>
-
-<dl class="object">
-<dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">replモード</span></span></dt>
-<dd><div class="line-block">
-<div class="line">現在のコンソール上で実行されます</div>
-</div>
-</dd></dl>
-
-<dl class="object">
-<dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">codeモード</span></span></dt>
-<dd><div class="line-block">
-<div class="line">print文がコンソールに表示されます</div>
-</div>
-</dd></dl>
-
-<dl class="object">
-<dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">その他</span></span></dt>
-<dd><div class="line-block">
-<div class="line">出力はコンソール上で行われます</div>
-</div>
-</dd></dl>
-
-</section>
-<section id="id6">
-<h3>コンソール以外からの実行<a class="headerlink" href="#id6" title="この見出しへのパーマリンク">#</a></h3>
-<p>Explorer等から実行された場合以下のように動作します</p>
-<dl class="object">
-<dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">スクリプトの実行</span></span></dt>
-<dd><div class="line-block">
-<div class="line">print文がprintウィンドウに表示されます</div>
-<div class="line">エラーメッセージがダイアログで表示されます</div>
-</div>
-</dd></dl>
-
-<dl class="object">
-<dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">replモード</span></span></dt>
-<dd><div class="line-block">
-<div class="line">新たにコンソールが作成されます</div>
-</div>
-</dd></dl>
-
-<dl class="object">
-<dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">codeモード</span></span></dt>
-<dd><div class="line-block">
-<div class="line">print文がprintウィンドウに表示されます</div>
-</div>
-</dd></dl>
-
-<dl class="object">
-<dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">その他</span></span></dt>
-<dd><div class="line-block">
-<div class="line">出力はダイアログで行われます</div>
-</div>
-</dd></dl>
-
-</section>
-</section>
-<section id="id7">
-<h2>注意<a class="headerlink" href="#id7" title="この見出しへのパーマリンク">#</a></h2>
+<h2>注意<a class="headerlink" href="#id4" title="この見出しへのパーマリンク">#</a></h2>
 <section id="ansi">
 <h3>ANSIコードポイントについて<a class="headerlink" href="#ansi" title="この見出しへのパーマリンク">#</a></h3>
 <div class="line-block">
@@ -543,14 +489,14 @@
               </div>
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
             </a>
-          <a class="prev-page" href="../index.html">
+          <a class="prev-page" href="installation.html">
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
               <div class="page-info">
                 <div class="context">
                   <span>Previous</span>
                 </div>
                 
-                <div class="title">Home</div>
+                <div class="title">インストール方法</div>
                 
               </div>
             </a>
@@ -589,12 +535,7 @@
 <li><a class="reference internal" href="#">実行方法</a><ul>
 <li><a class="reference internal" href="#id2">コマンドラインオプション</a></li>
 <li><a class="reference internal" href="#id3">スクリプトファイルのエンコーディング</a></li>
-<li><a class="reference internal" href="#id4">実行環境について</a><ul>
-<li><a class="reference internal" href="#id5">コンソールからの実行</a></li>
-<li><a class="reference internal" href="#id6">コンソール以外からの実行</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#id7">注意</a><ul>
+<li><a class="reference internal" href="#id4">注意</a><ul>
 <li><a class="reference internal" href="#ansi">ANSIコードポイントについて</a></li>
 </ul>
 </li>

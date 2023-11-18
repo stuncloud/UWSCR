@@ -80,3 +80,11 @@
 .. object:: G_SCREEN_C
 
     色数(１ピクセルのビット数)
+
+.. object:: THREAD_ID
+
+    現在のスレッドのスレッド識別子
+
+.. object:: THREAD_ID2
+
+    現在のスレッドのスレッド識別子

@@ -15,6 +15,7 @@ UWSCR |version| オンラインヘルプ
     :maxdepth: 2
     :caption: 使い方
 
+    usage/installation
     usage/how_to_run
     usage/settings
     usage/how_to_build
@@ -48,6 +49,11 @@ UWSCR |version| オンラインヘルプ
     builtins/comobject
     builtins/excel
     builtins/web
+
+ライセンス
+----------
+
+`サードパーティライセンス <_static/license.html>`__
 
 コミュニティ
 ------------

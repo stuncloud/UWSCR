@@ -4,7 +4,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <meta name="color-scheme" content="light dark"><link rel="index" title="索引" href="#" /><link rel="search" title="検索" href="search.html" />
 
-    <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/><title>索引 - UWSCR 0.13.1</title>
+    <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/><title>索引 - UWSCR 0.14.0</title>
 <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -121,7 +121,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="index.html"><div class="brand">UWSCR 0.13.1</div></a>
+      <a href="index.html"><div class="brand">UWSCR 0.14.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -144,7 +144,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 0.13.1</span>
+  <span class="sidebar-brand-text">UWSCR 0.14.0</span>
   
 </a><form class="sidebar-search-container" method="get" action="search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -154,6 +154,7 @@
 <div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
   <p class="caption" role="heading"><span class="caption-text">使い方</span></p>
 <ul>
+<li class="toctree-l1"><a class="reference internal" href="usage/installation.html">インストール方法</a></li>
 <li class="toctree-l1"><a class="reference internal" href="usage/how_to_run.html">実行方法</a></li>
 <li class="toctree-l1"><a class="reference internal" href="usage/settings.html">設定ファイル</a></li>
 <li class="toctree-l1"><a class="reference internal" href="usage/how_to_build.html">ビルド方法</a></li>
@@ -251,6 +252,13 @@
 
         <ul>
           <li><a href="usage/how_to_run.html#cmdoption-uwscr-lib">uwscr コマンドラインオプション</a>
+</li>
+        </ul></li>
+        <li>
+    --license
+
+        <ul>
+          <li><a href="usage/how_to_run.html#cmdoption-uwscr-license">uwscr コマンドラインオプション</a>
 </li>
         </ul></li>
         <li>
@@ -604,8 +612,6 @@
           <li><a href="builtins/text.html#chr">組み込み関数</a>
 </li>
         </ul></li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li>
     chrb()
 
@@ -613,6 +619,8 @@
           <li><a href="builtins/text.html#chrb">組み込み関数</a>
 </li>
         </ul></li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
         <li>
     clkitem()
 
@@ -621,11 +629,11 @@
 </li>
         </ul></li>
         <li><a href="builtins/web.html#Browser.close">close() (Browser のメソッド)</a>
-
-        <ul>
-          <li><a href="builtins/web.html#TabWindow.close">(TabWindow のメソッド)</a>
 </li>
-        </ul></li>
+        <li><a href="builtins/gui.html#Form.Close">Close() (Form のメソッド)</a>
+</li>
+        <li><a href="builtins/web.html#TabWindow.close">close() (TabWindow のメソッド)</a>
+</li>
         <li>
     copy()
 
@@ -647,6 +655,13 @@
 
         <ul>
           <li><a href="builtins/system.html#cpuuserate">組み込み関数</a>
+</li>
+        </ul></li>
+        <li>
+    createform()
+
+        <ul>
+          <li><a href="builtins/gui.html#createform">組み込み関数</a>
 </li>
         </ul></li>
         <li>
@@ -694,10 +709,10 @@
           <li><a href="builtins/file.html#deleteini">組み込み関数</a>
 </li>
         </ul></li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="builtins/web.html#TabWindow.dialog">dialog() (TabWindow のメソッド)</a>
 </li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
         <li>
     dictate()
 
@@ -705,6 +720,8 @@
           <li><a href="builtins/system.html#dictate">組み込み関数</a>
 </li>
         </ul></li>
+        <li><a href="builtins/gui.html#Form.Document">Document (Form のプロパティ)</a>
+</li>
         <li><a href="builtins/web.html#TabWindow.document">document (TabWindow のプロパティ)</a>
 </li>
         <li>
@@ -752,6 +769,8 @@
         </ul></li>
     </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="builtins/web.html#TabWindow.eval">eval() (TabWindow のメソッド)</a>
+</li>
         <li>
     exec()
 
@@ -801,8 +820,6 @@
 </li>
         <li><a href="builtins/web.html#HtmlNode.first">first() (HtmlNode のメソッド)</a>
 </li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li>
     fopen()
 
@@ -810,6 +827,10 @@
           <li><a href="builtins/file.html#fopen">組み込み関数</a>
 </li>
         </ul></li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="builtins/gui.html#Form">Form (組み込みクラス)</a>
+</li>
         <li>
     format()
 
@@ -1470,6 +1491,8 @@
           <li><a href="builtins/array.html#setclear">組み込み関数</a>
 </li>
         </ul></li>
+        <li><a href="builtins/gui.html#Form.SetEventHandler">SetEventHandler() (Form のメソッド)</a>
+</li>
         <li>
     sethotkey()
 
@@ -1484,6 +1507,8 @@
           <li><a href="builtins/window.html#setslider">組み込み関数</a>
 </li>
         </ul></li>
+        <li><a href="builtins/gui.html#Form.SetVisible">SetVisible() (Form のメソッド)</a>
+</li>
         <li>
     shexec()
 
@@ -1498,6 +1523,8 @@
           <li><a href="builtins/array.html#shiftarray">組み込み関数</a>
 </li>
         </ul></li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
         <li>
     sin()
 
@@ -1505,8 +1532,6 @@
           <li><a href="builtins/math.html#sin">組み込み関数</a>
 </li>
         </ul></li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li>
     slctbox()
 
@@ -1667,6 +1692,8 @@
 </li>
           <li><a href="usage/how_to_run.html#cmdoption-uwscr-lib">--lib</a>
 </li>
+          <li><a href="usage/how_to_run.html#cmdoption-uwscr-license">--license</a>
+</li>
           <li><a href="usage/how_to_run.html#cmdoption-uwscr-online-help">--online-help</a>
 </li>
           <li><a href="usage/how_to_run.html#cmdoption-uwscr-repl">--repl</a>
@@ -1736,6 +1763,8 @@
   <h2>W</h2>
   <table style="width: 100%" class="indextable genindextable"><tr>
     <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="builtins/gui.html#Form.Wait">Wait() (Form のメソッド)</a>
+</li>
         <li><a href="builtins/web.html#TabWindow.wait">wait() (TabWindow のメソッド)</a>
 </li>
         <li>
@@ -1935,6 +1964,8 @@
           <li><a href="builtins/math.html#cos">cos()</a>
 </li>
           <li><a href="builtins/system.html#cpuuserate">cpuuserate()</a>
+</li>
+          <li><a href="builtins/gui.html#createform">createform()</a>
 </li>
           <li><a href="builtins/comobject.html#createoleobj">createoleobj()</a>
 </li>

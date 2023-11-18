@@ -5,47 +5,54 @@ ID取得
 ------
 
 .. function:: getid(タイトル, [クラス名=EMPTY, 待ち時間=1])
-.. function:: getid(定数)
-    :noindex:
 
     | ウィンドウを検索し、該当するウィンドウを示すIDを返します
+    | 見つからない場合やタイムアウトした場合-1を返します
 
     :param 文字列 タイトル: 検索するウィンドウのタイトル (部分一致)
     :param 文字列 省略可 クラス名: 検索するウィンドウのクラス名 (部分一致)
     :param 数値 省略可 待ち時間: ウィンドウが見つからない場合のタイムアウト時間
+    :rtype: 数値
+    :return: ウィンドウID、失敗時は ``-1``
+
+.. function:: getid(定数)
+    :noindex:
+
     :param 定数 定数: 以下の定数を指定
 
         .. object:: GET_ACTIVE_WIN
 
-            アクティブウィンドウ
+            | アクティブウィンドウ
 
         .. object:: GET_FROMPOINT_WIN
 
-            マウスカーソル下のウィンドウ
+            | マウスカーソル下のウィンドウ
 
         .. object:: GET_FROMPOINT_OBJ
 
-            マウスカーソル下の子ウィンドウ
-
-
-            対象なし(-1を返す)
+            | マウスカーソル下の子ウィンドウ
 
         .. object:: GET_LOGPRINT_WIN
 
-            Printウィンドウ
+            | Printウィンドウ
 
         .. object:: GET_BALLOON_WIN
         .. object:: GET_FUKIDASI_WIN
 
-            吹き出し
+            | 吹き出し
 
         .. object:: GET_THISUWSC_WIN
+        .. object:: GET_CONSOLE_WIN
+
+            | UWSCRを実行しているコンソールウィンドウのIDを返します
+
         .. object:: GET_FORM_WIN
         .. object:: GET_FORM_WIN2
 
-            未実装 (-1を返す)
+            | 未実装 (-1を返す)
 
-    :return: ウィンドウID、タイムアウトした場合 ``-1``
+    :rtype: 数値
+    :return: ウィンドウID
 
 .. function:: getallwin([ID=EMPTY])
 

@@ -7,7 +7,7 @@
 <link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="スクリプト構文" href="../syntax/statement.html" /><link rel="prev" title="設定ファイル" href="settings.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>ビルド方法 - UWSCR 0.13.1</title>
+        <title>ビルド方法 - UWSCR 0.14.0</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 0.13.1</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 0.14.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 0.13.1</span>
+  <span class="sidebar-brand-text">UWSCR 0.14.0</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -157,6 +157,7 @@
 <div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
   <p class="caption" role="heading"><span class="caption-text">使い方</span></p>
 <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">インストール方法</a></li>
 <li class="toctree-l1"><a class="reference internal" href="how_to_run.html">実行方法</a></li>
 <li class="toctree-l1"><a class="reference internal" href="settings.html">設定ファイル</a></li>
 <li class="toctree-l1 current current-page"><a class="current reference internal" href="#">ビルド方法</a></li>
@@ -630,6 +631,25 @@ msbuild -p:Configuration=Release;Platform=Win32;CodePage=65001 INSTALL.vcxproj
 </section>
 </section>
 </section>
+<section id="gui">
+<h4>GUIアプリケーションとしてビルド<a class="headerlink" href="#gui" title="この見出しへのパーマリンク">#</a></h4>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">gui</span></code> featureフラグを加えてビルドすることでUWSCRはGUIアプリケーションとして振る舞います</div>
+</div>
+<div class="highlight-powershell notranslate"><div class="highlight"><pre><span></span><span class="n">cargo</span> <span class="n">build</span> <span class="p">-</span><span class="n">-features</span> <span class="n">gui</span>
+<span class="n">cargo</span> <span class="n">build</span> <span class="p">-</span><span class="n">-features</span> <span class="n">gui</span> <span class="p">-</span><span class="n">-release</span>
+<span class="c"># chkimgも加える</span>
+<span class="n">cargo</span> <span class="n">build</span> <span class="p">-</span><span class="n">-features</span> <span class="n">gui</span><span class="p">,</span><span class="n">chkimg</span>
+</pre></div>
+</div>
+<div class="caution admonition">
+<p class="admonition-title">このfeatureによるビルドは動作保証外です</p>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">gui</span></code> featureは十分なテストが行われていません</div>
+<div class="line">このfeatureによるビルドを行った場合の動作については保証されません</div>
+</div>
+</div>
+</section>
 </section>
 <section id="cargo">
 <h3>cargoによるテスト実行<a class="headerlink" href="#cargo" title="この見出しへのパーマリンク">#</a></h3>
@@ -769,6 +789,7 @@ msbuild -p:Configuration=Release;Platform=Win32;CodePage=65001 INSTALL.vcxproj
 </li>
 </ul>
 </li>
+<li><a class="reference internal" href="#gui">GUIアプリケーションとしてビルド</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#cargo">cargoによるテスト実行</a></li>

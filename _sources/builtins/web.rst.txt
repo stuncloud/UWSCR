@@ -67,6 +67,21 @@
         | 対象ブラウザが同じデバッグポートを開けて起動している場合はそのブラウザに再接続できます
         | 異なるポートを開いている、またはポートが開かれていない場合は再接続できずエラーになります
 
+        .. sourcecode:: uwscr
+
+            // 起動.uws
+
+            chrome = BrowserControl(BC_CHROME, 9999) // ポート9999でChromeを起動
+            chrome[0].navigate("https://example.com") // 0番目のタブで任意のサイトを開く
+
+        .. sourcecode:: uwscr
+
+            // 再接続.uws
+
+            chrome = BrowserControl(BC_CHROME, 9999) // 9999ポートのChromeに再接続される
+            url = chrome[0].document.URL // 0番目のタブのURLを取得
+            print url // https://example.com
+
     .. admonition:: 起動中のブラウザとは別に自動操作用のブラウザを起ち上げるには
         :class: hint
 
@@ -563,6 +578,36 @@ TabWindowオブジェクト
                 rect = element.getBoundingClientRect()
                 // 座標を指定し右クリックする
                 tab.rightClick(rect.x + 10, rect.y + 10)
+
+    .. method:: eval(JavaScript式)
+
+        | JavaScriptの式を評価し、オブジェクトの場合はRemoteObjectとして返します
+
+        :param 文字列 JavaScript式: JavaScriptの式
+        :rtype: :ref:`remote_object` またはいずれかの値型
+        :return:
+
+            | 評価結果がJavaScriptオブジェクトの場合は :ref:`remote_object` を返します
+            | そうでない場合は該当するUWSCRの値型を返します
+
+        .. admonition:: サンプルコード
+
+            .. sourcecode:: uwscr
+
+                chrome = BrowserControl(BC_CHROME)
+                tab = chrome[0]
+                tab.navigate(url)
+
+                func = tab.eval("(a, b) => a + b") // アロー関数を評価
+                print func(3, 5) // 8 (関数として実行できる)
+
+                // コールバック用のJavaScript関数を作る
+                callback = tab.eval("(event) => event.srcElement.style.backgroundColor = 'red'")
+                slct = tab.document.querySelector("select")
+                // イベントリスナをセット
+                slct.addEventListener("change", callback)
+
+
 
 .. _remote_object:
 

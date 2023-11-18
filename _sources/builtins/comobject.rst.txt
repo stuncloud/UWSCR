@@ -119,6 +119,23 @@ VARIANT
         // Excelのアクティブセルに日付型の値を入力
         excel.ActiveCell.value = date
 
+.. function:: vartype(COMオブジェクト, プロパティ名)
+    :noindex:
+
+    | COMオブジェクトのプロパティが返す値のVariant型を得ます
+
+    :param COMオブジェクト COMオブジェクト: 型を調べたいプロパティを持つCOMオブジェクト
+    :param 文字列 プロパティ名: 型を調べたいプロパティの名前
+    :rtype: VAR定数またはEMPTY
+    :return: プロパティの型、COMオブジェクト以外が渡された場合やプロパティが存在しない場合はEMPTY
+
+    .. sourcecode:: uwscr
+
+        excel = getactiveoleobj("Excel.Application")
+        // アクティブセルの型を調べる
+        vt = vartype(excel.activecell, "value")
+        // 得た値をVAR_定数名に変換
+        print const_as_string(vt, "VAR_")
 
 VAR定数
 ^^^^^^^
