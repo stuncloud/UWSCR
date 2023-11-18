@@ -2,7 +2,7 @@
 authors = ["stuncloud <stuncloud@gmail.com>"]
 edition = "2021"
 name = "uwscr"
-version = "0.13.1"
+version = "0.14.0"
 build = "build.rs"
 rust-version = "1.72.1"
 
