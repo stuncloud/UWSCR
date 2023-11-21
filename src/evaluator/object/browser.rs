@@ -730,13 +730,14 @@ impl TabWindow {
             None => Ok(Object::Empty),
         }
     }
-    pub fn set_data_by_name_value(&self, new_value: String, name: String, value: Option<String>, nth: usize, direct: bool) -> BrowserResult<Object> {
+    pub fn set_data_by_name_value(&self, new_value: Vec<String>, name: String, value: Option<String>, nth: usize, direct: bool) -> BrowserResult<Object> {
         match self.get_nth_element_by_name_value(name, value, nth)? {
             Some(remote) => {
                 if direct {
-                    remote.set_property("value", RemoteFuncArg::Value(json!(&new_value)))?;
+                    let new = new_value.first().map(|s| s.to_string()).unwrap_or_default();
+                    remote.set_property("value", RemoteFuncArg::Value(json!(&new)))?;
                     let v = remote.get_property("value")?;
-                    let eq = v.as_value().unwrap_or_default() == json!(new_value);
+                    let eq = v.as_value().unwrap_or_default() == json!(new);
                     Ok(eq.into())
                 } else {
                     remote.emulate_key_input(new_value)
@@ -1239,6 +1240,10 @@ impl RemoteObject {
     fn as_value(self) -> Option<Value> {
         self.remote.value
     }
+    fn as_string(self) -> String {
+        let value = self.as_value().unwrap_or_default();
+        value.as_str().unwrap_or_default().to_string()
+    }
     pub fn get(&self, name: Option<&str>, index: Option<&str>) -> BrowserResult<Object> {
         let result = match (name, index) {
             (None, None) => todo!(),
@@ -1489,14 +1494,34 @@ impl RemoteObject {
             Err(_) => false,
         }
     }
-    pub fn emulate_key_input(&self, input_value: String) -> BrowserResult<bool> {
-        self.invoke_method("focus", vec![], false)?;
-        self.set_property("value", RemoteFuncArg::Value(json!(null)))?;
-        self.dp.send("Input.insertText", json!({"text": input_value}))?;
-        let value = self.get_property("value")?
-            .remote.value.unwrap_or_default();
-        let result = value.as_str().unwrap_or_default() == input_value;
-        Ok(result)
+    pub fn emulate_key_input(&self, input_value: Vec<String>) -> BrowserResult<bool> {
+        if self.is_input_file()? {
+            self.dp.send("DOM.setFileInputFiles", json!({
+                "files": input_value,
+                "objectId": self.remote.object_id,
+            }))?;
+            let files = self.get_property("files")?;
+            files.to_iter()?
+                .map(|file| {
+                    let name = file.get_property("name")?.as_string();
+                    let matched = input_value.iter().find(|path| path.ends_with(&name)).is_some();
+                    Ok(matched)
+                })
+                .reduce(|a, b| Ok(a? && b?))
+                .unwrap_or(Ok(false))
+        } else {
+            self.invoke_method("focus", vec![], false)?;
+            self.set_property("value", RemoteFuncArg::Value(json!(null)))?;
+            let text = input_value.first().map(|s| s.to_string()).unwrap_or_default();
+            self.dp.send("Input.insertText", json!({"text": text}))?;
+            let value = self.get_property("value")?.as_string();
+            let result = value == text;
+            Ok(result)
+        }
+    }
+    fn is_input_file(&self) -> BrowserResult<bool> {
+        let t= self.get_property("type")?.as_string();
+        Ok(t == "file")
     }
 
 }

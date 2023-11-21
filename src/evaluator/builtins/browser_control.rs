@@ -143,67 +143,69 @@ pub fn browser_getdata(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncR
 
 pub fn browser_setdata(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     if let Ok(tab) = args.get_as_tabwindow(0) {
-        let obj = match args.get_as_string_or_bool(1, None)? {
+        match args.get_as_string_array_or_bool(1, None)? {
+            // value書き換え
             TwoTypeArg::T(new_value) => {
-                // value書き換え
                 let name = args.get_as_string(2, None)?;
                 let value = args.get_as_string_or_empty(3)?;
                 let nth = args.get_as_nth(4)? as usize;
                 let direct = args.get_as_bool(5, Some(false))?;
                 let obj = tab.set_data_by_name_value(new_value, name, value, nth, direct)?;
-                obj
+                Ok(obj)
             },
-            TwoTypeArg::U(b) => if b {
-                // クリック
-                let name = args.get_as_string(2, None)?;
-                if let Some((left, tag)) = name.split_once('=') {
-                    if left.to_ascii_lowercase() == "tag" {
-                        if tag.to_ascii_lowercase() == "img" {
-                            // imgタグ
-                            let src = args.get_as_string_or_empty(3)?;
-                            let nth = args.get_as_nth(4)? as usize;
-                            let obj = tab.click_img(src, nth)?;
-                            obj
-                        } else {
-                            // img以外
-                            match args.get_as_num_or_string(3).unwrap_or(TwoTypeArg::U(1_usize)) {
-                                TwoTypeArg::T(prop) => {
-                                    if let Some((prop_name, prop_value)) = prop.split_once('=') {
-                                        let nth = args.get_as_nth(4)? as usize;
-                                        let obj = tab.click_by_tag_and_property(tag.into(), prop_name, prop_value, nth)?;
+            // クリック
+            TwoTypeArg::U(click) => {
+                let obj = if click {
+                    let name = args.get_as_string(2, None)?;
+                    if let Some((left, tag)) = name.split_once('=') {
+                        if left.to_ascii_lowercase() == "tag" {
+                            if tag.to_ascii_lowercase() == "img" {
+                                // imgタグ
+                                let src = args.get_as_string_or_empty(3)?;
+                                let nth = args.get_as_nth(4)? as usize;
+                                let obj = tab.click_img(src, nth)?;
+                                obj
+                            } else {
+                                // img以外
+                                match args.get_as_num_or_string(3).unwrap_or(TwoTypeArg::U(1_usize)) {
+                                    TwoTypeArg::T(prop) => {
+                                        if let Some((prop_name, prop_value)) = prop.split_once('=') {
+                                            let nth = args.get_as_nth(4)? as usize;
+                                            let obj = tab.click_by_tag_and_property(tag.into(), prop_name, prop_value, nth)?;
+                                            obj
+                                        } else {
+                                            Object::Bool(false)
+                                        }
+                                    },
+                                    TwoTypeArg::U(nth) => {
+                                        let obj = tab.click_by_nth_tag(tag.into(), nth)?;
                                         obj
-                                    } else {
-                                        Object::Bool(false)
-                                    }
-                                },
-                                TwoTypeArg::U(nth) => {
-                                    let obj = tab.click_by_nth_tag(tag.into(), nth)?;
-                                    obj
-                                },
+                                    },
+                                }
                             }
+                        } else {
+                            // タグ指定じゃないのでname-valueとしてクリック
+                            let value = args.get_as_string_or_empty(3)?;
+                            let nth = args.get_as_nth(4)? as usize;
+                            let obj = tab.click_by_name_value(name, value, nth)?;
+                            obj
                         }
                     } else {
-                        // タグ指定じゃないのでname-valueとしてクリック
+                        // name-valueでクリック
                         let value = args.get_as_string_or_empty(3)?;
                         let nth = args.get_as_nth(4)? as usize;
                         let obj = tab.click_by_name_value(name, value, nth)?;
                         obj
                     }
                 } else {
-                    // name-valueでクリック
-                    let value = args.get_as_string_or_empty(3)?;
-                    let nth = args.get_as_nth(4)? as usize;
-                    let obj = tab.click_by_name_value(name, value, nth)?;
-                    obj
-                }
-            } else {
-                Object::Bool(false)
+                    Object::Bool(false)
+                };
+                Ok(obj)
             },
-        };
-        Ok(obj)
+        }
     } else {
         let remote = args.get_as_remoteobject(0)?;
-        let new_value = args.get_as_string(1, None)?;
+        let new_value = args.get_as_string_array(1)?;
         let result = remote.emulate_key_input(new_value)?;
         Ok(result.into())
     }

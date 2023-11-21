@@ -228,14 +228,14 @@ IESETDATA互換
 
     | テキストボックス等に文字列を入力する
     | キー入力をエミュレートします
-    | valueプロパティを直接変更したい場合 **直接入力** をTRUEにしてください
+    | また ``input[type="file"]`` の要素に対してファイルパスを設定します
 
     :param TabWindowオブジェクト タブ: 値を取りたいページのタブを示す :ref:`tabwindow_object`
-    :param 文字列 値: 入力したい値
+    :param 文字列 値: 入力したい値、ファイルパス複数登録の場合は文字列配列も可
     :param 文字列 name: 値を変更するエレメントのname属性
     :param 文字列 省略可 value: 同一nameのエレメントがある場合にvalue値を指定
     :param 数値 省略可 n番目: nameとvalueが一致する場合に順番を1から指定
-    :param 真偽値 省略可 直接入力: 直接value値を変更する場合はTRUE
+    :param 真偽値 省略可 直接入力: 直接valueプロパティを変更する場合はTRUE
     :rtype: 真偽値
     :return: 成功時TRUE
 
@@ -243,11 +243,21 @@ IESETDATA互換
 
     | テキストボックス等に文字列を入力する
     | キー入力をエミュレートします
+    | また ``input[type="file"]`` の要素に対してファイルパスを設定します
 
     :param RemoteObject タブ: 入力したいエレメントを示す :ref:`remote_object`
-    :param 文字列 値: 入力したい値
+    :param 文字列 値: 入力したい値、ファイルパス複数登録の場合は文字列配列も可
     :rtype: 真偽値
     :return: 成功時TRUE
+
+    .. sourcecode:: uwscr
+
+        browser = BrowserControl(BC_CHROME)
+        tab = browser[0]
+
+        file = tab.querySelector("input[type=file]")
+        files = [C:\test\hoge.txt, C:\test\fuga.txt]
+        print BRSetData(file, files)
 
 .. function:: BRSetData(タブ, TRUE, name, [value=EMPTY, n番目=1])
     :noindex:

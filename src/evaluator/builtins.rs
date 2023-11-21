@@ -545,6 +545,23 @@ impl BuiltinFuncArgs {
             Ok(result)
         })
     }
+    /// 文字列、文字列配列または真偽値を受ける
+    pub fn get_as_string_array_or_bool(&self, i: usize, default: Option<TwoTypeArg<Vec<String>, bool>>) -> BuiltInResult<TwoTypeArg<Vec<String>, bool>> {
+        self.get_arg_with_default(i, default, |arg| {
+            let result = match arg {
+                Object::Empty |
+                Object::EmptyParam => TwoTypeArg::U(false),
+                Object::Bool(b) => TwoTypeArg::U(b),
+                Object::String(s) => TwoTypeArg::T(vec![s]),
+                Object::Array(arr) => {
+                    let vec = arr.into_iter().map(|o| o.to_string()).collect();
+                    TwoTypeArg::T(vec)
+                },
+                obj => TwoTypeArg::T(vec![obj.to_string()]),
+            };
+            Ok(result)
+        })
+    }
 
     /// 数値を定数として受ける
     pub fn get_as_const<T: FromPrimitive>(&self, i: usize, required: bool) -> BuiltInResult<Option<T>> {
