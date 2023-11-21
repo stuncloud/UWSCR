@@ -730,13 +730,18 @@ impl TabWindow {
             None => Ok(Object::Empty),
         }
     }
-    pub fn set_data_by_name_value(&self, new_value: String, name: String, value: Option<String>, nth: usize) -> BrowserResult<Object> {
+    pub fn set_data_by_name_value(&self, new_value: String, name: String, value: Option<String>, nth: usize, direct: bool) -> BrowserResult<Object> {
         match self.get_nth_element_by_name_value(name, value, nth)? {
             Some(remote) => {
-                remote.set_property("value", RemoteFuncArg::Value(json!(&new_value)))?;
-                let v = remote.get_property("value")?;
-                let eq = v.as_value().unwrap_or_default() == json!(new_value);
-                Ok(eq.into())
+                if direct {
+                    remote.set_property("value", RemoteFuncArg::Value(json!(&new_value)))?;
+                    let v = remote.get_property("value")?;
+                    let eq = v.as_value().unwrap_or_default() == json!(new_value);
+                    Ok(eq.into())
+                } else {
+                    remote.emulate_key_input(new_value)
+                        .map(|b| b.into())
+                }
             },
             None => Ok(false.into()),
         }
@@ -1483,6 +1488,15 @@ impl RemoteObject {
             },
             Err(_) => false,
         }
+    }
+    pub fn emulate_key_input(&self, input_value: String) -> BrowserResult<bool> {
+        self.invoke_method("focus", vec![], false)?;
+        self.set_property("value", RemoteFuncArg::Value(json!(null)))?;
+        self.dp.send("Input.insertText", json!({"text": input_value}))?;
+        let value = self.get_property("value")?
+            .remote.value.unwrap_or_default();
+        let result = value.as_str().unwrap_or_default() == input_value;
+        Ok(result)
     }
 
 }
