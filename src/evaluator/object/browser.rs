@@ -374,7 +374,7 @@ impl Browser {
         let value = self.send("Target.getTargets", json!({}))?;
         let infos = serde_json::from_value::<TargetInfos>(value)?;
         let tabs = infos.target_infos.into_iter()
-            .filter(|target| target.r#type == "page")
+            .filter(|target| target.r#type == "page" && ! target.url.starts_with("devtools://"))
             .collect();
         Ok(tabs)
     }
