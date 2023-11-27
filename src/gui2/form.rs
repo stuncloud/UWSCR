@@ -686,7 +686,7 @@ impl WebView {
                                 match serde_json::from_value::<RemoteObject0>(v.clone()) {
                                     Ok(remote0) => {
                                         let remote = WebViewRemoteObject {
-                                            webview: self.clone(),
+                                            webview: self.core.clone(),
                                             remote: remote0,
                                         };
                                         (Some(Expression::EmptyArgument), Object::WebViewRemoteObject(remote))
@@ -720,8 +720,7 @@ impl WebView {
         }
         Ok(())
     }
-    fn invoke_devtools_protocol_method<T: DeserializeOwned>(&self, method: &str, param: Value) -> WebViewResult<T> {
-        let core = self.core.clone();
+    fn invoke_devtools_protocol_method<T: DeserializeOwned>(core: Arc<wv2w32::ICoreWebView2>, method: &str, param: Value) -> WebViewResult<T> {
         let methodname = HSTRING::from(method);
         let parametersasjson = HSTRING::from(param.to_string());
         let (tx, rx) = mpsc::channel();
@@ -740,21 +739,10 @@ impl WebView {
         Ok(result)
     }
     fn invoke_runtime_evaluate(&self, expression: &str) -> WebViewResult<WebViewRemoteObject> {
-        let result = self.invoke_devtools_protocol_method::<RuntimeResult>("Runtime.evaluate", json!({
+        let result = Self::invoke_devtools_protocol_method::<RuntimeResult>(self.core.clone(), "Runtime.evaluate", json!({
             "expression": expression
         }))?;
-        result.into_result(self.clone())
-    }
-    fn invoke_runtime_call_function_on(&self, object_id: &str, declaration: &str, args: Vec<Object>, user_gesture: bool, await_promise: bool) -> WebViewResult<WebViewRemoteObject> {
-        let args = WebViewRemoteObject::convert_args(args)?;
-        let result = self.invoke_devtools_protocol_method::<RuntimeResult>("Runtime.callFunctionOn", json!({
-            "functionDeclaration": declaration,
-            "objectId": object_id,
-            "arguments": Value::Array(args),
-            "userGesture": user_gesture,
-            "awaitPromise": await_promise,
-        }))?;
-        result.into_result(self.clone())
+        result.into_result(self.core.clone())
     }
 
     fn set_window_webview(hwnd: HWND, webview: Option<Box<Self>>) {
@@ -806,7 +794,7 @@ impl WebView {
 
 #[derive(Clone)]
 pub struct WebViewRemoteObject {
-    webview: WebView,
+    webview: Arc<wv2w32::ICoreWebView2>,
     remote: RemoteObject0,
 }
 impl std::fmt::Display for WebViewRemoteObject {
@@ -835,7 +823,7 @@ impl PartialEq for WebViewRemoteObject {
     }
 }
 impl WebViewRemoteObject {
-    pub fn new(webview: WebView, remote: RemoteObject0) -> Self {
+    pub fn new(webview: Arc<wv2w32::ICoreWebView2>, remote: RemoteObject0) -> Self {
         Self { webview, remote }
     }
     fn convert_arg(obj: Object) -> WebViewResult<Value> {
@@ -858,11 +846,18 @@ impl WebViewRemoteObject {
             .map(|obj| Self::convert_arg(obj))
             .collect()
     }
-    fn invoke_runtime_function(&self, declaration: &str, args: Vec<Object>, user_gesture: bool, await_promise: bool) -> WebViewResult<Object> {
+    fn invoke_runtime_function(&self, declaration: &str, args: Vec<Object>, user_gesture: bool, await_promise: bool) -> WebViewResult<WebViewRemoteObject> {
+        let args = Self::convert_args(args)?;
         match &self.remote.object_id {
             Some(object_id) => {
-                self.webview.invoke_runtime_call_function_on(object_id, &declaration, args, user_gesture, await_promise)
-                    .map(|r| r.to_object())
+                let result = WebView::invoke_devtools_protocol_method::<RuntimeResult>(self.webview.clone(), "Runtime.callFunctionOn", json!({
+                    "functionDeclaration": declaration,
+                    "objectId": object_id,
+                    "arguments": Value::Array(args),
+                    "userGesture": user_gesture,
+                    "awaitPromise": await_promise,
+                }))?;
+                result.into_result(self.webview.clone())
             },
             None => Err(WebViewError::NotRemoteObject),
         }
@@ -873,6 +868,7 @@ impl WebViewRemoteObject {
             None => format!("function() {{return this.{name};}}"),
         };
         self.invoke_runtime_function(&declaration, vec![], false, false)
+            .map(|r| r.to_object())
     }
     pub fn set_property(&self, name: &str, value: Object, index: Option<&str>) -> WebViewResult<Object> {
         let declaration = match index {
@@ -880,22 +876,27 @@ impl WebViewRemoteObject {
             None => format!("function(value) {{return this.{name} = value;}}"),
         };
         self.invoke_runtime_function(&declaration, vec![value], false, false)
+            .map(|r| r.to_object())
     }
     pub fn get_self_by_index(&self, index: &str) -> WebViewResult<Object> {
         let declaration = format!("function() {{return this[{index}];}}");
         self.invoke_runtime_function(&declaration, vec![], false, false)
+            .map(|r| r.to_object())
     }
     pub fn set_self_by_index(&self, index: &str, value: Object) -> WebViewResult<Object> {
         let declaration = format!("function(value) {{return this[{index}] = value;}}");
         self.invoke_runtime_function(&declaration, vec![value], false, false)
+            .map(|r| r.to_object())
     }
     pub fn invoke_method(&self, name: &str, args: Vec<Object>, await_promise: bool) -> WebViewResult<Object> {
         let declaration = format!("function(...args) {{ return this.{name}(...args); }}");
         self.invoke_runtime_function(&declaration, args, true, await_promise)
+            .map(|r| r.to_object())
     }
     pub fn invoke_self_as_function(&self, args: Vec<Object>, await_promise: bool) -> WebViewResult<Object> {
         let declaration = format!("function(...args) {{ return this(...args); }}");
         self.invoke_runtime_function(&declaration, args, true, await_promise)
+            .map(|r| r.to_object())
     }
     fn to_object(self) -> Object {
         if self.remote.object_id.is_some() {
@@ -910,16 +911,16 @@ impl WebViewRemoteObject {
 
     fn as_js_iterator(&self) -> WebViewResult<Self> {
         let declaration = "function() { return [...this].values(); }";
-        if let Some(id) = &self.remote.object_id {
-            self.webview.invoke_runtime_call_function_on(id, declaration, vec![], false, false)
+        if self.remote.object_id.is_some() {
+            self.invoke_runtime_function(declaration, vec![], false, false)
         } else {
             Err(WebViewError::UError(UErrorMessage::RemoteObjectIsNotArray(self.remote.r#type.clone())))
         }
     }
     fn js_iterator_next(&self) -> WebViewResult<Self> {
         let declaration = "function() { return this.next(); }";
-        if let Some(id) = &self.remote.object_id {
-            self.webview.invoke_runtime_call_function_on(id, declaration, vec![], false, false)
+        if self.remote.object_id.is_some() {
+            self.invoke_runtime_function(declaration, vec![], false, false)
         } else {
             Err(WebViewError::UError(UErrorMessage::RemoteObjectIsNotArray(self.remote.r#type.clone())))
         }
@@ -1040,7 +1041,7 @@ impl IntoRect for SIZE {
 }
 
 impl RuntimeResult {
-    fn into_result(self, webview: WebView) -> WebViewResult<WebViewRemoteObject> {
+    fn into_result(self, webview: Arc<wv2w32::ICoreWebView2>) -> WebViewResult<WebViewRemoteObject> {
         if let Some(exception) = self.exception_details {
             Err(WebViewError::JavaScriptError(exception))
         } else {

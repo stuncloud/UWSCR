@@ -621,9 +621,14 @@ Formオブジェクト
 | Formウィンドウを示すオブジェクト
 
 .. admonition:: COMオブジェクトではありません
-    :class: caution
+    :class: important
 
     | UWSCとは異なりCOMオブジェクトではなくUWSCR独自のオブジェクトとなります
+
+.. admonition:: 別スレッドからは呼び出せません
+    :class: caution
+
+    | Formオブジェクトをpublic変数に代入して別のスレッドから呼ぶことはできません
 
 .. class:: Form
 
