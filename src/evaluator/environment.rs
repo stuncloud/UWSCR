@@ -876,8 +876,12 @@ pub fn check_special_assignment(obj1: &Object, obj2: &Object) -> bool {
         Object::Instance(m) => {
             // クラスインスタンスにNothingが代入される場合はdisposeする
             if let Object::Nothing = obj2 {
-                let mut ins = m.lock().unwrap();
-                ins.dispose();
+                let destructor = {
+                    let guarud = m.try_lock().expect("lock error: check_special_assignment");
+                    guarud.get_destructor()
+                };
+                destructor();
+                m.try_lock().expect("lock error: check_special_assignment").dispose2();
             }
             true
         },

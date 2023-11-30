@@ -31,17 +31,42 @@ impl ClassInstance {
         if ! self.is_dropped {
             self.is_dropped = true;
             let destructor = {
-                let module = self.module.lock().unwrap();
+                let module = self.module.try_lock().expect("lock error: ClassInstance::dispose 1");
                 if let Some(Object::Function(destructor)) = module.get_destructor() {
                     Some(destructor)
                 } else {
                     None
                 }
             };
+            println!("\u{001b}[36m[debug] destructor: {}\u{001b}[0m", destructor.is_some());
             if let Some(f) = destructor {
                 let _ = f.invoke(&mut self.evaluator, vec![]);
+                println!("\u{001b}[35m[debug] called destructor\u{001b}[0m");
             }
-            self.module.lock().unwrap().dispose();
+            self.module.try_lock().expect("lock error: ClassInstance::dispose 2").dispose();
+        }
+    }
+    pub fn get_destructor(&self) -> impl FnOnce() {
+        let evaluator = self.evaluator.clone();
+        let destructor = {
+            let module = self.module.try_lock().expect("lock error: ClassInstance::get_destructor");
+            if let Some(Object::Function(destructor)) = module.get_destructor() {
+                Some(destructor)
+            } else {
+                None
+            }
+        };
+        move || {
+            let mut evaluator = evaluator;
+            if let Some(f) = destructor {
+                let _ = f.invoke(&mut evaluator, vec![]);
+            }
+        }
+    }
+    pub fn dispose2(&mut self) {
+        if ! self.is_dropped {
+            self.is_dropped = true;
+            self.module.try_lock().expect("lock error: ClassInstance::dispose2").dispose();
         }
     }
     pub fn set_instance_reference(&mut self, ins: Arc<Mutex<Self>>) {
