@@ -69,6 +69,7 @@ impl Module {
         let key = name.to_ascii_uppercase();
         self.members.iter().any(|obj| obj.name == key && container_type == obj.container_type)
     }
+
     pub fn has_member(&self, name: &str) -> bool {
         let key = name.to_ascii_uppercase();
         self.members.iter().any(|obj| obj.name == key)
@@ -207,9 +208,13 @@ impl Module {
         Ok(())
     }
 
-    pub fn is_local_member(&self, name: &str) -> bool {
+    pub fn is_local_member(&self, name: &str, is_func: bool) -> bool {
         let key = name.to_ascii_uppercase();
-        self.contains(&key, ContainerType::Variable)
+        self.members.iter().any(|obj| {
+            obj.name == key &&
+            obj.object.is_func() == is_func &&
+            obj.container_type == ContainerType::Variable
+        })
     }
 
     /// 自身のメンバ関数に自身のポインタを渡す
@@ -239,5 +244,16 @@ impl Module {
 
     pub fn get_members_mut(&mut self) -> &mut Vec<NamedObject>{
         self.members.as_mut()
+    }
+}
+
+impl Object {
+    fn is_func(&self) -> bool {
+        match self {
+            Object::Function(_) |
+            Object::AnonFunc(_) |
+            Object::AsyncFunction(_) => true,
+            _ => false
+        }
     }
 }

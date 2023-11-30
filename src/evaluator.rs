@@ -1947,7 +1947,7 @@ impl Evaluator {
                 match expr_member {
                     Expression::Identifier(Identifier(name)) => {
                         let mut module = m.lock().unwrap();
-                        if module.is_local_member(&name) {
+                        if module.is_local_member(&name, false) {
                             // ローカルメンバだった場合thisと比較し、同一モジュールであればローカルメンバへ代入
                             if let Some(Object::Module(this)) = self.env.get_variable("this", false) {
                                 if this.try_lock().is_err() {
@@ -1972,7 +1972,7 @@ impl Evaluator {
                 if let Expression::Identifier(Identifier(name)) = expr_member {
                     let ins = m.lock().unwrap();
                     let mut module = ins.module.lock().unwrap();
-                    if module.is_local_member(&name) {
+                    if module.is_local_member(&name, false) {
                         // ローカルメンバだった場合、thisと比較
                         if let Some(Object::Instance(this)) = self.env.get_variable("this", false) {
                             if this.try_lock().is_err() {
@@ -2620,32 +2620,47 @@ impl Evaluator {
 
     fn get_module_member(&self, mutex: &Arc<Mutex<Module>>, member: &String, is_func: bool) -> EvalResult<Object> {
         let module = mutex.try_lock().expect("Dead lock: Evaluator::get_module_member");
-        if is_func {
-            module.get_function(&member)
-        } else if module.is_local_member(&member) {
+        if module.is_local_member(&member, is_func) {
             match self.env.get_variable("this", true).unwrap_or_default() {
                 Object::Module(this) => {
                     if this.try_lock().is_err() {
-                        // ロックに失敗した場合thisと呼び出し元が同一と判断し、moduleメンバの値を返す
-                        return module.get_member(&member);
+                        // ロックに失敗した場合thisと呼び出し元が同一と判断し、プライベートメンバを返す
+                        if is_func {
+                            return module.get_function(&member);
+                        } else {
+                            return module.get_member(&member);
+                        }
                     }
                 }
                 Object::Instance(ins) => {
                     if ins.try_lock().is_err() {
-                        // ロックに失敗した場合moduleとインスタンス内のモジュールは同一と判断し、moduleメンバの値を返す
-                        return module.get_member(&member);
+                        // ロックに失敗した場合moduleとインスタンス内のモジュールは同一と判断し、プライベートメンバを返す
+                        if is_func {
+                            return module.get_function(&member);
+                        } else {
+                            return module.get_member(&member);
+                        }
                     }
                 }
                 _ => {}
             }
+            let member_name = if is_func {
+                member.to_string() + "()"
+            } else {
+                member.to_string()
+            };
             Err(UError::new(
                 UErrorKind::DotOperatorError,
-                UErrorMessage::IsPrivateMember(module.name(), member.to_string())
+                UErrorMessage::IsPrivateMember(module.name(), member_name)
             ))
         } else {
-            match module.get_public_member(&member) {
-                Ok(Object::ExpandableTB(text)) => Ok(self.expand_string(text, true, None)),
-                res => res
+            if is_func {
+                module.get_function(&member)
+            } else {
+                match module.get_public_member(&member) {
+                    Ok(Object::ExpandableTB(text)) => Ok(self.expand_string(text, true, None)),
+                    res => res
+                }
             }
         }
     }
