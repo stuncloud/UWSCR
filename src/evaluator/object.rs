@@ -257,6 +257,18 @@ impl fmt::Display for Object {
             Object::HtmlNode(node) => write!(f, "{node}"),
             Object::MemberCaller(method, member) => {
                 match method {
+                    MemberCaller::Module(m) => {
+                        match m.try_lock() {
+                            Ok(m) => write!(f, "{}.{member}", m.name()),
+                            Err(_) => write!(f, "{{Module}}.{member}"),
+                        }
+                    },
+                    MemberCaller::ClassInstance(ins) => {
+                        match ins.try_lock() {
+                            Ok(g) => write!(f, "{}.{member}", g.name),
+                            Err(_) => write!(f, "{{ClassInstance}}.{member}"),
+                        }
+                    },
                     MemberCaller::BrowserBuilder(_) => write!(f, "BrowserBuilder.{member}"),
                     MemberCaller::Browser(_) => write!(f, "Browser.{member}"),
                     MemberCaller::TabWindow(_) => write!(f, "TabWindow.{member}"),
@@ -1709,6 +1721,8 @@ impl AsMut<Object> for Object {
 
 #[derive(Debug, Clone)]
 pub enum MemberCaller {
+    Module(Arc<Mutex<Module>>),
+    ClassInstance(Arc<Mutex<ClassInstance>>),
     BrowserBuilder(Arc<Mutex<BrowserBuilder>>),
     Browser(Browser),
     TabWindow(TabWindow),
@@ -1725,6 +1739,10 @@ pub enum MemberCaller {
 impl PartialEq for MemberCaller {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
+            (Self::ClassInstance(l0), Self::ClassInstance(r0)) => {
+                let _tmp = l0.lock().unwrap();
+                r0.try_lock().is_err()
+            },
             (Self::BrowserBuilder(l0), Self::BrowserBuilder(r0)) => {
                 let _tmp = l0.lock().unwrap();
                 r0.try_lock().is_err()

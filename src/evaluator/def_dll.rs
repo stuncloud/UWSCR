@@ -1075,7 +1075,7 @@ impl UserFunc {
         let arguments = arg_ptrs.into_iter().zip(self.arg_types.iter())
             .map(|(ptr, t)| (Some(Expression::Callback), Self::ptr_as_object(ptr, t)))
             .collect();
-        match self.function.invoke(&mut self.evaluator, arguments) {
+        match self.function.invoke(&mut self.evaluator, arguments, None) {
             Ok(obj) => {
                 match obj.as_f64(true) {
                     Some(n) => match T::from_f64(n) {

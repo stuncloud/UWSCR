@@ -1459,7 +1459,7 @@ impl IDispatch_Impl for EventDisp {
                     .map(|o| (None, o))
                     .collect();
                 // イベントハンドラ関数を実行
-                let obj = self.func.invoke(&mut evaluator, arguments)
+                let obj = self.func.invoke(&mut evaluator, arguments, None)
                     .map_err(|e| ComError::UError(e).as_windows_error())?;
                 // 関数の戻り値をpvarresultに渡す
                 *pvarresult = VARIANT::try_from(obj).map_err(|e| e.as_windows_error())?;

@@ -371,13 +371,19 @@ impl Environment {
     fn get_function_from_this(&self, name: &str) -> Option<Object> {
         match self.get("this", ContainerType::Variable)? {
             Object::Module(mutex) => {
-                let this = mutex.lock().unwrap();
-                this.get_function(name).ok()
+                let f = {
+                    let this = mutex.lock().unwrap();
+                    this.get_function(name).ok()
+                };
+                f.map(|_| Object::MemberCaller(MemberCaller::Module(mutex), name.into()))
             },
             Object::Instance(mutex) => {
-                let ins = mutex.lock().unwrap();
-                let this = ins.module.lock().unwrap();
-                this.get_function(name).ok()
+                let f = {
+                    let ins = mutex.lock().unwrap();
+                    let this = ins.module.lock().unwrap();
+                    this.get_function(name).ok()
+                };
+                f.map(|_| Object::MemberCaller(MemberCaller::ClassInstance(mutex), name.into()))
             },
             _ => None
         }
@@ -680,29 +686,29 @@ impl Environment {
     }
 
     // module関数呼び出し時にメンバをローカル変数としてセット
-    pub fn set_this_and_global(&mut self, func: &function::Function) {
-        if let Some(m) = &func.module {
-            // GLOBALをセット
-            self.add(NamedObject::new(
-                "GLOBAL".into(),
-                Object::Global,
-                ContainerType::Variable
-            ), false);
-            // THISをセット
-            if let Some(ins) = &func.instance {
-                // クラスインスタンス
+    pub fn set_this_and_global(&mut self, this: function::This) {
+        // GLOBALをセット
+        self.add(NamedObject::new(
+            "GLOBAL".into(),
+            Object::Global,
+            ContainerType::Variable
+        ), false);
+        // THISをセット
+        match this {
+            function::This::Module(m) => {
                 self.add(NamedObject::new(
                     "THIS".into(),
-                    Object::Instance(ins.clone()),
+                    Object::Module(m),
                     ContainerType::Variable
                 ), false);
-            } else {
+            },
+            function::This::Class(ins) => {
                 self.add(NamedObject::new(
                     "THIS".into(),
-                    Object::Module(m.clone()),
+                    Object::Instance(ins),
                     ContainerType::Variable
                 ), false);
-            }
+            },
         }
     }
 
@@ -809,7 +815,6 @@ impl Environment {
         self.set("G_TIME_ZZ2", ContainerType::Const, to_str_obj(millisec, 3), false);
         self.set("G_TIME_YY4", ContainerType::Const, to_str_obj(year, 4), false);
     }
-
     pub fn clone_outer(&self) -> Option<Arc<Mutex<Layer>>> {
         let current = self.current.lock().unwrap();
         current.outer.clone()
@@ -873,15 +878,16 @@ pub fn check_special_assignment(obj1: &Object, obj2: &Object) -> bool {
             }
             true
         },
-        Object::Instance(m) => {
+        Object::Instance(ins) => {
             // クラスインスタンスにNothingが代入される場合はdisposeする
             if let Object::Nothing = obj2 {
                 let destructor = {
-                    let guarud = m.try_lock().expect("lock error: check_special_assignment");
+                    let guarud = ins.try_lock().expect("lock error: check_special_assignment");
                     guarud.get_destructor()
                 };
-                destructor();
-                m.try_lock().expect("lock error: check_special_assignment").dispose2();
+                let this = ins.clone();
+                destructor(this);
+                ins.try_lock().expect("lock error: check_special_assignment").dispose2();
             }
             true
         },

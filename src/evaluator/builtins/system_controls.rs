@@ -109,7 +109,7 @@ pub fn sleep(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncRes
             }
         },
         TwoTypeArg::U(func) => {
-            while func.invoke(evaluator, vec![])?.is_truthy() {}
+            while func.invoke(evaluator, vec![], None)?.is_truthy() {}
         },
     }
     Ok(Object::Empty)

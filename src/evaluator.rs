@@ -519,7 +519,7 @@ impl Evaluator {
                     (Some(params_str.clone()), self.eval_expression(params_str)?)
                 ];
                 let func = Function::new_call(params, script);
-                func.invoke(self, arguments).map(|_| None)
+                func.invoke(self, arguments, None).map(|_| None)
             },
             Statement::DefDll{name, alias, params, ret_type, path} => {
                 let params = DefDll::convert_params(params, self)?;
@@ -566,19 +566,16 @@ impl Evaluator {
             Statement::Module(i, block) => {
                 let Identifier(name) = i;
                 let module = self.eval_module_statement(&name, block)?;
-                self.env.define_module(&name, Object::Module(module))?;
+                self.env.define_module(&name, Object::Module(module.clone()))?;
                 // コンストラクタがあれば実行する
-                let module = self.env.get_module(&name);
-                if let Some(Object::Module(m)) = module {
-                    let maybe_constructor = if let Some(f) = m.lock().unwrap().get_constructor() {
-                        Some(f)
-                    } else {
-                        None
-                    };
-                    if let Some(f) = maybe_constructor {
-                        f.invoke(self, vec![])?;
-                    }
+                // let module = self.env.get_module(&name);
+                let constructor = {
+                    module.lock().unwrap().get_constructor()
                 };
+                if let Some(f) = constructor {
+                    let this = Some(function::This::Module(module));
+                    f.invoke(self, vec![], this)?;
+                }
                 Ok(None)
             },
             Statement::Class(i, block) => {
@@ -1071,11 +1068,8 @@ impl Evaluator {
             }
         }
         self.env.restore_scope(&None);
+        module.remove_outer_from_private_func();
         let m = Arc::new(Mutex::new(module));
-        {
-            let mut module = m.lock().unwrap();
-            module.set_module_reference(m.clone());
-        }
         Ok(m)
     }
 
@@ -1616,6 +1610,8 @@ impl Evaluator {
                         let index = index.to_string();
                         remote.get_property(&name, Some(&index))?
                     }
+                    MemberCaller::Module(_) |
+                    MemberCaller::ClassInstance(_) |
                     MemberCaller::WebViewForm(_) |
                     MemberCaller::UStruct(_) |
                     MemberCaller::BrowserBuilder(_) |
@@ -2207,7 +2203,7 @@ impl Evaluator {
         let handle = thread::spawn(move || {
             // このスレッドでのCOMを有効化
             let com = Com::init()?;
-            let ret = func.invoke(&mut evaluator, arguments);
+            let ret = func.invoke(&mut evaluator, arguments, None);
             com.uninit();
             ret
         });
@@ -2293,7 +2289,7 @@ impl Evaluator {
                 .map(|arg| Ok((Some(arg.clone()), self.eval_expression(arg)?)))
                 .collect::<EvalResult<Vec<(Option<Expression>, Object)>>>()?;
             match func_object {
-                Object::Function(f) => f.invoke(self, arguments),
+                Object::Function(f) => f.invoke(self, arguments, None),
                 Object::AsyncFunction(f) => {
                     let task = self.new_task(f, arguments);
                     if is_await {
@@ -2302,7 +2298,7 @@ impl Evaluator {
                         Ok(Object::Task(task))
                     }
                 },
-                Object::AnonFunc(f) => f.invoke(self, arguments),
+                Object::AnonFunc(f) => f.invoke(self, arguments, None),
                 Object::BuiltinFunction(name, expected_len, builtin) => {
                     if expected_len >= arguments.len() as i32 {
                         builtin(self, BuiltinFuncArgs::new(arguments, is_await))
@@ -2317,10 +2313,10 @@ impl Evaluator {
                 },
                 // class constructor
                 Object::Class(name, block) => {
-                    let m = self.eval_module_statement(&name, block)?;
+                    let module = self.eval_module_statement(&name, block)?;
                     let constructor = {
-                        let module = m.lock().unwrap();
-                        match module.get_constructor() {
+                        let guard = module.lock().unwrap();
+                        match guard.get_constructor() {
                             Some(constructor) => {
                                 constructor
                             },
@@ -2330,12 +2326,9 @@ impl Evaluator {
                             )),
                         }
                     };
-                    constructor.invoke(self, arguments)?;
-                    let ins = Arc::new(Mutex::new(ClassInstance::new(name, m, self.clone())));
-                    {
-                        let mut guard = ins.lock().unwrap();
-                        guard.set_instance_reference(ins.clone());
-                    }
+                    let ins = Arc::new(Mutex::new(ClassInstance::new(name, module, self.clone())));
+                    let this = Some(function::This::Class(ins.clone()));
+                    constructor.invoke(self, arguments, this)?;
                     Ok(Object::Instance(ins))
                 },
                 Object::StructDef(sdef) => {
@@ -2379,11 +2372,36 @@ impl Evaluator {
                         .map(|r| r.into())
                 },
                 Object::MemberCaller(method, member) => {
-                    let args = arguments.into_iter()
-                        .map(|(_, arg)| arg)
-                        .collect();
                     match method {
+                        MemberCaller::Module(m) => {
+                            let obj = self.get_module_member(&m, &member, true)?;
+                            match obj {
+                                Object::Function(f) |
+                                Object::AnonFunc(f) => {
+                                    let this = Some(function::This::Module(m));
+                                    f.invoke(self, arguments, this)
+                                },
+                                _ => unreachable!(),
+                            }
+                        },
+                        MemberCaller::ClassInstance(ins) => {
+                            let obj = {
+                                let guard = ins.lock().unwrap();
+                                self.get_module_member(&guard.module, &member, true)
+                            }?;
+                            match obj {
+                                Object::Function(f) |
+                                Object::AnonFunc(f) => {
+                                    let this = Some(function::This::Class(ins));
+                                    f.invoke(self, arguments, this)
+                                },
+                                _ => unreachable!(),
+                            }
+                        },
                         MemberCaller::BrowserBuilder(mutex) => {
+                            let args = arguments.into_iter()
+                                .map(|(_, arg)| arg)
+                                .collect();
                             let maybe_browser = {
                                 let mut builder = mutex.lock().unwrap();
                                 builder.invoke_method(&member, args)?
@@ -2395,18 +2413,27 @@ impl Evaluator {
                             Ok(obj)
                         },
                         MemberCaller::Browser(browser) => {
+                            let args = arguments.into_iter()
+                                .map(|(_, arg)| arg)
+                                .collect();
                             browser.invoke_method(&member, args)
                         },
                         MemberCaller::TabWindow(tab) => {
+                            let args = arguments.into_iter()
+                                .map(|(_, arg)| arg)
+                                .collect();
                             tab.invoke_method(&member, args)
                         },
                         MemberCaller::RemoteObject(remote) => {
-                            let args = args.into_iter()
-                                .map(|o| browser::RemoteFuncArg::from_object(o))
+                            let args = arguments.into_iter()
+                                .map(|(_, o)| browser::RemoteFuncArg::from_object(o))
                                 .collect::<EvalResult<Vec<browser::RemoteFuncArg>>>()?;
                             remote.invoke_method(&member, args, is_await)
                         },
                         MemberCaller::WebRequest(mutex) => {
+                            let args = arguments.into_iter()
+                                .map(|(_, arg)| arg)
+                                .collect();
                             let maybe_obj = {
                                 let mut req = mutex.lock().unwrap();
                                 req.invoke_method(&member, args)?
@@ -2418,23 +2445,37 @@ impl Evaluator {
                             Ok(obj)
                         },
                         MemberCaller::WebResponse(res) => {
+                            let args = arguments.into_iter()
+                                .map(|(_, arg)| arg)
+                                .collect();
                             res.invoke_method(&member, args)
                         },
                         MemberCaller::HtmlNode(node) => {
+                            let args = arguments.into_iter()
+                                .map(|(_, arg)| arg)
+                                .collect();
                             node.invoke_method(&member, args)
                         },
                         MemberCaller::ComObject(_) => {
-                            // ここには来ない
-                            Err(UError::new(UErrorKind::DotOperatorError, UErrorMessage::None))
+                            unreachable!()
                         },
                         MemberCaller::UStruct(ust) => {
+                            let args = arguments.into_iter()
+                                .map(|(_, arg)| arg)
+                                .collect();
                             ust.invoke_method(&member, args)
                         },
                         MemberCaller::WebViewForm(form) => {
+                            let args = arguments.into_iter()
+                                .map(|(_, arg)| arg)
+                                .collect();
                             let obj = form.invoke_method(&member, args, self)?;
                             Ok(obj)
                         },
                         MemberCaller::WebViewRemoteObject(remote) => {
+                            let args = arguments.into_iter()
+                                .map(|(_, arg)| arg)
+                                .collect();
                             let obj = remote.invoke_method(&member, args, is_await)?;
                             Ok(obj)
                         },
@@ -2489,11 +2530,19 @@ impl Evaluator {
     fn get_member(&self, instance: Object, member: String, is_func: bool, is_indexed_property: bool) -> EvalResult<Object> {
         match instance {
             Object::Module(m) => {
-                self.get_module_member(&m, &member, is_func)
+                if is_func {
+                    Ok(Object::MemberCaller(MemberCaller::Module(m), member))
+                } else {
+                    self.get_module_member(&m, &member, is_func)
+                }
             },
-            Object::Instance(m) => {
-                let ins = m.lock().unwrap();
-                self.get_module_member(&ins.module, &member, is_func)
+            Object::Instance(ins) => {
+                if is_func {
+                    Ok(Object::MemberCaller(MemberCaller::ClassInstance(ins), member))
+                } else {
+                    let guard = ins.lock().unwrap();
+                    self.get_module_member(&guard.module, &member, is_func)
+                }
             },
             Object::Global => {
                 self.env.get_global(&member, is_func)
@@ -4788,25 +4837,81 @@ a[0]
     }
 
     #[test]
-    fn test_hoge() {
-        let input1 = r#"
-function hoge(n)
-    result = n
-fend
+    fn test_class() {
+        let definition = r#"
+public x = 100
+class Test
+    dim name
+    procedure Test(name: string)
+        this.name = name
+    fend
+    function name()
+        result = this.name
+    fend
+    dim private = function()
+        result = "private"
+    fend
+    function call_private()
+        result = private()
+    fend
+    procedure _Test_
+        global.x = 2
+    fend
+endclass
         "#;
-        let mut e = eval_env(input1);
-        let test_cases = vec![
+        let mut e = eval_env(definition);
+        let test_cases = [
             (
-                "hoge(3)",
-                Ok(Some(Object::Num(3.0)))
+                r#"
+                ins = Test("test1")
+                "<#ins>"
+                "#,
+                Ok(Some("instance of Test".into()))
             ),
             (
-                "hoge('abc')",
-                Ok(Some(Object::String("abc".to_string())))
+                r#"
+                ins.name()
+                "#,
+                Ok(Some("test1".into()))
+            ),
+            (
+                r#"
+                ins.name
+                "#,
+                Err(UError::new(UErrorKind::DotOperatorError, UErrorMessage::IsPrivateMember("Test".into(), "name".into())))
+            ),
+            (
+                r#"
+                ins.private()
+                "#,
+                Err(UError::new(UErrorKind::DotOperatorError, UErrorMessage::IsPrivateMember("Test".into(), "private()".into())))
+            ),
+            (
+                r#"
+                ins.call_private()
+                "#,
+                Ok(Some("private".into()))
+            ),
+            (
+                r#"
+                ins = ""
+                x
+                "#,
+                Ok(Some(2.into()))
+            ),
+            (
+                r#"
+                ins1 = Test("hoge")
+                ins2 = ins1
+                ins2 = NOTHING
+                ins1
+                "#,
+                Ok(Some(Object::Nothing))
             ),
         ];
         for (input, expected) in test_cases {
             eval_test_with_env(&mut e, input, expected);
         }
     }
+
 }

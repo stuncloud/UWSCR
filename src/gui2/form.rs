@@ -696,7 +696,7 @@ impl WebView {
                             })
                             .collect::<Vec<_>>();
                         arguments.resize(f.params.len(), (Some(Expression::EmptyArgument), Object::Empty));
-                        if let Err(err) = f.invoke(evaluator, arguments) {
+                        if let Err(err) = f.invoke(evaluator, arguments, None) {
                             use crate::logging::{out_log, LogType};
                             unsafe {
                                 let _ = wm::DestroyWindow(self.parent);

@@ -6,8 +6,6 @@ use crate::evaluator::environment::{
     check_special_assignment,
 };
 
-use std::sync::{Arc, Mutex};
-
 #[derive(Clone, Debug)]
 pub struct Module {
     name: String,
@@ -217,16 +215,11 @@ impl Module {
         })
     }
 
-    /// 自身のメンバ関数に自身のポインタを渡す
-    pub fn set_module_reference(&mut self, m: Arc<Mutex<Module>>) {
+    /// プライベート関数からスコープ情報を消す
+    pub fn remove_outer_from_private_func(&mut self) {
         for o in self.members.iter_mut() {
             match o.object.as_mut() {
-                Object::Function(f) => {
-                    f.set_module(m.clone());
-                }
                 Object::AnonFunc(f) => {
-                    f.set_module(m.clone());
-                    // 無名関数ならスコープ情報を消す
                     f.outer = None;
                 },
                 _ => {},

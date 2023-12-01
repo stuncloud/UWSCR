@@ -13,8 +13,6 @@ pub struct Function {
     pub params: Vec<FuncParam>,
     pub body: BlockStatement,
     pub is_proc: bool,
-    pub module: Option<Arc<Mutex<Module>>>, // module, classの実装
-    pub instance: Option<Arc<Mutex<ClassInstance>>>, // クラスインスタンス
     pub outer: Option<Arc<Mutex<Vec<NamedObject>>>>, // 無名関数にコピーするスコープ情報
 }
 
@@ -25,8 +23,6 @@ impl Default for Function {
             params: vec![],
             body: vec![],
             is_proc: true,
-            module: None,
-            instance: None,
             outer: None,
         }
     }
@@ -48,8 +44,6 @@ impl Function {
             params,
             body,
             is_proc,
-            module: None,
-            instance: None,
             outer: None,
         }
     }
@@ -59,8 +53,6 @@ impl Function {
             params,
             body,
             is_proc,
-            module: None,
-            instance: None,
             outer: Some(outer),
         }
     }
@@ -70,12 +62,10 @@ impl Function {
             params,
             body,
             is_proc: true,
-            module: None,
-            instance: None,
             outer: None,
         }
     }
-    pub fn invoke(&self, evaluator: &mut Evaluator, mut arguments: Vec<(Option<Expression>, Object)>) -> EvalResult<Object> {
+    pub fn invoke(&self, evaluator: &mut Evaluator, mut arguments: Vec<(Option<Expression>, Object)>, this: Option<This>) -> EvalResult<Object> {
         let param_len = self.params.len();
         let mut params = self.params.clone();
         if param_len > arguments.len() {
@@ -85,6 +75,7 @@ impl Function {
             // 可変長引数が渡された場合
             params.resize(arguments.len(), FuncParam::new_dummy());
         }
+
         // 無名関数ならローカルコープをコピーする
         if self.outer.is_some() && self.name.is_none() {
             let outer_clone = self.outer.clone().unwrap();
@@ -179,7 +170,9 @@ impl Function {
         }
 
         // モジュール・クラスインスタンスであればthisとglobalをセットする
-        evaluator.env.set_this_and_global(self);
+        if let Some(this) = this {
+            evaluator.env.set_this_and_global(this);
+        }
 
         // functionならresult変数を初期化
         if ! self.is_proc {
@@ -208,13 +201,6 @@ impl Function {
 
         /* 結果を返す */
         Ok(result)
-    }
-
-    pub fn set_module(&mut self, m: Arc<Mutex<Module>>) {
-        self.module = Some(m)
-    }
-    pub fn set_instance(&mut self, ins: Arc<Mutex<ClassInstance>>) {
-        self.instance = Some(ins);
     }
 }
 
@@ -290,4 +276,9 @@ impl From<ParamType> for ParamTypeDetail {
             ParamType::UserDefinition(s) => ParamTypeDetail::UserDefinition(s),
         }
     }
+}
+
+pub enum This {
+    Module(Arc<Mutex<Module>>),
+    Class(Arc<Mutex<ClassInstance>>),
 }
