@@ -1212,7 +1212,10 @@ impl MemberType {
         match self {
             MemberType::Struct(sdef) => {
                 sdef.members.iter()
-                    .map(|m| m.r#type.size())
+                    .map(|m| match &m.r#type {
+                        MemberType::Struct(_) => m.alignment(),
+                        t => t.size()
+                    })
                     .reduce(|a,b| a.max(b))
                     .unwrap_or_default()
             },
