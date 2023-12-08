@@ -1071,9 +1071,9 @@ impl UserFunc {
         where T: FromPrimitive + Default
     {
         let len = self.arg_types.len();
-        let arg_ptrs = Vec::<*const c_void>::from_raw_parts(args as *mut *const c_void, len, len);
+        let arg_ptrs = std::slice::from_raw_parts(args, len);
         let arguments = arg_ptrs.into_iter().zip(self.arg_types.iter())
-            .map(|(ptr, t)| (Some(Expression::Callback), Self::ptr_as_object(ptr, t)))
+            .map(|(ptr, t)| (Some(Expression::Callback), Self::ptr_as_object(*ptr, t)))
             .collect();
         match self.function.invoke(&mut self.evaluator, arguments, None) {
             Ok(obj) => {
