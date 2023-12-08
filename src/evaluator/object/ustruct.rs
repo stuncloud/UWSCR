@@ -505,11 +505,11 @@ impl UStructMember {
     /// - 子構造体の場合はアドレスからUStructを作る
     /// - 構造体ポインタの場合は構造体を新規に作りそのポインタを書き込む
     fn init_child_ustruct(&mut self, addr: usize) -> EvalResult<()> {
-        match &self.r#type {
+        let mut ust = match &self.r#type {
             MemberType::Struct(sdef) => {
                 let ptr = (addr + self.offset) as *mut c_void;
                 let ust = UStruct::new_from_pointer(ptr, sdef);
-                self.ustruct = Some(ust);
+                ust
             },
             MemberType::UStruct(sdef) => {
                 let ust = UStruct::try_from(sdef)?;
@@ -518,10 +518,16 @@ impl UStructMember {
                     let dst = (addr + self.offset) as *mut _;
                     ptr::copy_nonoverlapping(src, dst, 1);
                 }
-                self.ustruct = Some(ust);
+                ust
             },
-            _ => {},
+            _ => {
+                return Ok(());
+            },
+        };
+        for member in ust.members.iter_mut() {
+            member.init_child_ustruct(ust.address)?;
         }
+        self.ustruct = Some(ust);
         Ok(())
     }
     fn is_wide_string(&self) -> bool {
