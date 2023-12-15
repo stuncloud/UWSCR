@@ -554,20 +554,38 @@ impl Shell {
             shell.creation_flags(CREATE_NO_WINDOW.0);
             if self.wait {
                 let output = shell.output()?;
-                let out_raw = if self.shell == ShellType::Cmd {
-                    if output.stderr.len()> 0 {
+                let out_string = if self.shell == ShellType::Cmd {
+                    let out = if output.stderr.len()> 0 {
                         output.stderr
                     } else {
                         output.stdout
+                    };
+                    match self.option {
+                        ShellOption::CmdAnsi => from_ansi_bytes(&out),
+                        ShellOption::CmdUnicode => Self::unicode_output_to_string(&out),
+                        _ => unreachable!(),
                     }
                 } else {
-                    output.stdout
+                    if output.stderr.is_empty() {
+                        String::from_utf8(output.stdout).unwrap_or_default()
+                    } else {
+                        let out = String::from_utf8(output.stdout).unwrap_or_default();
+                        match String::from_utf8(output.stderr) {
+                            Ok(err) => if out.is_empty() {
+                                err
+                            } else {
+                                err + "\r\n" + &out
+                            },
+                            Err(_) => out,
+                        }
+                    }
+                    // output.stdout
                 };
-                let out_string = match self.option {
-                    ShellOption::CmdUnicode => Self::unicode_output_to_string(&out_raw),
-                    ShellOption::CmdAnsi => from_ansi_bytes(&out_raw),
-                    _ => String::from_utf8(out_raw).unwrap_or_default()
-                };
+                // let out_string = match self.option {
+                //     ShellOption::CmdUnicode => Self::unicode_output_to_string(&out_raw),
+                //     ShellOption::CmdAnsi => from_ansi_bytes(&out_raw),
+                //     _ => String::from_utf8(out_raw).unwrap_or_default()
+                // };
                 Ok(Some(out_string))
             } else {
                 shell.spawn()?;
@@ -587,7 +605,7 @@ impl Shell {
     fn to_base64(command: &str) -> String {
         let wide = command.encode_utf16().collect::<Vec<u16>>();
         let bytes = wide.into_iter().map(|u| u.to_ne_bytes()).flatten().collect::<Vec<u8>>();
-        general_purpose::STANDARD_NO_PAD.encode(bytes)
+        general_purpose::STANDARD.encode(bytes)
     }
 }
 
