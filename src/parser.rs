@@ -9,14 +9,14 @@ use std::path::PathBuf;
 use std::env;
 use std::str::FromStr;
 
-pub type PareseErrors = Vec<ParseError>;
-pub type ParserResult<T> = Result<T, PareseErrors>;
+pub type ParseErrors = Vec<ParseError>;
+pub type ParserResult<T> = Result<T, ParseErrors>;
 
 pub struct Parser {
     lexer: Lexer,
     current_token: TokenInfo,
     next_token: TokenInfo,
-    errors: PareseErrors,
+    errors: ParseErrors,
     with: Option<Expression>,
     with_count: usize,
     in_loop: bool,
@@ -256,7 +256,7 @@ impl Parser {
         Self::token_to_precedence(&self.next_token.token)
     }
 
-    pub fn as_errors(self) -> PareseErrors {
+    pub fn as_errors(self) -> ParseErrors {
         self.errors
     }
 
@@ -3191,7 +3191,7 @@ impl Parser {
 mod tests {
     use crate::ast::*;
     use crate::lexer::Lexer;
-    use crate::parser::{Parser, PareseErrors};
+    use crate::parser::{Parser, ParseErrors};
 
     impl StatementWithRow {
         fn new_expected(statement: Statement, row: usize) -> Self{
@@ -3199,7 +3199,7 @@ mod tests {
         }
     }
 
-    fn print_errors(errors: PareseErrors, out: bool, input: &str, msg: &str) {
+    fn print_errors(errors: ParseErrors, out: bool, input: &str, msg: &str) {
         println!("input: {input}");
         if out {
             println!("parser got {} errors", errors.len());
