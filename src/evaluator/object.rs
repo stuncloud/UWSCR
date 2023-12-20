@@ -151,7 +151,7 @@ impl std::fmt::Debug for Object {
             Object::Reference(arg0, arg1) => f.debug_tuple("Reference").field(arg0).field(arg1).finish(),
             Object::WebRequest(arg0) => f.debug_tuple("WebRequest").field(arg0).finish(),
             Object::WebResponse(arg0) => f.debug_tuple("WebResponse").field(arg0).finish(),
-            Object::HtmlNode(_) => todo!(),
+            Object::HtmlNode(arg0) => f.debug_tuple("HtmlNode").field(arg0).finish(),
             Object::MemberCaller(_, _) => todo!(),
             Object::ComObject(arg0) => f.debug_tuple("ComObject").field(arg0).finish(),
             Object::Unknown(arg0) => f.debug_tuple("Unknown").field(arg0).finish(),
