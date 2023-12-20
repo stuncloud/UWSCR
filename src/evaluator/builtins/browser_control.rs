@@ -22,6 +22,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("remoteobjecttype", 1, remote_object_type);
     sets.add("webrequest", 1, webrequest);
     sets.add("webrequestbuilder", 0, webrequest_builder);
+    sets.add("parsehtml", 1, parse_html);
     sets.add("brgetdata", 5, browser_getdata);
     sets.add("brsetdata", 6, browser_setdata);
     sets.add("brgetsrc", 5, browser_getsource);
