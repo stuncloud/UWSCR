@@ -2,7 +2,7 @@
 ==============
 
 識別子
-------------------------------
+------
 
 | 識別子とは変数、定数、関数などの名前を示す文字列です
 | 以下の文字の組み合わせで命名できます
@@ -103,7 +103,7 @@ const
     hoge = 2 // エラー
 
 一括定義
-^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^
 
 ``,`` 区切りで変数を一括定義できます
 
@@ -125,7 +125,7 @@ UWSCではエラーになっていたconstの一括定義も可能
 
 
 配列
-^^^^^^^^^^^^^^^^^^^^^^
+^^^^
 
 配列の定義はdimを使った方法と、配列リテラル(新機能)を使う方法があります
 
@@ -141,7 +141,7 @@ UWSCではエラーになっていたconstの一括定義も可能
 
 
 +演算子による要素の追加
-+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
++++++++++++++++++++++++
 
 | ``+`` 演算子で配列の末尾に要素を追加できます
 
@@ -155,7 +155,7 @@ UWSCではエラーになっていたconstの一括定義も可能
     // [5, 6, 7, 8]
 
 多次元配列
-^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^
 
 .. code-block::
 
@@ -203,7 +203,7 @@ UWSCではエラーになっていたconstの一括定義も可能
 
 
 連想配列
-^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^
 
 .. code-block::
 
@@ -404,7 +404,7 @@ enum
 
 
 関数定義
-------------------------------
+--------
 
 
 | 関数名には英数字、一部記号、全角文字列が使えます
@@ -1551,26 +1551,6 @@ moduleのスコープ
             print hoge         // (なにも表示されない)
             print length(hoge) // 5
 
-.. object:: RemoteObject
-
-    | :ref:`remote_object` が以下の型であった場合、通常の値型と同じように演算が行なえます
-
-    - 文字列
-    - 数値
-    - 真偽値
-    - NULL
-
-    .. sourcecode:: uwscr
-
-        elements = browser[0].document.querySelectorAll(selector)
-        // lengthプロパティはRemoteObjectだが、数値との比較が可能
-        if elements.length > 0 then
-            // innerTextプロパティは文字列型のRemoteObjectを返すがEMPTYを足すことで通常の文字列にできる
-            innerText = elements[0].innerText + EMPTY
-            // ConvertFromRemoteObject関数で通常の型に変換することもできる
-            // innerText = ConvertFromRemoteObject(elements[0].innerText)
-        endif
-
 三項演算子
 ^^^^^^^^^^
 
@@ -1659,6 +1639,8 @@ UWSCRでは演算子が追加され論理演算およびビット演算を明示
     print "空ではない文字列" ? '真' : '偽' // 真
     print [1,2,3] ? '真' : '偽' // 真
     print [] ? '真' : '偽' // 偽
+
+ただし、 ``OPTION FORCEBOOL`` が指定されている場合は ``TRUE`` または ``FALSE`` を返す式のみが有効となります
 
 コメント
 --------
@@ -2554,7 +2536,7 @@ def_dllのstruct型に渡す構造体を定義します
     // 代入後はバッファのサイズが返る
     h.baz = "baz"
     h.qux = "qux"
-    print h.bufSize("baz") // 1024
+    print h.bufSize("baz") // 4
     print h.bufSize("qux") // 260
 
     print h.bufSize("foo") // 0 ※文字列型じゃない場合も0
@@ -2569,7 +2551,7 @@ DLL関数が返す構造体のポインタから構造体にアクセスでき�
 
     // 第四引数にWTS_SESSION_INFO_1Wのポインタが返る
     def_dll WTSEnumerateSessionsExW(handle, var dword, dword, var pointer, var dword):bool:Wtsapi32
-    def_dll WTSFreeMemory(pointer):Wtsapi32
+    def_dll WTSFreeMemoryExW(dword, pointer, dword):bool:Wtsapi32
 
     struct WTS_SESSION_INFO_1W
         ExecEnvId    : dword
@@ -2605,8 +2587,8 @@ DLL関数が返す構造体のポインタから構造体にアクセスでき�
             print
         next
 
-        // WTS_SESSION_INFO_1W構造体を開放する
-        WTSFreeMemory(ptr)
+        // WTS_SESSION_INFO_1W構造体をすべて開放する
+        WTSFreeMemoryExW(2, ptr, cnt)
     endif
 
 
