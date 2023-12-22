@@ -88,9 +88,26 @@ impl Parser {
         }
     }
 
+    fn push_error(&mut self, kind: ParseErrorKind, start: Position, end: Position) {
+        let err = ParseError::new(kind, start, end, self.script_name());
+        self.errors.push(err);
+    }
+
     fn bump(&mut self) {
         self.current_token = self.next_token.clone();
         self.next_token = self.lexer.next_token();
+    }
+    fn bump_to_next_row(&mut self) {
+        loop {
+            match self.current_token.token {
+                Token::Eol |
+                Token::Eof => {
+                    self.bump();
+                    break;
+                },
+                _ => self.bump()
+            }
+        }
     }
 
     fn get_current_with(&self) -> Option<Expression> {
@@ -124,128 +141,106 @@ impl Parser {
     /// 次のトークンが期待通りであればbumpする
     ///
     /// 異なる場合はエラーを積む
-    fn is_next_token_expected(&mut self, token: Token) -> bool {
-        if self.is_next_token(&token) {
+    fn bump_to_next_expected_token(&mut self, expected: Token) -> bool {
+        if self.is_next_token(&expected) {
             self.bump();
             return true;
         } else {
-            self.error_got_invalid_next_token(token);
+            self.error_next_token_is_unexpected(expected);
             return false;
         }
     }
 
-    fn is_current_token_expected(&mut self, token: Token) -> bool {
-        if self.is_current_token(&token) {
+    /// 現在のトークンが期待されるものであるかどうか
+    ///
+    /// 異なる場合はエラーを積む
+    fn is_current_token_expected(&mut self, expected: Token) -> bool {
+        if self.is_current_token(&expected) {
             return true;
         } else {
-            self.error_got_invalid_token(token);
+            self.error_current_token_is_unexpected(expected);
             return false;
         }
     }
 
-    fn is_expected_close_token(&mut self, current_token: Token) -> bool {
-        if self.is_current_token(&current_token) {
-            return true;
+    /// 現在のブロック終了トークンが期待されるものであるかどうか
+    ///
+    /// 異なる場合はエラーを積む
+    fn is_current_closing_token_expected(&mut self, expected: BlockEnd) -> bool {
+        if let Token::BlockEnd(end) = &self.current_token.token {
+            if end == &expected {
+                true
+            } else {
+                self.error_current_block_closing_token_was_unexpected(expected);
+                false
+            }
         } else {
-            self.error_got_invalid_close_token(current_token);
-            return false;
+            self.error_current_block_closing_token_was_unexpected(expected);
+            false
         }
     }
 
-    fn error_got_invalid_next_token(&mut self, token: Token) {
-        self.errors.push(ParseError::new(
-            ParseErrorKind::UnexpectedToken(token, self.next_token.token()),
-            self.next_token.pos,
-            self.script_name()
-        ))
+    /// 次のトークンが期待されたものではない
+    fn error_next_token_is_unexpected(&mut self, expected: Token) {
+        let next = &self.next_token;
+        let end = next.get_end_pos();
+        let kind = ParseErrorKind::NextTokenIsUnexpected(expected, next.token());
+        self.push_error(kind, next.pos, end);
     }
 
-    fn error_got_invalid_close_token(&mut self, token: Token) {
-        self.errors.push(ParseError::new(
-            ParseErrorKind::InvalidBlockEnd(token, self.current_token.token()),
-            self.current_token.pos,
-            self.script_name()
-        ))
+    /// 現在のトークンが期待されたものではない
+    fn error_current_token_is_unexpected(&mut self, expected: Token) {
+        let current = &self.current_token;
+        let end = current.get_end_pos();
+        let kind = ParseErrorKind::CurrentTokenIsUnexpected(expected, current.token());
+        self.push_error(kind, current.pos, end);
     }
 
-    fn error_got_invalid_token(&mut self, token: Token) {
-        self.errors.push(ParseError::new(
-            ParseErrorKind::UnexpectedToken(token, self.current_token.token()),
-            self.current_token.pos,
-            self.script_name()
-        ))
+    /// 現在位置の閉じトークンが期待されたものではない
+    fn error_current_block_closing_token_was_unexpected(&mut self, blockend: BlockEnd) {
+        let current = &self.current_token;
+        let end = current.get_end_pos();
+        let kind = ParseErrorKind::BlockClosingTokenIsUnexpected(Token::BlockEnd(blockend), current.token());
+        self.push_error(kind, current.pos, end);
     }
 
-    fn error_token_is_not_identifier(&mut self) {
-        self.errors.push(ParseError::new(
-            ParseErrorKind::IdentifierExpected(self.current_token.token()),
-            self.current_token.pos,
-            self.script_name()
-        ))
+    /// 現在のトークンが識別子ではない
+    fn error_current_token_is_not_identifier(&mut self) {
+        let current = &self.current_token;
+        let end = current.get_end_pos();
+        let kind = ParseErrorKind::CurrentTokenIsNotIdentifier;
+        self.push_error(kind, current.pos, end);
     }
 
-    fn error_got_unexpected_token(&mut self) {
-        self.errors.push(ParseError::new(
-            ParseErrorKind::UnexpectedToken2(self.current_token.token()),
-            self.current_token.pos,
-            self.script_name()
-        ))
+    /// 現在のトークンが不正
+    fn error_current_token_is_invalid(&mut self) {
+        let current = &self.current_token;
+        let end = current.get_end_pos();
+        let kind = ParseErrorKind::CurrentTokenIsInvalid(current.token());
+        self.push_error(kind, current.pos, end);
     }
 
-    fn error_got_unexpected_next_token(&mut self) {
-        self.errors.push(ParseError::new(
-            ParseErrorKind::UnexpectedToken2(self.next_token.token()),
-            self.next_token.pos,
-            self.script_name(),
-        ))
+    /// 次のトークンが不正
+    fn error_next_token_is_invalid(&mut self) {
+        let next = &self.next_token;
+        let end = next.get_end_pos();
+        let kind = ParseErrorKind::NextTokenIsInvalid(next.token());
+        self.push_error(kind, next.pos, end);
     }
 
-    fn error_got_bad_parameter(&mut self, kind: ParseErrorKind) {
-        self.errors.push(ParseError::new(
-            kind,
-            self.current_token.pos,
-            self.script_name()
-        ))
+    /// 現在のトークンのエラー理由を指定
+    fn error_on_current_token(&mut self, kind: ParseErrorKind) {
+        let current = &self.current_token;
+        let end = current.get_end_pos();
+        self.push_error(kind, current.pos, end);
+        self.bump();
     }
 
-    fn error_got_invalid_dlltype(&mut self, name: String) {
-        self.errors.push(ParseError::new(
-            ParseErrorKind::InvalidDllType(name),
-            self.current_token.pos,
-            self.script_name()
-        ))
-    }
-
-    fn error_got_invalid_dllpath(&mut self, pos: Position) {
-        self.errors.push(ParseError::new(
-            ParseErrorKind::DllPathNotFound,
-            pos,
-            self.script_name()
-        ))
-    }
-
-    fn error_invalid_hash_member_definition(&mut self, e: Option<Expression>, pos: Position) {
-        self.errors.push(ParseError::new(
-            ParseErrorKind::InvalidHashMemberDefinition(e),
-            pos,
-            self.script_name()
-        ))
-    }
-
-    fn error_missing_array_size(&mut self) {
-        self.errors.push(ParseError::new(
-            ParseErrorKind::SizeRequired,
-            self.current_token.pos,
-            self.script_name()
-        ));
-    }
-
-    fn error_no_prefix_parser(&mut self) {
-        self.errors.push(ParseError::new(
-            ParseErrorKind::NoPrefixParserFound(self.current_token.token()),
-            self.current_token.pos,
-            self.script_name()
-        ))
+    /// 次のトークンのエラー理由を指定
+    fn error_on_next_token(&mut self, kind: ParseErrorKind) {
+        let next = &self.next_token;
+        let end = next.get_end_pos();
+        self.push_error(kind, next.pos, end);
     }
 
     fn current_token_precedence(&mut self) -> Precedence {
@@ -338,7 +333,10 @@ impl Parser {
                         builder.push_script(s);
                     }
                 },
-                None => {}
+                None => {
+                    self.bump_to_next_row();
+                    continue;
+                },
             }
             self.bump();
         }
@@ -356,7 +354,10 @@ impl Parser {
         while ! self.is_current_token_end_of_block() && ! self.is_current_token(&Token::Eof) {
             match self.parse_statement() {
                 Some(s) => block.push(s),
-                None => ()
+                None => {
+                    self.bump_to_next_row();
+                    continue;
+                },
             }
             self.bump();
         }
@@ -368,56 +369,50 @@ impl Parser {
         let row = self.current_token.pos.row;
         let token = self.current_token.token.clone();
         let statement = match token {
-            Token::Dim => self.parse_dim_statement(),
-            Token::Public => self.parse_public_statement(),
-            Token::Const => self.parse_const_statement(),
+            Token::Dim => self.parse_dim_statement()?,
+            Token::Public => self.parse_public_statement()?,
+            Token::Const => self.parse_const_statement()?,
             Token::If |
-            Token::IfB => self.parse_if_statement(),
-            Token::Select => self.parse_select_statement(),
-            Token::Print => self.parse_print_statement(),
-            Token::For => self.parse_for_statement(),
-            Token::While => self.parse_while_statement(),
-            Token::Repeat => self.parse_repeat_statement(),
-            Token::Continue => self.parse_continue_statement(),
-            Token::Break => self.parse_break_statement(),
-            Token::Call => self.parse_call_statement(),
-            Token::DefDll => self.parse_def_dll_statement(),
-            Token::Struct => self.parse_struct_statement(),
-            Token::HashTable => self.parse_hashtable_statement(false),
-            Token::Hash => self.parse_hash_statement(),
-            Token::Function => self.parse_function_statement(false, false),
-            Token::Procedure => self.parse_function_statement(true, false),
-            Token::Async => self.parse_async_function_statement(),
-            Token::Exit => Some(Statement::Exit),
-            Token::ExitExit => self.parse_exitexit_statement(),
-            Token::Module => self.parse_module_statement(),
-            Token::Class => self.parse_class_statement(),
-            Token::TextBlock(is_ex) => self.parse_textblock_statement(is_ex),
-            Token::With => self.parse_with_statement(),
-            Token::Try => self.parse_try_statement(),
-            Token::Option(ref name) => self.parse_option_statement(name),
-            Token::Enum => self.parse_enum_statement(),
-            Token::Thread => self.parse_thread_statement(),
-            Token::ComErrIgn => Some(Statement::ComErrIgn),
-            Token::ComErrRet => Some(Statement::ComErrRet),
-            _ => self.parse_expression_statement(),
+            Token::IfB => self.parse_if_statement()?,
+            Token::Select => self.parse_select_statement()?,
+            Token::Print => self.parse_print_statement()?,
+            Token::For => self.parse_for_statement()?,
+            Token::While => self.parse_while_statement()?,
+            Token::Repeat => self.parse_repeat_statement()?,
+            Token::Continue => self.parse_continue_statement()?,
+            Token::Break => self.parse_break_statement()?,
+            Token::Call => self.parse_call_statement()?,
+            Token::DefDll => self.parse_def_dll_statement()?,
+            Token::Struct => self.parse_struct_statement()?,
+            Token::HashTable => self.parse_hashtable_statement(false)?,
+            Token::Hash => self.parse_hash_statement()?,
+            Token::Function => self.parse_function_statement(false, false)?,
+            Token::Procedure => self.parse_function_statement(true, false)?,
+            Token::Async => self.parse_async_function_statement()?,
+            Token::Exit => Statement::Exit,
+            Token::ExitExit => self.parse_exitexit_statement()?,
+            Token::Module => self.parse_module_statement()?,
+            Token::Class => self.parse_class_statement()?,
+            Token::TextBlock(is_ex) => self.parse_textblock_statement(is_ex)?,
+            Token::With => self.parse_with_statement()?,
+            Token::Try => self.parse_try_statement()?,
+            Token::Option(ref name) => self.parse_option_statement(name)?,
+            Token::Enum => self.parse_enum_statement()?,
+            Token::Thread => self.parse_thread_statement()?,
+            Token::ComErrIgn => Statement::ComErrIgn,
+            Token::ComErrRet => Statement::ComErrRet,
+            _ => self.parse_expression_statement()?,
         };
-        match statement {
-            Some(s) => Some(StatementWithRow::new(
-                s, row, self.lexer.get_line(row), Some(self.script_name())
-            )),
-            None => None
-        }
+        Some(StatementWithRow::new(
+            statement, row, self.lexer.get_line(row), Some(self.script_name())
+        ))
     }
 
     fn parse_variable_definition(&mut self, value_required: bool) -> Option<Vec<(Identifier, Expression)>> {
         let mut expressions = vec![];
 
         loop {
-            let var_name = match self.parse_identifier() {
-                Some(i) => i,
-                None => return None
-            };
+            let var_name = self.parse_identifier()?;
             let expression = if self.is_next_token(&Token::Lbracket) {
                 // 配列定義
                 // 多次元配列定義の表記は
@@ -436,7 +431,7 @@ impl Parser {
                             match self.next_token.token {
                                 Token::Rbracket => {
                                     // 添字なしで閉じるのはダメ
-                                    self.error_missing_array_size();
+                                    self.error_on_current_token(ParseErrorKind::SizeRequired);
                                     return None;
                                 },
                                 Token::Comma => {
@@ -458,7 +453,7 @@ impl Parser {
                                             break;
                                         },
                                         _ => {
-                                            self.error_got_unexpected_next_token();
+                                            self.error_next_token_is_invalid();
                                             return None;
                                         },
                                     }
@@ -473,7 +468,7 @@ impl Parser {
                             self.bump();
                             if ! self.is_next_token(&Token::Lbracket) && is_multidimensional && is_empty {
                                 // 多次元で最後の[]が添字なしはダメ
-                                self.error_missing_array_size();
+                                self.error_on_current_token(ParseErrorKind::SizeRequired);
                                 return None;
                             } else {
                                 if is_empty {
@@ -515,11 +510,8 @@ impl Parser {
                 if ! self.is_next_token(&Token::EqualOrAssign) {
                     // 代入演算子がなければ配列宣言のみ
                     if value_required {
-                        self.errors.push(ParseError::new(
-                            ParseErrorKind::ValueMustBeDefined(var_name),
-                            self.next_token.pos,
-                            self.script_name()
-                        ));
+                        let kind = ParseErrorKind::ValueMustBeDefined(var_name);
+                        self.error_on_next_token(kind);
                         return None;
                     } else {
                         Expression::Array(Vec::new(), index_list)
@@ -537,11 +529,8 @@ impl Parser {
                 // 代入演算子がなければ変数宣言のみ
                 if ! self.is_next_token(&Token::EqualOrAssign) {
                     if value_required {
-                        self.errors.push(ParseError::new(
-                            ParseErrorKind::ValueMustBeDefined(var_name),
-                            self.next_token.pos,
-                            self.script_name()
-                        ));
+                        let kind = ParseErrorKind::ValueMustBeDefined(var_name);
+                        self.error_on_next_token(kind);
                         return None;
                     } else {
                         Expression::Literal(Literal::Empty)
@@ -590,10 +579,6 @@ impl Parser {
     }
 
     fn parse_const_statement(&mut self) -> Option<Statement> {
-        // match &self.next_token.token {
-        //     Token::Identifier(_) => self.bump(),
-        //     _ => return None,
-        // }
         self.bump();
         match self.parse_variable_definition(true) {
             Some(v) => Some(Statement::Const(v)),
@@ -609,12 +594,7 @@ impl Parser {
             false
         };
         self.bump();
-        let name = if let Some(i) = self.parse_identifier() {
-            i
-        } else {
-            self.error_token_is_not_identifier();
-            return None;
-        };
+        let name = self.parse_identifier()?;
         let option = if self.is_next_token(&Token::EqualOrAssign) {
             self.bump();
             self.bump();
@@ -653,7 +633,8 @@ impl Parser {
                     }
                 }
             }
-            self.error_invalid_hash_member_definition(expression, self.current_token.pos);
+            let kind = ParseErrorKind::InvalidHashMemberDefinition(expression);
+            self.error_on_current_token(kind);
             return None;
         }
         let hash = HashSugar::new(name, option, is_public, members);
@@ -665,10 +646,7 @@ impl Parser {
         let mut expressions = vec![];
 
         loop {
-            let identifier = match self.parse_identifier() {
-                Some(i) => i,
-                None => return None
-            };
+            let identifier = self.parse_identifier()?;
             let hash_option = if self.is_next_token(&Token::EqualOrAssign) {
                 self.bump();
                 self.bump();
@@ -697,11 +675,8 @@ impl Parser {
             Some(e) => if has_whitespace {
                 e
             } else {
-                self.errors.push(ParseError::new(
-                    ParseErrorKind::WhitespaceRequiredAfter("print".into()),
-                    self.current_token.pos,
-                    self.script_name()
-                ));
+                let kind = ParseErrorKind::WhitespaceRequiredAfter("print".into());
+                self.error_on_current_token(kind);
                 return None;
             },
             None => Expression::Literal(Literal::String("".to_string()))
@@ -753,25 +728,19 @@ impl Parser {
                                             return Some(Statement::Call(program, args));
                                         },
                                         Err(e) => {
-                                            self.errors.push(ParseError::new(
-                                                ParseErrorKind::CanNotLoadUwsl(
-                                                    path.to_string_lossy().to_string(),
-                                                    format!("{}", *e)
-                                                ),
-                                                self.current_token.pos,
-                                                self.script_name()
-                                            ));
+                                            let kind = ParseErrorKind::CanNotLoadUwsl(
+                                                path.to_string_lossy().to_string(),
+                                                e.to_string()
+                                            );
+                                            self.error_on_current_token(kind);
                                         }
                                     },
                                     Err(e) => {
-                                        self.errors.push(ParseError::new(
-                                            ParseErrorKind::CanNotLoadUwsl(
-                                                path.to_string_lossy().to_string(),
-                                                e.to_string()
-                                            ),
-                                            self.current_token.pos,
-                                            self.script_name()
-                                        ));
+                                        let kind = ParseErrorKind::CanNotLoadUwsl(
+                                            path.to_string_lossy().to_string(),
+                                            e.to_string()
+                                        );
+                                        self.error_on_current_token(kind);
                                     }
                                 }
                                 return None;
@@ -794,11 +763,8 @@ impl Parser {
                                     continue;
                                 }
                             }
-                            self.errors.push(ParseError::new(
-                                ParseErrorKind::CanNotCallScript(path.to_string_lossy().to_string(), e.to_string()),
-                                self.current_token.pos,
-                                self.script_name()
-                            ));
+                            let kind = ParseErrorKind::CanNotCallScript(path.to_string_lossy().to_string(), e.to_string());
+                            self.error_on_current_token(kind);
                             return None;
                         },
                     };
@@ -833,11 +799,8 @@ impl Parser {
                 let script = match maybe_script {
                     Some(s) => s,
                     None => {
-                        self.errors.push(ParseError::new(
-                            ParseErrorKind::InvalidCallUri(uri),
-                            self.next_token.pos,
-                            self.script_name()
-                        ));
+                        let kind = ParseErrorKind::InvalidCallUri(uri);
+                        self.error_on_next_token(kind);
                         return None;
                     },
                 };
@@ -856,7 +819,7 @@ impl Parser {
                 (script, uri, None, args)
             },
             _ => {
-                self.error_got_unexpected_next_token();
+                self.error_next_token_is_invalid();
                 return None;
             }
         };
@@ -877,37 +840,31 @@ impl Parser {
 
     fn parse_def_dll_statement(&mut self) -> Option<Statement> {
         self.bump();
-        let name = match self.current_token.token {
-            Token::Identifier(ref s) => s.clone(),
-            _ => {
-                self.error_token_is_not_identifier();
-                return None;
-            }
-        };
+        let Identifier(name) = self.parse_identifier()?;
         let (name, alias) = match &self.next_token.token {
             Token::Lparen => {
+                self.bump();
                 (name, None)
             },
             Token::Colon => {
                 self.bump();
                 self.bump();
                 let alias = Some(name);
-                let name = if let Token::Identifier(ident) = &self.current_token.token() {
-                    ident.to_string()
-                } else {
-                    self.error_token_is_not_identifier();
+                let Identifier(name) = self.parse_identifier()?;
+                if ! self.bump_to_next_expected_token(Token::Lparen) {
                     return None;
-                };
+                }
                 (name, alias)
             },
             _ => {
-                self.error_got_unexpected_next_token();
+                let kind = ParseErrorKind::TokenIsNotOneOfExpectedTokens(vec![
+                    Token::Lparen,
+                    Token::Colon,
+                ]);
+                self.error_on_current_token(kind);
                 return None;
             }
         };
-        if ! self.is_next_token_expected(Token::Lparen) {
-            return None;
-        }
 
         self.bump();
         let mut params = Vec::new();
@@ -927,7 +884,7 @@ impl Parser {
                             params.push(def_dll_param);
                         },
                         _ => {
-                            self.error_got_unexpected_token();
+                            self.error_current_token_is_invalid();
                             return None;
                         },
                     }
@@ -941,7 +898,7 @@ impl Parser {
                 Token::Comma => {},
                 Token::Eol=> {},
                 _ => {
-                    self.error_got_unexpected_token();
+                    self.error_current_token_is_invalid();
                     return None;
                 },
             }
@@ -950,7 +907,7 @@ impl Parser {
         if ! self.is_current_token_expected(Token::Rparen) {
             return None;
         }
-        if ! self.is_next_token_expected(Token::Colon) {
+        if ! self.bump_to_next_expected_token(Token::Colon) {
             return None;
         }
         // 戻りの型, dllパス
@@ -979,7 +936,7 @@ impl Parser {
                                 None => return None,
                             }
                         } else {
-                            self.error_got_unexpected_token();
+                            self.error_current_token_is_invalid();
                             return None;
                         }
                     },
@@ -993,7 +950,7 @@ impl Parser {
                 }
             },
             _ => {
-                self.error_got_unexpected_token();
+                self.error_current_token_is_invalid();
                 return None;
             },
         };
@@ -1027,7 +984,7 @@ impl Parser {
                             s.push(def_dll_param.unwrap());
                         },
                         _ => {
-                            self.error_got_unexpected_token();
+                            self.error_current_token_is_invalid();
                             return None;
                         },
                     }
@@ -1039,7 +996,7 @@ impl Parser {
                 Token::Rbrace => break,
                 Token::Comma => {},
                 _ => {
-                    self.error_got_unexpected_token();
+                    self.error_current_token_is_invalid();
                     return None;
                 },
             }
@@ -1053,7 +1010,8 @@ impl Parser {
 
     fn parse_dll_path(&mut self) -> Option<String> {
         self.bump();
-        let pos = self.current_token.pos;
+        let start = self.current_token.pos;
+        let end = self.current_token.get_end_pos();
         let mut path = String::new();
         while ! self.is_current_token_in(vec![Token::Eol, Token::Eof]) {
             match self.current_token.token {
@@ -1062,7 +1020,7 @@ impl Parser {
                 Token::BackSlash => path = format!("{}\\", path),
                 Token::Period => path = format!("{}.", path),
                 _ => {
-                    self.error_got_invalid_dllpath(pos);
+                    self.push_error(ParseErrorKind::DllPathNotFound, start, end);
                     return None;
                 },
             }
@@ -1076,18 +1034,18 @@ impl Parser {
             Token::Identifier(s) => match s.parse::<DllType>() {
                 Ok(t) => t,
                 Err(name) => {
-                    self.error_got_invalid_dlltype(name);
+                    self.error_on_current_token(ParseErrorKind::InvalidDllType(name));
                     return None;
                 },
             },
             Token::Struct => DllType::UStruct,
             _ => {
-                self.error_got_unexpected_token();
+                self.error_current_token_is_invalid();
                 return None;
             },
         };
         if dll_type == DllType::CallBack {
-            if ! self.is_next_token_expected(Token::Lparen) {
+            if ! self.bump_to_next_expected_token(Token::Lparen) {
                 return None;
             }
             self.bump(); // ( の次のトークンに移動
@@ -1097,7 +1055,7 @@ impl Parser {
                     Token::Identifier(i) => match DllType::from_str(&i) {
                         Ok(t) => t,
                         Err(name) => {
-                            self.error_got_invalid_dlltype(name);
+                            self.error_on_current_token(ParseErrorKind::InvalidDllType(name));
                             return None;
                         },
                     },
@@ -1105,7 +1063,7 @@ impl Parser {
                         break;
                     }
                     _ => {
-                        self.error_got_unexpected_token();
+                        self.error_current_token_is_invalid();
                         return None;
                     }
                 };
@@ -1120,7 +1078,7 @@ impl Parser {
                         break;
                     },
                     _ => {
-                        self.error_got_unexpected_token();
+                        self.error_current_token_is_invalid();
                         return None;
                     }
                 }
@@ -1132,12 +1090,12 @@ impl Parser {
                     Token::Identifier(i) => match DllType::from_str(&i) {
                         Ok(t) => t,
                         Err(name) => {
-                            self.error_got_invalid_dlltype(name);
+                            self.error_on_current_token(ParseErrorKind::InvalidDllType(name));
                             return None;
                         },
                     },
                     _ => {
-                        self.error_got_unexpected_token();
+                        self.error_current_token_is_invalid();
                         return None;
                     }
                 }
@@ -1152,19 +1110,19 @@ impl Parser {
                 match self.current_token.token() {
                     Token::Rbracket => Some(DefDllParam::Param{ dll_type, is_ref, size: DefDllParamSize::Size(0) }),
                     Token::Identifier(i) => {
-                        if ! self.is_next_token_expected(Token::Rbracket) {
+                        if ! self.bump_to_next_expected_token(Token::Rbracket) {
                             return None;
                         }
                         Some(DefDllParam::Param{ dll_type, is_ref, size: DefDllParamSize::Const(i) })
                     },
                     Token::Num(n) => {
-                        if ! self.is_next_token_expected(Token::Rbracket) {
+                        if ! self.bump_to_next_expected_token(Token::Rbracket) {
                             return None;
                         }
                         Some(DefDllParam::Param { dll_type, is_ref, size: DefDllParamSize::Size(n as usize) })
                     },
                     _ => {
-                        self.error_got_unexpected_token();
+                        self.error_current_token_is_invalid();
                         return None;
                     },
                 }
@@ -1179,7 +1137,7 @@ impl Parser {
         let name = match self.parse_identifier_expression() {
             Some(Expression::Identifier(i)) => i,
             _ => {
-                self.error_token_is_not_identifier();
+                self.error_current_token_is_not_identifier();
                 return None;
             },
         };
@@ -1196,12 +1154,12 @@ impl Parser {
             let member = match self.parse_identifier_expression() {
                 Some(Expression::Identifier(Identifier(i))) => i,
                 _ => {
-                    self.error_token_is_not_identifier();
+                    self.error_current_token_is_not_identifier();
                     return None;
                 },
             };
 
-            if ! self.is_next_token_expected(Token::Colon) {
+            if ! self.bump_to_next_expected_token(Token::Colon) {
                 return None;
             }
             self.bump();
@@ -1214,7 +1172,7 @@ impl Parser {
             let member_type = match self.parse_identifier_expression() {
                 Some(Expression::Identifier(Identifier(s))) => s.to_ascii_lowercase(),
                 _ => {
-                    self.error_token_is_not_identifier();
+                    self.error_current_token_is_not_identifier();
                     return None;
                 },
             };
@@ -1229,11 +1187,11 @@ impl Parser {
                         DefDllParamSize::Const(i.to_string())
                     },
                     (Token::Num(_), _) => {
-                        self.error_got_unexpected_next_token();
+                        self.error_next_token_is_invalid();
                         return None;
                     },
                     _ => {
-                        self.error_got_unexpected_token();
+                        self.error_current_token_is_invalid();
                         return None;
                     },
                 }
@@ -1247,12 +1205,7 @@ impl Parser {
             self.bump();
             self.bump();
         }
-        if ! self.is_current_token(&Token::BlockEnd(BlockEnd::EndStruct)) {
-            self.errors.push(ParseError::new(
-                ParseErrorKind::InvalidBlockEnd(Token::BlockEnd(BlockEnd::EndStruct), self.current_token.token()),
-                self.current_token.pos,
-                self.script_name()
-            ));
+        if ! self.is_current_closing_token_expected(BlockEnd::EndStruct) {
             return None;
         }
         Some(Statement::Struct(name, struct_definition))
@@ -1260,11 +1213,7 @@ impl Parser {
 
     fn parse_continue_statement(&mut self) -> Option<Statement> {
         if ! self.in_loop {
-            self.errors.push(ParseError::new(
-                ParseErrorKind::OutOfLoop(Token::Continue),
-                self.current_token.pos,
-                self.script_name()
-            ));
+            self.error_on_current_token(ParseErrorKind::OutOfLoop(Token::Continue));
             return None;
         }
         self.bump();
@@ -1277,11 +1226,7 @@ impl Parser {
 
     fn parse_break_statement(&mut self) -> Option<Statement> {
         if ! self.in_loop {
-            self.errors.push(ParseError::new(
-                ParseErrorKind::OutOfLoop(Token::Break),
-                self.current_token.pos,
-                self.script_name()
-            ));
+            self.error_on_current_token(ParseErrorKind::OutOfLoop(Token::Break));
             return None;
         }
         self.bump();
@@ -1304,27 +1249,14 @@ impl Parser {
 
     fn parse_for_statement(&mut self) -> Option<Statement> {
         self.bump();
-        let loopvar = match self.parse_identifier() {
-            Some(i) => i,
-            None => {
-                self.error_token_is_not_identifier();
-                return None;
-            }
-        };
-        let comma_pos = self.next_token.pos;
+        let loopvar = self.parse_identifier()?;
         let index_var = if let Token::Comma = self.next_token.token {
             self.bump();
             if let Token::Comma = self.next_token.token {
                 None
             } else {
                 self.bump();
-                match self.parse_identifier() {
-                    Some(i) => Some(i),
-                    None => {
-                        self.error_token_is_not_identifier();
-                        return None;
-                    },
-                }
+                Some(self.parse_identifier()?)
             }
         } else {
             None
@@ -1332,13 +1264,7 @@ impl Parser {
         let islast_var = if let Token::Comma = self.next_token.token {
             self.bump();
             self.bump();
-            match self.parse_identifier() {
-                Some(i) => Some(i),
-                None => {
-                    self.error_token_is_not_identifier();
-                    return None;
-                },
-            }
+            Some(self.parse_identifier()?)
         } else {
             None
         };
@@ -1347,11 +1273,7 @@ impl Parser {
                 // for文
                 // for-inの特殊記法はNG
                 if index_var.is_some() || islast_var.is_some() {
-                    self.errors.push(ParseError::new(
-                        ParseErrorKind::UnexpectedToken(Token::EqualOrAssign, Token::Comma),
-                        comma_pos,
-                        self.script_name()
-                    ));
+                    self.error_next_token_is_unexpected(Token::EqualOrAssign);
                     return None;
                 }
                 self.bump();
@@ -1360,7 +1282,7 @@ impl Parser {
                     Some(e) => e,
                     None => return None
                 };
-                if ! self.is_next_token_expected(Token::To) {
+                if ! self.bump_to_next_expected_token(Token::To) {
                     return None;
                 }
                 self.bump();
@@ -1386,14 +1308,17 @@ impl Parser {
                     Token::BlockEnd(BlockEnd::Else) => {
                         self.bump();
                         let alt = self.parse_block_statement();
-                        if ! self.is_current_token(&Token::BlockEnd(BlockEnd::EndFor)) {
-                            self.error_got_invalid_close_token(Token::BlockEnd(BlockEnd::EndFor));
+                        if ! self.is_current_closing_token_expected(BlockEnd::EndFor) {
                             return None;
                         }
                         Some(alt)
                     },
+                    Token::BlockEnd(_) => {
+                        self.error_current_block_closing_token_was_unexpected(BlockEnd::Next);
+                        return None;
+                    },
                     _ => {
-                        self.error_got_invalid_close_token(Token::BlockEnd(BlockEnd::Next));
+                        self.error_on_current_token(ParseErrorKind::BlockClosingTokenExpected);
                         return None;
                     },
                 };
@@ -1405,7 +1330,10 @@ impl Parser {
                 self.bump();
                 let collection = match self.parse_expression(Precedence::Lowest, false) {
                     Some(e) => e,
-                    None => return None
+                    None => {
+                        self.error_on_current_token(ParseErrorKind::ExpressionIsExpected);
+                        return None;
+                    },
                 };
                 self.bump();
                 let block = self.parse_loop_block_statement();
@@ -1415,21 +1343,24 @@ impl Parser {
                     Token::BlockEnd(BlockEnd::Else) => {
                         self.bump();
                         let alt = self.parse_block_statement();
-                        if ! self.is_current_token(&Token::BlockEnd(BlockEnd::EndFor)) {
-                            self.error_got_invalid_close_token(Token::BlockEnd(BlockEnd::EndFor));
+                        if ! self.is_current_closing_token_expected(BlockEnd::EndFor) {
                             return None;
                         }
                         Some(alt)
                     },
+                    Token::BlockEnd(_) => {
+                        self.error_current_block_closing_token_was_unexpected(BlockEnd::Next);
+                        return None;
+                    },
                     _ => {
-                        self.error_got_invalid_close_token(Token::BlockEnd(BlockEnd::Next));
+                        self.error_on_current_token(ParseErrorKind::BlockClosingTokenExpected);
                         return None;
                     },
                 };
                 Some(Statement::ForIn{loopvar, index_var, islast_var, collection, block, alt})
             },
             _ => {
-                self.error_got_unexpected_token();
+                self.error_current_token_is_invalid();
                 return None;
             }
         }
@@ -1439,11 +1370,13 @@ impl Parser {
         self.bump();
         let expression = match self.parse_expression(Precedence::Lowest, false) {
             Some(e) => e,
-            None => return None
+            None => {
+                self.error_on_current_token(ParseErrorKind::ExpressionIsExpected);
+                return None;
+            }
         };
         let block = self.parse_loop_block_statement();
-        if ! self.is_current_token(&Token::BlockEnd(BlockEnd::Wend)) {
-            self.error_got_invalid_close_token(Token::BlockEnd(BlockEnd::Wend));
+        if ! self.is_current_closing_token_expected(BlockEnd::Wend) {
             return None;
         }
         Some(Statement::While(expression, block))
@@ -1452,8 +1385,7 @@ impl Parser {
     fn parse_repeat_statement(&mut self) -> Option<Statement> {
         self.bump();
         let block = self.parse_loop_block_statement();
-        if ! self.is_current_token(&Token::BlockEnd(BlockEnd::Until)) {
-            self.error_got_invalid_close_token(Token::BlockEnd(BlockEnd::Until));
+        if ! self.is_current_closing_token_expected(BlockEnd::Until) {
             return None;
         }
         self.bump();
@@ -1461,7 +1393,10 @@ impl Parser {
         let line = self.lexer.get_line(row);
         let expression = match self.parse_expression(Precedence::Lowest, false) {
             Some(e) => e,
-            None => return None
+            None => {
+                self.error_on_current_token(ParseErrorKind::ExpressionIsExpected);
+                return None;
+            }
         };
         let stmt = StatementWithRow::new(Statement::Expression(expression), row, line, Some(self.script_name()));
         Some(Statement::Repeat(Box::new(stmt), block))
@@ -1484,7 +1419,10 @@ impl Parser {
                 },
                 _ => e
             },
-            None => return None,
+            None => {
+                self.error_on_current_token(ParseErrorKind::ExpressionIsExpected);
+                return None
+            },
         };
         let current_with = self.get_current_with();
         self.set_with(Some(expression.clone()));
@@ -1494,8 +1432,7 @@ impl Parser {
                 with_temp_assignment.unwrap()
             ));
         }
-        if ! self.is_current_token(&Token::BlockEnd(BlockEnd::EndWith)) {
-            self.error_got_invalid_close_token(Token::BlockEnd(BlockEnd::EndWith));
+        if ! self.is_current_closing_token_expected(BlockEnd::EndWith) {
             return None;
         }
         self.set_with(current_with);
@@ -1513,15 +1450,12 @@ impl Parser {
                 except = Some(self.parse_block_statement());
             },
             Token::BlockEnd(BlockEnd::Finally) => {},
-            t => {
-                self.errors.push(ParseError::new(
-                    ParseErrorKind::UnexpectedToken3(vec![
-                        Token::BlockEnd(BlockEnd::Except),
-                        Token::BlockEnd(BlockEnd::Finally)
-                    ], t),
-                    self.current_token.pos,
-                    self.script_name()
-            ));
+            _ => {
+                let kind = ParseErrorKind::TokenIsNotOneOfExpectedTokens(vec![
+                    Token::BlockEnd(BlockEnd::Except),
+                    Token::BlockEnd(BlockEnd::Finally)
+                ]);
+                self.error_on_current_token(kind);
                 return None;
             },
         }
@@ -1531,30 +1465,22 @@ impl Parser {
                 finally = match self.parse_finally_block_statement() {
                     Ok(b) => Some(b),
                     Err(s) => {
-                        self.errors.push(ParseError::new(
-                            ParseErrorKind::InvalidStatementInFinallyBlock(s),
-                            self.current_token.pos,
-                            self.script_name()
-                        ));
+                        self.error_on_current_token(ParseErrorKind::InvalidStatementInFinallyBlock(s));
                         return None;
                     }
                 };
             },
             Token::BlockEnd(BlockEnd::EndTry) => {},
-            t => {
-                self.errors.push(ParseError::new(
-                    ParseErrorKind::UnexpectedToken3(vec![
-                        Token::BlockEnd(BlockEnd::Finally),
-                        Token::BlockEnd(BlockEnd::EndTry)
-                    ], t),
-                    self.current_token.pos,
-                    self.script_name()
-                ));
+            _ => {
+                let kind = ParseErrorKind::TokenIsNotOneOfExpectedTokens(vec![
+                    Token::BlockEnd(BlockEnd::Finally),
+                    Token::BlockEnd(BlockEnd::EndTry),
+                ]);
+                self.error_on_current_token(kind);
                 return None;
             },
         }
-        if ! self.is_current_token(&Token::BlockEnd(BlockEnd::EndTry)) {
-            self.error_got_invalid_close_token(Token::BlockEnd(BlockEnd::EndTry));
+        if ! self.is_current_closing_token_expected(BlockEnd::EndTry) {
             return None;
         }
 
@@ -1573,7 +1499,10 @@ impl Parser {
                     Statement::Break(_) => return Err("break".into()),
                     _ => block.push(s)
                 }
-                None => ()
+                None => {
+                    self.bump_to_next_row();
+                    continue;
+                },
             }
             self.bump();
         }
@@ -1588,11 +1517,7 @@ impl Parser {
         } else if self.is_current_token_in(vec![Token::Eol, Token::Eof]) {
             Some(Statement::ExitExit(0))
         } else {
-            self.errors.push(ParseError::new(
-                ParseErrorKind::InvalidExitCode,
-                self.current_token.pos,
-                self.script_name()
-            ));
+            self.error_on_current_token(ParseErrorKind::InvalidExitCode);
             None
         }
     }
@@ -1605,7 +1530,7 @@ impl Parser {
             },
             Token::Eol => None,
             _ => {
-                self.error_got_unexpected_token();
+                self.error_current_token_is_invalid();
                 return None;
             },
         };
@@ -1616,21 +1541,13 @@ impl Parser {
         let body = if let Token::TextBlockBody(ref body) = self.current_token.token {
             body.clone()
         } else {
-            self.errors.push(ParseError::new(
-                ParseErrorKind::TextBlockBodyIsMissing,
-                self.current_token.pos,
-                self.script_name()
-            ));
+            self.error_on_current_token(ParseErrorKind::TextBlockBodyIsMissing);
             return None;
         };
         if self.is_next_token(&Token::EndTextBlock) {
             self.bump()
         } else {
-            self.errors.push(ParseError::new(
-                ParseErrorKind::InvalidBlockEnd(Token::EndTextBlock, self.next_token.token()),
-                self.current_token.pos,
-                self.script_name()
-            ));
+            self.error_on_next_token(ParseErrorKind::BlockClosingTokenIsUnexpected(Token::EndTextBlock, self.next_token.token()));
             return None;
         }
         self.bump();
@@ -1667,7 +1584,7 @@ impl Parser {
                     if let Token::Bool(b) = self.current_token.token {
                         Statement::Option(OptionSetting::Explicit(b))
                     } else {
-                        self.error_got_unexpected_token();
+                        self.error_current_token_is_invalid();
                         return None;
                     }
                 }
@@ -1681,7 +1598,7 @@ impl Parser {
                     if let Token::Bool(b) = self.current_token.token {
                         Statement::Option(OptionSetting::SameStr(b))
                     } else {
-                        self.error_got_unexpected_token();
+                        self.error_current_token_is_invalid();
                         return None;
                     }
                 }
@@ -1695,7 +1612,7 @@ impl Parser {
                     if let Token::Bool(b) = self.current_token.token {
                         Statement::Option(OptionSetting::OptPublic(b))
                     } else {
-                        self.error_got_unexpected_token();
+                        self.error_current_token_is_invalid();
                         return None;
                     }
                 }
@@ -1709,7 +1626,7 @@ impl Parser {
                     if let Token::Bool(b) = self.current_token.token {
                         Statement::Option(OptionSetting::OptFinally(b))
                     } else {
-                        self.error_got_unexpected_token();
+                        self.error_current_token_is_invalid();
                         return None;
                     }
                 }
@@ -1723,7 +1640,7 @@ impl Parser {
                     if let Token::Bool(b) = self.current_token.token {
                         Statement::Option(OptionSetting::SpecialChar(b))
                     } else {
-                        self.error_got_unexpected_token();
+                        self.error_current_token_is_invalid();
                         return None;
                     }
                 }
@@ -1737,7 +1654,7 @@ impl Parser {
                     if let Token::Bool(b) = self.current_token.token {
                         Statement::Option(OptionSetting::ShortCircuit(b))
                     } else {
-                        self.error_got_unexpected_token();
+                        self.error_current_token_is_invalid();
                         return None;
                     }
                 }
@@ -1751,7 +1668,7 @@ impl Parser {
                     if let Token::Bool(b) = self.current_token.token {
                         Statement::Option(OptionSetting::NoStopHotkey(b))
                     } else {
-                        self.error_got_unexpected_token();
+                        self.error_current_token_is_invalid();
                         return None;
                     }
                 }
@@ -1765,7 +1682,7 @@ impl Parser {
                     if let Token::Bool(b) = self.current_token.token {
                         Statement::Option(OptionSetting::TopStopform(b))
                     } else {
-                        self.error_got_unexpected_token();
+                        self.error_current_token_is_invalid();
                         return None;
                     }
                 }
@@ -1779,13 +1696,13 @@ impl Parser {
                     if let Token::Bool(b) = self.current_token.token {
                         Statement::Option(OptionSetting::FixBalloon(b))
                     } else {
-                        self.error_got_unexpected_token();
+                        self.error_current_token_is_invalid();
                         return None;
                     }
                 }
             },
             "defaultfont" => {
-                if ! self.is_next_token_expected(Token::EqualOrAssign) {
+                if ! self.bump_to_next_expected_token(Token::EqualOrAssign) {
                     return None;
                 }
                 self.bump();
@@ -1794,28 +1711,28 @@ impl Parser {
                 } else if let Token::ExpandableString(ref s) = self.current_token.token {
                     Statement::Option(OptionSetting::Defaultfont(s.clone()))
                 } else {
-                    self.error_got_unexpected_token();
+                    self.error_current_token_is_invalid();
                     return None;
                 }
             },
             "position" => {
-                if ! self.is_next_token_expected(Token::EqualOrAssign) {
+                if ! self.bump_to_next_expected_token(Token::EqualOrAssign) {
                     return None;
                 }
                 self.bump();
                 if let Token::Num(n1) = self.current_token.token {
-                    if ! self.is_next_token_expected(Token::Comma) {
+                    if ! self.bump_to_next_expected_token(Token::Comma) {
                         return None;
                     }
                     if let Token::Num(n2) = self.current_token.token {
                         return Some(Statement::Option(OptionSetting::Position(n1 as i32, n2 as i32)));
                     }
                 }
-                self.error_got_unexpected_token();
+                self.error_current_token_is_invalid();
                 return None;
             },
             "logpath" => {
-                if ! self.is_next_token_expected(Token::EqualOrAssign) {
+                if ! self.bump_to_next_expected_token(Token::EqualOrAssign) {
                     return None;
                 }
                 self.bump();
@@ -1824,36 +1741,36 @@ impl Parser {
                 } else if let Token::ExpandableString(ref s) = self.current_token.token {
                     Statement::Option(OptionSetting::Logpath(s.clone()))
                 } else {
-                    self.error_got_unexpected_token();
+                    self.error_current_token_is_invalid();
                     return None;
                 }
             },
             "loglines" => {
-                if ! self.is_next_token_expected(Token::EqualOrAssign) {
+                if ! self.bump_to_next_expected_token(Token::EqualOrAssign) {
                     return None;
                 }
                 self.bump();
                 if let Token::Num(n) = self.current_token.token {
                     Statement::Option(OptionSetting::Loglines(n as i32))
                 } else {
-                    self.error_got_unexpected_token();
+                    self.error_current_token_is_invalid();
                     return None;
                 }
             },
             "logfile" => {
-                if ! self.is_next_token_expected(Token::EqualOrAssign) {
+                if ! self.bump_to_next_expected_token(Token::EqualOrAssign) {
                     return None;
                 }
                 self.bump();
                 if let Token::Num(n) = self.current_token.token {
                     Statement::Option(OptionSetting::Logfile(n as i32))
                 } else {
-                    self.error_got_unexpected_token();
+                    self.error_current_token_is_invalid();
                     return None;
                 }
             },
             "dlgtitle" => {
-                if ! self.is_next_token_expected(Token::EqualOrAssign) {
+                if ! self.bump_to_next_expected_token(Token::EqualOrAssign) {
                     return None;
                 }
                 self.bump();
@@ -1862,7 +1779,7 @@ impl Parser {
                 } else if let Token::ExpandableString(ref s) = self.current_token.token {
                     Statement::Option(OptionSetting::Dlgtitle(s.clone()))
                 } else {
-                    self.error_got_unexpected_token();
+                    self.error_current_token_is_invalid();
                     return None;
                 }
             },
@@ -1873,7 +1790,7 @@ impl Parser {
                     if let Token::Bool(b) = self.current_token.token {
                         Statement::Option(OptionSetting::GuiPrint(b))
                     } else {
-                        self.error_got_unexpected_token();
+                        self.error_current_token_is_invalid();
                         return None;
                     }
                 } else {
@@ -1887,7 +1804,7 @@ impl Parser {
                     if let Token::Bool(b) = self.current_token.token {
                         Statement::Option(OptionSetting::GuiPrint(b))
                     } else {
-                        self.error_got_unexpected_token();
+                        self.error_current_token_is_invalid();
                         return None;
                     }
                 } else {
@@ -1903,16 +1820,13 @@ impl Parser {
                     if let Token::Bool(b) = self.current_token.token {
                         Statement::Option(OptionSetting::AllowIEObj(b))
                     } else {
-                        self.error_got_unexpected_token();
+                        self.error_current_token_is_invalid();
                         return None;
                     }
                 }
             },
             name => {
-                self.errors.push(ParseError::new(
-                    ParseErrorKind::UnexpectedOption(name.to_string()),
-                    self.current_token.pos, self.script_name()
-                ));
+                self.error_on_current_token(ParseErrorKind::UnexpectedOption(name.to_string()));
                 return None;
             },
         };
@@ -1921,75 +1835,50 @@ impl Parser {
 
     fn parse_enum_statement(&mut self) -> Option<Statement> {
         self.bump();
-        let name = if let Some(Identifier(name)) = self.parse_identifier() {
-            name
-        } else {
-            self.error_token_is_not_identifier();
-            return None;
-        };
+        let Identifier(name) = self.parse_identifier()?;
         self.bump();
         self.bump();
         let mut u_enum = UEnum::new(&name);
         let mut next = 0.0;
         loop {
-            if let Some(Identifier(id)) = self.parse_identifier() {
-                if self.is_next_token(&Token::EqualOrAssign) {
-                    self.bump();
-                    self.bump();
-                    let n = match self.parse_expression(Precedence::Lowest, false) {
-                        Some(e) => match e {
-                            Expression::Literal(Literal::Num(n)) => n,
-                            _ => {
-                                self.errors.push(ParseError::new(
-                                    ParseErrorKind::EnumMemberShouldBeNumber(name, id),
-                                    self.current_token.pos,
-                                    self.script_name()
-                                ));
-                                return None;
-                            },
-                        },
-                        None => {
-                            self.errors.push(ParseError::new(
-                                ParseErrorKind::EnumValueShouldBeDefined(name, id),
-                                self.current_token.pos,
-                                self.script_name()
-                            ));
+            let Identifier(id) = self.parse_identifier()?;
+            if self.is_next_token(&Token::EqualOrAssign) {
+                self.bump();
+                self.bump();
+                let n = match self.parse_expression(Precedence::Lowest, false) {
+                    Some(e) => match e {
+                        Expression::Literal(Literal::Num(n)) => n,
+                        _ => {
+                            self.error_on_current_token(ParseErrorKind::EnumMemberShouldBeNumber(name, id));
                             return None;
                         },
-                    };
-                    // next以下の数値が指定されたらエラー
-                    if n < next {
-                        self.errors.push(ParseError::new(
-                            ParseErrorKind::EnumValueIsInvalid(name, id, next),
-                            self.current_token.pos,
-                            self.script_name()
-                        ));
+                    },
+                    None => {
+                        self.error_on_current_token(ParseErrorKind::EnumValueShouldBeDefined(name, id));
                         return None;
-                    }
-                    next = n;
-                }
-                if u_enum.add(&id, next).is_err() {
-                    self.errors.push(ParseError::new(
-                        ParseErrorKind::EnumMemberDuplicated(name, id),
-                        self.current_token.pos,
-                        self.script_name()
-                    ));
+                    },
+                };
+                // next以下の数値が指定されたらエラー
+                if n < next {
+                    self.error_on_current_token(ParseErrorKind::EnumValueIsInvalid(name, id, next));
                     return None;
                 }
-                if ! self.is_next_token_expected(Token::Eol) {
-                    return None;
-                }
-                self.bump();
-                if self.is_current_token_end_of_block() {
-                    break;
-                }
-                next += 1.0;
-            } else {
-                self.error_token_is_not_identifier();
+                next = n;
+            }
+            if u_enum.add(&id, next).is_err() {
+                self.error_on_current_token(ParseErrorKind::EnumMemberDuplicated(name, id));
                 return None;
             }
+            if ! self.bump_to_next_expected_token(Token::Eol) {
+                return None;
+            }
+            self.bump();
+            if self.is_current_token_end_of_block() {
+                break;
+            }
+            next += 1.0;
         }
-        if ! self.is_expected_close_token(Token::BlockEnd(BlockEnd::EndEnum)) {
+        if ! self.is_current_closing_token_expected(BlockEnd::EndEnum) {
             return None;
         }
         Some(Statement::Enum(name, u_enum))
@@ -2001,11 +1890,7 @@ impl Parser {
         match expression {
             Some(Expression::FuncCall{func:_,args:_,is_await:_}) => Some(Statement::Thread(expression.unwrap())),
             _ => {
-                self.errors.push(ParseError::new(
-                    ParseErrorKind::InvalidThreadCall,
-                    self.current_token.pos,
-                    self.script_name()
-                ));
+                self.error_on_current_token(ParseErrorKind::InvalidThreadCall);
                 None
             }
         }
@@ -2022,7 +1907,9 @@ impl Parser {
         }
     }
 
+    /// is_sol: 行の始めかどうか
     fn parse_expression(&mut self, precedence: Precedence, is_sol: bool) -> Option<Expression> {
+
         // prefix
         let mut left = match self.current_token.token {
             Token::Identifier(_) => {
@@ -2030,26 +1917,84 @@ impl Parser {
                 if is_sol {
                     if let Some(e) = self.parse_assignment(self.next_token.token.clone(), identifier.clone().unwrap()) {
                         return Some(e);
+                    } else {
+                        // 次のトークンがピリオド以外なら不正なトークンとする
+                        if ! self.is_next_token(&Token::Period) {
+                            self.error_current_token_is_invalid();
+                            return None;
+                        }
                     }
                 }
                 identifier
             },
-            Token::Empty => Some(Expression::Literal(Literal::Empty)),
-            Token::Null => Some(Expression::Literal(Literal::Null)),
-            Token::Nothing => Some(Expression::Literal(Literal::Nothing)),
-            Token::NaN => Some(Expression::Literal(Literal::NaN)),
-            Token::Num(_) => self.parse_number_expression(),
-            Token::Hex(_) => self.parse_hex_expression(),
+            Token::Empty => if is_sol {
+                self.error_current_token_is_invalid();
+                return None;
+            } else {
+                Some(Expression::Literal(Literal::Empty))
+            },
+            Token::Null => if is_sol {
+                self.error_current_token_is_invalid();
+                return None;
+            } else {
+                Some(Expression::Literal(Literal::Null))
+            },
+            Token::Nothing => if is_sol {
+                self.error_current_token_is_invalid();
+                return None;
+            } else {
+                Some(Expression::Literal(Literal::Nothing))
+            },
+            Token::NaN => if is_sol {
+                self.error_current_token_is_invalid();
+                return None;
+            } else {
+                Some(Expression::Literal(Literal::NaN))
+            },
+            Token::Num(_) => if is_sol {
+                self.error_current_token_is_invalid();
+                return None;
+            } else {
+                self.parse_number_expression()
+            },
+            Token::Hex(_) => if is_sol {
+                self.error_current_token_is_invalid();
+                return None;
+            } else {
+                self.parse_hex_expression()
+            },
             Token::ExpandableString(_) |
-            Token::String(_) => self.parse_string_expression(),
-            Token::Bool(_) => self.parse_bool_expression(),
-            Token::Lbracket => self.parse_array_expression(),
-            Token::Bang | Token::Minus | Token::Plus => self.parse_prefix_expression(),
+            Token::String(_) => if is_sol {
+                self.error_current_token_is_invalid();
+                return None;
+            } else {
+                self.parse_string_expression()
+            },
+            Token::Bool(_) => if is_sol {
+                self.error_current_token_is_invalid();
+                return None;
+            } else {
+                self.parse_bool_expression()
+            },
+            Token::Lbracket => if is_sol {
+                self.error_current_token_is_invalid();
+                return None;
+            } else {
+                self.parse_array_expression()
+            },
+            Token::Bang | Token::Minus | Token::Plus => if is_sol {
+                self.error_current_token_is_invalid();
+                return None;
+            } else {
+                self.parse_prefix_expression()
+            },
             Token::Lparen => self.parse_grouped_expression(),
             Token::Function => self.parse_function_expression(false),
             Token::Procedure => self.parse_function_expression(true),
             Token::Await => return self.parse_await_func_call_expression(),
-            Token::Then | Token::Eol => return None,
+            Token::Eol => {
+                return None;
+            },
             Token::Period => {
                 let e = self.parse_with_dot_expression();
                 if is_sol && e.is_some() {
@@ -2059,31 +2004,34 @@ impl Parser {
                 }
                 e
             },
-            Token::UObject(ref s) => {
+            Token::UObject(ref s) => if is_sol {
+                self.error_current_token_is_invalid();
+                return None;
+            } else {
                 Some(Expression::UObject(s.clone()))
             },
             Token::UObjectNotClosing => {
-                self.errors.push(ParseError::new(
-                    ParseErrorKind::InvalidUObjectEnd,
-                    self.current_token.pos,
-                    self.script_name()
-                ));
+                self.error_on_current_token(ParseErrorKind::InvalidUObjectEnd);
                 return None
             },
             Token::Pipeline => self.parse_lambda_function_expression(),
-            Token::ComErrFlg => Some(Expression::ComErrFlg),
-            Token::Ref => {
+            Token::ComErrFlg => if is_sol {
+                self.error_current_token_is_invalid();
+                return None;
+            } else {
+                Some(Expression::ComErrFlg)
+            },
+            Token::Ref => if is_sol {
+                self.error_current_token_is_invalid();
+                return None;
+            } else {
                 // COMメソッドの引数にvarが付く場合
                 // var <Identifier> とならなければいけない
                 self.bump();
                 match self.parse_expression(Precedence::Lowest, false) {
                     Some(e) => return Some(Expression::RefArg(Box::new(e))),
                     None => {
-                        self.errors.push(ParseError::new(
-                            ParseErrorKind::MissingIdentifierAfterVar,
-                            self.current_token.pos,
-                            self.script_name()
-                        ));
+                        self.error_on_current_token(ParseErrorKind::MissingIdentifierAfterVar);
                         return None
                     }
                 }
@@ -2093,19 +2041,24 @@ impl Parser {
                     if is_sol {
                         if let Some(e) = self.parse_assignment(self.next_token.token.clone(), e.clone()) {
                             return Some(e);
+                        } else {
+                            self.error_current_token_is_invalid();
+                            return None;
                         }
                     }
                     Some(e)
                 },
-                None => return None
+                None => {
+                    self.error_on_current_token(ParseErrorKind::ExpressionIsExpected);
+                    return None;
+                }
             },
         };
 
-
         // infix
         while (
-            ! self.is_next_token(&Token::Semicolon)
-            || ! self.is_next_token(&Token::Eol)
+            ! self.is_next_token(&Token::Semicolon) ||
+            ! self.is_next_token(&Token::Eol)
         ) && precedence < self.next_token_precedence() {
             if left.is_none() {
                 return None;
@@ -2131,7 +2084,15 @@ impl Parser {
                 Token::AndB |
                 Token::OrB |
                 Token::XorB |
-                Token::Mod |
+                Token::Mod => {
+                    self.bump();
+                    left = if is_sol {
+                        self.error_current_token_is_invalid();
+                        return None;
+                    } else {
+                        self.parse_infix_expression(left.unwrap())
+                    };
+                },
                 Token::To |
                 Token::Step |
                 Token::In => {
@@ -2145,10 +2106,7 @@ impl Parser {
                         let index = match self.parse_index_expression(left.unwrap()) {
                             Some(e) => e,
                             None => {
-                                self.errors.push(ParseError::new(
-                                    ParseErrorKind::MissingIndex,
-                                    self.next_token.pos, self.script_name()
-                                ));
+                                self.error_on_next_token(ParseErrorKind::MissingIndex);
                                 return None;
                             },
                         };
@@ -2216,16 +2174,15 @@ impl Parser {
             Token::Async |
             Token::Await |
             Token::NaN => {
-                self.errors.push(ParseError::new(
-                    ParseErrorKind::ReservedKeyword(token.clone()),
-                    self.current_token.pos,
-                    self.script_name()
-                ));
+                self.error_on_current_token(ParseErrorKind::ReservedKeyword(token.clone()));
                 return None;
             },
             Token::Blank |
             Token::Eof |
-            Token::Eol |
+            Token::Eol => {
+                self.error_on_current_token(ParseErrorKind::IdentifierExpected);
+                return None;
+            },
             Token::Num(_) |
             Token::Hex(_) |
             Token::String(_) |
@@ -2268,9 +2225,13 @@ impl Parser {
             Token::Ref |
             Token::Variadic |
             Token::Pipeline |
-            Token::Arrow |
-            Token::Illegal(_) => {
-                self.error_no_prefix_parser();
+            Token::Arrow => {
+                self.error_on_current_token(ParseErrorKind::TokenCanNotBeUsedAsIdentifier);
+                return None
+            },
+            Token::Illegal(c) => {
+                let kind = ParseErrorKind::IllegalCharacter(*c);
+                self.error_on_current_token(kind);
                 return None;
             },
             Token::Print |
@@ -2321,11 +2282,7 @@ impl Parser {
         match self.get_current_with() {
             Some(e) => self.parse_dotcall_expression(e),
             None => {
-                self.errors.push(ParseError::new(
-                    ParseErrorKind::OutOfWith,
-                    self.current_token.pos,
-                    self.script_name()
-                ));
+                self.error_on_current_token(ParseErrorKind::OutOfWith);
                 return None;
             }
         }
@@ -2345,11 +2302,7 @@ impl Parser {
             match u64::from_str_radix(s, 16) {
                 Ok(u) => Some(Expression::Literal(Literal::Num(u as i64 as f64))),
                 Err(_) => {
-                    self.errors.push(ParseError::new(
-                        ParseErrorKind::InvalidHexNumber(s.to_string()),
-                        self.current_token.pos,
-                        self.script_name()
-                    ));
+                    self.error_on_current_token(ParseErrorKind::InvalidHexNumber(s.to_string()));
                     None
                 }
             }
@@ -2424,11 +2377,11 @@ impl Parser {
 
         if end == Token::Eol {
             if ! self.is_next_token(&end) && ! self.is_next_token(&Token::Eof) {
-                self.error_got_unexpected_next_token();
+                self.error_next_token_is_invalid();
                 return None;
             }
         } else {
-            if ! self.is_next_token_expected(end) {
+            if ! self.bump_to_next_expected_token(end) {
                 return None;
             }
         }
@@ -2532,7 +2485,7 @@ impl Parser {
         } else {
             None
         };
-        if ! self.is_next_token_expected(Token::Rbracket) {
+        if ! self.bump_to_next_expected_token(Token::Rbracket) {
             return None;
         }
 
@@ -2542,7 +2495,7 @@ impl Parser {
     fn parse_grouped_expression(&mut self) -> Option<Expression> {
         self.bump();
         let expression = self.parse_expression(Precedence::Lowest, false);
-        if ! self.is_next_token_expected(Token::Rparen) {
+        if ! self.bump_to_next_expected_token(Token::Rparen) {
             None
         } else {
             expression
@@ -2554,7 +2507,7 @@ impl Parser {
         let member = match self.parse_identifier_expression() {
             Some(e) => e,
             None => {
-                self.error_token_is_not_identifier();
+                self.error_current_token_is_not_identifier();
                 return None;
             }
         };
@@ -2574,17 +2527,11 @@ impl Parser {
             // eolじゃなかったら単行IF
             // if condition then consequence [else alternative]
             self.bump();
-            let consequence = match self.parse_statement() {
-                Some(s) => s,
-                None => return None
-            };
+            let consequence = self.parse_statement()?;
             let alternative = if self.is_next_token(&Token::BlockEnd(BlockEnd::Else)) {
                 self.bump();
                 self.bump();
-                match self.parse_statement() {
-                    Some(s) => Some(s),
-                    None => return None
-                }
+                Some(self.parse_statement()?)
             } else {
                 None
             };
@@ -2613,8 +2560,7 @@ impl Parser {
 
         if self.is_current_token(&Token::BlockEnd(BlockEnd::Else)) {
             let alternative:Option<BlockStatement> = Some(self.parse_block_statement());
-            if ! self.is_current_token(&Token::BlockEnd(BlockEnd::EndIf)) {
-                self.error_got_invalid_close_token(Token::BlockEnd(BlockEnd::EndIf));
+            if ! self.is_current_closing_token_expected(BlockEnd::EndIf) {
                 return None;
             }
             return Some(Statement::If {
@@ -2645,8 +2591,7 @@ impl Parser {
                 }
             }
         }
-        if ! self.is_current_token(&Token::BlockEnd(BlockEnd::EndIf)) {
-            self.error_got_invalid_close_token(Token::BlockEnd(BlockEnd::EndIf));
+        if ! self.is_current_closing_token_expected(BlockEnd::EndIf) {
             return None;
         }
         Some(Statement::ElseIf {
@@ -2661,7 +2606,10 @@ impl Parser {
         self.bump();
         let expression = match self.parse_expression(Precedence::Lowest, false) {
             Some(e) => e,
-            None => return None
+            None => {
+                self.error_on_current_token(ParseErrorKind::ExpressionIsExpected);
+                return None;
+            }
         };
         let mut cases = vec![];
         let mut default = None;
@@ -2686,8 +2634,7 @@ impl Parser {
                 _ => return None
             }
         }
-        if ! self.is_current_token(&Token::BlockEnd(BlockEnd::Selend)) {
-            self.error_got_invalid_close_token(Token::BlockEnd(BlockEnd::Selend));
+        if ! self.is_current_closing_token_expected(BlockEnd::Selend) {
             return None;
         }
         Some(Statement::Select {expression, cases, default})
@@ -2699,11 +2646,7 @@ impl Parser {
             Token::Function => self.parse_function_statement(false, true),
             Token::Procedure => self.parse_function_statement(true, true),
             _ => {
-                self.errors.push(ParseError::new(
-                    ParseErrorKind::FunctionRequiredAfterAsync,
-                    self.current_token.pos,
-                    self.script_name(),
-                ));
+                self.error_on_current_token(ParseErrorKind::FunctionRequiredAfterAsync);
                 return None;
             },
         }
@@ -2711,13 +2654,7 @@ impl Parser {
 
     fn parse_function_statement(&mut self, is_proc: bool, is_async: bool) -> Option<Statement> {
         self.bump();
-        let name = match self.parse_identifier() {
-            Some(i) => i,
-            None => {
-                self.error_token_is_not_identifier();
-                return None;
-            },
-        };
+        let name = self.parse_identifier()?;
 
         let params = if self.is_next_token(&Token::Lparen) {
             self.bump();
@@ -2732,8 +2669,7 @@ impl Parser {
         self.bump();
         let body = self.parse_block_statement();
 
-        if ! self.is_current_token(&Token::BlockEnd(BlockEnd::Fend)) {
-            self.error_got_invalid_close_token(Token::BlockEnd(BlockEnd::Fend));
+        if ! self.is_current_closing_token_expected(BlockEnd::Fend) {
             return None;
         }
         Some(Statement::Function{name, params, body, is_proc, is_async})
@@ -2741,27 +2677,20 @@ impl Parser {
 
     fn parse_module_statement(&mut self) -> Option<Statement> {
         self.bump();
-        let identifier = match self.parse_identifier() {
-            Some(i) => i,
-            None => {
-                self.error_token_is_not_identifier();
-                return None;
-            },
-        };
+        let identifier = self.parse_identifier()?;
         self.bump();
         let mut block = vec![];
         while ! self.is_current_token(&Token::BlockEnd(BlockEnd::EndModule)) {
             if self.is_current_token(&Token::Eof) {
-                self.errors.push(ParseError::new(
-                    ParseErrorKind::InvalidBlockEnd(Token::BlockEnd(BlockEnd::EndModule), self.current_token.token.clone()),
-                    self.current_token.pos,
-                    self.script_name()
-                ));
+                self.error_current_block_closing_token_was_unexpected(BlockEnd::EndModule);
                 return None;
             }
             match self.parse_statement() {
                 Some(s) => block.push(s),
-                None => ()
+                None => {
+                    self.bump_to_next_row();
+                    continue;
+                },
             }
             self.bump();
         }
@@ -2770,27 +2699,18 @@ impl Parser {
 
     fn parse_class_statement(&mut self) -> Option<Statement> {
         let class_statement_pos = self.current_token.pos;
+        let class_statement_end = self.current_token.get_end_pos();
         self.bump();
-        let identifier = match self.parse_identifier() {
-            Some(i) => i,
-            None => {
-                self.error_token_is_not_identifier();
-                return None;
-            },
-        };
+        let identifier = self.parse_identifier()?;
         self.bump();
         let mut block = vec![];
         let mut has_constructor = false;
         while ! self.is_current_token(&Token::BlockEnd(BlockEnd::EndClass)) {
             if self.is_current_token(&Token::Eof) {
-                self.errors.push(ParseError::new(
-                    ParseErrorKind::InvalidBlockEnd(Token::BlockEnd(BlockEnd::EndClass), self.current_token.token.clone()),
-                    self.current_token.pos,
-                    self.script_name()
-                ));
+                self.error_current_block_closing_token_was_unexpected(BlockEnd::EndClass);
                 return None;
             }
-            let cur_pos = self.current_token.pos;
+            // let cur_pos = self.current_token.pos;
             match self.parse_statement() {
                 Some(s) => match s.statement {
                     Statement::Dim(_) |
@@ -2806,24 +2726,24 @@ impl Parser {
                         block.push(s);
                     },
                     _ => {
-                        self.errors.push(ParseError::new(
-                            ParseErrorKind::InvalidClassMemberDefinition(s.statement),
-                            cur_pos,
-                            self.script_name()
-                        ));
+                        // self.errors.push(ParseError::new(
+                        //     ParseErrorKind::InvalidClassMemberDefinition(s.statement),
+                        //     cur_pos,
+                        //     self.script_name()
+                        // ));
+                        self.error_on_current_token(ParseErrorKind::InvalidClassMemberDefinition(s.statement));
                         return None;
                     },
                 },
-                None => ()
+                None => {
+                    self.bump_to_next_row();
+                    continue;
+                },
             }
             self.bump();
         }
         if ! has_constructor {
-            self.errors.push(ParseError::new(
-                ParseErrorKind::ClassHasNoConstructor(identifier),
-                class_statement_pos,
-                self.script_name()
-            ));
+            self.push_error(ParseErrorKind::ClassHasNoConstructor(identifier), class_statement_pos, class_statement_end);
             return None;
         }
         Some(Statement::Class(identifier, block))
@@ -2837,7 +2757,7 @@ impl Parser {
             None => return None
         };
 
-        if ! self.is_next_token_expected(Token::Colon) {
+        if ! self.bump_to_next_expected_token(Token::Colon) {
             return None;
         }
         self.bump();
@@ -2854,7 +2774,7 @@ impl Parser {
     }
 
     fn parse_function_expression(&mut self, is_proc: bool) -> Option<Expression> {
-        if ! self.is_next_token_expected(Token::Lparen) {
+        if ! self.bump_to_next_expected_token(Token::Lparen) {
             return None;
         }
 
@@ -2866,7 +2786,7 @@ impl Parser {
         let body = self.parse_block_statement();
 
         if ! self.is_current_token(&Token::BlockEnd(BlockEnd::Fend)) {
-            self.error_got_invalid_close_token(Token::BlockEnd(BlockEnd::Fend));
+            self.error_current_block_closing_token_was_unexpected(BlockEnd::Fend);
             return None;
         }
 
@@ -2915,7 +2835,7 @@ impl Parser {
                     Some(self.script_name())
                 ));
             } else {
-                self.error_got_unexpected_next_token();
+                self.error_next_token_is_invalid();
                 return None
             }
             self.bump();
@@ -2944,24 +2864,24 @@ impl Parser {
                         ParamKind::Identifier |
                         ParamKind::Reference => {
                             if with_default_flg {
-                                self.error_got_bad_parameter(ParseErrorKind::ParameterShouldBeDefault(ident));
+                                self.error_on_current_token(ParseErrorKind::ParameterShouldBeDefault(ident));
                                 return None;
                             } else if variadic_flg {
-                                self.error_got_bad_parameter(ParseErrorKind::ParameterCannotBeDefinedAfterVariadic(ident));
+                                self.error_on_current_token(ParseErrorKind::ParameterCannotBeDefinedAfterVariadic(ident));
                                 return None;
                             }
                         },
                         ParamKind::Default(_) => if variadic_flg {
-                            self.error_got_bad_parameter(ParseErrorKind::ParameterCannotBeDefinedAfterVariadic(ident));
+                            self.error_on_current_token(ParseErrorKind::ParameterCannotBeDefinedAfterVariadic(ident));
                             return None;
                         } else {
                             with_default_flg = true;
                         },
                         ParamKind::Variadic => if with_default_flg {
-                            self.error_got_bad_parameter(ParseErrorKind::ParameterShouldBeDefault(ident));
+                            self.error_on_current_token(ParseErrorKind::ParameterShouldBeDefault(ident));
                             return None;
                         } else if variadic_flg {
-                            self.error_got_bad_parameter(ParseErrorKind::ParameterCannotBeDefinedAfterVariadic(ident));
+                            self.error_on_current_token(ParseErrorKind::ParameterCannotBeDefinedAfterVariadic(ident));
                             return None;
                         } else {
                             variadic_flg = true;
@@ -2981,8 +2901,7 @@ impl Parser {
                 break;
             }
         }
-        if ! self.is_next_token_expected(end_token) {
-            // self.error_got_invalid_close_token(Token::Rparen);
+        if ! self.bump_to_next_expected_token(end_token) {
             return None;
         }
         Some(params)
@@ -2994,10 +2913,10 @@ impl Parser {
                 let (kind, param_type) = if self.is_next_token(&Token::Lbracket) {
                     // 配列引数定義
                     self.bump();
-                    let k = if self.is_next_token_expected(Token::Rbracket) {
+                    let k = if self.bump_to_next_expected_token(Token::Rbracket) {
                         while self.is_next_token(&Token::Lbracket) {
                             self.bump();
-                            if !self.is_next_token_expected(Token::Rbracket) {
+                            if !self.bump_to_next_expected_token(Token::Rbracket) {
                                 return None;
                             }
                         }
@@ -3053,10 +2972,10 @@ impl Parser {
                         self.bump();
                         let kind= if self.is_next_token(&Token::Lbracket) {
                             self.bump();
-                            if self.is_next_token_expected(Token::Rbracket) {
+                            if self.bump_to_next_expected_token(Token::Rbracket) {
                                 while self.is_next_token(&Token::Lbracket) {
                                     self.bump();
-                                    if ! self.is_next_token_expected(Token::Rbracket) {
+                                    if ! self.bump_to_next_expected_token(Token::Rbracket) {
                                         return None;
                                     }
                                 }
@@ -3079,7 +2998,7 @@ impl Parser {
                         Some(FuncParam::new_with_type(Some(name), kind, param_type))
                     }
                     _ => {
-                        self.error_got_unexpected_next_token();
+                        self.error_next_token_is_invalid();
                         None
                     }
                 }
@@ -3089,12 +3008,12 @@ impl Parser {
                     self.bump();
                     Some(FuncParam::new(Some(name), ParamKind::Variadic))
                 } else {
-                    self.error_got_unexpected_next_token();
+                    self.error_next_token_is_invalid();
                     None
                 }
             },
             _ => {
-                self.error_got_unexpected_token();
+                self.error_current_token_is_invalid();
                 None
             }
         }
@@ -3108,7 +3027,7 @@ impl Parser {
                 Some(ParamType::from(name))
             },
             None => {
-                self.error_got_unexpected_token();
+                self.error_current_token_is_invalid();
                 None
             }
         }
@@ -3116,17 +3035,12 @@ impl Parser {
 
     fn parse_await_func_call_expression(&mut self) -> Option<Expression> {
         self.bump();
-        let pos = self.current_token.pos;
         match self.parse_expression(Precedence::Lowest, false) {
             Some(Expression::FuncCall{func,args,is_await:_}) => {
                 Some(Expression::FuncCall{func,args,is_await:true})
             },
             _ => {
-                self.errors.push(ParseError::new(
-                    ParseErrorKind::FunctionCallRequiredAfterAwait,
-                    pos,
-                    self.script_name()
-                ));
+                self.error_on_current_token(ParseErrorKind::FunctionCallRequiredAfterAwait);
                 None
             }
         }
@@ -3174,7 +3088,7 @@ impl Parser {
                 if self.is_next_token(&Token::Comma) {
                     self.bump();
                 } else {
-                    if ! self.is_next_token_expected(end) {
+                    if ! self.bump_to_next_expected_token(end) {
                         return None;
                     }
                     break;

@@ -9,32 +9,53 @@ use std::fmt;
 #[derive(Debug, Clone)]
 pub enum ParseErrorKind {
     SyntaxError,
+    /// 次のトークンが期待されたものではない
+    ///
+    /// expected, next
+    NextTokenIsUnexpected(Token, Token),
+    /// 現トークンが期待されたものではない
+    ///
+    /// expected, next
+    CurrentTokenIsUnexpected(Token, Token),
+    /// ブロックの閉じトークンが期待されたものではない
+    ///
+    /// expected, next
+    BlockClosingTokenIsUnexpected(Token, Token),
+    /// トークンが識別子ではない
+    CurrentTokenIsNotIdentifier,
+    /// 現在のトークンが期待されたものではない
+    CurrentTokenIsInvalid(Token),
+    /// 次のトークンが期待されたものではない
+    NextTokenIsInvalid(Token),
+    /// 現在のトークンが期待されるトークンのいずれでもない
+    ///
+    /// expected
+    TokenIsNotOneOfExpectedTokens(Vec<Token>),
+    /// 式が必要な箇所に存在しない
+    ExpressionIsExpected,
+    /// Identifierに変換できないトークン
+    TokenCanNotBeUsedAsIdentifier,
+    /// トークンとして使えない不正な文字列
+    IllegalCharacter(char),
+    /// 識別子が必要
+    IdentifierExpected,
+    /// ブロック終端ではない
+    BlockClosingTokenExpected,
+
     UnexpectedOption(String),
-    UnexpectedToken(Token, Token),
-    UnexpectedToken2(Token),
-    UnexpectedToken3(Vec<Token>, Token),
-    IdentifierExpected(Token),
-    NoPrefixParserFound(Token),
     InvalidExitCode,
-    InvalidBlockEnd(Token, Token),
     ValueMustBeDefined(Identifier),
-    // BadParameter(String),
     ParameterShouldBeDefault(Identifier),
     ParameterCannotBeDefinedAfterVariadic(Identifier),
     OutOfWith,
     OutOfLoop(Token),
-    InvalidStatement(Statement),
     InvalidStatementInFinallyBlock(String),
     ClassHasNoConstructor(Identifier),
-    // InvalidJson,
-    // InvalidFilePath,
     InvalidDllType(String),
     DllPathNotFound,
-    DllDefinitionError(String),
-    DllDefinitionMissingLeftBrace,
-    // InvalidIdentifier,
     InvalidHexNumber(String),
     CanNotCallScript(String, String),
+    /// uwslファイルの読み込みに失敗
     CanNotLoadUwsl(String, String),
     WhitespaceRequiredAfter(String),
     SizeRequired,
@@ -51,6 +72,7 @@ pub enum ParseErrorKind {
     FunctionCallRequiredAfterAwait,
     InvalidClassMemberDefinition(Statement),
     MissingIndex,
+    /// 連想配列定義が不正
     InvalidHashMemberDefinition(Option<Expression>),
     InvalidCallUri(String),
     ExplicitError(String),
@@ -58,9 +80,10 @@ pub enum ParseErrorKind {
 
 #[derive(Debug, Clone)]
 pub struct ParseError {
-    kind: ParseErrorKind,
-    pos: Position,
-    script_name: String
+    pub kind: ParseErrorKind,
+    pub start: Position,
+    pub end: Position,
+    pub script_name: String
 }
 
 impl fmt::Display for ParseErrorKind {
@@ -69,59 +92,71 @@ impl fmt::Display for ParseErrorKind {
             ParseErrorKind::SyntaxError => write!(f,
                 "Syntax Error"
             ),
+            ParseErrorKind::NextTokenIsUnexpected(expected, next) => write_locale!(f,
+                "不正なトークン({next}); 期待されるトークンは{expected}",
+                "Expected token was {expected}, but got {next}",
+            ),
+            ParseErrorKind::CurrentTokenIsUnexpected(expected, next) => write_locale!(f,
+                "不正なトークン({next}); 期待されるトークンは{expected}",
+                "Expected token was {expected}, but got {next}",
+            ),
+            ParseErrorKind::BlockClosingTokenIsUnexpected(expected, next) => write_locale!(f,
+                "不正なブロック終端({next}); {expected}が必要です",
+                "Expected token was {expected}, but got {next} for the end of block",
+            ),
+            ParseErrorKind::CurrentTokenIsNotIdentifier => write_locale!(f,
+                "識別子ではありません",
+                "This token is not an Identifier",
+            ),
+            ParseErrorKind::CurrentTokenIsInvalid(token) => write_locale!(f,
+                "不正なトークンです: {token}",
+                "Invalid token: {token}",
+            ),
+            ParseErrorKind::NextTokenIsInvalid(token) => write_locale!(f,
+                "不正なトークンです: {token}",
+                "Invalid token: {token}",
+            ),
+            ParseErrorKind::TokenIsNotOneOfExpectedTokens(expected) => write_locale!(f,
+                "いずれかのトークンが必要です: {}",
+                "One of these tokens is required: {}",
+                expected.iter().map(|t| t.to_string()).reduce(|a, b| a + ", " + &b).unwrap_or_default()
+            ),
+            ParseErrorKind::ExpressionIsExpected => write_locale!(f,
+                "式が必要です",
+                "expression is required",
+            ),
+            ParseErrorKind::TokenCanNotBeUsedAsIdentifier => write_locale!(f,
+                "識別子ではありません",
+                "Token is not an Identifier",
+            ),
+            ParseErrorKind::IllegalCharacter(c) => write_locale!(f,
+                "不正な文字: {}",
+                "Invalid character: {}",
+                c.escape_unicode()
+            ),
+            ParseErrorKind::IdentifierExpected => write_locale!(f,
+                "識別子が必要です",
+                "Identifier is Expected",
+            ),
+            ParseErrorKind::BlockClosingTokenExpected => write_locale!(f,
+                "ブロック終端がありません",
+                "Block is not closing correctly",
+            ),
+
             ParseErrorKind::UnexpectedOption(name) => write_locale!(f,
                 "不正なオプション名: {}",
                 "Invalid option name: {}",
                 name
             ),
-            ParseErrorKind::UnexpectedToken(expected, got) => write_locale!(f,
-                "不正なトークン({1}): {0}が必要です",
-                "Expected token was {} but got {}",
-                expected.to_string(), got.to_string()
-            ),
-            ParseErrorKind::UnexpectedToken2(got) => write_locale!(f,
-                "不正なトークン({})",
-                "Unexpected token: {}",
-                got.to_string()
-            ),
-            ParseErrorKind::UnexpectedToken3(expected, got) =>write_locale!(f,
-                "不正なトークン({1}): {0}が必要です",
-                "Expected token was {} but got {}",
-                expected.into_iter()
-                    .map(|t|t.to_string())
-                    .collect::<Vec<String>>()
-                    .join(", ")
-                , got.to_string()
-            ),
-            ParseErrorKind::IdentifierExpected(got) => write_locale!(f,
-                "不正なトークン({}): 識別子が必要です",
-                "Identifier was expected but got {}",
-                got.to_string()
-            ),
-            ParseErrorKind::NoPrefixParserFound(token) => write_locale!(f,
-                "解析可能なトークンではありません({})",
-                "No prefix parser found for {}",
-                token.to_string()
-            ),
             ParseErrorKind::InvalidExitCode => write_locale!(f,
                 "終了コードが数値ではありません",
                 "Exit code should be a number",
-            ),
-            ParseErrorKind::InvalidBlockEnd(expected, got) => write_locale!(f,
-                "不正なトークン({1}): ブロックの終わりは{0}です",
-                "This block requires {} to close but got {}",
-                expected.to_string(), got.to_string()
             ),
             ParseErrorKind::ValueMustBeDefined(name) => write_locale!(f,
                 "値が必要です({})",
                 "Value must be defined: {}",
                 name.to_string()
             ),
-            // ParseErrorKind::BadParameter(msg) => write_locale!(f,
-            //     "不正なパラメータ({})",
-            //     "Bad parameter: {}",
-            //     msg
-            // ),
             ParseErrorKind::ParameterShouldBeDefault(name) => write_locale!(f,
                 "不正なパラメータ({}): デフォルト引数の後にデフォルト引数以外は定義できません",
                 "Bad parameter ({}): Parameter should have default value",
@@ -140,11 +175,6 @@ impl fmt::Display for ParseErrorKind {
                 "ループ外で{}は使用できません",
                 "You can not use {} outside of the loop",
                 token.to_string()
-            ),
-            ParseErrorKind::InvalidStatement(statement) => write_locale!(f,
-                "不正な文 ({:?})",
-                "Invalid Statement: {:?}",
-                statement
             ),
             ParseErrorKind::InvalidStatementInFinallyBlock(name) => write_locale!(f,
                 "Finally部では{}を使用できません",
@@ -173,19 +203,6 @@ impl fmt::Display for ParseErrorKind {
                 "DLLのパスがありません",
                 "Dll path not found"
             ),
-            ParseErrorKind::DllDefinitionError(msg) => write_locale!(f,
-                "DLL関数定義エラー ({})",
-                "Dll function define error: {}",
-                msg
-            ),
-            ParseErrorKind::DllDefinitionMissingLeftBrace => write_locale!(f,
-                "DLL関数定義エラー ({{がありません)",
-                "Dll function definition error: Missing {{",
-            ),
-            // ParseErrorKind::InvalidIdentifier => write_locale!(f,
-            //     "",
-            //     "Invalid identifier"
-            // ),
             ParseErrorKind::InvalidHexNumber(s) => write_locale!(f,
                 "${}は16進数ではありません",
                 "${} is not a hex number",
@@ -291,14 +308,16 @@ impl fmt::Display for ParseErrorKind {
 }
 
 impl ParseError {
-    pub fn new(kind: ParseErrorKind, pos: Position, script_name: String) -> Self {
-        ParseError {kind, pos, script_name}
+    pub fn new(kind: ParseErrorKind, start: Position, end: Position, script_name: String) -> Self {
+        ParseError {kind, start, end, script_name}
     }
     pub fn new_explicit_error(ident: String, row: usize, script_name: Option<String>) -> Self {
+        let len = ident.len();
         let kind = ParseErrorKind::ExplicitError(ident);
-        let pos = Position { row, column: 0 };
+        let start = Position { row, column: 0 };
+        let end = Position { row: row, column: len };
         let script_name = script_name.unwrap_or_default();
-        Self { kind, pos, script_name }
+        Self { kind, start, end, script_name }
     }
 
     pub fn get_kind(self) -> ParseErrorKind {
@@ -308,6 +327,6 @@ impl ParseError {
 
 impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}[{}] - {}", &self.script_name, self.pos, self.kind)
+        write!(f, "{}[{}] - {}", &self.script_name, self.start, self.kind)
     }
 }

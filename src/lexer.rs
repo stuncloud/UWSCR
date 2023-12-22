@@ -42,6 +42,15 @@ impl TokenInfo {
     pub fn token(&self) -> Token {
         self.token.clone()
     }
+    pub fn token_len(&self) -> usize {
+        self.token.len()
+    }
+    pub fn get_end_pos(&self) -> Position {
+        Position {
+            row: self.pos.row,
+            column: self.pos.column + self.token_len()
+        }
+    }
 }
 
 pub struct Lexer {
