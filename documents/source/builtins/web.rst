@@ -833,8 +833,6 @@ RemoteObject
         // 合計金額を得る
 
         price = document.querySelector('#price').textContent
-        // RemoteObjectを値に変換する
-        price = ConvertFromRemoteObject(price)
 
         // 確定ボタンを押す
 
