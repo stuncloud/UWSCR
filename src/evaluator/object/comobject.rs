@@ -14,7 +14,7 @@ use windows::{
             Com::{
                 CLSCTX_ALL, CLSCTX_LOCAL_SERVER,
                 IDispatch, IDispatch_Impl, //IDispatch_Vtbl,
-                CLSIDFromString, CoCreateInstance,
+                CLSIDFromString, CLSIDFromProgID, CoCreateInstance,
                 DISPPARAMS,
                 DISPATCH_FLAGS, DISPATCH_PROPERTYGET, DISPATCH_PROPERTYPUT, DISPATCH_METHOD,
                 EXCEPINFO,
@@ -54,6 +54,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 
 use num_traits::FromPrimitive;
 
+static IE_CLSID: OnceLock<Option<GUID>> = OnceLock::new();
 const LOCALE_SYSTEM_DEFAULT: u32 = 0x0800;
 const LOCALE_USER_DEFAULT: u32 = 0x400;
 pub type ComResult<T> = Result<T, ComError>;
@@ -66,6 +67,7 @@ pub enum ComError {
         description: Option<String>
     },
     UError(UError),
+    IENotAllowed,
 }
 impl ComError {
     fn new(err: core::Error, description: Option<String>) -> Self {
@@ -87,21 +89,8 @@ impl ComError {
             ComError::WindowsError { message: _, code, description: _ } => {
                 *code == DISP_E_MEMBERNOTFOUND.0
             },
-            ComError::UError(_) => false,
-        }
-    }
-    fn _as_hresult(&self) -> HRESULT {
-        match self {
-            ComError::WindowsError { message: _, code, description: _ } => {
-                HRESULT(*code)
-            },
-            ComError::UError(err) => {
-                if let UErrorKind::ComError(n) = err.kind {
-                    HRESULT(n)
-                } else {
-                    HRESULT(0)
-                }
-            },
+            ComError::UError(_) |
+            ComError::IENotAllowed => false,
         }
     }
     fn as_windows_error(self) -> core::Error {
@@ -118,6 +107,11 @@ impl ComError {
                     core::Error::new(code, message)
                 }
             },
+            ComError::IENotAllowed => {
+                let code = HRESULT(-1);
+                let message = HSTRING::from("Internet Explorer not allowed");
+                core::Error::new(code, message)
+            }
         }
     }
 }
@@ -157,6 +151,9 @@ impl From<ComError> for UError {
                 e.is_com_error = true;
                 e
             },
+            ComError::IENotAllowed => {
+                Self::new(UErrorKind::ProgIdError, UErrorMessage::InternetExplorerNotAllowed)
+            }
         }
     }
 }
@@ -213,27 +210,46 @@ impl From<IDispatch> for ComObject {
 
 #[allow(unused)]
 impl ComObject {
-    // IEの実行を防ぐ
-    pub fn is_ie(input: &str) -> ComResult<bool> {
-        unsafe {
-            // 入力のCLSIDを得る、不正な値ならここで弾く
-            let lpsz = HSTRING::from(input);
-            let clsid = CLSIDFromString(&lpsz)?;
-            // InternetExplorer.ApplicationのCLSIDと入力のCLSIDを比較
-            let lpsz = HSTRING::from("InternetExplorer.Application");
-            if let Ok(clsid_ie) = CLSIDFromString(&lpsz) {
-                let is_ie = clsid_ie == clsid;
-                Ok(is_ie)
-            } else {
-                // IEが存在しなければfalse
-                Ok(false)
+    /// IE未許可かつCLSIDがIEと一致した場合エラーを返す
+    fn disallow_ie(clsid: &GUID, allow_ie: bool) -> ComResult<()> {
+        if allow_ie {
+            Ok(())
+        } else {
+            let ie_clsid = IE_CLSID.get_or_init(|| {
+                unsafe {
+                    let lpszprogid = HSTRING::from("InternetExplorer.Application");
+                    CLSIDFromProgID(&lpszprogid).ok()
+                }
+            });
+            match ie_clsid {
+                Some(ie) => {
+                    if ie == clsid {
+                        Err(ComError::IENotAllowed)
+                    } else {
+                        Ok(())
+                    }
+                },
+                None => Ok(()),
             }
         }
     }
-    pub fn new(id: String) -> ComResult<Self> {
-        unsafe {
+    unsafe fn get_clsid(id: &str) -> ComResult<GUID> {
+        // {XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX} であればGUIDだが厳密な検査はしない
+        let clsid = if id.len() == 38 && id.contains('{') && id.contains('-') {
+            // GUID
             let lpsz = HSTRING::from(id);
-            let rclsid = CLSIDFromString(&lpsz)?;
+            CLSIDFromString(&lpsz)?
+        } else {
+            // ProgID
+            let lpszprogid = HSTRING::from(id);
+            CLSIDFromProgID(&lpszprogid)?
+        };
+        Ok(clsid)
+    }
+    pub fn new(id: String, allow_ie: bool) -> ComResult<Self> {
+        unsafe {
+            let rclsid = Self::get_clsid(&id)?;
+            Self::disallow_ie(&rclsid, allow_ie)?;
             let idispatch = Self::create_instance(&rclsid)?;
             let handlers = Arc::new(Mutex::new(EventHandlers::new()));
             let obj = Self {idispatch, handlers};
@@ -254,10 +270,10 @@ impl ComObject {
             }
         }
     }
-    pub fn get_instance(id: String, title: Option<ObjectTitle>) -> ComResult<Option<Self>> {
+    pub fn get_instance(id: String, title: Option<ObjectTitle>, allow_ie: bool) -> ComResult<Option<Self>> {
         unsafe {
-            let lpsz = HSTRING::from(id);
-            let rclsid = CLSIDFromString(&lpsz)?;
+            let rclsid = Self::get_clsid(&id)?;
+            Self::disallow_ie(&rclsid, allow_ie)?;
             match title {
                 Some(title) => {
                     let (title, nth) = title.get();
@@ -1706,7 +1722,7 @@ pub struct Excel {
 impl Excel {
     const EXCEL_PROGID: &str = "Excel.Application";
     fn create(file: Option<String>, params: Vec<String>) -> ComResult<Self> {
-        let obj = ComObject::new(Self::EXCEL_PROGID.into())?;
+        let obj = ComObject::new(Self::EXCEL_PROGID.into(), false)?;
         let e = Self::new(obj)?;
         e.open_book(file, params)?;
         e.show()?;
@@ -1714,9 +1730,9 @@ impl Excel {
 
     }
     fn get_or_create(file: Option<String>, params: Vec<String>) -> ComResult<Self> {
-        let obj = match ComObject::get_instance(Self::EXCEL_PROGID.into(), None).ok().flatten() {
+        let obj = match ComObject::get_instance(Self::EXCEL_PROGID.into(), None, false).ok().flatten() {
             Some(obj) => obj,
-            None => ComObject::new(Self::EXCEL_PROGID.into())?,
+            None => ComObject::new(Self::EXCEL_PROGID.into(), false)?,
         };
         let e = Self::new(obj)?;
         e.show()?;
@@ -1724,9 +1740,9 @@ impl Excel {
         Ok(e)
     }
     fn get_or_create_book(file: Option<String>, params: Vec<String>) -> ComResult<Self> {
-        let obj = match ComObject::get_instance(Self::EXCEL_PROGID.into(), None).ok().flatten() {
+        let obj = match ComObject::get_instance(Self::EXCEL_PROGID.into(), None, false).ok().flatten() {
             Some(obj) => obj,
-            None => ComObject::new(Self::EXCEL_PROGID.into())?,
+            None => ComObject::new(Self::EXCEL_PROGID.into(), false)?,
         };
         let e = Self::new(obj)?;
         e.show()?;

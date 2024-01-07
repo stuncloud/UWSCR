@@ -4,9 +4,12 @@ use crate::evaluator::Evaluator;
 use crate::settings::USETTINGS;
 
 use std::ops::BitOr;
+use std::sync::OnceLock;
+
 use strum_macros::{EnumString, EnumVariantNames};
 use num_derive::{ToPrimitive, FromPrimitive};
 use num_traits::ToPrimitive;
+
 
 pub fn builtin_func_sets() -> BuiltinFunctionSets {
     let mut sets = BuiltinFunctionSets::new();
@@ -76,24 +79,19 @@ impl Into<Object> for VarType {
     }
 }
 
-fn ignore_ie(prog_id: &str) -> BuiltInResult<()> {
-    if ComObject::is_ie(prog_id)? {
+static ALLOW_IE: OnceLock<bool> = OnceLock::new();
+fn is_ie_allowed() -> bool {
+    let allow_ie = ALLOW_IE.get_or_init(|| {
         let usettings = USETTINGS.lock().unwrap();
-        if ! usettings.options.allow_ie_object {
-            return Err(BuiltinFuncError::new_with_kind(
-                UErrorKind::ProgIdError,
-                UErrorMessage::InternetExplorerNotAllowed
-            ));
-        }
-    }
-    Ok(())
+        usettings.options.allow_ie_object
+    });
+    *allow_ie
 }
 
 fn createoleobj(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = args.get_as_string(0, None)?;
     // ignore IE
-    ignore_ie(&id)?;
-    let obj = ComObject::new(id)?;
+    let obj = ComObject::new(id, is_ie_allowed())?;
     Ok(Object::ComObject(obj))
 }
 
@@ -103,8 +101,7 @@ fn getactiveoleobj(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResul
     let nth = args.get_as_nth(2)?;
     let title = title.map(|title| ObjectTitle::new(title, nth));
     // ignore IE
-    ignore_ie(&id)?;
-    match ComObject::get_instance(id, title)? {
+    match ComObject::get_instance(id, title, is_ie_allowed())? {
         Some(obj) => Ok(Object::ComObject(obj)),
         None => Err(builtin_func_error(UErrorMessage::FailedToGetObject))
     }
