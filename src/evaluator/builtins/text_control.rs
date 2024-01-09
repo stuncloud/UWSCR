@@ -284,101 +284,65 @@ pub fn copy(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(copied.into())
 }
 
-fn find_pos(str: &str, substr: &str) -> Option<usize>{
-    match str.find(substr) {
-        Some(mut p) => {
-            loop {
-                p+=1;
-                if str.is_char_boundary(p) {
-                    break;
-                }
-            }
-            Some(p)
-        },
-        None => None,
-    }
-}
-fn rfind_pos(str: &str, substr: &str) -> Option<usize>{
-    match str.rfind(substr) {
-        Some(mut p) => {
-            loop {
-                p+=1;
-                if str.is_char_boundary(p) {
-                    break;
-                }
-            }
-            Some(p)
-        },
-        None => None,
-    }
-}
-
-fn find_nth(str: &str, substr: &str, nth: i32) -> Option<usize> {
-    let mut str = str.to_ascii_lowercase();
-    let substr = substr.to_ascii_lowercase();
-    let n = if nth == 0 {1} else {nth.abs() as usize};
-    if str.contains(&substr) {
-        let mut pos = Some(0_usize);
-        for _ in 0..n {
-            if nth < 0 {
-                match rfind_pos(&str, &substr) {
-                    Some(p) => {
-                        if let Some(pos) = pos.as_mut() {
-                            *pos = p;
-                        }
-                        str.drain(p..);
-                    },
-                    None => return None,
+/// target文字列からpattern文字列がヒットした位置をVecで返す
+fn find_all(target: &str, pattern: &str) -> Vec<usize> {
+    let t_bytes = target.as_bytes();
+    let t_len = t_bytes.len();
+    let p_bytes = pattern.as_bytes();
+    let p_first = p_bytes.first().unwrap();
+    let p_len = p_bytes.len();
+    t_bytes.iter().enumerate()
+        .filter_map(|(i, b)| {
+            if b == p_first {
+                if (t_len - i) >= p_len {
+                    let found = &t_bytes[i..(i+p_len)];
+                    (found == p_bytes).then_some(i)
+                } else {
+                    None
                 }
             } else {
-                match find_pos(&str, &substr) {
-                    Some(p) => {
-                        if let Some(pos) = pos.as_mut() {
-                            *pos += p;
-                        }
-                        str.drain(..p);
-                    },
-                    None => return None,
-                }
+                None
             }
-        }
-        pos
+        })
+        .collect()
+}
+fn find_pos(target: &str, pattern: &str, nth: i32) -> Option<usize> {
+    let target = target.to_ascii_lowercase();
+    let pattern = pattern.to_ascii_lowercase();
+
+    let mut found = find_all(&target, &pattern);
+    let index = if nth > 0 {
+        nth - 1
+    } else if nth < 0 {
+        found.reverse();
+        nth.abs() - 1
     } else {
-        None
-    }
+        nth
+    } as usize;
+    found.get(index).copied()
 }
-
-pub fn pos(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let substr = args.get_as_string(0, None)?;
-    let mut str = args.get_as_string(1, None)?;
-    let nth = args.get_as_int(2, Some(1_i32))?;
-
-    let pos = if let Some(p) = find_nth(&str, &substr, nth) {
-        str.truncate(p);
-        str.chars().count()
-    } else {
-        0
-    };
-    Ok(pos.into())
+fn drain_to_nth_pattern(target: &str, pattern: &str, nth: i32) -> Option<String> {
+    let pos = find_pos(target, pattern, nth)? + pattern.len();
+    let mut found = target.to_string();
+    found.drain(..pos);
+    Some(found)
 }
-
-fn truncate_str(str: &mut String, mut p: usize) {
-    loop {
-        p-=1;
-        if str.is_char_boundary(p) {
-            break;
-        }
-    }
-    str.truncate(p);
+fn truncate_to_nth_pattern(target: &str, pattern: &str, nth: i32) -> Option<String> {
+    let pos = find_pos(target, pattern, nth)?;
+    let mut found = target.to_string();
+    found.truncate(pos);
+    Some(found)
 }
-fn drain_str(str: &mut String, mut p: usize) {
-    loop {
-        p-=1;
-        if str.is_char_boundary(p) {
-            break;
-        }
+fn find_nth_pos(target: &str, pattern: &str, nth: i32) -> usize {
+    match find_pos(target, pattern, nth) {
+        Some(pos) => {
+            let next = next_pos(target, pos);
+            let mut tmp = target.to_string();
+            tmp.truncate(next);
+            tmp.chars().count()
+        },
+        None => 0,
     }
-    str.drain(..p);
 }
 fn next_pos(str: &str, mut p: usize) -> usize {
     loop {
@@ -388,6 +352,16 @@ fn next_pos(str: &str, mut p: usize) -> usize {
         }
     }
 }
+
+pub fn pos(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let substr = args.get_as_string(0, None)?;
+    let str = args.get_as_string(1, None)?;
+    let nth = args.get_as_int(2, Some(1_i32))?;
+
+    let pos = find_nth_pos(&str, &substr, nth);
+    Ok(pos.into())
+}
+
 
 fn find_nth_between(str: &str, from: &str, to: &str, nth: i32, flag: bool) -> Option<(usize, usize)> {
     let mut lower = str.to_ascii_lowercase();
@@ -482,21 +456,8 @@ pub fn betweenstr(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult
 
     let between = match (from, to) {
         (None, None) => Some(str),
-        (None, Some(to)) => match find_nth(&str, &to, nth) {
-            Some(p) => {
-                truncate_str(&mut str, p);
-                Some(str)
-            },
-            None => None,
-        },
-        (Some(from), None) => match find_nth(&str, &from, nth) {
-            Some(mut p) => {
-                p += from.len();
-                drain_str(&mut str, p);
-                Some(str)
-            },
-            None => None,
-        },
+        (None, Some(to)) => truncate_to_nth_pattern(&str, &to, nth),
+        (Some(from), None) => drain_to_nth_pattern(&str, &from, nth),
         (Some(from), Some(to)) => match find_nth_between(&str, &from, &to, nth, flag) {
             Some((pos, len)) => {
                 drain_between(&mut str, pos, len);
