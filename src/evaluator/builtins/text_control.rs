@@ -1097,6 +1097,13 @@ mod tests {
             (r#"pos("いぬ", "🐕いぬ")"#, Ok(Some(2.into()))),
             (r#"pos("あいあ", moji2, 1)"#, Ok(Some(1.into()))),
             (r#"pos("あいあ", moji2, 2)"#, Ok(Some(3.into()))),
+            // gh-109
+            (r#"pos("あ", "あああ123", 1)"#, Ok(Some(1.into()))),
+            (r#"pos("あ", "あああ123", 2)"#, Ok(Some(2.into()))),
+            (r#"pos("あ", "あああ123", 3)"#, Ok(Some(3.into()))),
+            (r#"pos("あ", "あああ123", -1)"#, Ok(Some(3.into()))),
+            (r#"pos("あ", "あああ123", -2)"#, Ok(Some(2.into()))),
+            (r#"pos("あ", "あああ123", -3)"#, Ok(Some(1.into()))),
         ];
         for (input, expected) in test_cases {
             builtin_test(&mut e, input, expected);
@@ -1146,6 +1153,41 @@ mod tests {
             // moji5 = "abあfabいfab"
             (r#"betweenstr(moji5, "ab", "fab", 1)"#, Ok(Some("あ".into()))),
             (r#"betweenstr(moji5, "ab", "fab", 2)"#, Ok(Some("い".into()))),
+            // gh-109
+            (r#"betweenstr("あ123", "あ")"#, Ok(Some("123".into()))),
+            (r#"betweenstr("あ123", "あ",,-1)"#, Ok(Some("123".into()))),
+            (r#"betweenstr("あいう123", "あいう")"#, Ok(Some("123".into()))),
+            (r#"betweenstr("あいう123", "あいう",,-1)"#, Ok(Some("123".into()))),
+            (r#"betweenstr("abc123", "abc")"#, Ok(Some("123".into()))),
+            (r#"betweenstr("abc123", "abc",,-1)"#, Ok(Some("123".into()))),
+            (r#"betweenstr("あああ123", "あ")"#, Ok(Some("ああ123".into()))),
+            (r#"betweenstr("あああ123", "あ",,2)"#, Ok(Some("あ123".into()))),
+            (r#"betweenstr("あああ123", "あ",,3)"#, Ok(Some("123".into()))),
+            (r#"betweenstr("あああ123", "あ",,-1)"#, Ok(Some("123".into()))),
+            (r#"betweenstr("あああ123", "あ",,-2)"#, Ok(Some("あ123".into()))),
+            (r#"betweenstr("あああ123", "あ",,-3)"#, Ok(Some("ああ123".into()))),
+            (r#"betweenstr("ああああ123", "ああ")"#, Ok(Some("ああ123".into()))),
+            (r#"betweenstr("ああああ123", "ああ",,2)"#, Ok(Some("あ123".into()))),
+            (r#"betweenstr("ああああ123", "ああ",,3)"#, Ok(Some("123".into()))),
+            (r#"betweenstr("ああああ123", "ああ",,-1)"#, Ok(Some("123".into()))),
+            (r#"betweenstr("ああああ123", "ああ",,-2)"#, Ok(Some("あ123".into()))),
+            (r#"betweenstr("ああああ123", "ああ",,-3)"#, Ok(Some("ああ123".into()))),
+            (r#"betweenstr("123あ",, "あ")"#, Ok(Some("123".into()))),
+            (r#"betweenstr("123あ",, "あ",,-1)"#, Ok(Some("123".into()))),
+            (r#"betweenstr("123あいう",, "あいう")"#, Ok(Some("123".into()))),
+            (r#"betweenstr("123あいう",, "あいう",-1)"#, Ok(Some("123".into()))),
+            (r#"betweenstr("123abc",, "abc")"#, Ok(Some("123".into()))),
+            (r#"betweenstr("123abc",, "abc",-1)"#, Ok(Some("123".into()))),
+            (r#"betweenstr("あいう123",,"123")"#, Ok(Some("あいう".into()))),
+            (r#"betweenstr("あいう123",,"123",-1)"#, Ok(Some("あいう".into()))),
+            (r#"betweenstr("123ああ",, "あ",1)"#, Ok(Some("123".into()))),
+            (r#"betweenstr("123ああ",, "あ",2)"#, Ok(Some("123あ".into()))),
+            (r#"betweenstr("123ああ",, "あ",-1)"#, Ok(Some("123あ".into()))),
+            (r#"betweenstr("123ああ",, "あ",-2)"#, Ok(Some("123".into()))),
+            (r#"betweenstr("123あああ",, "ああ",1)"#, Ok(Some("123".into()))),
+            (r#"betweenstr("123あああ",, "ああ",2)"#, Ok(Some("123あ".into()))),
+            (r#"betweenstr("123あああ",, "ああ",-1)"#, Ok(Some("123あ".into()))),
+            (r#"betweenstr("123あああ",, "ああ",-2)"#, Ok(Some("123".into()))),
         ];
         let mut e = new_evaluator(Some(script));
         for (input, expected) in test_cases {
