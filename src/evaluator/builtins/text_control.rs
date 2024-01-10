@@ -321,18 +321,6 @@ fn find_pos(target: &str, pattern: &str, nth: i32) -> Option<usize> {
     } as usize;
     found.get(index).copied()
 }
-fn drain_to_nth_pattern(target: &str, pattern: &str, nth: i32) -> Option<String> {
-    let pos = find_pos(target, pattern, nth)? + pattern.len();
-    let mut found = target.to_string();
-    found.drain(..pos);
-    Some(found)
-}
-fn truncate_to_nth_pattern(target: &str, pattern: &str, nth: i32) -> Option<String> {
-    let pos = find_pos(target, pattern, nth)?;
-    let mut found = target.to_string();
-    found.truncate(pos);
-    Some(found)
-}
 fn find_nth_pos(target: &str, pattern: &str, nth: i32) -> usize {
     match find_pos(target, pattern, nth) {
         Some(pos) => {
@@ -362,91 +350,77 @@ pub fn pos(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(pos.into())
 }
 
-
-fn find_nth_between(str: &str, from: &str, to: &str, nth: i32, flag: bool) -> Option<(usize, usize)> {
-    let mut lower = str.to_ascii_lowercase();
-    let from = from.to_ascii_lowercase();
-    let to = to.to_ascii_lowercase();
-    let n = if nth == 0 {1} else {nth.abs() as usize};
-
-    let mut pos = Some((0_usize, 0_usize));
-    if lower.contains(&from) && lower.contains(&to) {
-        if nth < 0 {
-            for _ in 0..n {
-                let to_found_at = match lower.rfind(&to) {
-                    Some(p) => p,
-                    None => {
-                        pos = None;
-                        break;
-                    },
-                };
-                let mut temp = lower.clone();
-                temp.drain(to_found_at..);
-                let from_found_at = match temp.rfind(&from) {
-                    Some(p) => p,
-                    None => {
-                        pos = None;
-                        break;
-                    },
-                };
-                let from_pos = from_found_at + from.len();
-                if let Some((p, len)) = pos.as_mut() {
-                    *p = from_pos;
-                    *len = to_found_at - from_pos;
-                }
-                let drain_from = if flag {
-                    to_found_at
-                } else {
-                    from_found_at
-                };
-                lower.drain(drain_from..);
-            }
-        } else {
-            let mut drained = 0_usize;
-            for _i in 0..n {
-                let from_found_at = match lower.find(&from) {
-                    Some(p) => p,
-                    None => {
-                        pos = None;
-                        break;
-                    },
-                };
-                let from_pos = from_found_at + from.len();
-                let mut temp = lower.clone();
-                temp.drain(..from_pos);
-                let to_found_at = match temp.find(&to) {
-                    Some(p) => p,
-                    None => {
-                        pos = None;
-                        break;
-                    },
-                };
-                let drain_to = if flag {
-                    next_pos(&lower, from_found_at)
-                } else {
-                    next_pos(&lower, to_found_at + from_pos)
-                };
-                if let Some((p, len)) = pos.as_mut() {
-                    *p = drained + from_pos;
-                    *len = to_found_at;
-                }
-                drained += drain_to;
-                lower.drain(..drain_to);
-            }
-        }
-        pos
-    } else {
-        None
-    }
+fn drain_to_nth_pattern(target: &str, pattern: &str, nth: i32) -> Option<String> {
+    let pos = find_pos(target, pattern, nth)? + pattern.len();
+    let mut found = target.to_string();
+    found.drain(..pos);
+    Some(found)
 }
+fn truncate_to_nth_pattern(target: &str, pattern: &str, nth: i32) -> Option<String> {
+    let pos = find_pos(target, pattern, nth)?;
+    let mut found = target.to_string();
+    found.truncate(pos);
+    Some(found)
+}
+fn find_nth_between(target: &str, from: &str, to: &str, nth: i32, flag: bool) -> Option<String> {
+    let target_lower = target.to_ascii_lowercase();
+    let from_lower = from.to_ascii_lowercase();
+    let to_lower = to.to_ascii_lowercase();
 
-fn drain_between(str: &mut String, pos: usize, len: usize) {
-    str.drain(..pos);
-    str.truncate(len);
+    let mut from_pos = find_all(&target_lower, &from_lower);
+    let mut to_pos = find_all(&target_lower, &to_lower);
+    let from_len = from.len();
+
+    let (index, backward) = if nth > 0 {
+        (nth as usize - 1, false)
+    } else if nth < 0 {
+        from_pos.reverse();
+        to_pos.reverse();
+        (nth.abs() as usize - 1, true)
+    } else {
+        (nth as usize, false)
+    };
+
+    let (f, t) = if flag {
+        if backward {
+            // n番目のtoとそれに対応したfromを得る
+            let t = *to_pos.get(index)?;
+            let f = *from_pos.iter().find(|n| **n < t)? + from_len;
+            (f, t)
+        } else {
+            // n番目のfromとそれに対応するtoを得る
+            let f = *from_pos.get(index)? + from_len;
+            let t = *to_pos.iter().find(|n| **n > f)?;
+            (f, t)
+        }
+    } else {
+        if backward {
+            // toに対応するfromより前のtoに遡る
+            let mut f = target.len();
+            let mut t = 0;
+            for _ in 0..=index {
+                t = *to_pos.iter().find(|n| **n <= f)?;
+                f = *from_pos.iter().find(|n| **n < t)? + from_len;
+            }
+            (f, t)
+        } else {
+            // fromに対応するtoの後のfromを探す
+            let mut f = 0;
+            let mut t = 0;
+            for _ in 0..=index {
+                f = *from_pos.iter().find(|n| **n >= t)? + from_len;
+                t = *to_pos.iter().find(|n| **n > f)?;
+            }
+            (f, t)
+        }
+    };
+    let mut tmp = target.to_string();
+    let between = tmp.drain(f..t).collect();
+    Some(between)
 }
 
 pub fn betweenstr(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let mut str = args.get_as_string(0, None)?;
+    let str = args.get_as_string(0, None)?;
     let from = args.get_as_string_or_empty(1)?
         .filter(|s| s.len() > 0);
     let to = args.get_as_string_or_empty(2)?
@@ -458,13 +432,7 @@ pub fn betweenstr(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult
         (None, None) => Some(str),
         (None, Some(to)) => truncate_to_nth_pattern(&str, &to, nth),
         (Some(from), None) => drain_to_nth_pattern(&str, &from, nth),
-        (Some(from), Some(to)) => match find_nth_between(&str, &from, &to, nth, flag) {
-            Some((pos, len)) => {
-                drain_between(&mut str, pos, len);
-                Some(str)
-            },
-            None => None,
-        },
+        (Some(from), Some(to)) => find_nth_between(&str, &from, &to, nth, flag),
     };
 
     Ok(between.unwrap_or_default().into())
@@ -1173,7 +1141,7 @@ mod tests {
             (r#"betweenstr("ああああ123", "ああ",,-2)"#, Ok(Some("あ123".into()))),
             (r#"betweenstr("ああああ123", "ああ",,-3)"#, Ok(Some("ああ123".into()))),
             (r#"betweenstr("123あ",, "あ")"#, Ok(Some("123".into()))),
-            (r#"betweenstr("123あ",, "あ",,-1)"#, Ok(Some("123".into()))),
+            (r#"betweenstr("123あ",, "あ",-1)"#, Ok(Some("123".into()))),
             (r#"betweenstr("123あいう",, "あいう")"#, Ok(Some("123".into()))),
             (r#"betweenstr("123あいう",, "あいう",-1)"#, Ok(Some("123".into()))),
             (r#"betweenstr("123abc",, "abc")"#, Ok(Some("123".into()))),
