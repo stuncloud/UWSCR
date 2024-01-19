@@ -471,6 +471,16 @@ impl Environment {
         }
         self.define(key, object, ContainerType::Variable, false)
     }
+    pub fn define_param_to_local(&mut self, name: &str, object: Object) -> Result<(), UError> {
+        let key = name.to_ascii_uppercase();
+        if self.contains_in_local(&key, &[ContainerType::Variable]) {
+            return Err(UError::new(
+                UErrorKind::DefinitionError(DefinitionType::Variable),
+                UErrorMessage::AlreadyDefined(name.into())
+            ))
+        }
+        self.define(key, object, ContainerType::Variable, false)
+    }
 
     pub fn _define_local_const(&mut self, name: &str, object: Object) -> Result<(), UError> {
         let key = name.to_ascii_uppercase();

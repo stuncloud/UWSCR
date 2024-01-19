@@ -124,7 +124,7 @@ impl Function {
                             evaluator.is_valid_type(&param, &obj)?;
                             // パラメータ変数に参照を代入
                             if let Some(outer) = evaluator.env.clone_outer() {
-                                evaluator.env.define_local(&name, Object::Reference(e, outer))?;
+                                evaluator.env.define_param_to_local(&name, Object::Reference(e, outer))?;
                             } else {
                                 Err(UError::new(UErrorKind::EvaluatorError, UErrorMessage::NoOuterScopeFound))?;
                             }
@@ -161,12 +161,12 @@ impl Function {
 
             // 可変長引数でなければローカル変数を定義
             if variadic.len() < 1 {
-                evaluator.env.define_local(&name, value)?;
+                evaluator.env.define_param_to_local(&name, value)?;
             }
         }
         // 可変長引数のローカル変数を定義
         if variadic_name.is_some() && variadic.len() > 0 {
-            evaluator.env.define_local(&variadic_name.unwrap(), Object::Array(variadic))?;
+            evaluator.env.define_param_to_local(&variadic_name.unwrap(), Object::Array(variadic))?;
         }
 
         // モジュール・クラスインスタンスであればthisとglobalをセットする
