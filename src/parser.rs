@@ -59,6 +59,32 @@ enum StatementType {
     /// 式のみの文
     Expression,
 }
+enum ExpressionState {
+    StartOfLine,
+    Lambda,
+    Default,
+}
+impl ExpressionState {
+    fn is_start_of_line(&self) -> bool {
+        match self {
+            Self::StartOfLine => true,
+            _ => false,
+        }
+    }
+    fn is_lambda(&self) -> bool {
+        match self {
+            Self::Lambda => true,
+            _ => false,
+        }
+    }
+    fn is_sol_or_lambda(&self) -> bool {
+        match self {
+            Self::StartOfLine |
+            Self::Lambda => true,
+            _ => false,
+        }
+    }
+}
 
 /// 識別子の解析がどの文脈で行われているか
 enum IdentifierType {
@@ -741,7 +767,7 @@ impl Parser {
                                 },
                                 _ => {
                                     self.bump();
-                                    let e = self.parse_expression(Precedence::Lowest, false)?;
+                                    let e = self.parse_expression(Precedence::Lowest, ExpressionState::Default)?;
                                     index_list.push(e);
                                     match self.next_token.token {
                                         Token::Comma => continue,
@@ -790,7 +816,7 @@ impl Parser {
                         _ => {
                             // 添字
                             self.bump();
-                            let e = self.parse_expression(Precedence::Lowest, false)?;
+                            let e = self.parse_expression(Precedence::Lowest, ExpressionState::Default)?;
                             index_list.push(e);
                             if self.is_next_token(&Token::Comma) {
                                 // カンマ区切り形式
@@ -829,7 +855,7 @@ impl Parser {
                 } else {
                     self.bump();
                     self.bump();
-                    self.parse_expression(Precedence::Lowest, false)?
+                    self.parse_expression(Precedence::Lowest, ExpressionState::Default)?
                 }
             };
             expressions.push((var_name, expression));
@@ -884,7 +910,7 @@ impl Parser {
         let option = if self.is_next_token(&Token::EqualOrAssign) {
             self.bump();
             self.bump();
-            match self.parse_expression(Precedence::Lowest, false) {
+            match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
                 Some(e) => Some(e),
                 None => return None
             }
@@ -895,7 +921,7 @@ impl Parser {
         self.bump();
         let mut members = vec![];
         while ! self.is_current_token(&Token::BlockEnd(BlockEnd::EndHash)) {
-            let expression = self.parse_expression(Precedence::Lowest, false);
+            let expression = self.parse_expression(Precedence::Lowest, ExpressionState::Default);
             if let Some(Expression::Infix(infix, left, right)) = &expression {
                 if *infix == Infix::Equal {
                     if let Some(e) = match *left.clone() {
@@ -943,7 +969,7 @@ impl Parser {
             let hash_option = if self.is_next_token(&Token::EqualOrAssign) {
                 self.bump();
                 self.bump();
-                match self.parse_expression(Precedence::Lowest, false) {
+                match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
                     Some(e) => Some(e),
                     None => return None
                 }
@@ -965,7 +991,7 @@ impl Parser {
     fn parse_print_statement(&mut self) -> Option<Statement> {
         self.bump();
         let has_whitespace = self.current_token.skipped_whitespace;
-        let expression = match self.parse_expression(Precedence::Lowest, false) {
+        let expression = match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
             Some(e) => if has_whitespace {
                 e
             } else {
@@ -1574,7 +1600,7 @@ impl Parser {
                 }
                 self.bump();
                 self.bump();
-                let from = match self.parse_expression(Precedence::Lowest, false) {
+                let from = match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
                     Some(e) => e,
                     None => return None
                 };
@@ -1582,14 +1608,14 @@ impl Parser {
                     return None;
                 }
                 self.bump();
-                let to = match self.parse_expression(Precedence::Lowest, false) {
+                let to = match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
                     Some(e) => e,
                     None => return None
                 };
                 let step = if self.is_next_token(&Token::Step) {
                     self.bump();
                     self.bump();
-                    match self.parse_expression(Precedence::Lowest, false) {
+                    match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
                         Some(e) => Some(e),
                         None => return None
                     }
@@ -1624,7 +1650,7 @@ impl Parser {
                 // for-in
                 self.bump();
                 self.bump();
-                let collection = match self.parse_expression(Precedence::Lowest, false) {
+                let collection = match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
                     Some(e) => e,
                     None => {
                         self.error_on_current_token(ParseErrorKind::ExpressionIsExpected);
@@ -1664,7 +1690,7 @@ impl Parser {
 
     fn parse_while_statement(&mut self) -> Option<Statement> {
         self.bump();
-        let expression = match self.parse_expression(Precedence::Lowest, false) {
+        let expression = match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
             Some(e) => e,
             None => {
                 self.error_on_current_token(ParseErrorKind::ExpressionIsExpected);
@@ -1687,7 +1713,7 @@ impl Parser {
         self.bump();
         let row = self.current_token.pos.row;
         let line = self.lexer.get_line(row);
-        let expression = match self.parse_expression(Precedence::Lowest, false) {
+        let expression = match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
             Some(e) => e,
             None => {
                 self.error_on_current_token(ParseErrorKind::ExpressionIsExpected);
@@ -1706,7 +1732,7 @@ impl Parser {
     fn parse_with_statement(&mut self) -> Option<Statement> {
         self.bump();
         let mut with_temp_assignment = None;
-        let expression = match self.parse_expression(Precedence::Lowest, false) {
+        let expression = match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
             Some(e) => match e {
                 Expression::FuncCall{func:_, args:_,is_await:_} => {
                     let with_temp = Expression::Identifier(Identifier(self.get_with_temp_name()));
@@ -1851,7 +1877,7 @@ impl Parser {
     }
 
     fn parse_expression_as_statement(&mut self) -> Option<Expression> {
-        match self.parse_expression(Precedence::Lowest, true) {
+        match self.parse_expression(Precedence::Lowest, ExpressionState::StartOfLine) {
             Some(e) => {
                 if self.is_next_token(&Token::Semicolon) || self.is_next_token(&Token::Eol) {
                     self.bump();
@@ -2139,7 +2165,7 @@ impl Parser {
             if self.is_next_token(&Token::EqualOrAssign) {
                 self.bump();
                 self.bump();
-                let n = match self.parse_expression(Precedence::Lowest, false) {
+                let n = match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
                     Some(e) => match e {
                         Expression::Literal(Literal::Num(n)) => n,
                         _ => {
@@ -2180,7 +2206,7 @@ impl Parser {
 
     fn parse_thread_statement(&mut self) -> Option<Statement> {
         self.bump();
-        let expression = self.parse_expression(Precedence::Lowest, false);
+        let expression = self.parse_expression(Precedence::Lowest, ExpressionState::Default);
         match expression {
             Some(Expression::FuncCall{func:_,args:_,is_await:_}) => Some(Statement::Thread(expression.unwrap())),
             _ => {
@@ -2191,7 +2217,7 @@ impl Parser {
     }
 
     /// is_sol: 行の始めかどうか
-    fn parse_expression(&mut self, precedence: Precedence, is_sol: bool) -> Option<Expression> {
+    fn parse_expression(&mut self, precedence: Precedence, state: ExpressionState) -> Option<Expression> {
         let start = self.current_token_pos();
         let mut ident_pos: Option<(Identifier, Position, Position)> = None;
         // prefix
@@ -2220,62 +2246,62 @@ impl Parser {
             //     }
             //     Some(identifier_expression)
             // },
-            Token::Empty => if is_sol {
+            Token::Empty => if state.is_start_of_line() {
                 self.error_current_token_is_invalid();
                 return None;
             } else {
                 Expression::Literal(Literal::Empty)
             },
-            Token::Null => if is_sol {
+            Token::Null => if state.is_start_of_line() {
                 self.error_current_token_is_invalid();
                 return None;
             } else {
                 Expression::Literal(Literal::Null)
             },
-            Token::Nothing => if is_sol {
+            Token::Nothing => if state.is_start_of_line() {
                 self.error_current_token_is_invalid();
                 return None;
             } else {
                 Expression::Literal(Literal::Nothing)
             },
-            Token::NaN => if is_sol {
+            Token::NaN => if state.is_start_of_line() {
                 self.error_current_token_is_invalid();
                 return None;
             } else {
                 Expression::Literal(Literal::NaN)
             },
-            Token::Num(_) => if is_sol {
+            Token::Num(_) => if state.is_start_of_line() {
                 self.error_current_token_is_invalid();
                 return None;
             } else {
                 self.parse_number_expression()?
             },
-            Token::Hex(_) => if is_sol {
+            Token::Hex(_) => if state.is_start_of_line() {
                 self.error_current_token_is_invalid();
                 return None;
             } else {
                 self.parse_hex_expression()?
             },
             Token::ExpandableString(_) |
-            Token::String(_) => if is_sol {
+            Token::String(_) => if state.is_start_of_line() {
                 self.error_current_token_is_invalid();
                 return None;
             } else {
                 self.parse_string_expression()?
             },
-            Token::Bool(_) => if is_sol {
+            Token::Bool(_) => if state.is_start_of_line() {
                 self.error_current_token_is_invalid();
                 return None;
             } else {
                 self.parse_bool_expression()?
             },
-            Token::Lbracket => if is_sol {
+            Token::Lbracket => if state.is_start_of_line() {
                 self.error_current_token_is_invalid();
                 return None;
             } else {
                 self.parse_array_expression()?
             },
-            Token::Bang | Token::Minus | Token::Plus => if is_sol {
+            Token::Bang | Token::Minus | Token::Plus => if state.is_start_of_line() {
                 self.error_current_token_is_invalid();
                 return None;
             } else {
@@ -2306,14 +2332,14 @@ impl Parser {
             },
             Token::Period => {
                 let e = self.parse_with_dot_expression();
-                if is_sol && e.is_some() {
+                if state.is_start_of_line() && e.is_some() {
                     if let Some(e) = self.parse_assignment(e.clone().unwrap(), start) {
                         return Some(e);
                     }
                 }
                 e?
             },
-            Token::UObject(ref s) => if is_sol {
+            Token::UObject(ref s) => if state.is_start_of_line() {
                 self.error_current_token_is_invalid();
                 return None;
             } else {
@@ -2323,20 +2349,20 @@ impl Parser {
                 self.error_on_current_token(ParseErrorKind::InvalidUObjectEnd);
                 return None
             },
-            Token::ComErrFlg => if is_sol {
+            Token::ComErrFlg => if state.is_start_of_line() {
                 self.error_current_token_is_invalid();
                 return None;
             } else {
                 Expression::ComErrFlg
             },
-            Token::Ref => if is_sol {
+            Token::Ref => if state.is_start_of_line() {
                 self.error_current_token_is_invalid();
                 return None;
             } else {
                 // COMメソッドの引数にvarが付く場合
                 // var <Identifier> とならなければいけない
                 self.bump();
-                match self.parse_expression(Precedence::Lowest, false) {
+                match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
                     Some(e) => return Some(Expression::RefArg(Box::new(e))),
                     None => {
                         self.error_on_current_token(ParseErrorKind::MissingIdentifierAfterVar);
@@ -2345,7 +2371,7 @@ impl Parser {
                 }
             },
             _ => {
-                if is_sol {
+                if state.is_sol_or_lambda() {
                     // 次のトークンを確認する
                     match &self.next_token.token {
                         // ドット呼び出し
@@ -2368,8 +2394,14 @@ impl Parser {
                             return self.parse_assignment(Expression::Identifier(identifier), start);
                         }
                         _ => {
-                            self.error_current_token_is_invalid();
-                            return None;
+                            if state.is_lambda() {
+                                let identifier = self.parse_identifier(IdentifierType::NotSure)?;
+                                ident_pos = Some((identifier.clone(), self.current_token_pos(), self.current_token_end_pos()));
+                                Expression::Identifier(identifier)
+                            } else {
+                                self.error_current_token_is_invalid();
+                                return None;
+                            }
                         }
                     }
                 } else {
@@ -2413,7 +2445,7 @@ impl Parser {
                 Token::XorB |
                 Token::Mod => {
                     self.bump();
-                    left = if is_sol {
+                    left = if state.is_start_of_line() {
                         self.error_current_token_is_invalid();
                         return None;
                     } else {
@@ -2443,7 +2475,7 @@ impl Parser {
                                 return None;
                             },
                         };
-                        if is_sol {
+                        if state.is_sol_or_lambda() {
                             if let Some(e) = self.parse_assignment(index.clone(), start) {
                                 return Some(e);
                             }
@@ -2463,7 +2495,7 @@ impl Parser {
                     self.bump();
                     left = {
                         let dotcall = self.parse_dotcall_expression(left)?;
-                        if is_sol {
+                        if state.is_sol_or_lambda() {
                             if let Some(e) = self.parse_assignment(dotcall.clone(), start) {
                                 return Some(e);
                             }
@@ -2713,7 +2745,7 @@ impl Parser {
         if skip_eol {self.skip_next_eol();}
         self.bump();
 
-        match self.parse_expression(Precedence::Lowest, false) {
+        match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
             Some(e) => list.push(e),
             None => return None
         }
@@ -2722,7 +2754,7 @@ impl Parser {
             self.bump();
             if skip_eol {self.skip_next_eol();}
             self.bump();
-            match self.parse_expression(Precedence::Lowest, false) {
+            match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
                 Some(e) => list.push(e),
                 None => return None
             }
@@ -2763,7 +2795,7 @@ impl Parser {
         self.bump();
         self.bump();
 
-        let right = self.parse_expression(Precedence::Lowest, false)?;
+        let right = self.parse_expression(Precedence::Lowest, ExpressionState::Default)?;
         Some(Expression::Assign(Box::new(left), Box::new(right)))
     }
 
@@ -2776,7 +2808,7 @@ impl Parser {
         self.bump();
         self.bump();
 
-        let right = self.parse_expression(Precedence::Lowest, false)?;
+        let right = self.parse_expression(Precedence::Lowest, ExpressionState::Default)?;
         let infix = match token {
             Token::AddAssign => Infix::Plus,
             Token::SubtractAssign => Infix::Minus,
@@ -2797,7 +2829,7 @@ impl Parser {
         };
         self.bump();
 
-        match self.parse_expression(Precedence::Prefix, false) {
+        match self.parse_expression(Precedence::Prefix, ExpressionState::Default) {
             Some(e) => Some(Expression::Prefix(prefix, Box::new(e))),
             None => None
         }
@@ -2832,7 +2864,7 @@ impl Parser {
         let precedence = self.current_token_precedence();
         self.bump();
 
-        match self.parse_expression(precedence, false) {
+        match self.parse_expression(precedence, ExpressionState::Default) {
             Some(e) => Some(Expression::Infix(infix, Box::new(left), Box::new(e))),
             None => None
         }
@@ -2840,14 +2872,14 @@ impl Parser {
 
     fn parse_index_expression(&mut self, left: Expression) -> Option<Expression> {
         self.bump();
-        let index = match self.parse_expression(Precedence::Lowest, false) {
+        let index = match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
             Some(e) => e,
             None => return None
         };
         let hash_enum = if self.is_next_token(&Token::Comma) {
             self.bump();
             self.bump();
-            match self.parse_expression(Precedence::Lowest, false) {
+            match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
                 Some(e) => Some(e),
                 None => return None
             }
@@ -2863,7 +2895,7 @@ impl Parser {
 
     fn parse_grouped_expression(&mut self) -> Option<Expression> {
         self.bump();
-        let expression = self.parse_expression(Precedence::Lowest, false);
+        let expression = self.parse_expression(Precedence::Lowest, ExpressionState::Default);
         if ! self.bump_to_next_expected_token(Token::Rparen) {
             None
         } else {
@@ -2880,7 +2912,7 @@ impl Parser {
 
     fn parse_if_statement(&mut self) -> Option<Statement> {
         self.bump();
-        let condition = match self.parse_expression(Precedence::Lowest, false) {
+        let condition = match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
             Some(e) => e,
             None => return None
         };
@@ -2947,7 +2979,7 @@ impl Parser {
                     self.bump();
                     let row = self.current_token.pos.row;
                     let line = self.lexer.get_line(row);
-                    let elseifcond = self.parse_expression(Precedence::Lowest, false)?;
+                    let elseifcond = self.parse_expression(Precedence::Lowest, ExpressionState::Default)?;
                     if self.is_next_token(&Token::Then) {
                         self.bump();
                     }
@@ -2969,7 +3001,7 @@ impl Parser {
 
     fn parse_select_statement(&mut self) -> Option<Statement> {
         self.bump();
-        let expression = match self.parse_expression(Precedence::Lowest, false) {
+        let expression = match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
             Some(e) => e,
             None => {
                 self.error_on_current_token(ParseErrorKind::ExpressionIsExpected);
@@ -3086,7 +3118,7 @@ impl Parser {
     fn parse_ternary_operator_expression(&mut self, left: Expression) -> Option<Expression> {
 
         self.bump();
-        let consequence = match self.parse_expression(Precedence::Lowest, false) {
+        let consequence = match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
             Some(e) => Box::new(e),
             None => return None
         };
@@ -3095,7 +3127,7 @@ impl Parser {
             return None;
         }
         self.bump();
-        let alternative = match self.parse_expression(Precedence::Lowest, false) {
+        let alternative = match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
             Some(e) => Box::new(e),
             None => return None
         };
@@ -3136,7 +3168,7 @@ impl Parser {
 
         let mut body = vec![];
         loop {
-            let optexpr = self.parse_expression(Precedence::Lowest, true);
+            let optexpr = self.parse_expression(Precedence::Lowest, ExpressionState::Lambda);
             if optexpr.is_none() {
                 return None;
             }
@@ -3310,7 +3342,7 @@ impl Parser {
                         } else {
                             self.bump();
                             self.builder.set_default_param();
-                            let expr = self.parse_expression(Precedence::Lowest, false);
+                            let expr = self.parse_expression(Precedence::Lowest, ExpressionState::Default);
                             self.builder.reset_default_param();
                             expr?
                         };
@@ -3341,7 +3373,7 @@ impl Parser {
 
     fn parse_await_func_call_expression(&mut self) -> Option<Expression> {
         self.bump();
-        match self.parse_expression(Precedence::Lowest, false) {
+        match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
             Some(Expression::FuncCall{func,args,is_await:_}) => {
                 Some(Expression::FuncCall{func,args,is_await:true})
             },
@@ -3385,7 +3417,7 @@ impl Parser {
                 break;
             } else {
                 // 引数の式をパース
-                if let Some(e) = self.parse_expression(Precedence::Lowest, false) {
+                if let Some(e) = self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
                     list.push(e);
                 } else {
                     return None;

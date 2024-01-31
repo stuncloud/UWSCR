@@ -1068,7 +1068,6 @@ impl BuilderScope {
     /// 重複定義だった名前を返す
     fn check_duplicated(&self) -> Names {
         let mut names = Names::default();
-        println!("\u{001b}[36m[debug] {self:#?}\u{001b}[0m");
 
         // グローバル定数
         let dup = self.r#const.get_dups(None);
