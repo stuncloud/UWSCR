@@ -686,6 +686,15 @@ impl Environment {
         self.assignment(name, value, false)
     }
 
+    /// ループ内のdim文はそのまま代入式として扱う
+    pub fn in_loop_dim_definition(&mut self, name: &str, value: Object) {
+        // 初回はdim定義として処理し、その後は代入とする
+        if let Err(_) = self.define_local(name, value.clone()) {
+            let name = name.to_ascii_uppercase();
+            self.set(&name, ContainerType::Variable, value, false);
+        }
+    }
+
     pub fn set_func_params_to_local(&mut self, name: String, value: &Object) {
         let key = name.to_ascii_uppercase();
         self.add(NamedObject {
