@@ -176,7 +176,7 @@ impl Function {
 
         // functionならresult変数を初期化
         if ! self.is_proc {
-            evaluator.env.assign("result", Object::Empty)?;
+            evaluator.env.set_result();
         }
 
         /* 関数を実行 */
