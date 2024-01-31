@@ -465,10 +465,14 @@ impl Evaluator {
                 self.set_option_settings(opt);
                 Ok(None)
             },
-            Statement::Dim(vec) => {
+            Statement::Dim(vec, in_loop) => {
                 for (i, e) in vec {
                     let (name, value) = self.eval_definition_statement(i, e)?;
-                    self.env.define_local(&name, value)?;
+                    if in_loop {
+                        self.env.in_loop_dim_definition(&name, value);
+                    } else {
+                        self.env.define_local(&name, value)?;
+                    }
                 }
                 Ok(None)
             },
@@ -948,7 +952,7 @@ impl Evaluator {
         let mut module = Module::new(module_name.to_string());
         for statement in block {
             match statement.statement {
-                Statement::Dim(vec) => {
+                Statement::Dim(vec, _) => {
                     for (i, e) in vec {
                         let Identifier(member_name) = i;
                         let value = self.eval_expression(e)?;
