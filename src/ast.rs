@@ -2,6 +2,7 @@ use std::fmt;
 use std::str::FromStr;
 use std::mem;
 use std::collections::HashMap;
+use std::sync::OnceLock;
 
 use serde::{Serialize, Deserialize};
 
@@ -530,6 +531,8 @@ pub struct Program {
     pub lines: Vec<String>
 }
 
+static BUILTIN_NAMES: OnceLock<Vec<String>> = OnceLock::new();
+
 #[derive(Clone, Default)]
 pub struct ProgramBuilder {
     /// 定数
@@ -797,7 +800,7 @@ impl ProgramBuilder {
                         self.scope.push_dim(name)
                     }
                 }
-        }
+            }
         }
     }
     pub fn set_assignee_name(&mut self, name: &str, start: Position, end: Position) {
@@ -821,8 +824,38 @@ impl ProgramBuilder {
             self.scope.assignee.push(name);
         }
     }
+    fn is_in_builtins(&self, name: &str) -> bool {
+        if self.scope.is_function() {
+            // 関数内のみで以下が有効
+            if "GET_FUNC_NAME".eq_ignore_ascii_case(name) {
+                return true;
+            }
+            // module関数内では以下も有効
+            if self.scope.is_module() {
+                if "this".eq_ignore_ascii_case(name) {
+                    return true;
+                } else if "global".eq_ignore_ascii_case(name) {
+                    return true;
+                }
+            }
+        } else {
+            // 関数外のみで以下が有効
+            if "PARAM_STR".eq_ignore_ascii_case(name) {
+                return true;
+            }
+        }
+        let builtins = BUILTIN_NAMES.get_or_init(|| {
+            crate::evaluator::builtins::get_builtin_names()
+        });
+        builtins.iter()
+            .find(|builtin| builtin.eq_ignore_ascii_case(name))
+            .is_some()
+    }
     /// 呼び出される識別子をセット、未定義変数かどうかチェックされる
     pub fn set_access_name(&mut self, name: &str, start: Position, end: Position) {
+        if self.is_in_builtins(name) {
+            return;
+        }
         let name = Name::new(name, start, end);
         let is_const = self.scope.is_const();
         let is_public = self.scope.is_public();

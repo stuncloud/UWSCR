@@ -815,6 +815,37 @@ impl BuiltinFunctionSets {
     }
 }
 
+pub fn get_builtin_names() -> Vec<String> {
+    let mut names: Vec<String> = init_builtins().into_iter()
+        .map(|obj| obj.name)
+        .collect();
+    // 登録方法が特殊なビルトイン定数
+    let mut hoge = vec![
+        // "PARAM_STR",
+        // "GET_FUNC_NAME",
+        "TRY_ERRLINE",
+        "TRY_ERRMSG",
+        "G_TIME_YY",
+        "G_TIME_MM",
+        "G_TIME_DD",
+        "G_TIME_HH",
+        "G_TIME_NN",
+        "G_TIME_SS",
+        "G_TIME_ZZ",
+        "G_TIME_WW",
+        "G_TIME_YY2",
+        "G_TIME_MM2",
+        "G_TIME_DD2",
+        "G_TIME_HH2",
+        "G_TIME_NN2",
+        "G_TIME_SS2",
+        "G_TIME_ZZ2",
+        "G_TIME_YY4",
+    ].into_iter().map(|name| name.to_string()).collect();
+    names.append(&mut hoge);
+    names
+}
+
 pub fn init_builtins() -> Vec<NamedObject> {
     let mut vec = Vec::new();
     // builtin debug functions
