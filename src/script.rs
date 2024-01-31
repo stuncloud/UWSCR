@@ -132,15 +132,13 @@ pub fn out_ast(script: String, path: &String) -> Result<(String, Option<String>)
 
     let mut parser = Parser::new(Lexer::new(&script));
     parser.set_script_dir(script_dir);
-    let builder = parser.parse_to_builder();
-    let errors = parser.as_errors();
+    let (program, errors) = parser.parse_to_program_and_errors();
 
     let err = if errors.len() > 0 {
         let emsg = errors.iter().map(|e| e.to_string()).collect::<Vec<_>>().join("\r\n");
         Some(format!("got {} parse error{}\r\n{}", errors.len(), if errors.len()>1 {"s"} else {""}, emsg))
     } else {None};
 
-    let program = builder.build(vec![]);
     let ast = format!("Global: {:?}\nScript: {:?}", program.global, program.script);
     Ok((ast, err))
 }

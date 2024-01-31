@@ -155,9 +155,13 @@ pub enum Token {
 
     Try,
 
+    /// - true: TextBlockEx
+    /// - false: TextBlock
     TextBlock(bool),
     EndTextBlock,
-    TextBlockBody(String),
+    /// - 本文
+    /// - コメントならtrue
+    TextBlockBody(String, bool),
 
     Function,
     Procedure,
@@ -173,8 +177,9 @@ pub enum Token {
 
     BlockEnd(BlockEnd),
 
-    // Option
-    Option(String),
+    /// - オプション名
+    /// - オプション名開始位置
+    Option(String, usize),
 
     // COM
     ComErrIgn,
@@ -207,7 +212,7 @@ impl Token {
             Token::Num(n) => n.to_string().len(),
             Token::Hex(h) => h.len() + 1,
             Token::String(s) |
-            Token::ExpandableString(s) => s.len(),
+            Token::ExpandableString(s) => s.len() + 2, // ''または""の分を足す
             Token::Bool(b) => b.to_string().len(),
             Token::Null => 4,
             Token::Empty => 5,
@@ -224,7 +229,7 @@ impl Token {
             Token::Await => 5,
             Token::HashTable => 7,
             Token::Call => 4,
-            Token::Uri(uri) => uri.len(),
+            Token::Uri(uri) => uri.len() + 5,
             Token::Path(dir, file) => {
                 let len = match dir {
                     Some(s) => s.len() + 1,
@@ -288,9 +293,9 @@ impl Token {
             Token::Break => 5,
             Token::With => 4,
             Token::Try => 3,
-            Token::TextBlock(_) => 9,
+            Token::TextBlock(ex) => if *ex {11} else {9},
             Token::EndTextBlock => 12,
-            Token::TextBlockBody(_) => 1,
+            Token::TextBlockBody(_, _) => 1,
             Token::Function => 8,
             Token::Procedure => 9,
             Token::Module => 6,
@@ -299,7 +304,7 @@ impl Token {
             Token::Struct => 6,
             Token::Hash => 4,
             Token::BlockEnd(end) => end.len(),
-            Token::Option(_) => 6,
+            Token::Option(_, _) => 6,
             Token::ComErrIgn => 11,
             Token::ComErrRet => 11,
             Token::ComErrFlg => 11,
@@ -402,7 +407,7 @@ impl std::fmt::Display for Token {
             Token::Try => write!(f, "Try"),
             Token::TextBlock(_) => write!(f, "TextBlock"),
             Token::EndTextBlock => write!(f, "EndTextBlock"),
-            Token::TextBlockBody(_) => write!(f, "TextBlockBody"),
+            Token::TextBlockBody(_, _) => write!(f, "TextBlockBody"),
             Token::Function => write!(f, "Function"),
             Token::Procedure => write!(f, "Procedure"),
             Token::Module => write!(f, "Module"),
@@ -411,7 +416,7 @@ impl std::fmt::Display for Token {
             Token::Struct => write!(f, "Struct"),
             Token::Hash => write!(f, "Hash"),
             Token::BlockEnd(end) => write!(f, "{end}"),
-            Token::Option(_) => write!(f, "Option"),
+            Token::Option(_,_) => write!(f, "Option"),
             Token::ComErrIgn => write!(f, "ComErrIgn"),
             Token::ComErrRet => write!(f, "ComErrRet"),
             Token::ComErrFlg => write!(f, "ComErrFlg"),

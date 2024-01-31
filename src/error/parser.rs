@@ -6,8 +6,28 @@ use crate::ast::{Identifier, Statement, Expression};
 
 use std::fmt;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
+pub enum InternalError {
+    /// moduleブロックの解析でStatementが返る異常
+    ModuleBlockParsing,
+}
+impl std::fmt::Display for InternalError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            InternalError::ModuleBlockParsing => write!(f, "モジュールブロック解析異常"),
+        }
+    }
+}
+impl From<InternalError> for ParseErrorKind {
+    fn from(err: InternalError) -> Self {
+        ParseErrorKind::InternalError(err)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum ParseErrorKind {
+    // /// 内部エラー (発生してはいけないやつ)
+    InternalError(InternalError),
     SyntaxError,
     /// 次のトークンが期待されたものではない
     ///
@@ -45,8 +65,8 @@ pub enum ParseErrorKind {
     UnexpectedOption(String),
     InvalidExitCode,
     ValueMustBeDefined(Identifier),
-    ParameterShouldBeDefault(Identifier),
-    ParameterCannotBeDefinedAfterVariadic(Identifier),
+    ParameterShouldBeDefault(String),
+    ParameterCannotBeDefinedAfterVariadic(String),
     OutOfWith,
     OutOfLoop(Token),
     InvalidStatementInFinallyBlock(String),
@@ -70,25 +90,37 @@ pub enum ParseErrorKind {
     ReservedKeyword(Token),
     FunctionRequiredAfterAsync,
     FunctionCallRequiredAfterAwait,
-    InvalidClassMemberDefinition(Statement),
+    InvalidMemberDefinition(Statement, bool),
     MissingIndex,
     /// 連想配列定義が不正
     InvalidHashMemberDefinition(Option<Expression>),
     InvalidCallUri(String),
     ExplicitError(String),
+    DefinitionStatementNotAllowed,
+    OptionStatementNotAllowed,
+    IdentifierIsAlreadyDefined(String),
+    AssigningToConstIsNotAllowed,
+    CalledScriptHadError,
+    InvalidAssignment,
+    ParameterDuplicated(String),
+    InvalidExpression,
+    UndeclaredIdentifier(String),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ParseError {
     pub kind: ParseErrorKind,
     pub start: Position,
     pub end: Position,
-    pub script_name: String
+    pub script_name: Option<String>
 }
 
 impl fmt::Display for ParseErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            ParseErrorKind::InternalError(internal) => write!(f,
+                "Internal Error: {internal}"
+            ),
             ParseErrorKind::SyntaxError => write!(f,
                 "Syntax Error"
             ),
@@ -276,10 +308,10 @@ impl fmt::Display for ParseErrorKind {
                 "awaitの後には関数呼び出しが必要です",
                 "Function call is required after await keyword",
             ),
-            ParseErrorKind::InvalidClassMemberDefinition(statement) => write_locale!(f,
-                "不正なクラスメンバ ({:?})",
-                "Invalid class member definition: {:?}",
-                statement
+            ParseErrorKind::InvalidMemberDefinition(statement, is_class) => write_locale!(f,
+                "不正な{}メンバ定義 ({statement})",
+                "Invalid {} member definition: {statement}",
+                if *is_class {"class"} else {"module"}
             ),
             ParseErrorKind::MissingIndex => write_locale!(f,
                 "配列の添字がない",
@@ -300,15 +332,51 @@ impl fmt::Display for ParseErrorKind {
                 "Invalid script uri: {uri}",
             ),
             ParseErrorKind::ExplicitError(ident) => write_locale!(f,
-                "宣言されていない変数への代入です: {ident}",
-                "Variable '{ident}' is not defined",
+                "未宣言の変数 {ident} への代入は禁止されています (OPTION EXPLICIT)",
+                "Assigment to undeclared variable '{ident}' is prohibited by OPTION EXPLICIT",
+            ),
+            ParseErrorKind::DefinitionStatementNotAllowed => write_locale!(f,
+                "ブロック構文内では定義できません",
+                "Definition is not allowed in block statement",
+            ),
+            ParseErrorKind::OptionStatementNotAllowed => write_locale!(f,
+                "ブロック構文内ではOPTION宣言できません",
+                "OPTION declarement is not allowed in block statement",
+            ),
+            ParseErrorKind::IdentifierIsAlreadyDefined(name) => write_locale!(f,
+                "{name}は定義済みです",
+                "{name} is already defined",
+            ),
+            ParseErrorKind::AssigningToConstIsNotAllowed => write_locale!(f,
+                "定数への代入はできません",
+                "Assigning to constant is not allowed",
+            ),
+            ParseErrorKind::CalledScriptHadError => write_locale!(f,
+                "call文で呼び出したスクリプトにエラーがありました",
+                "Assigning to constant is not allowed",
+            ),
+            ParseErrorKind::InvalidAssignment => write_locale!(f,
+                "代入式の左辺が不正です",
+                "The left side of assignment expression is invalid",
+            ),
+            ParseErrorKind::ParameterDuplicated(name) => write_locale!(f,
+                "同じ名前の引数があります ({name})",
+                "Parameter name is duplicated: {name}",
+            ),
+            ParseErrorKind::InvalidExpression => write_locale!(f,
+                "不正な式の呼び出しです",
+                "Invalid expression",
+            ),
+            ParseErrorKind::UndeclaredIdentifier(name) => write_locale!(f,
+                "変数または定数 {name} がありません",
+                "There is no variable or constant named {name}",
             ),
         }
     }
 }
 
 impl ParseError {
-    pub fn new(kind: ParseErrorKind, start: Position, end: Position, script_name: String) -> Self {
+    pub fn new(kind: ParseErrorKind, start: Position, end: Position, script_name: Option<String>) -> Self {
         ParseError {kind, start, end, script_name}
     }
     pub fn new_explicit_error(ident: String, row: usize, script_name: Option<String>) -> Self {
@@ -316,7 +384,6 @@ impl ParseError {
         let kind = ParseErrorKind::ExplicitError(ident);
         let start = Position { row, column: 0 };
         let end = Position { row: row, column: len };
-        let script_name = script_name.unwrap_or_default();
         Self { kind, start, end, script_name }
     }
 
@@ -327,6 +394,10 @@ impl ParseError {
 
 impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}[{}] - {}", &self.script_name, self.start, self.kind)
+        if let Some(name) = &self.script_name {
+            write!(f, "{}[{}] - {}", name, self.start, self.kind)
+        } else {
+            write!(f, "[{}] - {}", self.start, self.kind)
+        }
     }
 }

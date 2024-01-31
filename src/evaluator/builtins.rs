@@ -214,6 +214,7 @@ impl BuiltinFuncArgs {
                         .ok_or(BuiltinFuncError::new(UErrorMessage::BuiltinArgCastError(arg, std::any::type_name::<T>().into()))),
                     Err(_) => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg)))
                 },
+                Object::Empty |
                 Object::EmptyParam => {
                     default.ok_or(BuiltinFuncError::new(UErrorMessage::BuiltinArgRequiredAt(i + 1)))
                 },

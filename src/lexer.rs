@@ -2,8 +2,9 @@ use crate::token::BlockEnd;
 use crate::token::Token;
 use std::f64;
 use std::fmt;
+use std::cmp::Ordering;
 
-#[derive(Debug,Clone,Copy)]
+#[derive(Debug,Clone,Copy,Default,PartialEq)]
 pub struct Position {
     pub row: usize,
     pub column: usize,
@@ -14,10 +15,20 @@ impl fmt::Display for Position {
         write!(f,"{}, {}",self.row, self.column)
     }
 }
+impl PartialOrd for Position {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        match self.row.partial_cmp(&other.row) {
+            Some(Ordering::Equal) => {
+                self.column.partial_cmp(&other.column)
+            }
+            ord => ord,
+        }
+    }
+}
 
 impl Position {
-    pub fn new() -> Self {
-        Position{row: 0, column: 0}
+    pub fn new(row: usize, column: usize) -> Self {
+        Position{row, column}
     }
 }
 
@@ -32,7 +43,7 @@ impl TokenInfo {
     pub fn new(token: Token) -> Self {
         TokenInfo {
             token,
-            pos: Position::new(),
+            pos: Position::default(),
             skipped_whitespace: false,
         }
     }
@@ -63,6 +74,7 @@ pub struct Lexer {
     position_before: Position,
     textblock_flg: bool,
     is_textblock: bool,
+    is_comment_textblock: bool,
     is_call: bool,
 }
 
@@ -78,6 +90,7 @@ impl Lexer {
             position_before: Position{row: 0, column:0},
             textblock_flg: false,
             is_textblock: false,
+            is_comment_textblock: true,
             is_call: false,
         };
         lexer.read_char();
@@ -118,7 +131,7 @@ impl Lexer {
         }
     }
 
-    fn nextch_is(&mut self, ch: char) -> bool {
+    pub fn nextch_is(&mut self, ch: char) -> bool {
         self.nextch() == ch
     }
 
@@ -150,7 +163,9 @@ impl Lexer {
         if self.is_textblock {
             let p = self.position.clone();
             let body = self.get_textblock_body();
-            return TokenInfo::new_with_pos(Token::TextBlockBody(body), p, false);
+            let is_comment = self.is_comment_textblock;
+            self.is_comment_textblock = true;
+            return TokenInfo::new_with_pos(Token::TextBlockBody(body, is_comment), p, false);
         }
         let skipped = self.skip_whitespace();
         let p: Position = self.position.clone();
@@ -421,6 +436,9 @@ impl Lexer {
     }
 
     fn consume_identifier(&mut self) -> Token {
+        if self.textblock_flg {
+            self.is_comment_textblock = false;
+        }
         let literal = self.get_identifier();
 
         match literal.to_ascii_lowercase().as_str() {
@@ -517,8 +535,9 @@ impl Lexer {
 
     fn consume_option(&mut self) -> Token {
         self.skip_whitespace();
+        let pos = self.pos;
         let ident = self.get_identifier();
-        Token::Option(ident.to_ascii_lowercase())
+        Token::Option(ident.to_ascii_lowercase(), pos)
     }
 
     fn consume_number(&mut self) -> Token {
@@ -998,7 +1017,7 @@ endtextblock"#,
                 vec![
                     Token::TextBlock(false),
                     Token::Eol,
-                    Token::TextBlockBody("comment".into()),
+                    Token::TextBlockBody("comment".into(), true),
                     Token::EndTextBlock,
                 ]
             ),
@@ -1011,7 +1030,7 @@ r#"
                     Token::Eol,
                     Token::TextBlock(false),
                     Token::Eol,
-                    Token::TextBlockBody("".into()),
+                    Token::TextBlockBody("".into(), true),
                     Token::EndTextBlock,
                     Token::Eol,
                 ]
@@ -1022,7 +1041,7 @@ endtextblock"#,
                 vec![
                     Token::TextBlock(false),
                     Token::Eol,
-                    Token::TextBlockBody("".into()),
+                    Token::TextBlockBody("".into(), true),
                     Token::EndTextBlock,
                 ]
             ),
@@ -1035,7 +1054,7 @@ endtextblock"#,
                     Token::TextBlock(false),
                     Token::Identifier("hoge".into()),
                     Token::Eol,
-                    Token::TextBlockBody("hoge\nfuga".into()),
+                    Token::TextBlockBody("hoge\nfuga".into(), false),
                     Token::EndTextBlock,
                 ]
             ),
@@ -1051,7 +1070,7 @@ r#"
                     Token::TextBlock(false),
                     Token::Identifier("hoge".into()),
                     Token::Eol,
-                    Token::TextBlockBody("    hoge\n    fuga".into()),
+                    Token::TextBlockBody("    hoge\n    fuga".into(), false),
                     Token::EndTextBlock,
                     Token::Eol,
                 ]
@@ -1065,7 +1084,7 @@ endtextblock"#,
                     Token::TextBlock(true),
                     Token::Identifier("foo".into()),
                     Token::Eol,
-                    Token::TextBlockBody("bar\nbaz".into()),
+                    Token::TextBlockBody("bar\nbaz".into(), false),
                     Token::EndTextBlock,
                 ]
             ),
@@ -1075,7 +1094,7 @@ endtextblock"#,
                     Token::TextBlock(true),
                     Token::Identifier("foo".into()),
                     Token::Eol,
-                    Token::TextBlockBody("bar\r\nbaz".into()),
+                    Token::TextBlockBody("bar\r\nbaz".into(), false),
                     Token::EndTextBlock,
                 ]
             ),

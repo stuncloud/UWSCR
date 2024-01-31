@@ -496,8 +496,8 @@ impl Evaluator {
                 self.env.define_const(&name, value)?;
                 Ok(None)
             },
-            Statement::HashTbl(v) => {
-                for (i, hashopt, is_public) in v {
+            Statement::HashTbl(v, is_public) => {
+                for (i, hashopt) in v {
                     let (name, hashtbl) = self.eval_hashtbl_definition_statement(i, hashopt)?;
                     if is_public {
                         self.env.define_public(&name, hashtbl)?;
@@ -982,8 +982,8 @@ impl Evaluator {
                     self.env.define_module_const(&name, value.clone())?;
                     module.add(name, value, ContainerType::Const);
                 },
-                Statement::HashTbl(v) => {
-                    for (i, opt, is_pub) in v {
+                Statement::HashTbl(v, is_pub) => {
+                    for (i, opt) in v {
                         let (name, hashtbl) = self.eval_hashtbl_definition_statement(i, opt)?;
                         let container_type = if is_pub {
                             self.env.define_module_public(&name, hashtbl.clone())?;
@@ -1016,8 +1016,8 @@ impl Evaluator {
                                     module.add(member_name, value, ContainerType::Const);
                                 }
                             },
-                            Statement::HashTbl(v) => {
-                                for (i, opt, is_pub) in v {
+                            Statement::HashTbl(v, is_pub) => {
+                                for (i, opt) in v {
                                     if is_pub {
                                         let (name, hashtbl) = self.eval_hashtbl_definition_statement(i, opt)?;
                                         self.env.define_module_public(&name, hashtbl.clone())?;

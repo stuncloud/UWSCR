@@ -12,6 +12,72 @@ use std::str::FromStr;
 pub type ParseErrors = Vec<ParseError>;
 pub type ParserResult<T> = Result<T, ParseErrors>;
 
+enum StatementType {
+    /// - public
+    /// - public hashtbl
+    /// - public hash
+    Public,
+    /// - const
+    /// - textblock
+    /// - enum
+    Const,
+    /// - dim
+    Dim,
+    /// - option
+    Option,
+    /// - function
+    /// - procedure
+    /// - async function
+    /// - async procedure
+    /// - module
+    /// - class
+    Definition,
+    /// - 単行if
+    /// - print
+    /// - continue
+    /// - break
+    /// - hashtable
+    /// - hash
+    /// - exit
+    /// - exitexit
+    /// - thread
+    /// - comerrign
+    /// - comerrret
+    Script,
+    /// - ifb
+    /// - select
+    /// - for
+    /// - while
+    /// - repeat
+    /// - with
+    /// - try
+    Block,
+    /// - call
+    Call,
+    /// - def_dll
+    DefDll,
+    /// 式のみの文
+    Expression,
+}
+
+/// 識別子の解析がどの文脈で行われているか
+enum IdentifierType {
+    /// 変数・定数宣言
+    Declaration,
+    /// 代入
+    Assignment,
+    /// 呼び出し
+    Access,
+    /// 関数パラメータ名
+    Parameter,
+    /// 定義した関数名など
+    Definition,
+    /// 登録しないもの
+    Other,
+    /// まだ定かではないもの
+    NotSure,
+}
+
 pub struct Parser {
     lexer: Lexer,
     current_token: TokenInfo,
@@ -19,14 +85,15 @@ pub struct Parser {
     errors: ParseErrors,
     with: Option<Expression>,
     with_count: usize,
-    in_loop: bool,
-    script_name: String, // callしたスクリプトの名前,
+    // scope: ParserScope,
+    script_name: Option<String>, // callしたスクリプトの名前,
     script_dir: Option<PathBuf>,
+    builder: ProgramBuilder,
 }
 
 impl Parser {
     pub fn new(lexer: Lexer) -> Self {
-        let script_name = env::var("GET_UWSC_NAME").unwrap_or(String::new());
+        let script_name = env::var("GET_UWSC_NAME").ok();
         let mut parser = Parser {
             lexer,
             current_token: TokenInfo::new(Token::Eof),
@@ -34,9 +101,10 @@ impl Parser {
             errors: vec![],
             with: None,
             with_count: 0,
-            in_loop: false,
+            // scope: ParserScope::default(),
             script_name,
             script_dir: None,
+            builder: ProgramBuilder::new(),
         };
         parser.bump();
         parser.bump();
@@ -55,9 +123,11 @@ impl Parser {
             errors: vec![],
             with: None,
             with_count: 0,
-            in_loop: false,
-            script_name,
+            // in_loop: false,
+            // scope: todo!(),
+            script_name: Some(script_name),
             script_dir,
+            builder: ProgramBuilder::new(),
         };
         parser.bump();
         parser.bump();
@@ -66,7 +136,7 @@ impl Parser {
     }
 
     pub fn script_name(&self) -> String {
-        self.script_name.clone()
+        self.script_name.clone().unwrap_or_default()
     }
 
     fn token_to_precedence(token: &Token) -> Precedence {
@@ -89,7 +159,7 @@ impl Parser {
     }
 
     fn push_error(&mut self, kind: ParseErrorKind, start: Position, end: Position) {
-        let err = ParseError::new(kind, start, end, self.script_name());
+        let err = ParseError::new(kind, start, end, self.script_name.clone());
         self.errors.push(err);
     }
 
@@ -204,13 +274,13 @@ impl Parser {
         self.push_error(kind, current.pos, end);
     }
 
-    /// 現在のトークンが識別子ではない
-    fn error_current_token_is_not_identifier(&mut self) {
-        let current = &self.current_token;
-        let end = current.get_end_pos();
-        let kind = ParseErrorKind::CurrentTokenIsNotIdentifier;
-        self.push_error(kind, current.pos, end);
-    }
+    // /// 現在のトークンが識別子ではない
+    // fn error_current_token_is_not_identifier(&mut self) {
+    //     let current = &self.current_token;
+    //     let end = current.get_end_pos();
+    //     let kind = ParseErrorKind::CurrentTokenIsNotIdentifier;
+    //     self.push_error(kind, current.pos, end);
+    // }
 
     /// 現在のトークンが不正
     fn error_current_token_is_invalid(&mut self) {
@@ -254,83 +324,73 @@ impl Parser {
     pub fn as_errors(self) -> ParseErrors {
         self.errors
     }
+    pub fn lines(&self) -> Vec<String> {
+        self.lexer.lines.clone()
+    }
+
+    fn current_token_pos(&self) -> Position {
+        self.current_token.pos
+    }
+    fn current_token_end_pos(&self) -> Position {
+        self.current_token.get_end_pos()
+    }
+    fn current_line_end_pos(&self) -> Position {
+        let row = self.current_token.pos.row;
+        let line = &self.lexer.lines[row-1];
+        Position { row, column: line.len() }
+    }
 
     pub fn parse(mut self) -> ParserResult<Program> {
-        let builder = self.parse_to_builder();
+        self.parse_to_builder();
 
         if self.errors.len() == 0 {
-            let program = builder.build(self.lexer.lines);
+            let program = self.builder.build(self.lexer.lines);
             Ok(program)
         } else {
             Err(self.errors)
         }
     }
-    pub fn parse_to_builder(&mut self) -> ProgramBuilder {
-
-        let mut builder = ProgramBuilder::new();
-
+    pub fn parse_to_program_and_errors(mut self) -> (Program, ParseErrors) {
+        self.parse_to_builder();
+        let program = self.builder.build(self.lexer.lines);
+        (program, self.errors)
+    }
+    pub fn parse_to_builder(&mut self) {
         while ! self.is_current_token(&Token::Eof) {
             match self.parse_statement() {
-                Some(s) => match s.statement {
-                    Statement::Option(_) => {
-                        builder.push_option(s);
-                    },
-                    Statement::Const(_) |
-                    Statement::TextBlock(_, _) => {
-                        builder.push_const(s);
-                    },
-                    Statement::Public(_) => {
-                        builder.push_public(s);
-                    },
-                    Statement::Function{name, params, body, is_proc, is_async} => {
-                        let mut new_body = Vec::new();
-                        for row in body {
-                            match row.statement {
-                                Statement::Const(_) |
-                                Statement::TextBlock(_, _) => {
-                                    builder.push_const(row);
-                                },
-                                Statement::Public(_) => {
-                                    builder.push_public(row);
-                                }
-                                Statement::DefDll { name:_, alias:_, params:_, ret_type:_, path:_ } => {
-                                    // グローバルに登録
-                                    builder.push_def(row.clone());
-                                    // スクリプトにも残る
-                                    new_body.push(row);
-                                },
-                                _ => new_body.push(row)
-                            }
-                        }
-                        let func = StatementWithRow::new(
-                            Statement::Function {
-                                name, params, body: new_body, is_proc, is_async
-                            },
-                            s.row,
-                            s.line,
-                            s.script_name
-                        );
-                        builder.push_def(func);
-                    },
-                    Statement::DefDll { name:_, alias:_, params:_, ret_type:_, path:_ } => {
-                        // グローバルに登録
-                        builder.push_def(s.clone());
-                        // スクリプトにも残る
-                        builder.push_script(s);
-                    },
-                    Statement::Module(_, _) |
-                    Statement::Class(_, _) |
-                    Statement::Struct(_, _) => {
-                        builder.push_def(s);
-                    },
-                    Statement::Call(program, params) => {
-                        let program = builder.set_call_program(program);
-                        let call_stmt = StatementWithRow::new(Statement::Call(program, params), s.row, s.line, s.script_name);
-                        builder.push_script(call_stmt);
-                    },
-                    _ => {
-                        // program.push(s)
-                        builder.push_script(s);
+                Some((t, statement)) => {
+                    match t {
+                        StatementType::Public => {
+                            self.builder.push_public(statement);
+                        },
+                        StatementType::Const => {
+                            self.builder.push_const(statement);
+                        },
+                        StatementType::Dim => {
+                            self.builder.push_script(statement);
+                        },
+                        StatementType::Option => {
+                            self.builder.push_option(statement);
+                        },
+                        StatementType::Definition => {
+                            self.builder.push_def(statement);
+                        },
+                        StatementType::Script => {
+                            self.builder.push_script(statement);
+                        },
+                        StatementType::Block => {
+                            self.builder.push_script(statement);
+                        },
+                        StatementType::Call => {
+                            todo!()
+                        },
+                        StatementType::DefDll => {
+                            self.builder.push_def(statement.clone());
+                            self.builder.push_script(statement);
+                        },
+                        StatementType::Expression => {
+                            self.builder.push_script(statement);
+                        },
                     }
                 },
                 None => {
@@ -340,11 +400,32 @@ impl Parser {
             }
             self.bump();
         }
-
-        let mut explicit_errors = builder.check_explicit();
-        self.errors.append(&mut explicit_errors);
-
-        builder
+        // OPTION EXPLICITチェック
+        let is_explicit = {
+            let settings = crate::settings::USETTINGS.lock().unwrap();
+            settings.options.explicit || self.builder.is_explicit_option_enabled()
+        };
+        if is_explicit {
+            self.builder.check_option_explicit()
+                .iter()
+                .for_each(|dec| {
+                    self.push_error(ParseErrorKind::ExplicitError(dec.name.to_owned()), dec.start, dec.end)
+                });
+        } else {
+            self.builder.declare_implicitly();
+        }
+        // 重複チェック
+        self.builder.check_duplicated()
+            .iter()
+            .for_each(|dec| {
+                self.push_error(ParseErrorKind::IdentifierIsAlreadyDefined(dec.name.to_owned()), dec.start, dec.end);
+            });
+        // 未定義チェック
+        self.builder.check_access()
+            .iter()
+            .for_each(|dec| {
+                self.push_error(ParseErrorKind::UndeclaredIdentifier(dec.name.to_owned()), dec.start, dec.end);
+            });
     }
 
     fn parse_block_statement(&mut self) -> BlockStatement {
@@ -352,8 +433,88 @@ impl Parser {
         let mut block: BlockStatement  = vec![];
 
         while ! self.is_current_token_end_of_block() && ! self.is_current_token(&Token::Eof) {
+            let start = self.current_token_pos();
+            let end = self.current_token_end_pos();
+            let line_end = self.current_line_end_pos();
             match self.parse_statement() {
-                Some(s) => block.push(s),
+                Some((t, statement)) => match t {
+                    StatementType::Public => {
+                        self.builder.push_public(statement);
+                    },
+                    StatementType::Const => {
+                        self.builder.push_const(statement);
+                    },
+                    StatementType::Dim => {
+                        if self.builder.is_in_module_member_definition() {
+                            self.builder.push_dim_member(statement);
+                        } else {
+                            block.push(statement)
+                        }
+                    },
+                    StatementType::Option => {
+                        self.push_error(ParseErrorKind::OptionStatementNotAllowed, start, line_end);
+                    },
+                    StatementType::Definition => {
+                        if self.builder.is_in_module_member_definition() {
+                            match &statement.statement {
+                                // 関数定義はメンバに加える
+                                Statement::Function { name:_, params:_, body:_, is_proc:_, is_async:_ } => {
+                                    self.builder.push_def(statement);
+                                },
+                                _ => {
+                                    let end = self.current_token_pos();
+                                    self.push_error(ParseErrorKind::InvalidMemberDefinition(statement.statement, self.builder.is_class_definition()), start, end);
+                                }
+                            }
+                        } else {
+                            self.push_error(ParseErrorKind::DefinitionStatementNotAllowed, start, end);
+                        }
+                    },
+                    StatementType::Script => {
+                        if self.builder.is_in_module_member_definition() {
+                            match &statement.statement {
+                                // 連想配列定義はdimメンバに加える
+                                Statement::HashTbl(_, false) |
+                                Statement::Hash(_) => {
+                                    self.builder.push_dim_member(statement);
+                                },
+                                _ => {
+                                    let end = self.current_token_pos();
+                                    self.push_error(ParseErrorKind::InvalidMemberDefinition(statement.statement, self.builder.is_class_definition()), start, end);
+                                }
+                            }
+                        } else {
+                            block.push(statement);
+                        }
+                    },
+                    StatementType::Block => {
+                        if self.builder.is_in_module_member_definition() {
+                            let end = self.current_token_pos();
+                            self.push_error(ParseErrorKind::InvalidMemberDefinition(statement.statement, self.builder.is_class_definition()), start, end);
+                        } else {
+                            block.push(statement);
+                        }
+                    },
+                    StatementType::Call => {
+                        todo!()
+                    },
+                    StatementType::DefDll => {
+                        // def_dll定義はグローバルおよび定義した場所に置かれる
+                        self.builder.push_def(statement.clone());
+                        if ! self.builder.is_in_module_member_definition() {
+                            // モジュールメンバ定義以外ならブロックにも追加する
+                            block.push(statement);
+                        }
+                    },
+                    StatementType::Expression => {
+                        if self.builder.is_in_module_member_definition() {
+                            let end = self.current_token_pos();
+                            self.push_error(ParseErrorKind::InvalidMemberDefinition(statement.statement, self.builder.is_class_definition()), start, end);
+                        } else {
+                            block.push(statement);
+                        }
+                    },
+                },
                 None => {
                     self.bump_to_next_row();
                     continue;
@@ -361,50 +522,187 @@ impl Parser {
             }
             self.bump();
         }
-
+        if self.builder.is_in_module_member_definition() {
+            self.builder.take_module_members(&mut block);
+        }
         block
     }
 
-    fn parse_statement(&mut self) -> Option<StatementWithRow> {
+    fn parse_statement(&mut self) -> Option<(StatementType, StatementWithRow)> {
+        let start = self.current_token_pos();
         let row = self.current_token.pos.row;
         let token = self.current_token.token.clone();
-        let statement = match token {
-            Token::Dim => self.parse_dim_statement()?,
-            Token::Public => self.parse_public_statement()?,
-            Token::Const => self.parse_const_statement()?,
-            Token::If |
-            Token::IfB => self.parse_if_statement()?,
-            Token::Select => self.parse_select_statement()?,
-            Token::Print => self.parse_print_statement()?,
-            Token::For => self.parse_for_statement()?,
-            Token::While => self.parse_while_statement()?,
-            Token::Repeat => self.parse_repeat_statement()?,
-            Token::Continue => self.parse_continue_statement()?,
-            Token::Break => self.parse_break_statement()?,
-            Token::Call => self.parse_call_statement()?,
-            Token::DefDll => self.parse_def_dll_statement()?,
-            Token::Struct => self.parse_struct_statement()?,
-            Token::HashTable => self.parse_hashtable_statement(false)?,
-            Token::Hash => self.parse_hash_statement()?,
-            Token::Function => self.parse_function_statement(false, false)?,
-            Token::Procedure => self.parse_function_statement(true, false)?,
-            Token::Async => self.parse_async_function_statement()?,
-            Token::Exit => Statement::Exit,
-            Token::ExitExit => self.parse_exitexit_statement()?,
-            Token::Module => self.parse_module_statement()?,
-            Token::Class => self.parse_class_statement()?,
-            Token::TextBlock(is_ex) => self.parse_textblock_statement(is_ex)?,
-            Token::With => self.parse_with_statement()?,
-            Token::Try => self.parse_try_statement()?,
-            Token::Option(ref name) => self.parse_option_statement(name)?,
-            Token::Enum => self.parse_enum_statement()?,
-            Token::Thread => self.parse_thread_statement()?,
-            Token::ComErrIgn => Statement::ComErrIgn,
-            Token::ComErrRet => Statement::ComErrRet,
-            _ => self.parse_expression_statement()?,
+        let (stmttype, statement) = match token {
+            Token::Dim => {
+                self.builder.set_dim_scope();
+                let stmt = self.parse_dim_statement();
+                self.builder.reset_dim_scope();
+                (StatementType::Dim, stmt?)
+            },
+            Token::Public => {
+                self.builder.set_public_scope();
+                let stmt = self.parse_public_statement();
+                self.builder.reset_public_scope();
+                (StatementType::Public, stmt?)
+            },
+            Token::Const => {
+                self.builder.set_const_scope();
+                let stmt = self.parse_const_statement();
+                self.builder.reset_const_scope();
+                (StatementType::Const, stmt?)
+            },
+            Token::If => {
+                (StatementType::Script, self.parse_if_statement()?)
+            },
+            Token::IfB => {
+                (StatementType::Block, self.parse_if_statement()?)
+            },
+            Token::Select => {
+                (StatementType::Block, self.parse_select_statement()?)
+            },
+            Token::Print => {
+                (StatementType::Script, self.parse_print_statement()?)
+            },
+            Token::For => {
+                self.builder.increase_loop_count();
+                let stmt = self.parse_for_statement();
+                self.builder.decrease_loop_count();
+                (StatementType::Block, stmt?)
+            },
+            Token::While => {
+                self.builder.increase_loop_count();
+                let stmt = self.parse_while_statement();
+                self.builder.decrease_loop_count();
+                (StatementType::Block, stmt?)
+            },
+            Token::Repeat => {
+                self.builder.increase_loop_count();
+                let stmt = self.parse_repeat_statement();
+                self.builder.decrease_loop_count();
+                (StatementType::Block, stmt?)
+            },
+            Token::Continue => {
+                (StatementType::Script, self.parse_continue_statement()?)
+            },
+            Token::Break => {
+                (StatementType::Script, self.parse_break_statement()?)
+            },
+            Token::Call => {
+                (StatementType::Call, self.parse_call_statement()?)
+            },
+            Token::DefDll => {
+                (StatementType::DefDll, self.parse_def_dll_statement()?)
+            },
+            Token::Struct => {
+                (StatementType::Definition, self.parse_struct_statement()?)
+            },
+            Token::HashTable => {
+                self.builder.set_dim_scope();
+                let stmt = self.parse_hashtable_statement(false);
+                self.builder.reset_dim_scope();
+                (StatementType::Script, stmt?)
+            },
+            Token::Hash => {
+                let is_public = self.is_next_token(&Token::Public);
+                if is_public {
+                    self.builder.set_public_scope();
+                } else {
+                    self.builder.set_dim_scope();
+                }
+                let stmt = self.parse_hash_statement();
+                if is_public {
+                    self.builder.reset_public_scope();
+                    (StatementType::Public, stmt?)
+                } else {
+                    self.builder.reset_dim_scope();
+                    (StatementType::Script, stmt?)
+                }
+            },
+            Token::Function => {
+                self.builder.set_function_scope();
+                let stmt = self.parse_function_statement(false, false);
+                self.builder.reset_function_scope();
+                (StatementType::Definition, stmt?)
+            },
+            Token::Procedure => {
+                self.builder.set_function_scope();
+                let stmt = self.parse_function_statement(true, false);
+                self.builder.reset_function_scope();
+                (StatementType::Definition, stmt?)
+            },
+            Token::Async => {
+                self.builder.set_function_scope();
+                let stmt = self.parse_async_function_statement();
+                self.builder.reset_function_scope();
+                (StatementType::Definition, stmt?)
+            },
+            Token::Exit => {
+                (StatementType::Script, Statement::Exit)
+            },
+            Token::ExitExit => {
+                (StatementType::Script, self.parse_exitexit_statement()?)
+            },
+            Token::Module => {
+                self.builder.set_module_scope(false);
+                let stmt = self.parse_module_statement(false);
+                self.builder.reset_module_scope();
+                (StatementType::Definition, stmt?)
+            },
+            Token::Class => {
+                self.builder.set_module_scope(true);
+                let stmt = self.parse_module_statement(true);
+                self.builder.reset_module_scope();
+                (StatementType::Definition, stmt?)
+            },
+            Token::TextBlock(is_ex) => {
+                self.builder.set_const_scope();
+                let stmt = self.parse_textblock_statement(is_ex);
+                self.builder.reset_const_scope();
+                (StatementType::Const, stmt?)
+            },
+            Token::With => {
+                (StatementType::Block, self.parse_with_statement()?)
+            },
+            Token::Try => {
+                (StatementType::Block, self.parse_try_statement()?)
+            },
+            Token::Option(ref name,_) => {
+                (StatementType::Option, self.parse_option_statement(name)?)
+            },
+            Token::Enum => {
+                self.builder.set_const_scope();
+                let stmt = self.parse_enum_statement();
+                self.builder.reset_const_scope();
+                (StatementType::Const, stmt?)
+            },
+            Token::Thread => {
+                (StatementType::Script, self.parse_thread_statement()?)
+            },
+            Token::ComErrIgn => {
+                (StatementType::Script, Statement::ComErrIgn)
+            },
+            Token::ComErrRet => {
+                (StatementType::Script, Statement::ComErrRet)
+            },
+            _ => {
+                let expression = self.parse_expression_as_statement()?;
+                match &expression {
+                    Expression::FuncCall { func:_, args:_, is_await:_ } |
+                    Expression::Assign(_, _) |
+                    Expression::CompoundAssign(_, _, _) => {
+                        (StatementType::Expression, Statement::Expression(expression))
+                    },
+                    _ => {
+                        let end = self.current_token_pos();
+                        self.push_error(ParseErrorKind::InvalidExpression, start, end);
+                        return None;
+                    }
+                }
+            },
         };
-        Some(StatementWithRow::new(
-            statement, row, self.lexer.get_line(row), Some(self.script_name())
+        Some((
+            stmttype,
+            StatementWithRow::new(statement, row, self.lexer.get_line(row), Some(self.script_name()))
         ))
     }
 
@@ -412,7 +710,7 @@ impl Parser {
         let mut expressions = vec![];
 
         loop {
-            let var_name = self.parse_identifier()?;
+            let var_name = self.parse_identifier(IdentifierType::Declaration)?;
             let expression = if self.is_next_token(&Token::Lbracket) {
                 // 配列定義
                 // 多次元配列定義の表記は
@@ -443,10 +741,8 @@ impl Parser {
                                 },
                                 _ => {
                                     self.bump();
-                                    match self.parse_expression(Precedence::Lowest, false) {
-                                        Some(e) => index_list.push(e),
-                                        None => return None,
-                                    }
+                                    let e = self.parse_expression(Precedence::Lowest, false)?;
+                                    index_list.push(e);
                                     match self.next_token.token {
                                         Token::Comma => continue,
                                         Token::Rbracket => {
@@ -494,10 +790,8 @@ impl Parser {
                         _ => {
                             // 添字
                             self.bump();
-                            match self.parse_expression(Precedence::Lowest, false) {
-                                Some(e) => index_list.push(e),
-                                None => return None,
-                            }
+                            let e = self.parse_expression(Precedence::Lowest, false)?;
+                            index_list.push(e);
                             if self.is_next_token(&Token::Comma) {
                                 // カンマ区切り形式
                                 is_comma = true;
@@ -518,10 +812,7 @@ impl Parser {
                     }
                 } else {
                     self.bump();
-                    let list = match self.parse_expression_list(Token::Eol) {
-                        Some(vec_e) => vec_e,
-                        None => return None
-                    };
+                    let list = self.parse_expression_list(Token::Eol)?;
                     Expression::Array(list, index_list)
                 }
             } else {
@@ -538,13 +829,11 @@ impl Parser {
                 } else {
                     self.bump();
                     self.bump();
-                    match self.parse_expression(Precedence::Lowest, false) {
-                        Some(e) => e,
-                        None => return None
-                    }
+                    self.parse_expression(Precedence::Lowest, false)?
                 }
             };
             expressions.push((var_name, expression));
+
             if self.is_next_token(&Token::Comma) {
                 self.bump();
                 self.bump();
@@ -560,30 +849,26 @@ impl Parser {
         match &self.next_token.token {
             Token::HashTable => {
                 self.bump();
-                return self.parse_hashtable_statement(true);
+                self.parse_hashtable_statement(true)
             },
-            _ => self.bump(),
-        }
-        match self.parse_variable_definition(false) {
-            Some(v) => Some(Statement::Public(v)),
-            None => None
+            _ => {
+                self.bump();
+                self.parse_variable_definition(false)
+                    .map(|v| Statement::Public(v))
+            },
         }
     }
 
     fn parse_dim_statement(&mut self) -> Option<Statement> {
         self.bump();
-        match self.parse_variable_definition(false) {
-            Some(v) => Some(Statement::Dim(v)),
-            None => None
-        }
+        self.parse_variable_definition(false)
+            .map(|v| Statement::Dim(v, self.builder.is_in_loop()))
     }
 
     fn parse_const_statement(&mut self) -> Option<Statement> {
         self.bump();
-        match self.parse_variable_definition(true) {
-            Some(v) => Some(Statement::Const(v)),
-            None => None
-        }
+        self.parse_variable_definition(true)
+            .map(|v| Statement::Const(v))
     }
 
     fn parse_hash_statement(&mut self) -> Option<Statement> {
@@ -594,7 +879,8 @@ impl Parser {
             false
         };
         self.bump();
-        let name = self.parse_identifier()?;
+
+        let name = self.parse_identifier(IdentifierType::Declaration)?;
         let option = if self.is_next_token(&Token::EqualOrAssign) {
             self.bump();
             self.bump();
@@ -637,6 +923,7 @@ impl Parser {
             self.error_on_current_token(kind);
             return None;
         }
+
         let hash = HashSugar::new(name, option, is_public, members);
         Some(Statement::Hash(hash))
     }
@@ -645,8 +932,14 @@ impl Parser {
         self.bump();
         let mut expressions = vec![];
 
+        if is_public {
+            self.builder.set_public_scope();
+        } else {
+            self.builder.set_dim_scope();
+        }
+
         loop {
-            let identifier = self.parse_identifier()?;
+            let identifier = self.parse_identifier(IdentifierType::Declaration)?;
             let hash_option = if self.is_next_token(&Token::EqualOrAssign) {
                 self.bump();
                 self.bump();
@@ -657,7 +950,8 @@ impl Parser {
             } else {
                 None
             };
-            expressions.push((identifier, hash_option, is_public));
+
+            expressions.push((identifier, hash_option));
             if self.is_next_token(&Token::Comma) {
                 self.bump();
                 self.bump();
@@ -665,7 +959,7 @@ impl Parser {
                 break;
             }
         }
-        Some(Statement::HashTbl(expressions))
+        Some(Statement::HashTbl(expressions, is_public))
     }
 
     fn parse_print_statement(&mut self) -> Option<Statement> {
@@ -687,6 +981,10 @@ impl Parser {
 
 
     fn parse_call_statement(&mut self) -> Option<Statement> {
+        // callしたスクリプトにエラーがあった際の位置情報
+        let start = self.current_token.pos;
+        let end = self.current_token.get_end_pos();
+
         let (script, name, dir, args) = match self.next_token.token.clone() {
             Token::Path(dir, name) => {
                 // パス取得
@@ -824,23 +1122,37 @@ impl Parser {
             }
         };
 
-        let call_parser = Parser::call(
+        let mut call_parser = Parser::call(
             Lexer::new(&script),
             name,
             dir,
         );
-        match call_parser.parse() {
-            Ok(program) => Some(Statement::Call(program, args)),
-            Err(mut e) => {
-                self.errors.append(&mut e);
-                None
-            },
+        call_parser.parse_to_builder();
+        if call_parser.errors.is_empty() {
+            // callのbuilderからグローバル定義をさらう
+            self.builder.append_global(&mut call_parser.builder);
+            // 実行部分のみでビルド
+            let lines = call_parser.lines();
+            let program = call_parser.builder.build(lines);
+            Some(Statement::Call(program, args))
+        } else {
+            // エラーがあった場合は
+            self.push_error(ParseErrorKind::CalledScriptHadError, start, end);
+            self.errors.append(&mut call_parser.errors);
+            None
         }
+        // match call_parser.parse() {
+        //     Ok(program) => Some(Statement::Call(program, args)),
+        //     Err(mut e) => {
+        //         self.errors.append(&mut e);
+        //         None
+        //     },
+        // }
     }
 
     fn parse_def_dll_statement(&mut self) -> Option<Statement> {
         self.bump();
-        let Identifier(name) = self.parse_identifier()?;
+        let Identifier(name) = self.parse_identifier(IdentifierType::Definition)?;
         let (name, alias) = match &self.next_token.token {
             Token::Lparen => {
                 self.bump();
@@ -850,7 +1162,7 @@ impl Parser {
                 self.bump();
                 self.bump();
                 let alias = Some(name);
-                let Identifier(name) = self.parse_identifier()?;
+                let Identifier(name) = self.parse_identifier(IdentifierType::Other)?;
                 if ! self.bump_to_next_expected_token(Token::Lparen) {
                     return None;
                 }
@@ -1109,21 +1421,17 @@ impl Parser {
                 self.bump(); // 数値または ] に移動
                 match self.current_token.token() {
                     Token::Rbracket => Some(DefDllParam::Param{ dll_type, is_ref, size: DefDllParamSize::Size(0) }),
-                    Token::Identifier(i) => {
-                        if ! self.bump_to_next_expected_token(Token::Rbracket) {
-                            return None;
-                        }
-                        Some(DefDllParam::Param{ dll_type, is_ref, size: DefDllParamSize::Const(i) })
-                    },
                     Token::Num(n) => {
-                        if ! self.bump_to_next_expected_token(Token::Rbracket) {
-                            return None;
-                        }
+                        self.bump_to_next_expected_token(Token::Rbracket).then_some(())?;
                         Some(DefDllParam::Param { dll_type, is_ref, size: DefDllParamSize::Size(n as usize) })
                     },
                     _ => {
-                        self.error_current_token_is_invalid();
-                        return None;
+                        // サイズが識別子の場合const文脈
+                        self.builder.set_const_scope();
+                        let Identifier(name) = self.parse_identifier(IdentifierType::Access)?;
+                        self.builder.reset_const_scope();
+                        self.bump_to_next_expected_token(Token::Rbracket).then_some(())?;
+                        Some(DefDllParam::Param{ dll_type, is_ref, size: DefDllParamSize::Const(name) })
                     },
                 }
             } else {
@@ -1134,13 +1442,7 @@ impl Parser {
 
     fn parse_struct_statement(&mut self) -> Option<Statement> {
         self.bump();
-        let name = match self.parse_identifier_expression() {
-            Some(Expression::Identifier(i)) => i,
-            _ => {
-                self.error_current_token_is_not_identifier();
-                return None;
-            },
-        };
+        let name = self.parse_identifier(IdentifierType::Definition)?;
         self.bump();
         self.bump();
 
@@ -1151,13 +1453,7 @@ impl Parser {
                 self.bump();
                 continue;
             }
-            let member = match self.parse_identifier_expression() {
-                Some(Expression::Identifier(Identifier(i))) => i,
-                _ => {
-                    self.error_current_token_is_not_identifier();
-                    return None;
-                },
-            };
+            let Identifier(member) = self.parse_identifier(IdentifierType::Other)?;
 
             if ! self.bump_to_next_expected_token(Token::Colon) {
                 return None;
@@ -1169,13 +1465,9 @@ impl Parser {
             } else {
                 false
             };
-            let member_type = match self.parse_identifier_expression() {
-                Some(Expression::Identifier(Identifier(s))) => s.to_ascii_lowercase(),
-                _ => {
-                    self.error_current_token_is_not_identifier();
-                    return None;
-                },
-            };
+            let Identifier(member_type) = self.parse_identifier(IdentifierType::Other)
+                .map(|Identifier(ident)| Identifier(ident.to_ascii_lowercase()))?;
+
             let size = if let Token::Lbracket = self.next_token.token {
                 self.bump();
                 self.bump();
@@ -1183,8 +1475,12 @@ impl Parser {
                     (Token::Num(n), Token::Rbracket) => {
                         DefDllParamSize::Size(*n as usize)
                     },
-                    (Token::Identifier(i), Token::Rbracket) => {
-                        DefDllParamSize::Const(i.to_string())
+                    (_, Token::Rbracket) => {
+                        // 構造体メンバサイズはconst文脈
+                        self.builder.set_const_scope();
+                        let Identifier(name) = self.parse_identifier(IdentifierType::Access)?;
+                        self.builder.reset_const_scope();
+                        DefDllParamSize::Const(name)
                     },
                     (Token::Num(_), _) => {
                         self.error_next_token_is_invalid();
@@ -1212,7 +1508,7 @@ impl Parser {
     }
 
     fn parse_continue_statement(&mut self) -> Option<Statement> {
-        if ! self.in_loop {
+        if ! self.builder.is_in_loop() {
             self.error_on_current_token(ParseErrorKind::OutOfLoop(Token::Continue));
             return None;
         }
@@ -1225,7 +1521,7 @@ impl Parser {
     }
 
     fn parse_break_statement(&mut self) -> Option<Statement> {
-        if ! self.in_loop {
+        if ! self.builder.is_in_loop() {
             self.error_on_current_token(ParseErrorKind::OutOfLoop(Token::Break));
             return None;
         }
@@ -1238,25 +1534,24 @@ impl Parser {
     }
 
     fn parse_loop_block_statement(&mut self) -> BlockStatement {
-        let is_in_loop = self.in_loop;
-        self.in_loop = true;
+        self.builder.increase_loop_count();
         let block = self.parse_block_statement();
-        if ! is_in_loop {
-            self.in_loop = false;
-        }
+        self.builder.decrease_loop_count();
         block
     }
 
     fn parse_for_statement(&mut self) -> Option<Statement> {
         self.bump();
-        let loopvar = self.parse_identifier()?;
+
+        let loopvar = self.parse_identifier(IdentifierType::Assignment)?;
         let index_var = if let Token::Comma = self.next_token.token {
             self.bump();
             if let Token::Comma = self.next_token.token {
                 None
             } else {
                 self.bump();
-                Some(self.parse_identifier()?)
+                let ident = self.parse_identifier(IdentifierType::Assignment)?;
+                Some(ident)
             }
         } else {
             None
@@ -1264,7 +1559,8 @@ impl Parser {
         let islast_var = if let Token::Comma = self.next_token.token {
             self.bump();
             self.bump();
-            Some(self.parse_identifier()?)
+            let ident = self.parse_identifier(IdentifierType::Assignment)?;
+            Some(ident)
         } else {
             None
         };
@@ -1493,7 +1789,7 @@ impl Parser {
 
         while ! self.is_current_token_end_of_block() && ! self.is_current_token(&Token::Eof) {
             match self.parse_statement() {
-                Some(s) => match s.statement {
+                Some((_, s)) => match s.statement {
                     Statement::Exit => return Err("exit".into()),
                     Statement::Continue(_) => return Err("continue".into()),
                     Statement::Break(_) => return Err("break".into()),
@@ -1524,21 +1820,16 @@ impl Parser {
 
     fn parse_textblock_statement(&mut self, is_ex: bool) -> Option<Statement> {
         self.bump();
-        let name = match self.current_token.token {
-            Token::Identifier(ref name) => {
-                Some(Identifier(name.clone()))
-            },
+        let name = match &self.current_token.token {
             Token::Eol => None,
             _ => {
-                self.error_current_token_is_invalid();
-                return None;
+                let ident = self.parse_identifier(IdentifierType::Declaration);
+                self.bump();
+                ident
             },
         };
-        if name.is_some() {
-            self.bump();
-        }
         self.bump();
-        let body = if let Token::TextBlockBody(ref body) = self.current_token.token {
+        let body = if let Token::TextBlockBody(ref body, _) = self.current_token.token {
             body.clone()
         } else {
             self.error_on_current_token(ParseErrorKind::TextBlockBodyIsMissing);
@@ -1559,13 +1850,13 @@ impl Parser {
         }
     }
 
-    fn parse_expression_statement(&mut self) -> Option<Statement> {
+    fn parse_expression_as_statement(&mut self) -> Option<Expression> {
         match self.parse_expression(Precedence::Lowest, true) {
             Some(e) => {
                 if self.is_next_token(&Token::Semicolon) || self.is_next_token(&Token::Eol) {
                     self.bump();
                 }
-                Some(Statement::Expression(e))
+                Some(e)
             }
             None => None
         }
@@ -1577,11 +1868,13 @@ impl Parser {
         let statement = match name {
             "explicit" => {
                 if ! self.is_next_token(&Token::EqualOrAssign) {
+                    self.builder.set_option_explicit(true);
                     Statement::Option(OptionSetting::Explicit(true))
                 } else {
                     self.bump();
                     self.bump();
                     if let Token::Bool(b) = self.current_token.token {
+                        self.builder.set_option_explicit(b);
                         Statement::Option(OptionSetting::Explicit(b))
                     } else {
                         self.error_current_token_is_invalid();
@@ -1835,13 +2128,14 @@ impl Parser {
 
     fn parse_enum_statement(&mut self) -> Option<Statement> {
         self.bump();
-        let Identifier(name) = self.parse_identifier()?;
-        self.bump();
-        self.bump();
+        let Identifier(name) = self.parse_identifier(IdentifierType::Declaration)?;
         let mut u_enum = UEnum::new(&name);
+
+        self.bump();
+        self.bump();
         let mut next = 0.0;
         loop {
-            let Identifier(id) = self.parse_identifier()?;
+            let Identifier(id) = self.parse_identifier(IdentifierType::Other)?;
             if self.is_next_token(&Token::EqualOrAssign) {
                 self.bump();
                 self.bump();
@@ -1896,101 +2190,116 @@ impl Parser {
         }
     }
 
-    fn parse_assignment(&mut self, token: Token, expression: Expression) -> Option<Expression> {
-        match token {
-            Token::EqualOrAssign => return self.parse_assign_expression(expression),
-            Token::AddAssign => return self.parse_compound_assign_expression(expression, Token::AddAssign),
-            Token::SubtractAssign => return self.parse_compound_assign_expression(expression, Token::SubtractAssign),
-            Token::MultiplyAssign => return self.parse_compound_assign_expression(expression, Token::MultiplyAssign),
-            Token::DivideAssign => return self.parse_compound_assign_expression(expression, Token::DivideAssign),
-            _ => None
-        }
-    }
-
     /// is_sol: 行の始めかどうか
     fn parse_expression(&mut self, precedence: Precedence, is_sol: bool) -> Option<Expression> {
-
+        let start = self.current_token_pos();
+        let mut ident_pos: Option<(Identifier, Position, Position)> = None;
         // prefix
         let mut left = match self.current_token.token {
-            Token::Identifier(_) => {
-                let identifier = self.parse_identifier_expression();
-                if is_sol {
-                    if let Some(e) = self.parse_assignment(self.next_token.token.clone(), identifier.clone().unwrap()) {
-                        return Some(e);
-                    } else {
-                        // 次のトークンがピリオド以外なら不正なトークンとする
-                        if ! self.is_next_token(&Token::Period) {
-                            self.error_current_token_is_invalid();
-                            return None;
-                        }
-                    }
-                }
-                identifier
-            },
+            // Token::Identifier(ref name) => {
+            //     let identifier_expression = Expression::Identifier(Identifier(name.to_string()));
+            //     if is_sol {
+            //         // 次のトークンを確認する
+            //         match &self.next_token.token {
+            //             // ドット呼び出し
+            //             Token::Period |
+            //             // 関数呼び出し
+            //             Token::Lparen |
+            //             // インデックス呼び出し
+            //             Token::Lbracket => {},
+            //             // 上記以外は代入とみなしパースを試みる
+            //             _ => {
+            //                 if let Some(e) = self.parse_assignment(identifier_expression, start) {
+            //                     return Some(e);
+            //                 } else {
+            //                     self.error_current_token_is_invalid();
+            //                     return None;
+            //                 }
+            //             }
+            //         }
+            //     }
+            //     Some(identifier_expression)
+            // },
             Token::Empty => if is_sol {
                 self.error_current_token_is_invalid();
                 return None;
             } else {
-                Some(Expression::Literal(Literal::Empty))
+                Expression::Literal(Literal::Empty)
             },
             Token::Null => if is_sol {
                 self.error_current_token_is_invalid();
                 return None;
             } else {
-                Some(Expression::Literal(Literal::Null))
+                Expression::Literal(Literal::Null)
             },
             Token::Nothing => if is_sol {
                 self.error_current_token_is_invalid();
                 return None;
             } else {
-                Some(Expression::Literal(Literal::Nothing))
+                Expression::Literal(Literal::Nothing)
             },
             Token::NaN => if is_sol {
                 self.error_current_token_is_invalid();
                 return None;
             } else {
-                Some(Expression::Literal(Literal::NaN))
+                Expression::Literal(Literal::NaN)
             },
             Token::Num(_) => if is_sol {
                 self.error_current_token_is_invalid();
                 return None;
             } else {
-                self.parse_number_expression()
+                self.parse_number_expression()?
             },
             Token::Hex(_) => if is_sol {
                 self.error_current_token_is_invalid();
                 return None;
             } else {
-                self.parse_hex_expression()
+                self.parse_hex_expression()?
             },
             Token::ExpandableString(_) |
             Token::String(_) => if is_sol {
                 self.error_current_token_is_invalid();
                 return None;
             } else {
-                self.parse_string_expression()
+                self.parse_string_expression()?
             },
             Token::Bool(_) => if is_sol {
                 self.error_current_token_is_invalid();
                 return None;
             } else {
-                self.parse_bool_expression()
+                self.parse_bool_expression()?
             },
             Token::Lbracket => if is_sol {
                 self.error_current_token_is_invalid();
                 return None;
             } else {
-                self.parse_array_expression()
+                self.parse_array_expression()?
             },
             Token::Bang | Token::Minus | Token::Plus => if is_sol {
                 self.error_current_token_is_invalid();
                 return None;
             } else {
-                self.parse_prefix_expression()
+                self.parse_prefix_expression()?
             },
-            Token::Lparen => self.parse_grouped_expression(),
-            Token::Function => self.parse_function_expression(false),
-            Token::Procedure => self.parse_function_expression(true),
+            Token::Lparen => self.parse_grouped_expression()?,
+            Token::Function => {
+                self.builder.set_anon_scope();
+                let expr = self.parse_function_expression(false);
+                self.builder.reset_anon_scope();
+                expr?
+            },
+            Token::Procedure => {
+                self.builder.set_anon_scope();
+                let expr = self.parse_function_expression(true);
+                self.builder.reset_anon_scope();
+                expr?
+            },
+            Token::Pipeline => {
+                self.builder.set_anon_scope();
+                let expr = self.parse_lambda_function_expression();
+                self.builder.reset_anon_scope();
+                expr?
+            },
             Token::Await => return self.parse_await_func_call_expression(),
             Token::Eol => {
                 return None;
@@ -1998,28 +2307,27 @@ impl Parser {
             Token::Period => {
                 let e = self.parse_with_dot_expression();
                 if is_sol && e.is_some() {
-                    if let Some(e) = self.parse_assignment(self.next_token.token.clone(), e.clone().unwrap()) {
+                    if let Some(e) = self.parse_assignment(e.clone().unwrap(), start) {
                         return Some(e);
                     }
                 }
-                e
+                e?
             },
             Token::UObject(ref s) => if is_sol {
                 self.error_current_token_is_invalid();
                 return None;
             } else {
-                Some(Expression::UObject(s.clone()))
+                Expression::UObject(s.clone())
             },
             Token::UObjectNotClosing => {
                 self.error_on_current_token(ParseErrorKind::InvalidUObjectEnd);
                 return None
             },
-            Token::Pipeline => self.parse_lambda_function_expression(),
             Token::ComErrFlg => if is_sol {
                 self.error_current_token_is_invalid();
                 return None;
             } else {
-                Some(Expression::ComErrFlg)
+                Expression::ComErrFlg
             },
             Token::Ref => if is_sol {
                 self.error_current_token_is_invalid();
@@ -2032,26 +2340,45 @@ impl Parser {
                     Some(e) => return Some(Expression::RefArg(Box::new(e))),
                     None => {
                         self.error_on_current_token(ParseErrorKind::MissingIdentifierAfterVar);
-                        return None
+                        return None;
                     }
                 }
             },
-            _ => match self.parse_identifier_expression() {
-                Some(e) => {
-                    if is_sol {
-                        if let Some(e) = self.parse_assignment(self.next_token.token.clone(), e.clone()) {
-                            return Some(e);
-                        } else {
+            _ => {
+                if is_sol {
+                    // 次のトークンを確認する
+                    match &self.next_token.token {
+                        // ドット呼び出し
+                        Token::Period |
+                        // 関数呼び出し
+                        Token::Lparen |
+                        // インデックス呼び出し
+                        Token::Lbracket => {
+                            let identifier = self.parse_identifier(IdentifierType::NotSure)?;
+                            ident_pos = Some((identifier.clone(), self.current_token_pos(), self.current_token_end_pos()));
+                            Expression::Identifier(identifier)
+                        },
+                        // 代入文
+                        Token::EqualOrAssign |
+                        Token::AddAssign |
+                        Token::SubtractAssign |
+                        Token::MultiplyAssign |
+                        Token::DivideAssign => {
+                            let identifier = self.parse_identifier(IdentifierType::Assignment)?;
+                            return self.parse_assignment(Expression::Identifier(identifier), start);
+                        }
+                        _ => {
                             self.error_current_token_is_invalid();
                             return None;
                         }
                     }
-                    Some(e)
-                },
-                None => {
-                    self.error_on_current_token(ParseErrorKind::ExpressionIsExpected);
-                    return None;
+                } else {
+                    let identifier = self.parse_identifier(IdentifierType::NotSure)?;
+                    ident_pos = Some((identifier.clone(), self.current_token_pos(), self.current_token_end_pos()));
+                    Expression::Identifier(identifier)
                 }
+                // self.error_on_current_token(ParseErrorKind::ExpressionIsExpected);
+                // return None;
             },
         };
 
@@ -2060,9 +2387,9 @@ impl Parser {
             ! self.is_next_token(&Token::Semicolon) ||
             ! self.is_next_token(&Token::Eol)
         ) && precedence < self.next_token_precedence() {
-            if left.is_none() {
-                return None;
-            }
+            // if left.is_none() {
+            //     return None;
+            // }
             match self.next_token.token {
                 Token::Plus |
                 Token::Minus |
@@ -2090,20 +2417,26 @@ impl Parser {
                         self.error_current_token_is_invalid();
                         return None;
                     } else {
-                        self.parse_infix_expression(left.unwrap())
+                        self.parse_infix_expression(left)?
                     };
                 },
                 Token::To |
                 Token::Step |
                 Token::In => {
                     self.bump();
-                    left = self.parse_infix_expression(left.unwrap());
+                    left = self.parse_infix_expression(left)?;
                 },
-                Token::Assign => left = self.parse_assign_expression(left.unwrap()),
+                Token::Assign => {
+                    left = self.parse_assign_expression(left, start)?;
+                    if let Some((Identifier(name), start, end)) = ident_pos.to_owned() {
+                        self.builder.set_assignee_name(&name, start, end);
+                        ident_pos = None;
+                    }
+                },
                 Token::Lbracket => {
                     self.bump();
                     left = {
-                        let index = match self.parse_index_expression(left.unwrap()) {
+                        let index = match self.parse_index_expression(left) {
                             Some(e) => e,
                             None => {
                                 self.error_on_next_token(ParseErrorKind::MissingIndex);
@@ -2111,54 +2444,75 @@ impl Parser {
                             },
                         };
                         if is_sol {
-                            if let Some(e) = self.parse_assignment(self.next_token.token.clone(), index.clone()) {
+                            if let Some(e) = self.parse_assignment(index.clone(), start) {
                                 return Some(e);
                             }
                         }
-                        Some(index)
+                        index
                     }
                 },
                 Token::Lparen => {
                     self.bump();
-                    left = self.parse_function_call_expression(left.unwrap(), false);
+                    left = self.parse_function_call_expression(left, false)?;
                 },
                 Token::Question => {
                     self.bump();
-                    left = self.parse_ternary_operator_expression(left.unwrap());
+                    left = self.parse_ternary_operator_expression(left)?;
                 },
                 Token::Period => {
                     self.bump();
                     left = {
-                        let dotcall = self.parse_dotcall_expression(left.unwrap());
+                        let dotcall = self.parse_dotcall_expression(left)?;
                         if is_sol {
-                            if let Some(e) = self.parse_assignment(self.next_token.token.clone(), dotcall.clone().unwrap()) {
+                            if let Some(e) = self.parse_assignment(dotcall.clone(), start) {
                                 return Some(e);
                             }
                         }
                         dotcall
                     }
                 },
-                _ => return left
+                // _ => return left
+                _ => break,
             }
         }
-
-        left
-    }
-
-    fn parse_identifier(&mut self) -> Option<Identifier> {
-        let token = self.current_token.token.clone();
-        match &token {
-            Token::Identifier(ref i) => Some(Identifier(i.clone())),
-            t => self.token_to_identifier(&t),
+        if let Some((Identifier(name), start, end)) = ident_pos {
+            self.builder.set_access_name(&name, start, end);
         }
+        Some(left)
     }
 
-    fn parse_identifier_expression(&mut self) -> Option<Expression> {
-        match self.parse_identifier() {
-            Some(i) => Some(Expression::Identifier(i)),
-            None => None
+    fn parse_identifier(&mut self, r#type: IdentifierType) -> Option<Identifier> {
+        let start = self.current_token_pos();
+        let end = self.current_token_end_pos();
+        let identifier = match self.current_token.token() {
+            Token::Identifier(ident) => Identifier(ident),
+            token => self.token_to_identifier(&token)?
+        };
+        let name = &identifier.0;
+        match r#type {
+            IdentifierType::Declaration => {
+                self.builder.set_declared_name(name, start, end);
+            },
+            IdentifierType::Assignment => {
+                self.builder.set_assignee_name(name, start, end);
+            },
+            IdentifierType::Access => {
+                self.builder.set_access_name(name, start, end);
+            },
+            IdentifierType::Parameter => {
+                self.builder.set_param(name, start, end);
+            },
+            IdentifierType::Definition => {
+                self.builder.set_definition_name(name, start, end);
+            }
+            IdentifierType::Other |
+            IdentifierType::NotSure => {
+                /* 登録しない */
+            }
         }
+        Some(identifier)
     }
+
 
     fn token_to_identifier(&mut self, token: &Token) -> Option<Identifier> {
         let identifier = match token {
@@ -2220,7 +2574,7 @@ impl Parser {
             Token::LineContinue |
             Token::BackSlash |
             Token::ColonBackSlash |
-            Token::Option(_) |
+            Token::Option(_,_) |
             Token::Comment |
             Token::Ref |
             Token::Variadic |
@@ -2259,7 +2613,7 @@ impl Parser {
             Token::Try |
             Token::TextBlock(_) |
             Token::EndTextBlock |
-            Token::TextBlockBody(_) |
+            Token::TextBlockBody(_,_) |
             Token::Function |
             Token::Procedure |
             Token::Module |
@@ -2389,31 +2743,46 @@ impl Parser {
         Some(list)
     }
 
-    fn parse_assign_expression(&mut self, left: Expression) -> Option<Expression> {
-        self.bump();
-        self.bump();
-
-        match self.parse_expression(Precedence::Lowest, false) {
-            Some(e) => Some(Expression::Assign(Box::new(left), Box::new(e))),
-            None => None
+    fn parse_assignment(&mut self, left: Expression, start: Position) -> Option<Expression> {
+        match &self.next_token.token {
+            Token::EqualOrAssign => self.parse_assign_expression(left, start),
+            Token::AddAssign => self.parse_compound_assign_expression(left, Token::AddAssign, start),
+            Token::SubtractAssign => self.parse_compound_assign_expression(left, Token::SubtractAssign, start),
+            Token::MultiplyAssign => self.parse_compound_assign_expression(left, Token::MultiplyAssign, start),
+            Token::DivideAssign => self.parse_compound_assign_expression(left, Token::DivideAssign, start),
+            _ => None
         }
     }
 
-    fn parse_compound_assign_expression(&mut self, left: Expression, token: Token) -> Option<Expression> {
+    fn parse_assign_expression(&mut self, left: Expression, start: Position) -> Option<Expression> {
+        if left.is_not_assignable() {
+            self.push_error(ParseErrorKind::InvalidAssignment, start, self.current_token_end_pos());
+            return None;
+        }
+
         self.bump();
         self.bump();
 
-        let right = match self.parse_expression(Precedence::Lowest, false) {
-            Some(e) => e,
-            None => return None
-        };
+        let right = self.parse_expression(Precedence::Lowest, false)?;
+        Some(Expression::Assign(Box::new(left), Box::new(right)))
+    }
 
+    fn parse_compound_assign_expression(&mut self, left: Expression, token: Token, start: Position) -> Option<Expression> {
+        if left.is_not_assignable() {
+            self.push_error(ParseErrorKind::InvalidAssignment, start, self.current_token_end_pos());
+            return None;
+        }
+
+        self.bump();
+        self.bump();
+
+        let right = self.parse_expression(Precedence::Lowest, false)?;
         let infix = match token {
             Token::AddAssign => Infix::Plus,
             Token::SubtractAssign => Infix::Minus,
             Token::MultiplyAssign => Infix::Multiply,
             Token::DivideAssign => Infix::Divide,
-            _ => return None
+            _ => unreachable!()
         };
 
         Some(Expression::CompoundAssign(Box::new(left), Box::new(right), infix))
@@ -2504,13 +2873,8 @@ impl Parser {
 
     fn parse_dotcall_expression(&mut self, left: Expression) -> Option<Expression> {
         self.bump();
-        let member = match self.parse_identifier_expression() {
-            Some(e) => e,
-            None => {
-                self.error_current_token_is_not_identifier();
-                return None;
-            }
-        };
+        let identifier = self.parse_identifier(IdentifierType::Other)?;
+        let member = Expression::Identifier(identifier);
         Some(Expression::DotCall(Box::new(left), Box::new(member)))
     }
 
@@ -2527,11 +2891,12 @@ impl Parser {
             // eolじゃなかったら単行IF
             // if condition then consequence [else alternative]
             self.bump();
-            let consequence = self.parse_statement()?;
+            let (_, consequence) = self.parse_statement()?;
             let alternative = if self.is_next_token(&Token::BlockEnd(BlockEnd::Else)) {
                 self.bump();
                 self.bump();
-                Some(self.parse_statement()?)
+                let (_, s) = self.parse_statement()?;
+                Some(s)
             } else {
                 None
             };
@@ -2582,10 +2947,10 @@ impl Parser {
                     self.bump();
                     let row = self.current_token.pos.row;
                     let line = self.lexer.get_line(row);
-                    let elseifcond = match self.parse_expression(Precedence::Lowest, false) {
-                        Some(e) => e,
-                        None => return None
-                    };
+                    let elseifcond = self.parse_expression(Precedence::Lowest, false)?;
+                    if self.is_next_token(&Token::Then) {
+                        self.bump();
+                    }
                     let condstmt = StatementWithRow::new(Statement::Expression(elseifcond), row, line, Some(self.script_name()));
                     alternatives.push((Some(condstmt), self.parse_block_statement()));
                 }
@@ -2652,101 +3017,70 @@ impl Parser {
         }
     }
 
+    /// 関数定義の解析
     fn parse_function_statement(&mut self, is_proc: bool, is_async: bool) -> Option<Statement> {
+
         self.bump();
-        let name = self.parse_identifier()?;
+        let name = self.parse_identifier(IdentifierType::Definition)?;
+
+        self.builder.set_result_as_param();
 
         let params = if self.is_next_token(&Token::Lparen) {
             self.bump();
-            match self.parse_function_parameters(Token::Rparen) {
-                Some(p) => p,
-                None => return None
-            }
+            self.parse_function_parameters(Token::Rparen)?
         } else {
             vec![]
         };
 
         self.bump();
         let body = self.parse_block_statement();
-
         if ! self.is_current_closing_token_expected(BlockEnd::Fend) {
             return None;
         }
+
         Some(Statement::Function{name, params, body, is_proc, is_async})
     }
 
-    fn parse_module_statement(&mut self) -> Option<Statement> {
-        self.bump();
-        let identifier = self.parse_identifier()?;
-        self.bump();
-        let mut block = vec![];
-        while ! self.is_current_token(&Token::BlockEnd(BlockEnd::EndModule)) {
-            if self.is_current_token(&Token::Eof) {
-                self.error_current_block_closing_token_was_unexpected(BlockEnd::EndModule);
-                return None;
-            }
-            match self.parse_statement() {
-                Some(s) => block.push(s),
-                None => {
-                    self.bump_to_next_row();
-                    continue;
-                },
-            }
-            self.bump();
-        }
-        Some(Statement::Module(identifier, block))
-    }
 
-    fn parse_class_statement(&mut self) -> Option<Statement> {
-        let class_statement_pos = self.current_token.pos;
-        let class_statement_end = self.current_token.get_end_pos();
+    fn parse_module_statement(&mut self, is_class: bool) -> Option<Statement> {
+        let start = self.current_token.pos;
+        let end = self.current_token.get_end_pos();
+        let (end_token, blockend) = if is_class {
+            (Token::BlockEnd(BlockEnd::EndClass), BlockEnd::EndClass)
+        } else {
+            (Token::BlockEnd(BlockEnd::EndModule), BlockEnd::EndModule)
+        };
         self.bump();
-        let identifier = self.parse_identifier()?;
+        let identifier = self.parse_identifier(IdentifierType::Definition)?;
         self.bump();
-        let mut block = vec![];
-        let mut has_constructor = false;
-        while ! self.is_current_token(&Token::BlockEnd(BlockEnd::EndClass)) {
-            if self.is_current_token(&Token::Eof) {
-                self.error_current_block_closing_token_was_unexpected(BlockEnd::EndClass);
-                return None;
-            }
-            // let cur_pos = self.current_token.pos;
-            match self.parse_statement() {
-                Some(s) => match s.statement {
-                    Statement::Dim(_) |
-                    Statement::Public(_) |
-                    Statement::Const(_) |
-                    Statement::TextBlock(_, _) |
-                    Statement::DefDll { name: _, alias:_, params: _, ret_type: _, path: _ } |
-                    Statement::HashTbl(_) => block.push(s),
-                    Statement::Function{ref name, params: _, body: _, is_proc: _, is_async:_} => {
-                        if name == &identifier {
-                            has_constructor = true;
-                        }
-                        block.push(s);
-                    },
-                    _ => {
-                        // self.errors.push(ParseError::new(
-                        //     ParseErrorKind::InvalidClassMemberDefinition(s.statement),
-                        //     cur_pos,
-                        //     self.script_name()
-                        // ));
-                        self.error_on_current_token(ParseErrorKind::InvalidClassMemberDefinition(s.statement));
-                        return None;
-                    },
-                },
-                None => {
-                    self.bump_to_next_row();
-                    continue;
-                },
-            }
-            self.bump();
-        }
-        if ! has_constructor {
-            self.push_error(ParseErrorKind::ClassHasNoConstructor(identifier), class_statement_pos, class_statement_end);
+
+        let members = self.parse_block_statement();
+
+        let has_constructor = members.iter()
+            .find(|s| {
+                if let Statement::Function { name, params:_, body:_, is_proc:_, is_async:_ } = &s.statement {
+                    name.0.to_ascii_uppercase() == identifier.0.to_ascii_uppercase()
+                } else {
+                    false
+                }
+            })
+            .is_some();
+
+        if ! self.is_current_token(&end_token) {
+            self.error_current_block_closing_token_was_unexpected(blockend);
             return None;
         }
-        Some(Statement::Class(identifier, block))
+
+        if is_class {
+            if has_constructor {
+                Some(Statement::Class(identifier, members))
+            } else {
+                self.push_error(ParseErrorKind::ClassHasNoConstructor(identifier), start, end);
+                None
+            }
+        } else {
+            Some(Statement::Module(identifier, members))
+        }
     }
 
     fn parse_ternary_operator_expression(&mut self, left: Expression) -> Option<Expression> {
@@ -2777,12 +3111,8 @@ impl Parser {
         if ! self.bump_to_next_expected_token(Token::Lparen) {
             return None;
         }
-
-        let params = match self.parse_function_parameters(Token::Rparen) {
-            Some(p) => p,
-            None => return None
-        };
-
+        self.builder.set_result_as_param();
+        let params = self.parse_function_parameters(Token::Rparen)?;
         let body = self.parse_block_statement();
 
         if ! self.is_current_token(&Token::BlockEnd(BlockEnd::Fend)) {
@@ -2794,15 +3124,13 @@ impl Parser {
     }
 
     fn parse_lambda_function_expression(&mut self) -> Option<Expression> {
+        self.builder.set_result_as_param();
         let params = if self.is_next_token(&Token::Arrow) {
             // 引数なし
             self.bump();
             vec![]
         } else {
-            match self.parse_function_parameters(Token::Arrow) {
-                Some(p) => p,
-                None => return None,
-            }
+            self.parse_function_parameters(Token::Arrow)?
         };
         self.bump(); // skip =>
 
@@ -2842,11 +3170,13 @@ impl Parser {
             self.bump();
         }
         self.bump();
+
         Some(Expression::AnonymusFunction {params, body, is_proc: false})
     }
 
     fn parse_function_parameters(&mut self, end_token: Token) -> Option<Vec<FuncParam>> {
         let mut params = vec![];
+
         self.skip_next_eol();
         if self.is_next_token(&Token::Rparen) {
             self.bump();
@@ -2859,29 +3189,28 @@ impl Parser {
         loop {
             match self.parse_param() {
                 Some(param) => {
-                    let ident = Identifier(param.name());
                     match &param.kind {
                         ParamKind::Identifier |
                         ParamKind::Reference => {
                             if with_default_flg {
-                                self.error_on_current_token(ParseErrorKind::ParameterShouldBeDefault(ident));
+                                self.error_on_current_token(ParseErrorKind::ParameterShouldBeDefault(param.name()));
                                 return None;
                             } else if variadic_flg {
-                                self.error_on_current_token(ParseErrorKind::ParameterCannotBeDefinedAfterVariadic(ident));
+                                self.error_on_current_token(ParseErrorKind::ParameterCannotBeDefinedAfterVariadic(param.name()));
                                 return None;
                             }
                         },
                         ParamKind::Default(_) => if variadic_flg {
-                            self.error_on_current_token(ParseErrorKind::ParameterCannotBeDefinedAfterVariadic(ident));
+                            self.error_on_current_token(ParseErrorKind::ParameterCannotBeDefinedAfterVariadic(param.name()));
                             return None;
                         } else {
                             with_default_flg = true;
                         },
                         ParamKind::Variadic => if with_default_flg {
-                            self.error_on_current_token(ParseErrorKind::ParameterShouldBeDefault(ident));
+                            self.error_on_current_token(ParseErrorKind::ParameterShouldBeDefault(param.name()));
                             return None;
                         } else if variadic_flg {
-                            self.error_on_current_token(ParseErrorKind::ParameterCannotBeDefinedAfterVariadic(ident));
+                            self.error_on_current_token(ParseErrorKind::ParameterCannotBeDefinedAfterVariadic(param.name()));
                             return None;
                         } else {
                             variadic_flg = true;
@@ -2909,7 +3238,40 @@ impl Parser {
 
     fn parse_param(&mut self) -> Option<FuncParam> {
         match self.current_token.token() {
-            Token::Identifier(name) => {
+            Token::Ref => {
+                self.bump();
+                let Identifier(name) = self.parse_identifier(IdentifierType::Parameter)?;
+                let kind= if self.is_next_token(&Token::Lbracket) {
+                    self.bump();
+                    if self.bump_to_next_expected_token(Token::Rbracket) {
+                        while self.is_next_token(&Token::Lbracket) {
+                            self.bump();
+                            if ! self.bump_to_next_expected_token(Token::Rbracket) {
+                                return None;
+                            }
+                        }
+                        ParamKind::Reference
+                    } else {
+                        return None;
+                    }
+                } else {
+                    ParamKind::Reference
+                };
+                let param_type = if self.is_next_token(&Token::Colon) {
+                    self.bump(); // : に移動
+                    self.parse_param_type()?
+                } else {
+                    ParamType::Any
+                };
+                Some(FuncParam::new_with_type(Some(name), kind, param_type))
+            },
+            Token::Variadic => {
+                self.bump();
+                let Identifier(name) = self.parse_identifier(IdentifierType::Parameter)?;
+                Some(FuncParam::new(Some(name), ParamKind::Variadic))
+            },
+            _ => {
+                let Identifier(name) = self.parse_identifier(IdentifierType::Parameter)?;
                 let (kind, param_type) = if self.is_next_token(&Token::Lbracket) {
                     // 配列引数定義
                     self.bump();
@@ -2926,10 +3288,7 @@ impl Parser {
                     };
                     let t = if self.is_next_token(&Token::Colon) {
                         self.bump(); // : に移動
-                        match self.parse_param_type() {
-                            Some(t) => t,
-                            None => return None
-                        }
+                        self.parse_param_type()?
                     } else {
                         ParamType::Any
                     };
@@ -2938,10 +3297,7 @@ impl Parser {
                     // 型指定の有無
                     let t = if self.is_next_token(&Token::Colon) {
                         self.bump(); // : に移動
-                        match self.parse_param_type() {
-                            Some(t) => t,
-                            None => return None
-                        }
+                        self.parse_param_type()?
                     } else {
                         ParamType::Any
                     };
@@ -2953,10 +3309,10 @@ impl Parser {
                             Expression::Literal(Literal::Empty)
                         } else {
                             self.bump();
-                            match self.parse_expression(Precedence::Lowest, false) {
-                                Some(e) => e,
-                                None => return None,
-                            }
+                            self.builder.set_default_param();
+                            let expr = self.parse_expression(Precedence::Lowest, false);
+                            self.builder.reset_default_param();
+                            expr?
                         };
                         ParamKind::Default(e)
                     } else {
@@ -2965,56 +3321,6 @@ impl Parser {
                     (k, t)
                 };
                 Some(FuncParam::new_with_type(Some(name), kind, param_type))
-            },
-            Token::Ref => {
-                match self.next_token.token() {
-                    Token::Identifier(name) => {
-                        self.bump();
-                        let kind= if self.is_next_token(&Token::Lbracket) {
-                            self.bump();
-                            if self.bump_to_next_expected_token(Token::Rbracket) {
-                                while self.is_next_token(&Token::Lbracket) {
-                                    self.bump();
-                                    if ! self.bump_to_next_expected_token(Token::Rbracket) {
-                                        return None;
-                                    }
-                                }
-                                ParamKind::Reference
-                            } else {
-                                return None;
-                            }
-                        } else {
-                            ParamKind::Reference
-                        };
-                        let param_type = if self.is_next_token(&Token::Colon) {
-                            self.bump(); // : に移動
-                            match self.parse_param_type() {
-                                Some(t) => t,
-                                None => return None
-                            }
-                        } else {
-                            ParamType::Any
-                        };
-                        Some(FuncParam::new_with_type(Some(name), kind, param_type))
-                    }
-                    _ => {
-                        self.error_next_token_is_invalid();
-                        None
-                    }
-                }
-            },
-            Token::Variadic => {
-                if let Token::Identifier(name) = self.next_token.token() {
-                    self.bump();
-                    Some(FuncParam::new(Some(name), ParamKind::Variadic))
-                } else {
-                    self.error_next_token_is_invalid();
-                    None
-                }
-            },
-            _ => {
-                self.error_current_token_is_invalid();
-                None
             }
         }
     }
@@ -3104,8 +3410,8 @@ impl Parser {
 #[cfg(test)]
 mod tests {
     use crate::ast::*;
-    use crate::lexer::Lexer;
-    use crate::parser::{Parser, ParseErrors};
+    use crate::lexer::{Lexer, Position};
+    use crate::parser::{Parser, ParseError, ParseErrors, ParseErrorKind};
 
     impl StatementWithRow {
         fn new_expected(statement: Statement, row: usize) -> Self{
@@ -3184,7 +3490,8 @@ print 2
                                 Identifier(String::from("hoge")),
                                 Expression::Literal(Literal::Num(1 as f64))
                             ),
-                        ]
+                        ],
+                        false
                     ), 1)
                 ]
             ),
@@ -3196,7 +3503,8 @@ print 2
                                 Identifier(String::from("fuga")),
                                 Expression::Literal(Literal::Empty)
                             )
-                        ]
+                        ],
+                        false
                     ), 1)
                 ]
             ),
@@ -3208,7 +3516,8 @@ print 2
                                 Identifier(String::from("piyo")),
                                 Expression::Literal(Literal::Empty)
                             )
-                        ]
+                        ],
+                        false
                     ), 1)
                 ]
             ),
@@ -3231,7 +3540,8 @@ print 2
                                     ],
                                 )
                             )
-                        ]
+                        ],
+                        false
                     ), 1)
                 ]
             ),
@@ -3248,7 +3558,8 @@ print 2
                                     ],
                                 )
                             )
-                        ]
+                        ],
+                        false
                     ), 1),
                 ]
             ),
@@ -3266,7 +3577,8 @@ print 2
                                     ],
                                 )
                             )
-                        ]
+                        ],
+                        false
                     ), 1),
                 ]
             ),
@@ -3285,7 +3597,8 @@ print 2
                                     ],
                                 )
                             )
-                        ]
+                        ],
+                        false
                     ), 1),
                 ]
             ),
@@ -3304,7 +3617,8 @@ print 2
                                     ],
                                 )
                             )
-                        ]
+                        ],
+                        false
                     ), 1)
                 ]
             ),
@@ -3341,7 +3655,8 @@ print 2
                                     ],
                                 )
                             )
-                        ]
+                        ],
+                        false
                     ), 1),
                 ]
             ),
@@ -3421,9 +3736,9 @@ print []
     fn test_if() {
         let input = r#"
 if a then
-    statement1
-    statement2
-    statement3
+    print 1
+    print 2
+    print 3
 endif
 "#;
         parser_test(input, vec![
@@ -3432,15 +3747,15 @@ endif
                     condition: Expression::Identifier(Identifier(String::from("a"))),
                     consequence: vec![
                         StatementWithRow::new_expected(
-                            Statement::Expression(Expression::Identifier(Identifier(String::from("statement1")))),
+                            Statement::Print(Expression::Literal(Literal::Num(1.0))),
                             3
                         ),
                         StatementWithRow::new_expected(
-                            Statement::Expression(Expression::Identifier(Identifier(String::from("statement2")))),
+                            Statement::Print(Expression::Literal(Literal::Num(2.0))),
                             4
                         ),
                         StatementWithRow::new_expected(
-                            Statement::Expression(Expression::Identifier(Identifier(String::from("statement3")))),
+                            Statement::Print(Expression::Literal(Literal::Num(3.0))),
                             5
                         ),
                     ],
@@ -3455,14 +3770,14 @@ endif
     fn test_single_line_if() {
         let tests = vec![
             (
-                "if a then b",
+                "if a then print b",
                 vec![
                     StatementWithRow::new_expected(
                         Statement::IfSingleLine {
                             condition: Expression::Identifier(Identifier(String::from("a"))),
                             consequence: Box::new(
                                 StatementWithRow::new_expected(
-                                    Statement::Expression(Expression::Identifier(Identifier(String::from("b")))),
+                                    Statement::Print(Expression::Identifier(Identifier(String::from("b")))),
                                     1
                                 )
                             ),
@@ -3473,20 +3788,20 @@ endif
                 ]
             ),
             (
-                "if a then b else c",
+                "if a then print b else print c",
                 vec![
                     StatementWithRow::new_expected(
                         Statement::IfSingleLine {
                             condition: Expression::Identifier(Identifier(String::from("a"))),
                             consequence: Box::new(
                                 StatementWithRow::new_expected(
-                                    Statement::Expression(Expression::Identifier(Identifier(String::from("b")))),
+                                    Statement::Print(Expression::Identifier(Identifier(String::from("b")))),
                                     1
                                 )
                             ),
                             alternative: Box::new(Some(
                                 StatementWithRow::new_expected(
-                                    Statement::Expression(Expression::Identifier(Identifier(String::from("c")))),
+                                    Statement::Print(Expression::Identifier(Identifier(String::from("c")))),
                                     1
                                 )
                             )),
@@ -3531,7 +3846,7 @@ endif
     fn test_if_without_then() {
         let input = r#"
 if b
-    statement1
+    print 1
 endif
 "#;
         parser_test(input, vec![
@@ -3540,7 +3855,7 @@ endif
                     condition: Expression::Identifier(Identifier(String::from("b"))),
                     consequence: vec![
                         StatementWithRow::new_expected(
-                            Statement::Expression(Expression::Identifier(Identifier(String::from("statement1")))),
+                            Statement::Print(Expression::Literal(Literal::Num(1.0))),
                             3
                         )
                     ],
@@ -3555,10 +3870,10 @@ endif
     fn test_if_else() {
         let input = r#"
 if a then
-    statement1
+    print 1
 else
-    statement2_1
-    statement2_2
+    print 2.1
+    print 2.2
 endif
 "#;
         parser_test(input, vec![
@@ -3567,17 +3882,17 @@ endif
                     condition: Expression::Identifier(Identifier(String::from("a"))),
                     consequence: vec![
                         StatementWithRow::new_expected(
-                            Statement::Expression(Expression::Identifier(Identifier(String::from("statement1")))),
+                            Statement::Print(Expression::Literal(Literal::Num(1.0))),
                             3
                         ),
                     ],
                     alternative: Some(vec![
                         StatementWithRow::new_expected(
-                            Statement::Expression(Expression::Identifier(Identifier(String::from("statement2_1")))),
+                            Statement::Print(Expression::Literal(Literal::Num(2.1))),
                             5
                         ),
                         StatementWithRow::new_expected(
-                            Statement::Expression(Expression::Identifier(Identifier(String::from("statement2_2")))),
+                            Statement::Print(Expression::Literal(Literal::Num(2.2))),
                             6
                         ),
                     ])
@@ -3592,15 +3907,15 @@ endif
     fn test_elseif() {
         let input = r#"
 if a then
-    statement1
+    print 1
 elseif b then
-    statement2
+    print 2
 elseif c then
-    statement3
-elseif d then
-    statement4
+    print 3
+elseif d
+    print 4
 else
-    statement5
+    print 5
 endif
 "#;
         parser_test(input, vec![
@@ -3609,7 +3924,7 @@ endif
                     condition: Expression::Identifier(Identifier(String::from("a"))),
                     consequence: vec![
                         StatementWithRow::new_expected(
-                            Statement::Expression(Expression::Identifier(Identifier(String::from("statement1")))),
+                            Statement::Print(Expression::Literal(Literal::Num(1.0))),
                             3
                         )
                     ],
@@ -3621,7 +3936,7 @@ endif
                             )),
                             vec![
                                 StatementWithRow::new_expected(
-                                    Statement::Expression(Expression::Identifier(Identifier(String::from("statement2")))),
+                                    Statement::Print(Expression::Literal(Literal::Num(2.0))),
                                     5
                                 )
                             ],
@@ -3633,7 +3948,7 @@ endif
                             )),
                             vec![
                                 StatementWithRow::new_expected(
-                                    Statement::Expression(Expression::Identifier(Identifier(String::from("statement3")))),
+                                    Statement::Print(Expression::Literal(Literal::Num(3.0))),
                                     7
                                 )
                             ],
@@ -3645,7 +3960,7 @@ endif
                             )),
                             vec![
                                 StatementWithRow::new_expected(
-                                    Statement::Expression(Expression::Identifier(Identifier(String::from("statement4")))),
+                                    Statement::Print(Expression::Literal(Literal::Num(4.0))),
                                     9
                                 )
                             ],
@@ -3654,7 +3969,7 @@ endif
                             None,
                             vec![
                                 StatementWithRow::new_expected(
-                                    Statement::Expression(Expression::Identifier(Identifier(String::from("statement5")))),
+                                    Statement::Print(Expression::Literal(Literal::Num(5.0))),
                                     11
                                 )
                             ],
@@ -3669,9 +3984,9 @@ endif
     fn test_elseif_without_else() {
         let input = r#"
 if a then
-    statement1
+    print 1
 elseif b then
-    statement2
+    print 2
 endif
 "#;
         parser_test(input, vec![
@@ -3680,7 +3995,7 @@ endif
                     condition: Expression::Identifier(Identifier(String::from("a"))),
                     consequence: vec![
                         StatementWithRow::new_expected(
-                            Statement::Expression(Expression::Identifier(Identifier(String::from("statement1")))),
+                            Statement::Print(Expression::Literal(Literal::Num(1.0))),
                             3
                         )
                     ],
@@ -3692,7 +4007,7 @@ endif
                             )),
                             vec![
                                 StatementWithRow::new_expected(
-                                    Statement::Expression(Expression::Identifier(Identifier(String::from("statement2")))),
+                                    Statement::Print(Expression::Literal(Literal::Num(2.0))),
                                     5
                                 )
                             ],
@@ -3819,27 +4134,27 @@ selend
     #[test]
     fn test_prefix() {
         let input = r#"
-! hoge
--1
-+1
+print ! hoge
+print -1
+print +1
         "#;
         parser_test(input, vec![
             StatementWithRow::new_expected(
-                Statement::Expression(Expression::Prefix(
+                Statement::Print(Expression::Prefix(
                     Prefix::Not,
                     Box::new(Expression::Identifier(Identifier(String::from("hoge"))))
                 )),
                 2
             ),
             StatementWithRow::new_expected(
-                Statement::Expression(Expression::Prefix(
+                Statement::Print(Expression::Prefix(
                     Prefix::Minus,
                     Box::new(Expression::Literal(Literal::Num(1 as f64)))
                 )),
                 3
             ),
             StatementWithRow::new_expected(
-                Statement::Expression(Expression::Prefix(
+                Statement::Print(Expression::Prefix(
                     Prefix::Plus,
                     Box::new(Expression::Literal(Literal::Num(1 as f64)))
                 )),
@@ -3851,113 +4166,113 @@ selend
     #[test]
     fn test_infix() {
         let input = r#"
-3 + 3
-3 - 3
-3 * 3
-3 / 3
-3 > 3
-3 < 3
-3 = 3
-3 == 3
-3 != 3
-3 <> 3
-3 >= 3
-3 <= 3
+print 3 + 5
+print 3 - 5
+print 3 * 5
+print 3 / 5
+print 3 > 5
+print 3 < 5
+print 3 = 5
+print 3 == 5
+print 3 != 5
+print 3 <> 5
+print 3 >= 5
+print 3 <= 5
         "#;
         parser_test(input, vec![
             StatementWithRow::new_expected(
-                Statement::Expression(Expression::Infix(
+                Statement::Print(Expression::Infix(
                     Infix::Plus,
                     Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                    Box::new(Expression::Literal(Literal::Num(5 as f64))),
                 )),
                 2
             ),
             StatementWithRow::new_expected(
-                Statement::Expression(Expression::Infix(
+                Statement::Print(Expression::Infix(
                     Infix::Minus,
                     Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                    Box::new(Expression::Literal(Literal::Num(5 as f64))),
                 )),
                 3
             ),
             StatementWithRow::new_expected(
-                Statement::Expression(Expression::Infix(
+                Statement::Print(Expression::Infix(
                     Infix::Multiply,
                     Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                    Box::new(Expression::Literal(Literal::Num(5 as f64))),
                 )),
                 4
             ),
             StatementWithRow::new_expected(
-                Statement::Expression(Expression::Infix(
+                Statement::Print(Expression::Infix(
                     Infix::Divide,
                     Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                    Box::new(Expression::Literal(Literal::Num(5 as f64))),
                 )),
                 5
             ),
             StatementWithRow::new_expected(
-                Statement::Expression(Expression::Infix(
+                Statement::Print(Expression::Infix(
                     Infix::GreaterThan,
                     Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                    Box::new(Expression::Literal(Literal::Num(5 as f64))),
                 )),
                 6
             ),
             StatementWithRow::new_expected(
-                Statement::Expression(Expression::Infix(
+                Statement::Print(Expression::Infix(
                     Infix::LessThan,
                     Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                    Box::new(Expression::Literal(Literal::Num(5 as f64))),
                 )),
                 7
             ),
             StatementWithRow::new_expected(
-                Statement::Expression(Expression::Infix(
+                Statement::Print(Expression::Infix(
                     Infix::Equal,
                     Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                    Box::new(Expression::Literal(Literal::Num(5 as f64))),
                 )),
                 8
             ),
             StatementWithRow::new_expected(
-                Statement::Expression(Expression::Infix(
+                Statement::Print(Expression::Infix(
                     Infix::Equal,
                     Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                    Box::new(Expression::Literal(Literal::Num(5 as f64))),
                 )),
                 9
             ),
             StatementWithRow::new_expected(
-                Statement::Expression(Expression::Infix(
+                Statement::Print(Expression::Infix(
                     Infix::NotEqual,
                     Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                    Box::new(Expression::Literal(Literal::Num(5 as f64))),
                 )),
                 10
             ),
             StatementWithRow::new_expected(
-                Statement::Expression(Expression::Infix(
+                Statement::Print(Expression::Infix(
                     Infix::NotEqual,
                     Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                    Box::new(Expression::Literal(Literal::Num(5 as f64))),
                 )),
                 11
             ),
             StatementWithRow::new_expected(
-                Statement::Expression(Expression::Infix(
+                Statement::Print(Expression::Infix(
                     Infix::GreaterThanEqual,
                     Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                    Box::new(Expression::Literal(Literal::Num(5 as f64))),
                 )),
                 12
             ),
             StatementWithRow::new_expected(
-                Statement::Expression(Expression::Infix(
+                Statement::Print(Expression::Infix(
                     Infix::LessThanEqual,
                     Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                    Box::new(Expression::Literal(Literal::Num(5 as f64))),
                 )),
                 13
             ),
@@ -3969,10 +4284,10 @@ selend
     fn test_precedence() {
         let tests = vec![
             (
-                "-a * b",
+                "print -a * b",
                 vec![
                     StatementWithRow::new_expected(
-                        Statement::Expression(Expression::Infix(
+                        Statement::Print(Expression::Infix(
                             Infix::Multiply,
                             Box::new(Expression::Prefix(
                                 Prefix::Minus,
@@ -3984,10 +4299,10 @@ selend
                 ]
             ),
             (
-                "!-a",
+                "print !-a",
                 vec![
                     StatementWithRow::new_expected(
-                        Statement::Expression(Expression::Prefix(
+                        Statement::Print(Expression::Prefix(
                             Prefix::Not,
                             Box::new(Expression::Prefix(
                                 Prefix::Minus,
@@ -3998,10 +4313,10 @@ selend
                 ]
             ),
             (
-                "a + b + c",
+                "print a + b + c",
                 vec![
                     StatementWithRow::new_expected(
-                        Statement::Expression(Expression::Infix(
+                        Statement::Print(Expression::Infix(
                             Infix::Plus,
                             Box::new(Expression::Infix(
                                 Infix::Plus,
@@ -4014,10 +4329,10 @@ selend
                 ]
             ),
             (
-                "a + b - c",
+                "print a + b - c",
                 vec![
                     StatementWithRow::new_expected(
-                        Statement::Expression(Expression::Infix(
+                        Statement::Print(Expression::Infix(
                             Infix::Minus,
                             Box::new(Expression::Infix(
                                 Infix::Plus,
@@ -4030,10 +4345,10 @@ selend
                 ]
             ),
             (
-                "a * b * c",
+                "print a * b * c",
                 vec![
                     StatementWithRow::new_expected(
-                        Statement::Expression(Expression::Infix(
+                        Statement::Print(Expression::Infix(
                             Infix::Multiply,
                             Box::new(Expression::Infix(
                                 Infix::Multiply,
@@ -4046,10 +4361,10 @@ selend
                 ]
             ),
             (
-                "a * b / c",
+                "print a * b / c",
                 vec![
                     StatementWithRow::new_expected(
-                        Statement::Expression(Expression::Infix(
+                        Statement::Print(Expression::Infix(
                             Infix::Divide,
                             Box::new(Expression::Infix(
                                 Infix::Multiply,
@@ -4062,10 +4377,10 @@ selend
                 ]
             ),
             (
-                "a + b / c",
+                "print a + b / c",
                 vec![
                     StatementWithRow::new_expected(
-                        Statement::Expression(Expression::Infix(
+                        Statement::Print(Expression::Infix(
                             Infix::Plus,
                             Box::new(Expression::Identifier(Identifier(String::from("a")))),
                             Box::new(Expression::Infix(
@@ -4078,10 +4393,10 @@ selend
                 ]
             ),
             (
-                "a + b * c + d / e - f",
+                "print a + b * c + d / e - f",
                 vec![
                     StatementWithRow::new_expected(
-                        Statement::Expression(Expression::Infix(
+                        Statement::Print(Expression::Infix(
                             Infix::Minus,
                             Box::new(Expression::Infix(
                                 Infix::Plus,
@@ -4106,10 +4421,10 @@ selend
                 ]
             ),
             (
-                "5 > 4 == 3 < 4",
+                "print 5 > 4 == 3 < 4",
                 vec![
                     StatementWithRow::new_expected(
-                        Statement::Expression(
+                        Statement::Print(
                             Expression::Infix(
                                 Infix::Equal,
                                 Box::new(Expression::Infix(
@@ -4128,10 +4443,10 @@ selend
                 ]
             ),
             (
-                "5 < 4 != 3 > 4",
+                "print 5 < 4 != 3 > 4",
                 vec![
                     StatementWithRow::new_expected(
-                        Statement::Expression(
+                        Statement::Print(
                             Expression::Infix(
                                 Infix::NotEqual,
                                 Box::new(Expression::Infix(
@@ -4150,10 +4465,10 @@ selend
                 ]
             ),
             (
-                "5 >= 4 = 3 <= 4",
+                "print 5 >= 4 = 3 <= 4",
                 vec![
                     StatementWithRow::new_expected(
-                        Statement::Expression(
+                        Statement::Print(
                             Expression::Infix(
                                 Infix::Equal,
                                 Box::new(Expression::Infix(
@@ -4172,10 +4487,10 @@ selend
                 ]
             ),
             (
-                "3 + 4 * 5 == 3 * 1 + 4 * 5",
+                "print 3 + 4 * 5 == 3 * 1 + 4 * 5",
                 vec![
                     StatementWithRow::new_expected(
-                        Statement::Expression(
+                        Statement::Print(
                             Expression::Infix(
                                 Infix::Equal,
                                 Box::new(Expression::Infix(
@@ -4206,10 +4521,10 @@ selend
                 ]
             ),
             (
-                "3 > 5 == FALSE",
+                "print 3 > 5 == FALSE",
                 vec![
                     StatementWithRow::new_expected(
-                        Statement::Expression(
+                        Statement::Print(
                             Expression::Infix(
                                 Infix::Equal,
                                 Box::new(Expression::Infix(
@@ -4224,10 +4539,10 @@ selend
                 ]
             ),
             (
-                "3 < 5 = TRUE",
+                "print 3 < 5 = TRUE",
                 vec![
                     StatementWithRow::new_expected(
-                        Statement::Expression(
+                        Statement::Print(
                             Expression::Infix(
                                 Infix::Equal,
                                 Box::new(Expression::Infix(
@@ -4242,10 +4557,10 @@ selend
                 ]
             ),
             (
-                "1 + (2 + 3) + 4",
+                "print 1 + (2 + 3) + 4",
                 vec![
                     StatementWithRow::new_expected(
-                        Statement::Expression(
+                        Statement::Print(
                             Expression::Infix(
                                 Infix::Plus,
                                 Box::new(Expression::Infix(
@@ -4264,10 +4579,10 @@ selend
                 ]
             ),
             (
-                "(5 + 5) * 2",
+                "print (5 + 5) * 2",
                 vec![
                     StatementWithRow::new_expected(
-                        Statement::Expression(
+                        Statement::Print(
                             Expression::Infix(
                                 Infix::Multiply,
                                 Box::new(Expression::Infix(
@@ -4282,10 +4597,10 @@ selend
                 ]
             ),
             (
-                "2 / (5 + 5)",
+                "print 2 / (5 + 5)",
                 vec![
                     StatementWithRow::new_expected(
-                        Statement::Expression(
+                        Statement::Print(
                             Expression::Infix(
                                 Infix::Divide,
                                 Box::new(Expression::Literal(Literal::Num(2 as f64))),
@@ -4300,10 +4615,10 @@ selend
                 ]
             ),
             (
-                "-(5 + 5)",
+                "print -(5 + 5)",
                 vec![
                     StatementWithRow::new_expected(
-                        Statement::Expression(Expression::Prefix(
+                        Statement::Print(Expression::Prefix(
                             Prefix::Minus,
                             Box::new(Expression::Infix(
                                 Infix::Plus,
@@ -4315,10 +4630,10 @@ selend
                 ]
             ),
             (
-                "!(5 = 5)",
+                "print !(5 = 5)",
                 vec![
                     StatementWithRow::new_expected(
-                        Statement::Expression(Expression::Prefix(
+                        Statement::Print(Expression::Prefix(
                             Prefix::Not,
                             Box::new(Expression::Infix(
                                 Infix::Equal,
@@ -4330,10 +4645,10 @@ selend
                 ]
             ),
             (
-                "a + add(b * c) + d",
+                "print a + add(b * c) + d",
                 vec![
                     StatementWithRow::new_expected(
-                        Statement::Expression(Expression::Infix(
+                        Statement::Print(Expression::Infix(
                             Infix::Plus,
                             Box::new(Expression::Infix(
                                 Infix::Plus,
@@ -4394,10 +4709,10 @@ selend
                 ]
             ),
             (
-                "a * [1, 2, 3, 4][b * c] * d",
+                "print a * [1, 2, 3, 4][b * c] * d",
                 vec![
                     StatementWithRow::new_expected(
-                        Statement::Expression(Expression::Infix(
+                        Statement::Print(Expression::Infix(
                             Infix::Multiply,
                             Box::new(Expression::Infix(
                                 Infix::Multiply,
@@ -4466,10 +4781,10 @@ selend
                 ]
             ),
             (
-                "a or b and c",
+                "print a or b and c",
                 vec![
                     StatementWithRow::new_expected(
-                        Statement::Expression(Expression::Infix(
+                        Statement::Print(Expression::Infix(
                             Infix::Or,
                             Box::new(Expression::Identifier(Identifier(String::from("a")))),
                             Box::new(Expression::Infix(
@@ -4482,10 +4797,10 @@ selend
                 ]
             ),
             (
-                "1 + 5 mod 3",
+                "print 1 + 5 mod 3",
                 vec![
                     StatementWithRow::new_expected(
-                        Statement::Expression(Expression::Infix(
+                        Statement::Print(Expression::Infix(
                             Infix::Plus,
                             Box::new(Expression::Literal(Literal::Num(1 as f64))),
                             Box::new(Expression::Infix(
@@ -4498,10 +4813,10 @@ selend
                 ]
             ),
             (
-                "3 * 2 and 2 xor (2 or 4)",
+                "print 3 * 2 and 2 xor (2 or 4)",
                 vec![
                     StatementWithRow::new_expected(
-                        Statement::Expression(Expression::Infix(
+                        Statement::Print(Expression::Infix(
                             Infix::Xor,
                             Box::new(Expression::Infix(
                                 Infix::And,
@@ -4577,6 +4892,25 @@ endif
                         Statement::Expression(Expression::Assign(
                             Box::new(Expression::Index(
                                 Box::new(Expression::Identifier(Identifier(String::from("a")))),
+                                Box::new(Expression::Literal(Literal::Num(0 as f64))),
+                                Box::new(None)
+                            )),
+                            Box::new(Expression::Literal(Literal::Num(1 as f64)))
+                        )), 1
+                    )
+                ]
+            ),
+            (
+                "a[0][0] = 1",
+                vec![
+                    StatementWithRow::new_expected(
+                        Statement::Expression(Expression::Assign(
+                            Box::new(Expression::Index(
+                                Box::new(Expression::Index(
+                                    Box::new(Expression::Identifier(Identifier(String::from("a")))),
+                                    Box::new(Expression::Literal(Literal::Num(0 as f64))),
+                                    Box::new(None)
+                                )),
                                 Box::new(Expression::Literal(Literal::Num(0 as f64))),
                                 Box::new(None)
                             )),
@@ -4894,10 +5228,10 @@ until (a == b) and (c >= d)
     fn test_ternary_operator() {
         let tests = vec![
             (
-                "a ? b : c",
+                "print a ? b : c",
                 vec![
                     StatementWithRow::new_expected(
-                        Statement::Expression(Expression::Ternary{
+                        Statement::Print(Expression::Ternary{
                             condition: Box::new(Expression::Identifier(Identifier(String::from("a")))),
                             consequence: Box::new(Expression::Identifier(Identifier(String::from("b")))),
                             alternative: Box::new(Expression::Identifier(Identifier(String::from("c")))),
@@ -4921,10 +5255,10 @@ until (a == b) and (c >= d)
                 ]
             ),
             (
-                "hoge[a?b:c]",
+                "print hoge[a?b:c]",
                 vec![
                     StatementWithRow::new_expected(
-                        Statement::Expression(Expression::Index(
+                        Statement::Print(Expression::Index(
                             Box::new(Expression::Identifier(Identifier(String::from("hoge")))),
                             Box::new(Expression::Ternary{
                                 condition: Box::new(Expression::Identifier(Identifier(String::from("a")))),
@@ -4937,10 +5271,10 @@ until (a == b) and (c >= d)
                 ]
             ),
             (
-                "x + y * a ? b + q : c / r",
+                "print x + y * a ? b + q : c / r",
                 vec![
                     StatementWithRow::new_expected(
-                        Statement::Expression(Expression::Ternary{
+                        Statement::Print(Expression::Ternary{
                             condition: Box::new(Expression::Infix(
                                 Infix::Plus,
                                 Box::new(Expression::Identifier(Identifier(String::from("x")))),
@@ -4965,10 +5299,10 @@ until (a == b) and (c >= d)
                 ]
             ),
             (
-                "a ? b: c ? d: e",
+                "print a ? b: c ? d: e",
                 vec![
                     StatementWithRow::new_expected(
-                        Statement::Expression(Expression::Ternary{
+                        Statement::Print(Expression::Ternary{
                             condition: Box::new(Expression::Identifier(Identifier("a".to_string()))),
                             consequence: Box::new(Expression::Identifier(Identifier("b".to_string()))),
                             alternative: Box::new(Expression::Ternary{
@@ -4996,11 +5330,30 @@ until (a == b) and (c >= d)
                         Statement::HashTbl(vec![
                             (
                                 Identifier(String::from("hoge")),
-                                None, false
+                                None
                             )
-                        ]), 1
+                        ], false), 1
                     )
-                ]
+                ],
+                vec![]
+            ),
+            (
+                "hashtbl hoge, fuga",
+                vec![
+                    StatementWithRow::new_expected(
+                        Statement::HashTbl(vec![
+                            (
+                                Identifier(String::from("hoge")),
+                                None
+                            ),
+                            (
+                                Identifier(String::from("fuga")),
+                                None
+                            )
+                        ], false), 1
+                    )
+                ],
+                vec![]
             ),
             (
                 "hashtbl hoge = HASH_CASECARE",
@@ -5010,11 +5363,11 @@ until (a == b) and (c >= d)
                             (
                                 Identifier(String::from("hoge")),
                                 Some(Expression::Identifier(Identifier("HASH_CASECARE".to_string()))),
-                                false
                             )
-                        ]), 1
+                        ], false), 1
                     )
-                ]
+                ],
+                vec![]
             ),
             (
                 "hashtbl hoge = HASH_SORT",
@@ -5024,28 +5377,33 @@ until (a == b) and (c >= d)
                             (
                                 Identifier(String::from("hoge")),
                                 Some(Expression::Identifier(Identifier("HASH_SORT".to_string()))),
-                                false
                             )
-                        ]), 1
+                        ], false), 1
                     )
-                ]
+                ],
+                vec![]
             ),
             (
-                "public hashtbl hoge",
+                "public hashtbl hoge = HASH_SORT, fuga",
+                vec![],
                 vec![
                     StatementWithRow::new_expected(
                         Statement::HashTbl(vec![
                             (
                                 Identifier(String::from("hoge")),
-                                None, true
+                                Some(Expression::Identifier(Identifier("HASH_SORT".to_string()))),
+                            ),
+                            (
+                                Identifier(String::from("fuga")),
+                                None
                             )
-                        ]), 1
+                        ], true), 1
                     )
                 ]
             ),
         ];
-        for (input, expected) in tests {
-            parser_test(input, expected, vec![]);
+        for (input, expected, global) in tests {
+            parser_test(input, expected, global);
         }
     }
 
@@ -5067,7 +5425,8 @@ until (a == b) and (c >= d)
                         )),
                         2
                     )
-                ]
+                ],
+                vec![]
             ),
             (
                 r#"
@@ -5084,13 +5443,15 @@ until (a == b) and (c >= d)
                         )),
                         2
                     )
-                ]
+                ],
+                vec![]
             ),
             (
                 r#"
                 hash public hoge
                 endhash
                 "#,
+                vec![],
                 vec![
                     StatementWithRow::new_expected(
                         Statement::Hash(HashSugar::new(
@@ -5127,11 +5488,12 @@ until (a == b) and (c >= d)
                         )),
                         2
                     )
-                ]
+                ],
+                vec![]
             ),
         ];
-        for (input, expected) in tests {
-            parser_test(input, expected, vec![]);
+        for (input, expected, global) in tests {
+            parser_test(input, expected, global);
         }
     }
 
@@ -5829,12 +6191,12 @@ public p3 = 1
             StatementWithRow::new_expected(
                 Statement::Dim(vec![
                     (Identifier("d1".to_string()), Expression::Literal(Literal::Num(1.0)))
-                ]), 2
+                ], false), 2
             ),
             StatementWithRow::new_expected(
                 Statement::Dim(vec![
                     (Identifier("d2".to_string()), Expression::Literal(Literal::Num(1.0)))
-                ]), 7
+                ], false), 7
             ),
         ];
         parser_test(input, script, global);
@@ -5869,7 +6231,7 @@ endmodule
                         StatementWithRow::new_expected(
                             Statement::Dim(vec![
                                 (Identifier("a".to_string()), Expression::Literal(Literal::Num(1.0)))
-                            ]), 3
+                            ], false), 3
                         ),
                         StatementWithRow::new_expected(
                             Statement::Public(vec![
@@ -5952,7 +6314,7 @@ endmodule
                                         is_proc: false
                                     }
                                 )
-                            ]), 15
+                            ], false), 15
                         ),
                     ],
                 ), 2
@@ -6066,7 +6428,7 @@ fend
                                     is_await: false,
                                 }
                             )
-                        ]),
+                        ], false),
                         2
                     )
                 ],
@@ -6150,4 +6512,382 @@ fend
         }
     }
 
+    impl PartialOrd for ParseError {
+        fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+            // match self.kind.partial_cmp(&other.kind) {
+            //     Some(core::cmp::Ordering::Equal) => {}
+            //     ord => return ord,
+            // }
+            match self.start.partial_cmp(&other.start) {
+                Some(core::cmp::Ordering::Equal) => {}
+                ord => return ord,
+            }
+            match self.end.partial_cmp(&other.end) {
+                Some(core::cmp::Ordering::Equal) => {}
+                ord => return ord,
+            }
+            self.script_name.partial_cmp(&other.script_name)
+        }
+    }
+    impl Eq for ParseError {}
+    impl Ord for ParseError {
+        fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+            self.partial_cmp(other).unwrap()
+        }
+    }
+
+    fn parser_error_test(input: &str, mut expected: ParseErrors) {
+        let parser = Parser::new(Lexer::new(input));
+        match parser.parse() {
+            Ok(_) => {
+                panic!("No error found on input: \r\n{input}");
+            },
+            Err(mut err) => {
+                err.sort();
+                expected.sort();
+                assert_eq!(err, expected);
+            }
+        }
+    }
+    fn already_defined_error(ident: &str, start: (usize, usize)) -> ParseError {
+        ParseError::new(
+            ParseErrorKind::IdentifierIsAlreadyDefined(ident.to_string()),
+            Position::new(start.0, start.1),
+            Position::new(start.0, start.1 + ident.len()),
+            None
+        )
+    }
+
+    // エラー系
+    #[test]
+    fn test_error_dups() {
+        let test_case = vec![
+            (
+                r#"
+const x = 1
+const x = 2
+public x = 3
+dim x = 4
+                "#,
+                vec![
+                    already_defined_error("X", (3, 7)),
+                    already_defined_error("X", (4, 8)),
+                    already_defined_error("X", (5, 5)),
+                ]
+            ),
+            (
+                r#"
+dim x = 1
+dim x = 2
+                "#,
+                vec![
+                    already_defined_error("X", (3, 5)),
+                ]
+            ),
+            (
+                r#"
+x = 1
+dim x = 2
+                "#,
+                vec![
+                    already_defined_error("X", (3, 5)),
+                ]
+            ),
+            (
+                r#"
+const x = 1
+const p = procedure()
+    const x = 2
+    public x = 2
+    dim x = 2
+fend
+                "#,
+                vec![
+                    already_defined_error("X", (4, 11)),
+                    already_defined_error("X", (5, 12)),
+                    already_defined_error("X", (6, 9)),
+                ]
+            ),
+            (
+                r#"
+dim x = 1
+const p = procedure()
+    const x = 2
+    public x = 2
+    dim x = 2
+fend
+                "#,
+                vec![
+                    already_defined_error("X", (5, 12)),
+                    already_defined_error("X", (6, 9)),
+                    already_defined_error("X", (2, 5)),
+                ]
+            ),
+            (
+                r#"
+const x = 1
+dim y = 1
+const p = procedure()
+    dim x = 2
+    dim y = 2
+fend
+                "#,
+                vec![
+                    already_defined_error("X", (5, 9)),
+                ]
+            ),
+            (
+                r#"
+dim x = 1
+dim y = 1
+dim p = procedure()
+    dim x = 2
+    dim y = 2
+fend
+                "#,
+                vec![
+                    already_defined_error("X", (5, 9)),
+                    already_defined_error("Y", (6, 9)),
+                ]
+            ),
+            (
+                r#"
+dim x = 1
+dim p = procedure()
+    dim x = 2
+    dim y = 2
+fend
+dim y = 1
+                "#,
+                vec![
+                    already_defined_error("X", (4, 9)),
+                ]
+            ),
+            (
+                r#"
+const x = 1
+procedure p()
+    const x = 2
+    public x = 2
+    dim x = 2
+fend
+                "#,
+                vec![
+                    already_defined_error("X", (4, 11)),
+                    already_defined_error("X", (5, 12)),
+                    already_defined_error("X", (6, 9)),
+                ]
+            ),
+            (
+                r#"
+const x = 1
+module m
+    const y = 1
+    procedure m()
+        const x = 2
+        const y = 2
+    fend
+endmodule
+                "#,
+                vec![
+                    already_defined_error("Y", (7, 15)),
+                ]
+            ),
+            (
+                r#"
+const x = 1
+module m
+    const y = 1
+    procedure m()
+        public x = 2
+        public y = 2
+    fend
+endmodule
+                "#,
+                vec![
+                    already_defined_error("Y", (7, 16)),
+                ]
+            ),
+            (
+                r#"
+const x = 1
+module m
+    const y = 1
+    procedure m()
+        dim x = 2
+        dim y = 2
+    fend
+endmodule
+                "#,
+                vec![
+                    already_defined_error("X", (6, 13)),
+                ]
+            ),
+        ];
+        for (input, expected) in test_case {
+            parser_error_test(input, expected);
+        }
+    }
+
+
+    fn undeclared_error(ident: &str, start: (usize, usize)) -> ParseError {
+        ParseError::new(
+            ParseErrorKind::UndeclaredIdentifier(ident.to_string()),
+            Position::new(start.0, start.1),
+            Position::new(start.0, start.1 + ident.len()),
+            None
+        )
+    }
+
+    #[test]
+    fn test_error_access() {
+        let test_case = vec![
+            (
+                r#"
+print x
+print y
+                "#,
+                vec![
+                    undeclared_error("X", (2, 7)),
+                    undeclared_error("Y", (3, 7)),
+                ]
+            ),
+            (
+                r#"
+x = 1
+print x
+print y
+                "#,
+                vec![
+                    undeclared_error("Y", (4, 7)),
+                ]
+            ),
+            (
+                r#"
+x()
+                "#,
+                vec![
+                    undeclared_error("X", (2, 1)),
+                ]
+            ),
+            (
+                r#"
+print m.foo
+                "#,
+                vec![
+                    undeclared_error("M", (2, 7)),
+                ]
+            ),
+            (
+                r#"
+function f()
+    result = a
+fend
+                "#,
+                vec![
+                    undeclared_error("A", (3, 14)),
+                ]
+            ),
+            (
+                r#"
+module m
+    procedure m
+        result = a
+    fend
+    dim x = a
+endmodule
+                "#,
+                vec![
+                    undeclared_error("A", (4, 18)),
+                    undeclared_error("A", (6, 13)),
+                ]
+            ),
+        ];
+        for (input, expected) in test_case {
+            parser_error_test(input, expected);
+        }
+    }
+
+    fn explicit_error(ident: &str, start: (usize, usize)) -> ParseError {
+        ParseError::new(
+            ParseErrorKind::ExplicitError(ident.to_string()),
+            Position::new(start.0, start.1),
+            Position::new(start.0, start.1 + ident.len()),
+            None
+        )
+    }
+
+    #[test]
+    fn test_error_option_explicit() {
+        let test_case = vec![
+            (
+                r#"
+OPTION EXPLICIT
+x = 1
+                "#,
+                vec![
+                    explicit_error("X", (3, 1)),
+                ]
+            ),
+            (
+                r#"
+OPTION EXPLICIT
+dim x = y := 1
+                "#,
+                vec![
+                    explicit_error("Y", (3, 9)),
+                ]
+            ),
+            (
+                r#"
+OPTION EXPLICIT
+x = y := 1
+                "#,
+                vec![
+                    explicit_error("X", (3, 1)),
+                    explicit_error("Y", (3, 5)),
+                ]
+            ),
+            (
+                r#"
+OPTION EXPLICIT
+function f(a = w := 1)
+    x = 1
+    print y := 1
+    result = z := 1
+fend
+                "#,
+                vec![
+                    explicit_error("W", (3, 16)),
+                    explicit_error("X", (4, 5)),
+                    explicit_error("Y", (5, 11)),
+                    explicit_error("Z", (6, 14)),
+                ]
+            ),
+            (
+                r#"
+OPTION EXPLICIT
+module m
+    procedure m
+        v = 1
+        print w := 1
+    fend
+    dim a = x := 1
+    public b = y := 1
+    const c = z := 1
+endmodule
+                "#,
+                vec![
+                    explicit_error("V", (5, 9)),
+                    explicit_error("W", (6, 15)),
+                    explicit_error("X", (8, 13)),
+                    explicit_error("Y", (9, 16)),
+                    explicit_error("Z", (10, 15)),
+                ]
+            ),
+        ];
+        for (input, expected) in test_case {
+            parser_error_test(input, expected);
+        }
+    }
 }

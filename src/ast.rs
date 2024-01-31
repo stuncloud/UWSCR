@@ -1,10 +1,11 @@
 use std::fmt;
 use std::str::FromStr;
 use std::mem;
+use std::collections::HashMap;
 
 use serde::{Serialize, Deserialize};
 
-use crate::error::parser::ParseError;
+use crate::lexer::Position;
 
 #[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub struct Identifier(pub String);
@@ -170,7 +171,7 @@ pub enum Expression {
     /// 1. 左辺
     /// 2. 右辺
     /// 3. 演算子
-    CompoundAssign(Box<Expression>, Box<Expression>, Infix), // += -= *= /=
+    CompoundAssign(Box<Expression>, Box<Expression>, Infix),
     /// 三項演算子
     /// condition ? consequence : alternative
     Ternary {
@@ -182,7 +183,7 @@ pub enum Expression {
     ///
     /// 1. 左辺
     /// 2. 右辺
-    DotCall(Box<Expression>, Box<Expression>), // hoge.fuga hoge.piyo()
+    DotCall(Box<Expression>, Box<Expression>),
     /// UObject宣言
     UObject(String),
     /// COM_ERR_FLG
@@ -198,11 +199,19 @@ pub enum Expression {
 }
 
 impl Expression {
-    fn get_identifier(&self) -> Option<String> {
+    pub fn get_identifier(&self) -> Option<String> {
         match self {
             Expression::Identifier(Identifier(ident)) => Some(ident.clone()),
             Expression::Index(e, _, _) => e.get_identifier(),
             _ => None,
+        }
+    }
+    pub fn is_not_assignable(&self) -> bool {
+        match self {
+            Self::Identifier(_) |
+            Self::Index(_, _, _) |
+            Self::DotCall(_, _) => false,
+            _ => true
         }
     }
 }
@@ -287,10 +296,12 @@ impl fmt::Display for Literal {
 
 #[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub enum Statement {
-    Dim(Vec<(Identifier, Expression)>),
+    /// dim宣言, boolはループ内かどうか
+    Dim(Vec<(Identifier, Expression)>, bool),
     Public(Vec<(Identifier, Expression)>),
     Const(Vec<(Identifier, Expression)>),
-    HashTbl(Vec<(Identifier, Option<Expression>, bool)>),
+    /// hashtbl定義: [(名前, オプション)], publicかどうか
+    HashTbl(Vec<(Identifier, Option<Expression>)>, bool),
     Hash(HashSugar),
     Print(Expression),
     /// スクリプトの実行部分, 引数(param_str)
@@ -369,15 +380,48 @@ pub enum Statement {
     ComErrIgn,
     ComErrRet,
 }
-impl Statement {
-    fn is_explicit(&self) -> bool {
-        if let Statement::Option(OptionSetting::Explicit(b)) = self {
-            *b
-        } else {
-            false
-        }
+
+impl std::fmt::Display for Statement {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let disp = match self {
+            Statement::Dim(_, _) => "Dim",
+            Statement::Public(_) => "Public",
+            Statement::Const(_) => "Const",
+            Statement::HashTbl(_,_) => "HashTbl",
+            Statement::Hash(_) => "Hash",
+            Statement::Print(_) => "Print",
+            Statement::Call(_, _) => "Call",
+            Statement::DefDll { name:_, alias:_, params:_, ret_type:_, path:_ } => "DefDll",
+            Statement::Expression(_) => "Expression",
+            Statement::For { loopvar:_, from:_, to:_, step:_, block:_, alt:_ } => "For",
+            Statement::ForIn { loopvar:_, index_var:_, islast_var:_, collection:_, block:_, alt:_ } => "ForIn",
+            Statement::While(_, _) => "While",
+            Statement::Repeat(_, _) => "Repeat",
+            Statement::Continue(_) => "Continue",
+            Statement::Break(_) => "Break",
+            Statement::IfSingleLine { condition:_, consequence:_, alternative:_ } => "IfSingleLine",
+            Statement::If { condition:_, consequence:_, alternative:_ } => "If",
+            Statement::ElseIf { condition:_, consequence:_, alternatives:_ } => "ElseIf",
+            Statement::Select { expression:_, cases:_, default:_ } => "Select",
+            Statement::Function { name:_, params:_, body:_, is_proc:_, is_async:_ } => "Function",
+            Statement::Exit => "Exit",
+            Statement::ExitExit(_) => "ExitExit",
+            Statement::Module(_, _) => "Module",
+            Statement::Class(_, _) => "Class",
+            Statement::Struct(_, _) => "Struct",
+            Statement::TextBlock(_, _) => "TextBlock",
+            Statement::With(_, _) => "With",
+            Statement::Try { trys:_, except:_, finally:_ } => "Try",
+            Statement::Option(_) => "Option",
+            Statement::Enum(_, _) => "Enum",
+            Statement::Thread(_) => "Thread",
+            Statement::ComErrIgn => "ComErrIgn",
+            Statement::ComErrRet => "ComErrRet",
+        };
+        write!(f, "{disp}")
     }
 }
+
 
 #[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub struct UEnum {
@@ -437,6 +481,35 @@ impl StatementWithRow {
             script_name: None,
         }
     }
+
+    pub fn get_identifier_names(&self) -> Option<HashMap<String, bool>> {
+        let mut map = HashMap::new();
+        let names = match &self.statement {
+            Statement::Public(v) |
+            Statement::Const(v) |
+            Statement::Dim(v, _) => {
+                Some(v.iter().map(|(Identifier(ident), _)| ident.to_ascii_uppercase()).collect())
+            },
+            Statement::HashTbl(v, _) => {
+                Some(v.iter().map(|(Identifier(ident), _)| ident.to_ascii_uppercase()).collect())
+            },
+            Statement::Hash(hash) => {
+                Some(vec![hash.name.0.to_ascii_uppercase()])
+            },
+            // 定数扱い
+            Statement::Enum(ident, _) |
+            Statement::TextBlock(Identifier(ident), _) => {
+                Some(vec![ident.to_ascii_uppercase()])
+            },
+            _ => None,
+        }?;
+        for name in names {
+            map.entry(name)
+                .and_modify(|dup| *dup = true)
+                .or_insert(false);
+        }
+        Some(map)
+    }
 }
 
 impl PartialEq for StatementWithRow {
@@ -457,25 +530,29 @@ pub struct Program {
     pub lines: Vec<String>
 }
 
+#[derive(Clone, Default)]
 pub struct ProgramBuilder {
     /// 定数
-    consts: BlockStatement,
+    consts: Vec<StatementWithRow>,
     /// パブリック変数
-    publics: BlockStatement,
+    publics: Vec<StatementWithRow>,
     /// OPTION定義
-    options: BlockStatement,
+    options: Vec<StatementWithRow>,
     /// 関数等の定義
     /// - function/procedure
     /// - module/class
     /// - struct
     /// - def_dll
-    definitions: BlockStatement,
+    definitions: Vec<StatementWithRow>,
     /// 実行される部分
-    script: BlockStatement,
+    script: Vec<StatementWithRow>,
+    /// スコープ情報
+    scope: BuilderScope,
 }
 impl ProgramBuilder {
     pub fn new() -> Self {
-        Self { consts: vec![], publics: vec![], options: vec![], definitions: vec![], script: vec![] }
+        // Self { consts: vec![], publics: vec![], options: vec![], definitions: vec![], script: vec![], const_names: vec![], public_names: vec![], dim_names: vec![] }
+        Self::default()
     }
     pub fn build(mut self, lines: Vec<String>) -> Program {
         let mut global = vec![];
@@ -487,19 +564,43 @@ impl ProgramBuilder {
         Program { global, script, lines }
     }
     pub fn push_const(&mut self, statement: StatementWithRow) {
-        self.consts.push(statement)
+        if let Some(module) = self.scope.current_module_mut() {
+            module.members.push(statement);
+        } else {
+            self.consts.push(statement);
+        }
     }
     pub fn push_public(&mut self, statement: StatementWithRow) {
-        self.publics.push(statement)
+        if let Some(module) = self.scope.current_module_mut() {
+            module.members.push(statement);
+        } else {
+            self.publics.push(statement);
+        }
     }
     pub fn push_option(&mut self, statement: StatementWithRow) {
         self.options.push(statement)
     }
     pub fn push_def(&mut self, statement: StatementWithRow) {
-        self.definitions.push(statement)
+        if let Some(module) = self.scope.current_module_mut() {
+            module.members.push(statement);
+        } else {
+            self.definitions.push(statement)
+        }
     }
+    pub fn push_dim_member(&mut self, statement: StatementWithRow) {
+        if let Some(module) = self.scope.current_module_mut() {
+            module.members.push(statement);
+        }
+    }
+
     pub fn push_script(&mut self, statement: StatementWithRow) {
         self.script.push(statement)
+    }
+    pub fn append_global(&mut self, other: &mut Self) {
+        self.consts.append(&mut other.consts);
+        self.publics.append(&mut other.publics);
+        self.options.append(&mut other.options);
+        self.definitions.append(&mut other.definitions);
     }
     /// callのProgramのグローバル定義を加える
     pub fn set_call_program(&mut self, program: Program) -> Program {
@@ -528,116 +629,1219 @@ impl ProgramBuilder {
         Program { global: vec![], script: program.script, lines: program.lines }
     }
 
-    pub fn is_explicit(&self) -> bool {
-        self.options.iter().find(|s| s.statement.is_explicit()).is_some()
+    pub fn is_explicit_option_enabled(&self) -> bool {
+        self.scope.option_explicit
+    }
+    pub fn is_in_loop(&self) -> bool {
+        self.scope.loop_count > 0
+    }
+    /// モジュール定義内かどうか (モジュール関数定義内も含む)
+    pub fn is_in_module(&self) -> bool {
+        self.scope.state.module
+    }
+    /// モジュールメンバ定義内かどうか
+    pub fn is_in_module_member_definition(&self) -> bool {
+        self.scope.state.module && ! self.scope.state.function
+    }
+    /// モジュール関数定義内かどうか
+    pub fn is_in_module_member_function(&self) -> bool {
+        self.scope.state.module && self.scope.state.function
+    }
+    /// class定義かどうか
+    pub fn is_class_definition(&self) -> bool {
+        self.scope.current_module.as_ref().map(|m| m.is_class).unwrap_or(false)
     }
 
-    pub fn check_explicit(&self) -> Vec<ParseError> {
+    pub fn set_option_explicit(&mut self, b: bool) {
+        self.scope.option_explicit = b;
+    }
+    pub fn set_public_scope(&mut self) {
+        self.scope.set_public();
+    }
+    pub fn reset_public_scope(&mut self) {
+        self.scope.reset_public();
+    }
+    pub fn set_dim_scope(&mut self) {
+        self.scope.set_dim();
+    }
+    pub fn reset_dim_scope(&mut self) {
+        self.scope.reset_dim();
+    }
+    pub fn set_const_scope(&mut self) {
+        self.scope.set_const();
+    }
+    pub fn reset_const_scope(&mut self) {
+        self.scope.reset_const();
+    }
+    pub fn increase_loop_count(&mut self) {
+        self.scope.increase_loop_count();
+    }
+    pub fn decrease_loop_count(&mut self) {
+        self.scope.decrease_loop_count();
+    }
+    pub fn set_function_scope(&mut self) {
+        self.scope.set_function();
+    }
+    pub fn reset_function_scope(&mut self) {
+        self.scope.reset_function();
+    }
+    pub fn set_module_scope(&mut self, is_class: bool) {
+        self.scope.set_module(is_class);
+    }
+    pub fn reset_module_scope(&mut self) {
+        self.scope.reset_module();
+    }
+    pub fn set_anon_scope(&mut self) {
+        self.scope.set_anon();
+    }
+    pub fn reset_anon_scope(&mut self) {
+        self.scope.reset_anon();
+    }
+    /// デフォルトパラメータ評価中フラグをセット
+    pub fn set_default_param(&mut self) {
+        self.scope.set_default_param()
+    }
+    /// デフォルトパラメータ評価中フラグをリセット
+    pub fn reset_default_param(&mut self) {
+        self.scope.reset_default_param()
+    }
+    /// resultをセット
+    pub fn set_result_as_param(&mut self) {
+        self.set_param("result", Position::default(), Position::default());
+    }
+    /// パラメータ名をdim扱いでセット
+    pub fn set_param(&mut self, name: &str, start: Position, end: Position) {
+        let name = Name::new(name, start, end);
+        if self.scope.is_anonymous() {
+            self.scope.push_anon_param(name);
+        } else if self.scope.is_function() {
+            self.scope.push_function_param(name);
+        }
+    }
+    /// スコープ情報に名前をセット
+    pub fn set_declared_name(&mut self, name: &str, start: Position, end: Position) {
+        let name = Name::new(name, start, end);
+        let is_const = self.scope.is_const();
+        let is_public = self.scope.is_public();
+        let is_dim = self.scope.is_dim();
+        let is_module = self.scope.is_module();
+        let is_func = self.scope.is_function();
+        if self.scope.is_anonymous() {
+            // procedure()
+            //     const x = 1
+            //     public y = 1
+            //     dim z = 1
+            // fend
+            // - const文脈
+            // - public文脈
+            // - dim文脈
+            // - 即時関数
+            if is_module {
+                if is_const {
+                    self.scope.push_module_const(name);
+                } else if is_public {
+                    self.scope.push_module_public(name);
+                } else if is_dim {
+                    self.scope.push_anon_dim(name);
+                }
+            } else {
+                if is_const {
+                    self.scope.push_const(name);
+                } else if is_public {
+                    self.scope.push_public(name);
+                } else if is_dim {
+                    self.scope.push_anon_dim(name);
+                }
+            }
+        } else {
+            if is_const {
+                // 定数定義
+                if is_module {
+                    // module m
+                    //     const x
+                    //     function f()
+                    //         const y
+                    //     fend
+                    self.scope.push_module_const(name);
+                } else {
+                    // const x
+                    self.scope.push_const(name);
+                }
+            } else if is_public {
+                // グローバル変数定義
+                if is_module {
+                    // モジュール内
+                    self.scope.push_module_public(name);
+                } else {
+                    // モジュール外
+                    self.scope.push_public(name);
+                }
+            } else if is_dim {
+                // 変数定義
+                if is_module {
+                    // モジュール内
+                    if is_func {
+                        // 関数内
+                        self.scope.push_function_dim(name);
+                    } else {
+                        // 関数外
+                        self.scope.push_module_dim(name);
+                    }
+                } else {
+                    // モジュール外
+                    if is_func {
+                        // 関数内
+                        self.scope.push_function_dim(name);
+                    } else {
+                        // 関数外
+                        self.scope.push_dim(name)
+                    }
+                }
+        }
+        }
+    }
+    pub fn set_assignee_name(&mut self, name: &str, start: Position, end: Position) {
+        let is_const = self.scope.is_const();
+        let is_public = self.scope.is_public();
+        let is_dim = self.scope.is_dim();
+        let name = Name::new(name, start, end);
+        if let Some(anon) = self.scope.current_anon_mut() {
+            anon.assignee.push(name);
+        } else if let Some(func) = self.scope.current_func_mut() {
+            func.assignee.push(name);
+        } else if let Some(module) = self.scope.current_module_mut() {
+            if is_const {
+                module.r#const.assignee.push(name);
+            } else if is_public {
+                module.public.assignee.push(name);
+            } else if is_dim {
+                module.dim.assignee.push(name);
+            }
+        } else {
+            self.scope.assignee.push(name);
+        }
+    }
+    /// 呼び出される識別子をセット、未定義変数かどうかチェックされる
+    pub fn set_access_name(&mut self, name: &str, start: Position, end: Position) {
+        let name = Name::new(name, start, end);
+        let is_const = self.scope.is_const();
+        let is_public = self.scope.is_public();
+        let is_dim = self.scope.is_dim();
+        let is_default_param = self.scope.is_default_param();
+        let is_anon = self.scope.is_anonymous();
+        let is_func = self.scope.is_function();
+        let is_module = self.scope.is_module();
+        if is_anon {
+            // 無名関数
+            if is_default_param {
+                // 無名関数のデフォルトパラメータ
+                if let Some(parent) = self.scope.anon_parent_mut() {
+                    // 親となる無名関数がいればその文脈
+                    parent.access.push(name);
+                } else {
+                    // 親無名関数がなければ、外のスコープの文脈
+                    if let Some(func) = self.scope.current_func_mut() {
+                        // 関数スコープ
+                        // function x()
+                        //     | p = access => p |()
+                        func.access.push(name);
+                    } else if let Some(module) = self.scope.current_module_mut() {
+                        // モジュールスコープ
+                        if is_const {
+                            // module m
+                            //     const x = | p = access => p |
+                            module.r#const.access.push(name);
+                        } else if is_public {
+                            // module m
+                            //     public x = | p = access => p |
+                            module.public.access.push(name);
+                        } else if is_dim {
+                            // module m
+                            //     dim x = | p = access => p |
+                            module.dim.access.push(name);
+                        }
+                    } else {
+                        // mainスコープ
+                        if is_const {
+                            // const x = function(p = access)
+                            self.scope.r#const.access.push(name);
+                        } else if is_public {
+                            // public x = | p = access => p |
+                            self.scope.public.access.push(name);
+                        } else if is_dim {
+                            // dim x = | p = access => p |
+                            self.scope.dim.access.push(name);
+                        } else {
+                            // | p = access => p |()
+                            self.scope.access.push(name);
+                        }
+                    }
+                }
+            } else {
+                if let Some(anon) = self.scope.current_anon_mut() {
+                    anon.access.push(name)
+                }
+            }
+        } else if is_func {
+            // 関数スコープ
+            if is_default_param {
+                // 関数のデフォルトパラメータはpublic文脈
+                if let Some(module) = self.scope.current_module_mut() {
+                    // module m
+                    //     function x(p = access)
+                    module.public.access.push(name);
+                } else {
+                    // function x(p = access)
+                    self.scope.public.access.push(name);
+                }
+            } else {
+                // 関数スコープ内
+                if is_module {
+                    // module m
+                    //     function x()
+                    //         const c = access
+                    //         public p = access
+                    //         dim p = access
+                    //         result = access
+                    if is_const {
+                        // module const文脈
+                        self.scope.push_module_const_access(name);
+                    } else if is_public {
+                        // module public文脈
+                        self.scope.push_module_public_access(name);
+                    } else if let Some(func) = self.scope.current_func_mut() {
+                        // 関数スコープ文脈
+                        func.access.push(name);
+                    } else {
+                        self.scope.push_module_dim_access(name);
+                    }
+                } else {
+                    // function x()
+                    //     const c = access
+                    //     public p = access
+                    //     dim p = access
+                    //     result = access
+                    if is_const {
+                        // グローバル const文脈
+                        self.scope.r#const.access.push(name);
+                    } else if is_public {
+                        // グローバル public文脈
+                        self.scope.public.access.push(name);
+                    } else {
+                        // 関数スコープ文脈
+                        if let Some(func) = self.scope.current_func_mut() {
+                            func.access.push(name);
+                        }
+                    }
+                }
+            }
+        } else if let Some(module) = self.scope.current_module_mut() {
+            // module m
+            //     const c = access
+            //     public p = access
+            //     dim p = access
+            if is_const {
+                module.r#const.access.push(name);
+            } else if is_public {
+                module.public.access.push(name);
+            } else if is_dim {
+                module.dim.access.push(name);
+            }
+        } else if is_const {
+            // const x = access
+            self.scope.r#const.access.push(name);
+        } else if is_public {
+            // public x = access
+            self.scope.public.access.push(name);
+        } else {
+            // dim x = access
+            // print access
+            self.scope.access.push(name);
+        }
+    }
+    pub fn set_definition_name(&mut self, name: &str, start: Position, end: Position) {
+        let name = Name::new(name, start, end);
+        self.scope.definition.push(name);
+    }
+    pub fn take_module_members(&mut self, block: &mut BlockStatement) {
+        if let Some(module) = self.scope.current_module.as_mut() {
+            block.append(&mut module.members);
+        }
+    }
 
-        let is_explicit = {
-            let settings = crate::settings::USETTINGS.lock().unwrap();
-            settings.options.explicit || self.is_explicit()
+    /// 代入を暗黙の宣言とする
+    pub fn declare_implicitly(&mut self) {
+        self.scope.implicit_declaration();
+    }
+    pub fn check_option_explicit(&self) -> Names {
+        self.scope.check_option_explicit()
+    }
+    pub fn check_duplicated(&self) -> Names {
+        self.scope.check_duplicated()
+    }
+    pub fn check_access(&self) -> Names {
+        self.scope.check_access()
+    }
+}
+
+/// スコープ情報を管理する
+#[derive(Clone, Default, Debug)]
+struct BuilderScope {
+    /// OPTION EXPLICITの状態を示す
+    option_explicit: bool,
+    /// ループの深さ
+    loop_count: u32,
+    /// const定義
+    r#const: ConstScope,
+    /// public定義
+    public: PublicScope,
+    /// dim定義
+    dim: DimScope,
+    /// 関数定義
+    function: Functions,
+    current_function: Option<FuncScope>,
+    /// module定義
+    module: Modules,
+    /// 現在のModuleScope
+    /// 1. module解析時にセット
+    /// 2. 解析終了時にmodule定義に積んでNoneに戻す
+    current_module: Option<ModuleScope>,
+    /// 現在の無名関数
+    current_anon: Option<AnonFuncScope>,
+    /// スコープの状態
+    state: ScopeState,
+    /// 被代入変数名 OPTION EXPLICIT対象
+    assignee: Names,
+    /// 呼び出される変数名
+    access: Names,
+    /// 関数名, module名等
+    definition: Names,
+}
+impl BuilderScope {
+    /// 代入を暗黙の定義とみなす
+    fn implicit_declaration(&mut self) {
+        self.assignee.remove_dup();
+        self.dim.names.append_mut(&mut self.assignee);
+        self.r#const.implicit_declaration();
+        self.public.implicit_declaration();
+        self.dim.implicit_declaration();
+        for func in self.function.0.as_mut_slice() {
+            func.implicit_declaration();
+        }
+        for module in self.module.0.as_mut_slice() {
+            module.implicit_declaration();
+        }
+    }
+    /// 重複定義だった名前を返す
+    fn check_duplicated(&self) -> Names {
+        let mut names = Names::default();
+        println!("\u{001b}[36m[debug] {self:#?}\u{001b}[0m");
+
+        // グローバル定数
+        let dup = self.r#const.get_dups(None);
+        names.append(dup);
+        // グローバル変数
+        let dup = self.public.get_dups(&self.r#const.names, None);
+        names.append(dup);
+        // ローカル変数
+        let dup = self.dim.get_dups(&self.r#const.names, None);
+        names.append(dup);
+        // グローバル関数
+        self.function.0.iter().for_each(|func| {
+            let dup = func.get_dups(&self.r#const.names);
+            names.append(dup);
+        });
+        // module
+        self.module.0.iter().for_each(|module| {
+            let dup = module.get_dups(&self.r#const.names);
+            names.append(dup);
+        });
+
+        names
+    }
+    /// OPTION EXPLICIT違反だった名前を返す
+    fn check_option_explicit(&self) -> Names {
+        self.get_undeclared(UndeclaredNameType::Assign)
+    }
+    /// 呼び出しチェック
+    fn check_access(&self) -> Names {
+        self.get_undeclared(UndeclaredNameType::Access)
+    }
+    fn get_undeclared(&self, r#type: UndeclaredNameType) -> Names {
+        let mut names = Names::default();
+        let (mut undeclared, outer) = match &r#type {
+            UndeclaredNameType::Access => (
+                self.access.get_undeclared(&vec![&self.dim.names, &self.r#const.names, &self.public.names, &self.definition]),
+                vec![&self.r#const.names, &self.public.names],
+            ),
+            UndeclaredNameType::Assign => (
+                self.assignee.get_undeclared(&vec![&self.dim.names, &self.r#const.names, &self.public.names]),
+                vec![&self.public.names],
+            )
         };
-        let mut errors = vec![];
+        names.append_mut(&mut undeclared);
+        let mut undeclared = self.r#const.get_undeclared(&r#type, &match r#type {
+            UndeclaredNameType::Access => vec![&self.r#const.names],
+            UndeclaredNameType::Assign => vec![],
+        });
+        names.append_mut(&mut undeclared);
+        let mut undeclared = self.public.get_undeclared(&r#type, &outer);
+        names.append_mut(&mut undeclared);
+        let mut undeclared = self.dim.get_undeclared(&r#type, &outer);
+        names.append_mut(&mut undeclared);
+        for func in &self.function.0 {
+            let mut undeclared = func.get_undeclared(&r#type, &outer);
+            names.append_mut(&mut undeclared);
+        }
+        for module in &self.module.0 {
+            let mut undeclared = module.get_undeclared(&r#type, &outer);
+            names.append_mut(&mut undeclared);
+        }
+        names
+    }
+    /* フラグ取得 */
+    fn is_const(&self) -> bool {self.state.r#const}
+    fn is_public(&self) -> bool {self.state.public}
+    fn is_dim(&self) -> bool {self.state.dim}
+    fn is_function(&self) -> bool {self.state.function}
+    fn is_module(&self) -> bool {self.state.module}
+    fn is_anonymous(&self) -> bool {self.state.anonymous}
+    /* const文脈 */
+    fn set_const(&mut self) {self.state.r#const = true;}
+    fn reset_const(&mut self) {self.state.r#const = false;}
+    /// グローバル定数を登録
+    fn push_const(&mut self, name: Name) {self.r#const.names.push(name);}
+    /* public文脈 */
+    fn set_public(&mut self) {self.state.public = true;}
+    fn reset_public(&mut self) {self.state.public = false;}
+    /// グローバル変数を登録
+    fn push_public(&mut self, name: Name) {self.public.names.push(name);}
+    /* dim文脈 */
+    fn set_dim(&mut self) {self.state.dim = true;}
+    fn reset_dim(&mut self) {self.state.dim = false;}
+    /// メインのローカル変数を登録
+    fn push_dim(&mut self, name: Name) {self.dim.names.push(name);}
+    /* 関数 */
+    fn set_function(&mut self) {
+        self.current_function = Some(FuncScope::default());
+        self.state.function = true;
+    }
+    fn reset_function(&mut self) {
+        if let Some(func) = self.current_function.to_owned() {
+            if let Some(module) = self.current_module_mut() {
+                module.function.0.push(func);
+            } else {
+                self.function.0.push(func);
+            }
+            self.current_function = None;
+        }
+        self.state.function = false;
+    }
+    fn current_func_mut(&mut self) -> Option<&mut FuncScope> {
+        self.current_function.as_mut()
+    }
+    /// 関数内の変数定義
+    fn push_function_dim(&mut self, name: Name) {
+        if let Some(func) = self.current_function.as_mut() {
+            func.dim.push(name);
+        }
+    }
+    fn push_function_param(&mut self, name: Name) {
+        if let Some(func) = self.current_function.as_mut() {
+            func.param.push(name);
+        }
+    }
+    /* ループ */
+    fn increase_loop_count(&mut self) {self.loop_count += 1;}
+    fn decrease_loop_count(&mut self) {self.loop_count -= 1;}
+    /* module */
+    fn set_module(&mut self, is_class: bool) {
+        self.current_module = Some(ModuleScope::new(is_class));
+        self.state.module = true;
+    }
+    fn reset_module(&mut self) {
+        if let Some(module) = self.current_module.to_owned() {
+            self.module.0.push(module);
+            self.current_module = None;
+        }
+        self.state.module = false;
+    }
+    fn current_module_mut(&mut self) -> Option<&mut ModuleScope> {
+        self.current_module.as_mut()
+    }
+    /// モジュールconstメンバを登録
+    fn push_module_const(&mut self, name: Name) {
+        if let Some(module) = self.current_module.as_mut() {
+            module.r#const.names.push(name);
+        }
+    }
+    /// モジュールpublicメンバを登録
+    fn push_module_public(&mut self, name: Name) {
+        if let Some(module) = self.current_module.as_mut() {
+            module.public.names.push(name);
+        }
+    }
+    /// モジュールdimメンバを登録
+    fn push_module_dim(&mut self, name: Name) {
+        if let Some(module) = self.current_module.as_mut() {
+            module.dim.names.push(name);
+        }
+    }
+    /// モジュールconstのaccessを登録
+    fn push_module_const_access(&mut self, name: Name) {
+        if let Some(module) = self.current_module.as_mut() {
+            module.r#const.access.push(name);
+        }
+    }
+    /// モジュールpublicのaccessを登録
+    fn push_module_public_access(&mut self, name: Name) {
+        if let Some(module) = self.current_module.as_mut() {
+            module.public.access.push(name);
+        }
+    }
+    /// モジュールdimのaccessを登録
+    fn push_module_dim_access(&mut self, name: Name) {
+        if let Some(module) = self.current_module.as_mut() {
+            module.dim.access.push(name);
+        }
+    }
+    /* 無名関数 */
+    fn anon_parent_mut(&mut self) -> Option<&mut AnonFuncScope> {
+        if let Some(anon) = self.current_anon.as_mut() {
+            anon.parent.as_deref_mut()
+        } else {
+            None
+        }
+    }
+    fn current_anon_mut(&mut self) -> Option<&mut AnonFuncScope> {
+        self.current_anon.as_mut()
+    }
+    fn push_anon_dim(&mut self, name: Name) {
+        if let Some(anon) = self.current_anon.as_mut() {
+            anon.dim.push(name);
+        }
+    }
+    fn push_anon_param(&mut self, name: Name) {
+        if let Some(anon) = self.current_anon.as_mut() {
+            anon.param.push(name);
+        }
+    }
+    fn set_anon(&mut self) {
+        if let Some(parent) = self.current_anon.to_owned() {
+            let current = AnonFuncScope::new_child(parent);
+            self.current_anon = Some(current);
+        } else {
+            self.current_anon = Some(AnonFuncScope::new(&self.state));
+            // 無名関数解析中はスコープ情報をリセット
+            self.state.reset();
+        }
+        self.state.anonymous = true;
+    }
+    fn reset_anon(&mut self) {
+        if let Some(mut current) = self.current_anon.to_owned() {
+            if let Some(parent) = current.parent.to_owned() {
+                // 親がいた場合は子として配置
+                let mut parent = *parent;
+                current.parent = None;
+                parent.anon.0.push(current);
+                // currentを親にする
+                self.current_anon = Some(parent);
+            } else {
+                // 親がいない場合はスコープ情報を復元
+                self.state.restore(&current.scope);
+                // 自身を適切な場所に配置する
+                if let Some(func) = self.current_function.as_mut() {
+                    func.anon.0.push(current);
+                } else if let Some(module) = self.current_module.as_mut() {
+                    if self.state.r#const {
+                        // const文脈
+                        module.r#const.anon.0.push(current);
+                    } else if self.state.public {
+                        // public文脈
+                        module.public.anon.0.push(current);
+                    } else if self.state.dim {
+                        // dim文脈
+                        module.dim.anon.0.push(current);
+                    }
+                } else {
+                    if self.state.r#const {
+                        // const文脈
+                        self.r#const.anon.0.push(current);
+                    } else if self.state.public {
+                        // public文脈
+                        self.public.anon.0.push(current);
+                    } else if self.state.dim {
+                        // dim文脈
+                        self.dim.anon.0.push(current);
+                    }
+                }
+                // currentをNoneにする
+                self.current_anon = None;
+            }
+        }
+        self.state.anonymous = false;
+    }
+    /* デフォルトパラメータ */
+    fn is_default_param(&self) -> bool {
+        self.state.default_param
+    }
+    fn set_default_param(&mut self) {
+        self.state.default_param = true;
+    }
+    fn reset_default_param(&mut self) {
+        self.state.default_param = false;
+    }
+}
+#[derive(Debug, Clone, Default, PartialEq, PartialOrd)]
+pub struct Name {
+    pub name: String,
+    pub start: Position,
+    pub end: Position,
+}
+impl Eq for Name {
 
-        if is_explicit {
-            let public = self.publics.iter()
-                .map(|s| {
-                    match &s.statement {
-                        Statement::Public(v) => {
-                            v.clone().into_iter().map(|(Identifier(ident), _)| ident.to_ascii_uppercase()).collect::<Vec<_>>()
+}
+impl Ord for Name {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.partial_cmp(other).unwrap()
+    }
+}
+impl Name {
+    fn new(name: &str, start: Position, end: Position) -> Self {
+        Self { name: name.to_ascii_uppercase(), start, end }
+    }
+    /// 重複判定
+    /// - compare_name_only
+    ///     - true : 名前が一致のみで重複、主に外部スコープとの比較
+    ///     - false: 名前が一致をかつ後ろにあれば重複、主に内部スコープとの比較
+    fn is_duplicated(&self, maybe_dup: &Self, compare_name_only: bool) -> bool {
+        if self == maybe_dup {
+            // 一致は無視
+            false
+        } else {
+            if compare_name_only {
+                self.name == maybe_dup.name
+            } else {
+                // Positionが大きければ後にある
+                self.name == maybe_dup.name &&
+                (self.start < maybe_dup.start && self.end < maybe_dup.end)
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct Names(Vec<Name>);
+impl Names {
+    fn push(&mut self, name: Name) {
+        self.0.push(name);
+    }
+    fn append<V: Into<Vec<Name>>>(&mut self, names: V) {
+        let mut names = names.into();
+        self.0.append(&mut names);
+    }
+    fn append_mut(&mut self, names: &mut Self) {
+        self.0.append(&mut names.0)
+    }
+    pub fn iter(&self) -> std::slice::Iter<'_, Name> {
+        self.0.iter()
+    }
+    /// 渡されたDeclaredが重複ならそのコピーを返す
+    /// - outer_scope: 比較対象スコープ
+    ///     - true : 上位スコープ
+    ///     - false: 同一スコープ
+    fn if_duplicated(&self, other: &Name, outer_scope: bool) -> Option<Name> {
+        self.0.iter()
+            .find(|name| name.is_duplicated(other, outer_scope))
+            .map(|_| other.clone())
+    }
+    /// 自身を宣言一覧と比較し、未宣言のものを返す
+    fn get_undeclared(&self, declarations: &Vec<&Names>) -> Names {
+        let names = self.0.iter()
+            .filter_map(|name| {
+                declarations.iter()
+                    // 宣言リストに名前が含まれているものを探す
+                    .find(|names| names.contains(name))
+                    // どこにも含まれていなければNone
+                    .is_none()
+                    // 未宣言としNameを返す
+                    .then_some(name.clone())
+            })
+            .collect();
+        Names(names)
+    }
+    fn contains(&self, other: &Name) -> bool {
+        self.iter().find(|name| name.is_duplicated(other, true)).is_some()
+    }
+    fn remove_dup(&mut self) {
+        self.0.sort_by(|a, b| a.name.cmp(&b.name));
+        self.0.dedup_by(|a, b| a.name == b.name);
+    }
+}
+impl Into<Vec<Name>> for Names {
+    fn into(self) -> Vec<Name> {
+        self.0
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+struct ConstScope {
+    names: Names,
+    anon: AnonFuncs,
+    /// const x = access
+    access: Names,
+    /// const x = assignee := 1
+    assignee: Names,
+}
+impl ConstScope {
+    /// 重複チェック対象
+    /// - 自身
+    /// - module const anonならglobal constも対象
+    fn get_dups(&self, global_const: Option<&Names>) -> Names {
+        let mut names = Names::default();
+        let dup: Vec<Name> = self.names.iter()
+            .filter_map(|name| self.names.if_duplicated(name, false))
+            .collect();
+        names.append(dup);
+        for anon in &self.anon.0 {
+            let outer = match global_const {
+                Some(global) => vec![global, &self.names],
+                None => vec![&self.names],
+            };
+            let dup = anon.get_dups(outer, None);
+            names.append(dup);
+        }
+        names
+    }
+    fn implicit_declaration(&mut self) {
+        for anon in self.anon.0.as_mut_slice() {
+            anon.implicit_declaration();
+        }
+    }
+    fn get_undeclared(&self, r#type: &UndeclaredNameType, outer: &Vec<&Names>) -> Names {
+        let mut names = match r#type {
+            UndeclaredNameType::Access => self.access.get_undeclared(outer),
+            UndeclaredNameType::Assign => self.assignee.get_undeclared(outer),
+        };
+        let mut anon = self.anon.get_undeclared(r#type, outer);
+        names.append_mut(&mut anon);
+        names
+    }
+}
+#[derive(Debug, Clone, Default)]
+struct PublicScope {
+    names: Names,
+    anon: AnonFuncs,
+    /// public x = access
+    access: Names,
+    /// public x = assignee := 1
+    assignee: Names,
+}
+impl PublicScope {
+    /// 重複チェック対象
+    /// - global publicならglobal const
+    /// - module publicであればmodule const
+    /// - module public anonならglobal constおよびmodule const
+    fn get_dups(&self, outer_const: &Names, global_const: Option<&Names>) -> Names {
+        let mut names = Names::default();
+        self.names.iter()
+            .for_each(|name| {
+                match outer_const.if_duplicated(name, true) {
+                    Some(dup) => names.push(dup),
+                    // None => if let Some(dup) = self.names.if_duplicated(name) {
+                    //     names.push(dup);
+                    // }
+                    None => {}
+                }
+            });
+        for anon in &self.anon.0 {
+            let outer = match global_const {
+                Some(global) => vec![global, outer_const],
+                None => vec![outer_const],
+            };
+            let dup = anon.get_dups(outer, None);
+            names.append(dup);
+        }
+        names
+    }
+    fn implicit_declaration(&mut self) {
+        for anon in self.anon.0.as_mut_slice() {
+            anon.implicit_declaration();
+        }
+    }
+    fn get_undeclared(&self, r#type: &UndeclaredNameType, outer: &Vec<&Names>) -> Names {
+        let mut names = match r#type {
+            UndeclaredNameType::Access => self.access.get_undeclared(outer),
+            UndeclaredNameType::Assign => self.assignee.get_undeclared(outer),
+        };
+        let mut dec = outer.clone();
+        dec.push(&self.names);
+        let mut anon = self.anon.get_undeclared(r#type, &dec);
+        names.append_mut(&mut anon);
+        names
+    }
+}
+#[derive(Debug, Clone, Default)]
+struct DimScope {
+    names: Names,
+    anon: AnonFuncs,
+    /// dim x = access
+    access: Names,
+    /// dim x = assignee := 1
+    assignee: Names,
+}
+impl DimScope {
+    /// 重複チェック対象
+    /// - main dimならglobal constおよび自身
+    /// - module dimならmodule constおよび自身
+    /// - module dim anonならglobal const、module constおよび自身
+    fn get_dups(&self, outer_const: &Names, global_const: Option<&Names>) -> Names {
+        let mut names = Names::default();
+        self.names.iter()
+            .for_each(|name| {
+                match outer_const.if_duplicated(name, true) {
+                    Some(dup) => names.push(dup),
+                    None => if let Some(dup) = self.names.if_duplicated(name, false) {
+                        names.push(dup);
+                    }
+                }
+            });
+        for anon in &self.anon.0 {
+            let outer = match global_const {
+                Some(global) => vec![global, outer_const],
+                None => vec![outer_const],
+            };
+            let dup = anon.get_dups(outer, Some(&self.names));
+            names.append(dup);
+        }
+        names
+    }
+    fn implicit_declaration(&mut self) {
+        for anon in self.anon.0.as_mut_slice() {
+            anon.implicit_declaration();
+        }
+    }
+    fn get_undeclared(&self, r#type: &UndeclaredNameType, outer: &Vec<&Names>) -> Names {
+        let mut names = match r#type {
+            UndeclaredNameType::Access => self.access.get_undeclared(outer),
+            UndeclaredNameType::Assign => self.assignee.get_undeclared(outer),
+        };
+        let mut declarations = outer.clone();
+        declarations.push(&self.names);
+        let mut anon = self.anon.get_undeclared(r#type, &declarations);
+        names.append_mut(&mut anon);
+        names
+    }
+}
+#[derive(Debug, Clone, Default)]
+struct FuncScope {
+    dim: Names,
+    anon: AnonFuncs,
+    /// OPTION EXPLICIT対象
+    assignee: Names,
+    /// 呼び出し
+    access: Names,
+    /// パラメータ名
+    param: Names
+}
+impl FuncScope {
+    /// 重複チェック対象
+    /// - global functionならglobal constおよび自身のdim
+    /// - module functionでもglobal constおよび自身のdim (member constは無視)
+    /// - module function内のanonはdimを継承、外部はglobal constのみ (member const無視)
+    fn get_dups(&self, global_const: &Names) -> Names {
+        let mut names = Names::default();
+        let dup: Vec<Name> = self.dim.iter()
+            .filter_map(|name| {
+                match global_const.if_duplicated(name, true) {
+                    Some(dup) => Some(dup),
+                    None => {
+                        self.dim.if_duplicated(name, false)
+                    }
+                }
+            })
+            .collect();
+        names.append(dup);
+        for anon in &self.anon.0 {
+            let dup = anon.get_dups(vec![global_const], Some(&self.dim));
+            names.append(dup);
+        }
+        names
+    }
+    fn implicit_declaration(&mut self) {
+        // パラメータ名を除く
+        let mut assignee = self.assignee.get_undeclared(&vec![&self.param]);
+        assignee.remove_dup();
+        self.dim.append_mut(&mut assignee);
+        for anon in self.anon.0.as_mut_slice() {
+            anon.implicit_declaration();
+        }
+    }
+    fn get_undeclared(&self, r#type: &UndeclaredNameType, outer: &Vec<&Names>) -> Names {
+        let mut declarations = outer.clone();
+        declarations.push(&self.dim);
+        declarations.push(&self.param);
+        let mut names = match r#type {
+            UndeclaredNameType::Access => self.access.get_undeclared(&declarations),
+            UndeclaredNameType::Assign => self.assignee.get_undeclared(&declarations),
+        };
+        let mut anon = self.anon.get_undeclared(r#type, &declarations);
+        names.append_mut(&mut anon);
+        names
+    }
+}
+#[derive(Debug, Clone, Default)]
+struct Functions(Vec<FuncScope>);
+#[derive(Debug, Clone, Copy, Default)]
+enum AnonDeclarationScope {
+    Const,
+    Public,
+    Dim,
+    #[default]
+    None,
+}
+impl From<&ScopeState> for AnonDeclarationScope {
+    fn from(state: &ScopeState) -> Self {
+        if state.r#const {
+            Self::Const
+        } else if state.public {
+            Self::Public
+        } else if state.dim {
+            Self::Dim
+        } else {
+            Self::None
+        }
+    }
+}
+// impl Into<AnonDeclarationScope> for &ScopeState {
+
+// }
+#[derive(Debug, Clone, Default)]
+struct AnonFuncScope {
+    scope: AnonDeclarationScope,
+    /// 自身が無名関数内で定義されている場合、親を入れる
+    parent: Option<Box<AnonFuncScope>>,
+    /// 自身の内で定義された変数
+    dim: Names,
+    /// 自身の内で定義された無名関数
+    anon: AnonFuncs,
+    /// OPTION EXPLICIT対象
+    assignee: Names,
+    /// 呼び出し
+    access: Names,
+    /// パラメータ名
+    param: Names,
+}
+impl AnonFuncScope {
+    fn new<S>(scope: S) -> Self
+        where S: Into<AnonDeclarationScope>
+    {
+        Self {
+            scope: scope.into(),
+            ..Default::default()
+        }
+    }
+    fn new_child(parent: Self) -> Self {
+        Self {
+            scope: parent.scope,
+            parent: Some(Box::new(parent)),
+            ..Default::default()
+        }
+    }
+    /// 重複チェック対象
+    /// - global const
+    /// - parent scope dim
+    ///     - main, function
+    ///     - anonymous
+    /// - function local dim (自身)
+    ///
+    /// 引数
+    /// - const: const定義
+    /// - parent: 親スコープが無名関数ではない場合に指定
+    fn get_dups(&self, r#const: Vec<&Names>, parent_dim: Option<&Names>) -> Names {
+        let mut names = Names::default();
+        let parent_anon_dims = self.get_parent_dims();
+        let dups: Vec<Name> = self.dim.iter()
+            .filter_map(|name| {
+                match r#const.iter().find_map(|names| names.if_duplicated(name, true)) {
+                    Some(dup) => Some(dup),
+                    None => match self.dim.if_duplicated(name, false) {
+                        Some(dup) => Some(dup),
+                        None => match (|| parent_anon_dims.as_ref()?.if_duplicated(name, false))() {
+                            Some(dup) => Some(dup),
+                            None => (|| parent_dim.as_ref()?.if_duplicated(name, false))(),
                         },
-                        _ => vec![],
                     }
-                })
-                .flatten()
-                .collect::<Vec<_>>();
-            // 関数定義等
-            for s in &self.definitions {
-                match &s.statement {
-                    Statement::Function { name:_, params, body, is_proc, is_async:_ } => {
-                        let is_func = ! is_proc;
-                        let mut e = self.check_explicit_by_scope(&public, &body, Some(params), is_func);
-                        errors.append(&mut e);
-                    },
-                    Statement::Class(_, block) |
-                    Statement::Module(_, block) => {
-                        // モジュールのパブリック変数名一覧
-                        let mut mod_public = block.iter()
-                            .map(|s| {
-                                match &s.statement {
-                                    Statement::Public(v) => {
-                                        v.clone().into_iter().map(|(Identifier(ident), _)| ident.to_ascii_uppercase()).collect::<Vec<_>>()
-                                    },
-                                    _ => vec![],
-                                }
-                            })
-                            .flatten()
-                            .collect::<Vec<_>>();
-                        // グローバルのパブリック変数と混ぜる
-                        mod_public.append(&mut public.clone());
-                        for s2 in block {
-                            match &s2.statement {
-                                Statement::Function { name:_, params, body, is_proc, is_async:_ } => {
-                                    let is_func = ! is_proc;
-                                    let mut e = self.check_explicit_by_scope(&mod_public, &body, Some(params), is_func);
-                                    errors.append(&mut e);
-                                },
-                                _ => {}
-                            }
-                        }
-                    },
-                    Statement::Call(program, _) => {
-                        let mut e = self.check_explicit_by_scope(&public, &program.script, None, false);
-                        errors.append(&mut e);
-                    }
-                    _ => {}
                 }
-            }
-
-            // スクリプト実行部分
-            let mut e = self.check_explicit_by_scope(&public, &self.script, None, false);
-            errors.append(&mut e);
-        }
-
-        errors
+            })
+            .collect();
+        names.append(dups);
+        names
     }
-    fn check_explicit_by_scope(&self, public: &Vec<String>, block: &BlockStatement, params: Option<&Vec<FuncParam>>, is_func: bool) -> Vec<ParseError> {
-        let mut errors = vec![];
-        let mut dim_defs = vec![];
-        let params = match params {
-            Some(p) => {
-                p.iter().map(|p| p.name().to_ascii_uppercase()).collect()
-            },
-            None => vec![],
-        };
-        for s in block {
-            match &s.statement {
-                Statement::Expression(e) => {
-                    let maybe_ident = match e {
-                        Expression::Assign(e, _) => e.get_identifier(),
-                        Expression::CompoundAssign(e, _, _) => e.get_identifier(),
-                        _ => None
-                    }.map(|s| s.to_ascii_uppercase());
-                    if let Some(ident) = maybe_ident {
-                        // resultかつ関数ならチェックは無視される
-                        if ! (ident == "RESULT" && is_func) {
-                            // 宣言されてない代入はエラー
-                            let defined = public.contains(&ident) || dim_defs.contains(&ident) || params.contains(&ident);
-                            if ! defined {
-                                errors.push(ParseError::new_explicit_error(ident, s.row, s.script_name.clone()));
-                            }
-                        }
-                    }
-                },
-                Statement::Dim(v) => {
-                    let mut dims = v.iter().map(|(Identifier(ident), _)| ident.to_ascii_uppercase()).collect();
-                    dim_defs.append(&mut dims);
-                }
-                _ => {}
+    fn get_parent_dims(&self) -> Option<Names> {
+        let mut names = Names::default();
+        if let Some(parent) = &self.parent {
+            let dim = parent.dim.clone();
+            names.append(dim);
+            if let Some(dim) = parent.get_parent_dims() {
+                names.append(dim);
             }
+            Some(names)
+        } else {
+            None
         }
-        errors
+    }
+    fn implicit_declaration(&mut self) {
+        // パラメータ名を除く
+        let mut assignee = self.assignee.get_undeclared(&vec![&self.param]);
+        assignee.remove_dup();
+        self.dim.append_mut(&mut assignee);
+    }
+    fn get_undeclared(&self, r#type: &UndeclaredNameType, outer_declarations: &Vec<&Names>) -> Names {
+        let mut declarations = outer_declarations.clone();
+        declarations.push(&self.dim);
+        declarations.push(&self.param);
+        //vec![vec![&self.dim, &self.param], outer_declarations].into_iter().flatten().collect();
+        let names = match r#type {
+            UndeclaredNameType::Access => self.access.get_undeclared(&declarations),
+            UndeclaredNameType::Assign => self.assignee.get_undeclared(&declarations),
+        };
+        names
+    }
+}
+#[derive(Debug, Clone, Default)]
+struct AnonFuncs(Vec<AnonFuncScope>);
+impl AnonFuncs {
+    fn get_undeclared(&self, r#type: &UndeclaredNameType, declarations: &Vec<&Names>) -> Names {
+        let mut names = Names::default();
+        for anon in &self.0 {
+            let mut undeclared = anon.get_undeclared(r#type, declarations);
+            names.append_mut(&mut undeclared);
+        }
+        names
+    }
+}
+
+enum UndeclaredNameType {
+    Access,
+    Assign,
+}
+#[derive(Debug, Clone, Default)]
+struct ModuleScope {
+    r#const: ConstScope,
+    public: PublicScope,
+    dim: DimScope,
+    function: Functions,
+    is_class: bool,
+    members: Vec<StatementWithRow>,
+    // access: Names,
+}
+impl ModuleScope {
+    fn new(is_class: bool) -> Self {
+        Self {
+            is_class,
+            ..Default::default()
+        }
+    }
+    /// 重複チェック対象
+    /// - member const
+    ///     - member const
+    /// - member const anon
+    ///     - global const
+    ///     - member const
+    /// - member public
+    ///     - member const
+    /// - member public anon
+    ///     - global const
+    ///     - member const
+    /// - member dim
+    ///     - member const
+    ///     - member dim
+    /// - member dim anon
+    ///     - global const
+    ///     - member const
+    ///     - member dim
+    /// - 関数
+    fn get_dups(&self, global_const: &Names) -> Names {
+        let mut names = Names::default();
+
+        // member const
+        let dup = self.r#const.get_dups(Some(global_const));
+        names.append(dup);
+        // member public
+        let dup = self.public.get_dups(&self.r#const.names, Some(global_const));
+        names.append(dup);
+        // member dim
+        let dup = self.dim.get_dups(&self.r#const.names, Some(global_const));
+        names.append(dup);
+        // member function
+        self.function.0.iter()
+            .for_each(|func| {
+                let dup = func.get_dups(global_const);
+                names.append(dup);
+            });
+
+        names
+    }
+    fn implicit_declaration(&mut self) {
+        self.r#const.implicit_declaration();
+        self.public.implicit_declaration();
+        self.dim.implicit_declaration();
+        for func in self.function.0.as_mut_slice() {
+            func.implicit_declaration();
+        }
+    }
+    fn get_undeclared(&self, r#type: &UndeclaredNameType, outer: &Vec<&Names>) -> Names {
+        let mut dec = outer.clone();
+        match r#type {
+            UndeclaredNameType::Access => {
+                let mut inner = vec![&self.r#const.names, &self.public.names, &self.dim.names];
+                dec.append(&mut inner);
+            },
+            UndeclaredNameType::Assign => {
+                let mut inner = vec![&self.public.names, &self.dim.names];
+                dec.append(&mut inner);
+            },
+        };
+        let mut names = self.r#const.get_undeclared(r#type , &dec);
+        let mut tmp = self.public.get_undeclared(r#type , &dec);
+        names.append_mut(&mut tmp);
+        let mut tmp = self.dim.get_undeclared(r#type , &dec);
+        names.append_mut(&mut tmp);
+        for func in &self.function.0 {
+            let mut tmp = func.get_undeclared(r#type , &dec);
+            names.append_mut(&mut tmp);
+        }
+        names
+    }
+}
+#[derive(Debug, Clone, Default)]
+struct Modules(Vec<ModuleScope>);
+
+#[derive(Debug, Clone, Default, PartialEq)]
+struct ScopeState {
+    r#const: bool,
+    public: bool,
+    dim: bool,
+    function: bool,
+    module: bool,
+    anonymous: bool,
+    /// デフォルトパラメータのデフォルト値評価
+    default_param: bool,
+}
+impl ScopeState {
+    fn reset(&mut self) {
+        self.r#const = false;
+        self.public = false;
+        self.dim = false;
+    }
+    fn restore(&mut self, ads: &AnonDeclarationScope) {
+        match ads {
+            AnonDeclarationScope::Const => {self.r#const = true;},
+            AnonDeclarationScope::Public => {self.public = true;},
+            AnonDeclarationScope::Dim => {self.dim = true;},
+            AnonDeclarationScope::None => {},
+        }
     }
 }
 
@@ -700,15 +1904,24 @@ impl fmt::Display for Params {
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub enum ParamType {
-    Any, // どの型でも良い、オプション指定しなかった場合常にこれ
-    String, // Object::String
-    Number, // Object::Num
+    /// どの型でも良い、オプション指定しなかった場合常にこれ
+    Any,
+    /// Object::String
+    String,
+    /// Object::Num
+    Number,
+    /// Object::Bool
     Bool,
-    Array, // Object::Array
-    HashTbl, // Object::HashTbl
-    Function, // Object::AnonFunc | Object::Function | Object::BuiltinFunction
-    UObject, // Object::UObject | Object::UChild
-    UserDefinition(String), // Object::Instance
+    /// Object::Array
+    Array,
+    /// Object::HashTbl
+    HashTbl,
+    /// Object::AnonFunc | Object::Function | Object::BuiltinFunction
+    Function,
+    /// Object::UObject | Object::UChild
+    UObject,
+    /// Object::Instance
+    UserDefinition(String),
 }
 
 impl fmt::Display for ParamType {
@@ -759,9 +1972,12 @@ pub enum ParamKind {
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct FuncParam {
-    name: Option<String>,          // 名前がなければ可変長引数用のダミー
-    pub kind: ParamKind,               // 種別
-    pub param_type: ParamType, // 型指定
+    /// 名前がなければ可変長引数用のダミー
+    name: Option<String>,
+    /// 種別
+    pub kind: ParamKind,
+    /// 型指定
+    pub param_type: ParamType,
 }
 
 impl FuncParam {
@@ -775,7 +1991,10 @@ impl FuncParam {
         Self { name: None, kind: ParamKind::Dummy, param_type: ParamType::Any }
     }
     pub fn name(&self) -> String {
-        self.name.clone().unwrap_or_default()
+        match &self.name {
+            Some(name) => name,
+            None => "###DUMY###",
+        }.to_string()
     }
     pub fn has_type(&self) -> bool {
         ! self.param_type.is_any()
