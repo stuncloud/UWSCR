@@ -1422,27 +1422,25 @@ impl Evaluator {
     }
 
     fn eval_identifier(&self, identifier: Identifier) -> EvalResult<Object> {
-        let Identifier(name) = identifier;
-        let obj = match self.env.get_variable(&name, true) {
-            Some(o) => o,
-            None => match self.env.get_function(&name) {
-                Some(o) => o,
-                None => match self.env.get_module(&name) {
-                    Some(o) => o,
-                    None => match self.env.get_class(&name) {
-                        Some(o) => o,
-                        None => match self.env.get_struct(&name) {
-                            Some(o) => o,
-                            None => return Err(UError::new(
-                                UErrorKind::EvaluatorError,
-                                UErrorMessage::NoIdentifierFound(name)
-                            ))
-                        }
-                    }
-                }
-            }
-        };
-        Ok(obj)
+        let Identifier(name) = &identifier;
+        self.env.get_variable(name, true)
+            .or(self.env.get_function(name))
+            .or(self.env.get_module(name))
+            .or(self.env.get_class(name))
+            .or(self.env.get_struct(name))
+            .ok_or(UError::new(
+                UErrorKind::EvaluatorError,
+                UErrorMessage::NoIdentifierFound(identifier.0)
+            ))
+    }
+    fn eval_dot_op_identifier(&self, identifier: Identifier) -> EvalResult<Object> {
+        let Identifier(name) = &identifier;
+        self.env.get_module(name)
+            .or(self.env.get_variable(name, false))
+            .ok_or(UError::new(
+                UErrorKind::DotOperatorError,
+                UErrorMessage::InvalidDotLeftIdentifier(identifier)
+            ))
     }
 
     fn eval_prefix_expression(&mut self, prefix: Prefix, right: Object) -> EvalResult<Object> {
@@ -2511,7 +2509,9 @@ impl Evaluator {
     }
     fn eval_dot_operator(&mut self, left: Expression, right: Expression) -> EvalResult<(Object, String)> {
         let instance = match left {
-            Expression::Identifier(_) |
+            Expression::Identifier(identifier) => {
+                self.eval_dot_op_identifier(identifier)?
+            },
             Expression::Index(_, _, _) |
             Expression::FuncCall{func:_, args:_, is_await:_} |
             Expression::DotCall(_, _) |
