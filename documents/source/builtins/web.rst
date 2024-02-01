@@ -240,6 +240,7 @@ IESETDATA互換
     :return: 成功時TRUE
 
 .. function:: BRSetData(RemoteObject, 値)
+    :noindex:
 
     | テキストボックス等に文字列を入力する
     | キー入力をエミュレートします
