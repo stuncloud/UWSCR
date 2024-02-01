@@ -1,7 +1,7 @@
 use std::error;
 use std::fmt;
 
-use crate::ast::{Expression, Infix, DllType};
+use crate::ast::{Expression, Infix, DllType, Identifier};
 use crate::evaluator::object::{Object, ObjectType};
 pub use crate::write_locale;
 pub use super::{CURRENT_LOCALE, Locale};
@@ -462,6 +462,7 @@ pub enum UErrorMessage {
     DllStringArgToLarge(usize, usize),
     DlopenError(String),
     DotOperatorNotSupported(Object),
+    InvalidDotLeftIdentifier(Identifier),
     ExplicitError(String),
     FailedToCreateNewInstance,
     FailedToCreateProcess,
@@ -924,6 +925,10 @@ impl fmt::Display for UErrorMessage {
                 "モジュールまたはオブジェクトではありません ({})",
                 ". operator is not supported: {}",
                 o
+            ),
+            Self::InvalidDotLeftIdentifier(ident) => write_locale!(f,
+                "ドット呼び出しの左辺が不正な識別子です: {ident}",
+                "The identifier on the left side of dot operater is invalid: {ident}",
             ),
             Self::CanNotConvertToNumber(n) => write_locale!(f,
                 "{} を数値に変換できません",
