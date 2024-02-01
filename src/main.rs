@@ -21,6 +21,7 @@ use uwscr::settings::{
 use uwscr::winapi::{show_message, FORCE_WINDOW_MODE};
 // use uwscr::gui::MainWin;
 use uwscr::error::UWSCRErrorTitle;
+// use uwscr::language_server::UwscrLanguageServer;
 
 use windows::Win32::UI::HiDpi::{SetProcessDpiAwarenessContext, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2};
 
@@ -209,10 +210,14 @@ fn start_uwscr() {
                 }
                 // free_console();
             },
-            Mode::Server(_p) => {
-                // attach_console();
-                show_message("Language serverは未実装です", "uwscr --language-server", true);
-                // free_console();
+            Mode::LanguageServer => {
+                unimplemented!();
+                // match UwscrLanguageServer::run() {
+                //     Ok(_) => {},
+                //     Err(e) => {
+                //         show_message(&e.to_string(), "UWSCR Language Server", true);
+                //     },
+                // }
             },
         },
         Err(err) => args.help(Some(err.as_str()))
@@ -278,7 +283,7 @@ impl Args {
                 };
                 Ok(Mode::Settings(file_mode))
             },
-            "--language-server" => self.get_port().map(|p| Mode::Server(p)),
+            "--language-server" => Ok(Mode::LanguageServer),
             "-w" | "--window" => {
                 FORCE_WINDOW_MODE.get_or_init(|| true);
                 Ok(Mode::Script(PathBuf::from(self.args[2].clone()), 2))
@@ -301,7 +306,7 @@ impl Args {
         }
     }
 
-    fn get_port(&self) -> Result<Option<u16>, String> {
+    fn _get_port(&self) -> Result<Option<u16>, String> {
         if self.args.len() > 2 {
             let port = match self.args[2].parse::<u16>() {
                 Ok(p) => p,
@@ -364,7 +369,7 @@ enum Mode {
     Code(String),
     Ast(PathBuf, bool),
     Lib(PathBuf),
-    Server(Option<u16>),
+    LanguageServer,
     Help,
     Version,
     Settings(FileMode),

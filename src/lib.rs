@@ -13,6 +13,7 @@ pub mod error;
 // pub mod gui;
 pub mod gui2;
 pub mod com;
+// pub mod language_server;
 
 use encoding_rs::{UTF_8, SHIFT_JIS};
 use regex::Regex;
