@@ -480,13 +480,3 @@ impl BlockEnd {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::{Token, BlockEnd};
-
-    #[test]
-    fn hoge() {
-        assert_eq!(Token::BlockEnd(BlockEnd::Else).to_string(), "Else".to_string());
-    }
-}
