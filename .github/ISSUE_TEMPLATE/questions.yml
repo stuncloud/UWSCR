@@ -1,0 +1,34 @@
+name: 質問する
+description: 機能や仕様、不具合かどうか定かではない動作についての質問はこちら
+labels: ["question"]
+assignees: stuncloud
+body:
+  - type: textarea
+    attributes:
+      label: 質問
+      description: 質問を詳細に記述してください
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: 補足用コード
+      description: >
+        質問に関連するコードがあればここに記述してください
+      render: Stylus
+  - type: input
+    attributes:
+      label: バージョン
+      description: 特定のバージョンに関する質問の場合は記入してください
+      placeholder: 0.14.0
+    validations:
+      required: false
+  - type: dropdown
+    attributes:
+      label: 実行環境
+      description: 特定の環境に関する質問であれば選択してください
+      multiple: true
+      options:
+        - "Windows 10"
+        - "Windows 11"
+        - "Windows 12"
+        - "その他"

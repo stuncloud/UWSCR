@@ -1,0 +1,40 @@
+name: バグを報告する
+description: 不具合報告はこちら
+labels: ["bug"]
+assignees: stuncloud
+body:
+  - type: textarea
+    attributes:
+      label: 概要
+      description: 不具合の概要を簡潔に記載してください
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: 再現スクリプト
+      description: >
+        不具合が発生する、または発生する可能性のあるコードを記述してください
+        現象を確認できない場合があるのでなるべく環境依存なコードは省いてください
+      render: Stylus
+  - type: textarea
+    attributes:
+      label: 再現手順
+      description: >
+        スクリプト実行以外で発生する不具合の場合はここに再現手順を記してください
+  - type: input
+    attributes:
+      label: バージョン
+      description: 不具合が発生したUWSCRのバージョンを記述してください
+      placeholder: 0.14.0
+    validations:
+      required: true
+  - type: dropdown
+    attributes:
+      label: 不具合発生環境
+      description: UWSCRの実行環境を選択してください
+      multiple: true
+      options:
+        - "Windows 10"
+        - "Windows 11"
+        - "Windows 12"
+        - "その他"

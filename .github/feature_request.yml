@@ -1,0 +1,17 @@
+name: 要望を伝える
+description: 機能や仕様に関する要望はこちら
+labels: ["enhancement"]
+assignees: stuncloud
+body:
+  - type: textarea
+    attributes:
+      label: 要望
+      description: 機能や仕様に関する要望の詳細を記述してください
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: 補足用コード
+      description: >
+        必要であれば要望する機能の実装例等の擬似コードを記述してください
+      render: Stylus
