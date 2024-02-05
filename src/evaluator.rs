@@ -2229,7 +2229,7 @@ impl Evaluator {
         }
     }
     pub fn invoke_eval_script(&mut self, script: &str) -> EvalResult<Object> {
-        let parser = Parser::new(Lexer::new(script));
+        let parser = Parser::new(Lexer::new(script), None);
         match parser.parse() {
             Ok(program) => {
                 self.eval(program, false).map(|o| o.unwrap_or_default())
@@ -2811,7 +2811,7 @@ mod tests {
 
     fn eval_test(input: &str, expected: Result<Option<Object>, UError>, ast: bool) {
         let mut e = Evaluator::new(Environment::new(vec![]));
-        match Parser::new(Lexer::new(input)).parse() {
+        match Parser::new(Lexer::new(input), None).parse() {
             Ok(program) => {
                 if ast {
                     println!("{:?}", program);
@@ -2850,7 +2850,7 @@ mod tests {
 
     // 変数とか関数とか予め定義しておく
     fn eval_env(input: &str) -> Evaluator {
-        match Parser::new(Lexer::new(input)).parse() {
+        match Parser::new(Lexer::new(input), None).parse() {
             Ok(program) => {
                 let mut e = Evaluator::new(Environment::new(vec![]));
                 match e.eval(program, false) {
@@ -2870,7 +2870,7 @@ mod tests {
 
     //
     fn eval_test_with_env(e: &mut Evaluator, input: &str, expected: Result<Option<Object>, UError>) {
-        match Parser::new(Lexer::new(input)).parse() {
+        match Parser::new(Lexer::new(input), None).parse() {
             Ok(program) => {
                 let result = e.eval(program, false);
                 match expected {

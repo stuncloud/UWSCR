@@ -53,7 +53,7 @@ enum StatementType {
     /// - try
     Block,
     /// - call
-    Call,
+    Call(ScriptLocation, BuilderScope),
     /// - def_dll
     DefDll,
     /// 式のみの文
@@ -111,15 +111,17 @@ pub struct Parser {
     errors: ParseErrors,
     with: Option<Expression>,
     with_count: usize,
-    // scope: ParserScope,
-    script_name: Option<String>, // callしたスクリプトの名前,
-    script_dir: Option<PathBuf>,
     builder: ProgramBuilder,
 }
 
 impl Parser {
-    pub fn new(lexer: Lexer) -> Self {
-        let script_name = env::var("GET_UWSC_NAME").ok();
+    pub fn new(lexer: Lexer, dir: Option<PathBuf>) -> Self {
+        let script_path = dir.map(|path| {
+            match env::var("GET_UWSC_NAME") {
+                Ok(name) => path.join(name),
+                Err(_) => path,
+            }
+        });
         let mut parser = Parser {
             lexer,
             current_token: TokenInfo::new(Token::Eof),
@@ -127,21 +129,15 @@ impl Parser {
             errors: vec![],
             with: None,
             with_count: 0,
-            // scope: ParserScope::default(),
-            script_name,
-            script_dir: None,
-            builder: ProgramBuilder::new(),
+            builder: ProgramBuilder::new(script_path),
         };
         parser.bump();
         parser.bump();
 
         parser
     }
-    pub fn set_script_dir(&mut self, script_dir: PathBuf) {
-        self.script_dir = Some(script_dir);
-    }
 
-    pub fn call(lexer: Lexer, script_name: String, script_dir: Option<PathBuf>) -> Self {
+    pub fn call(lexer: Lexer, builder: ProgramBuilder) -> Self {
         let mut parser = Parser {
             lexer,
             current_token: TokenInfo::new(Token::Eof),
@@ -149,11 +145,7 @@ impl Parser {
             errors: vec![],
             with: None,
             with_count: 0,
-            // in_loop: false,
-            // scope: todo!(),
-            script_name: Some(script_name),
-            script_dir,
-            builder: ProgramBuilder::new(),
+            builder,
         };
         parser.bump();
         parser.bump();
@@ -162,7 +154,7 @@ impl Parser {
     }
 
     pub fn script_name(&self) -> String {
-        self.script_name.clone().unwrap_or_default()
+        self.builder.location()
     }
 
     fn token_to_precedence(token: &Token) -> Precedence {
@@ -185,7 +177,8 @@ impl Parser {
     }
 
     fn push_error(&mut self, kind: ParseErrorKind, start: Position, end: Position) {
-        let err = ParseError::new(kind, start, end, self.script_name.clone());
+        let script_name = self.builder.location();
+        let err = ParseError::new(kind, start, end, script_name);
         self.errors.push(err);
     }
 
@@ -368,6 +361,7 @@ impl Parser {
 
     pub fn parse(mut self) -> ParserResult<Program> {
         self.parse_to_builder();
+        self.check_identifier();
 
         if self.errors.len() == 0 {
             let program = self.builder.build(self.lexer.lines);
@@ -378,6 +372,7 @@ impl Parser {
     }
     pub fn parse_to_program_and_errors(mut self) -> (Program, ParseErrors) {
         self.parse_to_builder();
+        self.check_identifier();
         let program = self.builder.build(self.lexer.lines);
         (program, self.errors)
     }
@@ -407,8 +402,9 @@ impl Parser {
                         StatementType::Block => {
                             self.builder.push_script(statement);
                         },
-                        StatementType::Call => {
-                            todo!()
+                        StatementType::Call(location, scope) => {
+                            self.builder.push_call_scope(location, scope);
+                            self.builder.push_script(statement);
                         },
                         StatementType::DefDll => {
                             self.builder.push_def(statement.clone());
@@ -426,6 +422,12 @@ impl Parser {
             }
             self.bump();
         }
+    }
+    /// 以下をチェックする
+    /// - OPTION EXPLICIT
+    /// - 重複
+    /// - アクセス
+    fn check_identifier(&mut self) {
         // OPTION EXPLICITチェック
         let is_explicit = {
             let settings = crate::settings::USETTINGS.lock().unwrap();
@@ -434,8 +436,14 @@ impl Parser {
         if is_explicit {
             self.builder.check_option_explicit()
                 .iter()
-                .for_each(|dec| {
-                    self.push_error(ParseErrorKind::ExplicitError(dec.name.to_owned()), dec.start, dec.end)
+                .for_each(|(location, names)| {
+                    names.iter().for_each(|name| {
+                        let err = ParseError::new(
+                            ParseErrorKind::ExplicitError(name.name.to_owned()),
+                            name.start, name.end, location.to_string()
+                        );
+                        self.errors.push(err)
+                    })
                 });
         } else {
             self.builder.declare_implicitly();
@@ -443,14 +451,26 @@ impl Parser {
         // 重複チェック
         self.builder.check_duplicated()
             .iter()
-            .for_each(|dec| {
-                self.push_error(ParseErrorKind::IdentifierIsAlreadyDefined(dec.name.to_owned()), dec.start, dec.end);
+            .for_each(|(location, names)| {
+                names.iter().for_each(|name| {
+                    let err = ParseError::new(
+                        ParseErrorKind::IdentifierIsAlreadyDefined(name.name.to_owned()),
+                        name.start, name.end, location.to_string()
+                    );
+                    self.errors.push(err)
+                })
             });
         // 未定義チェック
         self.builder.check_access()
             .iter()
-            .for_each(|dec| {
-                self.push_error(ParseErrorKind::UndeclaredIdentifier(dec.name.to_owned()), dec.start, dec.end);
+            .for_each(|(location, names)| {
+                names.iter().for_each(|name| {
+                    let err = ParseError::new(
+                        ParseErrorKind::UndeclaredIdentifier(name.name.to_owned()),
+                        name.start, name.end, location.to_string()
+                    );
+                    self.errors.push(err)
+                })
             });
     }
 
@@ -521,8 +541,9 @@ impl Parser {
                             block.push(statement);
                         }
                     },
-                    StatementType::Call => {
-                        todo!()
+                    StatementType::Call(location, scope) => {
+                        self.builder.push_call_scope(location, scope);
+                        block.push(statement);
                     },
                     StatementType::DefDll => {
                         // def_dll定義はグローバルおよび定義した場所に置かれる
@@ -614,7 +635,8 @@ impl Parser {
                 (StatementType::Script, self.parse_break_statement()?)
             },
             Token::Call => {
-                (StatementType::Call, self.parse_call_statement()?)
+                let (stmt, location, scope) = self.parse_call_statement()?;
+                (StatementType::Call(location, scope), stmt)
             },
             Token::DefDll => {
                 (StatementType::DefDll, self.parse_def_dll_statement()?)
@@ -1006,12 +1028,12 @@ impl Parser {
     }
 
 
-    fn parse_call_statement(&mut self) -> Option<Statement> {
+    fn parse_call_statement(&mut self) -> Option<(Statement, ScriptLocation, BuilderScope)> {
         // callしたスクリプトにエラーがあった際の位置情報
         let start = self.current_token.pos;
         let end = self.current_token.get_end_pos();
 
-        let (script, name, dir, args) = match self.next_token.token.clone() {
+        let (script, builder, args) = match self.next_token.token.clone() {
             Token::Path(dir, name) => {
                 // パス取得
                 self.bump();
@@ -1027,19 +1049,21 @@ impl Parser {
                     vec![]
                 };
 
-                let mut path = match &self.script_dir {
-                    Some(p) => p.clone(),
-                    None => PathBuf::new(),
+                let mut path = match dir {
+                    Some(dir) => {
+                        let path = PathBuf::from(dir);
+                        if path.is_absolute() {
+                            path
+                        } else {
+                            let mut parent = self.builder.script_dir();
+                            parent.push(path);
+                            parent
+                        }
+                    },
+                    None => {
+                        self.builder.script_dir()
+                    },
                 };
-                if let Some(dir) = dir {
-                    let new_path = PathBuf::from(dir);
-                    if new_path.is_absolute() {
-                        path = new_path;
-                    } else {
-                        path.push(new_path);
-                    }
-                }
-                let dir = path.clone();
                 path.push(&name);
                 match path.extension() {
                     Some(os_str) => {
@@ -1049,7 +1073,7 @@ impl Parser {
                                 match serializer::load(&path) {
                                     Ok(bin) => match serializer::deserialize(bin){
                                         Ok(program) => {
-                                            return Some(Statement::Call(program, args));
+                                            return Some((Statement::Call(program, args), ScriptLocation::None, BuilderScope::default()));
                                         },
                                         Err(e) => {
                                             let kind = ParseErrorKind::CanNotLoadUwsl(
@@ -1094,7 +1118,8 @@ impl Parser {
                     };
                     break script;
                 };
-                (script, name, Some(dir), args)
+                let builder = self.builder.new_call_builder(Some(path));
+                (script, builder, args)
             },
             Token::Uri(uri) => {
                 let maybe_script = match reqwest::blocking::get(&uri) {
@@ -1140,7 +1165,8 @@ impl Parser {
                 } else {
                     vec![]
                 };
-                (script, uri, None, args)
+                let builder = ProgramBuilder::new_uri(uri);
+                (script, builder, args)
             },
             _ => {
                 self.error_next_token_is_invalid();
@@ -1148,32 +1174,19 @@ impl Parser {
             }
         };
 
-        let mut call_parser = Parser::call(
-            Lexer::new(&script),
-            name,
-            dir,
-        );
+        let mut call_parser = Parser::call(Lexer::new(&script), builder);
         call_parser.parse_to_builder();
-        if call_parser.errors.is_empty() {
-            // callのbuilderからグローバル定義をさらう
-            self.builder.append_global(&mut call_parser.builder);
-            // 実行部分のみでビルド
-            let lines = call_parser.lines();
-            let program = call_parser.builder.build(lines);
-            Some(Statement::Call(program, args))
-        } else {
+        if ! call_parser.errors.is_empty() {
             // エラーがあった場合は
             self.push_error(ParseErrorKind::CalledScriptHadError, start, end);
             self.errors.append(&mut call_parser.errors);
-            None
         }
-        // match call_parser.parse() {
-        //     Ok(program) => Some(Statement::Call(program, args)),
-        //     Err(mut e) => {
-        //         self.errors.append(&mut e);
-        //         None
-        //     },
-        // }
+        // callのbuilderからグローバル定義をさらう
+        self.builder.append_global(&mut call_parser.builder);
+        // 実行部分のみでビルド
+        let lines = call_parser.lines();
+        let (program, location, scope) = call_parser.builder.build_call(lines);
+        Some((Statement::Call(program, args), location, scope))
     }
 
     fn parse_def_dll_statement(&mut self) -> Option<Statement> {
@@ -3466,7 +3479,7 @@ mod tests {
     /// - expected_script: スクリプト部分
     /// - expected_global: グローバル定義
     fn parser_test(input: &str, expected_script: Vec<StatementWithRow>, expected_global: Vec<StatementWithRow>) {
-        let parser = Parser::new(Lexer::new(input));
+        let parser = Parser::new(Lexer::new(input), None);
         match parser.parse() {
             Ok(program) => {
                 assert_eq!(program.script, expected_script);
@@ -3479,7 +3492,7 @@ mod tests {
     }
 
     fn parser_panic_test(input: &str, expected: Vec<StatementWithRow>, msg: &str) {
-        let parser = Parser::new(Lexer::new(input));
+        let parser = Parser::new(Lexer::new(input), None);
         match parser.parse() {
             Ok(program) => {
                 assert_eq!(program.script, expected);
@@ -6569,7 +6582,7 @@ fend
     }
 
     fn parser_error_test(input: &str, mut expected: ParseErrors) {
-        let parser = Parser::new(Lexer::new(input));
+        let parser = Parser::new(Lexer::new(input), None);
         match parser.parse() {
             Ok(_) => {
                 panic!("No error found on input: \r\n{input}");
@@ -6586,7 +6599,7 @@ fend
             ParseErrorKind::IdentifierIsAlreadyDefined(ident.to_string()),
             Position::new(start.0, start.1),
             Position::new(start.0, start.1 + ident.len()),
-            None
+            String::new()
         )
     }
 
@@ -6752,7 +6765,7 @@ module m
 endmodule
                 "#,
                 vec![
-                    already_defined_error("X", (6, 13)),
+                    already_defined_error("Y", (7, 13)),
                 ]
             ),
         ];
@@ -6767,7 +6780,7 @@ endmodule
             ParseErrorKind::UndeclaredIdentifier(ident.to_string()),
             Position::new(start.0, start.1),
             Position::new(start.0, start.1 + ident.len()),
-            None
+            String::new()
         )
     }
 
@@ -6845,7 +6858,7 @@ endmodule
             ParseErrorKind::ExplicitError(ident.to_string()),
             Position::new(start.0, start.1),
             Position::new(start.0, start.1 + ident.len()),
-            None
+            String::new()
         )
     }
 

@@ -3,6 +3,7 @@ use std::str::FromStr;
 use std::mem;
 use std::collections::HashMap;
 use std::sync::OnceLock;
+use std::path::PathBuf;
 
 use serde::{Serialize, Deserialize};
 
@@ -305,7 +306,7 @@ pub enum Statement {
     HashTbl(Vec<(Identifier, Option<Expression>)>, bool),
     Hash(HashSugar),
     Print(Expression),
-    /// スクリプトの実行部分, 引数(param_str)
+    /// callで実行されるスクリプト, 引数(param_str)
     Call(Program, Vec<Expression>),
     DefDll {
         name: String,
@@ -533,6 +534,28 @@ pub struct Program {
 
 static BUILTIN_NAMES: OnceLock<Vec<String>> = OnceLock::new();
 
+#[derive(Debug, Clone, Default, PartialEq)]
+pub enum ScriptLocation {
+    Path(PathBuf),
+    Uri(String),
+    #[default]
+    None,
+}
+impl std::fmt::Display for ScriptLocation {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ScriptLocation::Path(path) => {
+                match path.file_name() {
+                    Some(name) => write!(f, "{}", name.to_str().unwrap_or_default()),
+                    None => write!(f, ""),
+                }
+            },
+            ScriptLocation::Uri(uri) => write!(f, "{uri}"),
+            ScriptLocation::None => write!(f, ""),
+        }
+    }
+}
+
 #[derive(Clone, Default)]
 pub struct ProgramBuilder {
     /// 定数
@@ -551,11 +574,47 @@ pub struct ProgramBuilder {
     script: Vec<StatementWithRow>,
     /// スコープ情報
     scope: BuilderScope,
+    /// スクリプトの位置
+    location: ScriptLocation,
+    /// callで呼び出されたスクリプトのスコープ
+    call: Vec<(ScriptLocation, BuilderScope)>,
+    /// callされた深さ
+    depth: u32
 }
 impl ProgramBuilder {
-    pub fn new() -> Self {
-        // Self { consts: vec![], publics: vec![], options: vec![], definitions: vec![], script: vec![], const_names: vec![], public_names: vec![], dim_names: vec![] }
-        Self::default()
+    pub fn new(path: Option<PathBuf>) -> Self {
+        let location = path.map(|path| ScriptLocation::Path(path)).unwrap_or_default();
+        Self {
+            location,
+            ..Default::default()
+        }
+    }
+    pub fn new_uri(uri: String) -> Self {
+        Self {
+            location: ScriptLocation::Uri(uri),
+            ..Default::default()
+        }
+    }
+    pub fn new_call_builder(&self, path: Option<PathBuf>) -> Self {
+        let location = path.map(|path| ScriptLocation::Path(path)).unwrap_or_default();
+        let depth = self.depth + 1;
+        Self {
+            location, depth,
+            ..Default::default()
+        }
+    }
+    pub fn location(&self) -> String {
+        self.location.to_string()
+    }
+    pub fn script_dir(&self) -> PathBuf {
+        if let ScriptLocation::Path(path) = &self.location {
+            path.parent().map(|p| p.to_path_buf())
+        } else {
+            None
+        }.unwrap_or_default()
+    }
+    pub fn push_call_scope(&mut self, location: ScriptLocation, scope: BuilderScope) {
+        self.call.push((location, scope));
     }
     pub fn build(mut self, lines: Vec<String>) -> Program {
         let mut global = vec![];
@@ -565,6 +624,12 @@ impl ProgramBuilder {
         global.append(&mut self.definitions);
         let script = self.script;
         Program { global, script, lines }
+    }
+    pub fn build_call(self, lines: Vec<String>) -> (Program, ScriptLocation, BuilderScope) {
+        let location = self.location.to_owned();
+        let scope = self.scope.to_owned();
+        let program = self.build(lines);
+        (program, location, scope)
     }
     pub fn push_const(&mut self, statement: StatementWithRow) {
         if let Some(module) = self.scope.current_module_mut() {
@@ -599,37 +664,13 @@ impl ProgramBuilder {
     pub fn push_script(&mut self, statement: StatementWithRow) {
         self.script.push(statement)
     }
+    /// 呼び出し元にグローバル定義及び識別子情報を移す
     pub fn append_global(&mut self, other: &mut Self) {
         self.consts.append(&mut other.consts);
         self.publics.append(&mut other.publics);
         self.options.append(&mut other.options);
         self.definitions.append(&mut other.definitions);
-    }
-    /// callのProgramのグローバル定義を加える
-    pub fn set_call_program(&mut self, program: Program) -> Program {
-        for s in program.global {
-            match &s.statement {
-                Statement::Option(_) => {
-                    self.push_option(s);
-                },
-                Statement::Const(_) |
-                Statement::TextBlock(_, _) => {
-                    self.push_const(s);
-                },
-                Statement::Public(_) => {
-                    self.push_public(s);
-                },
-                Statement::Function { name:_, params:_, body:_, is_proc:_, is_async:_ } |
-                Statement::Module(_, _) |
-                Statement::Class(_, _) |
-                Statement::Struct(_, _) |
-                Statement::DefDll { name:_, alias:_, params:_, ret_type:_, path:_ } => {
-                    self.push_def(s);
-                },
-                _ => {}
-            }
-        }
-        Program { global: vec![], script: program.script, lines: program.lines }
+        self.call.append(&mut other.call);
     }
 
     pub fn is_explicit_option_enabled(&self) -> bool {
@@ -714,7 +755,7 @@ impl ProgramBuilder {
     }
     /// パラメータ名をdim扱いでセット
     pub fn set_param(&mut self, name: &str, start: Position, end: Position) {
-        let name = Name::new(name, start, end);
+        let name = Name::new(name, start, end, self.depth);
         if self.scope.is_anonymous() {
             self.scope.push_anon_param(name);
         } else if self.scope.is_function() {
@@ -723,7 +764,7 @@ impl ProgramBuilder {
     }
     /// スコープ情報に名前をセット
     pub fn set_declared_name(&mut self, name: &str, start: Position, end: Position) {
-        let name = Name::new(name, start, end);
+        let name = Name::new(name, start, end, self.depth);
         let is_const = self.scope.is_const();
         let is_public = self.scope.is_public();
         let is_dim = self.scope.is_dim();
@@ -807,7 +848,7 @@ impl ProgramBuilder {
         let is_const = self.scope.is_const();
         let is_public = self.scope.is_public();
         let is_dim = self.scope.is_dim();
-        let name = Name::new(name, start, end);
+        let name = Name::new(name, start, end, self.depth);
         if let Some(anon) = self.scope.current_anon_mut() {
             anon.assignee.push(name);
         } else if let Some(func) = self.scope.current_func_mut() {
@@ -856,7 +897,7 @@ impl ProgramBuilder {
         if self.is_in_builtins(name) {
             return;
         }
-        let name = Name::new(name, start, end);
+        let name = Name::new(name, start, end, self.depth);
         let is_const = self.scope.is_const();
         let is_public = self.scope.is_public();
         let is_dim = self.scope.is_dim();
@@ -993,7 +1034,7 @@ impl ProgramBuilder {
         }
     }
     pub fn set_definition_name(&mut self, name: &str, start: Position, end: Position) {
-        let name = Name::new(name, start, end);
+        let name = Name::new(name, start, end, self.depth);
         self.scope.definition.push(name);
     }
     pub fn take_module_members(&mut self, block: &mut BlockStatement) {
@@ -1005,21 +1046,95 @@ impl ProgramBuilder {
     /// 代入を暗黙の宣言とする
     pub fn declare_implicitly(&mut self) {
         self.scope.implicit_declaration();
+        for (_, scope) in self.call.as_mut_slice() {
+            scope.implicit_declaration();
+        }
     }
-    pub fn check_option_explicit(&self) -> Names {
-        self.scope.check_option_explicit()
+    pub fn check_option_explicit(&self) -> Vec<(ScriptLocation, Names)> {
+        let mut location_and_names = vec![];
+
+        let mut call = self.get_call_public();
+        let names = self.scope.check_option_explicit(&call);
+        location_and_names.push((self.location.clone(), names));
+
+        call.append(self.scope.public.names.clone());
+
+        for (location, scope) in &self.call {
+            let names = scope.check_option_explicit(&call);
+            location_and_names.push((location.clone(), names));
+        }
+
+        location_and_names
     }
-    pub fn check_duplicated(&self) -> Names {
-        self.scope.check_duplicated()
+    pub fn check_duplicated(&self) -> Vec<(ScriptLocation, Names)> {
+        let mut location_and_names = vec![];
+
+        let mut call = self.get_call_const();
+
+        let names = self.scope.check_duplicated(&call);
+        location_and_names.push((self.location.clone(), names));
+
+        call.append(self.scope.r#const.names.clone());
+        for (location, scope) in &self.call {
+            let names = scope.check_duplicated(&call);
+            location_and_names.push((location.clone(), names));
+        }
+
+        location_and_names
     }
-    pub fn check_access(&self) -> Names {
-        self.scope.check_access()
+    pub fn check_access(&self) -> Vec<(ScriptLocation, Names)> {
+        let mut location_and_names = vec![];
+
+        let mut call = self.get_call_global();
+
+        let names = self.scope.check_access(&call);
+        location_and_names.push((self.location.clone(), names));
+
+        call.append(self.scope.r#const.names.clone());
+        call.append(self.scope.public.names.clone());
+
+        for (location, scope) in &self.call {
+            let names = scope.check_access(&call);
+            location_and_names.push((location.clone(), names));
+        }
+
+        location_and_names
+    }
+    fn get_call_public(&self) -> Names {
+        let names = self.call.iter()
+            .map(|(_, scope)| {
+                scope.public.names.0.clone()
+            })
+            .flatten()
+            .collect();
+        Names(names)
+    }
+    fn get_call_const(&self) -> Names {
+        let names = self.call.iter()
+            .map(|(_, scope)| {
+                scope.r#const.names.0.clone()
+            })
+            .flatten()
+            .collect();
+        Names(names)
+    }
+    fn get_call_global(&self) -> Names {
+        let names = self.call.iter()
+            .map(|(_, scope)| {
+                let p = scope.public.names.0.clone();
+                let c = scope.r#const.names.0.clone();
+                let d = scope.definition.0.clone();
+                [p, c, d].into_iter().flatten().collect::<Vec<_>>()
+            })
+            .flatten()
+            .collect();
+        Names(names)
     }
 }
 
 /// スコープ情報を管理する
 #[derive(Clone, Default, Debug)]
-struct BuilderScope {
+pub struct BuilderScope {
     /// OPTION EXPLICITの状態を示す
     option_explicit: bool,
     /// ループの深さ
@@ -1066,54 +1181,55 @@ impl BuilderScope {
         }
     }
     /// 重複定義だった名前を返す
-    fn check_duplicated(&self) -> Names {
+    fn check_duplicated(&self, call: &Names) -> Names {
         let mut names = Names::default();
 
         // グローバル定数
-        let dup = self.r#const.get_dups(None);
+        let dup = self.r#const.get_dups(call);
         names.append(dup);
         // グローバル変数
-        let dup = self.public.get_dups(&self.r#const.names, None);
+        let dup = self.public.get_dups(&self.r#const.names, call);
         names.append(dup);
         // ローカル変数
-        let dup = self.dim.get_dups(&self.r#const.names, None);
+        let dup = self.dim.get_dups(&self.r#const.names, call);
         names.append(dup);
         // グローバル関数
         self.function.0.iter().for_each(|func| {
-            let dup = func.get_dups(&self.r#const.names);
+            let dup = func.get_dups(&self.r#const.names, call);
             names.append(dup);
         });
         // module
         self.module.0.iter().for_each(|module| {
-            let dup = module.get_dups(&self.r#const.names);
+            let dup = module.get_dups();
             names.append(dup);
         });
 
         names
     }
     /// OPTION EXPLICIT違反だった名前を返す
-    fn check_option_explicit(&self) -> Names {
-        self.get_undeclared(UndeclaredNameType::Assign)
+    /// - call: call文がある場合に全ファイルのpublicを渡す
+    fn check_option_explicit(&self, call: &Names) -> Names {
+        self.get_undeclared(UndeclaredNameType::Assign, call)
     }
     /// 呼び出しチェック
-    fn check_access(&self) -> Names {
-        self.get_undeclared(UndeclaredNameType::Access)
+    fn check_access(&self, call: &Names) -> Names {
+        self.get_undeclared(UndeclaredNameType::Access, call)
     }
-    fn get_undeclared(&self, r#type: UndeclaredNameType) -> Names {
+    fn get_undeclared(&self, r#type: UndeclaredNameType, call: &Names) -> Names {
         let mut names = Names::default();
         let (mut undeclared, outer) = match &r#type {
             UndeclaredNameType::Access => (
-                self.access.get_undeclared(&vec![&self.dim.names, &self.r#const.names, &self.public.names, &self.definition]),
-                vec![&self.r#const.names, &self.public.names],
+                self.access.get_undeclared(&vec![&self.dim.names, &self.r#const.names, &self.public.names, &self.definition, &call]),
+                vec![&self.r#const.names, &self.public.names, &call],
             ),
             UndeclaredNameType::Assign => (
-                self.assignee.get_undeclared(&vec![&self.dim.names, &self.r#const.names, &self.public.names]),
-                vec![&self.public.names],
+                self.assignee.get_undeclared(&vec![&self.dim.names, &self.public.names, &call]),
+                vec![&self.public.names, &call],
             )
         };
         names.append_mut(&mut undeclared);
         let mut undeclared = self.r#const.get_undeclared(&r#type, &match r#type {
-            UndeclaredNameType::Access => vec![&self.r#const.names],
+            UndeclaredNameType::Access => vec![&self.r#const.names, call],
             UndeclaredNameType::Assign => vec![],
         });
         names.append_mut(&mut undeclared);
@@ -1329,6 +1445,7 @@ pub struct Name {
     pub name: String,
     pub start: Position,
     pub end: Position,
+    pub depth: u32,
 }
 impl Eq for Name {
 
@@ -1339,27 +1456,44 @@ impl Ord for Name {
     }
 }
 impl Name {
-    fn new(name: &str, start: Position, end: Position) -> Self {
-        Self { name: name.to_ascii_uppercase(), start, end }
+    fn new(name: &str, start: Position, end: Position, depth: u32) -> Self {
+        Self { name: name.to_ascii_uppercase(), start, end, depth }
     }
     /// 重複判定
     /// - compare_name_only
     ///     - true : 名前が一致のみで重複、主に外部スコープとの比較
     ///     - false: 名前が一致をかつ後ろにあれば重複、主に内部スコープとの比較
-    fn is_duplicated(&self, maybe_dup: &Self, compare_name_only: bool) -> bool {
+    fn is_duplicated(&self, maybe_dup: &Self, flg: &DupFlg) -> bool {
         if self == maybe_dup {
             // 一致は無視
             false
         } else {
-            if compare_name_only {
-                self.name == maybe_dup.name
-            } else {
-                // Positionが大きければ後にある
-                self.name == maybe_dup.name &&
-                (self.start < maybe_dup.start && self.end < maybe_dup.end)
+            match flg {
+                DupFlg::ByName => {
+                    self.name == maybe_dup.name
+                },
+                DupFlg::ByPos => {
+                    // Positionが大きければ後にある
+                    self.name == maybe_dup.name &&
+                    (self.start < maybe_dup.start && self.end < maybe_dup.end)
+                },
+                DupFlg::ByDepth => {
+                    self.name == maybe_dup.name &&
+                    self.depth < maybe_dup.depth
+                },
             }
         }
     }
+}
+
+/// 重複確認方法を示すフラグ
+enum DupFlg {
+    /// 名前を比較して一致なら重複
+    ByName,
+    /// 位置が対象より後ろなら重複
+    ByPos,
+    /// 対象より深い位置のファイルであれば重複
+    ByDepth,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -1378,13 +1512,9 @@ impl Names {
     pub fn iter(&self) -> std::slice::Iter<'_, Name> {
         self.0.iter()
     }
-    /// 渡されたDeclaredが重複ならそのコピーを返す
-    /// - outer_scope: 比較対象スコープ
-    ///     - true : 上位スコープ
-    ///     - false: 同一スコープ
-    fn if_duplicated(&self, other: &Name, outer_scope: bool) -> Option<Name> {
+    fn if_duplicated(&self, other: &Name, flg: DupFlg) -> Option<Name> {
         self.0.iter()
-            .find(|name| name.is_duplicated(other, outer_scope))
+            .find(|name| name.is_duplicated(other, &flg))
             .map(|_| other.clone())
     }
     /// 自身を宣言一覧と比較し、未宣言のものを返す
@@ -1403,7 +1533,7 @@ impl Names {
         Names(names)
     }
     fn contains(&self, other: &Name) -> bool {
-        self.iter().find(|name| name.is_duplicated(other, true)).is_some()
+        self.iter().find(|name| name.is_duplicated(other, &DupFlg::ByName)).is_some()
     }
     fn remove_dup(&mut self) {
         self.0.sort_by(|a, b| a.name.cmp(&b.name));
@@ -1416,6 +1546,7 @@ impl Into<Vec<Name>> for Names {
     }
 }
 
+
 #[derive(Debug, Clone, Default)]
 struct ConstScope {
     names: Names,
@@ -1426,21 +1557,36 @@ struct ConstScope {
     assignee: Names,
 }
 impl ConstScope {
-    /// 重複チェック対象
-    /// - 自身
-    /// - module const anonならglobal constも対象
-    fn get_dups(&self, global_const: Option<&Names>) -> Names {
+    /// const文脈重複チェック
+    /// 1. 自身の重複を確認
+    /// 2. callのconstと比較
+    /// 3. 無名関数内を確認
+    fn get_dups(&self, call: &Names) -> Names {
         let mut names = Names::default();
         let dup: Vec<Name> = self.names.iter()
-            .filter_map(|name| self.names.if_duplicated(name, false))
+            .filter_map(|name| {
+                self.names.if_duplicated(name, DupFlg::ByPos)
+                    .or(call.if_duplicated(name, DupFlg::ByDepth))
+            })
             .collect();
         names.append(dup);
         for anon in &self.anon.0 {
-            let outer = match global_const {
-                Some(global) => vec![global, &self.names],
-                None => vec![&self.names],
-            };
+            let outer = vec![call, &self.names];
             let dup = anon.get_dups(outer, None);
+            names.append(dup);
+        }
+        names
+    }
+    fn get_module_dups(&self) -> Names {
+        let mut names = Names::default();
+        let dup: Vec<Name> = self.names.iter()
+            .filter_map(|name| {
+                self.names.if_duplicated(name, DupFlg::ByPos)
+            })
+            .collect();
+        names.append(dup);
+        for anon in &self.anon.0 {
+            let dup = anon.get_dups(vec![&self.names], None);
             names.append(dup);
         }
         names
@@ -1470,27 +1616,33 @@ struct PublicScope {
     assignee: Names,
 }
 impl PublicScope {
-    /// 重複チェック対象
-    /// - global publicならglobal const
-    /// - module publicであればmodule const
-    /// - module public anonならglobal constおよびmodule const
-    fn get_dups(&self, outer_const: &Names, global_const: Option<&Names>) -> Names {
+
+    fn get_dups(&self, outer_const: &Names, call: &Names) -> Names {
         let mut names = Names::default();
-        self.names.iter()
-            .for_each(|name| {
-                match outer_const.if_duplicated(name, true) {
-                    Some(dup) => names.push(dup),
-                    // None => if let Some(dup) = self.names.if_duplicated(name) {
-                    //     names.push(dup);
-                    // }
-                    None => {}
-                }
-            });
+        let dup: Vec<Name> = self.names.iter()
+            .filter_map(|name| {
+                outer_const.if_duplicated(name, DupFlg::ByName)
+                    .or(call.if_duplicated(name, DupFlg::ByDepth))
+            })
+            .collect();
+        names.append(dup);
         for anon in &self.anon.0 {
-            let outer = match global_const {
-                Some(global) => vec![global, outer_const],
-                None => vec![outer_const],
-            };
+            let outer = vec![outer_const, call];
+            let dup = anon.get_dups(outer, None);
+            names.append(dup);
+        }
+        names
+    }
+    fn get_module_dups(&self, module_const: &Names) -> Names {
+        let mut names = Names::default();
+        let dup: Vec<Name> = self.names.iter()
+            .filter_map(|name| {
+                module_const.if_duplicated(name, DupFlg::ByName)
+            })
+            .collect();
+        names.append(dup);
+        for anon in &self.anon.0 {
+            let outer = vec![module_const];
             let dup = anon.get_dups(outer, None);
             names.append(dup);
         }
@@ -1523,27 +1675,35 @@ struct DimScope {
     assignee: Names,
 }
 impl DimScope {
-    /// 重複チェック対象
-    /// - main dimならglobal constおよび自身
-    /// - module dimならmodule constおよび自身
-    /// - module dim anonならglobal const、module constおよび自身
-    fn get_dups(&self, outer_const: &Names, global_const: Option<&Names>) -> Names {
+    fn get_dups(&self, outer_const: &Names, call: &Names) -> Names {
         let mut names = Names::default();
-        self.names.iter()
-            .for_each(|name| {
-                match outer_const.if_duplicated(name, true) {
-                    Some(dup) => names.push(dup),
-                    None => if let Some(dup) = self.names.if_duplicated(name, false) {
-                        names.push(dup);
-                    }
-                }
-            });
+        let dup: Vec<Name> = self.names.iter()
+            .filter_map(|name| {
+                outer_const.if_duplicated(name, DupFlg::ByName)
+                    .or(call.if_duplicated(name, DupFlg::ByDepth))
+                    .or(self.names.if_duplicated(name, DupFlg::ByPos))
+            })
+            .collect();
+        names.append(dup);
         for anon in &self.anon.0 {
-            let outer = match global_const {
-                Some(global) => vec![global, outer_const],
-                None => vec![outer_const],
-            };
+            let outer = vec![outer_const, call];
             let dup = anon.get_dups(outer, Some(&self.names));
+            names.append(dup);
+        }
+        names
+    }
+    fn get_module_dups(&self, module_const: &Names) -> Names {
+        let mut names = Names::default();
+        let dup: Vec<Name> = self.names.iter()
+            .filter_map(|name| {
+                module_const.if_duplicated(name, DupFlg::ByName)
+                    .or(self.names.if_duplicated(name, DupFlg::ByPos))
+            })
+            .collect();
+        names.append(dup);
+        for anon in &self.anon.0 {
+            let outer = vec![module_const];
+            let dup = anon.get_dups(outer, None);
             names.append(dup);
         }
         names
@@ -1577,25 +1737,33 @@ struct FuncScope {
     param: Names
 }
 impl FuncScope {
-    /// 重複チェック対象
-    /// - global functionならglobal constおよび自身のdim
-    /// - module functionでもglobal constおよび自身のdim (member constは無視)
-    /// - module function内のanonはdimを継承、外部はglobal constのみ (member const無視)
-    fn get_dups(&self, global_const: &Names) -> Names {
+    fn get_dups(&self, outer_const: &Names, call: &Names) -> Names {
         let mut names = Names::default();
         let dup: Vec<Name> = self.dim.iter()
             .filter_map(|name| {
-                match global_const.if_duplicated(name, true) {
-                    Some(dup) => Some(dup),
-                    None => {
-                        self.dim.if_duplicated(name, false)
-                    }
-                }
+                outer_const.if_duplicated(name, DupFlg::ByName)
+                    .or(call.if_duplicated(name, DupFlg::ByDepth))
+                    .or(self.dim.if_duplicated(name, DupFlg::ByPos))
             })
             .collect();
         names.append(dup);
         for anon in &self.anon.0 {
-            let dup = anon.get_dups(vec![global_const], Some(&self.dim));
+            let dup = anon.get_dups(vec![outer_const, call], Some(&self.dim));
+            names.append(dup);
+        }
+        names
+    }
+    fn get_module_dups(&self, module_const: &Names) -> Names {
+        let mut names = Names::default();
+        let dup: Vec<Name> = self.dim.iter()
+            .filter_map(|name| {
+                module_const.if_duplicated(name, DupFlg::ByName)
+                    .or(self.dim.if_duplicated(name, DupFlg::ByPos))
+            })
+            .collect();
+        names.append(dup);
+        for anon in &self.anon.0 {
+            let dup = anon.get_dups(vec![module_const], Some(&self.dim));
             names.append(dup);
         }
         names
@@ -1695,16 +1863,10 @@ impl AnonFuncScope {
         let parent_anon_dims = self.get_parent_dims();
         let dups: Vec<Name> = self.dim.iter()
             .filter_map(|name| {
-                match r#const.iter().find_map(|names| names.if_duplicated(name, true)) {
-                    Some(dup) => Some(dup),
-                    None => match self.dim.if_duplicated(name, false) {
-                        Some(dup) => Some(dup),
-                        None => match (|| parent_anon_dims.as_ref()?.if_duplicated(name, false))() {
-                            Some(dup) => Some(dup),
-                            None => (|| parent_dim.as_ref()?.if_duplicated(name, false))(),
-                        },
-                    }
-                }
+                r#const.iter().find_map(|names| names.if_duplicated(name, DupFlg::ByName))
+                    .or( self.dim.if_duplicated(name, DupFlg::ByPos) )
+                    .or( parent_anon_dims.as_ref().map(|names| names.if_duplicated(name, DupFlg::ByPos)).flatten() )
+                    .or( parent_dim.as_ref().map(|names| names.if_duplicated(name, DupFlg::ByPos)).flatten() )
             })
             .collect();
         names.append(dups);
@@ -1794,22 +1956,22 @@ impl ModuleScope {
     ///     - member const
     ///     - member dim
     /// - 関数
-    fn get_dups(&self, global_const: &Names) -> Names {
+    fn get_dups(&self) -> Names {
         let mut names = Names::default();
 
         // member const
-        let dup = self.r#const.get_dups(Some(global_const));
+        let dup = self.r#const.get_module_dups();
         names.append(dup);
         // member public
-        let dup = self.public.get_dups(&self.r#const.names, Some(global_const));
+        let dup = self.public.get_module_dups(&self.r#const.names);
         names.append(dup);
         // member dim
-        let dup = self.dim.get_dups(&self.r#const.names, Some(global_const));
+        let dup = self.dim.get_module_dups(&self.r#const.names);
         names.append(dup);
         // member function
         self.function.0.iter()
             .for_each(|func| {
-                let dup = func.get_dups(global_const);
+                let dup = func.get_module_dups(&self.r#const.names);
                 names.append(dup);
             });
 

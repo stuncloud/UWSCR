@@ -107,14 +107,6 @@ pub enum ParseErrorKind {
     UndeclaredIdentifier(String),
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct ParseError {
-    pub kind: ParseErrorKind,
-    pub start: Position,
-    pub end: Position,
-    pub script_name: Option<String>
-}
-
 impl fmt::Display for ParseErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -375,16 +367,17 @@ impl fmt::Display for ParseErrorKind {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct ParseError {
+    pub kind: ParseErrorKind,
+    pub start: Position,
+    pub end: Position,
+    pub script_name: String
+}
+
 impl ParseError {
-    pub fn new(kind: ParseErrorKind, start: Position, end: Position, script_name: Option<String>) -> Self {
+    pub fn new(kind: ParseErrorKind, start: Position, end: Position, script_name: String) -> Self {
         ParseError {kind, start, end, script_name}
-    }
-    pub fn new_explicit_error(ident: String, row: usize, script_name: Option<String>) -> Self {
-        let len = ident.len();
-        let kind = ParseErrorKind::ExplicitError(ident);
-        let start = Position { row, column: 0 };
-        let end = Position { row: row, column: len };
-        Self { kind, start, end, script_name }
     }
 
     pub fn get_kind(self) -> ParseErrorKind {
@@ -394,10 +387,6 @@ impl ParseError {
 
 impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if let Some(name) = &self.script_name {
-            write!(f, "{}[{}] - {}", name, self.start, self.kind)
-        } else {
-            write!(f, "[{}] - {}", self.start, self.kind)
-        }
+        write!(f, "{}[{}] - {}", self.script_name, self.start, self.kind)
     }
 }

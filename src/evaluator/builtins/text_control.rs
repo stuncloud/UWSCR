@@ -986,7 +986,7 @@ mod tests {
     fn new_evaluator(input: Option<&str>) -> Evaluator {
         let mut e = Evaluator::new(Environment::new(vec![]));
         if let Some(input) = input {
-            match Parser::new(Lexer::new(input)).parse() {
+            match Parser::new(Lexer::new(input), None).parse() {
                 Ok(program) => {
                     if let Err(err) = e.eval(program, false) {
                         panic!("\nError:\n{:#?}\ninput:\n{}\n", err, input);
@@ -999,7 +999,7 @@ mod tests {
     }
 
     fn builtin_test(e: &mut Evaluator, input: &str, expected: EvalResult<Option<Object>>) {
-        match Parser::new(Lexer::new(input)).parse() {
+        match Parser::new(Lexer::new(input), None).parse() {
             Ok(program) => {
                 let result = e.eval(program, false);
                 match expected {
