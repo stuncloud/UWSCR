@@ -1433,14 +1433,19 @@ impl Evaluator {
                 UErrorMessage::NoIdentifierFound(identifier.0)
             ))
     }
-    fn eval_dot_op_identifier(&self, identifier: Identifier) -> EvalResult<Object> {
+    fn eval_dot_op_identifier(&mut self, identifier: Identifier) -> EvalResult<Object> {
         let Identifier(name) = &identifier;
-        self.env.get_module(name)
+        let obj = self.env.get_module(name)
             .or(self.env.get_variable(name, false))
             .ok_or(UError::new(
                 UErrorKind::DotOperatorError,
                 UErrorMessage::InvalidDotLeftIdentifier(identifier)
-            ))
+            ))?;
+        if let Object::Reference(expression, outer) = obj {
+            self.eval_reference(expression, &outer)
+        } else {
+            Ok(obj)
+        }
     }
 
     fn eval_prefix_expression(&mut self, prefix: Prefix, right: Object) -> EvalResult<Object> {
