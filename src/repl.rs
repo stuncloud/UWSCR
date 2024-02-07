@@ -67,7 +67,7 @@ pub fn run(script: Option<String>, exe_path: String, script_path: Option<String>
     let mut evaluator = Evaluator::new(env);
     if let Some(script) = script {
         println!("loading script...");
-        let parser = Parser::new(Lexer::new(&script), None);
+        let parser = Parser::new(Lexer::new(&script), None, false);
         match parser.parse() {
             Ok(program) => {
                 match evaluator.eval(program, false) {
@@ -114,7 +114,7 @@ pub fn run(script: Option<String>, exe_path: String, script_path: Option<String>
         match editor.readline() {
             Ok(sig) => match sig {
                 Signal::Success(input) => {
-                    let parser = Parser::new(Lexer::new(&input), None);
+                    let parser = Parser::new(Lexer::new(&input), None, false);
                     match parser.parse() {
                         Ok(program) => {
                             match evaluator.eval(program, false) {

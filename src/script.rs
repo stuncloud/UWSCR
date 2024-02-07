@@ -56,7 +56,7 @@ pub fn run(script: String, exe_path: &str, script_path: &str, params: Vec<String
     };
     // let visible = ! attach_console();
 
-    let parser = Parser::new(Lexer::new(&script), Some(script_dir));
+    let parser = Parser::new(Lexer::new(&script), Some(script_dir), true);
     let program = parser.parse()
         .map_err(|errors| {
             ScriptError(
@@ -92,7 +92,7 @@ pub fn run(script: String, exe_path: &str, script_path: &str, params: Vec<String
 }
 
 pub fn run_code(code: String) -> Result<(), Vec<String>> {
-    let parser = Parser::new(Lexer::new(&code), None);
+    let parser = Parser::new(Lexer::new(&code), None, false);
     let program = parser.parse()
         .map_err(|errors| errors.into_iter().map(|err| err.to_string()).collect::<Vec<_>>() )?;
 
@@ -132,7 +132,7 @@ pub fn out_ast(script: String, path: &String) -> Result<(String, Option<String>)
         env::set_var("GET_UWSC_NAME", name);
     }
 
-    let parser = Parser::new(Lexer::new(&script), Some(script_dir));
+    let parser = Parser::new(Lexer::new(&script), Some(script_dir), true);
     let (program, errors) = parser.parse_to_program_and_errors();
 
     let err = if errors.len() > 0 {

@@ -7,7 +7,7 @@ use std::fs;
 use std::path::PathBuf;
 
 pub fn serialize(script: String) -> Option<Vec<u8>> {
-    let parser = Parser::new(Lexer::new(&script), None);
+    let parser = Parser::new(Lexer::new(&script), None, true);
     match parser.parse() {
         Ok(program) => {
             bincode::serialize(&program).ok()

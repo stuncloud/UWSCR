@@ -112,16 +112,21 @@ pub struct Parser {
     with: Option<Expression>,
     with_count: usize,
     builder: ProgramBuilder,
+    /// trueで式の解析が厳しくなる
+    /// - newでdir.is_some()であればtrueになる
+    strict_mode: bool,
 }
 
 impl Parser {
-    pub fn new(lexer: Lexer, dir: Option<PathBuf>) -> Self {
-        let script_path = dir.map(|path| {
-            match env::var("GET_UWSC_NAME") {
-                Ok(name) => path.join(name),
-                Err(_) => path,
-            }
-        });
+    pub fn new(lexer: Lexer, dir: Option<PathBuf>, strict_mode: bool) -> Self {
+        let script_path = dir
+            .filter(|path| path.capacity() > 0)
+            .map(|path| {
+                match env::var("GET_UWSC_NAME") {
+                    Ok(name) => path.join(name),
+                    Err(_) => path,
+                }
+            });
         let mut parser = Parser {
             lexer,
             current_token: TokenInfo::new(Token::Eof),
@@ -130,6 +135,7 @@ impl Parser {
             with: None,
             with_count: 0,
             builder: ProgramBuilder::new(script_path),
+            strict_mode,
         };
         parser.bump();
         parser.bump();
@@ -137,7 +143,7 @@ impl Parser {
         parser
     }
 
-    pub fn call(lexer: Lexer, builder: ProgramBuilder) -> Self {
+    pub fn call(lexer: Lexer, builder: ProgramBuilder, strict_mode: bool) -> Self {
         let mut parser = Parser {
             lexer,
             current_token: TokenInfo::new(Token::Eof),
@@ -146,6 +152,7 @@ impl Parser {
             with: None,
             with_count: 0,
             builder,
+            strict_mode,
         };
         parser.bump();
         parser.bump();
@@ -293,13 +300,6 @@ impl Parser {
         self.push_error(kind, current.pos, end);
     }
 
-    // /// 現在のトークンが識別子ではない
-    // fn error_current_token_is_not_identifier(&mut self) {
-    //     let current = &self.current_token;
-    //     let end = current.get_end_pos();
-    //     let kind = ParseErrorKind::CurrentTokenIsNotIdentifier;
-    //     self.push_error(kind, current.pos, end);
-    // }
 
     /// 現在のトークンが不正
     fn error_current_token_is_invalid(&mut self) {
@@ -428,50 +428,52 @@ impl Parser {
     /// - 重複
     /// - アクセス
     fn check_identifier(&mut self) {
-        // OPTION EXPLICITチェック
-        let is_explicit = {
-            let settings = crate::settings::USETTINGS.lock().unwrap();
-            settings.options.explicit || self.builder.is_explicit_option_enabled()
-        };
-        if is_explicit {
-            self.builder.check_option_explicit()
+        if self.strict_mode {
+            // OPTION EXPLICITチェック
+            let is_explicit = {
+                let settings = crate::settings::USETTINGS.lock().unwrap();
+                settings.options.explicit || self.builder.is_explicit_option_enabled()
+            };
+            if is_explicit {
+                self.builder.check_option_explicit()
+                    .iter()
+                    .for_each(|(location, names)| {
+                        names.iter().for_each(|name| {
+                            let err = ParseError::new(
+                                ParseErrorKind::ExplicitError(name.name.to_owned()),
+                                name.start, name.end, location.to_string()
+                            );
+                            self.errors.push(err)
+                        })
+                    });
+            } else {
+                self.builder.declare_implicitly();
+            }
+            // 重複チェック
+            self.builder.check_duplicated()
                 .iter()
                 .for_each(|(location, names)| {
                     names.iter().for_each(|name| {
                         let err = ParseError::new(
-                            ParseErrorKind::ExplicitError(name.name.to_owned()),
+                            ParseErrorKind::IdentifierIsAlreadyDefined(name.name.to_owned()),
                             name.start, name.end, location.to_string()
                         );
                         self.errors.push(err)
                     })
                 });
-        } else {
-            self.builder.declare_implicitly();
+            // 未定義チェック
+            self.builder.check_access()
+                .iter()
+                .for_each(|(location, names)| {
+                    names.iter().for_each(|name| {
+                        let err = ParseError::new(
+                            ParseErrorKind::UndeclaredIdentifier(name.name.to_owned()),
+                            name.start, name.end, location.to_string()
+                        );
+                        self.errors.push(err)
+                    })
+                });
         }
-        // 重複チェック
-        self.builder.check_duplicated()
-            .iter()
-            .for_each(|(location, names)| {
-                names.iter().for_each(|name| {
-                    let err = ParseError::new(
-                        ParseErrorKind::IdentifierIsAlreadyDefined(name.name.to_owned()),
-                        name.start, name.end, location.to_string()
-                    );
-                    self.errors.push(err)
-                })
-            });
-        // 未定義チェック
-        self.builder.check_access()
-            .iter()
-            .for_each(|(location, names)| {
-                names.iter().for_each(|name| {
-                    let err = ParseError::new(
-                        ParseErrorKind::UndeclaredIdentifier(name.name.to_owned()),
-                        name.start, name.end, location.to_string()
-                    );
-                    self.errors.push(err)
-                })
-            });
     }
 
     fn parse_block_statement(&mut self) -> BlockStatement {
@@ -741,9 +743,13 @@ impl Parser {
                         (StatementType::Expression, Statement::Expression(expression))
                     },
                     _ => {
-                        let end = self.current_token_pos();
-                        self.push_error(ParseErrorKind::InvalidExpression, start, end);
-                        return None;
+                        if self.strict_mode {
+                            let end = self.current_token_pos();
+                            self.push_error(ParseErrorKind::InvalidExpression, start, end);
+                            return None;
+                        } else {
+                            (StatementType::Expression, Statement::Expression(expression))
+                        }
                     }
                 }
             },
@@ -1174,7 +1180,7 @@ impl Parser {
             }
         };
 
-        let mut call_parser = Parser::call(Lexer::new(&script), builder);
+        let mut call_parser = Parser::call(Lexer::new(&script), builder, self.strict_mode);
         call_parser.parse_to_builder();
         if ! call_parser.errors.is_empty() {
             // エラーがあった場合は
@@ -2235,86 +2241,64 @@ impl Parser {
         let mut ident_pos: Option<(Identifier, Position, Position)> = None;
         // prefix
         let mut left = match self.current_token.token {
-            // Token::Identifier(ref name) => {
-            //     let identifier_expression = Expression::Identifier(Identifier(name.to_string()));
-            //     if is_sol {
-            //         // 次のトークンを確認する
-            //         match &self.next_token.token {
-            //             // ドット呼び出し
-            //             Token::Period |
-            //             // 関数呼び出し
-            //             Token::Lparen |
-            //             // インデックス呼び出し
-            //             Token::Lbracket => {},
-            //             // 上記以外は代入とみなしパースを試みる
-            //             _ => {
-            //                 if let Some(e) = self.parse_assignment(identifier_expression, start) {
-            //                     return Some(e);
-            //                 } else {
-            //                     self.error_current_token_is_invalid();
-            //                     return None;
-            //                 }
-            //             }
-            //         }
-            //     }
-            //     Some(identifier_expression)
-            // },
-            Token::Empty => if state.is_start_of_line() {
+            Token::Empty => if state.is_start_of_line() && self.strict_mode {
                 self.error_current_token_is_invalid();
                 return None;
             } else {
                 Expression::Literal(Literal::Empty)
             },
-            Token::Null => if state.is_start_of_line() {
+            Token::Null => if state.is_start_of_line() && self.strict_mode  {
                 self.error_current_token_is_invalid();
                 return None;
             } else {
                 Expression::Literal(Literal::Null)
             },
-            Token::Nothing => if state.is_start_of_line() {
+            Token::Nothing => if state.is_start_of_line() && self.strict_mode  {
                 self.error_current_token_is_invalid();
                 return None;
             } else {
                 Expression::Literal(Literal::Nothing)
             },
-            Token::NaN => if state.is_start_of_line() {
+            Token::NaN => if state.is_start_of_line() && self.strict_mode  {
                 self.error_current_token_is_invalid();
                 return None;
             } else {
                 Expression::Literal(Literal::NaN)
             },
-            Token::Num(_) => if state.is_start_of_line() {
+            Token::Num(_) => if state.is_start_of_line() && self.strict_mode  {
                 self.error_current_token_is_invalid();
                 return None;
             } else {
                 self.parse_number_expression()?
             },
-            Token::Hex(_) => if state.is_start_of_line() {
+            Token::Hex(_) => if state.is_start_of_line() && self.strict_mode  {
                 self.error_current_token_is_invalid();
                 return None;
             } else {
                 self.parse_hex_expression()?
             },
             Token::ExpandableString(_) |
-            Token::String(_) => if state.is_start_of_line() {
+            Token::String(_) => if state.is_start_of_line() && self.strict_mode  {
                 self.error_current_token_is_invalid();
                 return None;
             } else {
                 self.parse_string_expression()?
             },
-            Token::Bool(_) => if state.is_start_of_line() {
+            Token::Bool(_) => if state.is_start_of_line() && self.strict_mode  {
                 self.error_current_token_is_invalid();
                 return None;
             } else {
                 self.parse_bool_expression()?
             },
-            Token::Lbracket => if state.is_start_of_line() {
+            Token::Lbracket => if state.is_start_of_line() && self.strict_mode {
                 self.error_current_token_is_invalid();
                 return None;
             } else {
                 self.parse_array_expression()?
             },
-            Token::Bang | Token::Minus | Token::Plus => if state.is_start_of_line() {
+            Token::Bang |
+            Token::Minus |
+            Token::Plus => if state.is_start_of_line() && self.strict_mode  {
                 self.error_current_token_is_invalid();
                 return None;
             } else {
@@ -2352,7 +2336,7 @@ impl Parser {
                 }
                 e?
             },
-            Token::UObject(ref s) => if state.is_start_of_line() {
+            Token::UObject(ref s) => if state.is_start_of_line() && self.strict_mode  {
                 self.error_current_token_is_invalid();
                 return None;
             } else {
@@ -2362,7 +2346,7 @@ impl Parser {
                 self.error_on_current_token(ParseErrorKind::InvalidUObjectEnd);
                 return None
             },
-            Token::ComErrFlg => if state.is_start_of_line() {
+            Token::ComErrFlg => if state.is_start_of_line() && self.strict_mode  {
                 self.error_current_token_is_invalid();
                 return None;
             } else {
@@ -2407,7 +2391,7 @@ impl Parser {
                             return self.parse_assignment(Expression::Identifier(identifier), start);
                         }
                         _ => {
-                            if state.is_lambda() {
+                            if ! self.strict_mode || state.is_lambda() {
                                 let identifier = self.parse_identifier(IdentifierType::NotSure)?;
                                 ident_pos = Some((identifier.clone(), self.current_token_pos(), self.current_token_end_pos()));
                                 Expression::Identifier(identifier)
@@ -2458,7 +2442,7 @@ impl Parser {
                 Token::XorB |
                 Token::Mod => {
                     self.bump();
-                    left = if state.is_start_of_line() {
+                    left = if state.is_start_of_line() && self.strict_mode  {
                         self.error_current_token_is_invalid();
                         return None;
                     } else {
@@ -3102,9 +3086,9 @@ impl Parser {
         let members = self.parse_block_statement();
 
         let has_constructor = members.iter()
-            .find(|s| {
-                if let Statement::Function { name, params:_, body:_, is_proc:_, is_async:_ } = &s.statement {
-                    name.0.to_ascii_uppercase() == identifier.0.to_ascii_uppercase()
+        .find(|s| {
+            if let Statement::Function { name, params:_, body:_, is_proc: true, is_async:_ } = &s.statement {
+                    name.0.eq_ignore_ascii_case(&identifier.0)
                 } else {
                     false
                 }
@@ -3479,7 +3463,7 @@ mod tests {
     /// - expected_script: スクリプト部分
     /// - expected_global: グローバル定義
     fn parser_test(input: &str, expected_script: Vec<StatementWithRow>, expected_global: Vec<StatementWithRow>) {
-        let parser = Parser::new(Lexer::new(input), None);
+        let parser = Parser::new(Lexer::new(input), None, false);
         match parser.parse() {
             Ok(program) => {
                 assert_eq!(program.script, expected_script);
@@ -3492,7 +3476,7 @@ mod tests {
     }
 
     fn parser_panic_test(input: &str, expected: Vec<StatementWithRow>, msg: &str) {
-        let parser = Parser::new(Lexer::new(input), None);
+        let parser = Parser::new(Lexer::new(input), None, false);
         match parser.parse() {
             Ok(program) => {
                 assert_eq!(program.script, expected);
@@ -6582,7 +6566,7 @@ fend
     }
 
     fn parser_error_test(input: &str, mut expected: ParseErrors) {
-        let parser = Parser::new(Lexer::new(input), None);
+        let parser = Parser::new(Lexer::new(input), None, true);
         match parser.parse() {
             Ok(_) => {
                 panic!("No error found on input: \r\n{input}");

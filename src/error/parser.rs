@@ -206,7 +206,7 @@ impl fmt::Display for ParseErrorKind {
                 name
             ),
             ParseErrorKind::ClassHasNoConstructor(name) => write_locale!(f,
-                "コンストラクタ({}())が未定義です",
+                "コンストラクタ(procedure {}())が未定義です",
                 "Constructor required: {}()",
                 name
             ),

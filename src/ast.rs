@@ -685,7 +685,9 @@ impl ProgramBuilder {
     }
     /// モジュールメンバ定義内かどうか
     pub fn is_in_module_member_definition(&self) -> bool {
-        self.scope.state.module && ! self.scope.state.function
+        self.scope.state.module &&
+        ! self.scope.state.function &&
+        ! self.scope.state.anonymous
     }
     /// モジュール関数定義内かどうか
     pub fn is_in_module_member_function(&self) -> bool {
