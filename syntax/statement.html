@@ -7,7 +7,7 @@
 <link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="特殊変数" href="special_variables.html" /><link rel="prev" title="ビルド方法" href="../usage/how_to_build.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>スクリプト構文 - UWSCR 0.14.0</title>
+        <title>スクリプト構文 - UWSCR 0.15.0</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 0.14.0</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 0.15.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 0.14.0</span>
+  <span class="sidebar-brand-text">UWSCR 0.15.0</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -1937,30 +1937,6 @@ endmodule
 </div></blockquote>
 </dd></dl>
 
-<dl class="object">
-<dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">RemoteObject</span></span></dt>
-<dd><div class="line-block">
-<div class="line"><a class="reference internal" href="../builtins/web.html#remote-object"><span class="std std-ref">RemoteObject</span></a> が以下の型であった場合、通常の値型と同じように演算が行なえます</div>
-</div>
-<ul class="simple">
-<li><p>文字列</p></li>
-<li><p>数値</p></li>
-<li><p>真偽値</p></li>
-<li><p>NULL</p></li>
-</ul>
-<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">elements</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">browser</span><span class="p">[</span><span class="m">0</span><span class="p">]</span><span class="o">.</span><span class="n">document</span><span class="o">.</span><span class="n">querySelectorAll</span><span class="p">(</span><span class="n">selector</span><span class="p">)</span>
-<span class="c">// lengthプロパティはRemoteObjectだが、数値との比較が可能</span>
-<span class="k">if</span><span class="w"> </span><span class="n">elements</span><span class="o">.</span><span class="n">length</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="k">then</span>
-<span class="w">    </span><span class="c">// innerTextプロパティは文字列型のRemoteObjectを返すがEMPTYを足すことで通常の文字列にできる</span>
-<span class="w">    </span><span class="n">innerText</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">elements</span><span class="p">[</span><span class="m">0</span><span class="p">]</span><span class="o">.</span><span class="n">innerText</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">EMPTY</span>
-<span class="w">    </span><span class="c">// ConvertFromRemoteObject関数で通常の型に変換することもできる</span>
-<span class="w">    </span><span class="c">// innerText = ConvertFromRemoteObject(elements[0].innerText)</span>
-<span class="k">endif</span>
-</pre></div>
-</div>
-</dd></dl>
-
 </section>
 <section id="id43">
 <h3>三項演算子<a class="headerlink" href="#id43" title="この見出しへのパーマリンク">#</a></h3>
@@ -2055,6 +2031,7 @@ UWSCRでは演算子が追加され論理演算およびビット演算を明示
 <span class="k">print</span><span class="w"> </span><span class="p">[]</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="s">&#39;真&#39;</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="s">&#39;偽&#39;</span><span class="w"> </span><span class="c">// 偽</span>
 </pre></div>
 </div>
+<p>ただし、 <code class="docutils literal notranslate"><span class="pre">OPTION</span> <span class="pre">FORCEBOOL</span></code> が指定されている場合は <code class="docutils literal notranslate"><span class="pre">TRUE</span></code> または <code class="docutils literal notranslate"><span class="pre">FALSE</span></code> を返す式のみが有効となります</p>
 </section>
 <section id="id48">
 <h2>コメント<a class="headerlink" href="#id48" title="この見出しへのパーマリンク">#</a></h2>
@@ -3361,7 +3338,7 @@ endstruct
 <span class="c">// 代入後はバッファのサイズが返る</span>
 <span class="n">h</span><span class="o">.</span><span class="n">baz</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;baz&quot;</span>
 <span class="n">h</span><span class="o">.</span><span class="n">qux</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;qux&quot;</span>
-<span class="k">print</span><span class="w"> </span><span class="n">h</span><span class="o">.</span><span class="n">bufSize</span><span class="p">(</span><span class="s">&quot;baz&quot;</span><span class="p">)</span><span class="w"> </span><span class="c">// 1024</span>
+<span class="k">print</span><span class="w"> </span><span class="n">h</span><span class="o">.</span><span class="n">bufSize</span><span class="p">(</span><span class="s">&quot;baz&quot;</span><span class="p">)</span><span class="w"> </span><span class="c">// 4</span>
 <span class="k">print</span><span class="w"> </span><span class="n">h</span><span class="o">.</span><span class="n">bufSize</span><span class="p">(</span><span class="s">&quot;qux&quot;</span><span class="p">)</span><span class="w"> </span><span class="c">// 260</span>
 
 <span class="k">print</span><span class="w"> </span><span class="n">h</span><span class="o">.</span><span class="n">bufSize</span><span class="p">(</span><span class="s">&quot;foo&quot;</span><span class="p">)</span><span class="w"> </span><span class="c">// 0 ※文字列型じゃない場合も0</span>
@@ -3373,7 +3350,7 @@ endstruct
 <p>DLL関数が返す構造体のポインタから構造体にアクセスできます</p>
 <div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// 第四引数にWTS_SESSION_INFO_1Wのポインタが返る</span>
 <span class="kd">def_dll</span><span class="w"> </span><span class="n">WTSEnumerateSessionsExW</span><span class="p">(</span><span class="n">handle</span><span class="o">,</span><span class="w"> </span><span class="k">var</span><span class="w"> </span><span class="n">dword</span><span class="o">,</span><span class="w"> </span><span class="n">dword</span><span class="o">,</span><span class="w"> </span><span class="k">var</span><span class="w"> </span><span class="n">pointer</span><span class="o">,</span><span class="w"> </span><span class="k">var</span><span class="w"> </span><span class="n">dword</span><span class="p">)</span><span class="o">:</span><span class="n">bool</span><span class="o">:</span><span class="n">Wtsapi32</span>
-<span class="kd">def_dll</span><span class="w"> </span><span class="n">WTSFreeMemory</span><span class="p">(</span><span class="n">pointer</span><span class="p">)</span><span class="o">:</span><span class="n">Wtsapi32</span>
+<span class="kd">def_dll</span><span class="w"> </span><span class="n">WTSFreeMemoryExW</span><span class="p">(</span><span class="n">dword</span><span class="o">,</span><span class="w"> </span><span class="n">pointer</span><span class="o">,</span><span class="w"> </span><span class="n">dword</span><span class="p">)</span><span class="o">:</span><span class="n">bool</span><span class="o">:</span><span class="n">Wtsapi32</span>
 
 <span class="kd">struct</span><span class="w"> </span><span class="n">WTS_SESSION_INFO_1W</span>
 <span class="w">    </span><span class="n">ExecEnvId</span><span class="w">    </span><span class="o">:</span><span class="w"> </span><span class="n">dword</span>
@@ -3409,8 +3386,8 @@ endstruct
 <span class="w">        </span><span class="k">print</span>
 <span class="w">    </span><span class="k">next</span>
 
-<span class="w">    </span><span class="c">// WTS_SESSION_INFO_1W構造体を開放する</span>
-<span class="w">    </span><span class="n">WTSFreeMemory</span><span class="p">(</span><span class="n">ptr</span><span class="p">)</span>
+<span class="w">    </span><span class="c">// WTS_SESSION_INFO_1W構造体をすべて開放する</span>
+<span class="w">    </span><span class="n">WTSFreeMemoryExW</span><span class="p">(</span><span class="m">2</span><span class="o">,</span><span class="w"> </span><span class="n">ptr</span><span class="o">,</span><span class="w"> </span><span class="n">cnt</span><span class="p">)</span>
 <span class="k">endif</span>
 </pre></div>
 </div>

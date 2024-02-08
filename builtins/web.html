@@ -7,7 +7,7 @@
 <link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="prev" title="Excel" href="excel.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>ウェブ関連 - UWSCR 0.14.0</title>
+        <title>ウェブ関連 - UWSCR 0.15.0</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 0.14.0</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 0.15.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 0.14.0</span>
+  <span class="sidebar-brand-text">UWSCR 0.15.0</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -530,18 +530,21 @@
 <h4>IESETDATA互換<a class="headerlink" href="#iesetdata" title="この見出しへのパーマリンク">#</a></h4>
 <dl class="py function">
 <dt class="sig sig-object py" id="BRSetData">
-<span class="sig-name descname"><span class="pre">BRSetData</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">タブ</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">値</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">value=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n番目=1</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#BRSetData" title="この定義へのパーマリンク">#</a></dt>
+<span class="sig-name descname"><span class="pre">BRSetData</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">タブ</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">値</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">value=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n番目=1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">直接入力=FALSE</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#BRSetData" title="この定義へのパーマリンク">#</a></dt>
 <dd><div class="line-block">
-<div class="line">テキストボックス等の値(value)を変更する</div>
+<div class="line">テキストボックス等に文字列を入力する</div>
+<div class="line">キー入力をエミュレートします</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">input[type=&quot;file&quot;]</span></code> 要素に対してはファイルパスを設定します</div>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>タブ</strong> (<em>TabWindowオブジェクト</em>) -- 値を取りたいページのタブを示す <a class="reference internal" href="#tabwindow-object"><span class="std std-ref">TabWindowオブジェクト</span></a></p></li>
-<li><p><strong>値</strong> (<em>文字列</em>) -- 入力したい値</p></li>
+<li><p><strong>値</strong> (<em>文字列</em>) -- 入力したい値、ファイルパス複数登録の場合は文字列配列も可</p></li>
 <li><p><strong>name</strong> (<em>文字列</em>) -- 値を変更するエレメントのname属性</p></li>
 <li><p><strong>value</strong> (<em>文字列 省略可</em>) -- 同一nameのエレメントがある場合にvalue値を指定</p></li>
 <li><p><strong>n番目</strong> (<em>数値 省略可</em>) -- nameとvalueが一致する場合に順番を1から指定</p></li>
+<li><p><strong>直接入力</strong> (<em>真偽値 省略可</em>) -- 直接valueプロパティを変更する場合はTRUE</p></li>
 </ul>
 </dd>
 <dt class="field-even">戻り値の型<span class="colon">:</span></dt>
@@ -551,6 +554,38 @@
 <dd class="field-odd"><p>成功時TRUE</p>
 </dd>
 </dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">BRSetData</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">RemoteObject</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">値</span></span></em><span class="sig-paren">)</span></dt>
+<dd><div class="line-block">
+<div class="line">テキストボックス等に文字列を入力する</div>
+<div class="line">キー入力をエミュレートします</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">input[type=&quot;file&quot;]</span></code> 要素に対してはファイルパスを設定します</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>タブ</strong> (<em>RemoteObject</em>) -- 入力したいエレメントを示す <a class="reference internal" href="#remote-object"><span class="std std-ref">RemoteObject</span></a></p></li>
+<li><p><strong>値</strong> (<em>文字列</em>) -- 入力したい値、ファイルパス複数登録の場合は文字列配列も可</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>真偽値</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>成功時TRUE</p>
+</dd>
+</dl>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">browser</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">BrowserControl</span><span class="p">(</span><span class="n">BC_CHROME</span><span class="p">)</span>
+<span class="n">tab</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">browser</span><span class="p">[</span><span class="m">0</span><span class="p">]</span>
+
+<span class="n">file</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">tab</span><span class="o">.</span><span class="n">querySelector</span><span class="p">(</span><span class="s">&quot;input[type=file]&quot;</span><span class="p">)</span>
+<span class="n">files</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="n">C</span><span class="o">:</span><span class="err">\</span><span class="n">test</span><span class="err">\</span><span class="n">hoge</span><span class="o">.</span><span class="n">txt</span><span class="o">,</span><span class="w"> </span><span class="n">C</span><span class="o">:</span><span class="err">\</span><span class="n">test</span><span class="err">\</span><span class="n">fuga</span><span class="o">.</span><span class="n">txt</span><span class="p">]</span>
+<span class="k">print</span><span class="w"> </span><span class="n">BRSetData</span><span class="p">(</span><span class="n">file</span><span class="o">,</span><span class="w"> </span><span class="n">files</span><span class="p">)</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="py function">
@@ -1407,8 +1442,6 @@
 <span class="c">// 合計金額を得る</span>
 
 <span class="n">price</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">document</span><span class="o">.</span><span class="n">querySelector</span><span class="p">(</span><span class="s">&#39;#price&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">textContent</span>
-<span class="c">// RemoteObjectを値に変換する</span>
-<span class="n">price</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ConvertFromRemoteObject</span><span class="p">(</span><span class="n">price</span><span class="p">)</span>
 
 <span class="c">// 確定ボタンを押す</span>
 
