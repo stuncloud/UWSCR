@@ -19,7 +19,6 @@ UWSCR |version| オンラインヘルプ
     usage/how_to_run
     usage/settings
     usage/how_to_build
-    .. usage/language_server
 
 
 スクリプト構文
