@@ -20,10 +20,9 @@ pub use acc::U32Ext;
 use util::winapi::get_console_hwnd;
 
 #[cfg(feature="chkimg")]
-use crate::{
-    settings::USETTINGS,
-    builtins::chkimg::{ChkImg, ScreenShot},
-};
+use crate::builtins::chkimg::{ChkImg, ScreenShot};
+#[cfg(feature="chkimg")]
+use util::settings::USETTINGS;
 
 #[allow(unused_braces)]
 use windows::{
@@ -171,9 +170,9 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("mouseorg", 4, mouseorg);
     sets.add("chkmorg", 0, chkmorg);
     #[cfg(feature="chkimg")]
-    sets.add("chkimg", 7, chkimg);
+    sets.add("chkimg", 8, chkimg);
     #[cfg(feature="chkimg")]
-    sets.add("saveimg", 9, saveimg);
+    sets.add("saveimg", 11, saveimg);
     sets
 }
 
@@ -990,6 +989,24 @@ pub fn monitor(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 }
 
 #[cfg(feature="chkimg")]
+#[allow(non_camel_case_types)]
+#[derive(Debug, EnumString, EnumProperty, VariantNames, ToPrimitive, FromPrimitive)]
+pub enum ChkImgOption {
+    CHKIMG_NO_GRAY = 1,
+    CHKIMG_USE_WGCAPI = 2,
+}
+
+#[cfg(feature="chkimg")]
+impl ChkImgOption {
+    fn gray_scale(opt: i32) -> bool {
+        1 & opt != 1
+    }
+    fn use_wgcapi(opt: i32) -> bool {
+        2 & opt == 2
+    }
+}
+
+#[cfg(feature="chkimg")]
 pub fn chkimg(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let save_ss = {
         let settings = USETTINGS.lock().unwrap();
@@ -1003,10 +1020,38 @@ pub fn chkimg(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncRe
     }
     let score = score as f64 / 100.0;
     let count = args.get_as_int::<u8>(2, Some(5))?;
-    let left = args.get_as_int_or_empty(3)?;
-    let top = args.get_as_int_or_empty(4)?;
-    let right = args.get_as_int_or_empty(5)?;
-    let bottom = args.get_as_int_or_empty(6)?;
+    let (left, top, right, bottom, opt, monitor) = match args.get_as_int_or_array_or_empty(3)? {
+        Some(two) => match two {
+            TwoTypeArg::T(n) => {
+                let left = Some(n as i32);
+                let top = args.get_as_int_or_empty(4)?;
+                let right = args.get_as_int_or_empty(5)?;
+                let bottom = args.get_as_int_or_empty(6)?;
+                let opt = args.get_as_int(7, Some(0))?;
+                let monitor = args.get_as_int(8, Some(0))?;
+                (left, top, right, bottom, opt, monitor)
+            },
+            TwoTypeArg::U(arr) => {
+                let left = arr.get(0).map(|o| o.as_f64(true)).flatten().map(|n| n as i32);
+                let top = arr.get(1).map(|o| o.as_f64(true)).flatten().map(|n| n as i32);
+                let right = arr.get(2).map(|o| o.as_f64(true)).flatten().map(|n| n as i32);
+                let bottom = arr.get(3).map(|o| o.as_f64(true)).flatten().map(|n| n as i32);
+                let opt = args.get_as_int(4, Some(0))?;
+                let monitor = args.get_as_int(5, Some(0))?;
+                (left, top, right, bottom, opt, monitor)
+            },
+        },
+        None => {
+            let left = None;
+            let top = args.get_as_int_or_empty(4)?;
+            let right = args.get_as_int_or_empty(5)?;
+            let bottom = args.get_as_int_or_empty(6)?;
+            let opt = args.get_as_int(7, Some(0))?;
+            let monitor = args.get_as_int(8, Some(0))?;
+            (left, top, right, bottom, opt, monitor)
+        },
+    };
+
 
     let mi = MorgImg::from(&evaluator.mouseorg);
     let ss = match mi.hwnd {
@@ -1029,19 +1074,25 @@ pub fn chkimg(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncRe
             } else {
                 ImgConst::IMG_FORE
             };
-            let mut ss = ScreenShot::get_window(hwnd, left, top, width, height, client, style)?;
-            ss.to_gray()?;
-            ss
+            if ChkImgOption::use_wgcapi(opt) {
+                ScreenShot::get_window_wgcapi(hwnd, left, top, width, height, client)?
+            } else {
+                ScreenShot::get_window(hwnd, left, top, width, height, client, style)?
+            }
         },
         None => {
-            ScreenShot::get_screen(left, top, right, bottom)?
+            if ChkImgOption::use_wgcapi(opt) {
+                ScreenShot::get_screen_wgcapi(monitor, left, top, right, bottom)?
+            } else {
+                ScreenShot::get_screen(left, top, right, bottom)?
+            }
         },
     };
 
     if save_ss {
         ss.save(None)?;
     }
-    let chk = ChkImg::from_screenshot(ss)?;
+    let chk = ChkImg::from_screenshot(ss, ChkImgOption::gray_scale(opt))?;
     let result = chk.search(&path, score, Some(count))?;
     let arr = result
         .into_iter()
@@ -1647,14 +1698,50 @@ pub fn saveimg(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let client = args.get_as_bool(6, Some(false))?;
     let param = args.get_as_int_or_empty(7)?;
     let style = args.get_as_const(8, false)?.unwrap_or(ImgConst::IMG_AUTO);
+    let wgcapi = args.get_as_bool(9, Some(false))?;
 
     let ss = if id > 0 {
         let hwnd = get_hwnd_from_id(id);
-        ScreenShot::get_window(hwnd, left, top, width, height, client, style)?
+        if wgcapi {
+            ScreenShot::get_window_wgcapi(hwnd, left, top, width, height, client)?
+        } else {
+            ScreenShot::get_window(hwnd, left, top, width, height, client, style)?
+        }
     } else if id < 0 {
         return Ok(Object::Empty);
     } else {
-        ScreenShot::get_screen2(left, top, width, height)?
+        if wgcapi {
+            let monitor = args.get_as_int(10, Some(0))?;
+            let right = match left {
+                Some(l) => match width {
+                    Some(w) => {
+                        if l.is_negative() {
+                            Some(w)
+                        } else {
+                            Some(l + w)
+                        }
+                    },
+                    None => None,
+                },
+                None => width,
+            };
+            let bottom = match top {
+                Some(t) => match height {
+                    Some(h) => {
+                        if t.is_negative() {
+                            Some(h)
+                        } else {
+                            Some(t + h)
+                        }
+                    },
+                    None => None,
+                },
+                None => height,
+            };
+            ScreenShot::get_screen_wgcapi(monitor, left, top, right, bottom)?
+        } else {
+            ScreenShot::get_screen2(left, top, width, height)?
+        }
     };
     if let Some(filename) = filename {
         let mut path = std::path::PathBuf::from(filename);

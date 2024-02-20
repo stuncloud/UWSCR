@@ -599,6 +599,7 @@ pub enum UErrorMessage {
     UObjectIsNotAnArray,
     UnavailableFunction,
     ForceBoolError,
+    MonitorNotFound,
 }
 
 impl fmt::Display for UErrorMessage {
@@ -1336,6 +1337,10 @@ impl fmt::Display for UErrorMessage {
             Self::ForceBoolError => write_locale!(f,
                 "条件式はTRUEまたはFALSEを返す必要があります",
                 "Conditional expression must return true or false",
+            ),
+            Self::MonitorNotFound => write_locale!(f,
+                "指定された番号のモニタがありません",
+                "Monitor not found",
             ),
         }
     }

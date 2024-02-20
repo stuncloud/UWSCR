@@ -439,6 +439,18 @@ impl BuiltinFuncArgs {
             }
         })
     }
+    /// 数値または配列を受けるがEMPTYを許容する引数
+    pub fn get_as_int_or_array_or_empty(&self, i: usize) -> BuiltInResult<Option<TwoTypeArg<f64, Vec<Object>>>> {
+        self.get_arg_with_required_flag(i, false, |arg|{
+            match arg {
+                Object::Num(n) => Ok(Some(TwoTypeArg::T(n))),
+                Object::Array(arr) => Ok(Some(TwoTypeArg::U(arr))),
+                Object::Empty |
+                Object::EmptyParam => Ok(None),
+                _ => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg)))
+            }
+        })
+    }
     /// タスクを受ける引数
     pub fn get_as_task(&self, i: usize) -> BuiltInResult<TwoTypeArg<UTask, RemoteObject>> {
         self.get_arg(i, |arg| {
@@ -875,6 +887,8 @@ pub fn init_builtins() -> Vec<NamedObject> {
     set_builtin_consts::<window_control::ImgConst>(&mut vec);
     set_builtin_consts::<window_control::MorgTargetConst>(&mut vec);
     set_builtin_consts::<window_control::MorgContextConst>(&mut vec);
+    #[cfg(feature="chkimg")]
+    set_builtin_consts::<window_control::ChkImgOption>(&mut vec);
 
     // text control
     text_control::builtin_func_sets().set(&mut vec);

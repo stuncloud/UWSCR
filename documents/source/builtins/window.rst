@@ -603,6 +603,12 @@ ID0について
                 | 対象ウィンドウによっては正常に動作しない可能性があります
                 | 例: saveimgのIMG_BACKで画像が保存できないウィンドウ
 
+            .. admonition:: CHKIMG_USE_WGCAPI指定時
+                :class: hint
+
+                | chkimgでGraphicsCaptureAPI利用時にこれらのオプションは影響しません
+                | ウィンドウの位置を問わずウィンドウ画像を取得します
+
     :param 真偽値またはEMPTY 省略可 HWND: ``MORG_DIRECT`` 指定時の第一引数の振る舞いを限定します (``MORG_DIRECT`` 以外の場合無視される)
 
         .. object:: FALSE
@@ -1303,7 +1309,7 @@ ID0について
 画像検索
 --------
 
-.. function:: chkimg(画像ファイルパス, [スコア=95, 最大検索数=5, left=EMPTY, top=EMPTY, right=EMPTY, bottom=EMPTY])
+.. function:: chkimg(画像ファイルパス, [スコア=95, 最大検索数=5, left=EMPTY, top=EMPTY, right=EMPTY, bottom=EMPTY, オプション=0, モニタ番号=0])
 
     | 指定画像をスクリーン上から探してその座標を返します
 
@@ -1324,6 +1330,21 @@ ID0について
     :param 数値 省略可 top: 検索範囲指定: 左上Y座標、省略時は画面左上Y座標
     :param 数値 省略可 right: 検索範囲指定: 右下X座標、省略時は画面右下X座標
     :param 数値 省略可 bottom: 検索範囲指定: 右下X座標、省略時は画面右下Y座標
+    :param 定数 省略可 オプション: 実行時オプションを指定
+
+        .. object:: CHKIMG_NO_GRAY
+
+            | 画像をグレースケール化せず探索を行う
+
+        .. object:: CHKIMG_USE_WGCAPI
+
+            | デスクトップまたはウィンドウの画像取得にGraphicsCaptureAPIを使う
+            | デスクトップの場合は対象とするモニタを次の引数で指定
+
+            .. hint:: このオプションにより通常ではキャプチャできないウィンドウがキャプチャできる可能性があります
+
+
+    :param 定数 省略可 モニタ番号: ``CHKIMG_USE_WGCAPI`` 時に検索するモニタ番号を0から指定、デフォルトは0 (プライマリモニタ)
     :rtype: 二次元配列
     :return: 該当する部分の座標とスコアを格納した二次元配列 ``[[X座標, Y座標, スコア], ...]``
 
@@ -1335,7 +1356,20 @@ ID0について
                 print found // [x, y, スコア]
             next
 
-.. function:: saveimg([ファイル名=EMPTY, ID=0, x=EMPTY, y=EMPTY, 幅=EMPTY, 高さ=EMPTY, クライアント領域=FALSE, 圧縮率=EMPTY, 取得方法=IMG_AUTO])
+.. function:: chkimg(画像ファイルパス, [スコア=95, 最大検索数=5, 範囲, オプション=0])
+    :noindex:
+
+    | 配列による範囲指定
+
+    :param 配列 省略可 範囲: ``[left, top, right, bottom]`` で指定
+
+    .. admonition:: サンプルコード
+
+        .. sourcecode:: uwscr
+
+            found = chkimg("hoge.png", 95, 1, [100, 100, 400, 400])
+
+.. function:: saveimg([ファイル名=EMPTY, ID=0, x=EMPTY, y=EMPTY, 幅=EMPTY, 高さ=EMPTY, クライアント領域=FALSE, 圧縮率=EMPTY, 取得方法=IMG_AUTO, WGCAPI=false, モニタ番号=0])
 
     | ウィンドウの画像を保存します
 
@@ -1399,6 +1433,14 @@ ID0について
 
             - ウィンドウが見えていれば ``IMG_FORE`` を使用する (アクティブかどうかは問わない)
             - 一部でも他のウィンドウに隠れていれば ``IMG_BACK`` を使用する
+    :param 真偽値 省略可 WGCAPI: TRUEならGraphicsCaptureAPIにより画面またはウィンドウをキャプチャします
+    :param 数値 省略可 モニタ番号: IDに0を指定して、かつWGCAPIをTRUEにした場合にキャプチャするモニタ番号を0から指定
+
+        .. admonition:: xy座標は0から
+            :class: note
+
+            | xy座標はモニタごとの座標を0から指定してください
+            | 0未満が指定された場合は0になります
 
     :return: なし
 

@@ -1,25 +1,23 @@
-use util::winapi::{from_wide_string};
+use util::winapi::from_wide_string;
 
 use windows::{
-    core::{HSTRING},
+    core::HSTRING,
     Win32::{
         Foundation::{RECT, POINT, LPARAM, BOOL, HWND},
         UI::{
-            WindowsAndMessaging::{MONITORINFOF_PRIMARY},
+            WindowsAndMessaging::MONITORINFOF_PRIMARY,
             HiDpi::{
                 GetDpiForMonitor, MDT_DEFAULT
             },
         },
-        Graphics::{
-            Gdi::{
-                HMONITOR, HDC,
-                EnumDisplayMonitors,
-                MonitorFromPoint, MONITOR_DEFAULTTONEAREST,
-                MONITORINFOEXW, MONITORINFO, GetMonitorInfoW,
-                EnumDisplayDevicesW, DISPLAY_DEVICEW,
-                MonitorFromWindow,
-                EnumDisplaySettingsW, ENUM_CURRENT_SETTINGS
-            },
+        Graphics::Gdi::{
+            HMONITOR, HDC,
+            EnumDisplayMonitors,
+            MonitorFromPoint, MONITOR_DEFAULTTONEAREST,
+            MONITORINFOEXW, MONITORINFO, GetMonitorInfoW,
+            EnumDisplayDevicesW, DISPLAY_DEVICEW,
+            MonitorFromWindow,
+            EnumDisplaySettingsW, ENUM_CURRENT_SETTINGS
         }
     }
 };
@@ -37,6 +35,7 @@ pub struct Monitor {
     scaling: f64,
     /// dpi
     dpi: f64,
+    hmonitor: HMONITOR,
 }
 
 impl Monitor {
@@ -118,6 +117,9 @@ impl Monitor {
             Some(dpix as f64)
         }
     }
+    pub fn handle(&self) -> HMONITOR {
+        self.hmonitor
+    }
 
     fn new(hmonitor: HMONITOR, index: Option<u32>) -> Option<Self> {
         if hmonitor.is_invalid() {
@@ -139,7 +141,8 @@ impl Monitor {
                 // device,
                 devmode,
                 scaling,
-                dpi
+                dpi,
+                hmonitor,
             };
             Some(monitor)
         }

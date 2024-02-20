@@ -1,13 +1,20 @@
 use std::{ffi::c_void, io::Read};
 use std::fs::File;
+use std::sync::{
+    OnceLock,
+    mpsc::channel,
+};
 
 use crate::error::{UError, UErrorKind, UErrorMessage};
-use super::window_control::ImgConst;
+use super::window_control::{ImgConst, Monitor};
 use super::clipboard::Clipboard;
 
 use opencv::prelude::MatTraitConstManual;
-use windows::Win32::{
-        Foundation::{HWND, RECT, POINT},
+
+use windows::{
+    core::{Result as Win32Result, Error as Win32Error, IInspectable, ComInterface},
+    Win32::{
+        Foundation::{HWND, RECT, POINT, E_FAIL,},
         Graphics::{
             Gdi::{
                 SRCCOPY, CAPTUREBLT, DIB_RGB_COLORS,
@@ -18,23 +25,42 @@ use windows::Win32::{
                 CreateDIBitmap, CBM_INIT,
                 ClientToScreen, IntersectRect,
                 RedrawWindow, RDW_FRAME, RDW_INVALIDATE, RDW_UPDATENOW, RDW_ALLCHILDREN,
+                HMONITOR,
             },
             Dwm::{
                 DwmGetWindowAttribute, DWMWA_EXTENDED_FRAME_BOUNDS,
-            }
+            },
+            Direct3D::{D3D_DRIVER_TYPE, D3D_DRIVER_TYPE_HARDWARE, D3D_DRIVER_TYPE_WARP},
+            Direct3D11::{
+                D3D11CreateDevice, ID3D11Device, D3D11_SDK_VERSION, D3D11_CREATE_DEVICE_BGRA_SUPPORT,
+                ID3D11Texture2D, D3D11_TEXTURE2D_DESC, D3D11_USAGE_STAGING, D3D11_CPU_ACCESS_READ,
+                ID3D11Resource, D3D11_MAPPED_SUBRESOURCE, D3D11_MAP_READ,
+            },
+            Dxgi::{DXGI_ERROR_UNSUPPORTED, IDXGIDevice},
         },
         UI::WindowsAndMessaging::{
-                SM_CYVIRTUALSCREEN, SM_CXVIRTUALSCREEN,
-                SM_YVIRTUALSCREEN, SM_XVIRTUALSCREEN,
-                GetSystemMetrics,
-                GetClientRect, GetWindowRect,
-                GetWindow, GW_HWNDPREV,
-                IsWindowVisible,
-            },
-    };
+            SM_CYVIRTUALSCREEN, SM_CXVIRTUALSCREEN,
+            SM_YVIRTUALSCREEN, SM_XVIRTUALSCREEN,
+            GetSystemMetrics,
+            GetClientRect, GetWindowRect,
+            GetWindow, GW_HWNDPREV,
+            IsWindowVisible,
+        },
+        System::WinRT::{
+            RoInitialize, RoUninitialize, RO_INIT_SINGLETHREADED,
+            Graphics::Capture::IGraphicsCaptureItemInterop,
+            Direct3D11::{CreateDirect3D11DeviceFromDXGIDevice, IDirect3DDxgiInterfaceAccess},
+        }
+    },
+    Graphics::{
+        Capture::{GraphicsCaptureItem, Direct3D11CaptureFramePool},
+        DirectX::{DirectXPixelFormat, Direct3D11::IDirect3DDevice},
+    },
+    Foundation::TypedEventHandler,
+};
 
 use opencv::{
-    core::{self, Mat, MatTrait, MatTraitConst, MatExprTraitConst, Vector},
+    core::{self as opencv_core, Mat, MatTrait, MatTraitConst, MatExprTraitConst, Vector},
     imgcodecs, imgproc,
 };
 
@@ -69,10 +95,11 @@ pub struct ChkImg {
     width: i32,
     height: i32,
     offset_x: i32,
-    offset_y: i32
+    offset_y: i32,
+    gray_scale: bool,
 }
 impl ChkImg {
-    pub fn from_screenshot(ss: ScreenShot) -> ChkImgResult<Self> {
+    pub fn from_screenshot(ss: ScreenShot, gray_scale: bool) -> ChkImgResult<Self> {
         let size = ss.data.mat_size();
         Ok(Self {
             image: ss.data,
@@ -80,19 +107,20 @@ impl ChkImg {
             height: *size.get(1).unwrap(),
             offset_x: ss.left,
             offset_y: ss.top,
+            gray_scale,
         })
     }
-    pub fn _from_file(path: &str) -> ChkImgResult<Self> {
-        let image = imgcodecs::imread(path, imgcodecs::IMREAD_GRAYSCALE)?;
-        let size = image.mat_size();
-        Ok(Self {
-            image,
-            width: *size.get(0).unwrap(),
-            height: *size.get(1).unwrap(),
-            offset_x: 0,
-            offset_y: 0
-        })
-    }
+    // pub fn _from_file(path: &str) -> ChkImgResult<Self> {
+    //     let image = imgcodecs::imread(path, imgcodecs::IMREAD_GRAYSCALE)?;
+    //     let size = image.mat_size();
+    //     Ok(Self {
+    //         image,
+    //         width: *size.get(0).unwrap(),
+    //         height: *size.get(1).unwrap(),
+    //         offset_x: 0,
+    //         offset_y: 0
+    //     })
+    // }
     pub fn search(&self, path: &str, score: f64, max_count: Option<u8>) -> ChkImgResult<MatchedPoints> {
         let buf= {
             let mut buf = vec![];
@@ -100,31 +128,43 @@ impl ChkImg {
             f.read_to_end(&mut buf)?;
             Vector::from_slice(buf.as_slice())
         };
-        let templ = imgcodecs::imdecode(&buf, imgcodecs::IMREAD_GRAYSCALE)?;
+        let templ = if self.gray_scale {
+            imgcodecs::imdecode(&buf, imgcodecs::IMREAD_GRAYSCALE)?
+        } else {
+            imgcodecs::imdecode(&buf, imgcodecs::IMREAD_UNCHANGED)?
+        };
         let templ_width = *templ.mat_size().get(0)
             .ok_or(UError::new(UErrorKind::OpenCvError, UErrorMessage::FailedToLoadImageFile(path.into())))?;
         let templ_height = *templ.mat_size().get(1)
             .ok_or(UError::new(UErrorKind::OpenCvError, UErrorMessage::FailedToLoadImageFile(path.into())))?;
 
+
         // マッチング
         let mut result = Mat::default();
-        imgproc::match_template(&self.image, &templ, &mut result, imgproc::TM_CCOEFF_NORMED, &core::no_array())?;
+        if self.gray_scale {
+            let mut gray = Mat::default();
+            imgproc::cvt_color(&self.image, &mut gray, imgproc::COLOR_RGB2GRAY, 0)?;
+            imgproc::match_template(&gray, &templ, &mut result, imgproc::TM_CCOEFF_NORMED, &opencv_core::no_array())?;
+        } else {
+            imgproc::match_template(&self.image, &templ, &mut result, imgproc::TM_CCOEFF_NORMED, &opencv_core::no_array())?;
+        };
+
 
         // 検索範囲のマスク
         let rows = self.width - templ_width + 1;
         let cols = self.height - templ_height + 1;
-        let mut mask = core::Mat::ones(rows, cols, core::CV_8UC1)?.to_mat()?;
+        let mut mask = opencv_core::Mat::ones(rows, cols, opencv_core::CV_8UC1)?.to_mat()?;
 
         // 戻り値
         let mut matches = vec![];
 
         let counter = max_count.unwrap_or(10);
-        for _ in 0..counter {
+        for _i in 0..counter {
             // スコア
             let mut max_val = 0.0;
             // 座標
-            let mut max_loc = core::Point::default();
-            core::min_max_loc(
+            let mut max_loc = opencv_core::Point::default();
+            opencv_core::min_max_loc(
                 &result,
                 None,
                 Some(&mut max_val),
@@ -160,6 +200,31 @@ impl ChkImg {
 
         Ok(matches)
     }
+}
+
+struct WinRTInit;
+impl WinRTInit {
+    fn new() -> Win32Result<Self> {
+        unsafe {
+            RoInitialize(RO_INIT_SINGLETHREADED)?;
+        }
+        Ok(Self)
+    }
+}
+impl Drop for WinRTInit {
+    fn drop(&mut self) {
+        unsafe {
+            RoUninitialize();
+        }
+    }
+}
+thread_local! {
+    static WINRT_INIT: OnceLock<Win32Result<WinRTInit>> = OnceLock::new();
+}
+
+pub enum CaptureItem {
+    Window(HWND),
+    Monitor(HMONITOR),
 }
 
 
@@ -237,7 +302,7 @@ impl ScreenShot {
             ));
         }
 
-        let mut data = Mat::new_rows_cols(height, width, core::CV_8UC4)?;
+        let mut data = Mat::new_rows_cols(height, width, opencv_core::CV_8UC4)?;
         let pdata = data.data_mut() as *mut c_void;
         GetDIBits(
             hdc_compat,
@@ -256,49 +321,51 @@ impl ScreenShot {
 
         Ok(ScreenShot {data, left, top, width, height})
     }
-    unsafe fn new_window(hwnd: Option<&HWND>, left: i32, top: i32, width: i32, height: i32, dx: i32, dy: i32) -> ScreenShotResult {
-        let mut ss = Self::new(hwnd, left, top, width, height)?;
-        ss.left = dx;
-        ss.top = dy;
-        Ok(ss)
-    }
-    pub fn to_gray(&mut self) -> Result<(), UError>{
-        let mut data = Mat::default();
-        imgproc::cvt_color(&self.data, &mut data, imgproc::COLOR_RGB2GRAY, 0)?;
-        self.data = data;
-        Ok(())
-    }
+
     pub fn get_screen(left: Option<i32>, top: Option<i32>, right: Option<i32>, bottom: Option<i32>) -> ScreenShotResult {
         unsafe {
             // キャプチャ範囲を確定
-            let left = left.unwrap_or(GetSystemMetrics(SM_XVIRTUALSCREEN));
-            let top = top.unwrap_or(GetSystemMetrics(SM_YVIRTUALSCREEN));
-            let mut width = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+            let vs_x = GetSystemMetrics(SM_XVIRTUALSCREEN);
+            let vs_y = GetSystemMetrics(SM_YVIRTUALSCREEN);
+            let vs_w = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+            let vs_h = GetSystemMetrics(SM_CYVIRTUALSCREEN);
 
-            if right.is_some() {
-                width = right.unwrap() - left;
-            } else {
-                width -= left;
-            }
-            let mut height = GetSystemMetrics(SM_CYVIRTUALSCREEN);
-            if bottom.is_some() {
-                height = bottom.unwrap() - top;
-            } else {
-                height -= left
-            }
+            let (left, width) = match (left, right) {
+                (None, None) => (vs_x, vs_w),
+                (None, Some(r)) => (vs_x, r - vs_x),
+                (Some(l), None) => (l, vs_w - (l - vs_x)),
+                (Some(l), Some(r)) => (l, r - l),
+            };
+            let (top, height) = match (top, bottom) {
+                (None, None) => (vs_y, vs_h),
+                (None, Some(b)) => (vs_y, b - vs_y),
+                (Some(t), None) => (t, vs_h - (t - vs_y)),
+                (Some(t), Some(b)) => (t, b - t),
+            };
 
-            let mut ss = Self::new(None, left, top, width, height)?;
-            ss.to_gray()?;
+            let ss = Self::new(None, left, top, width, height)?;
             Ok(ss)
         }
     }
     pub fn get_screen2(left: Option<i32>, top: Option<i32>, width: Option<i32>, height: Option<i32>) -> ScreenShotResult {
         unsafe {
             // キャプチャ範囲を確定
-            let left = left.unwrap_or(GetSystemMetrics(SM_XVIRTUALSCREEN));
-            let top = top.unwrap_or(GetSystemMetrics(SM_YVIRTUALSCREEN));
-            let width = width.unwrap_or(GetSystemMetrics(SM_CXVIRTUALSCREEN));
-            let height = height.unwrap_or(GetSystemMetrics(SM_CYVIRTUALSCREEN));
+            let vs_x = GetSystemMetrics(SM_XVIRTUALSCREEN);
+            let vs_y = GetSystemMetrics(SM_YVIRTUALSCREEN);
+            let vs_w = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+            let vs_h = GetSystemMetrics(SM_CYVIRTUALSCREEN);
+            let (left, width) = match (left, width) {
+                (None, None) => (vs_x, vs_w),
+                (None, Some(w)) => (vs_x, w),
+                (Some(l), None) => (l, vs_w - (l - vs_x)),
+                (Some(l), Some(w)) => (l, w),
+            };
+            let (top, height) = match (top, height) {
+                (None, None) => (vs_y, vs_h),
+                (None, Some(h)) => (vs_y, h),
+                (Some(t), None) => (t, vs_h - (t - vs_y)),
+                (Some(t), Some(h)) => (t, h),
+            };
 
             Self::new(None, left, top, width, height)
         }
@@ -351,6 +418,13 @@ impl ScreenShot {
             rect
         }
     }
+    fn client_to_screen(hwnd: HWND, x: i32, y: i32) -> (i32, i32) {
+        unsafe {
+            let mut point = POINT { x, y };
+            ClientToScreen(hwnd, &mut point);
+            (point.x, point.y)
+        }
+    }
     pub fn get_window(hwnd: HWND, left: Option<i32>, top: Option<i32>, width: Option<i32>, height: Option<i32>, client: bool, style: ImgConst) -> ScreenShotResult {
         unsafe {
             let is_fore = match style {
@@ -358,8 +432,10 @@ impl ScreenShot {
                 ImgConst::IMG_FORE => true,
                 ImgConst::IMG_BACK => false,
             };
+
             let dx = left.unwrap_or(0);
             let dy = top.unwrap_or(0);
+
             let (left, top, width, height) = if client {
                 let crect = Self::get_client_rect(hwnd);
                 let mut point = POINT {
@@ -406,18 +482,21 @@ impl ScreenShot {
                 RedrawWindow(hwnd, None, None, flags);
             }
             let hwnd = if is_fore {None} else {Some(&hwnd)};
-            Self::new_window(hwnd, left, top, width, height, dx, dy)
+            let mut ss = Self::new(hwnd, left, top, width, height)?;
+            ss.left = dx;
+            ss.top = dy;
+            Ok(ss)
         }
     }
     pub fn save(&self, filename: Option<&str>) -> ChkImgResult<()> {
-        let vector = core::Vector::new();
+        let vector = opencv_core::Vector::new();
         let default = format!("chkimg_ss_{}_{}.png", self.width, self.height);
         let filename = filename.unwrap_or(&default);
         imgcodecs::imwrite(filename, &self.data, &vector)?;
         Ok(())
     }
     pub fn save_to(&self, filename: &str, jpg_quality: Option<i32>, png_compression: Option<i32>) -> ChkImgResult<()> {
-        let mut params = core::Vector::new();
+        let mut params = opencv_core::Vector::new();
         if let Some(val) = jpg_quality {
             params.push(imgcodecs::IMWRITE_JPEG_QUALITY);
             params.push(val);
@@ -455,5 +534,201 @@ impl ScreenShot {
             ReleaseDC(None, hdc);
         }
         Ok(())
+    }
+
+    fn crop_image(mat: &Mat, x: i32, y: i32, width: i32, height: i32) -> opencv::Result<Mat> {
+        let roi = opencv_core::Rect { x, y, width, height };
+        Mat::roi(&mat, roi)
+    }
+    /* Windows Graphics Capture API */
+
+    pub fn get_screen_wgcapi(monitor: u32, left: Option<i32>, top: Option<i32>, right: Option<i32>, bottom: Option<i32>) -> ScreenShotResult {
+        let monitor = Monitor::from_index(monitor)
+            .ok_or(UError::new(UErrorKind::ScreenShotError, UErrorMessage::MonitorNotFound))?;
+        let crop_flg = left.is_some() || top.is_some() || right.is_some() || bottom.is_some();
+
+        let x = left.unwrap_or(0);
+        let y = top.unwrap_or(0);
+        let width = right.map(|right| right - x ).unwrap_or(monitor.width() - x);
+        let height = bottom.map(|bottom| bottom - y).unwrap_or(monitor.height() - y);
+        let left = monitor.x() + x;
+        let top = monitor.y() + y;
+
+        let mat = Self::capture(CaptureItem::Monitor(monitor.handle()))?;
+
+        let data = if crop_flg {
+            Self::crop_image(&mat, x, y, width, height)?
+        } else {
+            mat
+        };
+
+        let ss = Self { data, left, top, width, height };
+        Ok(ss)
+    }
+    pub fn get_window_wgcapi(hwnd: HWND, left: Option<i32>, top: Option<i32>, width: Option<i32>, height: Option<i32>, client: bool) -> ScreenShotResult {
+        let mat = Self::capture(CaptureItem::Window(hwnd))?;
+        let mat_w = mat.cols();
+        let mat_h = mat.rows();
+        let crop_flg = left.is_some() || top.is_some() || width.is_some() || height.is_some();
+        let dx = left.unwrap_or(0);
+        let dy = top.unwrap_or(0);
+
+        let (x, width) = match (left, width) {
+            (None, None) => (0, mat_w),
+            (None, Some(w)) => (0, w),
+            (Some(l), None) => (l, mat_w - l),
+            (Some(l), Some(w)) => (l, w),
+        };
+        let (y, height) = match (top, height) {
+            (None, None) => (0, mat_h),
+            (None, Some(h)) => (0, h),
+            (Some(t), None) => (t, mat_h - t),
+            (Some(t), Some(h)) => (t, h),
+        };
+
+        let data = if crop_flg {
+            Self::crop_image(&mat, x, y, width, height)?
+        } else {
+            mat
+        };
+
+        let mut ss = if client {
+            let rect = Self::get_client_rect(hwnd);
+            let data = Self::crop_image(&data, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top)?;
+            let (cx, cy) = Self::client_to_screen(hwnd, rect.left, rect.top);
+
+            let (left, top) = (x + cx, y + cy);
+
+            ScreenShot { data, left, top, width, height }
+        } else {
+            let rect = Self::get_visible_rect(hwnd)?;
+            let (left, top) = (x + rect.left, y + rect.top);
+
+            ScreenShot { data, left, top, width, height }
+        };
+        ss.left = dx;
+        ss.top = dy;
+
+        Ok(ss)
+
+    }
+
+    fn capture(item: CaptureItem) -> Result<Mat, UError> {
+        WINRT_INIT.with(|once| {
+            match once.get_or_init(|| WinRTInit::new()) {
+                Ok(_) => Ok(()),
+                Err(e) => Err(e.clone()),
+            }
+        })?;
+        unsafe {
+            let interop = windows::core::factory::<GraphicsCaptureItem, IGraphicsCaptureItemInterop>()?;
+            let item: GraphicsCaptureItem = match item {
+                CaptureItem::Window(hwnd) => {
+                    interop.CreateForWindow(hwnd)?
+                },
+                CaptureItem::Monitor(hmonitor) => {
+                    interop.CreateForMonitor(hmonitor)?
+                },
+            };
+
+            let d3d_device = Self::create_d3d_device()?;
+            let context = d3d_device.GetImmediateContext()?;
+
+            let texture = {
+                let size = item.Size()?;
+
+                let dxgidevice: IDXGIDevice = d3d_device.cast()?;
+                let device: IDirect3DDevice = CreateDirect3D11DeviceFromDXGIDevice(&dxgidevice)?.cast()?;
+
+                let frame_pool = Direct3D11CaptureFramePool::CreateFreeThreaded(&device, DirectXPixelFormat::B8G8R8A8UIntNormalized, 1, size)?;
+                let session = frame_pool.CreateCaptureSession(&item)?;
+
+                let (s, r) = channel();
+                let handler = TypedEventHandler::<Direct3D11CaptureFramePool, IInspectable>::new({
+                    move |frame_pool, _| {
+                        let pool = frame_pool.as_ref().unwrap();
+                        let frame = pool.TryGetNextFrame()?;
+                        s.send(frame).map_err(|_| Win32Error::from(E_FAIL))?;
+                        Ok(())
+                    }
+                });
+                frame_pool.FrameArrived(&handler)?;
+                session.StartCapture()?;
+
+                let frame = r.recv().map_err(|_| Win32Error::from(E_FAIL))?;
+                let access: IDirect3DDxgiInterfaceAccess = frame.Surface()?.cast()?;
+                let source: ID3D11Texture2D = access.GetInterface()?;
+
+                let mut desc = D3D11_TEXTURE2D_DESC::default();
+                source.GetDesc(&mut desc);
+                desc.BindFlags = 0;
+                desc.MiscFlags = 0;
+                desc.Usage = D3D11_USAGE_STAGING;
+                desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ.0 as u32;
+
+                let mut texture = None;
+                d3d_device.CreateTexture2D(&desc, None, Some(&mut texture))?;
+                let texture = texture.unwrap();
+
+                context.CopyResource(Some(&texture.cast()?), Some(&source.cast()?));
+
+                session.Close()?;
+                frame_pool.Close()?;
+
+                texture
+            };
+
+            let mut desc = D3D11_TEXTURE2D_DESC::default();
+            texture.GetDesc(&mut desc);
+
+            let resource: ID3D11Resource = texture.cast()?;
+            let mut mapped = D3D11_MAPPED_SUBRESOURCE::default();
+
+            context.Map(Some(&resource), 0, D3D11_MAP_READ, 0, Some(&mut mapped))?;
+
+            let slice = std::slice::from_raw_parts(mapped.pData as *const u8, (desc.Height * mapped.RowPitch) as usize);
+
+            let bytes_per_pixel = 4;
+            let mut bits = vec![0_u8; (desc.Width * desc.Height * bytes_per_pixel) as usize];
+            let desc_width_bytes = desc.Width * bytes_per_pixel;
+            for row in 0..desc.Height {
+                let data_begin = (row * desc_width_bytes) as usize;
+                let data_end = ((row + 1) * desc_width_bytes) as usize;
+                let slice_begin = (row * mapped.RowPitch) as usize;
+                let slice_end = slice_begin + desc_width_bytes as usize;
+                bits[data_begin..data_end].copy_from_slice(&slice[slice_begin..slice_end]);
+            }
+
+            context.Unmap(Some(&resource), 0);
+
+            let width = desc.Width as i32;
+            let height = desc.Height as i32;
+
+            let mut data = Mat::new_rows_cols(height, width, opencv_core::CV_8UC4)?;
+            let pdata = data.data_mut();
+            std::ptr::copy_nonoverlapping(bits.as_ptr(), pdata, bits.len());
+
+            Ok(data)
+        }
+    }
+    fn create_d3d_device() -> Win32Result<ID3D11Device> {
+        let device = match Self::create_d3d_device_with_type(D3D_DRIVER_TYPE_HARDWARE) {
+            Ok(device) => device,
+            Err(err) => {
+                if err.code() == DXGI_ERROR_UNSUPPORTED {
+                    Self::create_d3d_device_with_type(D3D_DRIVER_TYPE_WARP)
+                } else {
+                    Err(err)
+                }?
+            },
+        };
+        Ok(device.unwrap())
+    }
+    fn create_d3d_device_with_type(drivertype: D3D_DRIVER_TYPE) -> Win32Result<Option<ID3D11Device>> {
+        let mut device = None;
+        unsafe {
+            D3D11CreateDevice(None, drivertype, None, D3D11_CREATE_DEVICE_BGRA_SUPPORT, None, D3D11_SDK_VERSION, Some(&mut device), None, None)
+                .map(|_| device)
+        }
     }
 }
