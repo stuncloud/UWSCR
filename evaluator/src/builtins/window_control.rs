@@ -20,7 +20,7 @@ pub use acc::U32Ext;
 use util::winapi::get_console_hwnd;
 
 #[cfg(feature="chkimg")]
-use crate::builtins::chkimg::{ChkImg, ScreenShot};
+use crate::builtins::chkimg::{ChkImg, ScreenShot, CheckColor};
 #[cfg(feature="chkimg")]
 use util::settings::USETTINGS;
 
@@ -91,6 +91,9 @@ use strum_macros::{EnumString, EnumProperty, VariantNames};
 use num_derive::{ToPrimitive, FromPrimitive};
 use num_traits::ToPrimitive;
 use once_cell::sync::Lazy;
+
+#[cfg(feature="chkimg")]
+use std::sync::OnceLock;
 
 #[derive(Clone)]
 pub struct WindowControl {
@@ -173,6 +176,8 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("chkimg", 8, chkimg);
     #[cfg(feature="chkimg")]
     sets.add("saveimg", 11, saveimg);
+    #[cfg(feature="chkimg")]
+    sets.add("chkclr", 4, chkclr);
     sets
 }
 
@@ -1007,11 +1012,18 @@ impl ChkImgOption {
 }
 
 #[cfg(feature="chkimg")]
-pub fn chkimg(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let save_ss = {
+static SAVE_SS: OnceLock<bool> = OnceLock::new();
+#[cfg(feature="chkimg")]
+fn should_save_ss() -> bool {
+    let b = SAVE_SS.get_or_init(|| {
         let settings = USETTINGS.lock().unwrap();
         settings.chkimg.save_ss
-    };
+    });
+    *b
+}
+
+#[cfg(feature="chkimg")]
+pub fn chkimg(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let default_score = 95;
     let path = args.get_as_string(0, None)?;
     let score = args.get_as_int::<i32>(1, Some(default_score))?;
@@ -1032,10 +1044,10 @@ pub fn chkimg(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncRe
                 (left, top, right, bottom, opt, monitor)
             },
             TwoTypeArg::U(arr) => {
-                let left = arr.get(0).map(|o| o.as_f64(true)).flatten().map(|n| n as i32);
-                let top = arr.get(1).map(|o| o.as_f64(true)).flatten().map(|n| n as i32);
-                let right = arr.get(2).map(|o| o.as_f64(true)).flatten().map(|n| n as i32);
-                let bottom = arr.get(3).map(|o| o.as_f64(true)).flatten().map(|n| n as i32);
+                let left = arr.get(0).map(|o| o.as_f64(false)).flatten().map(|n| n as i32);
+                let top = arr.get(1).map(|o| o.as_f64(false)).flatten().map(|n| n as i32);
+                let right = arr.get(2).map(|o| o.as_f64(false)).flatten().map(|n| n as i32);
+                let bottom = arr.get(3).map(|o| o.as_f64(false)).flatten().map(|n| n as i32);
                 let opt = args.get_as_int(4, Some(0))?;
                 let monitor = args.get_as_int(5, Some(0))?;
                 (left, top, right, bottom, opt, monitor)
@@ -1056,18 +1068,6 @@ pub fn chkimg(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncRe
     let mi = MorgImg::from(&evaluator.mouseorg);
     let ss = match mi.hwnd {
         Some(hwnd) => {
-            let width = match (left, right) {
-                (None, None) => None,
-                (None, Some(r)) => Some(r),
-                (Some(_), None) => None,
-                (Some(l), Some(r)) => Some(r - l),
-            };
-            let height = match (top, bottom) {
-                (None, None) => None,
-                (None, Some(r)) => Some(r),
-                (Some(_), None) => None,
-                (Some(t), Some(b)) => Some(b - t),
-            };
             let client = mi.is_client();
             let style = if mi.is_back {
                 ImgConst::IMG_BACK
@@ -1075,9 +1075,9 @@ pub fn chkimg(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncRe
                 ImgConst::IMG_FORE
             };
             if ChkImgOption::use_wgcapi(opt) {
-                ScreenShot::get_window_wgcapi(hwnd, left, top, width, height, client)?
+                ScreenShot::get_window_wgcapi(hwnd, left, top, right, bottom, client)?
             } else {
-                ScreenShot::get_window(hwnd, left, top, width, height, client, style)?
+                ScreenShot::get_window(hwnd, left, top, right, bottom, client, style)?
             }
         },
         None => {
@@ -1089,7 +1089,8 @@ pub fn chkimg(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncRe
         },
     };
 
-    if save_ss {
+
+    if should_save_ss() {
         ss.save(None)?;
     }
     let chk = ChkImg::from_screenshot(ss, ChkImgOption::gray_scale(opt))?;
@@ -1703,9 +1704,9 @@ pub fn saveimg(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let ss = if id > 0 {
         let hwnd = get_hwnd_from_id(id);
         if wgcapi {
-            ScreenShot::get_window_wgcapi(hwnd, left, top, width, height, client)?
+            ScreenShot::get_window_wgcapi_wh(hwnd, left, top, width, height, client)?
         } else {
-            ScreenShot::get_window(hwnd, left, top, width, height, client, style)?
+            ScreenShot::get_window_wh(hwnd, left, top, width, height, client, style)?
         }
     } else if id < 0 {
         return Ok(Object::Empty);
@@ -1740,7 +1741,7 @@ pub fn saveimg(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
             };
             ScreenShot::get_screen_wgcapi(monitor, left, top, right, bottom)?
         } else {
-            ScreenShot::get_screen2(left, top, width, height)?
+            ScreenShot::get_screen_wh(left, top, width, height)?
         }
     };
     if let Some(filename) = filename {
@@ -1886,4 +1887,69 @@ pub fn chkmorg(evaluator: &mut Evaluator, _: BuiltinFuncArgs) -> BuiltinFuncResu
         },
         None => Ok(Object::Empty),
     }
+}
+
+#[cfg(feature="chkimg")]
+fn obj_vec_to_u8_slice(arr: Vec<Object>) -> [u8; 3] {
+    let to_u8 = |i: usize| arr.get(i).map(|o| o.as_f64(true)).flatten().unwrap_or(0.0) as u8;
+    [ to_u8(0), to_u8(1), to_u8(2) ]
+}
+
+#[cfg(feature="chkimg")]
+pub fn chkclr(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+
+    let threshold = args.get_as_int_or_array_or_empty(1)?.map(|two| {
+        match two {
+            TwoTypeArg::T(n) => {
+                let t = n as u8;
+                [t; 3]
+            },
+            TwoTypeArg::U(arr) => {
+                obj_vec_to_u8_slice(arr)
+            },
+        }
+    });
+    let check_color = match args.get_as_int_or_array(0, None)? {
+        TwoTypeArg::T(bgr) => {
+            let color = bgr as u32;
+            CheckColor::new_from_bgr(color, threshold)
+        },
+        TwoTypeArg::U(arr) => {
+            let color = obj_vec_to_u8_slice(arr);
+            CheckColor::new(color, threshold)
+        },
+    };
+    let range = args.get_as_array(2, Some(vec![]))?;
+    let to_i32 = |i: usize| range.get(i).map(|o| o.as_f64(false).map(|n| n as i32)).flatten();
+    let left = to_i32(0);
+    let top = to_i32(1);
+    let right = to_i32(2);
+    let bottom = to_i32(3);
+
+    let mi = MorgImg::from(&evaluator.mouseorg);
+
+    let ss = match mi.hwnd {
+        Some(hwnd) => {
+            let client = mi.is_client();
+            ScreenShot::get_window_wgcapi(hwnd, left, top, right, bottom, client)?
+        },
+        None => {
+            let monitor = args.get_as_int(3, Some(0))?;
+            ScreenShot::get_screen_wgcapi(monitor, left, top, right, bottom)?
+        },
+    };
+
+    if should_save_ss() {
+        ss.save(Some("chkclr.png"))?;
+    }
+
+    let found = check_color.search(&ss)?.into_iter()
+        .map(|(x, y, (b, g, r))| {
+            let color = Object::Array(vec![b.into(), g.into(), r.into()]);
+            Object::Array(vec![x.into(), y.into(), color])
+        })
+        .collect();
+
+    Ok(Object::Array(found))
+
 }

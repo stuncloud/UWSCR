@@ -60,7 +60,7 @@ use windows::{
 };
 
 use opencv::{
-    core::{self as opencv_core, Mat, MatTrait, MatTraitConst, MatExprTraitConst, Vector},
+    core::{self as opencv_core, Mat, MatTrait, MatTraitConst, MatExprTraitConst, Vector, Point, Vec3b},
     imgcodecs, imgproc,
 };
 
@@ -322,6 +322,7 @@ impl ScreenShot {
         Ok(ScreenShot {data, left, top, width, height})
     }
 
+
     pub fn get_screen(left: Option<i32>, top: Option<i32>, right: Option<i32>, bottom: Option<i32>) -> ScreenShotResult {
         unsafe {
             // キャプチャ範囲を確定
@@ -347,7 +348,7 @@ impl ScreenShot {
             Ok(ss)
         }
     }
-    pub fn get_screen2(left: Option<i32>, top: Option<i32>, width: Option<i32>, height: Option<i32>) -> ScreenShotResult {
+    pub fn get_screen_wh(left: Option<i32>, top: Option<i32>, width: Option<i32>, height: Option<i32>) -> ScreenShotResult {
         unsafe {
             // キャプチャ範囲を確定
             let vs_x = GetSystemMetrics(SM_XVIRTUALSCREEN);
@@ -425,7 +426,26 @@ impl ScreenShot {
             (point.x, point.y)
         }
     }
-    pub fn get_window(hwnd: HWND, left: Option<i32>, top: Option<i32>, width: Option<i32>, height: Option<i32>, client: bool, style: ImgConst) -> ScreenShotResult {
+    fn window_lr_to_wh(left: Option<i32>, top: Option<i32>, right: Option<i32>, bottom: Option<i32>) -> (Option<i32>, Option<i32>) {
+        let width = match (left, right) {
+            (None, None) => None,
+            (None, Some(r)) => Some(r),
+            (Some(_), None) => None,
+            (Some(l), Some(r)) => Some(r - l),
+        };
+        let height = match (top, bottom) {
+            (None, None) => None,
+            (None, Some(r)) => Some(r),
+            (Some(_), None) => None,
+            (Some(t), Some(b)) => Some(b - t),
+        };
+        (width, height)
+    }
+    pub fn get_window(hwnd: HWND, left: Option<i32>, top: Option<i32>, right: Option<i32>, bottom: Option<i32>, client: bool, style: ImgConst) -> ScreenShotResult {
+        let (width, height) = Self::window_lr_to_wh(left, top, right, bottom);
+        Self::get_window_wh(hwnd, left, top, width, height, client, style)
+    }
+    pub fn get_window_wh(hwnd: HWND, left: Option<i32>, top: Option<i32>, width: Option<i32>, height: Option<i32>, client: bool, style: ImgConst) -> ScreenShotResult {
         unsafe {
             let is_fore = match style {
                 ImgConst::IMG_AUTO => Self::is_window_shown(hwnd),
@@ -540,6 +560,7 @@ impl ScreenShot {
         let roi = opencv_core::Rect { x, y, width, height };
         Mat::roi(&mat, roi)
     }
+
     /* Windows Graphics Capture API */
 
     pub fn get_screen_wgcapi(monitor: u32, left: Option<i32>, top: Option<i32>, right: Option<i32>, bottom: Option<i32>) -> ScreenShotResult {
@@ -565,7 +586,11 @@ impl ScreenShot {
         let ss = Self { data, left, top, width, height };
         Ok(ss)
     }
-    pub fn get_window_wgcapi(hwnd: HWND, left: Option<i32>, top: Option<i32>, width: Option<i32>, height: Option<i32>, client: bool) -> ScreenShotResult {
+    pub fn get_window_wgcapi(hwnd: HWND, left: Option<i32>, top: Option<i32>, right: Option<i32>, bottom: Option<i32>, client: bool) -> ScreenShotResult {
+        let (width, height) = Self::window_lr_to_wh(left, top, right, bottom);
+        Self::get_window_wgcapi_wh(hwnd, left, top, width, height, client)
+    }
+    pub fn get_window_wgcapi_wh(hwnd: HWND, left: Option<i32>, top: Option<i32>, width: Option<i32>, height: Option<i32>, client: bool) -> ScreenShotResult {
         let mat = Self::capture(CaptureItem::Window(hwnd))?;
         let mat_w = mat.cols();
         let mat_h = mat.rows();
@@ -730,5 +755,64 @@ impl ScreenShot {
             D3D11CreateDevice(None, drivertype, None, D3D11_CREATE_DEVICE_BGRA_SUPPORT, None, D3D11_SDK_VERSION, Some(&mut device), None, None)
                 .map(|_| device)
         }
+    }
+}
+
+pub struct CheckColor {
+    lower: Vec3b,
+    upper: Vec3b,
+}
+impl CheckColor {
+    pub fn new(color: [u8; 3], threshold: Option<[u8; 3]>) -> Self {
+        let (lower, upper) = match threshold {
+            Some(t) => {
+                let lower = Vec3b::from([
+                    color[0].saturating_sub(t[0]),
+                    color[1].saturating_sub(t[1]),
+                    color[2].saturating_sub(t[2]),
+                ]);
+                let upper = Vec3b::from([
+                    color[0].saturating_add(t[0]),
+                    color[1].saturating_add(t[1]),
+                    color[2].saturating_add(t[2]),
+                ]);
+
+                (lower, upper)
+            },
+            None => {
+                let lower = Vec3b::from(color);
+                let upper = Vec3b::from(color);
+                (lower, upper)
+            },
+        };
+        Self { lower, upper }
+    }
+    pub fn new_from_bgr(color: u32, threshold: Option<[u8; 3]>) -> Self {
+        let color = [
+            ((color & 0xFF0000) >> 16) as u8,
+            ((color & 0xFF00) >> 8) as u8,
+            (color & 0xFF) as u8,
+        ];
+        Self::new(color, threshold)
+    }
+    pub fn search(&self, ss: &ScreenShot) -> Result<Vec<(i32, i32, (u8, u8, u8))>, UError> {
+        let mut bgr = Mat::default();
+        imgproc::cvt_color(&ss.data, &mut bgr, imgproc::COLOR_RGB2BGR, 0)?;
+        let mut mask = Mat::default();
+
+        opencv_core::in_range(&bgr, &self.lower, &self.upper, &mut mask)?;
+        let mut indices: Vector<Point> = Vector::new();
+        opencv_core::find_non_zero(&mask, &mut indices)?;
+
+        let points = indices.into_iter()
+            .map(|p| {
+                let x = p.x + ss.left;
+                let y = p.y + ss.top;
+                let vec3b = bgr.at_2d::<opencv_core::Vec3b>(p.y, p.x)?;
+                let color = (vec3b[0], vec3b[1], vec3b[2]);
+                Ok((x, y, color))
+            })
+            .collect::<Result<Vec<_>, opencv::Error>>()?;
+        Ok(points)
     }
 }
