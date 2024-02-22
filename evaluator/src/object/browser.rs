@@ -1538,7 +1538,7 @@ impl Into<RemoteFuncArg> for RemoteObject {
 }
 impl Into<Object> for RemoteObject {
     fn into(self) -> Object {
-        Object::RemoteObject(self)
+        self.to_object()
     }
 }
 impl Into<RemoteFuncArg> for Value {
