@@ -595,8 +595,7 @@ impl ScreenShot {
         let mat_w = mat.cols();
         let mat_h = mat.rows();
         let crop_flg = left.is_some() || top.is_some() || width.is_some() || height.is_some();
-        let dx = left.unwrap_or(0);
-        let dy = top.unwrap_or(0);
+
 
         let (x, width) = match (left, width) {
             (None, None) => (0, mat_w),
@@ -617,22 +616,30 @@ impl ScreenShot {
             mat
         };
 
-        let mut ss = if client {
-            let rect = Self::get_client_rect(hwnd);
-            let data = Self::crop_image(&data, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top)?;
-            let (cx, cy) = Self::client_to_screen(hwnd, rect.left, rect.top);
+        let mut left = left.unwrap_or(0);
+        let mut top = top.unwrap_or(0);
 
-            let (left, top) = (x + cx, y + cy);
+        let ss = if client {
+            let crect = Self::get_client_rect(hwnd);
+            let vrect = Self::get_visible_rect(hwnd)?;
+
+            let (cx, cy) = Self::client_to_screen(hwnd, crect.left, crect.top);
+
+            let cx = cx - vrect.left;
+            let cy = cy - vrect.top;
+            let cw = crect.right - crect.left;
+            let ch = crect.bottom - crect.top;
+            // クライアント領域を切り出す
+            let data = Self::crop_image(&data, cx, cy, cw, ch)?;
+
+            // 切り出した分オフセットを補正
+            left += cx;
+            top += cy;
 
             ScreenShot { data, left, top, width, height }
         } else {
-            let rect = Self::get_visible_rect(hwnd)?;
-            let (left, top) = (x + rect.left, y + rect.top);
-
             ScreenShot { data, left, top, width, height }
         };
-        ss.left = dx;
-        ss.top = dy;
 
         Ok(ss)
 
@@ -797,7 +804,7 @@ impl CheckColor {
     }
     pub fn search(&self, ss: &ScreenShot) -> Result<Vec<(i32, i32, (u8, u8, u8))>, UError> {
         let mut bgr = Mat::default();
-        imgproc::cvt_color(&ss.data, &mut bgr, imgproc::COLOR_RGB2BGR, 0)?;
+        imgproc::cvt_color(&ss.data, &mut bgr, imgproc::COLOR_RGBA2RGB, 0)?;
         let mut mask = Mat::default();
 
         opencv_core::in_range(&bgr, &self.lower, &self.upper, &mut mask)?;
