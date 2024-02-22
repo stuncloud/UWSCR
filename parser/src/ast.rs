@@ -1234,7 +1234,7 @@ impl BuilderScope {
         let (mut undeclared, outer) = match &r#type {
             UndeclaredNameType::Access => (
                 self.access.get_undeclared(&vec![&self.dim.names, &self.r#const.names, &self.public.names, &self.definition, &call]),
-                vec![&self.r#const.names, &self.public.names, &call],
+                vec![&self.r#const.names, &self.public.names, &self.definition, &call],
             ),
             UndeclaredNameType::Assign => (
                 self.assignee.get_undeclared(&vec![&self.dim.names, &self.public.names, &call]),
