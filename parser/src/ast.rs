@@ -1180,7 +1180,10 @@ impl BuilderScope {
     /// 代入を暗黙の定義とみなす
     fn implicit_declaration(&mut self) {
         self.assignee.remove_dup();
-        self.dim.names.append_mut(&mut self.assignee);
+        let mut declaration = self.assignee.get_undeclared(&vec![
+            &self.r#const.names, &self.public.names, &self.dim.names
+        ]);
+        self.dim.names.append_mut(&mut declaration);
         self.r#const.implicit_declaration();
         self.public.implicit_declaration();
         self.dim.implicit_declaration();
