@@ -352,24 +352,71 @@ pub fn pos(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 
 fn drain_to_nth_pattern(target: &str, pattern: &str, nth: i32) -> Option<String> {
     let pos = find_pos(target, pattern, nth)? + pattern.len();
-    let mut found = target.to_string();
-    found.drain(..pos);
+    let found = target[pos..].to_string();
     Some(found)
 }
 fn truncate_to_nth_pattern(target: &str, pattern: &str, nth: i32) -> Option<String> {
     let pos = find_pos(target, pattern, nth)?;
-    let mut found = target.to_string();
-    found.truncate(pos);
+    let found = target[..pos].to_string();
     Some(found)
 }
+fn find_all_between(target: &str, from: &str, to: &str, flag: bool) -> Vec<String> {
+    let target_lower = target.to_ascii_lowercase();
+    let from_lower = from.to_ascii_lowercase();
+    let to_lower = to.to_ascii_lowercase();
+    let is_same = from_lower == to_lower;
+
+    let from_pos = find_all(&target_lower, &from_lower);
+    let to_pos = find_all(&target_lower, &to_lower);
+    let from_len = from.len();
+    let to_len = to.len();
+
+
+    let pairs: Vec<(usize, usize)> = if flag {
+        from_pos.into_iter()
+            .filter_map(|_f| {
+                let f = _f + from_len;
+                let t = if is_same {
+                    to_pos.iter().find(|t| **t >= f)
+                } else {
+                    to_pos.iter().find(|t| **t > f)
+                };
+                t.map(|t| (f, *t))
+            })
+            .collect()
+    } else {
+        let mut _t = 0;
+        from_pos.into_iter()
+            .filter_map(|f| {
+                (f >= _t).then_some(())?;
+
+                let f = f + from_len;
+                let t = *to_pos.iter().find(|n| **n > f)?;
+                _t = if is_same {
+                    t + to_len
+                } else {
+                    t
+                };
+                Some((f, t))
+            })
+            .collect()
+    };
+    let words = pairs.into_iter()
+        .map(|(f, t)| target[f..t].to_string())
+        .collect();
+    words
+}
+
 fn find_nth_between(target: &str, from: &str, to: &str, nth: i32, flag: bool) -> Option<String> {
     let target_lower = target.to_ascii_lowercase();
     let from_lower = from.to_ascii_lowercase();
     let to_lower = to.to_ascii_lowercase();
+    let is_same = from_lower == to_lower;
 
     let mut from_pos = find_all(&target_lower, &from_lower);
     let mut to_pos = find_all(&target_lower, &to_lower);
     let from_len = from.len();
+    let to_len = to.len();
 
     let (index, backward) = if nth > 0 {
         (nth as usize - 1, false)
@@ -389,33 +436,56 @@ fn find_nth_between(target: &str, from: &str, to: &str, nth: i32, flag: bool) ->
             (f, t)
         } else {
             // n番目のfromとそれに対応するtoを得る
-            let f = *from_pos.get(index)? + from_len;
-            let t = *to_pos.iter().find(|n| **n > f)?;
-            (f, t)
+            if is_same {
+                let f = *from_pos.get(index)? + from_len;
+                let t = *to_pos.iter().find(|n| **n >= f)?;
+                (f, t)
+            } else {
+                let f = *from_pos.get(index)? + from_len;
+                let t = *to_pos.iter().find(|n| **n > f)?;
+                (f, t)
+            }
         }
     } else {
         if backward {
             // toに対応するfromより前のtoに遡る
             let mut f = target.len();
             let mut t = 0;
-            for _ in 0..=index {
-                t = *to_pos.iter().find(|n| **n <= f)?;
-                f = *from_pos.iter().find(|n| **n < t)? + from_len;
+            if is_same {
+                let mut _f = f;
+                for _ in 0..=index {
+                    t = *to_pos.iter().find(|n| **n < _f)?;
+                    _f = *from_pos.iter().find(|n| **n < t)?;
+                    f = _f + from_len;
+                }
+            } else {
+                for _ in 0..=index {
+                    t = *to_pos.iter().find(|n| **n <= f)?;
+                    f = *from_pos.iter().find(|n| **n < t)? + from_len;
+                }
             }
             (f, t)
         } else {
             // fromに対応するtoの後のfromを探す
             let mut f = 0;
             let mut t = 0;
-            for _ in 0..=index {
-                f = *from_pos.iter().find(|n| **n >= t)? + from_len;
-                t = *to_pos.iter().find(|n| **n > f)?;
+            if is_same {
+                let mut _t = t;
+                for _ in 0..=index {
+                    f = *from_pos.iter().find(|n| **n >= _t)? + from_len;
+                    t = *to_pos.iter().find(|n| **n > f)?;
+                    _t = t + to_len;
+                }
+            } else {
+                for _ in 0..=index {
+                    f = *from_pos.iter().find(|n| **n >= t)? + from_len;
+                    t = *to_pos.iter().find(|n| **n > f)?;
+                }
             }
             (f, t)
         }
     };
-    let mut tmp = target.to_string();
-    let between = tmp.drain(f..t).collect();
+    let between = target[f..t].to_string();
     Some(between)
 }
 
@@ -432,7 +502,17 @@ pub fn betweenstr(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult
         (None, None) => Some(str),
         (None, Some(to)) => truncate_to_nth_pattern(&str, &to, nth),
         (Some(from), None) => drain_to_nth_pattern(&str, &from, nth),
-        (Some(from), Some(to)) => find_nth_between(&str, &from, &to, nth, flag),
+        (Some(from), Some(to)) => {
+            if nth == 0 {
+                let all = find_all_between(&str, &from, &to, flag)
+                    .into_iter()
+                    .map(|s| s.into())
+                    .collect();
+                return Ok(Object::Array(all));
+            } else {
+                find_nth_between(&str, &from, &to, nth, flag)
+            }
+        },
     };
 
     Ok(between.unwrap_or_default().into())
@@ -1086,6 +1166,7 @@ mod tests {
         moji3 = "ababaあいうccc"
         moji4 = "aabaab"
         moji5 = "abあfabいfab"
+        moji6 = "あいう123あいうあいう456あいうあいう789あいう"
         "#;
         let test_cases = [
             (r#"betweenstr(moji1)"#, Ok(Some("あfromいtoうfromえtoお".into()))),
@@ -1156,6 +1237,37 @@ mod tests {
             (r#"betweenstr("123あああ",, "ああ",2)"#, Ok(Some("123あ".into()))),
             (r#"betweenstr("123あああ",, "ああ",-1)"#, Ok(Some("123あ".into()))),
             (r#"betweenstr("123あああ",, "ああ",-2)"#, Ok(Some("123".into()))),
+            // gh-118
+            (r#"betweenstr(moji6, "あいう", "あいう", 1)"#, Ok(Some("123".into()))),
+            (r#"betweenstr(moji6, "あいう", "あいう", 2)"#, Ok(Some("456".into()))),
+            (r#"betweenstr(moji6, "あいう", "あいう", 3)"#, Ok(Some("789".into()))),
+            // index 0
+            (
+                r#"betweenstr(moji6, "あいう", "あいう", 0, FALSE)"#,
+                Ok(Some(Object::Array(vec![
+                    "123".into(),
+                    "456".into(),
+                    "789".into(),
+                ])))
+            ),
+            (
+                r#"betweenstr(moji6, "あいう", "あいう", 0, TRUE)"#,
+                Ok(Some(Object::Array(vec![
+                    "123".into(),
+                    "".into(),
+                    "456".into(),
+                    "".into(),
+                    "789".into(),
+                ])))
+            ),
+            (
+                r#"betweenstr("あいう123かきくあいう456かきくあいう789かきく", "あいう", "かきく", 0)"#,
+                Ok(Some(Object::Array(vec![
+                    "123".into(),
+                    "456".into(),
+                    "789".into(),
+                ])))
+            ),
         ];
         let mut e = new_evaluator(Some(script));
         for (input, expected) in test_cases {
