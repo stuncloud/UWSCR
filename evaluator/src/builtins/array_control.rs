@@ -111,18 +111,67 @@ pub fn reverse(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncR
     Ok(Object::Empty)
 }
 
+fn new_empty_array(size: usize) -> Vec<Object> {
+    vec![Object::Empty; size]
+}
+fn get_array_dimension(arr: &Vec<Object>) -> Option<Vec<usize>> {
+    arr.iter()
+        .map(|o| {
+            if let Object::Array(arr2) = o {
+                let mut hoge = get_array_dimension(arr2)?;
+                hoge.insert(0, arr2.len());
+                Some(hoge)
+            } else {
+                Some(vec![0])
+            }
+        })
+        .reduce(|a, b| {
+            match (a, b) {
+                (Some(a), Some(b)) => (a == b).then_some(a),
+                _ => None
+            }
+        })
+        .flatten()
+}
+fn get_array_object_from_dimension(dim: Vec<usize>) -> Object {
+    let mut dim = dim;
+    dim.reverse();
+    let mut result = None::<Vec<_>>;
+    for size in dim {
+        if size > 0 {
+            if let Some(default) = &mut result {
+                let new = vec![Object::Array(default.clone()); size];
+                *default = new;
+            } else {
+                result = Some(new_empty_array(size));
+            }
+        }
+    }
+    result.map(|arr| Object::Array(arr)).unwrap_or(Object::Empty)
+}
+fn get_resize_default_value(arr: &Vec<Object>, value: Option<Object>) -> Object {
+    if let Some(default) = value {
+        default
+    } else if let Some(dim) = get_array_dimension(arr) {
+        get_array_object_from_dimension(dim)
+    } else {
+        Object::Empty
+    }
+}
+
 pub fn resize(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let mut arr = args.get_as_array(0, None)?;
     let expr = args.get_expr(0);
     let size = args.get_as_int_or_empty::<i32>(1)?;
-    let value = args.get_as_object(2, Some(Object::Empty))?;
     if let Some(n) = size {
+        let value = args.get_as_object_or_empty(2)?;
+        let default = get_resize_default_value(&arr, value);
         let new_len = if n < 0 {
             0
         } else {
             n + 1
         } as usize;
-        arr.resize(new_len, value);
+        arr.resize(new_len, default);
         let i = arr.len() as isize - 1;
 
         evaluator.update_reference(vec![(expr, Object::Array(arr))])

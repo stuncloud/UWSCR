@@ -188,6 +188,15 @@ impl BuiltinFuncArgs {
             Ok(arg)
         })
     }
+    pub fn get_as_object_or_empty(&self, i: usize) -> BuiltInResult<Option<Object>> {
+        self.get_arg_with_required_flag(i, false, |arg| {
+            match arg {
+                Object::Empty |
+                Object::EmptyParam => Ok(None),
+                o => Ok(Some(o))
+            }
+        })
+    }
     pub fn get_as_f64(&self, i: usize, default: Option<f64>) -> BuiltInResult<f64> {
         self.get_arg_with_default(i, default, |arg| {
             match arg {
