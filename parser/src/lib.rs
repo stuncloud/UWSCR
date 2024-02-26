@@ -2397,6 +2397,8 @@ impl Parser {
                 if state.is_sol_or_lambda() {
                     // 次のトークンを確認する
                     match &self.next_token.token {
+                        // := による代入式
+                        Token::Assign |
                         // ドット呼び出し
                         Token::Period |
                         // 関数呼び出し

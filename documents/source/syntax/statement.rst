@@ -54,26 +54,17 @@ dim
 
     | ``OPTION EXPLICIT`` を指定した場合は未宣言の変数への代入がエラーとなります
     | 未宣言変数への代入や複合代入は解析エラーとなります
-    | 式の中で行われる ``:=`` による未宣言変数への代入は実行時エラーとなります
 
     .. sourcecode:: uwscr
 
         OPTION EXPLICIT
 
-        dim foo = 1 // ok
-        foo = 2     // ok
-        bar = 3     // 解析エラー
-        bar += 4    // 解析エラー
-        baz := 5    // 解析エラー
-
-    .. sourcecode:: uwscr
-
-        // 式の中に代入式がある場合
-        OPTION EXPLICIT
-
-        dim foo
-        // fooとbarへの代入を試みるがbarが未宣言
-        foo = bar := 100 // 実行時エラー
+        dim foo = 1      // ok
+        foo = 2          // ok
+        bar = 3          // 解析エラー
+        bar += 4         // 解析エラー
+        baz := 5         // 解析エラー
+        foo = qux := 100 // 解析エラー
 
 public
 ^^^^^^
