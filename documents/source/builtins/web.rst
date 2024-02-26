@@ -575,11 +575,53 @@ TabWindowオブジェクト
 
     .. method:: dialog([許可=TRUE, プロンプト=EMPTY])
 
-        | JavaScriptダイアログ(alert, confirm, prompt)を処理します
+        | JavaScriptダイアログ(alert, confirm, prompt等)を処理します
 
         :param 真偽値 省略可 許可: ダイアログを閉じる方法を指定、TRUEでOK、FALSEでキャンセル
         :param 文字列 省略可 プロンプト: promptに入力する文字列
         :return: なし
+
+        .. admonition:: サンプルコード
+
+            .. sourcecode:: uwscr
+
+                select tab.dlgtype()
+                    case "prompt"
+                        // プロンプトなら文字を入力
+                        tab.dialog(TRUE, "hogehoge")
+                    case "confirm"
+                        if pos("hoge", tab.dlgmsg()) > 0 then
+                            // メッセージに hoge という文字列が含まれていればOKを押す
+                            tab.dialog(TRUE)
+                        else
+                            // hoge が含まれていないものはキャンセル
+                            tab.dialog(FALSE)
+                        endif
+                    case EMPTY
+                        // ダイアログがなければなにもしない
+                    default
+                        // その他のダイアログであれば閉じる
+                        tab.dialog()
+                selend
+
+    .. method:: dlgmsg()
+
+        | JavaScriptダイアログに表示されているメッセージを取得します
+
+        :return: メッセージ文字列、ダイアログがない場合はEMPTY
+
+    .. method:: dlgtype()
+
+        | JavaScriptダイアログの種類を取得します
+        | 種類は以下のいずれかです
+
+        - ``alert``
+        - ``confirm``
+        - ``prompt``
+        - ``beforeunload``
+
+        :return: 種類を示す文字列、ダイアログがない場合はEMPTY
+
 
     .. method:: leftClick(x, y)
     .. method:: rightClick(x, y)
@@ -631,6 +673,23 @@ TabWindowオブジェクト
                 // イベントリスナをセット
                 slct.addEventListener("change", callback)
 
+JavaScriptダイアログについて
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+| バージョン0.15.0まではUWSCRのスクリプトによりalert等のJavaScriptダイアログが表示された場合に動作がブロックされる問題がありました
+| 0.16.0でこの問題が改善されましたがダイアログを ``TabWindow.dialog()`` で閉じない限り続くプロパティやメソッドがブロックされる場合があります
+
+.. sourcecode:: uwscr
+
+    // スクリプトからalertを開く
+    tab.eval("alert('hoge');") // 0.16.0以降はブロックされない
+    tab.dialog()               // ダイアログを閉じる
+    print tab.document         // 正常動作
+
+    // ブロックされるパターン
+    tab.eval("alert('hoge');")
+    // ダイアログを閉じずにプロパティにアクセスする
+    print tab.document // ダイアログが閉じられるまでブロックされる
 
 
 .. _remote_object:

@@ -4,7 +4,6 @@ use crate::Evaluator;
 use crate::error::{UError, UErrorKind, UErrorMessage};
 use util::settings::USETTINGS;
 
-use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use std::net::TcpStream;
 use std::collections::HashMap;
@@ -359,19 +358,17 @@ impl Browser {
     fn _put_request<T: DeserializeOwned>(port: u16, path: &str) -> BrowserResult<T> {
         Self::request_t::<T>(port, path, true)
     }
-    fn send(&self, method: &str, params: Value) -> BrowserResult<Value> {
+    fn send(&self, method: &str, params: Value) -> BrowserResult<Option<Value>> {
         let mut ws = self.ws.lock().unwrap();
-        let value = ws.send(method, params)?;
-        if let Some(error) = value.get("error") {
-            let code = error["code"].as_i64().unwrap_or_default() as i32;
-            let message = error["message"].as_str().unwrap_or_default().to_string();
-            Err(UError::new(UErrorKind::DevtoolsProtocolError, UErrorMessage::DTPError(code, message)))
-        } else {
-            Ok(value["result"].to_owned())
+        match ws.send(method, params)? {
+            CDPReceived::Result(result) => Ok(Some(result)),
+            CDPReceived::Error(err) => Err(UError::new(UErrorKind::DevtoolsProtocolError, UErrorMessage::DTPError(err.code, err.message.unwrap_or_default()))),
+            CDPReceived::Dialog => Ok(None),
         }
     }
     fn tabs(&self) -> BrowserResult<Vec<TargetInfo>> {
-        let value = self.send("Target.getTargets", json!({}))?;
+        let value = self.send("Target.getTargets", json!({}))?
+            .ok_or(UError::new(UErrorKind::BrowserControlError, UErrorMessage::DetectedDialogOpening))?;
         let infos = serde_json::from_value::<TargetInfos>(value)?;
         let tabs = infos.target_infos.into_iter()
             .filter(|target| target.r#type == "page" && ! target.url.starts_with("devtools://"))
@@ -413,7 +410,7 @@ impl Browser {
     fn new_tab(&self, uri: &str) -> BrowserResult<TabWindow> {
         let value = self.send("Target.createTarget", json!({
             "url": uri
-        }))?;
+        }))?.ok_or(UError::new(UErrorKind::BrowserControlError, UErrorMessage::DetectedDialogOpening))?;
         if let Value::String(target_id) = &value["targetId"] {
             let uri = self.gen_ws_uri(target_id);
             TabWindow::new(self.port, target_id.to_string(), uri)
@@ -429,6 +426,13 @@ impl Browser {
         let hwnd = BrowserProcess::get_hwnd_from_pid(pid);
         let id = get_id_from_hwnd(hwnd);
         Ok(id.into())
+    }
+    fn set_download_dir(&self, dir: String) -> BrowserResult<()> {
+        self.send("Browser.setDownloadBehavior", json!({
+            "behavior": "allow",
+            "downloadPath": dir
+        }))?;
+        Ok(())
     }
     pub fn get_property(&self, name: &str) -> BrowserResult<Object> {
         match name.to_ascii_lowercase().as_str() {
@@ -467,6 +471,11 @@ impl Browser {
                 self.close()?;
                 Ok(Object::Empty)
             },
+            "download" => {
+                let dir = args.as_string(0)?;
+                self.set_download_dir(dir)?;
+                Ok(Object::Empty)
+            }
             _ => Err(UError::new(
                 UErrorKind::BrowserControlError,
                 UErrorMessage::InvalidMember(name.to_string())
@@ -565,6 +574,14 @@ impl TabWindow {
         self.dp.send("Page.handleJavaScriptDialog", params)?;
         Ok(())
     }
+    fn dialog_message(&self) -> Option<String> {
+        let ws = self.dp.ws.lock().unwrap();
+        ws.dlg_message.clone()
+    }
+    fn dialog_type(&self) -> Option<String> {
+        let ws = self.dp.ws.lock().unwrap();
+        ws.dlg_type.clone()
+    }
     fn click(&self, button: &str, x: f64, y: f64) -> BrowserResult<()> {
         self.dp.send("Input.dispatchMouseEvent", json!({
             "type": "mousePressed",
@@ -620,6 +637,14 @@ impl TabWindow {
                 self.dialog(accept, prompt)?;
                 Ok(Object::Empty)
             },
+            "dlgmsg" => {
+                let msg = self.dialog_message();
+                Ok(msg.into())
+            }
+            "dlgtype" => {
+                let msg = self.dialog_type();
+                Ok(msg.into())
+            }
             "leftclick" => {
                 let x = args.as_f64(0)?;
                 let y = args.as_f64(1)?;
@@ -805,8 +830,9 @@ impl TabWindow {
 
 #[derive(Clone)]
 struct DevtoolsProtocol {
-    uri: String,
-    ws: Arc<Mutex<Option<WebSocket>>>,
+    // uri: String,
+    // ws: Arc<Mutex<Option<WebSocket>>>,
+    ws: Arc<Mutex<WebSocket>>,
 }
 impl fmt::Debug for DevtoolsProtocol {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -815,33 +841,34 @@ impl fmt::Debug for DevtoolsProtocol {
 }
 impl DevtoolsProtocol {
     fn new(uri: String) -> BrowserResult<Self> {
-        let dp = Self { ws: Arc::new(Mutex::new(None)), uri };
+        let mut ws = WebSocket::new(&uri)?;
+        // PageとRuntimeを有効にする
+        ws.send("Page.enable", json!({}))?;
+        ws.send("Runtime.enable", json!({}))?;
+
+        let dp = Self { ws: Arc::new(Mutex::new(ws)) };
         Ok(dp)
     }
-    fn send(&self, method: &str, params: Value) -> BrowserResult<Value> {
-        let mut mutex = self.ws.lock().unwrap();
-        if mutex.is_none() {
-            // 初回実行時に接続する
-            let mut ws = WebSocket::new(&self.uri)?;
-            // PageとRuntimeを有効にする
-            ws.send("Page.enable", json!({}))?;
-            ws.send("Runtime.enable", json!({}))?;
-            *mutex = Some(ws);
-        }
-        let ws = mutex.as_mut().unwrap();
-        let value = ws.send(method, params)?;
-        if let Some(error) = value.get("error") {
-            let code = error["code"].as_i64().unwrap_or_default() as i32;
-            let message = error["message"].as_str().unwrap_or_default().to_string();
-            Err(UError::new(UErrorKind::DevtoolsProtocolError, UErrorMessage::DTPError(code, message)))
-        } else {
-            Ok(value["result"].to_owned())
+    fn send(&self, method: &str, params: Value) -> BrowserResult<Option<Value>> {
+        let mut ws = self.ws.lock().unwrap();
+        match ws.send(method, params)? {
+            CDPReceived::Result(result) => Ok(Some(result)),
+            CDPReceived::Error(err) => {
+                let code = err.code;
+                let message = err.message.unwrap_or_default();
+                Err(UError::new(UErrorKind::DevtoolsProtocolError, UErrorMessage::DTPError(code, message)))
+            },
+            CDPReceived::Dialog => Ok(None),
         }
     }
-    fn send_t<T: DeserializeOwned>(&self, method: &str, params: Value) -> BrowserResult<T> {
-        let value = self.send(method, params)?;
-        let t: T = serde_json::from_value(value)?;
-        Ok(t)
+    fn send_t<T: DeserializeOwned + Default>(&self, method: &str, params: Value) -> BrowserResult<T> {
+        match self.send(method, params)? {
+            Some(value) => {
+                let t: T = serde_json::from_value(value)?;
+                Ok(t)
+            },
+            None => Ok(T::default()),
+        }
     }
     fn runtime_evaluate(&self, expression: &str) -> BrowserResult<RemoteObject> {
         let result = self.send_t::<RuntimeResult>("Runtime.evaluate", json!({
@@ -889,6 +916,8 @@ struct WebSocket {
     pub socket: tungstenite::WebSocket<tungstenite::stream::MaybeTlsStream<TcpStream>>,
     pub id: u32,
     // event_handler: HashMap<String, fn(&Value) -> BrowserResult<()>>,
+    dlg_message: Option<String>,
+    dlg_type: Option<String>,
 }
 
 impl Drop for WebSocket {
@@ -904,9 +933,11 @@ impl WebSocket {
         if status.as_u16() >= 400 {
             return Err(UError::new(UErrorKind::WebSocketError, UErrorMessage::WebSocketConnectionError(status.to_string())));
         }
-        let ws = WebSocket {
+        let ws = Self {
             socket,
             id: 0,
+            dlg_message: None,
+            dlg_type: None,
         };
         Ok(ws)
     }
@@ -921,22 +952,104 @@ impl WebSocket {
             "params": params,
         })
     }
-    fn send(&mut self, method: &str, params: Value) -> BrowserResult<Value> {
+    fn send(&mut self, method: &str, params: Value) -> BrowserResult<CDPReceived> {
         let data = self.genereate_ws_data(method, params);
+        let _id = data["id"].as_u64().unwrap_or_default() as u32;
         let msg = data.to_string();
         let message = tungstenite::Message::Text(msg);
         self.socket.send(message)?;
-        loop {
-            let received = self.socket.read()?;
-            if received.is_text() {
-                let msg = received.into_text()?;
-                let value = Value::from_str(&msg)?;
-                if value["id"] == data["id"] {
-                    break Ok(value)
+        let received = loop {
+            let message = self.socket.read()?;
+            if message.is_text() {
+                let text = message.into_text()?;
+                let msg = serde_json::from_str::<Message>(&text)?;
+                match CDPMessage::from(msg) {
+                    CDPMessage::Result(id, result) => {
+                        if id == _id {
+                            break CDPReceived::Result(result);
+                        }
+                    },
+                    CDPMessage::Error(id, error) => {
+                        if id == _id {
+                            break CDPReceived::Error(error);
+                        }
+                    },
+                    CDPMessage::Event(event) => {
+                        match event.method() {
+                            "Page.javascriptDialogOpening" => {
+                                let message = &event.params["message"];
+                                self.dlg_message = message.as_str().map(|msg| msg.into());
+                                let r#type = &event.params["type"];
+                                self.dlg_type = r#type.as_str().map(|t| t.into());
+                                break CDPReceived::Dialog;
+                            },
+                            "Page.javascriptDialogClosed" => {
+                                self.dlg_message = None;
+                                self.dlg_type = None;
+                            },
+                            _ => {}
+                        }
+                    },
+                    CDPMessage::Unknown(_) => todo!(),
                 }
             }
+        };
+        Ok(received)
+    }
+}
+
+#[derive(Deserialize)]
+struct Message {
+    id: Option<u32>,
+    result: Option<Value>,
+    method: Option<String>,
+    params: Option<Value>,
+    error: Option<CDPError>
+}
+#[derive(Deserialize)]
+struct CDPError {
+    code: i32,
+    message: Option<String>
+}
+struct CDPEvent {
+    method: String,
+    params: Value,
+}
+impl CDPEvent {
+    fn method(&self) -> &str {
+        &self.method
+    }
+}
+enum CDPMessage {
+    Result(u32, Value),
+    Event(CDPEvent),
+    Error(u32, CDPError),
+    Unknown(Option<u32>),
+}
+impl From<Message> for CDPMessage {
+    fn from(msg: Message) -> Self {
+        if let Some(id) = msg.id {
+            if let Some(result) = msg.result {
+                Self::Result(id, result)
+            } else if let Some(error) = msg.error {
+                Self::Error(id, error)
+            } else {
+                Self::Unknown(Some(id))
+            }
+        } else if let Some(method) = msg.method {
+            Self::Event(CDPEvent {
+                method,
+                params: msg.params.unwrap_or_default(),
+            })
+        } else {
+            Self::Unknown(None)
         }
     }
+}
+enum CDPReceived {
+    Result(Value),
+    Error(CDPError),
+    Dialog,
 }
 
 enum ProcessFound{
@@ -1067,7 +1180,7 @@ struct BrowserListItem {
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Default)]
 pub struct RuntimeResult {
     pub result: RemoteObject0,
     #[serde(rename="exceptionDetails")]
@@ -1115,7 +1228,7 @@ impl Into<UError> for ExceptionDetails {
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Default)]
 pub struct RemoteObject0 {
     pub r#type: String,
     subtype: Option<String>,

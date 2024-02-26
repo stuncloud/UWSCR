@@ -600,6 +600,7 @@ pub enum UErrorMessage {
     UnavailableFunction,
     ForceBoolError,
     MonitorNotFound,
+    DetectedDialogOpening,
 }
 
 impl fmt::Display for UErrorMessage {
@@ -1341,6 +1342,10 @@ impl fmt::Display for UErrorMessage {
             Self::MonitorNotFound => write_locale!(f,
                 "指定された番号のモニタがありません",
                 "Monitor not found",
+            ),
+            Self::DetectedDialogOpening => write_locale!(f,
+                "CDPメソッド実行中にダイアログが開かれました",
+                "Dialog opening was detected during CDP method execution",
             ),
         }
     }
