@@ -15,7 +15,7 @@ use gui::{UWindow, LogPrintWin, FontFamily};
 
 use util::com::Com;
 use util::winapi::{show_message,FORCE_WINDOW_MODE};
-use util::logging::{out_log, LogType};
+use util::logging::{self, out_log, LogType};
 use util::settings::*;
 use util::error::UWSCRErrorTitle;
 use parser::ast::*;
@@ -26,7 +26,7 @@ use std::borrow::Cow;
 use std::env;
 use std::path::PathBuf;
 use std::thread;
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock, Once};
 use std::ffi::c_void;
 use std::panic;
 use std::ops::{Add, Sub, Mul, Div, Rem, BitOr, BitAnd, BitXor};
@@ -40,6 +40,7 @@ use serde_json::Value;
 
 pub static LOGPRINTWIN: OnceLock<Mutex<Result<LogPrintWin, UError>>> = OnceLock::new();
 static FORCE_BOOL: OnceLock<bool> = OnceLock::new();
+static INIT_LOG_FILE: Once = Once::new();
 
 type EvalResult<T> = Result<T, UError>;
 
@@ -170,6 +171,14 @@ impl Evaluator {
         for statement in global {
             self.eval_statement(statement)?;
         }
+
+        INIT_LOG_FILE.call_once(|| {
+            if let Ok(dir) = env::var("GET_SCRIPT_DIR") {
+                let dir = PathBuf::from(dir);
+                logging::init(&dir);
+            }
+        });
+
 
         if cfg!(feature="gui") {
             Self::start_logprint_win(true);
@@ -416,16 +425,13 @@ impl Evaluator {
                 if path.is_dir() {
                     path.push("uwscr.log");
                 }
-                env::set_var("UWSCR_LOG_FILE", path.as_os_str());
                 usettings.options.log_path = Some(s);
             },
             OptionSetting::Loglines(n) => {
-                env::set_var("UWSCR_LOG_LINES", &n.to_string());
                 usettings.options.log_lines = n as u32;
             },
             OptionSetting::Logfile(n) => {
                 let n = if n < 0 || n > 4 {1} else {n};
-                env::set_var("UWSCR_LOG_TYPE", n.to_string());
                 usettings.options.log_file = n as u8;
             },
             OptionSetting::Dlgtitle(s) => {

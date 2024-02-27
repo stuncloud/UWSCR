@@ -11,7 +11,6 @@ use util::com::Com;
 //     WString, PcwstrExt,
 // };
 use util::error::UWSCRErrorTitle;
-use util::logging;
 
 use windows::{
     core::{PWSTR, HSTRING},
@@ -38,7 +37,6 @@ pub fn run(script: String, exe_path: &str, script_path: &str, params: Vec<String
             vec!["unable to get script path".into()]
         ))
     };
-    logging::init(&script_dir);
     env::set_var("GET_UWSC_DIR", &uwscr_dir);
     env::set_var("GET_SCRIPT_DIR", &script_dir);
     match get_script_name(script_path) {
@@ -124,7 +122,7 @@ pub fn out_ast(script: String, path: &String) -> Result<(String, Option<String>)
             return Err("unable to get script path".to_string());
         },
     };
-    logging::init(&script_dir);
+    env::set_var("GET_SCRIPT_DIR", &script_dir);
     match env::set_current_dir(&script_dir) {
         Err(_)=> {
             return Err("unable to set current directory".to_string());

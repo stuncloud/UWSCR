@@ -4,6 +4,7 @@ use std::env;
 use std::path::PathBuf;
 use std::fs::OpenOptions;
 use std::io::prelude::*;
+use std::io::{BufReader, SeekFrom};
 use std::fmt;
 
 use chrono::Local;
@@ -11,50 +12,126 @@ use chrono::Local;
 
 pub fn init(dir: &PathBuf) {
     let u = USETTINGS.lock().unwrap();
-    match u.options.log_path {
+    let path = match u.options.log_path {
         Some(ref s) => {
             let mut path = PathBuf::from(&s);
             if path.is_dir() {
                 path.push("uwscr.log");
             }
-            env::set_var("UWSCR_LOG_FILE", path.as_os_str())
+            env::set_var("UWSCR_LOG_FILE", path.as_os_str());
+            path
         },
         None => {
             let mut path = dir.clone();
             path.push("uwscr");
             path.set_extension("log");
             env::set_var("UWSCR_LOG_FILE", path.to_str().unwrap());
+            path
         },
-    }
+    };
     let lines = u.options.log_lines;
     env::set_var("UWSCR_LOG_LINES", lines.to_string());
     let mut log = u.options.log_file;
     if log > 4 {log = 1};
-    env::set_var("UWSCR_LOG_TYPE", log.to_string());
+    if log == 4 {
+        if path.exists() {
+            let _dummy = OpenOptions::new()
+                .write(true)
+                .truncate(true)
+                .open(path);
+        }
+    }
+    if log != 1 {
+        env::set_var("UWSCR_LOG_TYPE", log.to_string());
+    }
 }
 
 pub fn out_log(log: &String, log_type: LogType) {
-    if env::var("UWSCR_LOG_TYPE").unwrap_or("1".into()).as_str() == "1" && log_type != LogType::Panic {
-        return;
-    }
     if log.len() == 0 {
         return;
     }
-    let path = match env::var("UWSCR_LOG_FILE") {
-        Ok(s) => s,
-        Err(_) => return
-    };
-    let _max_lines = env::var("UWSCR_LOG_LINES").unwrap_or("400".into()).parse::<u32>().unwrap_or(400);
-    let mut file = OpenOptions::new().create(true).write(true).append(true).open(path).unwrap();
-    if log_type == LogType::Print {
-        let lines = log.lines().collect::<Vec<&str>>();
-        write!(file, "{} {}  {}\r\n", Local::now().format("%Y-%m-%d %H:%M:%S"), log_type, lines[0]).expect("Unable to write log file");
-        for i in 1..(lines.len()) {
-            write!(file, "                    {}  {}\r\n", log_type, lines[i]).expect("Unable to write log file");
-        }
-    } else {
-        write!(file, "{} {}  {}\r\n", Local::now().format("%Y-%m-%d %H:%M:%S"), log_type, log).expect("Unable to write log file");
+    let log_option = env::var("UWSCR_LOG_TYPE").ok().map(|t| t.parse::<u8>().ok()).flatten();
+    if log_option.is_none() && log_type != LogType::Panic {
+        return;
     }
+    let Ok(path) = env::var("UWSCR_LOG_FILE") else {
+        return;
+    };
+    let no_date_time = log_option.is_some_and(|n| n == 2);
+
+    let max_lines = env::var("UWSCR_LOG_LINES").ok().map(|l| l.parse::<usize>().ok()).flatten().unwrap_or(400);
+
+    {
+        let mut file = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .append(true)
+            .open(&path)
+            .expect("Unable to open log file");
+        match log_type {
+            LogType::Error |
+            LogType::Print => {
+                if no_date_time {
+                    let padding = format!("{log_type}").len();
+                    for (i, line) in log.lines().enumerate() {
+                        if i == 0 {
+                            write!(file, "{log_type}  {line}\r\n").expect("Unable to write log file");
+                        } else {
+                            write!(file, "{:>1$}  {line}\r\n", " ", padding).expect("Unable to write log file");
+                        }
+                    }
+                } else {
+                    let date_time = Local::now().format("%Y-%m-%d %H:%M:%S");
+                    let padding = format!("{date_time} {log_type}").len();
+                    for (i, line) in log.lines().enumerate() {
+                        if i == 0 {
+                            write!(file, "{date_time} {log_type}  {line}\r\n").expect("Unable to write log file");
+                        } else {
+                            write!(file, "{:>1$}  {line}\r\n", " ", padding).expect("Unable to write log file");
+                        }
+                    }
+                }
+            },
+            LogType::Panic => {
+                if no_date_time {
+                    write!(file, "{log_type}  {log}\r\n").expect("Unable to write log file");
+                } else {
+                    let date_time = Local::now().format("%Y-%m-%d %H:%M:%S");
+                    write!(file, "{date_time} {log_type}  {log}\r\n").expect("Unable to write log file");
+                }
+            },
+        }
+    }
+
+    // let path = env::var("UWSCR_LOG_FILE").unwrap();
+    let mut file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(&path)
+        .expect("Unable to open log file");
+
+    let rows = BufReader::new(&file).lines().count();
+
+    if rows > max_lines {
+        file.seek(SeekFrom::Start(0)).expect("Failed on seeking");
+        let lines = BufReader::new(file).lines();
+        let n = rows - max_lines;
+        let new = lines.into_iter().enumerate()
+            .filter_map(|(i, line)| {
+                (i >= n).then_some(line)
+            })
+            .map(|line| {
+                line.unwrap_or_default()}
+            )
+            .reduce(|s1, s2| s1 + "\r\n" + &s2)
+            .expect("Failed to remove lines") + "\r\n";
+
+        let mut file = OpenOptions::new().write(true).truncate(true).open(path).expect("Unable to open log file");
+        file.seek(SeekFrom::Start(0)).expect("Failed on seeking");
+        file.write_all(new.as_bytes())
+            .expect("Failed to write log file");
+    }
+
 }
 
 #[derive(Debug, PartialEq)]

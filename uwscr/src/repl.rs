@@ -47,9 +47,9 @@ pub fn run(script: Option<String>, exe_path: String, script_path: Option<String>
             Ok(s) => {
                 env::set_var("GET_SCRIPT_DIR", s.to_str().unwrap());
             },
-            Err(e) => {
-                eprintln!("failed to get script path ({})", e);
-                return;
+            Err(_) => {
+                let current = env::current_dir().unwrap_or_default();
+                env::set_var("GET_SCRIPT_DIR", current);
             },
         };
     }
