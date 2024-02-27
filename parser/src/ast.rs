@@ -626,9 +626,9 @@ impl ProgramBuilder {
     }
     pub fn build(mut self, lines: Vec<String>) -> Program {
         let mut global = vec![];
+        global.append(&mut self.options);
         global.append(&mut self.consts);
         global.append(&mut self.publics);
-        global.append(&mut self.options);
         global.append(&mut self.definitions);
         let script = self.script;
         Program { global, script, lines }

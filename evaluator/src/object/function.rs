@@ -193,7 +193,7 @@ impl Function {
         let result = if self.is_proc {
             Object::Empty
         } else {
-            evaluator.env.get_variable("result", true).unwrap_or_default()
+            evaluator.get_variable("result").unwrap_or_default()
         };
 
         // 関数スコープを抜ける
@@ -246,7 +246,7 @@ impl Evaluator {
                     }
                 },
                 Object::Num(n) => {
-                    if let Some(Object::Enum(e)) = self.env.get_variable(name, false) {
+                    if let Some(Object::Enum(e)) = self.get_variable(name) {
                         if e.include(*n) {
                             return Ok(());
                         }

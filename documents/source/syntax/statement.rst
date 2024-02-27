@@ -1760,10 +1760,6 @@ bool値指定は省略可能で、省略時はtrueになります
 
 .. object:: OPTION SAMESTR[=bool]
 
-    .. caution::
-
-        現時点では無視されます
-
     | 文字列の比較等で大文字小文字を区別するかどうか (初期値:false)
 
 .. object:: OPTION OPTPUBLIC[=bool]
@@ -1782,8 +1778,7 @@ bool値指定は省略可能で、省略時はtrueになります
 
     .. caution::
 
-        | この設定は無視されます
-        | ``'文字列'`` 表記で特殊文字が展開されなくなります
+        | TRUEにすると特殊文字(<#CR>など)や変数展開が行われなくなります
 
 .. object:: OPTION SHORTCIRCUIT[=bool]
 

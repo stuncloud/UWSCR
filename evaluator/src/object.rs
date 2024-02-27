@@ -26,6 +26,7 @@ use browser::{BrowserBuilder, Browser, TabWindow, RemoteObject};
 pub use web::{WebRequest, WebResponse, HtmlNode};
 pub use comobject::{ComObject, ComError, ComArg, Unknown, Excel, ExcelOpenFlag, ObjectTitle};
 
+use util::settings::USETTINGS;
 use crate::environment::Layer;
 use crate::def_dll::DefDll;
 use crate::builtins::{
@@ -41,7 +42,7 @@ use windows::Win32::Foundation::HWND;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::str::FromStr;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::ops::{Add, Sub, Mul, Div, Rem, BitOr, BitAnd, BitXor};
 use std::cmp::Ordering;
 
@@ -291,6 +292,21 @@ impl fmt::Display for Object {
     }
 }
 
+static OPTION_SAME_STR: OnceLock<bool> = OnceLock::new();
+fn compare_string<A, B>(a: A, b: B) -> bool
+    where A: fmt::Display, B: fmt::Display
+{
+    let same_str = OPTION_SAME_STR.get_or_init(|| {
+        let s = USETTINGS.lock().unwrap();
+        s.options.same_str
+    });
+    if *same_str {
+        a.to_string() == b.to_string()
+    } else {
+        a.to_string().eq_ignore_ascii_case(&b.to_string())
+    }
+}
+
 impl PartialEq for Object {
     fn eq(&self, other: &Self) -> bool {
         match self {
@@ -300,21 +316,29 @@ impl PartialEq for Object {
             },
             Object::Num(n) => match other {
                 Object::Num(n2) => n == n2,
-                Object::String(s) => n.to_string() == s.to_string(),
+                Object::String(s) => compare_string(n, s),
                 Object::Empty => 0.0 == *n,
                 Object::Bool(b) => ! n.is_zero() && *b,
                 _ => false
             },
             Object::String(s) => match other {
-                Object::Num(n) => s.to_string() == n.to_string(),
-                Object::String(s2) => s.to_string() == s2.to_string(),
+                Object::Num(n) => compare_string(n, s),
+                Object::String(s2) => compare_string(s, s2),
                 Object::Empty => false,
-                Object::Bool(b) => b.to_string().to_ascii_lowercase() == s.to_ascii_lowercase(),
+                Object::Bool(b) => if *b {
+                    compare_string(s, "True")
+                } else {
+                    compare_string(s, "False")
+                },
                 _ => false
             },
             Object::Bool(b) => match other {
                 Object::Bool(b2) => b == b2,
-                Object::String(s) => b.to_string().to_ascii_lowercase() == s.to_ascii_lowercase(),
+                Object::String(s) => if *b {
+                    compare_string("True", s)
+                } else {
+                    compare_string("False", s)
+                },
                 Object::Empty => false && *b,
                 _ => false
             },

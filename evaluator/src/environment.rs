@@ -16,10 +16,6 @@ use std::{
         Mutex
     }
 };
-use std::borrow::Cow;
-
-use regex::Regex;
-
 
 #[derive(PartialEq, Clone, Debug)]
 pub enum ContainerType {
@@ -267,7 +263,7 @@ impl Environment {
     }
 
     // 変数評価の際に呼ばれる
-    pub fn get_variable(&self, name: &str, expand: bool) -> Option<Object> {
+    pub fn get_variable(&self, name: &str) -> Option<Object> {
         let obj = match self.get(&name, ContainerType::Variable) {
             // ローカル変数
             Some(value) => Some(value),
@@ -299,11 +295,11 @@ impl Environment {
         };
         match obj {
             Some(Object::DynamicVar(f)) => Some(f()),
-            Some(Object::ExpandableTB(text)) => if expand {
-                Some(self.expand_string(text))
-            } else {
-                Some(Object::String(text))
-            },
+            // Some(Object::ExpandableTB(text)) => if expand {
+            //     Some(self.expand_string(text))
+            // } else {
+            //     Some(Object::String(text))
+            // },
             Some(Object::Instance(ref ins)) => {
                 let dropped = if let Ok(ins) = ins.try_lock() {
                     ins.is_dropped
@@ -755,23 +751,6 @@ impl Environment {
             None => ()
         }
         Object::Array(arr)
-    }
-
-    fn expand_string(&self, string: String) -> Object {
-        let re = Regex::new("<#([^>]+)>").unwrap();
-        let mut new_string = string.clone();
-        for cap in re.captures_iter(string.as_str()) {
-            let expandable = cap.get(1).unwrap().as_str();
-            let rep_to: Option<Cow<str>> = match expandable.to_ascii_uppercase().as_str() {
-                "CR" => Some("\r\n".into()),
-                "TAB" => Some("\t".into()),
-                "DBL" => Some("\"".into()),
-                "NULL" => Some("\0".into()),
-                text =>  self.get_variable(text, false).map(|o| format!("{}", o).into()),
-            };
-            new_string = rep_to.map_or(new_string.clone(), |to| new_string.replace(format!("<#{}>", expandable).as_str(), to.as_ref()));
-        }
-        Object::String(new_string)
     }
 
     pub fn set_try_error_messages(&mut self, message: String, line: String) {

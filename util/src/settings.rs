@@ -157,9 +157,9 @@ pub struct UOption {
     /// 短絡評価の有無
     #[serde(default)]
     pub short_circuit: bool,
-    // /// 特殊文字を展開しない (非対応)
-    // #[serde(default)]
-    // pub special_char: bool
+    /// 特殊文字を展開しない
+    #[serde(default)]
+    pub special_char: bool,
     /// publicの重複定義を禁止
     #[serde(default)]
     pub opt_public: bool,
@@ -192,6 +192,7 @@ impl Default for UOption {
             fix_balloon: false,
             no_stop_hot_key: false,
             short_circuit: true,
+            special_char: false,
             opt_public: false,
             same_str: false,
             gui_print: false,

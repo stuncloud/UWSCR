@@ -51,6 +51,7 @@ pub struct Evaluator {
     lines: Vec<String>,
     pub mouseorg: Option<MouseOrg>,
     pub gui_print: Option<bool>,
+    special_char: bool,
 }
 impl Clone for Evaluator {
     fn clone(&self) -> Self {
@@ -61,6 +62,7 @@ impl Clone for Evaluator {
             lines: self.lines.clone(),
             mouseorg: None,
             gui_print: self.gui_print.clone(),
+            special_char: self.special_char,
         }
     }
 }
@@ -83,6 +85,7 @@ impl Evaluator {
             lines: vec![],
             mouseorg: None,
             gui_print: None,
+            special_char: false
         }
     }
     fn new_thread(&mut self) -> Self {
@@ -99,6 +102,7 @@ impl Evaluator {
             lines: self.lines.clone(),
             mouseorg: None,
             gui_print: self.gui_print,
+            special_char: self.special_char
         }
     }
 
@@ -145,6 +149,16 @@ impl Evaluator {
         } else {
             Ok(self.lines[row - 1].to_string())
         }
+    }
+
+    pub fn get_variable(&self, name: &str) -> Option<Object> {
+        let obj = match self.env.get_variable(name)? {
+            Object::ExpandableTB(string) => {
+                self.expand_string(string, true, None)
+            },
+            o => o,
+        };
+        Some(obj)
     }
 
     pub fn eval(&mut self, program: Program, clear: bool) -> EvalResult<Option<Object>> {
@@ -372,39 +386,38 @@ impl Evaluator {
         Ok(None)
     }
 
-    fn set_option_settings(&self, opt: OptionSetting) {
+    fn set_option_settings(&mut self, opt: OptionSetting) {
         let mut usettings = USETTINGS.lock().unwrap();
         match opt {
             OptionSetting::Explicit(b) => usettings.options.explicit = b,
             OptionSetting::SameStr(b) => usettings.options.same_str = b,
             OptionSetting::OptPublic(b) => usettings.options.opt_public = b,
             OptionSetting::OptFinally(b) => usettings.options.opt_finally = b,
-            OptionSetting::SpecialChar(_) => {},
+            OptionSetting::SpecialChar(b) => {
+                usettings.options.special_char = b;
+                self.special_char = b;
+            },
             OptionSetting::ShortCircuit(b) => usettings.options.short_circuit = b,
             OptionSetting::NoStopHotkey(b) => usettings.options.no_stop_hot_key = b,
             OptionSetting::TopStopform(_) => {},
             OptionSetting::FixBalloon(b) => usettings.options.fix_balloon = b,
-            OptionSetting::Defaultfont(ref s) => {
-                if let Object::String(s) = self.expand_string(s.clone(), true, None) {
-                    let mut name_size = s.split(",");
-                    let name = name_size.next().unwrap();
-                    let size = name_size.next().unwrap_or("15").parse::<i32>().unwrap_or(15);
-                    usettings.options.default_font = DefaultFont::new(name, size);
-                }
+            OptionSetting::Defaultfont(s) => {
+                let mut name_size = s.split(",");
+                let name = name_size.next().unwrap();
+                let size = name_size.next().unwrap_or("15").parse::<i32>().unwrap_or(15);
+                usettings.options.default_font = DefaultFont::new(name, size);
             },
             OptionSetting::Position(x, y) => {
                 usettings.options.position.left = x;
                 usettings.options.position.top = y;
             },
-            OptionSetting::Logpath(ref s) => {
-                if let Object::String(s) = self.expand_string(s.clone(), true, None) {
-                    let mut path = PathBuf::from(&s);
-                    if path.is_dir() {
-                        path.push("uwscr.log");
-                    }
-                    env::set_var("UWSCR_LOG_FILE", path.as_os_str());
-                    usettings.options.log_path = Some(s);
+            OptionSetting::Logpath(s) => {
+                let mut path = PathBuf::from(&s);
+                if path.is_dir() {
+                    path.push("uwscr.log");
                 }
+                env::set_var("UWSCR_LOG_FILE", path.as_os_str());
+                usettings.options.log_path = Some(s);
             },
             OptionSetting::Loglines(n) => {
                 env::set_var("UWSCR_LOG_LINES", &n.to_string());
@@ -415,11 +428,9 @@ impl Evaluator {
                 env::set_var("UWSCR_LOG_TYPE", n.to_string());
                 usettings.options.log_file = n as u8;
             },
-            OptionSetting::Dlgtitle(ref s) => {
-                if let Object::String(ref s) = self.expand_string(s.clone(), true, None) {
-                    env::set_var("UWSCR_DEFAULT_TITLE", s.as_str());
-                    usettings.options.dlg_title = Some(s.to_string());
-                }
+            OptionSetting::Dlgtitle(s) => {
+                env::set_var("UWSCR_DEFAULT_TITLE", &s);
+                usettings.options.dlg_title = Some(s);
             },
             OptionSetting::GuiPrint(b) => {
                 usettings.options.gui_print = b;
@@ -1425,7 +1436,7 @@ impl Evaluator {
 
     fn eval_identifier(&self, identifier: Identifier) -> EvalResult<Object> {
         let Identifier(name) = &identifier;
-        self.env.get_variable(name, true)
+        self.get_variable(name)
             .or(self.env.get_function(name))
             .or(self.env.get_module(name))
             .or(self.env.get_class(name))
@@ -1438,7 +1449,7 @@ impl Evaluator {
     fn eval_dot_op_identifier(&mut self, identifier: Identifier) -> EvalResult<Object> {
         let Identifier(name) = &identifier;
         let obj = self.env.get_module(name)
-            .or(self.env.get_variable(name, false))
+            .or(self.get_variable(name))
             .ok_or(UError::new(
                 UErrorKind::DotOperatorError,
                 UErrorMessage::InvalidDotLeftIdentifier(identifier)
@@ -1693,7 +1704,7 @@ impl Evaluator {
         Ok(assigned_value)
     }
     fn assign_identifier(&mut self, name: &str, new: Object) -> EvalResult<()> {
-        match self.env.get_variable("this", true).unwrap_or_default() {
+        match self.get_variable("this").unwrap_or_default() {
             Object::Module(mutex) => {
                 let mut this = mutex.lock().unwrap();
                 if this.has_member(name) {
@@ -1738,7 +1749,7 @@ impl Evaluator {
             })?;
         if update {
             if let Some(new_value) = maybe_new {
-                match self.env.get_variable("this", true).unwrap_or_default() {
+                match self.get_variable("this").unwrap_or_default() {
                     Object::Module(mutex) => {
                         let mut this = mutex.lock().unwrap();
                         if this.has_member(name) {
@@ -1954,7 +1965,7 @@ impl Evaluator {
                         let mut module = m.lock().unwrap();
                         if module.is_local_member(&name, false) {
                             // ローカルメンバだった場合thisと比較し、同一モジュールであればローカルメンバへ代入
-                            if let Some(Object::Module(this)) = self.env.get_variable("this", false) {
+                            if let Some(Object::Module(this)) = self.get_variable("this") {
                                 if this.try_lock().is_err() {
                                     module.assign(&name, new, None)?;
                                 } else {
@@ -1979,7 +1990,7 @@ impl Evaluator {
                     let mut module = ins.module.lock().unwrap();
                     if module.is_local_member(&name, false) {
                         // ローカルメンバだった場合、thisと比較
-                        if let Some(Object::Instance(this)) = self.env.get_variable("this", false) {
+                        if let Some(Object::Instance(this)) = self.get_variable("this") {
                             if this.try_lock().is_err() {
                                 // thisがロックできない場合に限りローカルメンバの代入を行う
                                 module.assign(&name, new, None)?;
@@ -2144,28 +2155,32 @@ impl Evaluator {
     }
 
     fn expand_string(&self, string: String, expand_var: bool, maybe_outer: Option<&Arc<Mutex<Layer>>>) -> Object {
-        let re = Regex::new("<#([^>]+)>").unwrap();
-        let mut new_string = string.clone();
-        for cap in re.captures_iter(string.as_str()) {
-            let expandable = cap.get(1).unwrap().as_str();
-            let rep_to: Option<Cow<str>> = match expandable.to_ascii_uppercase().as_str() {
-                "CR" => Some("\r\n".into()),
-                "TAB" => Some("\t".into()),
-                "DBL" => Some("\"".into()),
-                "NULL" => Some("\0".into()),
-                name => if expand_var {
-                    if let Some(outer) = maybe_outer {
-                        self.env.get_from_reference(name, outer)
+        if self.special_char {
+            Object::String(string)
+        } else {
+            let re = Regex::new("<#([^>]+)>").unwrap();
+            let mut new_string = string.clone();
+            for cap in re.captures_iter(string.as_str()) {
+                let expandable = cap.get(1).unwrap().as_str();
+                let rep_to: Option<Cow<str>> = match expandable.to_ascii_uppercase().as_str() {
+                    "CR" => Some("\r\n".into()),
+                    "TAB" => Some("\t".into()),
+                    "DBL" => Some("\"".into()),
+                    "NULL" => Some("\0".into()),
+                    name => if expand_var {
+                        if let Some(outer) = maybe_outer {
+                            self.env.get_from_reference(name, outer)
+                        } else {
+                            self.get_variable(name)
+                        }.map(|o| o.to_string().into())
                     } else {
-                        self.env.get_variable(name, false)
-                    }.map(|o| o.to_string().into())
-                } else {
-                    continue;
-                },
-            };
-            new_string = rep_to.map_or(new_string.clone(), |to| new_string.replace(format!("<#{}>", expandable).as_str(), to.as_ref()));
+                        continue;
+                    },
+                };
+                new_string = rep_to.map_or(new_string.clone(), |to| new_string.replace(format!("<#{}>", expandable).as_str(), to.as_ref()));
+            }
+            Object::String(new_string)
         }
-        Object::String(new_string)
     }
 
     fn eval_array_literal(&mut self, expr_items: Vec<Expression>) -> EvalResult<Object> {
@@ -2187,7 +2202,7 @@ impl Evaluator {
                         Some(o) => Ok(o),
                         None => match self.env.get_struct(&name) {
                             Some(o) => Ok(o),
-                            None => match self.env.get_variable(&name, true) {
+                            None => match self.get_variable(&name) {
                                 Some(o) => Ok(o),
                                 None => return Err(UError::new(
                                     UErrorKind::UndefinedError,
@@ -2682,7 +2697,7 @@ impl Evaluator {
     fn get_module_member(&self, mutex: &Arc<Mutex<Module>>, member: &String, is_func: bool) -> EvalResult<Object> {
         let module = mutex.try_lock().expect("Dead lock: Evaluator::get_module_member");
         if module.is_local_member(&member, is_func) {
-            match self.env.get_variable("this", true).unwrap_or_default() {
+            match self.get_variable("this").unwrap_or_default() {
                 Object::Module(this) => {
                     if this.try_lock().is_err() {
                         // ロックに失敗した場合thisと呼び出し元が同一と判断し、プライベートメンバを返す
