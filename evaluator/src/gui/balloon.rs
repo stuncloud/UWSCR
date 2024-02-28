@@ -1,4 +1,5 @@
 use super::*;
+use util::settings::USETTINGS;
 
 use windows::Win32::Foundation::COLORREF;
 
@@ -162,9 +163,17 @@ impl UWindow<()> for Balloon {
 
     fn create_window(title: &str) -> UWindowResult<HWND> {
         Self::register_window_class(&REGISTER_CLASS)?;
+        let style = {
+            let s = USETTINGS.lock().unwrap();
+            if s.options.fix_balloon {
+                wm::WS_EX_TOOLWINDOW|wm::WS_EX_NOACTIVATE|wm::WS_EX_TOPMOST
+            } else {
+                wm::WS_EX_APPWINDOW|wm::WS_EX_TOOLWINDOW|wm::WS_EX_NOACTIVATE|wm::WS_EX_TOPMOST
+            }
+        };
         WindowBuilder::new(title, Self::CLASS_NAME)
             .style(WS_VISIBLE|wm::WS_POPUP)
-            .ex_style(wm::WS_EX_TOOLWINDOW|wm::WS_EX_NOACTIVATE|wm::WS_EX_TOPMOST)
+            .ex_style(style)
             .build()
     }
 
