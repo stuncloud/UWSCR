@@ -3117,11 +3117,20 @@ mod tests {
             (r#""hoge" = "hoge""#, Ok(Some(Object::Bool(true)))),
             (r#""hoge" == "hoge""#, Ok(Some(Object::Bool(true)))),
             (r#""hoge" == "fuga""#, Ok(Some(Object::Bool(false)))),
-            (r#""hoge" == "HOGE""#, Ok(Some(Object::Bool(false)))),
+            (r#""hoge" == "HOGE""#, Ok(Some(Object::Bool(true)))),
             (r#""hoge" == 1"#, Ok(Some(Object::Bool(false)))),
             (r#""hoge" != 1"#, Ok(Some(Object::Bool(true)))),
             (r#""hoge" <> 1"#, Ok(Some(Object::Bool(true)))),
             (r#""hoge" <> "hoge"#, Ok(Some(Object::Bool(false)))),
+        ];
+        for (input, expected) in test_cases {
+            eval_test(input, expected, false);
+        }
+    }
+    #[test]
+    fn test_same_str() {
+        let test_cases = vec![
+            (r#"OPTION SAMESTR;"hoge" == "HOGE""#, Ok(Some(Object::Bool(false)))),
         ];
         for (input, expected) in test_cases {
             eval_test(input, expected, false);
