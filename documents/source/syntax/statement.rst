@@ -1756,7 +1756,6 @@ bool値指定は省略可能で、省略時はtrueになります
 
     | trueの場合未宣言の変数への代入を許可しない (初期値:false)
     | 未宣言の変数への代入および複合代入が行われる場合に解析エラーとなります
-    | 式の中で ``:=`` による未宣言変数への代入が行われる場合は実行時エラーとなります
 
 .. object:: OPTION SAMESTR[=bool]
 
@@ -1776,17 +1775,105 @@ bool値指定は省略可能で、省略時はtrueになります
 
 .. object:: OPTION SPECIALCHAR[=bool]
 
-    .. caution::
-
-        | trueで特殊文字(<#CR>など)や変数展開が行われなくなる (初期値: false)
+    | trueで特殊文字(<#CR>など)や変数展開が行われなくなる (初期値: false)
 
 .. object:: OPTION SHORTCIRCUIT[=bool]
 
-    .. caution::
-
-        現時点では無視されます
-
     | 論理演算で短絡評価を行うかどうか (初期値:true)
+
+    .. admonition:: このOPTIONはデフォルト有効です
+        :class: caution
+
+        | UWSCとは違いデフォルトで ``OPTION SHORTCIRCUIT`` が有効になっています。
+        | 無効にするには以下を実行してください
+
+        .. sourcecode:: uwscr
+
+            OPTION SHORTCIRCUIT=FALSE
+
+    .. admonition:: 短絡評価とは
+        :class: hint
+
+        | 論理演算において左辺の評価のみで結果が確定する場合に右辺の評価を行いません
+
+        - 論理和(OR)の場合、左辺が真なら右辺によらず真なので右辺を評価しない
+        - 論理積(AND)の場合、左辺が偽なら右辺によらず偽なので右辺を評価しない
+
+        | 短絡評価が行われるのは以下の状況です
+        | サンプルコード内では事前に以下が実行されているものとします
+
+        .. sourcecode:: uwscr
+
+            function t(n)
+                result = true
+                print n + ": " + result
+            fend
+            function f(n)
+                result = false
+                print n + ": " + result
+            fend
+
+        - AndL演算子の左辺が偽となる値を取る場合
+
+            .. sourcecode:: uwscr
+
+                // t(2) は評価されない
+                print f(1) AndL t(2)
+                // 1: False
+                // False
+
+
+        - OrL演算子の左辺が真となる値を取る場合
+
+            .. sourcecode:: uwscr
+
+                // f(2) は評価されない
+                print t(1) OrL f(2)
+                // 1: True
+                // True
+
+        - ifなどの条件式にて、AndまたはAndL演算子の左辺が偽となる値を取る場合
+
+            .. sourcecode:: uwscr
+
+                // t(2) は評価されない
+                print f(1) and t(2) ? true : false
+                // 1: False
+                // False
+
+        - ifなどの条件式にて、OrまたはOrL演算子の左辺が真となる値を取る場合
+
+            .. sourcecode:: uwscr
+
+                // f(2) は評価されない
+                print t(1) or f(2) ? true : false
+                // 1: True
+                // True
+
+        .. admonition:: 短絡評価におけるUWSCとの差異
+            :class: caution
+
+            | ANDとORの複合条件でUWSCでは短絡評価が行われないケースがありましたが、UWSCRでは適切に短絡評価を行います
+            | 評価結果に影響はありません
+
+            .. sourcecode:: uwscr
+
+                // UWSCで短絡評価が行われない例
+                if f(1) and t(2) or t(3) then
+                    print true
+                else
+                    print false
+                endif
+                // UWSCR
+                // 1: False … f(1) and t(2) で短絡評価されfalse
+                // 3: True  … false or t(3) は短絡評価されないのでt(3)も評価される
+                // True
+
+                // UWSC
+                // 1: False
+                // 2: True … 評価されてしまう
+                // 3: True
+                // True
 
 .. object:: OPTION NOSTOPHOTKEY[=bool]
 
@@ -1801,8 +1888,6 @@ bool値指定は省略可能で、省略時はtrueになります
         この設定は無効です
 
 .. object:: OPTION FIXBALLOON[=bool]
-
-    .. caution::
 
     | 吹き出しを仮想デスクトップを跨いで表示するかどうか (初期値:false)
 
@@ -1823,8 +1908,6 @@ bool値指定は省略可能で、省略時はtrueになります
     | それ以外はログファイルのパスとして扱われます
 
 .. object:: OPTION LOGLINES=n
-
-    .. caution::
 
     | ログファイルの最大行数を指定 (初期値:400)
 

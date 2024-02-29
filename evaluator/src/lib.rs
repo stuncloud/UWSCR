@@ -44,6 +44,21 @@ static INIT_LOG_FILE: Once = Once::new();
 
 type EvalResult<T> = Result<T, UError>;
 
+enum ShortCircuitCondition {
+    And(bool),
+    Or(bool),
+    Other(bool),
+}
+impl ShortCircuitCondition {
+    fn to_bool(self) -> bool {
+        match self {
+            ShortCircuitCondition::And(b) |
+            ShortCircuitCondition::Or(b) |
+            ShortCircuitCondition::Other(b) => b,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Evaluator {
     pub env: Environment,
@@ -53,6 +68,7 @@ pub struct Evaluator {
     pub mouseorg: Option<MouseOrg>,
     pub gui_print: Option<bool>,
     special_char: bool,
+    short_circuit: bool,
 }
 impl Clone for Evaluator {
     fn clone(&self) -> Self {
@@ -64,6 +80,7 @@ impl Clone for Evaluator {
             mouseorg: None,
             gui_print: self.gui_print.clone(),
             special_char: self.special_char,
+            short_circuit: self.short_circuit,
         }
     }
 }
@@ -86,7 +103,8 @@ impl Evaluator {
             lines: vec![],
             mouseorg: None,
             gui_print: None,
-            special_char: false
+            special_char: false,
+            short_circuit: true,
         }
     }
     fn new_thread(&mut self) -> Self {
@@ -103,7 +121,8 @@ impl Evaluator {
             lines: self.lines.clone(),
             mouseorg: None,
             gui_print: self.gui_print,
-            special_char: self.special_char
+            special_char: self.special_char,
+            short_circuit: self.short_circuit,
         }
     }
 
@@ -406,7 +425,10 @@ impl Evaluator {
                 usettings.options.special_char = b;
                 self.special_char = b;
             },
-            OptionSetting::ShortCircuit(b) => usettings.options.short_circuit = b,
+            OptionSetting::ShortCircuit(b) => {
+                usettings.options.short_circuit = b;
+                self.short_circuit = b;
+            },
             OptionSetting::NoStopHotkey(b) => usettings.options.no_stop_hot_key = b,
             OptionSetting::TopStopform(_) => {},
             OptionSetting::FixBalloon(b) => usettings.options.fix_balloon = b,
@@ -641,13 +663,125 @@ impl Evaluator {
             let usetttings = USETTINGS.lock().unwrap();
             usetttings.options.force_bool
         });
-        if *force_bool {
+        if self.short_circuit {
+            self.eval_conditional_expression_short_circuit(expression, *force_bool).map(|c| c.to_bool())
+        } else {
+            self.eval_conditional_expression_inner(expression, *force_bool)
+        }
+    }
+    fn eval_conditional_expression_inner(&mut self, expression: Expression, force_bool: bool) -> EvalResult<bool> {
+        if force_bool {
             match self.eval_expression(expression)? {
                 Object::Bool(b) => Ok(b),
                 _ => Err(UError::new(UErrorKind::EvaluatorError, UErrorMessage::ForceBoolError))
             }
         } else {
             Ok(self.eval_expression(expression)?.is_truthy())
+        }
+
+    }
+    fn eval_conditional_expression_short_circuit(&mut self, expression: Expression, force_bool: bool) -> EvalResult<ShortCircuitCondition> {
+        match expression {
+            Expression::Infix(Infix::And, l, r) |
+            Expression::Infix(Infix::AndL, l, r) => {
+                match self.eval_conditional_expression_short_circuit(*l, force_bool)? {
+                    ShortCircuitCondition::Other(true) => {
+                        match self.eval_conditional_expression_short_circuit(*r, force_bool)? {
+                            ShortCircuitCondition::Other(true) => {
+                                Ok(ShortCircuitCondition::Other(true))
+                            },
+                            ShortCircuitCondition::Other(false) => {
+                                Ok(ShortCircuitCondition::And(false))
+                            },
+                            short => Ok(short)
+                        }
+                    },
+                    ShortCircuitCondition::Other(false) => {
+                        Ok(ShortCircuitCondition::And(false))
+                    },
+                    short => Ok(short)
+                }
+            },
+            Expression::Infix(Infix::Or, l, r) |
+            Expression::Infix(Infix::OrL, l, r) => {
+                match self.eval_conditional_expression_short_circuit(*l, force_bool)? {
+                    ShortCircuitCondition::And(true) |
+                    ShortCircuitCondition::Other(true) => {
+                        Ok(ShortCircuitCondition::Or(true))
+                    },
+                    ShortCircuitCondition::And(false) |
+                    ShortCircuitCondition::Other(false) => {
+                        match self.eval_conditional_expression_short_circuit(*r, force_bool)? {
+                            ShortCircuitCondition::Other(true) => {
+                                Ok(ShortCircuitCondition::Or(true))
+                            },
+                            ShortCircuitCondition::Other(false) => {
+                                Ok(ShortCircuitCondition::Other(false))
+                            },
+                            ShortCircuitCondition::And(b) |
+                            ShortCircuitCondition::Or(b) => {
+                                Ok(ShortCircuitCondition::Or(b || false))
+                            },
+                        }
+                    },
+                    short => Ok(short)
+                }
+            },
+            expression => {
+                self.eval_conditional_expression_inner(expression, force_bool)
+                    .map(|b| ShortCircuitCondition::Other(b))
+            },
+        }
+    }
+    fn eval_expression_short_circuit(&mut self, expression: Expression) -> EvalResult<ShortCircuitCondition> {
+        match expression {
+            Expression::Infix(Infix::AndL, l, r) => {
+                match self.eval_expression_short_circuit(*l)? {
+                    ShortCircuitCondition::Other(true) => {
+                        match self.eval_expression_short_circuit(*r)? {
+                            ShortCircuitCondition::Other(true) => {
+                                Ok(ShortCircuitCondition::Other(true))
+                            },
+                            ShortCircuitCondition::Other(false) => {
+                                Ok(ShortCircuitCondition::And(false))
+                            },
+                            short => Ok(short)
+                        }
+                    },
+                    ShortCircuitCondition::Other(false) => {
+                        Ok(ShortCircuitCondition::And(false))
+                    },
+                    short => Ok(short)
+                }
+            },
+            Expression::Infix(Infix::OrL, l, r) => {
+                match self.eval_expression_short_circuit(*l)? {
+                    ShortCircuitCondition::And(true) |
+                    ShortCircuitCondition::Other(true) => {
+                        Ok(ShortCircuitCondition::Or(true))
+                    },
+                    ShortCircuitCondition::And(false) |
+                    ShortCircuitCondition::Other(false) => {
+                        match self.eval_expression_short_circuit(*r)? {
+                            ShortCircuitCondition::Other(true) => {
+                                Ok(ShortCircuitCondition::Or(true))
+                            },
+                            ShortCircuitCondition::Other(false) => {
+                                Ok(ShortCircuitCondition::Other(false))
+                            },
+                            ShortCircuitCondition::And(b) |
+                            ShortCircuitCondition::Or(b) => {
+                                Ok(ShortCircuitCondition::Or(b || false))
+                            },
+                        }
+                    },
+                    short => Ok(short)
+                }
+            },
+            expression => {
+                let b = self.eval_expression(expression)?.is_truthy();
+                Ok(ShortCircuitCondition::Other(b))
+            },
         }
     }
 
@@ -1319,9 +1453,14 @@ impl Evaluator {
                 self.eval_prefix_expression(p, right)?
             },
             Expression::Infix(i, l, r) => {
-                let left = self.eval_expression(*l)?;
-                let right = self.eval_expression(*r)?;
-                self.eval_infix_expression(i, left, right)?
+                if self.short_circuit && (i == Infix::AndL || i == Infix::OrL) {
+                    self.eval_expression_short_circuit(Expression::Infix(i, l, r))
+                        .map(|c| c.to_bool().into())?
+                } else {
+                    let left = self.eval_expression(*l)?;
+                    let right = self.eval_expression(*r)?;
+                    self.eval_infix_expression(i, left, right)?
+                }
             },
             Expression::Index(l, i, h) => {
                 let left = match *l {
@@ -4945,6 +5084,128 @@ endclass
         for (input, expected) in test_cases {
             eval_test_with_env(&mut e, input, expected);
         }
+    }
+
+    #[test]
+    fn test_short_circuit() {
+        let definition = r#"
+OPTION SHORTCIRCUIT
+public called = ""
+function t(n)
+    called += n
+    result = true
+fend
+function f(n)
+    called += n
+    result = false
+fend
+        "#;
+        let mut e = eval_env(definition);
+        let mut evaluate = move |input: &str| {
+            match Parser::new(Lexer::new(input), None, None).parse() {
+                Ok(program) => {
+                    match e.eval(program, false) {
+                        Ok(obj) => match obj {
+                            Some(obj) => {
+                                match &obj {
+                                    Object::Array(arr) => {
+                                        let Object::Bool(b) = arr.get(0).expect("expect array object") else {
+                                            panic!("bad result: {arr:?}");
+                                        };
+                                        let Object::String(s) = arr.get(1).expect("expect string object") else {
+                                            panic!("bad result: {arr:?}");
+                                        };
+                                        (*b, s.to_string())
+                                    },
+                                    obj => panic!("bad result: {obj}"),
+                                }
+                            },
+                            None => panic!("no object"),
+                        },
+                        Err(e) => panic!("eval error: {e}"),
+                    }
+                },
+                Err(e) => panic!("parse error: {e:?}"),
+            }
+        };
+        fn t(n: u8, called: &mut String) -> bool {
+            *called = format!("{called}{n}");
+            true
+        }
+        fn f(n: u8, called: &mut String) -> bool {
+            *called = format!("{called}{n}");
+            false
+        }
+        enum Infix {
+            And,
+            Or
+        }
+        impl std::fmt::Display for Infix {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                match self {
+                    Infix::And => write!(f, "and"),
+                    Infix::Or => write!(f, "or"),
+                }
+            }
+        }
+
+
+        for b1 in [true, false] {
+            for b2 in [true, false] {
+                for b3 in [true, false] {
+                    for i1 in &[Infix::And, Infix::Or] {
+                        for i2 in &[Infix::And, Infix::Or] {
+                            let uf1 = if b1 {"t(1)"} else {"f(1)"};
+                            let uf2 = if b2 {"t(2)"} else {"f(2)"};
+                            let uf3 = if b3 {"t(3)"} else {"f(3)"};
+                            let input = format!(r#"
+called = ""
+a = {uf1} {i1} {uf2} {i2} {uf3} ? true : false
+[a, called]
+                            "#);
+                            let mut called = String::new();
+                            let f1 = if b1 {t} else {f};
+                            let f2 = if b2 {t} else {f};
+                            let f3 = if b3 {t} else {f};
+                            let a = match (i1, i2) {
+                                (Infix::And, Infix::And) => {
+                                    f1(1, &mut called) && f2(2, &mut called) && f3(3, &mut called)
+                                },
+                                (Infix::And, Infix::Or) => {
+                                    f1(1, &mut called) && f2(2, &mut called) || f3(3, &mut called)
+                                },
+                                (Infix::Or, Infix::And) => {
+                                    f1(1, &mut called) || f2(2, &mut called) && f3(3, &mut called)
+                                },
+                                (Infix::Or, Infix::Or) => {
+                                    f1(1, &mut called) || f2(2, &mut called) || f3(3, &mut called)
+                                },
+                            };
+                            let (b, s) = evaluate(&input);
+                            if a == b && called == s {
+                                // ok
+                                // println!("[debug] {a}:{s} {b}:{called}");
+                            } else {
+                                panic!("got {b}:{s} on {input}, but should be {a}:{called}");
+                            }
+                            let input = format!(r#"
+called = ""
+a = {uf1} {i1}L {uf2} {i2}L {uf3}
+[a, called]
+                            "#);
+                            let (b, s) = evaluate(&input);
+                            if a == b && called == s {
+                                // ok
+                                // println!("[debug] {a}:{s} {b}:{called}");
+                            } else {
+                                panic!("got {b}:{s} on {input}, but should be {a}:{called}");
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
     }
 
 }
