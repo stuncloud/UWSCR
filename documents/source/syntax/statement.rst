@@ -1742,7 +1742,9 @@ OPTION
 
     OPTION 設定名[=値]
 
-bool値指定は省略可能で、省略時はtrueになります
+| 値が真偽値指定の場合は省略可能で、省略時はtrueになります
+| 各OPTIONのデフォルト値は設定ファイルからも変更可能です
+| 設定ファイルについては :ref:`setting_file` を参照してください
 
 .. sourcecode:: uwscr
 
