@@ -352,7 +352,7 @@ impl Evaluator {
         Ok((name, Object::HashTbl(Arc::new(Mutex::new(hashtbl)))))
     }
 
-    fn eval_hash_sugar_statement(&mut self, hash: HashSugar) -> EvalResult<()> {
+    fn eval_hash_sugar_statement(&mut self, hash: HashSugar, module: Option<&mut Module>) -> EvalResult<()> {
         let name = hash.name.0;
         let opt = match hash.option {
             Some(e) => match self.eval_expression(e)? {
@@ -379,10 +379,23 @@ impl Evaluator {
             hashtbl.insert(name, value);
         }
         let object = Object::HashTbl(Arc::new(Mutex::new(hashtbl)));
-        if hash.is_public {
-            self.env.define_public(&name, object)?;
-        } else {
-            self.env.define_local(&name, object)?;
+        match module {
+            Some(module) => {
+                if hash.is_public {
+                    self.env.define_module_public(&name, object.clone())?;
+                    module.add(name, object, ContainerType::Public);
+                } else {
+                    self.env.define_module_variable(&name, object.clone())?;
+                    module.add(name, object, ContainerType::Variable);
+                }
+            },
+            None => {
+                if hash.is_public {
+                    self.env.define_public(&name, object)?;
+                } else {
+                    self.env.define_local(&name, object)?;
+                }
+            },
         }
         Ok(())
     }
@@ -549,7 +562,7 @@ impl Evaluator {
                 Ok(None)
             },
             Statement::Hash(hash) => {
-                self.eval_hash_sugar_statement(hash)?;
+                self.eval_hash_sugar_statement(hash, None)?;
                 Ok(None)
             },
             Statement::Print(e) => self.eval_print_statement(e),
@@ -1148,6 +1161,9 @@ impl Evaluator {
                         module.add(name, hashtbl, container_type);
                     }
                 },
+                Statement::Hash(hash) => {
+                    self.eval_hash_sugar_statement(hash, Some(&mut module))?;
+                }
                 Statement::Function{name: i, params, body, is_proc, is_async} => {
                     let Identifier(func_name) = i;
                     let mut new_body = Vec::new();
@@ -1169,15 +1185,21 @@ impl Evaluator {
                                     module.add(member_name, value, ContainerType::Const);
                                 }
                             },
-                            Statement::HashTbl(v, is_pub) => {
+                            // public hashtbl
+                            Statement::HashTbl(v, true) => {
                                 for (i, opt) in v {
-                                    if is_pub {
-                                        let (name, hashtbl) = self.eval_hashtbl_definition_statement(i, opt)?;
-                                        self.env.define_module_public(&name, hashtbl.clone())?;
-                                        module.add(name, hashtbl, ContainerType::Public);
-                                    }
+                                    let (name, hashtbl) = self.eval_hashtbl_definition_statement(i, opt)?;
+                                    self.env.define_module_public(&name, hashtbl.clone())?;
+                                    module.add(name, hashtbl, ContainerType::Public);
                                 }
                             },
+                            Statement::Hash(ref hash) => {
+                                if hash.is_public {
+                                    self.eval_hash_sugar_statement(hash.clone(), Some(&mut module))?;
+                                } else {
+                                    new_body.push(statement);
+                                }
+                            }
                             Statement::TextBlock(i, s) => {
                                 let Identifier(name) = i;
                                 let value = self.eval_literal(s, None)?;
