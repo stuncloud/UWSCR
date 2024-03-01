@@ -1763,11 +1763,39 @@ bool値指定は省略可能で、省略時はtrueになります
 
 .. object:: OPTION OPTPUBLIC[=bool]
 
-    .. caution::
+    | public変数の重複宣言を禁止するかどうか (初期値:false)
+    | 以下の場合に解析エラーとなります
 
-        現時点では無視されます
+    - 同名のグローバル変数宣言を行ったとき
 
-    | public変数の重複定義を禁止するかどうか (初期値:false)
+        .. sourcecode:: uwscr
+
+            OPTION OPTPUBLIC
+            public p = 1
+            public p = 2     // エラー
+            hoge = procedure()
+                public p = 3 // エラー
+            fend
+            procedure p()
+                public p = 4 //エラー
+            fend
+
+    - 同一モジュール内で同名のpublic変数を宣言したとき
+
+        .. sourcecode:: uwscr
+
+            OPTION OPTPUBLIC
+            module m
+                public p = 1
+                public p = 2     // エラー
+                procedure m
+                    public p = 3 // エラー
+                fend
+
+                public x = procedure()
+                    public p = 4 // エラー
+                fend
+            endmodule
 
 .. object:: OPTION OPTFINALLY[=bool]
 

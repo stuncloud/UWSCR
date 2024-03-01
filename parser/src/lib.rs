@@ -456,9 +456,11 @@ impl Parser {
     fn check_identifier(&mut self) {
         if self.strict_mode {
             // OPTION EXPLICITチェック
-            let is_explicit = {
+            let (is_explicit, is_optpublic) = {
                 let settings = USETTINGS.lock().unwrap();
-                settings.options.explicit || self.builder.is_explicit_option_enabled()
+                let is_explicit = settings.options.explicit || self.builder.is_explicit_option_enabled();
+                let is_optpublic = settings.options.opt_public || self.builder.is_optpublic_option_enabled();
+                (is_explicit, is_optpublic)
             };
             if is_explicit {
                 self.builder.check_option_explicit()
@@ -487,6 +489,20 @@ impl Parser {
                         self.errors.push(err)
                     })
                 });
+            // OPTION OPTPUBLIC
+            if is_optpublic {
+                self.builder.check_public_duplicated()
+                    .iter()
+                    .for_each(|(location, names)| {
+                        names.iter().for_each(|name| {
+                            let err = ParseError::new(
+                                ParseErrorKind::IdentifierIsAlreadyDefined(name.name.to_owned()),
+                                name.start, name.end, location.to_string()
+                            );
+                            self.errors.push(err);
+                        });
+                    });
+            }
             // 未定義チェック
             self.builder.check_access()
                 .iter()
@@ -1969,11 +1985,13 @@ impl Parser {
             },
             "optpublic" => {
                 if ! self.is_next_token(&Token::EqualOrAssign) {
+                    self.builder.set_option_optpublic(true);
                     Statement::Option(OptionSetting::OptPublic(true))
                 } else {
                     self.bump();
                     self.bump();
                     if let Token::Bool(b) = self.current_token.token {
+                        self.builder.set_option_optpublic(b);
                         Statement::Option(OptionSetting::OptPublic(b))
                     } else {
                         self.error_current_token_is_invalid();

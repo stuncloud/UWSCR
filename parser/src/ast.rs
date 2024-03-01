@@ -684,6 +684,9 @@ impl ProgramBuilder {
     pub fn is_explicit_option_enabled(&self) -> bool {
         self.scope.option_explicit
     }
+    pub fn is_optpublic_option_enabled(&self) -> bool {
+        self.scope.option_optpublic
+    }
     pub fn is_in_loop(&self) -> bool {
         self.scope.loop_count > 0
     }
@@ -708,6 +711,10 @@ impl ProgramBuilder {
 
     pub fn set_option_explicit(&mut self, b: bool) {
         self.scope.option_explicit = b;
+    }
+
+    pub fn set_option_optpublic(&mut self, b: bool) {
+        self.scope.option_optpublic = b;
     }
     pub fn set_public_scope(&mut self) {
         self.scope.set_public();
@@ -1093,6 +1100,20 @@ impl ProgramBuilder {
 
         location_and_names
     }
+    pub fn check_public_duplicated(&self) -> Vec<(ScriptLocation, Names)> {
+        let mut location_and_names = vec![];
+        let mut call_public = self.get_call_public();
+
+        let names = self.scope.check_public_duplicated(&call_public);
+        location_and_names.push((self.location.clone(), names));
+
+        call_public.append(self.scope.public.names.clone());
+        for (location, scope) in &self.call {
+            let names = scope.check_public_duplicated(&call_public);
+            location_and_names.push((location.clone(), names));
+        }
+        location_and_names
+    }
     pub fn check_access(&self) -> Vec<(ScriptLocation, Names)> {
         let mut location_and_names = vec![];
 
@@ -1148,6 +1169,8 @@ impl ProgramBuilder {
 pub struct BuilderScope {
     /// OPTION EXPLICITの状態を示す
     option_explicit: bool,
+    /// OPTION OPTPUBLICの状態を示す
+    option_optpublic: bool,
     /// ループの深さ
     loop_count: u32,
     /// const定義
@@ -1218,6 +1241,15 @@ impl BuilderScope {
             names.append(dup);
         });
 
+        names
+    }
+    /// OPTPUBLIC
+    fn check_public_duplicated(&self, call_public: &Names) -> Names {
+        let mut names = self.public.get_public_dups(call_public);
+        self.module.0.iter().for_each(|module| {
+            let dup = module.get_public_dups();
+            names.append(dup);
+        });
         names
     }
     /// OPTION EXPLICIT違反だった名前を返す
@@ -1647,6 +1679,16 @@ impl PublicScope {
         }
         names
     }
+    fn get_public_dups(&self, call_public: &Names) -> Names {
+        let dup = self.names.iter()
+            .filter_map(|name| {
+                self.names.if_duplicated(name, DupFlg::ByPos)
+                    .or(call_public.if_duplicated(name, DupFlg::ByDepth))
+
+            })
+            .collect();
+        Names(dup)
+    }
     fn get_module_dups(&self, module_const: &Names) -> Names {
         let mut names = Names::default();
         let dup: Vec<Name> = self.names.iter()
@@ -1990,6 +2032,13 @@ impl ModuleScope {
             });
 
         names
+    }
+    fn get_public_dups(&self) -> Names {
+        let names = self.public.names.iter().filter_map(|name| {
+            self.public.names.if_duplicated(name, DupFlg::ByPos)
+        })
+        .collect();
+        Names(names)
     }
     fn implicit_declaration(&mut self) {
         self.r#const.implicit_declaration();
