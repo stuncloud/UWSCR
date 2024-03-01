@@ -70,6 +70,7 @@ enum StatementType {
 enum ExpressionState {
     StartOfLine,
     Lambda,
+    NotAccess,
     Default,
 }
 impl ExpressionState {
@@ -90,6 +91,12 @@ impl ExpressionState {
             Self::StartOfLine |
             Self::Lambda => true,
             _ => false,
+        }
+    }
+    fn could_be_access(&self) -> bool {
+        match self {
+            Self::NotAccess => false,
+            _ => true
         }
     }
 }
@@ -991,7 +998,7 @@ impl Parser {
         self.bump();
         let mut members = vec![];
         while ! self.is_current_token(&Token::BlockEnd(BlockEnd::EndHash)) {
-            let expression = self.parse_expression(Precedence::Lowest, ExpressionState::Default);
+            let expression = self.parse_expression(Precedence::Lowest, ExpressionState::NotAccess);
             if let Some(Expression::Infix(infix, left, right)) = &expression {
                 if *infix == Infix::Equal {
                     if let Some(e) = match *left.clone() {
@@ -2449,7 +2456,7 @@ impl Parser {
                     }
                 } else {
                     let identifier = self.parse_identifier(IdentifierType::NotSure)?;
-                    ident_pos = Some((identifier.clone(), self.current_token_pos(), self.current_token_end_pos()));
+                    ident_pos = state.could_be_access().then_some((identifier.clone(), self.current_token_pos(), self.current_token_end_pos()));
                     Expression::Identifier(identifier)
                 }
                 // self.error_on_current_token(ParseErrorKind::ExpressionIsExpected);
