@@ -363,14 +363,23 @@ impl Lexer {
             // \ (スラッシュ) もパス区切りとして扱う
             // ファイル名部分の最後に ( があればその直前までをパスとする
             // ( からはまたnext_tokenさせる
-            let start_pos = self.pos;
+            let mut start_pos = self.pos;
             let mut back_slash_pos: usize = 0;
             let mut lparen_pos: usize = 0;
+            // "path.uws" の場合に対応
+            if '"' == self.input[self.pos] {
+                self.input[self.pos] = ' ';
+                start_pos += 1;
+                self.read_char();
+            }
 
             loop {
                 match self.nextch() {
                     '\r' | '\n' | '\0' => {
                         break;
+                    },
+                    '"' => {
+                        self.input[self.next_pos] = ' ';
                     },
                     '/' => if self.ch_nth_after_is(2, '/') {
                         // コメントなので抜ける
