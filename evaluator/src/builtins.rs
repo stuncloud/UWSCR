@@ -113,10 +113,14 @@ impl BuiltinFuncArgs {
         self.arguments.get(i).map(|o| o.1.clone()).unwrap_or_default()
     }
     fn split_off(&self, at: usize) -> Vec<Object> {
-        self.arguments.clone().split_off(at)
-            .into_iter()
-            .map(|(_, o)| o)
-            .collect()
+        if at > self.len() {
+            vec![]
+        } else {
+            self.arguments.clone().split_off(at)
+                .into_iter()
+                .map(|(_, o)| o)
+                .collect()
+        }
     }
     pub fn len(&self) -> usize {
         self.arguments.len()
