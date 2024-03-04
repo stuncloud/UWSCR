@@ -1863,6 +1863,19 @@ impl Evaluator {
             Expression::DotCall(expr_object, expr_member) => {
                 self.update_object_member(*expr_object, *expr_member, value)?;
             },
+            Expression::FuncCall { func, args, is_await: false } => {
+                let index = match args.len() {
+                    0 => Expression::Literal(Literal::Empty),
+                    1 => args[0].to_owned(),
+                    _ => {
+                        return Err(UError::new(
+                            UErrorKind::AssignError,
+                            UErrorMessage::Any("Too many parameters".into())
+                        ));
+                    },
+                };
+                self.assign_index(*func, index, value, None)?;
+            }
             e => return Err(UError::new(
                 UErrorKind::AssignError,
                 UErrorMessage::NotAVariable(e)

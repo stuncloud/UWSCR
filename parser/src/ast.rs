@@ -212,6 +212,14 @@ impl Expression {
             Self::Identifier(_) |
             Self::Index(_, _, _) |
             Self::DotCall(_, _) => false,
+            // COMのパラメータ付きプロパティかもしれない場合
+            Self::FuncCall { func, args:_, is_await: false } => {
+                if let Self::DotCall(_, _) = func.as_ref() {
+                    false
+                } else {
+                    true
+                }
+            },
             _ => true
         }
     }

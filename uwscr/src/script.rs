@@ -142,7 +142,7 @@ pub fn out_ast(script: String, path: &String) -> Result<(String, Option<String>)
         Some(format!("got {} parse error{}\r\n{}", errors.len(), if errors.len()>1 {"s"} else {""}, emsg))
     } else {None};
 
-    let ast = format!("Global: {:?}\nScript: {:?}", program.global, program.script);
+    let ast = format!("Global: {:#?}\nScript: {:#?}", program.global, program.script);
     Ok((ast, err))
 }
 

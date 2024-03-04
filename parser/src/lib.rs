@@ -2473,12 +2473,31 @@ impl Parser {
             //     return None;
             // }
             match self.next_token.token {
+                Token::EqualOrAssign => {
+                    left = if state.is_start_of_line() && self.strict_mode  {
+                        if let Expression::FuncCall { func, args:_, is_await: false } = &left {
+                            if let Expression::DotCall(_, _) = func.as_ref() {
+                                return self.parse_assignment(left, start);
+                            } else {
+                                self.bump();
+                                self.error_current_token_is_invalid();
+                                return None;
+                            }
+                        } else {
+                            self.bump();
+                            self.error_current_token_is_invalid();
+                            return None;
+                        }
+                    } else {
+                        self.bump();
+                        self.parse_infix_expression(left)?
+                    };
+                },
                 Token::Plus |
                 Token::Minus |
                 Token::Slash |
                 Token::Asterisk |
                 Token::Equal |
-                Token::EqualOrAssign |
                 Token::NotEqual |
                 Token::LessThan |
                 Token::LessThanEqual |
