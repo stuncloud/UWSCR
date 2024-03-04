@@ -40,6 +40,7 @@ webview2-com = "0.28.0"
 winreg = "0.52.0"
 wmi = "0.13.0"
 zip = "0.6.2"
+dunce = "1.0.4"
 
 [dependencies.windows]
 workspace = true

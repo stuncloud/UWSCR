@@ -1795,7 +1795,12 @@ impl Excel {
         match file {
             Some(path) => {
                 let books = self.workbooks()?;
-                let mut args = vec![ComArg::Arg(path.into())];
+                // gh-125: 絶対パスに変換する
+                let absolute = match dunce::canonicalize(&path) {
+                    Ok(path) => path.to_string_lossy().to_string(),
+                    Err(_) => path,
+                };
+                let mut args = vec![ComArg::Arg(absolute.into())];
                 let named = params.into_iter()
                     .filter_map(|p| {
                         p.split_once(":=")

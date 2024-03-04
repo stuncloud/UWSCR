@@ -532,6 +532,7 @@ dependencies = [
  "chrono",
  "csv",
  "dlopen",
+ "dunce",
  "encoding_rs",
  "htmlentity",
  "indexmap",
