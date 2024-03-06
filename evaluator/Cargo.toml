@@ -92,3 +92,6 @@ features = [
     "Graphics_Imaging",
     "Foundation",
 ]
+
+[dev-dependencies]
+rstest = "0.18.2"

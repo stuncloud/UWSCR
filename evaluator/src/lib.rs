@@ -3011,44 +3011,7 @@ mod tests {
     use parser::Parser;
     use crate::error::{UErrorKind,UErrorMessage,DefinitionType,ParamTypeDetail};
 
-    fn eval_test(input: &str, expected: Result<Option<Object>, UError>, ast: bool) {
-        let mut e = Evaluator::new(Environment::new(vec![]));
-        match Parser::new(Lexer::new(input), None, None).parse() {
-            Ok(program) => {
-                if ast {
-                    println!("{:?}", program);
-                }
-                let result = e.eval(program, true);
-                match expected {
-                    Ok(expected_obj) => match result {
-                        Ok(result_obj) => if result_obj.is_some() && expected_obj.is_some() {
-                            let left = result_obj.unwrap();
-                            let right = expected_obj.unwrap();
-                            if ! left.is_equal(&right) {
-                                panic!("\nresult: {:?}\nexpected: {:?}\n\n{}", left, right, input);
-                            }
-                        } else if result_obj.is_some() || expected_obj.is_some() {
-                            // どちらかがNone
-                            panic!("\nresult: {:?}\nexpected: {:?}\n\n{}", result_obj, expected_obj, input);
-                        },
-                        Err(e) => panic!("this test should be ok: {}\n error: {}", input, e),
-                    },
-                    Err(expected_err) => match result {
-                        Ok(_) => panic!("this test should occure error:\n{}", input),
-                        Err(result_err) => assert_eq!(result_err, expected_err),
-                    },
-                }
-            },
-            Err(errors) => {
-                eprintln!("{} parser errors on eval_test", errors.len());
-                for error in errors {
-                    eprintln!("{error}");
-                }
-                panic!("\nParse Error:\n{input}");
-            },
-        }
-    }
-
+    use rstest::{rstest, fixture};
 
     // 変数とか関数とか予め定義しておく
     fn eval_env(input: &str) -> Evaluator {
@@ -3070,187 +3033,207 @@ mod tests {
         }
     }
 
-    //
-    fn eval_test_with_env(e: &mut Evaluator, input: &str, expected: Result<Option<Object>, UError>) {
+    /// 評価後のObjectをexpectedと比較
+    fn expect_object_test(evaluator: Option<&mut Evaluator>, input: &str, expected: Object) {
         match Parser::new(Lexer::new(input), None, None).parse() {
             Ok(program) => {
-                let result = e.eval(program, false);
-                match expected {
-                    Ok(expected_obj) => match result {
-                        Ok(result_obj) => if result_obj.is_some() && expected_obj.is_some() {
-                            let left = result_obj.unwrap();
-                            let right = expected_obj.unwrap();
-                            if ! left.is_equal(&right) {
-                                panic!("\nresult: {:?}\nexpected: {:?}\n\ninput: {}\n", left, right, input);
-                            }
-                        } else {
-                            // どちらかがNone
-                            panic!("\nresult: {:?}\nexpected: {:?}\n\ninput: {}\n", result_obj, expected_obj, input);
+                if let Some(e) = evaluator {
+                    match e.eval(program, false) {
+                        Ok(result) => {
+                            assert_eq!(result, Some(expected));
                         },
-                        Err(e) => panic!("this test should be ok: {}\n error: {}\n", input, e),
-                    },
-                    Err(expected_err) => match result {
-                        Ok(_) => panic!("this test should occure error:\n{}", input),
-                        Err(result_err) => if result_err != expected_err {
-                            panic!("\nresult: {}\nexpected: {}\n\ninput: {}\n", result_err, expected_err, input);
+                        Err(err) => {
+                            panic!("Evaluator Error: {err:?}");
                         },
-                    },
+                    }
+                } else {
+                    let mut e = Evaluator::new(Environment::new(vec![]));
+                    match e.eval(program, true) {
+                        Ok(result) => {
+                            assert_eq!(result, Some(expected));
+                        },
+                        Err(err) => {
+                            panic!("Evaluator Error: {err:?}");
+                        },
+                    }
                 }
             },
-            Err(errors) => {
-                eprintln!("{} parser errors on eval_test_with_env", errors.len());
-                for error in errors {
-                    eprintln!("{error}");
+            Err(err) => {
+                panic!("Parse Error: {err:#?}");
+            }
+        }
+    }
+    /// 評価後のエラーをexpectedと比較
+    fn expect_error_test(evaluator: Option<&mut Evaluator>, input: &str, expected_kind: UErrorKind, expected_message: UErrorMessage) {
+        match Parser::new(Lexer::new(input), None, None).parse() {
+            Ok(program) => {
+                let expected = UError::new(expected_kind, expected_message);
+                if let Some(e) = evaluator {
+                    match e.eval(program, false) {
+                        Ok(_) => {
+                            panic!("Error expected: {expected:?}");
+                        },
+                        Err(err) => {
+                            assert_eq!(err, expected);
+                        },
+                    }
+                } else {
+                    let mut e = Evaluator::new(Environment::new(vec![]));
+                    match e.eval(program, true) {
+                        Ok(_) => {
+                            panic!("Error expected: {expected:?}");
+                        },
+                        Err(err) => {
+                            assert_eq!(err, expected);
+                        },
+                    }
                 }
-                panic!("\nParse Error:\n{input}");
             },
+            Err(err) => {
+                panic!("Parse Error: {err:#?}");
+            }
         }
     }
 
-
-    #[test]
-    fn test_num_expression() {
-        let test_cases = vec![
-            ("5", Ok(Some(Object::Num(5.0)))),
-            ("10", Ok(Some(Object::Num(10.0)))),
-            ("-5", Ok(Some(Object::Num(-5.0)))),
-            ("-10", Ok(Some(Object::Num(-10.0)))),
-            ("1.23", Ok(Some(Object::Num(1.23)))),
-            ("-1.23", Ok(Some(Object::Num(-1.23)))),
-            ("+(-5)", Ok(Some(Object::Num(-5.0)))),
-            ("1 + 2 + 3 - 4", Ok(Some(Object::Num(2.0)))),
-            ("2 * 3 * 4", Ok(Some(Object::Num(24.0)))),
-            ("-3 + 3 * 2 + -3", Ok(Some(Object::Num(0.0)))),
-            ("5 + 3 * -2", Ok(Some(Object::Num(-1.0)))),
-            ("6 / 3 * 2 + 1", Ok(Some(Object::Num(5.0)))),
-            ("1.2 + 2.4", Ok(Some(Object::Num(3.5999999999999996)))),
-            ("1.2 * 3", Ok(Some(Object::Num(3.5999999999999996)))),
-            ("2 * (5 + 10)", Ok(Some(Object::Num(30.0)))),
-            ("3 * 3 * 3 + 10", Ok(Some(Object::Num(37.0)))),
-            ("3 * (3 * 3) + 10", Ok(Some(Object::Num(37.0)))),
-            ("(5 + 10 * 2 + 15 / 3) * 2 + -10", Ok(Some(Object::Num(50.0)))),
-            ("1 + TRUE", Ok(Some(Object::Num(2.0)))),
-            ("1 + false", Ok(Some(Object::Num(1.0)))),
-            ("TRUE + 1", Ok(Some(Object::Num(2.0)))),
-            ("5 mod 3", Ok(Some(Object::Num(2.0)))),
-        ];
-        for (input, expected) in test_cases {
-            eval_test(input, expected, false);
-        }
+    #[rstest]
+    #[case("5", Object::Num(5.0))]
+    #[case("10", Object::Num(10.0))]
+    #[case("-5", Object::Num(-5.0))]
+    #[case("-10", Object::Num(-10.0))]
+    #[case("1.23", Object::Num(1.23))]
+    #[case("-1.23", Object::Num(-1.23))]
+    #[case("+(-5)", Object::Num(-5.0))]
+    #[case("1 + 2 + 3 - 4", Object::Num(2.0))]
+    #[case("2 * 3 * 4", Object::Num(24.0))]
+    #[case("-3 + 3 * 2 + -3", Object::Num(0.0))]
+    #[case("5 + 3 * -2", Object::Num(-1.0))]
+    #[case("6 / 3 * 2 + 1", Object::Num(5.0))]
+    #[case("1.2 + 2.4", Object::Num(3.5999999999999996))]
+    #[case("1.2 * 3", Object::Num(3.5999999999999996))]
+    #[case("2 * (5 + 10)", Object::Num(30.0))]
+    #[case("3 * 3 * 3 + 10", Object::Num(37.0))]
+    #[case("3 * (3 * 3) + 10", Object::Num(37.0))]
+    #[case("(5 + 10 * 2 + 15 / 3) * 2 + -10", Object::Num(50.0))]
+    #[case("1 + TRUE", Object::Num(2.0))]
+    #[case("1 + false", Object::Num(1.0))]
+    #[case("TRUE + 1", Object::Num(2.0))]
+    #[case("5 mod 3", Object::Num(2.0))]
+    fn test_num_expression(#[case] input: &str, #[case] expected: Object) {
+        expect_object_test(None, input, expected);
     }
 
-    #[test]
-    fn test_string_infix() {
-        let test_cases = vec![
-            (r#""hoge" + "fuga""#, Ok(Some(Object::String("hogefuga".to_string())))),
-            (r#""hoge" + 100"#, Ok(Some(Object::String("hoge100".to_string())))),
-            (r#"400 + "fuga""#, Ok(Some(Object::String("400fuga".to_string())))),
-            (r#""hoge" + TRUE"#, Ok(Some(Object::String("hogeTrue".to_string())))),
-            (r#""hoge" + FALSE"#, Ok(Some(Object::String("hogeFalse".to_string())))),
-            (r#"TRUE + "hoge""#, Ok(Some(Object::String("Truehoge".to_string())))),
-            (r#""hoge" = "hoge""#, Ok(Some(Object::Bool(true)))),
-            (r#""hoge" == "hoge""#, Ok(Some(Object::Bool(true)))),
-            (r#""hoge" == "fuga""#, Ok(Some(Object::Bool(false)))),
-            (r#""hoge" == "HOGE""#, Ok(Some(Object::Bool(true)))),
-            (r#""hoge" == 1"#, Ok(Some(Object::Bool(false)))),
-            (r#""hoge" != 1"#, Ok(Some(Object::Bool(true)))),
-            (r#""hoge" <> 1"#, Ok(Some(Object::Bool(true)))),
-            (r#""hoge" <> "hoge"#, Ok(Some(Object::Bool(false)))),
-        ];
-        for (input, expected) in test_cases {
-            eval_test(input, expected, false);
-        }
+    #[fixture]
+    #[once]
+    fn no_opt_same_str_fixture() -> Evaluator {
+        eval_env("OPTION SAMESTR=FALSE")
     }
-    #[test]
-    fn test_same_str() {
-        let test_cases = vec![
-            (r#"OPTION SAMESTR;"hoge" == "HOGE""#, Ok(Some(Object::Bool(false)))),
-        ];
-        for (input, expected) in test_cases {
-            eval_test(input, expected, false);
-        }
+    #[rstest]
+    #[case(r#""hoge" + "fuga""#, Object::String("hogefuga".to_string()))]
+    #[case(r#""hoge" + 100"#, Object::String("hoge100".to_string()))]
+    #[case(r#"400 + "fuga""#, Object::String("400fuga".to_string()))]
+    #[case(r#""hoge" + TRUE"#, Object::String("hogeTrue".to_string()))]
+    #[case(r#""hoge" + FALSE"#, Object::String("hogeFalse".to_string()))]
+    #[case(r#"TRUE + "hoge""#, Object::String("Truehoge".to_string()))]
+    #[case(r#""hoge" = "hoge""#, Object::Bool(true))]
+    #[case(r#""hoge" == "hoge""#, Object::Bool(true))]
+    #[case(r#""hoge" == "fuga""#, Object::Bool(false))]
+    #[case(r#""hoge" == "HOGE""#, Object::Bool(true))]
+    #[case(r#""hoge" == 1"#, Object::Bool(false))]
+    #[case(r#""hoge" != 1"#, Object::Bool(true))]
+    #[case(r#""hoge" <> 1"#, Object::Bool(true))]
+    #[case(r#""hoge" <> "hoge"#, Object::Bool(false))]
+    fn test_string_infix(#[case] input: &str, #[case] expected: Object) {
+        let mut e = no_opt_same_str_fixture();
+        expect_object_test(Some(&mut e), input, expected);
     }
 
-    #[test]
-    fn test_assign_variable() {
-        let test_cases = vec![
-            (
-                r#"
+    // #[fixture]
+    // fn opt_same_str_fixture() -> Evaluator {
+    //     eval_env("OPTION SAMESTR")
+    // }
+    // #[rstest]
+    // #[case(r#""hoge" == "HOGE""#, false.into())]
+    // #[case(r#""HOGE" == "HOGE""#, true.into())]
+    // fn test_same_str(#[case] input: &str, #[case] expected: Object) {
+    //     let mut e = opt_same_str_fixture();
+    //     expect_object_test(Some(&mut e), input, expected)
+    // }
+
+    #[rstest]
+    #[case(
+        r#"
 dim hoge = 1
 hoge = 2
 hoge
-                "#,
-                Ok(Some(Object::Num(2.0)))
-            ),
-            (
-                r#"
+        "#,
+        Object::Num(2.0)
+    )]
+    #[case(
+        r#"
 dim HOGE = 2
 hoge
-                "#,
-                Ok(Some(Object::Num(2.0)))
-            ),
-            (
-                r#"
+        "#,
+        Object::Num(2.0)
+    )]
+    fn test_assign_variable(#[case] input: &str, #[case] expected: Object) {
+        expect_object_test(None, input, expected)
+    }
+    #[rstest]
+    #[case(r#"
 dim hoge = 2
 dim hoge = 3
-                "#,
-                Err(UError::new(
-                    UErrorKind::DefinitionError(DefinitionType::Variable),
-                    UErrorMessage::AlreadyDefined("hoge".into())
-                ))
-            ),
-        ];
-        for (input, expected) in test_cases {
-            eval_test(input, expected, false);
-        }
+        "#,
+        UErrorKind::DefinitionError(DefinitionType::Variable),
+        UErrorMessage::AlreadyDefined("hoge".into())
+    )]
+    fn test_assign_variable_error(#[case] input: &str, #[case] expected_kind: UErrorKind, #[case] expected_message: UErrorMessage) {
+        expect_error_test(None, input, expected_kind, expected_message)
     }
 
-    #[test]
-    fn test_assign_hashtbl() {
-        let test_cases = vec![
-            (
-                r#"
+    #[rstest]
+    #[case(
+        r#"
 hashtbl hoge
 hoge["test"] = 2
 hoge["test"]
-                "#,
-                Ok(Some(Object::Num(2.0)))
-            ),
-            (
-                r#"
+        "#,
+        Object::Num(2.0)
+    )]
+    #[case(
+        r#"
 hashtbl hoge
 hoge["test"] = 2
 hoge["TEST"]
-                "#,
-                Ok(Some(Object::Num(2.0)))
-            ),
-            (
-                r#"
+        "#,
+        Object::Num(2.0)
+    )]
+    #[case(
+        r#"
 hashtbl hoge
 hoge[1.23] = 2
 hoge[1.23]
-                "#,
-                Ok(Some(Object::Num(2.0)))
-            ),
-            (
-                r#"
+        "#,
+        Object::Num(2.0)
+    )]
+    #[case(
+        r#"
 hashtbl hoge
 hoge[FALSE] = 2
 hoge[FALSE]
-                "#,
-                Ok(Some(Object::Num(2.0)))
-            ),
-            (
-                r#"
+        "#,
+        Object::Num(2.0)
+    )]
+    #[case(
+        r#"
 hashtbl hoge = HASH_CASECARE
 hoge["abc"] = 1
 hoge["ABC"] = 2
 hoge["abc"] + hoge["ABC"]
-                "#,
-                Ok(Some(Object::Num(3.0)))
-            ),
-            (
-                r#"
+        "#,
+        Object::Num(3.0)
+    )]
+    #[case(
+        r#"
 hashtbl hoge = HASH_CASECARE or HASH_SORT
 hoge["abc"] = "a"
 hoge["ABC"] = "b"
@@ -3259,27 +3242,27 @@ hoge["999"] = "d"
 
 a = ""
 for key in hoge
-    a = a + hoge[key]
+a = a + hoge[key]
 next
 a
-                "#,
-                Ok(Some(Object::String("cdba".to_string())))
-            ),
-            (
-                r#"
+        "#,
+        Object::String("cdba".to_string())
+    )]
+    #[case(
+        r#"
 public hashtbl hoge
 hoge["a"] = "hoge"
 
 function f(key)
-    result = hoge[key]
+result = hoge[key]
 fend
 
 f("a")
-                "#,
-                Ok(Some(Object::String("hoge".to_string())))
-            ),
-            (
-                r#"
+        "#,
+        Object::String("hoge".to_string())
+    )]
+    #[case(
+        r#"
 // gh-27
 hashtbl a
 a['a'] = 'a'
@@ -3289,952 +3272,900 @@ h = a
 h = b // 再代入に成功すればOK
 h == b
         "#,
-                Ok(Some(Object::Bool(true)))
-            ),
-            (
-                r#"
+        Object::Bool(true)
+    )]
+    #[case(
+        r#"
 hash hoge = hash_casecare or hash_sort
-    foo = 1
-    bar = 2
+foo = 1
+bar = 2
 endhash
 hoge['foo'] = 1 and hoge['bar'] = 2
         "#,
-                {
-                    Ok(Some(Object::Bool(true)))
-                }
-            ),
-        ];
-        for (input, expected) in test_cases {
-            eval_test(input, expected, false);
-        }
+        Object::Bool(true)
+    )]
+    fn test_assign_hashtbl(#[case] input: &str, #[case] expected: Object) {
+        expect_object_test(None, input, expected);
     }
 
-    #[test]
-    fn test_assign_array() {
-        let input = r#"
+    #[rstest]
+    #[case(r#"
 dim hoge[] = 1,3,5
 hoge[0] = "hoge"
 hoge[0]
-        "#;
-        eval_test(input, Ok(Some(Object::String("hoge".to_string()))), false);
+        "#,
+        "hoge".into()
+    )]
+    fn test_assign_array(#[case] input: &str, #[case] expected: Object) {
+        expect_object_test(None, input, expected);
     }
 
-    #[test]
-    fn test_assign_array_literal() {
-        let input = r#"
+    #[rstest]
+    #[case(r#"
 hoge = [1,3,5]
 hoge[0] = 2
 hoge[0]
-        "#;
-        eval_test(input, Ok(Some(Object::Num(2.0))), false);
+        "#,
+        2.into()
+    )]
+    fn test_assign_array_literal(#[case] input: &str, #[case] expected: Object) {
+        expect_object_test(None, input, expected);
     }
 
-    #[test]
-    fn test_assign_multi_dimensional_array() {
-        let test_cases = vec![
-            (
-                r#"
+    #[rstest]
+    #[case(
+        r#"
 hoge = [[1],[2]]
 hoge[0][0] = 100
 hoge
-                "#,
-                Ok(Some(Object::Array(vec![
-                    Object::Array(vec![Object::Num(100.0)]),
-                    Object::Array(vec![Object::Num(2.0)]),
-                ])))
-            ),
-            (
-                r#"
+        "#,
+        Object::Array(vec![
+            Object::Array(vec![Object::Num(100.0)]),
+            Object::Array(vec![Object::Num(2.0)]),
+        ])
+    )]
+    #[case(
+        r#"
 hoge = [[[1]]]
 hoge[0][0][0] = 100
 hoge
-                "#,
-                Ok(Some(Object::Array(vec![
-                    Object::Array(vec![
-                        Object::Array(vec![Object::Num(100.0)]),
-                    ]),
-                ])))
-            ),
-        ];
-        for (input, expected) in test_cases {
-            eval_test(input, expected, false);
-        }
+        "#,
+        Object::Array(vec![
+            Object::Array(vec![
+                Object::Array(vec![Object::Num(100.0)]),
+            ]),
+        ])
+    )]
+    fn test_assign_multi_dimensional_array(#[case] input: &str, #[case] expected: Object) {
+        expect_object_test(None, input, expected);
     }
 
-    #[test]
-    fn test_public() {
-        let input = r#"
+    #[rstest]
+    #[case(
+        r#"
 public hoge = 1
 hoge
-        "#;
-        eval_test(input, Ok(Some(Object::Num(1.0))), false);
+        "#,
+        1.into()
+    )]
+    fn test_public(#[case] input: &str, #[case] expected: Object) {
+        expect_object_test(None, input, expected);
     }
 
-    #[test]
-    fn test_array_definition() {
-        let test_cases = vec![
-            (
-                r#"
-                dim hoge[3] = 1,2
-                hoge
-                "#,
-                Ok(Some(Object::Array(vec![
-                    Object::Num(1.0),
-                    Object::Num(2.0),
-                    Object::Empty,
-                    Object::Empty,
-                ])))
-            ),
-            (
-                r#"
-                dim hoge[2][2] = 1,2,3, 4,5,6, 7
-                hoge
-                "#,
-                Ok(Some(Object::Array(vec![
-                    Object::Array(vec![
+    #[rstest]
+    #[case(
+        r#"
+        dim hoge[3] = 1,2
+        hoge
+        "#,
+        Object::Array(vec![
+            Object::Num(1.0),
+            Object::Num(2.0),
+            Object::Empty,
+            Object::Empty,
+        ])
+    )]
+    #[case(
+        r#"
+        dim hoge[2][2] = 1,2,3, 4,5,6, 7
+        hoge
+        "#,
+        Object::Array(vec![
+            Object::Array(vec![
+                Object::Num(1.0),
+                Object::Num(2.0),
+                Object::Num(3.0),
+            ]),
+            Object::Array(vec![
+                Object::Num(4.0),
+                Object::Num(5.0),
+                Object::Num(6.0),
+            ]),
+            Object::Array(vec![
+                Object::Num(7.0),
+                Object::Empty,
+                Object::Empty,
+            ]),
+        ])
+    )]
+    #[case(
+        r#"
+        dim hoge[2, 2] = 1,2,3, 4,5,6, 7
+        hoge
+        "#,
+        Object::Array(vec![
+            Object::Array(vec![
+                Object::Num(1.0),
+                Object::Num(2.0),
+                Object::Num(3.0),
+            ]),
+            Object::Array(vec![
+                Object::Num(4.0),
+                Object::Num(5.0),
+                Object::Num(6.0),
+            ]),
+            Object::Array(vec![
+                Object::Num(7.0),
+                Object::Empty,
+                Object::Empty,
+            ]),
+        ])
+    )]
+    #[case(
+        r#"
+        // 省略
+        dim hoge[, 2] = 1,2,3, 4,5,6, 7
+        hoge
+        "#,
+        Object::Array(vec![
+            Object::Array(vec![
+                Object::Num(1.0),
+                Object::Num(2.0),
+                Object::Num(3.0),
+            ]),
+            Object::Array(vec![
+                Object::Num(4.0),
+                Object::Num(5.0),
+                Object::Num(6.0),
+            ]),
+            Object::Array(vec![
+                Object::Num(7.0),
+                Object::Empty,
+                Object::Empty,
+            ]),
+        ])
+    )]
+    #[case(
+        r#"
+        // 多次元
+        dim hoge[1][1][1] = 0,1, 2,3, 4,5, 6,7
+        hoge
+        "#,
+        Object::Array(vec![
+            Object::Array(vec![
+                Object::Array(
+                    vec![
+                        Object::Num(0.0),
                         Object::Num(1.0),
+                    ]
+                ),
+                Object::Array(
+                    vec![
                         Object::Num(2.0),
                         Object::Num(3.0),
-                    ]),
-                    Object::Array(vec![
+                    ]
+                ),
+            ]),
+            Object::Array(vec![
+                Object::Array(
+                    vec![
                         Object::Num(4.0),
                         Object::Num(5.0),
+                    ]
+                ),
+                Object::Array(
+                    vec![
                         Object::Num(6.0),
-                    ]),
-                    Object::Array(vec![
                         Object::Num(7.0),
-                        Object::Empty,
-                        Object::Empty,
-                    ]),
-                ])))
-            ),
-            (
-                r#"
-                dim hoge[2, 2] = 1,2,3, 4,5,6, 7
-                hoge
-                "#,
-                Ok(Some(Object::Array(vec![
-                    Object::Array(vec![
+                    ]
+                ),
+            ]),
+        ])
+    )]
+    #[case(
+        r#"
+        // 省略
+        dim hoge[][1][1] = 0,1, 2,3, 4,5, 6,7
+        hoge
+        "#,
+        Object::Array(vec![
+            Object::Array(vec![
+                Object::Array(
+                    vec![
+                        Object::Num(0.0),
                         Object::Num(1.0),
+                    ]
+                ),
+                Object::Array(
+                    vec![
                         Object::Num(2.0),
                         Object::Num(3.0),
-                    ]),
-                    Object::Array(vec![
+                    ]
+                ),
+            ]),
+            Object::Array(vec![
+                Object::Array(
+                    vec![
                         Object::Num(4.0),
                         Object::Num(5.0),
+                    ]
+                ),
+                Object::Array(
+                    vec![
                         Object::Num(6.0),
-                    ]),
-                    Object::Array(vec![
                         Object::Num(7.0),
-                        Object::Empty,
-                        Object::Empty,
-                    ]),
-                ])))
-            ),
-            (
-                r#"
-                // 省略
-                dim hoge[, 2] = 1,2,3, 4,5,6, 7
-                hoge
-                "#,
-                Ok(Some(Object::Array(vec![
-                    Object::Array(vec![
+                    ]
+                ),
+            ]),
+        ])
+    )]
+    #[case(
+        r#"
+        // EMPTY埋め
+        dim hoge[1][1][1] = 0,1, 2,3, 4
+        hoge
+        "#,
+        Object::Array(vec![
+            Object::Array(vec![
+                Object::Array(
+                    vec![
+                        Object::Num(0.0),
                         Object::Num(1.0),
+                    ]
+                ),
+                Object::Array(
+                    vec![
                         Object::Num(2.0),
                         Object::Num(3.0),
-                    ]),
-                    Object::Array(vec![
+                    ]
+                ),
+            ]),
+            Object::Array(vec![
+                Object::Array(
+                    vec![
+                        Object::Num(4.0),
+                        Object::Empty,
+                    ]
+                ),
+                Object::Array(
+                    vec![
+                        Object::Empty,
+                        Object::Empty,
+                    ]
+                ),
+            ]),
+        ])
+    )]
+    #[case(
+        r#"
+        // 省略+EMPTY埋め
+        dim hoge[][1][1] = 0,1, 2,3, 4,5, 6
+        hoge
+        "#,
+        Object::Array(vec![
+            Object::Array(vec![
+                Object::Array(
+                    vec![
+                        Object::Num(0.0),
+                        Object::Num(1.0),
+                    ]
+                ),
+                Object::Array(
+                    vec![
+                        Object::Num(2.0),
+                        Object::Num(3.0),
+                    ]
+                ),
+            ]),
+            Object::Array(vec![
+                Object::Array(
+                    vec![
                         Object::Num(4.0),
                         Object::Num(5.0),
+                    ]
+                ),
+                Object::Array(
+                    vec![
                         Object::Num(6.0),
-                    ]),
-                    Object::Array(vec![
-                        Object::Num(7.0),
                         Object::Empty,
-                        Object::Empty,
-                    ]),
-                ])))
-            ),
-            (
-                r#"
-                // 多次元
-                dim hoge[1][1][1] = 0,1, 2,3, 4,5, 6,7
-                hoge
-                "#,
-                Ok(Some(Object::Array(vec![
-                    Object::Array(vec![
-                        Object::Array(
-                            vec![
-                                Object::Num(0.0),
-                                Object::Num(1.0),
-                            ]
-                        ),
-                        Object::Array(
-                            vec![
-                                Object::Num(2.0),
-                                Object::Num(3.0),
-                            ]
-                        ),
-                    ]),
-                    Object::Array(vec![
-                        Object::Array(
-                            vec![
-                                Object::Num(4.0),
-                                Object::Num(5.0),
-                            ]
-                        ),
-                        Object::Array(
-                            vec![
-                                Object::Num(6.0),
-                                Object::Num(7.0),
-                            ]
-                        ),
-                    ]),
-                ])))
-            ),
-            (
-                r#"
-                // 省略
-                dim hoge[][1][1] = 0,1, 2,3, 4,5, 6,7
-                hoge
-                "#,
-                Ok(Some(Object::Array(vec![
-                    Object::Array(vec![
-                        Object::Array(
-                            vec![
-                                Object::Num(0.0),
-                                Object::Num(1.0),
-                            ]
-                        ),
-                        Object::Array(
-                            vec![
-                                Object::Num(2.0),
-                                Object::Num(3.0),
-                            ]
-                        ),
-                    ]),
-                    Object::Array(vec![
-                        Object::Array(
-                            vec![
-                                Object::Num(4.0),
-                                Object::Num(5.0),
-                            ]
-                        ),
-                        Object::Array(
-                            vec![
-                                Object::Num(6.0),
-                                Object::Num(7.0),
-                            ]
-                        ),
-                    ]),
-                ])))
-            ),
-            (
-                r#"
-                // EMPTY埋め
-                dim hoge[1][1][1] = 0,1, 2,3, 4
-                hoge
-                "#,
-                Ok(Some(Object::Array(vec![
-                    Object::Array(vec![
-                        Object::Array(
-                            vec![
-                                Object::Num(0.0),
-                                Object::Num(1.0),
-                            ]
-                        ),
-                        Object::Array(
-                            vec![
-                                Object::Num(2.0),
-                                Object::Num(3.0),
-                            ]
-                        ),
-                    ]),
-                    Object::Array(vec![
-                        Object::Array(
-                            vec![
-                                Object::Num(4.0),
-                                Object::Empty,
-                            ]
-                        ),
-                        Object::Array(
-                            vec![
-                                Object::Empty,
-                                Object::Empty,
-                            ]
-                        ),
-                    ]),
-                ])))
-            ),
-            (
-                r#"
-                // 省略+EMPTY埋め
-                dim hoge[][1][1] = 0,1, 2,3, 4,5, 6
-                hoge
-                "#,
-                Ok(Some(Object::Array(vec![
-                    Object::Array(vec![
-                        Object::Array(
-                            vec![
-                                Object::Num(0.0),
-                                Object::Num(1.0),
-                            ]
-                        ),
-                        Object::Array(
-                            vec![
-                                Object::Num(2.0),
-                                Object::Num(3.0),
-                            ]
-                        ),
-                    ]),
-                    Object::Array(vec![
-                        Object::Array(
-                            vec![
-                                Object::Num(4.0),
-                                Object::Num(5.0),
-                            ]
-                        ),
-                        Object::Array(
-                            vec![
-                                Object::Num(6.0),
-                                Object::Empty,
-                            ]
-                        ),
-                    ]),
-                ])))
-            ),
-        ];
-        let error_cases = vec![
-            (
-                format!(r#"
-                // usize超え
-                dim hoge[{}][1]
-                hoge
-                "#, usize::MAX),
-                Err(UError::new(
-                    UErrorKind::ArrayError,
-                    UErrorMessage::InvalidArraySize
-                ))
-            ),
-        ];
-        for (input, expected) in test_cases {
-            eval_test(input, expected, false)
-        }
-        for (input, expected) in error_cases {
-            eval_test(&input, expected, false)
-        }
+                    ]
+                ),
+            ]),
+        ])
+    )]
+    fn test_array_definition(#[case] input: &str, #[case] expected: Object) {
+        expect_object_test(None, input, expected);
     }
-
+    #[rstest]
+    #[case(
+        format!(r#"
+// usize超え
+dim hoge[{}][1]
+hoge
+        "#, usize::MAX),
+        UErrorKind::ArrayError,
+        UErrorMessage::InvalidArraySize
+    )]
+    fn test_array_definition_err(#[case] input: String, #[case] expected_kind: UErrorKind, #[case] expected_message: UErrorMessage) {
+        expect_error_test(None, &input, expected_kind, expected_message);
+    }
     #[test]
     fn test_print() {
         let input = r#"
 hoge = "print test"
 print hoge
         "#;
-        eval_test(input, Ok(Some(Object::String("print test".into()))), false);
+        expect_object_test(None, input, "print test".into());
     }
 
-    #[test]
-    fn test_for() {
-        let test_cases = vec![
-            (
-                r#"
+    #[rstest]
+    #[case(
+        r#"
 for i = 0 to 3
 next
 i
-                "#,
-Ok(                Some(Object::Num(4.0)))
-            ),
-            (
-                r#"
+        "#,
+        Object::Num(4.0)
+    )]
+    #[case(
+        r#"
 for i = 0 to 2
-    i = 10
+i = 10
 next
 i
-                "#,
-                Ok(Some(Object::Num(3.0)))
-            ),
-            (
-                r#"
+        "#,
+        Object::Num(3.0)
+    )]
+    #[case(
+        r#"
 for i = 0 to 5 step 2
 next
 i
-                "#,
-                Ok(Some(Object::Num(6.0)))
-            ),
-            (
-                r#"
+        "#,
+        Object::Num(6.0)
+    )]
+    #[case(
+        r#"
 for i = 5 to 0 step -2
 next
 i
-                "#,
-                Ok(Some(Object::Num(-1.0)))
-            ),
-            (
-                r#"
+        "#,
+        Object::Num(-1.0)
+    )]
+    #[case(
+        r#"
 for i = "0" to "5" step "2"
 next
 i
-                "#,
-                Ok(Some(Object::Num(6.0)))
-            ),
-            (
-                r#"
-for i = 0 to "5s"
-next
-                "#,
-                Err(UError::new(
-                    UErrorKind::SyntaxError,
-                    UErrorMessage::ForError("for i = 0 to 5s".into())
-                ))
-            ),
-            (
-                r#"
+        "#,
+        Object::Num(6.0)
+    )]
+    #[case(
+        r#"
 a = 1
 for i = 0 to 3
-    continue
-    a = a  + 1
+continue
+a = a  + 1
 next
 a
-                "#,
-                Ok(Some(Object::Num(1.0)))
-            ),
-            (
-                r#"
+        "#,
+        Object::Num(1.0)
+    )]
+    #[case(
+        r#"
 a = 1
 for i = 0 to 20
-    break
-    a = 5
+break
+a = 5
 next
 a
-                "#,
-                Ok(Some(Object::Num(1.0)))
-            ),
-            (
-                r#"
+        "#,
+        Object::Num(1.0)
+    )]
+    #[case(
+        r#"
 a = 0
 for i = 0 to 0
-    a = 1
+a = 1
 else
-    a = 2
+a = 2
 endfor
 a
-                "#,
-                Ok(Some(Object::Num(2.0)))
-            ),
-            (
-                r#"
+        "#,
+        Object::Num(2.0)
+    )]
+    #[case(
+        r#"
 a = 0
 for i = 0 to -1
-    // ここを通らない場合
-    a = 1
+// ここを通らない場合
+a = 1
 else
-    a = 2
+a = 2
 endfor
 a
-                "#,
-                Ok(Some(Object::Num(2.0)))
-            ),
-            (
-                r#"
+        "#,
+        Object::Num(2.0)
+    )]
+    #[case(
+        r#"
 a = 0
 for i = 0 to 0
-    a = 1
-    break
+a = 1
+break
 else
-    a = 2
+a = 2
 endfor
 a
-                "#,
-                Ok(Some(Object::Num(1.0)))
-            ),
-        ];
-        for (input, expected) in test_cases {
-            eval_test(input, expected, false);
-        }
+        "#,
+        Object::Num(1.0)
+    )]
+    fn test_for(#[case] input: &str, #[case] expected: Object) {
+        expect_object_test(None, input, expected);
     }
 
+    #[rstest]
+    #[case(
+        r#"
+for i = 0 to "5s"
+next
+        "#,
+        UErrorKind::SyntaxError,
+        UErrorMessage::ForError("for i = 0 to 5s".into())
+    )]
+    fn test_for_err(#[case] input: &str, #[case] expected_kind: UErrorKind, #[case] expected_message: UErrorMessage) {
+        expect_error_test(None, input, expected_kind, expected_message);
+    }
 
-    #[test]
-    fn test_forin() {
-        let test_cases = vec![
-            (
-                r#"
+    #[rstest]
+    #[case(
+        r#"
 dim hoge[] = 1,2,3,4,5
 a = 0
 for n in hoge
-    a = a + n
+a = a + n
 next
 a
-                "#,
-Ok(                Some(Object::Num(15.0)))
-            ),
-            (
-                r#"
+        "#,
+        Object::Num(15.0)
+    )]
+    #[case(
+        r#"
 a = ""
 for c in "hoge"
-    a = c + a
+a = c + a
 next
 a
-                "#,
-                Ok(Some(Object::String("egoh".to_string())))
-            ),
-            (
-                r#"
+        "#,
+        Object::String("egoh".to_string())
+    )]
+    #[case(
+        r#"
 hashtbl hoge
 hoge[1] = 1
 hoge[2] = 2
 hoge[3] = 3
 a = 0
 for key in hoge
-    a = a + hoge[key]
+a = a + hoge[key]
 next
 a
-                "#,
-                Ok(Some(Object::Num(6.0)))
-            ),
-            (
-                r#"
+        "#,
+        Object::Num(6.0)
+    )]
+    #[case(
+        r#"
 dim hoge[] = 1,2,3,4,5
 a = 0
 for n in hoge
-    a = a + n
-    if n = 3 then break
+a = a + n
+if n = 3 then break
 next
 a
-                "#,
-                Ok(Some(Object::Num(6.0)))
-            ),
-            (
-                r#"
+        "#,
+        Object::Num(6.0)
+    )]
+    #[case(
+        r#"
 dim hoge[] = 1,2,3,4,5
 a = 0
 for n in hoge
-    continue
-    a = a + n
+continue
+a = a + n
 next
 a
-                "#,
-                Ok(Some(Object::Num(0.0)))
-            ),
-            (
-                r#"
+        "#,
+        Object::Num(0.0)
+    )]
+    #[case(
+        r#"
 a = 0
 for n in [1,2,3]
-    a = 1
+a = 1
 else
-    a = 2
+a = 2
 endfor
 a
-                "#,
-                Ok(Some(Object::Num(2.0)))
-            ),
-            (
-                r#"
+        "#,
+        Object::Num(2.0)
+    )]
+    #[case(
+        r#"
 a = 0
 for n in []
-    // ここを通らない場合
-    a = 1
+// ここを通らない場合
+a = 1
 else
-    a = 2
+a = 2
 endfor
 a
-                "#,
-                Ok(Some(Object::Num(2.0)))
-            ),
-            (
-                r#"
+        "#,
+        Object::Num(2.0)
+    )]
+    #[case(
+        r#"
 a = 0
 for n in [1,2,3]
-    a = 1
-    break
+a = 1
+break
 else
-    a = 2
+a = 2
 endfor
 a
-                "#,
-                Ok(Some(Object::Num(1.0)))
-            ),
-        ];
-        for (input, expected) in test_cases {
-            eval_test(input, expected, false);
-        }
+        "#,
+        Object::Num(1.0)
+    )]
+    fn test_forin(#[case] input: &str, #[case] expected: Object) {
+        expect_object_test(None, input, expected);
     }
 
-
-    #[test]
-    fn test_while() {
-        let test_cases = vec![
-            (
-                r#"
+    #[rstest]
+    #[case(
+        r#"
 a = 5
 while a > 0
-    a = a -1
+a = a -1
 wend
 a
-                "#,
-                Ok(Some(Object::Num(0.0)))
-            ),
-            (
-                r#"
+        "#,
+        Object::Num(0.0)
+    )]
+    #[case(
+        r#"
 a = 0
 while a < 3
-    a = a + 1
-    continue
-    a = a + 1
+a = a + 1
+continue
+a = a + 1
 wend
 while true
-    a = a + 1
-    break
-    a = a + 1
+a = a + 1
+break
+a = a + 1
 wend
 a
-                "#,
-                Ok(Some(Object::Num(4.0)))
-            ),
-        ];
-        for (input, expected) in test_cases {
-            eval_test(input, expected, false);
-        }
+        "#,
+        Object::Num(4.0)
+    )]
+    fn test_while(#[case] input: &str, #[case] expected: Object) {
+        expect_object_test(None, input, expected);
     }
 
-    #[test]
-    fn test_repeat() {
-        let test_cases = vec![
-            (
-                r#"
+    #[rstest]
+    #[case(
+        r#"
 a = 5
 repeat
-    a = a - 1
+a = a - 1
 until a < 1
 a
-                "#,
-                Ok(Some(Object::Num(0.0)))
-            ),
-            (
-                r#"
+        "#,
+        Object::Num(0.0)
+    )]
+    #[case(
+        r#"
 a = 2
 repeat
-    a = a - 1
-    if a < 0 then break else continue
+a = a - 1
+if a < 0 then break else continue
 until false
 a
-                "#,
-                Ok(Some(Object::Num(-1.0)))
-            ),
-        ];
-        for (input, expected) in test_cases {
-            eval_test(input, expected, false);
-        }
+        "#,
+        Object::Num(-1.0)
+    )]
+    fn test_repeat(#[case] input: &str, #[case] expected: Object) {
+        expect_object_test(None, input, expected);
     }
 
-    #[test]
-    fn test_if_1line() {
-        let test_cases = vec![
-            (
-                r#"
+    #[rstest]
+    #[case(
+        r#"
 if true then a = "a is true" else a = "a is false"
 a
-                "#,
-                Ok(Some(Object::String("a is true".to_string())))
-            ),
-            (
-                r#"
+        "#,
+        Object::String("a is true".to_string())
+    )]
+    #[case(
+        r#"
 if 1 < 0 then a = "a is true" else a = "a is false"
 a
-                "#,
-                Ok(Some(Object::String("a is false".to_string())))
-            ),
-            (
-                r#"
-if true then print "test succeed!" else print "should not be printed"
-                "#,
-                Ok(None)
-            ),
-            (
-                r#"
+        "#,
+        Object::String("a is false".to_string())
+    )]
+    #[case(
+        r#"
 a = 1
 if false then a = 5
 a
-                "#,
-                Ok(Some(Object::Num(1.0)))
-            ),
-        ];
-        for (input, expected) in test_cases {
-            eval_test(input, expected, false);
-        }
+        "#,
+        Object::Num(1.0)
+    )]
+    fn test_if_1line(#[case] input: &str, #[case] expected: Object) {
+        expect_object_test(None, input, expected);
     }
 
-    #[test]
-    fn test_if() {
-        let test_cases = vec![
-            (
-                r#"
+    #[rstest]
+    #[case(
+        r#"
 if true then
-    a = "a is true"
+a = "a is true"
 else
-    a = "a is false"
+a = "a is false"
 endif
 a
-                "#,
-Ok(                Some(Object::String("a is true".to_string())))
-            ),
-            (
-                r#"
+        "#,
+        Object::String("a is true".to_string())
+    )]
+    #[case(
+        r#"
 if 0 then
-    a = "a is true"
+a = "a is true"
 else
-    a = "a is false"
+a = "a is false"
 endif
 a
-                "#,
-                Ok(Some(Object::String("a is false".to_string())))
-            ),
-            (
-                r#"
+        "#,
+        Object::String("a is false".to_string())
+    )]
+    #[case(
+        r#"
 if true then
-    a = "test succeed!"
+a = "test succeed!"
 else
-    a = "should not get this message"
+a = "should not get this message"
 endif
 a
-                "#,
-                Ok(Some(Object::String("test succeed!".to_string())))
-            ),
-            (
-                r#"
+        "#,
+        Object::String("test succeed!".to_string())
+    )]
+    #[case(
+        r#"
 a = 1
 if false then
-    a = 5
+a = 5
 endif
 a
-                "#,
-                Ok(Some(Object::Num(1.0)))
-            ),
-        ];
-        for (input, expected) in test_cases {
-            eval_test(input, expected, false);
-        }
+        "#,
+        Object::Num(1.0)
+    )]
+    fn test_if(#[case] input: &str, #[case] expected: Object) {
+        expect_object_test(None, input, expected);
     }
 
-    #[test]
-    fn test_elseif() {
-        let test_cases = vec![
-            (
-                r#"
+    #[rstest]
+    #[case(
+        r#"
 if false then
-    a = "should not get this message"
+a = "should not get this message"
 elseif true then
-    a = "test1 succeed!"
+a = "test1 succeed!"
 endif
 a
-                "#,
-                Ok(Some(Object::String("test1 succeed!".to_string())))
-            ),
-            (
-                r#"
+        "#,
+        Object::String("test1 succeed!".to_string())
+    )]
+    #[case(
+        r#"
 if false then
-    a = "should not get this message"
+a = "should not get this message"
 elseif false then
-    a = "should not get this message"
+a = "should not get this message"
 elseif true then
-    a = "test2 succeed!"
+a = "test2 succeed!"
 endif
 a
-                "#,
-                Ok(Some(Object::String("test2 succeed!".to_string())))
-            ),
-            (
-                r#"
+        "#,
+        Object::String("test2 succeed!".to_string())
+    )]
+    #[case(
+        r#"
 if false then
-    a = "should not get this message"
+a = "should not get this message"
 elseif false then
-    a = "should not get this message"
+a = "should not get this message"
 else
-    a = "test3 succeed!"
+a = "test3 succeed!"
 endif
 a
-                "#,
-                Ok(Some(Object::String("test3 succeed!".to_string())))
-            ),
-            (
-                r#"
+        "#,
+        Object::String("test3 succeed!".to_string())
+    )]
+    #[case(
+        r#"
 if true then
-    a = "test4 succeed!"
+a = "test4 succeed!"
 elseif true then
-    a = "should not get this message"
+a = "should not get this message"
 else
-    a = "should not get this message"
+a = "should not get this message"
 endif
 a
-                "#,
-                Ok(Some(Object::String("test4 succeed!".to_string())))
-            ),
-        ];
-        for (input, expected) in test_cases {
-            eval_test(input, expected, false);
-        }
+        "#,
+        Object::String("test4 succeed!".to_string())
+    )]
+    fn test_elseif(#[case] input: &str, #[case] expected: Object) {
+        expect_object_test(None, input, expected);
     }
 
-    #[test]
-    fn test_select() {
-        let test_cases = vec![
-            (
-                r#"
+    #[rstest]
+    #[case(
+        r#"
 select 1
-    case 1
-        a = "test1 succeed!"
-    case 2
-        a = "should not get this message"
-    default
-        a = "should not get this message"
+case 1
+a = "test1 succeed!"
+case 2
+a = "should not get this message"
+default
+a = "should not get this message"
 selend
 a
-                "#,
-                Ok(Some(Object::String("test1 succeed!".to_string())))
-            ),
-            (
-                r#"
+        "#,
+        Object::String("test1 succeed!".to_string())
+    )]
+    #[case(
+        r#"
 select 3
-    case 1
-        a = "should not get this message"
-    case 2, 3
-        a = "test2 succeed!"
-    default
-        a = "should not get this message"
+case 1
+a = "should not get this message"
+case 2, 3
+a = "test2 succeed!"
+default
+a = "should not get this message"
 selend
 a
-                "#,
-                Ok(Some(Object::String("test2 succeed!".to_string())))
-            ),
-            (
-                r#"
+        "#,
+        Object::String("test2 succeed!".to_string())
+    )]
+    #[case(
+        r#"
 select 6
-    case 1
-        a = "should not get this message"
-    case 2, 3
-        a = "should not get this message"
-    default
-        a = "test3 succeed!"
+case 1
+a = "should not get this message"
+case 2, 3
+a = "should not get this message"
+default
+a = "test3 succeed!"
 selend
 a
-                "#,
-                Ok(Some(Object::String("test3 succeed!".to_string())))
-            ),
-            (
-                r#"
+        "#,
+        Object::String("test3 succeed!".to_string())
+    )]
+    #[case(
+        r#"
 select 6
-    default
-        a = "test4 succeed!"
+default
+a = "test4 succeed!"
 selend
 a
-                "#,
-                Ok(Some(Object::String("test4 succeed!".to_string())))
-            ),
-            (
-                r#"
+        "#,
+        Object::String("test4 succeed!".to_string())
+    )]
+    #[case(
+        r#"
 select true
-    case 1 = 2
-        a = "should not get this message"
-    case 2 = 2
-        a = "test5 succeed!"
+case 1 = 2
+a = "should not get this message"
+case 2 = 2
+a = "test5 succeed!"
 selend
 a
-                "#,
-                Ok(Some(Object::String("test5 succeed!".to_string())))
-            ),
-        ];
-        for (input, expected) in test_cases {
-            eval_test(input, expected, false);
-        }
+        "#,
+        Object::String("test5 succeed!".to_string())
+    )]
+    fn test_select(#[case] input: &str, #[case] expected: Object) {
+        expect_object_test(None, input, expected);
     }
 
-    #[test]
-    fn test_block_in_loopblock() {
-        let test_cases = vec![
-            (
-                r#"
+    #[rstest]
+    #[case(
+        r#"
 a = 0
 while true
-    select a
-        case 5
-            break
-            a = a + 1
-        default
-            a = a + 1
-    selend
-    if a >= 6 then break
+select a
+case 5
+    break
+    a = a + 1
+default
+    a = a + 1
+selend
+if a >= 6 then break
 wend
 a
-                "#,
-                Ok(Some(Object::Num(5.0)))
-            ),
-            (
-                r#"
+        "#,
+        Object::Num(5.0)
+    )]
+    #[case(
+        r#"
 a = 0
 while true
-    if a = 5 then
-        break
-        a = a + 1
-    else
-        a = a + 1
-    endif
-    if a >= 6 then break
+if a = 5 then
+break
+a = a + 1
+else
+a = a + 1
+endif
+if a >= 6 then break
 wend
 a
-                "#,
-                Ok(Some(Object::Num(5.0)))
-            ),
-            (
-                r#"
+        "#,
+        Object::Num(5.0)
+    )]
+    #[case(
+        r#"
 a = 1
 while a < 5
-    while TRUE
-        a = a + 1
-        continue 2
-    wend
+while TRUE
+a = a + 1
+continue 2
+wend
 wend
 a
-                "#,
-                Ok(Some(Object::Num(5.0)))
-            ),
-            (
-                r#"
+        "#,
+        Object::Num(5.0)
+    )]
+    #[case(
+        r#"
 a = 1
 for i = 0 to 5
-    for j = 0 to 5
-        a = a + 1
-        continue 2
-    next
+for j = 0 to 5
+a = a + 1
+continue 2
+next
 next
 a
-                "#,
-                Ok(Some(Object::Num(7.0)))
-            ),
-            (
-                r#"
+        "#,
+        Object::Num(7.0)
+    )]
+    #[case(
+        r#"
 a = 1
 repeat
-    repeat
-        a = a + 1
-        break 2
-    until false
+repeat
+a = a + 1
+break 2
+until false
 until false
 a
-                "#,
-                Ok(Some(Object::Num(2.0)))
-            ),
-        ];
-        for (input, expected) in test_cases {
-            eval_test(input, expected, false);
-        }
+        "#,
+        Object::Num(2.0)
+    )]
+    fn test_block_in_loopblock(#[case] input: &str, #[case] expected: Object) {
+        expect_object_test(None, input, expected);
     }
 
-    #[test]
-    fn test_function() {
-        let test_cases = vec![
-            (
-                r#"
+    #[rstest]
+    #[case(
+        r#"
 a = hoge(1, 2)
 a
 
@@ -4244,241 +4175,221 @@ fend
 function fuga(n)
 　result = n * 2
 fend
-                "#,
-                Ok(Some(Object::Num(5.0)))
-            ),
-            (
-                r#"
+        "#,
+        Object::Num(5.0)
+    )]
+    #[case(
+        r#"
 hoge(5)
 
 function hoge(n)
-    // no result
+// no result
 fend
-                "#,
-                Ok(Some(Object::Empty))
-            ),
-            (
-                r#"
+        "#,
+        Object::Empty
+    )]
+    #[case(
+        r#"
 a = hoge(5)
 a == 5
 
 procedure hoge(n)
-    result = n
+result = n
 fend
-                "#,
-                Ok(Some(Object::Bool(false)))
-            ),
-            (
-                r#"
+        "#,
+        Object::Bool(false)
+    )]
+    #[case(
+        r#"
 a = 'should not be over written'
 hoge(5)
 a
 
 procedure hoge(n)
-    a = n
+a = n
 fend
-                "#,
-                Ok(Some(Object::String("should not be over written".to_string())))
-            ),
-            (
-                r#"
+        "#,
+        Object::String("should not be over written".to_string())
+    )]
+    #[case(
+        r#"
 f  = function(x, y)
-    result = x + y
+result = x + y
 fend
 
 f(5, 10)
-                "#,
-                Ok(Some(Object::Num(15.0)))
-            ),
-            (
-                r#"
+        "#,
+        Object::Num(15.0)
+    )]
+    #[case(
+        r#"
 a = 1
 p = procedure(x, y)
-    a = x + y
+a = x + y
 fend
 
 p(5, 10)
 a
-                "#,
-                Ok(Some(Object::Num(1.0)))
-            ),
-            (
-                r#"
+        "#,
+        Object::Num(1.0)
+    )]
+    #[case(
+        r#"
 closure = test_closure("testing ")
 closure("closure")
 
 function test_closure(s)
-    result = function(s2)
-        result = s + s2
-    fend
+result = function(s2)
+result = s + s2
 fend
-                "#,
-                Ok(Some(Object::String("testing closure".to_string())))
-            ),
-            (
-                r#"
+fend
+        "#,
+        Object::String("testing closure".to_string())
+    )]
+    #[case(
+        r#"
 recursive(5)
 
 function recursive(n)
-    if n = 0 then
-        result = "done"
-    else
-        result = recursive(n - 1)
-    endif
+if n = 0 then
+result = "done"
+else
+result = recursive(n - 1)
+endif
 fend
-                "#,
-                Ok(Some(Object::String("done".to_string())))
-            ),
-            (
-                r#"
+        "#,
+        Object::String("done".to_string())
+    )]
+    #[case(
+        r#"
 hoge(2, fuga)
 
 function hoge(x, func)
-    result = func(x)
+result = func(x)
 fend
 function fuga(n)
-    result = n * 2
+result = n * 2
 fend
-                "#,
-                Ok(Some(Object::Num(4.0)))
-            ),
-        ];
-        for (input, expected) in test_cases {
-            eval_test(input, expected, false);
-        }
+        "#,
+        Object::Num(4.0)
+    )]
+    fn test_function(#[case] input: &str, #[case] expected: Object) {
+        expect_object_test(None, input, expected);
     }
+
     #[test]
     fn test_comment() {
-        let test_cases = vec![
-            (
-                r#"
+        let input = r#"
 a = 1
 // a = a + 2
 a
-                "#,
-                Ok(Some(Object::Num(1.0)))
-            ),
-        ];
-        for (input, expected) in test_cases {
-            eval_test(input, expected, false);
-        }
+        "#;
+        let expected = 1.into();
+        expect_object_test(None, input, expected);
     }
 
-    #[test]
-    fn test_multiple_definitions() {
-        let test_cases = vec![
-            (
-                r#"
-dim dim_and_dim = 1
-dim dim_and_dim = 2
-                "#,
-                Err(UError::new(
-                    UErrorKind::DefinitionError(DefinitionType::Variable),
-                    UErrorMessage::AlreadyDefined("dim_and_dim".into())
-                ))
-            ),
-            (
-                r#"
-public pub_and_const = 1
-const pub_and_const = 2
-                "#,
-                Err(UError::new(
-                    UErrorKind::DefinitionError(DefinitionType::Public),
-                    UErrorMessage::AlreadyDefined("pub_and_const".into())
-                ))
-            ),
-            (
-                r#"
-const const_and_const = 1
-const const_and_const = 2
-                "#,
-                Err(UError::new(
-                    UErrorKind::DefinitionError(DefinitionType::Const),
-                    UErrorMessage::AlreadyDefined("const_and_const".into())
-                ))
-            ),
-            (
-                r#"
+    #[rstest]
+    #[case(
+        r#"
 public public_and_public = 1
 public public_and_public = 2
-                "#,
-                Ok(None)
-            ),
-            (
-                r#"
+public_and_public
+        "#,
+        2.into()
+    )]
+    fn test_duplicate_declaration(#[case] input: &str, #[case] expected: Object) {
+        expect_object_test(None, input, expected);
+    }
+    #[rstest]
+    #[case(
+        r#"
+dim dim_and_dim = 1
+dim dim_and_dim = 2
+        "#,
+        UErrorKind::DefinitionError(DefinitionType::Variable),
+        UErrorMessage::AlreadyDefined("dim_and_dim".into())
+    )]
+    #[case(
+        r#"
+public pub_and_const = 1
+const pub_and_const = 2
+        "#,
+        UErrorKind::DefinitionError(DefinitionType::Public),
+        UErrorMessage::AlreadyDefined("pub_and_const".into())
+    )]
+    #[case(
+        r#"
+const const_and_const = 1
+const const_and_const = 2
+        "#,
+        UErrorKind::DefinitionError(DefinitionType::Const),
+        UErrorMessage::AlreadyDefined("const_and_const".into())
+    )]
+    #[case(
+        r#"
 hashtbl hash_and_hash
 hashtbl hash_and_hash
-                "#,
-                Err(UError::new(
-                    UErrorKind::DefinitionError(DefinitionType::Variable),
-                    UErrorMessage::AlreadyDefined("hash_and_hash".into())
-                ))
-            ),
-            (
-                r#"
+        "#,
+        UErrorKind::DefinitionError(DefinitionType::Variable),
+        UErrorMessage::AlreadyDefined("hash_and_hash".into())
+    )]
+    #[case(
+        r#"
 function func_and_func()
 fend
 function func_and_func()
 fend
-                "#,
-                Err(UError::new(
-                    UErrorKind::DefinitionError(DefinitionType::Function),
-                    UErrorMessage::AlreadyDefined("func_and_func".into())
-                ))
-            ),
-        ];
-        for (input, expected) in test_cases {
-            eval_test(input, expected, false);
-        }
+        "#,
+        UErrorKind::DefinitionError(DefinitionType::Function),
+        UErrorMessage::AlreadyDefined("func_and_func".into())
+    )]
+    fn test_duplicate_declaration_err(#[case] input: &str, #[case] expected_kind: UErrorKind, #[case] expected_message: UErrorMessage) {
+        expect_error_test(None, input, expected_kind, expected_message);
     }
 
-    #[test]
-    fn test_compound_assign() {
-        let test_cases = vec![
-            (
-                r#"
+    #[rstest]
+    #[case(
+        r#"
 a = 1
 a += 1
 a
-                "#,
-                Ok(Some(Object::Num(2.0)))
-            ),
-            (
-                r#"
+        "#,
+        Object::Num(2.0)
+    )]
+    #[case(
+        r#"
 a = "hoge"
 a += "fuga"
 a
-                "#,
-                Ok(Some(Object::String("hogefuga".to_string())))
-            ),
-            (
-                r#"
+        "#,
+        Object::String("hogefuga".to_string())
+    )]
+    #[case(
+        r#"
 a = 5
 a -= 3
 a
-                "#,
-                Ok(Some(Object::Num(2.0)))
-            ),
-            (
-                r#"
+        "#,
+        Object::Num(2.0)
+    )]
+    #[case(
+        r#"
 a = 2
 a *= 5
 a
-                "#,
-                Ok(Some(Object::Num(10.0)))
-            ),
-            (
-                r#"
+        "#,
+        Object::Num(10.0)
+    )]
+    #[case(
+        r#"
 a = 10
 a /= 5
 a
-                "#,
-                Ok(Some(Object::Num(2.0)))
-            ),
-        ];
-        for (input, expected) in test_cases {
-            eval_test(input, expected, false);
-        }
+        "#,
+        Object::Num(2.0)
+    )]
+    fn test_compound_assign(#[case] input: &str, #[case] expected: Object) {
+        expect_object_test(None, input, expected);
     }
 
     #[test]
@@ -4493,472 +4404,351 @@ fend
 
 hoge
         "#;
-        eval_test(input, Ok(Some(Object::Num(11.0))), false)
+        expect_object_test(None, input, 11.into())
     }
 
-    #[test]
-    fn test_scope() {
+    #[fixture]
+    #[once]
+    fn scope_fixture() -> Evaluator {
         let definition = r#"
 dim v = "script local"
 public p = "public"
+public p1 = "public"
 public p2 = "public 2"
 const c = "const"
 
 dim f = "variable"
 function f()
-    result = "function"
+result = "function"
 fend
 
 function func()
-    result = "function"
+result = "function"
 fend
 
 function get_p()
-    result = p
+result = p
 fend
 
 function get_c()
-    result = c
+result = c
+fend
+
+function get_v()
+result = v
+fend
+
+module M
+dim v = "module local"
+public p = "module public"
+const c = "module const"
+
+function func()
+    result = "module function"
 fend
 
 function get_v()
     result = v
 fend
 
-module M
-    dim v = "module local"
-    public p = "module public"
-    const c = "module const"
+function get_this_v()
+    result = this.v
+fend
 
-    function func()
-        result = "module function"
-    fend
+function get_m_v()
+    result = M.v
+fend
 
-    function get_v()
-        result = v
-    fend
+function get_p()
+    result = p
+fend
 
-    function get_this_v()
-        result = this.v
-    fend
+function get_outer_p2()
+    result = p2
+fend
 
-    function get_m_v()
-        result = M.v
-    fend
+function inner_func()
+    result = func()
+fend
 
-    function get_p()
-        result = p
-    fend
+function outer_func()
+    result = global.func()
+fend
 
-    function get_outer_p2()
-        result = p2
-    fend
-
-    function inner_func()
-        result = func()
-    fend
-
-    function outer_func()
-        result = global.func()
-    fend
-
-    dim a = 1
-    function get_a()
-        result = a
-    fend
-    function set_a(n)
-        a = n
-        result = get_a()
-    fend
+dim a = 1
+function get_a()
+    result = a
+fend
+function set_a(n)
+    a = n
+    result = get_a()
+fend
 endmodule
         "#;
-        let mut e = eval_env(definition);
-        let test_cases = vec![
-            (
-                "v",
-                Ok(Some(Object::String("script local".to_string())))
-            ),
-            (
-                r#"
-                v += " 1"
-                v
-                "#,
-                Ok(Some(Object::String("script local 1".to_string())))
-            ),
-            (
-                "p",
-                Ok(Some(Object::String("public".to_string())))
-            ),
-            (
-                r#"
-                p += " 1"
-                p
-                "#,
-                Ok(Some(Object::String("public 1".to_string())))
-            ),
-            (
-                "c",
-                Ok(Some(Object::String("const".to_string())))
-            ),
-            (
-                "func()",
-                Ok(Some(Object::String("function".to_string())))
-            ),
-            (
-                "f",
-                Ok(Some(Object::String("variable".to_string())))
-            ),
-            (
-                "f()",
-                Ok(Some(Object::String("function".to_string())))
-            ),
-            (
-                "get_p()",
-                Ok(Some(Object::String("public 1".to_string())))
-            ),
-            (
-                "get_c()",
-                Ok(Some(Object::String("const".to_string())))
-            ),
-            (
-                "get_v()",
-                Err(UError::new(
-                    UErrorKind::EvaluatorError,
-                    UErrorMessage::NoIdentifierFound("v".into())
-                ))
-            ),
-            (
-                "M.v",
-                Err(UError::new(
-                    UErrorKind::DotOperatorError,
-                    UErrorMessage::IsPrivateMember("M".into(), "v".into())
-                ))
-            ),
-            (
-                "M.p",
-                Ok(Some(Object::String("module public".to_string())))
-            ),
-            (
-                "M.c",
-                Ok(Some(Object::String("module const".to_string())))
-            ),
-            (
-                "M.func()",
-                Ok(Some(Object::String("module function".to_string())))
-            ),
-            (
-                "M.get_v()",
-                Ok(Some(Object::String("module local".to_string())))
-            ),
-            (
-                "M.get_this_v()",
-                Ok(Some(Object::String("module local".to_string())))
-            ),
-            (
-                "M.get_m_v()",
-                Ok(Some(Object::String("module local".to_string())))
-            ),
-            (
-                "M.get_p()",
-                Ok(Some(Object::String("module public".to_string())))
-            ),
-            (
-                "M.get_outer_p2()",
-                Ok(Some(Object::String("public 2".to_string())))
-            ),
-            (
-                "M.inner_func()",
-                Ok(Some(Object::String("module function".to_string())))
-            ),
-            (
-                "M.outer_func()",
-                Ok(Some(Object::String("function".to_string())))
-            ),
-            (
-                "M.set_a(5)",
-                Ok(Some(Object::Num(5.0)))
-            ),
-        ];
-        for (input, expected) in test_cases {
-            eval_test_with_env(&mut e, input, expected);
-        }
+        eval_env(definition)
+    }
+    #[rstest]
+    #[case::get_v(
+        "v",
+        Object::String("script local".to_string())
+    )]
+    #[case::assign_v(
+        r#"
+        v += " 1"
+        v
+        "#,
+        Object::String("script local 1".to_string())
+    )]
+    #[case::get_p(
+        "p",
+        Object::String("public".to_string())
+    )]
+    #[case::assign_p(
+        r#"
+        p1 += " 1"
+        p1
+        "#,
+        Object::String("public 1".to_string())
+    )]
+    #[case::get_c(
+        "c",
+        Object::String("const".to_string())
+    )]
+    #[case::invoke_func(
+        "func()",
+        Object::String("function".to_string())
+    )]
+    #[case::get_f(
+        "f",
+        Object::String("variable".to_string())
+    )]
+    #[case::invoke_f(
+        "f()",
+        Object::String("function".to_string())
+    )]
+    #[case::invoke_get_p(
+        "get_p()",
+        Object::String("public".to_string())
+    )]
+    #[case::invoke_get_c(
+        "get_c()",
+        Object::String("const".to_string())
+    )]
+    #[case::get_module_p(
+        "M.p",
+        Object::String("module public".to_string())
+    )]
+    #[case::get_module_c(
+        "M.c",
+        Object::String("module const".to_string())
+    )]
+    #[case::invoke_module_func(
+        "M.func()",
+        Object::String("module function".to_string())
+    )]
+    #[case::invoke_module_get_v(
+        "M.get_v()",
+        Object::String("module local".to_string())
+    )]
+    #[case::invoke_module_get_this_v(
+        "M.get_this_v()",
+        Object::String("module local".to_string())
+    )]
+    #[case::invoke_module_get_m_v(
+        "M.get_m_v()",
+        Object::String("module local".to_string())
+    )]
+    #[case::invoke_module_get_p(
+        "M.get_p()",
+        Object::String("module public".to_string())
+    )]
+    #[case::invoke_module_get_outer_p2(
+        "M.get_outer_p2()",
+        Object::String("public 2".to_string())
+    )]
+    #[case::invoke_module_inner_func(
+        "M.inner_func()",
+        Object::String("module function".to_string())
+    )]
+    #[case::invoke_module_outer_func(
+        "M.outer_func()",
+        Object::String("function".to_string())
+    )]
+    #[case::invoke_module_set_a(
+        "M.set_a(5)",
+        Object::Num(5.0)
+    )]
+    fn test_scope(#[case] input: &str, #[case] expected: Object) {
+        let mut e = scope_fixture();
+        expect_object_test(Some(&mut e), input, expected);
     }
 
-    #[test]
-    fn test_uobject() {
+    #[rstest]
+    #[case(
+        "get_v()",
+        UErrorKind::EvaluatorError,
+        UErrorMessage::NoIdentifierFound("v".into())
+    )]
+    #[case(
+        "M.v",
+        UErrorKind::DotOperatorError,
+        UErrorMessage::IsPrivateMember("M".into(), "v".into())
+    )]
+    fn test_scope_err(#[case] input: &str, #[case] expected_kind: UErrorKind, #[case] expected_message: UErrorMessage) {
+        let mut e = scope_fixture();
+        expect_error_test(Some(&mut e), input, expected_kind, expected_message);
+    }
+
+    #[fixture]
+    #[once]
+    fn uobject_fixture() -> Evaluator {
         let input1 = r#"
 dim obj = @{
     "foo": 1,
     "bar": {
         "baz": 2,
         "qux": [3, 4, 5]
-    }
+    },
+    "quux": 0
 }@
         "#;
-        let mut e = eval_env(input1);
-        let test_cases = vec![
-            (
-                "obj.foo",
-                Ok(Some(Object::Num(1.0)))
-            ),
-            (
-                "obj.FOO",
-                Ok(Some(Object::Num(1.0)))
-            ),
-            (
-                "obj.bar.baz",
-                Ok(Some(Object::Num(2.0)))
-            ),
-            (
-                "obj.bar.qux[0]",
-                Ok(Some(Object::Num(3.0)))
-            ),
-            (
-                "obj.foo = 2; obj.foo",
-                Ok(Some(Object::Num(2.0)))
-            ),
-            (
-                "obj.bar.qux[1] = 9; obj.bar.qux[1]",
-                Ok(Some(Object::Num(9.0)))
-            ),
-        ];
-        for (input, expected) in test_cases {
-            eval_test_with_env(&mut e, input, expected);
-        }
+        eval_env(input1)
+    }
+    #[rstest]
+    #[case(
+        "obj.foo",
+        Object::Num(1.0)
+    )]
+    #[case(
+        "obj.FOO",
+        Object::Num(1.0)
+    )]
+    #[case(
+        "obj.bar.baz",
+        Object::Num(2.0)
+    )]
+    #[case(
+        "obj.bar.qux[0]",
+        Object::Num(3.0)
+    )]
+    #[case(
+        "obj.quux = 2; obj.quux",
+        Object::Num(2.0)
+    )]
+    #[case(
+        "obj.bar.qux[1] = 9; obj.bar.qux[1]",
+        Object::Num(9.0)
+    )]
+    fn test_uobject(#[case] input: &str, #[case] expected: Object) {
+        let mut e = uobject_fixture();
+        expect_object_test(Some(&mut e), input, expected);
     }
 
-    #[test]
-    fn test_param_type() {
-        let input1 = r#"
+    #[fixture]
+    #[once]
+    fn param_type_fixture() -> Evaluator {
+        let input = r#"
 function hoge(s: string, c: myclass, n: number = 2, b: bool = false)
-    result = EMPTY
+result = EMPTY
 fend
 function fuga(a: array, h: hash, f: func, u: uobject)
-    result = EMPTY
+result = EMPTY
 fend
 public arr = [1,2,3]
 public hashtbl h
 public uo = @{"a": 1}@
 class myclass
-    procedure myclass()
-    fend
+procedure myclass()
+fend
 endclass
 class myclass2
-    procedure myclass2()
-    fend
+procedure myclass2()
+fend
 endclass
         "#;
-        let mut e = eval_env(input1);
-        let test_cases = vec![
-            (
-                "hoge(3, myclass())",
-                Err(UError::new(
-                    UErrorKind::FuncCallError,
-                    UErrorMessage::InvalidParamType("s".into(), ParamTypeDetail::String)
-                ))
-            ),
-            (
-                "hoge('hoge', myclass2())",
-                Err(UError::new(
-                    UErrorKind::FuncCallError,
-                    UErrorMessage::InvalidParamType("c".into(), ParamTypeDetail::UserDefinition("myclass".into()))
-                ))
-            ),
-            (
-                "hoge('hoge', myclass(), 'aaa')",
-                Err(UError::new(
-                    UErrorKind::FuncCallError,
-                    UErrorMessage::InvalidParamType("n".into(), ParamTypeDetail::Number)
-                ))
-            ),
-            (
-                "hoge('hoge', myclass(),2, 'aaa')",
-                Err(UError::new(
-                    UErrorKind::FuncCallError,
-                    UErrorMessage::InvalidParamType("b".into(), ParamTypeDetail::Bool)
-                ))
-            ),
-            (
-                "hoge('hoge', myclass(), 5, true)",
-                Ok(Some(Object::Empty))
-            ),
-            (
-                "fuga('hoge', h, hoge, uo)",
-                Err(UError::new(
-                    UErrorKind::FuncCallError,
-                    UErrorMessage::InvalidParamType("a".into(), ParamTypeDetail::Array)
-                ))
-            ),
-            (
-                "fuga(arr, arr, hoge, uo)",
-                Err(UError::new(
-                    UErrorKind::FuncCallError,
-                    UErrorMessage::InvalidParamType("h".into(), ParamTypeDetail::HashTbl)
-                ))
-            ),
-            (
-                "fuga(arr, h, 'hoge', uo)",
-                Err(UError::new(
-                    UErrorKind::FuncCallError,
-                    UErrorMessage::InvalidParamType("f".into(), ParamTypeDetail::Function)
-                ))
-            ),
-            (
-                "fuga(arr, h, hoge, 1)",
-                Err(UError::new(
-                    UErrorKind::FuncCallError,
-                    UErrorMessage::InvalidParamType("u".into(), ParamTypeDetail::UObject)
-                ))
-            ),
-            (
-                "fuga(arr, h, hoge, uo)",
-                Ok(Some(Object::Empty))
-            ),
-        ];
-        for (input, expected) in test_cases {
-            eval_test_with_env(&mut e, input, expected);
-        }
+        eval_env(input)
     }
 
-    #[test]
-    fn test_reference() {
-        let input1 = r#"
+    #[rstest]
+    #[case(
+        "hoge('hoge', myclass(), 5, true)",
+        Object::Empty
+    )]
+    #[case(
+        "fuga(arr, h, hoge, uo)",
+        Object::Empty
+    )]
+    fn test_param_type(#[case] input: &str, #[case] expected: Object) {
+
+        let mut e = param_type_fixture();
+        expect_object_test(Some(&mut e), input, expected);
+    }
+    #[rstest]
+    #[case(
+        "hoge(3, myclass())",
+        UErrorKind::FuncCallError,
+        UErrorMessage::InvalidParamType("s".into(), ParamTypeDetail::String)
+    )]
+    #[case(
+        "hoge('hoge', myclass2())",
+        UErrorKind::FuncCallError,
+        UErrorMessage::InvalidParamType("c".into(), ParamTypeDetail::UserDefinition("myclass".into()))
+    )]
+    #[case(
+        "hoge('hoge', myclass(), 'aaa')",
+        UErrorKind::FuncCallError,
+        UErrorMessage::InvalidParamType("n".into(), ParamTypeDetail::Number)
+    )]
+    #[case(
+        "hoge('hoge', myclass(),2, 'aaa')",
+        UErrorKind::FuncCallError,
+        UErrorMessage::InvalidParamType("b".into(), ParamTypeDetail::Bool)
+    )]
+    #[case(
+        "fuga('hoge', h, hoge, uo)",
+        UErrorKind::FuncCallError,
+        UErrorMessage::InvalidParamType("a".into(), ParamTypeDetail::Array)
+    )]
+    #[case(
+        "fuga(arr, arr, hoge, uo)",
+        UErrorKind::FuncCallError,
+        UErrorMessage::InvalidParamType("h".into(), ParamTypeDetail::HashTbl)
+    )]
+    #[case(
+        "fuga(arr, h, 'hoge', uo)",
+        UErrorKind::FuncCallError,
+        UErrorMessage::InvalidParamType("f".into(), ParamTypeDetail::Function)
+    )]
+    #[case(
+        "fuga(arr, h, hoge, 1)",
+        UErrorKind::FuncCallError,
+        UErrorMessage::InvalidParamType("u".into(), ParamTypeDetail::UObject)
+    )]
+    fn test_param_type_err(#[case] input: &str, #[case] expected_kind: UErrorKind, #[case] expected_message: UErrorMessage) {
+        let mut e = param_type_fixture();
+        expect_error_test(Some(&mut e), input, expected_kind, expected_message);
+    }
+
+    #[fixture]
+    #[once]
+    fn reference_fixture() -> Evaluator {
+        let input = r#"
 function test(ref p)
     p = "reference test"
 fend
-        "#;
-        let mut e = eval_env(input1);
-        let test_cases = vec![
-            (
-                r#"
-v = "hoge"
-test(v)
-v
-                "#,
-                Ok(Some("reference test".into()))
-            ),
-            (
-                r#"
-arr = ["hoge"]
-test(arr[0])
-arr[0]
-                "#,
-                Ok(Some("reference test".into()))
-            ),
-            (
-                r#"
-arr = ["hoge"]
-i = 0
-test(arr[i])
-arr[i]
-                "#,
-                Ok(Some("reference test".into()))
-            ),
-            (
-                r#"
 function test2(ref p: array, i: number)
     p[i] = "test2"
     result = p[i]
 fend
-arr = ["hoge"]
-test2(arr, 0)
-arr[0]
-                "#,
-                Ok(Some("test2".into()))
-            ),
-            (
-                r#"
-arr = [["foo"], ["bar"]]
-test(arr[0][0])
-arr[0][0]
-                "#,
-                Ok(Some("reference test".into()))
-            ),
-            (
-                r#"
 function test3(ref p: array, i: number, j: number)
     p[i][j] = "test3"
 fend
-arr = [["foo"], ["bar"]]
-test3(arr, 0, 0)
-arr[0][0]
-                "#,
-                Ok(Some("test3".into()))
-            ),
-            (
-                r#"
-arr = [[["foo"]]]
-test(arr[0][0][0])
-arr[0][0][0]
-                "#,
-                Ok(Some("reference test".into()))
-            ),
-            (
-                r#"
-function test4(ref p: array, i: number, j: number, k: number)
-    p[i][j][k] := "test4"
-fend
-arr = [[["foo"]]]
-test4(arr, 0, 0, 0)
-arr[0][0][0]
-                "#,
-                Ok(Some("test4".into()))
-            ),
-            (
-                r#"
 module M
     public p = "module"
     public q = [1]
     public r = [[1]]
 endmodule
-test(M.p)
-M.p
-                "#,
-                Ok(Some("reference test".into()))
-            ),
-            (
-                r#"
-test(M.q[0])
-M.q[0]
-                "#,
-                Ok(Some("reference test".into()))
-            ),
-            (
-                r#"
-test2(M.q, 0)
-M.q[0]
-                "#,
-                Ok(Some("test2".into()))
-            ),
-            (
-                r#"
-test(M.r[0][0])
-M.r[0][0]
-                "#,
-                Ok(Some("reference test".into()))
-            ),
-            (
-                r#"
-test3(M.r, 0, 0)
-M.r[0][0]
-                "#,
-                Ok(Some("test3".into()))
-            ),
-            (
-                r#"
-class C
-    procedure C
-    fend
-    public p = "class"
-endclass
-ins = C()
-test(ins.p)
-ins.p
-                "#,
-                Ok(Some("reference test".into()))
-            ),
-            (
-                r#"
+// test5, test6
 class Z
     procedure Z()
     fend
@@ -4967,7 +4757,7 @@ endclass
 
 class Y
     procedure Y()
-        this.z = [Z()]
+    this.z = [Z()]
     fend
     public p = "Y"
     public z
@@ -4975,12 +4765,133 @@ endclass
 
 class X
     procedure X()
-        this.y = Y()
+    this.y = Y()
     fend
     public p = "X"
     public y
 endclass
-
+        "#;
+        eval_env(input)
+    }
+    #[rstest]
+    #[case::variable(
+        r#"
+v = "hoge"
+test(v)
+v
+        "#,
+        "reference test".into()
+    )]
+    #[case::index(
+        r#"
+arr = ["hoge"]
+test(arr[0])
+arr[0]
+        "#,
+        "reference test".into()
+    )]
+    #[case::variable_index(
+        r#"
+arr = ["hoge"]
+i = 0
+test(arr[i])
+arr[i]
+        "#,
+        "reference test".into()
+    )]
+    #[case::array(
+        r#"
+arr = ["hoge"]
+test2(arr, 0)
+arr[0]
+        "#,
+        "test2".into()
+    )]
+    #[case::index_2d(
+        r#"
+arr = [["foo"], ["bar"]]
+test(arr[0][0])
+arr[0][0]
+        "#,
+        "reference test".into()
+    )]
+    #[case::index_2d_variable(
+        r#"
+arr = [["foo"], ["bar"]]
+test3(arr, 0, 0)
+arr[0][0]
+        "#,
+        "test3".into()
+    )]
+    #[case::index_3d(
+        r#"
+arr = [[["foo"]]]
+test(arr[0][0][0])
+arr[0][0][0]
+        "#,
+        "reference test".into()
+    )]
+    #[case::index_3d_variable(
+        r#"
+function test4(ref p: array, i: number, j: number, k: number)
+    p[i][j][k] := "test4"
+fend
+arr = [[["foo"]]]
+test4(arr, 0, 0, 0)
+arr[0][0][0]
+        "#,
+        "test4".into()
+    )]
+    #[case::module_public(
+        r#"
+test(M.p)
+M.p
+        "#,
+        "reference test".into()
+    )]
+    #[case::module_public_index(
+        r#"
+test(M.q[0])
+M.q[0]
+        "#,
+        "reference test".into()
+    )]
+    #[case::module_public_index_variable(
+        r#"
+test2(M.q, 0)
+M.q[0]
+        "#,
+        "test2".into()
+    )]
+    #[case::module_public_2d_index(
+        r#"
+test(M.r[0][0])
+M.r[0][0]
+        "#,
+        "reference test".into()
+    )]
+    #[case::module_public_2d_index_variable(
+        r#"
+test3(M.r, 0, 0)
+M.r[0][0]
+        "#,
+        "test3".into()
+    )]
+    #[case::class_public(
+        r#"
+class C
+    procedure C
+    fend
+    public p = "class"
+endclass
+ins = C()
+test(ins.p)
+ins.p
+        "#,
+        "reference test".into()
+    )]
+    #[case::test5(
+        r#"
 function test5(ref r)
     r = "test5"
 fend
@@ -4988,11 +4899,11 @@ fend
 x = X()
 test5(x.y.z[0].p)
 x.y.z[0].p
-                "#,
-                Ok(Some("test5".into()))
-            ),
-            (
-                r#"
+        "#,
+        "test5".into()
+    )]
+    #[case::test6(
+        r#"
 function test6(ref r: X)
     r.y.z[0].p = "test6"
 fend
@@ -5000,11 +4911,11 @@ fend
 x = X()
 test6(x)
 x.y.z[0].p
-                "#,
-                Ok(Some("test6".into()))
-            ),
-            (
-                r#"
+        "#,
+        "test6".into()
+    )]
+    #[case::gh68(
+        r#"
 procedure inner(ref r)
     r = "gh-68"
 fend
@@ -5014,13 +4925,13 @@ procedure outer(ref r)
 fend
 
 dim hoge
-outer(hoge)
+    outer(hoge)
 hoge
-                "#,
-                Ok(Some("gh-68".into()))
-            ),
-            (
-                r#"
+        "#,
+        "gh-68".into()
+    )]
+    #[case::test8(
+        r#"
 procedure test8(ref r)
     r = "test8"
 fend
@@ -5030,11 +4941,11 @@ j = 0
 test8(f[i][j])
 
 f[i][j]
-                "#,
-                Ok(Some("test8".into()))
-            ),
-            (
-                r#"
+        "#,
+        "test8".into()
+    )]
+    #[case::test9_gh67(
+        r#"
 procedure test9(ref r[])
     r[0] = "gh-67"
 fend
@@ -5042,18 +4953,16 @@ a = [0]
 test9(a)
 
 a[0]
-                "#,
-                Ok(Some("gh-67".into()))
-            ),
-        ];
-        for (input, expected) in test_cases {
-            eval_test_with_env(&mut e, input, expected);
-        }
+        "#,
+        "gh-67".into()
+    )]
+    fn test_reference(#[case] input: &str, #[case] expected: Object) {
+        let mut e = reference_fixture();
+        expect_object_test(Some(&mut e), input, expected);
     }
 
-    #[test]
-    fn test_class() {
-        let definition = r#"
+    fn class_fixture() -> Evaluator {
+        let input = r#"
 public x = 100
 class Test
     dim name
@@ -5073,60 +4982,68 @@ class Test
         global.x = 2
     fend
 endclass
+ins = Test("test1")
         "#;
-        let mut e = eval_env(definition);
-        let test_cases = [
-            (
-                r#"
-                ins = Test("test1")
-                "<#ins>"
-                "#,
-                Ok(Some("instance of Test".into()))
-            ),
-            (
-                r#"
-                ins.name()
-                "#,
-                Ok(Some("test1".into()))
-            ),
-            (
-                r#"
-                ins.name
-                "#,
-                Err(UError::new(UErrorKind::DotOperatorError, UErrorMessage::IsPrivateMember("Test".into(), "name".into())))
-            ),
-            (
-                r#"
-                ins.private()
-                "#,
-                Err(UError::new(UErrorKind::DotOperatorError, UErrorMessage::IsPrivateMember("Test".into(), "private()".into())))
-            ),
-            (
-                r#"
-                ins.call_private()
-                "#,
-                Ok(Some("private".into()))
-            ),
-            (
-                r#"
-                ins = ""
-                x
-                "#,
-                Ok(Some(2.into()))
-            ),
-            (
-                r#"
-                ins1 = Test("hoge")
-                ins2 = ins1
-                ins2 = NOTHING
-                ins1
-                "#,
-                Ok(Some(Object::Nothing))
-            ),
-        ];
-        for (input, expected) in test_cases {
-            eval_test_with_env(&mut e, input, expected);
-        }
+        eval_env(input)
+    }
+    #[rstest]
+    #[case(
+        r#"
+        "<#ins>"
+        "#,
+        "instance of Test".into()
+    )]
+    #[case(
+        r#"
+        ins.name()
+        "#,
+        "test1".into()
+    )]
+    #[case(
+        r#"
+        ins.call_private()
+        "#,
+        "private".into()
+    )]
+    #[case(
+        r#"
+        ins = ""
+        x
+        "#,
+        2.into()
+    )]
+    #[case(
+        r#"
+        ins1 = Test("hoge")
+        ins2 = ins1
+        ins2 = NOTHING
+        ins1
+        "#,
+        Object::Nothing
+    )]
+    fn test_class(#[case] input: &str, #[case] expected: Object) {
+        let mut e = class_fixture();
+        expect_object_test(Some(&mut e), input, expected);
+    }
+
+    #[rstest]
+    #[case(
+        r#"
+        ins.name
+        "#,
+        UErrorKind::DotOperatorError,
+        UErrorMessage::IsPrivateMember("Test".into(), "name".into())
+    )]
+    #[case(
+        r#"
+        ins.private()
+        "#,
+        UErrorKind::DotOperatorError,
+        UErrorMessage::IsPrivateMember("Test".into(), "private()".into())
+    )]
+    fn test_class_err(#[case] input: &str, #[case] expected_kind: UErrorKind, #[case] expected_message: UErrorMessage) {
+        let mut e = class_fixture();
+        expect_error_test(Some(&mut e), input, expected_kind, expected_message);
     }
 
     #[test]
