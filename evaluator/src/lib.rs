@@ -1858,15 +1858,16 @@ impl Evaluator {
                         UErrorMessage::InvalidKeyOrIndex(key.to_string()),
                     ));
                 }
-                self.assign_index(*expr_array, *expr_index, value, None)?;
+                let index = self.eval_expression(*expr_index)?;
+                self.assign_index(*expr_array, index, value, None)?;
             },
             Expression::DotCall(expr_object, expr_member) => {
                 self.update_object_member(*expr_object, *expr_member, value)?;
             },
             Expression::FuncCall { func, args, is_await: false } => {
                 let index = match args.len() {
-                    0 => Expression::Literal(Literal::Empty),
-                    1 => args[0].to_owned(),
+                    0 => Object::Empty,
+                    1 => self.eval_expression(args[0].to_owned())?,
                     _ => {
                         return Err(UError::new(
                             UErrorKind::AssignError,
@@ -1910,8 +1911,7 @@ impl Evaluator {
     }
 
     /// 配列要素の更新
-    fn update_array(&mut self, name: &str, expr_index: Expression, dimensions: Option<Vec<Object>>, new: Object) -> EvalResult<()> {
-        let index = self.eval_expression(expr_index)?;
+    fn update_array(&mut self, name: &str, index: Object, dimensions: Option<Vec<Object>>, new: Object) -> EvalResult<()> {
         let object = self.eval_identifier(Identifier(name.into()))?;
         let dimension = match dimensions {
             Some(mut d) => {
@@ -2009,21 +2009,20 @@ impl Evaluator {
     /// arr[i] = hoge
     /// dim2[j][i] = fuga
     /// foo.bar[i] = baz
-    fn assign_index(&mut self, expr_array: Expression, expr_index: Expression, new: Object, dimensions: Option<Vec<Object>>) -> EvalResult<()> {
+    fn assign_index(&mut self, expr_array: Expression, index: Object, new: Object, dimensions: Option<Vec<Object>>) -> EvalResult<()> {
         match expr_array {
             // 配列要素の更新
             Expression::Identifier(Identifier(ref name)) => {
                 if let Object::Reference(e, outer) = self.eval_expr(expr_array.clone())? {
                     let mut outer_env = self.clone();
                     outer_env.env.current = outer;
-                    outer_env.assign_index(e, expr_index, new, dimensions)?;
+                    outer_env.assign_index(e, index, new, dimensions)?;
                 } else {
-                    self.update_array(name, expr_index, dimensions, new)?;
+                    self.update_array(name, index, dimensions, new)?;
                 }
             },
             // オブジェクトメンバの配列要素の更新
             Expression::DotCall(expr_object, expr_member) => {
-                let index = self.eval_expression(expr_index)?;
                 let Expression::Identifier(Identifier(member)) = *expr_member else {
                     return Err(UError::new(UErrorKind::AssignError, UErrorMessage::MemberShouldBeIdentifier));
                 };
@@ -2031,7 +2030,6 @@ impl Evaluator {
             },
             // 多次元配列の場合添字の式をexpr_dimensionsに積む
             Expression::Index(expr_inner_array, expr_inner_index, _) => {
-                let index = self.eval_expression(expr_index)?;
                 let dimensions = match dimensions {
                     Some(mut d) => {
                         d.push(index);
@@ -2039,7 +2037,8 @@ impl Evaluator {
                     },
                     None => Some(vec![index]),
                 };
-                self.assign_index(*expr_inner_array, *expr_inner_index, new, dimensions)?;
+                let inner_index = self.eval_expression(*expr_inner_index)?;
+                self.assign_index(*expr_inner_array, inner_index, new, dimensions)?;
             }
             _ => return Err(UError::new(
                 UErrorKind::AssignError,
