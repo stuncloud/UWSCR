@@ -492,7 +492,15 @@ impl Environment {
                 UErrorMessage::AlreadyDefined(name.into())
             ))
         }
-        self.define(name, object, ContainerType::Public, true)
+        // 同名public宣言かつ値がある場合は更新する
+        if self.contains_in_global(name, &[ContainerType::Public]) {
+            if object != Object::Empty {
+                self.set(name, ContainerType::Public, object, true);
+            }
+            Ok(())
+        } else {
+            self.define(name, object, ContainerType::Public, true)
+        }
     }
 
     pub fn define_const(&mut self, name: &str, object: Object) -> Result<(), UError> {
