@@ -289,7 +289,9 @@ fn find_all(target: &str, pattern: &str) -> Vec<usize> {
     let t_bytes = target.as_bytes();
     let t_len = t_bytes.len();
     let p_bytes = pattern.as_bytes();
-    let p_first = p_bytes.first().unwrap();
+    let Some(p_first) = p_bytes.first() else {
+        return Vec::new();
+    };
     let p_len = p_bytes.len();
     t_bytes.iter().enumerate()
         .filter_map(|(i, b)| {
