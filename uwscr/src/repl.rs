@@ -1,6 +1,6 @@
 use std::env;
+use std::path::PathBuf;
 
-use crate::script::{get_parent_full_path, get_script_name};
 use evaluator::environment::Environment;
 use evaluator::object::Object;
 use evaluator::Evaluator;
@@ -22,36 +22,40 @@ use reedline::{
 };
 use std::borrow::Cow;
 
-pub fn run(script: Option<String>, exe_path: String, script_path: Option<String>) {
-    match get_parent_full_path(&exe_path) {
-        Ok(s) => {
-            env::set_var("GET_UWSC_DIR", s.to_str().unwrap());
+pub fn run(script: Option<String>, exe_path: String, script_path: Option<PathBuf>, params: Vec<String>, ast: Option<(bool, bool)>) {
+    match dunce::canonicalize(exe_path) {
+        Ok(full) => {
+            match full.parent() {
+                Some(uwscr_dir) => {
+                    env::set_var("GET_UWSC_DIR", &uwscr_dir.as_os_str());
+                },
+                None => {
+                    eprintln!("failed to get uwscr directory");
+                    return;
+                },
+            }
         },
         Err(e) => {
-            eprintln!("failed to get uwscr.exe path ({})", e);
+            eprintln!("failed to get uwscr directory: {e}");
             return;
+        },
+    }
+    if let Some(path) = script_path {
+        match dunce::canonicalize(path) {
+            Ok(full) => {
+                if let Some(name) = full.file_name() {
+                    env::set_var("GET_UWSC_NAME", name);
+                    env::set_var("UWSCR_DEFAULT_TITLE", &format!("UWSCR REPL - {}", name.to_string_lossy()))
+                }
+                if let Some(dir) = full.parent() {
+                    env::set_var("GET_SCRIPT_DIR", dir.as_os_str());
+                }
+            },
+            Err(e) => {
+                eprintln!("failed to get script directory: {e}");
+                return;
+            },
         }
-    };
-    if script_path.is_some() {
-        match get_script_name(&script_path.clone().unwrap()) {
-            Some(s) =>{
-                env::set_var("GET_UWSC_NAME", &s);
-                env::set_var("UWSCR_DEFAULT_TITLE", &format!("UWSCR - {}", &s))
-            },
-            None => {
-                env::set_var("GET_UWSC_NAME", "");
-                env::set_var("UWSCR_DEFAULT_TITLE", &format!("UWSCR - REPL"))
-            }
-        }
-        match get_parent_full_path(&script_path.unwrap()) {
-            Ok(s) => {
-                env::set_var("GET_SCRIPT_DIR", s.to_str().unwrap());
-            },
-            Err(_) => {
-                let current = env::current_dir().unwrap_or_default();
-                env::set_var("GET_SCRIPT_DIR", current);
-            },
-        };
     }
 
     // このスレッドでのCOMを有効化
@@ -63,28 +67,33 @@ pub fn run(script: Option<String>, exe_path: String, script_path: Option<String>
         },
     };
 
-    let env = Environment::new(vec![]);
+    let env = Environment::new(params);
     let mut evaluator = Evaluator::new(env);
     if let Some(script) = script {
-        println!("loading script...");
+        println!("loading module...");
         let parser = Parser::new(Lexer::new(&script), None, None);
-        match parser.parse() {
-            Ok(program) => {
-                match evaluator.eval(program, false) {
-                    Err(e) => {
-                        eprintln!("{}", e);
-                        return;
-                    },
-                    _ => ()
-                }
-                println!("script loaded.");
-            },
-            Err(errors) => {
-                for error in errors {
-                    eprintln!("{}", error);
-                }
-                return;
-            },
+        let (program, errors) = parser.parse_to_program_and_errors();
+
+        if let Some((_continue, pretty)) = ast {
+            let message = if pretty {
+                format!("{program:#?}")
+            } else {
+                format!("{program:?}")
+            };
+            println!("\u{001b}[90m{message}\u{001b}[0m");
+        }
+
+        if let Err(e) = evaluator.eval(program, false) {
+            eprint!("Evaluator Error:\n{e}");
+        }
+
+        if errors.is_empty() {
+            println!("module loaded.");
+        } else {
+            for error in errors {
+                eprintln!("Parse Error:\n{error}")
+            }
+            return;
         }
     }
 
@@ -117,6 +126,13 @@ pub fn run(script: Option<String>, exe_path: String, script_path: Option<String>
                     let parser = Parser::new(Lexer::new(&input), None, None);
                     match parser.parse() {
                         Ok(program) => {
+                            if let Some((_, p)) = ast {
+                                if p {
+                                    println!("\u{001b}[90m{program:#?}\u{001b}[0m");
+                                } else {
+                                    println!("\u{001b}[90m{program:?}\u{001b}[0m");
+                                }
+                            }
                             match evaluator.eval(program, false) {
                                 Ok(o) => if let Some(o) = o {
                                     match o {

@@ -23,6 +23,7 @@ use util::error::UWSCRErrorTitle;
 // use uwscr::language_server::UwscrLanguageServer;
 
 use windows::Win32::UI::HiDpi::{SetProcessDpiAwarenessContext, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2};
+use clap::{Parser, ValueEnum};
 
 fn main() {
     unsafe { let _ = SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2); }
@@ -58,324 +59,246 @@ fn main() {
 }
 
 fn start_uwscr() {
-    let args = Args::new();
-    // let _ = MainWin::new(&args.version);
-    match args.get() {
-        Ok(m) => match m {
-            Mode::Help => args.help(None),
-            Mode::Version => args.version(),
-            Mode::OnlineHelp => {
-                shell_execute("https://stuncloud.github.io/UWSCR/".into(), None);
-            },
-            Mode::License => {
-                shell_execute("https://stuncloud.github.io/UWSCR/_static/license.html".into(), None);
-            },
-            Mode::Script(p, n) => {
-                let mut vec_args = args.get_args();
-                let params = vec_args.drain(n+1..).collect();
-                match get_script(&p) {
-                    Ok(s) => match script::run(s, &vec_args[0], &vec_args[1], params) {
-                        Ok(_) => {},
-                        Err(script::ScriptError(title, errors)) => {
-                            let err = errors.join("\r\n");
-                            out_log(&err, LogType::Error);
-                            show_message(&err, &title.to_string(), true);
-                        }
-                    },
-                    Err(e) => {
-                        show_message(&e.to_string(), &UWSCRErrorTitle::InitializeError.to_string(), true);
-                    }
-                }
-            },
-            Mode::Code(c) => {
-                match script::run_code(c) {
-                    Ok(_) => {},
-                    Err(errors) => {
-                        let err = errors.join("\r\n");
-                        show_message(&err, "uwscr --code", true);
-                    }
-                }
-            }
-            Mode::Repl(p) => {
-                let exe_path = args.args[0].clone();
-                if p.is_some() {
-                    match get_script(&p.unwrap()) {
-                        Ok(s) => repl::run(Some(s), exe_path, Some(args.args[2].clone())),
-                        Err(e) => {
-                            eprintln!("{}", e)
-                        }
-                    }
-                } else {
-                    repl::run(None, exe_path, None)
-                }
-            },
-            Mode::Ast(p, b) => {
-                let dlg_title = "uwscr --ast";
-                // attach_console();
-                let path = p.clone().into_os_string().into_string().unwrap();
-                match get_script(&p) {
-                    Ok(s) => match script::out_ast(s, &path){
-                        Ok((ast, err)) => {
-                            if err.is_some() {
-                                if b {
-                                    let msg = format!("{}\r\n\r\n{}", err.unwrap(), ast);
-                                    let dlg_title = "uwscr --ast-force";
-                                    show_message(&msg, dlg_title, true);
-                                } else {
-                                    show_message(&err.unwrap(), dlg_title, true);
-                                }
-                            } else {
-                                show_message(&ast, dlg_title, false);
-                            }
-                        },
-                        Err(e) => show_message(&e, dlg_title, true),
-                    },
-                    Err(e) => {
-                        show_message(&e.to_string(), dlg_title, true);
-                    }
-                }
-                // free_console();
-            },
-            Mode::Lib(p) => {
-                let dlg_title = "uwscr --lib";
-                // attach_console();
-                let path = p.clone();
-                let mut script_fullpath = if p.is_absolute() {
-                    p.clone()
-                } else {
-                    match env::current_dir() {
-                        Ok(cur) => cur.join(&p),
-                        Err(e) => {
-                            show_message(&e.to_string(), dlg_title, true);
-                            return;
-                        }
-                    }
-                };
-
-                let dir = match path.parent() {
-                    Some(p) => p,
-                    None => {
-                        show_message("faild to get script directory.", dlg_title, true);
-                        return;
-                    },
-                };
-                match std::env::set_current_dir(dir) {
-                    Err(e) => {
-                        show_message(&e.to_string(), dlg_title, true);
-                        return;
-                    },
-                    _ => {},
-                };
-                match get_script(&script_fullpath) {
-                    Ok(s) => {
-                        let names = get_builtin_names();
-                        match serializer::serialize(s, names) {
-                            Some(bin) => {
-                                // uwslファイルとして保存
-                                script_fullpath.set_extension("uwsl");
-                                serializer::save(script_fullpath, bin);
-                            },
-                            None => {},
-                        }
-                    },
-                    Err(e) => {
-                        show_message(&e.to_string(), dlg_title, true);
-                    }
-                }
-                // free_console();
-            },
-            Mode::Settings(fm) => {
-                let dlg_title = "uwscr --settings";
-                // attach_console();
-                match out_default_setting_file(fm) {
-                    Ok(ref s) => show_message(s, dlg_title, false),
-                    Err(e) => show_message(&e.to_string(), dlg_title, true)
-                }
-                // free_console();
-            },
-            Mode::Schema(p) => {
-                let dlg_title = "uwscr --schema";
-                // attach_console();
-                let dir = match p {
-                    Some(p) => p,
-                    None => match PathBuf::from_str(".") {
-                        Ok(p) => p,
-                        Err(e) => {
-                            show_message(&e.to_string(), dlg_title, true);
-                            return;
-                        }
-                    }
-                };
-                match out_json_schema_file(dir) {
-                    Ok(ref s) => show_message(s, dlg_title, false),
-                    Err(e) => show_message(&e.to_string(), dlg_title, true)
-                }
-                // free_console();
-            },
-            Mode::LanguageServer => {
-                unimplemented!();
-                // match UwscrLanguageServer::run() {
-                //     Ok(_) => {},
-                //     Err(e) => {
-                //         show_message(&e.to_string(), "UWSCR Language Server", true);
-                //     },
-                // }
-            },
+    let mode = Mode::new();
+    match mode {
+        Mode::OnlineHelp => {
+            shell_execute("https://stuncloud.github.io/UWSCR/".into(), None);
         },
-        Err(err) => args.help(Some(err.as_str()))
-    }
-}
-
-
-#[derive(Debug)]
-struct Args {
-    args: Vec<String>,
-    version: String,
-}
-
-impl Args {
-    fn new() -> Self {
-        let mut version = env!("CARGO_PKG_VERSION").to_owned();
-        if ! cfg!(feature="chkimg") {
-            version.push_str(" (chkimg not included)");
-        }
-        let args: Vec<String> = env::args().collect();
-        Args { args, version }
-    }
-
-    fn get(&self) -> Result<Mode, String> {
-        if self.args.len() < 2 {
-            return Ok(Mode::Repl(None))
-        }
-        match self.args[1].to_ascii_lowercase().as_str() {
-            "-h"| "--help" |
-            "/?" | "-?" => Ok(Mode::Help),
-            "-v"| "--version" => Ok(Mode::Version),
-            "-o"| "--online-help" => Ok(Mode::OnlineHelp),
-            "-r" | "--repl" => self.get_path().map(|p| Mode::Repl(p)),
-            "-c" | "--code" => if self.args.len() > 2 {
-                let code = self.args.clone().drain(2..).collect::<Vec<_>>();
-                Ok(Mode::Code(code.join(" ")))
-            } else {
-                Err("code is required.".into())
-            },
-            "-a" | "--ast" => match self.get_path() {
-                Ok(Some(p)) => Ok(Mode::Ast(p, false)),
-                Ok(None) => Err("FILE is required".to_string()),
-                Err(e) => Err(e)
-            },
-            "--ast-force" => match self.get_path() {
-                Ok(Some(p)) => Ok(Mode::Ast(p, true)),
-                Ok(None) => Err("FILE is required".to_string()),
-                Err(e) => Err(e)
-            },
-            "-l" | "--lib" => match self.get_path() {
-                Ok(Some(p)) => Ok(Mode::Lib(p)),
-                Ok(None) => Err("FILE is required".to_string()),
-                Err(e) => Err(e)
-            },
-            "--schema" => match self.get_path() {
-                Ok(p) => Ok(Mode::Schema(p)),
-                Err(e) => Err(e)
-            },
-            "-s" | "--settings" => {
-                let file_mode = match self.args.get(2) {
-                    Some(s) => s.into(),
-                    None => FileMode::Open,
-                };
-                Ok(Mode::Settings(file_mode))
-            },
-            "--language-server" => Ok(Mode::LanguageServer),
-            "-w" | "--window" => {
-                FORCE_WINDOW_MODE.get_or_init(|| true);
-                Ok(Mode::Script(PathBuf::from(self.args[2].clone()), 2))
-            },
-            "--license" => {
-                Ok(Mode::License)
+        Mode::License => {
+            shell_execute("https://stuncloud.github.io/UWSCR/_static/license.html".into(), None);
+        },
+        Mode::Script(p, params, ast) => {
+            let exe_path = env::args().next().unwrap_or_default();
+            match get_script(&p) {
+                Ok(s) => match script::run(s, &exe_path, p, params, ast) {
+                    Ok(_) => {},
+                    Err(script::ScriptError(title, errors)) => {
+                        let err = errors.join("\r\n");
+                        out_log(&err, LogType::Error);
+                        show_message(&err, &title.to_string(), true);
+                    }
+                },
+                Err(e) => {
+                    show_message(&e.to_string(), &UWSCRErrorTitle::InitializeError.to_string(), true);
+                }
             }
-            _ => {
-                Ok(Mode::Script(PathBuf::from(self.args[1].clone()), 1))
-            },
+        },
+        Mode::Code(c) => {
+            match script::run_code(c) {
+                Ok(_) => {},
+                Err(errors) => {
+                    let err = errors.join("\r\n");
+                    show_message(&err, "uwscr --code", true);
+                }
+            }
         }
-    }
-
-    fn get_path(&self) -> Result<Option<PathBuf>, String> {
-        if self.args.len() > 2 {
-            let path = PathBuf::from(self.args[2].clone());
-            Ok(Some(path))
-        } else {
-            Ok(None)
-        }
-    }
-
-    fn _get_port(&self) -> Result<Option<u16>, String> {
-        if self.args.len() > 2 {
-            let port = match self.args[2].parse::<u16>() {
-                Ok(p) => p,
-                Err(e) => return Err(format!("{}", e))
+        Mode::Repl(p, params, ast) => {
+            let exe_path = env::args().next().unwrap_or_default();
+            match p {
+                Some(path) => match get_script(&path) {
+                    Ok(script) => {
+                        repl::run(Some(script), exe_path, Some(path), params, ast)
+                    },
+                    Err(e) => eprintln!("{e}"),
+                },
+                None => {
+                    repl::run(None, exe_path, None, Vec::new(), ast);
+                },
+            }
+        },
+        Mode::Lib(p) => {
+            let dlg_title = "uwscr --lib";
+            // attach_console();
+            let path = p.clone();
+            let mut script_fullpath = if p.is_absolute() {
+                p.clone()
+            } else {
+                match env::current_dir() {
+                    Ok(cur) => cur.join(&p),
+                    Err(e) => {
+                        show_message(&e.to_string(), dlg_title, true);
+                        return;
+                    }
+                }
             };
-            Ok(Some(port))
-        } else {
-            Ok(None)
-        }
-    }
 
-    pub fn get_args(&self) -> Vec<String> {
-        self.args.clone()
-    }
-
-    pub fn help(&self, err: Option<&str>) {
-        // attach_console();
-        let usage = "
-Usage:
-  uwscr FILE                        : スクリプトの実行
-  uwscr FILE [params]               : パラメータ付きスクリプトの実行
-                                      半角スペース区切りで複数指定可能
-                                      スクリプトからはPARAM_STRで値を取得
-  uwscr (-w|--window) FILE [params] : windowモードを強制する
-                                      コンソールから実行した際にwindowモードで実行される
-  uwscr [(-r|--repl) [FILE]]        : Replを起動 (スクリプトを指定するとそれを実行してから起動)
-  uwscr (-a|--ast) FILE             : スクリプトの構文木を出力
-  uwscr --ast-force FILE            : 構文エラーでも構文木を出力
-  uwscr (-l|--lib) FILE             : スクリプトからuwslファイルを生成する
-  uwscr (-c|--code) CODE            : 渡された文字列を評価して実行する
-  uwscr (-s|--settings) [OPTION]    : 設定ファイル(settings.json)が存在しない場合は新規作成する
-                                      OPTION省略時 設定ファイルがあればそれを開く
-                                      init         設定ファイルを初期化する
-                                      merge        現在の設定とバージョンアップ時に更新された設定を可能な限りマージする
-  uwscr --schema [DIR]              : 指定ディレクトリにjson schemaファイル(uwscr-settings-schema.json)を出力する
-  uwscr (-h|--help|-?|/?)           : このヘルプを表示
-  uwscr (-v|--version)              : UWSCRのバージョンを表示
-  uwscr (-o|--online-help)          : オンラインヘルプを表示
-  uwscr (--license)                 : サードパーティライセンスを表示
-";
-        let message = if err.is_some() {
-            format!("error: {}\r\n{}", err.unwrap(), usage)
-        } else {
-            format!("uwscr {}\r\n{}", self.version, usage)
-        };
-        show_message(&message, "uwscr --help", err.is_some());
-        // free_console();
-    }
-
-    pub fn version(&self) {
-        // attach_console();
-        show_message(&format!("uwscr {}", self.version), "uwscr --version", false);
-        // free_console();
+            let dir = match path.parent() {
+                Some(p) => p,
+                None => {
+                    show_message("faild to get script directory.", dlg_title, true);
+                    return;
+                },
+            };
+            match std::env::set_current_dir(dir) {
+                Err(e) => {
+                    show_message(&e.to_string(), dlg_title, true);
+                    return;
+                },
+                _ => {},
+            };
+            match get_script(&script_fullpath) {
+                Ok(s) => {
+                    let names = get_builtin_names();
+                    match serializer::serialize(s, names) {
+                        Some(bin) => {
+                            // uwslファイルとして保存
+                            script_fullpath.set_extension("uwsl");
+                            serializer::save(script_fullpath, bin);
+                        },
+                        None => {},
+                    }
+                },
+                Err(e) => {
+                    show_message(&e.to_string(), dlg_title, true);
+                }
+            }
+            // free_console();
+        },
+        Mode::Settings(fm) => {
+            let dlg_title = "uwscr --settings";
+            // attach_console();
+            match out_default_setting_file(fm) {
+                Ok(ref s) => show_message(s, dlg_title, false),
+                Err(e) => show_message(&e.to_string(), dlg_title, true)
+            }
+            // free_console();
+        },
+        Mode::Schema(p) => {
+            let dlg_title = "uwscr --schema";
+            // attach_console();
+            let dir = match p {
+                Some(p) => p,
+                None => match PathBuf::from_str(".") {
+                    Ok(p) => p,
+                    Err(e) => {
+                        show_message(&e.to_string(), dlg_title, true);
+                        return;
+                    }
+                }
+            };
+            match out_json_schema_file(dir) {
+                Ok(ref s) => show_message(s, dlg_title, false),
+                Err(e) => show_message(&e.to_string(), dlg_title, true)
+            }
+            // free_console();
+        },
+        // Mode::LanguageServer => {
+        //     match UwscrLanguageServer::run() {
+        //         Ok(_) => {},
+        //         Err(e) => {
+        //             show_message(&e.to_string(), "UWSCR Language Server", true);
+        //         },
+        //     }
+        // },
     }
 }
 
 enum Mode {
-    Script(PathBuf, usize),
-    Repl(Option<PathBuf>),
-    Code(String),
-    Ast(PathBuf, bool),
+    /// ファイルパス, PARAM_STR, ast
+    Script(PathBuf, Vec<String>, Option<(bool, bool)>),
+    /// [モジュール], PARAM_STR, ast
+    Repl(Option<PathBuf>, Vec<String>, Option<(bool, bool)>),
+    /// ファイルパス
     Lib(PathBuf),
-    LanguageServer,
-    Help,
-    Version,
+    Code(String),
     Settings(FileMode),
     OnlineHelp,
     License,
-    Schema(Option<PathBuf>)
+    Schema(Option<PathBuf>),
+    // LanguageServer,
+}
+impl Mode {
+    fn new() -> Self {
+        let args = CommandArgs::parse();
+        let ast = args.ast.then_some((args._continue, args.prettify));
+
+        if let Some(code) = args.code {
+            Self::Code(code)
+        } else if let Some(opt) = args.settings {
+            let mode = match opt {
+                Some(cmd) => match cmd {
+                    SettingCommand::Initialize => FileMode::Init,
+                    SettingCommand::Merge => FileMode::Merge,
+                },
+                None => FileMode::Open,
+            };
+            Self::Settings(mode)
+        } else if let Some(path) = args.schema {
+            Self::Schema(path)
+        } else if args.online_help {
+            Self::OnlineHelp
+        } else if args.license {
+            Self::License
+        } else if let Some(script) = args.script {
+            let param_str = args.script_args.unwrap_or_default();
+            if args.repl {
+                Self::Repl(Some(script), param_str, ast)
+            } else if args.lib {
+                Self::Lib(script)
+            } else {
+                if args.window {
+                    FORCE_WINDOW_MODE.get_or_init(|| true);
+                }
+                Self::Script(script, param_str, ast)
+            }
+        } else {
+            Self::Repl(None, Vec::new(), ast)
+        }
+    }
+}
+
+#[derive(Parser)]
+#[command(version, about, long_about = None)]
+struct CommandArgs {
+    /// Replモードで起動
+    #[arg(short, long)]
+    repl: bool,
+    /// windowモードを強制する
+    #[arg(short, long, requires="script")]
+    window: bool,
+    /// スクリプトからuwslファイルを生成する
+    #[arg(short, long, requires="script")]
+    lib: bool,
+    /// 渡された文字列を評価して実行する
+    #[arg(short, long)]
+    code: Option<String>,
+    /// 設定ファイルを開く
+    #[arg(short, long, name="OPTION")]
+    settings: Option<Option<SettingCommand>>,
+    /// 指定ディレクトリに設定ファイルのjson schemaファイル(uwscr-settings-schema.json)を出力する
+    #[arg(long, name="OUTPUT_DIR")]
+    schema: Option<Option<PathBuf>>,
+    /// オンラインヘルプを表示する
+    #[arg(short, long="online-help")]
+    online_help: bool,
+    /// サードパーティライセンスを表示
+    #[arg(long)]
+    license: bool,
+
+    /// 読み込んだスクリプトの構文木を表示する
+    #[arg(short, long, requires="script")]
+    ast: bool,
+
+    /// AST出力後に実行を継続する
+    #[arg(long="continue", requires="ast")]
+    _continue: bool,
+    /// ASTの出力を見やすくする
+    #[arg(short, long, requires="ast")]
+    prettify: bool,
+
+    /// 実行するスクリプトのパス
+    script: Option<PathBuf>,
+    /// PARAM_STRに渡される引数
+    #[arg(name="PARAM_STR", requires="script")]
+    script_args: Option<Vec<String>>,
+}
+
+
+#[derive(Debug, Clone, ValueEnum)]
+enum SettingCommand {
+    /// 設定ファイルを初期化する
+    #[value(name="init")]
+    Initialize,
+    /// 可能な限り既存の設定ファイルの内容を維持する
+    Merge,
 }
