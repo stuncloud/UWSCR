@@ -212,7 +212,7 @@ pub struct Fopen {
 }
 
 impl Fopen {
-    const LB: &str = "\r\n";
+    const LB: &'static str = "\r\n";
     pub fn new(path: &str, flag: u32) -> Self {
         let flag = FopenFlag::from(flag);
         let no_cr = flag.option.contains(&FopenOption::NoCR);

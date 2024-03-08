@@ -1720,7 +1720,7 @@ pub struct Excel {
 }
 
 impl Excel {
-    const EXCEL_PROGID: &str = "Excel.Application";
+    const EXCEL_PROGID: &'static str = "Excel.Application";
     fn create(file: Option<String>, params: Vec<String>) -> ComResult<Self> {
         let obj = ComObject::new(Self::EXCEL_PROGID.into(), false)?;
         let e = Self::new(obj)?;
