@@ -14,6 +14,7 @@ encoding_rs.workspace = true
 once_cell.workspace = true
 serde_json.workspace = true
 serde.workspace = true
+dunce.workspace = true
 base64 = "0.21.0"
 chrono = {version = "0.4.30", features = ["unstable-locales"]}
 csv = "1.1"
@@ -40,7 +41,6 @@ webview2-com = "0.28.0"
 winreg = "0.52.0"
 wmi = "0.13.0"
 zip = "0.6.2"
-dunce = "1.0.4"
 
 [dependencies.windows]
 workspace = true
