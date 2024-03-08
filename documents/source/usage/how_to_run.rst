@@ -37,17 +37,18 @@
 
                 print PARAM_STR // [foo, bar, baz]
 
-    .. admonition:: PARAM_STRとしてオプション文字列を渡す場合
+    .. admonition:: ハイフンから始まる文字を渡す場合
         :class: hint
 
-        | ``-a`` や ``-o`` 等ほかのオプションと同等の文字列を渡したい場合は ``--`` の後に記述してください
+        | ``-`` や ``--`` から始まる文字列はコマンドラインオプションと見なされます
+        | PARAM_STRの文字列としてそれらを渡す場合は ``--`` の後に記述してください
 
         .. sourcecode:: powershell
 
-            uwscr foo bar -o    # -o によりオンラインヘルプが開かれてしまう
-            uwscr foo bar "-o"  # ""で括ってもオプションとみなされNG
+            uwscr 123 456 -78    # -78 がオプションだと見なされエラーになる
+            uwscr 123 456 "-78"  # ""で括っても同様
             # -- の後に書けばOK
-            uwscr -- foo bar -o # ["foo", "bar", "-o"] として渡る
+            uwscr -- 123 456 -78 # ["123", "456", "-78"] として渡る
 
 
 .. option:: -w, --window
