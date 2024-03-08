@@ -152,7 +152,7 @@ impl Module {
         let (maybe_new, update) = Evaluator::update_array_object(array, dimension, &new)
             .map_err(|mut e| {
                 if let UErrorMessage::NotAnArray(_) = e.message {
-                    e.message = UErrorMessage::NotAnArray(name.clone().into());
+                    e.message = UErrorMessage::NotAnArray(name.into());
                 }
                 e
             })?;
