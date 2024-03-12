@@ -2,6 +2,7 @@
 // #![cfg_attr(not(test), windows_subsystem = "windows")]
 // #![windows_subsystem = "windows"]
 
+use std::io::Write;
 use std::path::PathBuf;
 use std::env;
 use std::str::FromStr;
@@ -10,6 +11,7 @@ use std::sync::{Arc, Mutex};
 
 use uwscr::script;
 use uwscr::repl;
+use uwscr::record::{record_desktop, RecordLevel};
 use parser::serializer;
 use evaluator::builtins::get_builtin_names;
 use util::get_script;
@@ -182,6 +184,54 @@ fn start_uwscr() {
             }
             // free_console();
         },
+        Mode::Record(path) => {
+            let dlg_title = "uwscr --record";
+            match record_desktop(RecordLevel::Low) {
+                Ok(Some(script)) => {
+                    let script = script.join("\r\n");
+                    match path {
+                        Some(path) => {
+                            let file = std::fs::OpenOptions::new()
+                                .write(true)
+                                .create(true)
+                                .open(&path);
+                            match file {
+                                Ok(mut file) => {
+                                    let buf = script.as_bytes();
+                                    match file.write_all(buf) {
+                                        Ok(_) => {
+                                            let message = format!("Saved script to {path:?}");
+                                            show_message(&message, dlg_title, false);
+                                        },
+                                        Err(e) => {
+                                            show_message(&e.to_string(), dlg_title, true);
+                                        },
+                                    }
+                                },
+                                Err(e) => {
+                                    show_message(&e.to_string(), dlg_title, true);
+                                },
+                            }
+                        },
+                        None => {
+                            match util::clipboard::Clipboard::new() {
+                                Ok(cb) => {
+                                    cb.send_str(script);
+                                    show_message("Copied script to clipboard", dlg_title, false)
+                                },
+                                Err(_) => {
+                                    show_message("Failed to open clipboard", dlg_title, true);
+                                },
+                            }
+                        }
+                    }
+                },
+                Ok(None) => {},
+                Err(e) => {
+                    println!("\u{001b}[31m[debug] {e}\u{001b}[0m");
+                },
+            };
+        },
         // Mode::LanguageServer => {
         //     match UwscrLanguageServer::run() {
         //         Ok(_) => {},
@@ -206,6 +256,7 @@ enum Mode {
     License,
     Schema(Option<PathBuf>),
     // LanguageServer,
+    Record(Option<PathBuf>),
 }
 impl Mode {
     fn new() -> Self {
@@ -229,6 +280,8 @@ impl Mode {
             Self::OnlineHelp
         } else if args.license {
             Self::License
+        } else if let Some(path) = args.record {
+            Self::Record(path)
         } else if let Some(script) = args.script {
             let param_str = args.script_args.unwrap_or_default();
             if args.repl {
@@ -291,6 +344,10 @@ struct CommandArgs {
     /// PARAM_STRに渡される引数
     #[arg(name="PARAM_STR", requires="script")]
     script_args: Option<Vec<String>>,
+
+    /// 低レベル記録を行う、ファイルパス未指定時はクリップボードに保存
+    #[arg(long, name="FILE")]
+    record: Option<Option<PathBuf>>
 }
 
 
