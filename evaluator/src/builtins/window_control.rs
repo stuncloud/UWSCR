@@ -11,13 +11,13 @@ use crate::builtins::{
     window_low,
     system_controls::is_64bit_os,
     text_control::ErrConst,
-    clipboard::Clipboard,
     dialog::THREAD_LOCAL_BALLOON,
 };
 use crate::gui::UWindow;
 pub use monitor::Monitor;
 pub use acc::U32Ext;
 use util::winapi::get_console_hwnd;
+use util::clipboard::Clipboard;
 
 #[cfg(feature="chkimg")]
 use crate::builtins::chkimg::{ChkImg, ScreenShot, CheckColor};
@@ -1592,7 +1592,7 @@ pub fn getstr(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 
     if id == 0 {
         // クリップボードから
-        let str = Clipboard::new()?.get_str();
+        let str = Clipboard::new().map_err(|e| UError::from(e))?.get_str();
         Ok(str.into())
     } else {
         let hwnd = get_hwnd_from_id(id);
@@ -1643,7 +1643,7 @@ pub fn sendstr(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 
     if id == 0 {
         // クリップボードに挿入
-        Clipboard::new()?.send_str(str);
+        Clipboard::new().map_err(|e| UError::from(e))?.send_str(str);
     } else {
         let hwnd = get_hwnd_from_id(id);
         let mode = SendStrMode::from(mode);

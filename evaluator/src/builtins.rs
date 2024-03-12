@@ -9,7 +9,6 @@ pub mod browser_control;
 pub mod array_control;
 pub mod dialog;
 pub mod file_control;
-pub mod clipboard;
 #[cfg(feature="chkimg")]
 pub mod chkimg;
 

@@ -3,6 +3,7 @@ pub mod logging;
 pub mod settings;
 pub mod winapi;
 pub mod com;
+pub mod clipboard;
 
 use encoding_rs::{UTF_8, SHIFT_JIS};
 use regex::Regex;

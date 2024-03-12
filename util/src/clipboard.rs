@@ -19,20 +19,18 @@ use windows::{
     }
 };
 
-use crate::error::{
-    UError,
-    UErrorKind::ClipboardError,
-    UErrorMessage::FailedToOpenClipboard,
-};
+pub enum ClipboardError {
+    OpenError,
+}
 
 pub struct Clipboard;
 
 impl Clipboard {
-    pub fn new() -> Result<Self, UError> {
+    pub fn new() -> Result<Self, ClipboardError> {
         unsafe {
             OpenClipboard(None)
                 .map(|_| Self)
-                .map_err(|_| UError::new(ClipboardError, FailedToOpenClipboard))
+                .map_err(|_| ClipboardError::OpenError)
         }
     }
     pub fn get_str(&self) -> Option<String> {

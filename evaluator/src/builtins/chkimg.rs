@@ -7,7 +7,7 @@ use std::sync::{
 
 use crate::error::{UError, UErrorKind, UErrorMessage};
 use super::window_control::{ImgConst, Monitor};
-use super::clipboard::Clipboard;
+use util::clipboard::Clipboard;
 
 use opencv::prelude::MatTraitConstManual;
 

@@ -8,6 +8,7 @@ use crate::def_dll::DllType;
 
 pub use util::write_locale;
 pub use util::error::{CURRENT_LOCALE, Locale};
+use util::clipboard::ClipboardError;
 use parser::ast::{Expression, Infix, Identifier};
 
 use serde_json::Value;
@@ -1449,5 +1450,13 @@ impl Into<Vec<String>> for UError {
             self.get_line().to_string(),
             self.to_string(),
         ]
+    }
+}
+
+impl From<ClipboardError> for UError {
+    fn from(err: ClipboardError) -> Self {
+        match err {
+            ClipboardError::OpenError => UError::new(UErrorKind::ClipboardError, UErrorMessage::FailedToOpenClipboard),
+        }
     }
 }
