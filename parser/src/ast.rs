@@ -1211,9 +1211,10 @@ impl BuilderScope {
     /// 代入を暗黙の定義とみなす
     fn implicit_declaration(&mut self) {
         self.assignee.remove_dup();
-        let mut declaration = self.assignee.get_undeclared(&vec![
-            &self.r#const.names, &self.public.names, &self.dim.names
-        ]);
+        let mut declaration = self.assignee.get_undeclared_2(
+            &vec![&self.dim.names],
+            &vec![&self.r#const.names, &self.public.names]
+        );
         self.dim.names.append_mut(&mut declaration);
         self.r#const.implicit_declaration();
         self.public.implicit_declaration();
@@ -1586,8 +1587,35 @@ impl Names {
             .collect();
         Names(names)
     }
+    /// 宣言リストと比較し未宣言を返すが、ローカルは位置関係も考慮する
+    fn get_undeclared_2(&self, local: &Vec<&Names>, global: &Vec<&Names>) -> Names {
+        let names = self.0.iter()
+            .filter_map(|name| {
+                let in_global = global.iter()
+                    // グローバルから探す
+                    .find(|names| names.contains(name))
+                    .is_some();
+                if in_global {
+                    // グローバルで一致があったので返さない
+                    None
+                } else {
+                    // ローカルを探す
+                    local.iter()
+                        .find(|names| names.contains_bypos(name))
+                        // 重複がない
+                        .is_none()
+                        // コピーを返す
+                        .then_some(name.clone())
+                }
+            })
+            .collect();
+        Names(names)
+    }
     fn contains(&self, other: &Name) -> bool {
         self.iter().find(|name| name.is_duplicated(other, &DupFlg::ByName)).is_some()
+    }
+    fn contains_bypos(&self, other: &Name) -> bool {
+        self.iter().find(|name| name.is_duplicated(other, &DupFlg::ByPos)).is_some()
     }
     fn remove_dup(&mut self) {
         self.0.sort_by(|a, b| a.name.cmp(&b.name));
