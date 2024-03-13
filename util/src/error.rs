@@ -38,6 +38,8 @@ macro_rules! write_locale {
 pub enum UWSCRErrorTitle {
     StatementError,
     RuntimeError,
+    ThreadError,
+    SetHotKey,
     InitializeError,
     Panic
 }
@@ -52,6 +54,14 @@ impl std::fmt::Display for UWSCRErrorTitle {
             UWSCRErrorTitle::RuntimeError => write_locale!(f,
                 "UWSCR実行時エラー",
                 "UWSCR Runtime Error",
+            ),
+            UWSCRErrorTitle::ThreadError => write_locale!(f,
+                "UWSCRスレッド関数実行時エラー",
+                "UWSCR Thread Function Error",
+            ),
+            UWSCRErrorTitle::SetHotKey => write_locale!(f,
+                "UWSCRホットキー関数実行時エラー",
+                "UWSCR Hotkey Function Error",
             ),
             UWSCRErrorTitle::InitializeError => write_locale!(f,
                 "初期化エラー",

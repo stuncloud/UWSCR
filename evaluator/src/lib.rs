@@ -78,7 +78,7 @@ impl Clone for Evaluator {
             com_err_flg: false,
             lines: self.lines.clone(),
             mouseorg: None,
-            gui_print: self.gui_print.clone(),
+            gui_print: self.gui_print,
             special_char: self.special_char,
             short_circuit: self.short_circuit,
         }
@@ -108,13 +108,14 @@ impl Evaluator {
         }
     }
     fn new_thread(&mut self) -> Self {
+        let current = {
+            let current = self.env.current.lock().unwrap();
+            current.clone()
+        };
         Evaluator {
             env: Environment {
-                current: Arc::new(Mutex::new(Layer {
-                    local: Vec::new(),
-                    outer: None,
-                })),
-                global: self.env.global.clone()
+                current: Arc::new(Mutex::new(current)),
+                global: self.env.global.clone(),
             },
             ignore_com_err: false,
             com_err_flg: false,
@@ -1326,14 +1327,14 @@ impl Evaluator {
                                 if let Err(e) = evaluator.invoke_poff(poff, *flg) {
                                     let err = e.to_string();
                                     out_log(&err, LogType::Error);
-                                    let title = UWSCRErrorTitle::RuntimeError.to_string();
+                                    let title = UWSCRErrorTitle::ThreadError.to_string();
                                     show_message(&err, &title, true);
                                 }
                             }
                             _ => {
                                 let err = e.to_string();
                                 out_log(&err, LogType::Error);
-                                let title = UWSCRErrorTitle::RuntimeError.to_string();
+                                let title = UWSCRErrorTitle::ThreadError.to_string();
                                 show_message(&err, &title, true);
                             }
                         },

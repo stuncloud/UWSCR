@@ -144,7 +144,7 @@ impl UWindow<()> for SetHotKeyWindow {
                         evaluator.clear_local();
                         let msg = err.to_string();
                         out_log(&msg, LogType::Error);
-                        show_message(&msg, &UWSCRErrorTitle::RuntimeError.to_string(), true);
+                        show_message(&msg, &UWSCRErrorTitle::SetHotKey.to_string(), true);
                         std::process::exit(0);
                     }
                 }
