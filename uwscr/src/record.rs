@@ -13,7 +13,7 @@ use windows::Win32::{
         WH_KEYBOARD_LL, KBDLLHOOKSTRUCT,
         HC_ACTION,
         WM_KEYDOWN, WM_KEYUP, WM_SYSKEYDOWN, WM_SYSKEYUP,
-        KBDLLHOOKSTRUCT_FLAGS,
+        // KBDLLHOOKSTRUCT_FLAGS,
         WM_LBUTTONDOWN, WM_LBUTTONUP, WM_RBUTTONDOWN, WM_RBUTTONUP, WM_MOUSEMOVE, WM_MOUSEWHEEL,
         WM_MBUTTONDOWN, WM_MBUTTONUP,
 
@@ -26,6 +26,7 @@ type Win32Result<T> = windows::core::Result<T>;
 
 static DESKTOP_SENDER: OnceLock<Sender<DesktopRecord>> = OnceLock::new();
 
+#[allow(unused)]
 #[derive(Debug)]
 enum DesktopRecordDetail {
     LeftClick {
@@ -59,6 +60,7 @@ enum DesktopRecordDetail {
     LLKeyboardUpSys(u32),
     LLKeyboarUnknown(u32),
 }
+#[allow(unused)]
 #[derive(Debug)]
 struct Control {
     hwnd: HWND,
@@ -365,16 +367,16 @@ enum MouseEventType {
 struct MouseEvent {
     point: Point,
     data: u32,
-    flags: u32,
-    time: u32,
+    // flags: u32,
+    // time: u32,
 }
 impl From<&MSLLHOOKSTRUCT> for MouseEvent {
     fn from(mhs: &MSLLHOOKSTRUCT) -> Self {
         Self {
             point: mhs.pt.into(),
             data: mhs.mouseData,
-            flags: mhs.flags,
-            time: mhs.time,
+            // flags: mhs.flags,
+            // time: mhs.time,
         }
     }
 }
@@ -388,17 +390,17 @@ enum KeyboardEventType {
 #[derive(Debug)]
 struct KeyboardEvent {
     vk: u32,
-    scan_code: u32,
-    flags: KBDLLHOOKSTRUCT_FLAGS,
-    time: u32
+    // scan_code: u32,
+    // flags: KBDLLHOOKSTRUCT_FLAGS,
+    // time: u32
 }
 impl From<&KBDLLHOOKSTRUCT> for KeyboardEvent {
     fn from(khs: &KBDLLHOOKSTRUCT) -> Self {
         Self {
             vk: khs.vkCode,
-            scan_code: khs.scanCode,
-            flags: khs.flags,
-            time: khs.time,
+            // scan_code: khs.scanCode,
+            // flags: khs.flags,
+            // time: khs.time,
         }
     }
 }
