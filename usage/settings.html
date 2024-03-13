@@ -7,7 +7,7 @@
 <link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="ビルド方法" href="how_to_build.html" /><link rel="prev" title="実行方法" href="how_to_run.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>設定ファイル - UWSCR 0.15.0</title>
+        <title>設定ファイル - UWSCR 0.16.0</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 0.15.0</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 0.16.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 0.15.0</span>
+  <span class="sidebar-brand-text">UWSCR 0.16.0</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -247,8 +247,8 @@
 <li><p>デフォルト設定</p></li>
 </ol>
 </section>
-<section id="id5">
-<h2>設定ファイルの内容<a class="headerlink" href="#id5" title="この見出しへのパーマリンク">#</a></h2>
+<section id="setting-file">
+<span id="id5"></span><h2>設定ファイルの構成<a class="headerlink" href="#setting-file" title="この見出しへのパーマリンク">#</a></h2>
 <div class="admonition hint">
 <p class="admonition-title">ヒント</p>
 <p>設定ファイルのデータ型について</p>
@@ -277,15 +277,22 @@
 <span class="w">        </span><span class="nt">&quot;opt_finally&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"></span>
 <span class="w">        </span><span class="c1">// bool  : 変数初期化にdim宣言を必須とするかどうか</span><span class="w"></span>
 <span class="w">        </span><span class="nt">&quot;explicit&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"></span>
-<span class="w">        </span><span class="c1">// string: (未対応) ダイアログのタイトル</span><span class="w"></span>
+<span class="w">        </span><span class="c1">// string: ダイアログのタイトル</span><span class="w"></span>
 <span class="w">        </span><span class="nt">&quot;dlg_title&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"></span>
 <span class="w">        </span><span class="c1">// number: ログファイルの出力方法</span><span class="w"></span>
+<span class="w">        </span><span class="c1">// 0: 通常のログ出力</span><span class="w"></span>
+<span class="w">        </span><span class="c1">// 1: ログ出力なし</span><span class="w"></span>
+<span class="w">        </span><span class="c1">// 2: 日時出力なし</span><span class="w"></span>
+<span class="w">        </span><span class="c1">// 3: 通常のログ出力 (標準で秒を含むため0と同じ)</span><span class="w"></span>
+<span class="w">        </span><span class="c1">// 4: 以前のログを破棄</span><span class="w"></span>
+<span class="w">        </span><span class="c1">// それ以外: ログ出力なし</span><span class="w"></span>
 <span class="w">        </span><span class="nt">&quot;log_file&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
-<span class="w">        </span><span class="c1">// number: (未対応) ログファイルの行数</span><span class="w"></span>
+<span class="w">        </span><span class="c1">// number: ログファイルの行数</span><span class="w"></span>
 <span class="w">        </span><span class="nt">&quot;log_lines&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">400</span><span class="p">,</span><span class="w"></span>
-<span class="w">        </span><span class="c1">// string: ログ出力フォルダ</span><span class="w"></span>
+<span class="w">        </span><span class="c1">// string: ログファイルの出力先ディレクトリ</span><span class="w"></span>
+<span class="w">        </span><span class="c1">// nullの場合はスクリプトファイルと同じ場所</span><span class="w"></span>
 <span class="w">        </span><span class="nt">&quot;log_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"></span>
-<span class="w">        </span><span class="c1">// (未対応) メインGUIの座標</span><span class="w"></span>
+<span class="w">        </span><span class="c1">// (未対応)</span><span class="w"></span>
 <span class="w">        </span><span class="nt">&quot;position&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
 <span class="w">            </span><span class="c1">// number: ウィンドウ左上のx座標</span><span class="w"></span>
 <span class="w">            </span><span class="nt">&quot;left&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"></span>
@@ -299,15 +306,15 @@
 <span class="w">        </span><span class="c1">// number: フォントサイズ</span><span class="w"></span>
 <span class="w">        </span><span class="nt">&quot;size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">15</span><span class="w"></span>
 <span class="w">        </span><span class="p">},</span><span class="w"></span>
-<span class="w">        </span><span class="c1">// bool  : (未対応) 仮想デスクトップにも吹き出しを表示するかどうか</span><span class="w"></span>
+<span class="w">        </span><span class="c1">// bool  : 仮想デスクトップにも吹き出しを表示するかどうか</span><span class="w"></span>
 <span class="w">        </span><span class="nt">&quot;fix_balloon&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"></span>
-<span class="w">        </span><span class="c1">// bool  : (未対応) 停止ホットキーを無効にするかどうか</span><span class="w"></span>
+<span class="w">        </span><span class="c1">// bool  : (未対応)</span><span class="w"></span>
 <span class="w">        </span><span class="nt">&quot;no_stop_hot_key&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"></span>
-<span class="w">        </span><span class="c1">// bool  : (未対応) 短絡評価を行うかどうか</span><span class="w"></span>
+<span class="w">        </span><span class="c1">// bool  : 短絡評価を行うかどうか</span><span class="w"></span>
 <span class="w">        </span><span class="nt">&quot;short_circuit&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"></span>
-<span class="w">        </span><span class="c1">// bool  : publicの重複定義を禁止するかどうか</span><span class="w"></span>
+<span class="w">        </span><span class="c1">// bool  : publicの重複宣言を禁止するかどうか</span><span class="w"></span>
 <span class="w">        </span><span class="nt">&quot;opt_public&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"></span>
-<span class="w">        </span><span class="c1">// bool  : 文字列比較などで大文字小文字を区別するかどうか</span><span class="w"></span>
+<span class="w">        </span><span class="c1">// bool  : 文字列比較で大文字小文字を区別するかどうか</span><span class="w"></span>
 <span class="w">        </span><span class="nt">&quot;same_str&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"></span>
 <span class="w">        </span><span class="c1">// bool  : print文をGUIに出力するかどうか</span><span class="w"></span>
 <span class="w">         </span><span class="nt">&quot;gui_print&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="w"></span>
@@ -443,7 +450,7 @@
 <li><a class="reference internal" href="#id2">ファイルの所在</a></li>
 <li><a class="reference internal" href="#id3">設定ファイルに関するコマンド</a></li>
 <li><a class="reference internal" href="#id4">設定の優先順位</a></li>
-<li><a class="reference internal" href="#id5">設定ファイルの内容</a></li>
+<li><a class="reference internal" href="#setting-file">設定ファイルの構成</a></li>
 <li><a class="reference internal" href="#id6">設定ファイルを読み取れない場合</a></li>
 <li><a class="reference internal" href="#json-schema">json schemaについて</a><ul>
 <li><a class="reference internal" href="#id7">json schemaのオフライン利用</a></li>

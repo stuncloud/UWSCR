@@ -54,26 +54,17 @@ dim
 
     | ``OPTION EXPLICIT`` を指定した場合は未宣言の変数への代入がエラーとなります
     | 未宣言変数への代入や複合代入は解析エラーとなります
-    | 式の中で行われる ``:=`` による未宣言変数への代入は実行時エラーとなります
 
     .. sourcecode:: uwscr
 
         OPTION EXPLICIT
 
-        dim foo = 1 // ok
-        foo = 2     // ok
-        bar = 3     // 解析エラー
-        bar += 4    // 解析エラー
-        baz := 5    // 解析エラー
-
-    .. sourcecode:: uwscr
-
-        // 式の中に代入式がある場合
-        OPTION EXPLICIT
-
-        dim foo
-        // fooとbarへの代入を試みるがbarが未宣言
-        foo = bar := 100 // 実行時エラー
+        dim foo = 1      // ok
+        foo = 2          // ok
+        bar = 3          // 解析エラー
+        bar += 4         // 解析エラー
+        baz := 5         // 解析エラー
+        foo = qux := 100 // 解析エラー
 
 public
 ^^^^^^
@@ -1751,7 +1742,9 @@ OPTION
 
     OPTION 設定名[=値]
 
-bool値指定は省略可能で、省略時はtrueになります
+| 値が真偽値指定の場合は省略可能で、省略時はtrueになります
+| 各OPTIONのデフォルト値は設定ファイルからも変更可能です
+| 設定ファイルについては :ref:`setting_file` を参照してください
 
 .. sourcecode:: uwscr
 
@@ -1765,23 +1758,46 @@ bool値指定は省略可能で、省略時はtrueになります
 
     | trueの場合未宣言の変数への代入を許可しない (初期値:false)
     | 未宣言の変数への代入および複合代入が行われる場合に解析エラーとなります
-    | 式の中で ``:=`` による未宣言変数への代入が行われる場合は実行時エラーとなります
 
 .. object:: OPTION SAMESTR[=bool]
-
-    .. caution::
-
-        現時点では無視されます
 
     | 文字列の比較等で大文字小文字を区別するかどうか (初期値:false)
 
 .. object:: OPTION OPTPUBLIC[=bool]
 
-    .. caution::
+    | public変数の重複宣言を禁止するかどうか (初期値:false)
+    | 以下の場合に解析エラーとなります
 
-        現時点では無視されます
+    - 同名のグローバル変数宣言を行ったとき
 
-    | public変数の重複定義を禁止するかどうか (初期値:false)
+        .. sourcecode:: uwscr
+
+            OPTION OPTPUBLIC
+            public p = 1
+            public p = 2     // エラー
+            hoge = procedure()
+                public p = 3 // エラー
+            fend
+            procedure p()
+                public p = 4 //エラー
+            fend
+
+    - 同一モジュール内で同名のpublic変数を宣言したとき
+
+        .. sourcecode:: uwscr
+
+            OPTION OPTPUBLIC
+            module m
+                public p = 1
+                public p = 2     // エラー
+                procedure m
+                    public p = 3 // エラー
+                fend
+
+                public x = procedure()
+                    public p = 4 // エラー
+                fend
+            endmodule
 
 .. object:: OPTION OPTFINALLY[=bool]
 
@@ -1789,18 +1805,105 @@ bool値指定は省略可能で、省略時はtrueになります
 
 .. object:: OPTION SPECIALCHAR[=bool]
 
-    .. caution::
-
-        | この設定は無視されます
-        | ``'文字列'`` 表記で特殊文字が展開されなくなります
+    | trueで特殊文字(<#CR>など)や変数展開が行われなくなる (初期値: false)
 
 .. object:: OPTION SHORTCIRCUIT[=bool]
 
-    .. caution::
-
-        現時点では無視されます
-
     | 論理演算で短絡評価を行うかどうか (初期値:true)
+
+    .. admonition:: このOPTIONはデフォルト有効です
+        :class: caution
+
+        | UWSCとは違いデフォルトで ``OPTION SHORTCIRCUIT`` が有効になっています。
+        | 無効にするには以下を実行してください
+
+        .. sourcecode:: uwscr
+
+            OPTION SHORTCIRCUIT=FALSE
+
+    .. admonition:: 短絡評価とは
+        :class: hint
+
+        | 論理演算において左辺の評価のみで結果が確定する場合に右辺の評価を行いません
+
+        - 論理和(OR)の場合、左辺が真なら右辺によらず真なので右辺を評価しない
+        - 論理積(AND)の場合、左辺が偽なら右辺によらず偽なので右辺を評価しない
+
+        | 短絡評価が行われるのは以下の状況です
+        | サンプルコード内では事前に以下が実行されているものとします
+
+        .. sourcecode:: uwscr
+
+            function t(n)
+                result = true
+                print n + ": " + result
+            fend
+            function f(n)
+                result = false
+                print n + ": " + result
+            fend
+
+        - AndL演算子の左辺が偽となる値を取る場合
+
+            .. sourcecode:: uwscr
+
+                // t(2) は評価されない
+                print f(1) AndL t(2)
+                // 1: False
+                // False
+
+
+        - OrL演算子の左辺が真となる値を取る場合
+
+            .. sourcecode:: uwscr
+
+                // f(2) は評価されない
+                print t(1) OrL f(2)
+                // 1: True
+                // True
+
+        - ifなどの条件式にて、AndまたはAndL演算子の左辺が偽となる値を取る場合
+
+            .. sourcecode:: uwscr
+
+                // t(2) は評価されない
+                print f(1) and t(2) ? true : false
+                // 1: False
+                // False
+
+        - ifなどの条件式にて、OrまたはOrL演算子の左辺が真となる値を取る場合
+
+            .. sourcecode:: uwscr
+
+                // f(2) は評価されない
+                print t(1) or f(2) ? true : false
+                // 1: True
+                // True
+
+        .. admonition:: 短絡評価におけるUWSCとの差異
+            :class: caution
+
+            | ANDとORの複合条件でUWSCでは短絡評価が行われないケースがありましたが、UWSCRでは適切に短絡評価を行います
+            | 評価結果に影響はありません
+
+            .. sourcecode:: uwscr
+
+                // UWSCで短絡評価が行われない例
+                if f(1) and t(2) or t(3) then
+                    print true
+                else
+                    print false
+                endif
+                // UWSCR
+                // 1: False … f(1) and t(2) で短絡評価されfalse
+                // 3: True  … false or t(3) は短絡評価されないのでt(3)も評価される
+                // True
+
+                // UWSC
+                // 1: False
+                // 2: True … 評価されてしまう
+                // 3: True
+                // True
 
 .. object:: OPTION NOSTOPHOTKEY[=bool]
 
@@ -1816,11 +1919,7 @@ bool値指定は省略可能で、省略時はtrueになります
 
 .. object:: OPTION FIXBALLOON[=bool]
 
-    .. caution::
-
-        現時点では無視されます
-
-    | 吹き出しを仮想デスクトップにも表示するかどうか (初期値:false)
+    | 吹き出しを仮想デスクトップを跨いで表示するかどうか (初期値:false)
 
 .. object:: OPTION DEFAULTFONT="name,n"
 
@@ -1830,9 +1929,7 @@ bool値指定は省略可能で、省略時はtrueになります
 
     .. caution::
 
-        現時点では無視されます
-
-    | メインGUIの座標指定 (初期値:0, 0)
+        この設定は無効です
 
 .. object:: OPTION LOGPATH="path"
 
@@ -1842,21 +1939,25 @@ bool値指定は省略可能で、省略時はtrueになります
 
 .. object:: OPTION LOGLINES=n
 
-    .. caution::
-
-        現時点では無視されます
-
     | ログファイルの最大行数を指定 (初期値:400)
 
 .. object:: OPTION LOGFILE=n
 
-    | ログファイルの出力方法 ※3 (初期値:1)
-    | 設定値は以下の通り、2～4を指定することでログが出力されます
-    | 1: ログ出力なし
-    | 2: ログを出力あり
-    | 3: ログを出力あり
-    | 4: ログを出力あり
-    | それ以外: ログ出力なし
+    | ログファイルの出力方法 (初期値:1)
+
+    - 0: 通常のログ出力
+    - 1: ログ出力なし
+    - 2: 日時出力なし
+    - 3: 通常のログ出力 (標準で秒を含むため0と同じ)
+    - 4: 以前のログを破棄
+    - それ以外: ログ出力なし
+
+    .. admonition:: UWSCRのログ出力について
+        :class: hint
+
+        | UWSCRはデフォルトではログを出力しません
+        | ログを出力するには0, 2, 3, 4のいずれかを指定してください
+
 
 .. object:: OPTION DLGTITLE="title"
 

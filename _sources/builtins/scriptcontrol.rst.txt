@@ -135,3 +135,62 @@
             print "WaitTaskを呼ぶと処理をブロックし、タスクの完了を待ちます"
             print "タスクが完了すると関数のresult値を得られます"
             print WaitTask(t) // タスク実行完了: 5秒待ちました
+
+型チェック
+----------
+
+.. function:: type_of(値)
+
+    | 値の型を返します
+
+    :param すべて 値: 型を調べたい値や変数
+    :rtype: 定数
+    :return: 型を示す文字定数
+
+    .. admonition:: 0.15.0時点での型定数
+        :class: note
+
+        - TYPE_NUMBER
+        - TYPE_STRING
+        - TYPE_BOOL
+        - TYPE_ARRAY
+        - TYPE_HASHTBL
+        - TYPE_ANONYMOUS_FUNCTION
+        - TYPE_FUNCTION
+        - TYPE_BUILTIN_FUNCTION
+        - TYPE_ASYNC_FUNCTION
+        - TYPE_MODULE
+        - TYPE_CLASS
+        - TYPE_CLASS_INSTANCE
+        - TYPE_NULL
+        - TYPE_EMPTY
+        - TYPE_NOTHING
+        - TYPE_HWND
+        - TYPE_REGEX
+        - TYPE_UOBJECT
+        - TYPE_VERSION
+        - TYPE_THIS
+        - TYPE_GLOBAL
+        - TYPE_ENUM
+        - TYPE_TASK
+        - TYPE_DLL_FUNCTION
+        - TYPE_STRUCT_DEFINITION
+        - TYPE_STRUCT_INSTANCE
+        - TYPE_COM_OBJECT
+        - TYPE_IUNKNOWN
+        - TYPE_VARIANT
+        - TYPE_SAFEARRAY
+        - TYPE_BROWSERBUILDER_OBJECT
+        - TYPE_BROWSER_OBJECT
+        - TYPE_TABWINDOW_OBJECT
+        - TYPE_REMOTE_OBJECT
+        - TYPE_FILE_ID
+        - TYPE_BYTE_ARRAY
+        - TYPE_REFERENCE
+        - TYPE_WEB_REQUEST
+        - TYPE_WEB_RESPONSE
+        - TYPE_HTML_NODE
+        - TYPE_WEBVIEW_FORM
+        - TYPE_WEBVIEW_REMOTEOBJECT
+        - TYPE_MEMBER_CALLER
+        - TYPE_NOT_VALUE_TYPE

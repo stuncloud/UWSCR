@@ -603,6 +603,12 @@ ID0について
                 | 対象ウィンドウによっては正常に動作しない可能性があります
                 | 例: saveimgのIMG_BACKで画像が保存できないウィンドウ
 
+            .. admonition:: CHKIMG_USE_WGCAPI指定時
+                :class: hint
+
+                | chkimgでGraphicsCaptureAPI利用時にこれらのオプションは影響しません
+                | ウィンドウの位置を問わずウィンドウ画像を取得します
+
     :param 真偽値またはEMPTY 省略可 HWND: ``MORG_DIRECT`` 指定時の第一引数の振る舞いを限定します (``MORG_DIRECT`` 以外の場合無視される)
 
         .. object:: FALSE
@@ -1300,10 +1306,80 @@ ID0について
             | リストやリストビューが複数選択されていた場合にタブ連結された文字列ではなく、
             | それぞれの要素を持つ配列として返すようになりました
 
+.. function:: chkclr(探索色, [閾値=0, 範囲=[], モニタ番号=0])
+
+    | 範囲内に探索色があればその位置を返します
+    | :any:`mouseorg` が実行されている場合は探索対象がそのウィンドウとなります
+
+    :param 数値または配列 探索色: 探す色を指定します
+
+        - 数値: BGR値
+        - 配列: [B値, G値, R値]
+
+    :param 数値または配列 省略可 閾値: 探索する色の幅を指定します
+
+        - 数値: BGRそれぞれに対する閾値
+        - 配列: 個別指定 [対B, 対G, 対R]
+
+        .. admonition:: 閾値指定による色の幅について
+            :class: hint
+
+            | 探索色のB値が30でBに対する閾値が5の場合25～35であればヒットする
+            | 255 ($FF) を指定すると元の値に関わらずその色要素に対して必ずヒットします
+
+            .. sourcecode:: uwscr
+
+                chkclr([0, 100, 0], [255, 5, 255])
+                // 下限: [  0,  95, 255]
+                // 上限: [255, 105, 255]
+                // が探索色となるB要素とR要素はすべてを対象とし、Gのみ95-105を対象とする
+
+    :param 配列 省略可 範囲: 探索範囲を [左上x, 左上y, 右下x, 右下y] で指定、省略時はモニタまたはウィンドウに準拠
+
+        .. admonition:: 部分的な省略について
+            :class: hint
+
+            | 配列サイズが4より小さい場合、不足分は省略扱いとなります
+            | ``null`` を記述することで省略であることを明示できます
+
+            - [100] 左上xのみ指定、残りは省略
+            - [100, 100] 左上xyを指定、右下xyは省略
+            - [100, null, 100] 左上xと右下xを指定、左上yと右下yは省略
+
+    :param 数値 省略可 モニタ番号: mouseorgを使わない場合に探索対象とするモニタ番号を0から指定
+    :rtype: 二次元配列
+    :return: 該当色のある座標および見つかった色([x, y, [b, g, r]])の配列
+
+    .. admonition:: サンプルコード
+
+        .. sourcecode:: uwscr
+
+            function bgr_array_to_int(arr: array)
+                result = arr[0] * $10000 + arr[1] * $100 + arr[2]
+            fend
+
+            mouseorg(id)
+            offset_x = status(id, ST_X)
+            offset_y = status(id, ST_Y)
+            color = [0, 100, 0]
+            bgcolor = bgr_array_to_int(color)
+            threshold = [0, 5, 0]
+            // [0, 95, 0] から [0, 105, 0] を探索範囲とする
+            for found in chkclr(color, threshold)
+                x = found[0] + offset_x
+                y = found[1] + offset_y
+                color = found[2]
+                msg = "座標: <#x>, <#y> 色: <#color>"
+                balloon(msg, x, y, FUKI_DOWN or FUKI_POINT, , , 0, bgcolor)
+                if msgbox("次へ") = BTN_CANCEL then
+                    break
+                endif
+            next
+
 画像検索
 --------
 
-.. function:: chkimg(画像ファイルパス, [スコア=95, 最大検索数=5, left=EMPTY, top=EMPTY, right=EMPTY, bottom=EMPTY])
+.. function:: chkimg(画像ファイルパス, [スコア=95, 最大検索数=5, left=EMPTY, top=EMPTY, right=EMPTY, bottom=EMPTY, オプション=0, モニタ番号=0])
 
     | 指定画像をスクリーン上から探してその座標を返します
 
@@ -1324,6 +1400,21 @@ ID0について
     :param 数値 省略可 top: 検索範囲指定: 左上Y座標、省略時は画面左上Y座標
     :param 数値 省略可 right: 検索範囲指定: 右下X座標、省略時は画面右下X座標
     :param 数値 省略可 bottom: 検索範囲指定: 右下X座標、省略時は画面右下Y座標
+    :param 定数 省略可 オプション: 実行時オプションを指定
+
+        .. object:: CHKIMG_NO_GRAY
+
+            | 画像をグレースケール化せず探索を行う
+
+        .. object:: CHKIMG_USE_WGCAPI
+
+            | デスクトップまたはウィンドウの画像取得にGraphicsCaptureAPIを使う
+            | デスクトップの場合は対象とするモニタを次の引数で指定
+
+            .. hint:: このオプションにより通常ではキャプチャできないウィンドウがキャプチャできる可能性があります
+
+
+    :param 定数 省略可 モニタ番号: ``CHKIMG_USE_WGCAPI`` 時に検索するモニタ番号を0から指定、デフォルトは0 (プライマリモニタ)
     :rtype: 二次元配列
     :return: 該当する部分の座標とスコアを格納した二次元配列 ``[[X座標, Y座標, スコア], ...]``
 
@@ -1335,7 +1426,20 @@ ID0について
                 print found // [x, y, スコア]
             next
 
-.. function:: saveimg([ファイル名=EMPTY, ID=0, x=EMPTY, y=EMPTY, 幅=EMPTY, 高さ=EMPTY, クライアント領域=FALSE, 圧縮率=EMPTY, 取得方法=IMG_AUTO])
+.. function:: chkimg(画像ファイルパス, [スコア=95, 最大検索数=5, 範囲, オプション=0])
+    :noindex:
+
+    | 配列による範囲指定
+
+    :param 配列 省略可 範囲: ``[left, top, right, bottom]`` で指定
+
+    .. admonition:: サンプルコード
+
+        .. sourcecode:: uwscr
+
+            found = chkimg("hoge.png", 95, 1, [100, 100, 400, 400])
+
+.. function:: saveimg([ファイル名=EMPTY, ID=0, x=EMPTY, y=EMPTY, 幅=EMPTY, 高さ=EMPTY, クライアント領域=FALSE, 圧縮率=EMPTY, 取得方法=IMG_AUTO, WGCAPI=false, モニタ番号=0])
 
     | ウィンドウの画像を保存します
 
@@ -1399,6 +1503,14 @@ ID0について
 
             - ウィンドウが見えていれば ``IMG_FORE`` を使用する (アクティブかどうかは問わない)
             - 一部でも他のウィンドウに隠れていれば ``IMG_BACK`` を使用する
+    :param 真偽値 省略可 WGCAPI: TRUEならGraphicsCaptureAPIにより画面またはウィンドウをキャプチャします
+    :param 数値 省略可 モニタ番号: IDに0を指定して、かつWGCAPIをTRUEにした場合にキャプチャするモニタ番号を0から指定
+
+        .. admonition:: xy座標は0から
+            :class: note
+
+            | xy座標はモニタごとの座標を0から指定してください
+            | 0未満が指定された場合は0になります
 
     :return: なし
 

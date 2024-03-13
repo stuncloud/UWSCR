@@ -7,7 +7,7 @@
 <link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="システム関数" href="system.html" /><link rel="prev" title="ウィンドウ操作関数" href="window.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>スクリプト制御 - UWSCR 0.15.0</title>
+        <title>スクリプト制御 - UWSCR 0.16.0</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 0.15.0</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 0.16.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 0.15.0</span>
+  <span class="sidebar-brand-text">UWSCR 0.16.0</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -417,6 +417,77 @@
 </dd></dl>
 
 </section>
+<section id="id6">
+<h2>型チェック<a class="headerlink" href="#id6" title="この見出しへのパーマリンク">#</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="type_of">
+<span class="sig-name descname"><span class="pre">type_of</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">値</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#type_of" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">値の型を返します</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>値</strong> (<em>すべて</em>) -- 型を調べたい値や変数</p>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>定数</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>型を示す文字定数</p>
+</dd>
+</dl>
+<div class="note admonition">
+<p class="admonition-title">0.15.0時点での型定数</p>
+<ul class="simple">
+<li><p>TYPE_NUMBER</p></li>
+<li><p>TYPE_STRING</p></li>
+<li><p>TYPE_BOOL</p></li>
+<li><p>TYPE_ARRAY</p></li>
+<li><p>TYPE_HASHTBL</p></li>
+<li><p>TYPE_ANONYMOUS_FUNCTION</p></li>
+<li><p>TYPE_FUNCTION</p></li>
+<li><p>TYPE_BUILTIN_FUNCTION</p></li>
+<li><p>TYPE_ASYNC_FUNCTION</p></li>
+<li><p>TYPE_MODULE</p></li>
+<li><p>TYPE_CLASS</p></li>
+<li><p>TYPE_CLASS_INSTANCE</p></li>
+<li><p>TYPE_NULL</p></li>
+<li><p>TYPE_EMPTY</p></li>
+<li><p>TYPE_NOTHING</p></li>
+<li><p>TYPE_HWND</p></li>
+<li><p>TYPE_REGEX</p></li>
+<li><p>TYPE_UOBJECT</p></li>
+<li><p>TYPE_VERSION</p></li>
+<li><p>TYPE_THIS</p></li>
+<li><p>TYPE_GLOBAL</p></li>
+<li><p>TYPE_ENUM</p></li>
+<li><p>TYPE_TASK</p></li>
+<li><p>TYPE_DLL_FUNCTION</p></li>
+<li><p>TYPE_STRUCT_DEFINITION</p></li>
+<li><p>TYPE_STRUCT_INSTANCE</p></li>
+<li><p>TYPE_COM_OBJECT</p></li>
+<li><p>TYPE_IUNKNOWN</p></li>
+<li><p>TYPE_VARIANT</p></li>
+<li><p>TYPE_SAFEARRAY</p></li>
+<li><p>TYPE_BROWSERBUILDER_OBJECT</p></li>
+<li><p>TYPE_BROWSER_OBJECT</p></li>
+<li><p>TYPE_TABWINDOW_OBJECT</p></li>
+<li><p>TYPE_REMOTE_OBJECT</p></li>
+<li><p>TYPE_FILE_ID</p></li>
+<li><p>TYPE_BYTE_ARRAY</p></li>
+<li><p>TYPE_REFERENCE</p></li>
+<li><p>TYPE_WEB_REQUEST</p></li>
+<li><p>TYPE_WEB_RESPONSE</p></li>
+<li><p>TYPE_HTML_NODE</p></li>
+<li><p>TYPE_WEBVIEW_FORM</p></li>
+<li><p>TYPE_WEBVIEW_REMOTEOBJECT</p></li>
+<li><p>TYPE_MEMBER_CALLER</p></li>
+<li><p>TYPE_NOT_VALUE_TYPE</p></li>
+</ul>
+</div>
+</dd></dl>
+
+</section>
 </section>
 
         </article>
@@ -493,6 +564,10 @@
 <li><a class="reference internal" href="#id5">タスク</a><ul>
 <li><a class="reference internal" href="#Task"><code class="docutils literal notranslate"><span class="pre">Task()</span></code></a></li>
 <li><a class="reference internal" href="#WaitTask"><code class="docutils literal notranslate"><span class="pre">WaitTask()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id6">型チェック</a><ul>
+<li><a class="reference internal" href="#type_of"><code class="docutils literal notranslate"><span class="pre">type_of()</span></code></a></li>
 </ul>
 </li>
 </ul>

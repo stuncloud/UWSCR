@@ -7,7 +7,7 @@
 <link rel="index" title="索引" href="genindex.html" /><link rel="search" title="検索" href="search.html" /><link rel="next" title="インストール方法" href="usage/installation.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>UWSCR 0.15.0</title>
+        <title>UWSCR 0.16.0</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="#"><div class="brand">UWSCR 0.15.0</div></a>
+      <a href="#"><div class="brand">UWSCR 0.16.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="#">
   
   
-  <span class="sidebar-brand-text">UWSCR 0.15.0</span>
+  <span class="sidebar-brand-text">UWSCR 0.16.0</span>
   
 </a><form class="sidebar-search-container" method="get" action="search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -215,8 +215,8 @@
         </div>
         <article role="main">
           <section id="uwscr-version">
-<h1>UWSCR 0.15.0<a class="headerlink" href="#uwscr-version" title="この見出しへのパーマリンク">#</a></h1>
-<p>UWSCR 0.15.0 オンラインヘルプ</p>
+<h1>UWSCR 0.16.0<a class="headerlink" href="#uwscr-version" title="この見出しへのパーマリンク">#</a></h1>
+<p>UWSCR 0.16.0 オンラインヘルプ</p>
 <section id="id1">
 <h2>使い方<a class="headerlink" href="#id1" title="この見出しへのパーマリンク">#</a></h2>
 <div class="toctree-wrapper compound">
@@ -229,15 +229,15 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="usage/how_to_run.html">実行方法</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="usage/how_to_run.html#id2">コマンドラインオプション</a></li>
-<li class="toctree-l2"><a class="reference internal" href="usage/how_to_run.html#id3">スクリプトファイルのエンコーディング</a></li>
-<li class="toctree-l2"><a class="reference internal" href="usage/how_to_run.html#id4">注意</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage/how_to_run.html#id9">スクリプトファイルのエンコーディング</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage/how_to_run.html#id10">注意</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="usage/settings.html">設定ファイル</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="usage/settings.html#id2">ファイルの所在</a></li>
 <li class="toctree-l2"><a class="reference internal" href="usage/settings.html#id3">設定ファイルに関するコマンド</a></li>
 <li class="toctree-l2"><a class="reference internal" href="usage/settings.html#id4">設定の優先順位</a></li>
-<li class="toctree-l2"><a class="reference internal" href="usage/settings.html#id5">設定ファイルの内容</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage/settings.html#setting-file">設定ファイルの構成</a></li>
 <li class="toctree-l2"><a class="reference internal" href="usage/settings.html#id6">設定ファイルを読み取れない場合</a></li>
 <li class="toctree-l2"><a class="reference internal" href="usage/settings.html#json-schema">json schemaについて</a></li>
 </ul>
@@ -382,6 +382,7 @@
 <li class="toctree-l3"><a class="reference internal" href="builtins/window.html#getstr"><code class="docutils literal notranslate"><span class="pre">getstr()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="builtins/window.html#getitem"><code class="docutils literal notranslate"><span class="pre">getitem()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="builtins/window.html#getslctlst"><code class="docutils literal notranslate"><span class="pre">getslctlst()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="builtins/window.html#chkclr"><code class="docutils literal notranslate"><span class="pre">chkclr()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="builtins/window.html#id4">画像検索</a><ul>
@@ -416,6 +417,10 @@
 <li class="toctree-l2"><a class="reference internal" href="builtins/scriptcontrol.html#id5">タスク</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="builtins/scriptcontrol.html#Task"><code class="docutils literal notranslate"><span class="pre">Task()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="builtins/scriptcontrol.html#WaitTask"><code class="docutils literal notranslate"><span class="pre">WaitTask()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="builtins/scriptcontrol.html#id6">型チェック</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="builtins/scriptcontrol.html#type_of"><code class="docutils literal notranslate"><span class="pre">type_of()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -698,7 +703,7 @@
         <div class="toc-tree-container">
           <div class="toc-tree">
             <ul>
-<li><a class="reference internal" href="#">UWSCR 0.15.0</a><ul>
+<li><a class="reference internal" href="#">UWSCR 0.16.0</a><ul>
 <li><a class="reference internal" href="#id1">使い方</a></li>
 <li><a class="reference internal" href="#id2">スクリプト構文</a></li>
 <li><a class="reference internal" href="#id3">ビルトイン関数</a></li>

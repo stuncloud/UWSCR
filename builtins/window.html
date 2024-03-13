@@ -7,7 +7,7 @@
 <link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="スクリプト制御" href="scriptcontrol.html" /><link rel="prev" title="文字列操作関数" href="text.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>ウィンドウ操作関数 - UWSCR 0.15.0</title>
+        <title>ウィンドウ操作関数 - UWSCR 0.16.0</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 0.15.0</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 0.16.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 0.15.0</span>
+  <span class="sidebar-brand-text">UWSCR 0.16.0</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -1181,6 +1181,13 @@
 <div class="line-block">
 <div class="line">対象ウィンドウによっては正常に動作しない可能性があります</div>
 <div class="line">例: saveimgのIMG_BACKで画像が保存できないウィンドウ</div>
+</div>
+</div>
+<div class="hint admonition">
+<p class="admonition-title">CHKIMG_USE_WGCAPI指定時</p>
+<div class="line-block">
+<div class="line">chkimgでGraphicsCaptureAPI利用時にこれらのオプションは影響しません</div>
+<div class="line">ウィンドウの位置を問わずウィンドウ画像を取得します</div>
 </div>
 </div>
 </dd></dl>
@@ -2345,12 +2352,99 @@
 </dl>
 </dd></dl>
 
+<dl class="py function">
+<dt class="sig sig-object py" id="chkclr">
+<span class="sig-name descname"><span class="pre">chkclr</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">探索色</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">閾値=0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">範囲=[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">モニタ番号=0</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#chkclr" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">範囲内に探索色があればその位置を返します</div>
+<div class="line"><a class="reference internal" href="#mouseorg" title="mouseorg"><code class="xref any py py-func docutils literal notranslate"><span class="pre">mouseorg</span></code></a> が実行されている場合は探索対象がそのウィンドウとなります</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>探索色</strong> (<em>数値または配列</em>) -- <p>探す色を指定します</p>
+<ul>
+<li><p>数値: BGR値</p></li>
+<li><p>配列: [B値, G値, R値]</p></li>
+</ul>
+</p></li>
+<li><p><strong>閾値</strong> (<em>数値または配列 省略可</em>) -- <p>探索する色の幅を指定します</p>
+<ul>
+<li><p>数値: BGRそれぞれに対する閾値</p></li>
+<li><p>配列: 個別指定 [対B, 対G, 対R]</p></li>
+</ul>
+<div class="hint admonition">
+<p class="admonition-title">閾値指定による色の幅について</p>
+<div class="line-block">
+<div class="line">探索色のB値が30でBに対する閾値が5の場合25～35であればヒットする</div>
+<div class="line">255 ($FF) を指定すると元の値に関わらずその色要素に対して必ずヒットします</div>
+</div>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">chkclr</span><span class="p">([</span><span class="m">0</span><span class="o">,</span><span class="w"> </span><span class="m">100</span><span class="o">,</span><span class="w"> </span><span class="m">0</span><span class="p">]</span><span class="o">,</span><span class="w"> </span><span class="p">[</span><span class="m">255</span><span class="o">,</span><span class="w"> </span><span class="m">5</span><span class="o">,</span><span class="w"> </span><span class="m">255</span><span class="p">])</span>
+<span class="c">// 下限: [  0,  95, 255]</span>
+<span class="c">// 上限: [255, 105, 255]</span>
+<span class="c">// が探索色となるB要素とR要素はすべてを対象とし、Gのみ95-105を対象とする</span>
+</pre></div>
+</div>
+</div>
+</p></li>
+<li><p><strong>範囲</strong> (<em>配列 省略可</em>) -- <p>探索範囲を [左上x, 左上y, 右下x, 右下y] で指定、省略時はモニタまたはウィンドウに準拠</p>
+<div class="hint admonition">
+<p class="admonition-title">部分的な省略について</p>
+<div class="line-block">
+<div class="line">配列サイズが4より小さい場合、不足分は省略扱いとなります</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">null</span></code> を記述することで省略であることを明示できます</div>
+</div>
+<ul>
+<li><p>[100] 左上xのみ指定、残りは省略</p></li>
+<li><p>[100, 100] 左上xyを指定、右下xyは省略</p></li>
+<li><p>[100, null, 100] 左上xと右下xを指定、左上yと右下yは省略</p></li>
+</ul>
+</div>
+</p></li>
+<li><p><strong>モニタ番号</strong> (<em>数値 省略可</em>) -- mouseorgを使わない場合に探索対象とするモニタ番号を0から指定</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>二次元配列</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>該当色のある座標および見つかった色([x, y, [b, g, r]])の配列</p>
+</dd>
+</dl>
+<div class="admonition- admonition">
+<p class="admonition-title">サンプルコード</p>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="kd">function</span><span class="w"> </span><span class="n">bgr_array_to_int</span><span class="p">(</span><span class="n">arr</span><span class="o">:</span><span class="w"> </span><span class="n">array</span><span class="p">)</span>
+<span class="w">    </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">arr</span><span class="p">[</span><span class="m">0</span><span class="p">]</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="m">$10000</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">arr</span><span class="p">[</span><span class="m">1</span><span class="p">]</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="m">$100</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">arr</span><span class="p">[</span><span class="m">2</span><span class="p">]</span>
+<span class="kd">fend</span>
+
+<span class="n">mouseorg</span><span class="p">(</span><span class="n">id</span><span class="p">)</span>
+<span class="n">offset_x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">status</span><span class="p">(</span><span class="n">id</span><span class="o">,</span><span class="w"> </span><span class="n">ST_X</span><span class="p">)</span>
+<span class="n">offset_y</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">status</span><span class="p">(</span><span class="n">id</span><span class="o">,</span><span class="w"> </span><span class="n">ST_Y</span><span class="p">)</span>
+<span class="n">color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="m">0</span><span class="o">,</span><span class="w"> </span><span class="m">100</span><span class="o">,</span><span class="w"> </span><span class="m">0</span><span class="p">]</span>
+<span class="n">bgcolor</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bgr_array_to_int</span><span class="p">(</span><span class="n">color</span><span class="p">)</span>
+<span class="n">threshold</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="m">0</span><span class="o">,</span><span class="w"> </span><span class="m">5</span><span class="o">,</span><span class="w"> </span><span class="m">0</span><span class="p">]</span>
+<span class="c">// [0, 95, 0] から [0, 105, 0] を探索範囲とする</span>
+<span class="k">for</span><span class="w"> </span><span class="n">found</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="n">chkclr</span><span class="p">(</span><span class="n">color</span><span class="o">,</span><span class="w"> </span><span class="n">threshold</span><span class="p">)</span>
+<span class="w">    </span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">found</span><span class="p">[</span><span class="m">0</span><span class="p">]</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">offset_x</span>
+<span class="w">    </span><span class="n">y</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">found</span><span class="p">[</span><span class="m">1</span><span class="p">]</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">offset_y</span>
+<span class="w">    </span><span class="n">color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">found</span><span class="p">[</span><span class="m">2</span><span class="p">]</span>
+<span class="w">    </span><span class="n">msg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;座標: &lt;#x&gt;, &lt;#y&gt; 色: &lt;#color&gt;&quot;</span>
+<span class="w">    </span><span class="n">balloon</span><span class="p">(</span><span class="n">msg</span><span class="o">,</span><span class="w"> </span><span class="n">x</span><span class="o">,</span><span class="w"> </span><span class="n">y</span><span class="o">,</span><span class="w"> </span><span class="n">FUKI_DOWN</span><span class="w"> </span><span class="n">or</span><span class="w"> </span><span class="n">FUKI_POINT</span><span class="o">,</span><span class="w"> </span><span class="o">,</span><span class="w"> </span><span class="o">,</span><span class="w"> </span><span class="m">0</span><span class="o">,</span><span class="w"> </span><span class="n">bgcolor</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="n">msgbox</span><span class="p">(</span><span class="s">&quot;次へ&quot;</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">BTN_CANCEL</span><span class="w"> </span><span class="k">then</span>
+<span class="w">        </span><span class="k">break</span>
+<span class="w">    </span><span class="k">endif</span>
+<span class="k">next</span>
+</pre></div>
+</div>
+</div>
+</dd></dl>
+
 </section>
 <section id="id4">
 <h2>画像検索<a class="headerlink" href="#id4" title="この見出しへのパーマリンク">#</a></h2>
 <dl class="py function">
 <dt class="sig sig-object py" id="chkimg">
-<span class="sig-name descname"><span class="pre">chkimg</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">画像ファイルパス</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">スコア=95</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">最大検索数=5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">left=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">top=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">right=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bottom=EMPTY</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#chkimg" title="この定義へのパーマリンク">#</a></dt>
+<span class="sig-name descname"><span class="pre">chkimg</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">画像ファイルパス</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">スコア=95</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">最大検索数=5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">left=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">top=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">right=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bottom=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">オプション=0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">モニタ番号=0</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#chkimg" title="この定義へのパーマリンク">#</a></dt>
 <dd><div class="line-block">
 <div class="line">指定画像をスクリーン上から探してその座標を返します</div>
 </div>
@@ -2376,6 +2470,30 @@
 <li><p><strong>top</strong> (<em>数値 省略可</em>) -- 検索範囲指定: 左上Y座標、省略時は画面左上Y座標</p></li>
 <li><p><strong>right</strong> (<em>数値 省略可</em>) -- 検索範囲指定: 右下X座標、省略時は画面右下X座標</p></li>
 <li><p><strong>bottom</strong> (<em>数値 省略可</em>) -- 検索範囲指定: 右下X座標、省略時は画面右下Y座標</p></li>
+<li><p><strong>オプション</strong> (<em>定数 省略可</em>) -- <p>実行時オプションを指定</p>
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">CHKIMG_NO_GRAY</span></span></dt>
+<dd><div class="line-block">
+<div class="line">画像をグレースケール化せず探索を行う</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">CHKIMG_USE_WGCAPI</span></span></dt>
+<dd><div class="line-block">
+<div class="line">デスクトップまたはウィンドウの画像取得にGraphicsCaptureAPIを使う</div>
+<div class="line">デスクトップの場合は対象とするモニタを次の引数で指定</div>
+</div>
+<div class="admonition hint">
+<p class="admonition-title">ヒント</p>
+<p>このオプションにより通常ではキャプチャできないウィンドウがキャプチャできる可能性があります</p>
+</div>
+</dd></dl>
+
+</p></li>
+<li><p><strong>モニタ番号</strong> (<em>定数 省略可</em>) -- <code class="docutils literal notranslate"><span class="pre">CHKIMG_USE_WGCAPI</span></code> 時に検索するモニタ番号を0から指定、デフォルトは0 (プライマリモニタ)</p></li>
 </ul>
 </dd>
 <dt class="field-even">戻り値の型<span class="colon">:</span></dt>
@@ -2396,8 +2514,27 @@
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">chkimg</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">画像ファイルパス</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">スコア=95</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">最大検索数=5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">範囲</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">オプション=0</span></span></em><span class="optional">]</span><span class="sig-paren">)</span></dt>
+<dd><div class="line-block">
+<div class="line">配列による範囲指定</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>範囲</strong> (<em>配列 省略可</em>) -- <code class="docutils literal notranslate"><span class="pre">[left,</span> <span class="pre">top,</span> <span class="pre">right,</span> <span class="pre">bottom]</span></code> で指定</p>
+</dd>
+</dl>
+<div class="admonition- admonition">
+<p class="admonition-title">サンプルコード</p>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">found</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">chkimg</span><span class="p">(</span><span class="s">&quot;hoge.png&quot;</span><span class="o">,</span><span class="w"> </span><span class="m">95</span><span class="o">,</span><span class="w"> </span><span class="m">1</span><span class="o">,</span><span class="w"> </span><span class="p">[</span><span class="m">100</span><span class="o">,</span><span class="w"> </span><span class="m">100</span><span class="o">,</span><span class="w"> </span><span class="m">400</span><span class="o">,</span><span class="w"> </span><span class="m">400</span><span class="p">])</span>
+</pre></div>
+</div>
+</div>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="saveimg">
-<span class="sig-name descname"><span class="pre">saveimg</span></span><span class="sig-paren">(</span><span class="optional">[</span><em class="sig-param"><span class="n"><span class="pre">ファイル名=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ID=0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">幅=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">高さ=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">クライアント領域=FALSE</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">圧縮率=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">取得方法=IMG_AUTO</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#saveimg" title="この定義へのパーマリンク">#</a></dt>
+<span class="sig-name descname"><span class="pre">saveimg</span></span><span class="sig-paren">(</span><span class="optional">[</span><em class="sig-param"><span class="n"><span class="pre">ファイル名=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ID=0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">幅=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">高さ=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">クライアント領域=FALSE</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">圧縮率=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">取得方法=IMG_AUTO</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">WGCAPI=false</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">モニタ番号=0</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#saveimg" title="この定義へのパーマリンク">#</a></dt>
 <dd><div class="line-block">
 <div class="line">ウィンドウの画像を保存します</div>
 </div>
@@ -2483,6 +2620,16 @@
 </ul>
 </dd></dl>
 
+</p></li>
+<li><p><strong>WGCAPI</strong> (<em>真偽値 省略可</em>) -- TRUEならGraphicsCaptureAPIにより画面またはウィンドウをキャプチャします</p></li>
+<li><p><strong>モニタ番号</strong> (<em>数値 省略可</em>) -- <p>IDに0を指定して、かつWGCAPIをTRUEにした場合にキャプチャするモニタ番号を0から指定</p>
+<div class="note admonition">
+<p class="admonition-title">xy座標は0から</p>
+<div class="line-block">
+<div class="line">xy座標はモニタごとの座標を0から指定してください</div>
+<div class="line">0未満が指定された場合は0になります</div>
+</div>
+</div>
 </p></li>
 </ul>
 </dd>
@@ -3565,6 +3712,7 @@
 <li><a class="reference internal" href="#getstr"><code class="docutils literal notranslate"><span class="pre">getstr()</span></code></a></li>
 <li><a class="reference internal" href="#getitem"><code class="docutils literal notranslate"><span class="pre">getitem()</span></code></a></li>
 <li><a class="reference internal" href="#getslctlst"><code class="docutils literal notranslate"><span class="pre">getslctlst()</span></code></a></li>
+<li><a class="reference internal" href="#chkclr"><code class="docutils literal notranslate"><span class="pre">chkclr()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#id4">画像検索</a><ul>

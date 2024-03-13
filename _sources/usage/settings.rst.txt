@@ -35,7 +35,9 @@
 2. 設定ファイル(settings.json)
 3. デフォルト設定
 
-設定ファイルの内容
+.. _setting_file:
+
+設定ファイルの構成
 ------------------
 
 .. hint:: 設定ファイルのデータ型について
@@ -60,15 +62,22 @@
             "opt_finally": false,
             // bool  : 変数初期化にdim宣言を必須とするかどうか
             "explicit": false,
-            // string: (未対応) ダイアログのタイトル
+            // string: ダイアログのタイトル
             "dlg_title": null,
             // number: ログファイルの出力方法
+            // 0: 通常のログ出力
+            // 1: ログ出力なし
+            // 2: 日時出力なし
+            // 3: 通常のログ出力 (標準で秒を含むため0と同じ)
+            // 4: 以前のログを破棄
+            // それ以外: ログ出力なし
             "log_file": 1,
-            // number: (未対応) ログファイルの行数
+            // number: ログファイルの行数
             "log_lines": 400,
-            // string: ログ出力フォルダ
+            // string: ログファイルの出力先ディレクトリ
+            // nullの場合はスクリプトファイルと同じ場所
             "log_path": null,
-            // (未対応) メインGUIの座標
+            // (未対応)
             "position": {
                 // number: ウィンドウ左上のx座標
                 "left": 0,
@@ -82,15 +91,15 @@
             // number: フォントサイズ
             "size": 15
             },
-            // bool  : (未対応) 仮想デスクトップにも吹き出しを表示するかどうか
+            // bool  : 仮想デスクトップにも吹き出しを表示するかどうか
             "fix_balloon": false,
-            // bool  : (未対応) 停止ホットキーを無効にするかどうか
+            // bool  : (未対応)
             "no_stop_hot_key": false,
-            // bool  : (未対応) 短絡評価を行うかどうか
+            // bool  : 短絡評価を行うかどうか
             "short_circuit": true,
-            // bool  : publicの重複定義を禁止するかどうか
+            // bool  : publicの重複宣言を禁止するかどうか
             "opt_public": false,
-            // bool  : 文字列比較などで大文字小文字を区別するかどうか
+            // bool  : 文字列比較で大文字小文字を区別するかどうか
             "same_str": false,
             // bool  : print文をGUIに出力するかどうか
              "gui_print": false

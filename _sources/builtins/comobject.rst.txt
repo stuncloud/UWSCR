@@ -89,13 +89,30 @@ COMオブジェクトの作成・取得
 VARIANT
 -------
 
-.. function:: vartype(値, VAR定数=EMPTY)
+.. function:: vartype(値)
 
-    | Variant型のデータ型をVAR定数で返します
-    | または指定した型のVariant型に変換します
+    | VARIANTがどのような型であるかを調べます
 
-    :param 全て 値: 任意の値
-    :param 定数 省略可 VAR定数: Variant型を得る場合に指定
+    :param VARIANT 値: VARIANT型の値
+    :rtype: 定数
+    :return:
+
+        | VARIANTのデータ型を示す :ref:`var_constant`
+
+        .. admonition:: VARIANT以外を指定した場合
+          :class: caution
+
+          | UWSCRの大半の値はVARIANT型ではありません
+          | VARIANTではない値の場合は ``VAR_UWSCR`` が返ります
+          | UWSCRにおける値の型を調べるには :func:`type_of` 関数をご利用ください
+
+.. function:: vartype(値, VAR定数)
+    :noindex:
+
+    | 任意の値を指定した型のVARIANTに変換します
+
+    :param すべて 値: 任意の値
+    :param 定数 VAR定数: 変換する型を :ref:`定数 <var_constant>` で指定
 
         .. admonition:: 以下の定数は使用できません
             :class: caution
@@ -104,17 +121,14 @@ VARIANT
             - ``VAR_USTR``
             - ``VAR_UWSCR``
 
-    :rtype: VAR定数、またはVariant型
-    :return:
-
-        - VAR定数指定時: 変換されたVariant型
-        - VAR定数未指定時: 渡された値の型を示すVAR定数
+    :rtype: VARIANT
+    :return: 指定した型のVARIANT
 
     .. sourcecode:: uwscr
 
         // 開いているExcelを取得
         excel = getactiveoleobj("Excel.Application")
-        // 日付型のVariantに変換
+        // 日付型のVARIANTに変換
         date = vartype("2023/07/15", VAR_DATE)
         // Excelのアクティブセルに日付型の値を入力
         excel.ActiveCell.value = date
@@ -122,7 +136,7 @@ VARIANT
 .. function:: vartype(COMオブジェクト, プロパティ名)
     :noindex:
 
-    | COMオブジェクトのプロパティが返す値のVariant型を得ます
+    | COMオブジェクトのプロパティが返す値のVARIANT型を得ます
 
     :param COMオブジェクト COMオブジェクト: 型を調べたいプロパティを持つCOMオブジェクト
     :param 文字列 プロパティ名: 型を調べたいプロパティの名前
@@ -136,6 +150,8 @@ VARIANT
         vt = vartype(excel.activecell, "value")
         // 得た値をVAR_定数名に変換
         print const_as_string(vt, "VAR_")
+
+.. _var_constant:
 
 VAR定数
 ^^^^^^^

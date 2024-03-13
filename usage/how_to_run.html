@@ -7,7 +7,7 @@
 <link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="設定ファイル" href="settings.html" /><link rel="prev" title="インストール方法" href="installation.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>実行方法 - UWSCR 0.15.0</title>
+        <title>実行方法 - UWSCR 0.16.0</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 0.15.0</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 0.16.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 0.15.0</span>
+  <span class="sidebar-brand-text">UWSCR 0.16.0</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -223,23 +223,25 @@
 </div>
 <section id="id2">
 <h2>コマンドラインオプション<a class="headerlink" href="#id2" title="この見出しへのパーマリンク">#</a></h2>
+<section id="id3">
+<h3>スクリプトの実行<a class="headerlink" href="#id3" title="この見出しへのパーマリンク">#</a></h3>
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-uwscr-arg-SCRIPT">
-<span id="cmdoption-uwscr-arg-script"></span><span class="sig-name descname"><span class="pre">SCRIPT</span></span><span class="sig-prename descclassname"> <span class="pre">[params...]</span></span><a class="headerlink" href="#cmdoption-uwscr-arg-SCRIPT" title="この定義へのパーマリンク">#</a></dt>
+<dt class="sig sig-object std" id="cmdoption-uwscr-arg-0">
+<span id="cmdoption-uwscr-arg"></span><span class="sig-name descname"><span class="pre">スクリプトパス</span></span><span class="sig-prename descclassname"> <span class="pre">[PARAM_STR...]</span></span><a class="headerlink" href="#cmdoption-uwscr-arg-0" title="この定義へのパーマリンク">#</a></dt>
 <dd><p>スクリプトを実行します</p>
 <dl class="object">
 <dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">SCRIPT</span></span></dt>
+<span class="sig-name descname"><span class="pre">スクリプトパス</span></span></dt>
 <dd><p>実行するスクリプトファイルのパス</p>
 </dd></dl>
 
 <dl class="object">
 <dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">params</span></span></dt>
+<span class="sig-name descname"><span class="pre">PARAM_STR</span></span></dt>
 <dd><div class="line-block">
 <div class="line">スクリプトに渡すパラメータ</div>
 <div class="line">半角スペース区切りで複数のパラメータを指定可能</div>
-<div class="line">渡されたパラメータには <code class="docutils literal notranslate"><span class="pre">PARAM_STR</span></code> 特殊変数に格納されています</div>
+<div class="line">渡されたパラメータは <code class="docutils literal notranslate"><span class="pre">PARAM_STR</span></code> 特殊変数に格納されています</div>
 </div>
 <div class="admonition- admonition">
 <p class="admonition-title">実行例</p>
@@ -252,31 +254,82 @@
 </div>
 </dd></dl>
 
+<div class="hint admonition">
+<p class="admonition-title">ハイフンから始まる文字を渡す場合</p>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">-</span></code> や <code class="docutils literal notranslate"><span class="pre">--</span></code> から始まる文字列はコマンドラインオプションと見なされます</div>
+<div class="line">PARAM_STRの文字列としてそれらを渡す場合は <code class="docutils literal notranslate"><span class="pre">--</span></code> の後に記述してください</div>
+</div>
+<div class="highlight-powershell notranslate"><div class="highlight"><pre><span></span><span class="n">uwscr</span> <span class="n">123</span> <span class="n">456</span> <span class="p">-</span><span class="n">78</span>    <span class="c"># -78 がオプションだと見なされエラーになる</span>
+<span class="n">uwscr</span> <span class="n">123</span> <span class="n">456</span> <span class="s2">&quot;-78&quot;</span>  <span class="c"># &quot;&quot;で括っても同様</span>
+<span class="c"># -- の後に書けばOK</span>
+<span class="n">uwscr</span> <span class="p">--</span> <span class="n">123</span> <span class="n">456</span> <span class="p">-</span><span class="n">78</span> <span class="c"># [&quot;123&quot;, &quot;456&quot;, &quot;-78&quot;] として渡る</span>
+</pre></div>
+</div>
+</div>
 </dd></dl>
-
-<dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-uwscr-window">
-<span class="sig-name descname"><span class="pre">--window</span></span><span class="sig-prename descclassname"> <span class="pre">SCRIPT</span> <span class="pre">[params]</span></span><a class="headerlink" href="#cmdoption-uwscr-window" title="この定義へのパーマリンク">#</a></dt>
-<dd></dd></dl>
 
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-uwscr-w">
-<span class="sig-name descname"><span class="pre">-w</span></span><span class="sig-prename descclassname">&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">SCRIPT</span> <span class="pre">[params]</span></span><a class="headerlink" href="#cmdoption-uwscr-w" title="この定義へのパーマリンク">#</a></dt>
-<dd><p>コンソールから実行された場合にwindowモードでの起動を強制します</p>
+<span id="cmdoption-uwscr-window"></span><span class="sig-name descname"><span class="pre">-w</span></span><span class="sig-prename descclassname"></span><span class="sig-prename descclassname"><span class="pre">,</span> </span><span class="sig-name descname"><span class="pre">--window</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-uwscr-w" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">コンソールから実行された場合にwindowモードでの起動を強制します</div>
+<div class="line">スクリプトパスが指定されていない場合使えません</div>
+</div>
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-uwscr-repl">
-<span class="sig-name descname"><span class="pre">--repl</span></span><span class="sig-prename descclassname"> <span class="pre">[SCRIPT]</span></span><a class="headerlink" href="#cmdoption-uwscr-repl" title="この定義へのパーマリンク">#</a></dt>
-<dd></dd></dl>
+<dt class="sig sig-object std" id="cmdoption-uwscr-a">
+<span id="cmdoption-uwscr-ast"></span><span class="sig-name descname"><span class="pre">-a</span></span><span class="sig-prename descclassname"></span><span class="sig-prename descclassname"><span class="pre">,</span> </span><span class="sig-name descname"><span class="pre">--ast</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-uwscr-a" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">スクリプトの構文木を出力します</div>
+<div class="line">スクリプトパスが指定されていない場合使えません</div>
+</div>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-uwscr-continue">
+<span class="sig-name descname"><span class="pre">--continue</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-uwscr-continue" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">構文木の出力後にスクリプトを実行する場合に指定</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">--ast</span></code> が指定されていない場合使えません</div>
+</div>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-uwscr-p">
+<span id="cmdoption-uwscr-prettify"></span><span class="sig-name descname"><span class="pre">-p</span></span><span class="sig-prename descclassname"></span><span class="sig-prename descclassname"><span class="pre">,</span> </span><span class="sig-name descname"><span class="pre">--prettify</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-uwscr-p" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">出力される構文木を見やすくします</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">--ast</span></code> が指定されていない場合使えません</div>
+</div>
+</dd></dl>
+
+</section>
+<section id="repl">
+<h3>REPLモード<a class="headerlink" href="#repl" title="この見出しへのパーマリンク">#</a></h3>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-uwscr-arg-1">
+<span class="sig-name descname"><span class="pre">モジュールパス</span></span><span class="sig-prename descclassname"> <span class="pre">[PARAM_STR...]</span></span><a class="headerlink" href="#cmdoption-uwscr-arg-1" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">REPL起動前に読み込ませるモジュールファイルのパス</div>
+<div class="line">PARAM_STRを渡すこともできる</div>
+</div>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>PS&gt; uwscr hoge.uws foo bar baz --repl
+uwscr&gt; PARAM_STR
+<span class="o">[</span><span class="s2">&quot;foo&quot;</span>, <span class="s2">&quot;bar&quot;</span>, <span class="s2">&quot;baz&quot;</span><span class="o">]</span>
+</pre></div>
+</div>
+</dd></dl>
 
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-uwscr-r">
-<span class="sig-name descname"><span class="pre">-r</span></span><span class="sig-prename descclassname">&#160;&#160;&#160;&#160; <span class="pre">[SCRIPT]</span></span><a class="headerlink" href="#cmdoption-uwscr-r" title="この定義へのパーマリンク">#</a></dt>
+<span id="cmdoption-uwscr-repl"></span><span class="sig-name descname"><span class="pre">-r</span></span><span class="sig-prename descclassname"></span><span class="sig-prename descclassname"><span class="pre">,</span> </span><span class="sig-name descname"><span class="pre">--repl</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-uwscr-r" title="この定義へのパーマリンク">#</a></dt>
 <dd><div class="line-block">
 <div class="line">Replを起動します</div>
-<div class="line">スクリプトを渡すとRepl起動前に読み込まれます</div>
 </div>
+</dd></dl>
+
 <div class="hint admonition">
 <p class="admonition-title">Replの使い方</p>
 <div class="line-block">
@@ -295,49 +348,45 @@
 <div class="line">ブロック構文の入力や複数行の一括実行が行なえます</div>
 </div>
 </div>
+<div class="admonition hint">
+<p class="admonition-title">ヒント</p>
+<p>コマンドライン引数がない場合もREPLモードで起動します</p>
+</div>
+</section>
+<section id="uwscr-uwsl">
+<h3>UWSCRライブラリ(uwsl)ファイル出力<a class="headerlink" href="#uwscr-uwsl" title="この見出しへのパーマリンク">#</a></h3>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-uwscr-arg-2">
+<span class="sig-name descname"><span class="pre">スクリプトパス</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-uwscr-arg-2" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">uwslの変換するスクリプトのパス</div>
+</div>
 </dd></dl>
-
-<dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-uwscr-ast">
-<span class="sig-name descname"><span class="pre">--ast</span></span><span class="sig-prename descclassname"> <span class="pre">SCRIPT</span></span><a class="headerlink" href="#cmdoption-uwscr-ast" title="この定義へのパーマリンク">#</a></dt>
-<dd></dd></dl>
-
-<dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-uwscr-a">
-<span class="sig-name descname"><span class="pre">-a</span></span><span class="sig-prename descclassname">&#160;&#160;&#160; <span class="pre">SCRIPT</span></span><a class="headerlink" href="#cmdoption-uwscr-a" title="この定義へのパーマリンク">#</a></dt>
-<dd><p>スクリプトの構文木を出力します</p>
-</dd></dl>
-
-<dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-uwscr-ast-force">
-<span class="sig-name descname"><span class="pre">--ast-force</span></span><span class="sig-prename descclassname"> <span class="pre">SCRIPT</span></span><a class="headerlink" href="#cmdoption-uwscr-ast-force" title="この定義へのパーマリンク">#</a></dt>
-<dd><p>構文解析エラーが発生した場合でも解析が完了した部分の構文木を出力します</p>
-</dd></dl>
-
-<dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-uwscr-lib">
-<span class="sig-name descname"><span class="pre">--lib</span></span><span class="sig-prename descclassname"> <span class="pre">SCRIPT</span></span><a class="headerlink" href="#cmdoption-uwscr-lib" title="この定義へのパーマリンク">#</a></dt>
-<dd></dd></dl>
 
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-uwscr-l">
-<span class="sig-name descname"><span class="pre">-l</span></span><span class="sig-prename descclassname">&#160;&#160;&#160; <span class="pre">SCRIPT</span></span><a class="headerlink" href="#cmdoption-uwscr-l" title="この定義へのパーマリンク">#</a></dt>
-<dd><p>スクリプトからUWSCRライブラリファイル(.uwsl)を生成します</p>
+<span id="cmdoption-uwscr-lib"></span><span class="sig-name descname"><span class="pre">-l</span></span><span class="sig-prename descclassname"></span><span class="sig-prename descclassname"><span class="pre">,</span> </span><span class="sig-name descname"><span class="pre">--lib</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-uwscr-l" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">スクリプトのあるディレクトリに <code class="docutils literal notranslate"><span class="pre">スクリプト名.uwsl</span></code> ファイルを出力します</div>
+</div>
 </dd></dl>
 
-<dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-uwscr-code">
-<span class="sig-name descname"><span class="pre">--code</span></span><span class="sig-prename descclassname"> <span class="pre">CODE</span></span><a class="headerlink" href="#cmdoption-uwscr-code" title="この定義へのパーマリンク">#</a></dt>
-<dd></dd></dl>
-
+</section>
+<section id="id4">
+<h3>コード実行<a class="headerlink" href="#id4" title="この見出しへのパーマリンク">#</a></h3>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-uwscr-c">
-<span class="sig-name descname"><span class="pre">-c</span></span><span class="sig-prename descclassname">&#160;&#160;&#160;&#160; <span class="pre">CODE</span></span><a class="headerlink" href="#cmdoption-uwscr-c" title="この定義へのパーマリンク">#</a></dt>
-<dd><p>渡された文字列を評価して実行します</p>
+<span id="cmdoption-uwscr-code"></span><span class="sig-name descname"><span class="pre">-c</span></span><span class="sig-prename descclassname"></span><span class="sig-prename descclassname"><span class="pre">,</span> </span><span class="sig-name descname"><span class="pre">--code</span></span><span class="sig-prename descclassname"> <span class="pre">&lt;CODE&gt;</span></span><a class="headerlink" href="#cmdoption-uwscr-c" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">渡された文字列を評価して実行します</div>
+</div>
 <dl class="object">
 <dt class="sig sig-object">
 <span class="sig-name descname"><span class="pre">CODE</span></span></dt>
-<dd><p>UWSCRで評価可能な式または文</p>
+<dd><div class="line-block">
+<div class="line">UWSCRで評価可能な式または文を示す文字列</div>
+<div class="line">半角スペースを含む場合は <code class="docutils literal notranslate"><span class="pre">&quot;&quot;</span></code> で括ってください</div>
+</div>
 </dd></dl>
 
 <div class="admonition- admonition">
@@ -348,14 +397,25 @@
 </div>
 </dd></dl>
 
+</section>
+<section id="id5">
+<h3>操作記録<a class="headerlink" href="#id5" title="この見出しへのパーマリンク">#</a></h3>
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-uwscr-settings">
-<span class="sig-name descname"><span class="pre">--settings</span></span><span class="sig-prename descclassname"> <span class="pre">[OPTION]</span></span><a class="headerlink" href="#cmdoption-uwscr-settings" title="この定義へのパーマリンク">#</a></dt>
-<dd></dd></dl>
+<dt class="sig sig-object std" id="cmdoption-uwscr-record">
+<span class="sig-name descname"><span class="pre">--record</span></span><span class="sig-prename descclassname"> <span class="pre">[&lt;FILE&gt;]</span></span><a class="headerlink" href="#cmdoption-uwscr-record" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">実行した操作の低レベル記録を行います。</div>
+<div class="line">FILEには記録した操作を保存するパスを指定します</div>
+<div class="line">FILEを省略した場合はクリップボードに保存します</div>
+</div>
+</dd></dl>
 
+</section>
+<section id="id6">
+<h3>設定ファイル<a class="headerlink" href="#id6" title="この見出しへのパーマリンク">#</a></h3>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-uwscr-s">
-<span class="sig-name descname"><span class="pre">-s</span></span><span class="sig-prename descclassname">&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">[OPTION]</span></span><a class="headerlink" href="#cmdoption-uwscr-s" title="この定義へのパーマリンク">#</a></dt>
+<span id="cmdoption-uwscr-settings"></span><span class="sig-name descname"><span class="pre">-s</span></span><span class="sig-prename descclassname"></span><span class="sig-prename descclassname"><span class="pre">,</span> </span><span class="sig-name descname"><span class="pre">--settings</span></span><span class="sig-prename descclassname"> <span class="pre">[&lt;OPTION&gt;]</span></span><a class="headerlink" href="#cmdoption-uwscr-s" title="この定義へのパーマリンク">#</a></dt>
 <dd><div class="line-block">
 <div class="line">設定ファイル(<code class="docutils literal notranslate"><span class="pre">settings.json</span></code>)を開きます</div>
 <div class="line">設定ファイルは <code class="docutils literal notranslate"><span class="pre">%APPDATA%\UWSCR\settings.json</span></code> に出力されます</div>
@@ -391,7 +451,7 @@
 
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-uwscr-schema">
-<span class="sig-name descname"><span class="pre">--schema</span></span><span class="sig-prename descclassname"> <span class="pre">[DIR]</span></span><a class="headerlink" href="#cmdoption-uwscr-schema" title="この定義へのパーマリンク">#</a></dt>
+<span class="sig-name descname"><span class="pre">--schema</span></span><span class="sig-prename descclassname"> <span class="pre">[&lt;DIR&gt;]</span></span><a class="headerlink" href="#cmdoption-uwscr-schema" title="この定義へのパーマリンク">#</a></dt>
 <dd><p>設定ファイル用のjson schemaファイル(<code class="docutils literal notranslate"><span class="pre">uwscr-settings-schema.json</span></code>)を出力します</p>
 <dl class="object">
 <dt class="sig sig-object">
@@ -404,46 +464,12 @@
 
 </dd></dl>
 
-<dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-uwscr-help">
-<span class="sig-name descname"><span class="pre">--help</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-uwscr-help" title="この定義へのパーマリンク">#</a></dt>
-<dd></dd></dl>
-
-<dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-uwscr-h">
-<span class="sig-name descname"><span class="pre">-h</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-uwscr-h" title="この定義へのパーマリンク">#</a></dt>
-<dd></dd></dl>
-
-<dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-uwscr-0">
-<span id="cmdoption-uwscr"></span><span class="sig-name descname"><span class="pre">-?</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-uwscr-0" title="この定義へのパーマリンク">#</a></dt>
-<dd></dd></dl>
-
-<dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-uwscr-1">
-<span class="sig-name descname"><span class="pre">/?</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-uwscr-1" title="この定義へのパーマリンク">#</a></dt>
-<dd><p>ヘルプを表示します</p>
-</dd></dl>
-
-<dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-uwscr-version">
-<span class="sig-name descname"><span class="pre">--version</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-uwscr-version" title="この定義へのパーマリンク">#</a></dt>
-<dd></dd></dl>
-
-<dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-uwscr-v">
-<span class="sig-name descname"><span class="pre">-v</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-uwscr-v" title="この定義へのパーマリンク">#</a></dt>
-<dd><p>UWSCRのバージョンを表示します</p>
-</dd></dl>
-
-<dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-uwscr-online-help">
-<span class="sig-name descname"><span class="pre">--online-help</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-uwscr-online-help" title="この定義へのパーマリンク">#</a></dt>
-<dd></dd></dl>
-
+</section>
+<section id="id7">
+<h3>オンラインヘルプ<a class="headerlink" href="#id7" title="この見出しへのパーマリンク">#</a></h3>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-uwscr-o">
-<span class="sig-name descname"><span class="pre">-o</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-uwscr-o" title="この定義へのパーマリンク">#</a></dt>
+<span id="cmdoption-uwscr-online-help"></span><span class="sig-name descname"><span class="pre">-o</span></span><span class="sig-prename descclassname"></span><span class="sig-prename descclassname"><span class="pre">,</span> </span><span class="sig-name descname"><span class="pre">--online-help</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-uwscr-o" title="この定義へのパーマリンク">#</a></dt>
 <dd><p>オンラインヘルプをブラウザで表示します</p>
 </dd></dl>
 
@@ -454,8 +480,24 @@
 </dd></dl>
 
 </section>
-<section id="id3">
-<h2>スクリプトファイルのエンコーディング<a class="headerlink" href="#id3" title="この見出しへのパーマリンク">#</a></h2>
+<section id="id8">
+<h3>情報表示<a class="headerlink" href="#id8" title="この見出しへのパーマリンク">#</a></h3>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-uwscr-h">
+<span id="cmdoption-uwscr-help"></span><span class="sig-name descname"><span class="pre">-h</span></span><span class="sig-prename descclassname"></span><span class="sig-prename descclassname"><span class="pre">,</span> </span><span class="sig-name descname"><span class="pre">--help</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-uwscr-h" title="この定義へのパーマリンク">#</a></dt>
+<dd><p>ヘルプを表示します</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-uwscr-v">
+<span id="cmdoption-uwscr-version"></span><span class="sig-name descname"><span class="pre">-v</span></span><span class="sig-prename descclassname"></span><span class="sig-prename descclassname"><span class="pre">,</span> </span><span class="sig-name descname"><span class="pre">--version</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-uwscr-v" title="この定義へのパーマリンク">#</a></dt>
+<dd><p>UWSCRのバージョンを表示します</p>
+</dd></dl>
+
+</section>
+</section>
+<section id="id9">
+<h2>スクリプトファイルのエンコーディング<a class="headerlink" href="#id9" title="この見出しへのパーマリンク">#</a></h2>
 <p>以下に対応しています</p>
 <ul class="simple">
 <li><p>UTF-8</p></li>
@@ -463,8 +505,8 @@
 <li><p>Shift-JIS</p></li>
 </ul>
 </section>
-<section id="id4">
-<h2>注意<a class="headerlink" href="#id4" title="この見出しへのパーマリンク">#</a></h2>
+<section id="id10">
+<h2>注意<a class="headerlink" href="#id10" title="この見出しへのパーマリンク">#</a></h2>
 <section id="ansi">
 <h3>ANSIコードポイントについて<a class="headerlink" href="#ansi" title="この見出しへのパーマリンク">#</a></h3>
 <div class="line-block">
@@ -533,9 +575,19 @@
           <div class="toc-tree">
             <ul>
 <li><a class="reference internal" href="#">実行方法</a><ul>
-<li><a class="reference internal" href="#id2">コマンドラインオプション</a></li>
-<li><a class="reference internal" href="#id3">スクリプトファイルのエンコーディング</a></li>
-<li><a class="reference internal" href="#id4">注意</a><ul>
+<li><a class="reference internal" href="#id2">コマンドラインオプション</a><ul>
+<li><a class="reference internal" href="#id3">スクリプトの実行</a></li>
+<li><a class="reference internal" href="#repl">REPLモード</a></li>
+<li><a class="reference internal" href="#uwscr-uwsl">UWSCRライブラリ(uwsl)ファイル出力</a></li>
+<li><a class="reference internal" href="#id4">コード実行</a></li>
+<li><a class="reference internal" href="#id5">操作記録</a></li>
+<li><a class="reference internal" href="#id6">設定ファイル</a></li>
+<li><a class="reference internal" href="#id7">オンラインヘルプ</a></li>
+<li><a class="reference internal" href="#id8">情報表示</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id9">スクリプトファイルのエンコーディング</a></li>
+<li><a class="reference internal" href="#id10">注意</a><ul>
 <li><a class="reference internal" href="#ansi">ANSIコードポイントについて</a></li>
 </ul>
 </li>

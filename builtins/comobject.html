@@ -7,7 +7,7 @@
 <link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="Excel" href="excel.html" /><link rel="prev" title="数学関数" href="math.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>COMオブジェクト - UWSCR 0.15.0</title>
+        <title>COMオブジェクト - UWSCR 0.16.0</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 0.15.0</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 0.16.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 0.15.0</span>
+  <span class="sidebar-brand-text">UWSCR 0.16.0</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -317,16 +317,45 @@
 <h2>VARIANT<a class="headerlink" href="#variant" title="この見出しへのパーマリンク">#</a></h2>
 <dl class="py function">
 <dt class="sig sig-object py" id="vartype">
-<span class="sig-name descname"><span class="pre">vartype</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">値</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">VAR定数</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">EMPTY</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vartype" title="この定義へのパーマリンク">#</a></dt>
+<span class="sig-name descname"><span class="pre">vartype</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">値</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vartype" title="この定義へのパーマリンク">#</a></dt>
 <dd><div class="line-block">
-<div class="line">Variant型のデータ型をVAR定数で返します</div>
-<div class="line">または指定した型のVariant型に変換します</div>
+<div class="line">VARIANTがどのような型であるかを調べます</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>値</strong> (<em>VARIANT</em>) -- VARIANT型の値</p>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>定数</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p><div class="line-block">
+<div class="line">VARIANTのデータ型を示す <a class="reference internal" href="#var-constant"><span class="std std-ref">VAR定数</span></a></div>
+</div>
+<div class="caution admonition">
+<p class="admonition-title">VARIANT以外を指定した場合</p>
+<div class="line-block">
+<div class="line">UWSCRの大半の値はVARIANT型ではありません</div>
+<div class="line">VARIANTではない値の場合は <code class="docutils literal notranslate"><span class="pre">VAR_UWSCR</span></code> が返ります</div>
+<div class="line">UWSCRにおける値の型を調べるには <a class="reference internal" href="scriptcontrol.html#type_of" title="type_of"><code class="xref py py-func docutils literal notranslate"><span class="pre">type_of()</span></code></a> 関数をご利用ください</div>
+</div>
+</div>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">vartype</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">値</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">VAR定数</span></span></em><span class="sig-paren">)</span></dt>
+<dd><div class="line-block">
+<div class="line">任意の値を指定した型のVARIANTに変換します</div>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>値</strong> (<em>全て</em>) -- 任意の値</p></li>
-<li><p><strong>VAR定数</strong> (<em>定数 省略可</em>) -- <p>Variant型を得る場合に指定</p>
+<li><p><strong>値</strong> (<em>すべて</em>) -- 任意の値</p></li>
+<li><p><strong>VAR定数</strong> (<em>定数</em>) -- <p>変換する型を <a class="reference internal" href="#var-constant"><span class="std std-ref">定数</span></a> で指定</p>
 <div class="caution admonition">
 <p class="admonition-title">以下の定数は使用できません</p>
 <ul>
@@ -339,19 +368,15 @@
 </ul>
 </dd>
 <dt class="field-even">戻り値の型<span class="colon">:</span></dt>
-<dd class="field-even"><p>VAR定数、またはVariant型</p>
+<dd class="field-even"><p>VARIANT</p>
 </dd>
 <dt class="field-odd">戻り値<span class="colon">:</span></dt>
-<dd class="field-odd"><p><ul class="simple">
-<li><p>VAR定数指定時: 変換されたVariant型</p></li>
-<li><p>VAR定数未指定時: 渡された値の型を示すVAR定数</p></li>
-</ul>
-</p>
+<dd class="field-odd"><p>指定した型のVARIANT</p>
 </dd>
 </dl>
 <div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// 開いているExcelを取得</span>
 <span class="n">excel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">getactiveoleobj</span><span class="p">(</span><span class="s">&quot;Excel.Application&quot;</span><span class="p">)</span>
-<span class="c">// 日付型のVariantに変換</span>
+<span class="c">// 日付型のVARIANTに変換</span>
 <span class="n">date</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">vartype</span><span class="p">(</span><span class="s">&quot;2023/07/15&quot;</span><span class="o">,</span><span class="w"> </span><span class="n">VAR_DATE</span><span class="p">)</span>
 <span class="c">// Excelのアクティブセルに日付型の値を入力</span>
 <span class="n">excel</span><span class="o">.</span><span class="n">ActiveCell</span><span class="o">.</span><span class="n">value</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">date</span>
@@ -363,7 +388,7 @@
 <dt class="sig sig-object py">
 <span class="sig-name descname"><span class="pre">vartype</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">COMオブジェクト</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">プロパティ名</span></span></em><span class="sig-paren">)</span></dt>
 <dd><div class="line-block">
-<div class="line">COMオブジェクトのプロパティが返す値のVariant型を得ます</div>
+<div class="line">COMオブジェクトのプロパティが返す値のVARIANT型を得ます</div>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
@@ -389,7 +414,7 @@
 </dd></dl>
 
 <section id="var">
-<h3>VAR定数<a class="headerlink" href="#var" title="この見出しへのパーマリンク">#</a></h3>
+<span id="var-constant"></span><h3>VAR定数<a class="headerlink" href="#var" title="この見出しへのパーマリンク">#</a></h3>
 <div class="table-wrapper docutils container" id="id4">
 <table class="docutils align-default" id="id4">
 <caption><span class="caption-text">VAR定数一覧</span><a class="headerlink" href="#id4" title="このテーブルへのパーマリンク">#</a></caption>
