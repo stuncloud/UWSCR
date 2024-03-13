@@ -41,15 +41,15 @@ if ((! $Installer) -or ($Release -and $Installer)) {
             Write-Verbose $env:OPENCV_LINK_PATHS
             Write-Verbose $env:OPENCV_LINK_LIBS
             if ($Release) {
-                cargo build --features chkimg --release
+                cargo build -p uwscr --features chkimg --release
             } else {
-                cargo build --features chkimg
+                cargo build -p uwscr --features chkimg
             }
         } else {
             if ($Release) {
-                cargo build --release
+                cargo build -p uwscr --release
             } else {
-                cargo build
+                cargo build -p uwscr
             }
         }
         if ($LASTEXITCODE -ne 0) {
@@ -69,15 +69,15 @@ if ((! $Installer) -or ($Release -and $Installer)) {
             Write-Verbose $env:OPENCV_LINK_PATHS
             Write-Verbose $env:OPENCV_LINK_LIBS
             if ($Release) {
-                cargo build --target=i686-pc-windows-msvc --features chkimg --release
+                cargo build -p uwscr --target=i686-pc-windows-msvc --features chkimg --release
             } else {
-                cargo build --target=i686-pc-windows-msvc --features chkimg
+                cargo build -p uwscr --target=i686-pc-windows-msvc --features chkimg
             }
         } else {
             if ($Release) {
-                cargo build --target=i686-pc-windows-msvc --release
+                cargo build -p uwscr --target=i686-pc-windows-msvc --release
             } else {
-                cargo build --target=i686-pc-windows-msvc
+                cargo build -p uwscr --target=i686-pc-windows-msvc
             }
         }
         if ($LASTEXITCODE -ne 0) {

@@ -620,7 +620,7 @@ dependencies = [
 
 [[package]]
 name = "evaluator"
-version = "0.15.0"
+version = "0.16.0"
 dependencies = [
  "base64",
  "chrono",
@@ -1127,7 +1127,7 @@ dependencies = [
 
 [[package]]
 name = "language_server"
-version = "0.15.0"
+version = "0.16.0"
 dependencies = [
  "evaluator",
  "parser",
@@ -1468,7 +1468,7 @@ dependencies = [
 
 [[package]]
 name = "parser"
-version = "0.15.0"
+version = "0.16.0"
 dependencies = [
  "bincode",
  "regex",
@@ -2655,7 +2655,7 @@ checksum = "711b9620af191e0cdc7468a8d14e709c3dcdb115b36f838e601583af800a370a"
 
 [[package]]
 name = "util"
-version = "0.15.0"
+version = "0.16.0"
 dependencies = [
  "chrono",
  "encoding_rs",
@@ -2670,7 +2670,7 @@ dependencies = [
 
 [[package]]
 name = "uwscr"
-version = "0.15.0"
+version = "0.16.0"
 dependencies = [
  "clap",
  "dunce",
