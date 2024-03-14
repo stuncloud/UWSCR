@@ -22,12 +22,12 @@ use reedline::{
 };
 use std::borrow::Cow;
 
-pub fn run(script: Option<String>, exe_path: String, script_path: Option<PathBuf>, params: Vec<String>, ast: Option<(bool, bool)>) {
-    match dunce::canonicalize(exe_path) {
+pub fn run(script: Option<String>, script_path: Option<PathBuf>, params: Vec<String>, ast: Option<(bool, bool)>) {
+    match env::current_exe() {
         Ok(full) => {
             match full.parent() {
-                Some(uwscr_dir) => {
-                    env::set_var("GET_UWSC_DIR", &uwscr_dir.as_os_str());
+                Some(dir) => {
+                    env::set_var("GET_UWSC_DIR", &dir.as_os_str());
                 },
                 None => {
                     eprintln!("failed to get uwscr directory");
@@ -36,7 +36,7 @@ pub fn run(script: Option<String>, exe_path: String, script_path: Option<PathBuf
             }
         },
         Err(e) => {
-            eprintln!("failed to get uwscr directory: {e}");
+            eprintln!("failed to get uwscr path: {e}");
             return;
         },
     }

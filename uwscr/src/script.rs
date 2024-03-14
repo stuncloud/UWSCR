@@ -15,8 +15,8 @@ use util::winapi::show_message;
 
 pub struct ScriptError(pub UWSCRErrorTitle, pub Vec<String>);
 
-pub fn run(script: String, exe_path: &str, script_path: PathBuf, params: Vec<String>, ast: Option<(bool, bool)>) -> Result<(), ScriptError> {
-    let exe_full_path = dunce::canonicalize(exe_path)
+pub fn run(script: String, script_path: PathBuf, params: Vec<String>, ast: Option<(bool, bool)>) -> Result<(), ScriptError> {
+    let exe_full_path = env::current_exe()
         .map_err(|e| ScriptError(UWSCRErrorTitle::InitializeError, vec![e.to_string()]))?;
     let uwscr_dir = exe_full_path.parent()
         .ok_or(ScriptError(UWSCRErrorTitle::InitializeError, vec!["unable to get uwscr directory".into()]))?;

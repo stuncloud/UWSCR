@@ -70,9 +70,8 @@ fn start_uwscr() {
             shell_execute("https://stuncloud.github.io/UWSCR/_static/license.html".into(), None);
         },
         Mode::Script(p, params, ast) => {
-            let exe_path = env::args().next().unwrap_or_default();
             match get_script(&p) {
-                Ok(s) => match script::run(s, &exe_path, p, params, ast) {
+                Ok(s) => match script::run(s, p, params, ast) {
                     Ok(_) => {},
                     Err(script::ScriptError(title, errors)) => {
                         let err = errors.join("\r\n");
@@ -95,16 +94,15 @@ fn start_uwscr() {
             }
         }
         Mode::Repl(p, params, ast) => {
-            let exe_path = env::args().next().unwrap_or_default();
             match p {
                 Some(path) => match get_script(&path) {
                     Ok(script) => {
-                        repl::run(Some(script), exe_path, Some(path), params, ast)
+                        repl::run(Some(script), Some(path), params, ast)
                     },
                     Err(e) => eprintln!("{e}"),
                 },
                 None => {
-                    repl::run(None, exe_path, None, Vec::new(), ast);
+                    repl::run(None, None, Vec::new(), ast);
                 },
             }
         },
