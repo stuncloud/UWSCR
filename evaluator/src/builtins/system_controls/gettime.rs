@@ -4,6 +4,7 @@ use util::error::{CURRENT_LOCALE, Locale};
 
 use std::str::FromStr;
 use std::sync::OnceLock;
+use std::fmt::Write;
 
 use chrono::{
     DateTime, Datelike, Timelike, Weekday, NaiveDate, Duration, NaiveDateTime,
@@ -99,7 +100,12 @@ impl GetTime {
             Locale::Jp => format::Locale::ja_JP,
             Locale::En => format::Locale::en_US,
         };
-        self.dt.format_localized(fmt, locale).to_string()
+        let delayed = self.dt.format_localized(fmt, locale);
+        let mut buf = String::new();
+        match write!(&mut buf, "{}", delayed) {
+            Ok(_) => buf,
+            Err(_) => fmt.to_string()
+        }
     }
 }
 
