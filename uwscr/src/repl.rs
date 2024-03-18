@@ -11,6 +11,7 @@ use util::error::{
     CURRENT_LOCALE, Locale,
 };
 use util::write_locale;
+use util::winapi::get_absolute_path;
 
 use reedline::{
     Reedline, Signal,
@@ -41,20 +42,13 @@ pub fn run(script: Option<String>, script_path: Option<PathBuf>, params: Vec<Str
         },
     }
     if let Some(path) = script_path {
-        match dunce::canonicalize(path) {
-            Ok(full) => {
-                if let Some(name) = full.file_name() {
-                    env::set_var("GET_UWSC_NAME", name);
-                    env::set_var("UWSCR_DEFAULT_TITLE", &format!("UWSCR REPL - {}", name.to_string_lossy()))
-                }
-                if let Some(dir) = full.parent() {
-                    env::set_var("GET_SCRIPT_DIR", dir.as_os_str());
-                }
-            },
-            Err(e) => {
-                eprintln!("failed to get script directory: {e}");
-                return;
-            },
+        let full = get_absolute_path(&path);
+        if let Some(name) = full.file_name() {
+            env::set_var("GET_UWSC_NAME", name);
+            env::set_var("UWSCR_DEFAULT_TITLE", &format!("UWSCR REPL - {}", name.to_string_lossy()))
+        }
+        if let Some(dir) = full.parent() {
+            env::set_var("GET_SCRIPT_DIR", dir.as_os_str());
         }
     }
 

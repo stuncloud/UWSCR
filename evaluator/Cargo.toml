@@ -14,7 +14,6 @@ encoding_rs.workspace = true
 once_cell.workspace = true
 serde_json.workspace = true
 serde.workspace = true
-dunce.workspace = true
 base64 = "0.21.0"
 chrono = {version = "0.4.30", features = ["unstable-locales"]}
 csv = "1.1"

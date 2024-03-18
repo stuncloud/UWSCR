@@ -30,11 +30,13 @@ use windows::{
             CP_ACP, WC_COMPOSITECHECK, MB_PRECOMPOSED,
             WideCharToMultiByte, MultiByteToWideChar,
         },
+        Storage::FileSystem::GetFullPathNameW,
     }
 };
 
 use std::ffi::OsStr;
 use std::os::windows::ffi::OsStrExt;
+use std::path::{PathBuf, Path};
 
 use once_cell::sync::OnceCell;
 
@@ -224,7 +226,17 @@ pub fn show_message(message: &str, title: &str, is_error: bool) {
     }
 }
 
-
+pub fn get_absolute_path<P: AsRef<Path>>(path: P) -> PathBuf {
+    unsafe {
+        let path = path.as_ref();
+        let spath = path.to_string_lossy();
+        let lpfilename = HSTRING::from(spath.as_ref());
+        let mut buffer = [0; MAX_PATH as usize];
+        let len = GetFullPathNameW(&lpfilename, Some(&mut buffer), None) as usize;
+        let absolute = String::from_utf16_lossy(&buffer[..len]);
+        PathBuf::from(absolute)
+    }
+}
 
 pub trait WString {
     fn to_wide(&self) -> Vec<u16>;

@@ -46,7 +46,7 @@ use windows::{
 use crate::{Object, Evaluator, EvalResult, Function};
 use crate::error::{UError, UErrorKind, UErrorMessage};
 use parser::ast::{Expression, Identifier};
-use util::winapi::WString;
+use util::winapi::{WString, get_absolute_path};
 
 use std::mem::ManuallyDrop;
 use std::ffi::c_void;
@@ -1796,10 +1796,7 @@ impl Excel {
             Some(path) => {
                 let books = self.workbooks()?;
                 // gh-125: 絶対パスに変換する
-                let absolute = match dunce::canonicalize(&path) {
-                    Ok(path) => path.to_string_lossy().to_string(),
-                    Err(_) => path,
-                };
+                let absolute = get_absolute_path(&path).to_string_lossy().to_string();
                 let mut args = vec![ComArg::Arg(absolute.into())];
                 let named = params.into_iter()
                     .filter_map(|p| {

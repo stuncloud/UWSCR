@@ -626,7 +626,6 @@ dependencies = [
  "chrono",
  "csv",
  "dlopen",
- "dunce",
  "encoding_rs",
  "htmlentity",
  "indexmap",
@@ -2673,7 +2672,6 @@ name = "uwscr"
 version = "0.16.1"
 dependencies = [
  "clap",
- "dunce",
  "evaluator",
  "parser",
  "reedline",

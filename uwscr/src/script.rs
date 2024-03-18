@@ -11,7 +11,7 @@ use util::com::Com;
 //     WString, PcwstrExt,
 // };
 use util::error::UWSCRErrorTitle;
-use util::winapi::show_message;
+use util::winapi::{show_message, get_absolute_path};
 
 pub struct ScriptError(pub UWSCRErrorTitle, pub Vec<String>);
 
@@ -22,8 +22,7 @@ pub fn run(script: String, script_path: PathBuf, params: Vec<String>, ast: Optio
         .ok_or(ScriptError(UWSCRErrorTitle::InitializeError, vec!["unable to get uwscr directory".into()]))?;
     env::set_var("GET_UWSC_DIR", &uwscr_dir.as_os_str());
 
-    let script_full_path = dunce::canonicalize(&script_path)
-        .map_err(|e| ScriptError(UWSCRErrorTitle::InitializeError, vec![e.to_string()]))?;
+    let script_full_path = get_absolute_path(&script_path);
     let script_dir = script_full_path.parent()
         .ok_or(ScriptError(UWSCRErrorTitle::InitializeError, vec!["unable to get script directory".into()]))?;
     env::set_var("GET_SCRIPT_DIR", &script_dir.as_os_str());
