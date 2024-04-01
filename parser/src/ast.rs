@@ -2,7 +2,6 @@ use std::fmt;
 use std::str::FromStr;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::OnceLock;
 
 use serde::{Serialize, Deserialize};
 
@@ -561,8 +560,6 @@ impl std::fmt::Display for ScriptLocation {
     }
 }
 
-static BUILTIN_NAMES: OnceLock<Vec<String>> = OnceLock::new();
-
 #[derive(Clone, Default)]
 pub struct ProgramBuilder {
     /// 定数
@@ -586,16 +583,18 @@ pub struct ProgramBuilder {
     /// callで呼び出されたスクリプトのスコープ
     call: Vec<(ScriptLocation, BuilderScope)>,
     /// callされた深さ
-    depth: u32
+    depth: u32,
+    builtin_names: Option<Vec<String>>
 }
 impl ProgramBuilder {
     pub fn new(path: Option<PathBuf>, builtin_names: Option<Vec<String>>) -> Self {
-        if let Some(names) = builtin_names {
-            let _ = BUILTIN_NAMES.set(names);
-        }
+        // if let Some(names) = builtin_names {
+        //     let _ = BUILTIN_NAMES.set(names);
+        // }
         let location = path.map(|path| ScriptLocation::Path(path)).unwrap_or_default();
         Self {
             location,
+            builtin_names,
             ..Default::default()
         }
     }
@@ -617,7 +616,7 @@ impl ProgramBuilder {
         Self { ..Default::default() }
     }
     pub fn is_strict_mode(&self) -> bool {
-        BUILTIN_NAMES.get().is_some()
+        self.builtin_names.is_some()
     }
     pub fn location(&self) -> String {
         self.location.to_string()
@@ -910,7 +909,7 @@ impl ProgramBuilder {
                 return true;
             }
         }
-        if let Some(names) = BUILTIN_NAMES.get() {
+        if let Some(names) = &self.builtin_names {
             names.iter()
                 .find(|builtin| builtin.eq_ignore_ascii_case(name))
                 .is_some()

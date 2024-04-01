@@ -55,9 +55,9 @@ pub static INPUT_EXTRA_INFO: Lazy<usize> = Lazy::new(|| std::process::id() as us
 
 pub fn builtin_func_sets() -> BuiltinFunctionSets {
     let mut sets = BuiltinFunctionSets::new();
-    sets.add("mmv", 3, mmv);
-    sets.add("btn", 5, btn);
-    sets.add("kbd", 3, kbd);
+    sets.add("mmv", None, mmv, get_desc!(mmv) );
+    sets.add("btn", None, btn, get_desc!(btn));
+    sets.add("kbd", None, kbd, get_desc!(kbd));
     sets
 }
 
@@ -88,6 +88,14 @@ pub fn move_mouse_to(x: i32, y: i32) -> bool {
     }
 }
 
+#[builtin_func_desc(
+    desc="マウスカーソルを移動させる",
+    args=[
+        {n="x", t="数値", d="移動先X座標"},
+        {n="y", t="数値", d="移動先Y座標"},
+        {n="ms", t="数値", d="移動を行うまでの待機時間、デフォルトは0", o},
+    ],
+)]
 pub fn mmv(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let x = args.get_as_int(0, Some(0))?;
     let y = args.get_as_int(1, Some(0))?;
@@ -99,6 +107,38 @@ pub fn mmv(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResul
     Ok(Object::Empty)
 }
 
+#[builtin_func_desc(
+    desc="指定座標にマウスボタン操作を送信",
+    args=[
+        {
+            n="ボタン定数", t="定数", o,
+            d=r#"以下の定数のいずれかを指定
+- LEFT: 左クリック
+- RIGHT: 右クリック
+- MIDDLE: 中央クリック
+- WHEEL: 上下ホイル回転
+- WHEEL2: 左右ホイル回転
+- TOUCH: タッチ操作
+"#
+        },
+        {
+            n="状態", t="定数または数値", o,
+            d=r#"マウス操作を以下から指定
+- LEFT, RIGHT, MIDDLE, TOUCH
+    - CLICK: クリック (下げて離す)
+    - DOWN: ボタン押し下げ
+    - UP: ボタン開放
+- WHEEL
+    - 数値: 正なら下方向、負なら上方向
+- WHEEL2
+    - 数値: 正なら右方向、負なら左方向
+"#
+        },
+        {n="x", t="数値", d="X座標、EMPTYならマウス位置", o},
+        {n="y", t="数値", d="Y座標、EMPTYならマウス位置", o},
+        {n="ms", t="数値", d="操作を行うまでの待機時間、デフォルトは0", o},
+    ],
+)]
 pub fn btn(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let Some(btn) = args.get_as_const::<MouseButtonEnum>(0, true)? else {
         // 不正な定数の場合何もしない
@@ -152,6 +192,21 @@ pub fn get_current_pos() -> BuiltInResult<POINT>{
     Ok(point)
 }
 
+#[builtin_func_desc(
+    desc="指定座標にマウスボタン操作を送信",
+    args=[
+        {n="入力値", t="定数または文字列", d="仮想キーコード(VK定数)または入力したい文字列"},
+        {
+            n="状態", t="定数", o,
+            d=r#"以下から指定、デフォルトはCLICK
+- CLICK: クリック (下げて離す)
+- DOWN: ボタン押し下げ
+- UP: ボタン開放
+"#
+        },
+        {n="ms", t="数値", d="操作を行うまでの待機時間、デフォルトは0", o},
+    ],
+)]
 pub fn kbd(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let key = args.get_as_num_or_string(0)?;
     let action = args.get_as_const::<KeyActionEnum>(1, false)?

@@ -13,7 +13,7 @@ use uwscr::script;
 use uwscr::repl;
 use uwscr::record::{record_desktop, RecordLevel};
 use parser::serializer;
-use evaluator::builtins::get_builtin_names;
+use evaluator::builtins::get_builtin_string_names;
 use util::get_script;
 use util::logging::{out_log, LogType};
 use util::settings::{
@@ -22,7 +22,7 @@ use util::settings::{
 };
 use util::winapi::{show_message, shell_execute, FORCE_WINDOW_MODE};
 use util::error::UWSCRErrorTitle;
-// use uwscr::language_server::UwscrLanguageServer;
+use language_server::UwscrLanguageServer;
 
 use windows::Win32::UI::HiDpi::{SetProcessDpiAwarenessContext, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2};
 use clap::{Parser, ValueEnum};
@@ -138,7 +138,7 @@ fn start_uwscr() {
             };
             match get_script(&script_fullpath) {
                 Ok(s) => {
-                    let names = get_builtin_names();
+                    let names = get_builtin_string_names();
                     match serializer::serialize(s, names) {
                         Some(bin) => {
                             // uwslファイルとして保存
@@ -230,14 +230,14 @@ fn start_uwscr() {
                 },
             };
         },
-        // Mode::LanguageServer => {
-        //     match UwscrLanguageServer::run() {
-        //         Ok(_) => {},
-        //         Err(e) => {
-        //             show_message(&e.to_string(), "UWSCR Language Server", true);
-        //         },
-        //     }
-        // },
+        Mode::LanguageServer => {
+            match UwscrLanguageServer::run() {
+                Ok(_) => {},
+                Err(e) => {
+                    show_message(&e.to_string(), "UWSCR Language Server", true);
+                },
+            }
+        },
     }
 }
 
@@ -253,7 +253,7 @@ enum Mode {
     OnlineHelp,
     License,
     Schema(Option<PathBuf>),
-    // LanguageServer,
+    LanguageServer,
     Record(Option<PathBuf>),
 }
 impl Mode {
@@ -261,7 +261,9 @@ impl Mode {
         let args = CommandArgs::parse();
         let ast = args.ast.then_some((args._continue, args.prettify));
 
-        if let Some(code) = args.code {
+        if args.language_server {
+            Self::LanguageServer
+        } else if let Some(code) = args.code {
             Self::Code(code)
         } else if let Some(opt) = args.settings {
             let mode = match opt {
@@ -345,7 +347,11 @@ struct CommandArgs {
 
     /// 低レベル記録を行う、ファイルパス未指定時はクリップボードに保存
     #[arg(long, name="FILE")]
-    record: Option<Option<PathBuf>>
+    record: Option<Option<PathBuf>>,
+
+    /// Language Serverを起動
+    #[arg(long="language-server")]
+    language_server: bool
 }
 
 

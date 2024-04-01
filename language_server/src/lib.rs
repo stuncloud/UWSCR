@@ -2,6 +2,7 @@ mod completion;
 mod semantic_token;
 
 use semantic_token::SemanticTokenParser;
+use completion::get_snippets;
 
 use tower_lsp::{
     jsonrpc::{self, Result},
@@ -9,11 +10,13 @@ use tower_lsp::{
     Client, LanguageServer, LspService, Server,
 };
 use serde_json::json;
+use tokio::sync::RwLock;
+use tokio::task::block_in_place;
 
 use std::collections::HashMap;
 
 use evaluator::error::UError;
-use evaluator::builtins::get_builtin_names;
+use evaluator::builtins::{get_builtin_names, BuiltinName};
 use parser::Parser;
 use parser::ast::*;
 use parser::error::ParseError;
@@ -27,7 +30,7 @@ impl UwscrLanguageServer {
         let stdin = tokio::io::stdin();
         let stdout = tokio::io::stdout();
 
-        let (service, socket) = LspService::new(|client| Backend {client});
+        let (service, socket) = LspService::new(|client| Backend::new(client));
         let future = Server::new(stdin, stdout, socket).serve(service);
         rt.block_on(future);
         Ok(())
@@ -52,7 +55,6 @@ impl From<std::io::Error> for BackendError {
         Self::IO(err)
     }
 }
-
 impl From<BackendError> for jsonrpc::Error {
     fn from(err: BackendError) -> Self {
         let mut internal = jsonrpc::Error::internal_error();
@@ -67,28 +69,151 @@ impl From<BackendError> for jsonrpc::Error {
 //     }
 // }
 
+#[derive(Debug)]
 struct FileCache {
-    contents: HashMap<Url, Vec<String>>,
+    contents: HashMap<Url, String>,
+}
+impl FileCache {
+    fn new() -> Self {
+        Self {
+            contents: HashMap::new()
+        }
+    }
+    fn insert(&mut self, uri: Url, script: String) {
+        self.contents.insert(uri, script);
+    }
+    fn get(&self, uri: &Url) -> Option<String> {
+        self.contents.get(uri).map(|s| s.clone())
+    }
+    // fn get_mut(&self, uri: &Url) -> Option<&mut String> {
+    //     self.contents.get_mut(uri)
+    // }
+    // fn update(&mut self, uri: &Url, )
 }
 
-#[derive(Debug)]
+#[allow(unused)]
+struct ProgramAndDiagnostics {
+    program: Program,
+    diagnostics: Vec<Diagnostic>,
+}
+
+struct BuiltinNameWrapper<'a>(&'a BuiltinName);
+
+impl<'a> From<BuiltinNameWrapper<'_>> for CompletionItem {
+    fn from(wrapper: BuiltinNameWrapper) -> Self {
+        let (label, kind) = match wrapper.0 {
+            BuiltinName::Const(name) => (name.to_ascii_uppercase(), CompletionItemKind::CONSTANT),
+            BuiltinName::Function(name) => (name.to_ascii_lowercase(), CompletionItemKind::FUNCTION),
+            BuiltinName::Other(name) => (name.to_ascii_lowercase(), CompletionItemKind::VARIABLE),
+        };
+        let (detail, insert_text, additional_text_edits) = match &kind {
+            &CompletionItemKind::CONSTANT => (
+                "Builtin constant",
+                format!("{label}"),
+                None
+            ),
+            &CompletionItemKind::FUNCTION => {
+                let pos = label.len() as u32 + 1;
+                (
+                    "Builtin function",
+                    format!("{label}()${{0}}"),
+                    Some(vec![
+                        TextEdit {
+                            range: Range {
+                                start: Position {
+                                    line: 0,
+                                    character: pos
+                                },
+                                end: Position {
+                                    line: 0,
+                                    character: pos
+                                }
+                            },
+                            new_text: "${0}".to_string()
+                        },
+                    ])
+                )
+            },
+            &CompletionItemKind::VARIABLE => (
+                "Other builtin item",
+                format!("{label}"),
+                None
+            ),
+            _ => unreachable!()
+        };
+        Self {
+            label: label,
+            label_details: None,
+            kind: Some(kind),
+            detail: Some(detail.to_string()),
+            documentation: None,
+            deprecated: None,
+            preselect: None,
+            sort_text: None,
+            filter_text: None,
+            insert_text: Some(insert_text),
+            insert_text_format: None,
+            insert_text_mode: None,
+            text_edit: None,
+            additional_text_edits,
+            command: None,
+            commit_characters: None,
+            data: None,
+            tags: None,
+        }
+    }
+}
+
+// #[derive(Debug)]
 struct Backend {
     client: Client,
+    cache: RwLock<FileCache>,
+    builtins: Vec<BuiltinName>,
+    completion_items: Vec<CompletionItem>,
 }
 impl Backend {
-    fn lexer(&self, uri: &Url) -> BackendResult<Lexer> {
-        let path = uri.to_file_path().map_err(|_| BackendError::ScriptPath)?;
-        let input = std::fs::read_to_string(path)?;
-        let lexer = Lexer::new(&input);
-        Ok(lexer)
+    fn new(client: Client) -> Self {
+        let builtins = get_builtin_names();
+        let mut completion_items: Vec<CompletionItem> = builtins.iter()
+            .map(|name| CompletionItem::from(BuiltinNameWrapper(name)))
+            .collect();
+        let mut snippets = get_snippets();
+        completion_items.append(&mut snippets);
+        Self {
+            client,
+            cache: RwLock::new(FileCache::new()),
+            builtins,
+            completion_items,
+        }
     }
-    fn parse(&self, uri: &Url) -> BackendResult<ProgramAndDiagnostics> {
+    fn get_script(&self, uri: &Url) -> BackendResult<String> {
+        let path = uri.to_file_path().map_err(|_| BackendError::ScriptPath)?;
+        let script = std::fs::read_to_string(path)?;
+        Ok(script)
+    }
+    pub async fn insert_script(&self, uri: Url, script: String) {
+        let mut cache = self.cache.write().await;
+        cache.insert(uri, script);
+    }
+    pub async fn get_cache(&self, uri: &Url) -> Option<String> {
+        let cache = self.cache.read().await;
+        cache.get(uri)
+    }
+    fn get_builtin_names(&self) -> Vec<String> {
+        self.builtins.iter().map(|name| name.name()).collect()
+    }
+    async fn parse(&self, uri: &Url) -> BackendResult<ProgramAndDiagnostics> {
         let file_name = uri.to_file_path().unwrap_or_default().file_name().unwrap_or_default().to_string_lossy().to_string();
-        let lexer = self.lexer(uri)?;
-        let names = get_builtin_names();
+        let script = self.get_script(uri)?;
+        let lexer = Lexer::new(&script);
+        let names = self.get_builtin_names();
         let parser = Parser::new(lexer, None, Some(names));
-        // let builder = parser.parse_to_builder();
-        let (program, errors) = parser.parse_to_program_and_errors();
+
+        self.insert_script(uri.clone(), script).await;
+
+        let (program, errors) = block_in_place(move || {
+            parser.parse_to_program_and_errors()
+        });
         let diagnostics = errors.into_iter()
             .filter_map(|e| {
                 // エラーのファイル名がないかファイル名が一致した場合のみDiagnosticを返す
@@ -99,12 +224,12 @@ impl Backend {
         let result = ProgramAndDiagnostics { program, diagnostics };
         Ok(result)
     }
-    fn get_diagnostics(&self, uri: &Url) -> BackendResult<Vec<Diagnostic>> {
-        let diagnostics = self.parse(uri)?.diagnostics;
+    async fn get_diagnostics(&self, uri: &Url) -> BackendResult<Vec<Diagnostic>> {
+        let diagnostics = self.parse(uri).await?.diagnostics;
         Ok(diagnostics)
     }
     async fn send_diagnostics(&self, uri: Url) {
-        match self.get_diagnostics(&uri) {
+        match self.get_diagnostics(&uri).await {
             Ok(diags) => {
                 self.client.publish_diagnostics(uri, diags, None).await;
             },
@@ -117,10 +242,7 @@ impl Backend {
         self.client.log_message(MessageType::INFO, message).await;
     }
 }
-struct ProgramAndDiagnostics {
-    program: Program,
-    diagnostics: Vec<Diagnostic>
-}
+
 
 #[tower_lsp::async_trait]
 impl LanguageServer for Backend {
@@ -131,6 +253,7 @@ impl LanguageServer for Backend {
                 text_document_sync: Some(TextDocumentSyncCapability::Options(TextDocumentSyncOptions {
                     open_close: Some(true),
                     // INCREMENTALの方が良い？
+                    // change: Some(TextDocumentSyncKind::INCREMENTAL),
                     change: Some(TextDocumentSyncKind::FULL),
                     will_save: None,
                     will_save_wait_until: None,
@@ -138,14 +261,15 @@ impl LanguageServer for Backend {
                 })),
                 selection_range_provider: None,
                 hover_provider: None,
-                completion_provider: None,
-                // completion_provider: Some(CompletionOptions {
-                //     resolve_provider: None,
-                //     trigger_characters: None,
-                //     all_commit_characters: None,
-                //     work_done_progress_options: WorkDoneProgressOptions { work_done_progress: None },
-                //     completion_item: None,
-                // }),
+                completion_provider: Some(CompletionOptions {
+                    resolve_provider: None,
+                    trigger_characters: None,
+                    all_commit_characters: None,
+                    work_done_progress_options: WorkDoneProgressOptions { work_done_progress: None },
+                    completion_item: Some(CompletionOptionsCompletionItem {
+                        label_details_support: None
+                    }),
+                }),
                 signature_help_provider: None,
                 definition_provider: None,
                 type_definition_provider: None,
@@ -169,10 +293,10 @@ impl LanguageServer for Backend {
                 call_hierarchy_provider: None,
                 semantic_tokens_provider: Some(SemanticTokensServerCapabilities::SemanticTokensOptions(SemanticTokensOptions {
                     work_done_progress_options: WorkDoneProgressOptions { work_done_progress: None },
-                    legend: SemanticTokenParser::legend().clone(),
-                    range: Some(true),
-                    // full: Some(SemanticTokensFullOptions::Bool(true)),
-                    full: Some(SemanticTokensFullOptions::Delta{delta:Some(true)}),
+                    legend: SemanticTokenParser::legend(),
+                    range: None,
+                    full: Some(SemanticTokensFullOptions::Bool(true)),
+                    // full: Some(SemanticTokensFullOptions::Delta{delta:Some(true)}),
                 })),
                 moniker_provider: None,
                 linked_editing_range_provider: None,
@@ -201,62 +325,62 @@ impl LanguageServer for Backend {
         self.send_diagnostics(params.text_document.uri).await;
     }
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
-        let uri = params.text_document.uri;
-        let contents = params.content_changes.into_iter()
-            .map(|event| event.text)
-            .collect::<Vec<_>>();
+        // let contents = params.content_changes.into_iter()
+        //     .map(|event| event.text)
+        //     .collect::<Vec<_>>();
 
-        self.log_info(format!("{contents:?}")).await;
+        // self.log_info(format!("{:#?}", params.content_changes)).await;
 
         /* 常にエディタ上の状態をキャッシュしておく */
+        let uri = params.text_document.uri;
+        let script = params.content_changes
+            .first()
+            .map(|event| event.text.to_owned())
+            .unwrap_or_default();
+
+        self.insert_script(uri, script).await;
 
     }
-    // async fn completion(&self, params: CompletionParams) -> Result<Option<CompletionResponse>> {
-    //     let p = format!("{params:?}");
-    //     self.client.log_message(MessageType::INFO, p).await;
-    //     Err(tower_lsp::jsonrpc::Error::method_not_found())
+    async fn completion(&self, _: CompletionParams) -> Result<Option<CompletionResponse>> {
+        // let message = format!("{params:?}");
+        // self.log_info(message).await;
+        let response = CompletionResponse::Array(self.completion_items.clone());
+        Ok(Some(response))
+    }
+    async fn semantic_tokens_full(&self, params: SemanticTokensParams) -> Result<Option<SemanticTokensResult>> {
+        let uri = &params.text_document.uri;
+        if let Some(script) = self.get_cache(uri).await {
+            let lexer = Lexer::new(&script);
+            let parser = SemanticTokenParser::new(lexer);
+            let data = parser.parse(&self.builtins);
+            // self.log_info(format!("{:?}", data)).await;
+            let result = SemanticTokensResult::Tokens(SemanticTokens { result_id: None, data });
+            Ok(Some(result))
+        } else {
+            Ok(None)
+        }
+    }
+    // async fn semantic_tokens_full_delta(
+    //     &self,
+    //     params: SemanticTokensDeltaParams,
+    // ) -> Result<Option<SemanticTokensFullDeltaResult>> {
+    //     let message = format!("{:#?}", params);
+    //     self.log_info(message).await;
+    //     let result = SemanticTokensFullDeltaResult::Tokens(SemanticTokens { result_id: None, data: vec![] });
+    //     Ok(Some(result))
     // }
-    async fn semantic_tokens_full(
-        &self,
-        params: SemanticTokensParams,
-    ) -> Result<Option<SemanticTokensResult>> {
-        // let message = format!("{:#?}", params);
-        // self.log_info(message).await;
-        let lexer = self.lexer(&params.text_document.uri)?;
-        // self.log_info(&lexer).await;
-
-        /*
-
-
-
-         */
-
-        let parser = SemanticTokenParser::new(lexer);
-        let data = parser.parse();
-        let result = SemanticTokensResult::Tokens(SemanticTokens { result_id: None, data });
-        Ok(Some(result))
-    }
-    async fn semantic_tokens_full_delta(
-        &self,
-        params: SemanticTokensDeltaParams,
-    ) -> Result<Option<SemanticTokensFullDeltaResult>> {
-        let message = format!("{:#?}", params);
-        self.log_info(message).await;
-        let result = SemanticTokensFullDeltaResult::Tokens(SemanticTokens { result_id: None, data: vec![] });
-        Ok(Some(result))
-    }
-    async fn semantic_tokens_range(
-        &self,
-        params: SemanticTokensRangeParams,
-    ) -> Result<Option<SemanticTokensRangeResult>> {
-        // let message = format!("{:#?}", params);
-        // self.log_info(message).await;
-        let lexer = self.lexer(&params.text_document.uri)?;
-        let parser = SemanticTokenParser::new(lexer);
-        let data = parser.parse();
-        let result = SemanticTokensRangeResult::Tokens(SemanticTokens { result_id: None, data });
-        Ok(Some(result))
-    }
+    // async fn semantic_tokens_range(
+    //     &self,
+    //     params: SemanticTokensRangeParams,
+    // ) -> Result<Option<SemanticTokensRangeResult>> {
+    //     // let message = format!("{:#?}", params);
+    //     // self.log_info(message).await;
+    //     let lexer = self.lexer(&params.text_document.uri)?;
+    //     let parser = SemanticTokenParser::new(lexer);
+    //     let data = parser.parse();
+    //     let result = SemanticTokensRangeResult::Tokens(SemanticTokens { result_id: None, data });
+    //     Ok(Some(result))
+    // }
 }
 
 trait IntoLspType<T> {

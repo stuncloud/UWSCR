@@ -3,7 +3,7 @@ use std::env;
 
 use evaluator::environment::Environment;
 use evaluator::Evaluator;
-use evaluator::builtins::get_builtin_names;
+use evaluator::builtins::get_builtin_string_names;
 use parser::*;
 use parser::lexer::Lexer;
 use util::com::Com;
@@ -40,7 +40,7 @@ pub fn run(script: String, script_path: PathBuf, params: Vec<String>, ast: Optio
         _ => {}
     };
 
-    let names = get_builtin_names();
+    let names = get_builtin_string_names();
     let parser = Parser::new(Lexer::new(&script), Some(script_dir.to_path_buf()), Some(names));
 
     let (program, errors) = parser.parse_to_program_and_errors();

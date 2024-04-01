@@ -437,7 +437,7 @@ ID0について
     :rtype: 真偽値
     :return: 成功時TRUE、失敗または操作不能時はFALSE
 
-.. function:: sendstr(ID, 文字列, [n番目=1, 送信モード=FALSE, ACC指定=FALSE])
+.. function:: sendstr(ID, 文字列, [n番目=0, 送信モード=FALSE, ACC指定=FALSE])
 
     | エディットボックスに文字列を送信します
 

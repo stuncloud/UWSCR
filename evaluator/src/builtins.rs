@@ -27,14 +27,17 @@ use windows::Win32::System::Threading::GetCurrentThreadId;
 use crate::object::{
     Object, Version,
     HashTblEnum,
-    UTask
+    UTask,
 };
 use crate::Evaluator;
 use crate::object::{UObject,Fopen,Function,browser::{RemoteObject, TabWindow}, ObjectType, ComObject, StructDef};
-use crate::environment::NamedObject;
+use crate::environment::{NamedObject, ContainerType};
 use crate::builtins::key_codes::SCKeyCode;
 use crate::error::{UError,UErrorKind,UErrorMessage};
 use parser::ast::{Expression, Identifier};
+
+pub use func_desc::*;
+pub use func_desc_macro::*;
 
 use std::env;
 use std::sync::{Mutex, Arc};
@@ -805,12 +808,13 @@ impl ThreeState {
 pub struct BuiltinFunctionSet {
     name: String,
     len: i32,
-    func: BuiltinFunction
+    func: BuiltinFunction,
+    desc: FuncDesc,
 }
 
 impl BuiltinFunctionSet {
-    pub fn new<S:Into<String>>(name: S, len: i32, func: BuiltinFunction) -> Self {
-        BuiltinFunctionSet {name: name.into(), len, func}
+    pub fn new<S:Into<String>>(name: S, len: i32, func: BuiltinFunction, desc: FuncDesc) -> Self {
+        BuiltinFunctionSet {name: name.into(), len, func, desc}
     }
 }
 
@@ -822,9 +826,10 @@ impl BuiltinFunctionSets {
     pub fn new() -> Self {
         BuiltinFunctionSets{sets: vec![]}
     }
-    pub fn add(&mut self, name: &str, len: i32, func: BuiltinFunction) {
+    pub fn add(&mut self, name: &str, len: Option<i32>, func: BuiltinFunction, desc: FuncDesc) {
+        let len = len.unwrap_or(desc.arg_len());
         self.sets.push(
-            BuiltinFunctionSet::new(name, len, func)
+            BuiltinFunctionSet::new(name, len, func, desc)
         );
     }
     pub fn set(self, vec: &mut Vec<NamedObject>) {
@@ -839,10 +844,39 @@ impl BuiltinFunctionSets {
         }
     }
 }
-
-pub fn get_builtin_names() -> Vec<String> {
-    let mut names: Vec<String> = init_builtins().into_iter()
-        .map(|obj| obj.name)
+pub enum BuiltinName {
+    Const(String),
+    Function(String),
+    Other(String),
+}
+impl BuiltinName {
+    pub fn name(&self) -> String {
+        match self {
+            BuiltinName::Const(name) |
+            BuiltinName::Function(name) |
+            BuiltinName::Other(name) => name.clone(),
+        }
+    }
+    pub fn name_as_ref(&self) -> &String {
+        match self {
+            BuiltinName::Const(name) |
+            BuiltinName::Function(name) |
+            BuiltinName::Other(name) => name,
+        }
+    }
+}
+impl From<NamedObject> for BuiltinName {
+    fn from(obj: NamedObject) -> Self {
+        match obj.container_type {
+            ContainerType::BuiltinConst => Self::Const(obj.name),
+            ContainerType::BuiltinFunc => Self::Function(obj.name),
+            _ => Self::Other(obj.name)
+        }
+    }
+}
+pub fn get_builtin_names() -> Vec<BuiltinName> {
+    let mut names: Vec<BuiltinName> = init_builtins().into_iter()
+        .map(|obj| obj.into())
         .collect();
     // 登録方法が特殊なビルトイン定数
     let mut hoge = vec![
@@ -866,9 +900,12 @@ pub fn get_builtin_names() -> Vec<String> {
         "G_TIME_SS2",
         "G_TIME_ZZ2",
         "G_TIME_YY4",
-    ].into_iter().map(|name| name.to_string()).collect();
+    ].into_iter().map(|name| BuiltinName::Const(name.into())).collect();
     names.append(&mut hoge);
     names
+}
+pub fn get_builtin_string_names() -> Vec<String> {
+    get_builtin_names().into_iter().map(|name| name.name()).collect()
 }
 
 pub fn init_builtins() -> Vec<NamedObject> {
@@ -1078,39 +1115,55 @@ fn set_special_variables(vec: &mut Vec<NamedObject>) {
 /// 特殊ビルトイン関数をセット
 fn builtin_func_sets() -> BuiltinFunctionSets {
     let mut sets = BuiltinFunctionSets::new();
-    sets.add("eval", 1, builtin_eval);
-    sets.add("list_env", 0, list_env);
-    sets.add("list_module_member", 1, list_module_member);
-    sets.add("name_of", 1, name_of);
-    sets.add("const_as_string", 2, const_as_string);
-    sets.add("assert_equal", 2, assert_equal);
-    sets.add("raise", 2, raise);
-    sets.add("type_of", 2, type_of);
-    sets.add("get_settings", 0, get_settings);
-    sets.add("__p_a_n_i_c__", 1, panic);
-    sets.add("get_struct_layout", 1, get_struct_layout);
+    sets.add("eval", Some(1), builtin_eval, get_desc!(builtin_eval));
+    sets.add("list_env", Some(0), list_env, get_desc!(list_env));
+    sets.add("list_module_member", Some(1), list_module_member, get_desc!(list_module_member));
+    sets.add("name_of", Some(1), name_of, get_desc!(name_of));
+    sets.add("const_as_string", Some(2), const_as_string, get_desc!(const_as_string));
+    sets.add("assert_equal", Some(2), assert_equal, get_desc!(assert_equal));
+    sets.add("raise", Some(2), raise, get_desc!(raise));
+    sets.add("type_of", Some(2), type_of, get_desc!(type_of));
+    sets.add("get_settings", Some(0), get_settings, get_desc!(get_settings));
+    sets.add("__p_a_n_i_c__", Some(1), panic, get_desc!(panic));
+    sets.add("get_struct_layout", Some(1), get_struct_layout, get_desc!(get_struct_layout));
     sets
 }
 
 // 特殊ビルトイン関数の実体
 
+#[builtin_func_desc(
+    desc="",
+    args=[],
+)]
 pub fn builtin_eval(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let script = args.get_as_string(0, None)?;
     evaluator.invoke_eval_script(&script)
         .map_err(|err| BuiltinFuncError::UError(err))
 }
 
+#[builtin_func_desc(
+    desc="",
+    args=[],
+)]
 pub fn list_env(evaluator: &mut Evaluator, _: BuiltinFuncArgs) -> BuiltinFuncResult {
     let env = evaluator.env.get_env();
     Ok(env)
 }
 
+#[builtin_func_desc(
+    desc="",
+    args=[],
+)]
 pub fn list_module_member(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let name = args.get_as_string(0, None)?;
     let members = evaluator.env.get_module_member(&name);
     Ok(members)
 }
 
+#[builtin_func_desc(
+    desc="",
+    args=[],
+)]
 pub fn name_of(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let name = if let Some(Expression::Identifier(Identifier(name))) = args.get_expr(0) {
         evaluator.env.get_name_of_builtin_consts(&name)
@@ -1120,6 +1173,10 @@ pub fn name_of(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncR
     Ok(name)
 }
 
+#[builtin_func_desc(
+    desc="",
+    args=[],
+)]
 pub fn const_as_string(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let value = args.get_as_object(0, None)?;
     let hint = args.get_as_string_or_empty(1)?;
@@ -1127,6 +1184,10 @@ pub fn const_as_string(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> Buil
     Ok(name.into())
 }
 
+#[builtin_func_desc(
+    desc="",
+    args=[],
+)]
 pub fn get_settings(_: &mut Evaluator, _: BuiltinFuncArgs) -> BuiltinFuncResult {
     let json = {
         let s = USETTINGS.lock().unwrap();
@@ -1135,6 +1196,10 @@ pub fn get_settings(_: &mut Evaluator, _: BuiltinFuncArgs) -> BuiltinFuncResult 
     Ok(Object::String(json))
 }
 
+#[builtin_func_desc(
+    desc="",
+    args=[],
+)]
 pub fn raise(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let msg = args.get_as_string(0, None)?;
     let title = args.get_as_string(1, Some(String::new()))?;
@@ -1146,17 +1211,29 @@ pub fn raise(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Err(BuiltinFuncError::new_with_kind(kind, UErrorMessage::Any(msg)))
 }
 
+#[builtin_func_desc(
+    desc="",
+    args=[],
+)]
 pub fn panic(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let msg = args.get_as_string(0, None)?;
     panic!("{msg}");
 }
 
+#[builtin_func_desc(
+    desc="",
+    args=[],
+)]
 pub fn type_of(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let arg = args.get_as_object(0, None)?;
     let t = arg.get_type();
     Ok(Object::String(t.to_string()))
 }
 
+#[builtin_func_desc(
+    desc="",
+    args=[],
+)]
 pub fn assert_equal(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let arg1 = args.get_as_object(0, None)?;
     let arg2 = args.get_as_object(1, None)?;
@@ -1167,6 +1244,10 @@ pub fn assert_equal(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResu
     }
 }
 
+#[builtin_func_desc(
+    desc="",
+    args=[],
+)]
 pub fn get_struct_layout(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let sdef = args.get_as_structdef(0)?;
     let layout = sdef.layout(None);

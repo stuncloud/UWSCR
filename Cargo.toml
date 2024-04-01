@@ -11,6 +11,8 @@ members = [
     "parser",
     "util",
     "language_server",
+    "func_desc",
+    "func_desc_macro"
 ]
 
 [workspace.dependencies]
