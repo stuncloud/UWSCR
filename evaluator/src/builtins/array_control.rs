@@ -9,18 +9,29 @@ use num_derive::{ToPrimitive, FromPrimitive};
 
 pub fn builtin_func_sets() -> BuiltinFunctionSets {
     let mut sets = BuiltinFunctionSets::new();
-    sets.add("join", 5, join);
-    sets.add("qsort", 10, qsort);
-    sets.add("reverse", 1, reverse);
-    sets.add("resize", 3, resize);
-    sets.add("slice", 3, slice);
-    sets.add("split", 5, split);
-    sets.add("calcarray", 4, calcarray);
-    sets.add("setclear", 2, setclear);
-    sets.add("shiftarray", 2, shiftarray);
+    sets.add("join", join, get_desc!(join));
+    sets.add("qsort", qsort, get_desc!(qsort));
+    sets.add("reverse", reverse, get_desc!(reverse));
+    sets.add("resize", resize, get_desc!(resize));
+    sets.add("slice", slice, get_desc!(slice));
+    sets.add("split", split, get_desc!(split));
+    sets.add("calcarray", calcarray, get_desc!(calcarray));
+    sets.add("setclear", setclear, get_desc!(setclear));
+    sets.add("shiftarray", shiftarray, get_desc!(shiftarray));
     sets
 }
 
+#[builtin_func_desc(
+    desc="配列要素を区切り文字で結合した文字列を返す",
+    args=[
+        {n="配列",t="配列",d="結合したい配列"},
+        {n="区切り文字",t="文字列",d="結合時の区切り文字",o},
+        {n="空文字除外",t="真偽値",d="TRUEなら空文字要素を含めない",o},
+        {n="開始",t="数値",d="結合したい範囲の開始位置",o},
+        {n="終了",t="数値",d="結合したい範囲の終了位置",o},
+    ],
+    rtype={desc="結合した文字列"}
+)]
 fn join(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let arr = args.get_as_array_include_hashtbl(0, None, false)?;
     let sep = args.get_as_string(1, Some(" ".into()))?;
@@ -68,6 +79,21 @@ impl Into<qsort::SortOrder> for QsrtConst {
     }
 }
 
+#[builtin_func_desc(
+    desc="配列要素を並び替える"
+    args=[
+        {n="配列",t="配列",d="ソートする配列"},
+        {n="ソート順",t="定数",d=r#"以下のいずれかを指定
+- QSRT_A: 昇順
+- QSRT_D: 降順
+- QSRT_UNICODEA: UNICODE文字列順 昇順
+- QSRT_UNICODED: UNICODE文字列順 降順
+- QSRT_NATURALA: 数値順 昇順
+- QSRT_NATURALD: 数値順 降順
+"#,o},
+        {n="連動ソート配列",t="配列",d="ソートする配列に連動してソートされる配列",v=8},
+    ],
+)]
 pub fn qsort(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let mut array = args.get_as_array(0, None)?;
     let expr = args.get_expr(0);
@@ -99,6 +125,12 @@ pub fn qsort(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncRes
     Ok(Object::Empty)
 }
 
+#[builtin_func_desc(
+    desc="配列順を反転させる"
+    args=[
+        {n="arr",t="配列(参照渡し)",d="順序を反転させたい配列"},
+    ],
+)]
 pub fn reverse(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let mut arr = args.get_as_array(0, None)?;
     let expr = args.get_expr(0);
@@ -159,6 +191,15 @@ fn get_resize_default_value(arr: &Vec<Object>, value: Option<Object>) -> Object 
     }
 }
 
+#[builtin_func_desc(
+    desc="配列サイズを変更する"
+    args=[
+        {n="arr",t="配列(参照渡し)",d="サイズ変更を行う配列"},
+        {n="変更後最大インデックス",t="数値",d="この値+1のサイズにリサイズする",o},
+        {n="初期値",t="値",d="追加される要素の初期値",o},
+    ],
+    rtype={desc="最大インデックス値 (配列サイズ-1)",types="数値"}
+)]
 pub fn resize(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let mut arr = args.get_as_array(0, None)?;
     let expr = args.get_expr(0);
@@ -184,6 +225,15 @@ pub fn resize(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncRe
     }
 }
 
+#[builtin_func_desc(
+    desc="配列の一部をコピー"
+    args=[
+        {n="コピー元",t="配列",d="コピー元配列"},
+        {n="開始",t="数値",d="開始位置、省略時は0",o},
+        {n="終了",t="数値",d="終了位置、省略時は配列末尾まで",o},
+    ],
+    rtype={desc="コピーされた配列",types="配列"}
+)]
 pub fn slice(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let mut base = args.get_as_array(0, None)?;
     let len = base.len() as i32;
@@ -202,6 +252,17 @@ pub fn slice(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(Object::Array(arr))
 }
 
+#[builtin_func_desc(
+    desc="文字列を区切り文字で分割して配列にする"
+    args=[
+        {n="文字列",t="文字列",d="分割する文字列"},
+        {n="区切り文字",t="文字列",d="デフォルトは半角スペース",o},
+        {n="空文字除外",t="真偽値",d="TRUEなら区切り文字間が空の場合に無視、デフォルトFALSE",o},
+        {n="数値変換",t="真偽値",d="TRUEなら文字列を数値変換する、デフォルトFALSE",o},
+        {n="CSV変換",t="真偽値",d="TRUEならCSVとして変換する、デフォルトFALSE",o},
+    ],
+    rtype={desc="分割された配列",types="配列"}
+)]
 pub fn split(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let str = args.get_as_string(0, None)?;
     let delimiter = args.get_as_string(1, Some(" ".to_string()))?;
@@ -271,6 +332,21 @@ pub enum CalcConst {
     CALC_AVR = 4,
 }
 
+#[builtin_func_desc(
+    desc="配列内の数値で計算を行う"
+    args=[
+        {n="配列",t="配列",d="数値配列"},
+        {n="計算方法",t="定数",d=r#"以下のいずれかを指定
+- CALC_ADD: 合計値を得る
+- CALC_MIN: 最小値を得る
+- CALC_MAX: 最大値を得る
+- CALC_AVR: 平均値を得る
+"#},
+        {n="開始",t="数値",d="開始位置",o},
+        {n="終了",t="数値",d="終了位置",o},
+    ],
+    rtype={desc="計算後の値",types="数値"}
+)]
 pub fn calcarray(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let mut base = args.get_as_array(0, None)?;
     let len = base.len() as i32;
@@ -313,6 +389,13 @@ pub fn calcarray(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult 
     }
 }
 
+#[builtin_func_desc(
+    desc="配列を指定値で埋める"
+    args=[
+        {n="配列",t="配列(参照渡し)",d="値を埋める配列"},
+        {n="値",t="値",d="各要素を埋める値、省略時はEMPTY",o},
+    ],
+)]
 pub fn setclear(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let mut arr = args.get_as_array(0, None)?;
     let expr = args.get_expr(0);
@@ -326,6 +409,13 @@ pub fn setclear(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFunc
     Ok(Object::Empty)
 }
 
+#[builtin_func_desc(
+    desc="配列要素をシフトさせる"
+    args=[
+        {n="配列",t="配列(参照渡し)",d="対象の配列"},
+        {n="シフト値",t="数値",d="正の値なら後方、負なら前方に各要素をずらす"},
+    ],
+)]
 pub fn shiftarray(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let mut arr = args.get_as_array(0, None)?;
     let expr = args.get_expr(0);

@@ -149,35 +149,35 @@ impl fmt::Display for Window {
 
 pub fn builtin_func_sets() -> BuiltinFunctionSets {
     let mut sets = BuiltinFunctionSets::new();
-    sets.add("getid", 4, getid);
-    sets.add("idtohnd", 1, idtohnd);
-    sets.add("hndtoid", 1, hndtoid);
-    sets.add("clkitem", 5, clkitem);
-    sets.add("ctrlwin", 2, ctrlwin);
-    sets.add("status", 22, status);
-    sets.add("acw", 6, acw);
-    sets.add("getallwin", 1, getallwin);
-    sets.add("getctlhnd", 3, getctlhnd);
-    sets.add("getitem", 6, getitem);
-    sets.add("posacc", 4, posacc);
-    sets.add("muscur", 0, muscur);
-    sets.add("peekcolor", 4, peekcolor);
-    sets.add("sckey", 36, sckey);
-    sets.add("setslider", 4, setslider);
-    sets.add("getslider", 3, getslider);
-    sets.add("chkbtn", 4, chkbtn);
-    sets.add("getstr", 4, getstr);
-    sets.add("sendstr", 5, sendstr);
-    sets.add("getslctlst", 3, getslctlst);
-    sets.add("monitor", 2, monitor);
-    sets.add("mouseorg", 4, mouseorg);
-    sets.add("chkmorg", 0, chkmorg);
+    sets.add("getid", getid, get_desc!(getid));
+    sets.add("idtohnd", idtohnd, get_desc!(idtohnd));
+    sets.add("hndtoid", hndtoid, get_desc!(hndtoid));
+    sets.add("clkitem", clkitem, get_desc!(clkitem));
+    sets.add("ctrlwin", ctrlwin, get_desc!(ctrlwin));
+    sets.add("status", status, get_desc!(status));
+    sets.add("acw", acw, get_desc!(acw));
+    sets.add("getallwin", getallwin, get_desc!(getallwin));
+    sets.add("getctlhnd", getctlhnd, get_desc!(getctlhnd));
+    sets.add("getitem", getitem, get_desc!(getitem));
+    sets.add("posacc", posacc, get_desc!(posacc));
+    sets.add("muscur", muscur, get_desc!(muscur));
+    sets.add("peekcolor", peekcolor, get_desc!(peekcolor));
+    sets.add("sckey", sckey, get_desc!(sckey));
+    sets.add("setslider", setslider, get_desc!(setslider));
+    sets.add("getslider", getslider, get_desc!(getslider));
+    sets.add("chkbtn", chkbtn, get_desc!(chkbtn));
+    sets.add("getstr", getstr, get_desc!(getstr));
+    sets.add("sendstr", sendstr, get_desc!(sendstr));
+    sets.add("getslctlst", getslctlst, get_desc!(getslctlst));
+    sets.add("monitor", monitor, get_desc!(monitor));
+    sets.add("mouseorg", mouseorg, get_desc!(mouseorg));
+    sets.add("chkmorg", chkmorg, get_desc!(chkmorg));
     #[cfg(feature="chkimg")]
-    sets.add("chkimg", 8, chkimg);
+    sets.add("chkimg", chkimg, get_desc!(chkimg));
     #[cfg(feature="chkimg")]
-    sets.add("saveimg", 11, saveimg);
+    sets.add("saveimg", saveimg, get_desc!(saveimg));
     #[cfg(feature="chkimg")]
-    sets.add("chkclr", 4, chkclr);
+    sets.add("chkclr", chkclr, get_desc!(chkclr));
     sets
 }
 
@@ -211,6 +211,27 @@ pub enum SpecialWindowId {
     GET_CONSOLE_WIN    // __GET_CONSOLE_WIN__
 }
 
+#[builtin_func_desc(
+    desc="ウィンドウのIDを得る",
+    rtype={desc="ウィンドウID、見つからない場合-1",types="数値"}
+    sets=[
+        [
+            {n="タイトル",t="文字列",d="ウィンドウタイトル (部分一致)"},
+            {o,n="クラス名",t="文字列",d="ウィンドウクラス名 (部分一致)"},
+            {o,n="待ち時間",t="数値",d="タイムアウト秒、-1で無限待ち"},
+        ],
+        [
+            {n="定数",t="定数",d=r#"以下のいずれかを指定
+- GET_ACTIVE_WIN: アクティブウィンドウ
+- GET_FROMPOINT_WIN: マウスカーソル下のウィンドウ
+- GET_FROMPOINT_OBJ: マウスカーソル下の子ウィンドウ
+- GET_LOGPRINT_WIN: Printウィンドウ
+- GET_BALLOON_WIN, GET_FUKIDASI_WIN: 吹き出し
+- GET_THISUWSC_WIN, GET_CONSOLE_WIN: UWSCRを実行しているコンソールウィンドウ
+            "#},
+        ],
+    ],
+)]
 pub fn getid(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let title = args.get_as_string(0, None)?;
     let hwnd = match title.as_str() {
@@ -367,6 +388,13 @@ fn get_hwnd_from_mouse_point(toplevel: bool) -> BuiltInResult<HWND> {
 }
 
 // IDTOHND
+#[builtin_func_desc(
+    desc="ウィンドウIDからHWNDを得る",
+    rtype={desc="ウィンドウのHWND、該当ウィンドウがなければ0",types="数値"}
+    args=[
+        {n="ウィンドウID",t="数値",d="対象ウィンドウ"},
+    ],
+)]
 pub fn idtohnd(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = args.get_as_int::<i32>(0, None)?;
     if id < 0 {
@@ -392,6 +420,13 @@ pub fn get_hwnd_from_id(id: i32) -> HWND {
 }
 
 // HNDTOID
+#[builtin_func_desc(
+    desc="HWNDからウィンドウIDを得る",
+    rtype={desc="ウィンドウID",types="数値"}
+    args=[
+        {n="HWND",t="数値",d="ウィンドウのHWND"},
+    ],
+)]
 pub fn hndtoid(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let h = args.get_as_int::<isize>(0, None)?;
     let hwnd = HWND(h);
@@ -425,6 +460,17 @@ pub fn get_id_from_hwnd(hwnd: HWND) -> f64 {
 }
 
 // ACW
+#[builtin_func_desc(
+    desc="ウィンドウの位置やサイズを変更",
+    args=[
+        {n="ウィンドウID",t="数値",d="対象ウィンドウ"},
+        {o,n="X",t="数値",d="移動先X座標、省略時は現在のX座標"},
+        {o,n="Y",t="数値",d="移動先Y座標、省略時は現在のY座標"},
+        {o,n="高さ",t="数値",d="ウィンドウ高さ、省略時は現在の高さを維持"},
+        {o,n="幅",t="数値",d="ウィンドウ幅、省略時は現在の幅を維持"},
+        {o,n="待機秒",t="数値",d="ウィンドウに変更を加えるまでの待機時間をミリ秒で指定"},
+    ],
+)]
 pub fn acw(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = args.get_as_int::<i32>(0, None)?;
     let hwnd = get_hwnd_from_id(id);
@@ -471,6 +517,40 @@ pub enum ClkConst {
     CLK_HWND      = 262144,
 }
 
+#[builtin_func_desc(
+    desc="ウィンドウのボタン等をクリック",
+    rtype={desc="クリックの成否、または対象のHWND",types="真偽値または数値"}
+    args=[
+        {n="ウィンドウID",t="数値",d="対象ウィンドウ"},
+        {n="アイテム名",t="文字列",d="クリック対象のタイトル"},
+        {o,n="CLK定数",t="文字列",d=r#"以下の定数の組み合わせ(OR連結)により指定
+- アイテム種別 (未指定時は全種別が対象となる)
+    - CLK_BTN: ボタン、チェックボックス、ラジオボタン
+    - CLK_LIST: リストボックス、コンボボックス
+    - CLK_MENU: メニュー
+    - CLK_TAB: タブ
+    - CLK_TREEVEW, CLK_TREEVIEW: ツリービュー
+    - CLK_LSTVEW, CLK_LISTVIEW: リストビュー、ヘッダ
+    - CLK_TOOLBAR: ツールバー
+    - CLK_LINK: リンク
+- クリック方式
+    - CLK_API: Win32 API (メッセージ送信)
+    - CLK_ACC: アクセシビリティコントロール
+    - CLK_UIA: UI Automation
+- マウスボタン指定 (未指定時は方式毎のデフォルトクリック動作)
+    - CLK_RIGHTCLK: 右クリック
+    - CLK_LEFTCLK: 左クリック
+    - CLK_DBLCLK: CLK_LEFTCLKと組み合わせてダブルクリック
+- オプション
+    - CLK_SHORT: アイテム名を部分一致とする
+    - CLK_BACK: バックグラウンド処理
+    - CLK_MUSMOVE, CLK_MOUSEMOVE: クリック位置にマウスカーソルを移動
+    - CLK_FROMLAST: CLK_ACC時に逆順サーチ
+    - CLK_HWND: クリック成功時にクリックしたコントロールのHWNDを返す"#},
+        {o,n="チェック状態",t="真偽値および2",d="TRUE: チェックオン、FALSE: チェックオフ: 2: グレー状態"},
+        {o,n="n番目",t="数値",d="同名アイテムが複数ある場合その順番"},
+    ],
+)]
 pub fn clkitem(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = args.get_as_int(0, None::<i32>)?;
     // let name = args.get_as_string(1, None)?;
@@ -511,6 +591,24 @@ pub enum CtrlWinCmd {
     TOPNOACTV = 11,
 }
 
+#[builtin_func_desc(
+    desc="ウィンドウに命令を送信",
+    args=[
+        {n="ウィンドウID",t="数値",d="対象ウィンドウ"},
+        {n="コマンド",t="定数",d=r#"命令を以下のいずれかから指定
+- CLOSE: ウィンドウを閉じる
+- CLOSE2: ウィンドウを強制的に閉じる
+- ACTIVATE: ウィンドウをアクティブにする
+- HIDE: ウィンドウを非表示にする
+- SHOW: ウィンドウの非表示を解除する
+- MIN: ウィンドウを最小化する
+- MAX: ウィンドウを最大化する
+- NORMAL: ウィンドウを通常サイズに戻す
+- TOPMOST: ウィンドウを最前面に固定する
+- NOTOPMOST: ウィンドウの最前面固定を解除
+- TOPNOACTV: ウィンドウを最前面に移動するがアクティブにはしない"#},
+    ],
+)]
 pub fn ctrlwin(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = args.get_as_int(0, None)?;
     let hwnd = get_hwnd_from_id(id);
@@ -891,6 +989,35 @@ fn get_all_status(hwnd: HWND) -> BuiltinFuncResult {
     Ok(Object::HashTbl(Arc::new(Mutex::new(stats))))
 }
 
+#[builtin_func_desc(
+    desc="ウィンドウの情報や状態を得る",
+    rtype={desc="状態による、複数指定時はST定数をキーとした連想配列",types="文字列/数値/真偽値または連想配列"}
+    args=[
+        {n="ウィンドウID",t="数値",d="対象ウィンドウ"},
+        {v=21,n="状態",t="定数",d=r#"以下から指定
+- ST_TITLE: ウィンドウタイトル (文字列)
+- ST_CLASS: ウィンドウクラス名 (文字列)
+- ST_X: ウィンドウ左上のX座標 (数値)
+- ST_Y: ウィンドウ左上のY座標 (数値)
+- ST_WIDTH: ウィンドウの幅 (数値)
+- ST_HEIGHT: ウィンドウの高さ (数値)
+- ST_CLX: ウィンドウのクライアント領域左上のX座標 (数値)
+- ST_CLY: ウィンドウのクライアント領域左上のY座標 (数値)
+- ST_CLWIDTH: ウィンドウのクライアント領域の幅 (数値)
+- ST_CLHEIGHT: ウィンドウのクライアント領域の高さ (数値)
+- ST_PARENT: 親ウィンドウのID (数値)
+- ST_ICON: 最小化してればTRUE (真偽値)
+- ST_MAXIMIZED: 最大化してればTRUE (真偽値)
+- ST_VISIBLE: ウィンドウが可視ならTRUE (真偽値)
+- ST_ACTIVE: ウィンドウがアクティブならTRUE (真偽値)
+- ST_BUSY: ウィンドウが応答なしならTRUE (真偽値)
+- ST_ISID: ウィンドウが有効ならTRUE (真偽値)
+- ST_WIN64: プロセスが64ビットかどうか (真偽値)
+- ST_PATH: プロセスの実行ファイルのパス (文字列)
+- ST_PROCESS: プロセスID (数値)
+- ST_MONITOR: ウィンドウが表示されているモニタ番号 (数値)
+- ST_ALL: 上記すべて"#},],
+)]
 pub fn status(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let hwnd = get_hwnd_from_id(
         args.get_as_int(0, None)?
@@ -947,6 +1074,27 @@ impl fmt::Display for MonitorEnum {
     }
 }
 
+#[builtin_func_desc(
+    desc="モニタ情報を得る",
+    rtype={desc="情報による",types="文字列/数値または連想配列"}
+    args=[
+        {n="モニタ番号",t="数値",d="モニタを示す番号 (0から)"},
+        {n="情報種別",t="定数",d=r#"以下のいずれかを指定
+- MON_X: モニタのX座標 (数値)
+- MON_Y: モニタのY座標 (数値)
+- MON_WIDTH: モニタの幅 (数値)
+- MON_HEIGHT: モニタの高さ (数値)
+- MON_PRIMARY, MON_ISMAIN: プライマリ(メイン)モニタかどうか (真偽値)
+- MON_NAME: モニタ名 (文字列)
+- MON_WORK_X: 作業エリアのX座標 (数値)
+- MON_WORK_Y: 作業エリアのY座標 (数値)
+- MON_WORK_WIDTH: 作業エリアの幅 (数値)
+- MON_WORK_HEIGHT: 作業エリアの高さ (数値)
+- MON_DPI: 画面のDPI (数値)
+- MON_SCALING: スケーリング倍率 (数値)
+- MON_ALL: 上記すべて (連想配列、キーはMON定数)"#},
+    ],
+)]
 pub fn monitor(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     if args.len() == 0 {
         let count = Monitor::get_count();
@@ -1023,6 +1171,23 @@ fn should_save_ss() -> bool {
 }
 
 #[cfg(feature="chkimg")]
+#[builtin_func_desc(
+    desc="スクリーン上の画像の位置を返す",
+    rtype={desc="画像位置情報 [X,Y,スコア] の配列",types="配列"}
+    args=[
+        {n="画像",t="文字列",d="画像ファイルのパス"},
+        {o,n="スコア",t="数値",d="一致率を0-100で指定、100なら完全一致 (デフォルト95)"},
+        {o,n="最大検索数",t="数値",d="指定した数の座標が見つかり次第探索を打ち切る、指定数に満たない場合全体を探索"},
+        {o,n="left",t="数値",d="探索範囲の左上X座標、省略時はスクリーンまたはウィンドウ左上X座標"},
+        {o,n="top",t="数値",d="探索範囲の左上Y座標、省略時はスクリーンまたはウィンドウ左上Y座標"},
+        {o,n="right",t="数値",d="探索範囲の右下X座標、省略時はスクリーンまたはウィンドウ右下X座標"},
+        {o,n="bottom",t="数値",d="探索範囲の右下Y座標、省略時はスクリーンまたはウィンドウ右下Y座標"},
+        {o,n="オプション",t="定数",d=r#"探索オプションを以下から指定、OR連結可
+- CHKIMG_NO_GRAY: 画像をグレースケール化せず探索を行う
+- CHKIMG_USE_WGCAPI: デスクトップまたはウィンドウの画像取得にGraphicsCaptureAPIを使う"#},
+        {o,n="モニタ番号",t="数値",d="CHKIMG_USE_WGCAPI指定時かつmouseorg未使用時に探索するモニタ番号を0から指定"},
+    ],
+)]
 pub fn chkimg(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let default_score = 95;
     let path = args.get_as_string(0, None)?;
@@ -1125,6 +1290,13 @@ fn callback_getallwin(hwnd: HWND, lparam: LPARAM) -> BOOL {
 #[derive(Debug)]
 struct HwndList(Vec<HWND>);
 
+#[builtin_func_desc(
+    desc="すべてのウィンドウ、またはウィンドウの子ウィンドウのIDを得る",
+    rtype={desc="ID配列",types="配列"}
+    args=[
+        {o,n="ウィンドウID",t="数値",d="子ウィンドウを得たいウィンドウ"},
+    ],
+)]
 pub fn getallwin(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let target = match args.get_as_int_or_empty::<i32>(0)? {
         Some(id) => match get_hwnd_from_id(id) {
@@ -1195,6 +1367,23 @@ fn callback_getctlhnd(hwnd: HWND, lparam: LPARAM) -> BOOL {
 
 struct CtlHnd{target: String, hwnd: HWND, order: u32}
 
+#[builtin_func_desc(
+    desc="子ウィンドウのHWNDまたはメニューハンドルを得る",
+    rtype={desc="ハンドル値",types="数値"}
+    sets=[
+        [
+            {n="ウィンドウID",t="数値",d="対象ウィンドウ"},
+            {n="アイテム名",t="文字列",d="子ウィンドウのタイトルまたはクラス名 (部分一致)"},
+            {o,n="n番目",t="数値",d="該当子ウィンドウが複数ある場合その順番"},
+        ],
+        [
+            {n="ウィンドウID",t="数値",d="対象ウィンドウ"},
+            {n="メニュー種別",t="定数",d=r#"ハンドルを得たいメニューを以下のいずれかで指定
+- GET_MENU_HND: メニューハンドル
+- GET_SYSMENU_HND: システムメニューハンドル"#},
+        ],
+    ],
+)]
 pub fn getctlhnd(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = args.get_as_int(0, None::<i32>)?;
     let parent = get_hwnd_from_id(id);
@@ -1253,6 +1442,34 @@ impl Into<u32> for GetItemConst {
     }
 }
 
+#[builtin_func_desc(
+    desc="該当アイテム名の一覧を得る",
+    rtype={desc="アイテム名一覧",types="配列"}
+    args=[
+        {n="ウィンドウID",t="数値",d="対象ウィンドウ"},
+        {n="種別",t="定数",d=r#"アイテム種別を以下から指定、OR連結可
+- ITM_BTN: ボタン、チェックボックス、ラジオボタン
+- ITM_LIST: リストボックス、コンボボックス
+- ITM_TAB: タブコントロール
+- ITM_MENU: メニュー
+- ITM_TREEVIEW (ITM_TREEVEW): ツリービュー
+- ITM_LISTVIEW (ITM_LSTVEW): リストビュー
+- ITM_EDIT: エディットボックス
+- ITM_STATIC: スタティックコントロール
+- ITM_STATUSBAR: ステータスバー
+- ITM_TOOLBAR: ツールバー
+- ITM_LINK: リンク
+- ITM_ACCCLK: ACCによりクリック可能なもの
+- ITM_ACCCLK2: ACCによりクリック可能なものおよび選択可能テキスト
+- ITM_ACCTXT: ACCスタティックテキスト
+- ITM_ACCEDIT: ACCエディット可能テキスト
+- ITM_FROMLAST: ACCで検索順序を逆にする (最後のアイテムから取得)"#},
+        {o,n="n番目",t="数値",d="リスト、リストビュー、ツリービューが複数ある場合その順番、-1ならすべて取得"},
+        {o,n="列",t="数値",d="取得するリストビューの列を指定、0なら全て、-1ならカラム名"},
+        {o,n="無効無視",t="真偽値",d="TRUEならディセーブル状態のコントロールは取得しない"},
+        {o,n="ACC最大数",t="数値",d="ACC系で取得数の上限を指定、0なら全て、-nなら逆順でn個取得"},
+    ],
+)]
 pub fn getitem(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = args.get_as_int(0, None)?;
     let hwnd = get_hwnd_from_id(id);
@@ -1286,6 +1503,26 @@ pub enum AccConst {
     ACC_BACK        = 512,
 }
 
+#[builtin_func_desc(
+    desc="指定座標のアクセシビリティオブジェクトから情報を得る",
+    rtype={desc="種別による",types="文字列または配列"}
+    args=[
+        {n="ウィンドウID",t="数値",d="対象ウィンドウ"},
+        {n="CX",t="数値",d="クライアントX座標"},
+        {n="CY",t="数値",d="クライアントY座標"},
+        {o,n="種別",t="定数",d=r#"以下のいずれかを選択、ACC_BACKをOR連結することで対象をアクティブにしない
+- 0: ACC_ACC を実行し、取得できなければ ACC_API を実行 (デフォルト)
+- ACC_ACC: 表示文字列の取得 (文字列)
+- ACC_API: DrawText, TextOut等のAPIで描画されたテキストを取得 (未実装)
+- ACC_NAME: オブジェクトの表示名 (文字列)
+- ACC_VALUE: エディットボックス等の値 (文字列)
+- ACC_ROLE: オブジェクトの役割名 (文字列)
+- ACC_STATE: オブジェクトの状態 (配列)
+- ACC_DESCRIPTION: オブジェクトの説明 (文字列)
+- ACC_LOCATION: オブジェクトの位置情報 ([x, y, 幅, 高さ])
+        "#},
+    ],
+)]
 pub fn posacc(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = args.get_as_int(0, None::<i32>)?;
     let hwnd = get_hwnd_from_id(id);
@@ -1367,6 +1604,25 @@ pub enum CurConst {
     CUR_WAIT        = 16,
 }
 
+#[builtin_func_desc(
+    desc="マウスカーソル種別を得る",
+    rtype={desc=r#"以下のいずれかを返す
+- CUR_APPSTARTING (1): 砂時計付き矢印
+- CUR_ARROW (2): 標準矢印
+- CUR_CROSS (3): 十字
+- CUR_HAND (4): ハンド
+- CUR_HELP (5): クエスチョンマーク付き矢印
+- CUR_IBEAM (6): アイビーム (テキスト上のカーソル)
+- CUR_NO (8): 禁止
+- CUR_SIZEALL (10): ４方向矢印
+- CUR_SIZENESW (11): 斜め左下がりの両方向矢印
+- CUR_SIZENS (12): 上下両方向矢印
+- CUR_SIZENWSE (13): 斜め右下がりの両方向矢印
+- CUR_SIZEWE (14): 左右両方向矢印
+- CUR_UPARROW (15): 垂直の矢印
+- CUR_WAIT (16): 砂時計
+- 0: 上記以外"#,types="定数"}
+)]
 pub fn muscur(_: &mut Evaluator, _: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = unsafe {
         let mut pci = CURSORINFO::default();
@@ -1406,6 +1662,21 @@ pub enum ColConst {
     COL_B   = 6,
 }
 
+#[builtin_func_desc(
+    desc="指定座標の色を返す",
+    rtype={desc="色を示す数値、失敗時-1",types="数値"}
+    args=[
+        {n="X",t="数値",d="X座標"},
+        {n="Y",t="数値",d="Y座標"},
+        {o,n="取得値",t="定数",d=r#"戻り値を指定
+- COL_BGR: BGR値
+- COL_RGB: RGB値
+- COL_R: R値
+- COL_G: G値
+- COL_B: B値"#},
+        {o,n="クリップボード",t="真偽値",d="TRUEなら画面ではなくクリップボード画像から取得"},
+    ],
+)]
 pub fn peekcolor(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let x = args.get_as_int(0, None::<i32>)?;
     let y = args.get_as_int(1, None::<i32>)?;
@@ -1464,6 +1735,13 @@ pub fn peekcolor(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFun
     }
 }
 
+#[builtin_func_desc(
+    desc="ウィンドウにショートカットキーを送信",
+    args=[
+        {n="ウィンドウID",t="数値",d="対象ウィンドウ"},
+        {v=35,n="キー1-35",t="定数",d="VK定数、指定順に入力"},
+    ],
+)]
 pub fn sckey(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = args.get_as_int(0, None::<i32>)?;
     let hwnd = get_hwnd_from_id(id);
@@ -1505,6 +1783,16 @@ impl Slider {
     }
 }
 
+#[builtin_func_desc(
+    desc="スライダーを動かす",
+    rtype={desc="成功時TRUE",types="真偽値"}
+    args=[
+        {n="ウィンドウID",t="数値",d="対象ウィンドウ"},
+        {n="スライダー位置",t="数値",d="スライダーの移動先"},
+        {o,n="n番目",t="数値",d="スライダーが複数存在する場合その順番"},
+        {o,n="スクロール",t="真偽値",d="TRUEならスクロールバーを徐々に動かす"},
+    ],
+)]
 pub fn setslider(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = args.get_as_int(0, None)?;
     let hwnd = get_hwnd_from_id(id);
@@ -1532,6 +1820,23 @@ pub enum SldConst {
     SLD_X    = 5,
     SLD_Y    = 6,
 }
+
+#[builtin_func_desc(
+    desc="スライダーの値を得る",
+    rtype={desc="スライダー値、なければERR_VALUE",types="数値"}
+    args=[
+        {n="ウィンドウID",t="数値",d="対象ウィンドウ"},
+        {o,n="n番目",t="数値",d="スライダーが複数ある場合その順番"},
+        {o,n="種別",t="数値",d=r#"以下のいずれかを指定
+- SLD_POS: 現在値
+- SLD_MIN: 最小値
+- SLD_MAX: 最大値
+- SLD_PAGE: 1ページ移動量
+- SLD_BAR: 表示方向 (横なら0、縦なら1)
+- SLD_X: クライアントX座標
+- SLD_Y: クライアントY座標"#},
+    ],
+)]
 pub fn getslider(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = args.get_as_int(0, None)?;
     let hwnd = get_hwnd_from_id(id);
@@ -1547,6 +1852,22 @@ pub fn getslider(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult 
     }
 }
 
+#[builtin_func_desc(
+    desc="チェックボックスやラジオボタンの状態を得る",
+    rtype={desc=r#"状態を示す値
+
+-- 1: 存在しないか無効
+- 0: チェックされていない
+- 1: チェックされている
+- 2: チェックボックスがグレー状態
+- FALSE: ウィンドウが存在しない"#,types="数値またはFALSE"}
+    args=[
+        {n="ウィンドウID",t="数値",d="対象ウィンドウ"},
+        {n="アイテム名",t="文字列",d="ボタン名 (部分一致)"},
+        {o,n="n番目",t="数値",d="該当ボタンが複数ある場合その順番"},
+        {o,n="ACC",t="真偽値",d="TRUE: ACCを使用, FALSE: APIまたはUIAを使用"},
+    ],
+)]
 pub fn chkbtn(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = args.get_as_int(0, None)?;
     let name = args.get_as_string(1, None)?;
@@ -1584,6 +1905,22 @@ pub enum GetStrConst {
     STR_UIA        = 6,
 }
 
+#[builtin_func_desc(
+    desc="ウィンドウから文字列を得る",
+    rtype={desc="取得文字列",types="文字列"}
+    args=[
+        {n="ウィンドウID",t="数値",d="対象ウィンドウ、0ならクリップボード文字列を得る"},
+        {o,n="n番目",t="数値",d="該当コントロールが複数ある場合その順番"},
+        {o,n="コントロール種別",t="定数",d=r#"取得対象コントロールを以下のいずれかで指定
+- STR_EDIT: エディットコントロール
+- STR_STATIC: スタティックコントロール
+- STR_STATUS: ステータスバー
+- STR_ACC_EDIT: 文字入力欄 (ACC使用)
+- STR_ACC_STATIC: 入力欄以外のテキスト (ACC使用)
+- STR_ACC_CELL: DataGridView内のセルの値 (ACC使用)"#},
+        {o,n="マウス移動",t="真偽値",d="TRUEなら該当コントロール位置にマウスカーソルを移動"},
+    ],
+)]
 pub fn getstr(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = args.get_as_int(0, None)?;
     let nth = args.get_as_nth(1)?;
@@ -1634,6 +1971,21 @@ impl From<i32> for SendStrMode {
     }
 }
 
+#[builtin_func_desc(
+    desc="エディットボックスまたはクリップボードに文字列を送信する",
+    args=[
+        {n="ウィンドウID",t="数値",d="対象ウィンドウ、0ならクリップボードに送る"},
+        {n="送信文字列",t="文字列",d="送る文字列"},
+        {o,n="n番目",t="数値",d="エディットボックスが複数存在する場合その順番"},
+        {o,n="送信モード",t="真偽値または数値",d="FALSE: 追記, TRUE: 置換, 2: 一文字ずつ送信 (ACC時使用不可)"},
+        {o,n="ACC設定",t="真偽値または定数",d=r#"以下のいずれかを指定
+- FALSE: APIまたはUIAで送信
+- TRUE: ACCで送信
+- STR_ACC_CELL: DataGridView内のCellに送信
+- STR_UIA: UIAで送信、送信モードは無視され常に置換される
+"#},
+    ],
+)]
 pub fn sendstr(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = args.get_as_int(0, None)?;
     let str = args.get_as_string(1, None)?;
@@ -1661,6 +2013,15 @@ pub fn sendstr(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(Object::Empty)
 }
 
+#[builtin_func_desc(
+    desc="コンボボックス、リストボックス、ツリービュー、リストビューから選択項目の値を得る",
+    rtype={desc="項目の値、複数選択なら配列",types="文字列または配列"}
+    args=[
+        {n="ウィンドウID",t="数値",d="対象ウィンドウ"},
+        {o,n="n番目",t="数値",d="該当コントロールが複数ある場合はその順番"},
+        {o,n="列",t="数値",d="リストビューの場合取得する列の番号を指定"},
+    ],
+)]
 pub fn getslctlst(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = args.get_as_int(0, None)?;
     let nth = args.get_as_nth(1)?;
@@ -1689,6 +2050,28 @@ pub enum ImgConst {
     IMG_BACK = 2,
 }
 #[cfg(feature="chkimg")]
+#[builtin_func_desc(
+    desc="ウィンドウ画像を保存",
+    args=[
+        {o,n="ファイル名",t="文字列",d="保存先ファイルのパス、省略時はクリップボードにコピー"},
+        {o,n="ウィンドウID",t="数値",d="対象ウィンドウ、0ならスクリーン全体"},
+        {o,n="X",t="数値",d="取得範囲の起点となるX座標、省略時はウィンドウまたはスクリーンの左上X座標"},
+        {o,n="Y",t="数値",d="取得範囲の起点となるY座標、省略時はウィンドウまたはスクリーンの左上Y座標"},
+        {o,n="幅",t="数値",d="取得範囲の幅、省略時はウィンドウまたはスクリーンの幅"},
+        {o,n="高さ",t="数値",d="取得範囲の高さ、省略時はウィンドウまたはスクリーンの高さ"},
+        {o,n="クライアント領域",t="真偽値",d="TRUEならウィンドウ全体ではなくクライアント領域のみを得る"},
+        {o,n="オプション",t="数値",d=r#"画像形式により以下を指定
+- jpg: 画質を0-100で指定、デフォルト95
+- png: 圧縮度合いを0-9で指定、デフォルトは1
+- bmp: この値は無視される"#},
+        {o,n="取得方法",t="定数",d=r#"画面取得方法を以下から指定
+- IMG_FORE: スクリーン全体から対象ウィンドウの座標を元に画像を切り出す
+- IMG_BACK: 対象ウィンドウの画像を直接取得、バックグラウンド可
+- IMG_AUTO: ウィンドウが完全に見えているならIMG_FORE、隠れているならIMG_BACKで取得 (デフォルト)"#},
+        {o,n="WGCAPI",t="真偽値",d="TRUEならGraphicsCaptureAPIでキャプチャする"},
+        {o,n="モニタ番号",t="真偽値",d="WGCAPI利用かつスクリーンを取得する場合にモニタ番号を0から指定"},
+    ],
+)]
 pub fn saveimg(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let filename = args.get_as_string_or_empty(0)?;
     let id = args.get_as_int(1, Some(0))?;
@@ -1842,6 +2225,25 @@ impl MorgImg {
     }
 }
 
+#[builtin_func_desc(
+    desc="特定関数のおける起点座標を指定ウィンドウ基準とする",
+    rtype={desc="成功時TRUE",types="真偽値"}
+    args=[
+        {n="ID",t="数値",d="対象ウィンドウのウィンドウIDまたはHWND"},
+        {o,n="起点",t="定数",d=r#"起点座標を以下のいずれから指定
+- MORG_WINDOW: 対象ウィンドウのウィンドウ領域左上を起点とする (デフォルト)
+- MORG_CLIENT: 対象ウィンドウのクライアント領域左上を起点とする
+- MORG_DIRECT: 対象ウィンドウのクライアント領域左上を起点とし、入力を直接送信する"#},
+        {o,n="取得方法",t="定数",d=r#"ウィンドウ画像の取得方法を指定
+- MORG_WINDOW: 対象ウィンドウのウィンドウ領域左上を起点とする (デフォルト)
+- MORG_CLIENT: 対象ウィンドウのクライアント領域左上を起点とする
+- MORG_DIRECT: 対象ウィンドウのクライアント領域左上を起点とし入力を直接送信する、HWND指定に対応"#},
+        {o,n="HWNDフラグ",t="真偽値",d=r#"IDの扱いを指定
+- FALSE: 入力値をウィンドウIDとして扱うが、対象ウィンドウが存在しない場合かつMORG_DIRECTであればHWNDとして扱う
+- TRUE: MORG_DIRECTであれば入力値をHWNDとして扱う
+"#},
+    ],
+)]
 pub fn mouseorg(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = args.get_as_int(0, None)?;
     let target = args.get_as_const::<MorgTargetConst>(1, false)?.unwrap_or_default();
@@ -1879,6 +2281,10 @@ pub fn mouseorg(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFunc
     }
 }
 
+#[builtin_func_desc(
+    desc="mousemorg時の起点座標を得る",
+    rtype={desc="起点座標を[x, y]で得る、mouseorg未実行ならEMPTY",types="配列"}
+)]
 pub fn chkmorg(evaluator: &mut Evaluator, _: BuiltinFuncArgs) -> BuiltinFuncResult {
     match window_low::get_morg_point(&evaluator.mouseorg) {
         Some((x, y)) => {
@@ -1896,6 +2302,16 @@ fn obj_vec_to_u8_slice(arr: Vec<Object>) -> [u8; 3] {
 }
 
 #[cfg(feature="chkimg")]
+#[builtin_func_desc(
+    desc="指定色の座標を得る",
+    rtype={desc="座標と色の情報 `[X, Y, [B, G, R]]` の配列",types="配列"}
+    args=[
+        {n="探索色",t="数値または配列",d="BGR値、または [B,G,R]"},
+        {o,n="閾値",t="数値または配列",d="BGRそれぞれに対する閾値、または [B,G,R] で個別指定"},
+        {o,n="範囲",t="配列",d="[左上X,左上Y,右下X,右下Y] で指定、省略時はモニタまたはウィンドウ全体"},
+        {o,n="モニタ番号",t="数値",d="mouseorg未使用時に探索対象となるモニタを指定(0から)"},
+    ],
+)]
 pub fn chkclr(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 
     let threshold = args.get_as_int_or_array_or_empty(1)?.map(|two| {

@@ -26,40 +26,47 @@ use windows::{
 
 pub fn builtin_func_sets() -> BuiltinFunctionSets {
     let mut sets = BuiltinFunctionSets::new();
-    sets.add("copy", 5, copy);
-    sets.add("length", 2, length);
-    sets.add("lengthb", 1, lengthb);
-    sets.add("lengthu", 1, lengthu);
-    sets.add("lengths", 1, lengths);
-    sets.add("lengthw", 1, lengthw);
-    sets.add("as_string", 1, as_string);
-    sets.add("newre", 4, newre);
-    sets.add("regex", 3, regex);
-    sets.add("testre", 2, testre);
-    sets.add("match", 2, regexmatch);
-    sets.add("replace", 4, replace);
-    sets.add("chgmoj", 4, replace);
-    sets.add("tojson", 2, tojson);
-    sets.add("fromjson", 1, fromjson);
-    sets.add("copy", 3, copy);
-    sets.add("pos", 3, pos);
-    sets.add("betweenstr", 5, betweenstr);
-    sets.add("chknum", 1, chknum);
-    sets.add("val", 2, val);
-    sets.add("trim", 2, trim);
-    sets.add("chr", 1, chr);
-    sets.add("asc", 1, asc);
-    sets.add("chrb", 1, chrb);
-    sets.add("ascb", 1, ascb);
-    sets.add("isunicode", 1, isunicode);
-    sets.add("strconv", 2, strconv);
-    sets.add("format", 4, format);
-    sets.add("token", 4, token);
-    sets.add("encode", 2, encode);
-    sets.add("decode", 2, decode);
+    sets.add("copy", copy, get_desc!(copy));
+    sets.add("length", length, get_desc!(length));
+    sets.add("lengthb", lengthb, get_desc!(lengthb));
+    sets.add("lengthu", lengthu, get_desc!(lengthu));
+    sets.add("lengths", lengths, get_desc!(lengths));
+    sets.add("lengthw", lengthw, get_desc!(lengthw));
+    sets.add("as_string", as_string, get_desc!(as_string));
+    sets.add("newre", newre, get_desc!(newre));
+    sets.add("regex", regex, get_desc!(regex));
+    sets.add("testre", testre, get_desc!(testre));
+    sets.add("match", regexmatch, get_desc!(regexmatch));
+    sets.add("replace", replace, get_desc!(replace));
+    sets.add("chgmoj", replace, get_desc!(replace));
+    sets.add("tojson", tojson, get_desc!(tojson));
+    sets.add("fromjson", fromjson, get_desc!(fromjson));
+    sets.add("copy", copy, get_desc!(copy));
+    sets.add("pos", pos, get_desc!(pos));
+    sets.add("betweenstr", betweenstr, get_desc!(betweenstr));
+    sets.add("chknum", chknum, get_desc!(chknum));
+    sets.add("val", val, get_desc!(val));
+    sets.add("trim", trim, get_desc!(trim));
+    sets.add("chr", chr, get_desc!(chr));
+    sets.add("asc", asc, get_desc!(asc));
+    sets.add("chrb", chrb, get_desc!(chrb));
+    sets.add("ascb", ascb, get_desc!(ascb));
+    sets.add("isunicode", isunicode, get_desc!(isunicode));
+    sets.add("strconv", strconv, get_desc!(strconv));
+    sets.add("format", format, get_desc!(format));
+    sets.add("token", token, get_desc!(token));
+    sets.add("encode", encode, get_desc!(encode));
+    sets.add("decode", decode, get_desc!(decode));
     sets
 }
 
+#[builtin_func_desc(
+    desc="文字列等の長さを得る",
+    rtype={desc="長さ",types="数値"}
+    args=[
+        {n="値",t="文字列/配列/連想配列/構造体/RemoteObject/バイト配列",d="長さを得たい値"},
+    ],
+)]
 pub fn length(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let len = match args.get_as_object(0, None)? {
         Object::String(s) => s.chars().count(),
@@ -81,6 +88,13 @@ pub fn length(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(Object::Num(len as f64))
 }
 
+#[builtin_func_desc(
+    desc="文字列のANSIバイト数を得る",
+    rtype={desc="ANSIバイト数",types="数値"}
+    args=[
+        {n="文字列",t="文字列",d="長さを得たい文字列"},
+    ],
+)]
 pub fn lengthb(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let len = match args.get_as_object(0, None)? {
         Object::String(s) => get_ansi_length(&s),
@@ -93,6 +107,13 @@ pub fn lengthb(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(Object::Num(len as f64))
 }
 
+#[builtin_func_desc(
+    desc="文字列のUTF8バイト数を得る",
+    rtype={desc="UTF8バイト数",types="数値"}
+    args=[
+        {n="文字列",t="文字列",d="長さを得たい文字列"},
+    ],
+)]
 pub fn lengthu(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let len = match args.get_as_object(0, None)? {
         Object::String(s) => s.as_bytes().len(),
@@ -105,6 +126,13 @@ pub fn lengthu(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(Object::Num(len as f64))
 }
 
+#[builtin_func_desc(
+    desc="サロゲートペアを二文字分としてカウントする",
+    rtype={desc="文字数",types="数値"}
+    args=[
+        {n="文字列",t="文字列",d="長さを得たい文字列"},
+    ],
+)]
 pub fn lengths(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let str = args.get_as_string(0, None)?;
     let length = str.chars()
@@ -114,12 +142,26 @@ pub fn lengths(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(Object::Num(length as f64))
 }
 
+#[builtin_func_desc(
+    desc="NULL終端Unicode文字列としての長さを得る",
+    rtype={desc="配列長",types="数値"}
+    args=[
+        {n="文字列",t="文字列",d="長さを得たい文字列"},
+    ],
+)]
 pub fn lengthw(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let str = args.get_as_string(0, None)?;
     let len = to_wide_string(&str).len();
     Ok(len.into())
 }
 
+#[builtin_func_desc(
+    desc="値を文字列にする",
+    rtype={desc="文字列",types="文字列"}
+    args=[
+        {n="値",t="値",d="文字列にしたい値"},
+    ],
+)]
 pub fn as_string(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(Object::String(format!("{}", args.get_as_object(0, None)?)))
 }
@@ -133,6 +175,16 @@ pub enum RegexEnum {
     REGEX_MATCH = 1,
 }
 
+#[builtin_func_desc(
+    desc="正規表現オブジェクトを返す",
+    rtype={desc="正規表現オブジェクト",types="正規表現オブジェクト"}
+    args=[
+        {n="正規表現",t="文字列",d="正規表現パターンを示す文字列"},
+        {o,n="大小文字",t="真偽値",d="TRUEなら大文字小文字を区別する"},
+        {o,n="複数行",t="真偽値",d="TRUEなら複数行が対象となり `^` が行頭 `$` が行末にマッチ"},
+        {o,n="改行",t="真偽値",d="TRUEなら `.` が改行(`\\n`)にマッチするようになる"},
+    ],
+)]
 pub fn newre(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let mut pattern = args.get_as_string(0, None)?;
     let mut opt = String::new();
@@ -195,12 +247,32 @@ fn replace_regex(target: String, pattern: String, replace_to: String) -> Builtin
     }
 }
 
+#[builtin_func_desc(
+    desc="正規表現をテストする",
+    rtype={desc="正規表現がマッチすればTRUE",types="真偽値"}
+    args=[
+        {n="元文字",t="文字列",d="対象文字列"},
+        {n="正規表現",t="文字列または正規表現",d="正規表現文字列またはオブジェクト"},
+    ],
+)]
 pub fn testre(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let target = args.get_as_string(0, None)?;
     let pattern = args.get_as_string(1, None)?;
     test_regex(target, pattern)
 }
 
+#[builtin_func_desc(
+    desc="正規表現による文字列操作",
+    rtype={desc="操作方法による",types="文字列/配列/真偽値"}
+    args=[
+        {n="元文字",t="文字列",d="対象文字列"},
+        {n="正規表現",t="文字列または正規表現",d="正規表現パターンを示す文字列またはオブジェクト"},
+        {o,n="操作方法",t="定数または文字列",d=r#"以下のいずれかを指定
+        - REGEX_TEST: 元文字に正規表現がマッチするかを真偽値で返す
+        - REGEX_MATCH: 正規表現にマッチした文字列の配列を返す
+        - 文字列: 正規表現にマッチした文字列を置換する文字列"#},
+    ],
+)]
 pub fn regex(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let target = args.get_as_string(0, None)?;
     let pattern = args.get_as_string(1, None)?;
@@ -218,12 +290,30 @@ pub fn regex(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     }
 }
 
+#[builtin_func_desc(
+    desc="正規表現にマッチした文字列を列挙",
+    rtype={desc="マッチ文字の配列",types="配列"}
+    args=[
+        {n="元文字列",t="文字列",d="対象文字列"},
+        {n="正規表現",t="文字列または正規表現",d="正規表現文字列またはオブジェクト"},
+    ],
+)]
 pub fn regexmatch(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let target = args.get_as_string(0, None)?;
     let pattern = args.get_as_string(1, None)?;
     match_regex(target, pattern)
 }
 
+#[builtin_func_desc(
+    desc="文字列を置換する",
+    rtype={desc="置換された文字列",types="文字列"}
+    args=[
+        {n="元文字",t="文字列",d="対象文字列"},
+        {n="置換対象",t="文字列または正規表現",d="元文字内の置換される文字"},
+        {n="置換後",t="文字列",d="置換対象文字列を置き換える文字列"},
+        {o,n="正規表現モード",t="真偽値",d="TRUEなら置換対象を正規表現として扱う"},
+    ],
+)]
 pub fn replace(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let target = args.get_as_string(0, None)?;
     let (pattern, is_regex) = match args.get_as_object(1, None)? {
@@ -248,6 +338,14 @@ pub fn replace(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     }
 }
 
+#[builtin_func_desc(
+    desc="UObjectをjson文字列にする",
+    rtype={desc="json文字列",types="文字列"}
+    args=[
+        {n="UObject",t="UObject",d="jsonに変換するUObject"},
+        {o,n="整形",t="真偽値",d="TRUEならjsonに改行等を含めて見やすくする"},
+    ],
+)]
 pub fn tojson(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let prettify = args.get_as_bool(1, Some(false))?;
     let to_string = if prettify {serde_json::to_string_pretty} else {serde_json::to_string};
@@ -259,6 +357,13 @@ pub fn tojson(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     )
 }
 
+#[builtin_func_desc(
+    desc="json文字列をUObjectにする",
+    rtype={desc="成功時UObject、失敗時はEMPTY",types="UObject"}
+    args=[
+        {n="json文字列",t="文字列",d="UObjectに変換するjson文字列"},
+    ],
+)]
 pub fn fromjson(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let json = args.get_as_string(0, None)?;
     serde_json::from_str::<serde_json::Value>(json.as_str()).map_or_else(
@@ -267,6 +372,15 @@ pub fn fromjson(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     )
 }
 
+#[builtin_func_desc(
+    desc="文字列をコピー",
+    rtype={desc="コピーした文字列",types="文字列"}
+    args=[
+        {n="元文字",t="文字列",d="コピー元"},
+        {n="開始",t="数値",d="コピー開始位置"},
+        {o,n="長さ",t="数値",d="開始位置からコピーする文字数"},
+    ],
+)]
 pub fn copy(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let str = args.get_as_string(0, None)?;
     let start = args.get_as_int(1, None::<usize>)?;
@@ -343,6 +457,15 @@ fn next_pos(str: &str, mut p: usize) -> usize {
     }
 }
 
+#[builtin_func_desc(
+    desc="文字の位置を返す",
+    rtype={desc="見つかった位置、なければ0",types="数値"}
+    args=[
+        {n="探す文字",t="文字列",d="位置を得たい文字列"},
+        {n="元文字",t="文字列",d="検索対象"},
+        {o,n="n番目",t="数値",d="探す文字が複数ある場合その順番"},
+    ],
+)]
 pub fn pos(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let substr = args.get_as_string(0, None)?;
     let str = args.get_as_string(1, None)?;
@@ -491,6 +614,17 @@ fn find_nth_between(target: &str, from: &str, to: &str, nth: i32, flag: bool) ->
     Some(between)
 }
 
+#[builtin_func_desc(
+    desc="指定した文字の間の文字列を得る",
+    rtype={desc="該当する文字列",types="文字列または配列"}
+    args=[
+        {n="元文字",t="文字列",d="コピー元文字列"},
+        {o,n="前文字",t="文字列",d="得たい文字の前に来る文字、省略時は先頭から"},
+        {o,n="後文字",t="文字列",d="得たい文字の後に来る文字、省略時は末尾まで"},
+        {o,n="n番目",t="数値",d="該当する文字が複数ある場合その順番、マイナスなら後ろから、前後文字指定時に0で該当文字列すべてを配列で返す"},
+        {o,n="数え方",t="真偽値",d="FALSEなら前後文字をペアとしてその順番、TRUEならn番目の前(後)文字の対の間を得る"},
+    ],
+)]
 pub fn betweenstr(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let str = args.get_as_string(0, None)?;
     let from = args.get_as_string_or_empty(1)?
@@ -520,6 +654,13 @@ pub fn betweenstr(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult
     Ok(between.unwrap_or_default().into())
 }
 
+#[builtin_func_desc(
+    desc="数値変換可能かどうかを調べる",
+    rtype={desc="TRUEなら数値変換可能",types="真偽値"}
+    args=[
+        {n="値",t="値",d="対象の値"},
+    ],
+)]
 pub fn chknum(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let result = args.get_as_int(0, None::<i32>).is_ok();
     Ok(Object::Bool(result))
@@ -531,6 +672,14 @@ pub enum ErrConst {
     ERR_VALUE = -999999,
 }
 
+#[builtin_func_desc(
+    desc="文字列を数値に変換",
+    rtype={desc="変換された数値、失敗時はエラー値",types="数値"}
+    args=[
+        {n="数値文字列",t="文字列",d="数値に変換する文字列"},
+        {o,n="エラー値",t="数値",d="数値変換できない場合に返す値、デフォルトはERR_VALUE"},
+    ],
+)]
 pub fn val(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let result = args.get_as_num(0, None::<f64>);
     let err = args.get_as_num(1, Some(ErrConst::ERR_VALUE as i32 as f64))?;
@@ -538,6 +687,20 @@ pub fn val(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(val.into())
 }
 
+#[builtin_func_desc(
+    desc="文字列の両端からホワイトスペースや制御文字、または指定した文字を除去する",
+    rtype={desc="トリムされた文字列",types="文字列"}
+    sets=[
+        [
+            {n="元文字列",t="文字列",d="両端のホワイトスペース及び制御文字を除去したい文字列"},
+            {n="全角空白",t="真偽値",d="TRUEなら全角スペースも除去する"},
+        ],
+        [
+            {n="元文字列",t="文字列",d="トリムされる文字列"},
+            {n="除去文字",t="文字列",d="指定した文字が連続する限りそれを除去する、文字列の場合各文字のいずれかが連続すれば除去される"},
+        ],
+    ],
+)]
 pub fn trim(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let target = args.get_as_string(0, None)?;
     let trim_option = args.get_as_string_or_bool(1, Some(TwoTypeArg::U(false)))?;
@@ -556,6 +719,13 @@ pub fn trim(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(trimed.into())
 }
 
+#[builtin_func_desc(
+    desc="Unicodeコードポイントから文字を得る",
+    rtype={desc="該当する文字、なければ空文字",types="文字列"}
+    args=[
+        {n="コードポイント",t="数値",d="Unicodeコードポイント"},
+    ],
+)]
 pub fn chr(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let code = args.get_as_int(0, None::<u32>)?;
     let char = match char::from_u32(code) {
@@ -564,6 +734,13 @@ pub fn chr(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     };
     Ok(char.into())
 }
+#[builtin_func_desc(
+    desc="文字からUnicodeコードポイントを得る",
+    rtype={desc="該当するUnicodeコードポイント、なければ0",types="数値"}
+    args=[
+        {n="文字",t="文字列",d="コードポイントを得たい文字、文字列の場合先頭の文字のみ"},
+    ],
+)]
 pub fn asc(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let str = args.get_as_string(0, None)?;
     let code = match str.chars().next() {
@@ -575,6 +752,13 @@ pub fn asc(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(Object::Num(code as f64))
 }
 
+#[builtin_func_desc(
+    desc="バイトコードからASCII文字を得る",
+    rtype={desc="該当するASCII文字、なければ空文字",types="文字列"}
+    args=[
+        {n="バイトコード",t="数値",d="0-255で指定"},
+    ],
+)]
 pub fn chrb(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let code = match args.get_as_int(0, None::<u8>) {
         Ok(n) => n,
@@ -587,6 +771,13 @@ pub fn chrb(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let ansi = from_ansi_bytes(&[code]);
     Ok(ansi.into())
 }
+#[builtin_func_desc(
+    desc="ASCII文字からバイトコードを得る",
+    rtype={desc="該当するASCIIバイトコード、なければ0",types="数値"}
+    args=[
+        {n="文字",t="文字列",d="バイトコードを得たいASCII文字、文字列の場合先頭の文字のみ"},
+    ],
+)]
 pub fn ascb(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let str = args.get_as_string(0, None)?;
     let bytes = to_ansi_bytes(&str);
@@ -594,6 +785,13 @@ pub fn ascb(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(Object::Num(*code as f64))
 }
 
+#[builtin_func_desc(
+    desc="文字列にUnicode専用(ANSIにない)文字が含まれるかどうかを調べる",
+    rtype={desc="専用文字が含まれていればTRUE",types="真偽値"}
+    args=[
+        {n="元文字列",t="文字列",d="対象文字列"},
+    ],
+)]
 pub fn isunicode(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let str = args.get_as_string(0, None)?;
     let is_unicode = contains_unicode_char(&str);
@@ -611,6 +809,20 @@ pub enum StrconvConst {
     SC_FULLWIDTH = 0x800000,
 }
 
+#[builtin_func_desc(
+    desc="文字列を変換する",
+    rtype={desc="変換された文字列",types="文字列"}
+    args=[
+        {n="元文字列",t="文字列",d="対象文字列"},
+        {n="変換方法",t="定数",d=r#"以下から指定、全角・半角変換は他の変換とOR連結可
+- SC_LOWERCASE: 小文字に変換
+- SC_UPPERCASE: 大文字に変換
+- SC_HIRAGANA: ひらがなに変換
+- SC_KATAKANA: カタカナに変換
+- SC_HALFWIDTH: 半角文字に変換
+- SC_FULLWIDTH: 全角文字に変換"#},
+    ],
+)]
 pub fn strconv(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let base = args.get_as_string(0, None)?;
     let opt = args.get_as_int(1, None::<u32>)?;
@@ -719,6 +931,36 @@ impl Default for FormatConst {
     }
 }
 
+#[builtin_func_desc(
+    desc="文字列フォーマット",
+    rtype={desc="フォーマットされた文字列",types="文字列"}
+    sets=[
+        [
+            {n="数値",t="数値",d="フォーマットする数値"},
+            {n="幅",t="数値",d="フォーマット後の文字列幅"},
+            {o,n="桁数",t="数値",d=r#"小数点以下の桁数、または変換方法を指定
+- 1以上: 小数点以下の桁数を指定値で丸める
+- 0: 変換しない
+- -1: 16進数に変換 (大文字)
+- -2: 16進数に変換 (小文字)
+- -3: 2進数に変換"#},
+            {o,n="埋め方法",t="定数",d=r#"幅が数値桁数を越えた場合に余白を埋める方法を以下のいずれかで指定
+- FMT_DEFAULT: 半角スペースで左埋め (デフォルト)
+- FMT_ZERO: 0で左埋め
+- FMT_RIGHT: 半角スペースで右埋め
+- FMT_ZEROR: 0で右埋め"#},
+        ],
+        [
+            {n="元文字列",t="文字列",d="フォーマットする文字列"},
+            {n="幅",t="数値",d="フォーマット後の文字列幅、元文字列幅を超える場合は指定幅まで元文字列を繰り返す"},
+        ],
+        [
+            {n="秒数",t="数値",d="2020/01/01からの秒数"},
+            {n="日時フォーマット文字列",t="文字列",d="指示子についての詳細 [リンク](https://docs.rs/chrono/latest/chrono/format/strftime/index.html)"},
+            {n="ミリ秒",t="真偽値",d="TRUEの場合秒数をミリ秒として扱う"},
+        ],
+    ],
+)]
 pub fn format(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let val = args.get_as_f64_or_string(0)?;
     let fmt = args.get_as_f64_or_string(1)?;
@@ -807,6 +1049,16 @@ pub fn format(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(fixed.into())
 }
 
+#[builtin_func_desc(
+    desc="区切り文字から前の文字列を切り出す",
+    rtype={desc="切り出した文字列",types="文字列"}
+    args=[
+        {n="区切り文字",t="文字列",d="区切り文字、文字列の場合文字毎に区切り扱い"},
+        {n="var 元文字",t="文字列",d="切り出される文字列、切り出し後は残った文字が返る"},
+        {o,n="区切り方法",t="真偽値",d="TRUEなら連続した区切り文字を一つとして扱う、FALSEならそれぞれで区切る"},
+        {o,n="ダブルクォート",t="真偽値",d="TRUEならダブルクォートで括られた箇所にある区切り文字を無視する"},
+    ],
+)]
 pub fn token(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let delimiter = args.get_as_string(0, None)?;
     let base = args.get_as_string(1, None)?;
@@ -983,6 +1235,19 @@ impl ByteArray {
     }
 }
 
+#[builtin_func_desc(
+    desc="文字列をエンコードする",
+    rtype={desc="変換方式による",types=""}
+    args=[
+        {n="元文字列",t="文字列",d="エンコードする文字列"},
+        {n="変換方式",t="定数",d=r#"以下のいずれかを指定
+- CODE_URL: URLエンコード
+- CODE_HTML: 一部の記号等を文字実態参照にする (`<` → `&lt;`)
+- CODE_BYTEARRAY: バイト配列(ANSI)にする
+- CODE_BYTEARRAYW: バイト配列(Unicode)にする
+- CODE_BYTEARRAYU: バイト配列(UTF8)にする"#},
+    ],
+)]
 pub fn encode(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let str = args.get_as_string(0, None)?;
     let Some(code) = args.get_as_const::<CodeConst>(1, true)? else {
@@ -1025,6 +1290,19 @@ pub fn encode(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(result)
 }
 
+#[builtin_func_desc(
+    desc="文字列にデコードする",
+    rtype={desc="デコードされた文字列",types="文字列"}
+    args=[
+        {n="デコード対象",t="文字列またはバイト配列",d="デコードする文字列またはバイト配列"},
+        {n="変換方式",t="定数",d=r#"以下のいずれかを指定
+- CODE_URL: URLエンコードされた文字列を戻す
+- CODE_HTML: 文字実態参照を記号にする (`&lt;` → `<`)
+- CODE_BYTEARRAY: バイト配列(ANSI)を文字列にする
+- CODE_BYTEARRAYW: バイト配列(Unicode)を文字列にする
+- CODE_BYTEARRAYU: バイト配列(UTF8)を文字列にする"#},
+    ],
+)]
 pub fn decode(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let value = args.get_as_string_or_bytearray(0)?;
     let Some(code) = args.get_as_const::<CodeConst>(1, true)? else {

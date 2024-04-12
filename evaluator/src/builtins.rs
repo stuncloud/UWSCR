@@ -826,8 +826,8 @@ impl BuiltinFunctionSets {
     pub fn new() -> Self {
         BuiltinFunctionSets{sets: vec![]}
     }
-    pub fn add(&mut self, name: &str, len: Option<i32>, func: BuiltinFunction, desc: FuncDesc) {
-        let len = len.unwrap_or(desc.arg_len());
+    pub fn add(&mut self, name: &str, func: BuiltinFunction, desc: FuncDesc) {
+        let len = desc.arg_len();
         self.sets.push(
             BuiltinFunctionSet::new(name, len, func, desc)
         );
@@ -1115,17 +1115,17 @@ fn set_special_variables(vec: &mut Vec<NamedObject>) {
 /// 特殊ビルトイン関数をセット
 fn builtin_func_sets() -> BuiltinFunctionSets {
     let mut sets = BuiltinFunctionSets::new();
-    sets.add("eval", Some(1), builtin_eval, get_desc!(builtin_eval));
-    sets.add("list_env", Some(0), list_env, get_desc!(list_env));
-    sets.add("list_module_member", Some(1), list_module_member, get_desc!(list_module_member));
-    sets.add("name_of", Some(1), name_of, get_desc!(name_of));
-    sets.add("const_as_string", Some(2), const_as_string, get_desc!(const_as_string));
-    sets.add("assert_equal", Some(2), assert_equal, get_desc!(assert_equal));
-    sets.add("raise", Some(2), raise, get_desc!(raise));
-    sets.add("type_of", Some(2), type_of, get_desc!(type_of));
-    sets.add("get_settings", Some(0), get_settings, get_desc!(get_settings));
-    sets.add("__p_a_n_i_c__", Some(1), panic, get_desc!(panic));
-    sets.add("get_struct_layout", Some(1), get_struct_layout, get_desc!(get_struct_layout));
+    sets.add("eval", builtin_eval, get_desc!(builtin_eval));
+    sets.add("list_env", list_env, get_desc!(list_env));
+    sets.add("list_module_member", list_module_member, get_desc!(list_module_member));
+    sets.add("name_of", name_of, get_desc!(name_of));
+    sets.add("const_as_string", const_as_string, get_desc!(const_as_string));
+    sets.add("assert_equal", assert_equal, get_desc!(assert_equal));
+    sets.add("raise", raise, get_desc!(raise));
+    sets.add("type_of", type_of, get_desc!(type_of));
+    sets.add("get_settings", get_settings, get_desc!(get_settings));
+    sets.add("__p_a_n_i_c__", panic, get_desc!(panic));
+    sets.add("get_struct_layout", get_struct_layout, get_desc!(get_struct_layout));
     sets
 }
 
@@ -1142,7 +1142,7 @@ pub fn builtin_eval(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> Builtin
 }
 
 #[builtin_func_desc(
-    desc="",
+    desc="EvaluatorのEnvironmentを表示",
     args=[],
 )]
 pub fn list_env(evaluator: &mut Evaluator, _: BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -1151,8 +1151,10 @@ pub fn list_env(evaluator: &mut Evaluator, _: BuiltinFuncArgs) -> BuiltinFuncRes
 }
 
 #[builtin_func_desc(
-    desc="",
-    args=[],
+    desc="Moduleメンバを表示",
+    args=[
+        {n="module"}
+    ],
 )]
 pub fn list_module_member(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let name = args.get_as_string(0, None)?;
@@ -1161,8 +1163,10 @@ pub fn list_module_member(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> B
 }
 
 #[builtin_func_desc(
-    desc="",
-    args=[],
+    desc="定数名を文字列にする",
+    args=[
+        {n="定数"}
+    ],
 )]
 pub fn name_of(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let name = if let Some(Expression::Identifier(Identifier(name))) = args.get_expr(0) {
@@ -1174,8 +1178,12 @@ pub fn name_of(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncR
 }
 
 #[builtin_func_desc(
-    desc="",
-    args=[],
+    desc="値から定数名を得る",
+    args=[
+        {n="値",t="数値",d="定数値"},
+        {n="定数名ヒント",t="文字列",d="定数名の一部を指定",o}
+    ],
+    rtype={desc="定数名"}
 )]
 pub fn const_as_string(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let value = args.get_as_object(0, None)?;
@@ -1185,7 +1193,7 @@ pub fn const_as_string(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> Buil
 }
 
 #[builtin_func_desc(
-    desc="",
+    desc="現在の設定をjson文字列で得る",
     args=[],
 )]
 pub fn get_settings(_: &mut Evaluator, _: BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -1197,8 +1205,11 @@ pub fn get_settings(_: &mut Evaluator, _: BuiltinFuncArgs) -> BuiltinFuncResult 
 }
 
 #[builtin_func_desc(
-    desc="",
-    args=[],
+    desc="実行時エラーを発生させる",
+    args=[
+        {n="msg",t="文字列",d="エラーメッセージ"},
+        {n="title",t="文字列",d="エラータイトル",o}
+    ],
 )]
 pub fn raise(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let msg = args.get_as_string(0, None)?;
@@ -1212,8 +1223,10 @@ pub fn raise(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 }
 
 #[builtin_func_desc(
-    desc="",
-    args=[],
+    desc="故意にpanicさせる",
+    args=[
+        {n="msg"}
+    ],
 )]
 pub fn panic(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let msg = args.get_as_string(0, None)?;
@@ -1221,8 +1234,10 @@ pub fn panic(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 }
 
 #[builtin_func_desc(
-    desc="",
-    args=[],
+    desc="値の型を得る",
+    args=[
+        {n="値"}
+    ],
 )]
 pub fn type_of(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let arg = args.get_as_object(0, None)?;
@@ -1231,8 +1246,11 @@ pub fn type_of(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 }
 
 #[builtin_func_desc(
-    desc="",
-    args=[],
+    desc="2つの引数が一致しない場合実行時エラーになる",
+    args=[
+        {n="arg1",t="すべて",d="比較される値"},
+        {n="arg2",t="すべて",d="比較する値"},
+    ],
 )]
 pub fn assert_equal(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let arg1 = args.get_as_object(0, None)?;
@@ -1245,8 +1263,10 @@ pub fn assert_equal(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResu
 }
 
 #[builtin_func_desc(
-    desc="",
-    args=[],
+    desc="構造体レイアウトを表示する",
+    args=[
+        {n="構造体定義"}
+    ],
 )]
 pub fn get_struct_layout(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let sdef = args.get_as_structdef(0)?;

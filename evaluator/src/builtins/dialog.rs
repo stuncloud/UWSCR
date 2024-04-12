@@ -67,19 +67,29 @@ pub enum BtnConst {
 
 pub fn builtin_func_sets() -> BuiltinFunctionSets {
     let mut sets = BuiltinFunctionSets::new();
-    sets.add("msgbox", 6, msgbox);
-    sets.add("input", 5, input);
-    sets.add("logprint", 5, logprint);
-    sets.add("slctbox", 34, slctbox);
-    sets.add("popupmenu", 3, popupmenu);
-    sets.add("balloon", 9, balloon);
-    sets.add("fukidasi", 9, balloon);
-    sets.add("createform", 8, createform);
-    sets.add("getformdata", 2, getformdata);
-    sets.add("setformdata", 3, setformdata);
+    sets.add("msgbox", msgbox, get_desc!(msgbox));
+    sets.add("input", input, get_desc!(input));
+    sets.add("logprint", logprint, get_desc!(logprint));
+    sets.add("slctbox", slctbox, get_desc!(slctbox));
+    sets.add("popupmenu", popupmenu, get_desc!(popupmenu));
+    sets.add("balloon", balloon, get_desc!(balloon));
+    sets.add("fukidasi", balloon, get_desc!(balloon));
+    sets.add("createform", createform, get_desc!(createform));
+    sets.add("getformdata", getformdata, get_desc!(getformdata));
+    sets.add("setformdata", setformdata, get_desc!(setformdata));
     sets
 }
 
+#[builtin_func_desc(
+    desc="printウィンドウの表示状態を設定"
+    args=[
+        {n="状態",t="真偽値",d="TRUEならprintウィンドウを表示、FALSEなら非表示にし以後表示されないようにする"},
+        {o,n="X",t="数値",d="表示する場合そのX座標"},
+        {o,n="Y",t="数値",d="表示する場合そのY座標"},
+        {o,n="幅",t="数値",d="表示する場合その幅"},
+        {o,n="高さ",t="数値",d="表示する場合その高さ"},
+    ],
+)]
 pub fn logprint(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let flg = args.get_as_bool(0, None)?;
     let x = args.get_as_int_or_empty(1)?;
@@ -119,6 +129,25 @@ fn set_dlg_point(x: i32, y: i32, point: &Lazy<Mutex<(Option<i32>, Option<i32>)>>
     m.1 = Some(y);
 }
 
+#[builtin_func_desc(
+    desc="メッセージを表示"
+    args=[
+        {n="メッセージ",t="文字列",d="表示メッセージ"},
+        {o,n="ボタン",t="定数",d=r#"表示するボタンを以下で指定、OR連結可
+- BTN_YES: はい
+- BTN_NO: いいえ
+- BTN_OK: OK
+- BTN_CANCEL: キャンセル
+- BTN_ABORT: 中止
+- BTN_RETRY: 再試行
+- BTN_IGNORE: 無視"#},
+        {o,n="X",t="数値",d="表示位置のX座標"},
+        {o,n="Y",t="数値",d="表示位置のY座標"},
+        {o,n="フォーカス",t="定数",d="予めフォーカスしておくボタンを示すBTN定数"},
+        {o,n="リンク表示",t="真偽値",d="TRUEならURLをクリック可能なリンクにする"},
+    ],
+    rtype={desc="押されたボタンを示す定数",types="定数"}
+)]
 pub fn msgbox(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let message = args.get_as_string(0, None)?;
     let btns = args.get_as_int::<i32>(1, Some(BtnConst::BTN_OK as i32))?;
@@ -144,6 +173,17 @@ pub fn msgbox(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(pressed.into())
 }
 
+#[builtin_func_desc(
+    desc="インプットボックスを表示"
+    args=[
+        {n="メッセージ",t="文字列または配列",d="表示メッセージ、配列の場合は表示メッセージとラベル"},
+        {o,n="デフォルト値",t="文字列または配列",d="デフォルト値、配列の場合はラベル毎のデフォルト値"},
+        {o,n="マスク表示",t="真偽値または配列",d="TRUEなら入力値をマスクする、配列の場合はラベル毎のマスク設定"},
+        {o,n="X",t="数値",d="表示位置のX座標"},
+        {o,n="Y",t="数値",d="表示位置のY座標"},
+    ],
+    rtype={desc="入力値",types="文字列または配列"}
+)]
 pub fn input(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let mut msg = args.get_as_string_array(0)?;
     let mut label = match msg.len() {
@@ -212,6 +252,46 @@ pub enum SlctConst {
     SLCT_NUM = 128,
 }
 
+#[builtin_func_desc(
+    desc="セレクトボックスを表示"
+    sets=[
+        [
+            {n="表示方法",t="定数",d=r#"以下の定数のいずれかを指定
+- SLCT_BTN: ボタン
+- SLCT_CHK: チェックボックス
+- SLCT_RDO: ラジオボタン
+- SLCT_CMB: コンボボックス
+- SLCT_LST: リストボックス
+
+さらに以下をOR連結可
+- SLCT_STR: 戻り値を選択項目名にする
+- SLCT_NUM: 戻り値を選択項目のインデックス値にする"#},
+            {n="タイムアウト秒",t="数値",d="0より大きければその秒数経過でセレクトボックスをキャンセル扱いで閉じる"},
+            {o,n="X",t="数値",d="表示位置のX座標"},
+            {o,n="Y",t="数値",d="表示位置のY座標"},
+            {o,n="メッセージ",t="文字列",d="表示メッセージ"},
+            {n="表示項目1",t="文字列",d="1つ目の項目 (必須)"},
+            {v=28,n="表示項目2-29",t="文字列",d="表示メッセージ2つ目以降の表示項目"},
+        ],
+        [
+            {n="表示方法",t="定数",d=r#"以下の定数のいずれかを指定
+- SLCT_BTN: ボタン
+- SLCT_CHK: チェックボックス
+- SLCT_RDO: ラジオボタン
+- SLCT_CMB: コンボボックス
+- SLCT_LST: リストボックス
+
+さらに以下をOR連結可
+- SLCT_STR: 戻り値を選択項目名にする
+- SLCT_NUM: 戻り値を選択項目のインデックス値にする"#},
+            {n="タイムアウト秒",t="数値",d="0より大きければその秒数経過でセレクトボックスをキャンセル扱いで閉じる"},
+            {o,n="メッセージ",t="文字列",d="表示メッセージ"},
+            {n="表示項目1",t="文字列",d="1つ目の項目 (必須)"},
+            {v=30,n="表示項目2-31",t="文字列",d="表示メッセージ2つ目以降の表示項目"},
+        ],
+    ],
+    rtype={desc="選択した項目に該当する値、複数選択の場合配列",types="値または配列"}
+)]
 pub fn slctbox(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     // 第一引数: 種別と戻り値型
     let n = args.get_as_int(0, None)?;
@@ -272,6 +352,15 @@ pub fn slctbox(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(obj)
 }
 
+#[builtin_func_desc(
+    desc="ポップアップメニューを表示"
+    args=[
+        {n="メニュー項目",t="配列",d="表示項目を示す配列"},
+        {o,n="X",t="数値",d="表示位置のX座標、省略時はマウス位置"},
+        {o,n="Y",t="数値",d="表示位置のY座標、省略時はマウス位置"},
+    ],
+    rtype={desc="選択項目",types="文字列"}
+)]
 pub fn popupmenu(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let list = args.get_as_array_include_hashtbl(0, None, true)?;
     let x = args.get_as_int_or_empty(1)?;
@@ -300,6 +389,30 @@ pub enum BalloonFlag {
     FUKI_POINT   = 0xF0,
 }
 
+#[builtin_func_desc(
+    desc="吹き出しを表示"
+    args=[
+        {n="メッセージ",t="文字列",d="表示メッセージ"},
+        {o,n="X",t="数値",d="表示位置のX座標"},
+        {o,n="Y",t="数値",d="表示位置のY座標"},
+        {o,n="変形",t="定数",d=r#"以下の定数のいずれかを指定
+- FUKI_DEFAULT: 変形しない (デフォルト)
+- FUKI_UP: 吹き出しに上向きの嘴を付ける
+- FUKI_DOWN: 吹き出しに下向きの嘴を付ける
+- FUKI_LEFT: 吹き出しに左向きの嘴を付ける
+- FUKI_RIGHT: 吹き出しに右向きの嘴を付ける
+- FUKI_ROUND: 吹き出しの角を丸くする
+
+嘴定数に対して以下をOR連結可能
+- FUKI_POINT: 表示位置の基準を吹き出し左上ではなく嘴の先にする
+"#},
+        {o,n="フォントサイズ",t="数値",d="表示される文字のサイズ"},
+        {o,n="フォント名",t="文字列",d="表示される文字のフォント名"},
+        {o,n="文字色",t="数値",d="文字色をBGR値で指定"},
+        {o,n="背景色",t="数値",d="背景色をBGR値で指定"},
+        {o,n="透過",t="数値",d="0: 透過しない、1-255: 透過度、-1: 背景透明枠あり、-2: 背景透明枠なし"},
+    ],
+)]
 pub fn balloon(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let balloon = if args.len() == 0 {
         // balloon消す
@@ -349,6 +462,31 @@ impl Into<u32> for FormOptions {
     }
 }
 
+#[builtin_func_desc(
+    desc="フォームウィンドウを表示"
+    args=[
+        {n="HTMLファイル",t="文字列",d="表示するHTMLファイルのパス"},
+        {n="タイトル",t="文字列",d="ウィンドウタイトル"},
+        {o,n="非同期フラグ",t="真偽値",d="TRUEならフォーム表示後に制御を返す、FALSEならフォームが処理されるまで待機"},
+        {o,n="表示オプション",t="定数",d=r#"以下の定数をOR連結で指定
+- FOM_DEFAULT: オプションなし (デフォルト)
+- FOM_NOICON: 閉じるボタンを非表示
+- FOM_MINIMIZE: 最小化ボタンを表示
+- FOM_MAXIMIZE: 最大化ボタンを表示
+- FOM_NOHIDE: submitボタンが押されてもウィンドウを閉じない
+- FOM_NOSUBMIT: submitボタンが押されてもsubmitに割り当てられた処理(action)を行わない
+- FOM_NORESIZE: ウィンドウのサイズ変更不可
+- FOM_FORMHIDE: ウィンドウを非表示で起動
+- FOM_TOPMOST: ウィンドウを最前面に固定
+- FOM_NOTASKBAR: タスクバーにアイコンを表示しない
+"#},
+        {o,n="幅",t="数値",d="ウィンドウ幅"},
+        {o,n="高さ",t="数値",d="ウィンドウ高さ"},
+        {o,n="X",t="数値",d="ウィンドウ表示位置X座標"},
+        {o,n="Y",t="数値",d="ウィンドウ表示位置Y座標"},
+    ],
+    rtype={desc="非同期フラグによりFormオブジェクトかForm情報オブジェクトを返す",types="FormまたはForm情報"}
+)]
 pub fn createform(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let file = args.get_as_string(0, None)?;
     let title = args.get_as_string(1, None)?;
@@ -370,10 +508,16 @@ pub fn createform(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult
     }
 }
 
+#[builtin_func_desc(
+    desc="使用不可"
+)]
 pub fn getformdata(_: &mut Evaluator, _args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Err(builtin_func_error(UErrorMessage::UnavailableFunction))
 }
 
+#[builtin_func_desc(
+    desc="使用不可"
+)]
 pub fn setformdata(_: &mut Evaluator, _args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Err(builtin_func_error(UErrorMessage::UnavailableFunction))
 }

@@ -55,9 +55,9 @@ pub static INPUT_EXTRA_INFO: Lazy<usize> = Lazy::new(|| std::process::id() as us
 
 pub fn builtin_func_sets() -> BuiltinFunctionSets {
     let mut sets = BuiltinFunctionSets::new();
-    sets.add("mmv", None, mmv, get_desc!(mmv) );
-    sets.add("btn", None, btn, get_desc!(btn));
-    sets.add("kbd", None, kbd, get_desc!(kbd));
+    sets.add("mmv", mmv, get_desc!(mmv) );
+    sets.add("btn", btn, get_desc!(btn));
+    sets.add("kbd", kbd, get_desc!(kbd));
     sets
 }
 

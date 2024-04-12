@@ -71,34 +71,40 @@ use base64::{Engine, engine::general_purpose};
 
 pub fn builtin_func_sets() -> BuiltinFunctionSets {
     let mut sets = BuiltinFunctionSets::new();
-    sets.add("sleep", 1, sleep);
-    sets.add("kindofos", 1, kindofos);
-    sets.add("env", 1, env);
-    sets.add("exec", 6, exec);
-    sets.add("shexec", 2, shexec);
-    sets.add("task", 21, task);
-    sets.add("waittask", 1, wait_task);
-    sets.add("wmi", 2, wmi_query);
-    sets.add("doscmd", 4, doscmd);
-    sets.add("powershell", 4, powershell);
-    sets.add("pwsh", 4, pwsh);
-    sets.add("lockhard", 1, lockhard);
-    sets.add("lockhardex", 2, lockhardex);
-    sets.add("cpuuserate", 0, cpuuserate);
-    sets.add("sensor", 1, sensor);
-    sets.add("sound", 3, sound);
-    sets.add("beep", 3, beep);
-    sets.add("getkeystate", 2, getkeystate);
-    sets.add("poff", 2, poff);
-    sets.add("sethotkey", 3, sethotkey);
-    sets.add("gettime", 4, gettime);
-    sets.add("speak", 3, speak);
-    sets.add("recostate", 36, recostate);
-    sets.add("dictate", 2, dictate);
+    sets.add("sleep", sleep, get_desc!(sleep));
+    sets.add("kindofos", kindofos, get_desc!(kindofos));
+    sets.add("env", env, get_desc!(env));
+    sets.add("exec", exec, get_desc!(exec));
+    sets.add("shexec", shexec, get_desc!(shexec));
+    sets.add("task", task, get_desc!(task));
+    sets.add("waittask", wait_task, get_desc!(wait_task));
+    sets.add("wmi", wmi_query, get_desc!(wmi_query));
+    sets.add("doscmd", doscmd, get_desc!(doscmd));
+    sets.add("powershell", powershell, get_desc!(powershell));
+    sets.add("pwsh", pwsh, get_desc!(pwsh));
+    sets.add("lockhard", lockhard, get_desc!(lockhard));
+    sets.add("lockhardex", lockhardex, get_desc!(lockhardex));
+    sets.add("cpuuserate", cpuuserate, get_desc!(cpuuserate));
+    sets.add("sensor", sensor, get_desc!(sensor));
+    sets.add("sound", sound, get_desc!(sound));
+    sets.add("beep", beep, get_desc!(beep));
+    sets.add("getkeystate", getkeystate, get_desc!(getkeystate));
+    sets.add("poff", poff, get_desc!(poff));
+    sets.add("sethotkey", sethotkey, get_desc!(sethotkey));
+    sets.add("gettime", gettime, get_desc!(gettime));
+    sets.add("speak", speak, get_desc!(speak));
+    sets.add("recostate", recostate, get_desc!(recostate));
+    sets.add("dictate", dictate, get_desc!(dictate));
     // sets.add("attachconsole", 1, attachconsole);
     sets
 }
 
+#[builtin_func_desc(
+    desc="スクリプト実行をブロック",
+    args=[
+        {n="秒数",t="数値",d="実行をブロックする秒数"},
+    ],
+)]
 pub fn sleep(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     // let sec = args.get_as_num(0, None)?;
     match args.get_as_func_or_num(0)? {
@@ -223,6 +229,19 @@ pub fn get_os_kind() -> Vec<f64> {
     res
 }
 
+#[builtin_func_desc(
+    desc="OS情報を得る",
+    args=[
+        {o,n="種別",t="真偽値または定数",d=r#"以下のいずれかを指定
+- TRUE: OSが64ビットかどうかを真偽値で返す
+- FALSE: OS種別をOS定数で返す
+- OSVER_MAJOR: OSのメジャーバージョンを数値で返す
+- OSVER_MINOR: OSのマイナーバージョンを数値で返す
+- OSVER_BUILD: OSのビルド番号を数値で返す
+- OSVER_PLATFORM: OSのプラットフォームIDを数値で返す"#},
+    ],
+    rtype={desc="種別による",types="数値または真偽値"}
+)]
 pub fn kindofos(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let t = args.get_as_bool_or_int(0, Some(0)).unwrap_or(0);
     let osnum = get_os_kind();
@@ -241,6 +260,13 @@ pub fn kindofos(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(obj)
 }
 
+#[builtin_func_desc(
+    desc="環境変数を展開する",
+    args=[
+        {n="環境変数",t="文字列",d="展開したい環境変数"},
+    ],
+    rtype={desc="展開された値",types="文字列"}
+)]
 pub fn env(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let env_var = args.get_as_string(0, None)?;
     let env_val = std::env::var(env_var).unwrap_or_default();
@@ -291,6 +317,18 @@ fn enum_window_proc(hwnd: HWND, lparam: LPARAM) -> BOOL {
     }
 }
 
+#[builtin_func_desc(
+    desc="プロセスを起動する",
+    args=[
+        {n="実行ファイル",t="文字列",d="実行ファイルのパス"},
+        {o,n="同期フラグ",t="真偽値",d="TRUEならプロセス終了を待つ"},
+        {o,n="X",t="数値",d="ウィンドウ表示位置X座標"},
+        {o,n="Y",t="数値",d="ウィンドウ表示位置Y座標"},
+        {o,n="幅",t="数値",d="ウィンドウ幅"},
+        {o,n="高さ",t="数値",d="ウィンドウ高さ"},
+    ],
+    rtype={desc="同期TRUEならプロセス終了コード、FALSEならウィンドウID、失敗時-1",types="数値"}
+)]
 pub fn exec(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let cmd = args.get_as_string(0, None)?;
     let sync = args.get_as_bool(1, Some(false))?;
@@ -326,6 +364,14 @@ pub fn exec(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     }
 }
 
+#[builtin_func_desc(
+    desc="シェル実行",
+    args=[
+        {n="実行ファイル",t="文字列",d="実行ファイルパス"},
+        {o,n="パラメータ",t="文字列",d="実行時に付与するパラメータ"},
+    ],
+    rtype={desc="正常に実行されればTRUE",types="真偽値"}
+)]
 pub fn shexec(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let cmd = args.get_as_string(0, None)?;
     let params = args.get_as_string(1, None).map_or(None, |s| Some(s));
@@ -333,6 +379,14 @@ pub fn shexec(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(shell_result.into())
 }
 
+#[builtin_func_desc(
+    desc="関数を非同期実行し、その状態を返す",
+    args=[
+        {n="関数",t="ユーザー定義関数",d="非同期実行させる関数"},
+        {v=20, n="引数1-20",t="値",d="関数に渡す引数"},
+    ],
+    rtype={desc="実行中のタスク",types="Task"}
+)]
 pub fn task(evaluator: &mut Evaluator, mut args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let obj = args.get_as_object(0, None)?;
     let arguments = args.take_argument(1);
@@ -351,6 +405,13 @@ pub fn task(evaluator: &mut Evaluator, mut args: BuiltinFuncArgs) -> BuiltinFunc
     }
 }
 
+#[builtin_func_desc(
+    desc="タスクの完了を待ち関数の戻り値を得る",
+    args=[
+        {n="タスク",t="Task",d="実行中のタスク、またはPromise相当のRemoteObject"},
+    ],
+    rtype={desc="関数の戻り値",types="値"}
+)]
 pub fn wait_task(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     match args.get_as_task(0)? {
         TwoTypeArg::T(task) => {
@@ -367,6 +428,14 @@ pub fn wait_task(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFun
     }
 }
 
+#[builtin_func_desc(
+    desc="WMIクエリ",
+    args=[
+        {n="WQL",t="文字列",d="WMIクエリ文"},
+        {o,n="名前空間",t="文字列",d="名前空間のパス"},
+    ],
+    rtype={desc="クエリ結果",types="UObject"}
+)]
 pub fn wmi_query(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let wql = args.get_as_string(0, None)?;
     let name_space = args.get_as_string_or_empty(1)?;
@@ -398,6 +467,16 @@ impl From<wmi::WMIError> for BuiltinFuncError {
     }
 }
 
+#[builtin_func_desc(
+    desc="コマンドプロンプトを実行",
+    args=[
+        {n="コマンド",t="文字列",d="実行するコマンド"},
+        {o,n="非同期",t="真偽値",d="FALSEならコマンド終了まで待つ"},
+        {o,n="画面表示",t="真偽値",d="FALSEなら非表示"},
+        {o,n="Unicode",t="真偽値",d="TRUEならUnicode出力"},
+    ],
+    rtype={desc="同期かつ非表示ならコマンドの出力を返す",types="文字列"}
+)]
 pub fn doscmd(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let command = args.get_as_string(0, None)?;
     // falseが渡されたら終了を待つ
@@ -443,10 +522,30 @@ fn run_powershell(shell: ShellType, args: &BuiltinFuncArgs) -> BuiltinFuncResult
     Ok(result)
 }
 
+#[builtin_func_desc(
+    desc="Windows PowerShellを実行",
+    args=[
+        {n="コマンド",t="文字列",d="実行するコマンド"},
+        {o,n="非同期",t="真偽値",d="FALSEなら終了まで待つ"},
+        {o,n="画面表示",t="真偽値",d="FALSEなら非表示"},
+        {o,n="プロファイル無視",t="真偽値",d="TRUEなら$PROFILEを読み込まない"},
+    ],
+    rtype={desc="同期かつ非同期ならコマンド出力を返す",types="文字列"}
+)]
 pub fn powershell(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     run_powershell(ShellType::PowerShell, &args)
 }
 
+#[builtin_func_desc(
+    desc="PowerShellを実行",
+    args=[
+        {n="コマンド",t="文字列",d="実行するコマンド"},
+        {o,n="非同期",t="真偽値",d="FALSEなら終了まで待つ"},
+        {o,n="画面表示",t="真偽値",d="FALSEなら非表示"},
+        {o,n="プロファイル無視",t="真偽値",d="TRUEなら$PROFILEを読み込まない"},
+    ],
+    rtype={desc="同期かつ非同期ならコマンド出力を返す",types="文字列"}
+)]
 pub fn pwsh(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     run_powershell(ShellType::Pwsh, &args)
 }
@@ -611,6 +710,13 @@ impl From<std::io::Error> for BuiltinFuncError {
 //     Ok(result.into())
 // }
 
+#[builtin_func_desc(
+    desc="マウス、キーボードの入力を禁止 (要管理者特権)",
+    args=[
+        {n="フラグ",t="真偽値",d="TRUEでロック、FALSEで解除"},
+    ],
+    rtype={desc="関数成功時TRUE",types="真偽値"}
+)]
 pub fn lockhard(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let flg = args.get_as_bool(0, Some(false))?;
     let result = lockhard::lock(flg);
@@ -626,6 +732,17 @@ pub enum LockHardExConst {
     LOCK_MOUSE    = 2,
 }
 
+#[builtin_func_desc(
+    desc="ウィンドウに対するマウス・キーボード入力を禁止する",
+    args=[
+        {o,n="ウィンドウID",t="数値",d="入力を禁止するウィンドウのID、0ならデスクトップ全体、省略時はロック解除"},
+        {o,n="モード",t="定数",d=r#"以下のいずれかを選択
+- LOCK_ALL: マウス、キーボードの入力を禁止 (デフォルト)
+- LOCK_KEYBOARD: キーボードの入力のみ禁止
+- LOCK_MOUSE: マウスの入力のみ禁止"#},
+    ],
+    rtype={desc="関数成功時TRUEc",types="真偽値"}
+)]
 pub fn lockhardex(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = args.get_as_int_or_empty(0)?;
     let result = if let Some(id) = id {
@@ -642,6 +759,10 @@ pub fn lockhardex(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult
     Ok(result.into())
 }
 
+#[builtin_func_desc(
+    desc="システム全体のCPU使用率(1秒)",
+    rtype={desc="CPU使用率",types="数値"}
+)]
 pub fn cpuuserate(_: &mut Evaluator, _: BuiltinFuncArgs) -> BuiltinFuncResult {
     let rate = unsafe {
         let time = |ft: FILETIME| {
@@ -748,6 +869,13 @@ pub enum SensorConst {
     SNSR_Location_Speed             = 63,
 }
 
+#[builtin_func_desc(
+    desc="各種センサーから値を得る",
+    args=[
+        {n="センサー種別",t="定数",d="SNSR定数"},
+    ],
+    rtype={desc="種別に応じた値",types="数値または真偽値または文字列"}
+)]
 pub fn sensor(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let Some(category) = args.get_as_const::<SensorConst>(0, true)? else {
         return Ok(Object::Empty);
@@ -756,6 +884,13 @@ pub fn sensor(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(obj)
 }
 
+#[builtin_func_desc(
+    desc="wavファイル、またはサウンドイベントを再生",
+    args=[
+        {o,n="ファイル名",t="文字列",d="wavファイルパスまたはサウンドイベント名、非同期再生中に省略実行で再生停止"},
+        {o,n="同期",t="真偽値",d="TRUEなら再生終了を待つ"},
+    ],
+)]
 pub fn sound(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let name = args.get_as_string_or_empty(0)?;
     let sync = args.get_as_bool(1, Some(false))?;
@@ -768,6 +903,14 @@ pub fn sound(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(Object::Empty)
 }
 
+#[builtin_func_desc(
+    desc="ビープ音を鳴らす",
+    args=[
+        {o,n="長さ",t="数値",d="再生時間をミリ秒で指定"},
+        {o,n="周波数",t="数値",d="周波数を37-32767で指定"},
+        {o,n="繰り返し",t="数値",d="繰り返し再生する場合に回数を指定"},
+    ],
+)]
 pub fn beep(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let duration = args.get_as_int(0, Some(300u32))?;
     let freq = args.get_as_int(1, Some(2000u32))?.min(32767).max(37);
@@ -788,6 +931,14 @@ pub enum ToggleKey {
 const IMC_GETOPENSTATUS: WPARAM = WPARAM(5);
 const IMC_GETCONVERSIONMODE: WPARAM = WPARAM(1);
 
+#[builtin_func_desc(
+    desc="マウスボタンやキーボード入力、トグルキーの状態を取得",
+    rtype={desc="入力の有無またはトグル状態",types="真偽値"}
+    args=[
+        {n="キーコード",t="定数",d="VK定数またはTGL定数"},
+        {o,n="ウィンドウID",t="数値",d="TGL_KANALOCKおよびTGL_IMEの状態を得たいウィンドウ、省略時はアクティブウィンドウ"},
+    ],
+)]
 pub fn getkeystate(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let code = args.get_as_int(0, None)?;
     let id = args.get_as_int(1, Some(0))?;
@@ -869,6 +1020,13 @@ pub enum POFF {
     P_FORCE       = 8,
 }
 
+#[builtin_func_desc(
+    desc="電源等の制御",
+    args=[
+        {n="コマンド",t="定数",d="制御方法を示すP定数"},
+        {o,n="スクリプト再実行",t="真偽値",d="TRUEならP_UWSC_REEXEC時にスクリプトを再実行する"},
+    ],
+)]
 pub fn poff(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let n = args.get_as_int(0, None)?;
     let script = args.get_as_bool(1, Some(true))?;
@@ -914,6 +1072,18 @@ pub enum SetHotKey {
     MOD_WIN     = 8,
 }
 
+#[builtin_func_desc(
+    desc="特定キー入力時に実行する関数をセットする",
+    args=[
+        {n="キーコード",t="定数",d="VK定数"},
+        {o,n="修飾子キー",t="定数",d=r#"同時に押されるキーを示す定数、OR連結可
+- MOD_ALT: Altキー
+- MOD_CONTROL: Controlキー
+- MOD_SHIFT: Shiftキー
+- MOD_WIN: Winキー"#},
+        {o,n="関数",t="文字列または関数",d="キー入力時に実行される関数、省略時は該当キーを解除"},
+    ],
+)]
 pub fn sethotkey(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let vk = args.get_as_int(0, None)?;
     let mo = args.get_as_int(1, Some(0))?;
@@ -965,6 +1135,21 @@ pub enum GTimeWeekDay {
     G_WEEKDAY_SAT = 6,
 }
 
+#[builtin_func_desc(
+    desc="2000/01/01からの経過秒数を得る",
+    rtype={desc="2000/01/01からの経過秒数",types="数値"}
+    args=[
+        {o,n="補正値",t="数値",d="基準日時に対する補正値"},
+        {o,n="基準日時",t="文字列",d="基準となる日時を指定、省略時は現在日時"},
+        {o,n="補正値オプション",t="定数",d=r#"補正値の単位を以下のいずれかで指定
+- G_OFFSET_DAYS: 日数
+- G_OFFSET_HOURS: 時間
+- G_OFFSET_MINUTES: 分
+- G_OFFSET_SECONDS: 秒
+- G_OFFSET_MILLIS: ミリ秒"#},
+        {o,n="ミリ秒",t="真偽値",d=r#"TRUEなら戻り値をミリ秒にする"#},
+    ],
+)]
 pub fn gettime(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let offset = args.get_as_f64(0, Some(0.0))?;
     let dt = args.get_as_string_or_empty(1)?;
@@ -981,6 +1166,14 @@ pub fn gettime(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncR
     }
 }
 
+#[builtin_func_desc(
+    desc="音声を再生する",
+    args=[
+        {n="発声文字",t="文字列",d="発声させる文字列"},
+        {o,n="非同期",t="真偽値",d="FALSEなら再生終了まで待つ"},
+        {o,n="中断",t="真偽値",d="別の音声再生中の場合にTRUEならそれを中断し、FALSEなら終了を待ってから再生する"},
+    ],
+)]
 pub fn speak(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let text = args.get_as_string(0, None)?;
     let unsync = args.get_as_bool(1, Some(false))?;
@@ -989,6 +1182,14 @@ pub fn speak(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(Object::Empty)
 }
 
+#[builtin_func_desc(
+    desc="登録単語の音声認識を開始または終了する",
+    rtype={desc="登録成功時に使用される認識エンジン名を返す",types="文字列"}
+    args=[
+        {n="開始フラグ",t="真偽値",d="TRUEで開始、FALSEで登録を解除し終了する"},
+        {o,v=35,n="登録単語",t="文字列または配列",d="認識させる単語"},
+    ],
+)]
 pub fn recostate(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let flg = args.get_as_bool(0, None)?;
     let name = if flg {
@@ -1000,6 +1201,14 @@ pub fn recostate(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult 
     Ok(name.into())
 }
 
+#[builtin_func_desc(
+    desc="recostateで登録された単語が音声入力されたらその文字列を返す",
+    rtype={desc="拾得成功時は文字列、それ以外はEMPTY",types="文字列"}
+    args=[
+        {o,n="拾得待ち",t="真偽値",d="TRUEなら音声入力を待つ、FALSEなら直近の入力を返す"},
+        {o,n="タイムアウト",t="数値",d="拾得TRUEの場合にタイムアウト時間をミリ秒で指定、0なら無限"},
+    ],
+)]
 pub fn dictate(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let wait = args.get_as_bool(0, Some(true))?;
     let milli = args.get_as_int(1, Some(10000u32))?;

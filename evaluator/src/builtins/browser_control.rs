@@ -17,16 +17,16 @@ use std::sync::{Arc, Mutex};
 
 pub fn builtin_func_sets() -> BuiltinFunctionSets {
     let mut sets = BuiltinFunctionSets::new();
-    sets.add("browsercontrol", 2, browser_control);
-    sets.add("browserbuilder", 1, browser_builder);
-    sets.add("remoteobjecttype", 1, remote_object_type);
-    sets.add("webrequest", 1, webrequest);
-    sets.add("webrequestbuilder", 0, webrequest_builder);
-    sets.add("parsehtml", 1, parse_html);
-    sets.add("brgetdata", 5, browser_getdata);
-    sets.add("brsetdata", 6, browser_setdata);
-    sets.add("brgetsrc", 5, browser_getsource);
-    sets.add("brlink", 4, browser_link);
+    sets.add("browsercontrol", browser_control, get_desc!(browser_control));
+    sets.add("browserbuilder", browser_builder, get_desc!(browser_builder));
+    sets.add("remoteobjecttype", remote_object_type, get_desc!(remote_object_type));
+    sets.add("webrequest", webrequest, get_desc!(webrequest));
+    sets.add("webrequestbuilder", webrequest_builder, get_desc!(webrequest_builder));
+    sets.add("parsehtml", parse_html, get_desc!(parse_html));
+    sets.add("brgetdata", browser_getdata, get_desc!(browser_getdata));
+    sets.add("brsetdata", browser_setdata, get_desc!(browser_setdata));
+    sets.add("brgetsrc", browser_getsource, get_desc!(browser_getsource));
+    sets.add("brlink", browser_link, get_desc!(browser_link));
     sets
 }
 
@@ -40,6 +40,17 @@ pub enum BcEnum {
     BC_VIVALDI = 11,
 }
 
+#[builtin_func_desc(
+    desc="ブラウザを起動しBrowserオブジェクトを返す",
+    args=[
+        {n="対象ブラウザ",t="定数",d=r#"以下のいずれかを指定
+- BC_CHROME: Google Chrome
+- BC_MSEDGE: Microsoft Edge
+"#},
+        {n="ポート",t="数値",d="ブラウザのデバッグポート番号を指定、省略時は9222",o}
+    ],
+    rtype={desc="対象ブラウザのオブジェクト",types="Browser"}
+)]
 pub fn browser_control(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let t = args.get_as_int(0, None)?;
     let Some(browser_type) = FromPrimitive::from_i32(t) else {
@@ -56,6 +67,17 @@ pub fn browser_control(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncR
     let browser = builder.start()?;
     Ok(Object::Browser(browser))
 }
+
+#[builtin_func_desc(
+    desc="BrowserBuilderオブジェクトを返す",
+    args=[
+        {n="対象ブラウザ",t="定数",d=r#"以下のいずれかを指定
+- BC_CHROME: Google Chrome
+- BC_MSEDGE: Microsoft Edge
+"#},
+    ],
+    rtype={desc="BrowserBuilderオブジェクト",types="BrowserBuilder"}
+)]
 pub fn browser_builder(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let t = args.get_as_int(0, None)?;
     let Some(browser_type) = FromPrimitive::from_i32(t) else {
@@ -70,6 +92,13 @@ pub fn browser_builder(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncR
     Ok(Object::BrowserBuilder(Arc::new(Mutex::new(builder))))
 }
 
+#[builtin_func_desc(
+    desc="RemoteObjectの型を返す",
+    args=[
+        {n="remote",t="RemoteObject",d="型を調べたいRemoteObject"},
+    ],
+    rtype={desc="型情報",types="文字列"}
+)]
 pub fn remote_object_type(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let remote = args.get_as_remoteobject(0)?;
     #[cfg(debug_assertions)]
@@ -78,6 +107,13 @@ pub fn remote_object_type(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFu
     Ok(t.into())
 }
 
+#[builtin_func_desc(
+    desc="指定URLにGETリクエストを送る",
+    args=[
+        {n="url",t="文字列",d="リクエストを送るURL"},
+    ],
+    rtype={desc="レスポンスオブジェクト",types="WebResponse"}
+)]
 pub fn webrequest(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let uri = args.get_as_string(0, None)?;
     let req = WebRequest::new();
@@ -85,17 +121,59 @@ pub fn webrequest(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult
     Ok(Object::WebResponse(res))
 }
 
+#[builtin_func_desc(
+    desc="WebRequestオブジェクトを返す",
+    args=[],
+    rtype={desc="リクエストオブジェクト",types="WebRequest"}
+)]
 pub fn webrequest_builder(_: &mut Evaluator, _: BuiltinFuncArgs) -> BuiltinFuncResult {
     let req = WebRequest::new();
     Ok(Object::WebRequest(Arc::new(Mutex::new(req))))
 }
 
+#[builtin_func_desc(
+    desc="HTMLをパースします"
+    args=[
+        {n="html",t="文字列",d="パースするHTML文字列"},
+    ],
+    rtype={desc="HtmlNodeオブジェクト",types="HtmlNode"}
+)]
 pub fn parse_html(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let html = args.get_as_string(0, None)?;
     let node = HtmlNode::new(&html);
     Ok(Object::HtmlNode(node))
 }
 
+#[builtin_func_desc(
+    desc="タブ上のエレメントから値を得る"
+    sets=[
+        [
+            {n="タブ",t="TabWindow",d="取得したい値のあるタブ"},
+            {n="name",t="文字列",d="対象エレメントのname値"},
+            {n="value",t="文字列",d="同一nameがある場合に指定するvalue値",o},
+            {n="n番目",t="数値",d="該当エレメントが複数ある場合に順番を指定",o},
+        ],
+        [
+            {n="タブ",t="TabWindow",d="取得したい値のあるタブ"},
+            {n="'TAG={{タグ名}}'",t="文字列",d="対象のタグ名を'TAG=タグ名'という書式で指定"},
+            {n="{{プロパティ名}}={{値}}",t="文字列",d="'プロパティ=値'という書式で任意のプロパティとその値を持つタグを探す",o},
+            {n="n番目",t="数値",d="該当タグが複数ある場合に順番を指定",o},
+        ],
+        [
+            {n="タブ",t="TabWindow",d="取得したい値のあるタブ"},
+            {n="'TAG={{タグ名}}'",t="文字列",d="対象のタグ名を'TAG=タグ名'という書式で指定"},
+            {n="n番目",t="数値",d="該当タグが複数ある場合に順番を指定",o},
+        ],
+        [
+            {n="タブ",t="TabWindow",d="取得したい値のあるタブ"},
+            {n="'TAG=TABLE'",t="文字列",d="TABLEタグを対象にする"},
+            {n="n番目",t="数値",d="TABLEが複数ある場合に順番を指定",o},
+            {n="行",t="数値",d="TABLEの行番号",o},
+            {n="列",t="数値",d="TABLEの列番号",o},
+        ],
+    ]
+    rtype={desc="該当エレメントの値",types=""}
+)]
 pub fn browser_getdata(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let tab = args.get_as_tabwindow(0)?;
     let name = args.get_as_string(1, None)?;
@@ -142,6 +220,51 @@ pub fn browser_getdata(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncR
     Ok(obj)
 }
 
+#[builtin_func_desc(
+    desc="文字入力やクリックを行う"
+    sets=[
+        [
+            {n="タブ",t="TabWindow",d="入力を対象のあるタブ"},
+            {n="値",t="文字列または配列",d="入力する値、対象がinput[type=file]なら配列で複数指定可"},
+            {n="name",t="文字列",d="入力対象エレメントのname値"},
+            {n="value",t="文字列",d="同一nameがある場合に対象エレメントのvalue値を指定",o},
+            {n="n番目",t="数値",d="同一name/valueがある場合に順番を指定",o},
+            {n="直接入力",t="真偽値",d="TRUEならvalue値を直接変更、FALSE(デフォルト)ならキー入力をエミュレート",o},
+        ],
+        [
+            {n="エレメント",t="RemoteObject",d="対象エレメントのオブジェクト"},
+            {n="値",t="文字列または配列",d="入力する値、対象がinput[type=file]なら配列で複数指定可"},
+        ],
+        [
+            {n="タブ",t="TabWindow",d="クリック対象のあるタブ"},
+            {n="TRUE",t="真偽値",d="クリックする場合TRUEを指定"},
+            {n="name",t="文字列",d="入力対象エレメントのname値"},
+            {n="value",t="文字列",d="同一nameがある場合に対象エレメントのvalue値を指定",o},
+            {n="n番目",t="数値",d="同一タグがある場合に順番を指定",o},
+        ],
+        [
+            {n="タブ",t="TabWindow",d="クリック対象のあるタブ"},
+            {n="TRUE",t="真偽値",d="クリックする場合TRUEを指定"},
+            {n="'TAG={{タグ名}}'",t="文字列",d="'TAG=タグ名'の書式で指定タグを探す"},
+            {n="{{プロパティ名}}={{値}}",t="文字列",d="'プロパティ=値'という書式で任意のプロパティとその値を持つタグを探す",o},
+            {n="n番目",t="数値",d="同一タグがある場合に順番を指定",o},
+        ],
+        [
+            {n="タブ",t="TabWindow",d="クリック対象のあるタブ"},
+            {n="TRUE",t="真偽値",d="クリックする場合TRUEを指定"},
+            {n="'TAG={{タグ名}}'",t="文字列",d="'TAG=タグ名'の書式で指定タグを探す"},
+            {n="n番目",t="数値",d="同一タグがある場合に順番を指定",o},
+        ],
+        [
+            {n="タブ",t="TabWindow",d="クリック対象のあるタブ"},
+            {n="TRUE",t="真偽値",d="クリックする場合TRUEを指定"},
+            {n="'TAG=IMG'",t="文字列",d="IMGタグをクリックする場合に指定"},
+            {n="src",t="文字列",d="IMGタグのsrc値を指定",o},
+            {n="n番目",t="数値",d="同一srcがある場合に順番を指定",o},
+        ],
+    ],
+    rtype={desc="成功時TRUE",types="真偽値"}
+)]
 pub fn browser_setdata(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     if let Ok(tab) = args.get_as_tabwindow(0) {
         match args.get_as_string_array_or_bool(1, None)? {
@@ -212,6 +335,15 @@ pub fn browser_setdata(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncR
     }
 }
 
+#[builtin_func_desc(
+    desc="指定タグのHTMLソースを返す"
+    args=[
+        {n="タブ",t="TabWindow",d="取得対象タグのあるタブ"},
+        {n="タグ名",t="文字列",d="取得対象タグ名"},
+        {n="n番目",t="数値",d="該当タグが複数ある場合に順番を指定",o},
+    ],
+    rtype={desc="該当タグがあればそのHTML",types="文字列"}
+)]
 pub fn browser_getsource(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let tab = args.get_as_tabwindow(0)?;
     let tag = args.get_as_string(1, None)?;
@@ -220,6 +352,16 @@ pub fn browser_getsource(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFun
     Ok(obj)
 }
 
+#[builtin_func_desc(
+    desc="リンクをクリック"
+    args=[
+        {n="タブ",t="TabWindow",d="クリック対象リンクのあるタブ"},
+        {n="リンク文字",t="文字列",d="リンクに表示されている文字列"},
+        {n="n番目",t="数値",d="該当リンクが複数ある場合に順番を指定",o},
+        {n="完全一致",t="真偽値",d="TRUEの場合リンク文字が完全一致するリンクを探す",o},
+    ],
+    rtype={desc="該当リンククリックに成功した場合TRUE",types="真偽値"}
+)]
 pub fn browser_link(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let tab = args.get_as_tabwindow(0)?;
     let text = args.get_as_string(1, None)?;

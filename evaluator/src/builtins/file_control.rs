@@ -16,20 +16,20 @@ use once_cell::sync::Lazy;
 
 pub fn builtin_func_sets() -> BuiltinFunctionSets {
     let mut sets = BuiltinFunctionSets::new();
-    sets.add("fopen", 3, fopen);
-    sets.add("fclose", 2, fclose);
-    sets.add("fget", 4, fget);
-    sets.add("fput", 4, fput);
-    sets.add("fdelline", 2, fdelline);
-    sets.add("readini", 3, readini);
-    sets.add("writeini", 4, writeini);
-    sets.add("deleteini", 3, deleteini);
-    sets.add("deletefile", 1, deletefile);
-    sets.add("getdir", 4, getdir);
-    sets.add("dropfile", 36, dropfile);
-    sets.add("zipitems", 1, zipitems);
-    sets.add("unzip", 2, unzip);
-    sets.add("zip", 11, zip);
+    sets.add("fopen", fopen, get_desc!(fopen));
+    sets.add("fclose", fclose, get_desc!(fclose));
+    sets.add("fget", fget, get_desc!(fget));
+    sets.add("fput", fput, get_desc!(fput));
+    sets.add("fdelline", fdelline, get_desc!(fdelline));
+    sets.add("readini", readini, get_desc!(readini));
+    sets.add("writeini", writeini, get_desc!(writeini));
+    sets.add("deleteini", deleteini, get_desc!(deleteini));
+    sets.add("deletefile", deletefile, get_desc!(deletefile));
+    sets.add("getdir", getdir, get_desc!(getdir));
+    sets.add("dropfile", dropfile, get_desc!(dropfile));
+    sets.add("zipitems", zipitems, get_desc!(zipitems));
+    sets.add("unzip", unzip, get_desc!(unzip));
+    sets.add("zip", zip, get_desc!(zip));
     sets
 }
 
@@ -52,6 +52,26 @@ pub enum FileConst {
     F_ALLTEXT   = -2
 }
 
+#[builtin_func_desc(
+    desc="テキストファイルを開く"
+    args=[
+        {n="ファイルパス",t="文字列",d="対象ファイルのパス"},
+        {o,n="オープンモード",t="定数",d=r#"ファイルの開き方を以下の定数で指定、OR連結可
+- F_READ: 読み取りできるようにする (デフォルト)
+- F_WRITE: 書き込みできるようにする
+- F_WRITE8: UTF-8で書き込む
+- F_WRITE8B: BOM付きUTF-8で書き込む
+- F_WRITE16: UTF-16LEで書き込む
+- F_TAB: CSVセパレータをカンマではなくタブ文字にする
+- F_EXCLUSIVE: 排他モードでファイルを開く
+- F_NOCR: 文末に改行を入れない
+- F_EXISTS: ファイルがあるかどうかを真偽値で返す
+- F_APPEND: 文末に追記し即ファイルを閉じる、書き込みバイト数を返す
+"#},
+        {o,n="追記文字列",t="文字列",d="F_APPEND時のみ有効"},
+    ],
+    rtype={desc="F_EXISTS: ファイル有無、F_APPEND: 書き込みバイト数、それ以外はファイルID",types="ファイルIDまたは真偽値または数値"}
+)]
 pub fn fopen(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let path = args.get_as_string(0, None)?;
     let flag = args.get_as_int::<u32>(1, Some(FileConst::F_READ as u32))?;
@@ -75,6 +95,14 @@ pub fn fopen(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     }
 }
 
+#[builtin_func_desc(
+    desc="ファイルを閉じて変更を保存する"
+    args=[
+        {n="ファイルID",t="ファイルID",d="開いたファイルのID"},
+        {o,n="エラー抑止",t="真偽値",d="TRUEにすると書き込みエラーを無視する"},
+    ],
+    rtype={desc="成功時TRUE",types="真偽値"}
+)]
 pub fn fclose(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let arc = args.get_as_fopen(0)?;
     let mut fopen = arc.lock().unwrap();
@@ -91,6 +119,18 @@ pub fn fclose(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     }
 }
 
+#[builtin_func_desc(
+    desc="テキストファイルから読み出す (要F_READ)"
+    args=[
+        {n="ファイルID",t="ファイルID",d="開いたファイルのID"},
+        {n="行",t="数値",d=r#"読み取る行の番号または以下の定数を指定
+- F_LINECOUNT: ファイルの行数を返す
+- F_ALLTEXT: ファイル全体のテキストを返す"#},
+        {n="列",t="数値",d="CSV読み取りの場合に列番号(1から)、0なら行全体"},
+        {o,n="ダブルクォート無視",t="真偽値",d="TRUEならダブルクォートをただの文字と見なす、FALSEならダブルクォートで括られた部分を単語とする"},
+    ],
+    rtype={desc="読み取った文字列または行数",types="文字列または数値"}
+)]
 pub fn fget(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let arc = args.get_as_fopen(0)?;
     let mut fopen = arc.lock().unwrap();
@@ -104,6 +144,23 @@ pub fn fget(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
         .map_err(|e| builtin_func_error(FopenError(e)))
 }
 
+#[builtin_func_desc(
+    desc="テキストファイルに書き込む (要F_WRITE)"
+    args=[
+        {n="ファイルID",t="ファイルID",d="開いたファイルのID"},
+        {n="文字列",t="文字列",d="書き込む文字列"},
+        {o,n="行",t="数値",d=r#"書き込む行または定数を指定
+- 0: 文末に追記
+- 1以上: 指定行に書き込み、既存の行は上書き
+- F_ALLTEXT: ファイル全体を上書き
+"#},
+        {o,n="列",t="数値",d=r#"CSV列または定数を指定
+- 0: 行全体に書き込み
+- 1以上: 該当するCSVカラムに書き込み、既存カラムは上書き
+- F_INSERT: 指定行に挿入 (既存の行は一行ずらす)
+"#},
+    ],
+)]
 pub fn fput(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let arc = args.get_as_fopen(0)?;
     let mut fopen = arc.lock().unwrap();
@@ -120,6 +177,13 @@ pub fn fput(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
         )
 }
 
+#[builtin_func_desc(
+    desc="行を削除 (要F_READおよびF_WRITE)"
+    args=[
+        {n="ファイルID",t="ファイルID",d="開いたファイルのID"},
+        {n="行",t="数値",d="消したい行の番号"},
+    ],
+)]
 pub fn fdelline(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let row = args.get_as_int(1, None::<usize>)?;
     if row < 1 {
@@ -142,7 +206,15 @@ static DEFAULT_INI_NAME: Lazy<String> = Lazy::new(|| {
     }
 });
 
-
+#[builtin_func_desc(
+    desc="iniファイル読み取り"
+    args=[
+        {o,n="セクション",t="文字列",d="セクション名を指定、省略時セクション一覧取得"},
+        {o,n="キー",t="文字列",d="キー名を指定、省略時キー一覧取得"},
+        {o,n="ファイル",t="文字列またはファイルID",d="対象ファイルを指定"},
+    ],
+    rtype={desc="キーの値、またはセクション/キー一覧の配列",types="文字列または配列"}
+)]
 pub fn readini(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let section = args.get_as_string_or_empty(0)?;
     let key = args.get_as_string_or_empty(1)?;
@@ -191,6 +263,15 @@ pub fn readini(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     }
 }
 
+#[builtin_func_desc(
+    desc="iniファイル書き込み"
+    args=[
+        {n="セクション",t="文字列",d="セクション名"},
+        {n="キー",t="文字列",d="キー名"},
+        {n="値",t="文字列",d="書き込む値"},
+        {o,n="ファイル",t="文字列またはファイルID",d="対象ファイル"},
+    ],
+)]
 pub fn writeini(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let section = args.get_as_string(0, None)?;
     let key = args.get_as_string(1, None)?;
@@ -210,6 +291,14 @@ pub fn writeini(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(Object::default())
 }
 
+#[builtin_func_desc(
+    desc="指定キー、またはセクションを削除"
+    args=[
+        {n="セクション",t="文字列",d="セクション名"},
+        {o,n="キー",t="文字列",d="削除するキー、省略時はセクション全体を削除"},
+        {o,n="ファイル",t="文字列またはファイルID",d="対象ファイル"},
+    ],
+)]
 pub fn deleteini(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let section = args.get_as_string(0, None)?;
     let key = args.get_as_string_or_empty(1)?;
@@ -228,6 +317,13 @@ pub fn deleteini(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult 
     Ok(Object::default())
 }
 
+#[builtin_func_desc(
+    desc="ファイルを削除",
+    args=[
+        {n="ファイルパス",t="文字列",d="削除したいファイルのパス、ワイルドカード(`*`, `?`)使用可"},
+    ],
+    rtype={desc="成功時TRUE",types="真偽値"}
+)]
 pub fn deletefile(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let path = args.get_as_string(0, None)?;
     let result = Fopen::delete(&path);
@@ -244,6 +340,21 @@ pub enum FileOrderConst {
     ORDERBY_ACCESSED = 4,
 }
 
+#[builtin_func_desc(
+    desc="ファイルまたはディレクトリ一覧の取得",
+    args=[
+        {n="ディレクトリ",t="文字列",d="ファイル一覧を取得したいディレクトリのパス"},
+        {o,n="フィルタ",t="文字列",d="ファイル名のフィルタ、ワイルドカード(`*`, `?`)使用可、`\\`開始でディレクトリ一覧取得"},
+        {o,n="非表示フラグ",t="真偽値",d="TRUEなら非表示ファイルも含める"},
+        {o,n="取得順",t="定数",d=r#"以下のいずれかを指定
+- ORDERBY_NAME: ファイル名順
+- ORDERBY_SIZE: サイズ順
+- ORDERBY_CREATED: 作成日時順
+- ORDERBY_MODIFIED: 更新日時順
+- ORDERBY_ACCESSED: 最終アクセス日時順"#},
+    ],
+    rtype={desc="ファイル名またはディレクトリ名の配列",types="配列"}
+)]
 pub fn getdir(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let dir = args.get_as_string(0, None)?;
     let mut filter = args.get_as_string_or_empty(1)?.unwrap_or_default();
@@ -267,6 +378,23 @@ pub fn getdir(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(Object::Array(files))
 }
 
+#[builtin_func_desc(
+    desc="ウィンドウにファイルをドロップする"
+    sets=[
+        [
+            {n="ID",t="数値",d="ドロップ対象ウィンドウ"},
+            {n="ディレクトリ",t="文字列",d="ファイルのあるディレクトリパス"},
+            {v=34,n="ファイル名1-34",t="文字列または配列",d="ドロップするファイル名"},
+        ],
+        [
+            {n="ID",t="数値",d="ドロップ対象ウィンドウ"},
+            {n="X",t="数値",d="ドロップするクライアントX座標"},
+            {n="Y",t="数値",d="ドロップするクライアントY座標"},
+            {n="ディレクトリ",t="文字列",d="ファイルのあるディレクトリパス"},
+            {v=32,n="ファイル名1-32",t="文字列または配列",d="ドロップするファイル名"},
+        ],
+    ],
+)]
 pub fn dropfile(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = args.get_as_int(0, None)?;
     let hwnd = window_control::get_hwnd_from_id(id);
@@ -361,6 +489,13 @@ impl Zip {
     }
 }
 
+#[builtin_func_desc(
+    desc="zipファイル内のファイル一覧を得る",
+    args=[
+        {n="zip",t="文字列",d="zipファイルのパス"},
+    ],
+    rtype={desc="ファイル名の配列",types="配列"}
+)]
 pub fn zipitems(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let path = args.get_as_string(0, None)?;
     let zip = Zip::new(&path);
@@ -371,6 +506,14 @@ pub fn zipitems(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(Object::Array(array))
 }
 
+#[builtin_func_desc(
+    desc="zipファイルを展開",
+    args=[
+        {n="zip",t="文字列",d="zipファイルのパス"},
+        {n="展開先",t="文字列",d="展開先フォルダのパス"},
+    ],
+    rtype={desc="成功時TRUE",types="真偽値"}
+)]
 pub fn unzip(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let path = args.get_as_string(0, None)?;
     let out = args.get_as_string(1, None)?;
@@ -379,6 +522,14 @@ pub fn unzip(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(Object::Bool(result))
 }
 
+#[builtin_func_desc(
+    desc="zipファイルを作成",
+    args=[
+        {n="zip",t="文字列",d="作成するzipファイルのパス"},
+        {v=10,n="ファイル1-10",t="文字列または配列",d="zipに含めるファイルパス (配列可)"},
+    ],
+    rtype={desc="",types=""}
+)]
 pub fn zip(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let path = args.get_as_string(0, None)?;
     let files = args.get_rest_as_string_array(1, 1)?;
