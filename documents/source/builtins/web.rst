@@ -257,7 +257,7 @@ IESETDATA互換
         tab = browser[0]
 
         file = tab.querySelector("input[type=file]")
-        files = [C:\test\hoge.txt, C:\test\fuga.txt]
+        files = ['C:\test\hoge.txt', 'C:\test\fuga.txt']
         print BRSetData(file, files)
 
 .. function:: BRSetData(タブ, TRUE, name, [value=EMPTY, n番目=1])

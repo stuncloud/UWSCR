@@ -419,7 +419,7 @@ HTMLフォーム
 
 .. function:: createform(HTMLファイル, タイトル, [非同期フラグ=FALSE, オプション=FOM_DEFAULT, 幅=EMPTY, 高さ=EMPTY, X=EMPTY, Y=EMPTY])
 
-    | 関数の説明
+    | フォームウィンドウを表示します
 
     .. admonition:: WebView2 Runtimeが必要です
         :class: caution

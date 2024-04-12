@@ -107,8 +107,9 @@
 
     | baseを底とするnの対数
 
-    :param 数値 n: 入力値
-    :rtype: 数値
+    :param 数値 base: 底
+    :param 数値 n: 値
+    :rtype: 対数
     :return: 数値
 
 .. function:: sin(n)
