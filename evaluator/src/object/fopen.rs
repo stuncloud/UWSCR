@@ -683,9 +683,13 @@ impl Fopen {
             None => return false,
         };
         if let Ok(files) = Self::list_dir_entries(dir, filter, FileOrderBy::Default, false, true, true) {
-            for file in files {
-                if remove_file(&file).is_err() {
-                    result = false;
+            if files.is_empty() {
+                result = false;
+            } else {
+                for file in files {
+                    if remove_file(&file).is_err() {
+                        result = false;
+                    }
                 }
             }
         } else {
