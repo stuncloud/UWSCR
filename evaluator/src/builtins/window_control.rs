@@ -1104,7 +1104,6 @@ pub fn monitor(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
         let Some(monitor) = Monitor::from_index(index) else {
             return Ok(false.into())
         };
-        println!("\u{001b}[36m[monitor] monitor: {:?}\u{001b}[0m", &monitor);
         let mon_enum = args.get_as_const::<MonitorEnum>(1, false)?
             .unwrap_or(MonitorEnum::MON_ALL);
         let obj = match mon_enum {
