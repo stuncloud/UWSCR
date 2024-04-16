@@ -1861,9 +1861,12 @@ impl FuncScope {
     }
     fn implicit_declaration(&mut self) {
         // パラメータ名を除く
-        let mut assignee = self.assignee.get_undeclared(&vec![&self.param]);
-        assignee.remove_dup();
-        self.dim.append_mut(&mut assignee);
+        self.assignee.remove_dup();
+        let mut declaration = self.assignee.get_undeclared_2(
+            &vec![&self.dim, &self.param],
+            &vec![]
+        );
+        self.dim.append_mut(&mut declaration);
         for anon in self.anon.0.as_mut_slice() {
             anon.implicit_declaration();
         }
