@@ -227,8 +227,8 @@ UWSCではエラーになっていたconstの一括定義も可能
 
     iは0から
 
-    - ``HASH_CASECARE`` がない場合は代入した順序
-    - ``HASH_CASECARE`` がある場合はキーによりソートされた順序
+    - ``HASH_SORT`` がない場合は代入した順序
+    - ``HASH_SORT`` がある場合はキーによりソートされた順序
 
 
 .. sourcecode:: uwscr

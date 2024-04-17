@@ -10,11 +10,11 @@
 
     :param 真偽値または定数 省略可 データ種別: 以下のいずれかを指定
 
-        .. object:: TRUE
+        .. object:: IS_64BIT_OS, TRUE
 
             OSが64ビットかどうかを真偽値で返す
 
-        .. object:: FALSE
+        .. object:: KIND_OF_OS, FALSE
 
             OS種別をOS定数で返す
 

@@ -757,6 +757,22 @@ ID0について
 
             ウィンドウが表示されているモニタ番号 (:any:`monitor` 関数に対応) (数値)
 
+        .. object:: ST_WX
+
+            ウィンドウの補正なしX座標
+
+        .. object:: ST_WY
+
+            ウィンドウの補正なしY座標
+
+        .. object:: ST_WWIDTH
+
+            ウィンドウの補正なし幅
+
+        .. object:: ST_WHEIGHT
+
+            ウィンドウの補正なし高さ
+
         .. object:: ST_ALL
 
             | すべての状態を取得
