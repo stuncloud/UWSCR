@@ -31,7 +31,7 @@ use crate::object::{
 };
 use crate::Evaluator;
 use crate::object::{UObject,Fopen,Function,browser::{RemoteObject, TabWindow}, ObjectType, ComObject, StructDef};
-use crate::environment::{NamedObject, ContainerType};
+use crate::environment::NamedObject;
 use crate::builtins::key_codes::SCKeyCode;
 use crate::error::{UError,UErrorKind,UErrorMessage};
 use parser::ast::{Expression, Identifier};
@@ -804,7 +804,6 @@ impl ThreeState {
         }
     }
 }
-
 pub struct BuiltinFunctionSet {
     name: String,
     len: i32,
@@ -832,6 +831,9 @@ impl BuiltinFunctionSets {
             BuiltinFunctionSet::new(name, len, func, desc)
         );
     }
+    fn append(&mut self, other: &mut Self) {
+        self.sets.append(&mut other.sets)
+    }
     pub fn set(self, vec: &mut Vec<NamedObject>) {
         for set in self.sets {
             let name = set.name.to_ascii_uppercase();
@@ -844,271 +846,355 @@ impl BuiltinFunctionSets {
         }
     }
 }
-pub enum BuiltinName {
-    Const(String),
-    Function(String),
-    Other(String),
+impl Into<Vec<BuiltinName>> for BuiltinFunctionSets {
+    fn into(self) -> Vec<BuiltinName> {
+        self.sets.into_iter()
+            .map(|set| BuiltinName::new_func(set.name, set.desc))
+            .collect()
+    }
+}
+
+// pub enum BuiltinNameType {
+//     Const,
+//     Function,
+//     Other,
+// }
+pub enum BuiltinNameDesc {
+    Function(FuncDesc),
+    Const(String)
+}
+pub struct BuiltinName {
+    name: String,
+    // r#type: BuiltinNameType,
+    desc: Option<BuiltinNameDesc>,
 }
 impl BuiltinName {
-    pub fn name(&self) -> String {
-        match self {
-            BuiltinName::Const(name) |
-            BuiltinName::Function(name) |
-            BuiltinName::Other(name) => name.clone(),
+    pub fn name(&self) -> &String {
+        &self.name
+    }
+    pub fn desc(&self) -> &Option<BuiltinNameDesc> {
+        &self.desc
+    }
+    fn new_const(name: &str, desc: Option<&str>) -> Self {
+        Self {
+            name: name.to_string(),
+            // r#type: BuiltinNameType::Const,
+            desc: desc.map(|s| BuiltinNameDesc::Const(s.to_string())),
         }
     }
-    pub fn name_as_ref(&self) -> &String {
-        match self {
-            BuiltinName::Const(name) |
-            BuiltinName::Function(name) |
-            BuiltinName::Other(name) => name,
-        }
-    }
-}
-impl From<NamedObject> for BuiltinName {
-    fn from(obj: NamedObject) -> Self {
-        match obj.container_type {
-            ContainerType::BuiltinConst => Self::Const(obj.name),
-            ContainerType::BuiltinFunc => Self::Function(obj.name),
-            _ => Self::Other(obj.name)
+    fn new_func(name: String, desc: FuncDesc) -> Self {
+        Self {
+            name,
+            // r#type: BuiltinNameType::Function,
+            desc: Some(BuiltinNameDesc::Function(desc)),
         }
     }
 }
+
 pub fn get_builtin_names() -> Vec<BuiltinName> {
-    let mut names: Vec<BuiltinName> = init_builtins().into_iter()
-        .map(|obj| obj.into())
-        .collect();
     // 登録方法が特殊なビルトイン定数
-    let mut hoge = vec![
+    let mut names: Vec<BuiltinName> = vec![
         // "PARAM_STR",
         // "GET_FUNC_NAME",
-        "TRY_ERRLINE",
-        "TRY_ERRMSG",
-        "G_TIME_YY",
-        "G_TIME_MM",
-        "G_TIME_DD",
-        "G_TIME_HH",
-        "G_TIME_NN",
-        "G_TIME_SS",
-        "G_TIME_ZZ",
-        "G_TIME_WW",
-        "G_TIME_YY2",
-        "G_TIME_MM2",
-        "G_TIME_DD2",
-        "G_TIME_HH2",
-        "G_TIME_NN2",
-        "G_TIME_SS2",
-        "G_TIME_ZZ2",
-        "G_TIME_YY4",
-    ].into_iter().map(|name| BuiltinName::Const(name.into())).collect();
-    names.append(&mut hoge);
+        ("TRY_ERRLINE", "エラー発生行情報"),
+        ("TRY_ERRMSG", "エラーメッセージ"),
+        ("G_TIME_YY", "年"),
+        ("G_TIME_MM", "月"),
+        ("G_TIME_DD", "日"),
+        ("G_TIME_HH", "時"),
+        ("G_TIME_NN", "分"),
+        ("G_TIME_SS", "秒"),
+        ("G_TIME_ZZ", "ミリ秒"),
+        ("G_TIME_WW", "曜日 (0:日,1:月,2:火,3:水,4:木,5:金,6:土)"),
+        ("G_TIME_YY2", "年 下二桁"),
+        ("G_TIME_MM2", "月 二桁"),
+        ("G_TIME_DD2", "日 二桁"),
+        ("G_TIME_HH2", "時 二桁"),
+        ("G_TIME_NN2", "分 二桁"),
+        ("G_TIME_SS2", "秒 二桁"),
+        ("G_TIME_ZZ2", "ミリ秒 三桁"),
+        ("G_TIME_YY4", "年 四桁"),
+    ].into_iter().map(|(name, desc)| BuiltinName::new_const(name, Some(desc))).collect();
+    let mut funcs: Vec<BuiltinName> = init_builtin_functions().into();
+    names.append(&mut funcs);
+    let mut consts: Vec<BuiltinName> = init_builtin_consts().into();
+    names.append(&mut consts);
     names
 }
 pub fn get_builtin_string_names() -> Vec<String> {
-    get_builtin_names().into_iter().map(|name| name.name()).collect()
+    get_builtin_names().into_iter().map(|name| name.name().clone()).collect()
 }
 
-pub fn init_builtins() -> Vec<NamedObject> {
-    let mut vec = Vec::new();
-    // builtin debug functions
-    builtin_func_sets().set(&mut vec);
-    set_builtin_str_consts::<ObjectType>(&mut vec);
+fn init_builtin_functions() -> BuiltinFunctionSets {
+    let mut sets = builtin_func_sets();
+    let mut window_low_sets = window_low::builtin_func_sets();
+    let mut window_control_sets = window_control::builtin_func_sets();
+    let mut text_control_sets = text_control::builtin_func_sets();
+    let mut system_controls_sets = system_controls::builtin_func_sets();
+    let mut math_sets = math::builtin_func_sets();
+    let mut com_object_sets = com_object::builtin_func_sets();
+    let mut browser_control_sets = browser_control::builtin_func_sets();
+    let mut array_control_sets = array_control::builtin_func_sets();
+    let mut dialog_sets = dialog::builtin_func_sets();
+    let mut file_control_sets = file_control::builtin_func_sets();
+
+    sets.append(&mut window_low_sets);
+    sets.append(&mut window_control_sets);
+    sets.append(&mut text_control_sets);
+    sets.append(&mut system_controls_sets);
+    sets.append(&mut math_sets);
+    sets.append(&mut com_object_sets);
+    sets.append(&mut browser_control_sets);
+    sets.append(&mut array_control_sets);
+    sets.append(&mut dialog_sets);
+    sets.append(&mut file_control_sets);
+
+    sets
+
+}
+fn init_builtin_consts() -> BuiltinConsts {
+    let mut sets = BuiltinConsts {sets: vec![]};
+
+    sets.append(&mut BuiltinConsts::new_str::<ObjectType>());
     // hashtbl
-    set_builtin_consts::<HashTblEnum>(&mut vec);
+    sets.append(&mut BuiltinConsts::new::<HashTblEnum>());
     // window_low
-    window_low::builtin_func_sets().set(&mut vec);
-    set_builtin_consts::<window_low::MouseButtonEnum>(&mut vec);
-    set_builtin_consts::<window_low::KeyActionEnum>(&mut vec);
+    sets.append(&mut BuiltinConsts::new::<window_low::MouseButtonEnum>());
+    sets.append(&mut BuiltinConsts::new::<window_low::KeyActionEnum>());
     // window_control
-    window_control::builtin_func_sets().set(&mut vec);
-    set_builtin_str_consts::<window_control::SpecialWindowId>(&mut vec);
-    set_builtin_consts::<window_control::CtrlWinCmd>(&mut vec);
-    set_builtin_consts::<window_control::StatusEnum>(&mut vec);
-    set_builtin_consts::<window_control::MonitorEnum>(&mut vec);
-    set_builtin_str_consts::<window_control::GetHndConst>(&mut vec);
-    set_builtin_consts::<window_control::ClkConst>(&mut vec);
-    set_builtin_consts::<window_control::GetItemConst>(&mut vec);
-    set_builtin_consts::<window_control::AccConst>(&mut vec);
-    set_builtin_consts::<window_control::CurConst>(&mut vec);
-    set_builtin_consts::<window_control::ColConst>(&mut vec);
-    set_builtin_consts::<window_control::SldConst>(&mut vec);
-    set_builtin_consts::<window_control::GetStrConst>(&mut vec);
-    set_builtin_consts::<window_control::ImgConst>(&mut vec);
-    set_builtin_consts::<window_control::MorgTargetConst>(&mut vec);
-    set_builtin_consts::<window_control::MorgContextConst>(&mut vec);
+    sets.append(&mut BuiltinConsts::new_str::<window_control::SpecialWindowId>());
+    sets.append(&mut BuiltinConsts::new::<window_control::CtrlWinCmd>());
+    sets.append(&mut BuiltinConsts::new::<window_control::StatusEnum>());
+    sets.append(&mut BuiltinConsts::new::<window_control::MonitorEnum>());
+    sets.append(&mut BuiltinConsts::new_str::<window_control::GetHndConst>());
+    sets.append(&mut BuiltinConsts::new::<window_control::ClkConst>());
+    sets.append(&mut BuiltinConsts::new::<window_control::GetItemConst>());
+    sets.append(&mut BuiltinConsts::new::<window_control::AccConst>());
+    sets.append(&mut BuiltinConsts::new::<window_control::CurConst>());
+    sets.append(&mut BuiltinConsts::new::<window_control::ColConst>());
+    sets.append(&mut BuiltinConsts::new::<window_control::SldConst>());
+    sets.append(&mut BuiltinConsts::new::<window_control::GetStrConst>());
+    sets.append(&mut BuiltinConsts::new::<window_control::ImgConst>());
+    sets.append(&mut BuiltinConsts::new::<window_control::MorgTargetConst>());
+    sets.append(&mut BuiltinConsts::new::<window_control::MorgContextConst>());
     #[cfg(feature="chkimg")]
-    set_builtin_consts::<window_control::ChkImgOption>(&mut vec);
+    sets.append(&mut BuiltinConsts::new::<window_control::ChkImgOption>());
 
     // text control
-    text_control::builtin_func_sets().set(&mut vec);
-    set_builtin_consts::<text_control::RegexEnum>(&mut vec);
-    set_builtin_consts::<text_control::ErrConst>(&mut vec);
-    set_builtin_consts::<text_control::StrconvConst>(&mut vec);
-    set_builtin_consts::<text_control::FormatConst>(&mut vec);
-    set_builtin_consts::<text_control::CodeConst>(&mut vec);
+    sets.append(&mut BuiltinConsts::new::<text_control::RegexEnum>());
+    sets.append(&mut BuiltinConsts::new::<text_control::ErrConst>());
+    sets.append(&mut BuiltinConsts::new::<text_control::StrconvConst>());
+    sets.append(&mut BuiltinConsts::new::<text_control::FormatConst>());
+    sets.append(&mut BuiltinConsts::new::<text_control::CodeConst>());
     // system_constrol
-    system_controls::builtin_func_sets().set(&mut vec);
-    set_builtin_consts::<system_controls::OsKind>(&mut vec);
-    set_builtin_consts::<system_controls::KindOfOsResultType>(&mut vec);
-    set_builtin_consts::<system_controls::LockHardExConst>(&mut vec);
-    set_builtin_consts::<system_controls::SensorConst>(&mut vec);
-    set_builtin_consts::<system_controls::ToggleKey>(&mut vec);
-    set_builtin_consts::<system_controls::POFF>(&mut vec);
-    set_builtin_consts::<system_controls::GTimeOffset>(&mut vec);
-    set_builtin_consts::<system_controls::GTimeWeekDay>(&mut vec);
+    sets.append(&mut BuiltinConsts::new::<system_controls::OsKind>());
+    sets.append(&mut BuiltinConsts::new::<system_controls::KindOfOsResultType>());
+    sets.append(&mut BuiltinConsts::new::<system_controls::LockHardExConst>());
+    sets.append(&mut BuiltinConsts::new::<system_controls::SensorConst>());
+    sets.append(&mut BuiltinConsts::new::<system_controls::ToggleKey>());
+    sets.append(&mut BuiltinConsts::new::<system_controls::POFF>());
+    sets.append(&mut BuiltinConsts::new::<system_controls::GTimeOffset>());
+    sets.append(&mut BuiltinConsts::new::<system_controls::GTimeWeekDay>());
     // math
-    math::builtin_func_sets().set(&mut vec);
+
     // key codes
-    set_builtin_consts::<key_codes::VirtualKeyCode>(&mut vec);
-    set_builtin_consts::<key_codes::VirtualMouseButton>(&mut vec);
+    sets.append(&mut BuiltinConsts::new::<key_codes::VirtualKeyCode>());
+    sets.append(&mut BuiltinConsts::new::<key_codes::VirtualMouseButton>());
     // com_object
-    com_object::builtin_func_sets().set(&mut vec);
-    set_builtin_consts::<com_object::VarType>(&mut vec);
-    set_builtin_consts::<com_object::ExcelConst>(&mut vec);
+    sets.append(&mut BuiltinConsts::new::<com_object::VarType>());
+    sets.append(&mut BuiltinConsts::new::<com_object::ExcelConst>());
     // browser_control
-    browser_control::builtin_func_sets().set(&mut vec);
-    set_builtin_consts::<browser_control::BcEnum>(&mut vec);
+    sets.append(&mut BuiltinConsts::new::<browser_control::BcEnum>());
     // array_control
-    array_control::builtin_func_sets().set(&mut vec);
-    set_builtin_consts::<array_control::QsrtConst>(&mut vec);
-    set_builtin_consts::<array_control::CalcConst>(&mut vec);
+    sets.append(&mut BuiltinConsts::new::<array_control::QsrtConst>());
+    sets.append(&mut BuiltinConsts::new::<array_control::CalcConst>());
     // dialog.rs
-    set_builtin_consts::<dialog::BtnConst>(&mut vec);
-    set_builtin_consts::<dialog::SlctConst>(&mut vec);
-    set_builtin_consts::<dialog::BalloonFlag>(&mut vec);
-    set_builtin_consts::<dialog::FormOptions>(&mut vec);
-    set_builtin_str_consts::<dialog::WindowClassName>(&mut vec);
+    sets.append(&mut BuiltinConsts::new::<dialog::BtnConst>());
+    sets.append(&mut BuiltinConsts::new::<dialog::SlctConst>());
+    sets.append(&mut BuiltinConsts::new::<dialog::BalloonFlag>());
+    sets.append(&mut BuiltinConsts::new::<dialog::FormOptions>());
+    sets.append(&mut BuiltinConsts::new_str::<dialog::WindowClassName>());
     // SLCT_* 定数
-    for n in 1..=31_u32 {
-        let val = 2_i32.pow(n-1);
-        let object = val.into();
-        let name = format!("SLCT_{}",n);
-        vec.push(NamedObject::new_builtin_const(name, object))
-    }
-    dialog::builtin_func_sets().set(&mut vec);
+    let mut slcts = BuiltinConsts {
+        sets: (1..=31_u32).into_iter()
+            .map(|n| {
+                let val = 2_i32.pow(n - 1);
+                let name = format!("SLCT_{n}");
+                let desc = Some(format!("{n}番目の選択肢"));
+                BuiltinConst::new(name, val.into(), desc)
+            })
+            .collect()
+    };
+    sets.append(&mut slcts);
     // file_control
-    set_builtin_consts::<file_control::FileConst>(&mut vec);
-    set_builtin_consts::<file_control::FileOrderConst>(&mut vec);
-    file_control::builtin_func_sets().set(&mut vec);
+    sets.append(&mut BuiltinConsts::new::<file_control::FileConst>());
+    sets.append(&mut BuiltinConsts::new::<file_control::FileOrderConst>());
+
     // 特殊変数
-    set_special_variables(&mut vec);
+    let mut special = special_variables();
+    sets.append(&mut special);
+
+    sets
+}
+pub fn init_builtins() -> Vec<NamedObject> {
+    let mut vec = Vec::new();
+    // ビルトイン関数
+    init_builtin_functions().set(&mut vec);
+    // ビルトイン定数
+    init_builtin_consts().set(&mut vec);
 
     vec
 }
 
-pub fn set_builtin_consts<E: std::str::FromStr + VariantNames + EnumProperty + ToPrimitive>(vec: &mut Vec<NamedObject>) {
-    for name in E::VARIANTS {
-        if let Ok(value) = E::from_str(name) {
-            // props(hidden="true") であればスキップ
-            if value.get_str("hidden").is_none() {
-                let num = ToPrimitive::to_f64(&value).unwrap();
-                vec.push(NamedObject::new_builtin_const(
-                    name.to_ascii_uppercase(),
-                    Object::Num(num)
-                ));
-                // aliasがあればそれもセットする
-                if let Some(alias) = value.get_str("alias") {
-                    vec.push(NamedObject::new_builtin_const(
-                        alias.to_ascii_uppercase(),
-                        Object::Num(num)
-                    ));
+struct BuiltinConst {
+    name: String,
+    value: Object,
+    desc: Option<String>,
+}
+impl BuiltinConst {
+    fn new(name: String, value: Object, desc: Option<String>,) -> Self {
+        Self { name, value, desc }
+    }
+}
+struct BuiltinConsts {
+    sets: Vec<BuiltinConst>
+}
+impl BuiltinConsts {
+    fn new<E: std::str::FromStr + VariantNames + EnumProperty + ToPrimitive>() -> Self {
+        let mut sets = vec![];
+        for name in E::VARIANTS {
+            if let Ok(value) = E::from_str(name) {
+                // props(hidden="true") であればスキップ
+                if value.get_str("hidden").is_none() {
+                    let num = ToPrimitive::to_f64(&value).unwrap();
+                    let desc = value.get_str("desc").map(|s| format!("{s} ({num})"));
+                    sets.push(BuiltinConst::new(name.to_ascii_uppercase(), num.into(), desc));
+                    // aliasがあればそれもセットする
+                    if let Some(alias) = value.get_str("alias") {
+                        let desc = value.get_str("desc").map(|s| format!("{s} ({num})"));
+                        sets.push(BuiltinConst::new(alias.to_ascii_uppercase(), num.into(), desc));
+                    }
                 }
             }
         }
+        Self {sets}
     }
-}
-
-pub fn set_builtin_str_consts<E: VariantNames + EnumProperty + std::str::FromStr>(vec: &mut Vec<NamedObject>) {
-    for name in E::VARIANTS {
-        if let Ok(value) = E::from_str(name) {
-            if let Some(msg) = value.get_str("value") {
-                vec.push(NamedObject::new_builtin_const(name.to_ascii_uppercase(), msg.into()))
-            } else {
-                let prefix = value.get_str("prefix").unwrap_or_default();
-                let suffix = value.get_str("suffix").unwrap_or_default();
-                let object = format!("{prefix}{name}{suffix}").into();
-                vec.push(NamedObject::new_builtin_const(name.to_ascii_uppercase(), object))
+    fn new_str<E: VariantNames + EnumProperty + std::str::FromStr>() -> Self {
+        let mut sets = vec![];
+        for name in E::VARIANTS {
+            if let Ok(value) = E::from_str(name) {
+                // props(hidden="true") であればスキップ
+                if value.get_str("hidden").is_none() {
+                    let desc = value.get_str("desc").map(|s| s.to_string());
+                    if let Some(msg) = value.get_str("value") {
+                        sets.push(BuiltinConst::new(name.to_ascii_uppercase(), msg.into(), desc))
+                    } else {
+                        let prefix = value.get_str("prefix").unwrap_or_default();
+                        let suffix = value.get_str("suffix").unwrap_or_default();
+                        let object = format!("{prefix}{name}{suffix}").into();
+                        sets.push(BuiltinConst::new(name.to_ascii_uppercase(), object, desc))
+                    }
+                }
             }
         }
+        Self {sets}
+    }
+    fn append(&mut self, other: &mut Self) {
+        self.sets.append(&mut other.sets)
+    }
+    fn set(self, vec: &mut Vec<NamedObject>) {
+        let mut sets = self.sets.into_iter()
+            .map(|set| NamedObject::new_builtin_const(set.name, set.value))
+            .collect::<Vec<_>>();
+        vec.append(&mut sets)
     }
 }
 
-fn set_special_variables(vec: &mut Vec<NamedObject>) {
-    // 特殊変数
-    vec.push(NamedObject::new_builtin_const("GET_UWSC_PRO".into(), Object::Empty));
-    vec.push(NamedObject::new_builtin_const("GET_UWSC_VER".into(), Object::Version(
-        env!("CARGO_PKG_VERSION").parse::<Version>().unwrap_or(Version::new(0,0,0))
-    )));
-    vec.push(NamedObject::new_builtin_const("GET_UWSCR_VER".into(), Object::Version(
-        env!("CARGO_PKG_VERSION").parse::<Version>().unwrap_or(Version::new(0,0,0))
-    )));
-    vec.push(NamedObject::new_builtin_const("GET_UWSC_DIR".into(),
-        env::var("GET_UWSC_DIR").map_or(Object::Empty, |path| Object::String(path))
-    ));
-    vec.push(NamedObject::new_builtin_const("GET_UWSCR_DIR".into(),
-        env::var("GET_UWSC_DIR").map_or(Object::Empty, |path| Object::String(path))
-    ));
-    vec.push(NamedObject::new_builtin_const("GET_UWSC_NAME".into(),
-        env::var("GET_UWSC_NAME").map_or(Object::Empty, |path| Object::String(path))
-    ));
-    vec.push(NamedObject::new_builtin_const("GET_UWSCR_NAME".into(),
-        env::var("GET_UWSC_NAME").map_or(Object::Empty, |path| Object::String(path))
-    ));
-    vec.push(NamedObject::new_builtin_const("GET_WIN_DIR".into(), Object::String(
-        get_windows_directory()
-    )));
-    vec.push(NamedObject::new_builtin_const("GET_SYS_DIR".into(), Object::String(
-        get_system_directory()
-    )));
-    vec.push(NamedObject::new_builtin_const("GET_APPDATA_DIR".into(), Object::String(
-        get_special_directory(CSIDL_APPDATA as i32)
-    )));
+impl Into<Vec<BuiltinName>> for BuiltinConsts {
+    fn into(self) -> Vec<BuiltinName> {
+        self.sets.into_iter()
+            .map(|set| BuiltinName { name: set.name, desc: set.desc.map(|d| BuiltinNameDesc::Const(d)) })
+            .collect()
+    }
+}
 
-    vec.push(NamedObject::new_builtin_const("GET_CUR_DIR".into(), Object::DynamicVar(
+fn special_variables() -> BuiltinConsts {
+    let mut sets = vec![];
+    sets.push(BuiltinConst::new("GET_UWSC_PRO".into(), Object::Empty, Some("常にEMPTY".into())));
+    sets.push(BuiltinConst::new("GET_UWSC_VER".into(), Object::Version(
+        env!("CARGO_PKG_VERSION").parse::<Version>().unwrap_or(Version::new(0,0,0))
+    ), Some("UWSCRのバージョン".into())));
+    sets.push(BuiltinConst::new("GET_UWSCR_VER".into(), Object::Version(
+        env!("CARGO_PKG_VERSION").parse::<Version>().unwrap_or(Version::new(0,0,0))
+    ), Some("UWSCRのバージョン".into())));
+    sets.push(BuiltinConst::new("GET_UWSC_DIR".into(),
+        env::var("GET_UWSC_DIR").map_or(Object::Empty, |path| Object::String(path))
+    , Some("uwscr.exeのあるディレクトリ".into())));
+    sets.push(BuiltinConst::new("GET_UWSCR_DIR".into(),
+        env::var("GET_UWSC_DIR").map_or(Object::Empty, |path| Object::String(path))
+    , Some("uwscr.exeのあるディレクトリ".into())));
+    sets.push(BuiltinConst::new("GET_UWSC_NAME".into(),
+        env::var("GET_UWSC_NAME").map_or(Object::Empty, |path| Object::String(path))
+    , Some("スクリプト名".into())));
+    sets.push(BuiltinConst::new("GET_UWSCR_NAME".into(),
+        env::var("GET_UWSC_NAME").map_or(Object::Empty, |path| Object::String(path))
+    , Some("スクリプト名".into())));
+    sets.push(BuiltinConst::new("GET_WIN_DIR".into(), Object::String(
+        get_windows_directory()
+    ), Some("Windowsディレクトリパス".into())));
+    sets.push(BuiltinConst::new("GET_SYS_DIR".into(), Object::String(
+        get_system_directory()
+    ), Some("システムディレクトリパス".into())));
+    sets.push(BuiltinConst::new("GET_APPDATA_DIR".into(), Object::String(
+        get_special_directory(CSIDL_APPDATA as i32)
+    ), Some("APPDATAパス".into())));
+
+    sets.push(BuiltinConst::new("GET_CUR_DIR".into(), Object::DynamicVar(
         || Object::String(
             match env::current_dir() {
                 Ok(p) => p.into_os_string().into_string().unwrap(),
                 Err(_) => "".into()
             }
         )
-    )));
-    vec.push(NamedObject::new_builtin_const("G_MOUSE_X".into(), Object::DynamicVar(
+    ), Some("カレントディレクトリ".into())));
+    sets.push(BuiltinConst::new("G_MOUSE_X".into(), Object::DynamicVar(
         || Object::Num(
             match window_low::get_current_pos() {
                 Ok(p) => p.x as f64,
                 Err(_) => -999999.0
             }
         )
-    )));
-    vec.push(NamedObject::new_builtin_const("G_MOUSE_Y".into(), Object::DynamicVar(
+    ), Some("マウスX座標".into())));
+    sets.push(BuiltinConst::new("G_MOUSE_Y".into(), Object::DynamicVar(
         || Object::Num(
             match window_low::get_current_pos() {
                 Ok(p) => p.y as f64,
                 Err(_) => -999999.0
             }
         )
-    )));
-    vec.push(NamedObject::new_builtin_const("G_SCREEN_W".into(), Object::DynamicVar(
+    ), Some("マウスY座標".into())));
+    sets.push(BuiltinConst::new("G_SCREEN_W".into(), Object::DynamicVar(
         || Object::Num(get_screen_width() as f64)
-    )));
-    vec.push(NamedObject::new_builtin_const("G_SCREEN_H".into(), Object::DynamicVar(
+    ), Some("画面幅".into())));
+    sets.push(BuiltinConst::new("G_SCREEN_H".into(), Object::DynamicVar(
         || Object::Num(get_screen_height() as f64)
-    )));
-    vec.push(NamedObject::new_builtin_const("G_SCREEN_C".into(), Object::DynamicVar(
+    ), Some("画面高さ".into())));
+    sets.push(BuiltinConst::new("G_SCREEN_C".into(), Object::DynamicVar(
         || Object::Num(get_color_depth() as f64)
-    )));
-    vec.push(NamedObject::new_builtin_const("THREAD_ID".into(), Object::DynamicVar(
+    ), Some("色数".into())));
+    sets.push(BuiltinConst::new("THREAD_ID".into(), Object::DynamicVar(
         || unsafe { GetCurrentThreadId().into() }
-    )));
-    vec.push(NamedObject::new_builtin_const("THREAD_ID2".into(), Object::DynamicVar(
+    ), Some("スレッド識別子".into())));
+    sets.push(BuiltinConst::new("THREAD_ID2".into(), Object::DynamicVar(
         || format!("{:?}", std::thread::current().id()).into()
-    )));
-    vec.push(NamedObject::new_builtin_const("IS_GUI_BUILD".into(), Object::Bool(
+    ), Some("スレッド識別子(rust)".into())));
+    sets.push(BuiltinConst::new("IS_GUI_BUILD".into(), Object::Bool(
         cfg!(feature="gui")
-    )));
-    vec.push(NamedObject::new_builtin_const("HAS_CHKIMG".into(), Object::Bool(
+    ), Some("GUIビルドかどうか".into())));
+    sets.push(BuiltinConst::new("HAS_CHKIMG".into(), Object::Bool(
         cfg!(feature="chkimg")
-    )));
+    ), Some("chkimgが含まれるかどうか".into())));
+    BuiltinConsts { sets }
 }
 
 

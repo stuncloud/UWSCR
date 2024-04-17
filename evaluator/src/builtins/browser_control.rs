@@ -35,8 +35,11 @@ const DEFAULT_PORT: u16 = 9222;
 #[allow(non_camel_case_types)]
 #[derive(Debug, EnumString, EnumProperty, VariantNames, ToPrimitive, FromPrimitive)]
 pub enum BcEnum {
+    #[strum[props(desc="Google Chrome")]]
     BC_CHROME  = 1,
+    #[strum[props(desc="Microsoft Edge")]]
     BC_MSEDGE  = 2,
+    #[strum[props(desc="Vivaldi", hidden="true")]]
     BC_VIVALDI = 11,
 }
 
@@ -147,23 +150,27 @@ pub fn parse_html(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult
 #[builtin_func_desc(
     desc="タブ上のエレメントから値を得る"
     sets=[
+        "name-value",
         [
             {n="タブ",t="TabWindow",d="取得したい値のあるタブ"},
             {n="name",t="文字列",d="対象エレメントのname値"},
             {n="value",t="文字列",d="同一nameがある場合に指定するvalue値",o},
             {n="n番目",t="数値",d="該当エレメントが複数ある場合に順番を指定",o},
         ],
+        "タグ+プロパティ",
         [
             {n="タブ",t="TabWindow",d="取得したい値のあるタブ"},
-            {n="'TAG={{タグ名}}'",t="文字列",d="対象のタグ名を'TAG=タグ名'という書式で指定"},
-            {n="{{プロパティ名}}={{値}}",t="文字列",d="'プロパティ=値'という書式で任意のプロパティとその値を持つタグを探す",o},
+            {n="'TAG=name'",t="文字列",d="対象のタグ名を'TAG=タグ名'という書式で指定"},
+            {n="'prop=val'",t="文字列",d="'プロパティ=値'という書式で任意のプロパティとその値を持つタグを探す",o},
             {n="n番目",t="数値",d="該当タグが複数ある場合に順番を指定",o},
         ],
+        "タグ指定",
         [
             {n="タブ",t="TabWindow",d="取得したい値のあるタブ"},
-            {n="'TAG={{タグ名}}'",t="文字列",d="対象のタグ名を'TAG=タグ名'という書式で指定"},
+            {n="'TAG=name'",t="文字列",d="対象のタグ名を'TAG=タグ名'という書式で指定"},
             {n="n番目",t="数値",d="該当タグが複数ある場合に順番を指定",o},
         ],
+        "テーブル",
         [
             {n="タブ",t="TabWindow",d="取得したい値のあるタブ"},
             {n="'TAG=TABLE'",t="文字列",d="TABLEタグを対象にする"},
@@ -223,6 +230,7 @@ pub fn browser_getdata(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncR
 #[builtin_func_desc(
     desc="文字入力やクリックを行う"
     sets=[
+        "name-value",
         [
             {n="タブ",t="TabWindow",d="入力を対象のあるタブ"},
             {n="値",t="文字列または配列",d="入力する値、対象がinput[type=file]なら配列で複数指定可"},
@@ -231,10 +239,12 @@ pub fn browser_getdata(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncR
             {n="n番目",t="数値",d="同一name/valueがある場合に順番を指定",o},
             {n="直接入力",t="真偽値",d="TRUEならvalue値を直接変更、FALSE(デフォルト)ならキー入力をエミュレート",o},
         ],
+        "RemoteObject",
         [
             {n="エレメント",t="RemoteObject",d="対象エレメントのオブジェクト"},
             {n="値",t="文字列または配列",d="入力する値、対象がinput[type=file]なら配列で複数指定可"},
         ],
+        "クリック name-value"
         [
             {n="タブ",t="TabWindow",d="クリック対象のあるタブ"},
             {n="TRUE",t="真偽値",d="クリックする場合TRUEを指定"},
@@ -242,19 +252,22 @@ pub fn browser_getdata(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncR
             {n="value",t="文字列",d="同一nameがある場合に対象エレメントのvalue値を指定",o},
             {n="n番目",t="数値",d="同一タグがある場合に順番を指定",o},
         ],
+        "クリック タグ+プロパティ",
         [
             {n="タブ",t="TabWindow",d="クリック対象のあるタブ"},
             {n="TRUE",t="真偽値",d="クリックする場合TRUEを指定"},
-            {n="'TAG={{タグ名}}'",t="文字列",d="'TAG=タグ名'の書式で指定タグを探す"},
-            {n="{{プロパティ名}}={{値}}",t="文字列",d="'プロパティ=値'という書式で任意のプロパティとその値を持つタグを探す",o},
+            {n="'TAG=name'",t="文字列",d="'TAG=タグ名'の書式で指定タグを探す"},
+            {n="'prop=val'",t="文字列",d="'プロパティ=値'という書式で任意のプロパティとその値を持つタグを探す",o},
             {n="n番目",t="数値",d="同一タグがある場合に順番を指定",o},
         ],
+        "クリック タグ指定",
         [
             {n="タブ",t="TabWindow",d="クリック対象のあるタブ"},
             {n="TRUE",t="真偽値",d="クリックする場合TRUEを指定"},
-            {n="'TAG={{タグ名}}'",t="文字列",d="'TAG=タグ名'の書式で指定タグを探す"},
+            {n="'TAG=name'",t="文字列",d="'TAG=タグ名'の書式で指定タグを探す"},
             {n="n番目",t="数値",d="同一タグがある場合に順番を指定",o},
         ],
+        "クリック IMG",
         [
             {n="タブ",t="TabWindow",d="クリック対象のあるタブ"},
             {n="TRUE",t="真偽値",d="クリックする場合TRUEを指定"},

@@ -171,7 +171,9 @@ pub fn as_string(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult 
 #[allow(non_camel_case_types)]
 #[derive(Debug, EnumString, EnumProperty, VariantNames, ToPrimitive, FromPrimitive)]
 pub enum RegexEnum {
+    #[strum[props(desc="正規表現のテストを行う")]]
     REGEX_TEST  = 0, // default
+    #[strum[props(desc="正規表現にマッチする文字列を得る")]]
     REGEX_MATCH = 1,
 }
 
@@ -669,6 +671,7 @@ pub fn chknum(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 #[allow(non_camel_case_types)]
 #[derive(Debug, EnumString, EnumProperty, VariantNames, ToPrimitive, FromPrimitive)]
 pub enum ErrConst {
+    #[strum[props(desc="一部関数におけるエラー値")]]
     ERR_VALUE = -999999,
 }
 
@@ -691,10 +694,12 @@ pub fn val(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     desc="文字列の両端からホワイトスペースや制御文字、または指定した文字を除去する",
     rtype={desc="トリムされた文字列",types="文字列"}
     sets=[
+        "ホワイトスペース除去",
         [
             {n="元文字列",t="文字列",d="両端のホワイトスペース及び制御文字を除去したい文字列"},
             {n="全角空白",t="真偽値",d="TRUEなら全角スペースも除去する"},
         ],
+        "指定文字除去",
         [
             {n="元文字列",t="文字列",d="トリムされる文字列"},
             {n="除去文字",t="文字列",d="指定した文字が連続する限りそれを除去する、文字列の場合各文字のいずれかが連続すれば除去される"},
@@ -801,11 +806,17 @@ pub fn isunicode(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult 
 #[allow(non_camel_case_types)]
 #[derive(Debug, EnumString, EnumProperty, VariantNames, ToPrimitive, FromPrimitive)]
 pub enum StrconvConst {
+    #[strum[props(desc="小文字に変換")]]
     SC_LOWERCASE = 0x100,
+    #[strum[props(desc="大文字に変換")]]
     SC_UPPERCASE = 0x200,
+    #[strum[props(desc="ひらがなに変換")]]
     SC_HIRAGANA = 0x100000,
+    #[strum[props(desc="カタカナに変換")]]
     SC_KATAKANA = 0x200000,
+    #[strum[props(desc="半角に変換")]]
     SC_HALFWIDTH = 0x400000,
+    #[strum[props(desc="全角に変換")]]
     SC_FULLWIDTH = 0x800000,
 }
 
@@ -920,9 +931,13 @@ impl StrConv {
 #[allow(non_camel_case_types)]
 #[derive(Debug, EnumString, EnumProperty, VariantNames, ToPrimitive, FromPrimitive)]
 pub enum FormatConst {
+    #[strum[props(desc="半角スペースで左埋め")]]
     FMT_DEFAULT = 0,
+    #[strum[props(desc="0で左埋め")]]
     FMT_ZERO = 1,
+    #[strum[props(desc="半角スペースで右埋め")]]
     FMT_RIGHT = 2,
+    #[strum[props(desc="0で右埋め")]]
     FMT_ZEROR = 3,
 }
 impl Default for FormatConst {
@@ -935,6 +950,7 @@ impl Default for FormatConst {
     desc="文字列フォーマット",
     rtype={desc="フォーマットされた文字列",types="文字列"}
     sets=[
+        "数値フォーマット",
         [
             {n="数値",t="数値",d="フォーマットする数値"},
             {n="幅",t="数値",d="フォーマット後の文字列幅"},
@@ -950,10 +966,12 @@ impl Default for FormatConst {
 - FMT_RIGHT: 半角スペースで右埋め
 - FMT_ZEROR: 0で右埋め"#},
         ],
+        "文字列フォーマット",
         [
             {n="元文字列",t="文字列",d="フォーマットする文字列"},
             {n="幅",t="数値",d="フォーマット後の文字列幅、元文字列幅を超える場合は指定幅まで元文字列を繰り返す"},
         ],
+        "日時フォーマット",
         [
             {n="秒数",t="数値",d="2020/01/01からの秒数"},
             {n="日時フォーマット文字列",t="文字列",d="指示子についての詳細 [リンク](https://docs.rs/chrono/latest/chrono/format/strftime/index.html)"},
@@ -1146,11 +1164,16 @@ pub fn token(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncRes
 #[derive(Debug, EnumString, EnumProperty, VariantNames, ToPrimitive, FromPrimitive)]
 pub enum CodeConst {
     CODE_ANSI = 1,
+    #[strum[props(desc="URLエンコード")]]
     CODE_URL = 2,
     CODE_UTF8 = 3,
+    #[strum[props(desc="実体参照変換")]]
     CODE_HTML = 4,
+    #[strum[props(desc="ANSIバイト配列")]]
     CODE_BYTEARRAY = 5,
+    #[strum[props(desc="Unicodeバイト配列")]]
     CODE_BYTEARRAYW = 6,
+    #[strum[props(desc="UTF8バイト配列")]]
     CODE_BYTEARRAYU = 7,
 }
 

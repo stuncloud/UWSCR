@@ -54,11 +54,17 @@ fn join(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 #[allow(non_camel_case_types)]
 #[derive(Debug, EnumString, EnumProperty, VariantNames, ToPrimitive, FromPrimitive)]
 pub enum QsrtConst {
+    #[strum[props(desc="昇順")]]
     QSRT_A = 0,
+    #[strum[props(desc="降順")]]
     QSRT_D = 1,
+    #[strum[props(desc="Unicode昇順")]]
     QSRT_UNICODEA = 2,
+    #[strum[props(desc="Unicode降順")]]
     QSRT_UNICODED = 3,
+    #[strum[props(desc="自然順ソート昇順")]]
     QSRT_NATURALA = 4,
+    #[strum[props(desc="自然順ソート降順")]]
     QSRT_NATURALD = 5,
 }
 impl Default for QsrtConst {
@@ -326,9 +332,13 @@ pub fn split(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 #[allow(non_camel_case_types)]
 #[derive(Debug, EnumString, EnumProperty, VariantNames, ToPrimitive, FromPrimitive, PartialEq)]
 pub enum CalcConst {
+    #[strum[props(desc="合計値")]]
     CALC_ADD = 1,
+    #[strum[props(desc="最小値")]]
     CALC_MIN = 2,
+    #[strum[props(desc="最大値")]]
     CALC_MAX = 3,
+    #[strum[props(desc="平均値")]]
     CALC_AVR = 4,
 }
 

@@ -156,11 +156,17 @@ pub enum OsKind {
 #[allow(non_camel_case_types)]
 #[derive(Debug, EnumString, EnumProperty, VariantNames, ToPrimitive, FromPrimitive)]
 pub enum KindOfOsResultType {
+    #[strum[props(desc="OS種別を得る")]]
     KIND_OF_OS     = 0,
+    #[strum[props(desc="OSが64ビットかどうか")]]
     IS_64BIT_OS    = 1,
+    #[strum[props(desc="OSメジャーバージョン")]]
     OSVER_MAJOR    = 2,
+    #[strum[props(desc="OSマイナーバージョン")]]
     OSVER_MINOR    = 3,
+    #[strum[props(desc="OSビルドバージョン")]]
     OSVER_BUILD    = 4,
+    #[strum[props(desc="OSプラットフォームID")]]
     OSVER_PLATFORM = 5,
 }
 
@@ -727,8 +733,11 @@ pub fn lockhard(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 #[derive(Debug, EnumString, EnumProperty, VariantNames, ToPrimitive, FromPrimitive, Default)]
 pub enum LockHardExConst {
     #[default]
+    #[strum[props(desc="マウスとキーボードをロック")]]
     LOCK_ALL      = 0,
+    #[strum[props(desc="キーボードをロック")]]
     LOCK_KEYBOARD = 1,
+    #[strum[props(desc="マウスをロック")]]
     LOCK_MOUSE    = 2,
 }
 
@@ -791,81 +800,89 @@ pub fn cpuuserate(_: &mut Evaluator, _: BuiltinFuncArgs) -> BuiltinFuncResult {
 #[allow(non_camel_case_types)]
 #[derive(Debug, EnumString, EnumProperty, VariantNames, ToPrimitive, FromPrimitive)]
 pub enum SensorConst {
-    /// 人が存在した場合に True
+    #[strum[props(desc="人が存在しているか")]]
     SNSR_Biometric_HumanPresense    = 1,
-    /// 人との距離(メートル)
+    #[strum[props(desc="人との距離(メートル)")]]
     SNSR_Biometric_HumanProximity   = 2,
-    /// 静電容量(ファラド)
+    #[strum[props(desc="静電容量(ファラド)")]]
     SNSR_Electrical_Capacitance     = 5,
-    /// 電気抵抗(オーム)
+    #[strum[props(desc="電気抵抗(オーム)")]]
     SNSR_Electrical_Resistance      = 6,
-    /// 誘導係数(ヘンリー)
+    #[strum[props(desc="誘導係数(ヘンリー)")]]
     SNSR_Electrical_Inductance      = 7,
-    /// 電流(アンペア)
+    #[strum[props(desc="電流(アンペア)")]]
     SNSR_Electrical_Current         = 8,
-    /// 電圧(ボルト)
+    #[strum[props(desc="電圧(ボルト)")]]
     SNSR_Electrical_Voltage         = 9,
-    /// 電力(ワット)
+    #[strum[props(desc="電力(ワット)")]]
     SNSR_Electrical_Power           = 10,
-    /// 気温(セ氏)
+    #[strum[props(desc="気温(セ氏)")]]
     SNSR_Environmental_Temperature  = 15,
-    /// 気圧(バール)
+    #[strum[props(desc="気圧(バール)")]]
     SNSR_Environmental_Pressure     = 16,
-    /// 湿度(パーセンテージ)
+    #[strum[props(desc="湿度(パーセンテージ)")]]
     SNSR_Environmental_Humidity     = 17,
-    /// 風向(度数)
+    #[strum[props(desc="風向(度数)")]]
     SNSR_Environmental_WindDirection= 18,
-    /// 風速(メートル毎秒)
+    #[strum[props(desc="風速(メートル毎秒)")]]
     SNSR_Environmental_WindSpeed    = 19,
-    /// 照度(ルクス)
+    #[strum[props(desc="照度(ルクス)")]]
     SNSR_Light_Lux                  = 20,
-    /// 光色温度(ケルビン)
+    #[strum[props(desc="光色温度(ケルビン)")]]
     SNSR_Light_Temperature          = 21,
-    /// 力(ニュートン)
+    #[strum[props(desc="力(ニュートン)")]]
     SNSR_Mechanical_Force           = 25,
-    /// 絶対圧(パスカル)
+    #[strum[props(desc="絶対圧(パスカル)")]]
     SNSR_Mechanical_AbsPressure     = 26,
-    /// ゲージ圧(パスカル)
+    #[strum[props(desc="ゲージ圧(パスカル)")]]
     SNSR_Mechanical_GaugePressure   = 27,
-    /// 重量(キログラム)
+    #[strum[props(desc="重量(キログラム)")]]
     SNSR_Mechanical_Weight          = 28,
-    /// X/Y/Z軸 加速度(ガル)
+    #[strum[props(desc="X軸 加速度(ガル)")]]
     SNSR_Motion_AccelerationX       = 30,
+    #[strum[props(desc="Y軸 加速度(ガル)")]]
     SNSR_Motion_AccelerationY       = 31,
+    #[strum[props(desc="Z軸 加速度(ガル)")]]
     SNSR_Motion_AccelerationZ       = 32,
-    /// X/Y/Z軸 角加速度(度毎秒毎秒)
+    #[strum[props(desc="X軸 角加速度(度毎秒毎秒)")]]
     SNSR_Motion_AngleAccelX         = 33,
+    #[strum[props(desc="Y軸 角加速度(度毎秒毎秒)")]]
     SNSR_Motion_AngleAccelY         = 34,
+    #[strum[props(desc="Z軸 角加速度(度毎秒毎秒)")]]
     SNSR_Motion_AngleAccelZ         = 35,
-    /// 速度(メートル毎秒)
+    #[strum[props(desc="速度(メートル毎秒)")]]
     SNSR_Motion_Speed               = 36,
-    /// RFIDタグの40ビット値
+    #[strum[props(desc="RFIDタグの40ビット値")]]
     SNSR_Scanner_RFIDTag            = 40,
-    /// バーコードデータを表す文字列
+    #[strum[props(desc="バーコードデータを表す文字列")]]
     SNSR_Scanner_BarcodeData        = 41,
-    /// X/Y/Z 軸角(度)
+    #[strum[props(desc="X 軸角(度)")]]
     SNSR_Orientation_TiltX          = 45,
+    #[strum[props(desc="Y 軸角(度)")]]
     SNSR_Orientation_TiltY          = 46,
+    #[strum[props(desc="Z 軸角(度)")]]
     SNSR_Orientation_TiltZ          = 47,
-    /// X/Y/Z 距離(メートル)
+    #[strum[props(desc="X 距離(メートル)")]]
     SNSR_Orientation_DistanceX      = 48,
+    #[strum[props(desc="Y 距離(メートル)")]]
     SNSR_Orientation_DistanceY      = 49,
+    #[strum[props(desc="Z 距離(メートル)")]]
     SNSR_Orientation_DistanceZ      = 50,
-    /// 磁北基準未補正コンパス方位
+    #[strum[props(desc="磁北基準未補正コンパス方位")]]
     SNSR_Orientation_MagHeading     = 51,
-    /// 真北基準未補正コンパス方位
+    #[strum[props(desc="真北基準未補正コンパス方位")]]
     SNSR_Orientation_TrueHeading    = 52,
-    /// 磁北基準補正済みコンパス方位
+    #[strum[props(desc="磁北基準補正済みコンパス方位")]]
     SNSR_Orientation_CompMagHeading = 53,
-    /// 真北基準補正済みコンパス方位
+    #[strum[props(desc="真北基準補正済みコンパス方位")]]
     SNSR_Orientation_CompTrueHeading= 54,
-    /// 海抜(メートル)
+    #[strum[props(desc="海抜(メートル)")]]
     SNSR_Location_Altitude          = 60,
-    /// 緯度(度数)
+    #[strum[props(desc="緯度(度数)")]]
     SNSR_Location_Latitude          = 61,
-    /// 経度(度数)
+    #[strum[props(desc="経度(度数)")]]
     SNSR_Location_Longitude         = 62,
-    /// スピード(ノット)
+    #[strum[props(desc="スピード(ノット)")]]
     SNSR_Location_Speed             = 63,
 }
 
@@ -922,10 +939,15 @@ pub fn beep(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 #[allow(non_camel_case_types)]
 #[derive(Debug, EnumString, EnumProperty, VariantNames, ToPrimitive, FromPrimitive, PartialEq)]
 pub enum ToggleKey {
+    #[strum[props(desc="Num Lock")]]
     TGL_NUMLOCK    = 10000,
+    #[strum[props(desc="Caps Lock")]]
     TGL_CAPSLOCK   = 10001,
+    #[strum[props(desc="Scroll Lock")]]
     TGL_SCROLLLOCK = 10002,
+    #[strum[props(desc="カナ入力")]]
     TGL_KANALOCK   = 10003,
+    #[strum[props(desc="IME")]]
     TGL_IME        = 10004,
 }
 const IMC_GETOPENSTATUS: WPARAM = WPARAM(5);
@@ -988,35 +1010,29 @@ fn get_key_state(code: i32, id: i32) -> bool {
 #[allow(non_camel_case_types)]
 #[derive(Debug, EnumString, EnumProperty, VariantNames, ToPrimitive, FromPrimitive, Clone, PartialEq)]
 pub enum POFF {
-    /// 電源断
+    #[strum[props(desc="電源断")]]
     P_POWEROFF    = 16,
-    /// シャットダウン
+    #[strum[props(desc="シャットダウン")]]
     P_SHUTDOWN    = 32,
-    /// ログオフ
-    #[strum(props(alias="P_SIGNOUT"))]
+    #[strum(props(desc="ログオフ", alias="P_SIGNOUT"))]
     P_LOGOFF      = 128,
-    /// リブート
+    #[strum[props(desc="リブート")]]
     P_REBOOT      = 64,
-    /// 休止
-    #[strum(props(alias="P_HIBERNATE"))]
+    #[strum(props(desc="休止", alias="P_HIBERNATE"))]
     P_SUSPEND     = 256,
-    /// スリープ
-    #[strum(props(alias="P_SLEEP"))]
+    #[strum(props(desc="スリープ", alias="P_SLEEP"))]
     P_SUSPEND2    = 512,
-    /// モニターOFF (省電力モード)
-    #[strum(props(alias="P_MONITOR_POWERSAVE"))]
+    #[strum(props(desc="モニターOFF (省電力モード)", alias="P_MONITOR_POWERSAVE"))]
     P_MONIPOWER   = 1024,
-    /// モニターOFF (電源断)
-    #[strum(props(alias="P_MONITOR_OFF"))]
+    #[strum(props(desc="モニターOFF (電源断)", alias="P_MONITOR_OFF"))]
     P_MONIPOWER2  = 2048,
-    /// モニターON
-    #[strum(props(alias="P_MONITOR_ON"))]
+    #[strum(props(desc="モニターON", alias="P_MONITOR_ON"))]
     P_MONIPOWER3  = 4096,
-    /// スクリーンセーバ起動
+    #[strum[props(desc="スクリーンセーバ起動")]]
     P_SCREENSAVE  = 8192,
-    /// UWSCの再起動 （第2引数を True指定するとスクリプト再実行）
+    #[strum[props(desc="UWSCの再起動")]]
     P_UWSC_REEXEC = 16384,
-    /// 強制実行フラグ
+    #[strum[props(desc="強制実行フラグ")]]
     P_FORCE       = 8,
 }
 
@@ -1117,21 +1133,33 @@ pub fn sethotkey(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFun
 #[derive(Debug, EnumString, EnumProperty, VariantNames, ToPrimitive, FromPrimitive, Default)]
 pub enum GTimeOffset {
     #[default]
+    #[strum[props(desc="補正値を日とする")]]
     G_OFFSET_DAYS    = 0,
+    #[strum[props(desc="補正値を時とする")]]
     G_OFFSET_HOURS   = 1,
+    #[strum[props(desc="補正値を分とする")]]
     G_OFFSET_MINUTES = 2,
+    #[strum[props(desc="補正値を秒とする")]]
     G_OFFSET_SECONDS = 3,
+    #[strum[props(desc="補正値をミリ秒とする")]]
     G_OFFSET_MILLIS  = 4,
 }
 #[allow(non_camel_case_types)]
 #[derive(Debug, EnumString, EnumProperty, VariantNames, ToPrimitive, FromPrimitive)]
 pub enum GTimeWeekDay {
+    #[strum[props(desc="日")]]
     G_WEEKDAY_SUN = 0,
+    #[strum[props(desc="月")]]
     G_WEEKDAY_MON = 1,
+    #[strum[props(desc="火")]]
     G_WEEKDAY_TUE = 2,
+    #[strum[props(desc="水")]]
     G_WEEKDAY_WED = 3,
+    #[strum[props(desc="木")]]
     G_WEEKDAY_THU = 4,
+    #[strum[props(desc="金")]]
     G_WEEKDAY_FRI = 5,
+    #[strum[props(desc="土")]]
     G_WEEKDAY_SAT = 6,
 }
 

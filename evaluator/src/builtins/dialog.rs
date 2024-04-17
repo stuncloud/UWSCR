@@ -56,12 +56,19 @@ pub enum WindowClassName {
 #[allow(non_camel_case_types)]
 #[derive(Debug, EnumString, EnumProperty, VariantNames, ToPrimitive, FromPrimitive)]
 pub enum BtnConst {
+    #[strum[props(desc="はい")]]
     BTN_YES    = 4,
+    #[strum[props(desc="いいえ")]]
     BTN_NO     = 8,
+    #[strum[props(desc="OK")]]
     BTN_OK     = 1,
+    #[strum[props(desc="キャンセル")]]
     BTN_CANCEL = 2,
+    #[strum[props(desc="中止")]]
     BTN_ABORT  = 16,
+    #[strum[props(desc="再試行")]]
     BTN_RETRY  = 32,
+    #[strum[props(desc="無視")]]
     BTN_IGNORE = 64,
 }
 
@@ -243,18 +250,26 @@ pub fn input(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 #[allow(non_camel_case_types)]
 #[derive(Debug, EnumString, EnumProperty, VariantNames, ToPrimitive, FromPrimitive)]
 pub enum SlctConst {
+    #[strum[props(desc="ボタン")]]
     SLCT_BTN = 1,
+    #[strum[props(desc="チェックボックス")]]
     SLCT_CHK = 2,
+    #[strum[props(desc="ラジオ")]]
     SLCT_RDO = 4,
+    #[strum[props(desc="コンボボックス")]]
     SLCT_CMB = 8,
+    #[strum[props(desc="リストボックス")]]
     SLCT_LST = 16,
+    #[strum[props(desc="項目名を返す")]]
     SLCT_STR = 64,
+    #[strum[props(desc="インデックスを返す")]]
     SLCT_NUM = 128,
 }
 
 #[builtin_func_desc(
     desc="セレクトボックスを表示"
     sets=[
+        "座標指定あり",
         [
             {n="表示方法",t="定数",d=r#"以下の定数のいずれかを指定
 - SLCT_BTN: ボタン
@@ -273,6 +288,7 @@ pub enum SlctConst {
             {n="表示項目1",t="文字列",d="1つ目の項目 (必須)"},
             {v=28,n="表示項目2-29",t="文字列",d="表示メッセージ2つ目以降の表示項目"},
         ],
+        "座標指定なし",
         [
             {n="表示方法",t="定数",d=r#"以下の定数のいずれかを指定
 - SLCT_BTN: ボタン
@@ -380,12 +396,19 @@ pub fn popupmenu(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult 
 #[derive(Debug, EnumString, EnumProperty, VariantNames, ToPrimitive, FromPrimitive, Default)]
 pub enum BalloonFlag {
     #[default]
+    #[strum[props(desc="変形しない")]]
     FUKI_DEFAULT = 0,
+    #[strum[props(desc="嘴上")]]
     FUKI_UP      = 1,
+    #[strum[props(desc="嘴下")]]
     FUKI_DOWN    = 2,
+    #[strum[props(desc="嘴左")]]
     FUKI_LEFT    = 3,
+    #[strum[props(desc="嘴右")]]
     FUKI_RIGHT   = 4,
+    #[strum[props(desc="角丸")]]
     FUKI_ROUND   = 9,
+    #[strum[props(desc="指定座標を嘴の先にする")]]
     FUKI_POINT   = 0xF0,
 }
 
@@ -443,17 +466,27 @@ pub fn balloon(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 #[allow(non_camel_case_types)]
 #[derive(Debug, EnumString, EnumProperty, VariantNames, ToPrimitive, FromPrimitive)]
 pub enum FormOptions {
+    #[strum[props(desc="閉じるボタン非表示")]]
     FOM_NOICON    = 1,
+    #[strum[props(desc="最小化ボタンを表示")]]
     FOM_MINIMIZE  = 256,
+    #[strum[props(desc="最大化ボタンを表示")]]
     FOM_MAXIMIZE  = 512,
+    #[strum[props(desc="submitされても閉じない")]]
     FOM_NOHIDE    = 2,
+    #[strum[props(desc="submitされたときにactionを実行しない")]]
     FOM_NOSUBMIT  = 4,
+    #[strum[props(desc="ウィンドウサイズ変更不可")]]
     FOM_NORESIZE  = 8,
     FOM_BROWSER   = 128,
+    #[strum[props(desc="ウィンドウを非表示で起動")]]
     FOM_FORMHIDE  = 4096,
+    #[strum[props(desc="ウィンドウを最前面に固定")]]
     FOM_TOPMOST   = 16,
+    #[strum[props(desc="タスクバーにアイコンを表示しない")]]
     FOM_NOTASKBAR = 16384,
     FOM_FORM2     = 8192,
+    #[strum[props(desc="オプションなし")]]
     FOM_DEFAULT   = 0,
 }
 impl Into<u32> for FormOptions {

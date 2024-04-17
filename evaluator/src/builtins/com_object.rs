@@ -31,28 +31,51 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
 #[allow(non_camel_case_types)]
 #[derive(Debug, EnumString, EnumProperty, VariantNames, ToPrimitive, FromPrimitive)]
 pub enum VarType {
-    VAR_EMPTY    = 0,   // VT_EMPTY
-    VAR_NULL     = 1,   // VT_NULL
-    VAR_SMALLINT = 2,   // VT_I2
-    VAR_INTEGER  = 3,   // VT_I4
-    VAR_SINGLE   = 4,   // VT_R4
-    VAR_DOUBLE   = 5,   // VT_R8
-    VAR_CURRENCY = 6,   // VT_CY
-    VAR_DATE     = 7,   // VT_DATE
-    VAR_BSTR     = 8,   // VT_BSTR
-    VAR_DISPATCH = 9,   // VT_DISPATCH
-    VAR_ERROR    = 10,  // VT_ERROR
-    VAR_BOOLEAN  = 11,  // VT_BOOL
-    VAR_VARIANT  = 12,  // VT_VARIANT
-    VAR_UNKNOWN  = 13,  // VT_UNKNOWN
-    VAR_SBYTE    = 16,  // VT_I1
-    VAR_BYTE     = 17,  // VT_UI1
-    VAR_WORD     = 18,  // VT_UI2
-    VAR_DWORD    = 19,  // VT_UI4
-    VAR_INT64    = 20,  // VT_I8
-    VAR_ASTR     = 256, // VT_LPSTR
-    VAR_USTR     = 258, // VT_LPWSTR
+    #[strum[props(desc="VT_EMPTY")]]
+    VAR_EMPTY    = 0,
+    #[strum[props(desc="VT_NULL")]]
+    VAR_NULL     = 1,
+    #[strum[props(desc="VT_I2")]]
+    VAR_SMALLINT = 2,
+    #[strum[props(desc="VT_I4")]]
+    VAR_INTEGER  = 3,
+    #[strum[props(desc="VT_R4")]]
+    VAR_SINGLE   = 4,
+    #[strum[props(desc="VT_R8")]]
+    VAR_DOUBLE   = 5,
+    #[strum[props(desc="VT_CY")]]
+    VAR_CURRENCY = 6,
+    #[strum[props(desc="VT_DATE")]]
+    VAR_DATE     = 7,
+    #[strum[props(desc="VT_BSTR")]]
+    VAR_BSTR     = 8,
+    #[strum[props(desc="VT_DISPATCH")]]
+    VAR_DISPATCH = 9,
+    #[strum[props(desc="VT_ERROR")]]
+    VAR_ERROR    = 10,
+    #[strum[props(desc="VT_BOOL")]]
+    VAR_BOOLEAN  = 11,
+    #[strum[props(desc="VT_VARIANT")]]
+    VAR_VARIANT  = 12,
+    #[strum[props(desc="VT_UNKNOWN")]]
+    VAR_UNKNOWN  = 13,
+    #[strum[props(desc="VT_I1")]]
+    VAR_SBYTE    = 16,
+    #[strum[props(desc="VT_UI1")]]
+    VAR_BYTE     = 17,
+    #[strum[props(desc="VT_UI2")]]
+    VAR_WORD     = 18,
+    #[strum[props(desc="VT_UI4")]]
+    VAR_DWORD    = 19,
+    #[strum[props(desc="VT_I8")]]
+    VAR_INT64    = 20,
+    #[strum[props(desc="VT_LPSTR")]]
+    VAR_ASTR     = 256,
+    #[strum[props(desc="VT_LPWSTR")]]
+    VAR_USTR     = 258,
+    #[strum[props(desc="UWSCR値型")]]
     VAR_UWSCR    = 512, // UWSCRデータ型
+    #[strum[props(desc="VT_ARRAY")]]
     VAR_ARRAY    = 0x2000,
 }
 impl PartialEq<VarType> for u16 {
@@ -179,13 +202,16 @@ pub fn oleevent(_evaluator: &mut Evaluator, _args: BuiltinFuncArgs) -> BuiltinFu
 #[builtin_func_desc(
     desc="VARIANT型の取得や変換"
     sets=[
+        "型取得",
         [
             {n="値",t="VARIANT",d="型を得たいVARIANT値"},
         ],
+        "型変換",
         [
             {n="値",t="値",d="VARIANT値に変換したい値"},
             {n="VAR定数",t="定数",d="変換したい型を示す定数を指定"},
         ],
+        "プロパティ型取得",
         [
             {n="COMオブジェクト",t="COMオブジェクト",d="プロパティの型を調べたいオブジェクト"},
             {n="プロパティ名",t="文字列",d="型を調べたいプロパティの名前"},
@@ -266,8 +292,11 @@ impl From<ComError> for BuiltinFuncError {
 #[allow(non_camel_case_types)]
 #[derive(Debug, EnumString, EnumProperty, VariantNames, ToPrimitive, FromPrimitive)]
 pub enum ExcelConst {
+    #[strum[props(desc="実行中のExcelを使う、なければ新しく起動")]]
     XL_DEFAULT = 0,
+    #[strum[props(desc="常に新しいExcelを起動")]]
     XL_NEW     = 1,
+    #[strum[props(desc="Workbookオブジェクトを得る")]]
     XL_BOOK    = 2,
     XL_OOOC    = 3,
 }
@@ -296,10 +325,12 @@ pub fn xlopen(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 #[builtin_func_desc(
     desc="Excelを終了する"
     sets=[
+        "保存して終了",
         [
             {n="Excel",t="COMオブジェクト",d="Excel.ApplicationまたはWorkbookオブジェクト"},
             {n="ファイル名",t="文字列",d="保存先ファイル名、省略時は上書き保存",o},
         ],
+        "保存せず終了",
         [
             {n="Excel",t="COMオブジェクト",d="Excel.ApplicationまたはWorkbookオブジェクト"},
             {n="TRUE",t="真偽値",d="保存せず終了する場合TRUE",o},
@@ -386,11 +417,13 @@ pub fn xlsheet(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 #[builtin_func_desc(
     desc="セルの値を取得"
     sets=[
+        "範囲指定",
         [
             {n="Excel",t="COMオブジェクト",d="ApplicationまたはWorkbookオブジェクト"},
             {n="範囲",t="文字列",d="A1形式で指定",o},
             {n="シート識別子",t="文字列または数値",d="シート名または順番を示す数値(1から)、省略時はアクティブシート",o},
         ],
+        "行列指定",
         [
             {n="Excel",t="COMオブジェクト",d="ApplicationまたはWorkbookオブジェクト"},
             {n="行",t="数値",d="行番号を指定"},
@@ -443,6 +476,7 @@ pub fn xlgetdata(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult 
 #[builtin_func_desc(
     desc="セルに値をセット"
     sets=[
+        "範囲指定",
         [
             {n="Excel",t="COMオブジェクト",d="ApplicationまたはWorkbookオブジェクト"},
             {n="値",t="値または配列",d="入力値"},
@@ -451,6 +485,7 @@ pub fn xlgetdata(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult 
             {n="文字色",t="数値",d="文字色を変更する場合にBGR値を指定",o},
             {n="背景色",t="数値",d="背景色を変更する場合にBGR値を指定",o},
         ],
+        "行列指定",
         [
             {n="Excel",t="COMオブジェクト",d="ApplicationまたはWorkbookオブジェクト"},
             {n="値",t="値または配列",d="入力値"},

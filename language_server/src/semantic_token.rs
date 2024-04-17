@@ -1,6 +1,6 @@
 use parser::lexer::{Lexer, TokenInfo};
 use parser::token::Token;
-use evaluator::builtins::BuiltinName;
+use evaluator::builtins::{BuiltinName, BuiltinNameDesc};
 
 use tower_lsp::lsp_types::{SemanticToken, SemanticTokensLegend, SemanticTokenType, SemanticTokenModifier};
 use once_cell::sync::Lazy;
@@ -171,16 +171,18 @@ impl SemanticTokenParser {
             match info.token {
                 Token::Identifier(ref ident) => {
                     let hoge = builtins.iter()
-                        .find(|name| name.name_as_ref().eq_ignore_ascii_case(ident));
+                        .find(|name| name.name().eq_ignore_ascii_case(ident));
                     if let Some(name) = hoge {
-                        match name {
-                            BuiltinName::Const(_) => {
-                                self.set_token(&info, USemanticTokenType::Constant)
+                        match name.desc() {
+                            Some(desc) => match desc {
+                                BuiltinNameDesc::Function(_) => {
+                                    self.set_token(&info, USemanticTokenType::Function);
+                                },
+                                BuiltinNameDesc::Const(_) => {
+                                    self.set_token(&info, USemanticTokenType::Constant);
+                                },
                             },
-                            BuiltinName::Function(_) => {
-                                self.set_token(&info, USemanticTokenType::Function)
-                            },
-                            BuiltinName::Other(_) => {},
+                            None => {}
                         }
                     }
                 },

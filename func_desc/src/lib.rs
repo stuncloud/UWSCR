@@ -1,4 +1,6 @@
 
+use std::vec;
+
 use quote::{quote, ToTokens};
 use syn::{
     braced, bracketed,
@@ -21,10 +23,63 @@ pub struct FuncDesc {
     pub rtype: Option<RetDesc>,
 }
 
+pub struct ParamsAndDocument {
+    pub params: String,
+    pub document: String,
+    pub label_desc: Option<String>,
+}
+impl ParamsAndDocument {
+    fn new(params: String, document: String, label_desc: Option<String>) -> Self {
+        Self { params, document, label_desc }
+    }
+}
+
 #[derive(Debug)]
 pub enum Args {
     Args(Vec<ArgDesc>),
-    Sets(Vec<Vec<ArgDesc>>),
+    Sets(Vec<(Vec<ArgDesc>, Option<String>)>),
+}
+
+impl Args {
+    pub fn as_params_and_document(&self) -> Vec<ParamsAndDocument> {
+        match self {
+            Args::Args(args) => {
+                let params = Self::to_params(args);
+                let document = Self::to_document(args);
+                vec![ParamsAndDocument::new(params, document, None)]
+            },
+            Args::Sets(v) => {
+                v.iter().map(|(args, detail)| {
+                    let params = Self::to_params(args);
+                    let document = Self::to_document(args);
+                    let label_desc = detail.clone();
+                    let document = match detail {
+                        Some(detail) => format!("{detail}\n{document}"),
+                        None => document,
+                    };
+                    ParamsAndDocument::new(params, document, label_desc)
+                })
+                .collect()
+            },
+        }
+    }
+    fn to_params(vec: &Vec<ArgDesc>) -> String {
+        vec.iter().map(|arg| arg.name.clone()).reduce(|a, b| a + ", " + &b).unwrap_or_default()
+    }
+    fn to_document(vec: &Vec<ArgDesc>) -> String {
+        vec.iter().map(|arg| {
+            format!(
+                "#### {} [{}/{}{}]\n\n{}",
+                arg.name,
+                if arg.optional {"省略可"} else {"必須"},
+                arg.r#type,
+                arg.variadic.map(|n| format!("/可変長(最大: {n})")).unwrap_or_default(),
+                arg.desc
+            )
+        })
+        .reduce(|a,b| a + "\n\n" + &b)
+        .unwrap_or_default()
+    }
 }
 
 /// 組み込み関数の引数の詳細
@@ -70,7 +125,7 @@ impl Args {
             Args::Args(args) => Self::_len(args),
             Args::Sets(sets) => {
                 sets.iter()
-                    .map(|args| Self::_len(args))
+                    .map(|(args, _)| Self::_len(args))
                     .reduce(|a, b| a.max(b))
                     .unwrap_or_default() as i32
             },
@@ -158,70 +213,17 @@ impl Parse for FuncDesc {
                     }
                     let content;
                     let _: Bracket = bracketed!(content in input);
-                    // let mut _args = vec![];
-                    // loop {
-                    //     if content.is_empty() {
-                    //         break;
-                    //     }
-                    //     let content2;
-                    //     let _: Brace = braced!(content2 in content);
-                    //     let mut arg = ArgDesc { name: String::new(), r#type: String::new(), desc: String::new(), optional: false, variadic: None };
-                    //     loop {
-                    //         let ident: Ident = content2.parse()?;
-                    //         match ident.to_string().as_str() {
-                    //             "n" |
-                    //             "name" => {
-                    //                 let _equal: Token![=] = content2.parse()?;
-                    //                 let name: LitStr = content2.parse()?;
-                    //                 arg.name = name.value();
-                    //             },
-                    //             "t" |
-                    //             "types" => {
-                    //                 let _equal: Token![=] = content2.parse()?;
-                    //                 let r#type: LitStr = content2.parse()?;
-                    //                 arg.r#type = r#type.value();
-                    //             },
-                    //             "d" |
-                    //             "desc" => {
-                    //                 let _equal: Token![=] = content2.parse()?;
-                    //                 let desc: LitStr = content2.parse()?;
-                    //                 arg.desc = desc.value();
-                    //             },
-                    //             "o" |
-                    //             "optional" => {
-                    //                 arg.optional = true;
-                    //             },
-                    //             "v" |
-                    //             "variadic" => {
-                    //                 let _equal: Token![=] = content2.parse()?;
-                    //                 let n: LitInt = content2.parse()?;
-                    //                 arg.variadic = Some(n.base10_parse()?);
-                    //             }
-                    //             i => {
-                    //                 return Err(Error::new(ident.span(), format!("invalid identifier: {i}")));
-                    //             }
-                    //         }
-                    //         if content2.peek(Token![,]) {
-                    //             let _comma: Token![,] = content2.parse()?;
-                    //         }
-                    //         if content2.is_empty() {
-                    //             break;
-                    //         }
-                    //     }
-                    //     _args.push(arg);
-                    //     if content.peek(Token![,]) {
-                    //         let _comma: Token![,] = content.parse()?;
-                    //     }
-                    // }
                     let _args = parse_argdesc(content)?;
                     args = Some(Args::Args(_args));
                 },
                 /*
                     sets=[
+                        "説明",
                         [
                             {n="a"},
                             {n="b",o}
                         ],
+                        "説明",
                         [
                             {n="a"},
                             {n="c"},
@@ -240,10 +242,19 @@ impl Parse for FuncDesc {
                         if content.is_empty() {
                             break;
                         }
+                        let detail = if content.peek(LitStr) {
+                            let s: LitStr = content.parse()?;
+                            if content.peek(Token![,]) {
+                                let _comma: Token![,] = content.parse()?;
+                            }
+                            Some(s.value())
+                        } else {
+                            None
+                        };
                         let content2;
                         let _: Bracket = bracketed!(content2 in content);
                         let _args = parse_argdesc(content2)?;
-                        sets.push(_args);
+                        sets.push((_args, detail));
                         if content.peek(Token![,]) {
                             let _comma: Token![,] = content.parse()?;
                         }
@@ -313,15 +324,21 @@ impl ToTokens for FuncDesc {
                 },
                 Args::Sets(sets) => {
                     let mut punct: Punctuated<TokenStream2, Token![,]> = Punctuated::new();
-                    for set in sets {
+                    for (set, detail) in sets {
                         let mut punct2: Punctuated<TokenStream2, Token![,]> = Punctuated::new();
                         set.iter()
                             .map(|arg| quote! {#arg})
                             .for_each(|arg| punct2.push(arg) );
+                        let detail = match detail {
+                            Some(d) => quote! {
+                                Some(#d.to_string())
+                            },
+                            None => quote! {
+                                None
+                            },
+                        };
                         let token = quote! {
-                            vec![
-                                #punct2
-                            ]
+                            (vec![#punct2], #detail)
                         };
                         punct.push(token);
                     }

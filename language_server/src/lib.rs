@@ -1,7 +1,7 @@
 mod completion;
-mod semantic_token;
+// mod semantic_token;
 
-use semantic_token::SemanticTokenParser;
+// use semantic_token::SemanticTokenParser;
 use completion::get_snippets;
 
 use tower_lsp::{
@@ -10,13 +10,13 @@ use tower_lsp::{
     Client, LanguageServer, LspService, Server,
 };
 use serde_json::json;
-use tokio::sync::RwLock;
 use tokio::task::block_in_place;
+// use tokio::sync::RwLock;
 
-use std::collections::HashMap;
+// use std::collections::HashMap;
 
 use evaluator::error::UError;
-use evaluator::builtins::{get_builtin_names, BuiltinName};
+use evaluator::builtins::{get_builtin_names, BuiltinName, BuiltinNameDesc};
 use parser::Parser;
 use parser::ast::*;
 use parser::error::ParseError;
@@ -69,27 +69,27 @@ impl From<BackendError> for jsonrpc::Error {
 //     }
 // }
 
-#[derive(Debug)]
-struct FileCache {
-    contents: HashMap<Url, String>,
-}
-impl FileCache {
-    fn new() -> Self {
-        Self {
-            contents: HashMap::new()
-        }
-    }
-    fn insert(&mut self, uri: Url, script: String) {
-        self.contents.insert(uri, script);
-    }
-    fn get(&self, uri: &Url) -> Option<String> {
-        self.contents.get(uri).map(|s| s.clone())
-    }
-    // fn get_mut(&self, uri: &Url) -> Option<&mut String> {
-    //     self.contents.get_mut(uri)
-    // }
-    // fn update(&mut self, uri: &Url, )
-}
+// #[derive(Debug)]
+// struct FileCache {
+//     contents: HashMap<Url, String>,
+// }
+// impl FileCache {
+//     fn new() -> Self {
+//         Self {
+//             contents: HashMap::new()
+//         }
+//     }
+//     fn insert(&mut self, uri: Url, script: String) {
+//         self.contents.insert(uri, script);
+//     }
+//     fn get(&self, uri: &Url) -> Option<String> {
+//         self.contents.get(uri).map(|s| s.clone())
+//     }
+//     // fn get_mut(&self, uri: &Url) -> Option<&mut String> {
+//     //     self.contents.get_mut(uri)
+//     // }
+//     // fn update(&mut self, uri: &Url, )
+// }
 
 #[allow(unused)]
 struct ProgramAndDiagnostics {
@@ -97,69 +97,98 @@ struct ProgramAndDiagnostics {
     diagnostics: Vec<Diagnostic>,
 }
 
+fn new_completion_item(kind: CompletionItemKind, detail: String, insert_text: String, label: String, label_details: Option<String>, document: Option<String>) -> CompletionItem {
+    CompletionItem {
+        label: label,
+        label_details: label_details.map(|s| CompletionItemLabelDetails {
+            detail: None,
+            description: Some(s),
+        }),
+        kind: Some(kind),
+        detail: Some(detail),
+        documentation: document.map(|doc| Documentation::MarkupContent(MarkupContent {
+            kind: MarkupKind::Markdown,
+            value: doc,
+        })),
+        deprecated: None,
+        preselect: None,
+        sort_text: None,
+        filter_text: None,
+        insert_text: Some(insert_text),
+        insert_text_format: None,
+        insert_text_mode: None,
+        text_edit: None,
+        additional_text_edits: None,
+        command: None,
+        commit_characters: None,
+        data: None,
+        tags: None,
+    }
+}
 struct BuiltinNameWrapper<'a>(&'a BuiltinName);
 
-impl<'a> From<BuiltinNameWrapper<'_>> for CompletionItem {
+impl<'a> From<BuiltinNameWrapper<'_>> for Vec<CompletionItem> {
     fn from(wrapper: BuiltinNameWrapper) -> Self {
-        let (label, kind) = match wrapper.0 {
-            BuiltinName::Const(name) => (name.to_ascii_uppercase(), CompletionItemKind::CONSTANT),
-            BuiltinName::Function(name) => (name.to_ascii_lowercase(), CompletionItemKind::FUNCTION),
-            BuiltinName::Other(name) => (name.to_ascii_lowercase(), CompletionItemKind::VARIABLE),
-        };
-        let (detail, insert_text, additional_text_edits) = match &kind {
-            &CompletionItemKind::CONSTANT => (
-                "Builtin constant",
-                format!("{label}"),
-                None
-            ),
-            &CompletionItemKind::FUNCTION => {
-                let pos = label.len() as u32 + 1;
-                (
-                    "Builtin function",
-                    format!("{label}()${{0}}"),
-                    Some(vec![
-                        TextEdit {
-                            range: Range {
-                                start: Position {
-                                    line: 0,
-                                    character: pos
-                                },
-                                end: Position {
-                                    line: 0,
-                                    character: pos
-                                }
-                            },
-                            new_text: "${0}".to_string()
+        let name = wrapper.0.name();
+        match wrapper.0.desc() {
+            Some(desc) => match desc {
+                BuiltinNameDesc::Function(desc) => {
+                    let label = name.to_ascii_lowercase();
+                    // let pos = label.len() as u32 + 1;
+                    match &desc.args {
+                        Some(args) => {
+                            args.as_params_and_document().into_iter()
+                                .map(|pd| {
+                                    new_completion_item(
+                                        CompletionItemKind::FUNCTION,
+                                        desc.desc.clone(),
+                                        format!("{label}({})", pd.params),
+                                        format!("{label}({})", pd.params),
+                                        pd.label_desc,
+                                        Some(pd.document)
+                                    )
+                                })
+                                .collect()
                         },
-                    ])
-                )
+                        None => {
+                            let item = new_completion_item(
+                                CompletionItemKind::FUNCTION,
+                                desc.desc.clone(),
+                                format!("{label}()"),
+                                format!("{label}()"),
+                                None,
+                                None
+                            );
+                            vec![item]
+                        },
+                    }
+                },
+                BuiltinNameDesc::Const(desc) => {
+                    let label = name.to_ascii_uppercase();
+                    let item = new_completion_item(
+                        CompletionItemKind::CONSTANT,
+                        desc.to_string(),
+                        format!("{}", &label),
+                        label,
+                        None,
+                        None
+                    );
+                    vec![item]
+                },
             },
-            &CompletionItemKind::VARIABLE => (
-                "Other builtin item",
-                format!("{label}"),
-                None
-            ),
-            _ => unreachable!()
-        };
-        Self {
-            label: label,
-            label_details: None,
-            kind: Some(kind),
-            detail: Some(detail.to_string()),
-            documentation: None,
-            deprecated: None,
-            preselect: None,
-            sort_text: None,
-            filter_text: None,
-            insert_text: Some(insert_text),
-            insert_text_format: None,
-            insert_text_mode: None,
-            text_edit: None,
-            additional_text_edits,
-            command: None,
-            commit_characters: None,
-            data: None,
-            tags: None,
+            None => {
+                let label = name.to_ascii_uppercase();
+                let detail = label.clone();
+                let item = new_completion_item(
+                    CompletionItemKind::CONSTANT,
+                    detail,
+                    format!("{}", &label),
+                    label,
+                    None,
+                    None
+                );
+                vec![item]
+            },
         }
     }
 }
@@ -167,7 +196,7 @@ impl<'a> From<BuiltinNameWrapper<'_>> for CompletionItem {
 // #[derive(Debug)]
 struct Backend {
     client: Client,
-    cache: RwLock<FileCache>,
+    // cache: RwLock<FileCache>,
     builtins: Vec<BuiltinName>,
     completion_items: Vec<CompletionItem>,
 }
@@ -175,13 +204,14 @@ impl Backend {
     fn new(client: Client) -> Self {
         let builtins = get_builtin_names();
         let mut completion_items: Vec<CompletionItem> = builtins.iter()
-            .map(|name| CompletionItem::from(BuiltinNameWrapper(name)))
+            .map(|name| Vec::<CompletionItem>::from(BuiltinNameWrapper(name)))
+            .flatten()
             .collect();
         let mut snippets = get_snippets();
         completion_items.append(&mut snippets);
         Self {
             client,
-            cache: RwLock::new(FileCache::new()),
+            // cache: RwLock::new(FileCache::new()),
             builtins,
             completion_items,
         }
@@ -191,16 +221,16 @@ impl Backend {
         let script = std::fs::read_to_string(path)?;
         Ok(script)
     }
-    pub async fn insert_script(&self, uri: Url, script: String) {
-        let mut cache = self.cache.write().await;
-        cache.insert(uri, script);
-    }
-    pub async fn get_cache(&self, uri: &Url) -> Option<String> {
-        let cache = self.cache.read().await;
-        cache.get(uri)
-    }
+    // pub async fn insert_script(&self, uri: Url, script: String) {
+    //     let mut cache = self.cache.write().await;
+    //     cache.insert(uri, script);
+    // }
+    // pub async fn get_cache(&self, uri: &Url) -> Option<String> {
+    //     let cache = self.cache.read().await;
+    //     cache.get(uri)
+    // }
     fn get_builtin_names(&self) -> Vec<String> {
-        self.builtins.iter().map(|name| name.name()).collect()
+        self.builtins.iter().map(|name| name.name().clone()).collect()
     }
     async fn parse(&self, uri: &Url) -> BackendResult<ProgramAndDiagnostics> {
         let file_name = uri.to_file_path().unwrap_or_default().file_name().unwrap_or_default().to_string_lossy().to_string();
@@ -209,7 +239,7 @@ impl Backend {
         let names = self.get_builtin_names();
         let parser = Parser::new(lexer, None, Some(names));
 
-        self.insert_script(uri.clone(), script).await;
+        // self.insert_script(uri.clone(), script).await;
 
         let (program, errors) = block_in_place(move || {
             parser.parse_to_program_and_errors()
@@ -254,7 +284,8 @@ impl LanguageServer for Backend {
                     open_close: Some(true),
                     // INCREMENTALの方が良い？
                     // change: Some(TextDocumentSyncKind::INCREMENTAL),
-                    change: Some(TextDocumentSyncKind::FULL),
+                    // change: Some(TextDocumentSyncKind::FULL),
+                    change: None,
                     will_save: None,
                     will_save_wait_until: None,
                     save: Some(TextDocumentSyncSaveOptions::Supported(true))
@@ -291,13 +322,14 @@ impl LanguageServer for Backend {
                 execute_command_provider: None,
                 workspace: None,
                 call_hierarchy_provider: None,
-                semantic_tokens_provider: Some(SemanticTokensServerCapabilities::SemanticTokensOptions(SemanticTokensOptions {
-                    work_done_progress_options: WorkDoneProgressOptions { work_done_progress: None },
-                    legend: SemanticTokenParser::legend(),
-                    range: None,
-                    full: Some(SemanticTokensFullOptions::Bool(true)),
-                    // full: Some(SemanticTokensFullOptions::Delta{delta:Some(true)}),
-                })),
+                semantic_tokens_provider: None,
+                // semantic_tokens_provider: Some(SemanticTokensServerCapabilities::SemanticTokensOptions(SemanticTokensOptions {
+                //     work_done_progress_options: WorkDoneProgressOptions { work_done_progress: None },
+                //     legend: SemanticTokenParser::legend(),
+                //     range: None,
+                //     full: Some(SemanticTokensFullOptions::Bool(true)),
+                //     // full: Some(SemanticTokensFullOptions::Delta{delta:Some(true)}),
+                // })),
                 moniker_provider: None,
                 linked_editing_range_provider: None,
                 inline_value_provider: None,
@@ -324,42 +356,35 @@ impl LanguageServer for Backend {
     async fn did_save(&self, params: DidSaveTextDocumentParams) {
         self.send_diagnostics(params.text_document.uri).await;
     }
-    async fn did_change(&self, params: DidChangeTextDocumentParams) {
-        // let contents = params.content_changes.into_iter()
-        //     .map(|event| event.text)
-        //     .collect::<Vec<_>>();
+    // async fn did_change(&self, params: DidChangeTextDocumentParams) {
 
-        // self.log_info(format!("{:#?}", params.content_changes)).await;
+    //     /* 常にエディタ上の状態をキャッシュしておく */
+    //     let uri = params.text_document.uri;
+    //     let script = params.content_changes
+    //         .first()
+    //         .map(|event| event.text.to_owned())
+    //         .unwrap_or_default();
 
-        /* 常にエディタ上の状態をキャッシュしておく */
-        let uri = params.text_document.uri;
-        let script = params.content_changes
-            .first()
-            .map(|event| event.text.to_owned())
-            .unwrap_or_default();
+    //     self.insert_script(uri, script).await;
 
-        self.insert_script(uri, script).await;
-
-    }
+    // }
     async fn completion(&self, _: CompletionParams) -> Result<Option<CompletionResponse>> {
-        // let message = format!("{params:?}");
-        // self.log_info(message).await;
         let response = CompletionResponse::Array(self.completion_items.clone());
         Ok(Some(response))
     }
-    async fn semantic_tokens_full(&self, params: SemanticTokensParams) -> Result<Option<SemanticTokensResult>> {
-        let uri = &params.text_document.uri;
-        if let Some(script) = self.get_cache(uri).await {
-            let lexer = Lexer::new(&script);
-            let parser = SemanticTokenParser::new(lexer);
-            let data = parser.parse(&self.builtins);
-            // self.log_info(format!("{:?}", data)).await;
-            let result = SemanticTokensResult::Tokens(SemanticTokens { result_id: None, data });
-            Ok(Some(result))
-        } else {
-            Ok(None)
-        }
-    }
+    // async fn semantic_tokens_full(&self, params: SemanticTokensParams) -> Result<Option<SemanticTokensResult>> {
+    //     let uri = &params.text_document.uri;
+    //     if let Some(script) = self.get_cache(uri).await {
+    //         let lexer = Lexer::new(&script);
+    //         let parser = SemanticTokenParser::new(lexer);
+    //         let data = parser.parse(&self.builtins);
+    //         // self.log_info(format!("{:?}", data)).await;
+    //         let result = SemanticTokensResult::Tokens(SemanticTokens { result_id: None, data });
+    //         Ok(Some(result))
+    //     } else {
+    //         Ok(None)
+    //     }
+    // }
     // async fn semantic_tokens_full_delta(
     //     &self,
     //     params: SemanticTokensDeltaParams,

@@ -7,12 +7,19 @@ use num_derive::{ToPrimitive, FromPrimitive};
 #[allow(non_camel_case_types)]
 #[derive(Debug, EnumString, EnumProperty, VariantNames, ToPrimitive, FromPrimitive)]
 pub enum HashTblEnum {
+    #[strum(props(desc="キーの大文字小文字を区別"))]
     HASH_CASECARE = 0x1000,
+    #[strum(props(desc="キーをソート"))]
     HASH_SORT = 0x2000,
+    #[strum(props(desc="キーが存在するかどうか"))]
     HASH_EXISTS = -103,
+    #[strum(props(desc="キーを削除"))]
     HASH_REMOVE = -104,
+    #[strum(props(desc="キーを取得"))]
     HASH_KEY = -101,
+    #[strum(props(desc="値を取得"))]
     HASH_VAL = -102,
+    #[strum(props(desc="連想配列をクリア"))]
     HASH_REMOVEALL = -109,
     // HASH_UNKNOWN = 0,
 }

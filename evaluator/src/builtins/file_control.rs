@@ -36,16 +36,27 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
 #[allow(non_camel_case_types)]
 #[derive(Debug, EnumString, EnumProperty, VariantNames, ToPrimitive, FromPrimitive)]
 pub enum FileConst {
+    #[strum[props(desc="ファイルまたはフォルダの有無")]]
     F_EXISTS    = 1,
+    #[strum[props(desc="ファイル読み取り権限を追加")]]
     F_READ      = 2,
+    #[strum[props(desc="ファイル書き込み権限を追加")]]
     F_WRITE     = 4,
+    #[strum[props(desc="ファイル書き込み権限を追加、SJISで書き込む")]]
     F_WRITE1    = 8,
+    #[strum[props(desc="ファイル書き込み権限を追加、UTF-8で書き込む")]]
     F_WRITE8    = 16,
+    #[strum[props(desc="ファイル書き込み権限を追加、UTF-8Bで書き込む")]]
     F_WRITE8B   = 32,
+    #[strum[props(desc="ファイル書き込み権限を追加、UTF-16LEで書き込む")]]
     F_WRITE16   = 64,
+    #[strum[props(desc="追記モード")]]
     F_APPEND    = 1024,
+    #[strum[props(desc="文末に改行を加えない")]]
     F_NOCR      = 128,
+    #[strum[props(desc="CSVセパレータをタブ文字にする")]]
     F_TAB       = 256,
+    #[strum[props(desc="排他モード")]]
     F_EXCLUSIVE = 512,
     #[strum(props(alias="F_INSERT"))]
     F_LINECOUNT = -1,
@@ -333,10 +344,15 @@ pub fn deletefile(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult
 #[allow(non_camel_case_types)]
 #[derive(Debug, EnumString, EnumProperty, VariantNames, ToPrimitive, FromPrimitive)]
 pub enum FileOrderConst {
+    #[strum[props(desc="ファイル名順")]]
     ORDERBY_NAME     = 0,
+    #[strum[props(desc="ファイルサイズ順")]]
     ORDERBY_SIZE     = 1,
+    #[strum[props(desc="ファイル作成日時順")]]
     ORDERBY_CREATED  = 2,
+    #[strum[props(desc="ファイル更新日時順")]]
     ORDERBY_MODIFIED = 3,
+    #[strum[props(desc="ファイルアクセス日時順")]]
     ORDERBY_ACCESSED = 4,
 }
 
@@ -381,11 +397,13 @@ pub fn getdir(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 #[builtin_func_desc(
     desc="ウィンドウにファイルをドロップする"
     sets=[
+        "座標指定なし",
         [
             {n="ID",t="数値",d="ドロップ対象ウィンドウ"},
             {n="ディレクトリ",t="文字列",d="ファイルのあるディレクトリパス"},
             {v=34,n="ファイル名1-34",t="文字列または配列",d="ドロップするファイル名"},
         ],
+        "座標指定あり",
         [
             {n="ID",t="数値",d="ドロップ対象ウィンドウ"},
             {n="X",t="数値",d="ドロップするクライアントX座標"},

@@ -64,11 +64,17 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
 #[allow(non_camel_case_types)]
 #[derive(Debug, EnumString, EnumProperty, VariantNames, ToPrimitive, FromPrimitive)]
 pub enum MouseButtonEnum {
+    #[strum[props(desc="左ボタン")]]
     LEFT = 0,
+    #[strum[props(desc="右ボタン")]]
     RIGHT = 1,
+    #[strum[props(desc="中央ボタン")]]
     MIDDLE = 2,
+    #[strum[props(desc="ホイル上下回転")]]
     WHEEL = 5,
+    #[strum[props(desc="ホイル左右回転")]]
     WHEEL2 = 6,
+    #[strum[props(desc="タッチ操作")]]
     TOUCH = 7,
 }
 
@@ -76,8 +82,11 @@ pub enum MouseButtonEnum {
 #[derive(Debug, EnumString, EnumProperty, VariantNames, ToPrimitive, FromPrimitive, Default)]
 pub enum KeyActionEnum {
     #[default]
+    #[strum[props(desc="クリック")]]
     CLICK = 0,
+    #[strum[props(desc="ボタン押し下げ")]]
     DOWN = 1,
+    #[strum[props(desc="ボタン開放")]]
     UP = 2,
 }
 

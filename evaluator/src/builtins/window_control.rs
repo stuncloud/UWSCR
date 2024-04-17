@@ -185,19 +185,19 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
 #[allow(non_camel_case_types)]
 #[derive(Debug, VariantNames, EnumString, EnumProperty)]
 pub enum SpecialWindowId {
-    #[strum(props(prefix="__", suffix="__"))]
+    #[strum(props(prefix="__", suffix="__", desc="アクティブウィンドウ"))]
     GET_ACTIVE_WIN,    // __GET_ACTIVE_WIN__
-    #[strum(props(prefix="__", suffix="__"))]
+    #[strum(props(prefix="__", suffix="__", desc="マウス座標のウィンドウ"))]
     GET_FROMPOINT_WIN, // __GET_FROMPOINT_WIN__
-    #[strum(props(prefix="__", suffix="__"))]
+    #[strum(props(prefix="__", suffix="__", desc="マウス座標の子ウィンドウ"))]
     GET_FROMPOINT_OBJ, // __GET_FROMPOINT_OBJ__
     #[strum(props(prefix="__", suffix="__"))]
     GET_THISUWSC_WIN,  // __GET_THISUWSC_WIN__
-    #[strum(props(prefix="__", suffix="__"))]
+    #[strum(props(prefix="__", suffix="__", desc="プリントウィンドウ"))]
     GET_LOGPRINT_WIN,  // __GET_LOGPRINT_WIN__
-    #[strum(props(prefix="__", suffix="__"))]
+    #[strum(props(prefix="__", suffix="__", desc="吹き出し"))]
     GET_BALLOON_WIN,   // __GET_BALLOON_WIN__
-    #[strum(props(prefix="__", suffix="__"))]
+    #[strum(props(prefix="__", suffix="__", desc="吹き出し"))]
     GET_FUKIDASI_WIN,  // __GET_FUKIDASI_WIN__
     #[strum(props(prefix="__", suffix="__"))]
     GET_FORM_WIN,      // __GET_FORM_WIN__
@@ -207,7 +207,7 @@ pub enum SpecialWindowId {
     GET_SCHEDULE_WIN,  // __GET_SCHEDULE_WIN__
     #[strum(props(prefix="__", suffix="__"))]
     GET_STOPFORM_WIN,  // __GET_STOPFORM_WIN__
-    #[strum(props(prefix="__", suffix="__"))]
+    #[strum(props(prefix="__", suffix="__", desc="UWSCR実行中のコンソールウィンドウ"))]
     GET_CONSOLE_WIN    // __GET_CONSOLE_WIN__
 }
 
@@ -215,11 +215,13 @@ pub enum SpecialWindowId {
     desc="ウィンドウのIDを得る",
     rtype={desc="ウィンドウID、見つからない場合-1",types="数値"}
     sets=[
+        "タイトル-クラス名指定",
         [
             {n="タイトル",t="文字列",d="ウィンドウタイトル (部分一致)"},
             {o,n="クラス名",t="文字列",d="ウィンドウクラス名 (部分一致)"},
             {o,n="待ち時間",t="数値",d="タイムアウト秒、-1で無限待ち"},
         ],
+        "定数指定",
         [
             {n="定数",t="定数",d=r#"以下のいずれかを指定
 - GET_ACTIVE_WIN: アクティブウィンドウ
@@ -493,27 +495,43 @@ pub fn acw(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 #[allow(non_camel_case_types)]
 #[derive(Debug, EnumString, EnumProperty, VariantNames, ToPrimitive, FromPrimitive)]
 pub enum ClkConst {
+    #[strum[props(desc="ボタン、チェックボックス、ラジオ")]]
     CLK_BTN       = 1,
+    #[strum[props(desc="リストボックス、コンボボックス")]]
     CLK_LIST      = 2,
+    #[strum[props(desc="メニュー")]]
     CLK_MENU      = 4,
+    #[strum[props(desc="タブ")]]
     CLK_TAB       = 8,
-    #[strum(props(alias="CLK_TREEVEW"))]
+    #[strum(props(desc="ツリービュー", alias="CLK_TREEVEW"))]
     CLK_TREEVIEW  = 16,
-    #[strum(props(alias="CLK_LSTVEW"))]
+    #[strum(props(desc="リストビュー", alias="CLK_LSTVEW"))]
     CLK_LISTVIEW  = 32,
+    #[strum[props(desc="ツールバー")]]
     CLK_TOOLBAR   = 64,
+    #[strum[props(desc="リンク")]]
     CLK_LINK      = 128,
+    #[strum[props(desc="アイテム名部分一致")]]
     CLK_SHORT     = 256,
+    #[strum[props(desc="バックグラウンド処理")]]
     CLK_BACK      = 512,
-    #[strum(props(alias="CLK_MUSMOVE"))]
+    #[strum(props(desc="クリック位置にマウスカーソル移動", alias="CLK_MUSMOVE"))]
     CLK_MOUSEMOVE = 1024,
+    #[strum[props(desc="右クリック")]]
     CLK_RIGHTCLK  = 4096,
+    #[strum[props(desc="左クリック")]]
     CLK_LEFTCLK   = 2048,
+    #[strum[props(desc="ダブルクリック")]]
     CLK_DBLCLK    = 8192,
+    #[strum[props(desc="ACC逆順サーチ")]]
     CLK_FROMLAST  = 65536,
+    #[strum[props(desc="ACCによるクリック")]]
     CLK_ACC       = 32768,
+    #[strum[props(desc="APIによるクリック")]]
     CLK_API       = 536870912,
+    #[strum[props(desc="UIAによるクリック")]]
     CLK_UIA       = 1073741824,
+    #[strum[props(desc="戻り値をコントロールのハンドルにする")]]
     CLK_HWND      = 262144,
 }
 
@@ -578,16 +596,27 @@ pub fn clkitem(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 #[allow(non_camel_case_types)]
 #[derive(Debug, EnumString, EnumProperty, VariantNames, ToPrimitive, FromPrimitive)]
 pub enum CtrlWinCmd {
+    #[strum[props(desc="ウィンドウを閉じる")]]
     CLOSE     = 2,
+    #[strum[props(desc="ウィンドウを強制的に閉じる")]]
     CLOSE2    = 3,
+    #[strum[props(desc="ウィンドウをアクティブにする")]]
     ACTIVATE  = 1,
+    #[strum[props(desc="ウィンドウを隠す")]]
     HIDE      = 4,
+    #[strum[props(desc="ウィンドウを表示する")]]
     SHOW      = 5,
+    #[strum[props(desc="ウィンドウを最小化")]]
     MIN       = 6,
+    #[strum[props(desc="ウィンドウを最大化")]]
     MAX       = 7,
+    #[strum[props(desc="ウィンドウを通常サイズ表示")]]
     NORMAL    = 8,
+    #[strum[props(desc="ウィンドウを最前面に固定")]]
     TOPMOST   = 9,
+    #[strum[props(desc="ウィンドウの最前面固定を解除")]]
     NOTOPMOST = 10,
+    #[strum[props(desc="ウィンドウを最前面に移動するがアクティブにはしない")]]
     TOPNOACTV = 11,
 }
 
@@ -677,31 +706,57 @@ pub fn ctrlwin(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 #[allow(non_camel_case_types)]
 #[derive(Debug, EnumString, EnumProperty, VariantNames, ToPrimitive, FromPrimitive, PartialEq, Clone, Copy)]
 pub enum StatusEnum {
+    #[strum[props(desc="すべての状態を得る、他の定数と併用不可")]]
     ST_ALL       = 0,
+    #[strum[props(desc="ウィンドウタイトルを取得")]]
     ST_TITLE     = 9,
+    #[strum[props(desc="ウィンドウクラスを取得")]]
     ST_CLASS     = 14,
+    #[strum[props(desc="ウィンドウのX座標")]]
     ST_X         = 1,
+    #[strum[props(desc="ウィンドウのY座標")]]
     ST_Y         = 2,
+    #[strum[props(desc="ウィンドウの幅")]]
     ST_WIDTH     = 3,
+    #[strum[props(desc="ウィンドウの高さ")]]
     ST_HEIGHT    = 4,
+    #[strum[props(desc="ウィンドウのクライアントX座標")]]
     ST_CLX       = 5,
+    #[strum[props(desc="ウィンドウのクライアントY座標")]]
     ST_CLY       = 6,
+    #[strum[props(desc="ウィンドウのクライアント領域幅")]]
     ST_CLWIDTH   = 7,
+    #[strum[props(desc="ウィンドウのクライアント領域高さ")]]
     ST_CLHEIGHT  = 8,
+    #[strum[props(desc="ウィンドウの親ウィンドウのID")]]
     ST_PARENT    = 16,
+    #[strum[props(desc="ウィンドウが最小化しているか")]]
     ST_ICON      = 10,
+    #[strum[props(desc="ウィンドウが最大化しているか")]]
     ST_MAXIMIZED = 11,
+    #[strum[props(desc="ウィンドウが可視か")]]
     ST_VISIBLE   = 12,
+    #[strum[props(desc="ウィンドウがアクティブか")]]
     ST_ACTIVE    = 13,
+    #[strum[props(desc="ウィンドウがビジー状態か")]]
     ST_BUSY      = 15,
+    #[strum[props(desc="ウィンドウが有効か")]]
     ST_ISID      = 21,
+    #[strum[props(desc="ウィンドウプロセスが64ビットか")]]
     ST_WIN64     = 19,
+    #[strum[props(desc="ウィンドウプロセスの実行ファイルパス")]]
     ST_PATH      = 17,
+    #[strum[props(desc="ウィンドウプロセスのプロセスID")]]
     ST_PROCESS   = 18,
+    #[strum[props(desc="ウィンドウが表示されているモニタ番号")]]
     ST_MONITOR   = 20,
+    #[strum[props(desc="ウィンドウの見た目補正なしX座標")]]
     ST_WX        = 101,
+    #[strum[props(desc="ウィンドウの見た目補正なしY座標")]]
     ST_WY        = 102,
+    #[strum[props(desc="ウィンドウの見た目補正なし幅")]]
     ST_WWIDTH    = 103,
+    #[strum[props(desc="ウィンドウの見た目補正なし高さ")]]
     ST_WHEIGHT   = 104,
 }
 
@@ -1053,19 +1108,31 @@ pub fn status(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 #[allow(non_camel_case_types)]
 #[derive(Debug, EnumString, EnumProperty, VariantNames, ToPrimitive, FromPrimitive)]
 pub enum MonitorEnum {
+    #[strum[props(desc="モニタX座標")]]
     MON_X           = 0,
+    #[strum[props(desc="モニタY座標")]]
     MON_Y           = 1,
+    #[strum[props(desc="モニタ幅")]]
     MON_WIDTH       = 2,
+    #[strum[props(desc="モニタ高さ")]]
     MON_HEIGHT      = 3,
-    #[strum(props(alias="MON_ISMAIN"))]
+    #[strum(props(alias="MON_ISMAIN", desc="プライマリモニタかどうか"))]
     MON_PRIMARY     = 4,
+    #[strum[props(desc="モニタ名")]]
     MON_NAME        = 5,
+    #[strum[props(desc="作業エリアX座標")]]
     MON_WORK_X      = 10,
+    #[strum[props(desc="作業エリアY座標")]]
     MON_WORK_Y      = 11,
+    #[strum[props(desc="作業エリア幅")]]
     MON_WORK_WIDTH  = 12,
+    #[strum[props(desc="作業エリア高さ")]]
     MON_WORK_HEIGHT = 13,
+    #[strum[props(desc="モニタのDPI")]]
     MON_DPI         = 15,
+    #[strum[props(desc="モニタのスケーリング倍率")]]
     MON_SCALING     = 16,
+    #[strum[props(desc="すべての情報を得る、他の定数と併用不可")]]
     MON_ALL         = 20,
 }
 impl fmt::Display for MonitorEnum {
@@ -1144,7 +1211,9 @@ pub fn monitor(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 #[allow(non_camel_case_types)]
 #[derive(Debug, EnumString, EnumProperty, VariantNames, ToPrimitive, FromPrimitive)]
 pub enum ChkImgOption {
+    #[strum[props(desc="グレースケール化せず探索を行う")]]
     CHKIMG_NO_GRAY = 1,
+    #[strum[props(desc="GraphicCaptureAPIでキャプチャする")]]
     CHKIMG_USE_WGCAPI = 2,
 }
 
@@ -1329,9 +1398,9 @@ pub fn getallwin(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult 
 #[allow(non_camel_case_types)]
 #[derive(Debug, VariantNames, EnumString, EnumProperty)]
 pub enum GetHndConst {
-    #[strum(props(prefix="__", suffix="__"))]
+    #[strum(props(prefix="__", suffix="__", desc="メニューハンドルを取得"))]
     GET_MENU_HND,   // __GET_MENU_HND__
-    #[strum(props(prefix="__", suffix="__"))]
+    #[strum(props(prefix="__", suffix="__", desc="システムメニューハンドルを取得"))]
     GET_SYSMENU_HND // __GET_SYSMENU_HND__
 }
 
@@ -1370,11 +1439,13 @@ struct CtlHnd{target: String, hwnd: HWND, order: u32}
     desc="子ウィンドウのHWNDまたはメニューハンドルを得る",
     rtype={desc="ハンドル値",types="数値"}
     sets=[
+        "名前指定",
         [
             {n="ウィンドウID",t="数値",d="対象ウィンドウ"},
             {n="アイテム名",t="文字列",d="子ウィンドウのタイトルまたはクラス名 (部分一致)"},
             {o,n="n番目",t="数値",d="該当子ウィンドウが複数ある場合その順番"},
         ],
+        "定数指定",
         [
             {n="ウィンドウID",t="数値",d="対象ウィンドウ"},
             {n="メニュー種別",t="定数",d=r#"ハンドルを得たいメニューを以下のいずれかで指定
@@ -1415,23 +1486,37 @@ pub fn getctlhnd(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult 
 #[allow(non_camel_case_types)]
 #[derive(Debug, EnumString, EnumProperty, VariantNames, ToPrimitive, FromPrimitive)]
 pub enum GetItemConst {
+    #[strum[props(desc="ボタン、チェックボックス、ラジオ")]]
     ITM_BTN       = 1,
+    #[strum[props(desc="リストボックス、コンボボックス")]]
     ITM_LIST      = 2,
+    #[strum[props(desc="タブ")]]
     ITM_TAB       = 8,
+    #[strum[props(desc="メニュー")]]
     ITM_MENU      = 4,
-    #[strum(props(alias="ITM_TREEVEW"))]
+    #[strum(props(desc="ツリービュー", alias="ITM_TREEVEW"))]
     ITM_TREEVIEW  = 16,
-    #[strum(props(alias="ITM_LSTVEW"))]
+    #[strum(props(desc="リストビュー", alias="ITM_LSTVEW"))]
     ITM_LISTVIEW  = 32,
+    #[strum[props(desc="メニュー")]]
     ITM_EDIT      = 131072,
+    #[strum[props(desc="スタティックコントロール")]]
     ITM_STATIC    = 262144,
+    #[strum[props(desc="ステータスバー")]]
     ITM_STATUSBAR = 524288,
+    #[strum[props(desc="ツールバー")]]
     ITM_TOOLBAR   = 64,
+    #[strum[props(desc="リンク")]]
     ITM_LINK      = 128,
+    #[strum[props(desc="ACCクリック可能なアイテム")]]
     ITM_ACCCLK    = 4194304,
+    #[strum[props(desc="ACCクリック可能または選択可能テキスト")]]
     ITM_ACCCLK2   = 272629760,
+    #[strum[props(desc="ACCスタティックテキスト")]]
     ITM_ACCTXT    = 8388608,
+    #[strum[props(desc="ACCエディット可能テキスト")]]
     ITM_ACCEDIT   = 16777216,
+    #[strum[props(desc="ACCで逆順検索")]]
     ITM_FROMLAST  = 65536,
     // ITM_BACK      = 512,
 }
@@ -1491,14 +1576,23 @@ pub fn getitem(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 #[allow(non_camel_case_types)]
 #[derive(Debug, EnumString, EnumProperty, VariantNames, ToPrimitive, FromPrimitive)]
 pub enum AccConst {
+    #[strum[props(desc="表示文字列")]]
     ACC_ACC         = 1,
+    #[strum[props(desc="DrawTextやTextOutで描画されたテキスト")]]
     ACC_API         = 2,
+    #[strum[props(desc="ACCオブジェクト名")]]
     ACC_NAME        = 3,
+    #[strum[props(desc="ACCオブジェクトの値")]]
     ACC_VALUE       = 4,
+    #[strum[props(desc="ACCオブジェクトの役割名")]]
     ACC_ROLE        = 5,
+    #[strum[props(desc="ACCオブジェクトの状態")]]
     ACC_STATE       = 6,
+    #[strum[props(desc="ACCオブジェクトの説明")]]
     ACC_DESCRIPTION = 7,
+    #[strum[props(desc="ACCオブジェクト表示位置")]]
     ACC_LOCATION    = 8,
+    #[strum[props(desc="対象ウィンドウをアクティブにしない")]]
     ACC_BACK        = 512,
 }
 
@@ -1587,19 +1681,33 @@ pub fn posacc(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 #[allow(non_camel_case_types)]
 #[derive(Debug, EnumString, EnumProperty, VariantNames, ToPrimitive, FromPrimitive)]
 pub enum CurConst {
+    #[strum[props(desc="砂時計付き矢印")]]
     CUR_APPSTARTING = 1,
+    #[strum[props(desc="標準矢印")]]
     CUR_ARROW       = 2,
+    #[strum[props(desc="十字")]]
     CUR_CROSS       = 3,
+    #[strum[props(desc="手のひら")]]
     CUR_HAND        = 4,
+    #[strum[props(desc="？マーク付き矢印")]]
     CUR_HELP        = 5,
+    #[strum[props(desc="Iビーム")]]
     CUR_IBEAM       = 6,
+    #[strum[props(desc="禁止")]]
     CUR_NO          = 8,
+    #[strum[props(desc="4方向矢印")]]
     CUR_SIZEALL     = 10,
+    #[strum[props(desc="両方向矢印斜め左下がり")]]
     CUR_SIZENESW    = 11,
+    #[strum[props(desc="両方向矢印上下")]]
     CUR_SIZENS      = 12,
+    #[strum[props(desc="両方向矢印斜め右下がり")]]
     CUR_SIZENWSE    = 13,
+    #[strum[props(desc="両方向矢印左右")]]
     CUR_SIZEWE      = 14,
+    #[strum[props(desc="垂直矢印")]]
     CUR_UPARROW     = 15,
+    #[strum[props(desc="砂時計")]]
     CUR_WAIT        = 16,
 }
 
@@ -1654,10 +1762,15 @@ pub fn muscur(_: &mut Evaluator, _: BuiltinFuncArgs) -> BuiltinFuncResult {
 #[derive(Debug, EnumString, EnumProperty, VariantNames, ToPrimitive, FromPrimitive, Default)]
 pub enum ColConst {
     #[default]
+    #[strum[props(desc="BGR値を返す")]]
     COL_BGR = 0,
+    #[strum[props(desc="RGB値を返す")]]
     COL_RGB = 3,
+    #[strum[props(desc="R値のみを返す")]]
     COL_R   = 4,
+    #[strum[props(desc="G値のみを返す")]]
     COL_G   = 5,
+    #[strum[props(desc="B値のみを返す")]]
     COL_B   = 6,
 }
 
@@ -1811,12 +1924,19 @@ pub fn setslider(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult 
 #[derive(Debug, EnumString, EnumProperty, VariantNames, ToPrimitive, FromPrimitive, Default)]
 pub enum SldConst {
     #[default]
+    #[strum[props(desc="スライダー現在値")]]
     SLD_POS  = 0,
+    #[strum[props(desc="スライダー最小値")]]
     SLD_MIN  = 1,
+    #[strum[props(desc="スライダー最大値")]]
     SLD_MAX  = 2,
+    #[strum[props(desc="スライダー移動量")]]
     SLD_PAGE = 3,
+    #[strum[props(desc="スライダー表示方向")]]
     SLD_BAR  = 4,
+    #[strum[props(desc="スライダーのクライアントX座標")]]
     SLD_X    = 5,
+    #[strum[props(desc="スライダーのクライアントY座標")]]
     SLD_Y    = 6,
 }
 
@@ -1895,11 +2015,17 @@ pub fn chkbtn(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 #[allow(non_camel_case_types)]
 #[derive(Debug, EnumString, EnumProperty, VariantNames, ToPrimitive, FromPrimitive)]
 pub enum GetStrConst {
+    #[strum[props(desc="エディットコントロール")]]
     STR_EDIT       = 0,
+    #[strum[props(desc="スタティックコントロール")]]
     STR_STATIC     = 1,
+    #[strum[props(desc="ステータスバー")]]
     STR_STATUS     = 2,
+    #[strum[props(desc="エディット可能ACCオブジェクト")]]
     STR_ACC_EDIT   = 3,
+    #[strum[props(desc="スタティックテキストACCオブジェクト")]]
     STR_ACC_STATIC = 4,
+    #[strum[props(desc="DataGridViewのセル値")]]
     STR_ACC_CELL   = 5,
     STR_UIA        = 6,
 }
@@ -2044,8 +2170,11 @@ pub fn getslctlst(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult
 #[allow(non_camel_case_types)]
 #[derive(Debug, EnumString, EnumProperty, VariantNames, ToPrimitive, FromPrimitive)]
 pub enum ImgConst {
+    #[strum[props(desc="ウィンドウ状態によりIMG_FOREかIMG_BACKが適用される")]]
     IMG_AUTO = 0,
+    #[strum[props(desc="スクリーン全体からウィンドウ位置の画像を切り出す")]]
     IMG_FORE = 1,
+    #[strum[props(desc="ウィンドウから直接画像取得")]]
     IMG_BACK = 2,
 }
 #[cfg(feature="chkimg")]
@@ -2155,8 +2284,11 @@ pub fn saveimg(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 #[derive(Debug, EnumString, EnumProperty, VariantNames, ToPrimitive, FromPrimitive, Default)]
 pub enum MorgTargetConst {
     #[default]
+    #[strum[props(desc="起点座標をウィンドウ左上にする")]]
     MORG_WINDOW = 0,
+    #[strum[props(desc="起点座標をウィンドウのクライアント領域の左上にする")]]
     MORG_CLIENT = 1,
+    #[strum[props(desc="起点座標をウィンドウのクライアント領域の左上にし、直接送信を有効にする")]]
     MORG_DIRECT = 2,
 }
 impl Into<MorgTarget> for MorgTargetConst {
@@ -2172,7 +2304,9 @@ impl Into<MorgTarget> for MorgTargetConst {
 #[derive(Debug, EnumString, EnumProperty, VariantNames, ToPrimitive, FromPrimitive, Default)]
 pub enum MorgContextConst {
     #[default]
+    #[strum[props(desc="スクリーン上から画像や色を取得")]]
     MORG_FORE = 1,
+    #[strum[props(desc="ウィンドウから直接画像や色を取得")]]
     MORG_BACK = 2,
 }
 impl Into<MorgContext> for MorgContextConst {
