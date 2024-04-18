@@ -25,12 +25,13 @@ pub struct FuncDesc {
 
 pub struct ParamsAndDocument {
     pub params: String,
+    pub snippet_params: String,
     pub document: String,
     pub label_desc: Option<String>,
 }
 impl ParamsAndDocument {
-    fn new(params: String, document: String, label_desc: Option<String>) -> Self {
-        Self { params, document, label_desc }
+    fn new(params: String, snippet_params: String, document: String, label_desc: Option<String>) -> Self {
+        Self { params, snippet_params, document, label_desc }
     }
 }
 
@@ -45,19 +46,21 @@ impl Args {
         match self {
             Args::Args(args) => {
                 let params = Self::to_params(args);
+                let snippet_params = Self::to_snippet_params(args);
                 let document = Self::to_document(args);
-                vec![ParamsAndDocument::new(params, document, None)]
+                vec![ParamsAndDocument::new(params, snippet_params, document, None)]
             },
             Args::Sets(v) => {
                 v.iter().map(|(args, detail)| {
                     let params = Self::to_params(args);
+                    let snippet_params = Self::to_snippet_params(args);
                     let document = Self::to_document(args);
                     let label_desc = detail.clone();
                     let document = match detail {
                         Some(detail) => format!("{detail}\n{document}"),
                         None => document,
                     };
-                    ParamsAndDocument::new(params, document, label_desc)
+                    ParamsAndDocument::new(params, snippet_params, document, label_desc)
                 })
                 .collect()
             },
@@ -65,6 +68,25 @@ impl Args {
     }
     fn to_params(vec: &Vec<ArgDesc>) -> String {
         vec.iter().map(|arg| arg.name.clone()).reduce(|a, b| a + ", " + &b).unwrap_or_default()
+    }
+    fn to_snippet_params(vec: &Vec<ArgDesc>) -> String {
+        let mut index = 0;
+        vec.iter().map(|arg| {
+            if index == 0 {
+                index += 1;
+                format!("${{1:{}}}", arg.name)
+            } else {
+                index += 1;
+                if arg.optional {
+                    index += 1;
+                    format!("${{{}:, ${{{index}:{}}}}}", index-1, arg.name)
+                } else {
+                    format!(", ${{{index}:{}}}", arg.name)
+                }
+            }
+        })
+        .reduce(|a,b| a + &b)
+        .unwrap_or_default()
     }
     fn to_document(vec: &Vec<ArgDesc>) -> String {
         vec.iter().map(|arg| {

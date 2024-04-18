@@ -115,7 +115,7 @@ fn new_completion_item(kind: CompletionItemKind, detail: String, insert_text: St
         sort_text: None,
         filter_text: None,
         insert_text: Some(insert_text),
-        insert_text_format: None,
+        insert_text_format: Some(InsertTextFormat::SNIPPET),
         insert_text_mode: None,
         text_edit: None,
         additional_text_edits: None,
@@ -142,7 +142,7 @@ impl<'a> From<BuiltinNameWrapper<'_>> for Vec<CompletionItem> {
                                     new_completion_item(
                                         CompletionItemKind::FUNCTION,
                                         desc.desc.clone(),
-                                        format!("{label}({})", pd.params),
+                                        format!("{label}({})", pd.snippet_params),
                                         format!("{label}({})", pd.params),
                                         pd.label_desc,
                                         Some(pd.document)
