@@ -186,6 +186,7 @@ impl Win32 {
                             return false.into();
                         }
                     },
+                    TargetClass::RichEdit |
                     TargetClass::Edit |
                     TargetClass::Static => {
                         if item.is_in_exact_order() {
@@ -305,6 +306,7 @@ impl Win32 {
                     TargetClass::ScrollBar |
                     TargetClass::TrackBar |
                     TargetClass::Edit |
+                    TargetClass::RichEdit |
                     TargetClass::Static |
                     TargetClass::StatusBar |
                     TargetClass::Other(_) => ClkResult::failed(),
@@ -511,6 +513,7 @@ impl Win32 {
                     TargetClass::ScrollBar |
                     TargetClass::TrackBar => ClkResult::failed(),
                     TargetClass::Edit |
+                    TargetClass::RichEdit |
                     TargetClass::Static |
                     TargetClass::StatusBar => ClkResult::failed(),
                     TargetClass::Other(_) => ClkResult::failed(),
@@ -829,11 +832,11 @@ impl Win32 {
     pub fn sendstr(hwnd: HWND, nth: u32, str: &str, mode: super::SendStrMode) -> Option<()>{
         let edit = if nth == 0 {
             let focused = Self::get_focused_control(hwnd);
-            let class_name = get_class_name(focused).to_ascii_lowercase();
-            if class_name == "edit".to_string() {
-                focused
-            } else {
-                return None;
+            let class_name = get_class_name(focused);
+            match TargetClass::from(class_name) {
+                TargetClass::Edit |
+                TargetClass::RichEdit => focused,
+                _ => return None,
             }
         } else {
             let mut item = SearchItem {
@@ -844,11 +847,7 @@ impl Win32 {
                 found: None,
             };
             Self::new(hwnd).search(&mut item);
-            if let Some(found) = item.found {
-                found.hwnd
-            } else {
-                return None;
-            }
+            item.found?.hwnd
         };
         let hstring = HSTRING::from(str);
         let lparam = hstring.as_ptr() as isize;
@@ -966,6 +965,7 @@ impl Win32 {
                     TargetClass::Link => {
                         SysLink::new(hwnd).get_names(gi);
                     },
+                    TargetClass::RichEdit |
                     TargetClass::Edit |
                     TargetClass::Static => {
                         if let Some(text) = Self::get_text(hwnd) {
@@ -1304,6 +1304,8 @@ enum TargetClass {
     TrackBar,
     /// edit
     Edit,
+    /// RichEdit系
+    RichEdit,
     /// static
     Static,
     /// msctls_statusbar32
@@ -1346,6 +1348,10 @@ impl From<String> for TargetClass {
             "edit" => Self::Edit,
             "static" => Self::Static,
             "msctls_statusbar32" => Self::StatusBar,
+            "richedit" |
+            "richedit20a" |
+            "msftedit_class" |
+            "richedit50w" => Self::RichEdit,
             _ => Self::Other(s),
         }
     }

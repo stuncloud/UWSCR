@@ -1,16 +1,13 @@
 #![allow(non_upper_case_globals)]
 
 use windows::{
-    core::{BSTR},
+    core::BSTR,
     Win32::{
         Foundation::{HWND, POINT},
-        System::{
-            Com::{
+        System::Com::{
                 CoCreateInstance, CLSCTX_ALL,
-            }
-        },
-        UI::{
-            Accessibility::{
+            },
+        UI::Accessibility::{
                 IUIAutomation, IUIAutomationElement, IUIAutomationCondition,
                 CUIAutomation,
                 UIA_InvokePatternId, IUIAutomationInvokePattern,
@@ -18,6 +15,7 @@ use windows::{
                 UIA_TogglePatternId, IUIAutomationTogglePattern, ToggleState_On, ToggleState_Off, ToggleState_Indeterminate, ToggleState,
                 UIA_ExpandCollapsePatternId, IUIAutomationExpandCollapsePattern,
                 UIA_ValuePatternId, IUIAutomationValuePattern,
+                UIA_PATTERN_ID,
                 // UIA_TextPatternId, IUIAutomationTextPattern,
                 UIA_CONTROLTYPE_ID,
                 UIA_ButtonControlTypeId, UIA_CheckBoxControlTypeId, UIA_RadioButtonControlTypeId,
@@ -32,10 +30,9 @@ use windows::{
                 UIA_DataGridControlTypeId, //UIA_DataItemControlTypeId,
                 UIA_ToolBarControlTypeId,
                 UIA_HyperlinkControlTypeId,
-                UIA_EditControlTypeId,
+                // UIA_EditControlTypeId,
                 TreeScope, TreeScope_Children, TreeScope_Descendants,
             }
-        }
     }
 };
 
@@ -121,7 +118,7 @@ impl UIA {
         let Some(uia) = Self::new(hwnd) else {return;};
         let Some(condition) = uia.automation.create_true_condition() else {return;};
         let Some(elements) = uia.element.find_all(TreeScope_Descendants, &condition) else {return;};
-        let mut edit = elements.filter(|e| e.filter_by_type(UIA_EditControlTypeId));
+        let mut edit = elements.filter(|e| e.filter_by_pattern(UIA_ValuePatternId));
         let found = if nth > 0 {
             edit.nth(nth as usize - 1)
         } else {
@@ -485,6 +482,11 @@ impl UIAElement {
             } else {
                 false
             }
+        }
+    }
+    fn filter_by_pattern(&self, patternid: UIA_PATTERN_ID) -> bool {
+        unsafe {
+            self.element.GetCurrentPattern(patternid).is_ok()
         }
     }
     fn click(&self) -> Option<UIAClickPoint> {
