@@ -2124,6 +2124,9 @@ pub fn sendstr(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     } else {
         let hwnd = get_hwnd_from_id(id);
         let mode = SendStrMode::from(mode);
+        if nth == 0 {
+            unsafe {SetForegroundWindow(hwnd);}
+        }
         match acc {
             0 => {
                 if win32::Win32::sendstr(hwnd, nth, &str, mode).is_none() {
