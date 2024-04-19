@@ -246,8 +246,6 @@ impl Backend {
         let (program, errors) = block_in_place(move || {
             parser.parse_to_program_and_errors()
         });
-        self.log_info(format!("{program:#?}")).await;
-        self.log_info(format!("{errors:#?}")).await;
         let diagnostics = errors.into_iter()
             .filter_map(|e| {
                 // ファイル名が一致した場合のみDiagnosticを返す
