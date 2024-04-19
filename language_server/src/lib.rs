@@ -233,21 +233,24 @@ impl Backend {
         self.builtins.iter().map(|name| name.name().clone()).collect()
     }
     async fn parse(&self, uri: &Url) -> BackendResult<ProgramAndDiagnostics> {
-        let file_name = uri.to_file_path().unwrap_or_default().file_name().unwrap_or_default().to_string_lossy().to_string();
+        let script_path = uri.to_file_path().unwrap_or_default();
+        let file_name = script_path.file_name().unwrap_or_default().to_string_lossy().to_string();
         let script = self.get_script(uri)?;
+
         let lexer = Lexer::new(&script);
-        let names = self.get_builtin_names();
-        let parser = Parser::new(lexer, None, Some(names));
+        let builtin_names = self.get_builtin_names();
+        let parser = Parser::new_diagnostics_parser(lexer, script_path, builtin_names);
 
         // self.insert_script(uri.clone(), script).await;
 
         let (program, errors) = block_in_place(move || {
             parser.parse_to_program_and_errors()
         });
+        self.log_info(format!("{program:#?}")).await;
+        self.log_info(format!("{errors:#?}")).await;
         let diagnostics = errors.into_iter()
             .filter_map(|e| {
-                // エラーのファイル名がないかファイル名が一致した場合のみDiagnosticを返す
-                // (e.script_name.is_some() || e.script_name == file_name).then_some(e.into())
+                // ファイル名が一致した場合のみDiagnosticを返す
                 (e.script_name == file_name).then_some(e.into_lsp_type())
             })
             .collect();

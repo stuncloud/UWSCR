@@ -159,7 +159,7 @@ impl Parser {
         parser
     }
     pub fn new_eval_parser(lexer: Lexer) -> Self {
-        let builder = ProgramBuilder::new_enum_builder();
+        let builder = ProgramBuilder::new_eval_builder();
         let strict_mode = builder.is_strict_mode();
         let mut parser = Parser {
             lexer,
@@ -170,6 +170,21 @@ impl Parser {
             with_count: 0,
             builder,
             strict_mode,
+        };
+        parser.bump();
+        parser.bump();
+        parser
+    }
+    pub fn new_diagnostics_parser(lexer: Lexer, script_path: PathBuf, builtin_names: Vec<String>) -> Self {
+        let mut parser = Parser {
+            lexer,
+            current_token: TokenInfo::new(Token::Eof),
+            next_token: TokenInfo::new(Token::Eof),
+            errors: vec![],
+            with: None,
+            with_count: 0,
+            builder: ProgramBuilder::new(Some(script_path), Some(builtin_names)),
+            strict_mode: true,
         };
         parser.bump();
         parser.bump();

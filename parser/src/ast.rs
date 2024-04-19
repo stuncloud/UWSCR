@@ -612,7 +612,7 @@ impl ProgramBuilder {
             ..Default::default()
         }
     }
-    pub fn new_enum_builder() -> Self {
+    pub fn new_eval_builder() -> Self {
         Self { ..Default::default() }
     }
     pub fn is_strict_mode(&self) -> bool {
