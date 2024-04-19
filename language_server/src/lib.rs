@@ -97,12 +97,12 @@ struct ProgramAndDiagnostics {
     diagnostics: Vec<Diagnostic>,
 }
 
-fn new_completion_item(kind: CompletionItemKind, detail: String, insert_text: String, label: String, label_details: Option<String>, document: Option<String>) -> CompletionItem {
+fn new_completion_item(kind: CompletionItemKind, detail: String, insert_text: String, label: String, label_detail: Option<String>, label_desc: Option<String>, document: Option<String>) -> CompletionItem {
     CompletionItem {
         label: label,
-        label_details: label_details.map(|s| CompletionItemLabelDetails {
-            detail: None,
-            description: Some(s),
+        label_details: Some(CompletionItemLabelDetails {
+            detail: label_detail,
+            description: label_desc,
         }),
         kind: Some(kind),
         detail: Some(detail),
@@ -143,7 +143,8 @@ impl<'a> From<BuiltinNameWrapper<'_>> for Vec<CompletionItem> {
                                         CompletionItemKind::FUNCTION,
                                         desc.desc.clone(),
                                         format!("{label}({})", pd.snippet_params),
-                                        format!("{label}({})", pd.params),
+                                        format!("{label}"),
+                                        Some(format!("({})", pd.params)),
                                         pd.label_desc,
                                         Some(pd.document)
                                     )
@@ -155,7 +156,8 @@ impl<'a> From<BuiltinNameWrapper<'_>> for Vec<CompletionItem> {
                                 CompletionItemKind::FUNCTION,
                                 desc.desc.clone(),
                                 format!("{label}()"),
-                                format!("{label}()"),
+                                format!("{label}"),
+                                Some("()".into()),
                                 None,
                                 None
                             );
@@ -171,6 +173,7 @@ impl<'a> From<BuiltinNameWrapper<'_>> for Vec<CompletionItem> {
                         format!("{}", &label),
                         label,
                         None,
+                        None,
                         None
                     );
                     vec![item]
@@ -184,6 +187,7 @@ impl<'a> From<BuiltinNameWrapper<'_>> for Vec<CompletionItem> {
                     detail,
                     format!("{}", &label),
                     label,
+                    None,
                     None,
                     None
                 );
