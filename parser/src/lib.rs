@@ -1969,9 +1969,6 @@ impl Parser {
     fn parse_expression_as_statement(&mut self) -> Option<Expression> {
         match self.parse_expression(Precedence::Lowest, ExpressionState::StartOfLine) {
             Some(e) => {
-                if self.is_next_token(&Token::Semicolon) || self.is_next_token(&Token::Eol) {
-                    self.bump();
-                }
                 Some(e)
             }
             None => None
