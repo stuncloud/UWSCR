@@ -701,7 +701,7 @@ impl WebView {
                             unsafe {
                                 let _ = wm::DestroyWindow(self.parent);
                                 evaluator.clear();
-                                let msg = err.to_string();
+                                let msg = err.errror_text_with_line();
                                 out_log(&msg, LogType::Error);
                                 let title = UWSCRErrorTitle::RuntimeError.to_string();
                                 show_message(&msg, &title, true);

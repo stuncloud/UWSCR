@@ -1325,14 +1325,14 @@ impl Evaluator {
                             UErrorKind::Poff(poff, flg) => {
                                 let mut evaluator = evaluator2.to_owned();
                                 if let Err(e) = evaluator.invoke_poff(poff, *flg) {
-                                    let err = e.to_string();
+                                    let err = e.errror_text_with_line();
                                     out_log(&err, LogType::Error);
                                     let title = UWSCRErrorTitle::ThreadError.to_string();
                                     show_message(&err, &title, true);
                                 }
                             }
                             _ => {
-                                let err = e.to_string();
+                                let err = e.errror_text_with_line();
                                 out_log(&err, LogType::Error);
                                 let title = UWSCRErrorTitle::ThreadError.to_string();
                                 show_message(&err, &title, true);

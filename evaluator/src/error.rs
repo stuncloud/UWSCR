@@ -51,6 +51,9 @@ impl UError {
             line: UErrorLine::None,
         }
     }
+    pub fn errror_text_with_line(&self) -> String {
+        format!("{}\r\n{}", self.line, self)
+    }
 }
 
 impl Default for UError {

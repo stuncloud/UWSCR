@@ -13,18 +13,23 @@ use util::com::Com;
 use util::error::UWSCRErrorTitle;
 use util::winapi::{show_message, get_absolute_path};
 
-pub struct ScriptError(pub UWSCRErrorTitle, pub Vec<String>);
+pub struct ScriptError(pub UWSCRErrorTitle, pub String);
+impl ScriptError {
+    pub fn new<E: std::fmt::Display>(title: UWSCRErrorTitle, err: E) -> Self {
+        Self(title, err.to_string())
+    }
+}
 
 pub fn run(script: String, script_path: PathBuf, params: Vec<String>, ast: Option<(bool, bool)>) -> Result<(), ScriptError> {
     let exe_full_path = env::current_exe()
-        .map_err(|e| ScriptError(UWSCRErrorTitle::InitializeError, vec![e.to_string()]))?;
+        .map_err(|e| ScriptError::new(UWSCRErrorTitle::InitializeError, e))?;
     let uwscr_dir = exe_full_path.parent()
-        .ok_or(ScriptError(UWSCRErrorTitle::InitializeError, vec!["unable to get uwscr directory".into()]))?;
+        .ok_or(ScriptError::new(UWSCRErrorTitle::InitializeError, "unable to get uwscr directory"))?;
     env::set_var("GET_UWSC_DIR", &uwscr_dir.as_os_str());
 
     let script_full_path = get_absolute_path(&script_path);
     let script_dir = script_full_path.parent()
-        .ok_or(ScriptError(UWSCRErrorTitle::InitializeError, vec!["unable to get script directory".into()]))?;
+        .ok_or(ScriptError::new(UWSCRErrorTitle::InitializeError, "unable to get script directory"))?;
     env::set_var("GET_SCRIPT_DIR", &script_dir.as_os_str());
 
     if let Some(name) = script_path.file_name() {
@@ -33,9 +38,9 @@ pub fn run(script: String, script_path: PathBuf, params: Vec<String>, ast: Optio
         env::set_var("UWSCR_DEFAULT_TITLE", &format!("UWSCR - {}", name.to_string_lossy()))
     }
     match env::set_current_dir(&script_dir) {
-        Err(_)=> return Err(ScriptError(
+        Err(_)=> return Err(ScriptError::new(
             UWSCRErrorTitle::InitializeError,
-            vec!["unable to set current directory".into()]
+            "unable to set current directory"
         )),
         _ => {}
     };
@@ -57,15 +62,18 @@ pub fn run(script: String, script_path: PathBuf, params: Vec<String>, ast: Optio
     }
 
     (errors.len() == 0).then(|| ())
-        .ok_or(ScriptError(UWSCRErrorTitle::StatementError, errors.into_iter().map(|e| e.to_string()).collect()))?;
+        .ok_or(ScriptError::new(
+            UWSCRErrorTitle::StatementError,
+            errors.into_iter().map(|e| e.to_string()).reduce(|a,b| a + "\r\n" + &b).unwrap_or_default()
+        ))?;
 
     // このスレッドでのCOMを有効化
     let com = match Com::init() {
         Ok(com) => com,
         Err(e) => {
-            return Err(ScriptError(
+            return Err(ScriptError::new(
                 UWSCRErrorTitle::InitializeError,
-                vec![e.to_string()]
+                e
             ));
         },
     };
@@ -74,10 +82,9 @@ pub fn run(script: String, script_path: PathBuf, params: Vec<String>, ast: Optio
     let mut evaluator = Evaluator::new(env);
     if let Err(e) = evaluator.eval(program, true) {
         #[cfg(debug_assertions)] println!("\u{001b}[90m[script::run] Evaluator Error: {:#?}\u{001b}[0m", &e);
-        let line = &e.get_line();
-        return Err(ScriptError(
+        return Err(ScriptError::new(
             UWSCRErrorTitle::RuntimeError,
-            vec![line.to_string(), e.to_string()]
+            e.errror_text_with_line()
         ))
     }
     com.uninit();

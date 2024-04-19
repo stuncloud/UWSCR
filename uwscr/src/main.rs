@@ -73,8 +73,7 @@ fn start_uwscr() {
             match get_script(&p) {
                 Ok(s) => match script::run(s, p, params, ast) {
                     Ok(_) => {},
-                    Err(script::ScriptError(title, errors)) => {
-                        let err = errors.join("\r\n");
+                    Err(script::ScriptError(title, err)) => {
                         out_log(&err, LogType::Error);
                         show_message(&err, &title.to_string(), true);
                     }
