@@ -317,7 +317,7 @@ impl PartialEq for Object {
             Object::Num(n) => match other {
                 Object::Num(n2) => n == n2,
                 Object::String(s) => compare_string(n, s),
-                Object::Empty => 0.0 == *n,
+                Object::Empty => false,
                 Object::Bool(b) => {
                     let n2 = b.then_some(1.0).unwrap_or(0.0);
                     *n == n2
@@ -346,7 +346,7 @@ impl PartialEq for Object {
                     let n2 = b.then_some(1.0).unwrap_or(0.0);
                     *n == n2
                 },
-                Object::Empty => false && *b,
+                Object::Empty => false,
                 _ => false
             },
             Object::Array(a) => if let Object::Array(a2) = other {a == a2} else {false},
@@ -373,8 +373,6 @@ impl PartialEq for Object {
             },
             Object::Empty => match other {
                 Object::Empty => true,
-                Object::Num(n) => &0.0 == n,
-                Object::String(_) => false,
                 _ => false,
             },
             Object::Nothing => match other {
