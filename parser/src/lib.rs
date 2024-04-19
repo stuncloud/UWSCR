@@ -404,7 +404,7 @@ impl Parser {
     fn current_line_end_pos(&self) -> Position {
         let row = self.current_token.pos.row;
         let line = &self.lexer.lines[row-1];
-        Position { row, column: line.len() }
+        Position { row, column: line.len() + 1}
     }
 
     pub fn parse(mut self) -> ParserResult<Program> {
@@ -426,7 +426,7 @@ impl Parser {
     }
     pub fn parse_to_builder(&mut self) {
         while ! self.is_current_token(&Token::Eof) {
-            match self.parse_statement() {
+            match self.parse_statement(false) {
                 Some((t, statement)) => {
                     match t {
                         StatementType::Public => {
@@ -548,7 +548,7 @@ impl Parser {
             let start = self.current_token_pos();
             let end = self.current_token_end_pos();
             let line_end = self.current_line_end_pos();
-            match self.parse_statement() {
+            match self.parse_statement(false) {
                 Some((t, statement)) => match t {
                     StatementType::Public => {
                         self.builder.push_public(statement);
@@ -641,7 +641,7 @@ impl Parser {
         block
     }
 
-    fn parse_statement(&mut self) -> Option<(StatementType, StatementWithRow)> {
+    fn parse_statement(&mut self, allow_continuation: bool) -> Option<(StatementType, StatementWithRow)> {
         let start = self.current_token_pos();
         let row = self.current_token.pos.row;
         let token = self.current_token.token.clone();
@@ -818,10 +818,17 @@ impl Parser {
                 }
             },
         };
-        Some((
-            stmttype,
-            StatementWithRow::new(statement, row, self.lexer.get_line(row), Some(self.script_name()))
-        ))
+        if allow_continuation || self.is_next_token(&Token::Eol) || self.is_next_token(&Token::Eof) {
+            Some((
+                stmttype,
+                StatementWithRow::new(statement, row, self.lexer.get_line(row), Some(self.script_name()))
+            ))
+        } else {
+            let start = self.next_token.pos;
+            let end = self.current_line_end_pos();
+            self.push_error(ParseErrorKind::StatementContinuation, start, end);
+            None
+        }
     }
 
     fn parse_variable_definition(&mut self, value_required: bool) -> Option<Vec<(Identifier, Expression)>> {
@@ -1897,7 +1904,7 @@ impl Parser {
         let mut block: BlockStatement  = vec![];
 
         while ! self.is_current_token_end_of_block() && ! self.is_current_token(&Token::Eof) {
-            match self.parse_statement() {
+            match self.parse_statement(false) {
                 Some((_, s)) => match s.statement {
                     Statement::Exit => return Err("exit".into()),
                     Statement::Continue(_) => return Err("continue".into()),
@@ -3007,11 +3014,11 @@ impl Parser {
             // eolじゃなかったら単行IF
             // if condition then consequence [else alternative]
             self.bump();
-            let (_, consequence) = self.parse_statement()?;
+            let (_, consequence) = self.parse_statement(true)?;
             let alternative = if self.is_next_token(&Token::BlockEnd(BlockEnd::Else)) {
                 self.bump();
                 self.bump();
-                let (_, s) = self.parse_statement()?;
+                let (_, s) = self.parse_statement(false)?;
                 Some(s)
             } else {
                 None

@@ -105,6 +105,7 @@ pub enum ParseErrorKind {
     ParameterDuplicated(String),
     InvalidExpression,
     UndeclaredIdentifier(String),
+    StatementContinuation,
 }
 
 impl fmt::Display for ParseErrorKind {
@@ -362,6 +363,10 @@ impl fmt::Display for ParseErrorKind {
             ParseErrorKind::UndeclaredIdentifier(name) => write_locale!(f,
                 "変数または定数 {name} がありません",
                 "There is no variable or constant named {name}",
+            ),
+            ParseErrorKind::StatementContinuation => write_locale!(f,
+                "文と同じ行に別の文が記述されています",
+                "Another statement on the same line is not allowed",
             ),
         }
     }
