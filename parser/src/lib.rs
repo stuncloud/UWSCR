@@ -3096,7 +3096,7 @@ impl Parser {
         let mut default = None;
         self.bump();
         self.bump();
-        while self.is_current_token_in(vec![Token::BlockEnd(BlockEnd::Case), Token::BlockEnd(BlockEnd::Default)]) {
+        while self.is_current_token_in(vec![Token::Eol, Token::BlockEnd(BlockEnd::Case), Token::BlockEnd(BlockEnd::Default)]) {
             match self.current_token.token {
                 Token::BlockEnd(BlockEnd::Case) => {
                     let case_values = match self.parse_expression_list(Token::Eol) {
@@ -3112,7 +3112,10 @@ impl Parser {
                     self.bump();
                     default = Some(self.parse_block_statement());
                 },
-                _ => return None
+                Token::Eol => {
+                    self.bump();
+                }
+                _ => break,
             }
         }
         if ! self.is_current_closing_token_expected(BlockEnd::Selend) {
