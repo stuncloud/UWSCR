@@ -70,7 +70,8 @@ pub fn out_log(log: &String, log_type: LogType) {
             .expect("Unable to open log file");
         match log_type {
             LogType::Error |
-            LogType::Print => {
+            LogType::Print |
+            LogType::Info => {
                 if no_date_time {
                     let padding = format!("{log_type}").len();
                     for (i, line) in log.lines().enumerate() {
@@ -139,6 +140,7 @@ pub enum LogType {
     Error,
     Print,
     Panic,
+    Info
 }
 
 impl fmt::Display for LogType {
@@ -147,6 +149,7 @@ impl fmt::Display for LogType {
             LogType::Error => write!(f,"[ERROR]"),
             LogType::Print => write!(f,"[PRINT]"),
             LogType::Panic => write!(f,"[PANIC]"),
+            LogType::Info  => write!(f,"[INFO ]"),
         }
     }
 }

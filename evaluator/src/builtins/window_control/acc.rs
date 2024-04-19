@@ -982,6 +982,7 @@ impl Acc {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct AccClickResult(bool, AccClickReason);
 #[derive(Debug)]

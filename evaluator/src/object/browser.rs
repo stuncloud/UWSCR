@@ -990,7 +990,10 @@ impl WebSocket {
                             _ => {}
                         }
                     },
-                    CDPMessage::Unknown(_) => todo!(),
+                    CDPMessage::Unknown(id) => {
+                        let log = format!("received unknown message {id:?} on CDP");
+                        util::logging::out_log(&log, util::logging::LogType::Info)
+                    },
                 }
             }
         };
