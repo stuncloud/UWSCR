@@ -106,6 +106,7 @@ pub enum ParseErrorKind {
     InvalidExpression,
     UndeclaredIdentifier(String),
     StatementContinuation,
+    InvalidSyntax,
     LiteralNumberRequired,
 }
 
@@ -368,6 +369,10 @@ impl fmt::Display for ParseErrorKind {
             ParseErrorKind::StatementContinuation => write_locale!(f,
                 "文と同じ行に別の文が記述されています",
                 "Another statement on the same line is not allowed",
+            ),
+            ParseErrorKind::InvalidSyntax => write_locale!(f,
+                "不正な記述です",
+                "Invalid syntax",
             ),
             ParseErrorKind::LiteralNumberRequired => write_locale!(f,
                 "数値リテラルを指定する必要があります",
