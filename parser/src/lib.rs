@@ -1020,6 +1020,10 @@ impl Parser {
         self.bump();
         let mut members = vec![];
         while ! self.is_current_token(&Token::BlockEnd(BlockEnd::EndHash)) {
+            if self.is_current_token(&Token::Eol) {
+                self.bump();
+                continue;
+            }
             let expression = self.parse_expression(Precedence::Lowest, ExpressionState::NotAccess);
             if let Some(Expression::Infix(infix, left, right)) = &expression {
                 if *infix == Infix::Equal {
