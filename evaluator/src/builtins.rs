@@ -914,6 +914,7 @@ pub fn get_builtin_names() -> Vec<BuiltinName> {
         ("G_TIME_SS2", "秒 二桁"),
         ("G_TIME_ZZ2", "ミリ秒 三桁"),
         ("G_TIME_YY4", "年 四桁"),
+        ("COM_ERR_FLG", "COMエラー抑制中にCOMエラーが発生したらTRUE"),
     ].into_iter().map(|(name, desc)| BuiltinName::new_const(name, Some(desc))).collect();
     let mut funcs: Vec<BuiltinName> = init_builtin_functions().into();
     names.append(&mut funcs);

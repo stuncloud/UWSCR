@@ -783,6 +783,295 @@ next
 ```
 "#
         ),
+        new_snippet(
+            "com_err_ign", "COM_ERR_IGN",
+r#"COM_ERR_IGN
+$0"#,
+"COMエラー抑止開始",
+r#"COM_ERR_IGN記述位置からCOMエラーが発生してもエラーで停止しないようにする
+
+エラー抑止中にエラーが発生していた場合は特殊変数 `COM_ERR_FLG` が `TRUE` になる
+"#
+        ),
+        new_snippet(
+            "com_err_ret", "COM_ERR_RET",
+r#"COM_ERR_RET
+$0"#,
+"COMエラー抑止終了",
+r#"COM_ERR_IGNからCOM_ERR_RET記述位置までをCOMエラー抑止範囲とする
+
+エラー抑止中にエラーが発生していた場合は特殊変数 `COM_ERR_FLG` が `TRUE` になる
+"#
+        ),
+        new_snippet(
+            "OPTION EXPLICIT", "OPTION EXPLICIT",
+r#"OPTION EXPLICIT${1:=${2:TRUE}}
+$0"#,
+"OPTION設定: 変数宣言を強制",
+r#"有効にすることで`dim`または`public`宣言していない変数はエラーになる
+
+```uwscr
+dim a
+public b
+a = 1
+b = 2
+// 未宣言変数cはエラーになる
+c = 3
+```
+"#
+        ),
+        new_snippet(
+            "OPTION SAMESTR", "OPTION SAMESTR",
+r#"OPTION SAMESTR${1:=${2:TRUE}}
+$0"#,
+"OPTION設定: 文字列比較の大小文字区別",
+r#"有効にすることで文字列の比較時に大文字小文字を区別する
+
+```uwscr
+OPTION SAMESTR
+
+print "a" == "A" // False
+```
+"#
+        ),
+        new_snippet(
+            "OPTION OPTPUBLIC", "OPTION OPTPUBLIC",
+r#"OPTION OPTPUBLIC${1:=${2:TRUE}}
+$0"#,
+"OPTION設定: public変数宣言重複禁止",
+r#"有効にすることでpublic変数宣言の重複を禁止する
+
+```uwscr
+OPTION OPTPUBLIC
+
+public a = 1
+public a = 2 // エラー
+```
+"#
+        ),
+        new_snippet(
+            "OPTION OPTFINALLY", "OPTION OPTFINALLY",
+r#"OPTION OPTFINALLY${1:=${2:TRUE}}
+$0"#,
+"OPTION設定: try強制終了時のfinally実行",
+r#"有効にすることでtry節で強制終了した場合でもfinally節を実行する
+
+```uwscr
+OPTION OPTFINALLY
+
+try
+    exitexit
+finally
+    print "printされる"
+endtry
+```
+"#
+        ),
+        new_snippet(
+            "OPTION SPECIALCHAR", "OPTION SPECIALCHAR",
+r#"OPTION SPECIALCHAR${1:=${2:TRUE}}
+$0"#,
+"OPTION設定: 文字列展開無効",
+r#"有効にすることで`<#CR>`などの特殊文字及び変数の展開が無効になる
+
+```uwscr
+OPTION SPECIALCHAR
+
+a = 1
+print "hoge<#CR>fuga<#a>" // hoge<#CR>fuga<#a>
+```
+"#
+        ),
+        new_snippet(
+            "OPTION SHORTCIRCUIT", "OPTION SHORTCIRCUIT",
+r#"OPTION SHORTCIRCUIT${1:=${2:FALSE}}
+$0"#,
+"OPTION設定: 短絡評価",
+r#"有効にすることで論理演算を短絡評価する  
+デフォルト有効なので無効にしたい場合にFALSEを指定
+
+```uwscr
+// 短絡評価しない
+OPTION SHORTCIRCUIT=FALSE
+
+function f()
+    sleep(3)
+    result = TRUE
+fend
+
+// f() が評価されるため3秒停止してFALSEを返す
+print FALSE andl f()
+```
+
+```uwscr
+// 短絡評価する
+OPTION SHORTCIRCUIT=TRUE
+
+function f()
+    sleep(3)
+    result = TRUE
+fend
+
+// f() が評価されないため即FALSEを返す
+print FALSE andl f()
+```
+"#
+        ),
+        new_snippet(
+            "OPTION FIXBALLOON", "OPTION FIXBALLOON",
+r#"OPTION FIXBALLOON${1:=${2:TRUE}}
+$0"#,
+"OPTION設定: 仮想デスクトップ吹き出し表示",
+r#"有効にすることで吹き出しを仮想デスクトップにも表示する
+
+```uwscr
+OPTION FIXBALLOON
+
+balloon("3秒後に仮想デスクトップ移動")
+
+sleep(3)
+// Ctrl+Win+D で仮想デスクトップを新規作成して移動
+sckey(0, VK_CTRL, VK_WIN, VK_D)
+
+msgbox("吹き出しが表示されている")
+```
+"#
+        ),
+        new_snippet(
+            "OPTION DEFAULTFONT", "OPTION DEFAULTFONT",
+r#"OPTION DEFAULTFONT="${1:name},${2:size}"
+$0"#,
+"OPTION設定: ダイアログフォント",
+r#"ダイアログ等のフォントを変更する  
+デフォルトでは `"Yu Gothic UI,20"`
+
+```uwscr
+OPTION DEFAULTFONT="MS Gothic,30"
+
+msgbox("フォント変更")
+```
+"#
+        ),
+        new_snippet(
+            "OPTION LOGFILE", "OPTION LOGFILE",
+r#"OPTION LOGFILE=${1:n}
+$0"#,
+"OPTION設定: ログ出力オプション",
+r#"ログファイルの出力オプションを数値で指定  
+デフォルトではログを出力しない
+
+- 0: 通常のログ出力
+- 1: ログ出力なし (デフォルト)
+- 2: 日時出力なし
+- 3: 通常のログ出力 (標準で秒を含むため0と同じ)
+- 4: 以前のログを破棄
+- それ以外: ログ出力なし
+
+```uwscr
+OPTION LOGFILE=4
+
+print "hoge"
+print fget(fopen("uwscr.log", F_READ), F_ALLTEXT) // 202X-XX-XX XX:XX:XX [PRINT]  hoge
+```
+"#
+        ),
+        new_snippet(
+            "OPTION LOGPATH", "OPTION LOGPATH",
+r#"OPTION LOGPATH="${1:path}"
+$0"#,
+"OPTION設定: ログ保存パス",
+r#"ログファイルのパスを指定  
+デフォルトではスクリプト実行ディレクトリに`uwscr.log`が作成される  
+ディレクトリパス指定時はそこに`uwscr.log`が作成される  
+ファイルパス指定時はそのファイルにログが書き込まれる
+
+```uwscr
+OPTION LOGFILE=4
+OPTION LOGPATH="C:\uwscr\test.log"
+
+print "hoge"
+print fget(fopen("C:\uwscr\test.log", F_READ), F_ALLTEXT) // 202X-XX-XX XX:XX:XX [PRINT]  hoge
+```
+"#
+        ),
+        new_snippet(
+            "OPTION LOGLINES", "OPTION LOGLINES",
+r#"OPTION LOGLINES=${1:n}
+$0"#,
+"OPTION設定: ログ保存行数",
+r#"ログファイルの最大行数を指定  
+この行を越えた場合古いものから削除される
+
+```uwscr
+OPTION LOGFILE=4
+// 最大3行
+OPTION LOGLINES=3
+
+print "foo"
+print "bar"
+print "baz"
+print "qux"
+print "quxx"
+
+print fget(fopen("uwscr.log", F_READ), F_ALLTEXT)
+// 202X-XX-XX XX:XX:XX [PRINT]  baz
+// 202X-XX-XX XX:XX:XX [PRINT]  qux
+// 202X-XX-XX XX:XX:XX [PRINT]  quux
+```
+"#
+        ),
+        new_snippet(
+            "OPTION DLGTITLE", "OPTION DLGTITLE",
+r#"OPTION DLGTITLE="${1:title}"
+$0"#,
+"OPTION設定: ダイアログタイトル",
+r#"ダイアログのタイトルを変更する
+
+```uwscr
+OPTION DLGTITLE="変更しました"
+
+msgbox("OPTION DLGTITLE")
+```
+"#
+        ),
+        new_snippet(
+            "OPTION GUIPRINT", "OPTION GUIPRINT",
+r#"OPTION GUIPRINT${1:=${2:TRUE}}
+$0"#,
+"OPTION設定: print GUI出力",
+r#"有効にすることでprint時にコンソールではなくLogPrintウィンドウに出力する
+
+```uwscr
+OPTION GUIPRINT
+
+print "foo"
+print "bar"
+print "baz"
+
+id = getid(GET_LOGPRINT_WIN)
+while status(id, ST_VISIBLE)
+    sleep(0.1)
+wend
+```
+"#
+        ),
+        new_snippet(
+            "OPTION FORCEBOOL", "OPTION FORCEBOOL",
+r#"OPTION FORCEBOOL${1:=${2:TRUE}}
+$0"#,
+"OPTION設定: 条件式の真偽値強制",
+r#"有効にすることでif文などの条件式で真偽値以外を受け付けなくなる
+
+```uwscr
+OPTION FORCEBOOL
+
+// 真偽値を返さない式を記述するとエラー
+if 1 then // [評価エラー] 条件式はTRUEまたはFALSEを返す必要があります
+    print 1
+endif
+```
+"#
+        ),
     ]
 }
 
