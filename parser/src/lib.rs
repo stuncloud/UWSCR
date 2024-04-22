@@ -2647,6 +2647,7 @@ impl Parser {
             Token::Nothing |
             Token::Async |
             Token::Await |
+            Token::ComErrFlg |
             Token::NaN => {
                 self.error_on_current_token(ParseErrorKind::ReservedKeyword(token.clone()));
                 return None;
@@ -2699,6 +2700,8 @@ impl Parser {
             Token::Ref |
             Token::Variadic |
             Token::Pipeline |
+            Token::Uri(_) |
+            Token::Path(_, _) |
             Token::Arrow => {
                 self.error_on_current_token(ParseErrorKind::TokenCanNotBeUsedAsIdentifier);
                 return None
@@ -2714,8 +2717,6 @@ impl Parser {
             Token::Const |
             Token::Thread |
             Token::HashTable |
-            Token::Uri(_) |
-            Token::Path(_, _) |
             Token::DefDll |
             Token::If |
             Token::IfB |
@@ -2744,7 +2745,6 @@ impl Parser {
             Token::BlockEnd(_) |
             Token::ComErrIgn |
             Token::ComErrRet |
-            Token::ComErrFlg |
             Token::Exit |
             Token::ExitExit => Identifier(token.to_string()),
             Token::Identifier(ref i) => Identifier(i.clone()),
