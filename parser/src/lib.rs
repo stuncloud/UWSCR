@@ -1628,10 +1628,8 @@ impl Parser {
             self.error_on_current_token(ParseErrorKind::OutOfLoop(Token::Continue));
             return None;
         }
-        self.bump();
-        match self.parse_number_expression() {
-            Some(Expression::Literal(Literal::Num(n))) => Some(Statement::Continue(n as u32)),
-            Some(_) => None,
+        match self.parse_continue_break_count() {
+            Some(n) => Some(Statement::Continue(n)),
             None => Some(Statement::Continue(1)),
         }
     }
@@ -1641,11 +1639,26 @@ impl Parser {
             self.error_on_current_token(ParseErrorKind::OutOfLoop(Token::Break));
             return None;
         }
-        self.bump();
-        match self.parse_number_expression() {
-            Some(Expression::Literal(Literal::Num(n))) => Some(Statement::Break(n as u32)),
-            Some(_) => None,
+        match self.parse_continue_break_count() {
+            Some(n) => Some(Statement::Break(n)),
             None => Some(Statement::Break(1)),
+        }
+    }
+
+    fn parse_continue_break_count(&mut self) -> Option<u32> {
+        match self.next_token.token {
+            Token::Num(n) => {
+                self.bump();
+                Some(n as u32)
+            },
+            Token::Eol => None,
+            _ => {
+                self.bump();
+                let start = self.current_token.pos;
+                let end = self.current_token.get_end_pos();
+                self.push_error(ParseErrorKind::LiteralNumberRequired, start, end);
+                None
+            }
         }
     }
 
@@ -2335,11 +2348,11 @@ impl Parser {
             } else {
                 Expression::Literal(Literal::NaN)
             },
-            Token::Num(_) => if state.is_start_of_line() && self.strict_mode  {
+            Token::Num(n) => if state.is_start_of_line() && self.strict_mode  {
                 self.error_current_token_is_invalid();
                 return None;
             } else {
-                self.parse_number_expression()?
+                Expression::Literal(Literal::Num(n))
             },
             Token::Hex(_) => if state.is_start_of_line() && self.strict_mode  {
                 self.error_current_token_is_invalid();
@@ -2759,15 +2772,6 @@ impl Parser {
                 self.error_on_current_token(ParseErrorKind::OutOfWith);
                 return None;
             }
-        }
-    }
-
-    fn parse_number_expression(&mut self) -> Option<Expression> {
-        match self.current_token.token {
-            Token::Num(ref mut num) => Some(
-                Expression::Literal(Literal::Num(num.clone()))
-            ),
-            _ => None
         }
     }
 
