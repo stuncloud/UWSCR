@@ -768,6 +768,52 @@ endwith // withを抜けたときに破棄される がprintされる
 // ```
 // "#
 //         ),
+        new_snippet(
+            "hashtbl", "hashtbl",
+r#"hashtbl ${1:ident}${2: = HASH_$3}
+"#,
+r#"### 連想配列
+
+key-value式の配列  
+宣言時に以下を指定することができる (OR連結可)
+
+- HASH_SORT: キーをソートする、未指定時は挿入順になる
+- HASH_CASECARE: キーは大文字小文字を区別する
+
+```uwscr
+hashtbl h
+// キー(文字列)に対して値を代入
+h["b"] = 2
+h["a"] = 1
+print h["a"] // 1
+print h["b"] // 2
+
+// 挿入順に格納される
+for key in h
+    print key
+next
+// B
+// A
+
+hashtbl t = HASH_SORT or HASH_CASECARE
+t["b"] = 100
+t["a"] = 200
+t["A"] = 300
+
+// 大文字小文字の区別
+print t["a"] // 200
+print t["A"] // 300
+
+// キー順ソートされている
+for key in t
+    print key
+next
+// A
+// a
+// b
+```
+"#
+        ),
     ]
 }
 
