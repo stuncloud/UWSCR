@@ -1941,7 +1941,7 @@ OPTION
 
 .. object:: OPTION DEFAULTFONT="name,n"
 
-    | ダイアログ等のフォント指定  (初期値:"MS Gothic,12")
+    | ダイアログ等のフォント指定  (初期値:"Yu Gothic UI,20")
 
 .. object:: OPTION POSITION=x,y
 
