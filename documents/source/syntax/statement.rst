@@ -1542,6 +1542,24 @@ moduleのスコープ
             print hoge         // (なにも表示されない)
             print length(hoge) // 5
 
+.. object:: 空文字 == EMPTY
+
+    | 空文字とEMPTYの等価比較は常にFALSEです
+
+    .. admonition:: UWSCとの挙動の差異について
+        :class: caution
+
+        | UWSCでは以下のような挙動でした
+
+        .. sourcecode:: uwscr
+
+            dim a = EMPTY
+            print "" = a     // True
+            print "" = EMPTY // False
+
+        | 空文字に対して ``EMPTY`` である変数は等価になりますが、リテラルでは非等価になっていました
+        | 同一であるべき式が異なる結果を返すのは不正なのでUWSCRではいずれもFALSEを返します
+
 三項演算子
 ^^^^^^^^^^
 
