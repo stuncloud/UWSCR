@@ -8,9 +8,8 @@ r#"for ${1:item} in ${2:items}
     ${0}
 next
 "#,
-r#"### for-inループ
-
-inの右辺の配列やコレクションの要素を左辺の変数で順に受ける
+"for-inループ",
+r#"inの右辺の配列やコレクションの要素を左辺の変数で順に受ける
 
 ```uwscr
 for n in [1, 2, 3]
@@ -28,9 +27,8 @@ r#"for ${1:i} = ${2} to ${3}
     ${0}
 next
 "#,
-r#"### forループ
-
-toの左辺から右辺まで順番に変数で受ける  
+"forループ",
+r#"toの左辺から右辺まで順番に変数で受ける  
 step 1 と同義
 
 ```uwscr
@@ -49,9 +47,8 @@ r#"for ${1:i} = ${2:0} to ${3:0} step ${4:0}
     ${0}
 next
 "#,
-r#"### ステップforループ
-
-toの左辺から右辺まで、step数分加算して変数で受ける
+"ステップforループ",
+r#"toの左辺から右辺まで、step数分加算して変数で受ける
 
 ```uwscr
 for i = 0 to 5 step 2
@@ -69,9 +66,8 @@ r#"function(${1:arguments})
     ${2:result = ${0:0}}
 fend
 "#,
-r#"### 無名関数
-
-名前を持たない関数、変数に代入することでその変数は関数として振る舞う  
+"無名function",
+r#"名前を持たない関数、変数に代入することでその変数は関数として振る舞う  
 resultに代入することで値を返す
 
 ```uwscr
@@ -98,12 +94,11 @@ print closure(8) // 40
         new_snippet(
             "anonymous procedure", "procedure",
 r#"procedure(${1:arguments})
-	$0
+    $0
 fend
 "#,
-r#"### 無名関数
-
-名前を持たない関数、変数に代入することでその変数は関数として振る舞う  
+"無名procedure",
+r#"名前を持たない関数、変数に代入することでその変数は関数として振る舞う  
 値を返さない
 
 ```uwscr
@@ -123,9 +118,8 @@ r#"async function ${1:name}(${2:variables})
     result = ${0:0}
 fend
 "#,
-r#"### 非同期関数
-
-非同期実行される関数、Taskを返す  
+"非同期function",
+r#"非同期実行される関数、Taskを返す  
 resultに代入することで終了したTaskから値を受けられる
 
 ```uwscr
@@ -139,14 +133,13 @@ print await f(5) // 10
 "#
         ),
         new_snippet(
-            "async procedure", "procedure",
+            "async procedure", "asyncprocedure",
 r#"async procedure ${1:name}(${2:variables})
     $0
 fend
 "#,
-r#"### 非同期関数
-
-非同期実行される関数、Taskを返す  
+"非同期procedure",
+r#"非同期実行される関数、Taskを返す  
 Taskは値を返さない
 
 ```uwscr
@@ -175,9 +168,8 @@ ${2:    // destructor (optional)
     fend}
 endclass
 "#,
-r#"### クラス定義
-
-`クラス名()` を実行することでインスタンスを返す  
+"クラス定義",
+r#"`クラス名()` を実行することでインスタンスを返す  
 すべての参照がなくなるとデストラクタが実行される
 
 ```uwscr
@@ -215,9 +207,8 @@ sleep(1)
             "def_dll", "def_dll",
 r#"def_dll ${1:funcname}(${2:varType}):${3:retType}:${4:dllName}.dll
 "#,
-r#"### dll関数定義
-
-dll関数を呼び出せるようにする
+"dll関数定義",
+r#"dll関数を呼び出せるようにする
 
 ```uwscr
 def_dll GetCursorPos({long, long}):bool:user32.dll
@@ -231,9 +222,8 @@ print [x, y]
             "def_dll alias", "def_dllalias",
 r#"def_dll ${1:alias}:${2:funcname}(${4:varType}):${4:retType}:${5:dllName}.dll
 "#,
-r#"### dll関数別名定義
-
-dll関数に任意の名前を付けて呼び出せるようにする
+"dll関数別名定義",
+r#"dll関数に任意の名前を付けて呼び出せるようにする
 
 ```uwscr
 // GetCursorPosをMousePosとして呼び出す
@@ -250,9 +240,8 @@ r#"enum ${1:identifier}
     $0
 endenum
 "#,
-r#"### 列挙体定義
-
-列挙体を定義する
+"列挙体定義",
+r#"列挙体を定義する
 
 ```uwscr
 enum E
@@ -280,12 +269,11 @@ print f(100)   // エラー
         new_snippet(
             "function", "function",
 r#"function ${1:name}(${2:variables})
-result = ${0:0}
+    result = ${0:0}
 fend
 "#,
-r#"### 関数定義
-
-関数を定義する  
+"関数定義(戻り値あり)",
+r#"関数を定義する  
 resultに代入することで値を返す
 
 ```uwscr
@@ -305,9 +293,8 @@ r#"hash ${1:public }${2:name}${3: = HASH_${4:*}}
     ${0}
 endhash
 "#,
-r#"### 連想配列一括定義
-
-hashtblの糖衣構文  
+"連想配列一括定義",
+r#"hashtblの糖衣構文  
 予め連想配列のキーと値を設定できる
 
 ```uwscr
@@ -335,9 +322,8 @@ r#"if ${1:expression} then
     $0
 endif
 "#,
-r#"### if文
-
-式が真ならブロック内が実行される
+"if文",
+r#"式が真ならブロック内が実行される
 
 ```uwscr
 if true then
@@ -357,9 +343,8 @@ else
     $3
 endif
 "#,
-r#"### if-else文
-
-式が真ならthenブロックが、偽ならelseブロックが実行される
+"if-else文",
+r#"式が真ならthenブロックが、偽ならelseブロックが実行される
 
 ```uwscr
 if true then
@@ -374,9 +359,8 @@ endif
             "if-else単行", "ifelsesingle",
 r#"if ${1:expression} then $2 else $3
 "#,
-r#"### 単行if文
-
-式が真ならthen以降が、偽ならelse以降の文が実行される
+"単行if-else文",
+r#"式が真ならthen以降が、偽ならelse以降の文が実行される
 
 ```uwscr
 if true then print "printされる" else print "printされない"
@@ -391,9 +375,8 @@ elseif ${2:expression2}
     $0
 endif
 "#,
-r#"### if-elseif文
-
-ifの式が偽であればelseifの式を評価し、真であればそのブロックを実行し偽であれば更に次のelseifまたはelseの式の評価に移行する
+"if-elseif文",
+r#"ifの式が偽であればelseifの式を評価し、真であればそのブロックを実行し偽であれば更に次のelseifまたはelseの式の評価に移行する
 
 ```uwscr
 a = 1
@@ -411,9 +394,8 @@ endif
             "if単行", "ifsingle",
 r#"if ${1:expression} then $0
 "#,
-r#"### 単行if文
-
-式が真であればthen以降の文が実行される
+"単行if文",
+r#"式が真であればthen以降の文が実行される
 
 ```uwscr
 if true then print "printされる"
@@ -431,9 +413,8 @@ r#"module ${1:name}
     $0
 endmodule
 "#,
-r#"### モジュール
-
-関数定義等をモジュール化する  
+"モジュール",
+r#"関数定義等をモジュール化する  
 モジュールのコンストラクタはスクリプト開始時に実行される
 
 ```uwscr
@@ -458,9 +439,8 @@ r#"procedure ${1:name}(${2:variables})
     $0
 fend
 "#,
-r#"### 関数定義
-
-値を返さない関数を定義する
+"関数定義(戻り値なし)",
+r#"値を返さない関数を定義する
 
 ```uwscr
 procedure p(s)
@@ -477,9 +457,8 @@ r#"repeat
     $0
 until ${1:expression}
 "#,
-r#"### repeat文
-
-untilが真になるまでループする
+"repeat文",
+r#"untilが真になるまでループする
 
 ```uwscr
 n = 0
@@ -499,9 +478,8 @@ ${4:default
     $5}
 selend
 "#,
-r#"### select文
-
-式を評価し値が一致するcaseのブロックを実行する  
+"select文",
+r#"式を評価し値が一致するcaseのブロックを実行する  
 一致するものがなければdefaultブロックが実行される
 
 ```uwscr
@@ -524,9 +502,8 @@ r#"struct ${1:identifier}
     ${2:name}: ${3:type}
 endstruct
 "#,
-r#"### 構造体定義
-
-Cライクな構造体を定義する  
+"構造体定義",
+r#"Cライクな構造体を定義する  
 `構造体名()` を実行することでインスタンスを返す
 
 ```uwscr
@@ -558,9 +535,8 @@ r#"textblock ${1:name}
 $0
 endtextblock
 "#,
-r#"### 複数行文字列定数定義
-
-複数行の文字列による定数を定義する  
+"複数行文字列定数定義",
+r#"複数行の文字列による定数を定義する  
 改行がそのまま反映される
 
 定数名を省略した場合は評価されない  
@@ -591,9 +567,8 @@ r#"textblockex ${1:name}
 $0
 endtextblock
 "#,
-r#"### 展開可能textblock
-
-変数展開可能なtextblock  
+"展開可能textblock",
+r#"変数展開可能なtextblock  
 展開される変数は遅延評価される
 
 ```uwscr
@@ -620,9 +595,8 @@ except
     $2
 endtry
 "#,
-r#"### try文
-
-tryブロックでエラーが発生した場合のみexceptブロックが処理される
+"try-except文",
+r#"tryブロックでエラーが発生した場合のみexceptブロックが処理される
 
 ```uwscr
 try
@@ -649,9 +623,8 @@ finally
 $3
 endtry
 "#,
-r#"### try文
-
-exceptとfinallyの複合  
+"try-except-finally文",
+r#"exceptとfinallyの複合  
 exceptはtryブロックでエラー発生時のみ処理される  
 finallyは必ず処理される
 
@@ -682,9 +655,8 @@ finally
     $2
 endtry
 "#,
-r#"### try文
-
-エラーの有無にかかわらずfinallyブロックが処理される
+"try-finally文",
+r#"エラーの有無にかかわらずfinallyブロックが処理される
 
 ```uwscr
 try
@@ -707,9 +679,8 @@ r#"while ${1:expression}
     $0
 wend
 "#,
-r#"### whileループ
-
-式が真である限りブロックを処理する
+"whileループ",
+r#"式が真である限りブロックを処理する
 
 ```uwscr
 a = 0
@@ -726,9 +697,8 @@ r#"with ${1:expression}
     $0
 endwith
 "#,
-r#"### with文
-
-式がオブジェクトであれば、メンバの呼び出しでドットの左辺を省略できる
+"with文",
+r#"式がオブジェクトであれば、メンバの呼び出しでドットの左辺を省略できる
 
 ```uwscr
 class Hoge
@@ -772,9 +742,8 @@ endwith // withを抜けたときに破棄される がprintされる
             "hashtbl", "hashtbl",
 r#"hashtbl ${1:ident}${2: = HASH_$3}
 "#,
-r#"### 連想配列
-
-key-value式の配列  
+"連想配列定義",
+r#"key-value式の配列  
 宣言時に以下を指定することができる (OR連結可)
 
 - HASH_SORT: キーをソートする、未指定時は挿入順になる
@@ -817,15 +786,18 @@ next
     ]
 }
 
-fn new_snippet(detail: &str, label: &str, snippet: &str, doc: &str) -> CompletionItem {
+fn new_snippet(detail: &str, label: &str, snippet: &str, doc_title: &str, doc: &str) -> CompletionItem {
     CompletionItem {
         label: label.to_string(),
-        // label_details: Some(CompletionItemLabelDetails { detail: todo!(), description: todo!() }),
+        label_details: Some(CompletionItemLabelDetails {
+            detail: None,
+            description: Some(doc_title.to_string())
+        }),
         kind: Some(CompletionItemKind::SNIPPET),
         detail: Some(detail.to_string()),
         documentation: Some(Documentation::MarkupContent(MarkupContent {
             kind: MarkupKind::Markdown,
-            value: doc.to_string()
+            value: format!("### {doc_title}\n\n{doc}")
         })),
         // deprecated: todo!(),
         // preselect: todo!(),
