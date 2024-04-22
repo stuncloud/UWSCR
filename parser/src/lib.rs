@@ -2281,6 +2281,10 @@ impl Parser {
         self.bump();
         let mut next = 0.0;
         loop {
+            if self.is_current_token(&Token::Eol) {
+                self.bump();
+                continue;
+            }
             let Identifier(id) = self.parse_identifier(IdentifierType::Other)?;
             if self.is_next_token(&Token::EqualOrAssign) {
                 self.bump();
