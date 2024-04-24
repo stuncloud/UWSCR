@@ -1869,23 +1869,25 @@ impl Parser {
     }
 
     fn parse_try_statement(&mut self) -> Option<Statement> {
-        if ! self.is_next_token(&Token::Eol) {
+        if self.is_next_token(&Token::Eol) {
+            self.bump();
+        } else {
             let start = self.next_token.pos;
             let end = self.current_line_end_pos();
             self.push_error(ParseErrorKind::InvalidSyntax, start, end);
         }
-        self.bump_to_next_row();
         let trys = self.parse_block_statement();
         let mut except = None;
         let mut finally = None;
         match self.current_token.token.clone() {
             Token::BlockEnd(BlockEnd::Except) => {
-                if ! self.is_next_token(&Token::Eol) {
+                if self.is_next_token(&Token::Eol) {
+                    self.bump();
+                } else {
                     let start = self.next_token.pos;
                     let end = self.current_line_end_pos();
                     self.push_error(ParseErrorKind::InvalidSyntax, start, end);
                 }
-                self.bump_to_next_row();
                 except = Some(self.parse_block_statement());
             },
             Token::BlockEnd(BlockEnd::Finally) => {},
@@ -1900,12 +1902,13 @@ impl Parser {
         }
         match self.current_token.token.clone() {
             Token::BlockEnd(BlockEnd::Finally) => {
-                if ! self.is_next_token(&Token::Eol) {
+                if self.is_next_token(&Token::Eol) {
+                    self.bump();
+                } else {
                     let start = self.next_token.pos;
                     let end = self.current_line_end_pos();
                     self.push_error(ParseErrorKind::InvalidSyntax, start, end);
                 }
-                self.bump_to_next_row();
                 finally = match self.parse_finally_block_statement() {
                     Ok(b) => Some(b),
                     Err(s) => {
