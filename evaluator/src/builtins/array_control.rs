@@ -399,6 +399,16 @@ pub fn calcarray(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult 
     }
 }
 
+fn fill_array(arr: &mut Vec<Object>, value: Object) {
+    for obj in arr.iter_mut() {
+        if let Object::Array(a) = obj {
+            fill_array(a, value.clone());
+        } else {
+            *obj = value.clone();
+        }
+    }
+}
+
 #[builtin_func_desc(
     desc="配列を指定値で埋める"
     args=[
@@ -411,7 +421,7 @@ pub fn setclear(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFunc
     let expr = args.get_expr(0);
     let value = args.get_as_object(1, Some(Object::Empty))?;
 
-    arr.fill(value);
+    fill_array(&mut arr, value);
 
     evaluator.update_reference(vec![(expr, Object::Array(arr))])
         .map_err(|err| BuiltinFuncError::UError(err))?;
