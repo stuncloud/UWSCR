@@ -61,11 +61,19 @@ pub fn run(script: String, script_path: PathBuf, params: Vec<String>, ast: Optio
         }
     }
 
-    (errors.len() == 0).then(|| ())
-        .ok_or(ScriptError::new(
+    if ! errors.is_empty() {
+        if cfg!(debug_assertions) {
+            println!("\u{001b}[90m[script::run] Parser Errors");
+            for e in &errors {
+                println!("{e:?}");
+            }
+            println!("\u{001b}[0m");
+        }
+        return Err(ScriptError::new(
             UWSCRErrorTitle::StatementError,
             errors.into_iter().map(|e| e.to_string()).reduce(|a,b| a + "\r\n" + &b).unwrap_or_default()
-        ))?;
+        ));
+    }
 
     // このスレッドでのCOMを有効化
     let com = match Com::init() {
