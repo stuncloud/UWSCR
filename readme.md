@@ -58,8 +58,8 @@ winget upgrade --id stuncloud.uwscr
 
 ## 実行方法
 
-UWSCRはコンソールアプリケーションです
-コマンドプロンプトやPowerShell上で実行してください
+UWSCRはコンソールアプリケーションです  
+コマンドプロンプトやPowerShell上で実行してください  
 Explorer等から実行した場合はコンソールウィンドウが表示されます
 
 ### スクリプトの実行
@@ -99,6 +99,11 @@ uwscr --online-help
 ## 詳細な使い方
 
 [UWSCRオンラインヘルプ](https://stuncloud.github.io/UWSCR/index.html)を参照してください
+
+## コーディング支援機能
+
+UWSCRは[Language Server](https://stuncloud.github.io/UWSCR/usage/language_server.html)として動作します  
+また、それを利用したVSCode向けの[拡張機能](https://github.com/stuncloud/vscode-uwscr/releases/latest)を公開しています
 
 ## ライセンス
 

@@ -1,7 +1,7 @@
 Language Server機能について
 ===========================
 
-UWSCRは ``Language Server Protocol`` 準拠のLanguage Serverを実装しています。任意のエディタでUWSCR用のLanguage Clientを実装することでLanguage ServerからUWSCRの開発支援を受けられます。
+UWSCRは ``Language Server Protocol`` 準拠のLanguage Serverを実装しています。任意のエディタでUWSCR用のLanguage Clientを実装することでLanguage ServerからUWSCRのコーティング支援を受けられます。
 
 Language Clientとの通信方法
 ---------------------------
