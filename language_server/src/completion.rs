@@ -472,10 +472,10 @@ print n // 6
         new_snippet(
             "select-selend", "selectselend",
 r#"select ${1:expression}
-case $2
-    $3
-${4:default
-    $5}
+    case $2
+        $3
+    ${4:default
+        $5}
 selend
 "#,
 "select文",
@@ -616,11 +616,11 @@ endtry
         new_snippet(
             "try-except-finally", "tryexceptfinally",
 r#"try
-$1
+    $1
 except
-$2
+    $2
 finally
-$3
+    $3
 endtry
 "#,
 "try-except-finally文",
