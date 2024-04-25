@@ -54,7 +54,8 @@ UWSCR |version| オンラインヘルプ
 ライセンス
 ----------
 
-`サードパーティライセンス <_static/license.html>`__
+| UWSCRのソースコードは `MIT <https://github.com/stuncloud/UWSCR/blob/master/LICENSE>`_ でライセンスされています
+| 依存crateのライセンスは `サードパーティライセンス <_static/license.html>`__ を参照ください
 
 コミュニティ
 ------------

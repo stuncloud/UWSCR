@@ -107,7 +107,8 @@ UWSCRは[Language Server](https://stuncloud.github.io/UWSCR/usage/language_serve
 
 ## ライセンス
 
-[サードパーティライセンス](https://stuncloud.github.io/UWSCR/_static/license.html)
+UWSCRのソースコードは [MIT](https://github.com/stuncloud/UWSCR/blob/master/LICENSE) でライセンスされています  
+依存crateのライセンスは [サードパーティライセンス](https://stuncloud.github.io/UWSCR/_static/license.html) を参照してください
 
 ## お問い合わせ
 
