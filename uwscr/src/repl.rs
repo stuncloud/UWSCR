@@ -140,7 +140,7 @@ pub fn run(script: Option<String>, script_path: Option<PathBuf>, params: Vec<Str
                                     }
                                 },
                                 Err(e) => {
-                                    println!("\u{001b}[35m{e}\u{001b}[0m");
+                                    println!("\u{001b}[31m{e}\u{001b}[0m");
                                 },
                             }
                         },
@@ -233,7 +233,7 @@ impl Prompt for UPrompt {
 impl UPrompt {
     fn new(prompt: &'static str) -> Self {
         let len = prompt.len();
-        let multi_indicator = format!("{:>1$}-m ", "", len);
+        let multi_indicator = format!("{:>1$}- ", "", len);
         let prompt_indicator = "> ".to_string();
         Self { prompt, multi_indicator, prompt_indicator }
     }
