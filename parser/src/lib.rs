@@ -1656,6 +1656,8 @@ impl Parser {
                 Some(n as u32)
             },
             Token::Eol => None,
+            // 単行ifのconsで呼んだ場合
+            Token::BlockEnd(BlockEnd::Else) => None,
             _ => {
                 self.bump();
                 let start = self.current_token.pos;
