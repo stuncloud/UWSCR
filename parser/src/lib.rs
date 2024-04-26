@@ -1246,7 +1246,7 @@ impl Parser {
                 } else {
                     vec![]
                 };
-                let builder = ProgramBuilder::new_uri(uri);
+                let builder = self.builder.new_uri(uri);
                 (script, builder, args)
             },
             _ => {

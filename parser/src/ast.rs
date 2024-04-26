@@ -598,9 +598,10 @@ impl ProgramBuilder {
             ..Default::default()
         }
     }
-    pub fn new_uri(uri: String) -> Self {
+    pub fn new_uri(&self, uri: String) -> Self {
         Self {
             location: ScriptLocation::Uri(uri),
+            builtin_names: self.builtin_names.clone(),
             ..Default::default()
         }
     }
@@ -609,6 +610,7 @@ impl ProgramBuilder {
         let depth = self.depth + 1;
         Self {
             location, depth,
+            builtin_names: self.builtin_names.clone(),
             ..Default::default()
         }
     }
@@ -1129,8 +1131,9 @@ impl ProgramBuilder {
         let names = self.scope.check_access(&call);
         location_and_names.push((self.location.clone(), names));
 
-        call.append(self.scope.r#const.names.clone());
-        call.append(self.scope.public.names.clone());
+        call.append(&self.scope.r#const.names);
+        call.append(&self.scope.public.names);
+        call.append(&self.scope.definition);
 
         for (location, scope) in &self.call {
             let names = scope.check_access(&call);
@@ -1624,6 +1627,11 @@ impl Names {
 impl Into<Vec<Name>> for Names {
     fn into(self) -> Vec<Name> {
         self.0
+    }
+}
+impl Into<Vec<Name>> for &Names {
+    fn into(self) -> Vec<Name> {
+        self.clone().0
     }
 }
 
