@@ -620,7 +620,13 @@ impl ProgramBuilder {
     pub fn is_strict_mode(&self) -> bool {
         self.builtin_names.is_some()
     }
-    pub fn location(&self) -> String {
+    pub fn location_ref(&self) -> &ScriptLocation {
+        &self.location
+    }
+    pub fn location(&self) -> ScriptLocation {
+        self.location.clone()
+    }
+    pub fn script_name(&self) -> String {
         self.location.to_string()
     }
     pub fn script_dir(&self) -> PathBuf {
@@ -688,6 +694,15 @@ impl ProgramBuilder {
         self.options.append(&mut other.options);
         self.definitions.append(&mut other.definitions);
         self.call.append(&mut other.call);
+    }
+    /// 既に呼び出されているので不要なグローバル要素を除去
+    pub fn remove_global(&mut self) {
+        self.consts.clear();
+        self.publics.clear();
+        self.options.clear();
+        self.definitions.clear();
+        self.call.clear();
+        self.scope = BuilderScope::default();
     }
 
     pub fn is_explicit_option_enabled(&self) -> bool {

@@ -1492,6 +1492,7 @@ name = "parser"
 version = "0.16.1"
 dependencies = [
  "bincode",
+ "once_cell",
  "regex",
  "reqwest",
  "serde",

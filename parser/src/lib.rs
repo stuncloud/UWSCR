@@ -16,9 +16,15 @@ use util::{
 use std::path::PathBuf;
 use std::env;
 use std::str::FromStr;
+use std::sync::{Arc, Mutex};
+use once_cell::sync::Lazy;
 
 pub type ParseErrors = Vec<ParseError>;
 pub type ParserResult<T> = Result<T, ParseErrors>;
+
+static CALLED_FILE_LOCATIONS: Lazy<Arc<Mutex<Vec<ScriptLocation>>>> = Lazy::new(|| {
+    Arc::new(Mutex::new(Vec::new()))
+});
 
 enum StatementType {
     /// - public
@@ -209,7 +215,7 @@ impl Parser {
     }
 
     pub fn script_name(&self) -> String {
-        self.builder.location()
+        self.builder.script_name()
     }
 
     fn token_to_precedence(token: &Token) -> Precedence {
@@ -232,7 +238,7 @@ impl Parser {
     }
 
     fn push_error(&mut self, kind: ParseErrorKind, start: Position, end: Position) {
-        let script_name = self.builder.location();
+        let script_name = self.script_name();
         let err = ParseError::new(kind, start, end, script_name);
         self.errors.push(err);
     }
@@ -1255,15 +1261,32 @@ impl Parser {
             }
         };
 
+        let is_already_called = {
+            let mut locations = CALLED_FILE_LOCATIONS.lock().unwrap();
+            if locations.contains(builder.location_ref()) {
+                true
+            } else {
+                locations.push(builder.location());
+                false
+            }
+        };
+
         let mut call_parser = Parser::call(Lexer::new(&script), builder, self.strict_mode);
         call_parser.parse_to_builder();
-        if ! call_parser.errors.is_empty() {
-            // エラーがあった場合は
-            self.push_error(ParseErrorKind::CalledScriptHadError, start, end);
-            self.errors.append(&mut call_parser.errors);
+        if is_already_called {
+            // すでに呼び出されている場合はグローバル要素を除去
+            call_parser.builder.remove_global();
+        } else {
+            // 初回呼び出し時のみエラー処理とグローバル定義さらいをやる
+
+            if ! call_parser.errors.is_empty() {
+                // エラーがあった場合は
+                self.push_error(ParseErrorKind::CalledScriptHadError, start, end);
+                self.errors.append(&mut call_parser.errors);
+            }
+            // callのbuilderからグローバル定義をさらう
+            self.builder.append_global(&mut call_parser.builder);
         }
-        // callのbuilderからグローバル定義をさらう
-        self.builder.append_global(&mut call_parser.builder);
         // 実行部分のみでビルド
         let lines = call_parser.lines();
         let (program, location, scope) = call_parser.builder.build_call(lines);
