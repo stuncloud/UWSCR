@@ -7,7 +7,7 @@
 <link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="ウィンドウ操作関数" href="window.html" /><link rel="prev" title="特殊変数" href="../syntax/special_variables.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>文字列操作関数 - UWSCR 0.16.1</title>
+        <title>文字列操作関数 - UWSCR 1.0.0</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 0.16.1</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 1.0.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 0.16.1</span>
+  <span class="sidebar-brand-text">UWSCR 1.0.0</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -161,6 +161,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../usage/how_to_run.html">実行方法</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../usage/settings.html">設定ファイル</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../usage/how_to_build.html">ビルド方法</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage/language_server.html">Language Server機能について</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">スクリプト構文</span></p>
 <ul>
@@ -496,24 +497,19 @@
 <h2>サイズ<a class="headerlink" href="#id4" title="この見出しへのパーマリンク">#</a></h2>
 <dl class="py function">
 <dt class="sig sig-object py" id="length">
-<span class="sig-name descname"><span class="pre">length</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">値</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">次元数フラグ=FALSE</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#length" title="この定義へのパーマリンク">#</a></dt>
+<span class="sig-name descname"><span class="pre">length</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">値</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#length" title="この定義へのパーマリンク">#</a></dt>
 <dd><div class="line-block">
 <div class="line">文字列の文字数、配列や構造体のサイズを返します</div>
 <div class="line">長さを返せない値が渡された場合はエラー</div>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>値</strong> (<em>RemoteObject</em>) -- 文字数を得たい文字列</p></li>
-<li><p><strong>値</strong> -- サイズを得たい配列</p></li>
-<li><p><strong>値</strong> -- サイズを得たいユーザー定義構造体</p></li>
-<li><p><strong>値</strong> -- サイズまたは次元数を得たいSafeArray</p></li>
-<li><p><strong>値</strong> -- サイズを得たいRemoteObject</p></li>
-<li><p><strong>次元数フラグ</strong> (<em>真偽値 省略可</em>) -- SafeArrayの次元数を得る場合は <code class="docutils literal notranslate"><span class="pre">TRUE</span></code> (SafeArray以外では無効)</p></li>
-</ul>
+<dd class="field-odd"><p><strong>値</strong> (<em>文字列・配列・連想配列・構造体・RemoteObject</em>) -- 文字数を得たい文字列</p>
 </dd>
 <dt class="field-even">戻り値<span class="colon">:</span></dt>
-<dd class="field-even"><p><p>文字数やサイズを示す <code class="docutils literal notranslate"><span class="pre">数値</span></code></p>
+<dd class="field-even"><p>文字数やサイズを示す数値</p>
+</dd>
+</dl>
 <div class="note admonition">
 <p class="admonition-title">対応する値型</p>
 <div class="line-block">
@@ -522,9 +518,6 @@
 <div class="line">また、Emptyは0、NULLは1を返します</div>
 </div>
 </div>
-</p>
-</dd>
-</dl>
 <div class="admonition- admonition">
 <p class="admonition-title">サンプルコード</p>
 <div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="k">print</span><span class="w"> </span><span class="n">length</span><span class="p">(</span><span class="s">&quot;あいうえお&quot;</span><span class="p">)</span><span class="w"> </span><span class="c">// 5</span>
@@ -648,7 +641,7 @@
 </ul>
 </dd>
 <dt class="field-even">戻り値<span class="colon">:</span></dt>
-<dd class="field-even"><p>戻り値の説明</p>
+<dd class="field-even"><p>正規表現オブジェクト</p>
 </dd>
 </dl>
 <div class="admonition- admonition">
@@ -670,8 +663,7 @@
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>文字列</strong> (<em>文字列</em>) -- 対象となる文字列</p></li>
-<li><p><strong>正規表現</strong> (<em>文字列</em>) -- 正規表現オブジェクト (NewREの戻り値)</p></li>
-<li><p><strong>正規表現</strong> -- 正規表現を示す文字列</p></li>
+<li><p><strong>正規表現</strong> (<em>文字列または正規表現オブジェクト</em>) -- 正規表現を示す文字列またはオブジェクト</p></li>
 <li><p><strong>操作方法</strong> (<em>定数または文字列 省略可</em>) -- <p>指定方法により結果が異なる</p>
 <dl class="object">
 <dt class="sig sig-object">
@@ -731,8 +723,7 @@
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>文字列</strong> (<em>文字列</em>) -- 対象となる文字列</p></li>
-<li><p><strong>正規表現</strong> (<em>文字列</em>) -- 正規表現オブジェクト</p></li>
-<li><p><strong>正規表現</strong> -- 正規表現を示す文字列</p></li>
+<li><p><strong>正規表現</strong> (<em>正規表現</em>) -- 正規表現文字列またはオブジェクト</p></li>
 </ul>
 </dd>
 <dt class="field-even">戻り値<span class="colon">:</span></dt>
@@ -752,8 +743,7 @@
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>文字列</strong> (<em>文字列</em>) -- 対象となる文字列</p></li>
-<li><p><strong>正規表現</strong> (<em>文字列</em>) -- 正規表現オブジェクト</p></li>
-<li><p><strong>正規表現</strong> -- 正規表現を示す文字列</p></li>
+<li><p><strong>正規表現</strong> (<em>正規表現</em>) -- 正規表現文字列またはオブジェクト</p></li>
 </ul>
 </dd>
 <dt class="field-even">戻り値<span class="colon">:</span></dt>
@@ -1233,9 +1223,6 @@
 </div>
 </p></li>
 <li><p><strong>桁数</strong> (<em>数値 省略可</em>) -- <p>小数点以下の桁数、または変換方法を指定</p>
-<div class="line-block">
-<div class="line">対象が文字列の場合は無視される</div>
-</div>
 <dl class="object">
 <dt class="sig sig-object">
 <span class="sig-name descname"><span class="pre">1以上の数値</span></span></dt>
@@ -1268,9 +1255,6 @@
 
 </p></li>
 <li><p><strong>埋め方法</strong> (<em>定数 省略可</em>) -- <p>幅に対する不足分を埋める方法</p>
-<div class="line-block">
-<div class="line">対象が文字列の場合は無視される</div>
-</div>
 <dl class="object">
 <dt class="sig sig-object">
 <span class="sig-name descname"><span class="pre">FMT_DEFAULT</span></span></dt>

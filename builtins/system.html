@@ -7,7 +7,7 @@
 <link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="ファイル操作関数" href="file.html" /><link rel="prev" title="スクリプト制御" href="scriptcontrol.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>システム関数 - UWSCR 0.16.1</title>
+        <title>システム関数 - UWSCR 1.0.0</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 0.16.1</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 1.0.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 0.16.1</span>
+  <span class="sidebar-brand-text">UWSCR 1.0.0</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -161,6 +161,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../usage/how_to_run.html">実行方法</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../usage/settings.html">設定ファイル</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../usage/how_to_build.html">ビルド方法</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage/language_server.html">Language Server機能について</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">スクリプト構文</span></p>
 <ul>
@@ -227,13 +228,13 @@
 <dd class="field-odd"><p><strong>データ種別</strong> (<em>真偽値または定数 省略可</em>) -- <p>以下のいずれかを指定</p>
 <dl class="object">
 <dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">TRUE</span></span></dt>
+<span class="sig-name descname"><span class="pre">IS_64BIT_OS,</span> <span class="pre">TRUE</span></span></dt>
 <dd><p>OSが64ビットかどうかを真偽値で返す</p>
 </dd></dl>
 
 <dl class="object">
 <dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">FALSE</span></span></dt>
+<span class="sig-name descname"><span class="pre">KIND_OF_OS,</span> <span class="pre">FALSE</span></span></dt>
 <dd><p>OS種別をOS定数で返す</p>
 <dl class="object">
 <dt class="sig sig-object">
@@ -1652,13 +1653,8 @@
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>補正値</strong> (<em>数値 省略可</em>) -- 基準日時を起点として指定値分ずらした日時を得る</p></li>
-<li><p><strong>基準日時</strong> (<em>文字列または配列 省略可</em>) -- <div class="line-block">
+<li><p><strong>基準日時</strong> (<em>文字列 省略可</em>) -- <div class="line-block">
 <div class="line">基準となる日時を指定、EMPTYで現在時刻</div>
-</div>
-<dl class="object">
-<dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">文字列</span></span></dt>
-<dd><div class="line-block">
 <div class="line">以下の形式で指定</div>
 </div>
 <ul>
@@ -1676,13 +1672,6 @@
 </dl>
 </li>
 </ul>
-</dd></dl>
-
-<dl class="object">
-<dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">配列</span></span></dt>
-<dd></dd></dl>
-
 </p></li>
 <li><p><strong>補正値オプション</strong> (<em>定数 省略可</em>) -- <p>補正値の指定方法を指定</p>
 <dl class="object">

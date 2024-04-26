@@ -4,10 +4,10 @@
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <meta name="color-scheme" content="light dark"><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
     <link rel="icon" href="../_static/MAINICON_0016-0256_light.ico" type="image/vnd.microsoft.icon">
-<link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="特殊変数" href="special_variables.html" /><link rel="prev" title="ビルド方法" href="../usage/how_to_build.html" />
+<link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="特殊変数" href="special_variables.html" /><link rel="prev" title="Language Server機能について" href="../usage/language_server.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>スクリプト構文 - UWSCR 0.16.1</title>
+        <title>スクリプト構文 - UWSCR 1.0.0</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 0.16.1</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 1.0.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 0.16.1</span>
+  <span class="sidebar-brand-text">UWSCR 1.0.0</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -161,6 +161,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../usage/how_to_run.html">実行方法</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../usage/settings.html">設定ファイル</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../usage/how_to_build.html">ビルド方法</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage/language_server.html">Language Server機能について</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">スクリプト構文</span></p>
 <ul class="current">
@@ -446,8 +447,8 @@ hashtbl 変数1, 変数2 = HASH_CASECARE, 変数3 = HASH_SORT
 <p class="admonition-title">※3</p>
 <p>iは0から</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">HASH_CASECARE</span></code> がない場合は代入した順序</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">HASH_CASECARE</span></code> がある場合はキーによりソートされた順序</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">HASH_SORT</span></code> がない場合は代入した順序</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">HASH_SORT</span></code> がある場合はキーによりソートされた順序</p></li>
 </ul>
 </div>
 <div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="kd">hashtbl</span><span class="w"> </span><span class="n">hoge</span>
@@ -1929,6 +1930,29 @@ endmodule
 </div></blockquote>
 </dd></dl>
 
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">空文字</span> <span class="pre">==</span> <span class="pre">EMPTY</span></span></dt>
+<dd><div class="line-block">
+<div class="line">空文字とEMPTYの等価比較は常にFALSEです</div>
+</div>
+<div class="caution admonition">
+<p class="admonition-title">UWSCとの挙動の差異について</p>
+<div class="line-block">
+<div class="line">UWSCでは以下のような挙動でした</div>
+</div>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="kd">dim</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">EMPTY</span>
+<span class="k">print</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">a</span><span class="w">     </span><span class="c">// True</span>
+<span class="k">print</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">EMPTY</span><span class="w"> </span><span class="c">// False</span>
+</pre></div>
+</div>
+<div class="line-block">
+<div class="line">空文字に対して <code class="docutils literal notranslate"><span class="pre">EMPTY</span></code> である変数は等価になりますが、リテラルでは非等価になっていました</div>
+<div class="line">同一であるべき式が異なる結果を返すのは不正なのでUWSCRではいずれもFALSEを返します</div>
+</div>
+</div>
+</dd></dl>
+
 </section>
 <section id="id43">
 <h3>三項演算子<a class="headerlink" href="#id43" title="この見出しへのパーマリンク">#</a></h3>
@@ -2355,7 +2379,7 @@ baz
 <dt class="sig sig-object">
 <span class="sig-name descname"><span class="pre">OPTION</span> <span class="pre">DEFAULTFONT=&quot;name,n&quot;</span></span></dt>
 <dd><div class="line-block">
-<div class="line">ダイアログ等のフォント指定  (初期値:&quot;MS Gothic,12&quot;)</div>
+<div class="line">ダイアログ等のフォント指定  (初期値:&quot;Yu Gothic UI,20&quot;)</div>
 </div>
 </dd></dl>
 
@@ -4885,14 +4909,14 @@ selend
               </div>
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
             </a>
-          <a class="prev-page" href="../usage/how_to_build.html">
+          <a class="prev-page" href="../usage/language_server.html">
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
               <div class="page-info">
                 <div class="context">
                   <span>Previous</span>
                 </div>
                 
-                <div class="title">ビルド方法</div>
+                <div class="title">Language Server機能について</div>
                 
               </div>
             </a>

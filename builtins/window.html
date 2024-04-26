@@ -7,7 +7,7 @@
 <link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="スクリプト制御" href="scriptcontrol.html" /><link rel="prev" title="文字列操作関数" href="text.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>ウィンドウ操作関数 - UWSCR 0.16.1</title>
+        <title>ウィンドウ操作関数 - UWSCR 1.0.0</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 0.16.1</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 1.0.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 0.16.1</span>
+  <span class="sidebar-brand-text">UWSCR 1.0.0</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -161,6 +161,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../usage/how_to_run.html">実行方法</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../usage/settings.html">設定ファイル</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../usage/how_to_build.html">ビルド方法</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage/language_server.html">Language Server機能について</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">スクリプト構文</span></p>
 <ul>
@@ -395,13 +396,13 @@
 <dt class="sig sig-object py">
 <span class="sig-name descname"><span class="pre">getctlhnd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ID</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">メニュー定数</span></span></em><span class="sig-paren">)</span></dt>
 <dd><div class="line-block">
-<div class="line">小ウィンドウ(ボタン等)のウィンドウハンドル値、またはメニューハンドルを得ます</div>
+<div class="line">子ウィンドウ(ボタン等)のウィンドウハンドル値、またはメニューハンドルを得ます</div>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>ID</strong> (<em>数値</em>) -- ウィンドウID</p></li>
-<li><p><strong>アイテム名</strong> (<em>文字列</em>) -- 小ウィンドウのタイトルまたはクラス名 (部分一致)</p></li>
+<li><p><strong>アイテム名</strong> (<em>文字列</em>) -- 子ウィンドウのタイトルまたはクラス名 (部分一致)</p></li>
 <li><p><strong>メニュー定数</strong> (<em>定数</em>) -- <p>以下のいずれかを指定</p>
 <dl class="object">
 <dt class="sig sig-object">
@@ -932,7 +933,7 @@
 
 <dl class="py function">
 <dt class="sig sig-object py" id="sendstr">
-<span class="sig-name descname"><span class="pre">sendstr</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ID</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">文字列</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">n番目=1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">送信モード=FALSE</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ACC指定=FALSE</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#sendstr" title="この定義へのパーマリンク">#</a></dt>
+<span class="sig-name descname"><span class="pre">sendstr</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ID</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">文字列</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">n番目=0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">送信モード=FALSE</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ACC指定=FALSE</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#sendstr" title="この定義へのパーマリンク">#</a></dt>
 <dd><div class="line-block">
 <div class="line">エディットボックスに文字列を送信します</div>
 </div>
@@ -947,7 +948,7 @@
 <li><p><strong>文字列</strong> (<em>文字列</em>) -- 送信する文字列</p></li>
 <li><p><strong>n番目</strong> (<em>数値</em>) -- <p>n番目のエディットボックスに送信</p>
 <div class="line-block">
-<div class="line">0ならフォーカスされたエディットボックス</div>
+<div class="line">0ならフォーカスされたエディットボックス (対象ウィンドウは必ずアクティブになる)</div>
 </div>
 <div class="caution admonition">
 <p class="admonition-title">UWSCとは順序が異なる場合があります</p>
@@ -1411,6 +1412,30 @@
 <dt class="sig sig-object">
 <span class="sig-name descname"><span class="pre">ST_MONITOR</span></span></dt>
 <dd><p>ウィンドウが表示されているモニタ番号 (<a class="reference internal" href="#monitor" title="monitor"><code class="xref any py py-func docutils literal notranslate"><span class="pre">monitor</span></code></a> 関数に対応) (数値)</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ST_WX</span></span></dt>
+<dd><p>ウィンドウの補正なしX座標</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ST_WY</span></span></dt>
+<dd><p>ウィンドウの補正なしY座標</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ST_WWIDTH</span></span></dt>
+<dd><p>ウィンドウの補正なし幅</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ST_WHEIGHT</span></span></dt>
+<dd><p>ウィンドウの補正なし高さ</p>
 </dd></dl>
 
 <dl class="object">
@@ -2148,7 +2173,7 @@
 <dt class="sig sig-object py" id="getitem">
 <span class="sig-name descname"><span class="pre">getitem</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ID</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">種別</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">n番目=1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">列=1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ディセーブル無視=FALSE</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ACC最大取得数=0</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#getitem" title="この定義へのパーマリンク">#</a></dt>
 <dd><div class="line-block">
-<div class="line">ウィンドウ上の文字情報をアイテム種別に取得する</div>
+<div class="line">ウィンドウ上の文字情報をアイテム種類別に取得する</div>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
@@ -2330,7 +2355,7 @@
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>数値</strong> (<em>type</em>) -- 対象ウィンドウのID</p></li>
+<li><p><strong>数値</strong> (<em>ID</em>) -- 対象ウィンドウのID</p></li>
 <li><p><strong>n番目</strong> (<em>数値 省略可</em>) -- n番目の該当コントロールから値を得る (1から)</p></li>
 <li><p><strong>列</strong> (<em>数値 省略可</em>) -- リストビューの場合取得する列を指定 (1から)</p></li>
 </ul>
