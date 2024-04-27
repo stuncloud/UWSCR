@@ -1983,15 +1983,20 @@ impl Parser {
     }
 
     fn parse_exitexit_statement(&mut self) -> Option<Statement> {
-        self.bump();
-        if let Token::Num(n) = self.current_token.token {
-            Some(Statement::ExitExit(n as i32))
-        } else if self.is_current_token_in(vec![Token::Eol, Token::Eof]) {
-            Some(Statement::ExitExit(0))
-        } else {
-            self.error_on_current_token(ParseErrorKind::InvalidExitCode);
-            None
+        let (code, bump) = match &self.next_token.token {
+            Token::Num(n) => {
+                (Some(*n as i32), true)
+            },
+            Token::Eol | Token::Eof => (Some(0), false),
+            _ => {
+                self.error_on_next_token(ParseErrorKind::InvalidExitCode);
+                (None, false)
+            }
+        };
+        if bump {
+            self.bump();
         }
+        code.map(|c| Statement::ExitExit(c))
     }
 
     fn parse_textblock_statement(&mut self, is_ex: bool) -> Option<Statement> {
