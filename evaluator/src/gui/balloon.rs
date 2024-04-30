@@ -255,15 +255,12 @@ impl UWindow<()> for Balloon {
     unsafe extern "system"
     fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
         match msg {
-            wm::WM_SETCURSOR => {
+            msg => {
                 if let Ok(hcursor) = wm::LoadCursorW(None, wm::IDC_ARROW) {
                     wm::SetCursor(hcursor);
-                    LRESULT(1)
-                } else {
-                    LRESULT(0)
                 }
-            },
-            msg => wm::DefWindowProcW(hwnd, msg, wparam, lparam)
+                wm::DefWindowProcW(hwnd, msg, wparam, lparam)
+            }
         }
     }
 
@@ -273,6 +270,29 @@ impl UWindow<()> for Balloon {
 
     fn font(&self) -> Gdi::HFONT {
         self.hfont
+    }
+
+    fn register_window_class(once: &OnceLock<UWindowResult<()>>) -> UWindowResult<()> {
+        unsafe {
+            once.get_or_init(|| {
+                let hinstance = GetModuleHandleW(None)
+                    .map(|hmod| hmod.into())?;
+                let wc = wm::WNDCLASSEXW {
+                    cbSize: std::mem::size_of::<wm::WNDCLASSEXW>() as u32,
+                    // style: wm::CS_HREDRAW|wm::CS_VREDRAW,
+                    lpfnWndProc: Some(Self::wndproc),
+                    hInstance: hinstance,
+                    // hIcon: wm::LoadIconW(hinstance, PCWSTR(1 as _))?,
+                    lpszClassName: Self::CLASS_NAME,
+                    hCursor: wm::LoadCursorW(None, wm::IDC_ARROW)?,
+                    ..Default::default()
+                };
+                match wm::RegisterClassExW(&wc) {
+                    0 => Err(UWindowError::ClassRegistrationError(Self::CLASS_NAME.to_string().unwrap_or_default())),
+                    _ => Ok(())
+                }
+            }).clone()
+        }
     }
 }
 
