@@ -1215,6 +1215,18 @@ pub enum ChkImgOption {
     CHKIMG_NO_GRAY = 1,
     #[strum[props(desc="GraphicCaptureAPIでキャプチャする")]]
     CHKIMG_USE_WGCAPI = 2,
+    #[strum[props(desc="類似度の計算に TM_SQDIFF を使用")]]
+    CHKIMG_METHOD_SQDIFF = 4,
+    #[strum[props(desc="類似度の計算に TM_SQDIFF_NORMED を使用")]]
+    CHKIMG_METHOD_SQDIFF_NORMED = 4 + 8,
+    #[strum[props(desc="類似度の計算に TM_CCORR を使用")]]
+    CHKIMG_METHOD_CCORR = 4 + 16,
+    #[strum[props(desc="類似度の計算に TM_CCORR_NORMED を使用")]]
+    CHKIMG_METHOD_CCORR_NORMED = 4 + 32,
+    #[strum[props(desc="類似度の計算に TM_CCOEFF を使用")]]
+    CHKIMG_METHOD_CCOEFF = 4 + 64,
+    #[strum[props(desc="類似度の計算に TM_CCOEFF_NORMED を使用 (デフォルト)")]]
+    CHKIMG_METHOD_CCOEFF_NORMED = 4 + 128,
 }
 
 #[cfg(feature="chkimg")]
@@ -1224,6 +1236,20 @@ impl ChkImgOption {
     }
     fn use_wgcapi(opt: i32) -> bool {
         2 & opt == 2
+    }
+    fn method(opt: i32) -> i32 {
+        if 4 & opt == 4 {
+            match opt ^ 4 {
+                0 => opencv::imgproc::TM_SQDIFF,
+                8 => opencv::imgproc::TM_SQDIFF_NORMED,
+                16 => opencv::imgproc::TM_CCORR,
+                32 => opencv::imgproc::TM_CCORR_NORMED,
+                64 => opencv::imgproc::TM_CCOEFF,
+                _ => opencv::imgproc::TM_CCOEFF_NORMED,
+            }
+        } else {
+            opencv::imgproc::TM_CCOEFF_NORMED
+        }
     }
 }
 
@@ -1252,7 +1278,14 @@ fn should_save_ss() -> bool {
         {o,n="bottom",t="数値",d="探索範囲の右下Y座標、省略時はスクリーンまたはウィンドウ右下Y座標"},
         {o,n="オプション",t="定数",d=r#"探索オプションを以下から指定、OR連結可
 - CHKIMG_NO_GRAY: 画像をグレースケール化せず探索を行う
-- CHKIMG_USE_WGCAPI: デスクトップまたはウィンドウの画像取得にGraphicsCaptureAPIを使う"#},
+- CHKIMG_USE_WGCAPI: デスクトップまたはウィンドウの画像取得にGraphicsCaptureAPIを使う
+- CHKIMG_METHOD_SQDIFF: 類似度の計算にTM_SQDIFFを使用する、他の計算方法と併用不可
+- CHKIMG_METHOD_SQDIFF_NORMED: 類似度の計算にTM_SQDIFF_NORMEDを使用する、他の計算方法と併用不可
+- CHKIMG_METHOD_CCORR: 類似度の計算にTM_CCORRを使用する、他の計算方法と併用不可
+- CHKIMG_METHOD_CCORR_NORMED: 類似度の計算にTM_CCORR_NORMEDを使用する、他の計算方法と併用不可
+- CHKIMG_METHOD_CCOEFF: 類似度の計算にTM_CCOEFFを使用する、他の計算方法と併用不可
+- CHKIMG_METHOD_CCOEFF_NORMED: 類似度の計算にTM_CCOEFF_NORMEDを使用する、他の計算方法と併用不可
+"#},
         {o,n="モニタ番号",t="数値",d="CHKIMG_USE_WGCAPI指定時かつmouseorg未使用時に探索するモニタ番号を0から指定"},
     ],
 )]
@@ -1277,6 +1310,9 @@ pub fn chkimg(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncRe
                 (left, top, right, bottom, opt, monitor)
             },
             TwoTypeArg::U(arr) => {
+                if arr.len() > 4 {
+                    return Err(builtin_func_error(UErrorMessage::ArrayArgSizeOverflow(4)));
+                }
                 let left = arr.get(0).map(|o| o.as_f64(false)).flatten().map(|n| n as i32);
                 let top = arr.get(1).map(|o| o.as_f64(false)).flatten().map(|n| n as i32);
                 let right = arr.get(2).map(|o| o.as_f64(false)).flatten().map(|n| n as i32);
@@ -1327,7 +1363,8 @@ pub fn chkimg(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncRe
         ss.save(None)?;
     }
     let chk = ChkImg::from_screenshot(ss, ChkImgOption::gray_scale(opt))?;
-    let result = chk.search(&path, score, Some(count))?;
+    let method = ChkImgOption::method(opt);
+    let result = chk.search(&path, score, Some(count), method)?;
     let arr = result
         .into_iter()
         .map(|m| {

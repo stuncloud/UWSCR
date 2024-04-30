@@ -1,5 +1,4 @@
-use std::{ffi::c_void, io::Read};
-use std::fs::File;
+use std::ffi::c_void;
 use std::sync::{
     OnceLock,
     mpsc::channel,
@@ -121,17 +120,11 @@ impl ChkImg {
     //         offset_y: 0
     //     })
     // }
-    pub fn search(&self, path: &str, score: f64, max_count: Option<u8>) -> ChkImgResult<MatchedPoints> {
-        let buf= {
-            let mut buf = vec![];
-            let mut f = File::open(path)?;
-            f.read_to_end(&mut buf)?;
-            Vector::from_slice(buf.as_slice())
-        };
+    pub fn search(&self, path: &str, score: f64, max_count: Option<u8>, method: i32) -> ChkImgResult<MatchedPoints> {
         let templ = if self.gray_scale {
-            imgcodecs::imdecode(&buf, imgcodecs::IMREAD_GRAYSCALE)?
+            imgcodecs::imread(path, imgcodecs::IMREAD_GRAYSCALE)?
         } else {
-            imgcodecs::imdecode(&buf, imgcodecs::IMREAD_UNCHANGED)?
+            imgcodecs::imread(path, imgcodecs::IMREAD_COLOR)?
         };
         let templ_width = *templ.mat_size().get(0)
             .ok_or(UError::new(UErrorKind::OpenCvError, UErrorMessage::FailedToLoadImageFile(path.into())))?;
@@ -144,11 +137,12 @@ impl ChkImg {
         if self.gray_scale {
             let mut gray = Mat::default();
             imgproc::cvt_color(&self.image, &mut gray, imgproc::COLOR_RGB2GRAY, 0)?;
-            imgproc::match_template(&gray, &templ, &mut result, imgproc::TM_CCOEFF_NORMED, &opencv_core::no_array())?;
+            imgproc::match_template(&gray, &templ, &mut result, method, &opencv_core::no_array())?;
         } else {
-            imgproc::match_template(&self.image, &templ, &mut result, imgproc::TM_CCOEFF_NORMED, &opencv_core::no_array())?;
+            let mut image = Mat::default();
+            imgproc::cvt_color(&self.image, &mut image, imgproc::COLOR_RGBA2RGB, 0)?;
+            imgproc::match_template(&image, &templ, &mut result, method, &opencv_core::no_array())?;
         };
-
 
         // 検索範囲のマスク
         let rows = self.width - templ_width + 1;
@@ -509,11 +503,12 @@ impl ScreenShot {
         }
     }
     pub fn save(&self, filename: Option<&str>) -> ChkImgResult<()> {
-        if ! self.data.empty() {}
-        let vector = opencv_core::Vector::new();
-        let default = format!("chkimg_ss_{}_{}.png", self.width, self.height);
-        let filename = filename.unwrap_or(&default);
-        imgcodecs::imwrite(filename, &self.data, &vector)?;
+        if ! self.data.empty() {
+            let vector = opencv_core::Vector::new();
+            let default = format!("chkimg_ss_{}_{}.png", self.width, self.height);
+            let filename = filename.unwrap_or(&default);
+            imgcodecs::imwrite(filename, &self.data, &vector)?;
+        }
         Ok(())
     }
     pub fn save_to(&self, filename: &str, jpg_quality: Option<i32>, png_compression: Option<i32>) -> ChkImgResult<()> {

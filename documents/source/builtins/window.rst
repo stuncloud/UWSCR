@@ -1417,7 +1417,7 @@ ID0について
     :param 数値 省略可 top: 検索範囲指定: 左上Y座標、省略時は画面左上Y座標
     :param 数値 省略可 right: 検索範囲指定: 右下X座標、省略時は画面右下X座標
     :param 数値 省略可 bottom: 検索範囲指定: 右下X座標、省略時は画面右下Y座標
-    :param 定数 省略可 オプション: 実行時オプションを指定
+    :param 定数 省略可 オプション: 実行時オプションを指定、OR連結可
 
         .. object:: CHKIMG_NO_GRAY
 
@@ -1429,6 +1429,31 @@ ID0について
             | デスクトップの場合は対象とするモニタを次の引数で指定
 
             .. hint:: このオプションにより通常ではキャプチャできないウィンドウがキャプチャできる可能性があります
+
+        .. object:: CHKIMG_METHOD_SQDIFF
+
+            | 類似度の計算にTM_SQDIFFを使用する、他の計算方法と併用不可
+
+        .. object:: CHKIMG_METHOD_SQDIFF_NORMED
+
+            | 類似度の計算にTM_SQDIFF_NORMEDを使用する、他の計算方法と併用不可
+
+        .. object:: CHKIMG_METHOD_CCORR
+
+            | 類似度の計算にTM_CCORRを使用する、他の計算方法と併用不可
+
+        .. object:: CHKIMG_METHOD_CCORR_NORMED
+
+            | 類似度の計算にTM_CCORR_NORMEDを使用する、他の計算方法と併用不可
+
+        .. object:: CHKIMG_METHOD_CCOEFF
+
+            | 類似度の計算にTM_CCOEFFを使用する、他の計算方法と併用不可
+
+        .. object:: CHKIMG_METHOD_CCOEFF_NORMED
+
+            | 類似度の計算にTM_CCOEFF_NORMEDを使用する、他の計算方法と併用不可
+            | 計算方法未指定時はこれが適用される
 
 
     :param 定数 省略可 モニタ番号: ``CHKIMG_USE_WGCAPI`` 時に検索するモニタ番号を0から指定、デフォルトは0 (プライマリモニタ)
