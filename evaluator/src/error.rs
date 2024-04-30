@@ -605,6 +605,7 @@ pub enum UErrorMessage {
     ForceBoolError,
     MonitorNotFound,
     DetectedDialogOpening,
+    ArrayArgSizeOverflow(usize),
 }
 
 impl fmt::Display for UErrorMessage {
@@ -1350,6 +1351,10 @@ impl fmt::Display for UErrorMessage {
             Self::DetectedDialogOpening => write_locale!(f,
                 "CDPメソッド実行中にダイアログが開かれました",
                 "Dialog opening was detected during CDP method execution",
+            ),
+            Self::ArrayArgSizeOverflow(n) => write_locale!(f,
+                "配列引数の要素数は最大 {n} です",
+                "The maximum number of elements in an array argument is {n}",
             ),
         }
     }

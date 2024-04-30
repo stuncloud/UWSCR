@@ -509,6 +509,7 @@ impl ScreenShot {
         }
     }
     pub fn save(&self, filename: Option<&str>) -> ChkImgResult<()> {
+        if ! self.data.empty() {}
         let vector = opencv_core::Vector::new();
         let default = format!("chkimg_ss_{}_{}.png", self.width, self.height);
         let filename = filename.unwrap_or(&default);
@@ -556,6 +557,10 @@ impl ScreenShot {
         Ok(())
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.data.empty()
+    }
+
     fn crop_image(mat: &Mat, x: i32, y: i32, width: i32, height: i32) -> opencv::Result<Mat> {
         let roi = opencv_core::Rect { x, y, width, height };
         Mat::roi(&mat, roi)
@@ -592,34 +597,10 @@ impl ScreenShot {
     }
     pub fn get_window_wgcapi_wh(hwnd: HWND, left: Option<i32>, top: Option<i32>, width: Option<i32>, height: Option<i32>, client: bool) -> ScreenShotResult {
         let mat = Self::capture(CaptureItem::Window(hwnd))?;
-        let mat_w = mat.cols();
-        let mat_h = mat.rows();
         let crop_flg = left.is_some() || top.is_some() || width.is_some() || height.is_some();
 
-
-        let (x, width) = match (left, width) {
-            (None, None) => (0, mat_w),
-            (None, Some(w)) => (0, w),
-            (Some(l), None) => (l, mat_w - l),
-            (Some(l), Some(w)) => (l, w),
-        };
-        let (y, height) = match (top, height) {
-            (None, None) => (0, mat_h),
-            (None, Some(h)) => (0, h),
-            (Some(t), None) => (t, mat_h - t),
-            (Some(t), Some(h)) => (t, h),
-        };
-
-        let data = if crop_flg {
-            Self::crop_image(&mat, x, y, width, height)?
-        } else {
-            mat
-        };
-
-        let mut left = left.unwrap_or(0);
-        let mut top = top.unwrap_or(0);
-
-        let ss = if client {
+        // クライアント領域の切り出し
+        let mat = if client {
             let crect = Self::get_client_rect(hwnd);
             let vrect = Self::get_visible_rect(hwnd)?;
 
@@ -630,16 +611,35 @@ impl ScreenShot {
             let cw = crect.right - crect.left;
             let ch = crect.bottom - crect.top;
             // クライアント領域を切り出す
-            let data = Self::crop_image(&data, cx, cy, cw, ch)?;
-
-            // 切り出した分オフセットを補正
-            left += cx;
-            top += cy;
-
-            ScreenShot { data, left, top, width, height }
+            let cropped = Self::crop_image(&mat, cx, cy, cw, ch)?;
+            cropped
         } else {
-            ScreenShot { data, left, top, width, height }
+            mat
         };
+        let mat_w = mat.cols();
+        let mat_h = mat.rows();
+
+        let (x, width) = match (left, width) {
+            (None, None) => (0, mat_w),
+            (None, Some(w)) => (0, w.min(mat_w)),
+            (Some(l), None) => (l, mat_w - l),
+            (Some(l), Some(w)) => (l, w.min(mat_w - l)),
+        };
+        let (y, height) = match (top, height) {
+            (None, None) => (0, mat_h),
+            (None, Some(h)) => (0, h.min(mat_h)),
+            (Some(t), None) => (t, mat_h - t),
+            (Some(t), Some(h)) => (t, h.min(mat_h - t)),
+        };
+        let data = if crop_flg {
+            Self::crop_image(&mat, x, y, width, height)?
+        } else {
+            mat
+        };
+
+        let left = left.unwrap_or(0);
+        let top = top.unwrap_or(0);
+        let ss = ScreenShot { data, left, top, width, height };
 
         Ok(ss)
 

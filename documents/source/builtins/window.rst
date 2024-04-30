@@ -508,7 +508,8 @@ ID0について
 
     - :any:`mmv`
     - :any:`btn`
-    - :any:`chkimg` (指定座標及び戻り値の座標に影響)
+    - :any:`chkimg` (指定座標及び戻り値の座標)
+    - :any:`chkclr` (指定座標及び戻り値の座標)
     - :any:`peekcolor`
 
     | `MORG_DIRECT` を指定した場合は以下も対象となる

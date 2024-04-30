@@ -2450,28 +2450,38 @@ fn obj_vec_to_u8_slice(arr: Vec<Object>) -> [u8; 3] {
 )]
 pub fn chkclr(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 
-    let threshold = args.get_as_int_or_array_or_empty(1)?.map(|two| {
-        match two {
+    let threshold = match args.get_as_int_or_array_or_empty(1)? {
+        Some(two) => match two {
             TwoTypeArg::T(n) => {
                 let t = n as u8;
-                [t; 3]
+                Some([t; 3])
             },
             TwoTypeArg::U(arr) => {
-                obj_vec_to_u8_slice(arr)
+                if arr.len() > 3 {
+                    return Err(builtin_func_error(UErrorMessage::ArrayArgSizeOverflow(3)));
+                }
+                Some(obj_vec_to_u8_slice(arr))
             },
         }
-    });
+        None => None
+    };
     let check_color = match args.get_as_int_or_array(0, None)? {
         TwoTypeArg::T(bgr) => {
             let color = bgr as u32;
             CheckColor::new_from_bgr(color, threshold)
         },
         TwoTypeArg::U(arr) => {
+            if arr.len() > 3 {
+                return Err(builtin_func_error(UErrorMessage::ArrayArgSizeOverflow(3)));
+            }
             let color = obj_vec_to_u8_slice(arr);
             CheckColor::new(color, threshold)
         },
     };
     let range = args.get_as_array(2, Some(vec![]))?;
+    if range.len() > 4 {
+        return Err(builtin_func_error(UErrorMessage::ArrayArgSizeOverflow(4)));
+    }
     let to_i32 = |i: usize| range.get(i).map(|o| o.as_f64(false).map(|n| n as i32)).flatten();
     let left = to_i32(0);
     let top = to_i32(1);
@@ -2491,17 +2501,21 @@ pub fn chkclr(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncRe
         },
     };
 
-    if should_save_ss() {
-        ss.save(Some("chkclr.png"))?;
+    if ss.is_empty() {
+        Ok(Object::Array(Vec::new()))
+    } else {
+        if should_save_ss() {
+            ss.save(Some("chkclr.png"))?;
+        }
+
+        let found = check_color.search(&ss)?.into_iter()
+            .map(|(x, y, (b, g, r))| {
+                let color = Object::Array(vec![b.into(), g.into(), r.into()]);
+                Object::Array(vec![x.into(), y.into(), color])
+            })
+            .collect();
+
+        Ok(Object::Array(found))
     }
-
-    let found = check_color.search(&ss)?.into_iter()
-        .map(|(x, y, (b, g, r))| {
-            let color = Object::Array(vec![b.into(), g.into(), r.into()]);
-            Object::Array(vec![x.into(), y.into(), color])
-        })
-        .collect();
-
-    Ok(Object::Array(found))
 
 }
