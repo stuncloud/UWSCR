@@ -610,14 +610,35 @@ impl Lexer {
     fn consume_string(&mut self) -> Token {
         self.read_char();
         let start_pos = self.pos;
+        let mut join = false;
         loop {
             match self.ch {
                 '"' | '\0' => {
-                    let literal: &String = &self.input[start_pos..self.pos].into_iter().collect();
+                    let literal: &String = &self.input[start_pos..self.pos].into_iter()
+                        .filter(|c| **c != '\0')
+                        .collect();
                     self.read_char();
                     return Token::ExpandableString(literal.to_string());
                 },
+                '\n' => {
+                    if join {
+                        self.input[self.pos] = '\0';
+                        join = false;
+                    }
+                    self.read_char();
+                    self.to_next_row();
+                },
+                '_' => {
+                    if self.will_end_line() {
+                        join = true;
+                        self.input[self.pos] = '\0';
+                    }
+                    self.read_char();
+                },
                 _ => {
+                    if join {
+                        self.input[self.pos] = '\0';
+                    }
                     self.read_char();
                 }
             }
@@ -627,17 +648,55 @@ impl Lexer {
     fn consume_single_quote_string(&mut self) -> Token {
         self.read_char();
         let start_pos = self.pos;
+        let mut join = false;
         loop {
             match self.ch {
                 '\'' | '\0' => {
-                    let literal: &String = &self.input[start_pos..self.pos].into_iter().collect();
+                    let literal: &String = &self.input[start_pos..self.pos].into_iter()
+                        .filter(|c| **c != '\0')
+                        .collect();
                     self.read_char();
                     return Token::String(literal.to_string());
                 },
+                '\n' => {
+                    if join {
+                        self.input[self.pos] = '\0';
+                        join = false;
+                    }
+                    self.read_char();
+                    self.to_next_row();
+                },
+                '_' => {
+                    if self.will_end_line() {
+                        join = true;
+                        self.input[self.pos] = '\0';
+                    }
+                    self.read_char();
+                },
                 _ => {
+                    if join {
+                        self.input[self.pos] = '\0';
+                    }
                     self.read_char();
                 }
             }
+        }
+    }
+    fn will_end_line(&self) -> bool {
+        let mut pos = self.pos + 1;
+        loop {
+            match &self.input[pos] {
+                // ホワイトスペース
+                ' ' | '\t' | '　' => {},
+                '\r' | '\n' => break true,
+                '/' => {
+                    if self.input[pos+1] == '/' {
+                        break true
+                    }
+                },
+                _ => break false,
+            }
+            pos += 1
         }
     }
 
