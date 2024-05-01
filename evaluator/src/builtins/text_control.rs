@@ -664,7 +664,7 @@ pub fn betweenstr(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult
     ],
 )]
 pub fn chknum(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let result = args.get_as_int(0, None::<i32>).is_ok();
+    let result = args.get_as_int(0, None::<f64>).is_ok();
     Ok(Object::Bool(result))
 }
 
