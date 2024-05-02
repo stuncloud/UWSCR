@@ -206,8 +206,9 @@ impl FontFamily {
     }
     pub fn create(&self) -> UWindowResult<Gdi::HFONT> {
         unsafe {
+            let cheight = Self::point_to_pixel(self.size);
             let hfont = Gdi::CreateFontW(
-                self.size,
+                cheight,
                 0,
                 0,
                 0,
@@ -226,6 +227,11 @@ impl FontFamily {
                 .then_some(hfont)
                 .ok_or(UWindowError::CreateFontError(self.name.to_string()))
         }
+    }
+    unsafe fn point_to_pixel(point: i32) -> i32 {
+        let hdc = Gdi::GetDC(None);
+        let ppi = Gdi::GetDeviceCaps(hdc, Gdi::LOGPIXELSY);
+        -(point * ppi / 72)
     }
 }
 impl Default for FontFamily {
