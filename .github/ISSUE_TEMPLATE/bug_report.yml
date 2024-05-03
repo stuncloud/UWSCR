@@ -21,19 +21,25 @@ body:
       label: 再現手順
       description: >
         スクリプト実行以外で発生する不具合の場合はここに再現手順を記してください
-  - type: input
+  - type: dropdown
     attributes:
       label: バージョン
-      description: 不具合が発生したUWSCRのバージョンを記述してください
-      placeholder: 0.14.0
+      description: 不具合が発生したUWSCRのバージョンを選択してください
+      default: 0
+      options:
+        - "1.0.0"
+        - "0.16.1"
+        - "その他"
     validations:
       required: true
   - type: dropdown
     attributes:
       label: 不具合発生環境
-      description: UWSCRの実行環境を選択してください
+      description: 特定の環境で不具合が発生する場合は実行環境(OS)を選択してください
       multiple: true
+      default: 0
       options:
+        - "環境は問わない"
         - "Windows 10"
         - "Windows 11"
         - "Windows 12"

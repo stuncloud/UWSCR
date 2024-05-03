@@ -15,11 +15,16 @@ body:
       description: >
         質問に関連するコードがあればここに記述してください
       render: Stylus
-  - type: input
+  - type: dropdown
     attributes:
       label: バージョン
       description: 特定のバージョンに関する質問の場合は記入してください
-      placeholder: 0.14.0
+      default: 0
+      options:
+        - "なし"
+        - "1.0.0"
+        - "0.16.1"
+        - "その他"
     validations:
       required: false
   - type: dropdown
@@ -27,7 +32,9 @@ body:
       label: 実行環境
       description: 特定の環境に関する質問であれば選択してください
       multiple: true
+      default: 0
       options:
+        - "環境は問わない"
         - "Windows 10"
         - "Windows 11"
         - "Windows 12"
