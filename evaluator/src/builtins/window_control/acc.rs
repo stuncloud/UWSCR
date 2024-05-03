@@ -32,7 +32,7 @@ use windows::{
                 VT_I4,VT_DISPATCH,
             }
         },
-        Graphics::Gdi::ScreenToClient
+        Graphics::Gdi::{ScreenToClient, ClientToScreen}
     }
 };
 
@@ -75,14 +75,14 @@ impl Acc {
     }
     pub fn from_point(hwnd: HWND, clx: i32, cly: i32) -> Option<Self> {
         unsafe {
-            let (x, y) = super::win32::Win32::client_to_screen(hwnd, clx, cly);
-            let ptscreen = POINT { x, y };
+            let mut ptscreen = POINT { x: clx, y: cly };
+            ClientToScreen(hwnd, &mut ptscreen);
             let mut ppacc = None;
             let mut pvarchild = VARIANT::default();
-            if AccessibleObjectFromPoint(ptscreen, &mut ppacc, &mut pvarchild).is_err() {
-                return None;
-            }
-            ppacc.map(|obj| Acc { obj, id: None, has_child: false })
+            AccessibleObjectFromPoint(ptscreen, &mut ppacc, &mut pvarchild).ok()?;
+            let id = i32::from_variant(pvarchild);
+            let has_child = id.is_some_and(|n| n != 0);
+            ppacc.map(|obj| Acc { obj, id, has_child })
         }
     }
     #[allow(unused)]
