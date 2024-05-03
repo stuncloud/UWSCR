@@ -236,7 +236,10 @@ impl FontFamily {
 }
 impl Default for FontFamily {
     fn default() -> Self {
-        Self::new("Yu Gothic UI", 20)
+        let default = util::settings::DefaultFont::default();
+        let name = &default.name;
+        let size = default.size;
+        Self::new(name, size)
     }
 }
 impl From<(Option<String>, Option<i32>)> for FontFamily {

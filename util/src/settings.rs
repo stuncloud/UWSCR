@@ -221,7 +221,7 @@ impl Default for UPosition {
     }
 }
 
-const DEFAULT_FONT_SIZE: i32 = 20;
+const DEFAULT_FONT_SIZE: i32 = 12;
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct DefaultFont {
     /// フォント名
