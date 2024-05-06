@@ -350,7 +350,9 @@ impl LanguageServer for Backend {
         Ok(initialize_result)
     }
     async fn initialized(&self, _: InitializedParams) {
-        self.log_info("UWSCR Language Server is running.").await;
+        let path = std::env::current_exe().unwrap_or_default();
+        let msg = format!("UWSCR Language Server is running. [{}]", path.to_string_lossy());
+        self.log_info(msg).await;
     }
     async fn shutdown(&self) -> Result<()> {
         Ok(())
