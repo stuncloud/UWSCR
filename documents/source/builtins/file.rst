@@ -69,6 +69,28 @@
 
             | ファイルIDが破棄された際に自動でファイルをクローズする
 
+            .. admonition:: 自動クローズについて
+                :class: note
+
+                | ファイルIDオブジェクトの参照がすべて失われた場合に自動クローズ処理が実施されます
+
+                .. sourcecode:: uwscr
+
+                    // fopenが返すファイルIDをfputが処理した直後にファイルIDが失われるため自動クローズされhogehogeが書き込まれる
+                    fput(fopen("hgoe.txt", F_WRITE or F_AUTOCLOSE), "hogehoge")
+
+                    fid = fopen("fuga.txt", F_WRITE or F_AUTOCLOSE)
+                    fput(fid, "fugafuga")
+                    fid = EMPTY // この時点でfuga.txtが閉じられる
+
+                    fid = fopen("piyo.txt", F_WRITE or F_AUTOCLOSE)
+                    // ファイルIDのコピー
+                    fid2 = fid
+                    fput(fid, "fugafuga")
+                    fid = EMPTY // この時点ではまだpiyo.txtは閉じられない
+                    msgbox(1)
+                    fid2 = EMPTY // ここでpiyo.txtが閉じられる
+
     :param 文字列 省略可 追記文字列: ``F_APPEND`` 指定時に追記する文字列
 
     :return: モードによる
