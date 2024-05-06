@@ -867,6 +867,7 @@ pub struct BuiltinName {
     name: String,
     // r#type: BuiltinNameType,
     desc: Option<BuiltinNameDesc>,
+    hidden: bool,
 }
 impl BuiltinName {
     pub fn name(&self) -> &String {
@@ -875,11 +876,15 @@ impl BuiltinName {
     pub fn desc(&self) -> &Option<BuiltinNameDesc> {
         &self.desc
     }
+    pub fn is_visible(&self) -> bool {
+        ! self.hidden
+    }
     fn new_const(name: &str, desc: Option<&str>) -> Self {
         Self {
             name: name.to_string(),
             // r#type: BuiltinNameType::Const,
             desc: desc.map(|s| BuiltinNameDesc::Const(s.to_string())),
+            hidden: false,
         }
     }
     fn new_func(name: String, desc: FuncDesc) -> Self {
@@ -887,6 +892,7 @@ impl BuiltinName {
             name,
             // r#type: BuiltinNameType::Function,
             desc: Some(BuiltinNameDesc::Function(desc)),
+            hidden: false,
         }
     }
 }
@@ -1051,10 +1057,14 @@ struct BuiltinConst {
     name: String,
     value: Object,
     desc: Option<String>,
+    hidden: bool,
 }
 impl BuiltinConst {
-    fn new(name: String, value: Object, desc: Option<String>,) -> Self {
-        Self { name, value, desc }
+    fn new(name: String, value: Object, desc: Option<String>) -> Self {
+        Self { name, value, desc, hidden: false }
+    }
+    fn new_with_hidden_flg(name: String, value: Object, desc: Option<String>, hidden: bool) -> Self {
+        Self { name, value, desc, hidden }
     }
 }
 struct BuiltinConsts {
@@ -1065,16 +1075,14 @@ impl BuiltinConsts {
         let mut sets = vec![];
         for name in E::VARIANTS {
             if let Ok(value) = E::from_str(name) {
-                // props(hidden="true") であればスキップ
-                if value.get_str("hidden").is_none() {
-                    let num = ToPrimitive::to_f64(&value).unwrap();
+                let hidden = value.get_str("hidden").is_some();
+                let num = ToPrimitive::to_f64(&value).unwrap();
+                let desc = value.get_str("desc").map(|s| format!("{s} ({num})"));
+                sets.push(BuiltinConst::new_with_hidden_flg(name.to_ascii_uppercase(), num.into(), desc, hidden));
+                // aliasがあればそれもセットする
+                if let Some(alias) = value.get_str("alias") {
                     let desc = value.get_str("desc").map(|s| format!("{s} ({num})"));
-                    sets.push(BuiltinConst::new(name.to_ascii_uppercase(), num.into(), desc));
-                    // aliasがあればそれもセットする
-                    if let Some(alias) = value.get_str("alias") {
-                        let desc = value.get_str("desc").map(|s| format!("{s} ({num})"));
-                        sets.push(BuiltinConst::new(alias.to_ascii_uppercase(), num.into(), desc));
-                    }
+                    sets.push(BuiltinConst::new_with_hidden_flg(alias.to_ascii_uppercase(), num.into(), desc, hidden));
                 }
             }
         }
@@ -1084,17 +1092,15 @@ impl BuiltinConsts {
         let mut sets = vec![];
         for name in E::VARIANTS {
             if let Ok(value) = E::from_str(name) {
-                // props(hidden="true") であればスキップ
-                if value.get_str("hidden").is_none() {
-                    let desc = value.get_str("desc").map(|s| s.to_string());
-                    if let Some(msg) = value.get_str("value") {
-                        sets.push(BuiltinConst::new(name.to_ascii_uppercase(), msg.into(), desc))
-                    } else {
-                        let prefix = value.get_str("prefix").unwrap_or_default();
-                        let suffix = value.get_str("suffix").unwrap_or_default();
-                        let object = format!("{prefix}{name}{suffix}").into();
-                        sets.push(BuiltinConst::new(name.to_ascii_uppercase(), object, desc))
-                    }
+                let hidden = value.get_str("hidden").is_some();
+                let desc = value.get_str("desc").map(|s| s.to_string());
+                if let Some(msg) = value.get_str("value") {
+                    sets.push(BuiltinConst::new_with_hidden_flg(name.to_ascii_uppercase(), msg.into(), desc, hidden))
+                } else {
+                    let prefix = value.get_str("prefix").unwrap_or_default();
+                    let suffix = value.get_str("suffix").unwrap_or_default();
+                    let object = format!("{prefix}{name}{suffix}").into();
+                    sets.push(BuiltinConst::new_with_hidden_flg(name.to_ascii_uppercase(), object, desc, hidden))
                 }
             }
         }
@@ -1114,7 +1120,11 @@ impl BuiltinConsts {
 impl Into<Vec<BuiltinName>> for BuiltinConsts {
     fn into(self) -> Vec<BuiltinName> {
         self.sets.into_iter()
-            .map(|set| BuiltinName { name: set.name, desc: set.desc.map(|d| BuiltinNameDesc::Const(d)) })
+            .map(|set| BuiltinName {
+                name: set.name,
+                desc: set.desc.map(|d| BuiltinNameDesc::Const(d)),
+                hidden: set.hidden,
+            })
             .collect()
     }
 }

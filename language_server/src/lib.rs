@@ -208,6 +208,7 @@ impl Backend {
     fn new(client: Client) -> Self {
         let builtins = get_builtin_names();
         let mut completion_items: Vec<CompletionItem> = builtins.iter()
+            .filter(|name| name.is_visible())
             .map(|name| Vec::<CompletionItem>::from(BuiltinNameWrapper(name)))
             .flatten()
             .collect();
