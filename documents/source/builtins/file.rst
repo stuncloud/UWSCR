@@ -65,6 +65,10 @@
 
             | 排他モードでファイルを開く
 
+        .. object:: F_AUTOCLOSE
+
+            | ファイルIDが破棄された際に自動でファイルをクローズする
+
     :param 文字列 省略可 追記文字列: ``F_APPEND`` 指定時に追記する文字列
 
     :return: モードによる
@@ -255,8 +259,8 @@
             fopen(path, F_APPEND) // エラー; F_APPEND指定時は第三引数が必須
 
             // 自動ファイルクローズ
-            print fget(fopen(path, F_READ), F_ALLTEXT)
-            // ファイル識別子を変数に代入しなかった場合は読み書き関数実行後に自動でファイルが閉じられます
+            print fput(fopen(path, F_WRITE or F_AUTOCLOSE), "auto close")
+            // F_AUTOCLOSEによりfput実行後にファイルが自動でクローズされる
 
 iniファイル
 -----------

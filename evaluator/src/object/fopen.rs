@@ -143,17 +143,18 @@ pub enum FopenEncoding {
     Sjis,
 }
 #[derive(Clone, Debug, PartialEq)]
-pub enum FopenOption {
-    Exclusive,
-    Tab,
-    NoCR,
+pub struct FopenOption {
+    pub exclusive: bool,
+    pub tab: bool,
+    pub no_cr: bool,
+    pub auto_close: bool,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct FopenFlag {
     pub mode: FopenMode,
     encoding: FopenEncoding,
-    option: Vec<FopenOption>,
+    option: FopenOption,
 }
 
 impl From<u32> for FopenFlag {
@@ -187,13 +188,16 @@ impl From<u32> for FopenFlag {
             FopenMode::Unknown(n)
         };
         // detect file open options
-        let mut option = vec![];
         let f_nocr = 0x80;
         let f_tab = 0x100;
         let f_exclusive = 0x200;
-        if n & f_nocr == f_nocr {option.push(FopenOption::NoCR)}
-        if n & f_tab == f_tab {option.push(FopenOption::Tab)}
-        if n & f_exclusive == f_exclusive {option.push(FopenOption::Exclusive)}
+        let f_autoclose = 2048;
+        let option = FopenOption {
+            exclusive: (n & f_exclusive) == f_exclusive,
+            tab: (n & f_tab) == f_tab,
+            no_cr: (n & f_nocr) == f_nocr,
+            auto_close: (n & f_autoclose) == f_autoclose,
+        };
 
         let encoding = encoding.unwrap_or(FopenEncoding::Auto);
         FopenFlag { mode, encoding, option }
@@ -215,10 +219,10 @@ impl Fopen {
     const LB: &'static str = "\r\n";
     pub fn new(path: &str, flag: u32) -> Self {
         let flag = FopenFlag::from(flag);
-        let no_cr = flag.option.contains(&FopenOption::NoCR);
-        let use_tab = flag.option.contains(&FopenOption::Tab);
+        let no_cr = flag.option.no_cr;
+        let use_tab = flag.option.tab;
         let csv_delimiter = if use_tab {b'\t'} else {b','};
-        let share = if flag.option.contains(&FopenOption::Exclusive) {
+        let share = if flag.option.exclusive {
             FILE_SHARE_NONE.0
         } else {
             FILE_SHARE_READ.0|FILE_SHARE_WRITE.0|FILE_SHARE_DELETE.0
@@ -240,6 +244,7 @@ impl Fopen {
         self.id > 0
     }
     pub fn open(&mut self) -> FopenResult<Option<bool>>{
+        let exists = self.exists();
         let mut opt = OpenOptions::new();
         opt.share_mode(self.share);
         match self.flag.mode {
@@ -247,7 +252,7 @@ impl Fopen {
             FopenMode::Write => opt.write(true).create(true),
             FopenMode::ReadWrite => opt.read(true).write(true).create(true),
             FopenMode::Append => return Ok(None),
-            FopenMode::Exists => return Ok(Some(self.exists())),
+            FopenMode::Exists => return Ok(Some(exists)),
             FopenMode::Unknown(n) => return Err(FopenError::UnknownOpenMode(n)),
         };
 
@@ -258,10 +263,6 @@ impl Fopen {
             let text = self.decode(&buf)?;
             let lines = text.lines().map(|l| l.to_string()).collect();
             self.lines = Some(lines);
-        }
-        if self.can_write() {
-            file.seek(SeekFrom::Start(0))?;
-            file.set_len(0)?;
         }
         let mut list = FILE_LIST.lock().unwrap();
         list.push((self.id, file));
@@ -280,6 +281,10 @@ impl Fopen {
                 if let Some(lines) = &self.lines {
                     let text = lines.join(Self::LB);
                     if let Some((_, file)) = list.get_mut(index) {
+                        // ファイル冒頭から書き込む
+                        file.seek(SeekFrom::Start(0))?;
+                        file.set_len(0)?;
+
                         let mut stream = BufWriter::new(file);
                         match self.flag.encoding {
                             FopenEncoding::Utf16LE => {
@@ -846,7 +851,10 @@ impl From<(i32, i32)> for FPutType {
 
 impl Drop for Fopen {
     fn drop(&mut self) {
-        let _ = self.close();
+        if self.flag.option.auto_close {
+            // 自動保存フラグがあればクローズ処理を行う
+            let _ = self.close();
+        }
     }
 }
 

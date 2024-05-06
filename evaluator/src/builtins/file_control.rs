@@ -52,6 +52,8 @@ pub enum FileConst {
     F_WRITE16   = 64,
     #[strum[props(desc="追記モード")]]
     F_APPEND    = 1024,
+    #[strum[props(desc="自動ファイルクローズ")]]
+    F_AUTOCLOSE = 2048,
     #[strum[props(desc="文末に改行を加えない")]]
     F_NOCR      = 128,
     #[strum[props(desc="CSVセパレータをタブ文字にする")]]
@@ -78,6 +80,7 @@ pub enum FileConst {
 - F_NOCR: 文末に改行を入れない
 - F_EXISTS: ファイルがあるかどうかを真偽値で返す
 - F_APPEND: 文末に追記し即ファイルを閉じる、書き込みバイト数を返す
+- F_AUTOCLOSE: ファイルIDが破棄されたときに自動でファイルを閉じる
 "#},
         {o,n="追記文字列",t="文字列",d="F_APPEND時のみ有効"},
     ],
