@@ -1219,8 +1219,11 @@ fn builtin_func_sets() -> BuiltinFunctionSets {
 // 特殊ビルトイン関数の実体
 
 #[builtin_func_desc(
-    desc="",
-    args=[],
+    desc="文字列をUWSCR構文として評価する",
+    rtype={desc="式の評価結果、文の場合EMPTY",types="値"},
+    args=[
+        {n="UWSCR構文", t="文字列", d="UWSCRの式または文を示す文字列を評価する、式の場合その評価結果を返す"}
+    ],
 )]
 pub fn builtin_eval(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let script = args.get_as_string(0, None)?;
