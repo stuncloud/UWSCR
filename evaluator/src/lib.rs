@@ -1679,8 +1679,8 @@ impl Evaluator {
                     UErrorKind::EvaluatorError,
                     UErrorMessage::InvalidKeyOrIndex(format!("[{}, {}]", index, hash_enum.unwrap()))
                 ));
-            } else if let Object::Num(i) = index {
-                self.eval_array_index_expression(a.clone(), i as i64)?
+            } else if let Some(i) = index.as_f64(false) {
+                self.eval_array_index_expression(a.clone(), i)?
             } else {
                 return Err(UError::new(
                     UErrorKind::EvaluatorError,
@@ -1823,12 +1823,12 @@ impl Evaluator {
         Ok(obj)
     }
 
-    fn eval_array_index_expression(&mut self, array: Vec<Object>, index: i64) -> EvalResult<Object> {
-        let max = (array.len() as i64) - 1;
-        if index < 0 || index > max {
+    fn eval_array_index_expression(&mut self, array: Vec<Object>, index: f64) -> EvalResult<Object> {
+        let max = array.len() - 1;
+        if index < 0.0 || index as usize > max {
             return Err(UError::new(
                 UErrorKind::EvaluatorError,
-                UErrorMessage::IndexOutOfBounds(Object::Num(index as f64)),
+                UErrorMessage::IndexOutOfBounds(Object::Num(index)),
             ));
         }
         let obj = array.get(index as usize).map_or(Object::Empty, |o| o.clone());
