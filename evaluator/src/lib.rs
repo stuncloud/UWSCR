@@ -1824,15 +1824,22 @@ impl Evaluator {
     }
 
     fn eval_array_index_expression(&mut self, array: Vec<Object>, index: f64) -> EvalResult<Object> {
-        let max = array.len() - 1;
-        if index < 0.0 || index as usize > max {
-            return Err(UError::new(
+        if array.is_empty() {
+            Err(UError::new(
                 UErrorKind::EvaluatorError,
                 UErrorMessage::IndexOutOfBounds(Object::Num(index)),
-            ));
+            ))
+        } else {
+            let max = array.len() - 1;
+            if index < 0.0 || index as usize > max {
+                return Err(UError::new(
+                    UErrorKind::EvaluatorError,
+                    UErrorMessage::IndexOutOfBounds(Object::Num(index)),
+                ));
+            }
+            let obj = array.get(index as usize).map_or(Object::Empty, |o| o.clone());
+            Ok(obj)
         }
-        let obj = array.get(index as usize).map_or(Object::Empty, |o| o.clone());
-        Ok(obj)
     }
 
     fn eval_assign_expression(&mut self, left: Expression, value: Object) -> EvalResult<Object> {

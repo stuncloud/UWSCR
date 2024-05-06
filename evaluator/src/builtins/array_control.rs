@@ -271,6 +271,10 @@ pub fn slice(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 )]
 pub fn split(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let str = args.get_as_string(0, None)?;
+    if str.is_empty() {
+        // 空文字なら空配列を返す
+        return Ok(Object::Array(Vec::new()));
+    }
     let delimiter = args.get_as_string(1, Some(" ".to_string()))?;
     let empty_flg = args.get_as_bool(2, Some(false))?;
     let num_flg = args.get_as_bool(3, Some(false))?;

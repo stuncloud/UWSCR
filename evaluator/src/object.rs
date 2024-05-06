@@ -1001,7 +1001,7 @@ impl Sub for Object {
                 }
             },
             Object::Empty => {
-                Ok(rhs)
+                Object::Num(0.0) - rhs
             },
             Object::Version(v) => {
                 if let Some(n) = rhs.as_f64(false) {
