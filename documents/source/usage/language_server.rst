@@ -34,3 +34,10 @@ Completion
 - 組み込み関数
 - コードスニペット
 
+Semantic Tokens
+^^^^^^^^^^^^^^^
+
+キーワードのハイライト機能です。Clientからの ``textDocument/semanticTokens/full`` 通知に対して以下をSemantic Tokenとして返します。
+
+- 組み込み定数名
+- 組み込み関数名

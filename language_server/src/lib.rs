@@ -1,7 +1,7 @@
 mod completion;
-// mod semantic_token;
+mod semantic_token;
 
-// use semantic_token::SemanticTokenParser;
+use semantic_token::SemanticTokenParser;
 use completion::get_snippets;
 
 use tower_lsp::{
@@ -11,9 +11,9 @@ use tower_lsp::{
 };
 use serde_json::json;
 use tokio::task::block_in_place;
-// use tokio::sync::RwLock;
+use tokio::sync::RwLock;
 
-// use std::collections::HashMap;
+use std::collections::HashMap;
 
 use evaluator::error::UError;
 use evaluator::builtins::{get_builtin_names, BuiltinName, BuiltinNameDesc};
@@ -69,27 +69,27 @@ impl From<BackendError> for jsonrpc::Error {
 //     }
 // }
 
-// #[derive(Debug)]
-// struct FileCache {
-//     contents: HashMap<Url, String>,
-// }
-// impl FileCache {
-//     fn new() -> Self {
-//         Self {
-//             contents: HashMap::new()
-//         }
-//     }
-//     fn insert(&mut self, uri: Url, script: String) {
-//         self.contents.insert(uri, script);
-//     }
-//     fn get(&self, uri: &Url) -> Option<String> {
-//         self.contents.get(uri).map(|s| s.clone())
-//     }
-//     // fn get_mut(&self, uri: &Url) -> Option<&mut String> {
-//     //     self.contents.get_mut(uri)
-//     // }
-//     // fn update(&mut self, uri: &Url, )
-// }
+#[derive(Debug)]
+struct FileCache {
+    contents: HashMap<Url, String>,
+}
+impl FileCache {
+    fn new() -> Self {
+        Self {
+            contents: HashMap::new()
+        }
+    }
+    fn insert(&mut self, uri: Url, script: String) {
+        self.contents.insert(uri, script);
+    }
+    fn get(&self, uri: &Url) -> Option<String> {
+        self.contents.get(uri).map(|s| s.clone())
+    }
+    // fn get_mut(&self, uri: &Url) -> Option<&mut String> {
+    //     self.contents.get_mut(uri)
+    // }
+    // fn update(&mut self, uri: &Url, )
+}
 
 #[allow(unused)]
 struct ProgramAndDiagnostics {
@@ -200,7 +200,7 @@ impl<'a> From<BuiltinNameWrapper<'_>> for Vec<CompletionItem> {
 // #[derive(Debug)]
 struct Backend {
     client: Client,
-    // cache: RwLock<FileCache>,
+    cache: RwLock<FileCache>,
     builtins: Vec<BuiltinName>,
     completion_items: Vec<CompletionItem>,
 }
@@ -216,7 +216,7 @@ impl Backend {
         completion_items.append(&mut snippets);
         Self {
             client,
-            // cache: RwLock::new(FileCache::new()),
+            cache: RwLock::new(FileCache::new()),
             builtins,
             completion_items,
         }
@@ -226,14 +226,14 @@ impl Backend {
         let script = std::fs::read_to_string(path)?;
         Ok(script)
     }
-    // pub async fn insert_script(&self, uri: Url, script: String) {
-    //     let mut cache = self.cache.write().await;
-    //     cache.insert(uri, script);
-    // }
-    // pub async fn get_cache(&self, uri: &Url) -> Option<String> {
-    //     let cache = self.cache.read().await;
-    //     cache.get(uri)
-    // }
+    pub async fn insert_script(&self, uri: Url, script: String) {
+        let mut cache = self.cache.write().await;
+        cache.insert(uri, script);
+    }
+    pub async fn get_cache(&self, uri: &Url) -> Option<String> {
+        let cache = self.cache.read().await;
+        cache.get(uri)
+    }
     fn get_builtin_names(&self) -> Vec<String> {
         self.builtins.iter().map(|name| name.name().clone()).collect()
     }
@@ -246,7 +246,7 @@ impl Backend {
         let builtin_names = self.get_builtin_names();
         let parser = Parser::new_diagnostics_parser(lexer, script_path, builtin_names);
 
-        // self.insert_script(uri.clone(), script).await;
+        self.insert_script(uri.clone(), script).await;
 
         let (program, errors) = block_in_place(move || {
             parser.parse_to_program_and_errors()
@@ -290,8 +290,7 @@ impl LanguageServer for Backend {
                     open_close: Some(true),
                     // INCREMENTALの方が良い？
                     // change: Some(TextDocumentSyncKind::INCREMENTAL),
-                    // change: Some(TextDocumentSyncKind::FULL),
-                    change: None,
+                    change: Some(TextDocumentSyncKind::FULL),
                     will_save: None,
                     will_save_wait_until: None,
                     save: Some(TextDocumentSyncSaveOptions::Supported(true))
@@ -328,14 +327,13 @@ impl LanguageServer for Backend {
                 execute_command_provider: None,
                 workspace: None,
                 call_hierarchy_provider: None,
-                semantic_tokens_provider: None,
-                // semantic_tokens_provider: Some(SemanticTokensServerCapabilities::SemanticTokensOptions(SemanticTokensOptions {
-                //     work_done_progress_options: WorkDoneProgressOptions { work_done_progress: None },
-                //     legend: SemanticTokenParser::legend(),
-                //     range: None,
-                //     full: Some(SemanticTokensFullOptions::Bool(true)),
-                //     // full: Some(SemanticTokensFullOptions::Delta{delta:Some(true)}),
-                // })),
+                semantic_tokens_provider: Some(SemanticTokensServerCapabilities::SemanticTokensOptions(SemanticTokensOptions {
+                    work_done_progress_options: WorkDoneProgressOptions { work_done_progress: None },
+                    legend: SemanticTokenParser::legend(),
+                    range: None,
+                    full: Some(SemanticTokensFullOptions::Bool(true)),
+                    // full: Some(SemanticTokensFullOptions::Delta{delta:Some(true)}),
+                })),
                 moniker_provider: None,
                 linked_editing_range_provider: None,
                 inline_value_provider: None,
@@ -364,35 +362,35 @@ impl LanguageServer for Backend {
     async fn did_save(&self, params: DidSaveTextDocumentParams) {
         self.send_diagnostics(params.text_document.uri).await;
     }
-    // async fn did_change(&self, params: DidChangeTextDocumentParams) {
+    async fn did_change(&self, params: DidChangeTextDocumentParams) {
+        /* 常にエディタ上の状態をキャッシュしておく */
+        let uri = params.text_document.uri;
+        let script = params.content_changes
+            .first()
+            .map(|event| event.text.to_owned())
+            .unwrap_or_default();
 
-    //     /* 常にエディタ上の状態をキャッシュしておく */
-    //     let uri = params.text_document.uri;
-    //     let script = params.content_changes
-    //         .first()
-    //         .map(|event| event.text.to_owned())
-    //         .unwrap_or_default();
+        self.insert_script(uri, script).await;
+    }
 
-    //     self.insert_script(uri, script).await;
-
-    // }
     async fn completion(&self, _: CompletionParams) -> Result<Option<CompletionResponse>> {
         let response = CompletionResponse::Array(self.completion_items.clone());
         Ok(Some(response))
     }
-    // async fn semantic_tokens_full(&self, params: SemanticTokensParams) -> Result<Option<SemanticTokensResult>> {
-    //     let uri = &params.text_document.uri;
-    //     if let Some(script) = self.get_cache(uri).await {
-    //         let lexer = Lexer::new(&script);
-    //         let parser = SemanticTokenParser::new(lexer);
-    //         let data = parser.parse(&self.builtins);
-    //         // self.log_info(format!("{:?}", data)).await;
-    //         let result = SemanticTokensResult::Tokens(SemanticTokens { result_id: None, data });
-    //         Ok(Some(result))
-    //     } else {
-    //         Ok(None)
-    //     }
-    // }
+    async fn semantic_tokens_full(&self, params: SemanticTokensParams) -> Result<Option<SemanticTokensResult>> {
+        let uri = &params.text_document.uri;
+        if let Some(script) = self.get_cache(uri).await {
+            let lexer = Lexer::new(&script);
+            let parser = SemanticTokenParser::new(lexer);
+            let data = parser.parse(&self.builtins);
+            // self.log_info(format!("{:?}", infos)).await;
+            // self.log_info(format!("{:?}", data)).await;
+            let result = SemanticTokensResult::Tokens(SemanticTokens { result_id: None, data });
+            Ok(Some(result))
+        } else {
+            Ok(None)
+        }
+    }
     // async fn semantic_tokens_full_delta(
     //     &self,
     //     params: SemanticTokensDeltaParams,

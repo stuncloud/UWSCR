@@ -62,6 +62,17 @@ impl TokenInfo {
             column: self.pos.column + self.token_len()
         }
     }
+
+    // Semantic Tokens用
+    pub fn as_token_len(&self) -> u32 {
+        self.token.len() as u32
+    }
+    pub fn as_delta_line(&self) -> u32 {
+        self.pos.row as u32 - 1
+    }
+    pub fn as_delta_start(&self) -> u32 {
+        self.pos.column as u32 - 1
+    }
 }
 
 pub struct Lexer {

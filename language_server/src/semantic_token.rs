@@ -131,6 +131,9 @@ impl SemanticTokenModifierExt for SemanticTokenModifier {
 pub struct SemanticTokenParser {
     lexer: Lexer,
     semantic_tokens: Vec<SemanticToken>,
+    // _token_infos: Vec<TokenInfo>,
+    previous_row: u32,
+    previous_col: u32,
 }
 
 impl SemanticTokenParser {
@@ -141,6 +144,9 @@ impl SemanticTokenParser {
         Self {
             lexer,
             semantic_tokens: vec![],
+            // _token_infos: vec![],
+            previous_row: 0,
+            previous_col: 0,
         }
     }
     fn next(&mut self) -> TokenInfo {
@@ -151,18 +157,24 @@ impl SemanticTokenParser {
     // }
     fn set_token(&mut self, info: &TokenInfo, t: USemanticTokenType) {
         let (token_type, token_modifiers_bitset) = t.into();
-        let length = match info.token {
-            // Token::String(_) => info.token.len() + 2,
-            _ => info.token.len()
-        } as u32;
+        let length = info.as_token_len();
+        let delta_line = info.as_delta_line().saturating_sub(self.previous_row);
+        let delta_start = if delta_line == 0 {
+            info.as_delta_start().saturating_sub(self.previous_col)
+        } else {
+            info.as_delta_start()
+        };
         let token = SemanticToken {
-            delta_line: info.pos.row as u32 - 1,
-            delta_start: info.pos.column as u32 - 1,
+            delta_line,
+            delta_start,
             length,
             token_type,
             token_modifiers_bitset,
         };
+        self.previous_row = info.as_delta_line();
+        self.previous_col = info.as_delta_start();
         self.semantic_tokens.push(token);
+        // self._token_infos.push(info);
     }
 
     pub fn parse(mut self, builtins: &Vec<BuiltinName>) -> Vec<SemanticToken> {
