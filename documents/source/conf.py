@@ -97,6 +97,7 @@ class UwscrLexer(RegexLexer):
             (r"　", Whitespace),
         ],
         'comment': [
+            (r'//-', Comment), # dummy
             (r'//.*\n', Comment),
         ],
         'textblock': [

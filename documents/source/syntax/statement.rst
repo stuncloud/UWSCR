@@ -1668,6 +1668,34 @@ UWSCRでは演算子が追加され論理演算およびビット演算を明示
     // a = a + 1
     print a // 1 が出力される
 
+ダミーコメント
+^^^^^^^^^^^^^^
+
+| ``//-`` を記述することでUWSCでは以降をコメント扱いにしますが、UWSCRではこの部分は無視されます
+| これによりUWSCと併用するスクリプトでUWSCRのみで使える構文や関数を記述することが可能となります
+
+.. sourcecode:: uwscr
+
+    print 1
+    //- print 2
+    print 3 //- +5
+    // print 4
+
+結果
+
+.. sourcecode:: powershell
+
+    # UWSC
+    1
+    3
+
+.. sourcecode:: powershell
+
+    # UWSCR
+    1
+    2
+    8
+
 行結合
 ------
 

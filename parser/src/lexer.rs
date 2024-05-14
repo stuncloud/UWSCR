@@ -219,6 +219,13 @@ impl Lexer {
             },
             '/' => {
                 if self.nextch_is('/') {
+                    // //- の場合トークンを作らない
+                    if self.ch_nth_after_is(2, '-') {
+                        self.read_char();
+                        self.read_char();
+                        self.read_char();
+                        return self.next_token();
+                    }
                     // Token::Comment
                     while ! self.nextch_is('\0') {
                         self.read_char();
