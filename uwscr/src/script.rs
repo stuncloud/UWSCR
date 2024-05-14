@@ -50,13 +50,26 @@ pub fn run(script: String, script_path: PathBuf, params: Vec<String>, ast: Optio
 
     let (program, errors) = parser.parse_to_program_and_errors();
     if let Some((_continue, pretty)) = ast {
-        let message = if pretty {
-            format!("{program:#?}")
+        if _continue {
+            let message = if pretty {
+                format!("{program:#?}")
+            } else {
+                format!("{program:?}")
+            };
+            show_message(&message, "uwscr --ast", false);
         } else {
-            format!("{program:?}")
-        };
-        show_message(&message, "uwscr --ast", false);
-        if ! _continue {
+            let errmsg = if errors.is_empty() {
+                None
+            } else {
+                errors.iter().map(|e| e.to_string()).reduce(|a,b| a + "\r\n" + &b)
+            };
+            let message = match (pretty, errmsg) {
+                (true, None) => format!("{program:#?}"),
+                (true, Some(e)) => format!("{program:#?}\r\n\r\n{e}"),
+                (false, None) => format!("{program:?}"),
+                (false, Some(e)) => format!("{program:?}\r\n\r\n{e}"),
+            };
+            show_message(&message, "uwscr --ast", false);
             return Ok(());
         }
     }
