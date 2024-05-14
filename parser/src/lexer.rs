@@ -87,6 +87,8 @@ pub struct Lexer {
     is_textblock: bool,
     is_comment_textblock: bool,
     is_call: bool,
+    /// ( と ) のペア数カウント, dllパスの終端位置
+    def_dll: Option<(u32, usize)>,
 }
 
 impl Lexer {
@@ -103,6 +105,7 @@ impl Lexer {
             is_textblock: false,
             is_comment_textblock: true,
             is_call: false,
+            def_dll: None,
         };
         lexer.read_char();
 
@@ -132,6 +135,18 @@ impl Lexer {
         self.pos = self.next_pos;
         self.next_pos += 1;
         self.position.column += 1;
+    }
+
+    /// 同一行の指定位置に移動
+    fn move_to(&mut self, pos: usize) {
+        if pos >= self.input.len() {
+            self.ch = '\0';
+        } else {
+            self.ch = self.input[pos];
+        }
+        self.pos = pos;
+        self.next_pos = pos + 1;
+        self.position.column = pos;
     }
 
     fn nextch(&mut self) -> char {
@@ -187,6 +202,10 @@ impl Lexer {
         let skipped = self.skip_whitespace();
         let p: Position = self.position.clone();
 
+        if self.def_dll.is_some_and(|(_, len)| len > 0 ) {
+            let token = self.get_dll_path();
+            return TokenInfo::new_with_pos(token, p, skipped);
+        }
         if self.is_call {
             self.is_call = false;
             let token = self.consume_call_path();
@@ -282,8 +301,18 @@ impl Lexer {
                     Token::GreaterThan
                 }
             },
-            '(' => Token::Lparen,
-            ')' => Token::Rparen,
+            '(' => {
+                if let Some((n, _)) = self.def_dll.as_mut() {
+                    *n += 1;
+                }
+                Token::Lparen
+            },
+            ')' => {
+                if let Some((n, _)) = self.def_dll.as_mut() {
+                    *n = n.saturating_sub(1);
+                }
+                Token::Rparen
+            },
             '{' => Token::Lbrace,
             '}' => Token::Rbrace,
             '[' => Token::Lbracket,
@@ -295,6 +324,9 @@ impl Lexer {
             } else if self.nextch_is('=') {
                 self.read_char();
                 Token::Assign
+            } else if self.def_dll.is_some_and(|(n, _)| n == 0) {
+                self.is_dll_path();
+                Token::Colon
             } else {
                 Token::Colon
             },
@@ -357,6 +389,50 @@ impl Lexer {
         return TokenInfo::new_with_pos(token, p, skipped);
     }
 
+    fn is_dll_path(&mut self) {
+        let mut pos = self.pos + 1;
+        let pos = loop {
+            if let Some(c) = self.input.get(pos) {
+                match c {
+                    ':' => {
+                        if ! self.input.get(pos+1).is_some_and(|c2| *c2 == '\\') {
+                            break 0;
+                        }
+                    },
+                    // 行末
+                    '\r' | '\n' => break pos,
+                    // コメント
+                    '/' => if self.input.get(pos+1).is_some_and(|c2| *c2 == '/') {
+                        if ! self.input.get(pos+2).is_some_and(|c3| *c3 == '-') {
+                            break pos;
+                        }
+                    },
+                    _ => {},
+                }
+                pos += 1;
+            } else {
+                // 文末
+                break pos;
+            }
+        };
+        if let Some((_, is_dll_path)) = self.def_dll.as_mut() {
+            *is_dll_path = pos;
+        }
+    }
+    fn get_dll_path(&mut self) -> Token {
+        let end = self.def_dll.unwrap_or_default().1;
+        let token = if end > 0 {
+            let start = self.pos;
+            self.move_to(end);
+            let path: String = self.input[start..self.pos].into_iter().collect();
+            let path = path.trim_end();
+            Token::DllPath(path.into())
+        } else {
+            Token::DllPath(String::new())
+        };
+        self.def_dll = None;
+        token
+    }
 
     fn consume_call_path(&mut self) -> Token {
         if let Some(slice) = self.input.get(self.pos..self.pos+4) {
@@ -500,7 +576,10 @@ impl Lexer {
                 self.is_call = true;
                 Token::Call
             },
-            "def_dll" => Token::DefDll,
+            "def_dll" => {
+                self.def_dll = Some((0, 0));
+                Token::DefDll
+            },
             "while" => Token::While,
             "wend" => Token::BlockEnd(BlockEnd::Wend),
             "repeat" => Token::Repeat,

@@ -42,6 +42,7 @@ pub enum Token {
     /// directory, filename
     Path(Option<String>, String),
     DefDll,
+    DllPath(String),
 
     // 演算子
     /// +
@@ -238,6 +239,7 @@ impl Token {
                 len
             },
             Token::DefDll => 7,
+            Token::DllPath(s) => s.len(),
             Token::Plus |
             Token::Minus |
             Token::Bang |
@@ -350,6 +352,7 @@ impl std::fmt::Display for Token {
             Token::Uri(_) => write!(f, "Uri"),
             Token::Path(_, _) => write!(f, "Path"),
             Token::DefDll => write!(f, "DefDll"),
+            Token::DllPath(_) => write!(f, "DllPath"),
             Token::Plus => write!(f, "Plus"),
             Token::Minus => write!(f, "Minus"),
             Token::Bang => write!(f, "Bang"),

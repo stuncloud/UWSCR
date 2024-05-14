@@ -1365,49 +1365,54 @@ impl Parser {
         if ! self.bump_to_next_expected_token(Token::Colon) {
             return None;
         }
+
         // 戻りの型, dllパス
-        // :型:パス
-        // ::パス
-        // :パス
         // 型省略時はVoid返す
-        let (ret_type, path) = match self.next_token.token {
+        self.bump();
+        let (ret_type, path) = match self.current_token.token() {
+            // ::パス
             Token::Colon => {
-                // ::パス
                 self.bump();
-                match self.parse_dll_path() {
-                    Some(p) => (DllType::Void, p),
-                    None => return None,
+                if let Token::DllPath(p) = &self.current_token.token {
+                    (DllType::Void, p.to_string())
+                } else {
+                    self.error_next_token_is_invalid();
+                    return None;
                 }
             },
-            Token::Identifier(ref s) => {
-                match s.parse() {
+            // :型:パス
+            Token::Identifier(t) => {
+                match t.parse() {
                     Ok(t) => {
-                        // :型:パス
+                        if ! self.is_next_token(&Token::Colon) {
+                            self.error_next_token_is_unexpected(Token::Colon);
+                            return None;
+                        }
                         self.bump();
-                        if self.is_next_token(&Token::Colon) {
-                            self.bump();
-                            match self.parse_dll_path() {
-                                Some(p) => (t, p),
-                                None => return None,
-                            }
+                        self.bump();
+                        if let Token::DllPath(p) = &self.current_token.token {
+                            (t, p.to_string())
                         } else {
-                            self.error_current_token_is_invalid();
+                            self.error_next_token_is_invalid();
                             return None;
                         }
                     },
                     Err(_) => {
-                        // :パス
-                        match self.parse_dll_path() {
-                            Some(p) => (DllType::Void, p),
-                            None => return None,
-                        }
+                        let start = self.current_token_pos();
+                        let end = self.current_token_end_pos();
+                        self.push_error(ParseErrorKind::InvalidDllType(t), start, end);
+                        return None;
                     },
                 }
             },
-            _ => {
-                self.error_current_token_is_invalid();
-                return None;
+            // :パス
+            Token::DllPath(p) => {
+                (DllType::Void, p)
             },
+            _ => {
+                self.error_next_token_is_invalid();
+                return None;
+            }
         };
 
         Some(Statement::DefDll { name, alias, params, ret_type, path })
@@ -1461,27 +1466,6 @@ impl Parser {
             return None;
         }
         Some(DefDllParam::Struct(s))
-    }
-
-    fn parse_dll_path(&mut self) -> Option<String> {
-        self.bump();
-        let start = self.current_token.pos;
-        let end = self.current_token.get_end_pos();
-        let mut path = String::new();
-        while ! self.is_current_token_in(vec![Token::Eol, Token::Eof]) {
-            match self.current_token.token {
-                Token::Identifier(ref s) => path = format!("{}{}", path, s),
-                Token::ColonBackSlash => path = format!("{}:\\", path),
-                Token::BackSlash => path = format!("{}\\", path),
-                Token::Period => path = format!("{}.", path),
-                _ => {
-                    self.push_error(ParseErrorKind::DllPathNotFound, start, end);
-                    return None;
-                },
-            }
-            self.bump();
-        }
-        Some(path)
     }
 
     fn parse_dll_param(&mut self, is_ref: bool) -> Option<DefDllParam> {
@@ -2770,6 +2754,7 @@ impl Parser {
             Token::Pipeline |
             Token::Uri(_) |
             Token::Path(_, _) |
+            Token::DllPath(_) |
             Token::Arrow => {
                 self.error_on_current_token(ParseErrorKind::TokenCanNotBeUsedAsIdentifier);
                 return None
