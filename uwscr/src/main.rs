@@ -328,7 +328,7 @@ struct CommandArgs {
     license: bool,
 
     /// 読み込んだスクリプトの構文木を表示する
-    #[arg(short, long, requires="script")]
+    #[arg(short, long)]
     ast: bool,
 
     /// AST出力後に実行を継続する
