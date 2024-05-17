@@ -1092,9 +1092,7 @@ fend
                     Token::Colon,
                     Token::Identifier("bool".into()),
                     Token::Colon,
-                    Token::Identifier("hoge".into()),
-                    Token::Period,
-                    Token::Identifier("dll".into()),
+                    Token::DllPath("hoge.dll".into()),
                 ]
             ),
             (
@@ -1105,11 +1103,7 @@ fend
                     Token::Lparen,
                     Token::Rparen,
                     Token::Colon,
-                    Token::Identifier("C".into()),
-                    Token::ColonBackSlash,
-                    Token::Identifier("hoge".into()),
-                    Token::Period,
-                    Token::Identifier("dll".into()),
+                    Token::DllPath("C:\\hoge.dll".into())
                 ]
             ),
             (
@@ -1121,11 +1115,7 @@ fend
                     Token::Rparen,
                     Token::Colon,
                     Token::Colon,
-                    Token::Identifier("C".into()),
-                    Token::ColonBackSlash,
-                    Token::Identifier("hoge\\hoge".into()),
-                    Token::Period,
-                    Token::Identifier("dll".into()),
+                    Token::DllPath("C:\\hoge\\hoge.dll".into())
                 ]
             ),
         ];
