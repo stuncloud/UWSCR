@@ -3,7 +3,7 @@ use std::ffi::c_void;
 use std::mem::{transmute, ManuallyDrop};
 
 use windows::{
-    core::{ComInterface, HRESULT, BSTR},
+    core::{ComInterface, BSTR},
     Win32::{
         Foundation::{HWND, POINT},
         UI::{
@@ -44,13 +44,14 @@ use util::winapi::{get_class_name, from_wide_string};
 pub struct Acc {
     obj: IAccessible,
     id: Option<i32>,
-    has_child: bool,
+    // has_child: bool,
 }
 
 // #[allow(unused)]
 impl Acc {
     pub fn new(obj: IAccessible, id: i32) -> Self {
-        Self { obj, id: Some(id), has_child: false }
+        // Self { obj, id: Some(id), has_child: false }
+        Self { obj, id: Some(id) }
     }
     pub fn from_hwnd(hwnd: HWND) -> Option<Self> {
         if let HWND(0) = hwnd {
@@ -65,7 +66,8 @@ impl Acc {
             match AccessibleObjectFromWindow(hwnd, obj_id.0 as u32, &IAccessible::IID, &mut ppvobject) {
                 Ok(_) => {
                     let obj: IAccessible = transmute(ppvobject);
-                    Some(Acc {obj, id: None, has_child: true })
+                    // Some(Acc {obj, id: None, has_child: true })
+                    Some(Acc {obj, id: None })
                 },
                 Err(_) => {
                     None
@@ -81,8 +83,9 @@ impl Acc {
             let mut pvarchild = VARIANT::default();
             AccessibleObjectFromPoint(ptscreen, &mut ppacc, &mut pvarchild).ok()?;
             let id = i32::from_variant(pvarchild);
-            let has_child = id.is_some_and(|n| n != 0);
-            ppacc.map(|obj| Acc { obj, id, has_child })
+            // let has_child = id.is_some_and(|n| n != 0);
+            // ppacc.map(|obj| Acc { obj, id, has_child })
+            ppacc.map(|obj| Acc { obj, id })
         }
     }
     #[allow(unused)]
@@ -99,14 +102,16 @@ impl Acc {
         }
     }
     fn has_child(&self) -> bool {
-        self.has_child && self.get_child_count() > 0
+        // self.has_child && self.get_child_count() > 0
+        self.get_child_count() > 0
     }
     fn get_parent(&self) -> Option<Self> {
         unsafe {
             if let Ok(disp) = self.obj.accParent() {
                 disp.cast()
                     .ok()
-                    .map(|obj| Self { obj, id: None, has_child: true })
+                    // .map(|obj| Self { obj, id: None, has_child: true })
+                    .map(|obj| Self { obj, id: None })
             } else {
                 None
             }
@@ -239,7 +244,7 @@ impl Acc {
             }
         }
     }
-    pub fn get_location(&self, hwnd: HWND) -> Option<Vec<i32>> {
+    fn get_location(&self) -> Option<[i32; 4]> {
         unsafe {
             let varchild = self.get_varchild();
             let mut pxleft = 0;
@@ -247,9 +252,15 @@ impl Acc {
             let mut pcxwidth = 0;
             let mut pcyheight = 0;
             self.obj.accLocation(&mut pxleft, &mut pytop, &mut pcxwidth, &mut pcyheight, varchild).ok()?;
-            let mut lppoint = POINT { x: pxleft, y: pytop };
+            Some([pxleft, pytop, pcxwidth, pcyheight])
+        }
+    }
+    pub fn get_screen_location(&self, hwnd: HWND) -> Option<Vec<i32>> {
+        unsafe {
+            let [cx, cy, w, h] = self.get_location()?;
+            let mut lppoint = POINT { x: cx, y: cy };
             ScreenToClient(hwnd, &mut lppoint);
-            Some(vec![lppoint.x, lppoint.y, pcxwidth, pcyheight])
+            Some(vec![lppoint.x, lppoint.y, w, h])
         }
     }
     pub fn get_role(&self) -> Option<AccRole> {
@@ -684,6 +695,13 @@ impl Acc {
         false
     }
 
+    // fn get_children(&self, backwards: bool, ignore_invisible: bool) -> Vec<Self> {
+    //     let varchildren = self.get_varchildren(backwards);
+    //     varchildren.into_iter()
+    //         .filter_map(|varchild| self.get_acc_from_varchild(varchild, ignore_invisible))
+    //         .collect()
+    // }
+
     fn get_varchildren(&self, backwards: bool) -> Vec<VARIANT> {
         let cnt = self.get_child_count() as usize;
         let mut rgvarchildren = vec![VARIANT::default(); cnt];
@@ -706,29 +724,30 @@ impl Acc {
             match variant00.vt {
                 VT_I4 => {
                     let id = variant00.Anonymous.lVal;
-                    let child = self.obj.get_accChild(varchild.clone());
-                    match child {
-                        Ok(disp) => Self::from_idispatch(disp, id),//.map(|acc| (acc, true)),
-                        Err(e) => if let HRESULT(0) = e.code() {
-                            if ignore_invisible {
-                                if self.is_visible(Some(varchild)).unwrap_or(false) {
-                                    let acc = Self::new(self.obj.clone(), id);
-                                    Some(acc)
-                                } else {
-                                    None
-                                }
-                            } else {
-                                let acc = Self::new(self.obj.clone(), id);
-                                Some(acc)
-                            }
+                    let disp = self.obj.get_accChild(varchild).ok()?;
+                    let acc = Self::from_idispatch(disp, id)?;
+                    if ignore_invisible {
+                        if acc.is_visible(None).is_some_and(|b| b) {
+                            Some(acc)
                         } else {
                             None
-                        },
+                        }
+                    } else {
+                        Some(acc)
                     }
                 },
                 VT_DISPATCH => {
                     let disp = &variant00.Anonymous.pdispVal;
-                    Self::from_pdispval(disp)//.map(|acc| (acc, true))
+                    let acc = Self::from_pdispval(disp)?;
+                    if ignore_invisible {
+                        if acc.is_visible(None).is_some_and(|b| b) {
+                            Some(acc)
+                        } else {
+                            None
+                        }
+                    } else {
+                        Some(acc)
+                    }
                 },
                 _ => None
             }
@@ -833,6 +852,9 @@ impl Acc {
         };
         Some(is_visible)
     }
+    fn is_disabled(&self, varchild: Option<VARIANT>) -> Option<bool> {
+        self.get_state(varchild).and_then(|state| Some((state as u32).includes(STATE_SYSTEM_UNAVAILABLE.0)))
+    }
     fn is_selectable(&self) -> bool {
         match self.get_state(None) {
             Some(state) => (state & STATE_SYSTEM_SELECTABLE as i32) > 0,
@@ -844,7 +866,8 @@ impl Acc {
             Some(disp) => {
                 disp.cast::<IAccessible>()
                     .ok()
-                    .map(|obj| Self { obj, id: None, has_child: true })
+                    // .map(|obj| Self { obj, id: None, has_child: true })
+                    .map(|obj| Self { obj, id: None })
             },
             None => None,
         }
@@ -852,7 +875,8 @@ impl Acc {
     fn from_idispatch(disp: IDispatch, id: i32) -> Option<Self> {
         disp.cast::<IAccessible>()
             .ok()
-            .map(|obj| Self { obj, id: Some(id), has_child: true })
+            // .map(|obj| Self { obj, id: Some(id), has_child: true })
+            .map(|obj| Self { obj, id: Some(id) })
     }
     pub fn get_check_state(hwnd: HWND, name: String, nth: u32) -> Option<i32> {
         let acc = Self::from_hwnd(hwnd)?;
@@ -919,66 +943,80 @@ impl Acc {
         let varchildren = self.get_varchildren(gi.backward);
         for varchild in varchildren {
             if let Some(acc) = self.get_acc_from_varchild(varchild, false) {
-                if let Some(role) = acc.get_role() {
-                    match role {
-                        AccRole::Text => if gi.edit {
-                            if acc.is_visible(None).unwrap_or(false) {
+                if gi.ignore_disabled && acc.is_disabled(None).is_some_and(|b| b) {
+                    // ディセーブルは無視
+                } else {
+                    if let Some(role) = acc.get_role() {
+                        let click2 = gi.click2 && acc.is_selectable();
+                        match role {
+                            AccRole::Text => if gi.edit || click2 {
                                 if let Some(value) = acc.get_value() {
                                     gi.add(value)?;
                                 }
-                            }
-                        },
-                        AccRole::StaticText => if gi.r#static {
-                            if acc.is_visible(None).unwrap_or(false) {
+                            },
+                            AccRole::StaticText => if gi.r#static || click2 {
                                 if let Some(value) = acc.get_name() {
                                     gi.add(value)?;
                                 }
-                            }
-                        },
-                        AccRole::PushButton |
-                        AccRole::CheckButton |
-                        AccRole::RadioButton |
-                        AccRole::ButtonDropdown |
-                        AccRole::ButtonDropdownGrid |
-                        AccRole::ButtonMenu |
-                        AccRole::ListItem |
-                        AccRole::PageTab |
-                        AccRole::MenuItem |
-                        // AccRole::MenuPopup |
-                        AccRole::OutlineItem |
-                        AccRole::OutlineButton |
-                        AccRole::ColumnHeader |
-                        AccRole::Link => if gi.click {
-                            if acc.is_visible(None).unwrap_or(false) {
+                            },
+                            AccRole::PushButton |
+                            AccRole::CheckButton |
+                            AccRole::RadioButton |
+                            AccRole::ButtonDropdown |
+                            AccRole::ButtonDropdownGrid |
+                            AccRole::ButtonMenu |
+                            AccRole::ListItem |
+                            AccRole::PageTab |
+                            AccRole::MenuItem |
+                            // AccRole::MenuPopup |
+                            AccRole::OutlineItem |
+                            AccRole::OutlineButton |
+                            AccRole::ColumnHeader |
+                            AccRole::Link => if gi.click {
                                 if let Some(value) = acc.get_name() {
                                     gi.add(value)?;
                                 }
-                            }
-                        },
-                        _ => if gi.click2 && acc.is_selectable() {
-                            if acc.is_visible(None).unwrap_or(false) {
+                            },
+                            _ => if click2 {
                                 if let Some(value) = acc.get_name() {
                                     gi.add(value)?;
                                 }
                             }
                         }
                     }
-                }
-                if acc.has_child() {
-                    acc.search_items(gi)?;
+                    if acc.has_child() {
+                        acc.search_items(gi)?;
+                    }
                 }
             }
         }
         Some(())
     }
-    pub fn getitem(hwnd: HWND, opt: u32, acc_max: i32) -> Vec<String> {
-        let mut gi = GetItem::new(opt, acc_max);
-        if let Some(acc) = Self::from_hwnd(hwnd) {
-            acc.search_items(&mut gi);
-            gi.found
+    pub fn getitem(hwnd: HWND, opt: u32, acc_max: i32, ignore_disabled: bool) -> Vec<String> {
+        let mut gi = GetItem::new(opt, acc_max, ignore_disabled);
+        if gi.acc_enabled() {
+            if let Some(acc) = Self::from_hwnd(hwnd) {
+                acc.search_items(&mut gi);
+                gi.found
+            } else {
+                vec![]
+            }
         } else {
             vec![]
         }
+    }
+
+    pub fn enum_acc(&self) -> AccDetail {
+        let detail: AccDetail = self.into();
+        // let children = self.get_varchildren(false)
+        //     .into_iter()
+        //     .filter_map(|varchild| self.get_acc_from_varchild(varchild, true))
+        //     .map(|ref acc| acc.enum_acc())
+        //     // .map(|ref acc| acc.into())
+        //     .collect();
+        // detail.children = children;
+        // println!("\u{001b}[33m{detail:#?}\u{001b}[0m");
+        detail
     }
 }
 
@@ -1409,19 +1447,19 @@ impl From<i32> for AccRole {
 }
 
 
+#[derive(Debug)]
 struct GetItem {
     edit: bool,
     r#static: bool,
-    /// Some(true): ITM_ACCCLK2
-    /// Some(false): ITM_ACCCLK
     click: bool,
     click2: bool,
     count: Option<u32>,
     backward: bool,
     found: Vec<String>,
+    ignore_disabled: bool,
 }
 impl GetItem {
-    fn new(opt: u32, acc_max: i32) -> Self {
+    fn new(opt: u32, acc_max: i32, ignore_disabled: bool) -> Self {
         let edit = opt.includes(super::GetItemConst::ITM_ACCEDIT);
         let r#static = opt.includes(super::GetItemConst::ITM_ACCTXT);
         let (click, click2) = if opt.includes(super::GetItemConst::ITM_ACCCLK2) {
@@ -1440,18 +1478,58 @@ impl GetItem {
         } else {
             None
         };
-        Self { edit, r#static, click, click2, count, backward, found: vec![] }
+        Self { edit, r#static, click, click2, count, backward, found: vec![], ignore_disabled }
     }
     fn add(&mut self, value: String) -> Option<()> {
         if value.len() > 0 {
             if let Some(count) = self.count.as_mut() {
                 if *count > 0 {
-                    self.found.push(value);
                     *count -= 1;
-                    return Some(());
+                    if *count == 0 {
+                        return None;
+                    }
                 }
+            } else {
+                self.found.push(value);
             }
         }
-        None
+        Some(())
+    }
+    fn acc_enabled(&self) -> bool {
+        self.edit ||
+        self.r#static ||
+        self.click ||
+        self.click2
+    }
+}
+
+#[derive(Debug)]
+#[allow(dead_code)]
+pub struct AccDetail {
+    name: Option<String>,
+    value: Option<String>,
+    role: Option<String>,
+    state: Option<Vec<String>>,
+    description: Option<String>,
+    location: Option<[i32; 4]>,
+    children: Vec<Self>,
+}
+
+impl Into<AccDetail> for &Acc {
+    fn into(self) -> AccDetail {
+        let name = self.get_name();
+        let value = self.get_value();
+        let role = self.get_role_text();
+        let state = self.get_state_texts();
+        let description = self.get_description();
+        let location = self.get_location();
+        let children = self.get_varchildren(false)
+            .into_iter()
+            .filter_map(|varchild| self.get_acc_from_varchild(varchild, false))
+            .map(|ref acc| acc.into())
+            .collect::<Vec<_>>();
+        AccDetail { name, value, role, state, description, location, children }
+        // AccDetail { name, value, role, state, description, location, children: Vec::new() }
+        // AccDetail { name, value, role, state, description, location }
     }
 }

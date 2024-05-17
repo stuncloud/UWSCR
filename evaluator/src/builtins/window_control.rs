@@ -178,6 +178,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("saveimg", saveimg, get_desc!(saveimg));
     #[cfg(feature="chkimg")]
     sets.add("chkclr", chkclr, get_desc!(chkclr));
+    sets.add("enum_acc", enum_acc, get_desc!(enum_acc));
     sets
 }
 
@@ -1603,7 +1604,7 @@ pub fn getitem(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     // api
     let mut items = win32::Win32::getitem(hwnd, target, nth, column, ignore_disabled);
     // acc
-    let acc_items = acc::Acc::getitem(hwnd, target, acc_max);
+    let acc_items = acc::Acc::getitem(hwnd, target, acc_max, ignore_disabled);
 
     items.extend(acc_items);
     let arr = items.into_iter().map(|s| s.into()).collect();
@@ -1706,7 +1707,7 @@ pub fn posacc(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
                         .collect();
                     Object::Array(arr)
                 };
-                acc.get_location(hwnd).map(vec2obj).unwrap_or_default()
+                acc.get_screen_location(hwnd).map(vec2obj).unwrap_or_default()
             },
             _ => Object::Empty
         },
@@ -2555,4 +2556,25 @@ pub fn chkclr(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncRe
         Ok(Object::Array(found))
     }
 
+}
+
+#[builtin_func_desc(
+    desc="ACC要素を列挙",
+    rtype={desc="ACC要素のリスト",types="配列"}
+    args=[
+        {n="ID",t="数値",d="対象ウィンドウ"},
+    ],
+)]
+pub fn enum_acc(_: &mut Evaluator, _args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let id = _args.get_as_int(0, None::<i32>)?;
+    let hwnd = get_hwnd_from_id(id);
+    let obj = match acc::Acc::from_hwnd(hwnd) {
+        Some(acc) => {
+            let _detail = acc.enum_acc();
+            format!("{_detail:#?}").into()
+            // Object::Empty
+        },
+        None => Object::Empty,
+    };
+    Ok(obj)
 }

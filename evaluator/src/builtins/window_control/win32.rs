@@ -883,14 +883,18 @@ impl Win32 {
 
     pub fn getitem(hwnd: HWND, target: u32, nth: i32, column: i32, ignore_disabled: bool) -> Vec<String> {
         let mut gi = GetItem::new(target, nth, column, ignore_disabled);
-        if gi.target.contains(&TargetClass::Menu) {
-            Menu::new(hwnd).get_names(None, &mut gi);
+        if gi.target.is_empty() {
+            Vec::new()
+        } else {
+            if gi.target.contains(&TargetClass::Menu) {
+                Menu::new(hwnd).get_names(None, &mut gi);
+            }
+            let lparam = LPARAM(&mut gi as *mut GetItem as isize);
+            unsafe {
+                EnumChildWindows(hwnd, Some(Self::getitem_callback), lparam);
+            }
+            gi.found
         }
-        let lparam = LPARAM(&mut gi as *mut GetItem as isize);
-        unsafe {
-            EnumChildWindows(hwnd, Some(Self::getitem_callback), lparam);
-        }
-        gi.found
     }
     unsafe extern "system"
     fn getitem_callback(hwnd: HWND, lparam: LPARAM) -> BOOL {
