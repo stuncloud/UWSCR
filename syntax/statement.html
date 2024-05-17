@@ -7,7 +7,7 @@
 <link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="特殊変数" href="special_variables.html" /><link rel="prev" title="Language Server機能について" href="../usage/language_server.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>スクリプト構文 - UWSCR 1.0.0</title>
+        <title>スクリプト構文 - UWSCR 1.0.1</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 1.0.0</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 1.0.1</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 1.0.0</span>
+  <span class="sidebar-brand-text">UWSCR 1.0.1</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -348,14 +348,21 @@
 </section>
 <section id="id7">
 <h3>配列<a class="headerlink" href="#id7" title="この見出しへのパーマリンク">#</a></h3>
-<p>配列の定義はdimを使った方法と、配列リテラル(新機能)を使う方法があります</p>
-<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="kd">dim</span><span class="w"> </span><span class="n">hoge</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">1</span><span class="o">,</span><span class="w"> </span><span class="m">2</span><span class="o">,</span><span class="w"> </span><span class="m">3</span><span class="w"> </span><span class="c">// 従来の配列定義</span>
-<span class="k">print</span><span class="w"> </span><span class="n">hoge</span><span class="p">[</span><span class="m">0</span><span class="p">]</span>
+<div class="line-block">
+<div class="line">配列の定義はdimを使った方法と、配列リテラル(新機能)を使う方法があります</div>
+<div class="line">配列の各要素には <code class="docutils literal notranslate"><span class="pre">配列変数[添字]</span></code> という書式でアクセスできます</div>
+<div class="line">添字は数値で、n番目の要素に対してn-1を指定します</div>
+</div>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// 従来の配列定義</span>
+<span class="kd">dim</span><span class="w"> </span><span class="n">hoge</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">1</span><span class="o">,</span><span class="w"> </span><span class="m">2</span><span class="o">,</span><span class="w"> </span><span class="m">3</span>
+<span class="k">print</span><span class="w"> </span><span class="n">hoge</span><span class="p">[</span><span class="m">0</span><span class="p">]</span><span class="w"> </span><span class="c">// 1</span>
 
-<span class="n">fuga</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="m">1</span><span class="o">,</span><span class="w"> </span><span class="m">2</span><span class="o">,</span><span class="w"> </span><span class="m">3</span><span class="p">]</span><span class="w">     </span><span class="c">// 配列リテラル</span>
-<span class="k">print</span><span class="w"> </span><span class="n">fuga</span><span class="p">[</span><span class="m">0</span><span class="p">]</span>
+<span class="c">// 配列リテラル</span>
+<span class="n">fuga</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="m">1</span><span class="o">,</span><span class="w"> </span><span class="m">2</span><span class="o">,</span><span class="w"> </span><span class="m">3</span><span class="p">]</span>
+<span class="k">print</span><span class="w"> </span><span class="n">fuga</span><span class="p">[</span><span class="m">0</span><span class="p">]</span><span class="w"> </span><span class="c">// 1</span>
 
-<span class="k">print</span><span class="w"> </span><span class="p">[</span><span class="m">4</span><span class="o">,</span><span class="w"> </span><span class="m">5</span><span class="o">,</span><span class="w"> </span><span class="m">6</span><span class="p">][</span><span class="m">0</span><span class="p">]</span><span class="w">   </span><span class="c">// 配列リテラルにインデックスを指定することも可能</span>
+<span class="c">// 配列リテラルにインデックスを指定することも可能</span>
+<span class="k">print</span><span class="w"> </span><span class="p">[</span><span class="m">4</span><span class="o">,</span><span class="w"> </span><span class="m">5</span><span class="o">,</span><span class="w"> </span><span class="m">6</span><span class="p">][</span><span class="m">0</span><span class="p">]</span><span class="w"> </span><span class="c">// 4</span>
 </pre></div>
 </div>
 <section id="id8">
@@ -1956,13 +1963,20 @@ endmodule
 </section>
 <section id="id43">
 <h3>三項演算子<a class="headerlink" href="#id43" title="この見出しへのパーマリンク">#</a></h3>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>式 ? 真で返す式 : 偽で返す式
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>条件式 ? 真で返す式 : 偽で返す式
 </pre></div>
 </div>
 <div class="line-block">
 <div class="line">式を評価しその真偽により値を返します</div>
 <div class="line">単行のIF文に似ていますが、三項演算子は値を返します</div>
 <div class="line">また、IF文とは異なり文を書くことができません</div>
+</div>
+<div class="tip admonition">
+<p class="admonition-title">条件式について</p>
+<div class="line-block">
+<div class="line">三項演算子の条件式では式の真偽性が評価されます</div>
+<div class="line">詳しくは <a class="reference internal" href="#tf-cond"><span class="std std-ref">真偽判定</span></a> を参照してください</div>
+</div>
 </div>
 <div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">a</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">FALSE</span>
 <span class="k">print</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="s">&quot;a is TRUE&quot;</span><span class="o">:</span><span class="w"> </span><span class="s">&quot;a is FALSE&quot;</span><span class="w"> </span><span class="c">// a is FALSE</span>
@@ -2025,9 +2039,26 @@ UWSCRでは演算子が追加され論理演算およびビット演算を明示
 </section>
 </section>
 </section>
-<section id="id47">
-<h2>真偽判定<a class="headerlink" href="#id47" title="この見出しへのパーマリンク">#</a></h2>
-<p>真偽性の評価が行われる場合(ifの条件式など)に</p>
+<section id="tf-cond">
+<span id="id47"></span><h2>真偽判定<a class="headerlink" href="#tf-cond" title="この見出しへのパーマリンク">#</a></h2>
+<div class="line-block">
+<div class="line">if等の条件式では単に真偽値(<code class="docutils literal notranslate"><span class="pre">TRUE</span></code>, <code class="docutils literal notranslate"><span class="pre">FALSE</span></code>)であることではなく、式の真偽性を評価します</div>
+</div>
+<div class="hint admonition">
+<p class="admonition-title">真偽判定の行われる式</p>
+<div class="line-block">
+<div class="line">以下の式で真偽判定が行われます</div>
+</div>
+<ul class="simple">
+<li><p>if文における <code class="docutils literal notranslate"><span class="pre">if</span></code> 及び <code class="docutils literal notranslate"><span class="pre">elseif</span></code> の式</p></li>
+<li><p>while-wend文における <code class="docutils literal notranslate"><span class="pre">while</span></code> の式</p></li>
+<li><p>repeat-until文における <code class="docutils literal notranslate"><span class="pre">until</span></code> の式</p></li>
+<li><p>三項演算子における <code class="docutils literal notranslate"><span class="pre">?</span></code> の左辺の式</p></li>
+</ul>
+</div>
+<div class="line-block">
+<div class="line">式の評価結果が以下となる場合は <strong>偽</strong> と判定されます</div>
+</div>
 <ul class="simple">
 <li><p>FALSE</p></li>
 <li><p>EMPTY</p></li>
@@ -2037,17 +2068,32 @@ UWSCRでは演算子が追加され論理演算およびビット演算を明示
 <li><p>長さ0の配列</p></li>
 </ul>
 <div class="line-block">
-<div class="line">は偽となります</div>
-<div class="line">それ以外は真です</div>
+<div class="line">これら以外の値を取る場合は <strong>真</strong> となります</div>
 </div>
-<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="k">print</span><span class="w"> </span><span class="n">NOTHING</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="s">&#39;真&#39;</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="s">&#39;偽&#39;</span><span class="w"> </span><span class="c">// 偽</span>
-<span class="k">print</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="s">&#39;真&#39;</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="s">&#39;偽&#39;</span><span class="w"> </span><span class="c">// 偽</span>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="k">print</span><span class="w"> </span><span class="n">NOTHING</span><span class="w">            </span><span class="o">?</span><span class="w"> </span><span class="s">&#39;真&#39;</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="s">&#39;偽&#39;</span><span class="w"> </span><span class="c">// 偽</span>
+<span class="k">print</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="w">                 </span><span class="o">?</span><span class="w"> </span><span class="s">&#39;真&#39;</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="s">&#39;偽&#39;</span><span class="w"> </span><span class="c">// 偽</span>
 <span class="k">print</span><span class="w"> </span><span class="s">&quot;空ではない文字列&quot;</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="s">&#39;真&#39;</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="s">&#39;偽&#39;</span><span class="w"> </span><span class="c">// 真</span>
-<span class="k">print</span><span class="w"> </span><span class="p">[</span><span class="m">1</span><span class="o">,</span><span class="m">2</span><span class="o">,</span><span class="m">3</span><span class="p">]</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="s">&#39;真&#39;</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="s">&#39;偽&#39;</span><span class="w"> </span><span class="c">// 真</span>
-<span class="k">print</span><span class="w"> </span><span class="p">[]</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="s">&#39;真&#39;</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="s">&#39;偽&#39;</span><span class="w"> </span><span class="c">// 偽</span>
+<span class="k">print</span><span class="w"> </span><span class="p">[</span><span class="m">1</span><span class="o">,</span><span class="m">2</span><span class="o">,</span><span class="m">3</span><span class="p">]</span><span class="w">            </span><span class="o">?</span><span class="w"> </span><span class="s">&#39;真&#39;</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="s">&#39;偽&#39;</span><span class="w"> </span><span class="c">// 真</span>
+<span class="k">print</span><span class="w"> </span><span class="p">[]</span><span class="w">                 </span><span class="o">?</span><span class="w"> </span><span class="s">&#39;真&#39;</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="s">&#39;偽&#39;</span><span class="w"> </span><span class="c">// 偽</span>
 </pre></div>
 </div>
-<p>ただし、 <code class="docutils literal notranslate"><span class="pre">OPTION</span> <span class="pre">FORCEBOOL</span></code> が指定されている場合は <code class="docutils literal notranslate"><span class="pre">TRUE</span></code> または <code class="docutils literal notranslate"><span class="pre">FALSE</span></code> を返す式のみが有効となります</p>
+<p>ただし、 <code class="docutils literal notranslate"><span class="pre">OPTION</span> <span class="pre">FORCEBOOL</span></code> が指定されている場合は真偽値(<code class="docutils literal notranslate"><span class="pre">TRUE</span></code>, <code class="docutils literal notranslate"><span class="pre">FALSE</span></code>)を返す式のみが有効となります</p>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">OPTION</span><span class="w"> </span><span class="n">FORCEBOOL</span>
+
+<span class="c">// 以下は真偽値を返す式ではないためエラーとなる</span>
+<span class="k">print</span><span class="w"> </span><span class="n">NOTHING</span><span class="w">            </span><span class="o">?</span><span class="w"> </span><span class="s">&#39;真&#39;</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="s">&#39;偽&#39;</span><span class="w"> </span><span class="c">// エラー</span>
+<span class="k">print</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="w">                 </span><span class="o">?</span><span class="w"> </span><span class="s">&#39;真&#39;</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="s">&#39;偽&#39;</span><span class="w"> </span><span class="c">// エラー</span>
+<span class="k">print</span><span class="w"> </span><span class="s">&quot;空ではない文字列&quot;</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="s">&#39;真&#39;</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="s">&#39;偽&#39;</span><span class="w"> </span><span class="c">// エラー</span>
+<span class="k">print</span><span class="w"> </span><span class="p">[</span><span class="m">1</span><span class="o">,</span><span class="m">2</span><span class="o">,</span><span class="m">3</span><span class="p">]</span><span class="w">            </span><span class="o">?</span><span class="w"> </span><span class="s">&#39;真&#39;</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="s">&#39;偽&#39;</span><span class="w"> </span><span class="c">// エラー</span>
+<span class="k">print</span><span class="w"> </span><span class="p">[]</span><span class="w">                 </span><span class="o">?</span><span class="w"> </span><span class="s">&#39;真&#39;</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="s">&#39;偽&#39;</span><span class="w"> </span><span class="c">// エラー</span>
+
+<span class="c">// 真偽値を返す式のみ有効となる</span>
+<span class="k">print</span><span class="w"> </span><span class="n">TRUE</span><span class="w">   </span><span class="o">?</span><span class="w"> </span><span class="s">&#39;真&#39;</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="s">&#39;偽&#39;</span><span class="w"> </span><span class="c">// 真</span>
+<span class="k">print</span><span class="w"> </span><span class="n">FALSE</span><span class="w">  </span><span class="o">?</span><span class="w"> </span><span class="s">&#39;真&#39;</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="s">&#39;偽&#39;</span><span class="w"> </span><span class="c">// 偽</span>
+<span class="k">print</span><span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="s">&#39;真&#39;</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="s">&#39;偽&#39;</span><span class="w"> </span><span class="c">// 真</span>
+<span class="k">print</span><span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="m">2</span><span class="w">  </span><span class="o">?</span><span class="w"> </span><span class="s">&#39;真&#39;</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="s">&#39;偽&#39;</span><span class="w"> </span><span class="c">// 偽</span>
+</pre></div>
+</div>
 </section>
 <section id="id48">
 <h2>コメント<a class="headerlink" href="#id48" title="この見出しへのパーマリンク">#</a></h2>
@@ -2060,9 +2106,34 @@ UWSCRでは演算子が追加され論理演算およびビット演算を明示
 <span class="k">print</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="c">// 1 が出力される</span>
 </pre></div>
 </div>
-</section>
 <section id="id49">
-<h2>行結合<a class="headerlink" href="#id49" title="この見出しへのパーマリンク">#</a></h2>
+<h3>ダミーコメント<a class="headerlink" href="#id49" title="この見出しへのパーマリンク">#</a></h3>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">//-</span></code> を記述することでUWSCでは以降をコメント扱いにしますが、UWSCRではこの部分は無視されます</div>
+<div class="line">これによりUWSCと併用するスクリプトでUWSCRのみで使える構文や関数を記述することが可能となります</div>
+</div>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="k">print</span><span class="w"> </span><span class="m">1</span>
+<span class="c">//-</span><span class="w"> </span><span class="k">print</span><span class="w"> </span><span class="m">2</span>
+<span class="k">print</span><span class="w"> </span><span class="m">3</span><span class="w"> </span><span class="c">//-</span><span class="w"> </span><span class="o">+</span><span class="m">5</span>
+<span class="c">// print 4</span>
+</pre></div>
+</div>
+<p>結果</p>
+<div class="highlight-powershell notranslate"><div class="highlight"><pre><span></span><span class="c"># UWSC</span>
+<span class="n">1</span>
+<span class="n">3</span>
+</pre></div>
+</div>
+<div class="highlight-powershell notranslate"><div class="highlight"><pre><span></span><span class="c"># UWSCR</span>
+<span class="n">1</span>
+<span class="n">2</span>
+<span class="n">8</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="id50">
+<h2>行結合<a class="headerlink" href="#id50" title="この見出しへのパーマリンク">#</a></h2>
 <p>行末に <code class="docutils literal notranslate"><span class="pre">_</span></code> を記述することで次の行と結合させます</p>
 <div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">a</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="m">2</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">_</span>
 <span class="m">3</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="m">4</span>
@@ -2071,15 +2142,15 @@ UWSCRでは演算子が追加され論理演算およびビット演算を明示
 </pre></div>
 </div>
 </section>
-<section id="id50">
-<h2>マルチステートメント<a class="headerlink" href="#id50" title="この見出しへのパーマリンク">#</a></h2>
+<section id="id51">
+<h2>マルチステートメント<a class="headerlink" href="#id51" title="この見出しへのパーマリンク">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">;</span></code> をつけることで複数の文を1行に記述できます</p>
 <div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">a</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">1</span><span class="p">;</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="m">1</span><span class="p">;</span><span class="w"> </span><span class="k">print</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="c">// 2</span>
 </pre></div>
 </div>
 </section>
-<section id="id51">
-<h2>組み込み定数<a class="headerlink" href="#id51" title="この見出しへのパーマリンク">#</a></h2>
+<section id="id52">
+<h2>組み込み定数<a class="headerlink" href="#id52" title="この見出しへのパーマリンク">#</a></h2>
 <div class="table-wrapper docutils container">
 <table class="docutils align-left">
 <tbody>
@@ -2121,15 +2192,15 @@ UWSCRでは演算子が追加され論理演算およびビット演算を明示
 </div>
 </section>
 </section>
-<section id="id52">
-<h2>16進数<a class="headerlink" href="#id52" title="この見出しへのパーマリンク">#</a></h2>
+<section id="id53">
+<h2>16進数<a class="headerlink" href="#id53" title="この見出しへのパーマリンク">#</a></h2>
 <p>16進数リテラル表記は <code class="docutils literal notranslate"><span class="pre">$</span></code> を使います</p>
 <div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="k">print</span><span class="w"> </span><span class="m">$FF</span><span class="w"> </span><span class="c">// 255</span>
 </pre></div>
 </div>
 </section>
-<section id="id53">
-<h2>起動時パラメータ<a class="headerlink" href="#id53" title="この見出しへのパーマリンク">#</a></h2>
+<section id="id54">
+<h2>起動時パラメータ<a class="headerlink" href="#id54" title="この見出しへのパーマリンク">#</a></h2>
 <p>スクリプトにパラメータを付与した場合にそれらが <code class="docutils literal notranslate"><span class="pre">PARAM_STR[]</span></code> に格納されます</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>uwscr hoge.uws foo bar baz
 </pre></div>
@@ -2500,8 +2571,8 @@ baz
 <span class="n">def_dll</span> <span class="n">別名</span><span class="p">:</span><span class="n">関数名</span><span class="p">(</span><span class="n">型名</span><span class="p">,</span> <span class="o">...</span><span class="p">):</span><span class="n">型名</span><span class="p">:</span><span class="n">DLLパス</span>
 </pre></div>
 </div>
-<section id="id54">
-<h3>使用可能な型名<a class="headerlink" href="#id54" title="この見出しへのパーマリンク">#</a></h3>
+<section id="id55">
+<h3>使用可能な型名<a class="headerlink" href="#id55" title="この見出しへのパーマリンク">#</a></h3>
 <div class="line-block">
 <div class="line">以下の型を指定できます</div>
 <div class="line">一部の型はx86/x64でサイズが変わります</div>
@@ -2714,8 +2785,8 @@ baz
 </div>
 </div>
 </section>
-<section id="id55">
-<h3>配列引数<a class="headerlink" href="#id55" title="この見出しへのパーマリンク">#</a></h3>
+<section id="id56">
+<h3>配列引数<a class="headerlink" href="#id56" title="この見出しへのパーマリンク">#</a></h3>
 <div class="line-block">
 <div class="line"><code class="docutils literal notranslate"><span class="pre">型名[]</span></code> と記述することでその型に該当する値型の配列を渡せるようになります</div>
 <div class="line"><code class="docutils literal notranslate"><span class="pre">型名[サイズ]</span></code> のように配列サイズを数値または定数でしていすることで、そのサイズの配列を受けることを明示します</div>
@@ -2723,16 +2794,16 @@ baz
 <div class="line">サイズ未指定時は渡す配列のサイズは可変ですが、十分なサイズを確保してください</div>
 </div>
 </section>
-<section id="id56">
-<h3>参照渡し<a class="headerlink" href="#id56" title="この見出しへのパーマリンク">#</a></h3>
+<section id="id57">
+<h3>参照渡し<a class="headerlink" href="#id57" title="この見出しへのパーマリンク">#</a></h3>
 <div class="line-block">
 <div class="line"><code class="docutils literal notranslate"><span class="pre">var</span> <span class="pre">型名</span></code> または <code class="docutils literal notranslate"><span class="pre">ref</span> <span class="pre">型名</span></code> で参照渡しになります</div>
 <div class="line">引数として変数を渡した場合、関数実行後にその変数の値が更新されます</div>
 <div class="line">配列引数も参照渡しできます</div>
 </div>
 </section>
-<section id="id57">
-<h3>構造体<a class="headerlink" href="#id57" title="この見出しへのパーマリンク">#</a></h3>
+<section id="id58">
+<h3>構造体<a class="headerlink" href="#id58" title="この見出しへのパーマリンク">#</a></h3>
 <div class="line-block">
 <div class="line">引数として構造体のポインタを受ける場合に <code class="docutils literal notranslate"><span class="pre">{型名,</span> <span class="pre">型名,</span> <span class="pre">...}</span></code> と記述することでその構造体として値の受け渡しができるようになります</div>
 <div class="line">関数呼び出し時に型名に該当する値を渡す必要があります</div>
@@ -2746,8 +2817,8 @@ baz
 <span class="k">print</span><span class="w"> </span><span class="p">[</span><span class="n">x</span><span class="o">,</span><span class="w"> </span><span class="n">y</span><span class="p">]</span>
 </pre></div>
 </div>
-<section id="id58">
-<h4>ポインタではない構造体<a class="headerlink" href="#id58" title="この見出しへのパーマリンク">#</a></h4>
+<section id="id59">
+<h4>ポインタではない構造体<a class="headerlink" href="#id59" title="この見出しへのパーマリンク">#</a></h4>
 <div class="line-block">
 <div class="line">構造体のポインタではなく構造体そのものを受ける関数の場合は <code class="docutils literal notranslate"><span class="pre">{}</span></code> 表記が使えません</div>
 <div class="line">その場合は <code class="docutils literal notranslate"><span class="pre">{}</span></code> を使わずメンバーの方を引数として直接記述します</div>
@@ -2758,8 +2829,8 @@ baz
 </pre></div>
 </div>
 </section>
-<section id="id59">
-<h4>ネストした構造体<a class="headerlink" href="#id59" title="この見出しへのパーマリンク">#</a></h4>
+<section id="id60">
+<h4>ネストした構造体<a class="headerlink" href="#id60" title="この見出しへのパーマリンク">#</a></h4>
 <div class="line-block">
 <div class="line">メンバが構造体のポインタである場合は <code class="docutils literal notranslate"><span class="pre">{型名,</span> <span class="pre">型名,</span> <span class="pre">{型名,</span> <span class="pre">...},</span> <span class="pre">...}</span></code> のようにネスト構造で表記します</div>
 <div class="line">メンバが構造体そのものである場合は子構造体メンバの型名を展開して記述します</div>
@@ -2784,7 +2855,7 @@ baz
 </section>
 </section>
 <section id="about-callback">
-<span id="id60"></span><h3>コールバック<a class="headerlink" href="#about-callback" title="この見出しへのパーマリンク">#</a></h3>
+<span id="id61"></span><h3>コールバック<a class="headerlink" href="#about-callback" title="この見出しへのパーマリンク">#</a></h3>
 <div class="line-block">
 <div class="line">以下の書式でコールバック関数の引数と戻り値の型を定義します</div>
 </div>
@@ -2966,7 +3037,7 @@ baz
 </div>
 </section>
 <section id="about-dll-string-param">
-<span id="id61"></span><h3>文字列型について<a class="headerlink" href="#about-dll-string-param" title="この見出しへのパーマリンク">#</a></h3>
+<span id="id62"></span><h3>文字列型について<a class="headerlink" href="#about-dll-string-param" title="この見出しへのパーマリンク">#</a></h3>
 <div class="line-block">
 <div class="line">以下の型は引数として文字列を受けますが、それぞれ性質が異なります</div>
 <div class="line">戻り値の場合、可能な限り文字列として返します</div>
@@ -3072,8 +3143,8 @@ baz
 </pre></div>
 </div>
 </section>
-<section id="id62">
-<h3>別名による呼び出し例<a class="headerlink" href="#id62" title="この見出しへのパーマリンク">#</a></h3>
+<section id="id63">
+<h3>別名による呼び出し例<a class="headerlink" href="#id63" title="この見出しへのパーマリンク">#</a></h3>
 <div class="line-block">
 <div class="line">本来のDLL関数名とは異なる名前でそのDLL関数を呼び出すことができます</div>
 <div class="line">例: MessageBoxWをMessageBoxという名前で呼び出す</div>
@@ -3097,11 +3168,11 @@ baz
 </div>
 </section>
 </section>
-<section id="id63">
-<h2>構造体<a class="headerlink" href="#id63" title="この見出しへのパーマリンク">#</a></h2>
-<p>def_dllのstruct型に渡す構造体を定義します</p>
 <section id="id64">
-<h3>構造体定義<a class="headerlink" href="#id64" title="この見出しへのパーマリンク">#</a></h3>
+<h2>構造体<a class="headerlink" href="#id64" title="この見出しへのパーマリンク">#</a></h2>
+<p>def_dllのstruct型に渡す構造体を定義します</p>
+<section id="id65">
+<h3>構造体定義<a class="headerlink" href="#id65" title="この見出しへのパーマリンク">#</a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>struct 構造体名
     メンバ名: 型名
     メンバ名: 型名[サイズ]
@@ -3414,10 +3485,10 @@ endstruct
 </ul>
 </div>
 </section>
-<section id="id65">
-<h3>構造体の利用方法<a class="headerlink" href="#id65" title="この見出しへのパーマリンク">#</a></h3>
 <section id="id66">
-<h4>構造体の初期化<a class="headerlink" href="#id66" title="この見出しへのパーマリンク">#</a></h4>
+<h3>構造体の利用方法<a class="headerlink" href="#id66" title="この見出しへのパーマリンク">#</a></h3>
+<section id="id67">
+<h4>構造体の初期化<a class="headerlink" href="#id67" title="この見出しへのパーマリンク">#</a></h4>
 <div class="line-block">
 <div class="line"><code class="docutils literal notranslate"><span class="pre">構造体名()</span></code> で構造体を初期化します</div>
 <div class="line">各メンバは0で初期化されます</div>
@@ -3431,8 +3502,8 @@ endstruct
 </pre></div>
 </div>
 </section>
-<section id="id67">
-<h4>構造体メンバへのアクセス<a class="headerlink" href="#id67" title="この見出しへのパーマリンク">#</a></h4>
+<section id="id68">
+<h4>構造体メンバへのアクセス<a class="headerlink" href="#id68" title="この見出しへのパーマリンク">#</a></h4>
 <div class="line-block">
 <div class="line"><code class="docutils literal notranslate"><span class="pre">構造体.メンバ名</span></code> でメンバへアクセスします</div>
 </div>
@@ -3448,8 +3519,8 @@ endstruct
 </pre></div>
 </div>
 </section>
-<section id="id68">
-<h4>構造体のメソッド<a class="headerlink" href="#id68" title="この見出しへのパーマリンク">#</a></h4>
+<section id="id69">
+<h4>構造体のメソッド<a class="headerlink" href="#id69" title="この見出しへのパーマリンク">#</a></h4>
 <div class="line-block">
 <div class="line">構造体は以下のメソッドを持ちます</div>
 </div>
@@ -3483,8 +3554,8 @@ endstruct
 </pre></div>
 </div>
 </section>
-<section id="id69">
-<h4>ポインタから構造体を得る<a class="headerlink" href="#id69" title="この見出しへのパーマリンク">#</a></h4>
+<section id="id70">
+<h4>ポインタから構造体を得る<a class="headerlink" href="#id70" title="この見出しへのパーマリンク">#</a></h4>
 <p>DLL関数が返す構造体のポインタから構造体にアクセスできます</p>
 <div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// 第四引数にWTS_SESSION_INFO_1Wのポインタが返る</span>
 <span class="kd">def_dll</span><span class="w"> </span><span class="n">WTSEnumerateSessionsExW</span><span class="p">(</span><span class="n">handle</span><span class="o">,</span><span class="w"> </span><span class="k">var</span><span class="w"> </span><span class="n">dword</span><span class="o">,</span><span class="w"> </span><span class="n">dword</span><span class="o">,</span><span class="w"> </span><span class="k">var</span><span class="w"> </span><span class="n">pointer</span><span class="o">,</span><span class="w"> </span><span class="k">var</span><span class="w"> </span><span class="n">dword</span><span class="p">)</span><span class="o">:</span><span class="n">bool</span><span class="o">:</span><span class="n">Wtsapi32</span>
@@ -3532,8 +3603,8 @@ endstruct
 </section>
 </section>
 </section>
-<section id="id70">
-<h2>スレッド<a class="headerlink" href="#id70" title="この見出しへのパーマリンク">#</a></h2>
+<section id="id71">
+<h2>スレッド<a class="headerlink" href="#id71" title="この見出しへのパーマリンク">#</a></h2>
 <section id="thread">
 <h3>thread<a class="headerlink" href="#thread" title="この見出しへのパーマリンク">#</a></h3>
 <p>関数を別のスレッドで実行します</p>
@@ -3560,7 +3631,7 @@ endstruct
 </section>
 </section>
 <section id="task-object">
-<span id="id71"></span><h2>タスク<a class="headerlink" href="#task-object" title="この見出しへのパーマリンク">#</a></h2>
+<span id="id72"></span><h2>タスク<a class="headerlink" href="#task-object" title="この見出しへのパーマリンク">#</a></h2>
 <div class="line-block">
 <div class="line">関数を非同期実行します</div>
 <div class="line">threadとは異なり関数が完了し次第戻り値を受け取れます</div>
@@ -3584,7 +3655,7 @@ endstruct
 </li>
 </ul>
 <section id="async">
-<span id="id72"></span><h3>async<a class="headerlink" href="#async" title="この見出しへのパーマリンク">#</a></h3>
+<span id="id73"></span><h3>async<a class="headerlink" href="#async" title="この見出しへのパーマリンク">#</a></h3>
 <p>タスクを返す関数を宣言します</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">//</span> <span class="n">function宣言の前に</span> <span class="k">async</span> <span class="n">キーワードを付与</span>
 <span class="k">async</span> <span class="n">function</span> <span class="n">関数名</span><span class="p">()</span>
@@ -3609,7 +3680,7 @@ endstruct
 </div>
 </section>
 <section id="await">
-<span id="id73"></span><h3>await<a class="headerlink" href="#await" title="この見出しへのパーマリンク">#</a></h3>
+<span id="id74"></span><h3>await<a class="headerlink" href="#await" title="この見出しへのパーマリンク">#</a></h3>
 <p>async宣言した関数の終了を待ち、resultの値を得ます</p>
 <div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="k">async</span><span class="w"> </span><span class="kd">function</span><span class="w"> </span><span class="n">MyFuncAsync</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
 <span class="w">    </span><span class="n">sleep</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
@@ -3753,8 +3824,8 @@ endstruct
 </pre></div>
 </div>
 </section>
-<section id="id74">
-<h3>uwslファイルについて<a class="headerlink" href="#id74" title="この見出しへのパーマリンク">#</a></h3>
+<section id="id75">
+<h3>uwslファイルについて<a class="headerlink" href="#id75" title="この見出しへのパーマリンク">#</a></h3>
 <div class="line-block">
 <div class="line">構文木をバイナリとして保存したものです</div>
 <div class="line">以下のコマンドでバイナリファイルを生成できます</div>
@@ -3768,16 +3839,16 @@ endstruct
 <div class="highlight-powershell notranslate"><div class="highlight"><pre><span></span><span class="n">uwscr</span> <span class="n">module</span><span class="p">.</span><span class="n">uwsl</span> <span class="p">//</span> <span class="n">ng</span>
 </pre></div>
 </div>
-<section id="id75">
-<h4>uwslファイル作成の流れ<a class="headerlink" href="#id75" title="この見出しへのパーマリンク">#</a></h4>
+<section id="id76">
+<h4>uwslファイル作成の流れ<a class="headerlink" href="#id76" title="この見出しへのパーマリンク">#</a></h4>
 <ol class="arabic simple">
 <li><p>指定されたスクリプトを読み出す</p></li>
 <li><p>構文解析を行い構文木を生成する</p></li>
 <li><p>構文木をバイナリデータとしてファイルに書き出す</p></li>
 </ol>
 </section>
-<section id="id76">
-<h4>使用例<a class="headerlink" href="#id76" title="この見出しへのパーマリンク">#</a></h4>
+<section id="id77">
+<h4>使用例<a class="headerlink" href="#id77" title="この見出しへのパーマリンク">#</a></h4>
 <ol class="arabic">
 <li><p>多段callしているファイルをまとめてバイナリ化</p>
 <blockquote>
@@ -3820,8 +3891,8 @@ endstruct
 </section>
 </section>
 </section>
-<section id="id77">
-<h2>例外処理<a class="headerlink" href="#id77" title="この見出しへのパーマリンク">#</a></h2>
+<section id="id78">
+<h2>例外処理<a class="headerlink" href="#id78" title="この見出しへのパーマリンク">#</a></h2>
 <ul class="simple">
 <li><p><cite>try-except-endtry</cite></p></li>
 <li><p><cite>try-finally-endtry</cite></p></li>
@@ -3910,8 +3981,8 @@ endstruct
 </div>
 </section>
 </section>
-<section id="id78">
-<h2>制御文<a class="headerlink" href="#id78" title="この見出しへのパーマリンク">#</a></h2>
+<section id="id79">
+<h2>制御文<a class="headerlink" href="#id79" title="この見出しへのパーマリンク">#</a></h2>
 <p>説明文中の <code class="docutils literal notranslate"><span class="pre">式</span></code> とは主に値を返す演算式や関数など
 <code class="docutils literal notranslate"><span class="pre">文</span></code> は制御文のことです
 <code class="docutils literal notranslate"><span class="pre">ブロック文``は</span> <span class="pre">``文</span></code> が複数行ある状態です</p>
@@ -3924,10 +3995,17 @@ endstruct
 <div class="line">どちらも同じものとして扱われます</div>
 </div>
 </div>
-<section id="id79">
-<h4>単行if<a class="headerlink" href="#id79" title="この見出しへのパーマリンク">#</a></h4>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="n">式</span> <span class="n">then</span> <span class="n">文</span> <span class="p">[</span><span class="k">else</span> <span class="n">文</span><span class="p">]</span>
+<section id="id80">
+<h4>単行if<a class="headerlink" href="#id80" title="この見出しへのパーマリンク">#</a></h4>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="n">条件式</span> <span class="n">then</span> <span class="n">文</span> <span class="p">[</span><span class="k">else</span> <span class="n">文</span><span class="p">]</span>
 </pre></div>
+</div>
+<div class="tip admonition">
+<p class="admonition-title">条件式について</p>
+<div class="line-block">
+<div class="line">if文の条件式では式の真偽性が評価されます</div>
+<div class="line">詳しくは <a class="reference internal" href="#tf-cond"><span class="std std-ref">真偽判定</span></a> を参照してください</div>
+</div>
 </div>
 <div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="k">if</span><span class="w"> </span><span class="n">foo</span><span class="w"> </span><span class="k">then</span><span class="w"> </span><span class="n">bar</span><span class="w"> </span><span class="c">// foo が真の場合 bar が実行され、偽の場合なにもしない</span>
 <span class="k">if</span><span class="w"> </span><span class="n">foo</span><span class="w"> </span><span class="k">then</span><span class="w"> </span><span class="n">bar</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="n">baz</span><span class="c">// foo が真の場合 bar、偽の場合 baz が実行される</span>
@@ -3937,16 +4015,23 @@ endstruct
 </pre></div>
 </div>
 </section>
-<section id="id80">
-<h4>複数行if<a class="headerlink" href="#id80" title="この見出しへのパーマリンク">#</a></h4>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="n">式</span> <span class="p">[</span><span class="n">then</span><span class="p">]</span>
+<section id="id81">
+<h4>複数行if<a class="headerlink" href="#id81" title="この見出しへのパーマリンク">#</a></h4>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="n">条件式</span> <span class="p">[</span><span class="n">then</span><span class="p">]</span>
     <span class="n">ブロック文</span>
-<span class="p">[</span><span class="n">elseif</span> <span class="n">式</span> <span class="p">[</span><span class="n">then</span><span class="p">]]</span>
+<span class="p">[</span><span class="n">elseif</span> <span class="n">条件式</span> <span class="p">[</span><span class="n">then</span><span class="p">]]</span>
     <span class="n">ブロック文</span>
-<span class="p">[</span><span class="k">else</span> <span class="n">式</span><span class="p">]</span>
+<span class="p">[</span><span class="k">else</span><span class="p">]</span>
     <span class="n">ブロック文</span>
 <span class="n">endif</span>
 </pre></div>
+</div>
+<div class="tip admonition">
+<p class="admonition-title">条件式について</p>
+<div class="line-block">
+<div class="line">if及びelseifの条件式では式の真偽性が評価されます</div>
+<div class="line">詳しくは <a class="reference internal" href="#tf-cond"><span class="std std-ref">真偽判定</span></a> を参照してください</div>
+</div>
 </div>
 <div class="admonition note">
 <p class="admonition-title">注釈</p>
@@ -4142,14 +4227,21 @@ endstruct
 </section>
 <section id="while">
 <h3>while<a class="headerlink" href="#while" title="この見出しへのパーマリンク">#</a></h3>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">while</span> <span class="n">式</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">while</span> <span class="n">条件式</span>
     <span class="n">ブロック文</span>
 <span class="n">wend</span>
 </pre></div>
 </div>
 <div class="line-block">
-<div class="line"><cite>式</cite> が真である限り <cite>ブロック文</cite> を繰り返し処理します</div>
-<div class="line">(ループ中に式を偽にしない限り無限ループする)</div>
+<div class="line"><cite>条件式</cite> が真である限り <cite>ブロック文</cite> を繰り返し処理します</div>
+<div class="line">(ループ中に条件式を偽にしない限り無限ループする)</div>
+</div>
+<div class="tip admonition">
+<p class="admonition-title">条件式について</p>
+<div class="line-block">
+<div class="line">while文の条件式では式の真偽性が評価されます</div>
+<div class="line">詳しくは <a class="reference internal" href="#tf-cond"><span class="std std-ref">真偽判定</span></a> を参照してください</div>
+</div>
 </div>
 <div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">a</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">TRUE</span>
 <span class="k">while</span><span class="w"> </span><span class="n">a</span>
@@ -4170,12 +4262,19 @@ endstruct
 <h3>repeat<a class="headerlink" href="#repeat" title="この見出しへのパーマリンク">#</a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">repeat</span>
     <span class="n">ブロック文</span>
-<span class="n">until</span> <span class="n">式</span>
+<span class="n">until</span> <span class="n">条件式</span>
 </pre></div>
 </div>
 <div class="line-block">
-<div class="line"><cite>式</cite> が偽である限り <cite>ブロック文</cite> を繰り返し処理します</div>
+<div class="line"><cite>条件式</cite> が偽である限り <cite>ブロック文</cite> を繰り返し処理します</div>
 <div class="line">(ループ中に式を真にしない限り無限ループする)</div>
+</div>
+<div class="tip admonition">
+<p class="admonition-title">条件式について</p>
+<div class="line-block">
+<div class="line">repeat文の条件式では式の真偽性が評価されます</div>
+<div class="line">詳しくは <a class="reference internal" href="#tf-cond"><span class="std std-ref">真偽判定</span></a> を参照してください</div>
+</div>
 </div>
 <div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">a</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">false</span>
 <span class="k">repeat</span>
@@ -4390,13 +4489,13 @@ selend
 <div class="line"><a class="reference internal" href="../builtins/comobject.html#createoleobj" title="createoleobj"><code class="xref py py-func docutils literal notranslate"><span class="pre">createoleobj()</span></code></a>, <a class="reference internal" href="../builtins/comobject.html#getactiveoleobj" title="getactiveoleobj"><code class="xref py py-func docutils literal notranslate"><span class="pre">getactiveoleobj()</span></code></a> により取得可能</div>
 <div class="line">またCOMオブジェクトのプロパティやメソッドが別のCOMオブジェクトを返す場合もあります</div>
 </div>
-<section id="id81">
-<h3>プロパティの取得<a class="headerlink" href="#id81" title="この見出しへのパーマリンク">#</a></h3>
+<section id="id82">
+<h3>プロパティの取得<a class="headerlink" href="#id82" title="この見出しへのパーマリンク">#</a></h3>
 <div class="line-block">
 <div class="line"><code class="docutils literal notranslate"><span class="pre">COMオブジェクト.プロパティ名</span></code> でプロパティの値を取得できます</div>
 </div>
-<section id="id82">
-<h4>プロパティ取得<a class="headerlink" href="#id82" title="この見出しへのパーマリンク">#</a></h4>
+<section id="id83">
+<h4>プロパティ取得<a class="headerlink" href="#id83" title="この見出しへのパーマリンク">#</a></h4>
 <blockquote>
 <div><div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">ws</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">createoleobj</span><span class="p">(</span><span class="s">&quot;WScript.Shell&quot;</span><span class="p">)</span>
 <span class="k">print</span><span class="w"> </span><span class="n">ws</span><span class="o">.</span><span class="n">CurrentDirectory</span><span class="w"> </span><span class="c">// 現在のワーキングフォルダのパスが表示される</span>
@@ -4404,8 +4503,8 @@ selend
 </div>
 </div></blockquote>
 </section>
-<section id="id83">
-<h4>インデックス指定<a class="headerlink" href="#id83" title="この見出しへのパーマリンク">#</a></h4>
+<section id="id84">
+<h4>インデックス指定<a class="headerlink" href="#id84" title="この見出しへのパーマリンク">#</a></h4>
 <blockquote>
 <div><div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">ws</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">createoleobj</span><span class="p">(</span><span class="s">&quot;WScript.Shell&quot;</span><span class="p">)</span>
 <span class="k">print</span><span class="w"> </span><span class="n">ws</span><span class="o">.</span><span class="n">Environment</span><span class="o">.</span><span class="n">item</span><span class="p">[</span><span class="s">&quot;windir&quot;</span><span class="p">]</span><span class="w"> </span><span class="c">// %SystemRoot%</span>
@@ -4414,8 +4513,8 @@ selend
 </div>
 </div></blockquote>
 </section>
-<section id="id84">
-<h4>コレクションに対するインデックス指定<a class="headerlink" href="#id84" title="この見出しへのパーマリンク">#</a></h4>
+<section id="id85">
+<h4>コレクションに対するインデックス指定<a class="headerlink" href="#id85" title="この見出しへのパーマリンク">#</a></h4>
 <blockquote>
 <div><div class="line-block">
 <div class="line">COMオブジェクトがコレクションの場合、インデックス指定で要素を得られる</div>
@@ -4432,13 +4531,13 @@ selend
 </div></blockquote>
 </section>
 </section>
-<section id="id85">
-<h3>プロパティの変更<a class="headerlink" href="#id85" title="この見出しへのパーマリンク">#</a></h3>
+<section id="id86">
+<h3>プロパティの変更<a class="headerlink" href="#id86" title="この見出しへのパーマリンク">#</a></h3>
 <div class="line-block">
 <div class="line">プロパティに対して値を代入することでプロパティを変更できます</div>
 </div>
-<section id="id86">
-<h4>代入<a class="headerlink" href="#id86" title="この見出しへのパーマリンク">#</a></h4>
+<section id="id87">
+<h4>代入<a class="headerlink" href="#id87" title="この見出しへのパーマリンク">#</a></h4>
 <div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">ws</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">createoleobj</span><span class="p">(</span><span class="s">&quot;WScript.Shell&quot;</span><span class="p">)</span>
 <span class="k">print</span><span class="w"> </span><span class="n">ws</span><span class="o">.</span><span class="n">CurrentDirectory</span><span class="w"> </span><span class="c">// 元々のカレントディレクトリ</span>
 <span class="n">ws</span><span class="o">.</span><span class="n">CurrentDirectory</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;D:\Hoge&quot;</span>
@@ -4446,8 +4545,8 @@ selend
 </pre></div>
 </div>
 </section>
-<section id="id87">
-<h4>インデックス指定による代入<a class="headerlink" href="#id87" title="この見出しへのパーマリンク">#</a></h4>
+<section id="id88">
+<h4>インデックス指定による代入<a class="headerlink" href="#id88" title="この見出しへのパーマリンク">#</a></h4>
 <div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">excel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">createoleobj</span><span class="p">(</span><span class="s">&quot;Excel.Application&quot;</span><span class="p">)</span>
 <span class="n">excel</span><span class="o">.</span><span class="n">visible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">TRUE</span>
 <span class="n">excel</span><span class="o">.</span><span class="n">Workbooks</span><span class="o">.</span><span class="n">Add</span><span class="p">()</span>
@@ -4463,8 +4562,8 @@ selend
 </div>
 </section>
 </section>
-<section id="id88">
-<h3>メソッドの実行<a class="headerlink" href="#id88" title="この見出しへのパーマリンク">#</a></h3>
+<section id="id89">
+<h3>メソッドの実行<a class="headerlink" href="#id89" title="この見出しへのパーマリンク">#</a></h3>
 <div class="line-block">
 <div class="line"><code class="docutils literal notranslate"><span class="pre">COMオブジェクト.メソッド名([引数,</span> <span class="pre">引数,</span> <span class="pre">...])</span></code> でメソッドを実行できます</div>
 <div class="line">通常の引数に加え、名前付き引数(<code class="docutils literal notranslate"><span class="pre">名前</span> <span class="pre">:=</span> <span class="pre">値</span></code>)や参照渡し(<code class="docutils literal notranslate"><span class="pre">ref</span> <span class="pre">変数</span></code>)が利用可能です</div>
@@ -4489,15 +4588,15 @@ selend
 </pre></div>
 </div>
 </div>
-<section id="id89">
-<h4>名前なし引数<a class="headerlink" href="#id89" title="この見出しへのパーマリンク">#</a></h4>
+<section id="id90">
+<h4>名前なし引数<a class="headerlink" href="#id90" title="この見出しへのパーマリンク">#</a></h4>
 <div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">ws</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">createoleobj</span><span class="p">(</span><span class="s">&quot;WScript.Shell&quot;</span><span class="p">)</span>
 <span class="k">print</span><span class="w"> </span><span class="n">ws</span><span class="o">.</span><span class="n">Popup</span><span class="p">(</span><span class="s">&quot;テキスト&quot;</span><span class="o">,</span><span class="w"> </span><span class="m">0</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;タイトル&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
-<section id="id90">
-<h4>名前付き引数<a class="headerlink" href="#id90" title="この見出しへのパーマリンク">#</a></h4>
+<section id="id91">
+<h4>名前付き引数<a class="headerlink" href="#id91" title="この見出しへのパーマリンク">#</a></h4>
 <blockquote>
 <div><div class="line-block">
 <div class="line">名前を指定してメソッドに引数を渡すことができます</div>
@@ -4516,8 +4615,8 @@ selend
 </div>
 </div></blockquote>
 </section>
-<section id="id91">
-<h4>参照渡し<a class="headerlink" href="#id91" title="この見出しへのパーマリンク">#</a></h4>
+<section id="id92">
+<h4>参照渡し<a class="headerlink" href="#id92" title="この見出しへのパーマリンク">#</a></h4>
 <blockquote>
 <div><div class="line-block">
 <div class="line"><code class="docutils literal notranslate"><span class="pre">ref</span></code> または <code class="docutils literal notranslate"><span class="pre">var</span></code> キーワードで参照渡しになります</div>
@@ -4591,8 +4690,8 @@ selend
 </div>
 </section>
 </section>
-<section id="id92">
-<h3>型の確認<a class="headerlink" href="#id92" title="この見出しへのパーマリンク">#</a></h3>
+<section id="id93">
+<h3>型の確認<a class="headerlink" href="#id93" title="この見出しへのパーマリンク">#</a></h3>
 <div class="line-block">
 <div class="line">COMオブジェクトをprintすることで型の名前を確認できます</div>
 <div class="line">オブジェクトがコレクションの場合は <code class="docutils literal notranslate"><span class="pre">型名[]</span></code> と表示されます</div>
@@ -4644,8 +4743,8 @@ selend
 </div>
 </section>
 </section>
-<section id="id93">
-<h2>リストの改行表記<a class="headerlink" href="#id93" title="この見出しへのパーマリンク">#</a></h2>
+<section id="id94">
+<h2>リストの改行表記<a class="headerlink" href="#id94" title="この見出しへのパーマリンク">#</a></h2>
 <div class="line-block">
 <div class="line">一部リスト表記 (<code class="docutils literal notranslate"><span class="pre">,</span></code> 区切りの式) で改行を含めることができます</div>
 <div class="line">従来では <code class="docutils literal notranslate"><span class="pre">_</span></code> による行連結が必要だったところを簡潔に記述できるようになりました</div>
@@ -4742,8 +4841,8 @@ selend
 </pre></div>
 </div>
 </section>
-<section id="id94">
-<h2>値型<a class="headerlink" href="#id94" title="この見出しへのパーマリンク">#</a></h2>
+<section id="id95">
+<h2>値型<a class="headerlink" href="#id95" title="この見出しへのパーマリンク">#</a></h2>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -5040,44 +5139,47 @@ selend
 </li>
 </ul>
 </li>
-<li><a class="reference internal" href="#id47">真偽判定</a></li>
-<li><a class="reference internal" href="#id48">コメント</a></li>
-<li><a class="reference internal" href="#id49">行結合</a></li>
-<li><a class="reference internal" href="#id50">マルチステートメント</a></li>
-<li><a class="reference internal" href="#id51">組み込み定数</a><ul>
+<li><a class="reference internal" href="#tf-cond">真偽判定</a></li>
+<li><a class="reference internal" href="#id48">コメント</a><ul>
+<li><a class="reference internal" href="#id49">ダミーコメント</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id50">行結合</a></li>
+<li><a class="reference internal" href="#id51">マルチステートメント</a></li>
+<li><a class="reference internal" href="#id52">組み込み定数</a><ul>
 <li><a class="reference internal" href="#nan">NaNについて</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#id52">16進数</a></li>
-<li><a class="reference internal" href="#id53">起動時パラメータ</a></li>
+<li><a class="reference internal" href="#id53">16進数</a></li>
+<li><a class="reference internal" href="#id54">起動時パラメータ</a></li>
 <li><a class="reference internal" href="#option">OPTION</a></li>
 <li><a class="reference internal" href="#def-dll">def_dll</a><ul>
-<li><a class="reference internal" href="#id54">使用可能な型名</a></li>
-<li><a class="reference internal" href="#id55">配列引数</a></li>
-<li><a class="reference internal" href="#id56">参照渡し</a></li>
-<li><a class="reference internal" href="#id57">構造体</a><ul>
-<li><a class="reference internal" href="#id58">ポインタではない構造体</a></li>
-<li><a class="reference internal" href="#id59">ネストした構造体</a></li>
+<li><a class="reference internal" href="#id55">使用可能な型名</a></li>
+<li><a class="reference internal" href="#id56">配列引数</a></li>
+<li><a class="reference internal" href="#id57">参照渡し</a></li>
+<li><a class="reference internal" href="#id58">構造体</a><ul>
+<li><a class="reference internal" href="#id59">ポインタではない構造体</a></li>
+<li><a class="reference internal" href="#id60">ネストした構造体</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#about-callback">コールバック</a></li>
 <li><a class="reference internal" href="#about-dll-string-param">文字列型について</a></li>
 <li><a class="reference internal" href="#dll">DLL関数定義およびその呼び出し方の例</a></li>
-<li><a class="reference internal" href="#id62">別名による呼び出し例</a></li>
+<li><a class="reference internal" href="#id63">別名による呼び出し例</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#id63">構造体</a><ul>
-<li><a class="reference internal" href="#id64">構造体定義</a></li>
-<li><a class="reference internal" href="#id65">構造体の利用方法</a><ul>
-<li><a class="reference internal" href="#id66">構造体の初期化</a></li>
-<li><a class="reference internal" href="#id67">構造体メンバへのアクセス</a></li>
-<li><a class="reference internal" href="#id68">構造体のメソッド</a></li>
-<li><a class="reference internal" href="#id69">ポインタから構造体を得る</a></li>
+<li><a class="reference internal" href="#id64">構造体</a><ul>
+<li><a class="reference internal" href="#id65">構造体定義</a></li>
+<li><a class="reference internal" href="#id66">構造体の利用方法</a><ul>
+<li><a class="reference internal" href="#id67">構造体の初期化</a></li>
+<li><a class="reference internal" href="#id68">構造体メンバへのアクセス</a></li>
+<li><a class="reference internal" href="#id69">構造体のメソッド</a></li>
+<li><a class="reference internal" href="#id70">ポインタから構造体を得る</a></li>
 </ul>
 </li>
 </ul>
 </li>
-<li><a class="reference internal" href="#id70">スレッド</a><ul>
+<li><a class="reference internal" href="#id71">スレッド</a><ul>
 <li><a class="reference internal" href="#thread">thread</a></li>
 </ul>
 </li>
@@ -5093,23 +5195,23 @@ selend
 </li>
 <li><a class="reference internal" href="#call">call</a><ul>
 <li><a class="reference internal" href="#uwsl">uwslファイルの読み込み</a></li>
-<li><a class="reference internal" href="#id74">uwslファイルについて</a><ul>
-<li><a class="reference internal" href="#id75">uwslファイル作成の流れ</a></li>
-<li><a class="reference internal" href="#id76">使用例</a></li>
+<li><a class="reference internal" href="#id75">uwslファイルについて</a><ul>
+<li><a class="reference internal" href="#id76">uwslファイル作成の流れ</a></li>
+<li><a class="reference internal" href="#id77">使用例</a></li>
 </ul>
 </li>
 </ul>
 </li>
-<li><a class="reference internal" href="#id77">例外処理</a><ul>
+<li><a class="reference internal" href="#id78">例外処理</a><ul>
 <li><a class="reference internal" href="#except">except例</a></li>
 <li><a class="reference internal" href="#finally">finally例</a></li>
 <li><a class="reference internal" href="#except-finally">except-finally例</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#id78">制御文</a><ul>
+<li><a class="reference internal" href="#id79">制御文</a><ul>
 <li><a class="reference internal" href="#if">if</a><ul>
-<li><a class="reference internal" href="#id79">単行if</a></li>
-<li><a class="reference internal" href="#id80">複数行if</a></li>
+<li><a class="reference internal" href="#id80">単行if</a></li>
+<li><a class="reference internal" href="#id81">複数行if</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#for">for</a></li>
@@ -5126,30 +5228,30 @@ selend
 </ul>
 </li>
 <li><a class="reference internal" href="#com">COMオブジェクト</a><ul>
-<li><a class="reference internal" href="#id81">プロパティの取得</a><ul>
-<li><a class="reference internal" href="#id82">プロパティ取得</a></li>
-<li><a class="reference internal" href="#id83">インデックス指定</a></li>
-<li><a class="reference internal" href="#id84">コレクションに対するインデックス指定</a></li>
+<li><a class="reference internal" href="#id82">プロパティの取得</a><ul>
+<li><a class="reference internal" href="#id83">プロパティ取得</a></li>
+<li><a class="reference internal" href="#id84">インデックス指定</a></li>
+<li><a class="reference internal" href="#id85">コレクションに対するインデックス指定</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#id85">プロパティの変更</a><ul>
-<li><a class="reference internal" href="#id86">代入</a></li>
-<li><a class="reference internal" href="#id87">インデックス指定による代入</a></li>
+<li><a class="reference internal" href="#id86">プロパティの変更</a><ul>
+<li><a class="reference internal" href="#id87">代入</a></li>
+<li><a class="reference internal" href="#id88">インデックス指定による代入</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#id88">メソッドの実行</a><ul>
-<li><a class="reference internal" href="#id89">名前なし引数</a></li>
-<li><a class="reference internal" href="#id90">名前付き引数</a></li>
-<li><a class="reference internal" href="#id91">参照渡し</a></li>
+<li><a class="reference internal" href="#id89">メソッドの実行</a><ul>
+<li><a class="reference internal" href="#id90">名前なし引数</a></li>
+<li><a class="reference internal" href="#id91">名前付き引数</a></li>
+<li><a class="reference internal" href="#id92">参照渡し</a></li>
 <li><a class="reference internal" href="#wmi">一部のWMIオブジェクトのメソッドについて</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#id92">型の確認</a></li>
+<li><a class="reference internal" href="#id93">型の確認</a></li>
 <li><a class="reference internal" href="#com-err-ign-com-err-ret">COM_ERR_IGN-COM_ERR_RET</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#id93">リストの改行表記</a></li>
-<li><a class="reference internal" href="#id94">値型</a></li>
+<li><a class="reference internal" href="#id94">リストの改行表記</a></li>
+<li><a class="reference internal" href="#id95">値型</a></li>
 </ul>
 </li>
 </ul>

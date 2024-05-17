@@ -65,6 +65,32 @@
 
             | 排他モードでファイルを開く
 
+        .. object:: F_AUTOCLOSE
+
+            | ファイルIDが破棄された際に自動でファイルをクローズする
+
+            .. admonition:: 自動クローズについて
+                :class: note
+
+                | ファイルIDオブジェクトの参照がすべて失われた場合に自動クローズ処理が実施されます
+
+                .. sourcecode:: uwscr
+
+                    // fopenが返すファイルIDをfputが処理した直後にファイルIDが失われるため自動クローズされhogehogeが書き込まれる
+                    fput(fopen("hgoe.txt", F_WRITE or F_AUTOCLOSE), "hogehoge")
+
+                    fid = fopen("fuga.txt", F_WRITE or F_AUTOCLOSE)
+                    fput(fid, "fugafuga")
+                    fid = EMPTY // この時点でfuga.txtが閉じられる
+
+                    fid = fopen("piyo.txt", F_WRITE or F_AUTOCLOSE)
+                    // ファイルIDのコピー
+                    fid2 = fid
+                    fput(fid, "fugafuga")
+                    fid = EMPTY // この時点ではまだpiyo.txtは閉じられない
+                    msgbox(1)
+                    fid2 = EMPTY // ここでpiyo.txtが閉じられる
+
     :param 文字列 省略可 追記文字列: ``F_APPEND`` 指定時に追記する文字列
 
     :return: モードによる
@@ -122,7 +148,16 @@
             | ダブルクォートで括られていたら単語と判断する
             | ダブルクォートはダブルクォートでエスケープする (``""``)
 
-    :return: 読み取った文字列
+    :return:
+
+        | 読み取った文字列
+        | 該当行または列が存在しない場合は ``EMPTY``
+
+        .. admonition:: EMPTYについて
+            :class: note
+
+            | UWSCでは指定行および列が存在しない場合に空文字(``""``)を返していましたが、UWSCRでは ``EMPTY`` を返すように変更しています
+            | これにより空文字を読み取った場合と、不正な行や列を読み取った場合を区別できるようになりました
 
     .. admonition:: サンプルコード
 
@@ -255,8 +290,8 @@
             fopen(path, F_APPEND) // エラー; F_APPEND指定時は第三引数が必須
 
             // 自動ファイルクローズ
-            print fget(fopen(path, F_READ), F_ALLTEXT)
-            // ファイル識別子を変数に代入しなかった場合は読み書き関数実行後に自動でファイルが閉じられます
+            print fput(fopen(path, F_WRITE or F_AUTOCLOSE), "auto close")
+            // F_AUTOCLOSEによりfput実行後にファイルが自動でクローズされる
 
 iniファイル
 -----------
