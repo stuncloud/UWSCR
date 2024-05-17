@@ -4454,33 +4454,24 @@ selend
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span> <span class="n">式</span>
 </pre></div>
 </div>
+<section id="id82">
+<h4>print文の出力<a class="headerlink" href="#id82" title="この見出しへのパーマリンク">#</a></h4>
 <div class="line-block">
-<div class="line">以下の処理が行われます</div>
+<div class="line">標準ではコンソールウィンドウに対して出力が行われます</div>
+<div class="line">以下の場合はprintウィンドウに出力します</div>
 </div>
 <ul class="simple">
-<li><dl class="simple">
-<dt>可能であればprintウィンドウに出力</dt><dd><ul>
-<li><p>通常実行時かつ <code class="docutils literal notranslate"><span class="pre">logprint(FALSE)</span></code> が呼ばれていない</p></li>
-<li><p>コンソール実行時に <code class="docutils literal notranslate"><span class="pre">logprint(TRUE)</span></code> が呼ばれたあと</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">OPTION</span> <span class="pre">GUIPRINT</span></code> が有効の場合</p></li>
+<li><p>ウィンドウモードでUWSCRを実行している場合 (<code class="docutils literal notranslate"><span class="pre">uwscr.exe</span> <span class="pre">-w</span></code>)</p></li>
+<li><p>GUIビルドのUWSCRを実行している場合</p></li>
 </ul>
-</dd>
-</dl>
-</li>
-<li><dl class="simple">
-<dt>可能であればコンソールに出力</dt><dd><ul>
-<li><p>コンソール実行時のみ</p></li>
-</ul>
-</dd>
-</dl>
-</li>
-<li><dl class="simple">
-<dt>可能であればログファイルに記録</dt><dd><ul>
-<li><p>ログを記録する設定の場合</p></li>
-</ul>
-</dd>
-</dl>
-</li>
-</ul>
+</section>
+<section id="id83">
+<h4>ログファイルへの書き出し<a class="headerlink" href="#id83" title="この見出しへのパーマリンク">#</a></h4>
+<div class="line-block">
+<div class="line">ログ出力が有効になっている場合はprintした内容をログファイルに書き出します</div>
+</div>
+</section>
 </section>
 </section>
 <section id="com">
@@ -4489,13 +4480,13 @@ selend
 <div class="line"><a class="reference internal" href="../builtins/comobject.html#createoleobj" title="createoleobj"><code class="xref py py-func docutils literal notranslate"><span class="pre">createoleobj()</span></code></a>, <a class="reference internal" href="../builtins/comobject.html#getactiveoleobj" title="getactiveoleobj"><code class="xref py py-func docutils literal notranslate"><span class="pre">getactiveoleobj()</span></code></a> により取得可能</div>
 <div class="line">またCOMオブジェクトのプロパティやメソッドが別のCOMオブジェクトを返す場合もあります</div>
 </div>
-<section id="id82">
-<h3>プロパティの取得<a class="headerlink" href="#id82" title="この見出しへのパーマリンク">#</a></h3>
+<section id="id84">
+<h3>プロパティの取得<a class="headerlink" href="#id84" title="この見出しへのパーマリンク">#</a></h3>
 <div class="line-block">
 <div class="line"><code class="docutils literal notranslate"><span class="pre">COMオブジェクト.プロパティ名</span></code> でプロパティの値を取得できます</div>
 </div>
-<section id="id83">
-<h4>プロパティ取得<a class="headerlink" href="#id83" title="この見出しへのパーマリンク">#</a></h4>
+<section id="id85">
+<h4>プロパティ取得<a class="headerlink" href="#id85" title="この見出しへのパーマリンク">#</a></h4>
 <blockquote>
 <div><div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">ws</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">createoleobj</span><span class="p">(</span><span class="s">&quot;WScript.Shell&quot;</span><span class="p">)</span>
 <span class="k">print</span><span class="w"> </span><span class="n">ws</span><span class="o">.</span><span class="n">CurrentDirectory</span><span class="w"> </span><span class="c">// 現在のワーキングフォルダのパスが表示される</span>
@@ -4503,8 +4494,8 @@ selend
 </div>
 </div></blockquote>
 </section>
-<section id="id84">
-<h4>インデックス指定<a class="headerlink" href="#id84" title="この見出しへのパーマリンク">#</a></h4>
+<section id="id86">
+<h4>インデックス指定<a class="headerlink" href="#id86" title="この見出しへのパーマリンク">#</a></h4>
 <blockquote>
 <div><div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">ws</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">createoleobj</span><span class="p">(</span><span class="s">&quot;WScript.Shell&quot;</span><span class="p">)</span>
 <span class="k">print</span><span class="w"> </span><span class="n">ws</span><span class="o">.</span><span class="n">Environment</span><span class="o">.</span><span class="n">item</span><span class="p">[</span><span class="s">&quot;windir&quot;</span><span class="p">]</span><span class="w"> </span><span class="c">// %SystemRoot%</span>
@@ -4513,8 +4504,8 @@ selend
 </div>
 </div></blockquote>
 </section>
-<section id="id85">
-<h4>コレクションに対するインデックス指定<a class="headerlink" href="#id85" title="この見出しへのパーマリンク">#</a></h4>
+<section id="id87">
+<h4>コレクションに対するインデックス指定<a class="headerlink" href="#id87" title="この見出しへのパーマリンク">#</a></h4>
 <blockquote>
 <div><div class="line-block">
 <div class="line">COMオブジェクトがコレクションの場合、インデックス指定で要素を得られる</div>
@@ -4531,13 +4522,13 @@ selend
 </div></blockquote>
 </section>
 </section>
-<section id="id86">
-<h3>プロパティの変更<a class="headerlink" href="#id86" title="この見出しへのパーマリンク">#</a></h3>
+<section id="id88">
+<h3>プロパティの変更<a class="headerlink" href="#id88" title="この見出しへのパーマリンク">#</a></h3>
 <div class="line-block">
 <div class="line">プロパティに対して値を代入することでプロパティを変更できます</div>
 </div>
-<section id="id87">
-<h4>代入<a class="headerlink" href="#id87" title="この見出しへのパーマリンク">#</a></h4>
+<section id="id89">
+<h4>代入<a class="headerlink" href="#id89" title="この見出しへのパーマリンク">#</a></h4>
 <div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">ws</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">createoleobj</span><span class="p">(</span><span class="s">&quot;WScript.Shell&quot;</span><span class="p">)</span>
 <span class="k">print</span><span class="w"> </span><span class="n">ws</span><span class="o">.</span><span class="n">CurrentDirectory</span><span class="w"> </span><span class="c">// 元々のカレントディレクトリ</span>
 <span class="n">ws</span><span class="o">.</span><span class="n">CurrentDirectory</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;D:\Hoge&quot;</span>
@@ -4545,8 +4536,8 @@ selend
 </pre></div>
 </div>
 </section>
-<section id="id88">
-<h4>インデックス指定による代入<a class="headerlink" href="#id88" title="この見出しへのパーマリンク">#</a></h4>
+<section id="id90">
+<h4>インデックス指定による代入<a class="headerlink" href="#id90" title="この見出しへのパーマリンク">#</a></h4>
 <div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">excel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">createoleobj</span><span class="p">(</span><span class="s">&quot;Excel.Application&quot;</span><span class="p">)</span>
 <span class="n">excel</span><span class="o">.</span><span class="n">visible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">TRUE</span>
 <span class="n">excel</span><span class="o">.</span><span class="n">Workbooks</span><span class="o">.</span><span class="n">Add</span><span class="p">()</span>
@@ -4562,8 +4553,8 @@ selend
 </div>
 </section>
 </section>
-<section id="id89">
-<h3>メソッドの実行<a class="headerlink" href="#id89" title="この見出しへのパーマリンク">#</a></h3>
+<section id="id91">
+<h3>メソッドの実行<a class="headerlink" href="#id91" title="この見出しへのパーマリンク">#</a></h3>
 <div class="line-block">
 <div class="line"><code class="docutils literal notranslate"><span class="pre">COMオブジェクト.メソッド名([引数,</span> <span class="pre">引数,</span> <span class="pre">...])</span></code> でメソッドを実行できます</div>
 <div class="line">通常の引数に加え、名前付き引数(<code class="docutils literal notranslate"><span class="pre">名前</span> <span class="pre">:=</span> <span class="pre">値</span></code>)や参照渡し(<code class="docutils literal notranslate"><span class="pre">ref</span> <span class="pre">変数</span></code>)が利用可能です</div>
@@ -4588,15 +4579,15 @@ selend
 </pre></div>
 </div>
 </div>
-<section id="id90">
-<h4>名前なし引数<a class="headerlink" href="#id90" title="この見出しへのパーマリンク">#</a></h4>
+<section id="id92">
+<h4>名前なし引数<a class="headerlink" href="#id92" title="この見出しへのパーマリンク">#</a></h4>
 <div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">ws</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">createoleobj</span><span class="p">(</span><span class="s">&quot;WScript.Shell&quot;</span><span class="p">)</span>
 <span class="k">print</span><span class="w"> </span><span class="n">ws</span><span class="o">.</span><span class="n">Popup</span><span class="p">(</span><span class="s">&quot;テキスト&quot;</span><span class="o">,</span><span class="w"> </span><span class="m">0</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;タイトル&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
-<section id="id91">
-<h4>名前付き引数<a class="headerlink" href="#id91" title="この見出しへのパーマリンク">#</a></h4>
+<section id="id93">
+<h4>名前付き引数<a class="headerlink" href="#id93" title="この見出しへのパーマリンク">#</a></h4>
 <blockquote>
 <div><div class="line-block">
 <div class="line">名前を指定してメソッドに引数を渡すことができます</div>
@@ -4615,8 +4606,8 @@ selend
 </div>
 </div></blockquote>
 </section>
-<section id="id92">
-<h4>参照渡し<a class="headerlink" href="#id92" title="この見出しへのパーマリンク">#</a></h4>
+<section id="id94">
+<h4>参照渡し<a class="headerlink" href="#id94" title="この見出しへのパーマリンク">#</a></h4>
 <blockquote>
 <div><div class="line-block">
 <div class="line"><code class="docutils literal notranslate"><span class="pre">ref</span></code> または <code class="docutils literal notranslate"><span class="pre">var</span></code> キーワードで参照渡しになります</div>
@@ -4690,8 +4681,8 @@ selend
 </div>
 </section>
 </section>
-<section id="id93">
-<h3>型の確認<a class="headerlink" href="#id93" title="この見出しへのパーマリンク">#</a></h3>
+<section id="id95">
+<h3>型の確認<a class="headerlink" href="#id95" title="この見出しへのパーマリンク">#</a></h3>
 <div class="line-block">
 <div class="line">COMオブジェクトをprintすることで型の名前を確認できます</div>
 <div class="line">オブジェクトがコレクションの場合は <code class="docutils literal notranslate"><span class="pre">型名[]</span></code> と表示されます</div>
@@ -4743,8 +4734,8 @@ selend
 </div>
 </section>
 </section>
-<section id="id94">
-<h2>リストの改行表記<a class="headerlink" href="#id94" title="この見出しへのパーマリンク">#</a></h2>
+<section id="id96">
+<h2>リストの改行表記<a class="headerlink" href="#id96" title="この見出しへのパーマリンク">#</a></h2>
 <div class="line-block">
 <div class="line">一部リスト表記 (<code class="docutils literal notranslate"><span class="pre">,</span></code> 区切りの式) で改行を含めることができます</div>
 <div class="line">従来では <code class="docutils literal notranslate"><span class="pre">_</span></code> による行連結が必要だったところを簡潔に記述できるようになりました</div>
@@ -4841,8 +4832,8 @@ selend
 </pre></div>
 </div>
 </section>
-<section id="id95">
-<h2>値型<a class="headerlink" href="#id95" title="この見出しへのパーマリンク">#</a></h2>
+<section id="id97">
+<h2>値型<a class="headerlink" href="#id97" title="この見出しへのパーマリンク">#</a></h2>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -5224,34 +5215,38 @@ selend
 <li><a class="reference internal" href="#select">select</a></li>
 <li><a class="reference internal" href="#exit">exit</a></li>
 <li><a class="reference internal" href="#exitexit">exitexit</a></li>
-<li><a class="reference internal" href="#print">print</a></li>
+<li><a class="reference internal" href="#print">print</a><ul>
+<li><a class="reference internal" href="#id82">print文の出力</a></li>
+<li><a class="reference internal" href="#id83">ログファイルへの書き出し</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li><a class="reference internal" href="#com">COMオブジェクト</a><ul>
-<li><a class="reference internal" href="#id82">プロパティの取得</a><ul>
-<li><a class="reference internal" href="#id83">プロパティ取得</a></li>
-<li><a class="reference internal" href="#id84">インデックス指定</a></li>
-<li><a class="reference internal" href="#id85">コレクションに対するインデックス指定</a></li>
+<li><a class="reference internal" href="#id84">プロパティの取得</a><ul>
+<li><a class="reference internal" href="#id85">プロパティ取得</a></li>
+<li><a class="reference internal" href="#id86">インデックス指定</a></li>
+<li><a class="reference internal" href="#id87">コレクションに対するインデックス指定</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#id86">プロパティの変更</a><ul>
-<li><a class="reference internal" href="#id87">代入</a></li>
-<li><a class="reference internal" href="#id88">インデックス指定による代入</a></li>
+<li><a class="reference internal" href="#id88">プロパティの変更</a><ul>
+<li><a class="reference internal" href="#id89">代入</a></li>
+<li><a class="reference internal" href="#id90">インデックス指定による代入</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#id89">メソッドの実行</a><ul>
-<li><a class="reference internal" href="#id90">名前なし引数</a></li>
-<li><a class="reference internal" href="#id91">名前付き引数</a></li>
-<li><a class="reference internal" href="#id92">参照渡し</a></li>
+<li><a class="reference internal" href="#id91">メソッドの実行</a><ul>
+<li><a class="reference internal" href="#id92">名前なし引数</a></li>
+<li><a class="reference internal" href="#id93">名前付き引数</a></li>
+<li><a class="reference internal" href="#id94">参照渡し</a></li>
 <li><a class="reference internal" href="#wmi">一部のWMIオブジェクトのメソッドについて</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#id93">型の確認</a></li>
+<li><a class="reference internal" href="#id95">型の確認</a></li>
 <li><a class="reference internal" href="#com-err-ign-com-err-ret">COM_ERR_IGN-COM_ERR_RET</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#id94">リストの改行表記</a></li>
-<li><a class="reference internal" href="#id95">値型</a></li>
+<li><a class="reference internal" href="#id96">リストの改行表記</a></li>
+<li><a class="reference internal" href="#id97">値型</a></li>
 </ul>
 </li>
 </ul>
