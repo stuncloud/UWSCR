@@ -2258,7 +2258,7 @@ impl Parser {
                     self.bump();
                     self.bump();
                     if let Token::Bool(b) = self.current_token.token {
-                        Statement::Option(OptionSetting::GuiPrint(b))
+                        Statement::Option(OptionSetting::ForceBool(b))
                     } else {
                         self.error_current_token_is_invalid();
                         return None;
