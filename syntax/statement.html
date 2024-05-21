@@ -2094,6 +2094,30 @@ UWSCRでは演算子が追加され論理演算およびビット演算を明示
 <span class="k">print</span><span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="m">2</span><span class="w">  </span><span class="o">?</span><span class="w"> </span><span class="s">&#39;真&#39;</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="s">&#39;偽&#39;</span><span class="w"> </span><span class="c">// 偽</span>
 </pre></div>
 </div>
+<div class="caution admonition">
+<p class="admonition-title">UWSCRとの違い</p>
+<div class="line-block">
+<div class="line">UWSCRでは条件式において、式の評価結果が文字列であった場合にそれを数値(<code class="docutils literal notranslate"><span class="pre">VAR_DOUBLE</span></code> 相当)へと変換し、成功すれば0または0以外による判定を行っていました</div>
+<div class="line">そのため、以下のような記述ではUWSCとUWSCRで異なる結果となってしまいます</div>
+</div>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="k">if</span><span class="w"> </span><span class="s">&quot;0&quot;</span><span class="w"> </span><span class="k">then</span>
+<span class="w">    </span><span class="k">print</span><span class="w"> </span><span class="s">&quot;UWSCRでは長さ1以上の文字列であるため真と判定される&quot;</span>
+<span class="k">else</span>
+<span class="w">    </span><span class="k">print</span><span class="w"> </span><span class="s">&quot;UWSCでは数値の0に変換され偽と判定される&quot;</span>
+<span class="k">endif</span>
+</pre></div>
+</div>
+<div class="line-block">
+<div class="line">このような場合は <code class="docutils literal notranslate"><span class="pre">val</span></code> や <code class="docutils literal notranslate"><span class="pre">eval</span></code> 関数を使ってください</div>
+</div>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="k">if</span><span class="w"> </span><span class="n">val</span><span class="p">(</span><span class="s">&quot;0&quot;</span><span class="p">)</span><span class="w"> </span><span class="k">then</span>
+<span class="w">    </span><span class="k">print</span><span class="w"> </span><span class="s">&quot;未到達&quot;</span>
+<span class="k">else</span>
+<span class="w">    </span><span class="k">print</span><span class="w"> </span><span class="s">&quot;0なので偽と判定される&quot;</span>
+<span class="k">endif</span>
+</pre></div>
+</div>
+</div>
 </section>
 <section id="id48">
 <h2>コメント<a class="headerlink" href="#id48" title="この見出しへのパーマリンク">#</a></h2>

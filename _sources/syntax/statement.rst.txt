@@ -1692,6 +1692,30 @@ UWSCRでは演算子が追加され論理演算およびビット演算を明示
     print 1 == 1 ? '真' : '偽' // 真
     print 1 > 2  ? '真' : '偽' // 偽
 
+.. admonition:: UWSCRとの違い
+    :class: caution
+
+    | UWSCRでは条件式において、式の評価結果が文字列であった場合にそれを数値(``VAR_DOUBLE`` 相当)へと変換し、成功すれば0または0以外による判定を行っていました
+    | そのため、以下のような記述ではUWSCとUWSCRで異なる結果となってしまいます
+
+    .. sourcecode:: uwscr
+
+        if "0" then
+            print "UWSCRでは長さ1以上の文字列であるため真と判定される"
+        else
+            print "UWSCでは数値の0に変換され偽と判定される"
+        endif
+
+    | このような場合は ``val`` や ``eval`` 関数を使ってください
+
+    .. sourcecode:: uwscr
+
+        if val("0") then
+            print "未到達"
+        else
+            print "0なので偽と判定される"
+        endif
+
 コメント
 --------
 
