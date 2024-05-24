@@ -1,0 +1,52 @@
+name: オンラインヘルプ関連
+description: オンラインヘルプに関する報告はこちら
+labels:
+  - "documentation"
+assignees: stuncloud
+body:
+  - type: dropdown
+    attributes:
+      label: 種別
+      description: 報告内容の種別を選択してください
+      multiple: false
+      options:
+        - 質問
+        - 誤字
+        - 要修正
+        - 要追記
+    validations:
+      required: true
+  - type: dropdown
+    attributes:
+      label: 対象ページ
+      description: 報告の対象となるページを選択してください
+      multiple: true
+      options:
+        - トップページ
+        - インストール方法
+        - 実行方法
+        - 設定ファイル
+        - ビルド方法
+        - Language Server機能について
+        - スクリプト構文
+        - 特殊変数
+        - 文字列操作関数
+        - ウィンドウ操作関数
+        - スクリプト制御
+        - システム関数
+        - ファイル操作関数
+        - GUI
+        - 配列操作関数
+        - 数学関数
+        - COMオブジェクト
+        - Excel
+        - ウェブ関連
+        - その他
+    validations:
+      required: true
+  - type: textarea
+    validations:
+      required: true
+    attributes:
+      label: 報告内容
+      description: 詳細を記述してください
