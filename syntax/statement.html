@@ -4858,150 +4858,203 @@ selend
 </section>
 <section id="id97">
 <h2>値型<a class="headerlink" href="#id97" title="この見出しへのパーマリンク">#</a></h2>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
+<div class="line-block">
+<div class="line">UWSCRは動的型付け言語であり、その値は状況により様々な型を持ちます</div>
+<div class="line">以下に値が取りうる型とその詳細を記します</div>
+<div class="line">各項目は以下を示します</div>
+</div>
+<ul class="simple">
+<li><p>型: 型の呼称</p></li>
+<li><p>解説: 型についての解説</p></li>
+<li><dl class="simple">
+<dt>文字列変換時: 暗黙の型変換で文字列に変換された場合</dt><dd><ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">_name_</span></code> のような表記はプレースホルダです</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p>種別: 値であるか参照であるか</p></li>
+</ul>
+<div class="table-wrapper docutils container" id="id98">
+<table class="docutils align-default" id="id98">
+<caption><span class="caption-text">型一覧</span><a class="headerlink" href="#id98" title="このテーブルへのパーマリンク">#</a></caption>
 <thead>
 <tr class="row-odd"><th class="head"><p>型</p></th>
-<th class="head"><p>詳細</p></th>
-<th class="head"><p>参照</p></th>
+<th class="head"><p>解説</p></th>
+<th class="head"><p>種別</p></th>
+<th class="head"><p>文字列変換時</p></th>
 </tr>
 </thead>
 <tbody>
 <tr class="row-even"><td><p>数値</p></td>
 <td><p>double (倍精度浮動小数点型)</p></td>
-<td></td>
+<td><p>値</p></td>
+<td><p>123 → <code class="docutils literal notranslate"><span class="pre">&quot;123&quot;</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p>文字列</p></td>
 <td><p>文字列</p></td>
-<td></td>
+<td><p>値</p></td>
+<td><p>そのまま</p></td>
 </tr>
 <tr class="row-even"><td><p>真偽値</p></td>
 <td><p>TRUE/FALSE</p></td>
-<td></td>
+<td><p>値</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;True&quot;</span></code> / <code class="docutils literal notranslate"><span class="pre">&quot;False&quot;</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p>配列</p></td>
 <td><p>要素として異なる値型を格納できる</p></td>
-<td></td>
+<td><p>値</p></td>
+<td><p>[1,&quot;a&quot;] → <code class="docutils literal notranslate"><span class="pre">[1,</span> <span class="pre">a]</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p>連想配列</p></td>
 <td><p>連想配列</p></td>
-<td><p>✅</p></td>
+<td><p>参照</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">{&quot;KEY1&quot;:</span> <span class="pre">value1,</span> <span class="pre">&quot;KEY2&quot;:</span> <span class="pre">value2}</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p>無名関数</p></td>
 <td><p>名前なしで定義されたfunction/procedure</p></td>
-<td></td>
+<td><p>値</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">anonymous</span> <span class="pre">function(_params_)</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p>関数</p></td>
 <td><p>名前ありで定義されたfunction/procedure</p></td>
-<td></td>
+<td><p>値</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">function:</span> <span class="pre">_name_(_params_)</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p>非同期関数</p></td>
 <td><p>async宣言した関数</p></td>
-<td></td>
+<td><p>値</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">function:</span> <span class="pre">_name_(_params_)</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p>組み込み関数</p></td>
 <td><p>組み込み(ビルトイン)関数</p></td>
-<td></td>
+<td><p>値</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">builtin:</span> <span class="pre">_name_()</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p>モジュール</p></td>
 <td><p>module定義</p></td>
-<td><p>✅</p></td>
+<td><p>参照</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">module:</span> <span class="pre">_name_</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p>クラス定義</p></td>
 <td><p>class定義</p></td>
-<td></td>
+<td><p>値</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">class:</span> <span class="pre">_name_</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p>クラスインスタンス</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">クラス名()</span></code> で得られる</p></td>
-<td><p>✅</p></td>
+<td><p>参照</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">instance</span> <span class="pre">of</span> <span class="pre">_name_</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p>NULL</p></td>
 <td><p>def_dllにおけるNULL文字(chr(0))、UObjectのnull値</p></td>
-<td></td>
+<td><p>値</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">\0</span> <span class="pre">(chr(0))</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p>EMPTY</p></td>
 <td><p>空の値、場合により空文字や0として扱われる</p></td>
-<td></td>
+<td><p>値</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;&quot;</span> <span class="pre">(空文字)</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p>NOTHING</p></td>
 <td><p>空オブジェクト</p></td>
-<td></td>
+<td><p>値</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">NOTHING</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p>正規表現</p></td>
 <td><p>正規表現パターン</p></td>
-<td></td>
+<td><p>値</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">regex:</span> <span class="pre">_pattern_</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p>UObject</p></td>
 <td><p>UObject</p></td>
-<td></td>
+<td><p>値</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">JSON文字列</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p>列挙型</p></td>
 <td><p>enum定義</p></td>
-<td></td>
+<td><p>値</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">Enum:</span> <span class="pre">_name_</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p>タスク</p></td>
 <td><p>非同期に行われる処理</p></td>
-<td><p>✅</p></td>
+<td><p>参照</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">Task</span> <span class="pre">[_state_]</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p>DLL関数</p></td>
 <td><p>def_dll定義</p></td>
-<td></td>
+<td><p>値</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">_name_(_params_):_rtype_:_path_</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p>構造体定義</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">struct-endstruct</span></code> で得られる、関数のように呼ぶと構造体を得られる</p></td>
-<td></td>
+<td><p>値</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">_name_</span> <span class="pre">{_member_:</span> <span class="pre">_type_}</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p>構造体</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">構造体定義名()</span></code> で得られる</p></td>
-<td><p>✅</p></td>
+<td><p>参照</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">_name_(_address_)</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p>COMオブジェクト</p></td>
 <td><p>createoleobj/getactiveoleobj</p></td>
-<td><p>✅</p></td>
+<td><p>参照</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ComObject(_type_or_address_)</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p>Unknownオブジェクト</p></td>
 <td><p>COMオブジェクトのプロパティ・メソッドが返す場合がある</p></td>
-<td><p>✅</p></td>
+<td><p>参照</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">IUnknown(_address_)</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p>VARIANT</p></td>
-<td><p>COMオブジェクトのプロパティ・メソッドが返す値でUWSCR値型に変換できなかったもの</p></td>
-<td></td>
+<td><p>値</p></td>
+<td><p>値</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VARIANT(_vt_)</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p>BrowserBuilderオブジェクト</p></td>
 <td><p>起動するブラウザを構成するためのオブジェクト</p></td>
-<td><p>✅</p></td>
+<td><p>参照</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">BrowserBuilder</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p>Browserオブジェクト</p></td>
 <td><p>操作対象のブラウザを示すオブジェクト</p></td>
-<td></td>
+<td><p>値</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">Browser:</span> <span class="pre">_id_</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p>TabWindowオブジェクト</p></td>
 <td><p>ブラウザのタブを示すオブジェクト</p></td>
-<td></td>
+<td><p>値</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">TabWindow:</span> <span class="pre">_id_</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p>RemoteObjectオブジェクト</p></td>
 <td><p>Webページ上のJavaScriptオブジェクト</p></td>
-<td></td>
+<td><p>値</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">RemoteObject(_id_)</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p>WebRequestオブジェクト</p></td>
 <td><p>HTTPリクエストを構成するためのオブジェクト</p></td>
-<td><p>✅</p></td>
+<td><p>参照</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">WebRequest</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p>WebResponseオブジェクト</p></td>
 <td><p>HTTPレスポンスを示すオブジェクト</p></td>
-<td></td>
+<td><p>値</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">_responsebody_</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p>HtmlNodeオブジェクト</p></td>
 <td><p>パースされたHTMLドキュメントを示すオブジェクト</p></td>
-<td></td>
+<td><p>値</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">_html_</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p>ファイルID</p></td>
 <td><p>fopen()が返す</p></td>
-<td><p>✅</p></td>
+<td><p>参照</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">_filepath_(_detail_)</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p>バイト配列</p></td>
 <td><p>encode()で得られる</p></td>
-<td></td>
+<td><p>値</p></td>
+<td><p>[1,2,3] → <code class="docutils literal notranslate"><span class="pre">[1,</span> <span class="pre">2,</span> <span class="pre">3]</span></code></p></td>
 </tr>
 </tbody>
 </table>
