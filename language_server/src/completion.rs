@@ -1072,6 +1072,27 @@ endif
 ```
 "#
         ),
+        new_snippet(
+            "OPTION CONDUWSC", "OPTION CONDUWSC",
+r#"OPTION CONDUWSC${1:=${2:TRUE}}
+$0"#,
+"OPTION設定: 条件式の判定をUWSC方式にする",
+r#"有効にすることで条件式にてUWSCと同等の判定を行う
+
+```uwscr
+OPTION CONDUWSC
+
+if "0" then
+    print "出力されない"
+else
+    print "文字列0は偽と判定されるため出力される"
+endif
+
+if "hoge" then // 数値変換できないためエラー
+endif
+```
+"#
+        ),
     ]
 }
 

@@ -2267,6 +2267,20 @@ impl Parser {
                     Statement::Option(OptionSetting::ForceBool(true))
                 }
             },
+            "conduwsc" => {
+                if self.is_next_token(&Token::EqualOrAssign) {
+                    self.bump();
+                    self.bump();
+                    if let Token::Bool(b) = self.current_token.token {
+                        Statement::Option(OptionSetting::CondUwsc(b))
+                    } else {
+                        self.error_current_token_is_invalid();
+                        return None;
+                    }
+                } else {
+                    Statement::Option(OptionSetting::CondUwsc(true))
+                }
+            },
             "__allow_ie_object__" => {
                 if ! self.is_next_token(&Token::EqualOrAssign) {
                     Statement::Option(OptionSetting::AllowIEObj(true))

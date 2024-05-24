@@ -1579,7 +1579,7 @@ moduleのスコープ
 .. admonition:: 条件式について
     :class: tip
 
-    | 三項演算子の条件式では式の真偽性が評価されます
+    | 三項演算子の条件式はオプションにより異なる判定を行います
     | 詳しくは :ref:`tf_cond` を参照してください
 
 .. sourcecode:: uwscr
@@ -1639,20 +1639,22 @@ UWSCRでは演算子が追加され論理演算およびビット演算を明示
 
 .. _tf_cond:
 
-真偽判定
---------
+条件式の判定
+------------
+
+| 以下の式で条件判定が行われます
+
+- if文における ``if`` 及び ``elseif`` の式
+- while-wend文における ``while`` の式
+- repeat-until文における ``until`` の式
+- 三項演算子における ``?`` の左辺の式
+
+条件判定はオプションにより三種類の方法で行われます
+
+真偽性判定 (デフォルト)
+^^^^^^^^^^^^^^^^^^^^^^^
 
 | if等の条件式では単に真偽値(``TRUE``, ``FALSE``)であることではなく、式の真偽性を評価します
-
-.. admonition:: 真偽判定の行われる式
-    :class: hint
-
-    | 以下の式で真偽判定が行われます
-
-    - if文における ``if`` 及び ``elseif`` の式
-    - while-wend文における ``while`` の式
-    - repeat-until文における ``until`` の式
-    - 三項演算子における ``?`` の左辺の式
 
 | 式の評価結果が以下となる場合は **偽** と判定されます
 
@@ -1673,7 +1675,10 @@ UWSCRでは演算子が追加され論理演算およびビット演算を明示
     print [1,2,3]            ? '真' : '偽' // 真
     print []                 ? '真' : '偽' // 偽
 
-ただし、 ``OPTION FORCEBOOL`` が指定されている場合は真偽値(``TRUE``, ``FALSE``)を返す式のみが有効となります
+真偽値のみ
+^^^^^^^^^^
+
+| ``OPTION FORCEBOOL`` が指定されている場合は真偽値(``TRUE``, ``FALSE``)を返す式のみが有効となります
 
 .. sourcecode:: uwscr
 
@@ -1692,7 +1697,7 @@ UWSCRでは演算子が追加され論理演算およびビット演算を明示
     print 1 == 1 ? '真' : '偽' // 真
     print 1 > 2  ? '真' : '偽' // 偽
 
-.. admonition:: UWSCとの違い
+.. admonition:: UWSCとの差異による注意点
     :class: caution
 
     | UWSCでは条件式において、式の評価結果が文字列であった場合にそれを数値(``VAR_DOUBLE`` 相当)へと変換し、成功すれば0または0以外による判定を行っていました
@@ -1706,7 +1711,7 @@ UWSCRでは演算子が追加され論理演算およびビット演算を明示
             print "UWSCでは数値の0に変換され偽と判定される"
         endif
 
-    | このような場合は ``val`` や ``eval`` 関数を使ってください
+    | このような場合は ``val`` 関数を使ってください
 
     .. sourcecode:: uwscr
 
@@ -1715,6 +1720,24 @@ UWSCRでは演算子が追加され論理演算およびビット演算を明示
         else
             print "0なので偽と判定される"
         endif
+
+    | あるいは後述する ``CONDUWSC`` オプションをご利用ください
+
+UWSC方式
+^^^^^^^^
+
+| ``OPTION CONDUWSC`` が指定されている場合はUWSCと同等の判定を行います
+| ``FORCEBOOL`` との併用はできず、 いずれも有効の場合 ``FORCEBOOL`` が優先されます
+
+.. sourcecode:: uwscr
+
+    OPTION CONDUWSC
+
+    print NOTHING ? '真' : '偽' // 真
+    print ""      ? '真' : '偽' // エラー
+    print "123"   ? '真' : '偽' // 真
+    print "0"     ? '真' : '偽' // 偽
+    print "hoge"  ? '真' : '偽' // エラー
 
 コメント
 --------
@@ -2082,6 +2105,7 @@ OPTION
 .. object:: OPTION FORCEBOOL[=bool]
 
     | TRUEにした場合if文やwhile, repeatの条件式がTRUEまたはFALSEしか受け付けなくなります
+    | ``CONDUWSC`` と競合した場合はこちらが優先されます
 
     .. sourcecode:: uwscr
 
@@ -2095,6 +2119,10 @@ OPTION
             print "↑はエラーになります"
         endif
 
+.. object:: OPTION CONDUWSC[=bool]
+
+    | TRUEにした場合if文やwhile, repeatの条件式の判定方法がUWSCと同等になります
+    | ``FORCEBOOL`` が有効な場合は無視されます
 
 def_dll
 -------
@@ -3180,7 +3208,7 @@ if
 .. admonition:: 条件式について
     :class: tip
 
-    | if文の条件式では式の真偽性が評価されます
+    | if文の条件式はオプションにより異なる判定を行います
     | 詳しくは :ref:`tf_cond` を参照してください
 
 
@@ -3209,7 +3237,7 @@ if
 .. admonition:: 条件式について
     :class: tip
 
-    | if及びelseifの条件式では式の真偽性が評価されます
+    | if及びelseifの条件式はオプションにより異なる判定を行います
     | 詳しくは :ref:`tf_cond` を参照してください
 
 
@@ -3424,7 +3452,7 @@ while
 .. admonition:: 条件式について
     :class: tip
 
-    | while文の条件式では式の真偽性が評価されます
+    | while文の条件式はオプションにより異なる判定を行います
     | 詳しくは :ref:`tf_cond` を参照してください
 
 
@@ -3459,7 +3487,7 @@ repeat
 .. admonition:: 条件式について
     :class: tip
 
-    | repeat文の条件式では式の真偽性が評価されます
+    | repeat文の条件式はオプションにより異なる判定を行います
     | 詳しくは :ref:`tf_cond` を参照してください
 
 

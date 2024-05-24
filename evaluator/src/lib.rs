@@ -6,7 +6,7 @@ pub mod error;
 pub mod gui;
 
 use environment::*;
-use object::*;
+use object::{comobject::VariantExt, *};
 use builtins::*;
 use def_dll::*;
 use error::{UError, UErrorKind, UErrorMessage};
@@ -32,14 +32,16 @@ use std::panic;
 use std::ops::{Add, Sub, Mul, Div, Rem, BitOr, BitAnd, BitXor};
 
 use windows::Win32::Foundation::HWND;
+use windows::Win32::System::Variant::VT_R8;
 
-use num_traits::FromPrimitive;
+use num_traits::{FromPrimitive, Zero};
 use regex::Regex;
 use serde_json;
 use serde_json::Value;
 
 pub static LOGPRINTWIN: OnceLock<Mutex<Result<LogPrintWin, UError>>> = OnceLock::new();
-static FORCE_BOOL: OnceLock<bool> = OnceLock::new();
+// static FORCE_BOOL: OnceLock<bool> = OnceLock::new();
+static CONDITION_TYPE: OnceLock<ConditionType> = OnceLock::new();
 static INIT_LOG_FILE: Once = Once::new();
 
 type EvalResult<T> = Result<T, UError>;
@@ -57,6 +59,14 @@ impl ShortCircuitCondition {
             ShortCircuitCondition::Other(b) => b,
         }
     }
+}
+
+#[derive(Debug, Default)]
+enum ConditionType {
+    ForceBool,
+    UWSC,
+    #[default]
+    Default,
 }
 
 #[derive(Debug)]
@@ -479,6 +489,9 @@ impl Evaluator {
             },
             OptionSetting::ForceBool(b) => {
                 usettings.options.force_bool = b;
+            },
+            OptionSetting::CondUwsc(b) => {
+                usettings.options.cond_uwsc = b;
             }
             OptionSetting::AllowIEObj(b) => usettings.options.allow_ie_object = b,
         }
@@ -673,34 +686,55 @@ impl Evaluator {
 
     /// 条件式の真偽をboolで返す
     fn eval_conditional_expression(&mut self, expression: Expression) -> EvalResult<bool> {
-        let force_bool = FORCE_BOOL.get_or_init(|| {
+        let cond_type = CONDITION_TYPE.get_or_init(|| {
             let usetttings = USETTINGS.lock().unwrap();
-            usetttings.options.force_bool
+            match (usetttings.options.force_bool, usetttings.options.cond_uwsc) {
+                (true, _) => ConditionType::ForceBool,
+                (false, true) => ConditionType::UWSC,
+                (false, false) => ConditionType::Default,
+            }
         });
         if self.short_circuit {
-            self.eval_conditional_expression_short_circuit(expression, *force_bool).map(|c| c.to_bool())
+            self.eval_conditional_expression_short_circuit(expression, cond_type).map(|c| c.to_bool())
         } else {
-            self.eval_conditional_expression_inner(expression, *force_bool)
+            self.eval_conditional_expression_inner(expression, cond_type)
         }
     }
-    fn eval_conditional_expression_inner(&mut self, expression: Expression, force_bool: bool) -> EvalResult<bool> {
-        if force_bool {
-            match self.eval_expression(expression)? {
+    fn eval_conditional_expression_inner(&mut self, expression: Expression, cond_type: &ConditionType) -> EvalResult<bool> {
+        match cond_type {
+            ConditionType::ForceBool => match self.eval_expression(expression)? {
                 Object::Bool(b) => Ok(b),
                 _ => Err(UError::new(UErrorKind::EvaluatorError, UErrorMessage::ForceBoolError))
-            }
-        } else {
-            Ok(self.eval_expression(expression)?.is_truthy())
+            },
+            ConditionType::UWSC => {
+                let obj = self.eval_expression(expression)?;
+                match obj {
+                    // NULLは例外
+                    Object::Null => Ok(true),
+                    obj => {
+                        let variant = Variant::try_from(obj)?;
+                        let variant_double = variant.0.change_type(VT_R8)?;
+                        let double = Object::try_from(Some(variant_double))?;
+                        if let Object::Num(n) = double {
+                            let b = ! n.is_zero();
+                            Ok(b)
+                        } else {
+                            // 多分Unreachableなんだけど
+                            Err(UError::new(UErrorKind::EvaluatorError, UErrorMessage::SyntaxError))
+                        }
+                    }
+                }
+            },
+            ConditionType::Default => Ok(self.eval_expression(expression)?.is_truthy()),
         }
-
     }
-    fn eval_conditional_expression_short_circuit(&mut self, expression: Expression, force_bool: bool) -> EvalResult<ShortCircuitCondition> {
+    fn eval_conditional_expression_short_circuit(&mut self, expression: Expression, cond_type: &ConditionType) -> EvalResult<ShortCircuitCondition> {
         match expression {
             Expression::Infix(Infix::And, l, r) |
             Expression::Infix(Infix::AndL, l, r) => {
-                match self.eval_conditional_expression_short_circuit(*l, force_bool)? {
+                match self.eval_conditional_expression_short_circuit(*l, cond_type)? {
                     ShortCircuitCondition::Other(true) => {
-                        match self.eval_conditional_expression_short_circuit(*r, force_bool)? {
+                        match self.eval_conditional_expression_short_circuit(*r, cond_type)? {
                             ShortCircuitCondition::Other(true) => {
                                 Ok(ShortCircuitCondition::Other(true))
                             },
@@ -718,14 +752,14 @@ impl Evaluator {
             },
             Expression::Infix(Infix::Or, l, r) |
             Expression::Infix(Infix::OrL, l, r) => {
-                match self.eval_conditional_expression_short_circuit(*l, force_bool)? {
+                match self.eval_conditional_expression_short_circuit(*l, cond_type)? {
                     ShortCircuitCondition::And(true) |
                     ShortCircuitCondition::Other(true) => {
                         Ok(ShortCircuitCondition::Or(true))
                     },
                     ShortCircuitCondition::And(false) |
                     ShortCircuitCondition::Other(false) => {
-                        match self.eval_conditional_expression_short_circuit(*r, force_bool)? {
+                        match self.eval_conditional_expression_short_circuit(*r, cond_type)? {
                             ShortCircuitCondition::Other(true) => {
                                 Ok(ShortCircuitCondition::Or(true))
                             },
@@ -742,7 +776,7 @@ impl Evaluator {
                 }
             },
             expression => {
-                self.eval_conditional_expression_inner(expression, force_bool)
+                self.eval_conditional_expression_inner(expression, cond_type)
                     .map(|b| ShortCircuitCondition::Other(b))
             },
         }

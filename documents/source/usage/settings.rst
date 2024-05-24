@@ -105,6 +105,8 @@
              "gui_print": false
             // bool  : if文などの条件式をTRUEかFALSEに限定する
              "force_bool": false
+            // bool  : if文などの条件式の判定方法をUWSCと同じにする
+             "cond_uwsc": false
         },
         // BrowserControl設定
         "browser": {

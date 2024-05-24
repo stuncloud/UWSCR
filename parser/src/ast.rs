@@ -2504,6 +2504,7 @@ pub enum OptionSetting {
     Dlgtitle(String),
     GuiPrint(bool),
     ForceBool(bool),
+    CondUwsc(bool),
     AllowIEObj(bool),
 }
 

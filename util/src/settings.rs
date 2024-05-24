@@ -172,6 +172,9 @@ pub struct UOption {
     /// 条件式が真偽値を返さなければならないかどうか
     #[serde(default)]
     pub force_bool: bool,
+    /// 条件式の判定をUWSCと同等にする
+    #[serde(default)]
+    pub cond_uwsc: bool,
     /// IEオブジェクトを許可 (非公開)
     #[serde(skip_serializing, default)]
     #[schemars(skip)]
@@ -197,6 +200,7 @@ impl Default for UOption {
             same_str: false,
             gui_print: false,
             force_bool: false,
+            cond_uwsc: false,
             allow_ie_object: false,
         }
     }
