@@ -24,7 +24,7 @@ pub use self::class::ClassInstance;
 pub use variant::Variant;
 use browser::{BrowserBuilder, Browser, TabWindow, RemoteObject};
 pub use web::{WebRequest, WebResponse, HtmlNode};
-pub use comobject::{ComObject, ComError, ComArg, Unknown, Excel, ExcelOpenFlag, ObjectTitle};
+pub use comobject::{ComObject, ComError, ComArg, Unknown, Excel, ExcelOpenFlag, ObjectTitle, VariantExt};
 
 use util::settings::USETTINGS;
 use crate::environment::Layer;
@@ -527,6 +527,24 @@ impl Object {
             _ => true
         }
     }
+    pub fn as_uwsc_cond(self) -> EvalResult<bool> {
+        match self {
+            Object::Null => Ok(true),
+            obj => {
+                let variant = Variant::try_from(obj)?;
+                let variant_double = variant.0.change_type(windows::Win32::System::Variant::VT_R8)?;
+                let double = Object::try_from(Some(variant_double))?;
+                if let Object::Num(n) = double {
+                    let b = ! n.is_zero();
+                    Ok(b)
+                } else {
+                    // 多分Unreachableなんだけど
+                    Err(UError::new(UErrorKind::EvaluatorError, UErrorMessage::SyntaxError))
+                }
+            }
+        }
+    }
+
     pub fn as_f64(&self, null_as_zero: bool) -> Option<f64> {
         match self {
             Object::Num(n) => Some(*n),

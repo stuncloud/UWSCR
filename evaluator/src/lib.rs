@@ -6,7 +6,7 @@ pub mod error;
 pub mod gui;
 
 use environment::*;
-use object::{comobject::VariantExt, *};
+use object::*;
 use builtins::*;
 use def_dll::*;
 use error::{UError, UErrorKind, UErrorMessage};
@@ -32,9 +32,8 @@ use std::panic;
 use std::ops::{Add, Sub, Mul, Div, Rem, BitOr, BitAnd, BitXor};
 
 use windows::Win32::Foundation::HWND;
-use windows::Win32::System::Variant::VT_R8;
 
-use num_traits::{FromPrimitive, Zero};
+use num_traits::FromPrimitive;
 use regex::Regex;
 use serde_json;
 use serde_json::Value;
@@ -684,16 +683,20 @@ impl Evaluator {
         }
     }
 
-    /// 条件式の真偽をboolで返す
-    fn eval_conditional_expression(&mut self, expression: Expression) -> EvalResult<bool> {
-        let cond_type = CONDITION_TYPE.get_or_init(|| {
+    fn get_condition_type() -> &'static ConditionType {
+        CONDITION_TYPE.get_or_init(|| {
             let usetttings = USETTINGS.lock().unwrap();
             match (usetttings.options.force_bool, usetttings.options.cond_uwsc) {
                 (true, _) => ConditionType::ForceBool,
                 (false, true) => ConditionType::UWSC,
                 (false, false) => ConditionType::Default,
             }
-        });
+        })
+    }
+
+    /// 条件式の真偽をboolで返す
+    fn eval_conditional_expression(&mut self, expression: Expression) -> EvalResult<bool> {
+        let cond_type = Self::get_condition_type();
         if self.short_circuit {
             self.eval_conditional_expression_short_circuit(expression, cond_type).map(|c| c.to_bool())
         } else {
@@ -708,22 +711,7 @@ impl Evaluator {
             },
             ConditionType::UWSC => {
                 let obj = self.eval_expression(expression)?;
-                match obj {
-                    // NULLは例外
-                    Object::Null => Ok(true),
-                    obj => {
-                        let variant = Variant::try_from(obj)?;
-                        let variant_double = variant.0.change_type(VT_R8)?;
-                        let double = Object::try_from(Some(variant_double))?;
-                        if let Object::Num(n) = double {
-                            let b = ! n.is_zero();
-                            Ok(b)
-                        } else {
-                            // 多分Unreachableなんだけど
-                            Err(UError::new(UErrorKind::EvaluatorError, UErrorMessage::SyntaxError))
-                        }
-                    }
-                }
+                obj.as_uwsc_cond()
             },
             ConditionType::Default => Ok(self.eval_expression(expression)?.is_truthy()),
         }
@@ -1672,16 +1660,15 @@ impl Evaluator {
     }
 
     fn eval_not_operator_expression(&mut self, right: Object) -> EvalResult<Object> {
-        let obj = match right {
-            Object::Bool(true) => Object::Bool(false),
-            Object::Bool(false) => Object::Bool(true),
-            Object::Empty => Object::Bool(true),
-            Object::Num(n) => {
-                Object::Bool(n == 0.0)
+        let b = match Self::get_condition_type() {
+            ConditionType::ForceBool => match right {
+                Object::Bool(b) => b,
+                _ => Err(UError::new(UErrorKind::EvaluatorError, UErrorMessage::ForceBoolError))?,
             },
-            _ => Object::Bool(false)
+            ConditionType::UWSC => right.as_uwsc_cond()?,
+            ConditionType::Default => right.is_truthy(),
         };
-        Ok(obj)
+        Ok((! b).into())
     }
 
     fn eval_minus_operator_expression(&mut self, right: Object) -> EvalResult<Object> {
