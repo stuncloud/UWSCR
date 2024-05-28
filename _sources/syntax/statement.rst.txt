@@ -3982,6 +3982,8 @@ COM_ERR_IGN-COM_ERR_RET
             print "ok"
     selend
 
+.. _value_types:
+
 値型
 ----
 
