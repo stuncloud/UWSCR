@@ -29,10 +29,7 @@ pub use comobject::{ComObject, ComError, ComArg, Unknown, Excel, ExcelOpenFlag, 
 use util::settings::USETTINGS;
 use crate::environment::Layer;
 use crate::def_dll::DefDll;
-use crate::builtins::{
-    BuiltinFunction,
-    system_controls::gettime::datetime_str_to_f64,
-};
+use crate::builtins::BuiltinFunction;
 use crate::error::{UError, UErrorKind, UErrorMessage};
 use crate::gui::form::{WebViewForm, WebViewRemoteObject};
 use parser::ast::*;
@@ -41,7 +38,6 @@ use windows::Win32::Foundation::HWND;
 
 use std::fmt;
 use std::hash::{Hash, Hasher};
-use std::str::FromStr;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::ops::{Add, Sub, Mul, Div, Rem, BitOr, BitAnd, BitXor};
 use std::cmp::Ordering;
@@ -541,20 +537,7 @@ impl Object {
             Object::Empty => Some(0.0),
             Object::String(s) => {
                 // 文字列はf64への変換を試みる
-                match s.parse::<f64>() {
-                    Ok(n) => Some(n),
-                    Err(_) => {
-                        // だめなら日時にしてみる
-                        match datetime_str_to_f64(s) {
-                            Some(n) => Some(n),
-                            None => {
-                                // さらにダメならバージョンにしてみる
-                                let version = Version::from_str(s).ok()?.parse();
-                                Some(version)
-                            }
-                        }
-                    },
-                }
+                s.parse::<f64>().ok()
             },
             Object::Null => if null_as_zero {
                 Some(0.0)
