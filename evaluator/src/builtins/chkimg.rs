@@ -3,6 +3,8 @@ use std::sync::{
     OnceLock,
     mpsc::channel,
 };
+use std::fs::File;
+use std::io::Read;
 
 use crate::error::{UError, UErrorKind, UErrorMessage};
 use super::window_control::{ImgConst, Monitor};
@@ -120,11 +122,19 @@ impl ChkImg {
     //         offset_y: 0
     //     })
     // }
+    fn read_file(path: &str, flags: i32) -> ChkImgResult<Mat> {
+        let mut buf = vec![];
+        let mut f = File::open(path)?;
+        f.read_to_end(&mut buf)?;
+        let buf = Vector::from_slice(&buf);
+        let mat = imgcodecs::imdecode(&buf, flags)?;
+        Ok(mat)
+    }
     pub fn search(&self, path: &str, score: f64, max_count: Option<u8>, method: i32) -> ChkImgResult<MatchedPoints> {
         let templ = if self.gray_scale {
-            imgcodecs::imread(path, imgcodecs::IMREAD_GRAYSCALE)?
+            Self::read_file(path, imgcodecs::IMREAD_GRAYSCALE)?
         } else {
-            imgcodecs::imread(path, imgcodecs::IMREAD_COLOR)?
+            Self::read_file(path, imgcodecs::IMREAD_COLOR)?
         };
         let templ_width = *templ.mat_size().get(0)
             .ok_or(UError::new(UErrorKind::OpenCvError, UErrorMessage::FailedToLoadImageFile(path.into())))?;
