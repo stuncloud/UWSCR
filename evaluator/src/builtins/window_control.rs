@@ -1264,20 +1264,20 @@ fn should_save_ss() -> bool {
     });
     *b
 }
-
 #[cfg(feature="chkimg")]
 #[builtin_func_desc(
     desc="スクリーン上の画像の位置を返す",
     rtype={desc="画像位置情報 [X,Y,スコア] の配列",types="配列"}
-    args=[
-        {n="画像",t="文字列",d="画像ファイルのパス"},
-        {o,n="スコア",t="数値",d="一致率を0-100で指定、100なら完全一致 (デフォルト95)"},
-        {o,n="最大検索数",t="数値",d="指定した数の座標が見つかり次第探索を打ち切る、指定数に満たない場合全体を探索"},
-        {o,n="left",t="数値",d="探索範囲の左上X座標、省略時はスクリーンまたはウィンドウ左上X座標"},
-        {o,n="top",t="数値",d="探索範囲の左上Y座標、省略時はスクリーンまたはウィンドウ左上Y座標"},
-        {o,n="right",t="数値",d="探索範囲の右下X座標、省略時はスクリーンまたはウィンドウ右下X座標"},
-        {o,n="bottom",t="数値",d="探索範囲の右下Y座標、省略時はスクリーンまたはウィンドウ右下Y座標"},
-        {o,n="オプション",t="定数",d=r#"探索オプションを以下から指定、OR連結可
+    sets=[
+        [
+            {n="画像",t="文字列",d="画像ファイルのパス"},
+            {o,n="スコア",t="数値",d="一致率を0-100で指定、100なら完全一致 (デフォルト95)"},
+            {o,n="最大検索数",t="数値",d="指定した数の座標が見つかり次第探索を打ち切る、指定数に満たない場合全体を探索"},
+            {o,n="left",t="数値",d="探索範囲の左上X座標、省略時はスクリーンまたはウィンドウ左上X座標"},
+            {o,n="top",t="数値",d="探索範囲の左上Y座標、省略時はスクリーンまたはウィンドウ左上Y座標"},
+            {o,n="right",t="数値",d="探索範囲の右下X座標、省略時はスクリーンまたはウィンドウ右下X座標"},
+            {o,n="bottom",t="数値",d="探索範囲の右下Y座標、省略時はスクリーンまたはウィンドウ右下Y座標"},
+            {o,n="オプション",t="定数",d=r#"探索オプションを以下から指定、OR連結可
 - CHKIMG_NO_GRAY: 画像をグレースケール化せず探索を行う
 - CHKIMG_USE_WGCAPI: デスクトップまたはウィンドウの画像取得にGraphicsCaptureAPIを使う
 - CHKIMG_METHOD_SQDIFF: 類似度の計算にTM_SQDIFFを使用する、他の計算方法と併用不可
@@ -1285,9 +1285,25 @@ fn should_save_ss() -> bool {
 - CHKIMG_METHOD_CCORR: 類似度の計算にTM_CCORRを使用する、他の計算方法と併用不可
 - CHKIMG_METHOD_CCORR_NORMED: 類似度の計算にTM_CCORR_NORMEDを使用する、他の計算方法と併用不可
 - CHKIMG_METHOD_CCOEFF: 類似度の計算にTM_CCOEFFを使用する、他の計算方法と併用不可
-- CHKIMG_METHOD_CCOEFF_NORMED: 類似度の計算にTM_CCOEFF_NORMEDを使用する、他の計算方法と併用不可
-"#},
-        {o,n="モニタ番号",t="数値",d="CHKIMG_USE_WGCAPI指定時かつmouseorg未使用時に探索するモニタ番号を0から指定"},
+- CHKIMG_METHOD_CCOEFF_NORMED: 類似度の計算にTM_CCOEFF_NORMEDを使用する、他の計算方法と併用不可"#},
+            {o,n="モニタ番号",t="数値",d="CHKIMG_USE_WGCAPI指定時かつmouseorg未使用時に探索するモニタ番号を0から指定"},
+        ],
+        [
+            {n="画像",t="文字列",d="画像ファイルのパス"},
+            {o,n="スコア",t="数値",d="一致率を0-100で指定、100なら完全一致 (デフォルト95)"},
+            {o,n="最大検索数",t="数値",d="指定した数の座標が見つかり次第探索を打ち切る、指定数に満たない場合全体を探索"},
+            {o,n="範囲",t="配列",d="[左上X座標, 左上Y座標, 右下X座標, 右下Y座標]"},
+            {o,n="オプション",t="定数",d=r#"探索オプションを以下から指定、OR連結可
+- CHKIMG_NO_GRAY: 画像をグレースケール化せず探索を行う
+- CHKIMG_USE_WGCAPI: デスクトップまたはウィンドウの画像取得にGraphicsCaptureAPIを使う
+- CHKIMG_METHOD_SQDIFF: 類似度の計算にTM_SQDIFFを使用する、他の計算方法と併用不可
+- CHKIMG_METHOD_SQDIFF_NORMED: 類似度の計算にTM_SQDIFF_NORMEDを使用する、他の計算方法と併用不可
+- CHKIMG_METHOD_CCORR: 類似度の計算にTM_CCORRを使用する、他の計算方法と併用不可
+- CHKIMG_METHOD_CCORR_NORMED: 類似度の計算にTM_CCORR_NORMEDを使用する、他の計算方法と併用不可
+- CHKIMG_METHOD_CCOEFF: 類似度の計算にTM_CCOEFFを使用する、他の計算方法と併用不可
+- CHKIMG_METHOD_CCOEFF_NORMED: 類似度の計算にTM_CCOEFF_NORMEDを使用する、他の計算方法と併用不可"#},
+            {o,n="モニタ番号",t="数値",d="CHKIMG_USE_WGCAPI指定時かつmouseorg未使用時に探索するモニタ番号を0から指定"},
+        ],
     ],
 )]
 pub fn chkimg(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
