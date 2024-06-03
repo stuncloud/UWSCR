@@ -20,6 +20,7 @@ UWSCR |version| オンラインヘルプ
     usage/settings
     usage/how_to_build
     usage/language_server
+    usage/example
 
 
 スクリプト構文
