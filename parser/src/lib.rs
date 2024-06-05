@@ -1098,20 +1098,24 @@ impl Parser {
     }
 
     fn parse_print_statement(&mut self) -> Option<Statement> {
-        self.bump();
-        let has_whitespace = self.current_token.skipped_whitespace;
-        let expression = match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
-            Some(e) => if has_whitespace {
-                e
-            } else {
-                let kind = ParseErrorKind::WhitespaceRequiredAfter("print".into());
-                self.error_on_current_token(kind);
-                return None;
-            },
-            None => Expression::Literal(Literal::String("".to_string()))
-        };
 
+        let expression = match & self.next_token.token {
+            Token::Eol |
+            Token::Eof => Expression::Literal(Literal::String("".to_string())),
+            _ => {
+                self.bump();
+                let e = self.parse_expression(Precedence::Lowest, ExpressionState::Default)?;
+                if self.current_token.skipped_whitespace {
+                    e
+                } else {
+                    let kind = ParseErrorKind::WhitespaceRequiredAfter("print".into());
+                    self.error_on_current_token(kind);
+                    return None;
+                }
+            }
+        };
         Some(Statement::Print(expression))
+
     }
 
 
