@@ -6,21 +6,30 @@ body:
   - type: textarea
     attributes:
       label: 概要
-      description: 不具合の概要を簡潔に記載してください
+      description: 不具合の概要を簡潔に記入してください
     validations:
       required: true
   - type: textarea
     attributes:
       label: 再現スクリプト
       description: >
-        不具合が発生する、または発生する可能性のあるコードを記述してください
-        現象を確認できない場合があるのでなるべく環境依存なコードは省いてください
+        不具合が発生する、または発生する可能性のあるコードを記入してください
       render: Stylus
   - type: textarea
     attributes:
       label: 再現手順
       description: >
-        スクリプト実行以外で発生する不具合の場合はここに再現手順を記してください
+        スクリプト実行以外で発生する不具合の場合に再現手順を記してください
+  - type: textarea
+    attributes:
+      label: 回避方法
+      description: >
+        現象を回避するための方法や代替コードがあれば記入してください
+  - type: textarea
+    attributes:
+      label: 備考
+      description: >
+        その他に付随する情報がある場合に記入してください
   - type: dropdown
     attributes:
       label: バージョン
