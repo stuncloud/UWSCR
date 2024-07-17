@@ -5,13 +5,18 @@ assignees: stuncloud
 body:
   - type: textarea
     attributes:
-      label: 要望
-      description: 機能や仕様に関する要望の詳細を記述してください
+      label: 概要
+      description: 追加してほしい機能や改善点について簡潔に記述してください
     validations:
       required: true
   - type: textarea
     attributes:
-      label: 補足用コード
-      description: >
-        必要であれば要望する機能の実装例等の擬似コードを記述してください
+      label: 理由
+      description: その機能を要望する理由を記述してください
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: 実装例
+      description: 実装例として挙げたいコードがあれば記述してください
       render: Stylus
