@@ -986,8 +986,22 @@ impl Sub for Object {
                 } else {
                     Err(UError::new(
                         UErrorKind::OperatorError,
-                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                        UErrorMessage::RightSideTypeInvalid(Infix::Minus),
                     ))
+                }
+            },
+            Object::String(s) => {
+                // 自身が数値変換可能でかつ右辺が数値の場合は-演算可能
+                match (s.parse::<f64>(), rhs.as_f64(false)) {
+                    (Ok(n1), Some(n2)) => Ok(Object::Num(n1 - n2)),
+                    (Err(_), _) => Err(UError::new(
+                        UErrorKind::OperatorError,
+                        UErrorMessage::LeftSideTypeInvalid(Infix::Minus)
+                    )),
+                    _ => Err(UError::new(
+                        UErrorKind::OperatorError,
+                        UErrorMessage::RightSideTypeInvalid(Infix::Minus),
+                    )),
                 }
             },
             Object::Bool(b) => {
@@ -997,7 +1011,7 @@ impl Sub for Object {
                 } else {
                     Err(UError::new(
                         UErrorKind::OperatorError,
-                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                        UErrorMessage::RightSideTypeInvalid(Infix::Minus),
                     ))
                 }
             },
@@ -1010,7 +1024,7 @@ impl Sub for Object {
                 } else {
                     Err(UError::new(
                         UErrorKind::OperatorError,
-                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                        UErrorMessage::RightSideTypeInvalid(Infix::Minus),
                     ))
                 }
             },
@@ -1023,7 +1037,6 @@ impl Sub for Object {
             Object::MemberCaller(_, _) |
             Object::HtmlNode(_) |
             Object::RemoteObject(_) |
-            Object::String(_) |
             Object::Array(_) |
             Object::Null |
             Object::ByteArray(_) |
@@ -1060,7 +1073,7 @@ impl Sub for Object {
             Object::Reference(_, _) => {
                 Err(UError::new(
                     UErrorKind::OperatorError,
-                    UErrorMessage::LeftSideTypeInvalid(Infix::Plus),
+                    UErrorMessage::LeftSideTypeInvalid(Infix::Minus),
                 ))
             },
         }
@@ -1077,7 +1090,7 @@ impl Mul for Object {
                 } else {
                     Err(UError::new(
                         UErrorKind::OperatorError,
-                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                        UErrorMessage::RightSideTypeInvalid(Infix::Multiply),
                     ))
                 }
             },
@@ -1095,7 +1108,7 @@ impl Mul for Object {
                 } else {
                     Err(UError::new(
                         UErrorKind::OperatorError,
-                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                        UErrorMessage::RightSideTypeInvalid(Infix::Multiply),
                     ))
                 }
             },
@@ -1108,7 +1121,7 @@ impl Mul for Object {
                 } else {
                     Err(UError::new(
                         UErrorKind::OperatorError,
-                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                        UErrorMessage::RightSideTypeInvalid(Infix::Multiply),
                     ))
                 }
             },
@@ -1120,7 +1133,7 @@ impl Mul for Object {
                 } else {
                     Err(UError::new(
                         UErrorKind::OperatorError,
-                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                        UErrorMessage::RightSideTypeInvalid(Infix::Multiply),
                     ))
                 }
             },
@@ -1131,7 +1144,7 @@ impl Mul for Object {
                 } else {
                     Err(UError::new(
                         UErrorKind::OperatorError,
-                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                        UErrorMessage::RightSideTypeInvalid(Infix::Multiply),
                     ))
                 }
             },
@@ -1141,7 +1154,7 @@ impl Mul for Object {
                 } else {
                     Err(UError::new(
                         UErrorKind::OperatorError,
-                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                        UErrorMessage::RightSideTypeInvalid(Infix::Multiply),
                     ))
                 }
             },
@@ -1189,7 +1202,7 @@ impl Mul for Object {
             Object::Reference(_, _) => {
                 Err(UError::new(
                     UErrorKind::OperatorError,
-                    UErrorMessage::LeftSideTypeInvalid(Infix::Plus),
+                    UErrorMessage::LeftSideTypeInvalid(Infix::Multiply),
                 ))
             },
         }
@@ -1210,7 +1223,7 @@ impl Div for Object {
                 } else {
                     Err(UError::new(
                         UErrorKind::OperatorError,
-                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                        UErrorMessage::RightSideTypeInvalid(Infix::Divide),
                     ))
                 }
             },
@@ -1218,9 +1231,13 @@ impl Div for Object {
                 // 自身が数値変換可能でかつ右辺が数値の場合は/演算可能
                 match (s.parse::<f64>(), rhs.as_f64(false)) {
                     (Ok(n1), Some(n2)) => Ok(Object::Num(n1 / n2)),
+                    (Err(_), _) => Err(UError::new(
+                        UErrorKind::OperatorError,
+                        UErrorMessage::LeftSideTypeInvalid(Infix::Divide),
+                    )),
                     _ => Err(UError::new(
                         UErrorKind::OperatorError,
-                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                        UErrorMessage::RightSideTypeInvalid(Infix::Divide),
                     )),
                 }
             },
@@ -1231,7 +1248,7 @@ impl Div for Object {
                 } else {
                     Err(UError::new(
                         UErrorKind::OperatorError,
-                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                        UErrorMessage::RightSideTypeInvalid(Infix::Divide),
                     ))
                 }
             },
@@ -1241,7 +1258,7 @@ impl Div for Object {
                 } else {
                     Err(UError::new(
                         UErrorKind::OperatorError,
-                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                        UErrorMessage::RightSideTypeInvalid(Infix::Divide),
                     ))
                 }
             },
@@ -1251,7 +1268,7 @@ impl Div for Object {
                 } else {
                     Err(UError::new(
                         UErrorKind::OperatorError,
-                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                        UErrorMessage::RightSideTypeInvalid(Infix::Divide),
                     ))
                 }
             },
@@ -1300,7 +1317,7 @@ impl Div for Object {
             Object::Reference(_, _) => {
                 Err(UError::new(
                     UErrorKind::OperatorError,
-                    UErrorMessage::LeftSideTypeInvalid(Infix::Plus),
+                    UErrorMessage::LeftSideTypeInvalid(Infix::Divide),
                 ))
             },
         }
