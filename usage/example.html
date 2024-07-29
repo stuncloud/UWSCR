@@ -1,0 +1,438 @@
+<!doctype html>
+<html class="no-js" lang="ja">
+  <head><meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="color-scheme" content="light dark"><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+    <link rel="icon" href="../_static/MAINICON_0016-0256_light.ico" type="image/vnd.microsoft.icon">
+<link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="スクリプト構文" href="../syntax/statement.html" /><link rel="prev" title="Language Server機能について" href="language_server.html" />
+
+    <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
+        <title>サンプルコード集 - UWSCR 1.0.2</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f8f8f8;
+  --color-code-foreground: black;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-half" viewBox="0 0 24 24">
+    <title>Auto light/dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-shadow">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M13 12h5" />
+      <path d="M13 15h4" />
+      <path d="M13 18h1" />
+      <path d="M13 9h4" />
+      <path d="M13 6h1" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc">
+<label class="overlay sidebar-overlay" for="__navigation">
+  <div class="visually-hidden">Hide navigation sidebar</div>
+</label>
+<label class="overlay toc-overlay" for="__toc">
+  <div class="visually-hidden">Hide table of contents sidebar</div>
+</label>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <div class="visually-hidden">Toggle site navigation sidebar</div>
+        <i class="icon"><svg><use href="#svg-menu"></use></svg></i>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../index.html"><div class="brand">UWSCR 1.0.2</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle">
+          <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+          <svg class="theme-icon-when-auto"><use href="#svg-sun-half"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <div class="visually-hidden">Toggle table of contents sidebar</div>
+        <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
+  
+  
+  <span class="sidebar-brand-text">UWSCR 1.0.2</span>
+  
+</a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
+  <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">使い方</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">インストール方法</a></li>
+<li class="toctree-l1"><a class="reference internal" href="how_to_run.html">実行方法</a></li>
+<li class="toctree-l1"><a class="reference internal" href="settings.html">設定ファイル</a></li>
+<li class="toctree-l1"><a class="reference internal" href="how_to_build.html">ビルド方法</a></li>
+<li class="toctree-l1"><a class="reference internal" href="language_server.html">Language Server機能について</a></li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">サンプルコード集</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">スクリプト構文</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../syntax/statement.html">スクリプト構文</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../syntax/special_variables.html">特殊変数</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">ビルトイン関数</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../builtins/about_parameters.html">引数の型について</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../builtins/text.html">文字列操作関数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../builtins/window.html">ウィンドウ操作関数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../builtins/scriptcontrol.html">スクリプト制御</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../builtins/system.html">システム関数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../builtins/file.html">ファイル操作関数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../builtins/gui.html">GUI</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../builtins/array.html">配列操作関数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../builtins/math.html">数学関数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../builtins/comobject.html">COMオブジェクト</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../builtins/excel.html">Excel</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../builtins/web.html">ウェブ関連</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          
+<div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle">
+              <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+              <svg class="theme-icon-when-auto"><use href="#svg-sun-half"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <div class="visually-hidden">Toggle table of contents sidebar</div>
+            <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+          </label>
+        </div>
+        <article role="main">
+          <section id="id1">
+<h1>サンプルコード集<a class="headerlink" href="#id1" title="この見出しへのパーマリンク">#</a></h1>
+<div class="line-block">
+<div class="line">UWSCRのサンプルコードを掲載していきます</div>
+<div class="line">思いつき次第拡充していく予定です</div>
+<div class="line">サンプルコードを見たい機能がある場合は <a class="reference external" href="https://github.com/stuncloud/UWSCR/issues/new/choose">オンラインヘルプ関連</a> のissueでリクエストしてください</div>
+</div>
+<section id="id3">
+<h2>新機能を使ったサンプルコード<a class="headerlink" href="#id3" title="この見出しへのパーマリンク">#</a></h2>
+<section id="id4">
+<h3>時間の計測 (クラス、クロージャ)<a class="headerlink" href="#id4" title="この見出しへのパーマリンク">#</a></h3>
+<div class="line-block">
+<div class="line">実行時間計測用のタイマーを実装してみます</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">gettime</span></code> を二度呼び出しその差分を得ることで経過時間を取得できますが、UWSCでは以下のような問題がありました</div>
+</div>
+<ul class="simple">
+<li><p>ミリ秒での計測が面倒</p></li>
+<li><p>最初のgettimeの結果を隠蔽しにくい</p></li>
+</ul>
+<div class="line-block">
+<div class="line">UWSCRの <code class="docutils literal notranslate"><span class="pre">gettime</span></code> はミリ秒に対応しています</div>
+<div class="line">それと、新たに追加されたクラスやクロージャ機能を使ってこれらを解決していきます</div>
+<div class="line">この方法だと上記を解決するばかりか、複数の計測を並行するのも簡単になります</div>
+</div>
+<section id="id5">
+<h4>クラスを使う<a class="headerlink" href="#id5" title="この見出しへのパーマリンク">#</a></h4>
+<div class="line-block">
+<div class="line">Timerクラスを実装し、それにより経過時間を計測します</div>
+<div class="line">インスタンスを複数作ることで並行計測も可能です</div>
+</div>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="kd">class</span><span class="w"> </span><span class="n">Timer</span>
+<span class="w">    </span><span class="kd">dim</span><span class="w"> </span><span class="n">from</span>
+<span class="w">    </span><span class="c">// コンストラクタで計測開始時の時間をセット</span>
+<span class="w">    </span><span class="kd">procedure</span><span class="w"> </span><span class="n">Timer</span><span class="p">()</span>
+<span class="w">        </span><span class="n">this</span><span class="o">.</span><span class="n">from</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">this</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+<span class="w">    </span><span class="kd">fend</span>
+<span class="w">    </span><span class="c">// 現在時刻をミリ秒で取得</span>
+<span class="w">    </span><span class="kd">dim</span><span class="w"> </span><span class="n">now</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kd">function</span><span class="p">()</span>
+<span class="w">        </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">gettime</span><span class="p">(</span><span class="o">,</span><span class="w"> </span><span class="o">,</span><span class="w"> </span><span class="o">,</span><span class="w"> </span><span class="n">TRUE</span><span class="p">)</span>
+<span class="w">    </span><span class="kd">fend</span>
+<span class="w">    </span><span class="c">// 経過時間を返す</span>
+<span class="w">    </span><span class="kd">function</span><span class="w"> </span><span class="n">elapsed</span><span class="p">()</span>
+<span class="w">        </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">this</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">this</span><span class="o">.</span><span class="n">from</span>
+<span class="w">    </span><span class="kd">fend</span>
+<span class="kd">endclass</span>
+
+<span class="n">t</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Timer</span><span class="p">()</span>
+<span class="n">msgbox</span><span class="p">(</span><span class="s">&quot;好きなタイミングでOKを押す&quot;</span><span class="p">)</span>
+<span class="n">msg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">t</span><span class="o">.</span><span class="n">elapsed</span><span class="p">()</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="s">&quot; ミリ秒経過しました&quot;</span>
+<span class="n">msgbox</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="id6">
+<h4>クロージャを使う<a class="headerlink" href="#id6" title="この見出しへのパーマリンク">#</a></h4>
+<div class="line-block">
+<div class="line">クラスよりもスッキリ書きたい場合はこちら</div>
+<div class="line">関数の戻り値を無名関数にすることで、その中に値を閉じ込めておくことができます</div>
+<div class="line">この場合は計測開始時を戻り値の無名関数に持たせておくことで、その関数を実行すると経過時間が得られる仕組みです</div>
+</div>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// 経過時間を得る関数を返す関数 (エンクロージャ)</span>
+<span class="kd">function</span><span class="w"> </span><span class="n">timer</span><span class="p">()</span>
+<span class="w">    </span><span class="n">s</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">gettime</span><span class="p">(</span><span class="o">,,,</span><span class="n">TRUE</span><span class="p">)</span>
+<span class="w">    </span><span class="c">// 経過時間を返す関数 (クロージャ)</span>
+<span class="w">    </span><span class="c">// 計測開始時間(s)を保持している</span>
+<span class="w">    </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kd">function</span><span class="p">()</span>
+<span class="w">        </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">gettime</span><span class="p">(</span><span class="o">,,,</span><span class="n">TRUE</span><span class="p">)</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">s</span>
+<span class="w">    </span><span class="kd">fend</span>
+<span class="kd">fend</span>
+
+<span class="n">elapsed</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">timer</span><span class="p">()</span>
+<span class="n">msgbox</span><span class="p">(</span><span class="s">&quot;好きなタイミングでOKを押す&quot;</span><span class="p">)</span>
+<span class="n">msg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">elapsed</span><span class="p">()</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="s">&quot; ミリ秒経過しました&quot;</span>
+<span class="n">msgbox</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="uwsc">
+<h4>UWSCでやるなら？<a class="headerlink" href="#uwsc" title="この見出しへのパーマリンク">#</a></h4>
+<div class="line-block">
+<div class="line">モジュールを使えば一応要件を満たすことはできます</div>
+<div class="line">id指定により並行計測も可能としていますが、都度id指定が必要なのが不便ですね</div>
+</div>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">Timer</span><span class="o">.</span><span class="n">Start</span><span class="p">(</span><span class="m">1</span><span class="p">)</span>
+<span class="n">msgbox</span><span class="p">(</span><span class="s">&quot;好きなタイミングでOKを押す&quot;</span><span class="p">)</span>
+<span class="n">msg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Timer</span><span class="o">.</span><span class="n">End</span><span class="p">(</span><span class="m">1</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="s">&quot; ミリ秒経過しました&quot;</span>
+<span class="n">msgbox</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+
+<span class="kd">module</span><span class="w"> </span><span class="n">Timer</span>
+<span class="w">    </span><span class="kd">hashtbl</span><span class="w"> </span><span class="n">s</span>
+<span class="w">    </span><span class="kd">procedure</span><span class="w"> </span><span class="n">Start</span><span class="p">(</span><span class="n">id</span><span class="p">)</span>
+<span class="w">        </span><span class="n">s</span><span class="p">[</span><span class="n">id</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">GetTickCount</span><span class="p">()</span>
+<span class="w">    </span><span class="kd">fend</span>
+<span class="w">    </span><span class="kd">function</span><span class="w"> </span><span class="n">End</span><span class="p">(</span><span class="n">id</span><span class="p">)</span>
+<span class="w">        </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">GetTickCount</span><span class="p">()</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">s</span><span class="p">[</span><span class="n">id</span><span class="p">]</span>
+<span class="w">    </span><span class="kd">fend</span>
+
+<span class="w">    </span><span class="kd">def_dll</span><span class="w"> </span><span class="n">GetTickCount</span><span class="p">()</span><span class="o">:</span><span class="n">dword</span><span class="o">:</span><span class="n">kernel32</span><span class="o">.</span><span class="n">dll</span>
+<span class="kd">endmodule</span>
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+<section id="tips">
+<h2>TIPS<a class="headerlink" href="#tips" title="この見出しへのパーマリンク">#</a></h2>
+<section id="uwscuwscr">
+<h3>UWSCとUWSCRを判別<a class="headerlink" href="#uwscuwscr" title="この見出しへのパーマリンク">#</a></h3>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">GET_UWSC_PRO</span></code> で判別できます</div>
+<div class="line">UWSCではPro版か否かでTRUEまたはFALSEを返していましたが、UWSCRではEMPTYを返します</div>
+</div>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="kd">select</span><span class="w"> </span><span class="n">GET_UWSC_PRO</span>
+<span class="w">    </span><span class="kd">case</span><span class="w"> </span><span class="n">TRUE</span>
+<span class="w">        </span><span class="k">print</span><span class="w"> </span><span class="s">&quot;UWSC Pro版です&quot;</span>
+<span class="w">    </span><span class="kd">case</span><span class="w"> </span><span class="n">FALSE</span>
+<span class="w">        </span><span class="k">print</span><span class="w"> </span><span class="s">&quot;UWSC 無料版です&quot;</span>
+<span class="w">    </span><span class="kd">case</span><span class="w"> </span><span class="n">EMPTY</span>
+<span class="w">        </span><span class="k">print</span><span class="w"> </span><span class="s">&quot;UWSCRです&quot;</span>
+<span class="kd">selend</span>
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="../syntax/statement.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">スクリプト構文</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="language_server.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">Language Server機能について</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2023, stuncloud
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            <div class="icons">
+              
+            </div>
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">サンプルコード集</a><ul>
+<li><a class="reference internal" href="#id3">新機能を使ったサンプルコード</a><ul>
+<li><a class="reference internal" href="#id4">時間の計測 (クラス、クロージャ)</a><ul>
+<li><a class="reference internal" href="#id5">クラスを使う</a></li>
+<li><a class="reference internal" href="#id6">クロージャを使う</a></li>
+<li><a class="reference internal" href="#uwsc">UWSCでやるなら？</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#tips">TIPS</a><ul>
+<li><a class="reference internal" href="#uwscuwscr">UWSCとUWSCRを判別</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/sphinx_highlight.js"></script>
+    <script src="../_static/scripts/furo.js"></script>
+    <script src="../_static/translations.js"></script>
+    <script src="../_static/custom.js"></script>
+    </body>
+</html>
