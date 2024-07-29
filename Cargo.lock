@@ -620,7 +620,7 @@ dependencies = [
 
 [[package]]
 name = "evaluator"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "base64",
  "chrono",
@@ -719,7 +719,7 @@ dependencies = [
 
 [[package]]
 name = "func_desc"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "proc-macro2 1.0.79",
  "quote 1.0.35",
@@ -728,7 +728,7 @@ dependencies = [
 
 [[package]]
 name = "func_desc_macro"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "func_desc",
  "proc-macro2 1.0.79",
@@ -1147,7 +1147,7 @@ dependencies = [
 
 [[package]]
 name = "language_server"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "evaluator",
  "once_cell",
@@ -1489,7 +1489,7 @@ dependencies = [
 
 [[package]]
 name = "parser"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "bincode",
  "once_cell",
@@ -2677,7 +2677,7 @@ checksum = "711b9620af191e0cdc7468a8d14e709c3dcdb115b36f838e601583af800a370a"
 
 [[package]]
 name = "util"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "chrono",
  "encoding_rs",
@@ -2692,7 +2692,7 @@ dependencies = [
 
 [[package]]
 name = "uwscr"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "clap",
  "evaluator",
