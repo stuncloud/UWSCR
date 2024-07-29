@@ -1104,8 +1104,9 @@ impl Parser {
             Token::Eof => Expression::Literal(Literal::String("".to_string())),
             _ => {
                 self.bump();
+                let has_whitespace = self.current_token.skipped_whitespace;
                 let e = self.parse_expression(Precedence::Lowest, ExpressionState::Default)?;
-                if self.current_token.skipped_whitespace {
+                if has_whitespace {
                     e
                 } else {
                     let kind = ParseErrorKind::WhitespaceRequiredAfter("print".into());
