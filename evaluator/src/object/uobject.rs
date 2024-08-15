@@ -119,6 +119,14 @@ impl UObject {
             ))
         }
     }
+    pub fn get_size(&self) -> EvalResult<usize> {
+        let len = match self.value() {
+            Value::Array(arr) => arr.len(),
+            Value::Object(obj) => obj.len(),
+            _ => 0, // should be unreachable
+        };
+        Ok(len)
+    }
 }
 
 impl std::fmt::Display for UObject {
