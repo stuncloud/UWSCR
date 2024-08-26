@@ -17,44 +17,6 @@ Windows 10以上
 - UWSCRx86.zip
     - 32ビット版uwscr
     
-### wingetによるインストール
-
-winget (Windows Package Manager) を使ってUWSCRをインストールできます  
-wingetがインストールされていない場合はMicrosoftストアにて[アプリインストーラー](https://www.microsoft.com/p/app-installer/9nblggh4nns1)をインストールしてください  
-wingetはバージョン1.4.11071以上をご利用ください
-
-```powershell
-# バージョンを確認
-PS> winget --version
-v1.4.11071
-```
-
-以下のコマンドによりUWSCRがインストールされます
-
-```powershell
-winget install UWSCR
-# または
-winget install --id stuncloud.uwscr
-```
-
-旧バージョンがインストール済みの場合は以下のコマンドで更新できます
-
-```powershell
-winget upgrade UWSCR
-# または
-winget upgrade --id stuncloud.uwscr
-```
-
-`uwscr.exe` のインストール先は以下のいずれかです
-
-- `%LOCALAPPDATA%\Microsoft\WinGet\Packages\stuncloud.uwscr_Microsoft.Winget.Source_8wekyb3d8bbwe\`
-    - `8wekyb3d8bbwe`の部分は変更される場合があります
-- `%LOCALAPPDATA%\Microsoft\WinGet\Links\`
-    - 上記パスに置かれたuwscr.exeのシンボリックリンクが置かれます
-
-インストール時にこのパスがユーザー環境変数 `%PATH%` に登録されます  
-実行環境(PowerShellやExplorer)の再起動を行うことでどこからでも `uwscr.exe` を実行できるようになります  
-うまく行かない場合は再ログインするか、手動で `%PATH%` に追加登録してください
 
 ## 実行方法
 
@@ -109,6 +71,56 @@ UWSCRは[Language Server](https://stuncloud.github.io/UWSCR/usage/language_serve
 
 UWSCRのソースコードは [MIT](https://github.com/stuncloud/UWSCR/blob/master/LICENSE) でライセンスされています  
 依存crateのライセンスは [サードパーティライセンス](https://stuncloud.github.io/UWSCR/_static/license.html) を参照してください
+
+
+## Q&A
+
+### UWSCRはUWSCの正式な後継ソフトですか？
+
+いいえ、違います  
+
+UWSCの作者であるumiumi氏が消息不明になり、UWSCの将来に不安を感じたことが開発のきっかけとなっています  
+なのでUWSCRはumiumi氏の意思とは無関係に作られたものであり、正式な後継ではありません
+
+UWSCRはUWSCの動作をなるべく再現することを目的として、一から開発されたものです  
+UWSCのソースコードの流用ができないため目に見える範囲を模倣することで作られています  
+そのため目に見えぬ部分の完全再現はなかなかに難しく、同じ動作を保証できるまでには至っていません  
+
+名前を寄せているのはUWSCへの敬意からであり、そしてRにはRespectであったり、Rebootであったりというような意味を込めています
+
+### 現在UWSCを使っています、UWSCRに乗り換えるべきですか？
+
+必ずしもその必要はありません  
+UWSCの使用に不都合がなければそのままUWSCを使い続けてください  
+(WindowsがWindowsである限りUWSCが動作しなくなるということはないです)  
+しかし、例えば[ブラウザ操作](https://stuncloud.github.io/UWSCR/builtins/web.html)などUWSCのままでは不都合があるといった場合であればUWSCRの利用を考慮しても良いかもしれません  
+
+### UWSCで使っていたスクリプトはそのまま動作しますか？
+
+動作するものもあれば、しないものもあります  
+それは仕様変更によるものであったり、不具合による場合もありえます  
+
+仕様変更に関しては、その大半は作者がUWSCに感じていた不便さを解消するために行なわれています  
+そのため仕様変更に不都合を感じる方もいらっしゃるかと思いますが、そこはご容赦いただきたく思います  
+仕様の違いに関してはなるべく[ドキュメント](https://stuncloud.github.io/UWSCR/index.html)に記載しているので、それらを参考にしてくください
+
+不具合またはその疑念がある場合は[issue](https://github.com/stuncloud/UWSCR/issues/new/choose)で報告していただけると助かります
+
+### UWSCRを使うメリットはありますか？
+
+UWSCの言語仕様に限界を感じていた方にはメリットがあるかもしれません
+UWSCRはUWSCの書き味を残しつつも、拡張された書式により柔軟かつ高度なコーディングが行えるようになっています
+
+- 値として扱えるようになった配列、配列リテラル表記
+- 新たな演算子の追加
+- classのインスタンス作成
+- 無名関数、高階関数
+- JSONサポート
+- Cライク構造体のサポート
+- dll関数のコールバック対応
+
+など、UWSCにはなかった様々な改善が施されています
+
 
 ## お問い合わせ
 
