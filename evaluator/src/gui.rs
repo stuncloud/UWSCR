@@ -673,18 +673,18 @@ impl WparamExt for WPARAM {
     }
 }
 
-trait LparamExt {
-    fn hi_word(&self) -> u32;
-    fn lo_word(&self) -> u32;
-}
-impl LparamExt for LPARAM {
-    fn hi_word(&self) -> u32 {
-        let hi = (self.0 >> 16) & 0xFFFF;
-        hi as u32
-    }
+// trait LparamExt {
+//     fn hi_word(&self) -> u32;
+//     fn lo_word(&self) -> u32;
+// }
+// impl LparamExt for LPARAM {
+//     fn hi_word(&self) -> u32 {
+//         let hi = (self.0 >> 16) & 0xFFFF;
+//         hi as u32
+//     }
 
-    fn lo_word(&self) -> u32 {
-        let lo = self.0 & 0xFFFF;
-        lo as u32
-    }
-}
+//     fn lo_word(&self) -> u32 {
+//         let lo = self.0 & 0xFFFF;
+//         lo as u32
+//     }
+// }

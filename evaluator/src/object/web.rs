@@ -264,7 +264,7 @@ impl WebResponse {
 
 trait WebArg {
     fn as_string(&self, index: usize) -> WebResult<String>;
-    fn as_bool(&self, index: usize) -> WebResult<bool>;
+    fn _as_bool(&self, index: usize) -> WebResult<bool>;
     fn as_f64(&self, index: usize) -> WebResult<f64>;
 }
 impl WebArg for Vec<Object> {
@@ -273,7 +273,7 @@ impl WebArg for Vec<Object> {
         Ok(obj.to_string())
     }
 
-    fn as_bool(&self, index: usize) -> WebResult<bool> {
+    fn _as_bool(&self, index: usize) -> WebResult<bool> {
         let obj = self.get(index).ok_or(UError::new(UErrorKind::WebRequestError, UErrorMessage::BuiltinArgRequiredAt(index+1)))?;
         Ok(obj.is_truthy())
     }

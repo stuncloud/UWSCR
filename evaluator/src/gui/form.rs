@@ -971,7 +971,7 @@ enum WebViewValue {
 trait FormMethodArg {
     fn as_string(&self, index: usize) -> WebViewResult<String>;
     fn as_bool(&self, index: usize) -> WebViewResult<bool>;
-    fn as_f64(&self, index: usize) -> WebViewResult<f64>;
+    fn _as_f64(&self, index: usize) -> WebViewResult<f64>;
     fn as_func(&self, index: usize) -> WebViewResult<Function>;
     fn as_remote(&self, index: usize) -> WebViewResult<WebViewRemoteObject>;
 }
@@ -991,7 +991,7 @@ impl FormMethodArg for Vec<Object> {
         }
     }
 
-    fn as_f64(&self, index: usize) -> WebViewResult<f64> {
+    fn _as_f64(&self, index: usize) -> WebViewResult<f64> {
         match self.get(index) {
             Some(obj) => match obj.as_f64(true) {
                 Some(n) => Ok(n),

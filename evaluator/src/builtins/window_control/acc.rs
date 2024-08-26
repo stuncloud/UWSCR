@@ -1039,6 +1039,13 @@ impl AccClickResult {
     pub fn as_bool(&self) -> bool {
         self.0
     }
+    pub fn reason(&self) -> Option<String> {
+        match &self.1 {
+            AccClickReason::DefaultAction(reason) |
+            AccClickReason::DefaultActionAndSelect(reason) => Some(reason.clone()),
+            AccClickReason::Select => None,
+        }
+    }
 }
 
 #[derive(Debug)]

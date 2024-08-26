@@ -6,6 +6,7 @@ rust-version.workspace = true
 
 [features]
 chkimg = ["dep:opencv"]
+gui=["util/gui"]
 
 [dependencies]
 parser = { path = "../parser"}
