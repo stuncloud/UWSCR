@@ -2614,6 +2614,9 @@ impl Evaluator {
                                     let this = Some(function::This::Module(m));
                                     f.invoke(self, arguments, this)
                                 },
+                                Object::DefDllFunction(f) => {
+                                    f.invoke(arguments, self)
+                                },
                                 _ => unreachable!(),
                             }
                         },
@@ -2627,6 +2630,9 @@ impl Evaluator {
                                 Object::AnonFunc(f) => {
                                     let this = Some(function::This::Class(ins));
                                     f.invoke(self, arguments, this)
+                                },
+                                Object::DefDllFunction(f) => {
+                                    f.invoke(arguments, self)
                                 },
                                 _ => unreachable!(),
                             }
