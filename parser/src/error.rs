@@ -54,7 +54,7 @@ pub enum ParseErrorKind {
     /// 式が必要な箇所に存在しない
     ExpressionIsExpected,
     /// Identifierに変換できないトークン
-    TokenCanNotBeUsedAsIdentifier,
+    TokenCanNotBeUsedAsIdentifier(Token),
     /// トークンとして使えない不正な文字列
     IllegalCharacter(char),
     /// 識別子が必要
@@ -108,6 +108,7 @@ pub enum ParseErrorKind {
     StatementContinuation,
     InvalidSyntax,
     LiteralNumberRequired,
+    CommaNotAllowedOnEndOfList
 }
 
 impl fmt::Display for ParseErrorKind {
@@ -152,9 +153,9 @@ impl fmt::Display for ParseErrorKind {
                 "式が必要です",
                 "expression is required",
             ),
-            ParseErrorKind::TokenCanNotBeUsedAsIdentifier => write_locale!(f,
-                "識別子ではありません",
-                "Token is not an Identifier",
+            ParseErrorKind::TokenCanNotBeUsedAsIdentifier(token) => write_locale!(f,
+                "識別子として利用できるトークンではありません: {token}",
+                "This token can not be used as Identifier: {token}",
             ),
             ParseErrorKind::IllegalCharacter(c) => write_locale!(f,
                 "不正な文字: {}",
@@ -377,6 +378,10 @@ impl fmt::Display for ParseErrorKind {
             ParseErrorKind::LiteralNumberRequired => write_locale!(f,
                 "数値リテラルを指定する必要があります",
                 "Number literal is required",
+            ),
+            ParseErrorKind::CommaNotAllowedOnEndOfList => write_locale!(f,
+                "リストの終端をカンマにはできません",
+                "Comma is not allowed at the end of the list",
             ),
         }
     }

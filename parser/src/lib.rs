@@ -2376,7 +2376,6 @@ impl Parser {
         }
     }
 
-    /// is_sol: 行の始めかどうか
     fn parse_expression(&mut self, precedence: Precedence, state: ExpressionState) -> Option<Expression> {
         let start = self.current_token_pos();
         let mut ident_pos: Option<(Identifier, Position, Position)> = None;
@@ -2549,8 +2548,6 @@ impl Parser {
                     ident_pos = state.could_be_access().then_some((identifier.clone(), self.current_token_pos(), self.current_token_end_pos()));
                     Expression::Identifier(identifier)
                 }
-                // self.error_on_current_token(ParseErrorKind::ExpressionIsExpected);
-                // return None;
             },
         };
 
@@ -2775,7 +2772,7 @@ impl Parser {
             Token::Path(_, _) |
             Token::DllPath(_) |
             Token::Arrow => {
-                self.error_on_current_token(ParseErrorKind::TokenCanNotBeUsedAsIdentifier);
+                self.error_on_current_token(ParseErrorKind::TokenCanNotBeUsedAsIdentifier(token.clone()));
                 return None
             },
             Token::Illegal(c) => {
@@ -2896,29 +2893,42 @@ impl Parser {
         if skip_eol {self.skip_next_eol();}
         self.bump();
 
-        match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
-            Some(e) => list.push(e),
-            None => return None
-        }
+        let expr = self.parse_expression(Precedence::Lowest, ExpressionState::Default)?;
+        list.push(expr);
 
         while self.is_next_token(&Token::Comma) {
             self.bump();
-            if skip_eol {self.skip_next_eol();}
-            self.bump();
-            match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
-                Some(e) => list.push(e),
-                None => return None
+            if skip_eol {
+                /*
+                    // 末尾カンマ許容
+                    arr = [1, 2, 3,]
+                 */
+                self.skip_next_eol();
+                if self.is_next_token(&end) {
+                    break;
+                }
+            } else {
+                // dim配列宣言やselectのcaseなどでは末尾カンマをエラーとする
+                if self.is_next_token(&end) {
+                    self.error_on_current_token(ParseErrorKind::CommaNotAllowedOnEndOfList);
+                    return None;
+                }
             }
-            if skip_eol {self.skip_next_eol();}
+            self.bump();
+            let expr = self.parse_expression(Precedence::Lowest, ExpressionState::Default)?;
+            list.push(expr);
+            if skip_eol {
+                self.skip_next_eol();
+            }
         }
 
-        if end == Token::Eol {
-            if ! self.is_next_token(&end) && ! self.is_next_token(&Token::Eof) {
-                self.error_next_token_is_invalid();
+        if skip_eol {
+            if ! self.bump_to_next_expected_token(end) {
                 return None;
             }
         } else {
-            if ! self.bump_to_next_expected_token(end) {
+            if ! self.is_next_token(&end) && ! self.is_next_token(&Token::Eof) {
+                self.error_next_token_is_invalid();
                 return None;
             }
         }
