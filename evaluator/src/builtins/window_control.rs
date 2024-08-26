@@ -86,11 +86,11 @@ use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use std::thread;
+use std::sync::LazyLock;
 
 use strum_macros::{EnumString, EnumProperty, VariantNames};
 use num_derive::{ToPrimitive, FromPrimitive};
 use num_traits::ToPrimitive;
-use once_cell::sync::Lazy;
 
 #[cfg(feature="chkimg")]
 use std::sync::OnceLock;
@@ -101,7 +101,7 @@ pub struct WindowControl {
     windows: Arc<Mutex<HashMap<i32, HWND>>>
 }
 
-static WINDOW_CONTROL_SINGLETON: Lazy<WindowControl> = Lazy::new(||{
+static WINDOW_CONTROL_SINGLETON: LazyLock<WindowControl> = LazyLock::new(||{
     WindowControl {
         next_id: Arc::new(Mutex::new(1)),
         windows: Arc::new(Mutex::new(HashMap::new()))

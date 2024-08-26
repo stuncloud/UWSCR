@@ -19,10 +19,10 @@ use serde::{Serialize, Deserialize, Deserializer};
 use serde::de::{self, Visitor, MapAccess};
 use serde_json;
 use schemars::{schema_for, JsonSchema};
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 
 /// %APPDATA%\UWSCR\settings.json
-static SETTING_FILE_PATH: Lazy<Result<PathBuf, Error>> = Lazy::new(|| {
+static SETTING_FILE_PATH: LazyLock<Result<PathBuf, Error>> = LazyLock::new(|| {
     let mut path = PathBuf::from(
         get_special_directory(CSIDL_APPDATA as i32)
     );
@@ -33,7 +33,7 @@ static SETTING_FILE_PATH: Lazy<Result<PathBuf, Error>> = Lazy::new(|| {
     path.push("settings.json");
     Ok(path)
 });
-pub static USETTINGS: Lazy<Mutex<USettings>> = Lazy::new(|| {
+pub static USETTINGS: LazyLock<Mutex<USettings>> = LazyLock::new(|| {
     let settings = if let Ok(path) = SETTING_FILE_PATH.as_ref() {
         USettings::from_file(path).unwrap_or_default()
     } else {

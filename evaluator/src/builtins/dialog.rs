@@ -5,18 +5,17 @@ use crate::error::UErrorMessage::UWindowError;
 use crate::gui::*;
 use util::settings::USETTINGS;
 
-use std::sync::Mutex;
+use std::sync::{Mutex, LazyLock};
 use std::rc::Rc;
 use std::cell::RefCell;
 
 use strum_macros::{EnumString, VariantNames, EnumProperty};
 use num_derive::{ToPrimitive, FromPrimitive};
-use once_cell::sync::Lazy;
 
-static MSGBOX_POINT: Lazy<Mutex<(Option<i32>, Option<i32>)>> = Lazy::new(|| Mutex::new((None, None)));
-static INPUT_POINT: Lazy<Mutex<(Option<i32>, Option<i32>)>> = Lazy::new(|| Mutex::new((None, None)));
-static SLCTBOX_POINT: Lazy<Mutex<(Option<i32>, Option<i32>)>> = Lazy::new(|| Mutex::new((None, None)));
-static DIALOG_TITLE: Lazy<String> = Lazy::new(|| {
+static MSGBOX_POINT: LazyLock<Mutex<(Option<i32>, Option<i32>)>> = LazyLock::new(|| Mutex::new((None, None)));
+static INPUT_POINT: LazyLock<Mutex<(Option<i32>, Option<i32>)>> = LazyLock::new(|| Mutex::new((None, None)));
+static SLCTBOX_POINT: LazyLock<Mutex<(Option<i32>, Option<i32>)>> = LazyLock::new(|| Mutex::new((None, None)));
+static DIALOG_TITLE: LazyLock<String> = LazyLock::new(|| {
     let settings = USETTINGS.lock().unwrap();
     match &settings.options.dlg_title {
         Some(title) => title.to_string(),
@@ -26,7 +25,7 @@ static DIALOG_TITLE: Lazy<String> = Lazy::new(|| {
         },
     }
 });
-static DIALOG_FONT_FAMILY: Lazy<FontFamily> = Lazy::new(|| {
+static DIALOG_FONT_FAMILY: LazyLock<FontFamily> = LazyLock::new(|| {
     let s = USETTINGS.lock().unwrap();
     FontFamily::new(&s.options.default_font.name, s.options.default_font.size)
 });
@@ -113,7 +112,7 @@ pub fn logprint(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(Object::Empty)
 }
 
-fn get_dlg_point(args: &BuiltinFuncArgs, i: (usize,usize), point: &Lazy<Mutex<(Option<i32>, Option<i32>)>>) -> BuiltInResult<(Option<i32>, Option<i32>)> {
+fn get_dlg_point(args: &BuiltinFuncArgs, i: (usize,usize), point: &LazyLock<Mutex<(Option<i32>, Option<i32>)>>) -> BuiltInResult<(Option<i32>, Option<i32>)> {
     let x = match args.get_as_int_or_empty(i.0)? {
         Some(-1) => {
             point.lock().unwrap().0
@@ -130,7 +129,7 @@ fn get_dlg_point(args: &BuiltinFuncArgs, i: (usize,usize), point: &Lazy<Mutex<(O
     };
     Ok((x, y))
 }
-fn set_dlg_point(x: i32, y: i32, point: &Lazy<Mutex<(Option<i32>, Option<i32>)>>) {
+fn set_dlg_point(x: i32, y: i32, point: &LazyLock<Mutex<(Option<i32>, Option<i32>)>>) {
     let mut m = point.lock().unwrap();
     m.0 = Some(x);
     m.1 = Some(y);

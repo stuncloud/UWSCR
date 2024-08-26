@@ -8,10 +8,10 @@ use crate::error::UErrorMessage::FopenError;
 use std::io::{Write, Read};
 use std::sync::{Arc, Mutex};
 use std::path::PathBuf;
+use std::sync::LazyLock;
 
 use strum_macros::{EnumString, VariantNames};
 use num_derive::{ToPrimitive, FromPrimitive};
-use once_cell::sync::Lazy;
 
 
 pub fn builtin_func_sets() -> BuiltinFunctionSets {
@@ -209,7 +209,7 @@ pub fn fdelline(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(Object::Empty)
 }
 
-static DEFAULT_INI_NAME: Lazy<String> = Lazy::new(|| {
+static DEFAULT_INI_NAME: LazyLock<String> = LazyLock::new(|| {
     match std::env::var("GET_UWSC_NAME").ok() {
         Some(name) => {
             let mut path = std::path::PathBuf::from(name);

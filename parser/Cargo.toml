@@ -11,6 +11,5 @@ util = { path = "../util"}
 serde.workspace = true
 reqwest.workspace = true
 regex.workspace = true
-once_cell.workspace = true
 strum_macros = "0.26.1"
 bincode = "1"

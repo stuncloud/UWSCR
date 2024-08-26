@@ -25,8 +25,7 @@ use windows::Win32::{
         },
     };
 
-use once_cell::sync::Lazy;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, LazyLock};
 
 
 pub fn lock(flg: bool) -> bool {
@@ -54,7 +53,7 @@ pub fn free_ex() -> bool {
     }
 }
 
-static LOCKHARD: Lazy<Arc<Mutex<LockHard>>> = Lazy::new(|| Arc::new(Mutex::new(LockHard::new())));
+static LOCKHARD: LazyLock<Arc<Mutex<LockHard>>> = LazyLock::new(|| Arc::new(Mutex::new(LockHard::new())));
 
 struct LockHard {
     mouse: Option<HHOOK>,

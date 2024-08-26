@@ -1,5 +1,5 @@
 use windows::Win32::Globalization::GetUserDefaultUILanguage;
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 
 #[derive(Debug, Clone)]
 pub enum Locale {
@@ -7,7 +7,7 @@ pub enum Locale {
     En,
 }
 
-pub static CURRENT_LOCALE: Lazy<Locale> = Lazy::new(||{
+pub static CURRENT_LOCALE: LazyLock<Locale> = LazyLock::new(||{
     match unsafe{GetUserDefaultUILanguage()} {
         0x0411 => Locale::Jp,
         _ => Locale::En

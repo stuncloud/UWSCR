@@ -3,7 +3,8 @@ use parser::token::Token;
 use evaluator::builtins::{BuiltinName, BuiltinNameDesc};
 
 use tower_lsp::lsp_types::{SemanticToken, SemanticTokensLegend, SemanticTokenType, SemanticTokenModifier};
-use once_cell::sync::Lazy;
+
+use std::sync::LazyLock;
 
 #[allow(unused)]
 #[derive(PartialEq, Eq, Hash)]
@@ -86,7 +87,7 @@ impl From<USemanticTokenType> for (u32, u32) {
         }
     }
 }
-pub const SEMANTIC_TOKEN_LEGEND: Lazy<SemanticTokensLegend> = Lazy::new(|| {
+pub const SEMANTIC_TOKEN_LEGEND: LazyLock<SemanticTokensLegend> = LazyLock::new(|| {
     SemanticTokensLegend {
         token_types: vec![
             SemanticTokenType::KEYWORD,

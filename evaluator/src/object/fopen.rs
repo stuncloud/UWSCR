@@ -12,6 +12,7 @@ use std::cmp::Ordering;
 use std::os::windows::fs::OpenOptionsExt;
 use std::sync::Mutex;
 use std::io::BufWriter;
+use std::sync::LazyLock;
 
 use windows::core::HSTRING;
 use windows::Win32::{
@@ -22,11 +23,10 @@ use windows::Win32::{
         FindFirstFileW, FindNextFileW, FindClose, WIN32_FIND_DATAW,
     },
 };
-use once_cell::sync::Lazy;
 use encoding_rs::{UTF_8, SHIFT_JIS};
 
-static FILE_LIST: Lazy<Mutex<Vec<(u32, File)>>> = Lazy::new(|| Mutex::new(vec![]));
-static FILE_ID: Lazy<Mutex<u32>> = Lazy::new(|| Mutex::new(0));
+static FILE_LIST: LazyLock<Mutex<Vec<(u32, File)>>> = LazyLock::new(|| Mutex::new(vec![]));
+static FILE_ID: LazyLock<Mutex<u32>> = LazyLock::new(|| Mutex::new(0));
 
 type FopenResult<T> = Result<T, FopenError>;
 

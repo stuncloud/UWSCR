@@ -17,12 +17,12 @@ use std::path::PathBuf;
 use std::env;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 
 pub type ParseErrors = Vec<ParseError>;
 pub type ParserResult<T> = Result<T, ParseErrors>;
 
-static CALLED_FILE_LOCATIONS: Lazy<Arc<Mutex<Vec<ScriptLocation>>>> = Lazy::new(|| {
+static CALLED_FILE_LOCATIONS: LazyLock<Arc<Mutex<Vec<ScriptLocation>>>> = LazyLock::new(|| {
     Arc::new(Mutex::new(Vec::new()))
 });
 

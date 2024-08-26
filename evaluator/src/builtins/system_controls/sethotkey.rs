@@ -8,9 +8,8 @@ use util::winapi::show_message;
 use util::logging::{out_log, LogType};
 use parser::ast::{FuncParam, ParamKind, Expression};
 
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock, LazyLock};
 use std::collections::HashMap;
-use once_cell::sync::Lazy;
 
 use windows::core::{w, PCWSTR};
 use windows::Win32::{
@@ -28,7 +27,7 @@ use windows::Win32::{
     };
 
 static REGISTER_CLASS: OnceLock<UWindowResult<()>> = OnceLock::new();
-static HOTKEY_WINDOW: Lazy<Arc<Mutex<Option<SetHotKeyWindow>>>> = Lazy::new(|| {Arc::new(Mutex::new(None))});
+static HOTKEY_WINDOW: LazyLock<Arc<Mutex<Option<SetHotKeyWindow>>>> = LazyLock::new(|| {Arc::new(Mutex::new(None))});
 
 pub fn set_hot_key(vk: u32, mo: u32, func: Function, evaluator: &Evaluator) -> UWindowResult<()> {
     let mut mutex = HOTKEY_WINDOW.lock().unwrap();

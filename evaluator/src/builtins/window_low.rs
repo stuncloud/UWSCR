@@ -5,7 +5,7 @@ use util::winapi::make_lparam;
 
 use std::{thread, time};
 use std::mem::size_of;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock, LazyLock};
 
 use strum_macros::{EnumString, VariantNames};
 use num_derive::{ToPrimitive, FromPrimitive};
@@ -47,11 +47,10 @@ use windows::{
         Graphics::Gdi::ClientToScreen,
     },
 };
-use once_cell::sync::{OnceCell, Lazy};
 
-static INIT_TOUCH_INJECTION: OnceCell<()> = OnceCell::new();
-static TOUCH_POINT: Lazy<Arc<Mutex<TouchPoint>>> = Lazy::new(|| Arc::new(Mutex::new(TouchPoint(None))));
-pub static INPUT_EXTRA_INFO: Lazy<usize> = Lazy::new(|| std::process::id() as usize);
+static INIT_TOUCH_INJECTION: OnceLock<()> = OnceLock::new();
+static TOUCH_POINT: LazyLock<Arc<Mutex<TouchPoint>>> = LazyLock::new(|| Arc::new(Mutex::new(TouchPoint(None))));
+pub static INPUT_EXTRA_INFO: LazyLock<usize> = LazyLock::new(|| std::process::id() as usize);
 
 pub fn builtin_func_sets() -> BuiltinFunctionSets {
     let mut sets = BuiltinFunctionSets::new();

@@ -636,7 +636,6 @@ dependencies = [
  "linkify",
  "num-derive",
  "num-traits",
- "once_cell",
  "opencv",
  "parser",
  "rand",
@@ -1150,7 +1149,6 @@ name = "language_server"
 version = "1.0.2"
 dependencies = [
  "evaluator",
- "once_cell",
  "parser",
  "serde_json",
  "tokio",
@@ -1492,7 +1490,6 @@ name = "parser"
 version = "1.0.2"
 dependencies = [
  "bincode",
- "once_cell",
  "regex",
  "reqwest",
  "serde",
@@ -2681,7 +2678,6 @@ version = "1.0.2"
 dependencies = [
  "chrono",
  "encoding_rs",
- "once_cell",
  "regex",
  "schemars",
  "serde",

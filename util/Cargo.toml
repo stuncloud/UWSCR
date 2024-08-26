@@ -14,7 +14,6 @@ schemars = "0.8"
 regex = "1"
 serde.workspace = true
 serde_json.workspace = true
-once_cell.workspace = true
 encoding_rs.workspace = true
 url = "2.4.1"
 

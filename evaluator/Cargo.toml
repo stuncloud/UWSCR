@@ -14,7 +14,6 @@ util = { path = "../util"}
 func_desc = { path = "../func_desc"}
 func_desc_macro = { path = "../func_desc_macro"}
 encoding_rs.workspace = true
-once_cell.workspace = true
 serde_json.workspace = true
 serde.workspace = true
 base64 = "0.21.0"

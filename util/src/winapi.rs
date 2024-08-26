@@ -37,10 +37,9 @@ use windows::{
 use std::ffi::OsStr;
 use std::os::windows::ffi::OsStrExt;
 use std::path::{PathBuf, Path};
+use std::sync::OnceLock;
 
-use once_cell::sync::OnceCell;
-
-pub static FORCE_WINDOW_MODE: OnceCell<bool> = OnceCell::new();
+pub static FORCE_WINDOW_MODE: OnceLock<bool> = OnceLock::new();
 
 pub fn shell_execute(cmd: String, params: Option<String>) -> bool {
     unsafe {
