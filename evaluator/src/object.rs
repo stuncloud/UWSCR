@@ -277,6 +277,7 @@ impl fmt::Display for Object {
                     MemberCaller::UStruct(ust) => write!(f, "{}.{member}", ust.name),
                     MemberCaller::WebViewForm(_) => write!(f, "WebViewForm.{member}"),
                     MemberCaller::WebViewRemoteObject(_) => write!(f, "WebViewRemoteObject.{member}"),
+                    MemberCaller::UObject(_) => write!(f, "UObject.{member}"),
                 }
             },
             Object::ComObject(com) => write!(f, "{com}"),
@@ -1781,6 +1782,7 @@ pub enum MemberCaller {
     UStruct(UStruct),
     WebViewForm(WebViewForm),
     WebViewRemoteObject(WebViewRemoteObject),
+    UObject(UObject),
 }
 
 impl PartialEq for MemberCaller {
@@ -1807,6 +1809,7 @@ impl PartialEq for MemberCaller {
             (Self::UStruct(l0), Self::UStruct(r0)) => l0 == r0,
             (Self::WebViewForm(l0), Self::WebViewForm(r0)) => l0 == r0,
             (Self::WebViewRemoteObject(l0), Self::WebViewRemoteObject(r0)) => l0 == r0,
+            (Self::UObject(l0), Self::UObject(r0)) => l0 == r0,
             _ => false,
         }
     }

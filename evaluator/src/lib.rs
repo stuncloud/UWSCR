@@ -1834,6 +1834,9 @@ impl Evaluator {
                             UErrorMessage::NotAnArray(left)
                         ))
                     },
+                    MemberCaller::UObject(_) => {
+                        unreachable!();
+                    }
                 }
             },
             o => return Err(UError::new(
@@ -2718,6 +2721,7 @@ impl Evaluator {
                             let obj = remote.invoke_method(&member, args, is_await)?;
                             Ok(obj)
                         },
+                        MemberCaller::UObject(uobj) => uobj.invoke_method(&member)
                     }
                 },
                 o => Err(UError::new(
@@ -2794,10 +2798,7 @@ impl Evaluator {
             )),
             Object::UObject(u) => {
                 if is_func {
-                    Err(UError::new(
-                        UErrorKind::UObjectError,
-                        UErrorMessage::CanNotCallMethod(member)
-                    ))
+                    Ok(Object::MemberCaller(MemberCaller::UObject(u), member))
                 } else {
                     self.eval_uobject(&u, member.into())
                 }

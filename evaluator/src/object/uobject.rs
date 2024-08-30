@@ -127,6 +127,37 @@ impl UObject {
         };
         Ok(len)
     }
+    fn keys(&self) -> EvalResult<Vec<Object>> {
+        let vec = match self.value() {
+            Value::Object(obj) => {
+                obj.keys().map(|key| key.as_str().into()).collect()
+            },
+            _ => Vec::new(),
+        };
+        Ok(vec)
+    }
+    fn values(&self) -> EvalResult<Vec<Object>> {
+        let vec = match self.value() {
+            Value::Object(obj) => {
+                obj.values().map(|value| value.into()).collect()
+            },
+            _ => Vec::new(),
+        };
+        Ok(vec)
+    }
+    pub fn invoke_method(&self, method: &str) -> EvalResult<Object> {
+        match method.to_ascii_lowercase().as_str() {
+            "keys" => {
+                let keys = self.keys()?;
+                Ok(Object::Array(keys))
+            },
+            "values" => {
+                let values = self.values()?;
+                Ok(Object::Array(values))
+            },
+            _ => Err(UError::new(UErrorKind::UObjectError, UErrorMessage::CanNotCallMethod(method.into()))),
+        }
+    }
 }
 
 impl std::fmt::Display for UObject {
