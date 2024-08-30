@@ -1133,6 +1133,42 @@ UObject
     obj.foo = fromjson('{"hoge": 1, "fuga": 2}')
     print obj.foo
 
+UObjectメソッド
+^^^^^^^^^^^^^^^
+
+.. method:: keys()
+
+    | オブジェクト配下のキー名の一覧を取得します
+    | UObjectがオブジェクトではない場合(配列等)は空の配列を返します
+    | 配列内の順序は元のjsonの順序と一致するとは限りません
+
+    parameter
+    :rtype: 配列(文字列)
+    :return: キー名の一覧
+
+    .. admonition:: サンプルコード
+
+        .. sourcecode:: uwscr
+
+            obj = @{"foo": 1, "bar": 2, "baz": 3}@
+            print obj.keys() // [bar, baz, foo]
+
+.. method:: values()
+
+    | オブジェクト配下のキーが持つ値の一覧を取得します
+    | UObjectがオブジェクトではない場合(配列等)は空の配列を返します
+    | 配列内の順序は元のjsonの順序と一致するとは限りませんが、インデックスはkeys()に対応します
+
+    parameter
+    :rtype: 配列(値)
+    :return: キーが持つ値一覧
+
+    .. admonition:: サンプルコード
+
+        .. sourcecode:: uwscr
+
+            obj = @{"foo": 1, "bar": 2, "baz": 3}@
+            print obj.values() // [2, 3, 1]
 
 評価の順序
 ----------
