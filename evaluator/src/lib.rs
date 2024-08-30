@@ -2164,6 +2164,11 @@ impl Evaluator {
                 remote.set(None, Some(&index), value.into())?;
                 Ok((None, false))
             },
+            Object::UObject(uobj) => {
+                let new_value = Self::object_to_serde_value(new.clone())?;
+                uobj.set(index, new_value, None)?;
+                Ok((None, false))
+            }
             _ => Err(UError::new(UErrorKind::AssignError, UErrorMessage::NotAnArray("".into())))
         }
     }
@@ -4670,6 +4675,10 @@ dim obj = @{
     #[case(
         "obj.quux = 2; obj.quux",
         Object::Num(2.0)
+    )]
+    #[case(
+        "obj['quux'] = 5; obj['quux']",
+        Object::Num(5.0)
     )]
     #[case(
         "obj.bar.qux[1] = 9; obj.bar.qux[1]",
