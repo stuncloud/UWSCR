@@ -498,15 +498,57 @@ impl Zip {
         let options = zip::write::FileOptions::default()
             .compression_method(zip::CompressionMethod::Deflated);
 
-        for path in files {
-            zip.start_file(&path, options)?;
-            let mut item = std::fs::File::open(&path)?;
-            let mut buf = vec![];
-            item.read_to_end(&mut buf)?;
-            zip.write_all(&buf)?;
+        let paths = files.into_iter().map(|p| PathBuf::from(p));
+        for path in paths {
+            if path.is_dir() {
+
+                let mut list = Vec::new();
+                Self::list_children(&path, &mut list);
+                if ! list.is_empty() {
+                    let parent = path.parent()
+                        .map(|p| p.to_string_lossy())
+                        .filter(|p| ! p.is_empty())
+                        .map(|p| p.to_string() + "\\");
+
+                    for path in list.into_iter() {
+                        let name = if let Some(parent) = &parent {
+                            path.to_string_lossy().replace(parent, "")
+                        } else {
+                            path.to_string_lossy().to_string()
+                        };
+                        zip.start_file(name, options)?;
+                        let mut item = std::fs::File::open(&path)?;
+                        let mut buf = vec![];
+                        item.read_to_end(&mut buf)?;
+                        zip.write_all(&buf)?;
+                    }
+                }
+            } else if path.is_file() {
+                let name = path.file_name().unwrap_or_default().to_string_lossy();
+                zip.start_file(name, options)?;
+                let mut item = std::fs::File::open(&path)?;
+                let mut buf = vec![];
+                item.read_to_end(&mut buf)?;
+                zip.write_all(&buf)?;
+            }
         }
         zip.finish()?;
         Ok(())
+    }
+    fn list_children(path: &PathBuf, list: &mut Vec<PathBuf>) {
+        if let Ok(entries) = path.read_dir() {
+            for entry in entries {
+                if let Ok(entry) = entry {
+                    if let Ok(file_type) = entry.file_type() {
+                        if file_type.is_dir() {
+                            Self::list_children(&entry.path(), list)
+                        } else if file_type.is_file() {
+                            list.push(entry.path());
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
