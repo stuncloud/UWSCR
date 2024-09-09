@@ -25,7 +25,7 @@ use windows::Win32::{
 };
 use encoding_rs::{UTF_8, SHIFT_JIS};
 
-static FILE_LIST: LazyLock<Mutex<Vec<(u32, File)>>> = LazyLock::new(|| Mutex::new(vec![]));
+static FILE_LIST: LazyLock<Mutex<Vec<(u32, OpenFile)>>> = LazyLock::new(|| Mutex::new(vec![]));
 static FILE_ID: LazyLock<Mutex<u32>> = LazyLock::new(|| Mutex::new(0));
 
 type FopenResult<T> = Result<T, FopenError>;
@@ -204,6 +204,12 @@ impl From<u32> for FopenFlag {
     }
 }
 
+// #[derive(Debug, Clone, PartialEq)]
+enum OpenFile {
+    File(File),
+    New(OpenOptions),
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct Fopen {
     pub flag: FopenFlag,
@@ -256,14 +262,20 @@ impl Fopen {
             FopenMode::Unknown(n) => return Err(FopenError::UnknownOpenMode(n)),
         };
 
-        let mut file = opt.open(&self.path)?;
-        if self.can_read() {
-            let mut buf = vec![];
-            file.read_to_end(&mut buf)?;
-            let text = self.decode(&buf)?;
-            let lines = text.lines().map(|l| l.to_string()).collect();
-            self.lines = Some(lines);
-        }
+        let file = if exists {
+            let mut file = opt.open(&self.path)?;
+            if self.can_read() {
+                let mut buf = vec![];
+                file.read_to_end(&mut buf)?;
+                let text = self.decode(&buf)?;
+                let lines = text.lines().map(|l| l.to_string()).collect();
+                self.lines = Some(lines);
+            }
+            OpenFile::File(file)
+        } else {
+            OpenFile::New(opt)
+        };
+
         let mut list = FILE_LIST.lock().unwrap();
         list.push((self.id, file));
         Ok(None)
@@ -274,59 +286,72 @@ impl Fopen {
     fn can_write(&self) -> bool {
         self.flag.mode == FopenMode::Write || self.flag.mode == FopenMode::ReadWrite
     }
+    fn to_file(&self, file: &mut File, text: String) -> FopenResult<()> {
+        // ファイル冒頭から書き込む
+        file.seek(SeekFrom::Start(0))?;
+        file.set_len(0)?;
+
+        let mut stream = BufWriter::new(file);
+        match self.flag.encoding {
+            FopenEncoding::Utf16LE => {
+                stream.write(&[0xFF, 0xFE])?;
+                for utf16 in text.encode_utf16() {
+                    stream.write(&utf16.to_be_bytes())?;
+                }
+                if ! self.no_cr {
+                    for utf16 in "\r\n".encode_utf16() {
+                        stream.write(&utf16.to_be_bytes())?;
+                    }
+                }
+            },
+            FopenEncoding::Utf16BE => {
+                stream.write(&[0xFE, 0xFF])?;
+                for utf16 in text.encode_utf16() {
+                    stream.write(&utf16.to_le_bytes())?;
+                }
+                if ! self.no_cr {
+                    for utf16 in "\r\n".encode_utf16() {
+                        stream.write(&utf16.to_le_bytes())?;
+                    }
+                }
+            },
+            FopenEncoding::Sjis => {
+                let (cow,_,_) = SHIFT_JIS.encode(&text);
+                stream.write(cow.as_ref())?;
+                if ! self.no_cr {
+                    stream.write("\r\n".as_bytes())?;
+                }
+            }
+            _ => {
+                if self.flag.encoding == FopenEncoding::Utf8B {
+                    stream.write(&[0xEF, 0xBB, 0xBF])?;
+                }
+                stream.write(text.as_bytes())?;
+                if ! self.no_cr {
+                    stream.write("\r\n".as_bytes())?;
+                }
+            },
+        }
+        stream.flush()?;
+        Ok(())
+    }
+
     pub fn close(&mut self) -> FopenResult<bool> {
         let mut list = FILE_LIST.lock().unwrap();
         if let Some(index) = list.iter().position(|(id, _)| *id == self.id) {
             if self.can_write() {
                 if let Some(lines) = &self.lines {
                     let text = lines.join(Self::LB);
-                    if let Some((_, file)) = list.get_mut(index) {
-                        // ファイル冒頭から書き込む
-                        file.seek(SeekFrom::Start(0))?;
-                        file.set_len(0)?;
-
-                        let mut stream = BufWriter::new(file);
-                        match self.flag.encoding {
-                            FopenEncoding::Utf16LE => {
-                                stream.write(&[0xFF, 0xFE])?;
-                                for utf16 in text.encode_utf16() {
-                                    stream.write(&utf16.to_be_bytes())?;
-                                }
-                                if ! self.no_cr {
-                                    for utf16 in "\r\n".encode_utf16() {
-                                        stream.write(&utf16.to_be_bytes())?;
-                                    }
-                                }
+                    if let Some((_, openfile)) = list.get_mut(index) {
+                        match openfile {
+                            OpenFile::File(file) => {
+                                self.to_file(file, text)?;
                             },
-                            FopenEncoding::Utf16BE => {
-                                stream.write(&[0xFE, 0xFF])?;
-                                for utf16 in text.encode_utf16() {
-                                    stream.write(&utf16.to_le_bytes())?;
-                                }
-                                if ! self.no_cr {
-                                    for utf16 in "\r\n".encode_utf16() {
-                                        stream.write(&utf16.to_le_bytes())?;
-                                    }
-                                }
+                            OpenFile::New(opt) => {
+                                let mut file = opt.open(&self.path)?;
+                                self.to_file(&mut file, text)?;
                             },
-                            FopenEncoding::Sjis => {
-                                let (cow,_,_) = SHIFT_JIS.encode(&text);
-                                stream.write(cow.as_ref())?;
-                                if ! self.no_cr {
-                                    stream.write("\r\n".as_bytes())?;
-                                }
-                            }
-                            _ => {
-                                if self.flag.encoding == FopenEncoding::Utf8B {
-                                    stream.write(&[0xEF, 0xBB, 0xBF])?;
-                                }
-                                stream.write(text.as_bytes())?;
-                                if ! self.no_cr {
-                                    stream.write("\r\n".as_bytes())?;
-                                }
-                            },
-                        }
-                        stream.flush()?;
+                        };
                     }
                 }
             }
