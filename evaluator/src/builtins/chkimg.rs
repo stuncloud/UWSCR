@@ -45,7 +45,7 @@ use windows::{
             GetSystemMetrics,
             GetClientRect, GetWindowRect,
             GetWindow, GW_HWNDPREV,
-            IsWindowVisible,
+            IsWindowVisible, IsIconic,
         },
         System::WinRT::{
             RoInitialize, RoUninitialize, RO_INIT_SINGLETHREADED,
@@ -141,6 +141,10 @@ impl ChkImg {
         let templ_height = *templ.mat_size().get(1)
             .ok_or(UError::new(UErrorKind::OpenCvError, UErrorMessage::FailedToLoadImageFile(path.into())))?;
 
+        // テンプレートサイズが対象画像より大きい場合は即終了
+        if self.width < templ_width || self.height < templ_width {
+            return Ok(Vec::new());
+        }
 
         // マッチング
         let mut result = Mat::default();
@@ -766,6 +770,12 @@ impl ScreenShot {
         unsafe {
             D3D11CreateDevice(None, drivertype, None, D3D11_CREATE_DEVICE_BGRA_SUPPORT, None, D3D11_SDK_VERSION, Some(&mut device), None, None)
                 .map(|_| device)
+        }
+    }
+
+    pub fn is_window_capturable(hwnd: HWND) -> bool {
+        unsafe {
+            IsWindowVisible(hwnd).as_bool() & ! IsIconic(hwnd).as_bool()
         }
     }
 }

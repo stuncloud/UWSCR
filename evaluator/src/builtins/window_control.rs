@@ -1361,7 +1361,12 @@ pub fn chkimg(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncRe
                 ImgConst::IMG_FORE
             };
             if ChkImgOption::use_wgcapi(opt) {
-                ScreenShot::get_window_wgcapi(hwnd, left, top, right, bottom, client)?
+                if ScreenShot::is_window_capturable(hwnd) {
+                    ScreenShot::get_window_wgcapi(hwnd, left, top, right, bottom, client)?
+                } else {
+                    // 対象ウィンドウが最小化または非表示の場合はキャプチャせず終了
+                    return Ok(Object::Array(Vec::new()));
+                }
             } else {
                 ScreenShot::get_window(hwnd, left, top, right, bottom, client, style)?
             }
@@ -1374,7 +1379,6 @@ pub fn chkimg(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncRe
             }
         },
     };
-
 
     if should_save_ss() {
         ss.save(None)?;
