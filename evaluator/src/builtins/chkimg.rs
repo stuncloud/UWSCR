@@ -122,20 +122,18 @@ impl ChkImg {
     //         offset_y: 0
     //     })
     // }
-    fn read_file(path: &str, flags: i32) -> ChkImgResult<Mat> {
+    fn read_file(&self, path: &str) -> ChkImgResult<Mat> {
         let mut buf = vec![];
         let mut f = File::open(path)?;
         f.read_to_end(&mut buf)?;
         let buf = Vector::from_slice(&buf);
+        let flags = if self.gray_scale {imgcodecs::IMREAD_GRAYSCALE} else {imgcodecs::IMREAD_COLOR};
         let mat = imgcodecs::imdecode(&buf, flags)?;
         Ok(mat)
     }
     pub fn search(&self, path: &str, score: f64, max_count: Option<u8>, method: i32) -> ChkImgResult<MatchedPoints> {
-        let templ = if self.gray_scale {
-            Self::read_file(path, imgcodecs::IMREAD_GRAYSCALE)?
-        } else {
-            Self::read_file(path, imgcodecs::IMREAD_COLOR)?
-        };
+        let templ = self.read_file(path)?;
+
         let templ_width = *templ.mat_size().get(0)
             .ok_or(UError::new(UErrorKind::OpenCvError, UErrorMessage::FailedToLoadImageFile(path.into())))?;
         let templ_height = *templ.mat_size().get(1)
