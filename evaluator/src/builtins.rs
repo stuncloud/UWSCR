@@ -1002,6 +1002,8 @@ fn init_builtin_consts() -> BuiltinConsts {
     sets.append(&mut BuiltinConsts::new::<system_controls::POFF>());
     sets.append(&mut BuiltinConsts::new::<system_controls::GTimeOffset>());
     sets.append(&mut BuiltinConsts::new::<system_controls::GTimeWeekDay>());
+    sets.append(&mut BuiltinConsts::new::<system_controls::SetHotKey>());
+
     // math
 
     // key codes
