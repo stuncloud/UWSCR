@@ -821,10 +821,16 @@ impl Lexer {
                             self.input.remove(self.pos);
                         }
                         self.input.remove(self.pos);
+                        self.to_next_row();
                     }
                 },
+                '\r' => {
+                    if self.nextch_is('\n') {
+                        self.read_char();
+                    }
+                    self.to_next_row();
+                }
                 '}' | ']' => {
-
                     self.read_char();
                     if self.nextch_is('@') {
                         break;
