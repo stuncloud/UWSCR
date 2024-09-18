@@ -7,7 +7,7 @@
 <link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="GUI" href="gui.html" /><link rel="prev" title="システム関数" href="system.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>ファイル操作関数 - UWSCR 1.0.2</title>
+        <title>ファイル操作関数 - UWSCR 1.0.3</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 1.0.2</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 1.0.3</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 1.0.2</span>
+  <span class="sidebar-brand-text">UWSCR 1.0.3</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -1018,6 +1018,13 @@ foo   ,    bar   ,  baz
 <div class="line">zipファイルに含めたいファイルのパス (10個まで)</div>
 <div class="line">パスの配列を渡すこともできる</div>
 </div>
+<div class="note admonition">
+<p class="admonition-title">格納されるファイルのパス構成について</p>
+<div class="line-block">
+<div class="line">指定したパスがファイルの場合はそのファイル名でzipに格納します</div>
+<div class="line">フォルダが指定された場合はそのフォルダ以下のすべてのファイルをフォルダからの相対パスでzipに格納します</div>
+</div>
+</div>
 </p></li>
 </ul>
 </dd>
@@ -1031,8 +1038,7 @@ foo   ,    bar   ,  baz
 <span class="w">    </span><span class="s">&#39;foo.uws&#39;</span><span class="o">,</span>
 <span class="w">    </span><span class="s">&#39;bar.uws&#39;</span><span class="o">,</span>
 <span class="w">    </span><span class="s">&#39;baz.uws&#39;</span><span class="o">,</span>
-<span class="w">    </span><span class="s">&#39;modules\qux.uws&#39;</span><span class="o">,</span>
-<span class="w">    </span><span class="s">&#39;modules\quux.uws&#39;</span>
+<span class="w">    </span><span class="s">&#39;modules&#39;</span><span class="o">,</span><span class="w"> </span><span class="c">// フォルダ指定</span>
 <span class="p">]</span>
 
 <span class="n">zip</span><span class="p">(</span><span class="s">&quot;test.zip&quot;</span><span class="o">,</span><span class="w"> </span><span class="n">files</span><span class="p">)</span>
@@ -1109,8 +1115,8 @@ foo   ,    bar   ,  baz
 <span class="c">// foo.uws</span>
 <span class="c">// bar.uws</span>
 <span class="c">// baz.uws</span>
-<span class="c">// modules/qux.uws</span>
-<span class="c">// modules/quux.uws</span>
+<span class="c">// modules\qux.uws</span>
+<span class="c">// modules\quux.uws</span>
 </pre></div>
 </div>
 </div>

@@ -7,7 +7,7 @@
 <link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="ウィンドウ操作関数" href="window.html" /><link rel="prev" title="引数の型について" href="about_parameters.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>文字列操作関数 - UWSCR 1.0.2</title>
+        <title>文字列操作関数 - UWSCR 1.0.3</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 1.0.2</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 1.0.3</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 1.0.2</span>
+  <span class="sidebar-brand-text">UWSCR 1.0.3</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -506,7 +506,7 @@
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>値</strong> (<em>文字列・配列・連想配列・構造体・RemoteObject</em>) -- 文字数を得たい文字列</p>
+<dd class="field-odd"><p><strong>値</strong> (<em>文字列他</em>) -- 文字数を得たい文字列</p>
 </dd>
 <dt class="field-even">戻り値<span class="colon">:</span></dt>
 <dd class="field-even"><p>文字数やサイズを示す数値</p>
@@ -514,11 +514,21 @@
 </dl>
 <div class="note admonition">
 <p class="admonition-title">対応する値型</p>
-<div class="line-block">
-<div class="line">UWSCとの互換性を保つため数値やbool値も対象です</div>
-<div class="line">この場合それらを文字列として扱いその長さを返します</div>
-<div class="line">また、Emptyは0、NULLは1を返します</div>
-</div>
+<ul class="simple">
+<li><p>文字列: 文字数を返す</p></li>
+<li><p>数値: 文字列とみなし文字数を返す</p></li>
+<li><p>真偽値: 文字列とみなし文字数を返す</p></li>
+<li><p>EMPTY: 0</p></li>
+<li><p>NULL: 1 (UWSC互換、0でないことに注意)</p></li>
+<li><p>配列: 配列長を返す</p></li>
+<li><p>連想配列: 配列長を返す</p></li>
+<li><p>バイト配列: 配列長を返す</p></li>
+<li><p>構造体定義: 構造体のサイズを返す</p></li>
+<li><p>構造体: 構造体サイズを返す</p></li>
+<li><p>RemoteObject: lengthプロパティを持つならその値</p></li>
+<li><p>UObject (配列): 配列長を返す</p></li>
+<li><p>UObject (オブジェクト): 子要素の数を返す</p></li>
+</ul>
 </div>
 <div class="admonition- admonition">
 <p class="admonition-title">サンプルコード</p>
@@ -536,13 +546,14 @@
 <span class="n">p</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Point</span><span class="p">()</span><span class="w"> </span><span class="c">// 構造体インスタンスにも対応</span>
 <span class="k">print</span><span class="w"> </span><span class="n">length</span><span class="p">(</span><span class="n">p</span><span class="p">)</span><span class="w"> </span><span class="c">// 8</span>
 
-<span class="n">sa</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">safearray</span><span class="p">(</span><span class="m">0</span><span class="o">,</span><span class="w"> </span><span class="m">3</span><span class="p">)</span>
-<span class="k">print</span><span class="w"> </span><span class="n">length</span><span class="p">(</span><span class="n">sa</span><span class="p">)</span><span class="w"> </span><span class="c">// 4</span>
-<span class="k">print</span><span class="w"> </span><span class="n">length</span><span class="p">(</span><span class="n">sa</span><span class="o">,</span><span class="w"> </span><span class="n">TRUE</span><span class="p">)</span><span class="w"> </span><span class="c">// 1 (次元)</span>
+<span class="c">// UObject</span>
+<span class="n">obj</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">@{</span>
+<span class="w">    </span><span class="s">&quot;foo&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="m">1</span><span class="o">,</span><span class="m">2</span><span class="o">,</span><span class="m">3</span><span class="p">]</span><span class="o">,</span>
+<span class="w">    </span><span class="s">&quot;bar&quot;</span><span class="o">:</span><span class="w"> </span><span class="m">123</span>
+<span class="p">}@</span>
 
-<span class="n">sa</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">safearray</span><span class="p">(</span><span class="m">0</span><span class="o">,</span><span class="w"> </span><span class="m">5</span><span class="o">,</span><span class="w"> </span><span class="m">0</span><span class="o">,</span><span class="w"> </span><span class="m">2</span><span class="p">)</span>
-<span class="k">print</span><span class="w"> </span><span class="n">length</span><span class="p">(</span><span class="n">sa</span><span class="p">)</span><span class="w"> </span><span class="c">// 6</span>
-<span class="k">print</span><span class="w"> </span><span class="n">length</span><span class="p">(</span><span class="n">sa</span><span class="o">,</span><span class="w"> </span><span class="n">TRUE</span><span class="p">)</span><span class="w"> </span><span class="c">// 2 (次元)</span>
+<span class="k">print</span><span class="w"> </span><span class="n">length</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">foo</span><span class="p">)</span><span class="w"> </span><span class="c">// 3  (配列の場合は配列要素数</span>
+<span class="k">print</span><span class="w"> </span><span class="n">length</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span><span class="w">     </span><span class="c">// 2  (オブジェクトの場合は子オブジェクトの数</span>
 </pre></div>
 </div>
 </div>

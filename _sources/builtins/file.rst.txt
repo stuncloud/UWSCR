@@ -552,6 +552,12 @@ ZIPファイル
         | zipファイルに含めたいファイルのパス (10個まで)
         | パスの配列を渡すこともできる
 
+        .. admonition:: 格納されるファイルのパス構成について
+            :class: note
+
+            | 指定したパスがファイルの場合はそのファイル名でzipに格納します
+            | フォルダが指定された場合はそのフォルダ以下のすべてのファイルをフォルダからの相対パスでzipに格納します
+
     :return: 成功時TRUE
 
     .. admonition:: サンプルコード
@@ -562,8 +568,7 @@ ZIPファイル
                 'foo.uws',
                 'bar.uws',
                 'baz.uws',
-                'modules\qux.uws',
-                'modules\quux.uws'
+                'modules', // フォルダ指定
             ]
 
             zip("test.zip", files)
@@ -617,5 +622,5 @@ ZIPファイル
             // foo.uws
             // bar.uws
             // baz.uws
-            // modules/qux.uws
-            // modules/quux.uws
+            // modules\qux.uws
+            // modules\quux.uws

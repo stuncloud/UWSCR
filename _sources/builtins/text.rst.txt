@@ -219,15 +219,25 @@
     | 文字列の文字数、配列や構造体のサイズを返します
     | 長さを返せない値が渡された場合はエラー
 
-    :param 文字列・配列・連想配列・構造体・RemoteObject 値: 文字数を得たい文字列
+    :param 文字列他 値: 文字数を得たい文字列
     :return: 文字数やサイズを示す数値
 
     .. admonition:: 対応する値型
         :class: note
 
-        | UWSCとの互換性を保つため数値やbool値も対象です
-        | この場合それらを文字列として扱いその長さを返します
-        | また、Emptyは0、NULLは1を返します
+        - 文字列: 文字数を返す
+        - 数値: 文字列とみなし文字数を返す
+        - 真偽値: 文字列とみなし文字数を返す
+        - EMPTY: 0
+        - NULL: 1 (UWSC互換、0でないことに注意)
+        - 配列: 配列長を返す
+        - 連想配列: 配列長を返す
+        - バイト配列: 配列長を返す
+        - 構造体定義: 構造体のサイズを返す
+        - 構造体: 構造体サイズを返す
+        - RemoteObject: lengthプロパティを持つならその値
+        - UObject (配列): 配列長を返す
+        - UObject (オブジェクト): 子要素の数を返す
 
     .. admonition:: サンプルコード
 
@@ -247,13 +257,14 @@
             p = Point() // 構造体インスタンスにも対応
             print length(p) // 8
 
-            sa = safearray(0, 3)
-            print length(sa) // 4
-            print length(sa, TRUE) // 1 (次元)
+            // UObject
+            obj = @{
+                "foo": [1,2,3],
+                "bar": 123
+            }@
 
-            sa = safearray(0, 5, 0, 2)
-            print length(sa) // 6
-            print length(sa, TRUE) // 2 (次元)
+            print length(obj.foo) // 3  (配列の場合は配列要素数
+            print length(obj)     // 2  (オブジェクトの場合は子オブジェクトの数
 
 .. function:: lengthb(文字列)
 

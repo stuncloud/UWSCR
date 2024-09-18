@@ -7,7 +7,7 @@
 <link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="スクリプト制御" href="scriptcontrol.html" /><link rel="prev" title="文字列操作関数" href="text.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>ウィンドウ操作関数 - UWSCR 1.0.2</title>
+        <title>ウィンドウ操作関数 - UWSCR 1.0.3</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 1.0.2</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 1.0.3</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 1.0.2</span>
+  <span class="sidebar-brand-text">UWSCR 1.0.3</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -2513,10 +2513,19 @@
 <dd><div class="line-block">
 <div class="line">デスクトップまたはウィンドウの画像取得にGraphicsCaptureAPIを使う</div>
 <div class="line">デスクトップの場合は対象とするモニタを次の引数で指定</div>
+<div class="line">mouseorgを利用している場合はウィンドウを対象とする</div>
+<div class="line">このオプションを指定した場合mouseorgの <code class="docutils literal notranslate"><span class="pre">MOUSE_FORE</span></code> および <code class="docutils literal notranslate"><span class="pre">MOUSE_BACK</span></code> は無視されます (指定に関わらずフォア・バックをキャプチャ可能)</div>
 </div>
 <div class="admonition hint">
 <p class="admonition-title">ヒント</p>
 <p>このオプションにより通常ではキャプチャできないウィンドウがキャプチャできる可能性があります</p>
+</div>
+<div class="note admonition">
+<p class="admonition-title">キャプチャできないウィンドウ状態について</p>
+<div class="line-block">
+<div class="line">対象ウィンドウが最小化されている、または非表示になっている場合はキャプチャを行わず関数を終了します</div>
+<div class="line">このオプションでウィンドウをキャプチャする場合は対象ウィンドウが表示状態になっていることを確認してください</div>
+</div>
 </div>
 </dd></dl>
 
@@ -2570,7 +2579,11 @@
 </dd></dl>
 
 </p></li>
-<li><p><strong>モニタ番号</strong> (<em>定数 省略可</em>) -- <code class="docutils literal notranslate"><span class="pre">CHKIMG_USE_WGCAPI</span></code> 時に検索するモニタ番号を0から指定、デフォルトは0 (プライマリモニタ)</p></li>
+<li><p><strong>モニタ番号</strong> (<em>定数 省略可</em>) -- <div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">CHKIMG_USE_WGCAPI</span></code> 時に検索するモニタ番号を0から指定、デフォルトは0 (プライマリモニタ)</div>
+<div class="line">mousemorg使用時はウィンドウを対象とするためこの引数指定は不要</div>
+</div>
+</p></li>
 </ul>
 </dd>
 <dt class="field-even">戻り値の型<span class="colon">:</span></dt>
