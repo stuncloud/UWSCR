@@ -100,6 +100,168 @@ UWSCでやるなら？
         def_dll GetTickCount():dword:kernel32.dll
     endmodule
 
+イテレータ
+^^^^^^^^^^
+
+| classや無名関数を用いてイテレータっぽいものが作れます
+
+実装
+~~~~
+
+.. sourcecode:: uwscr
+
+    class Iter
+        dim list
+        dim index = 0
+        dim type
+
+        procedure Iter(list)
+            t = type_of(list)
+            select t
+                case TYPE_ARRAY
+                    this.list = list
+                    this.type = t
+                case TYPE_HASHTBL
+                    hashtbl cpy
+                    for key in list
+                        cpy[key] = list[key]
+                    next
+                    this.list = cpy
+                    this.type = t
+                default
+                    raise("<#t>はイテレータにできません", "Iter型エラー")
+            selend
+        fend
+
+        function to_list()
+            result = this.list
+        fend
+
+
+        function next()
+            if this.index < length(list) then
+                select this.type
+                    case TYPE_ARRAY
+                        result = this.list[this.index]
+                    case TYPE_HASHTBL
+                        result = this.list[this.index, HASH_VAL]
+                selend
+                this.index += 1
+            else
+                result = EMPTY
+            endif
+        fend
+
+        function map(f: func)
+            select this.type
+                case TYPE_ARRAY
+                    for i = this.index to length(this.list) - 1
+                        list[i] = f(this.list[i])
+                    next
+                case TYPE_HASHTBL
+                    for i = this.index to length(this.list) - 1
+                        key = this.list[i, HASH_KEY]
+                        list[key] = f(this.list[key])
+                    next
+            selend
+            result = this
+        fend
+
+        function filter(f: func)
+            select this.type
+                case TYPE_ARRAY
+                    new = []
+                    for i = this.index to length(this.list) - 1
+                        if f(this.list[i]) then
+                            new += this.list[i]
+                        endif
+                    next
+                    this.list = new
+                case TYPE_HASHTBL
+                    for key in this.list
+                        if ! f(key, this.list[key]) then
+                            |=>this.list[key, HASH_REMOVE]|()
+                        endif
+                    next
+            selend
+            result = this
+        fend
+
+        function find(f: func)
+            select this.type
+                case TYPE_ARRAY
+                    for i = this.index to length(this.list) - 1
+                        if f(this.list[i]) then
+                            result = this.list[i]
+                            exit
+                        endif
+                    next
+                case TYPE_HASHTBL
+                    for key in this.list
+                        if f(key, this.list[key]) then
+                            result = this.list[key]
+                            exit
+                        endif
+                    next
+            selend
+            result = this
+        fend
+
+        function reduce(f: func)
+            select this.type
+                case TYPE_ARRAY
+                    result = this.list[this.index]
+                    for i = this.index + 1 to length(this.list) - 1
+                        result = f(result, this.list[i])
+                    next
+                case TYPE_HASHTBL
+                    result = this.list[this.index, HASH_VAL]
+                    for i = this.index + 1 to length(this.list) - 1
+                        result = f(result, this.list[i, HASH_VAL])
+                    next
+            selend
+        fend
+    endclass
+
+使い方
+~~~~~~
+
+.. sourcecode:: uwscr
+
+    a = [1,2,3]
+
+    hash h
+        "a" = 1
+        "b" = 2
+        "c" = 3
+    endhash
+
+    // map
+    f = | n => n * 2|
+    print Iter(a).map(f).to_list() // [2, 4, 6]
+    print Iter(h).map(f).to_list() // {"A": 2, "B": 4, "C": 6}
+
+
+    // filter
+    print Iter(a).filter(|n => n mod 2 == 1|).to_list() // [1, 3]
+    // 連想配列はキーと値を受けてフィルタできる
+    print Iter(h).filter(|k,v => v mod 2 == 1|).to_list() // {"A": 1, "C": 3}
+
+    // reduce
+    f = | x, y => x + y |
+    print Iter(a).reduce(f) // 6
+    print Iter(h).reduce(f) // 6
+
+    // find
+    print Iter(a).find(| n => n mod 2 == 0|) // 2
+    print Iter(h).find(| k, v => k == "c"|) // 3
+
+    // 複合
+    print Iter([1,2,3,4,5,6,7,8,9]) _
+            .filter(| n => n mod 2 == 0 |) _ // 偶数
+            .map(| n => n + 1 |) _ // それぞれに+1
+            .reduce(| m, n => m + n|) // 合計を出す: 24
+
 TIPS
 ----
 
@@ -119,3 +281,4 @@ UWSCとUWSCRを判別
         case EMPTY
             print "UWSCRです"
     selend
+

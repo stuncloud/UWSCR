@@ -320,6 +320,167 @@
 </div>
 </section>
 </section>
+<section id="id7">
+<h3>イテレータ<a class="headerlink" href="#id7" title="この見出しへのパーマリンク">#</a></h3>
+<div class="line-block">
+<div class="line">classや無名関数を用いてイテレータっぽいものが作れます</div>
+</div>
+<section id="id8">
+<h4>実装<a class="headerlink" href="#id8" title="この見出しへのパーマリンク">#</a></h4>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="kd">class</span><span class="w"> </span><span class="n">Iter</span>
+<span class="w">    </span><span class="kd">dim</span><span class="w"> </span><span class="n">list</span>
+<span class="w">    </span><span class="kd">dim</span><span class="w"> </span><span class="n">index</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">0</span>
+<span class="w">    </span><span class="kd">dim</span><span class="w"> </span><span class="n">type</span>
+
+<span class="w">    </span><span class="kd">procedure</span><span class="w"> </span><span class="n">Iter</span><span class="p">(</span><span class="n">list</span><span class="p">)</span>
+<span class="w">        </span><span class="n">t</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">type_of</span><span class="p">(</span><span class="n">list</span><span class="p">)</span>
+<span class="w">        </span><span class="kd">select</span><span class="w"> </span><span class="n">t</span>
+<span class="w">            </span><span class="kd">case</span><span class="w"> </span><span class="n">TYPE_ARRAY</span>
+<span class="w">                </span><span class="n">this</span><span class="o">.</span><span class="n">list</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">list</span>
+<span class="w">                </span><span class="n">this</span><span class="o">.</span><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">t</span>
+<span class="w">            </span><span class="kd">case</span><span class="w"> </span><span class="n">TYPE_HASHTBL</span>
+<span class="w">                </span><span class="kd">hashtbl</span><span class="w"> </span><span class="n">cpy</span>
+<span class="w">                </span><span class="k">for</span><span class="w"> </span><span class="n">key</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="n">list</span>
+<span class="w">                    </span><span class="n">cpy</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">list</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+<span class="w">                </span><span class="k">next</span>
+<span class="w">                </span><span class="n">this</span><span class="o">.</span><span class="n">list</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cpy</span>
+<span class="w">                </span><span class="n">this</span><span class="o">.</span><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">t</span>
+<span class="w">            </span><span class="kd">default</span>
+<span class="w">                </span><span class="n">raise</span><span class="p">(</span><span class="s">&quot;&lt;#t&gt;はイテレータにできません&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;Iter型エラー&quot;</span><span class="p">)</span>
+<span class="w">        </span><span class="kd">selend</span>
+<span class="w">    </span><span class="kd">fend</span>
+
+<span class="w">    </span><span class="kd">function</span><span class="w"> </span><span class="n">to_list</span><span class="p">()</span>
+<span class="w">        </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">this</span><span class="o">.</span><span class="n">list</span>
+<span class="w">    </span><span class="kd">fend</span>
+
+
+<span class="w">    </span><span class="kd">function</span><span class="w"> </span><span class="k">next</span><span class="p">()</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="n">this</span><span class="o">.</span><span class="n">index</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">length</span><span class="p">(</span><span class="n">list</span><span class="p">)</span><span class="w"> </span><span class="k">then</span>
+<span class="w">            </span><span class="kd">select</span><span class="w"> </span><span class="n">this</span><span class="o">.</span><span class="n">type</span>
+<span class="w">                </span><span class="kd">case</span><span class="w"> </span><span class="n">TYPE_ARRAY</span>
+<span class="w">                    </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">this</span><span class="o">.</span><span class="n">list</span><span class="p">[</span><span class="n">this</span><span class="o">.</span><span class="n">index</span><span class="p">]</span>
+<span class="w">                </span><span class="kd">case</span><span class="w"> </span><span class="n">TYPE_HASHTBL</span>
+<span class="w">                    </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">this</span><span class="o">.</span><span class="n">list</span><span class="p">[</span><span class="n">this</span><span class="o">.</span><span class="n">index</span><span class="o">,</span><span class="w"> </span><span class="n">HASH_VAL</span><span class="p">]</span>
+<span class="w">            </span><span class="kd">selend</span>
+<span class="w">            </span><span class="n">this</span><span class="o">.</span><span class="n">index</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="m">1</span>
+<span class="w">        </span><span class="k">else</span>
+<span class="w">            </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">EMPTY</span>
+<span class="w">        </span><span class="k">endif</span>
+<span class="w">    </span><span class="kd">fend</span>
+
+<span class="w">    </span><span class="kd">function</span><span class="w"> </span><span class="n">map</span><span class="p">(</span><span class="n">f</span><span class="o">:</span><span class="w"> </span><span class="n">func</span><span class="p">)</span>
+<span class="w">        </span><span class="kd">select</span><span class="w"> </span><span class="n">this</span><span class="o">.</span><span class="n">type</span>
+<span class="w">            </span><span class="kd">case</span><span class="w"> </span><span class="n">TYPE_ARRAY</span>
+<span class="w">                </span><span class="k">for</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">this</span><span class="o">.</span><span class="n">index</span><span class="w"> </span><span class="n">to</span><span class="w"> </span><span class="n">length</span><span class="p">(</span><span class="n">this</span><span class="o">.</span><span class="n">list</span><span class="p">)</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="m">1</span>
+<span class="w">                    </span><span class="n">list</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">f</span><span class="p">(</span><span class="n">this</span><span class="o">.</span><span class="n">list</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+<span class="w">                </span><span class="k">next</span>
+<span class="w">            </span><span class="kd">case</span><span class="w"> </span><span class="n">TYPE_HASHTBL</span>
+<span class="w">                </span><span class="k">for</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">this</span><span class="o">.</span><span class="n">index</span><span class="w"> </span><span class="n">to</span><span class="w"> </span><span class="n">length</span><span class="p">(</span><span class="n">this</span><span class="o">.</span><span class="n">list</span><span class="p">)</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="m">1</span>
+<span class="w">                    </span><span class="n">key</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">this</span><span class="o">.</span><span class="n">list</span><span class="p">[</span><span class="n">i</span><span class="o">,</span><span class="w"> </span><span class="n">HASH_KEY</span><span class="p">]</span>
+<span class="w">                    </span><span class="n">list</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">f</span><span class="p">(</span><span class="n">this</span><span class="o">.</span><span class="n">list</span><span class="p">[</span><span class="n">key</span><span class="p">])</span>
+<span class="w">                </span><span class="k">next</span>
+<span class="w">        </span><span class="kd">selend</span>
+<span class="w">        </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">this</span>
+<span class="w">    </span><span class="kd">fend</span>
+
+<span class="w">    </span><span class="kd">function</span><span class="w"> </span><span class="n">filter</span><span class="p">(</span><span class="n">f</span><span class="o">:</span><span class="w"> </span><span class="n">func</span><span class="p">)</span>
+<span class="w">        </span><span class="kd">select</span><span class="w"> </span><span class="n">this</span><span class="o">.</span><span class="n">type</span>
+<span class="w">            </span><span class="kd">case</span><span class="w"> </span><span class="n">TYPE_ARRAY</span>
+<span class="w">                </span><span class="n">new</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[]</span>
+<span class="w">                </span><span class="k">for</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">this</span><span class="o">.</span><span class="n">index</span><span class="w"> </span><span class="n">to</span><span class="w"> </span><span class="n">length</span><span class="p">(</span><span class="n">this</span><span class="o">.</span><span class="n">list</span><span class="p">)</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="m">1</span>
+<span class="w">                    </span><span class="k">if</span><span class="w"> </span><span class="n">f</span><span class="p">(</span><span class="n">this</span><span class="o">.</span><span class="n">list</span><span class="p">[</span><span class="n">i</span><span class="p">])</span><span class="w"> </span><span class="k">then</span>
+<span class="w">                        </span><span class="n">new</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">this</span><span class="o">.</span><span class="n">list</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+<span class="w">                    </span><span class="k">endif</span>
+<span class="w">                </span><span class="k">next</span>
+<span class="w">                </span><span class="n">this</span><span class="o">.</span><span class="n">list</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">new</span>
+<span class="w">            </span><span class="kd">case</span><span class="w"> </span><span class="n">TYPE_HASHTBL</span>
+<span class="w">                </span><span class="k">for</span><span class="w"> </span><span class="n">key</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="n">this</span><span class="o">.</span><span class="n">list</span>
+<span class="w">                    </span><span class="k">if</span><span class="w"> </span><span class="o">!</span><span class="w"> </span><span class="n">f</span><span class="p">(</span><span class="n">key</span><span class="o">,</span><span class="w"> </span><span class="n">this</span><span class="o">.</span><span class="n">list</span><span class="p">[</span><span class="n">key</span><span class="p">])</span><span class="w"> </span><span class="k">then</span>
+<span class="w">                        </span><span class="o">|=&gt;</span><span class="n">this</span><span class="o">.</span><span class="n">list</span><span class="p">[</span><span class="n">key</span><span class="o">,</span><span class="w"> </span><span class="n">HASH_REMOVE</span><span class="p">]</span><span class="o">|</span><span class="p">()</span>
+<span class="w">                    </span><span class="k">endif</span>
+<span class="w">                </span><span class="k">next</span>
+<span class="w">        </span><span class="kd">selend</span>
+<span class="w">        </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">this</span>
+<span class="w">    </span><span class="kd">fend</span>
+
+<span class="w">    </span><span class="kd">function</span><span class="w"> </span><span class="n">find</span><span class="p">(</span><span class="n">f</span><span class="o">:</span><span class="w"> </span><span class="n">func</span><span class="p">)</span>
+<span class="w">        </span><span class="kd">select</span><span class="w"> </span><span class="n">this</span><span class="o">.</span><span class="n">type</span>
+<span class="w">            </span><span class="kd">case</span><span class="w"> </span><span class="n">TYPE_ARRAY</span>
+<span class="w">                </span><span class="k">for</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">this</span><span class="o">.</span><span class="n">index</span><span class="w"> </span><span class="n">to</span><span class="w"> </span><span class="n">length</span><span class="p">(</span><span class="n">this</span><span class="o">.</span><span class="n">list</span><span class="p">)</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="m">1</span>
+<span class="w">                    </span><span class="k">if</span><span class="w"> </span><span class="n">f</span><span class="p">(</span><span class="n">this</span><span class="o">.</span><span class="n">list</span><span class="p">[</span><span class="n">i</span><span class="p">])</span><span class="w"> </span><span class="k">then</span>
+<span class="w">                        </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">this</span><span class="o">.</span><span class="n">list</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+<span class="w">                        </span><span class="n">exit</span>
+<span class="w">                    </span><span class="k">endif</span>
+<span class="w">                </span><span class="k">next</span>
+<span class="w">            </span><span class="kd">case</span><span class="w"> </span><span class="n">TYPE_HASHTBL</span>
+<span class="w">                </span><span class="k">for</span><span class="w"> </span><span class="n">key</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="n">this</span><span class="o">.</span><span class="n">list</span>
+<span class="w">                    </span><span class="k">if</span><span class="w"> </span><span class="n">f</span><span class="p">(</span><span class="n">key</span><span class="o">,</span><span class="w"> </span><span class="n">this</span><span class="o">.</span><span class="n">list</span><span class="p">[</span><span class="n">key</span><span class="p">])</span><span class="w"> </span><span class="k">then</span>
+<span class="w">                        </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">this</span><span class="o">.</span><span class="n">list</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+<span class="w">                        </span><span class="n">exit</span>
+<span class="w">                    </span><span class="k">endif</span>
+<span class="w">                </span><span class="k">next</span>
+<span class="w">        </span><span class="kd">selend</span>
+<span class="w">        </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">this</span>
+<span class="w">    </span><span class="kd">fend</span>
+
+<span class="w">    </span><span class="kd">function</span><span class="w"> </span><span class="n">reduce</span><span class="p">(</span><span class="n">f</span><span class="o">:</span><span class="w"> </span><span class="n">func</span><span class="p">)</span>
+<span class="w">        </span><span class="kd">select</span><span class="w"> </span><span class="n">this</span><span class="o">.</span><span class="n">type</span>
+<span class="w">            </span><span class="kd">case</span><span class="w"> </span><span class="n">TYPE_ARRAY</span>
+<span class="w">                </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">this</span><span class="o">.</span><span class="n">list</span><span class="p">[</span><span class="n">this</span><span class="o">.</span><span class="n">index</span><span class="p">]</span>
+<span class="w">                </span><span class="k">for</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">this</span><span class="o">.</span><span class="n">index</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="n">to</span><span class="w"> </span><span class="n">length</span><span class="p">(</span><span class="n">this</span><span class="o">.</span><span class="n">list</span><span class="p">)</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="m">1</span>
+<span class="w">                    </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">f</span><span class="p">(</span><span class="n">result</span><span class="o">,</span><span class="w"> </span><span class="n">this</span><span class="o">.</span><span class="n">list</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+<span class="w">                </span><span class="k">next</span>
+<span class="w">            </span><span class="kd">case</span><span class="w"> </span><span class="n">TYPE_HASHTBL</span>
+<span class="w">                </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">this</span><span class="o">.</span><span class="n">list</span><span class="p">[</span><span class="n">this</span><span class="o">.</span><span class="n">index</span><span class="o">,</span><span class="w"> </span><span class="n">HASH_VAL</span><span class="p">]</span>
+<span class="w">                </span><span class="k">for</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">this</span><span class="o">.</span><span class="n">index</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="n">to</span><span class="w"> </span><span class="n">length</span><span class="p">(</span><span class="n">this</span><span class="o">.</span><span class="n">list</span><span class="p">)</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="m">1</span>
+<span class="w">                    </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">f</span><span class="p">(</span><span class="n">result</span><span class="o">,</span><span class="w"> </span><span class="n">this</span><span class="o">.</span><span class="n">list</span><span class="p">[</span><span class="n">i</span><span class="o">,</span><span class="w"> </span><span class="n">HASH_VAL</span><span class="p">])</span>
+<span class="w">                </span><span class="k">next</span>
+<span class="w">        </span><span class="kd">selend</span>
+<span class="w">    </span><span class="kd">fend</span>
+<span class="kd">endclass</span>
+</pre></div>
+</div>
+</section>
+<section id="id9">
+<h4>使い方<a class="headerlink" href="#id9" title="この見出しへのパーマリンク">#</a></h4>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">a</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="m">1</span><span class="o">,</span><span class="m">2</span><span class="o">,</span><span class="m">3</span><span class="p">]</span>
+
+<span class="kd">hash</span><span class="w"> </span><span class="n">h</span>
+<span class="w">    </span><span class="s">&quot;a&quot;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">1</span>
+<span class="w">    </span><span class="s">&quot;b&quot;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">2</span>
+<span class="w">    </span><span class="s">&quot;c&quot;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">3</span>
+<span class="kd">endhash</span>
+
+<span class="c">// map</span>
+<span class="n">f</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="m">2</span><span class="o">|</span>
+<span class="k">print</span><span class="w"> </span><span class="n">Iter</span><span class="p">(</span><span class="n">a</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">f</span><span class="p">)</span><span class="o">.</span><span class="n">to_list</span><span class="p">()</span><span class="w"> </span><span class="c">// [2, 4, 6]</span>
+<span class="k">print</span><span class="w"> </span><span class="n">Iter</span><span class="p">(</span><span class="n">h</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">f</span><span class="p">)</span><span class="o">.</span><span class="n">to_list</span><span class="p">()</span><span class="w"> </span><span class="c">// {&quot;A&quot;: 2, &quot;B&quot;: 4, &quot;C&quot;: 6}</span>
+
+
+<span class="c">// filter</span>
+<span class="k">print</span><span class="w"> </span><span class="n">Iter</span><span class="p">(</span><span class="n">a</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="o">|</span><span class="n">n</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="n">mod</span><span class="w"> </span><span class="m">2</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="m">1</span><span class="o">|</span><span class="p">)</span><span class="o">.</span><span class="n">to_list</span><span class="p">()</span><span class="w"> </span><span class="c">// [1, 3]</span>
+<span class="c">// 連想配列はキーと値を受けてフィルタできる</span>
+<span class="k">print</span><span class="w"> </span><span class="n">Iter</span><span class="p">(</span><span class="n">h</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="o">|</span><span class="n">k</span><span class="o">,</span><span class="n">v</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="n">mod</span><span class="w"> </span><span class="m">2</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="m">1</span><span class="o">|</span><span class="p">)</span><span class="o">.</span><span class="n">to_list</span><span class="p">()</span><span class="w"> </span><span class="c">// {&quot;A&quot;: 1, &quot;C&quot;: 3}</span>
+
+<span class="c">// reduce</span>
+<span class="n">f</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">x</span><span class="o">,</span><span class="w"> </span><span class="n">y</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">y</span><span class="w"> </span><span class="o">|</span>
+<span class="k">print</span><span class="w"> </span><span class="n">Iter</span><span class="p">(</span><span class="n">a</span><span class="p">)</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span><span class="n">f</span><span class="p">)</span><span class="w"> </span><span class="c">// 6</span>
+<span class="k">print</span><span class="w"> </span><span class="n">Iter</span><span class="p">(</span><span class="n">h</span><span class="p">)</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span><span class="n">f</span><span class="p">)</span><span class="w"> </span><span class="c">// 6</span>
+
+<span class="c">// find</span>
+<span class="k">print</span><span class="w"> </span><span class="n">Iter</span><span class="p">(</span><span class="n">a</span><span class="p">)</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="o">|</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="n">mod</span><span class="w"> </span><span class="m">2</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="m">0</span><span class="o">|</span><span class="p">)</span><span class="w"> </span><span class="c">// 2</span>
+<span class="k">print</span><span class="w"> </span><span class="n">Iter</span><span class="p">(</span><span class="n">h</span><span class="p">)</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="o">|</span><span class="w"> </span><span class="n">k</span><span class="o">,</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">k</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s">&quot;c&quot;</span><span class="o">|</span><span class="p">)</span><span class="w"> </span><span class="c">// 3</span>
+
+<span class="c">// 複合</span>
+<span class="k">print</span><span class="w"> </span><span class="n">Iter</span><span class="p">([</span><span class="m">1</span><span class="o">,</span><span class="m">2</span><span class="o">,</span><span class="m">3</span><span class="o">,</span><span class="m">4</span><span class="o">,</span><span class="m">5</span><span class="o">,</span><span class="m">6</span><span class="o">,</span><span class="m">7</span><span class="o">,</span><span class="m">8</span><span class="o">,</span><span class="m">9</span><span class="p">])</span><span class="w"> </span><span class="n">_</span>
+<span class="w">        </span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="o">|</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="n">mod</span><span class="w"> </span><span class="m">2</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="o">|</span><span class="p">)</span><span class="w"> </span><span class="n">_</span><span class="w"> </span><span class="c">// 偶数</span>
+<span class="w">        </span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="o">|</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="o">|</span><span class="p">)</span><span class="w"> </span><span class="n">_</span><span class="w"> </span><span class="c">// それぞれに+1</span>
+<span class="w">        </span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span><span class="o">|</span><span class="w"> </span><span class="n">m</span><span class="o">,</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">m</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">n</span><span class="o">|</span><span class="p">)</span><span class="w"> </span><span class="c">// 合計を出す: 24</span>
+</pre></div>
+</div>
+</section>
+</section>
 </section>
 <section id="tips">
 <h2>TIPS<a class="headerlink" href="#tips" title="この見出しへのパーマリンク">#</a></h2>
@@ -406,6 +567,11 @@
 <li><a class="reference internal" href="#id5">クラスを使う</a></li>
 <li><a class="reference internal" href="#id6">クロージャを使う</a></li>
 <li><a class="reference internal" href="#uwsc">UWSCでやるなら？</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id7">イテレータ</a><ul>
+<li><a class="reference internal" href="#id8">実装</a></li>
+<li><a class="reference internal" href="#id9">使い方</a></li>
 </ul>
 </li>
 </ul>

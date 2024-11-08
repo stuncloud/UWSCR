@@ -473,7 +473,26 @@ hashtbl 変数1, 変数2 = HASH_CASECARE, 変数3 = HASH_SORT
 </div>
 <div class="admonition- admonition">
 <p class="admonition-title">※2</p>
-<p>UWSCとは異なり変数で受けなくてもエラーになりません</p>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">連想配列変数[キー,</span> <span class="pre">HASH_REMOVE]</span></code> は式であるためこれ単体では実行できません (解析時エラーとなる)</div>
+<div class="line">有効な文の中に該当式を記述する必要があります (例: ダミー変数に代入)</div>
+</div>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// エラーを回避してHASH_REMOVEする方法の例</span>
+
+<span class="c">// 変数に代入</span>
+<span class="n">_dummy</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">hoge</span><span class="p">[</span><span class="n">key</span><span class="o">,</span><span class="w"> </span><span class="n">HASH_REMOVE</span><span class="p">]</span>
+
+<span class="c">// 即時関数内で実行</span>
+<span class="o">|</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">hoge</span><span class="p">[</span><span class="n">key</span><span class="o">,</span><span class="w"> </span><span class="n">HASH_REMOVE</span><span class="p">]</span><span class="w"> </span><span class="o">|</span><span class="p">()</span>
+</pre></div>
+</div>
+<div class="line-block">
+<div class="line">ただし、replモードであればコンソールに戻り値を表示するため式のみで実行できます</div>
+</div>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">uwscr&gt; hoge[key, HASH_REMOVE]</span>
+<span class="go">True</span>
+</pre></div>
+</div>
 </div>
 <div class="admonition- admonition">
 <p class="admonition-title">※3</p>
