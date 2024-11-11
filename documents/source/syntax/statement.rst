@@ -248,7 +248,25 @@ UWSCではエラーになっていたconstの一括定義も可能
 
 .. admonition:: ※2
 
-    UWSCとは異なり変数で受けなくてもエラーになりません
+    | ``連想配列変数[キー, HASH_REMOVE]`` は式であるためこれ単体では実行できません (解析時エラーとなる)
+    | 有効な文の中に該当式を記述する必要があります (例: ダミー変数に代入)
+
+    .. sourcecode:: uwscr
+
+        // エラーを回避してHASH_REMOVEする方法の例
+
+        // 変数に代入
+        _dummy = hoge[key, HASH_REMOVE]
+
+        // 即時関数内で実行
+        | => hoge[key, HASH_REMOVE] |()
+
+    | ただし、replモードであればコンソールに戻り値を表示するため式のみで実行できます
+
+    .. sourcecode:: console
+
+        uwscr> hoge[key, HASH_REMOVE]
+        True
 
 .. admonition:: ※3
 
