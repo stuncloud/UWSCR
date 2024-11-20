@@ -217,7 +217,9 @@ impl UWindow<DialogResult<InputResult>> for InputBox {
                         break Err(UWindowError::Win32(core::Error::from_win32()));
                     },
                     0 => {
-                        break Ok(DialogResult::new(None, point));
+                        if msg.hwnd == self.hwnd {
+                            break Ok(DialogResult::new(None, point));
+                        }
                     },
                     _ => {
                         match msg.message {

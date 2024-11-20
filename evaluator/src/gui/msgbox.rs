@@ -158,8 +158,10 @@ impl UWindow<DialogResult<MsgBoxButton>> for MsgBox {
                         break Err(UWindowError::Win32(core::Error::from_win32()));
                     },
                     0 => {
-                        let res = DialogResult { result: MsgBoxButton::default(), point };
-                        break Ok(res);
+                        if msg.hwnd == self.hwnd {
+                            let res = DialogResult { result: MsgBoxButton::default(), point };
+                            break Ok(res);
+                        }
                     },
                     _ => {
                         match msg.message {

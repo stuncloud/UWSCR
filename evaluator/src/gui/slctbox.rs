@@ -404,7 +404,9 @@ impl UWindow<DialogResult<SlctReturnValue>> for Slctbox {
                         break Err(UWindowError::Win32(core::Error::from_win32()));
                     },
                     0 => {
-                        break Ok(Default::default());
+                        if msg.hwnd == self.hwnd {
+                            break Ok(Default::default());
+                        }
                     },
                     _ => match msg.message {
                         wm::WM_COMMAND => {

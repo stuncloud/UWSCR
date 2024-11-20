@@ -4,6 +4,7 @@ use util::error::{
     Locale, CURRENT_LOCALE,
     UWSCRErrorTitle,
 };
+
 use crate::{
     error::{UError, UErrorKind, UErrorMessage},
     Evaluator,
@@ -286,16 +287,12 @@ impl WebViewForm {
         }
     }
     unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
-        let webview = match WebView::get_window_webview(hwnd) {
-            Some(b) => b,
-            None => {
-                return wm::DefWindowProcW(hwnd, msg, wparam, lparam);
-            },
-        };
         match msg {
             wm::WM_SIZE => {
                 if let Ok(size) = Self::get_size(hwnd) {
-                    let _ = webview.controller.0.SetBounds(size.into_rect());
+                    if let Some(webview) = WebView::get_window_webview(hwnd) {
+                        let _ = webview.controller.0.SetBounds(size.into_rect());
+                    }
                 }
                 LRESULT(0)
             },
@@ -304,9 +301,11 @@ impl WebViewForm {
                 LRESULT(0)
             },
             wm::WM_DESTROY => {
-                // dispose webview
-                WebView::remove_window_webview(hwnd);
-                wm::PostQuitMessage(0);
+                if let Some(_) = WebView::get_window_webview(hwnd) {
+                    // webviewが有効であればwebviewを除去
+                    WebView::remove_window_webview(hwnd);
+                    wm::PostQuitMessage(0);
+                }
                 LRESULT(0)
             },
             msg => wm::DefWindowProcW(hwnd, msg, wparam, lparam)
@@ -319,14 +318,12 @@ impl WebViewForm {
                     match (f)(self.webview.clone()) {
                         WebViewValue::None => {},
                         WebViewValue::Submit(value) => {
-                            if self.no_hide {
-                                self.webview.core.remove_WebMessageReceived(self.webview.webmsg_token)?;
+                            if ! self.no_hide {
+                                // webviewを除去 (ウィンドウも閉じる)
                                 WebView::remove_window_webview(self.hwnd);
-                            } else {
-                                let _ = wm::DestroyWindow(self.hwnd);
                             }
                             return Ok(value);
-                        }
+                        },
                     }
                 }
 
@@ -345,7 +342,7 @@ impl WebViewForm {
                             }));
                         }
                     },
-                    _ => {}
+                    _ =>{},
                 }
                 wm::TranslateMessage(&msg);
                 wm::DispatchMessageW(&msg);
