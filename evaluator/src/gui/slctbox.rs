@@ -397,7 +397,7 @@ impl UWindow<DialogResult<SlctReturnValue>> for Slctbox {
                 let point = self.get_pos().unwrap_or(point);
                 if ! set_progress() {
                     self.destroy();
-                    break Ok(DialogResult::new(SlctReturnValue::Cancel, point));
+                    break Ok(DialogResult::new(SlctReturnValue::Timeout, point));
                 }
                 match wm::GetMessageW(&mut msg, hwnd, 0, 0).0 {
                     -1 => {
@@ -515,6 +515,7 @@ pub enum SlctReturnValue {
     Multi(Vec<SlctReturnValue>),
     #[default]
     Cancel,
+    Timeout,
 }
 
 #[derive(PartialEq)]

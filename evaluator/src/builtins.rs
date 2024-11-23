@@ -1025,14 +1025,19 @@ fn init_builtin_consts() -> BuiltinConsts {
     sets.append(&mut BuiltinConsts::new_str::<dialog::WindowClassName>());
     // SLCT_* 定数
     let mut slcts = BuiltinConsts {
-        sets: (1..=31_u32).into_iter()
-            .map(|n| {
-                let val = 2_i32.pow(n - 1);
-                let name = format!("SLCT_{n}");
-                let desc = Some(format!("{n}番目の選択肢"));
-                BuiltinConst::new(name, val.into(), desc)
-            })
-            .collect()
+        sets: {
+            let mut sets = (1..=31_u32).into_iter()
+                .map(|n| {
+                    let val = 2_i32.pow(n - 1);
+                    let name = format!("SLCT_{n}");
+                    let desc = Some(format!("{n}番目の選択肢"));
+                    BuiltinConst::new(name, val.into(), desc)
+                })
+                .collect::<Vec<_>>();
+            sets.push(BuiltinConst::new("SLCT_CANCEL".into(), (-1).into(), Some("キャンセルされた".into())));
+            sets.push(BuiltinConst::new("SLCT_TIMEOUT".into(), (-2).into(), Some("タイムアウトした".into())));
+            sets
+        }
     };
     sets.append(&mut slcts);
     // file_control

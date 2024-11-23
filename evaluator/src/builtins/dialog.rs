@@ -363,6 +363,7 @@ pub fn slctbox(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
             Object::Array(vec)
         },
         SlctReturnValue::Cancel => (-1).into(),
+        SlctReturnValue::Timeout => (-2).into(),
     };
     Ok(obj)
 }
