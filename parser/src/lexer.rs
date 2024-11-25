@@ -81,14 +81,33 @@ pub struct Lexer {
     pos: usize,
     next_pos: usize,
     ch: char,
-    position: Position,
-    position_before: Position,
+    pub position: Position,
+    // position_before: Position,
     textblock_flg: bool,
     is_textblock: bool,
     is_comment_textblock: bool,
     is_call: bool,
     /// ( と ) のペア数カウント, dllパスの終端位置
     def_dll: Option<(u32, usize)>,
+}
+
+#[cfg(debug_assertions)]
+impl std::fmt::Debug for Lexer {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Lexer")
+            // .field("input", &self.input)
+            // .field("lines", &self.lines)
+            .field("pos", &self.pos)
+            .field("next_pos", &self.next_pos)
+            .field("ch", &self.ch)
+            .field("position", &self.position)
+            .field("textblock_flg", &self.textblock_flg)
+            .field("is_textblock", &self.is_textblock)
+            .field("is_comment_textblock", &self.is_comment_textblock)
+            .field("is_call", &self.is_call)
+            .field("def_dll", &self.def_dll)
+            .finish()
+    }
 }
 
 impl Lexer {
@@ -100,7 +119,7 @@ impl Lexer {
             next_pos: 0,
             ch: '\0',
             position: Position {row: 1, column: 0},
-            position_before: Position{row: 0, column:0},
+            // position_before: Position{row: 0, column:0},
             textblock_flg: false,
             is_textblock: false,
             is_comment_textblock: true,
@@ -121,7 +140,7 @@ impl Lexer {
     }
 
     fn to_next_row(&mut self) {
-        self.position_before = self.position.clone();
+        // self.position_before = self.position.clone();
         self.position.row += 1;
         self.position.column = 0;
     }
@@ -137,16 +156,22 @@ impl Lexer {
         self.position.column += 1;
     }
 
-    /// 同一行の指定位置に移動
-    fn move_to(&mut self, pos: usize) {
-        if pos >= self.input.len() {
+    /// inputの指定位置に移動
+    fn move_to(&mut self, new_pos: usize) {
+        if new_pos > self.input.len() {
             self.ch = '\0';
         } else {
-            self.ch = self.input[pos];
+            (self.pos..=new_pos).for_each(|p| {
+                if self.input[p] == '\n' {
+                    self.position.row += 1;
+                    self.position.column = 0;
+                } else {
+                    self.position.column += 1;
+                }
+            });
+            self.pos = new_pos;
+            self.next_pos = self.pos + 1;
         }
-        self.pos = pos;
-        self.next_pos = pos + 1;
-        self.position.column = pos;
     }
 
     fn nextch(&mut self) -> char {
@@ -360,10 +385,10 @@ impl Lexer {
                 return TokenInfo::new_with_pos(self.consume_hexadecimal(), p, skipped);
             },
             '"' => {
-                return TokenInfo::new_with_pos(self.consume_string(), p, skipped);
+                return TokenInfo::new_with_pos(self.consume_literal_string('"'), p, skipped);
             },
             '|' => Token::Pipeline,
-            '\'' => return TokenInfo::new_with_pos(self.consume_single_quote_string(), p, skipped),
+            '\'' => return TokenInfo::new_with_pos(self.consume_literal_string('\''), p, skipped),
             '\n' => {
                 self.to_next_row();
                 Token::Eol
@@ -704,96 +729,68 @@ impl Lexer {
         Token::Hex(literal.to_string())
     }
 
-    fn consume_string(&mut self) -> Token {
+    fn consume_literal_string(&mut self, ends_with: char) -> Token {
         self.read_char();
-        let start_pos = self.pos;
-        let mut join = false;
-        loop {
-            match self.ch {
-                '"' | '\0' => {
-                    let literal: &String = &self.input[start_pos..self.pos].into_iter()
-                        .filter(|c| **c != '\0')
-                        .collect();
-                    self.read_char();
-                    return Token::ExpandableString(literal.to_string());
-                },
-                '\n' => {
-                    if join {
-                        self.input[self.pos] = '\0';
-                        join = false;
-                    }
-                    self.read_char();
-                    self.to_next_row();
-                },
-                '_' => {
-                    if self.will_end_line() {
-                        join = true;
-                        self.input[self.pos] = '\0';
-                    }
-                    self.read_char();
-                },
-                _ => {
-                    if join {
-                        self.input[self.pos] = '\0';
-                    }
-                    self.read_char();
-                }
-            }
+        if self.ch == '\0' {
+            // " または ' の後が文末だったら即終了
+            return Token::NotClosing(ends_with);
         }
-    }
+        let start = self.pos;
+        let position = self.position;
+        loop {
+            if self.ch == ends_with {
+                // 適切に閉じられた場合は文字列トークンとして返す
+                let literal = self.input[start..self.pos].into_iter()
+                    .filter(|c| **c != '\0')
+                    .collect::<String>();
+                self.read_char();
+                return match ends_with {
+                    '"' => Token::ExpandableString(literal),
+                    '\'' => Token::String(literal),
+                    _ => unreachable!(),
+                };
+            } else {
+                match self.ch {
+                    // 文字列行結合
+                    '_' => {
+                        if let Some(end_pos) = self.will_end_line() {
+                            // _ が行末相当の場合は
+                            let underbar_pos = self.pos;
+                            // 行末まで移動
+                            self.move_to(end_pos);
+                            // _ を含めて改行等をnull文字に変換する
+                            self.input[underbar_pos..=end_pos].iter_mut().for_each(|n| *n = '\0');
+                        }
+                        self.read_char();
+                    },
+                    // 改行や文末だった場合は不正なトークンとして返す
+                    '\r' | '\n' | '\0' => {
+                        // ポジションを戻す
+                        self.position = position;
+                        self.pos = start;
+                        self.next_pos = start + 1;
+                        self.ch = self.input[start];
 
-    fn consume_single_quote_string(&mut self) -> Token {
-        self.read_char();
-        let start_pos = self.pos;
-        let mut join = false;
-        loop {
-            match self.ch {
-                '\'' | '\0' => {
-                    let literal: &String = &self.input[start_pos..self.pos].into_iter()
-                        .filter(|c| **c != '\0')
-                        .collect();
-                    self.read_char();
-                    return Token::String(literal.to_string());
-                },
-                '\n' => {
-                    if join {
-                        self.input[self.pos] = '\0';
-                        join = false;
-                    }
-                    self.read_char();
-                    self.to_next_row();
-                },
-                '_' => {
-                    if self.will_end_line() {
-                        join = true;
-                        self.input[self.pos] = '\0';
-                    }
-                    self.read_char();
-                },
-                _ => {
-                    if join {
-                        self.input[self.pos] = '\0';
-                    }
-                    self.read_char();
+                        return Token::NotClosing(ends_with);
+                    },
+                    _ => {
+                        self.read_char();
+                    },
                 }
             }
         }
     }
-    fn will_end_line(&self) -> bool {
-        let mut pos = self.pos + 1;
+    fn will_end_line(&self) -> Option<usize> {
+        let mut pos = self.pos;
         loop {
-            match &self.input[pos] {
+            pos += 1;
+            match self.input[pos] {
                 // ホワイトスペース
                 ' ' | '\t' | '　' => {},
-                '\r' | '\n' => break true,
-                '/' => {
-                    if self.input[pos+1] == '/' {
-                        break true
-                    }
-                },
-                _ => break false,
+                '\r' => {},
+                '\n' => break Some(pos),
+                _ => break None,
             }
-            pos += 1
         }
     }
 

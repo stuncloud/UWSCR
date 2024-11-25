@@ -2780,6 +2780,11 @@ impl Parser {
                 self.error_on_current_token(kind);
                 return None;
             },
+            Token::NotClosing(c) => {
+                let kind = ParseErrorKind::StringLiteralNotClosing(*c);
+                self.error_on_current_token(kind);
+                return None;
+            },
             Token::Print |
             Token::Dim |
             Token::Public |

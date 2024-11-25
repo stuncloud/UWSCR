@@ -57,6 +57,8 @@ pub enum ParseErrorKind {
     TokenCanNotBeUsedAsIdentifier(Token),
     /// トークンとして使えない不正な文字列
     IllegalCharacter(char),
+    /// 文字列リテラルが閉じていない
+    StringLiteralNotClosing(char),
     /// 識別子が必要
     IdentifierExpected,
     /// ブロック終端ではない
@@ -160,7 +162,12 @@ impl fmt::Display for ParseErrorKind {
             ParseErrorKind::IllegalCharacter(c) => write_locale!(f,
                 "不正な文字: {}",
                 "Invalid character: {}",
-                c.escape_unicode()
+                c.escape_default()
+            ),
+            ParseErrorKind::StringLiteralNotClosing(c) => write_locale!(f,
+                "文字列表記が開始されていますが、対となる {} で閉じられていません",
+                "String must be closed with {}",
+                c
             ),
             ParseErrorKind::IdentifierExpected => write_locale!(f,
                 "識別子が必要です",
