@@ -87,6 +87,10 @@ pub struct Lexer {
     is_textblock: bool,
     is_comment_textblock: bool,
     is_call: bool,
+    /// ( と ) のペアのそれぞれの位置を示す
+    paren_pairs: Option<Pairs>,
+    /// [ と ] のペアのそれぞれの位置を示す
+    bracket_pairs: Option<Pairs>,
     /// ( と ) のペア数カウント, dllパスの終端位置
     def_dll: Option<(u32, usize)>,
 }
@@ -125,6 +129,8 @@ impl Lexer {
             is_comment_textblock: true,
             is_call: false,
             def_dll: None,
+            paren_pairs: None,
+            bracket_pairs: None,
         };
         lexer.read_char();
 
@@ -330,18 +336,70 @@ impl Lexer {
                 if let Some((n, _)) = self.def_dll.as_mut() {
                     *n += 1;
                 }
-                Token::Lparen
+                if self.paren_pairs.is_none() {
+                    let mut pos = self.pos;
+                    self.get_paren_pairs(&mut pos, true, false);
+                }
+                if let Some(pairs) = &self.paren_pairs {
+                    if pairs.has_pair_r(&self.pos) {
+                        Token::Lparen
+                    } else {
+                        Token::MissingPair(')')
+                    }
+                } else {
+                    Token::Lparen
+                }
             },
             ')' => {
                 if let Some((n, _)) = self.def_dll.as_mut() {
                     *n = n.saturating_sub(1);
                 }
-                Token::Rparen
+                if self.paren_pairs.is_none() {
+                    let mut pos = self.pos;
+                    self.get_paren_pairs(&mut pos, true, true);
+                }
+                if let Some(pairs) = &self.paren_pairs {
+                    if pairs.has_pair_l(&self.pos) {
+                        Token::Rparen
+                    } else {
+                        Token::MissingPair('(')
+                    }
+                } else {
+                    Token::Rparen
+                }
             },
             '{' => Token::Lbrace,
             '}' => Token::Rbrace,
-            '[' => Token::Lbracket,
-            ']' => Token::Rbracket,
+            '[' => {
+                if self.bracket_pairs.is_none() {
+                    let mut pos = self.pos;
+                    self.get_bracket_pairs(&mut pos, true, false);
+                }
+                if let Some(pairs) = &self.bracket_pairs {
+                    if pairs.has_pair_r(&self.pos) {
+                        Token::Lbracket
+                    } else {
+                        Token::MissingPair(']')
+                    }
+                } else {
+                    Token::Lbracket
+                }
+            },
+            ']' => {
+                if self.bracket_pairs.is_none() {
+                    let mut pos = self.pos;
+                    self.get_bracket_pairs(&mut pos, true, true);
+                }
+                if let Some(pairs) = &self.bracket_pairs {
+                    if pairs.has_pair_l(&self.pos) {
+                        Token::Rbracket
+                    } else {
+                        Token::MissingPair('[')
+                    }
+                } else {
+                    Token::Rbracket
+                }
+            },
             '?' => Token::Question,
             ':' => if self.nextch_is('\\') {
                 self.read_char();
@@ -733,7 +791,7 @@ impl Lexer {
         self.read_char();
         if self.ch == '\0' {
             // " または ' の後が文末だったら即終了
-            return Token::NotClosing(ends_with);
+            return Token::MissingPair(ends_with);
         }
         let start = self.pos;
         let position = self.position;
@@ -771,7 +829,7 @@ impl Lexer {
                         self.next_pos = start + 1;
                         self.ch = self.input[start];
 
-                        return Token::NotClosing(ends_with);
+                        return Token::MissingPair(ends_with);
                     },
                     _ => {
                         self.read_char();
@@ -908,6 +966,72 @@ impl Lexer {
         self.is_textblock = false;
         let body: String = self.input[start_pos..end_pos].into_iter().collect();
         body
+    }
+
+    /// ()ペアを得る
+    fn get_paren_pairs(&mut self, pos: &mut usize, is_top: bool, is_right: bool) {
+        ParenPairs::search(&self.input, &mut self.paren_pairs, pos, is_top, is_right);
+    }
+    /// []ペアを得る
+    fn get_bracket_pairs(&mut self, pos: &mut usize, is_top: bool, is_right: bool) {
+        BracketPairs::search(&self.input, &mut self.bracket_pairs, pos, is_top, is_right);
+    }
+}
+trait GetPairs {
+    const LEFT: char;
+    const RIGHT: char;
+    fn search(input: &Vec<char>, pairs: &mut Option<Pairs>, pos: &mut usize, is_top: bool, is_right: bool) {
+        if pairs.is_none() {
+            pairs.replace(Pairs::new());
+        }
+        let mut start_pos = *pos;
+        while let Some(c) = input.get(*pos + 1) {
+            *pos += 1;
+            if *c == Self::LEFT {
+                Self::search(input, pairs, pos, false, false);
+            } else if *c == Self::RIGHT {
+                if ! is_right && start_pos > 0 {
+                    if let Some(pairs) = pairs {
+                        pairs.push(start_pos, *pos);
+                        start_pos = 0;
+                    }
+                }
+                if ! is_top {
+                    break;
+                }
+            }
+        }
+    }
+}
+struct ParenPairs;
+impl GetPairs for ParenPairs {
+    const LEFT: char = '(';
+    const RIGHT: char = ')';
+}
+struct BracketPairs;
+impl GetPairs for BracketPairs {
+    const LEFT: char = '[';
+    const RIGHT: char = ']';
+}
+
+type Pair = (usize, usize);
+struct Pairs {
+    pairs: Vec<Pair>,
+}
+impl Pairs {
+    fn new() -> Self {
+        Self { pairs: Vec::new() }
+    }
+    fn push(&mut self, l: usize, r: usize) {
+        self.pairs.push((l, r));
+    }
+    fn has_pair_l(&self, r: &usize) -> bool {
+        let pair = self.pairs.iter().find(|(_l, _r)| _r == r);
+        pair.is_some()
+    }
+    fn has_pair_r(&self, l: &usize) -> bool {
+        let pair = self.pairs.iter().find(|(_l, _r)| _l == l);
+        pair.is_some()
     }
 }
 

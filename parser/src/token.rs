@@ -12,7 +12,7 @@ pub enum Token {
     /// 行末, コメント開始も行末として扱う
     Eol,
 
-    NotClosing(char),
+    MissingPair(char),
 
     // Identifiers + literals
     Identifier(String),
@@ -208,7 +208,7 @@ impl Token {
     pub fn len(&self) -> usize {
         match self {
             Token::Illegal(_) => 1,
-            Token::NotClosing(_) => 1,
+            Token::MissingPair(_) => 1,
             Token::Blank => 0,
             Token::Eof => 0,
             Token::Eol => 0,
@@ -328,7 +328,7 @@ impl std::fmt::Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Token::Illegal(char) => write!(f, "Illegal({char})"),
-            Token::NotClosing(char) => write!(f, "NotClosing({char})"),
+            Token::MissingPair(char) => write!(f, "MissingPair({char})"),
             Token::Blank => write!(f, "Blank"),
             Token::Eof => write!(f, "Eof"),
             Token::Eol => write!(f, "Eol"),

@@ -243,19 +243,34 @@ impl Parser {
         self.errors.push(err);
     }
 
-    fn bump(&mut self) {
+    fn bump(&mut self) -> Option<()> {
         self.current_token = self.next_token.clone();
         self.next_token = self.lexer.next_token();
+        match &self.next_token.token {
+            Token::Illegal(c) => {
+                self.error_on_next_token(ParseErrorKind::IllegalCharacter(*c));
+                None
+            },
+            Token::MissingPair(c) => {
+                let kind = match c {
+                    '"' | '\'' => ParseErrorKind::StringLiteralNotClosing(*c),
+                    _ => ParseErrorKind::MissingBracketPair(*c),
+                };
+                self.error_on_next_token(kind);
+                None
+            },
+            _ => Some(()),
+        }
     }
-    fn bump_to_next_row(&mut self) {
+    fn bump_to_next_row(&mut self) -> Option<()> {
         loop {
             match self.current_token.token {
                 Token::Eol |
                 Token::Eof => {
-                    self.bump();
-                    break;
+                    self.bump()?;
+                    break Some(());
                 },
-                _ => self.bump()
+                _ => self.bump()?,
             }
         }
     }
@@ -291,13 +306,13 @@ impl Parser {
     /// 次のトークンが期待通りであればbumpする
     ///
     /// 異なる場合はエラーを積む
-    fn bump_to_next_expected_token(&mut self, expected: Token) -> bool {
+    fn bump_to_next_expected_token(&mut self, expected: Token) -> Option<bool> {
         if self.is_next_token(&expected) {
-            self.bump();
-            return true;
+            self.bump()?;
+            return Some(true);
         } else {
             self.error_next_token_is_unexpected(expected);
-            return false;
+            return Some(false);
         }
     }
 
@@ -372,11 +387,11 @@ impl Parser {
     }
 
     /// 現在のトークンのエラー理由を指定
-    fn error_on_current_token(&mut self, kind: ParseErrorKind) {
+    fn error_on_current_token(&mut self, kind: ParseErrorKind) -> Option<()>{
         let current = &self.current_token;
         let end = current.get_end_pos();
         self.push_error(kind, current.pos, end);
-        self.bump();
+        self.bump()
     }
 
     /// 次のトークンのエラー理由を指定
@@ -474,7 +489,7 @@ impl Parser {
                     continue;
                 },
             }
-            self.bump();
+            let _ = self.bump();
         }
     }
     /// 以下をチェックする
@@ -547,7 +562,7 @@ impl Parser {
     }
 
     fn parse_block_statement(&mut self) -> BlockStatement {
-        self.bump();
+        let _ = self.bump();
         let mut block: BlockStatement  = vec![];
 
         while ! self.is_current_token_end_of_block() && ! self.is_current_token(&Token::Eof) {
@@ -639,7 +654,7 @@ impl Parser {
                     continue;
                 },
             }
-            self.bump();
+            let _ = self.bump();
         }
         if self.builder.is_in_module_member_definition() {
             self.builder.take_module_members(&mut block);
@@ -848,14 +863,14 @@ impl Parser {
                 // hoge[1][1][1]
                 // hoge[][][1]   // 最後以外は省略可能
                 // hoge[1, 1, 1] // カンマ区切り
-                self.bump();
+                self.bump()?;
                 let mut index_list = vec![];
                 let mut is_multidimensional = false;
                 let mut is_comma = false;
                 loop {
                     if is_comma {
                         is_comma = false;
-                        self.bump();
+                        self.bump()?;
                         loop {
                             match self.next_token.token {
                                 Token::Rbracket => {
@@ -868,10 +883,10 @@ impl Parser {
                                     if self.is_current_token(&Token::Comma) {
                                         index_list.push(Expression::Literal(Literal::Empty));
                                     }
-                                    self.bump();
+                                    self.bump()?;
                                 },
                                 _ => {
-                                    self.bump();
+                                    self.bump()?;
                                     let e = self.parse_expression(Precedence::Lowest, ExpressionState::Default)?;
                                     index_list.push(e);
                                     match self.next_token.token {
@@ -892,7 +907,7 @@ impl Parser {
                         Token::Rbracket => {
                             // ] の直前が [ なら空
                             let is_empty = self.is_current_token(&Token::Lbracket);
-                            self.bump();
+                            self.bump()?;
                             if ! self.is_next_token(&Token::Lbracket) && is_multidimensional && is_empty {
                                 // 多次元で最後の[]が添字なしはダメ
                                 self.error_on_current_token(ParseErrorKind::SizeRequired);
@@ -904,7 +919,7 @@ impl Parser {
                                 // 次の [ があったら多次元
                                 if self.is_next_token(&Token::Lbracket) {
                                     is_multidimensional = true;
-                                    self.bump();
+                                    self.bump()?;
                                 } else {
                                     // なければ終了
                                     break;
@@ -920,7 +935,7 @@ impl Parser {
                         },
                         _ => {
                             // 添字
-                            self.bump();
+                            self.bump()?;
                             let e = self.parse_expression(Precedence::Lowest, ExpressionState::Default)?;
                             index_list.push(e);
                             if self.is_next_token(&Token::Comma) {
@@ -942,7 +957,7 @@ impl Parser {
                         Expression::Array(Vec::new(), index_list)
                     }
                 } else {
-                    self.bump();
+                    self.bump()?;
                     let list = self.parse_expression_list(Token::Eol)?;
                     Expression::Array(list, index_list)
                 }
@@ -958,16 +973,16 @@ impl Parser {
                         Expression::Literal(Literal::Empty)
                     }
                 } else {
-                    self.bump();
-                    self.bump();
+                    self.bump()?;
+                    self.bump()?;
                     self.parse_expression(Precedence::Lowest, ExpressionState::Default)?
                 }
             };
             expressions.push((var_name, expression));
 
             if self.is_next_token(&Token::Comma) {
-                self.bump();
-                self.bump();
+                self.bump()?;
+                self.bump()?;
             } else{
                 break;
             }
@@ -979,11 +994,11 @@ impl Parser {
     fn parse_public_statement(&mut self) -> Option<Statement> {
         match &self.next_token.token {
             Token::HashTable => {
-                self.bump();
+                self.bump()?;
                 self.parse_hashtable_statement(true)
             },
             _ => {
-                self.bump();
+                self.bump()?;
                 self.parse_variable_definition(false)
                     .map(|v| Statement::Public(v))
             },
@@ -991,30 +1006,30 @@ impl Parser {
     }
 
     fn parse_dim_statement(&mut self) -> Option<Statement> {
-        self.bump();
+        self.bump()?;
         self.parse_variable_definition(false)
             .map(|v| Statement::Dim(v, self.builder.is_in_loop()))
     }
 
     fn parse_const_statement(&mut self) -> Option<Statement> {
-        self.bump();
+        self.bump()?;
         self.parse_variable_definition(true)
             .map(|v| Statement::Const(v))
     }
 
     fn parse_hash_statement(&mut self) -> Option<Statement> {
         let is_public = if self.is_next_token(&Token::Public) {
-            self.bump();
+            self.bump()?;
             true
         } else {
             false
         };
-        self.bump();
+        self.bump()?;
 
         let name = self.parse_identifier(IdentifierType::Declaration)?;
         let option = if self.is_next_token(&Token::EqualOrAssign) {
-            self.bump();
-            self.bump();
+            self.bump()?;
+            self.bump()?;
             match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
                 Some(e) => Some(e),
                 None => return None
@@ -1022,12 +1037,12 @@ impl Parser {
         } else {
             None
         };
-        self.bump();
-        self.bump();
+        self.bump()?;
+        self.bump()?;
         let mut members = vec![];
         while ! self.is_current_token(&Token::BlockEnd(BlockEnd::EndHash)) {
             if self.is_current_token(&Token::Eol) {
-                self.bump();
+                self.bump()?;
                 continue;
             }
             let expression = self.parse_expression(Precedence::Lowest, ExpressionState::NotAccess);
@@ -1048,8 +1063,8 @@ impl Parser {
                         _ => None
                     } {
                         members.push((e, *right.clone()));
-                        self.bump();
-                        self.bump();
+                        self.bump()?;
+                        self.bump()?;
                         continue;
                     }
                 }
@@ -1064,7 +1079,7 @@ impl Parser {
     }
 
     fn parse_hashtable_statement(&mut self, is_public: bool) -> Option<Statement> {
-        self.bump();
+        self.bump()?;
         let mut expressions = vec![];
 
         if is_public {
@@ -1076,8 +1091,8 @@ impl Parser {
         loop {
             let identifier = self.parse_identifier(IdentifierType::Declaration)?;
             let hash_option = if self.is_next_token(&Token::EqualOrAssign) {
-                self.bump();
-                self.bump();
+                self.bump()?;
+                self.bump()?;
                 match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
                     Some(e) => Some(e),
                     None => return None
@@ -1088,8 +1103,8 @@ impl Parser {
 
             expressions.push((identifier, hash_option));
             if self.is_next_token(&Token::Comma) {
-                self.bump();
-                self.bump();
+                self.bump()?;
+                self.bump()?;
             } else {
                 break;
             }
@@ -1103,7 +1118,7 @@ impl Parser {
             Token::Eol |
             Token::Eof => Expression::Literal(Literal::String("".to_string())),
             _ => {
-                self.bump();
+                self.bump()?;
                 let has_whitespace = self.current_token.skipped_whitespace;
                 let e = self.parse_expression(Precedence::Lowest, ExpressionState::Default)?;
                 if has_whitespace {
@@ -1128,11 +1143,11 @@ impl Parser {
         let (script, builder, args) = match self.next_token.token.clone() {
             Token::Path(dir, name) => {
                 // パス取得
-                self.bump();
+                self.bump()?;
                 // 引数の確認
                 let args = if self.is_next_token(&Token::Lparen) {
-                    self.bump();
-                    // self.bump();
+                    self.bump()?;
+                    // self.bump()?;
                     match self.parse_expression_list(Token::Rparen) {
                         Some(ve) => ve,
                         None => vec![],
@@ -1245,11 +1260,11 @@ impl Parser {
                         return None;
                     },
                 };
-                self.bump();
+                self.bump()?;
                 // 引数の確認
                 let args = if self.is_next_token(&Token::Lparen) {
-                    self.bump();
-                    // self.bump();
+                    self.bump()?;
+                    // self.bump()?;
                     match self.parse_expression_list(Token::Rparen) {
                         Some(ve) => ve,
                         None => vec![],
@@ -1299,19 +1314,19 @@ impl Parser {
     }
 
     fn parse_def_dll_statement(&mut self) -> Option<Statement> {
-        self.bump();
+        self.bump()?;
         let Identifier(name) = self.parse_identifier(IdentifierType::Definition)?;
         let (name, alias) = match &self.next_token.token {
             Token::Lparen => {
-                self.bump();
+                self.bump()?;
                 (name, None)
             },
             Token::Colon => {
-                self.bump();
-                self.bump();
+                self.bump()?;
+                self.bump()?;
                 let alias = Some(name);
                 let Identifier(name) = self.parse_identifier(IdentifierType::Other)?;
-                if ! self.bump_to_next_expected_token(Token::Lparen) {
+                if ! self.bump_to_next_expected_token(Token::Lparen)? {
                     return None;
                 }
                 (name, alias)
@@ -1326,7 +1341,7 @@ impl Parser {
             }
         };
 
-        self.bump();
+        self.bump()?;
         let mut params = Vec::new();
         while ! self.is_current_token_in(vec![Token::Rparen, Token::Eof]) {
             match self.current_token.token {
@@ -1336,7 +1351,7 @@ impl Parser {
                     params.push(def_dll_param);
                 },
                 Token::Ref => {
-                    self.bump();
+                    self.bump()?;
                     match self.current_token.token {
                         Token::Identifier(_) |
                         Token::Struct => {
@@ -1362,22 +1377,22 @@ impl Parser {
                     return None;
                 },
             }
-            self.bump();
+            self.bump()?;
         }
         if ! self.is_current_token_expected(Token::Rparen) {
             return None;
         }
-        if ! self.bump_to_next_expected_token(Token::Colon) {
+        if ! self.bump_to_next_expected_token(Token::Colon)? {
             return None;
         }
 
         // 戻りの型, dllパス
         // 型省略時はVoid返す
-        self.bump();
+        self.bump()?;
         let (ret_type, path) = match self.current_token.token() {
             // ::パス
             Token::Colon => {
-                self.bump();
+                self.bump()?;
                 if let Token::DllPath(p) = &self.current_token.token {
                     (DllType::Void, p.to_string())
                 } else {
@@ -1393,8 +1408,8 @@ impl Parser {
                             self.error_next_token_is_unexpected(Token::Colon);
                             return None;
                         }
-                        self.bump();
-                        self.bump();
+                        self.bump()?;
+                        self.bump()?;
                         if let Token::DllPath(p) = &self.current_token.token {
                             (t, p.to_string())
                         } else {
@@ -1424,7 +1439,7 @@ impl Parser {
     }
 
     fn parse_dll_struct(&mut self) -> Option<DefDllParam> {
-        self.bump();
+        self.bump()?;
         let mut s = Vec::new();
         // let mut nested = 0;
         while ! self.is_current_token_in(vec![Token::Eol, Token::Eof]) {
@@ -1438,7 +1453,7 @@ impl Parser {
                     s.push(def_dll_param.unwrap());
                 },
                 Token::Ref => {
-                    self.bump();
+                    self.bump()?;
                     match self.current_token.token {
                         Token::Identifier(_) |
                         Token::Struct => {
@@ -1465,7 +1480,7 @@ impl Parser {
                     return None;
                 },
             }
-            self.bump();
+            self.bump()?;
         }
         if ! self.is_current_token_expected(Token::Rbrace) {
             return None;
@@ -1489,10 +1504,10 @@ impl Parser {
             },
         };
         if dll_type == DllType::CallBack {
-            if ! self.bump_to_next_expected_token(Token::Lparen) {
+            if ! self.bump_to_next_expected_token(Token::Lparen)? {
                 return None;
             }
-            self.bump(); // ( の次のトークンに移動
+            self.bump()?; // ( の次のトークンに移動
             let mut argtypes = vec![];
             loop {
                 let t = match &self.current_token.token {
@@ -1514,11 +1529,11 @@ impl Parser {
                 argtypes.push(t);
                 match &self.next_token.token {
                     Token::Comma => {
-                        self.bump(); // , に移動
-                        self.bump(); // , の次のトークンに移動
+                        self.bump()?; // , に移動
+                        self.bump()?; // , の次のトークンに移動
                     },
                     Token::Rparen => {
-                        self.bump(); // ) に移動
+                        self.bump()?; // ) に移動
                         break;
                     },
                     _ => {
@@ -1528,8 +1543,8 @@ impl Parser {
                 }
             }
             let rtype = if self.is_next_token(&Token::Colon) {
-                self.bump();
-                self.bump();
+                self.bump()?;
+                self.bump()?;
                 match &self.current_token.token {
                     Token::Identifier(i) => match DllType::from_str(&i) {
                         Ok(t) => t,
@@ -1549,12 +1564,12 @@ impl Parser {
             Some(DefDllParam::Callback(argtypes, rtype))
         } else {
             if self.is_next_token(&Token::Lbracket) {
-                self.bump(); // [ に移動
-                self.bump(); // 数値または ] に移動
+                self.bump()?; // [ に移動
+                self.bump()?; // 数値または ] に移動
                 match self.current_token.token() {
                     Token::Rbracket => Some(DefDllParam::Param{ dll_type, is_ref, size: DefDllParamSize::Size(0) }),
                     Token::Num(n) => {
-                        self.bump_to_next_expected_token(Token::Rbracket).then_some(())?;
+                        self.bump_to_next_expected_token(Token::Rbracket)?.then_some(())?;
                         Some(DefDllParam::Param { dll_type, is_ref, size: DefDllParamSize::Size(n as usize) })
                     },
                     _ => {
@@ -1562,7 +1577,7 @@ impl Parser {
                         self.builder.set_const_scope();
                         let Identifier(name) = self.parse_identifier(IdentifierType::Access)?;
                         self.builder.reset_const_scope();
-                        self.bump_to_next_expected_token(Token::Rbracket).then_some(())?;
+                        self.bump_to_next_expected_token(Token::Rbracket)?.then_some(())?;
                         Some(DefDllParam::Param{ dll_type, is_ref, size: DefDllParamSize::Const(name) })
                     },
                 }
@@ -1573,26 +1588,26 @@ impl Parser {
     }
 
     fn parse_struct_statement(&mut self) -> Option<Statement> {
-        self.bump();
+        self.bump()?;
         let name = self.parse_identifier(IdentifierType::Definition)?;
-        self.bump();
-        self.bump();
+        self.bump()?;
+        self.bump()?;
 
         let mut struct_definition = vec![];
         while ! self.is_current_token_end_of_block() {
             // 空行及びコメント対策
             if self.current_token.token == Token::Eol {
-                self.bump();
+                self.bump()?;
                 continue;
             }
             let Identifier(member) = self.parse_identifier(IdentifierType::Other)?;
 
-            if ! self.bump_to_next_expected_token(Token::Colon) {
+            if ! self.bump_to_next_expected_token(Token::Colon)? {
                 return None;
             }
-            self.bump();
+            self.bump()?;
             let is_ref = if self.is_current_token(&Token::Ref) {
-                self.bump();
+                self.bump()?;
                 true
             } else {
                 false
@@ -1601,8 +1616,8 @@ impl Parser {
                 .map(|Identifier(ident)| Identifier(ident.to_ascii_lowercase()))?;
 
             let size = if let Token::Lbracket = self.next_token.token {
-                self.bump();
-                self.bump();
+                self.bump()?;
+                self.bump()?;
                 match (&self.current_token.token, &self.next_token.token) {
                     (Token::Num(n), Token::Rbracket) => {
                         DefDllParamSize::Size(*n as usize)
@@ -1627,11 +1642,11 @@ impl Parser {
                 DefDllParamSize::None
             };
             if size != DefDllParamSize::None {
-                self.bump();
+                self.bump()?;
             }
             struct_definition.push((member, member_type, size, is_ref));
-            self.bump();
-            self.bump();
+            self.bump()?;
+            self.bump()?;
         }
         if ! self.is_current_closing_token_expected(BlockEnd::EndStruct) {
             return None;
@@ -1664,14 +1679,14 @@ impl Parser {
     fn parse_continue_break_count(&mut self) -> Option<u32> {
         match self.next_token.token {
             Token::Num(n) => {
-                self.bump();
+                self.bump()?;
                 Some(n as u32)
             },
             Token::Eol => None,
             // 単行ifのconsで呼んだ場合
             Token::BlockEnd(BlockEnd::Else) => None,
             _ => {
-                self.bump();
+                self.bump()?;
                 let start = self.current_token.pos;
                 let end = self.current_token.get_end_pos();
                 self.push_error(ParseErrorKind::LiteralNumberRequired, start, end);
@@ -1688,15 +1703,15 @@ impl Parser {
     }
 
     fn parse_for_statement(&mut self) -> Option<Statement> {
-        self.bump();
+        self.bump()?;
 
         let loopvar = self.parse_identifier(IdentifierType::Assignment)?;
         let index_var = if let Token::Comma = self.next_token.token {
-            self.bump();
+            self.bump()?;
             if let Token::Comma = self.next_token.token {
                 None
             } else {
-                self.bump();
+                self.bump()?;
                 let ident = self.parse_identifier(IdentifierType::Assignment)?;
                 Some(ident)
             }
@@ -1704,8 +1719,8 @@ impl Parser {
             None
         };
         let islast_var = if let Token::Comma = self.next_token.token {
-            self.bump();
-            self.bump();
+            self.bump()?;
+            self.bump()?;
             let ident = self.parse_identifier(IdentifierType::Assignment)?;
             Some(ident)
         } else {
@@ -1719,23 +1734,23 @@ impl Parser {
                     self.error_next_token_is_unexpected(Token::EqualOrAssign);
                     return None;
                 }
-                self.bump();
-                self.bump();
+                self.bump()?;
+                self.bump()?;
                 let from = match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
                     Some(e) => e,
                     None => return None
                 };
-                if ! self.bump_to_next_expected_token(Token::To) {
+                if ! self.bump_to_next_expected_token(Token::To)? {
                     return None;
                 }
-                self.bump();
+                self.bump()?;
                 let to = match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
                     Some(e) => e,
                     None => return None
                 };
                 let step = if self.is_next_token(&Token::Step) {
-                    self.bump();
-                    self.bump();
+                    self.bump()?;
+                    self.bump()?;
                     match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
                         Some(e) => Some(e),
                         None => return None
@@ -1743,13 +1758,13 @@ impl Parser {
                 } else {
                     None
                 };
-                self.bump();
+                self.bump()?;
                 let block = self.parse_loop_block_statement();
 
                 let alt = match &self.current_token.token {
                     Token::BlockEnd(BlockEnd::Next) => None,
                     Token::BlockEnd(BlockEnd::Else) => {
-                        self.bump();
+                        self.bump()?;
                         let alt = self.parse_block_statement();
                         if ! self.is_current_closing_token_expected(BlockEnd::EndFor) {
                             return None;
@@ -1769,8 +1784,8 @@ impl Parser {
             },
             Token::In => {
                 // for-in
-                self.bump();
-                self.bump();
+                self.bump()?;
+                self.bump()?;
                 let collection = match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
                     Some(e) => e,
                     None => {
@@ -1778,13 +1793,13 @@ impl Parser {
                         return None;
                     },
                 };
-                self.bump();
+                self.bump()?;
                 let block = self.parse_loop_block_statement();
 
                 let alt = match &self.current_token.token {
                     Token::BlockEnd(BlockEnd::Next) => None,
                     Token::BlockEnd(BlockEnd::Else) => {
-                        self.bump();
+                        self.bump()?;
                         let alt = self.parse_block_statement();
                         if ! self.is_current_closing_token_expected(BlockEnd::EndFor) {
                             return None;
@@ -1810,7 +1825,7 @@ impl Parser {
     }
 
     fn parse_while_statement(&mut self) -> Option<Statement> {
-        self.bump();
+        self.bump()?;
         let expression = match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
             Some(e) => e,
             None => {
@@ -1826,12 +1841,12 @@ impl Parser {
     }
 
     fn parse_repeat_statement(&mut self) -> Option<Statement> {
-        self.bump();
+        self.bump()?;
         let block = self.parse_loop_block_statement();
         if ! self.is_current_closing_token_expected(BlockEnd::Until) {
             return None;
         }
-        self.bump();
+        self.bump()?;
         let row = self.current_token.pos.row;
         let line = self.lexer.get_line(row);
         let expression = match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
@@ -1851,7 +1866,7 @@ impl Parser {
     }
 
     fn parse_with_statement(&mut self) -> Option<Statement> {
-        self.bump();
+        self.bump()?;
         let mut with_temp_assignment = None;
         let expression = match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
             Some(e) => match e {
@@ -1884,7 +1899,7 @@ impl Parser {
 
     fn parse_try_statement(&mut self) -> Option<Statement> {
         if self.is_next_token(&Token::Eol) {
-            self.bump();
+            self.bump()?;
         } else {
             let start = self.next_token.pos;
             let end = self.current_line_end_pos();
@@ -1896,7 +1911,7 @@ impl Parser {
         match self.current_token.token.clone() {
             Token::BlockEnd(BlockEnd::Except) => {
                 if self.is_next_token(&Token::Eol) {
-                    self.bump();
+                    self.bump()?;
                 } else {
                     let start = self.next_token.pos;
                     let end = self.current_line_end_pos();
@@ -1917,7 +1932,7 @@ impl Parser {
         match self.current_token.token.clone() {
             Token::BlockEnd(BlockEnd::Finally) => {
                 if self.is_next_token(&Token::Eol) {
-                    self.bump();
+                    self.bump()?;
                 } else {
                     let start = self.next_token.pos;
                     let end = self.current_line_end_pos();
@@ -1949,7 +1964,7 @@ impl Parser {
     }
 
     fn parse_finally_block_statement(&mut self) -> Result<BlockStatement, String> {
-        self.bump();
+        let _ = self.bump();
         let mut block: BlockStatement  = vec![];
 
         while ! self.is_current_token_end_of_block() && ! self.is_current_token(&Token::Eof) {
@@ -1965,7 +1980,7 @@ impl Parser {
                     continue;
                 },
             }
-            self.bump();
+            let _ = self.bump();
         }
 
         Ok(block)
@@ -1983,22 +1998,22 @@ impl Parser {
             }
         };
         if bump {
-            self.bump();
+            self.bump()?;
         }
         code.map(|c| Statement::ExitExit(c))
     }
 
     fn parse_textblock_statement(&mut self, is_ex: bool) -> Option<Statement> {
-        self.bump();
+        self.bump()?;
         let name = match &self.current_token.token {
             Token::Eol => None,
             _ => {
                 let ident = self.parse_identifier(IdentifierType::Declaration);
-                self.bump();
+                self.bump()?;
                 ident
             },
         };
-        self.bump();
+        self.bump()?;
         let body = if let Token::TextBlockBody(ref body, _) = self.current_token.token {
             body.clone()
         } else {
@@ -2006,7 +2021,7 @@ impl Parser {
             return None;
         };
         if self.is_next_token(&Token::EndTextBlock) {
-            self.bump()
+            self.bump()?;
         } else {
             self.error_on_next_token(ParseErrorKind::BlockClosingTokenIsUnexpected(Token::EndTextBlock, self.next_token.token()));
             return None;
@@ -2029,7 +2044,7 @@ impl Parser {
     }
 
     fn parse_option_statement(&mut self, opt_name: &String) -> Option<Statement> {
-        // self.bump();
+        // self.bump()?;
         let name = opt_name.as_str();
         let statement = match name {
             "explicit" => {
@@ -2037,8 +2052,8 @@ impl Parser {
                     self.builder.set_option_explicit(true);
                     Statement::Option(OptionSetting::Explicit(true))
                 } else {
-                    self.bump();
-                    self.bump();
+                    self.bump()?;
+                    self.bump()?;
                     if let Token::Bool(b) = self.current_token.token {
                         self.builder.set_option_explicit(b);
                         Statement::Option(OptionSetting::Explicit(b))
@@ -2052,8 +2067,8 @@ impl Parser {
                 if ! self.is_next_token(&Token::EqualOrAssign) {
                     Statement::Option(OptionSetting::SameStr(true))
                 } else {
-                    self.bump();
-                    self.bump();
+                    self.bump()?;
+                    self.bump()?;
                     if let Token::Bool(b) = self.current_token.token {
                         Statement::Option(OptionSetting::SameStr(b))
                     } else {
@@ -2067,8 +2082,8 @@ impl Parser {
                     self.builder.set_option_optpublic(true);
                     Statement::Option(OptionSetting::OptPublic(true))
                 } else {
-                    self.bump();
-                    self.bump();
+                    self.bump()?;
+                    self.bump()?;
                     if let Token::Bool(b) = self.current_token.token {
                         self.builder.set_option_optpublic(b);
                         Statement::Option(OptionSetting::OptPublic(b))
@@ -2082,8 +2097,8 @@ impl Parser {
                 if ! self.is_next_token(&Token::EqualOrAssign) {
                     Statement::Option(OptionSetting::OptFinally(true))
                 } else {
-                    self.bump();
-                    self.bump();
+                    self.bump()?;
+                    self.bump()?;
                     if let Token::Bool(b) = self.current_token.token {
                         Statement::Option(OptionSetting::OptFinally(b))
                     } else {
@@ -2096,8 +2111,8 @@ impl Parser {
                 if ! self.is_next_token(&Token::EqualOrAssign) {
                     Statement::Option(OptionSetting::SpecialChar(true))
                 } else {
-                    self.bump();
-                    self.bump();
+                    self.bump()?;
+                    self.bump()?;
                     if let Token::Bool(b) = self.current_token.token {
                         Statement::Option(OptionSetting::SpecialChar(b))
                     } else {
@@ -2110,8 +2125,8 @@ impl Parser {
                 if ! self.is_next_token(&Token::EqualOrAssign) {
                     Statement::Option(OptionSetting::ShortCircuit(true))
                 } else {
-                    self.bump();
-                    self.bump();
+                    self.bump()?;
+                    self.bump()?;
                     if let Token::Bool(b) = self.current_token.token {
                         Statement::Option(OptionSetting::ShortCircuit(b))
                     } else {
@@ -2124,8 +2139,8 @@ impl Parser {
                 if ! self.is_next_token(&Token::EqualOrAssign) {
                     Statement::Option(OptionSetting::NoStopHotkey(true))
                 } else {
-                    self.bump();
-                    self.bump();
+                    self.bump()?;
+                    self.bump()?;
                     if let Token::Bool(b) = self.current_token.token {
                         Statement::Option(OptionSetting::NoStopHotkey(b))
                     } else {
@@ -2138,8 +2153,8 @@ impl Parser {
                 if ! self.is_next_token(&Token::EqualOrAssign) {
                     Statement::Option(OptionSetting::TopStopform(true))
                 } else {
-                    self.bump();
-                    self.bump();
+                    self.bump()?;
+                    self.bump()?;
                     if let Token::Bool(b) = self.current_token.token {
                         Statement::Option(OptionSetting::TopStopform(b))
                     } else {
@@ -2152,8 +2167,8 @@ impl Parser {
                 if ! self.is_next_token(&Token::EqualOrAssign) {
                     Statement::Option(OptionSetting::FixBalloon(true))
                 } else {
-                    self.bump();
-                    self.bump();
+                    self.bump()?;
+                    self.bump()?;
                     if let Token::Bool(b) = self.current_token.token {
                         Statement::Option(OptionSetting::FixBalloon(b))
                     } else {
@@ -2163,10 +2178,10 @@ impl Parser {
                 }
             },
             "defaultfont" => {
-                if ! self.bump_to_next_expected_token(Token::EqualOrAssign) {
+                if ! self.bump_to_next_expected_token(Token::EqualOrAssign)? {
                     return None;
                 }
-                self.bump();
+                self.bump()?;
                 if let Token::String(ref s) = self.current_token.token {
                     Statement::Option(OptionSetting::Defaultfont(s.clone()))
                 } else if let Token::ExpandableString(ref s) = self.current_token.token {
@@ -2177,12 +2192,12 @@ impl Parser {
                 }
             },
             "position" => {
-                if ! self.bump_to_next_expected_token(Token::EqualOrAssign) {
+                if ! self.bump_to_next_expected_token(Token::EqualOrAssign)? {
                     return None;
                 }
-                self.bump();
+                self.bump()?;
                 if let Token::Num(n1) = self.current_token.token {
-                    if ! self.bump_to_next_expected_token(Token::Comma) {
+                    if ! self.bump_to_next_expected_token(Token::Comma)? {
                         return None;
                     }
                     if let Token::Num(n2) = self.current_token.token {
@@ -2193,10 +2208,10 @@ impl Parser {
                 return None;
             },
             "logpath" => {
-                if ! self.bump_to_next_expected_token(Token::EqualOrAssign) {
+                if ! self.bump_to_next_expected_token(Token::EqualOrAssign)? {
                     return None;
                 }
-                self.bump();
+                self.bump()?;
                 if let Token::String(ref s) = self.current_token.token {
                     Statement::Option(OptionSetting::Logpath(s.clone()))
                 } else if let Token::ExpandableString(ref s) = self.current_token.token {
@@ -2207,10 +2222,10 @@ impl Parser {
                 }
             },
             "loglines" => {
-                if ! self.bump_to_next_expected_token(Token::EqualOrAssign) {
+                if ! self.bump_to_next_expected_token(Token::EqualOrAssign)? {
                     return None;
                 }
-                self.bump();
+                self.bump()?;
                 if let Token::Num(n) = self.current_token.token {
                     Statement::Option(OptionSetting::Loglines(n as i32))
                 } else {
@@ -2219,10 +2234,10 @@ impl Parser {
                 }
             },
             "logfile" => {
-                if ! self.bump_to_next_expected_token(Token::EqualOrAssign) {
+                if ! self.bump_to_next_expected_token(Token::EqualOrAssign)? {
                     return None;
                 }
-                self.bump();
+                self.bump()?;
                 if let Token::Num(n) = self.current_token.token {
                     Statement::Option(OptionSetting::Logfile(n as i32))
                 } else {
@@ -2231,10 +2246,10 @@ impl Parser {
                 }
             },
             "dlgtitle" => {
-                if ! self.bump_to_next_expected_token(Token::EqualOrAssign) {
+                if ! self.bump_to_next_expected_token(Token::EqualOrAssign)? {
                     return None;
                 }
-                self.bump();
+                self.bump()?;
                 if let Token::String(ref s) = self.current_token.token {
                     Statement::Option(OptionSetting::Dlgtitle(s.clone()))
                 } else if let Token::ExpandableString(ref s) = self.current_token.token {
@@ -2246,8 +2261,8 @@ impl Parser {
             },
             "guiprint" => {
                 if self.is_next_token(&Token::EqualOrAssign) {
-                    self.bump();
-                    self.bump();
+                    self.bump()?;
+                    self.bump()?;
                     if let Token::Bool(b) = self.current_token.token {
                         Statement::Option(OptionSetting::GuiPrint(b))
                     } else {
@@ -2260,8 +2275,8 @@ impl Parser {
             },
             "forcebool" => {
                 if self.is_next_token(&Token::EqualOrAssign) {
-                    self.bump();
-                    self.bump();
+                    self.bump()?;
+                    self.bump()?;
                     if let Token::Bool(b) = self.current_token.token {
                         Statement::Option(OptionSetting::ForceBool(b))
                     } else {
@@ -2274,8 +2289,8 @@ impl Parser {
             },
             "conduwsc" => {
                 if self.is_next_token(&Token::EqualOrAssign) {
-                    self.bump();
-                    self.bump();
+                    self.bump()?;
+                    self.bump()?;
                     if let Token::Bool(b) = self.current_token.token {
                         Statement::Option(OptionSetting::CondUwsc(b))
                     } else {
@@ -2290,8 +2305,8 @@ impl Parser {
                 if ! self.is_next_token(&Token::EqualOrAssign) {
                     Statement::Option(OptionSetting::AllowIEObj(true))
                 } else {
-                    self.bump();
-                    self.bump();
+                    self.bump()?;
+                    self.bump()?;
                     if let Token::Bool(b) = self.current_token.token {
                         Statement::Option(OptionSetting::AllowIEObj(b))
                     } else {
@@ -2309,22 +2324,22 @@ impl Parser {
     }
 
     fn parse_enum_statement(&mut self) -> Option<Statement> {
-        self.bump();
+        self.bump()?;
         let Identifier(name) = self.parse_identifier(IdentifierType::Declaration)?;
         let mut u_enum = UEnum::new(&name);
 
-        self.bump();
-        self.bump();
+        self.bump()?;
+        self.bump()?;
         let mut next = 0.0;
         loop {
             if self.is_current_token(&Token::Eol) {
-                self.bump();
+                self.bump()?;
                 continue;
             }
             let Identifier(id) = self.parse_identifier(IdentifierType::Other)?;
             if self.is_next_token(&Token::EqualOrAssign) {
-                self.bump();
-                self.bump();
+                self.bump()?;
+                self.bump()?;
                 let n = match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
                     Some(e) => match e {
                         Expression::Literal(Literal::Num(n)) => n,
@@ -2349,10 +2364,10 @@ impl Parser {
                 self.error_on_current_token(ParseErrorKind::EnumMemberDuplicated(name, id));
                 return None;
             }
-            if ! self.bump_to_next_expected_token(Token::Eol) {
+            if ! self.bump_to_next_expected_token(Token::Eol)? {
                 return None;
             }
-            self.bump();
+            self.bump()?;
             if self.is_current_token_end_of_block() {
                 break;
             }
@@ -2365,7 +2380,7 @@ impl Parser {
     }
 
     fn parse_thread_statement(&mut self) -> Option<Statement> {
-        self.bump();
+        self.bump()?;
         let expression = self.parse_expression(Precedence::Lowest, ExpressionState::Default);
         match expression {
             Some(Expression::FuncCall{func:_,args:_,is_await:_}) => Some(Statement::Thread(expression.unwrap())),
@@ -2498,7 +2513,7 @@ impl Parser {
             } else {
                 // COMメソッドの引数にvarが付く場合
                 // var <Identifier> とならなければいけない
-                self.bump();
+                self.bump()?;
                 match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
                     Some(e) => return Some(Expression::RefArg(Box::new(e))),
                     None => {
@@ -2566,17 +2581,17 @@ impl Parser {
                             if let Expression::DotCall(_, _) = func.as_ref() {
                                 return self.parse_assignment(left, start);
                             } else {
-                                self.bump();
+                                self.bump()?;
                                 self.error_current_token_is_invalid();
                                 return None;
                             }
                         } else {
-                            self.bump();
+                            self.bump()?;
                             self.error_current_token_is_invalid();
                             return None;
                         }
                     } else {
-                        self.bump();
+                        self.bump()?;
                         self.parse_infix_expression(left)?
                     };
                 },
@@ -2600,7 +2615,7 @@ impl Parser {
                 Token::OrB |
                 Token::XorB |
                 Token::Mod => {
-                    self.bump();
+                    self.bump()?;
                     left = if state.is_start_of_line() && self.strict_mode  {
                         self.error_current_token_is_invalid();
                         return None;
@@ -2611,7 +2626,7 @@ impl Parser {
                 Token::To |
                 Token::Step |
                 Token::In => {
-                    self.bump();
+                    self.bump()?;
                     left = self.parse_infix_expression(left)?;
                 },
                 Token::Assign => {
@@ -2622,7 +2637,7 @@ impl Parser {
                     }
                 },
                 Token::Lbracket => {
-                    self.bump();
+                    self.bump()?;
                     left = {
                         let index = match self.parse_index_expression(left) {
                             Some(e) => e,
@@ -2640,15 +2655,15 @@ impl Parser {
                     }
                 },
                 Token::Lparen => {
-                    self.bump();
+                    self.bump()?;
                     left = self.parse_function_call_expression(left, false)?;
                 },
                 Token::Question => {
-                    self.bump();
+                    self.bump()?;
                     left = self.parse_ternary_operator_expression(left)?;
                 },
                 Token::Period => {
-                    self.bump();
+                    self.bump()?;
                     left = {
                         let dotcall = self.parse_dotcall_expression(left)?;
                         if state.is_sol_or_lambda() {
@@ -2775,14 +2790,8 @@ impl Parser {
                 self.error_on_current_token(ParseErrorKind::TokenCanNotBeUsedAsIdentifier(token.clone()));
                 return None
             },
-            Token::Illegal(c) => {
-                let kind = ParseErrorKind::IllegalCharacter(*c);
-                self.error_on_current_token(kind);
-                return None;
-            },
-            Token::NotClosing(c) => {
-                let kind = ParseErrorKind::StringLiteralNotClosing(*c);
-                self.error_on_current_token(kind);
+            Token::Illegal(_) |
+            Token::MissingPair(_) => {
                 return None;
             },
             Token::Print |
@@ -2880,10 +2889,11 @@ impl Parser {
         }
     }
 
-    fn skip_next_eol(&mut self) {
+    fn skip_next_eol(&mut self) -> Option<()>{
         while self.is_next_token(&Token::Eol) {
-            self.bump();
+            self.bump()?;
         }
+        Some(())
     }
 
     fn parse_expression_list(&mut self, end: Token) -> Option<Vec<Expression>> {
@@ -2891,18 +2901,18 @@ impl Parser {
         let skip_eol = end != Token::Eol;
 
         if self.is_next_token(&end) {
-            self.bump();
+            self.bump()?;
             return Some(list);
         }
 
         if skip_eol {self.skip_next_eol();}
-        self.bump();
+        self.bump()?;
 
         let expr = self.parse_expression(Precedence::Lowest, ExpressionState::Default)?;
         list.push(expr);
 
         while self.is_next_token(&Token::Comma) {
-            self.bump();
+            self.bump()?;
             if skip_eol {
                 /*
                     // 末尾カンマ許容
@@ -2919,7 +2929,7 @@ impl Parser {
                     return None;
                 }
             }
-            self.bump();
+            self.bump()?;
             let expr = self.parse_expression(Precedence::Lowest, ExpressionState::Default)?;
             list.push(expr);
             if skip_eol {
@@ -2928,7 +2938,7 @@ impl Parser {
         }
 
         if skip_eol {
-            if ! self.bump_to_next_expected_token(end) {
+            if ! self.bump_to_next_expected_token(end)? {
                 return None;
             }
         } else {
@@ -2958,8 +2968,8 @@ impl Parser {
             return None;
         }
 
-        self.bump();
-        self.bump();
+        self.bump()?;
+        self.bump()?;
 
         let right = self.parse_expression(Precedence::Lowest, ExpressionState::Default)?;
         Some(Expression::Assign(Box::new(left), Box::new(right)))
@@ -2971,8 +2981,8 @@ impl Parser {
             return None;
         }
 
-        self.bump();
-        self.bump();
+        self.bump()?;
+        self.bump()?;
 
         let right = self.parse_expression(Precedence::Lowest, ExpressionState::Default)?;
         let infix = match token {
@@ -2993,7 +3003,7 @@ impl Parser {
             Token::Plus => Prefix::Plus,
             _ => return None,
         };
-        self.bump();
+        self.bump()?;
 
         match self.parse_expression(Precedence::Prefix, ExpressionState::Default) {
             Some(e) => Some(Expression::Prefix(prefix, Box::new(e))),
@@ -3028,7 +3038,7 @@ impl Parser {
             _ => return None
         };
         let precedence = self.current_token_precedence();
-        self.bump();
+        self.bump()?;
 
         match self.parse_expression(precedence, ExpressionState::Default) {
             Some(e) => Some(Expression::Infix(infix, Box::new(left), Box::new(e))),
@@ -3037,14 +3047,14 @@ impl Parser {
     }
 
     fn parse_index_expression(&mut self, left: Expression) -> Option<Expression> {
-        self.bump();
+        self.bump()?;
         let index = match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
             Some(e) => e,
             None => return None
         };
         let hash_enum = if self.is_next_token(&Token::Comma) {
-            self.bump();
-            self.bump();
+            self.bump()?;
+            self.bump()?;
             match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
                 Some(e) => Some(e),
                 None => return None
@@ -3052,7 +3062,7 @@ impl Parser {
         } else {
             None
         };
-        if ! self.bump_to_next_expected_token(Token::Rbracket) {
+        if ! self.bump_to_next_expected_token(Token::Rbracket)? {
             return None;
         }
 
@@ -3060,9 +3070,9 @@ impl Parser {
     }
 
     fn parse_grouped_expression(&mut self) -> Option<Expression> {
-        self.bump();
+        self.bump()?;
         let expression = self.parse_expression(Precedence::Lowest, ExpressionState::Default);
-        if ! self.bump_to_next_expected_token(Token::Rparen) {
+        if ! self.bump_to_next_expected_token(Token::Rparen)? {
             None
         } else {
             expression
@@ -3070,29 +3080,29 @@ impl Parser {
     }
 
     fn parse_dotcall_expression(&mut self, left: Expression) -> Option<Expression> {
-        self.bump();
+        self.bump()?;
         let identifier = self.parse_identifier(IdentifierType::Other)?;
         let member = Expression::Identifier(identifier);
         Some(Expression::DotCall(Box::new(left), Box::new(member)))
     }
 
     fn parse_if_statement(&mut self) -> Option<Statement> {
-        self.bump();
+        self.bump()?;
         let condition = match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
             Some(e) => e,
             None => return None
         };
         if self.is_next_token(&Token::Then) {
-            self.bump();
+            self.bump()?;
         }
         if ! self.is_next_token(&Token::Eol) && ! self.is_next_token(&Token::Eof) {
             // eolじゃなかったら単行IF
             // if condition then consequence [else alternative]
-            self.bump();
+            self.bump()?;
             let (_, consequence) = self.parse_statement(true)?;
             let alternative = if self.is_next_token(&Token::BlockEnd(BlockEnd::Else)) {
-                self.bump();
-                self.bump();
+                self.bump()?;
+                self.bump()?;
                 let (_, s) = self.parse_statement(false)?;
                 Some(s)
             } else {
@@ -3142,12 +3152,12 @@ impl Parser {
                 // break;
             } else {
                 if self.is_current_token(&Token::BlockEnd(BlockEnd::ElseIf)) {
-                    self.bump();
+                    self.bump()?;
                     let row = self.current_token.pos.row;
                     let line = self.lexer.get_line(row);
                     let elseifcond = self.parse_expression(Precedence::Lowest, ExpressionState::Default)?;
                     if self.is_next_token(&Token::Then) {
-                        self.bump();
+                        self.bump()?;
                     }
                     let condstmt = StatementWithRow::new(Statement::Expression(elseifcond), row, line, Some(self.script_name()));
                     alternatives.push((Some(condstmt), self.parse_block_statement()));
@@ -3166,7 +3176,7 @@ impl Parser {
     }
 
     fn parse_select_statement(&mut self) -> Option<Statement> {
-        self.bump();
+        self.bump()?;
         let expression = match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
             Some(e) => e,
             None => {
@@ -3176,8 +3186,8 @@ impl Parser {
         };
         let mut cases = vec![];
         let mut default = None;
-        self.bump();
-        self.bump();
+        self.bump()?;
+        self.bump()?;
         while self.is_current_token_in(vec![Token::Eol, Token::BlockEnd(BlockEnd::Case), Token::BlockEnd(BlockEnd::Default)]) {
             match self.current_token.token {
                 Token::BlockEnd(BlockEnd::Case) => {
@@ -3191,11 +3201,11 @@ impl Parser {
                     ));
                 },
                 Token::BlockEnd(BlockEnd::Default) => {
-                    self.bump();
+                    self.bump()?;
                     default = Some(self.parse_block_statement());
                 },
                 Token::Eol => {
-                    self.bump();
+                    self.bump()?;
                 }
                 _ => break,
             }
@@ -3207,7 +3217,7 @@ impl Parser {
     }
 
     fn parse_async_function_statement(&mut self) -> Option<Statement> {
-        self.bump();
+        self.bump()?;
         match self.current_token.token {
             Token::Function => self.parse_function_statement(false, true),
             Token::Procedure => self.parse_function_statement(true, true),
@@ -3221,19 +3231,19 @@ impl Parser {
     /// 関数定義の解析
     fn parse_function_statement(&mut self, is_proc: bool, is_async: bool) -> Option<Statement> {
 
-        self.bump();
+        self.bump()?;
         let name = self.parse_identifier(IdentifierType::Definition)?;
 
         self.builder.set_result_as_param();
 
         let params = if self.is_next_token(&Token::Lparen) {
-            self.bump();
+            self.bump()?;
             self.parse_function_parameters(Token::Rparen)?
         } else {
             vec![]
         };
 
-        self.bump();
+        self.bump()?;
         let body = self.parse_block_statement();
         if ! self.is_current_closing_token_expected(BlockEnd::Fend) {
             return None;
@@ -3251,9 +3261,9 @@ impl Parser {
         } else {
             (Token::BlockEnd(BlockEnd::EndModule), BlockEnd::EndModule)
         };
-        self.bump();
+        self.bump()?;
         let identifier = self.parse_identifier(IdentifierType::Definition)?;
-        self.bump();
+        self.bump()?;
 
         let members = self.parse_block_statement();
 
@@ -3286,16 +3296,16 @@ impl Parser {
 
     fn parse_ternary_operator_expression(&mut self, left: Expression) -> Option<Expression> {
 
-        self.bump();
+        self.bump()?;
         let consequence = match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
             Some(e) => Box::new(e),
             None => return None
         };
 
-        if ! self.bump_to_next_expected_token(Token::Colon) {
+        if ! self.bump_to_next_expected_token(Token::Colon)? {
             return None;
         }
-        self.bump();
+        self.bump()?;
         let alternative = match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
             Some(e) => Box::new(e),
             None => return None
@@ -3309,7 +3319,7 @@ impl Parser {
     }
 
     fn parse_function_expression(&mut self, is_proc: bool) -> Option<Expression> {
-        if ! self.bump_to_next_expected_token(Token::Lparen) {
+        if ! self.bump_to_next_expected_token(Token::Lparen)? {
             return None;
         }
         self.builder.set_result_as_param();
@@ -3328,12 +3338,12 @@ impl Parser {
         self.builder.set_result_as_param();
         let params = if self.is_next_token(&Token::Arrow) {
             // 引数なし
-            self.bump();
+            self.bump()?;
             vec![]
         } else {
             self.parse_function_parameters(Token::Arrow)?
         };
-        self.bump(); // skip =>
+        self.bump()?; // skip =>
 
         let mut body = vec![];
         loop {
@@ -3367,10 +3377,10 @@ impl Parser {
                 self.error_next_token_is_invalid();
                 return None
             }
-            self.bump();
-            self.bump();
+            self.bump()?;
+            self.bump()?;
         }
-        self.bump();
+        self.bump()?;
 
         Some(Expression::AnonymusFunction {params, body, is_proc: false})
     }
@@ -3380,13 +3390,13 @@ impl Parser {
 
         self.skip_next_eol();
         if self.is_next_token(&Token::Rparen) {
-            self.bump();
+            self.bump()?;
             return Some(params);
         }
         let mut with_default_flg = false;
         let mut variadic_flg = false;
         self.skip_next_eol();
-        self.bump();
+        self.bump()?;
         loop {
             match self.parse_param() {
                 Some(param) => {
@@ -3424,14 +3434,14 @@ impl Parser {
             }
             self.skip_next_eol();
             if self.is_next_token(&Token::Comma) {
-                self.bump();
+                self.bump()?;
                 self.skip_next_eol();
-                self.bump();
+                self.bump()?;
             } else {
                 break;
             }
         }
-        if ! self.bump_to_next_expected_token(end_token) {
+        if ! self.bump_to_next_expected_token(end_token)? {
             return None;
         }
         Some(params)
@@ -3440,14 +3450,14 @@ impl Parser {
     fn parse_param(&mut self) -> Option<FuncParam> {
         match self.current_token.token() {
             Token::Ref => {
-                self.bump();
+                self.bump()?;
                 let Identifier(name) = self.parse_identifier(IdentifierType::Parameter)?;
                 let kind= if self.is_next_token(&Token::Lbracket) {
-                    self.bump();
-                    if self.bump_to_next_expected_token(Token::Rbracket) {
+                    self.bump()?;
+                    if self.bump_to_next_expected_token(Token::Rbracket)? {
                         while self.is_next_token(&Token::Lbracket) {
-                            self.bump();
-                            if ! self.bump_to_next_expected_token(Token::Rbracket) {
+                            self.bump()?;
+                            if ! self.bump_to_next_expected_token(Token::Rbracket)? {
                                 return None;
                             }
                         }
@@ -3459,7 +3469,7 @@ impl Parser {
                     ParamKind::Reference
                 };
                 let param_type = if self.is_next_token(&Token::Colon) {
-                    self.bump(); // : に移動
+                    self.bump()?; // : に移動
                     self.parse_param_type()?
                 } else {
                     ParamType::Any
@@ -3467,7 +3477,7 @@ impl Parser {
                 Some(FuncParam::new_with_type(Some(name), kind, param_type))
             },
             Token::Variadic => {
-                self.bump();
+                self.bump()?;
                 let Identifier(name) = self.parse_identifier(IdentifierType::Parameter)?;
                 Some(FuncParam::new(Some(name), ParamKind::Variadic))
             },
@@ -3475,11 +3485,11 @@ impl Parser {
                 let Identifier(name) = self.parse_identifier(IdentifierType::Parameter)?;
                 let (kind, param_type) = if self.is_next_token(&Token::Lbracket) {
                     // 配列引数定義
-                    self.bump();
-                    let k = if self.bump_to_next_expected_token(Token::Rbracket) {
+                    self.bump()?;
+                    let k = if self.bump_to_next_expected_token(Token::Rbracket)? {
                         while self.is_next_token(&Token::Lbracket) {
-                            self.bump();
-                            if !self.bump_to_next_expected_token(Token::Rbracket) {
+                            self.bump()?;
+                            if !self.bump_to_next_expected_token(Token::Rbracket)? {
                                 return None;
                             }
                         }
@@ -3488,7 +3498,7 @@ impl Parser {
                         return None;
                     };
                     let t = if self.is_next_token(&Token::Colon) {
-                        self.bump(); // : に移動
+                        self.bump()?; // : に移動
                         self.parse_param_type()?
                     } else {
                         ParamType::Any
@@ -3497,19 +3507,19 @@ impl Parser {
                 } else {
                     // 型指定の有無
                     let t = if self.is_next_token(&Token::Colon) {
-                        self.bump(); // : に移動
+                        self.bump()?; // : に移動
                         self.parse_param_type()?
                     } else {
                         ParamType::Any
                     };
                     // デフォルト値の有無
                     let k = if self.is_next_token(&Token::EqualOrAssign) {
-                        self.bump(); // = に移動
+                        self.bump()?; // = に移動
                         let e = if self.is_next_token(&Token::Comma) || self.is_next_token(&Token::Rparen) {
                             // 代入する値を省略した場合はEmptyが入る
                             Expression::Literal(Literal::Empty)
                         } else {
-                            self.bump();
+                            self.bump()?;
                             self.builder.set_default_param();
                             let expr = self.parse_expression(Precedence::Lowest, ExpressionState::Default);
                             self.builder.reset_default_param();
@@ -3530,7 +3540,7 @@ impl Parser {
         let next = self.next_token.token();
         match self.token_to_identifier(&next) {
             Some(Identifier(name)) => {
-                self.bump();
+                self.bump()?;
                 Some(ParamType::from(name))
             },
             None => {
@@ -3541,7 +3551,7 @@ impl Parser {
     }
 
     fn parse_await_func_call_expression(&mut self) -> Option<Expression> {
-        self.bump();
+        self.bump()?;
         match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
             Some(Expression::FuncCall{func,args,is_await:_}) => {
                 Some(Expression::FuncCall{func,args,is_await:true})
@@ -3571,12 +3581,12 @@ impl Parser {
         let end = Token::Rparen;
         self.skip_next_eol();
         if self.is_next_token(&end) {
-            self.bump();
+            self.bump()?;
             return Some(list);
         }
         loop {
             self.skip_next_eol();
-            self.bump();
+            self.bump()?;
             if self.is_current_token(&Token::Comma) {
                 // カンマが連続したので空引数
                 list.push(Expression::EmptyArgument);
@@ -3593,9 +3603,9 @@ impl Parser {
                 }
                 self.skip_next_eol();
                 if self.is_next_token(&Token::Comma) {
-                    self.bump();
+                    self.bump()?;
                 } else {
-                    if ! self.bump_to_next_expected_token(end) {
+                    if ! self.bump_to_next_expected_token(end)? {
                         return None;
                     }
                     break;
