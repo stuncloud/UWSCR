@@ -117,8 +117,7 @@ impl Environment {
             })),
             global: Arc::new(Mutex::new(init_builtins()))
         };
-        let param_str = params.iter().map(|s| Object::String(s.into())).collect::<Vec<Object>>();
-        env.define("PARAM_STR".into(), Object::Array(param_str), ContainerType::Variable, false).unwrap();
+        env.define("PARAM_STR".into(), Object::ParamStr(params), ContainerType::Variable, false).unwrap();
         env.add(NamedObject::new(
             "TRY_ERRLINE".into(), Object::Empty, ContainerType::Variable
         ), false);

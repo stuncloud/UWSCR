@@ -580,17 +580,21 @@ impl Evaluator {
             },
             Statement::Print(e) => self.eval_print_statement(e),
             Statement::Call(block, args) => {
-                // let Program(body, _) = block;
                 let Program { global:_, script, lines:_ } = block;
                 let params = vec![
                     FuncParam::new(Some("PARAM_STR".into()), ParamKind::Identifier)
                 ];
-                let params_str = Expression::Literal(Literal::Array(args));
+                let params_str_expr = Expression::Literal(Literal::Array(args.clone()));
+                let param_str = args
+                    .into_iter()
+                    .map(|expr| self.eval_expression(expr).map(|obj| obj.to_string()))
+                    .collect::<EvalResult<Vec<String>>>()?;
                 let arguments = vec![
-                    (Some(params_str.clone()), self.eval_expression(params_str)?)
+                    (Some(params_str_expr), Object::ParamStr(param_str))
                 ];
                 let func = Function::new_call(params, script);
-                func.invoke(self, arguments, None).map(|_| None)
+                func.invoke(self, arguments, None)?;
+                Ok(None)
             },
             Statement::DefDll{name, alias, params, ret_type, path} => {
                 let params = DefDll::convert_params(params, self)?;
@@ -1837,6 +1841,19 @@ impl Evaluator {
                     MemberCaller::UObject(_) => {
                         unreachable!();
                     }
+                }
+            },
+            Object::ParamStr(param_str) => {
+                if let Object::Num(i) = index {
+                    match param_str.get(i as usize) {
+                        Some(str) => str.to_string().into(),
+                        None => Object::Empty,
+                    }
+                } else {
+                    return Err(UError::new(
+                        UErrorKind::EvaluatorError,
+                        UErrorMessage::InvalidIndex(index)
+                    ))
                 }
             },
             o => return Err(UError::new(

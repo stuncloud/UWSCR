@@ -104,6 +104,8 @@ pub enum Object {
     WebViewForm(WebViewForm),
     /// FormのRemoteObject
     WebViewRemoteObject(WebViewRemoteObject),
+    /// PARAM_STR
+    ParamStr(Vec<String>)
 }
 impl std::fmt::Debug for Object {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -155,6 +157,7 @@ impl std::fmt::Debug for Object {
             Object::Variant(arg0) => f.debug_tuple("Variant").field(arg0).finish(),
             Object::WebViewForm(arg0) => f.debug_tuple("WebViewForm").field(arg0).finish(),
             Object::WebViewRemoteObject(arg0) => f.debug_tuple("WebViewRemoteObject").field(arg0).finish(),
+            Object::ParamStr(vec) => f.debug_list().entries(vec.iter()).finish(),
         }
     }
 }
@@ -285,6 +288,7 @@ impl fmt::Display for Object {
             Object::Variant(variant) => write!(f, "{variant}"),
             Object::WebViewForm(form) => write!(f, "{form}"),
             Object::WebViewRemoteObject(remote) => write!(f, "{remote}"),
+            Object::ParamStr(vec) => write!(f, "{vec:?}"),
         }
     }
 }
@@ -442,6 +446,9 @@ impl PartialEq for Object {
             Object::WebViewRemoteObject(r1) => {
                 if let Object::WebViewRemoteObject(r2) = other {r1 == r2} else {false}
             },
+            Object::ParamStr(v1) => {
+                if let Object::ParamStr(v2) = other {v1 == v2} else {false}
+            }
         }
     }
 }
@@ -499,6 +506,7 @@ impl Object {
             Object::WebViewForm(_) => ObjectType::TYPE_WEBVIEW_FORM,
             Object::WebViewRemoteObject(_) => ObjectType::TYPE_WEBVIEW_REMOTEOBJECT,
 
+            Object::ParamStr(_) |
             Object::EmptyParam |
             Object::DynamicVar(_) |
             Object::Continue(_) |
@@ -928,6 +936,7 @@ impl Add for Object {
                 }
             },
             // 以下はエラー
+            Object::ParamStr(_) |
             Object::WebViewForm(_) |
             Object::WebViewRemoteObject(_) |
             Object::Variant(_) |
@@ -1030,6 +1039,7 @@ impl Sub for Object {
                 }
             },
             // 以下はエラー
+            Object::ParamStr(_) |
             Object::WebViewForm(_) |
             Object::WebViewRemoteObject(_) |
             Object::Variant(_) |
@@ -1160,6 +1170,7 @@ impl Mul for Object {
                 }
             },
             // 以下はエラー
+            Object::ParamStr(_) |
             Object::WebViewForm(_) |
             Object::WebViewRemoteObject(_) |
             Object::Variant(_) |
@@ -1274,6 +1285,7 @@ impl Div for Object {
                 }
             },
             // 以下はエラー
+            Object::ParamStr(_) |
             Object::WebViewForm(_) |
             Object::WebViewRemoteObject(_) |
             Object::Variant(_) |
@@ -1388,6 +1400,7 @@ impl Rem for Object {
                 }
             },
             // 以下はエラー
+            Object::ParamStr(_) |
             Object::WebViewForm(_) |
             Object::WebViewRemoteObject(_) |
             Object::Variant(_) |
@@ -1496,6 +1509,7 @@ impl BitOr for Object {
                 }
             },
             // 以下はエラー
+            Object::ParamStr(_) |
             Object::WebViewForm(_) |
             Object::WebViewRemoteObject(_) |
             Object::Variant(_) |
@@ -1603,6 +1617,7 @@ impl BitAnd for Object {
                 }
             },
             // 以下はエラー
+            Object::ParamStr(_) |
             Object::WebViewForm(_) |
             Object::WebViewRemoteObject(_) |
             Object::Variant(_) |
@@ -1710,6 +1725,7 @@ impl BitXor for Object {
                 }
             },
             // 以下はエラー
+            Object::ParamStr(_) |
             Object::WebViewForm(_) |
             Object::WebViewRemoteObject(_) |
             Object::Variant(_) |
