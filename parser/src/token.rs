@@ -1,5 +1,13 @@
-// use std::string::ToString;
+use std::path::PathBuf;
+
 use strum_macros::Display;
+
+use crate::lexer::{Position, TokenInfo};
+impl PartialEq for TokenInfo {
+    fn eq(&self, other: &Self) -> bool {
+        self.token == other.token && self.pos == other.pos && self.skipped_whitespace == other.skipped_whitespace
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
@@ -41,8 +49,10 @@ pub enum Token {
     Call,
     // callのuriサポート
     Uri(String),
-    /// directory, filename
-    Path(Option<String>, String),
+    // /// directory, filename
+    // Path(Option<String>, String),
+    /// callのパス, Some((リスト構文, リスト開始位置))
+    CallPathAndArgs(PathBuf, Option<(String, Position)>),
     DefDll,
     DllPath(String),
 
@@ -234,12 +244,15 @@ impl Token {
             Token::HashTable => 7,
             Token::Call => 4,
             Token::Uri(uri) => uri.len() + 5,
-            Token::Path(dir, file) => {
-                let len = match dir {
-                    Some(s) => s.len() + 1,
-                    None => 0,
-                } + file.len();
-                len
+            // Token::Path(dir, file) => {
+            //     let len = match dir {
+            //         Some(s) => s.len() + 1,
+            //         None => 0,
+            //     } + file.len();
+            //     len
+            // },
+            Token::CallPathAndArgs(path, _) => {
+                path.as_os_str().len()
             },
             Token::DefDll => 7,
             Token::DllPath(s) => s.len(),
@@ -354,7 +367,8 @@ impl std::fmt::Display for Token {
             Token::HashTable => write!(f, "HashTable"),
             Token::Call => write!(f, "Call"),
             Token::Uri(_) => write!(f, "Uri"),
-            Token::Path(_, _) => write!(f, "Path"),
+            // Token::Path(_, _) => write!(f, "Path"),
+            Token::CallPathAndArgs(_, _) => write!(f, "CallPathAndArgs"),
             Token::DefDll => write!(f, "DefDll"),
             Token::DllPath(_) => write!(f, "DllPath"),
             Token::Plus => write!(f, "Plus"),

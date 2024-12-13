@@ -626,6 +626,9 @@ impl ProgramBuilder {
     pub fn location(&self) -> ScriptLocation {
         self.location.clone()
     }
+    pub fn builtin_names(&self) -> Option<Vec<String>> {
+        self.builtin_names.clone()
+    }
     pub fn script_name(&self) -> String {
         self.location.to_string()
     }

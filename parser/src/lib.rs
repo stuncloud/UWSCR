@@ -958,6 +958,7 @@ impl Parser {
                     }
                 } else {
                     self.bump()?;
+                    self.bump()?;
                     let list = self.parse_expression_list(Token::Eol)?;
                     Expression::Array(list, index_list)
                 }
@@ -1141,37 +1142,52 @@ impl Parser {
         let end = self.current_token.get_end_pos();
 
         let (script, builder, args) = match self.next_token.token.clone() {
-            Token::Path(dir, name) => {
-                // パス取得
+            Token::CallPathAndArgs(path, args) => {
                 self.bump()?;
-                // 引数の確認
-                let args = if self.is_next_token(&Token::Lparen) {
-                    self.bump()?;
-                    // self.bump()?;
-                    match self.parse_expression_list(Token::Rparen) {
-                        Some(ve) => ve,
-                        None => vec![],
-                    }
+                // 引数がある場合
+                let args = match args {
+                    // リスト構文を解析
+                    Some((mut list, position)) => {
+                        // <#DBL>対策
+                        let dbl = "<#dbl>";
+                        let len = dbl.len();
+                        let mut match_indices = list.to_ascii_lowercase().match_indices(dbl).map(|(i, _)| i).collect::<Vec<_>>();
+                        match_indices.reverse();
+                        match_indices.iter().for_each(|i| {
+                            list.replace_range(*i..(*i+len), "\"");
+                        });
+                        // リスト解析用のLexerを作る
+                        let mut list_lexer = Lexer::new_call_list(&list);
+                        list_lexer.position = position;
+
+                        let dir = if let ScriptLocation::Path(location) = self.builder.location() {
+                            location.parent().map(|p| p.to_path_buf())
+                        } else {
+                            None
+                        };
+                        let builtin_names = self.builder.builtin_names();
+                        let mut list_parser = Parser::new(list_lexer, dir, builtin_names);
+                        let list_exprs = list_parser.parse_expression_list(Token::Eof).unwrap_or_default();
+                        let errors = list_parser.as_errors();
+                        if ! errors.is_empty() {
+                            for e in errors {
+                                self.errors.push(e);
+                            }
+                            return None;
+                        }
+                        list_exprs
+                    },
+                    None => Vec::new(),
+                };
+                // パスが相対パスなら絶対パスにする
+                let mut path = if path.is_relative() {
+                    let mut parent = self.builder.script_dir();
+                    parent.push(path);
+                    parent
                 } else {
-                    vec![]
+                    path
                 };
 
-                let mut path = match dir {
-                    Some(dir) => {
-                        let path = PathBuf::from(dir);
-                        if path.is_absolute() {
-                            path
-                        } else {
-                            let mut parent = self.builder.script_dir();
-                            parent.push(path);
-                            parent
-                        }
-                    },
-                    None => {
-                        self.builder.script_dir()
-                    },
-                };
-                path.push(&name);
                 match path.extension() {
                     Some(os_str) => {
                         if let Some(ext) = os_str.to_str() {
@@ -1264,7 +1280,7 @@ impl Parser {
                 // 引数の確認
                 let args = if self.is_next_token(&Token::Lparen) {
                     self.bump()?;
-                    // self.bump()?;
+                    self.bump()?;
                     match self.parse_expression_list(Token::Rparen) {
                         Some(ve) => ve,
                         None => vec![],
@@ -2784,7 +2800,8 @@ impl Parser {
             Token::Variadic |
             Token::Pipeline |
             Token::Uri(_) |
-            Token::Path(_, _) |
+            // Token::Path(_, _) |
+            Token::CallPathAndArgs(_, _) |
             Token::DllPath(_) |
             Token::Arrow => {
                 self.error_on_current_token(ParseErrorKind::TokenCanNotBeUsedAsIdentifier(token.clone()));
@@ -2881,6 +2898,7 @@ impl Parser {
     }
 
     fn parse_array_expression(&mut self) -> Option<Expression> {
+        self.bump()?;
         match self.parse_expression_list(Token::Rbracket) {
             Some(list) => Some(
                 Expression::Literal(Literal::Array(list))
@@ -2906,7 +2924,7 @@ impl Parser {
         }
 
         if skip_eol {self.skip_next_eol();}
-        self.bump()?;
+        // self.bump()?;
 
         let expr = self.parse_expression(Precedence::Lowest, ExpressionState::Default)?;
         list.push(expr);
@@ -3191,6 +3209,7 @@ impl Parser {
         while self.is_current_token_in(vec![Token::Eol, Token::BlockEnd(BlockEnd::Case), Token::BlockEnd(BlockEnd::Default)]) {
             match self.current_token.token {
                 Token::BlockEnd(BlockEnd::Case) => {
+                    self.bump();
                     let case_values = match self.parse_expression_list(Token::Eol) {
                         Some(list) => list,
                         None => return None

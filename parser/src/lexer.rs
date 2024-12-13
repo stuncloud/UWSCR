@@ -3,6 +3,7 @@ use crate::token::Token;
 use std::f64;
 use std::fmt;
 use std::cmp::Ordering;
+use std::path::PathBuf;
 
 #[derive(Debug,Clone,Copy,Default,PartialEq)]
 pub struct Position {
@@ -88,7 +89,7 @@ pub struct Lexer {
     is_comment_textblock: bool,
     is_call: bool,
     /// ( と ) のペアのそれぞれの位置を示す
-    paren_pairs: Option<Pairs>,
+    pub paren_pairs: Option<Pairs>,
     /// [ と ] のペアのそれぞれの位置を示す
     bracket_pairs: Option<Pairs>,
     /// ( と ) のペア数カウント, dllパスの終端位置
@@ -136,6 +137,11 @@ impl Lexer {
 
         lexer
     }
+    pub fn new_call_list(input: &str) -> Self {
+        let mut lexer = Lexer::new(input);
+        lexer.read_char();
+        lexer
+    }
     pub fn get_line(&self, row: usize) -> String {
         if row > 0 && row <= self.lines.len() {
             let line = self.lines[row - 1].clone();
@@ -160,6 +166,13 @@ impl Lexer {
         self.pos = self.next_pos;
         self.next_pos += 1;
         self.position.column += 1;
+    }
+    fn _read_to_next_row(&mut self) {
+        while self.ch != '\n' {
+            self.read_char();
+        }
+        self.read_char();
+        self.to_next_row();
     }
 
     /// inputの指定位置に移動
@@ -547,76 +560,65 @@ impl Lexer {
             }
         }
         // パスの解析
-        // 現在地から行末までに \ (バックスラッシュ)がなければファイル名とする
-        // \ (スラッシュ) もパス区切りとして扱う
         // ファイル名部分の最後に ( があればその直前までをパスとする
-        // ( からはまたnext_tokenさせる
-        let mut start_pos = self.pos;
-        let mut back_slash_pos: usize = 0;
-        let mut lparen_pos: usize = 0;
-        // "path.uws" の場合に対応
-        if let Some(char) = self.input.get(self.pos) {
-            if '"' == *char {
-                self.input[self.pos] = ' ';
-                start_pos += 1;
+        let start_pos = self.pos;
+        let mut start_position = self.position;
+        // let mut back_slash_pos: usize = 0;
+        // let mut lparen_pos: usize = 0;
+
+        let path_and_args = match self.ch {
+            '"' | '\'' => match self.consume_literal_string(self.ch) {
+                Token::ExpandableString(s) |
+                Token::String(s) => s,
+                t => return t,
+            },
+            _ => {
+                loop {
+                    match self.nextch() {
+                        '\r' |'\n'  => {
+                            // 改行
+                            break;
+                        },
+                        '\0' => {
+                            break;
+                        },
+                        '/' => if self.ch_nth_after_is(2, '/') {
+                            // コメント
+                            break;
+                        },
+                        ';' => {
+                            // マルチステートメント
+                            break;
+                        }
+                        _ => {},
+                    }
+                    self.read_char();
+                };
+                start_position.column -= 1;
+                let end_pos = self.next_pos;
                 self.read_char();
-            }
-        }
-
-        loop {
-            match self.nextch() {
-                '\r' | '\n' | '\0' => {
-                    break;
-                },
-                '"' => {
-                    self.input[self.next_pos] = ' ';
-                },
-                '/' => if self.ch_nth_after_is(2, '/') {
-                    // コメントなので抜ける
-                    break;
-                } else {
-                    // \と同じ扱い
-                    back_slash_pos = self.pos + 1
-                },
-                '\\' => back_slash_pos = self.pos + 1,
-                '(' => lparen_pos = self.pos + 1,
-                _ => {}
-            }
-            self.read_char();
-        }
-        let end_pos = if lparen_pos > 0 {
-            // ( がある場合は現在地を戻す
-            self.pos = lparen_pos;
-            self.next_pos = lparen_pos + 1;
-            self.ch = match self.input.get(lparen_pos) {
-                Some(c) => *c,
-                None => return Token::Eof,
-            };
-            lparen_pos
-        } else {
-            self.read_char();
-            // if self.ch == '\0' {
-            if ['\r', '\n', '\0'].contains(&self.ch) {
-                // 行・分末の場合
-                self.pos
-            } else {
-                self.pos - 1
-            }
-        };
-        let (dir, name) = if back_slash_pos > 0 {
-            (
-                self.as_string(start_pos, back_slash_pos),
-                self.as_string(back_slash_pos+1, end_pos).unwrap_or_default()
-            )
-        } else {
-            (
-                None,
-                // self.input[start_pos..end_pos].into_iter().collect::<String>()
                 self.as_string(start_pos, end_pos).unwrap_or_default()
-            )
+            },
         };
-
-        Token::Path(dir, name)
+        // 文字列から()のペアを探す
+        let input = (&path_and_args).chars().collect();
+        let mut pairs = None;
+        let mut pos = 0;
+        ParenPairs::search(&input, &mut pairs, &mut pos, true, false);
+        match pairs.take_if(|pairs| pairs.has_pairs()) {
+            Some(pairs) => {
+                let (paren_l, paren_r) = pairs.last_pair().unwrap_or_default();
+                let path = &path_and_args[0..paren_l];
+                let buf = PathBuf::from(path);
+                let list = &path_and_args[paren_l..paren_r];
+                let list = list.replace("/", "\\");
+                Token::CallPathAndArgs(buf, Some((list, start_position)))
+            },
+            None => {
+                let buf = PathBuf::from(path_and_args);
+                Token::CallPathAndArgs(buf, None)
+            },
+        }
     }
 
     fn get_identifier(&mut self) -> String {
@@ -1015,7 +1017,8 @@ impl GetPairs for BracketPairs {
 }
 
 type Pair = (usize, usize);
-struct Pairs {
+#[derive(Debug)]
+pub struct Pairs {
     pairs: Vec<Pair>,
 }
 impl Pairs {
@@ -1025,6 +1028,9 @@ impl Pairs {
     fn push(&mut self, l: usize, r: usize) {
         self.pairs.push((l, r));
     }
+    fn has_pairs(&self) -> bool {
+        ! self.pairs.is_empty()
+    }
     fn has_pair_l(&self, r: &usize) -> bool {
         let pair = self.pairs.iter().find(|(_l, _r)| _r == r);
         pair.is_some()
@@ -1033,12 +1039,25 @@ impl Pairs {
         let pair = self.pairs.iter().find(|(_l, _r)| _l == l);
         pair.is_some()
     }
+    fn _move(&mut self, n: usize) {
+        self.pairs.iter_mut().for_each(|(l, r)| {
+            *l += n;
+            *r += n
+        });
+    }
+    fn last_pair(&self) -> Option<Pair> {
+        self.pairs.iter().reduce(|a, b| if a.1 > b.1 {a} else {b}).copied()
+    }
 }
 
 #[cfg(test)]
 mod test {
+    use std::path::PathBuf;
+
     use crate::lexer::Lexer;
     use crate::token::{Token, BlockEnd};
+
+    use super::Position;
 
     fn test_next_token(input:&str, expected_tokens:Vec<Token>) {
         let mut  lexer = Lexer::new(input);
@@ -1406,33 +1425,75 @@ endtextblock"#,
                 "call hoge.uws",
                 vec![
                     Token::Call,
-                    Token::Path(None, "hoge.uws".into())
+                    Token::CallPathAndArgs(PathBuf::from("hoge.uws"), None)
+                ],
+            ),
+            (
+                "call \"hoge.uws\"",
+                vec![
+                    Token::Call,
+                    Token::CallPathAndArgs(PathBuf::from("hoge.uws"), None)
+                ],
+            ),
+            (
+                "call 'hoge.uws'",
+                vec![
+                    Token::Call,
+                    Token::CallPathAndArgs(PathBuf::from("hoge.uws"), None)
                 ],
             ),
             (
                 "call c:\\test\\hoge.uws",
                 vec![
                     Token::Call,
-                    Token::Path(Some("c:\\test".into()), "hoge.uws".into())
+                    Token::CallPathAndArgs(PathBuf::from("c:\\test\\hoge.uws"), None),
                 ],
             ),
             (
                 "call .\\hoge.uws",
                 vec![
                     Token::Call,
-                    Token::Path(Some(".".into()), "hoge.uws".into())
+                    Token::CallPathAndArgs(PathBuf::from(".\\hoge.uws"), None),
                 ],
             ),
             (
                 "call hoge.uws(1, 2)",
                 vec![
                     Token::Call,
-                    Token::Path(None, "hoge.uws".into()),
-                    Token::Lparen,
-                    Token::Num(1.0),
-                    Token::Comma,
-                    Token::Num(2.0),
-                    Token::Rparen
+                    Token::CallPathAndArgs(
+                        PathBuf::from("hoge.uws"),
+                        Some(("1, 2".to_string(), Position::new(1, 5)))
+                    ),
+                ],
+            ),
+            (
+                "call hoge.uws(\"hoge\")",
+                vec![
+                    Token::Call,
+                    Token::CallPathAndArgs(
+                        PathBuf::from("hoge.uws"),
+                        Some(("\"hoge\"".to_string(), Position::new(1, 5)))
+                    ),
+                ],
+            ),
+            (
+                "call hoge.uws('hoge')",
+                vec![
+                    Token::Call,
+                    Token::CallPathAndArgs(
+                        PathBuf::from("hoge.uws"),
+                        Some(("'hoge'".to_string(), Position::new(1, 5)))
+                    ),
+                ],
+            ),
+            (
+                "call \"hoge.uws(1, 2)\"",
+                vec![
+                    Token::Call,
+                    Token::CallPathAndArgs(
+                        PathBuf::from("hoge.uws"),
+                        Some(("1, 2".to_string(), Position::new(1, 6)))
+                    ),
                 ],
             ),
         ];
