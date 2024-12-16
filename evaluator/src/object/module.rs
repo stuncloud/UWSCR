@@ -1,3 +1,5 @@
+use parser::ast::{Expression, Identifier};
+
 use super::{Object, Function};
 use crate::{EvalResult, Evaluator};
 use crate::error::{UError, UErrorKind, UErrorMessage, DefinitionType};
@@ -147,6 +149,14 @@ impl Module {
         ))
     }
 
+    pub fn is_it_this(expr: &Expression) -> bool {
+        if let Expression::Identifier(Identifier(ident)) = expr {
+            ident.eq_ignore_ascii_case("this")
+        } else {
+            false
+        }
+    }
+
     fn assign_index(&mut self, name: &str, new: Object, dimension: Vec<Object>, container_type: ContainerType) -> Result<(), UError> {
         let array = self.get_member(name)?;
         let (maybe_new, update) = Evaluator::update_array_object(array, dimension, &new)
@@ -207,9 +217,8 @@ impl Module {
     }
 
     pub fn is_local_member(&self, name: &str, is_func: bool) -> bool {
-        let key = name.to_ascii_uppercase();
         self.members.iter().any(|obj| {
-            obj.name == key &&
+            obj.name.eq_ignore_ascii_case(name) &&
             obj.object.is_func() == is_func &&
             obj.container_type == ContainerType::Variable
         })

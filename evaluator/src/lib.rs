@@ -2013,15 +2013,26 @@ impl Evaluator {
             },
             None => Some(vec![index.clone()]),
         };
+        // 変数がthisかどうかチェックする
+        let is_this = Module::is_it_this(&expr_object);
         let instance = self.eval_expr(expr_object)?;
         match instance {
             Object::Module(mutex) => {
-                mutex.lock().unwrap().assign_public(&member, new, dimension)?;
+                let mut guard = mutex.lock().unwrap();
+                if is_this {
+                    guard.assign(&member, new, dimension)?;
+                } else {
+                    guard.assign_public(&member, new, dimension)?;
+                }
             },
             Object::Instance(mutex) => {
                 let ins = mutex.lock().unwrap();
-                let mut module = ins.module.lock().unwrap();
-                module.assign_public(&member, new, dimension)?;
+                let mut guard = ins.module.lock().unwrap();
+                if is_this {
+                    guard.assign(&member, new, dimension)?;
+                } else {
+                    guard.assign_public(&member, new, dimension)?;
+                }
             },
             // Value::Array
             Object::UObject(uo) => {
