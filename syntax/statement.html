@@ -2313,6 +2313,9 @@ UWSCRでは演算子が追加され論理演算およびビット演算を明示
 <h2>マルチステートメント<a class="headerlink" href="#id55" title="この見出しへのパーマリンク">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">;</span></code> をつけることで複数の文を1行に記述できます</p>
 <div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">a</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">1</span><span class="p">;</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="m">1</span><span class="p">;</span><span class="w"> </span><span class="k">print</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="c">// 2</span>
+
+<span class="c">// UWSCでは IF行のマルチ宣言はNG エラー</span>
+<span class="k">if</span><span class="w"> </span><span class="m">123</span><span class="w"> </span><span class="k">then</span><span class="p">;</span><span class="w"> </span><span class="k">print</span><span class="w"> </span><span class="s">&quot;condition is truthy&quot;</span><span class="p">;</span><span class="w"> </span><span class="k">else</span><span class="p">;</span><span class="w"> </span><span class="k">print</span><span class="w"> </span><span class="s">&quot;condition is falsy&quot;</span><span class="p">;</span><span class="w"> </span><span class="k">endif</span>
 </pre></div>
 </div>
 </section>
