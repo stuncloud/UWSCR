@@ -854,9 +854,9 @@ impl Parser {
 
     fn parse_variable_definition(&mut self, value_required: bool) -> Option<Vec<(Identifier, Expression)>> {
         let mut expressions = vec![];
-
         loop {
             let var_name = self.parse_identifier(IdentifierType::Declaration)?;
+
             let expression = if self.is_next_token(&Token::Lbracket) {
                 // 配列定義
                 // 多次元配列定義の表記は
@@ -958,8 +958,7 @@ impl Parser {
                     }
                 } else {
                     self.bump()?;
-                    self.bump()?;
-                    let list = self.parse_expression_list(Token::Eol)?;
+                    let list = self.parse_expression_list(Token::Eol, true)?;
                     Expression::Array(list, index_list)
                 }
             } else {
@@ -1167,7 +1166,7 @@ impl Parser {
                         };
                         let builtin_names = self.builder.builtin_names();
                         let mut list_parser = Parser::new(list_lexer, dir, builtin_names);
-                        let list_exprs = list_parser.parse_expression_list(Token::Eof).unwrap_or_default();
+                        let list_exprs = list_parser.parse_expression_list(Token::Eof, false).unwrap_or_default();
                         let errors = list_parser.as_errors();
                         if ! errors.is_empty() {
                             for e in errors {
@@ -1280,8 +1279,7 @@ impl Parser {
                 // 引数の確認
                 let args = if self.is_next_token(&Token::Lparen) {
                     self.bump()?;
-                    self.bump()?;
-                    match self.parse_expression_list(Token::Rparen) {
+                    match self.parse_expression_list(Token::Rparen, true) {
                         Some(ve) => ve,
                         None => vec![],
                     }
@@ -2898,13 +2896,8 @@ impl Parser {
     }
 
     fn parse_array_expression(&mut self) -> Option<Expression> {
-        self.bump()?;
-        match self.parse_expression_list(Token::Rbracket) {
-            Some(list) => Some(
-                Expression::Literal(Literal::Array(list))
-            ),
-            None => None
-        }
+        let list = self.parse_expression_list(Token::Rbracket, true)?;
+        Some(Expression::Literal(Literal::Array(list)))
     }
 
     fn skip_next_eol(&mut self) -> Option<()>{
@@ -2914,7 +2907,7 @@ impl Parser {
         Some(())
     }
 
-    fn parse_expression_list(&mut self, end: Token) -> Option<Vec<Expression>> {
+    fn parse_expression_list(&mut self, end: Token, bump_first: bool) -> Option<Vec<Expression>> {
         let mut list:Vec<Expression> = vec![];
         let skip_eol = end != Token::Eol;
 
@@ -2923,8 +2916,12 @@ impl Parser {
             return Some(list);
         }
 
-        if skip_eol {self.skip_next_eol();}
-        // self.bump()?;
+        if skip_eol {
+            self.skip_next_eol();
+        }
+        if bump_first {
+            self.bump()?;
+        }
 
         let expr = self.parse_expression(Precedence::Lowest, ExpressionState::Default)?;
         list.push(expr);
@@ -3209,8 +3206,7 @@ impl Parser {
         while self.is_current_token_in(vec![Token::Eol, Token::BlockEnd(BlockEnd::Case), Token::BlockEnd(BlockEnd::Default)]) {
             match self.current_token.token {
                 Token::BlockEnd(BlockEnd::Case) => {
-                    self.bump();
-                    let case_values = match self.parse_expression_list(Token::Eol) {
+                    let case_values = match self.parse_expression_list(Token::Eol, true) {
                         Some(list) => list,
                         None => return None
                     };
