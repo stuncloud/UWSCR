@@ -1905,6 +1905,9 @@ UWSC方式
 
     a = 1; a = a + 1; print a // 2
 
+    // UWSCでは IF行のマルチ宣言はNG エラー
+    if 123 then; print "condition is truthy"; else; print "condition is falsy"; endif
+
 
 組み込み定数
 ------------
