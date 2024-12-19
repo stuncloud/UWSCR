@@ -464,12 +464,11 @@ impl Environment {
     }
     pub fn define_param_to_local(&mut self, name: &str, object: Object) -> Result<(), UError> {
         if self.contains_in_local(name, &[ContainerType::Variable]) {
-            return Err(UError::new(
-                UErrorKind::DefinitionError(DefinitionType::Variable),
-                UErrorMessage::AlreadyDefined(name.into())
-            ))
+            self.set(name, ContainerType::Variable, object, false);
+            Ok(())
+        } else {
+            self.define(name, object, ContainerType::Variable, false)
         }
-        self.define(name, object, ContainerType::Variable, false)
     }
 
     pub fn _define_local_const(&mut self, name: &str, object: Object) -> Result<(), UError> {
