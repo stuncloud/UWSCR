@@ -2983,6 +2983,9 @@ impl Evaluator {
             } else {
                 match module.get_public_member(&member) {
                     Ok(Object::ExpandableTB(text)) => Ok(self.expand_string(text, true, None)),
+                    Ok(Object::Function(_)) => {
+                        Ok(Object::MemberCaller(MemberCaller::Module(mutex.clone()), member.clone()))
+                    },
                     res => res
                 }
             }

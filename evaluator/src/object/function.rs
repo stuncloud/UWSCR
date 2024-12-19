@@ -230,6 +230,7 @@ impl Evaluator {
                 _ => {}
             },
             ParamType::Function => match obj {
+                Object::MemberCaller(_, _) |
                 Object::Function(_) |
                 Object::AnonFunc(_) => return Ok(()),
                 _ => {}
