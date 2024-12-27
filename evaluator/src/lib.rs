@@ -3213,7 +3213,7 @@ mod tests {
     #[case(r#""hoge" == 1"#, Object::Bool(false))]
     #[case(r#""hoge" != 1"#, Object::Bool(true))]
     #[case(r#""hoge" <> 1"#, Object::Bool(true))]
-    #[case(r#""hoge" <> "hoge"#, Object::Bool(false))]
+    #[case(r#""hoge" <> "hoge""#, Object::Bool(false))]
     fn test_string_infix(#[case] input: &str, #[case] expected: Object) {
         let mut e = no_opt_same_str_fixture();
         expect_object_test(Some(&mut e), input, expected);
