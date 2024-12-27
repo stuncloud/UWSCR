@@ -1156,7 +1156,7 @@ impl Parser {
                             list.replace_range(*i..(*i+len), "\"");
                         });
                         // リスト解析用のLexerを作る
-                        let mut list_lexer = Lexer::new_call_list(&list);
+                        let mut list_lexer = Lexer::new(&list);
                         list_lexer.position = position;
 
                         let dir = if let ScriptLocation::Path(location) = self.builder.location() {
@@ -2911,7 +2911,7 @@ impl Parser {
         let mut list:Vec<Expression> = vec![];
         let skip_eol = end != Token::Eol;
 
-        if self.is_next_token(&end) {
+        if self.is_next_token(&end) && bump_first {
             self.bump()?;
             return Some(list);
         }
