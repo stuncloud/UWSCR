@@ -847,6 +847,8 @@ impl Parser {
         } else {
             let start = self.next_token.pos;
             let end = self.current_line_end_pos();
+            #[cfg(debug_assertions)]
+            dbg!(&self.next_token);
             self.push_error(ParseErrorKind::StatementContinuation, start, end);
             None
         }
@@ -1407,12 +1409,14 @@ impl Parser {
             // ::パス
             Token::Colon => {
                 self.bump()?;
-                if let Token::DllPath(p) = &self.current_token.token {
-                    (DllType::Void, p.to_string())
+                let type_and_path = if let Token::DllPath(p) = &self.current_token.token {
+                    Some((DllType::Void, p.to_string()))
                 } else {
                     self.error_next_token_is_invalid();
-                    return None;
-                }
+                    None
+                }?;
+                self.bump()?;
+                type_and_path
             },
             // :型:パス
             Token::Identifier(t) => {
@@ -1424,12 +1428,14 @@ impl Parser {
                         }
                         self.bump()?;
                         self.bump()?;
-                        if let Token::DllPath(p) = &self.current_token.token {
-                            (t, p.to_string())
+                        let token_and_path = if let Token::DllPath(p) = &self.current_token.token {
+                            Some((t, p.to_string()))
                         } else {
-                            self.error_next_token_is_invalid();
-                            return None;
-                        }
+                            self.error_current_token_is_invalid();
+                            None
+                        }?;
+                        self.bump()?;
+                        token_and_path
                     },
                     Err(_) => {
                         let start = self.current_token_pos();
@@ -1441,6 +1447,7 @@ impl Parser {
             },
             // :パス
             Token::DllPath(p) => {
+                self.bump()?;
                 (DllType::Void, p)
             },
             _ => {

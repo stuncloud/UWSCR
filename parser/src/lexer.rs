@@ -177,14 +177,21 @@ impl Lexer {
             self.ch = '\0';
         } else {
             (self.pos..=new_pos).for_each(|p| {
-                if self.input[p] == '\n' {
-                    self.position.row += 1;
-                    self.position.column = 0;
-                } else {
-                    self.position.column += 1;
+                match self.input.get(p) {
+                    Some('\n') => {
+                        self.pos += 1;
+                        self.position.row += 1;
+                        self.position.column = 0;
+                    },
+                    Some(_) => {
+                        self.pos += 1;
+                        self.position.column += 1;
+                    },
+                    None => {
+                        /* 範囲外 */
+                    },
                 }
             });
-            self.pos = new_pos;
             self.next_pos = self.pos + 1;
         }
     }
