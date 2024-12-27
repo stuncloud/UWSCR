@@ -137,11 +137,7 @@ impl Lexer {
 
         lexer
     }
-    pub fn new_call_list(input: &str) -> Self {
-        let mut lexer = Lexer::new(input);
-        lexer.read_char();
-        lexer
-    }
+
     pub fn get_line(&self, row: usize) -> String {
         if row > 0 && row <= self.lines.len() {
             let line = self.lines[row - 1].clone();
@@ -351,7 +347,7 @@ impl Lexer {
                 }
                 if self.paren_pairs.is_none() {
                     let mut pos = self.pos;
-                    self.get_paren_pairs(&mut pos, true, false);
+                    self.get_paren_pairs(&mut pos, false);
                 }
                 if let Some(pairs) = &self.paren_pairs {
                     if pairs.has_pair_r(&self.pos) {
@@ -369,7 +365,7 @@ impl Lexer {
                 }
                 if self.paren_pairs.is_none() {
                     let mut pos = self.pos;
-                    self.get_paren_pairs(&mut pos, true, true);
+                    self.get_paren_pairs(&mut pos, true);
                 }
                 if let Some(pairs) = &self.paren_pairs {
                     if pairs.has_pair_l(&self.pos) {
@@ -386,7 +382,7 @@ impl Lexer {
             '[' => {
                 if self.bracket_pairs.is_none() {
                     let mut pos = self.pos;
-                    self.get_bracket_pairs(&mut pos, true, false);
+                    self.get_bracket_pairs(&mut pos, false);
                 }
                 if let Some(pairs) = &self.bracket_pairs {
                     if pairs.has_pair_r(&self.pos) {
@@ -401,7 +397,7 @@ impl Lexer {
             ']' => {
                 if self.bracket_pairs.is_none() {
                     let mut pos = self.pos;
-                    self.get_bracket_pairs(&mut pos, true, true);
+                    self.get_bracket_pairs(&mut pos, true);
                 }
                 if let Some(pairs) = &self.bracket_pairs {
                     if pairs.has_pair_l(&self.pos) {
@@ -610,7 +606,7 @@ impl Lexer {
                 let (paren_l, paren_r) = pairs.last_pair().unwrap_or_default();
                 let path = &path_and_args[0..paren_l];
                 let buf = PathBuf::from(path);
-                let list = &path_and_args[paren_l..paren_r];
+                let list = &path_and_args[paren_l+1..paren_r];
                 let list = list.replace("/", "\\");
                 Token::CallPathAndArgs(buf, Some((list, start_position)))
             },
@@ -971,12 +967,12 @@ impl Lexer {
     }
 
     /// ()ペアを得る
-    fn get_paren_pairs(&mut self, pos: &mut usize, is_top: bool, is_right: bool) {
-        ParenPairs::search(&self.input, &mut self.paren_pairs, pos, is_top, is_right);
+    fn get_paren_pairs(&mut self, pos: &mut usize, is_right: bool) {
+        ParenPairs::search(&self.input, &mut self.paren_pairs, pos, true, is_right);
     }
     /// []ペアを得る
-    fn get_bracket_pairs(&mut self, pos: &mut usize, is_top: bool, is_right: bool) {
-        BracketPairs::search(&self.input, &mut self.bracket_pairs, pos, is_top, is_right);
+    fn get_bracket_pairs(&mut self, pos: &mut usize, is_right: bool) {
+        BracketPairs::search(&self.input, &mut self.bracket_pairs, pos, true, is_right);
     }
 }
 trait GetPairs {
@@ -986,16 +982,15 @@ trait GetPairs {
         if pairs.is_none() {
             pairs.replace(Pairs::new());
         }
-        let mut start_pos = *pos;
+        let start_pos = *pos;
         while let Some(c) = input.get(*pos + 1) {
             *pos += 1;
             if *c == Self::LEFT {
                 Self::search(input, pairs, pos, false, false);
             } else if *c == Self::RIGHT {
-                if ! is_right && start_pos > 0 {
+                if ! is_right {
                     if let Some(pairs) = pairs {
                         pairs.push(start_pos, *pos);
-                        start_pos = 0;
                     }
                 }
                 if ! is_top {
