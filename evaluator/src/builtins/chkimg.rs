@@ -102,10 +102,12 @@ pub struct ChkImg {
 impl ChkImg {
     pub fn from_screenshot(ss: ScreenShot, gray_scale: bool) -> ChkImgResult<Self> {
         let size = ss.data.mat_size();
+        let width = *size.get(0).unwrap();
+        let height = *size.get(1).unwrap();
         Ok(Self {
             image: ss.data,
-            width: *size.get(0).unwrap(),
-            height: *size.get(1).unwrap(),
+            width,
+            height,
             offset_x: ss.left,
             offset_y: ss.top,
             gray_scale,
@@ -134,13 +136,11 @@ impl ChkImg {
     pub fn search(&self, path: &str, score: f64, max_count: Option<u8>, method: i32) -> ChkImgResult<MatchedPoints> {
         let templ = self.read_file(path)?;
 
-        let templ_width = *templ.mat_size().get(0)
-            .ok_or(UError::new(UErrorKind::OpenCvError, UErrorMessage::FailedToLoadImageFile(path.into())))?;
-        let templ_height = *templ.mat_size().get(1)
-            .ok_or(UError::new(UErrorKind::OpenCvError, UErrorMessage::FailedToLoadImageFile(path.into())))?;
+        let templ_width = *templ.mat_size().get(0).unwrap();
+        let templ_height = *templ.mat_size().get(1).unwrap();
 
         // テンプレートサイズが対象画像より大きい場合は即終了
-        if self.width < templ_width || self.height < templ_width {
+        if self.width < templ_width || self.height < templ_height {
             return Ok(Vec::new());
         }
 
