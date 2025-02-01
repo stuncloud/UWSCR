@@ -1310,7 +1310,7 @@ pub fn chkimg(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncRe
     let default_score = 95;
     let path = args.get_as_string(0, None)?;
     let score = args.get_as_int::<i32>(1, Some(default_score))?;
-    if score < 1 && score > 100 {
+    if !(1..=100).contains(&score) {
         return Err(builtin_func_error(UErrorMessage::GivenNumberIsOutOfRange(1.0, 100.0)));
     }
     let score = score as f64 / 100.0;
