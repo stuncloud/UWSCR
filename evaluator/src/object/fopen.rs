@@ -294,41 +294,41 @@ impl Fopen {
         let mut stream = BufWriter::new(file);
         match self.flag.encoding {
             FopenEncoding::Utf16LE => {
-                stream.write(&[0xFF, 0xFE])?;
+                stream.write_all(&[0xFF, 0xFE])?;
                 for utf16 in text.encode_utf16() {
-                    stream.write(&utf16.to_be_bytes())?;
+                    stream.write_all(&utf16.to_be_bytes())?;
                 }
                 if ! self.no_cr {
                     for utf16 in "\r\n".encode_utf16() {
-                        stream.write(&utf16.to_be_bytes())?;
+                        stream.write_all(&utf16.to_be_bytes())?;
                     }
                 }
             },
             FopenEncoding::Utf16BE => {
-                stream.write(&[0xFE, 0xFF])?;
+                stream.write_all(&[0xFE, 0xFF])?;
                 for utf16 in text.encode_utf16() {
-                    stream.write(&utf16.to_le_bytes())?;
+                    stream.write_all(&utf16.to_le_bytes())?;
                 }
                 if ! self.no_cr {
                     for utf16 in "\r\n".encode_utf16() {
-                        stream.write(&utf16.to_le_bytes())?;
+                        stream.write_all(&utf16.to_le_bytes())?;
                     }
                 }
             },
             FopenEncoding::Sjis => {
                 let (cow,_,_) = SHIFT_JIS.encode(&text);
-                stream.write(cow.as_ref())?;
+                stream.write_all(cow.as_ref())?;
                 if ! self.no_cr {
-                    stream.write("\r\n".as_bytes())?;
+                    stream.write_all("\r\n".as_bytes())?;
                 }
             }
             _ => {
                 if self.flag.encoding == FopenEncoding::Utf8B {
-                    stream.write(&[0xEF, 0xBB, 0xBF])?;
+                    stream.write_all(&[0xEF, 0xBB, 0xBF])?;
                 }
-                stream.write(text.as_bytes())?;
+                stream.write_all(text.as_bytes())?;
                 if ! self.no_cr {
-                    stream.write("\r\n".as_bytes())?;
+                    stream.write_all("\r\n".as_bytes())?;
                 }
             },
         }
@@ -373,14 +373,14 @@ impl Fopen {
                 let mut stream = BufWriter::new(file);
                 let mut size = 0;
                 if is_new {
-                    stream.write(&[0xFF, 0xFE])?;
+                    stream.write_all(&[0xFF, 0xFE])?;
                 }
                 for utf16 in text.encode_utf16() {
                     size += stream.write(&utf16.to_le_bytes())?;
                 }
                 if ! self.no_cr {
                     for utf16 in "\r\n".encode_utf16() {
-                        stream.write(&utf16.to_le_bytes())?;
+                        stream.write_all(&utf16.to_le_bytes())?;
                     }
                 }
                 size
@@ -389,17 +389,17 @@ impl Fopen {
                 let (cow,_,_) = SHIFT_JIS.encode(text);
                 let size = file.write(cow.as_ref())?;
                 if ! self.no_cr {
-                    file.write("\r\n".as_bytes())?;
+                    file.write_all("\r\n".as_bytes())?;
                 }
                 size
             },
             _ => {
                 if is_new && self.flag.encoding == FopenEncoding::Utf8B {
-                    file.write(&[0xEF, 0xBB, 0xBF])?;
+                    file.write_all(&[0xEF, 0xBB, 0xBF])?;
                 }
                 let size = file.write(text.as_bytes())?;
                 if ! self.no_cr {
-                    file.write("\r\n".as_bytes())?;
+                    file.write_all("\r\n".as_bytes())?;
                 }
                 size
             },

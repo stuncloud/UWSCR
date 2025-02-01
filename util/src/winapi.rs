@@ -44,7 +44,7 @@ pub static FORCE_WINDOW_MODE: OnceLock<bool> = OnceLock::new();
 pub fn shell_execute(cmd: String, params: Option<String>) -> bool {
     unsafe {
         let cmd = HSTRING::from(cmd);
-        let params = params.map(|s| HSTRING::from(s)).unwrap_or_default();
+        let params = params.map(HSTRING::from).unwrap_or_default();
         let hinstance = ShellExecuteW(
             HWND::default(),
             w!("open"),
@@ -70,7 +70,6 @@ pub fn to_ansi_bytes(string: &str) -> Vec<u8> {
         );
         if len > 0 {
             let mut result: Vec<u8> = Vec::with_capacity(len as usize);
-            result.set_len(len as usize);
             WideCharToMultiByte(
                 CP_ACP,
                 WC_COMPOSITECHECK,
@@ -106,16 +105,15 @@ pub fn from_ansi_bytes(ansi: &[u8]) -> String {
         let len = MultiByteToWideChar(
             CP_ACP,
             MB_PRECOMPOSED,
-            &ansi,
-            Some(&mut vec![])
+            ansi,
+            None
         );
         if len > 0 {
             let mut wide: Vec<u16> = Vec::with_capacity(len as usize);
-            wide.set_len(len as usize);
             MultiByteToWideChar(
                 CP_ACP,
                 MB_PRECOMPOSED,
-                &ansi,
+                ansi,
                 Some(&mut wide)
             );
             String::from_utf16_lossy(&wide)
@@ -132,7 +130,7 @@ pub fn to_wide_string(string: &str) -> Vec<u16> {
     result
 }
 pub fn from_wide_string(wide: &[u16]) -> String {
-    String::from_utf16_lossy(&wide)
+    String::from_utf16_lossy(wide)
         .trim_end_matches(char::is_control)
         .to_string()
 }
@@ -276,8 +274,7 @@ pub fn get_class_name(hwnd: HWND) -> String {
     unsafe {
         let mut class_buffer = [0; 512];
         let len = GetClassNameW(hwnd, &mut class_buffer);
-        let class = String::from_utf16_lossy(&class_buffer[..len as usize]);
-        class
+        String::from_utf16_lossy(&class_buffer[..len as usize])
     }
 }
 
@@ -285,8 +282,7 @@ pub fn get_window_title(hwnd: HWND) -> String {
     unsafe {
         let mut title_buffer = [0; 512];
         let len = GetWindowTextW(hwnd, &mut title_buffer);
-        let title = String::from_utf16_lossy(&title_buffer[..len as usize]);
-        title
+        String::from_utf16_lossy(&title_buffer[..len as usize])
     }
 }
 
@@ -313,7 +309,7 @@ pub fn make_word(lo: i32, hi: i32) -> isize {
     word as isize
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct SystemError {
     code: u32,
     msg: String,
@@ -322,7 +318,7 @@ impl SystemError {
     pub fn new() -> Self {
         unsafe {
             match GetLastError() {
-                Ok(_) => Self { code: 0, msg: "".into() },
+                Ok(_) => Self::default(),
                 Err(err) => {
                     let code = err.code().0 as u32;
                     let msg = err.message().to_string_lossy();
