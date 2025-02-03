@@ -536,7 +536,7 @@ pub enum UErrorMessage {
     InvalidErrorLine(usize),
     FailedToGetObject,
     GdiError(String),
-    GivenNumberIsOutOfRange(f64, f64),
+    GivenNumberIsOutOfRange(i32, i32),
     WebSocketTimeout(Value),
     WebSocketConnectionError(String),
     InvalidParamType(String, ParamTypeDetail),
