@@ -182,7 +182,6 @@ impl ChkImg {
             if max_val < score {
                 break;
             }
-
             let matched = MatchedPoint::new(
                 max_loc.x + self.offset_x,
                 max_loc.y + self.offset_y,
