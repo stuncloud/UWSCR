@@ -34,7 +34,6 @@ body:
     attributes:
       label: バージョン
       description: 不具合が発生したUWSCRのバージョンを選択してください
-      default: 0
       options:
         - "1.0.4"
         - "1.0.3"
@@ -46,11 +45,25 @@ body:
     validations:
       required: true
   - type: dropdown
+    validations:
+      required: true
+    attributes:
+      label: 発生頻度
+      description: 不具合の発生する頻度を選択してください
+      multiple: false
+      options:
+        - "必ず"
+        - "高頻度で再現"
+        - "数回に一度"
+        - "再現は稀"
+        - "不明"
+  - type: dropdown
+    validations:
+      required: true
     attributes:
       label: 不具合発生環境
       description: 特定の環境で不具合が発生する場合は実行環境(OS)を選択してください
       multiple: true
-      default: 0
       options:
         - "環境は問わない"
         - "Windows 10"
