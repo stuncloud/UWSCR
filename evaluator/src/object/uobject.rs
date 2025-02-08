@@ -55,9 +55,9 @@ impl UObject {
         };
         let value = match index {
             Object::String(key) => {
-                parent.get_case_insensitive(key).map(|v|v.clone())
+                parent.get_case_insensitive(key).cloned()
             },
-            Object::Num(n) => parent.get(*n as usize).map(|v|v.clone()),
+            Object::Num(n) => parent.get(*n as usize).cloned(),
             o => return Err(UError::new(
                 UErrorKind::UObjectError,
                 UErrorMessage::InvalidMemberOrIndex(o.to_string())
@@ -87,11 +87,23 @@ impl UObject {
             },
         };
         match index {
-            Object::String(ref key) => {
-                *value.get_case_insensitive_mut(key).unwrap() = new_value;
+            Object::String(key) => {
+                match value.get_case_insensitive_mut(&key) {
+                    Some(v) => *v = new_value,
+                    None => return Err(UError::new(
+                        UErrorKind::UObjectError,
+                        UErrorMessage::InvalidMemberOrIndex(key)
+                    )),
+                }
             },
             Object::Num(n) => {
-                *value.get_mut(n as usize).unwrap() = new_value;
+                match value.get_mut(n as usize) {
+                    Some(v) => *v = new_value,
+                    None => return Err(UError::new(
+                        UErrorKind::UObjectError,
+                        UErrorMessage::InvalidMemberOrIndex(n.to_string())
+                    )),
+                }
             },
             o => return Err(UError::new(
                 UErrorKind::UObjectError,
