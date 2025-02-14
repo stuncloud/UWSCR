@@ -1541,6 +1541,20 @@ impl Evaluator {
             Expression::CompoundAssign(l, r, i) => {
                 let left = self.eval_expression(*l.clone())?;
                 let right = self.eval_expression(*r)?;
+                if i == Infix::Plus {
+                    if let Object::UObject(u) = left {
+                        // UObjectの配列はpushできる
+                        let new_value = Self::object_to_serde_value(right)?;
+                        return if u.push(new_value) {
+                            Ok(Object::UObject(u))
+                        } else {
+                            Err(UError::new(
+                                UErrorKind::UObjectError,
+                                UErrorMessage::PlusAssignToObjectTypeValueNotAllowed,
+                            ))
+                        };
+                    }
+                }
                 let value= self.eval_infix_expression(i, left, right)?;
                 self.eval_assign_expression(*l, value)?
             },
@@ -3027,8 +3041,12 @@ impl Evaluator {
             Object::Null => serde_json::Value::Null,
             Object::Bool(b) => serde_json::Value::Bool(b),
             Object::Num(n) => serde_json::Value::Number(serde_json::Number::from_f64(n).unwrap()),
-            Object::String(ref s) => serde_json::Value::String(s.clone()),
-            Object::UObject(ref u) => u.value(),
+            Object::String(s) => serde_json::Value::String(s),
+            Object::UObject(u) => u.value(),
+            Object::Array(arr) => {
+                let values = arr.into_iter().map(Self::object_to_serde_value).collect::<EvalResult<Vec<serde_json::Value>>>()?;
+                serde_json::Value::Array(values)
+            },
             o => return Err(UError::new(
                 UErrorKind::UObjectError,
                 UErrorMessage::CanNotConvertToUObject(o)

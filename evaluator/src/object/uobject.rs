@@ -112,6 +112,24 @@ impl UObject {
         }
         Ok(())
     }
+    /// 配列へのpush\
+    /// 成功時true
+    pub fn push(&self, new_value: Value) -> bool {
+        let mut guard = self.value.lock().unwrap();
+        match &self.pointer {
+            Some(pointer) => if let Some(v) = guard.pointer_mut(pointer) {
+                if let Some(arr) = v.as_array_mut() {
+                    arr.push(new_value);
+                    return true;
+                }
+            },
+            None => if let Some(arr) = guard.as_array_mut() {
+                arr.push(new_value);
+                return true;
+            },
+        }
+        false
+    }
     pub fn to_object_vec(&self) -> EvalResult<Vec<Object>> {
         let value = self.value();
         if let Value::Array(arr) = value {
