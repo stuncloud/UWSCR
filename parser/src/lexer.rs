@@ -192,7 +192,13 @@ impl Lexer {
                     },
                 }
             });
-            self.ch = self.input[self.pos];
+            self.ch = match self.input.get(self.pos) {
+                Some(ch) => *ch,
+                None => {
+                    self.pos -= 1;
+                    '\n'
+                },
+            };
             self.next_pos = self.pos + 1;
         }
     }
