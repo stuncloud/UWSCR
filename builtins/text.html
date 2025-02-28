@@ -7,7 +7,7 @@
 <link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="ウィンドウ操作関数" href="window.html" /><link rel="prev" title="引数の型について" href="about_parameters.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>文字列操作関数 - UWSCR 1.0.4</title>
+        <title>文字列操作関数 - UWSCR 1.0.5</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 1.0.4</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 1.0.5</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 1.0.4</span>
+  <span class="sidebar-brand-text">UWSCR 1.0.5</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -1356,7 +1356,7 @@
 
 <dl class="py function">
 <dt class="sig sig-object py">
-<span class="sig-name descname"><span class="pre">format</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">秒数</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">日時フォーマット文字列</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">ミリ秒=FALSE</span></span></em><span class="optional">]</span><span class="sig-paren">)</span></dt>
+<span class="sig-name descname"><span class="pre">format</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">秒数</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">日時フォーマット文字列</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">ミリ秒=FALSE</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ロケール文字列=EMPTY</span></span></em><span class="optional">]</span><span class="sig-paren">)</span></dt>
 <dd><dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -1442,15 +1442,40 @@
 <div class="line">詳細な書式一覧は <a class="reference external" href="https://docs.rs/chrono/latest/chrono/format/strftime/index.html">このリンク</a> から確認できます</div>
 </div>
 </div>
-<div class="note admonition">
-<p class="admonition-title">表記のローカライズについて</p>
-<div class="line-block">
-<div class="line">日本語環境でのみ日本語にローカライズされます</div>
-<div class="line">それ以外では英語(en-US)表記になります</div>
-</div>
-</div>
 </p></li>
 <li><p><strong>ミリ秒</strong> (<em>真偽値 省略可</em>) -- TRUEなら秒数をミリ秒として扱う</p></li>
+<li><p><strong>ロケール文字列</strong> (<em>文字列 省略可</em>) -- <p>ロケールを示す文字列、省略時は現在のロケール設定 (日本または日本以外) に従う</p>
+<div class="line-block">
+<div class="line">ローカル日時フォーマットを行う場合はロケール設定が影響します</div>
+</div>
+<div class="hint admonition">
+<p class="admonition-title">ロケール文字列の指定方法</p>
+<div class="line-block">
+<div class="line">利用可能なロケールは <a class="reference external" href="https://docs.rs/pure-rust-locales/latest/pure_rust_locales/enum.Locale.html">Locale</a> を参照してください</div>
+<div class="line"><br /></div>
+<div class="line">表記は原則</div>
+</div>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">言語</span></code> かつ <code class="docutils literal notranslate"><span class="pre">XX</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">言語_国</span></code> かつ <code class="docutils literal notranslate"><span class="pre">xx_XX</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">言語_国&#64;修飾子</span></code> かつ <code class="docutils literal notranslate"><span class="pre">xx_XX&#64;xxxx</span></code></p></li>
+</ul>
+<div class="line-block">
+<div class="line">ですが区切り文字と大文字小文字の表記揺れを許容します</div>
+<div class="line">区切り文字として利用可能なのは <code class="docutils literal notranslate"><span class="pre">_</span></code>, <code class="docutils literal notranslate"><span class="pre">-</span></code>, <code class="docutils literal notranslate"><span class="pre">&#64;</span></code> です</div>
+</div>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">POSIX</span></code>: 原則通り</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Posix</span></code>: 大文字小文字の揺れを許容</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ja_JP</span></code>: 原則通り</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ja-JP</span></code>: 区切り文字にハイフンを許容</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">JA_jp</span></code>: 大文字小文字の揺れを許容</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">aa_ER&#64;saaho</span></code>: 原則通り</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">aa-ER-saaho</span></code>: 区切り文字の揺れを許容</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">aa&#64;ER&#64;saaho</span></code>: 区切り文字の揺れを許容</p></li>
+</ul>
+</div>
+</p></li>
 </ul>
 </dd>
 <dt class="field-even">戻り値<span class="colon">:</span></dt>
@@ -1461,7 +1486,9 @@
 <p class="admonition-title">サンプルコード</p>
 <div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// 日時フォーマット</span>
 <span class="n">timestamp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">gettime</span><span class="p">(</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;2023/04/01 10:10:10&quot;</span><span class="p">)</span>
-<span class="k">print</span><span class="w"> </span><span class="n">format</span><span class="p">(</span><span class="n">timestamp</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;%c&quot;</span><span class="p">)</span><span class="w"> </span><span class="c">// 2023年04月01日 10時10分10秒</span>
+<span class="k">print</span><span class="w"> </span><span class="n">format</span><span class="p">(</span><span class="n">timestamp</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;%c&quot;</span><span class="p">)</span><span class="w">            </span><span class="c">// 2023年04月01日 10時10分10秒</span>
+<span class="k">print</span><span class="w"> </span><span class="n">format</span><span class="p">(</span><span class="n">timestamp</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;%c&quot;</span><span class="o">,</span><span class="w"> </span><span class="o">,</span><span class="w"> </span><span class="s">&#39;en_US&#39;</span><span class="p">)</span><span class="w"> </span><span class="c">// Sat 01 Apr 2023 10:10:10 AM +09:00</span>
+<span class="k">print</span><span class="w"> </span><span class="n">format</span><span class="p">(</span><span class="n">timestamp</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;%c&quot;</span><span class="o">,</span><span class="w"> </span><span class="o">,</span><span class="w"> </span><span class="s">&#39;POSIX&#39;</span><span class="p">)</span><span class="w"> </span><span class="c">// Sat Apr  1 10:10:10 2023</span>
 </pre></div>
 </div>
 </div>

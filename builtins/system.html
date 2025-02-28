@@ -7,7 +7,7 @@
 <link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="ファイル操作関数" href="file.html" /><link rel="prev" title="スクリプト制御" href="scriptcontrol.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>システム関数 - UWSCR 1.0.4</title>
+        <title>システム関数 - UWSCR 1.0.5</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 1.0.4</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 1.0.5</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 1.0.4</span>
+  <span class="sidebar-brand-text">UWSCR 1.0.5</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -362,6 +362,34 @@
 <div class="admonition- admonition">
 <p class="admonition-title">サンプルコード</p>
 <div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="k">print</span><span class="w"> </span><span class="n">env</span><span class="p">(</span><span class="s">&#39;programfiles&#39;</span><span class="p">)</span><span class="w"> </span><span class="c">// C:\Program Files</span>
+</pre></div>
+</div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="setenv">
+<span class="sig-name descname"><span class="pre">setenv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">環境変数</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">設定値</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#setenv" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">プロセス環境変数を設定します</div>
+</div>
+<div class="admonition hint">
+<p class="admonition-title">ヒント</p>
+<p>この環境変数は実行中のuwscrプロセス及びその子プロセスに対してのみ有効です</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>環境変数</strong> (<em>文字列</em>) -- 環境変数名</p></li>
+<li><p><strong>設定値</strong> (<em>文字列</em>) -- 環境変数にセットする値</p></li>
+</ul>
+</dd>
+</dl>
+<div class="admonition- admonition">
+<p class="admonition-title">サンプルコード</p>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="k">print</span><span class="w"> </span><span class="n">env</span><span class="p">(</span><span class="s">&#39;NO_PROXY&#39;</span><span class="p">)</span><span class="w"> </span><span class="c">// 空文字</span>
+<span class="n">setenv</span><span class="p">(</span><span class="s">&#39;NO_PROXY&#39;</span><span class="o">,</span><span class="w"> </span><span class="s">&#39;localhost&#39;</span><span class="p">)</span>
+<span class="k">print</span><span class="w"> </span><span class="n">env</span><span class="p">(</span><span class="s">&#39;NO_PROXY&#39;</span><span class="p">)</span><span class="w"> </span><span class="c">// localhost</span>
 </pre></div>
 </div>
 </div>
@@ -2030,6 +2058,7 @@
 <li><a class="reference internal" href="#id2">システム情報</a><ul>
 <li><a class="reference internal" href="#kindofos"><code class="docutils literal notranslate"><span class="pre">kindofos()</span></code></a></li>
 <li><a class="reference internal" href="#env"><code class="docutils literal notranslate"><span class="pre">env()</span></code></a></li>
+<li><a class="reference internal" href="#setenv"><code class="docutils literal notranslate"><span class="pre">setenv()</span></code></a></li>
 <li><a class="reference internal" href="#wmi"><code class="docutils literal notranslate"><span class="pre">wmi()</span></code></a></li>
 <li><a class="reference internal" href="#cpuuserate"><code class="docutils literal notranslate"><span class="pre">cpuuserate()</span></code></a></li>
 <li><a class="reference internal" href="#sensor"><code class="docutils literal notranslate"><span class="pre">sensor()</span></code></a></li>

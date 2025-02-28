@@ -954,6 +954,32 @@ RemoteObject
 HTTPリクエスト
 --------------
 
+.. admonition:: プロキシ環境下における注意
+    :class: hint
+
+    | OSのプロキシサーバー設定が有効な場合 ``Webrequest`` および ``WebRequestBuilder`` はその設定に従いプロキシサーバーを経由した通信を試みます
+    | 特定のドメインなどでプロキシサーバーを迂回すべく除外設定を行っていてもこれらの関数に反映されない場合があります
+    | このような場合はプロセス環境変数 ``NO_PROXY`` で除外設定を行います
+    | 環境変数 ``NO_PROXY`` にはカンマ ``,`` 区切りで除外したいドメイン名等を指定します
+
+    .. sourcecode:: uwscr
+
+        // 環境変数名
+        const NO_PROXY = 'NO_PROXY'
+        // 複数指定はカンマ区切り
+        const NO_PROXY_LIST = 'localhost,localserver.dev'
+
+        // setenv関数でプロセス環境変数をセット
+        setenv(NO_PROXY, NO_PROXY_LIST)
+
+        // プロセス環境変数の反映を確認
+        assert_equal(NO_PROXY_LIST, env(NO_PROXY))
+
+        // プロキシサーバーを迂回したリクエストを送信
+        res = WebRequest('http://localhost:8888/')
+        res = WebRequest('http://localserver.dev/hoge/')
+
+
 .. function:: Webrequest(url)
 
     | 指定URLに対してGETリクエストを送信します
