@@ -926,6 +926,7 @@ impl Default for FormatConst {
             {n="秒数",t="数値",d="2020/01/01からの秒数"},
             {n="日時フォーマット文字列",t="文字列",d="指示子についての詳細 [リンク](https://docs.rs/chrono/latest/chrono/format/strftime/index.html)"},
             {n="ミリ秒",t="真偽値",d="TRUEの場合秒数をミリ秒として扱う"},
+            {n="ロケール",t="文字列",d="ja_JP, en_US など"},
         ],
     ],
 )]
@@ -958,7 +959,8 @@ pub fn format(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
                 TwoTypeArg::T(fmt) => {
                     let milli = args.get_as_bool(2, Some(false))?;
                     let secs = n as i64;
-                    let s = system_controls::gettime::format(&fmt, secs, milli)
+                    let locale_str = args.get_as_string(3, None).ok();
+                    let s = system_controls::gettime::format(&fmt, secs, milli, locale_str.as_deref())
                         .map_err(|e| builtin_func_error(UErrorMessage::FormatTimeError(e.to_string())))?;
                     s.into()
                 },

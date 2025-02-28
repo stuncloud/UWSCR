@@ -793,7 +793,7 @@ JSON
             print format("abc", 8) // abcabcab
             print format("1", 8)   // 11111111
 
-.. function:: format(秒数, 日時フォーマット文字列, [ミリ秒=FALSE])
+.. function:: format(秒数, 日時フォーマット文字列, [ミリ秒=FALSE, ロケール文字列=EMPTY])
     :noindex:
 
     :param 数値 秒数: 2000/01/01からの秒数またはミリ秒数
@@ -859,13 +859,34 @@ JSON
 
             | 詳細な書式一覧は `このリンク <https://docs.rs/chrono/latest/chrono/format/strftime/index.html>`_ から確認できます
 
-        .. admonition:: 表記のローカライズについて
-            :class: note
-
-            | 日本語環境でのみ日本語にローカライズされます
-            | それ以外では英語(en-US)表記になります
-
     :param 真偽値 省略可 ミリ秒: TRUEなら秒数をミリ秒として扱う
+    :param 文字列 省略可 ロケール文字列: ロケールを示す文字列、省略時は現在のロケール設定 (日本または日本以外) に従う
+
+        | ローカル日時フォーマットを行う場合はロケール設定が影響します
+
+        .. admonition:: ロケール文字列の指定方法
+            :class: hint
+
+            | 利用可能なロケールは `Locale <https://docs.rs/pure-rust-locales/latest/pure_rust_locales/enum.Locale.html>`_ を参照してください
+            |
+            | 表記は原則
+
+            - ``言語`` かつ ``XX``
+            - ``言語_国`` かつ ``xx_XX``
+            - ``言語_国@修飾子`` かつ ``xx_XX@xxxx``
+
+            | ですが区切り文字と大文字小文字の表記揺れを許容します
+            | 区切り文字として利用可能なのは ``_``, ``-``, ``@`` です
+
+            - ``POSIX``: 原則通り
+            - ``Posix``: 大文字小文字の揺れを許容
+            - ``ja_JP``: 原則通り
+            - ``ja-JP``: 区切り文字にハイフンを許容
+            - ``JA_jp``: 大文字小文字の揺れを許容
+            - ``aa_ER@saaho``: 原則通り
+            - ``aa-ER-saaho``: 区切り文字の揺れを許容
+            - ``aa@ER@saaho``: 区切り文字の揺れを許容
+
 
     :return: フォーマットされた文字列
 
@@ -875,7 +896,10 @@ JSON
 
             // 日時フォーマット
             timestamp = gettime(, "2023/04/01 10:10:10")
-            print format(timestamp, "%c") // 2023年04月01日 10時10分10秒
+            print format(timestamp, "%c")            // 2023年04月01日 10時10分10秒
+            print format(timestamp, "%c", , 'en_US') // Sat 01 Apr 2023 10:10:10 AM +09:00
+            print format(timestamp, "%c", , 'POSIX') // Sat Apr  1 10:10:10 2023
+
 
 .. function:: encode(元文字列, 変換方式)
 
