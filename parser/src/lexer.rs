@@ -192,6 +192,7 @@ impl Lexer {
                     },
                 }
             });
+            self.ch = self.input[self.pos];
             self.next_pos = self.pos + 1;
         }
     }
@@ -494,17 +495,15 @@ impl Lexer {
             if let Some(c) = self.input.get(pos) {
                 match c {
                     ':' => {
-                        if ! self.input.get(pos+1).is_some_and(|c2| *c2 == '\\') {
+                        if self.input.get(pos+1).is_none_or(|c2| *c2 != '\\') {
                             break 0;
                         }
                     },
                     // 行末
-                    '\r' | '\n' => break pos,
+                    '\r' | '\n' => break pos-1,
                     // コメント
-                    '/' => if self.input.get(pos+1).is_some_and(|c2| *c2 == '/') {
-                        if ! self.input.get(pos+2).is_some_and(|c3| *c3 == '-') {
-                            break pos;
-                        }
+                    '/' => if self.input.get(pos+1).is_some_and(|c2| *c2 == '/') && self.input.get(pos+2).is_none_or(|c3| *c3 != '-') {
+                        break pos-1;
                     },
                     _ => {},
                 }
@@ -522,8 +521,8 @@ impl Lexer {
         let end = self.def_dll.unwrap_or_default().1;
         let token = if end > 0 {
             let start = self.pos;
-            self.move_to(end);
-            let path: String = self.input[start..self.pos].into_iter().collect();
+            self.move_to(end-1);
+            let path: String = self.input[start..=self.pos].iter().collect();
             let path = path.trim_end();
             Token::DllPath(path.into())
         } else {
@@ -537,7 +536,7 @@ impl Lexer {
         if let Some(slice) = self.input.get(self.pos..self.pos+4) {
             if slice == ['u', 'r', 'l', '['] {
                 // url解析
-                self.pos = self.pos + 4;
+                self.pos += 4;
                 self.next_pos = self.pos + 1;
                 self.ch = match self.input.get(self.pos) {
                     Some(c) => *c,
