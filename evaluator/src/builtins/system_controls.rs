@@ -74,6 +74,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("sleep", sleep, get_desc!(sleep));
     sets.add("kindofos", kindofos, get_desc!(kindofos));
     sets.add("env", env, get_desc!(env));
+    sets.add("setenv", set_env, get_desc!(set_env));
     sets.add("exec", exec, get_desc!(exec));
     sets.add("shexec", shexec, get_desc!(shexec));
     sets.add("task", task, get_desc!(task));
@@ -277,6 +278,19 @@ pub fn env(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let env_var = args.get_as_string(0, None)?;
     let env_val = std::env::var(env_var).unwrap_or_default();
     Ok(Object::String(env_val))
+}
+#[builtin_func_desc(
+    desc="プロセス環境変数をセットする",
+    args=[
+        {n="環境変数",t="文字列",d="設定したい環境変数"},
+        {n="設定値",t="文字列",d="環境変数に設定する値"},
+    ],
+)]
+pub fn set_env(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let key = args.get_as_string(0, None)?;
+    let value = args.get_as_string(1, None)?;
+    std::env::set_var(key, value);
+    Ok(Object::Empty)
 }
 
 fn create_process(cmd: String) -> BuiltInResult<PROCESS_INFORMATION> {

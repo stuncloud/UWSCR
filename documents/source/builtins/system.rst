@@ -66,6 +66,23 @@
 
             print env('programfiles') // C:\Program Files
 
+.. function:: setenv(環境変数, 設定値)
+
+    | プロセス環境変数を設定します
+
+    .. hint:: この環境変数は実行中のuwscrプロセス及びその子プロセスに対してのみ有効です
+
+    :param 文字列 環境変数: 環境変数名
+    :param 文字列 設定値: 環境変数にセットする値
+
+    .. admonition:: サンプルコード
+
+        .. sourcecode:: uwscr
+
+            print env('NO_PROXY') // 空文字
+            setenv('NO_PROXY', 'localhost')
+            print env('NO_PROXY') // localhost
+
 
 .. function:: wmi(WQL, 名前空間="root/cimv2")
 
