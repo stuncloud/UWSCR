@@ -1525,11 +1525,11 @@ pub struct Name {
 impl Eq for Name {
 
 }
-impl Ord for Name {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.partial_cmp(other).unwrap()
-    }
-}
+// impl Ord for Name {
+//     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+//         self.partial_cmp(other).unwrap()
+//     }
+// }
 impl Name {
     fn new(name: &str, start: Position, end: Position, depth: u32) -> Self {
         Self { name: name.to_ascii_uppercase(), start, end, depth }

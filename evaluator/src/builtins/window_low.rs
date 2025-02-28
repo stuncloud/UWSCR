@@ -264,6 +264,8 @@ impl From<&Option<MouseOrg>> for Input {
     }
 }
 impl Input {
+    /// kbdのCLICKでdownとupの間の待機秒数 (ms)
+    const KEY_CLICK_WAIT: u64 = 100;
     pub fn is_client(&self) -> bool {
         self.client
     }
@@ -294,8 +296,7 @@ impl Input {
         match action {
             KeyActionEnum::CLICK => {
                 self.key_down(vk, extend);
-                // 20ms待って離す
-                sleep(20);
+                sleep(Self::KEY_CLICK_WAIT);
                 self.key_up(vk, extend)
             },
             KeyActionEnum::DOWN => self.key_down(vk, extend),

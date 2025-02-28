@@ -71,6 +71,8 @@ impl From<opencv::Error> for UError {
     }
 }
 
+
+
 #[derive(Debug)]
 pub struct MatchedPoint {
     pub score: f64,
@@ -101,11 +103,11 @@ pub struct ChkImg {
 }
 impl ChkImg {
     pub fn from_screenshot(ss: ScreenShot, gray_scale: bool) -> ChkImgResult<Self> {
-        let size = ss.data.mat_size();
+        let (width, height) = Self::get_width_height(&ss.data);
         Ok(Self {
             image: ss.data,
-            width: *size.get(0).unwrap(),
-            height: *size.get(1).unwrap(),
+            width,
+            height,
             offset_x: ss.left,
             offset_y: ss.top,
             gray_scale,
@@ -131,16 +133,19 @@ impl ChkImg {
         let mat = imgcodecs::imdecode(&buf, flags)?;
         Ok(mat)
     }
+    /// (幅, 高さ)
+    fn get_width_height(mat: &Mat) -> (i32, i32) {
+        let width = mat.cols();
+        let height = mat.rows();
+        (width, height)
+    }
     pub fn search(&self, path: &str, score: f64, max_count: Option<u8>, method: i32) -> ChkImgResult<MatchedPoints> {
         let templ = self.read_file(path)?;
 
-        let templ_width = *templ.mat_size().get(0)
-            .ok_or(UError::new(UErrorKind::OpenCvError, UErrorMessage::FailedToLoadImageFile(path.into())))?;
-        let templ_height = *templ.mat_size().get(1)
-            .ok_or(UError::new(UErrorKind::OpenCvError, UErrorMessage::FailedToLoadImageFile(path.into())))?;
+        let (templ_width, templ_height) = Self::get_width_height(&templ);
 
         // テンプレートサイズが対象画像より大きい場合は即終了
-        if self.width < templ_width || self.height < templ_width {
+        if self.width < templ_width || self.height < templ_height {
             return Ok(Vec::new());
         }
 
@@ -157,8 +162,8 @@ impl ChkImg {
         };
 
         // 検索範囲のマスク
-        let rows = self.width - templ_width + 1;
-        let cols = self.height - templ_height + 1;
+        let cols = self.width - templ_width + 1;
+        let rows = self.height - templ_height + 1;
         let mut mask = opencv_core::Mat::ones(rows, cols, opencv_core::CV_8UC1)?.to_mat()?;
 
         // 戻り値
@@ -182,7 +187,6 @@ impl ChkImg {
             if max_val < score {
                 break;
             }
-
             let matched = MatchedPoint::new(
                 max_loc.x + self.offset_x,
                 max_loc.y + self.offset_y,
@@ -191,10 +195,10 @@ impl ChkImg {
             matches.push(matched);
 
             // 検索が完了した部分のマスクを外す
-            let lower_x = 0.max(max_loc.x - templ_width / 2 + 1);
-            let lower_y = 0.max(max_loc.y - templ_height/ 2 + 1);
-            let upper_x = cols.min(max_loc.x + templ_width / 2);
-            let upper_y = rows.min(max_loc.y + templ_height/ 2);
+            let lower_x = 0.max(max_loc.x);
+            let lower_y = 0.max(max_loc.y);
+            let upper_x = cols.min(max_loc.x + templ_width);
+            let upper_y = rows.min(max_loc.y + templ_height);
             for x in lower_x..upper_x {
                 for y in lower_y..upper_y {
                     let offset = y * cols + x;

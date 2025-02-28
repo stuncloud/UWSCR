@@ -328,11 +328,13 @@ impl Browser {
     }
     fn request(port: u16, path: &str, put: bool) -> BrowserResult<String> {
         let uri = format!("http://localhost:{}{}", port, path);
+        let client = reqwest::blocking::ClientBuilder::new()
+            .no_proxy()
+            .build()?;
         let response = if put {
-            let client = reqwest::blocking::Client::new();
             client.put(uri).send()?
         } else {
-            reqwest::blocking::get(uri)?
+            client.get(uri).send()?
         };
         if response.status().is_success() {
             let text = response.text()?;

@@ -87,7 +87,7 @@ impl GetTime {
             GTimeOffset::G_OFFSET_DAYS => offset * (24 * 60 * 60 * 1000) as f64,
             GTimeOffset::G_OFFSET_HOURS => offset * (60 * 60 * 1000) as f64,
             GTimeOffset::G_OFFSET_MINUTES => offset * (60 * 1000) as f64,
-            GTimeOffset::G_OFFSET_SECONDS => offset * 1000 as f64,
+            GTimeOffset::G_OFFSET_SECONDS => offset * 1000_f64,
             GTimeOffset::G_OFFSET_MILLIS => offset,
         } as i64;
         Duration::milliseconds(milliseconds)
@@ -95,16 +95,46 @@ impl GetTime {
     fn set_duration(&mut self, duration: Duration) {
         self.dt += duration;
     }
-    fn format(&self, fmt: &str) -> String {
-        let locale = match *CURRENT_LOCALE {
-            Locale::Jp => format::Locale::ja_JP,
-            Locale::En => format::Locale::en_US,
+    fn format(&self, fmt: &str, locale_str: Option<&str>) -> String {
+        let locale = match locale_str {
+            Some(s) => {
+                let value = Self::fix_locale_str(s);
+                match format::Locale::try_from(value.as_str()) {
+                    Ok(l) => l,
+                    Err(_e) => {
+                        dbg!(_e);
+                        format::Locale::ja_JP
+                    },
+                }
+            },
+            None => match *CURRENT_LOCALE {
+                Locale::Jp => format::Locale::ja_JP,
+                Locale::En => format::Locale::en_US,
+            },
         };
         let delayed = self.dt.format_localized(fmt, locale);
         let mut buf = String::new();
         match write!(&mut buf, "{}", delayed) {
             Ok(_) => buf,
             Err(_) => fmt.to_string()
+        }
+    }
+    fn fix_locale_str(locale: &str) -> String {
+        let mut split = locale.split(['_', '-', '@']);
+        match (split.next(), split.next(), split.next()) {
+            (Some(language), Some(territory), None) => format!(
+                "{}_{}",
+                language.to_lowercase(),
+                territory.to_uppercase(),
+            ),
+            (Some(language), Some(territory), Some(modifier)) => format!(
+                "{}_{}@{}",
+                language.to_lowercase(),
+                territory.to_uppercase(),
+                modifier.to_lowercase(),
+            ),
+            (Some(language), None, None) => language.to_ascii_uppercase(),
+            _ => locale.to_string()
         }
     }
 }
@@ -193,14 +223,14 @@ pub fn get(dt: Option<String>, offset: f64, opt: GTimeOffset) -> GetTimeResult<G
     Ok(gt.into())
 }
 
-pub fn format(fmt: &str, secs: i64, milli: bool) -> GetTimeResult<String> {
+pub fn format(fmt: &str, secs: i64, milli: bool, locale_str: Option<&str>) -> GetTimeResult<String> {
     let gt = if milli {
         GetTime::from_milliseconds(secs)
     } else {
         GetTime::from_seconds(secs)
     }?;
 
-    Ok(gt.format(fmt))
+    Ok(gt.format(fmt, locale_str))
 }
 
 pub fn datetime_str_to_f64(dt: &str) -> Option<f64> {

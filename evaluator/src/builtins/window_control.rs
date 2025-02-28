@@ -1290,7 +1290,7 @@ fn should_save_ss() -> bool {
         ],
         [
             {n="画像",t="文字列",d="画像ファイルのパス"},
-            {o,n="スコア",t="数値",d="一致率を0-100で指定、100なら完全一致 (デフォルト95)"},
+            {o,n="スコア",t="数値",d="80-100で指定、100なら完全一致 (デフォルト95)"},
             {o,n="最大検索数",t="数値",d="指定した数の座標が見つかり次第探索を打ち切る、指定数に満たない場合全体を探索"},
             {o,n="範囲",t="配列",d="[左上X座標, 左上Y座標, 右下X座標, 右下Y座標]"},
             {o,n="オプション",t="定数",d=r#"探索オプションを以下から指定、OR連結可
@@ -1307,13 +1307,19 @@ fn should_save_ss() -> bool {
     ],
 )]
 pub fn chkimg(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let default_score = 95;
+    let default_score = 95.0;
     let path = args.get_as_string(0, None)?;
-    let score = args.get_as_int::<i32>(1, Some(default_score))?;
-    if score < 1 && score > 100 {
-        return Err(builtin_func_error(UErrorMessage::GivenNumberIsOutOfRange(1.0, 100.0)));
-    }
-    let score = score as f64 / 100.0;
+    let score = args.get_as_f64(1, Some(default_score))?;
+    let score = if (0.0..=1.0).contains(&score) {
+        // 0~1の場合補正なしスコアとなる
+        score
+    } else if score < 0.0 || !(80.0..=100.0).contains(&score){
+        // 範囲外エラー
+        return Err(builtin_func_error(UErrorMessage::GivenNumberIsOutOfRange(80, 100)));
+    } else {
+        // 80～100であれば100で割る
+        score / 100.0
+    };
     let count = args.get_as_int::<u8>(2, Some(5))?;
     let (left, top, right, bottom, opt, monitor) = match args.get_as_int_or_array_or_empty(3)? {
         Some(two) => match two {
