@@ -67,9 +67,9 @@ pub fn to_ansi_bytes(string: &str) -> Vec<u8> {
             None,
             PCSTR::null(),
             None
-        );
+        ) as usize;
         if len > 0 {
-            let mut result: Vec<u8> = Vec::with_capacity(len as usize);
+            let mut result: Vec<u8> = vec![0; len];
             WideCharToMultiByte(
                 CP_ACP,
                 WC_COMPOSITECHECK,
@@ -107,9 +107,9 @@ pub fn from_ansi_bytes(ansi: &[u8]) -> String {
             MB_PRECOMPOSED,
             ansi,
             None
-        );
+        ) as usize;
         if len > 0 {
-            let mut wide: Vec<u16> = Vec::with_capacity(len as usize);
+            let mut wide: Vec<u16> = vec![0; len];
             MultiByteToWideChar(
                 CP_ACP,
                 MB_PRECOMPOSED,
