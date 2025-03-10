@@ -34,7 +34,7 @@ pub fn set_hot_key(vk: u32, mo: u32, func: Function, evaluator: &Evaluator) -> U
     if let Some(shkw) = mutex.as_mut() {
         shkw.add(vk, mo, func);
     } else {
-        let mut shkw = SetHotKeyWindow::new(&evaluator)?;
+        let mut shkw = SetHotKeyWindow::new(evaluator)?;
         shkw.add(vk, mo, func);
         *mutex = Some(shkw);
     }
