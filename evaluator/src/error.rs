@@ -9,6 +9,7 @@ use crate::def_dll::DllType;
 pub use util::write_locale;
 pub use util::error::{CURRENT_LOCALE, Locale};
 use util::clipboard::ClipboardError;
+use util::winapi::Win32Error;
 use parser::ast::{Expression, Infix, Identifier};
 
 use serde_json::Value;
@@ -176,7 +177,7 @@ pub enum UErrorKind {
     UObjectError,
     UserDefinedError,
     UStructError,
-    Win32Error(i32),
+    Win32Error,
     WebSocketError,
     WebRequestError,
     FileIOError,
@@ -231,10 +232,9 @@ impl fmt::Display for UErrorKind {
                 "変換エラー",
                 "Conversion Error"
             ),
-            Self::Win32Error(n) => write_locale!(f,
-                "Win32 API エラー (0x{:08X})",
-                "Win32 API Error (0x{:08X})",
-                n
+            Self::Win32Error => write_locale!(f,
+                "Win32 API エラー",
+                "Win32 API Error",
             ),
             Self::HashtblError => write_locale!(f,
                 "Hashtbl定義エラー",
@@ -526,7 +526,7 @@ pub enum UErrorMessage {
     UnsupportedArchitecture,
     UnknownDllType(String),
     VariableNotFound(String),
-    Win32Error(String),
+    Win32Error(Win32Error),
     DTPElementNotFound(String),
     DTPError(i32, String),
     DTPInvalidElement(Value),
@@ -633,7 +633,7 @@ impl fmt::Display for UErrorMessage {
                 "Failed to convert {} to VARIANT",
                 o
             ),
-            Self::Win32Error(msg) => write!(f, "{}", msg),
+            Self::Win32Error(err) => write!(f, "{}", err),
             Self::InvalidHashtblOption(o) => write_locale!(f,
                 "不正なオプション ({})",
                 "Invalid option ({})",
@@ -1451,8 +1451,16 @@ impl From<zip::result::ZipError> for UError {
 impl From<windows::core::Error> for UError {
     fn from(e: windows::core::Error) -> Self {
         UError::new(
-            UErrorKind::Win32Error(e.code().0),
-            UErrorMessage::Win32Error(e.message().to_string()),
+            UErrorKind::Win32Error,
+            UErrorMessage::Win32Error(e.into()),
+        )
+    }
+}
+impl From<Win32Error> for UError {
+    fn from(e: Win32Error) -> Self {
+        UError::new(
+            UErrorKind::Win32Error,
+            UErrorMessage::Win32Error(e),
         )
     }
 }

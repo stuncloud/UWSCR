@@ -333,3 +333,41 @@ impl std::fmt::Display for SystemError {
         write!(f, "[{}] {}", self.code, self.msg)
     }
 }
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Win32Error {
+    error: windows::core::Error,
+    hint: Option<String>,
+}
+impl Win32Error {
+    fn new(error: windows::core::Error, hint: &str) -> Self {
+        Self {
+            error,
+            hint: Some(hint.to_string())
+        }
+    }
+}
+impl std::fmt::Display for Win32Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let code = self.error.code().0;
+        let msg = self.error.message().to_string();
+        write!(f, "0x{code:08X} {msg}")?;
+        if let Some(hint) = &self.hint {
+            write!(f, " ({hint})")?;
+        }
+        Ok(())
+    }
+}
+impl From<windows::core::Error> for Win32Error {
+    fn from(error: windows::core::Error) -> Self {
+        Self { error, hint: None }
+    }
+}
+pub trait WindowsResultExt<T> {
+    fn err_hint(self, hint: &str) -> std::result::Result<T, Win32Error>;
+}
+impl<T> WindowsResultExt<T> for windows::core::Result<T> {
+    fn err_hint(self, hint: &str) -> std::result::Result<T, Win32Error> {
+        self.map_err(|error| Win32Error::new(error, hint))
+    }
+}
