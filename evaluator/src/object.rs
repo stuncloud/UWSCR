@@ -38,7 +38,7 @@ use windows::Win32::Foundation::HWND;
 
 use std::fmt;
 use std::hash::{Hash, Hasher};
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, Mutex, RwLock, OnceLock};
 use std::ops::{Add, Sub, Mul, Div, Rem, BitOr, BitAnd, BitXor};
 use std::cmp::Ordering;
 
@@ -90,6 +90,7 @@ pub enum Object {
     TabWindow(TabWindow),
     RemoteObject(RemoteObject),
     Fopen(Arc<Mutex<Fopen>>),
+    Csv(Arc<RwLock<Csv>>),
     ByteArray(Vec<u8>),
     /// 参照渡しされたパラメータ変数
     Reference(Expression, Arc<Mutex<Layer>>),
@@ -146,6 +147,7 @@ impl std::fmt::Debug for Object {
             Object::TabWindow(arg0) => f.debug_tuple("TabWindow").field(arg0).finish(),
             Object::RemoteObject(arg0) => f.debug_tuple("RemoteObject").field(arg0).finish(),
             Object::Fopen(arg0) => f.debug_tuple("Fopen").field(arg0).finish(),
+            Object::Csv(arg0) => f.debug_tuple("Csv").field(arg0).finish(),
             Object::ByteArray(arg0) => f.debug_tuple("ByteArray").field(arg0).finish(),
             Object::Reference(arg0, arg1) => f.debug_tuple("Reference").field(arg0).field(arg1).finish(),
             Object::WebRequest(arg0) => f.debug_tuple("WebRequest").field(arg0).finish(),
@@ -247,6 +249,12 @@ impl fmt::Display for Object {
                 let fopen = arc.lock().unwrap();
                 write!(f, "{}", &*fopen)
             },
+            Object::Csv(csv) => {
+                match csv.read() {
+                    Ok(csv) => write!(f, "{}", csv),
+                    Err(e) => write!(f, "{} (poisoned)", e.get_ref()),
+                }
+            },
             Object::ByteArray(arr) => write!(f, "{:?}", arr),
             Object::Reference(_, _) => write!(f, "Reference"),
             Object::WebRequest(req) => {
@@ -306,6 +314,16 @@ fn compare_string<A, B>(a: A, b: B) -> bool
     } else {
         a.to_string().eq_ignore_ascii_case(&b.to_string())
     }
+}
+fn compare_mutex<T>(m1: &Arc<Mutex<T>>, m2: &Arc<Mutex<T>>) -> bool {
+    let _lock = m1.lock();
+    let result = m2.try_lock().is_err();
+    result
+}
+fn compare_rwlock<T>(rw1: &Arc<RwLock<T>>, rw2: &Arc<RwLock<T>>) -> bool {
+    let _lock = rw1.write();
+    let result = rw2.try_write().is_err();
+    result
 }
 
 impl PartialEq for Object {
@@ -405,9 +423,10 @@ impl PartialEq for Object {
             Object::TabWindow(t) => if let Object::TabWindow(t2) = other {t == t2} else {false},
             Object::RemoteObject(r) => if let Object::RemoteObject(r2) = other {r == r2} else {false},
             Object::Fopen(f1) => if let Object::Fopen(f2) = other {
-                let _tmp = f1.lock().unwrap();
-                let result = f2.try_lock().is_err();
-                result
+                compare_mutex(f1, f2)
+            } else {false},
+            Object::Csv(csv1) => if let Object::Csv(csv2) = other {
+                compare_rwlock(csv1, csv2)
             } else {false},
             Object::ByteArray(arr1) => if let Object::ByteArray(arr2) = other {
                 arr1 == arr2
@@ -497,6 +516,7 @@ impl Object {
             Object::TabWindow(_) => ObjectType::TYPE_TABWINDOW_OBJECT,
             Object::RemoteObject(_) => ObjectType::TYPE_REMOTE_OBJECT,
             Object::Fopen(_) => ObjectType::TYPE_FILE_ID,
+            Object::Csv(_) => ObjectType::TYPE_CSV_OBJ,
             Object::ByteArray(_) => ObjectType::TYPE_BYTE_ARRAY,
             Object::Reference(_, _) => ObjectType::TYPE_REFERENCE,
             Object::WebRequest(_) => ObjectType::TYPE_WEB_REQUEST,
@@ -973,6 +993,7 @@ impl Add for Object {
             Object::Browser(_) |
             Object::TabWindow(_) |
             Object::Fopen(_) |
+            Object::Csv(_) |
             Object::WebRequest(_) |
             Object::WebResponse(_) |
             Object::Reference(_, _) => {
@@ -1079,6 +1100,7 @@ impl Sub for Object {
             Object::Browser(_) |
             Object::TabWindow(_) |
             Object::Fopen(_) |
+            Object::Csv(_) |
             Object::WebRequest(_) |
             Object::WebResponse(_) |
             Object::Reference(_, _) => {
@@ -1209,6 +1231,7 @@ impl Mul for Object {
             Object::Browser(_) |
             Object::TabWindow(_) |
             Object::Fopen(_) |
+            Object::Csv(_) |
             Object::WebRequest(_) |
             Object::WebResponse(_) |
             Object::Reference(_, _) => {
@@ -1325,6 +1348,7 @@ impl Div for Object {
             Object::Browser(_) |
             Object::TabWindow(_) |
             Object::Fopen(_) |
+            Object::Csv(_) |
             Object::WebRequest(_) |
             Object::WebResponse(_) |
             Object::Reference(_, _) => {
@@ -1440,6 +1464,7 @@ impl Rem for Object {
             Object::Browser(_) |
             Object::TabWindow(_) |
             Object::Fopen(_) |
+            Object::Csv(_) |
             Object::WebRequest(_) |
             Object::WebResponse(_) |
             Object::Reference(_, _) => {
@@ -1549,6 +1574,7 @@ impl BitOr for Object {
             Object::Browser(_) |
             Object::TabWindow(_) |
             Object::Fopen(_) |
+            Object::Csv(_) |
             Object::WebRequest(_) |
             Object::WebResponse(_) |
             Object::Reference(_, _) => {
@@ -1657,6 +1683,7 @@ impl BitAnd for Object {
             Object::Browser(_) |
             Object::TabWindow(_) |
             Object::Fopen(_) |
+            Object::Csv(_) |
             Object::WebRequest(_) |
             Object::WebResponse(_) |
             Object::Reference(_, _) => {
@@ -1765,6 +1792,7 @@ impl BitXor for Object {
             Object::Browser(_) |
             Object::TabWindow(_) |
             Object::Fopen(_) |
+            Object::Csv(_) |
             Object::WebRequest(_) |
             Object::WebResponse(_) |
             Object::Reference(_, _) => {
@@ -1870,6 +1898,7 @@ pub enum ObjectType {
     TYPE_TABWINDOW_OBJECT,
     TYPE_REMOTE_OBJECT,
     TYPE_FILE_ID,
+    TYPE_CSV_OBJ,
     TYPE_BYTE_ARRAY,
     TYPE_REFERENCE,
     TYPE_WEB_REQUEST,

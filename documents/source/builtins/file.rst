@@ -293,6 +293,165 @@
             print fput(fopen(path, F_WRITE or F_AUTOCLOSE), "auto close")
             // F_AUTOCLOSEによりfput実行後にファイルが自動でクローズされる
 
+CSVファイル
+-----------
+
+.. function:: csvopen(CSVパス, [ヘッダ有無=FALSE, TSVモード=FALSE])
+
+    | CSVファイルを開く
+
+    :param 文字列 CSVパス: CSVファイルのパス
+    :param 真偽値 省略可 ヘッダ有無: 対象CSVファイルにヘッダ行があるかどうか
+    :param 真偽値または文字 省略可 TSVモード: FALSEの場合はカンマ区切り、TRUEにするとタブ文字区切り、または任意のASCII文字
+    :rtype: CSVオブジェクト
+    :return: CSVファイルを示すオブジェクト、各種csv関数で利用される
+
+.. function:: csvclose(csv)
+
+    | 編集したCSVをファイルに書き出す
+    | バッファに変更があった場合のみ対象ファイルに書き込みを行う
+    | ``csvopen`` で指定したファイルが存在しない場合は新しいファイルが作成される
+    | この関数呼び出し後のCSVオブジェクトに対して再度この関数を実行しても書き込みは行われない
+
+    .. admonition:: 自動クローズ
+        :class: hint
+
+        | CSVオブジェクトが破棄された場合は自動でこの関数と同等の処理が行われます
+        | (``fopen`` の ``F_AUTOCLOSE`` 指定時と同様です)
+
+    .. admonition:: クローズ後のCSVオブジェクトについて
+        :class: note
+
+        | バッファに対する読み書きはできますが、再度 ``csvclose`` で書き込みを行うことはできません
+
+    :param CSVオブジェクト csv: ``csvopen`` の戻り値
+    :return: なし
+
+.. function:: csvread(csv, [行, 列])
+
+    | CSVバッファから値を読み出します
+
+    :param CSVオブジェクト csv: ``csvopen`` の戻り値
+    :param 数値 省略可 行: CSVの行番号
+    :param 数値または文字列 省略可 列: CSVの列番号、またはヘッダのカラム名
+    :rtype: 文字列または配列
+    :return: 行列の指定方法により得られる値が変わります
+
+        .. list-table::
+            :header-rows: 1
+            :align: left
+
+            * - 行
+              - 列
+              - 値
+            * - 省略
+              - 省略
+              - CSV全体の文字列
+            * - 省略
+              - 1以上
+              - 該当列の配列
+            * - 0
+              - 省略
+              - ヘッダ行の配列
+            * - 1以上
+              - 省略
+              - 該当行の配列
+            * - 1以上
+              - 1以上
+              - 該当行及び列の文字列
+
+    .. admonition:: サンプルコード
+
+        .. sourcecode::
+            :caption: test.csv
+
+            項目1,項目2,項目3
+            1,2,3
+            10,20,30
+            100,200,300
+
+        .. sourcecode:: uwscr
+
+            // ヘッダ行を有効にして開く
+            csv = csvopen("test.csv", true)
+
+            // CSV全体を得る
+            print csvread(csv)
+            // 項目1,項目2,項目3
+            // 1,2,3
+            // 10,20,30
+            // 100,200,300
+
+            // ヘッダ行の配列を得る
+            print csvread(csv, 0)          // [項目1, 項目2, 項目3]
+            // 2行目の配列を得る
+            print csvread(csv, 2)          // [10, 20, 30]
+            // 2行目1列目の文字列を得る
+            print csvread(csv, 2, 1)       // 10
+            // 1列目の配列を得る
+            print csvread(csv, , 1)        // [1, 10, 100]
+            // 列をカラム名で指定
+            print csvread(csv, 3, "項目2") // 200
+            print csvread(csv, , "項目3")  // [3, 30, 300]
+
+.. function:: csvwrite(csv, 行, 列, 値)
+
+    | CSVバッファに書き込みを行う
+
+    :param CSVオブジェクト csv: ``csvopen`` の戻り値
+    :param 数値 行: CSVの行番号
+    :param 数値または文字列 列: CSVの列番号、またはヘッダのカラム名
+    :param 文字列または配列 値: 書き込む値
+    :rtype: 真偽値
+    :return: 書き込み時true
+
+    .. admonition:: サンプルコード
+
+        .. sourcecode:: uwscr
+
+            new_csv = "new.csv"
+            deletefile(new_csv)
+
+            // ファイルを新規作成
+            csv = csvopen(new_csv, true)
+
+            // 0行目指定でヘッダを書き込む
+            csvwrite(csv, 0, 1, "項目1")
+            csvwrite(csv, 0, 2, "項目2")
+            csvwrite(csv, 0, 3, "項目3")
+            // 指定位置に書き込み
+            csvwrite(csv, 1, 1, "1-1")
+            // 配列指定で複数列書き込み
+            csvwrite(csv, 2, 1, ["2-1", "2-2", "2-3"])
+            // 3行目を飛ばして4行目に書き込み
+            csvwrite(csv, 4, 1, ["4-1", "4-2", "4-3"])
+            // 2列目から書き込み
+            csvwrite(csv, 5, 2, ["5-2", "5-3"])
+            // 列の数は可変
+            csvwrite(csv, 6, 1, ["6-1", "6-2", "6-3", "6-4", "6-5"])
+
+            // 全体読み出し
+            print csvread(csv)
+            // 項目1,項目2,項目3
+            // 1-1
+            // 2-1,2-2,2-3
+            // ""
+            // 4-1,4-2,4-3
+            // ,5-2,5-3
+            // 6-1,6-2,6-3,6-4,6-5
+
+            csvclose(csv) // 保存
+
+            // 書き出したファイルも確認
+            print fget(fopen(new_csv, F_READ or F_AUTOCLOSE), F_ALLTEXT)
+            // 項目1,項目2,項目3
+            // 1-1
+            // 2-1,2-2,2-3
+            // ""
+            // 4-1,4-2,4-3
+            // ,5-2,5-3
+            // 6-1,6-2,6-3,6-4,6-5
+
 iniファイル
 -----------
 

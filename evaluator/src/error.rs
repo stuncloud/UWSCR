@@ -607,6 +607,7 @@ pub enum UErrorMessage {
     MonitorNotFound,
     DetectedDialogOpening,
     ArrayArgSizeOverflow(usize),
+    ShouldBeAsciiCharacter(String),
 }
 
 impl fmt::Display for UErrorMessage {
@@ -1360,6 +1361,10 @@ impl fmt::Display for UErrorMessage {
             Self::ArrayArgSizeOverflow(n) => write_locale!(f,
                 "配列引数の要素数は最大 {n} です",
                 "The maximum number of elements in an array argument is {n}",
+            ),
+            Self::ShouldBeAsciiCharacter(s) => write_locale!(f,
+                "有効な引数はASCII文字一文字です ({s})",
+                "Valid argument is single ascii character ({s})",
             ),
         }
     }

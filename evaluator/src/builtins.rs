@@ -30,7 +30,7 @@ use crate::object::{
     UTask,
 };
 use crate::Evaluator;
-use crate::object::{UObject,Fopen,Function,browser::{RemoteObject, TabWindow}, ObjectType, ComObject, StructDef};
+use crate::object::{UObject,Fopen,Csv,Function,browser::{RemoteObject, TabWindow}, ObjectType, ComObject, StructDef};
 use crate::environment::NamedObject;
 use crate::builtins::key_codes::SCKeyCode;
 use crate::error::{UError,UErrorKind,UErrorMessage};
@@ -40,7 +40,7 @@ pub use func_desc::*;
 pub use func_desc_macro::*;
 
 use std::env;
-use std::sync::{Mutex, Arc};
+use std::sync::{Mutex, Arc, RwLock};
 use std::string::ToString;
 
 use strum::{VariantNames, EnumProperty};
@@ -544,18 +544,27 @@ impl BuiltinFuncArgs {
     pub fn get_as_fopen(&self, i: usize) -> BuiltInResult<Arc<Mutex<Fopen>>> {
         self.get_arg(i, |arg| {
             match arg {
-                Object::Fopen(arc) => Ok(Arc::clone(&arc)),
+                Object::Fopen(fopen) => Ok(fopen),
                 arg => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg))),
             }
         })
     }
+    pub fn get_as_csv(&self, i: usize) -> BuiltInResult<Arc<RwLock<Csv>>> {
+        self.get_arg(i, |arg| {
+            match arg {
+                Object::Csv(csv) => Ok(csv),
+                arg => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg))),
+            }
+        })
+    }
+
     pub fn get_as_string_or_fopen(&self, i: usize) -> BuiltInResult<TwoTypeArg<Option<String>, Arc<Mutex<Fopen>>>> {
         let default = Some(TwoTypeArg::T(None));
         self.get_arg_with_default(i, default, |arg| {
             let result = match arg {
                 Object::Empty |
                 Object::EmptyParam => TwoTypeArg::T(None),
-                Object::Fopen(arc) => TwoTypeArg::U(Arc::clone(&arc)),
+                Object::Fopen(fopen) => TwoTypeArg::U(fopen),
                 o => TwoTypeArg::T(Some(o.to_string()))
             };
             Ok(result)

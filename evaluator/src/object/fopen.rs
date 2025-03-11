@@ -4,7 +4,7 @@ use util::{
     error::{CURRENT_LOCALE, Locale},
 };
 
-use std::io::{Write, Read, Seek, SeekFrom};
+use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{PathBuf, Path};
 use std::convert::AsRef;
 use std::fs::{OpenOptions, File, remove_file};
@@ -142,6 +142,18 @@ pub enum FopenEncoding {
     Utf16BE,
     Sjis,
 }
+impl From<&'static encoding_rs::Encoding> for FopenEncoding {
+    fn from(enc: &'static encoding_rs::Encoding) -> Self {
+        match enc.name() {
+            "UTF-16LE" => FopenEncoding::Utf16LE,
+            "UTF-16BE" => FopenEncoding::Utf16BE,
+            "Shift_JIS" => FopenEncoding::Sjis,
+            "UTF-8" => FopenEncoding::Utf8,
+            _ => FopenEncoding::Auto,
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct FopenOption {
     pub exclusive: bool,
@@ -204,7 +216,7 @@ impl From<u32> for FopenFlag {
     }
 }
 
-// #[derive(Debug, Clone, PartialEq)]
+#[derive(Debug)]
 enum OpenFile {
     File(File),
     New(OpenOptions),
@@ -296,22 +308,22 @@ impl Fopen {
             FopenEncoding::Utf16LE => {
                 stream.write_all(&[0xFF, 0xFE])?;
                 for utf16 in text.encode_utf16() {
-                    stream.write_all(&utf16.to_be_bytes())?;
+                    stream.write_all(&utf16.to_le_bytes())?;
                 }
                 if ! self.no_cr {
                     for utf16 in "\r\n".encode_utf16() {
-                        stream.write_all(&utf16.to_be_bytes())?;
+                        stream.write_all(&utf16.to_le_bytes())?;
                     }
                 }
             },
             FopenEncoding::Utf16BE => {
                 stream.write_all(&[0xFE, 0xFF])?;
                 for utf16 in text.encode_utf16() {
-                    stream.write_all(&utf16.to_le_bytes())?;
+                    stream.write_all(&utf16.to_be_bytes())?;
                 }
                 if ! self.no_cr {
                     for utf16 in "\r\n".encode_utf16() {
-                        stream.write_all(&utf16.to_le_bytes())?;
+                        stream.write_all(&utf16.to_be_bytes())?;
                     }
                 }
             },
@@ -406,26 +418,24 @@ impl Fopen {
         };
         Ok(size.into())
     }
-    fn decode(&mut self, bytes: &[u8]) -> FopenResult<String> {
+    fn _decode(bytes: &[u8]) -> FopenResult<(FopenEncoding, String)> {
         let (cow, enc, err) = UTF_8.decode(bytes);
         let (txt, enc) = if err {
             let (cow, enc, err) = SHIFT_JIS.decode(bytes);
             if err {
                 return Err(FopenError::UnknownEncoding(enc.name().into()));
             } else {
-                (cow.to_string(), enc.name())
+                (cow.to_string(), enc)
             }
         } else {
-            (cow.to_string(), enc.name())
+            (cow.to_string(), enc)
         };
+        Ok((FopenEncoding::from(enc), txt))
+    }
+    fn decode(&mut self, bytes: &[u8]) -> FopenResult<String> {
+        let (enc, txt) = Self::_decode(bytes)?;
         if self.flag.encoding == FopenEncoding::Auto {
-            self.flag.encoding = match enc {
-                "UTF-16LE" => FopenEncoding::Utf16LE,
-                "UTF-16BE" => FopenEncoding::Utf16BE,
-                "Shift_JIS" => FopenEncoding::Sjis,
-                "UTF-8" => FopenEncoding::Utf8,
-                _ => FopenEncoding::Auto,
-            }
+            self.flag.encoding = enc
         }
         Ok(txt)
     }
@@ -1107,5 +1117,360 @@ impl FileTimeExt for FILETIME {
             Ordering::Equal => self.dwLowDateTime.cmp(&other.dwLowDateTime),
             order => order,
         }
+    }
+}
+
+#[derive(Debug, Clone, Default, serde::Deserialize, serde::Serialize)]
+struct CsvRow(Vec<String>);
+impl CsvRow {
+    fn as_vec(&self) -> Vec<String> {
+        self.0.clone()
+    }
+    fn get(&self, index: usize) -> Option<&String> {
+        self.0.get(index)
+    }
+    fn resize(&mut self, new_len: usize) {
+        self.0.resize_with(new_len, Default::default);
+    }
+    fn get_mut(&mut self, index: usize) -> &mut String {
+        if self.0.get(index).is_some() {
+            self.0.get_mut(index).unwrap()
+        } else {
+            self.resize(index+1);
+            self.get_mut(index)
+        }
+    }
+    fn splice(&mut self, index: usize, vec: Vec<String>) {
+        if self.0.get(index).is_none() {
+            self.resize(index+1);
+        }
+        self.0.splice(index..=index, vec);
+    }
+    fn find(&self, target: &str) -> Option<usize> {
+        self.0.iter().enumerate()
+            .find(|(_, item)| item.eq_ignore_ascii_case(target))
+            .map(|(i, _)| i)
+    }
+}
+#[derive(Debug, Clone)]
+struct CsvBuffer {
+    rows: Vec<CsvRow>,
+    headers: Option<CsvRow>,
+}
+impl CsvBuffer {
+    fn get_row(&self, index: usize) -> Option<&CsvRow> {
+        self.rows.get(index)
+    }
+    fn get_row_mut(&mut self, index: usize) -> &mut CsvRow {
+        if self.rows.get(index).is_some() {
+            // インデックスが範囲内ならミュータブル参照を返す
+            self.rows.get_mut(index).unwrap()
+        } else {
+            // インデックスが範囲外なら配列を拡張する
+            self.rows.resize_with(index + 1, Default::default);
+            self.get_row_mut(index)
+        }
+    }
+    fn get_column(&self, index: usize) -> Vec<Option<&String>> {
+        let cols = self.rows.iter()
+            .map(|row| row.get(index))
+            .collect::<Vec<_>>();
+        cols
+    }
+    fn get_header(&self) -> Option<&CsvRow> {
+        self.headers.as_ref()
+    }
+    fn get_header_mut(&mut self) -> Option<&mut CsvRow> {
+        self.headers.as_mut()
+    }
+    fn clear(&mut self) {
+        self.rows.clear();
+        self.headers = None;
+    }
+    fn new_header_if_none(&mut self) {
+        if self.headers.is_none() {
+            self.headers.replace(Default::default());
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Csv {
+    path: Option<PathBuf>,
+    opt: Option<OpenOptions>,
+    // buf: Vec<u8>,
+    buf: CsvBuffer,
+    encoding: FopenEncoding,
+    header: bool,
+    delimiter: u8,
+    changed: bool,
+}
+impl std::fmt::Display for Csv {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.path {
+            Some(path) => write!(f, "{}", path.to_string_lossy()),
+            None => write_locale!(f,
+                "閉じられたファイル",
+                "Closed file"
+            ),
+        }
+    }
+}
+
+impl Csv {
+    fn should_drop(&self) -> bool {
+        self.path.is_some() && self.opt.is_some()
+    }
+    pub fn open(file: &str, header: bool, delimiter: u8) -> FopenResult<Self> {
+        let path = PathBuf::from(file);
+        let mut opt = OpenOptions::new();
+        opt.write(true);
+        opt.create(true);
+        opt.read(true);
+        let (encoding, csv) = if path.exists() {
+            let mut file = opt.open(&path)?;
+            let mut buf = Vec::new();
+            file.read_to_end(&mut buf)?;
+            Fopen::_decode(&buf)?
+        } else {
+            (FopenEncoding::Utf8, String::new())
+        };
+
+        let buf = Self::csv_to_buffer(csv, header, delimiter)?;
+
+        let csv = Csv {
+            path: Some(path),
+            opt: Some(opt),
+            buf,
+            encoding,
+            header,
+            delimiter,
+            changed: false
+        };
+        Ok(csv)
+    }
+    pub fn close(&mut self) -> FopenResult<()> {
+        if self.changed {
+            // 変更があった場合のみ書き込みを行う
+            if let (Some(path), Some(opt)) = (&self.path, &self.opt) {
+                let file = opt.open(path)?;
+
+                let csv = self.buffer_to_csv()?;
+                let mut stream = BufWriter::new(file);
+                match self.encoding {
+                    FopenEncoding::Utf16LE => {
+                        stream.write_all(&[0xFF, 0xFE])?;
+                        for utf16 in csv.encode_utf16() {
+                            stream.write_all(&utf16.to_le_bytes())?;
+                        }
+                    },
+                    FopenEncoding::Utf16BE => {
+                        stream.write_all(&[0xFE, 0xFF])?;
+                        for utf16 in csv.encode_utf16() {
+                            stream.write_all(&utf16.to_be_bytes())?;
+                        }
+                    },
+                    FopenEncoding::Sjis => {
+                        let (cow,_,_) = SHIFT_JIS.encode(&csv);
+                        stream.write_all(cow.as_ref())?;
+                    },
+                    _ => {
+                        stream.write_all(csv.as_bytes())?;
+                    }
+                };
+                stream.flush()?;
+            }
+        }
+        self.path = None;
+        self.opt = None;
+        self.buf.clear();
+        Ok(())
+    }
+
+    fn csv_to_buffer(csv: String, header: bool, delimiter: u8) -> FopenResult<CsvBuffer> {
+
+        let rdr = csv.as_bytes();
+        let mut reader = csv::ReaderBuilder::new()
+            .has_headers(header)
+            .delimiter(delimiter)
+            .trim(csv::Trim::All)
+            .flexible(true)
+            .from_reader(rdr);
+        let headers = if header {
+            let headers = reader.headers()?.deserialize::<CsvRow>(None)?;
+            Some(headers)
+        } else {
+            None
+        };
+        let rows = reader.deserialize::<CsvRow>()
+            .collect::<csv::Result<Vec<_>>>()?;
+        let buf = CsvBuffer { rows, headers };
+        Ok(buf)
+    }
+
+    fn buffer_to_csv(&self) -> FopenResult<String> {
+        let mut writer = csv::WriterBuilder::new()
+            .delimiter(self.delimiter)
+            .has_headers(self.header)
+            .flexible(true)
+            .from_writer(vec![]);
+
+        if let Some(headers) = &self.buf.headers {
+            writer.serialize(headers)?;
+        }
+        for row in &self.buf.rows {
+            writer.serialize(row)?;
+        }
+        let csv = String::from_utf8(writer.into_inner()?)?;
+        Ok(csv)
+    }
+    /// ヘッダ名に合わせた列番号を返す
+    fn get_col_index_by_name(&self, name: &str) -> Option<usize> {
+        let headers = self.buf.headers.as_ref()?;
+        headers.find(name).map(|i| i+1)
+    }
+
+    pub fn read_all(&self) -> FopenResult<CsvValue> {
+        self.buffer_to_csv().map(|csv| CsvValue::All(csv))
+    }
+    pub fn read(&self, row: usize, column: Option<usize>) -> CsvValue {
+        match column {
+            // 列指定あり
+            Some(col) => match row {
+                // 0行目はヘッダ行
+                0 => {
+                    let index = col.saturating_sub(1);
+                    let headers = self.buf.get_header();
+                    CsvValue::from((headers, index))
+                },
+                // 1以降は該当行
+                r => {
+                    let row_index = r.saturating_sub(1);
+                    let row = self.buf.get_row(row_index);
+                    let col_index = col.saturating_sub(1);
+                    CsvValue::from((row, col_index))
+                }
+            },
+            // 列指定なし: 行全体を取得
+            None => match row {
+                // 0行目はヘッダ行を返す
+                0 => {
+                    let header = self.buf.get_header();
+                    CsvValue::from(header)
+                },
+                // 1以降は該当行
+                r => {
+                    let index = r.saturating_sub(1);
+                    let row = self.buf.get_row(index);
+                    CsvValue::from(row)
+                }
+            },
+        }
+    }
+    pub fn read_by_name(&self, row: usize, name: &str) -> CsvValue {
+        match self.get_col_index_by_name(name) {
+            Some(index) => self.read(row, Some(index)),
+            None => CsvValue::NotFound,
+        }
+    }
+    pub fn read_col(&self, column: usize) -> CsvValue {
+        let col_index = column.saturating_sub(1);
+        let cols = self.buf.get_column(col_index);
+        cols.into()
+    }
+    pub fn read_col_by_name(&self, column: &str) -> CsvValue {
+        match self.get_col_index_by_name(column) {
+            Some(index) => self.read_col(index),
+            None => CsvValue::NotFound,
+        }
+    }
+
+    pub fn write(&mut self, value: CsvValue, row: usize, column: usize) -> bool {
+        let row = match row {
+            0 => {
+                self.buf.new_header_if_none();
+                self.buf.get_header_mut().unwrap()
+            },
+            row => {
+                let row_index = row.saturating_sub(1);
+                self.buf.get_row_mut(row_index)
+            },
+        };
+        let col_index = column.saturating_sub(1);
+        match value {
+            CsvValue::Row(items) => {
+                        row.splice(col_index, items);
+                        self.changed = true;
+                        true
+                    },
+            CsvValue::Column(item) => {
+                        let column = row.get_mut(col_index);
+                        *column = item;
+                        self.changed = true;
+                        true
+                    },
+            CsvValue::All(_) => false,
+            CsvValue::NotFound => false,
+        }
+    }
+    pub fn write_by_name(&mut self, value: CsvValue, row: usize, column: &str) -> bool {
+        match self.get_col_index_by_name(column) {
+            Some(column) => self.write(value, row, column),
+            None => false,
+        }
+    }
+}
+
+impl Drop for Csv {
+    fn drop(&mut self) {
+        if self.should_drop() {
+            let _ = self.close();
+        }
+    }
+}
+
+pub enum CsvValue {
+    Row(Vec<String>),
+    Column(String),
+    All(String),
+    NotFound,
+}
+impl From<Option<&CsvRow>> for CsvValue {
+    /// 行を返す
+    fn from(row: Option<&CsvRow>) -> Self {
+        match row {
+            Some(row) => Self::Row(row.as_vec()),
+            None => Self::NotFound,
+        }
+    }
+}
+impl From<(Option<&CsvRow>, usize)> for CsvValue {
+    /// 行内の指定列を返す
+    fn from((row, index): (Option<&CsvRow>, usize)) -> Self {
+        match row {
+            Some(row) => match row.get(index) {
+                Some(s) => Self::Column(s.into()),
+                None => Self::NotFound,
+            },
+            None => Self::NotFound,
+        }
+    }
+}
+impl From<Vec<String>> for CsvValue {
+    fn from(vec: Vec<String>) -> Self {
+        if vec.len() == 1 {
+            let s = vec.first().unwrap();
+            CsvValue::Column(s.into())
+        } else {
+            CsvValue::Row(vec)
+        }
+    }
+}
+impl From<Vec<Option<&String>>> for CsvValue {
+    fn from(vec: Vec<Option<&String>>) -> Self {
+        let cols = vec.iter()
+            .map(|col| col.map(|s| s.to_string()).unwrap_or_default())
+            .collect();
+        CsvValue::Row(cols)
     }
 }

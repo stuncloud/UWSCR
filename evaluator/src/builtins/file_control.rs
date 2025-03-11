@@ -2,11 +2,11 @@ mod drop;
 
 use crate::Evaluator;
 use crate::builtins::*;
-use crate::object::{Object, Fopen, FopenMode, FGetType, FPutType};
+use crate::object::{Object, Fopen, Csv, CsvValue, FopenMode, FGetType, FPutType};
 use crate::error::UErrorMessage::FopenError;
 
 use std::io::{Write, Read};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use std::path::PathBuf;
 use std::sync::LazyLock;
 
@@ -30,6 +30,10 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("zipitems", zipitems, get_desc!(zipitems));
     sets.add("unzip", unzip, get_desc!(unzip));
     sets.add("zip", zip, get_desc!(zip));
+    sets.add("csvopen", csvopen, get_desc!(csvopen));
+    sets.add("csvclose", csvclose, get_desc!(csvclose));
+    sets.add("csvread", csvread, get_desc!(csvread));
+    sets.add("csvwrite", csvwrite, get_desc!(csvwrite));
     sets
 }
 
@@ -94,7 +98,6 @@ pub fn fopen(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     if fopen.flag.mode == FopenMode::Append {
         let text = args.get_as_string(2, None)?;
         fopen.append(&text)
-            .map(|o| o)
             .map_err(|e| builtin_func_error(FopenError(e)))
     } else {
         match fopen.open() {
@@ -599,4 +602,128 @@ pub fn zip(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let zip = Zip::new(&path);
     let result = zip.compress(files).is_ok();
     Ok(Object::Bool(result))
+}
+
+#[builtin_func_desc(
+    desc="csvファイルを開く",
+    args=[
+        {n="csv",t="文字列",d="csvファイルのパス"},
+        {o, n="ヘッダ",t="真偽値",d="csvファイルにヘッダ行があるかどうか"},
+        {o, n="TSVモード",t="真偽値またはASCII文字",d="TRUEでセパレータがTSVになる"},
+    ]
+    rtype={desc="開いたCSVを示すオブジェクト", types="CSVオブジェクト"}
+)]
+pub fn csvopen(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let file = args.get_as_string(0, None)?;
+    let header = args.get_as_bool(1, Some(false))?;
+    let delimiter = match args.get_as_string_or_bool(2, Some(TwoTypeArg::U(false)))? {
+        TwoTypeArg::T(d) => match d.len() {
+            1 => {
+                let ch = d.chars().next().unwrap_or(',');
+                if ch.is_ascii() {
+                    ch as u8
+                } else {
+                    return Err(builtin_func_error(UErrorMessage::ShouldBeAsciiCharacter(d)));
+                }
+            },
+            _ => {
+                return Err(builtin_func_error(UErrorMessage::ShouldBeAsciiCharacter(d)));
+            }
+        },
+        TwoTypeArg::U(b) => if b {b'\t'} else {b','},
+    };
+    let csv = Csv::open(&file, header, delimiter)
+        .map_err(|e| builtin_func_error(UErrorMessage::FopenError(e)))?;
+    Ok(Object::Csv(Arc::new(RwLock::new(csv))))
+}
+
+#[builtin_func_desc(
+    desc="CSVをファイルに書き込んで閉じる",
+    args=[
+        {n="csv",t="CSVオブジェクト",d="csvopenの戻り値"},
+    ],
+)]
+pub fn csvclose(_: &mut Evaluator, _args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let csv = _args.get_as_csv(0)?;
+    let mut w = csv.write().unwrap();
+    w.close()
+        .map(|_| Object::Empty)
+        .map_err(|e| builtin_func_error(UErrorMessage::FopenError(e)))
+}
+
+#[builtin_func_desc(
+    desc="CSVから読み出す",
+    rtype={desc="読み出した文字列",types="配列または文字列"}
+    args=[
+        {n="csv",t="CSVオブジェクト",d="csvopenの戻り値"},
+        {o, n="row",t="数値",d="行番号"},
+        {o, n="column",t="数値または文字列",d="列番号またはカラム名"},
+    ],
+)]
+pub fn csvread(_: &mut Evaluator, _args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let csv = _args.get_as_csv(0)?;
+    let row = _args.get_as_int_or_empty(1)?;
+    let column = _args.get_as_int_or_string_or_empty(2)?;
+
+    let r = csv.read().unwrap();
+
+    let value = match (row, column) {
+        // 行および列が未指定ならCSV全体
+        (None, None) => {
+            r.read_all()
+                .map_err(|e| builtin_func_error(UErrorMessage::FopenError(e)))?
+        },
+        // 列のみ指定なら該当列の配列
+        (None, Some(two)) => match two {
+            TwoTypeArg::T(column) => r.read_col_by_name(&column),
+            TwoTypeArg::U(column) => r.read_col(column),
+        },
+        // 行指定のみ
+        (Some(row), None) => {
+            r.read(row, None)
+        },
+        // 行列指定
+        (Some(row), Some(two)) => match two {
+            // ヘッダ名
+            TwoTypeArg::T(column) => r.read_by_name(row, &column),
+            // インデックス
+            TwoTypeArg::U(column) => r.read(row, Some(column)),
+        },
+    };
+    let obj = match value {
+        CsvValue::Row(items) => {
+            let vec = items.into_iter().map(|s| s.into()).collect();
+            Object::Array(vec)
+        },
+        CsvValue::Column(item) => item.into(),
+        CsvValue::All(csv) => csv.into(),
+        CsvValue::NotFound => Object::Empty,
+    };
+    Ok(obj)
+}
+
+#[builtin_func_desc(
+    desc="CSVに値を書き込む",
+    args=[
+        {n="csv",t="CSVオブジェクト",d="csvopenの戻り値"},
+        {n="row",t="数値",d="行番号"},
+        {n="column",t="数値または文字列",d="列番号またはカラム名"},
+        {n="値",t="文字列または配列",d="書き込む値、配列の場合は指定位置に挿入"},
+    ],
+)]
+pub fn csvwrite(_: &mut Evaluator, _args: BuiltinFuncArgs) -> BuiltinFuncResult {
+
+    let csv = _args.get_as_csv(0)?;
+    let row = _args.get_as_int(1, None)?;
+    let column = _args.get_as_num_or_string(2)?;
+    let value = _args.get_as_string_array(3)?;
+    let value = CsvValue::from(value);
+
+    let mut w = csv.write().unwrap();
+
+    let succeed = match column {
+        TwoTypeArg::T(column) => w.write_by_name(value, row, &column),
+        TwoTypeArg::U(column) => w.write(value, row, column),
+    };
+    Ok(succeed.into())
 }
