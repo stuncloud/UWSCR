@@ -526,7 +526,9 @@ impl Fopen {
                         lines.resize((row - 1) as usize, String::new());
                         lines.push(value.to_string());
                     },
-                    FPutType::AllText => lines.push(value.to_string()),
+                    FPutType::AllText => {
+                        lines = value.lines().map(|line| line.to_string()).collect::<Vec<_>>();
+                    },
                     FPutType::Csv(row, col) => Self::csv_write(&mut lines, value, Some(row), col, self.csv_delimiter)?,
                     FPutType::Append(col) => match col {
                         Some(col) => Self::csv_write(&mut lines, value, None, col, self.csv_delimiter)?,
