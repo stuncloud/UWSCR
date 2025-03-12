@@ -294,11 +294,11 @@ impl Input {
     /// MORG_DIRECT時のメッセージ送信
     unsafe fn direct_message<W, L>(&self, msg: u32, wparam: W, lparam: L) -> isize
     where
-        W: IntoWparam,
-        L: IntoLparam,
+        W: IntoPrm<WPARAM>,
+        L: IntoPrm<LPARAM>,
     {
-        let wparam = wparam.into();
-        let lparam = lparam.into();
+        let wparam = wparam.intop();
+        let lparam = lparam.intop();
         SendMessageW(self.hwnd.as_ref(), msg, wparam, lparam)
             .0
     }
@@ -468,7 +468,6 @@ impl Input {
     }
     fn mouse_click(&self, x: i32, y: i32, btn: &MouseButton) {
         self.mouse_down(x, y, btn);
-        sleep(73);
         self.mouse_up(x, y, btn);
     }
     fn mouse_button(&self, x: i32, y: i32, btn: &MouseButton, action: KeyActionEnum) {
@@ -670,42 +669,26 @@ fn sleep(ms: u64) {
     thread::sleep(time::Duration::from_millis(ms))
 }
 
-trait IntoWparam {
-    fn into(self) -> WPARAM;
+trait IntoPrm<T> {
+    fn intop(self) -> T;
 }
-
-impl IntoWparam for Option<WPARAM> {
-    fn into(self) -> WPARAM {
+impl<D: Default> IntoPrm<D> for Option<D> {
+    fn intop(self) -> D {
         self.unwrap_or_default()
     }
 }
-impl IntoWparam for WPARAM {
-    fn into(self) -> WPARAM {
+impl<P> IntoPrm<P> for P {
+    fn intop(self) -> P {
         self
     }
 }
-impl IntoWparam for usize {
-    fn into(self) -> WPARAM {
+impl IntoPrm<WPARAM> for usize {
+    fn intop(self) -> WPARAM {
         WPARAM(self)
     }
 }
-
-trait IntoLparam {
-    fn into(self) -> LPARAM;
-}
-
-impl IntoLparam for Option<LPARAM> {
-    fn into(self) -> LPARAM {
-        self.unwrap_or_default()
-    }
-}
-impl IntoLparam for LPARAM {
-    fn into(self) -> LPARAM {
-        self
-    }
-}
-impl IntoLparam for isize {
-    fn into(self) -> LPARAM {
+impl IntoPrm<LPARAM> for isize {
+    fn intop(self) -> LPARAM {
         LPARAM(self)
     }
 }
