@@ -30,6 +30,7 @@ use util::settings::USETTINGS;
 use crate::environment::Layer;
 use crate::def_dll::DefDll;
 use crate::builtins::BuiltinFunction;
+use crate::builtins::chkimg::ColorFound;
 use crate::error::{UError, UErrorKind, UErrorMessage};
 use crate::gui::form::{WebViewForm, WebViewRemoteObject};
 use parser::ast::*;
@@ -106,7 +107,11 @@ pub enum Object {
     /// FormのRemoteObject
     WebViewRemoteObject(WebViewRemoteObject),
     /// PARAM_STR
-    ParamStr(Vec<String>)
+    ParamStr(Vec<String>),
+    /// chkclr戻り値
+    ChkClrResult(Vec<ColorFound>),
+    /// chkclr戻り値の個別アイテム
+    ColorFound(ColorFound),
 }
 impl std::fmt::Debug for Object {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -160,6 +165,8 @@ impl std::fmt::Debug for Object {
             Object::WebViewForm(arg0) => f.debug_tuple("WebViewForm").field(arg0).finish(),
             Object::WebViewRemoteObject(arg0) => f.debug_tuple("WebViewRemoteObject").field(arg0).finish(),
             Object::ParamStr(vec) => f.debug_list().entries(vec.iter()).finish(),
+            Object::ChkClrResult(vec) => f.debug_list().entries(vec.iter()).finish(),
+            Object::ColorFound(arg0) => f.debug_tuple("ColorFound").field(arg0).finish(),
         }
     }
 }
@@ -173,42 +180,42 @@ impl fmt::Display for Object {
             Object::String(value) => write!(f, "{}", value),
             Object::Bool(b) => write!(f, "{}", if *b {"True"} else {"False"}),
             Object::Array(objects) => {
-                let mut members = String::new();
-                for (i, obj) in objects.iter().enumerate() {
-                    if i < 1 {
-                        members.push_str(&format!("{}", obj))
-                    } else {
-                        members.push_str(&format!(", {}", obj))
-                    }
-                }
-                write!(f, "[{}]", members)
-            },
+                        let mut members = String::new();
+                        for (i, obj) in objects.iter().enumerate() {
+                            if i < 1 {
+                                members.push_str(&format!("{}", obj))
+                            } else {
+                                members.push_str(&format!(", {}", obj))
+                            }
+                        }
+                        write!(f, "[{}]", members)
+                    },
             Object::HashTbl(hash) => {
-                let mut key_values = String::new();
-                for (i, (k, v)) in hash.lock().unwrap().map().iter().enumerate() {
-                    if i < 1 {
-                        key_values.push_str(&format!("\"{}\": {}", k, v))
-                    } else {
-                        key_values.push_str(&format!(", \"{}\": {}", k, v))
-                    }
-                }
-                write!(f, "{{{}}}", key_values)
-            },
+                        let mut key_values = String::new();
+                        for (i, (k, v)) in hash.lock().unwrap().map().iter().enumerate() {
+                            if i < 1 {
+                                key_values.push_str(&format!("\"{}\": {}", k, v))
+                            } else {
+                                key_values.push_str(&format!(", \"{}\": {}", k, v))
+                            }
+                        }
+                        write!(f, "{{{}}}", key_values)
+                    },
             Object::Function(func) => {
-                let title = if func.is_proc {"procedure"} else {"function"};
-                let params = func.params.iter().map(|p| p.to_string()).collect::<Vec<_>>().join(", ");
-                write!(f, "{}: {}({})", title, func.name.as_ref().unwrap(), params)
-            },
+                        let title = if func.is_proc {"procedure"} else {"function"};
+                        let params = func.params.iter().map(|p| p.to_string()).collect::<Vec<_>>().join(", ");
+                        write!(f, "{}: {}({})", title, func.name.as_ref().unwrap(), params)
+                    },
             Object::AsyncFunction(func) => {
-                let title = if func.is_proc {"procedure"} else {"function"};
-                let params = func.params.iter().map(|p| p.to_string()).collect::<Vec<_>>().join(", ");
-                write!(f, "{}: {}({})", title, func.name.as_ref().unwrap(), params)
-            },
+                        let title = if func.is_proc {"procedure"} else {"function"};
+                        let params = func.params.iter().map(|p| p.to_string()).collect::<Vec<_>>().join(", ");
+                        write!(f, "{}: {}({})", title, func.name.as_ref().unwrap(), params)
+                    },
             Object::AnonFunc(func) => {
-                let title = if func.is_proc {"anonymous procedure"} else {"anonymous function"};
-                let params = func.params.iter().map(|p| p.to_string()).collect::<Vec<_>>().join(", ");
-                write!(f, "{}({})", title, params)
-            },
+                        let title = if func.is_proc {"anonymous procedure"} else {"anonymous function"};
+                        let params = func.params.iter().map(|p| p.to_string()).collect::<Vec<_>>().join(", ");
+                        write!(f, "{}({})", title, params)
+                    },
             Object::BuiltinFunction(name, _, _) => write!(f, "builtin: {}()", name),
             Object::Null => write!(f, "\0"),
             Object::Empty => write!(f, ""),
@@ -220,19 +227,19 @@ impl fmt::Display for Object {
             Object::Module(m) => write!(f, "module: {}", m.lock().unwrap().name()),
             Object::Class(name, _) => write!(f, "class: {}", name),
             Object::Instance(m) => {
-                let ins = m.lock().unwrap();
-                if ins.is_dropped {
-                    write!(f, "NOTHING")
-                } else {
-                    write!(f, "instance of {}", ins.name)
-                }
-            },
+                        let ins = m.lock().unwrap();
+                        if ins.is_dropped {
+                            write!(f, "NOTHING")
+                        } else {
+                            write!(f, "instance of {}", ins.name)
+                        }
+                    },
             Object::Handle(h) => write!(f, "{:?}", h),
             Object::RegEx(re) => write!(f, "regex: {}", re),
             Object::Global => write!(f, "GLOBAL"),
             Object::UObject(uobj) => {
-                write!(f, "{}", uobj)
-            },
+                        write!(f, "{}", uobj)
+                    },
             Object::DynamicVar(func) => write!(f, "{}", func()),
             Object::Version(v) => write!(f, "{}", v),
             Object::ExpandableTB(_) => write!(f, "expandable textblock"),
@@ -246,57 +253,59 @@ impl fmt::Display for Object {
             Object::TabWindow(t) => write!(f, "TabWindow: {t}"),
             Object::RemoteObject(r) => write!(f, "{r}"),
             Object::Fopen(arc) => {
-                let fopen = arc.lock().unwrap();
-                write!(f, "{}", &*fopen)
-            },
+                        let fopen = arc.lock().unwrap();
+                        write!(f, "{}", &*fopen)
+                    },
             Object::Csv(csv) => {
-                match csv.read() {
-                    Ok(csv) => write!(f, "{}", csv),
-                    Err(e) => write!(f, "{} (poisoned)", e.get_ref()),
-                }
-            },
+                        match csv.read() {
+                            Ok(csv) => write!(f, "{}", csv),
+                            Err(e) => write!(f, "{} (poisoned)", e.get_ref()),
+                        }
+                    },
             Object::ByteArray(arr) => write!(f, "{:?}", arr),
             Object::Reference(_, _) => write!(f, "Reference"),
             Object::WebRequest(req) => {
-                let mutex = req.lock().unwrap();
-                write!(f, "{mutex}")
-            },
+                        let mutex = req.lock().unwrap();
+                        write!(f, "{mutex}")
+                    },
             Object::WebResponse(res) => write!(f, "{res}"),
             Object::HtmlNode(node) => write!(f, "{node}"),
             Object::MemberCaller(method, member) => {
-                match method {
-                    MemberCaller::Module(m) => {
-                        match m.try_lock() {
-                            Ok(m) => write!(f, "{}.{member}", m.name()),
-                            Err(_) => write!(f, "{{Module}}.{member}"),
+                        match method {
+                            MemberCaller::Module(m) => {
+                                match m.try_lock() {
+                                    Ok(m) => write!(f, "{}.{member}", m.name()),
+                                    Err(_) => write!(f, "{{Module}}.{member}"),
+                                }
+                            },
+                            MemberCaller::ClassInstance(ins) => {
+                                match ins.try_lock() {
+                                    Ok(g) => write!(f, "{}.{member}", g.name),
+                                    Err(_) => write!(f, "{{ClassInstance}}.{member}"),
+                                }
+                            },
+                            MemberCaller::BrowserBuilder(_) => write!(f, "BrowserBuilder.{member}"),
+                            MemberCaller::Browser(_) => write!(f, "Browser.{member}"),
+                            MemberCaller::TabWindow(_) => write!(f, "TabWindow.{member}"),
+                            MemberCaller::RemoteObject(_) => write!(f, "RemoteObject.{member}"),
+                            MemberCaller::WebRequest(_) => write!(f, "WebRequest.{member}"),
+                            MemberCaller::WebResponse(_) => write!(f, "WebResponse.{member}"),
+                            MemberCaller::HtmlNode(_) => write!(f, "HtmlNode.{member}"),
+                            MemberCaller::ComObject(_) => write!(f, "ComObject.{member}"),
+                            MemberCaller::UStruct(ust) => write!(f, "{}.{member}", ust.name),
+                            MemberCaller::WebViewForm(_) => write!(f, "WebViewForm.{member}"),
+                            MemberCaller::WebViewRemoteObject(_) => write!(f, "WebViewRemoteObject.{member}"),
+                            MemberCaller::UObject(_) => write!(f, "UObject.{member}"),
                         }
                     },
-                    MemberCaller::ClassInstance(ins) => {
-                        match ins.try_lock() {
-                            Ok(g) => write!(f, "{}.{member}", g.name),
-                            Err(_) => write!(f, "{{ClassInstance}}.{member}"),
-                        }
-                    },
-                    MemberCaller::BrowserBuilder(_) => write!(f, "BrowserBuilder.{member}"),
-                    MemberCaller::Browser(_) => write!(f, "Browser.{member}"),
-                    MemberCaller::TabWindow(_) => write!(f, "TabWindow.{member}"),
-                    MemberCaller::RemoteObject(_) => write!(f, "RemoteObject.{member}"),
-                    MemberCaller::WebRequest(_) => write!(f, "WebRequest.{member}"),
-                    MemberCaller::WebResponse(_) => write!(f, "WebResponse.{member}"),
-                    MemberCaller::HtmlNode(_) => write!(f, "HtmlNode.{member}"),
-                    MemberCaller::ComObject(_) => write!(f, "ComObject.{member}"),
-                    MemberCaller::UStruct(ust) => write!(f, "{}.{member}", ust.name),
-                    MemberCaller::WebViewForm(_) => write!(f, "WebViewForm.{member}"),
-                    MemberCaller::WebViewRemoteObject(_) => write!(f, "WebViewRemoteObject.{member}"),
-                    MemberCaller::UObject(_) => write!(f, "UObject.{member}"),
-                }
-            },
             Object::ComObject(com) => write!(f, "{com}"),
             Object::Unknown(unk) => write!(f, "{unk}"),
             Object::Variant(variant) => write!(f, "{variant}"),
             Object::WebViewForm(form) => write!(f, "{form}"),
             Object::WebViewRemoteObject(remote) => write!(f, "{remote}"),
             Object::ParamStr(vec) => write!(f, "{vec:?}"),
+            Object::ChkClrResult(res) => write!(f, "ChkClrResult({})", res.len()),
+            Object::ColorFound(found) => write!(f, "{found}"),
         }
     }
 }
@@ -467,7 +476,13 @@ impl PartialEq for Object {
             },
             Object::ParamStr(v1) => {
                 if let Object::ParamStr(v2) = other {v1 == v2} else {false}
-            }
+            },
+            Object::ChkClrResult(v1) => {
+                if let Object::ChkClrResult(v2) = other {v1 == v2} else {false}
+            },
+            Object::ColorFound(v1) => {
+                if let Object::ColorFound(v2) = other {v1 == v2} else {false}
+            },
         }
     }
 }
@@ -525,6 +540,8 @@ impl Object {
             Object::MemberCaller(_, _) => ObjectType::TYPE_MEMBER_CALLER,
             Object::WebViewForm(_) => ObjectType::TYPE_WEBVIEW_FORM,
             Object::WebViewRemoteObject(_) => ObjectType::TYPE_WEBVIEW_REMOTEOBJECT,
+            Object::ChkClrResult(_) => ObjectType::TYPE_CHKCLR_RESULT,
+            Object::ColorFound(_) => ObjectType::TYPE_CHKCLR_ITEM,
 
             Object::ParamStr(_) |
             Object::EmptyParam |
@@ -956,6 +973,8 @@ impl Add for Object {
                 }
             },
             // 以下はエラー
+            Object::ChkClrResult(_) |
+            Object::ColorFound(_) |
             Object::ParamStr(_) |
             Object::WebViewForm(_) |
             Object::WebViewRemoteObject(_) |
@@ -1060,6 +1079,8 @@ impl Sub for Object {
                 }
             },
             // 以下はエラー
+            Object::ChkClrResult(_) |
+            Object::ColorFound(_) |
             Object::ParamStr(_) |
             Object::WebViewForm(_) |
             Object::WebViewRemoteObject(_) |
@@ -1192,6 +1213,8 @@ impl Mul for Object {
                 }
             },
             // 以下はエラー
+            Object::ChkClrResult(_) |
+            Object::ColorFound(_) |
             Object::ParamStr(_) |
             Object::WebViewForm(_) |
             Object::WebViewRemoteObject(_) |
@@ -1308,6 +1331,8 @@ impl Div for Object {
                 }
             },
             // 以下はエラー
+            Object::ChkClrResult(_) |
+            Object::ColorFound(_) |
             Object::ParamStr(_) |
             Object::WebViewForm(_) |
             Object::WebViewRemoteObject(_) |
@@ -1424,6 +1449,8 @@ impl Rem for Object {
                 }
             },
             // 以下はエラー
+            Object::ChkClrResult(_) |
+            Object::ColorFound(_) |
             Object::ParamStr(_) |
             Object::WebViewForm(_) |
             Object::WebViewRemoteObject(_) |
@@ -1534,6 +1561,8 @@ impl BitOr for Object {
                 }
             },
             // 以下はエラー
+            Object::ChkClrResult(_) |
+            Object::ColorFound(_) |
             Object::ParamStr(_) |
             Object::WebViewForm(_) |
             Object::WebViewRemoteObject(_) |
@@ -1643,6 +1672,8 @@ impl BitAnd for Object {
                 }
             },
             // 以下はエラー
+            Object::ChkClrResult(_) |
+            Object::ColorFound(_) |
             Object::ParamStr(_) |
             Object::WebViewForm(_) |
             Object::WebViewRemoteObject(_) |
@@ -1752,6 +1783,8 @@ impl BitXor for Object {
                 }
             },
             // 以下はエラー
+            Object::ChkClrResult(_) |
+            Object::ColorFound(_) |
             Object::ParamStr(_) |
             Object::WebViewForm(_) |
             Object::WebViewRemoteObject(_) |
@@ -1906,7 +1939,36 @@ pub enum ObjectType {
     TYPE_HTML_NODE,
     TYPE_WEBVIEW_FORM,
     TYPE_WEBVIEW_REMOTEOBJECT,
+    TYPE_CHKCLR_RESULT,
+    TYPE_CHKCLR_ITEM,
 
     TYPE_MEMBER_CALLER,
     TYPE_NOT_VALUE_TYPE,
+}
+
+impl From<&ColorFound> for Object {
+    fn from(found: &ColorFound) -> Self {
+        let x = found.x.into();
+        let y = found.y.into();
+        let color = found.color.iter().map(|n| (*n).into()).collect();
+        Self::Array(vec![x, y, Self::Array(color)])
+    }
+}
+impl From<ColorFound> for Object {
+    fn from(found: ColorFound) -> Self {
+        let x = found.x.into();
+        let y = found.y.into();
+        let color = found.color.iter().map(|n| (*n).into()).collect();
+        Self::Array(vec![x, y, Self::Array(color)])
+    }
+}
+impl From<TabWindow> for Object {
+    fn from(tab: TabWindow) -> Self {
+        Object::TabWindow(tab)
+    }
+}
+impl From<char> for Object {
+    fn from(char: char) -> Self {
+        Object::String(char.to_string())
+    }
 }

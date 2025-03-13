@@ -2572,14 +2572,9 @@ pub fn chkclr(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncRe
             ss.save(Some("chkclr.png"))?;
         }
 
-        let found = check_color.search(&ss)?.into_iter()
-            .map(|(x, y, (b, g, r))| {
-                let color = Object::Array(vec![b.into(), g.into(), r.into()]);
-                Object::Array(vec![x.into(), y.into(), color])
-            })
-            .collect();
+        let found = check_color.search(&ss)?;
 
-        Ok(Object::Array(found))
+        Ok(Object::ChkClrResult(found))
     }
 
 }

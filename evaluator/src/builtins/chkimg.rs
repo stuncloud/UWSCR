@@ -819,12 +819,14 @@ impl CheckColor {
         ];
         Self::new(color, threshold)
     }
-    pub fn search(&self, ss: &ScreenShot) -> Result<Vec<(i32, i32, (u8, u8, u8))>, UError> {
+    pub fn search(&self, ss: &ScreenShot) -> Result<Vec<ColorFound>, UError> {
+
         let mut bgr = Mat::default();
         imgproc::cvt_color(&ss.data, &mut bgr, imgproc::COLOR_RGBA2RGB, 0)?;
-        let mut mask = Mat::default();
 
+        let mut mask = Mat::default();
         opencv_core::in_range(&bgr, &self.lower, &self.upper, &mut mask)?;
+
         let mut indices: Vector<Point> = Vector::new();
         opencv_core::find_non_zero(&mask, &mut indices)?;
 
@@ -833,10 +835,28 @@ impl CheckColor {
                 let x = p.x + ss.left;
                 let y = p.y + ss.top;
                 let vec3b = bgr.at_2d::<opencv_core::Vec3b>(p.y, p.x)?;
-                let color = (vec3b[0], vec3b[1], vec3b[2]);
-                Ok((x, y, color))
+                let color = vec3b.0;
+                Ok(ColorFound::new(x, y, color))
             })
             .collect::<Result<Vec<_>, opencv::Error>>()?;
+
         Ok(points)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ColorFound {
+    pub x: i32,
+    pub y: i32,
+    pub color: [u8; 3]
+}
+impl ColorFound {
+    fn new(x: i32, y: i32, color: [u8; 3]) -> Self {
+        Self { x, y, color }
+    }
+}
+impl std::fmt::Display for ColorFound {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[{}, {}, {:?}]", self.x, self.y, self.color)
     }
 }
