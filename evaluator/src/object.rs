@@ -30,10 +30,12 @@ use util::settings::USETTINGS;
 use crate::environment::Layer;
 use crate::def_dll::DefDll;
 use crate::builtins::BuiltinFunction;
-use crate::builtins::chkimg::ColorFound;
 use crate::error::{UError, UErrorKind, UErrorMessage};
 use crate::gui::form::{WebViewForm, WebViewRemoteObject};
 use parser::ast::*;
+
+#[cfg(feature="chkimg")]
+use crate::builtins::chkimg::ColorFound;
 
 use windows::Win32::Foundation::HWND;
 
@@ -109,8 +111,10 @@ pub enum Object {
     /// PARAM_STR
     ParamStr(Vec<String>),
     /// chkclr戻り値
+    #[cfg(feature="chkimg")]
     ChkClrResult(Vec<ColorFound>),
     /// chkclr戻り値の個別アイテム
+    #[cfg(feature="chkimg")]
     ColorFound(ColorFound),
 }
 impl std::fmt::Debug for Object {
@@ -165,7 +169,9 @@ impl std::fmt::Debug for Object {
             Object::WebViewForm(arg0) => f.debug_tuple("WebViewForm").field(arg0).finish(),
             Object::WebViewRemoteObject(arg0) => f.debug_tuple("WebViewRemoteObject").field(arg0).finish(),
             Object::ParamStr(vec) => f.debug_list().entries(vec.iter()).finish(),
+            #[cfg(feature="chkimg")]
             Object::ChkClrResult(vec) => f.debug_list().entries(vec.iter()).finish(),
+            #[cfg(feature="chkimg")]
             Object::ColorFound(arg0) => f.debug_tuple("ColorFound").field(arg0).finish(),
         }
     }
@@ -304,7 +310,9 @@ impl fmt::Display for Object {
             Object::WebViewForm(form) => write!(f, "{form}"),
             Object::WebViewRemoteObject(remote) => write!(f, "{remote}"),
             Object::ParamStr(vec) => write!(f, "{vec:?}"),
+            #[cfg(feature="chkimg")]
             Object::ChkClrResult(res) => write!(f, "ChkClrResult({})", res.len()),
+            #[cfg(feature="chkimg")]
             Object::ColorFound(found) => write!(f, "{found}"),
         }
     }
@@ -477,9 +485,11 @@ impl PartialEq for Object {
             Object::ParamStr(v1) => {
                 if let Object::ParamStr(v2) = other {v1 == v2} else {false}
             },
+            #[cfg(feature="chkimg")]
             Object::ChkClrResult(v1) => {
                 if let Object::ChkClrResult(v2) = other {v1 == v2} else {false}
             },
+            #[cfg(feature="chkimg")]
             Object::ColorFound(v1) => {
                 if let Object::ColorFound(v2) = other {v1 == v2} else {false}
             },
@@ -540,7 +550,9 @@ impl Object {
             Object::MemberCaller(_, _) => ObjectType::TYPE_MEMBER_CALLER,
             Object::WebViewForm(_) => ObjectType::TYPE_WEBVIEW_FORM,
             Object::WebViewRemoteObject(_) => ObjectType::TYPE_WEBVIEW_REMOTEOBJECT,
+            #[cfg(feature="chkimg")]
             Object::ChkClrResult(_) => ObjectType::TYPE_CHKCLR_RESULT,
+            #[cfg(feature="chkimg")]
             Object::ColorFound(_) => ObjectType::TYPE_CHKCLR_ITEM,
 
             Object::ParamStr(_) |
@@ -972,50 +984,8 @@ impl Add for Object {
                     ))
                 }
             },
-            // 以下はエラー
-            Object::ChkClrResult(_) |
-            Object::ColorFound(_) |
-            Object::ParamStr(_) |
-            Object::WebViewForm(_) |
-            Object::WebViewRemoteObject(_) |
-            Object::Variant(_) |
-            Object::Unknown(_) |
-            Object::ComObject(_) |
-            Object::MemberCaller(_, _) |
-            Object::HtmlNode(_) |
-            Object::RemoteObject(_) |
-            Object::HashTbl(_) |
-            Object::AnonFunc(_) |
-            Object::Function(_) |
-            Object::AsyncFunction(_) |
-            Object::BuiltinFunction(_, _, _) |
-            Object::Module(_) |
-            Object::Class(_, _) |
-            Object::Instance(_) |
-            Object::EmptyParam |
-            Object::Nothing |
-            Object::Continue(_) |
-            Object::Break(_) |
-            Object::Handle(_) |
-            Object::RegEx(_) |
-            Object::Exit |
-            Object::Global |
-            Object::UObject(_) |
-            Object::DynamicVar(_) |
-            Object::ExpandableTB(_) |
-            Object::Enum(_) |
-            Object::Task(_) |
-            Object::DefDllFunction(_) |
-            Object::StructDef(_) |
-            Object::UStruct(_) |
-            Object::BrowserBuilder(_) |
-            Object::Browser(_) |
-            Object::TabWindow(_) |
-            Object::Fopen(_) |
-            Object::Csv(_) |
-            Object::WebRequest(_) |
-            Object::WebResponse(_) |
-            Object::Reference(_, _) => {
+            // これら以外はエラー
+            _ => {
                 Err(UError::new(
                     UErrorKind::OperatorError,
                     UErrorMessage::LeftSideTypeInvalid(Infix::Plus),
@@ -1078,53 +1048,8 @@ impl Sub for Object {
                     ))
                 }
             },
-            // 以下はエラー
-            Object::ChkClrResult(_) |
-            Object::ColorFound(_) |
-            Object::ParamStr(_) |
-            Object::WebViewForm(_) |
-            Object::WebViewRemoteObject(_) |
-            Object::Variant(_) |
-            Object::Unknown(_) |
-            Object::ComObject(_) |
-            Object::MemberCaller(_, _) |
-            Object::HtmlNode(_) |
-            Object::RemoteObject(_) |
-            Object::Array(_) |
-            Object::Null |
-            Object::ByteArray(_) |
-            Object::HashTbl(_) |
-            Object::AnonFunc(_) |
-            Object::Function(_) |
-            Object::AsyncFunction(_) |
-            Object::BuiltinFunction(_, _, _) |
-            Object::Module(_) |
-            Object::Class(_, _) |
-            Object::Instance(_) |
-            Object::EmptyParam |
-            Object::Nothing |
-            Object::Continue(_) |
-            Object::Break(_) |
-            Object::Handle(_) |
-            Object::RegEx(_) |
-            Object::Exit |
-            Object::Global |
-            Object::UObject(_) |
-            Object::DynamicVar(_) |
-            Object::ExpandableTB(_) |
-            Object::Enum(_) |
-            Object::Task(_) |
-            Object::DefDllFunction(_) |
-            Object::StructDef(_) |
-            Object::UStruct(_) |
-            Object::BrowserBuilder(_) |
-            Object::Browser(_) |
-            Object::TabWindow(_) |
-            Object::Fopen(_) |
-            Object::Csv(_) |
-            Object::WebRequest(_) |
-            Object::WebResponse(_) |
-            Object::Reference(_, _) => {
+            // これら以外はエラー
+            _ => {
                 Err(UError::new(
                     UErrorKind::OperatorError,
                     UErrorMessage::LeftSideTypeInvalid(Infix::Minus),
@@ -1212,52 +1137,8 @@ impl Mul for Object {
                     ))
                 }
             },
-            // 以下はエラー
-            Object::ChkClrResult(_) |
-            Object::ColorFound(_) |
-            Object::ParamStr(_) |
-            Object::WebViewForm(_) |
-            Object::WebViewRemoteObject(_) |
-            Object::Variant(_) |
-            Object::Unknown(_) |
-            Object::ComObject(_) |
-            Object::MemberCaller(_, _) |
-            Object::HtmlNode(_) |
-            Object::RemoteObject(_) |
-            Object::Array(_) |
-            Object::ByteArray(_) |
-            Object::HashTbl(_) |
-            Object::AnonFunc(_) |
-            Object::Function(_) |
-            Object::AsyncFunction(_) |
-            Object::BuiltinFunction(_, _, _) |
-            Object::Module(_) |
-            Object::Class(_, _) |
-            Object::Instance(_) |
-            Object::EmptyParam |
-            Object::Nothing |
-            Object::Continue(_) |
-            Object::Break(_) |
-            Object::Handle(_) |
-            Object::RegEx(_) |
-            Object::Exit |
-            Object::Global |
-            Object::UObject(_) |
-            Object::DynamicVar(_) |
-            Object::ExpandableTB(_) |
-            Object::Enum(_) |
-            Object::Task(_) |
-            Object::DefDllFunction(_) |
-            Object::StructDef(_) |
-            Object::UStruct(_) |
-            Object::BrowserBuilder(_) |
-            Object::Browser(_) |
-            Object::TabWindow(_) |
-            Object::Fopen(_) |
-            Object::Csv(_) |
-            Object::WebRequest(_) |
-            Object::WebResponse(_) |
-            Object::Reference(_, _) => {
+            // これら以外はエラー
+            _ => {
                 Err(UError::new(
                     UErrorKind::OperatorError,
                     UErrorMessage::LeftSideTypeInvalid(Infix::Multiply),
@@ -1330,53 +1211,8 @@ impl Div for Object {
                     ))
                 }
             },
-            // 以下はエラー
-            Object::ChkClrResult(_) |
-            Object::ColorFound(_) |
-            Object::ParamStr(_) |
-            Object::WebViewForm(_) |
-            Object::WebViewRemoteObject(_) |
-            Object::Variant(_) |
-            Object::Unknown(_) |
-            Object::ComObject(_) |
-            Object::MemberCaller(_, _) |
-            Object::HtmlNode(_) |
-            Object::RemoteObject(_) |
-            Object::Null |
-            Object::Array(_) |
-            Object::ByteArray(_) |
-            Object::HashTbl(_) |
-            Object::AnonFunc(_) |
-            Object::Function(_) |
-            Object::AsyncFunction(_) |
-            Object::BuiltinFunction(_, _, _) |
-            Object::Module(_) |
-            Object::Class(_, _) |
-            Object::Instance(_) |
-            Object::EmptyParam |
-            Object::Nothing |
-            Object::Continue(_) |
-            Object::Break(_) |
-            Object::Handle(_) |
-            Object::RegEx(_) |
-            Object::Exit |
-            Object::Global |
-            Object::UObject(_) |
-            Object::DynamicVar(_) |
-            Object::ExpandableTB(_) |
-            Object::Enum(_) |
-            Object::Task(_) |
-            Object::DefDllFunction(_) |
-            Object::StructDef(_) |
-            Object::UStruct(_) |
-            Object::BrowserBuilder(_) |
-            Object::Browser(_) |
-            Object::TabWindow(_) |
-            Object::Fopen(_) |
-            Object::Csv(_) |
-            Object::WebRequest(_) |
-            Object::WebResponse(_) |
-            Object::Reference(_, _) => {
+            // これら以外はエラー
+            _ => {
                 Err(UError::new(
                     UErrorKind::OperatorError,
                     UErrorMessage::LeftSideTypeInvalid(Infix::Divide),
@@ -1448,53 +1284,8 @@ impl Rem for Object {
                     ))
                 }
             },
-            // 以下はエラー
-            Object::ChkClrResult(_) |
-            Object::ColorFound(_) |
-            Object::ParamStr(_) |
-            Object::WebViewForm(_) |
-            Object::WebViewRemoteObject(_) |
-            Object::Variant(_) |
-            Object::Unknown(_) |
-            Object::ComObject(_) |
-            Object::MemberCaller(_, _) |
-            Object::HtmlNode(_) |
-            Object::RemoteObject(_) |
-            Object::Null |
-            Object::Array(_) |
-            Object::ByteArray(_) |
-            Object::HashTbl(_) |
-            Object::AnonFunc(_) |
-            Object::Function(_) |
-            Object::AsyncFunction(_) |
-            Object::BuiltinFunction(_, _, _) |
-            Object::Module(_) |
-            Object::Class(_, _) |
-            Object::Instance(_) |
-            Object::EmptyParam |
-            Object::Nothing |
-            Object::Continue(_) |
-            Object::Break(_) |
-            Object::Handle(_) |
-            Object::RegEx(_) |
-            Object::Exit |
-            Object::Global |
-            Object::UObject(_) |
-            Object::DynamicVar(_) |
-            Object::ExpandableTB(_) |
-            Object::Enum(_) |
-            Object::Task(_) |
-            Object::DefDllFunction(_) |
-            Object::StructDef(_) |
-            Object::UStruct(_) |
-            Object::BrowserBuilder(_) |
-            Object::Browser(_) |
-            Object::TabWindow(_) |
-            Object::Fopen(_) |
-            Object::Csv(_) |
-            Object::WebRequest(_) |
-            Object::WebResponse(_) |
-            Object::Reference(_, _) => {
+            // これら以外はエラー
+            _ => {
                 Err(UError::new(
                     UErrorKind::OperatorError,
                     UErrorMessage::LeftSideTypeInvalid(Infix::Plus),
@@ -1560,53 +1351,8 @@ impl BitOr for Object {
                     ))
                 }
             },
-            // 以下はエラー
-            Object::ChkClrResult(_) |
-            Object::ColorFound(_) |
-            Object::ParamStr(_) |
-            Object::WebViewForm(_) |
-            Object::WebViewRemoteObject(_) |
-            Object::Variant(_) |
-            Object::Unknown(_) |
-            Object::ComObject(_) |
-            Object::MemberCaller(_, _) |
-            Object::HtmlNode(_) |
-            Object::RemoteObject(_) |
-            Object::Null |
-            Object::Array(_) |
-            Object::ByteArray(_) |
-            Object::HashTbl(_) |
-            Object::AnonFunc(_) |
-            Object::Function(_) |
-            Object::AsyncFunction(_) |
-            Object::BuiltinFunction(_, _, _) |
-            Object::Module(_) |
-            Object::Class(_, _) |
-            Object::Instance(_) |
-            Object::EmptyParam |
-            Object::Nothing |
-            Object::Continue(_) |
-            Object::Break(_) |
-            Object::Handle(_) |
-            Object::RegEx(_) |
-            Object::Exit |
-            Object::Global |
-            Object::UObject(_) |
-            Object::DynamicVar(_) |
-            Object::ExpandableTB(_) |
-            Object::Enum(_) |
-            Object::Task(_) |
-            Object::DefDllFunction(_) |
-            Object::StructDef(_) |
-            Object::UStruct(_) |
-            Object::BrowserBuilder(_) |
-            Object::Browser(_) |
-            Object::TabWindow(_) |
-            Object::Fopen(_) |
-            Object::Csv(_) |
-            Object::WebRequest(_) |
-            Object::WebResponse(_) |
-            Object::Reference(_, _) => {
+            // これら以外はエラー
+            _ => {
                 Err(UError::new(
                     UErrorKind::OperatorError,
                     UErrorMessage::LeftSideTypeInvalid(Infix::Plus),
@@ -1671,53 +1417,8 @@ impl BitAnd for Object {
                     ))
                 }
             },
-            // 以下はエラー
-            Object::ChkClrResult(_) |
-            Object::ColorFound(_) |
-            Object::ParamStr(_) |
-            Object::WebViewForm(_) |
-            Object::WebViewRemoteObject(_) |
-            Object::Variant(_) |
-            Object::Unknown(_) |
-            Object::ComObject(_) |
-            Object::MemberCaller(_, _) |
-            Object::HtmlNode(_) |
-            Object::RemoteObject(_) |
-            Object::Null |
-            Object::Array(_) |
-            Object::ByteArray(_) |
-            Object::HashTbl(_) |
-            Object::AnonFunc(_) |
-            Object::Function(_) |
-            Object::AsyncFunction(_) |
-            Object::BuiltinFunction(_, _, _) |
-            Object::Module(_) |
-            Object::Class(_, _) |
-            Object::Instance(_) |
-            Object::EmptyParam |
-            Object::Nothing |
-            Object::Continue(_) |
-            Object::Break(_) |
-            Object::Handle(_) |
-            Object::RegEx(_) |
-            Object::Exit |
-            Object::Global |
-            Object::UObject(_) |
-            Object::DynamicVar(_) |
-            Object::ExpandableTB(_) |
-            Object::Enum(_) |
-            Object::Task(_) |
-            Object::DefDllFunction(_) |
-            Object::StructDef(_) |
-            Object::UStruct(_) |
-            Object::BrowserBuilder(_) |
-            Object::Browser(_) |
-            Object::TabWindow(_) |
-            Object::Fopen(_) |
-            Object::Csv(_) |
-            Object::WebRequest(_) |
-            Object::WebResponse(_) |
-            Object::Reference(_, _) => {
+            // これら以外はエラー
+            _ => {
                 Err(UError::new(
                     UErrorKind::OperatorError,
                     UErrorMessage::LeftSideTypeInvalid(Infix::Plus),
@@ -1782,53 +1483,8 @@ impl BitXor for Object {
                     ))
                 }
             },
-            // 以下はエラー
-            Object::ChkClrResult(_) |
-            Object::ColorFound(_) |
-            Object::ParamStr(_) |
-            Object::WebViewForm(_) |
-            Object::WebViewRemoteObject(_) |
-            Object::Variant(_) |
-            Object::Unknown(_) |
-            Object::ComObject(_) |
-            Object::MemberCaller(_, _) |
-            Object::HtmlNode(_) |
-            Object::RemoteObject(_) |
-            Object::Null |
-            Object::Array(_) |
-            Object::ByteArray(_) |
-            Object::HashTbl(_) |
-            Object::AnonFunc(_) |
-            Object::Function(_) |
-            Object::AsyncFunction(_) |
-            Object::BuiltinFunction(_, _, _) |
-            Object::Module(_) |
-            Object::Class(_, _) |
-            Object::Instance(_) |
-            Object::EmptyParam |
-            Object::Nothing |
-            Object::Continue(_) |
-            Object::Break(_) |
-            Object::Handle(_) |
-            Object::RegEx(_) |
-            Object::Exit |
-            Object::Global |
-            Object::UObject(_) |
-            Object::DynamicVar(_) |
-            Object::ExpandableTB(_) |
-            Object::Enum(_) |
-            Object::Task(_) |
-            Object::DefDllFunction(_) |
-            Object::StructDef(_) |
-            Object::UStruct(_) |
-            Object::BrowserBuilder(_) |
-            Object::Browser(_) |
-            Object::TabWindow(_) |
-            Object::Fopen(_) |
-            Object::Csv(_) |
-            Object::WebRequest(_) |
-            Object::WebResponse(_) |
-            Object::Reference(_, _) => {
+            // これら以外はエラー
+            _ => {
                 Err(UError::new(
                     UErrorKind::OperatorError,
                     UErrorMessage::LeftSideTypeInvalid(Infix::Plus),
@@ -1946,6 +1602,7 @@ pub enum ObjectType {
     TYPE_NOT_VALUE_TYPE,
 }
 
+#[cfg(feature="chkimg")]
 impl From<&ColorFound> for Object {
     fn from(found: &ColorFound) -> Self {
         let x = found.x.into();
@@ -1954,6 +1611,7 @@ impl From<&ColorFound> for Object {
         Self::Array(vec![x, y, Self::Array(color)])
     }
 }
+#[cfg(feature="chkimg")]
 impl From<ColorFound> for Object {
     fn from(found: ColorFound) -> Self {
         let x = found.x.into();

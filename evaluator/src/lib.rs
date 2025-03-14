@@ -1053,6 +1053,7 @@ impl Evaluator {
                 let vec = uo.to_object_vec()?;
                 self.eval_for_in_statement_inner(vec, var, index_var, islast_var, block, alt)
             },
+            #[cfg(feature="chkimg")]
             Object::ChkClrResult(vec) => {
                 self.eval_for_in_statement_inner(vec, var, index_var, islast_var, block, alt)
             },
@@ -1915,6 +1916,7 @@ impl Evaluator {
                     ))
                 }
             },
+            #[cfg(feature="chkimg")]
             Object::ChkClrResult(vec) => {
                 if let Object::Num(i) = index {
                     vec.get(i as usize)
@@ -1930,6 +1932,7 @@ impl Evaluator {
                     ))
                 }
             },
+            #[cfg(feature="chkimg")]
             Object::ColorFound(found) => {
                 let found = Object::from(found);
                 self.get_index_value(found, index, None)?

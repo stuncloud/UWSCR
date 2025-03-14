@@ -84,6 +84,7 @@ pub fn length(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
             return Ok(Object::Num(len));
         },
         Object::UObject(u) => u.get_size()?,
+        #[cfg(feature="chkimg")]
         Object::ChkClrResult(v) => v.len(),
         o => return Err(builtin_func_error(UErrorMessage::InvalidArgument(o)))
     };
