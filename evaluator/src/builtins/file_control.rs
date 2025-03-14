@@ -144,7 +144,7 @@ pub fn fclose(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 - F_LINECOUNT: ファイルの行数を返す
 - F_ALLTEXT: ファイル全体のテキストを返す"#},
         {n="列",t="数値",d="CSV読み取りの場合に列番号(1から)、0なら行全体"},
-        {o,n="ダブルクォート無視",t="真偽値",d="TRUEならダブルクォートをただの文字と見なす、FALSEならダブルクォートで括られた部分を単語とする"},
+        {o,n="ダブルクォート",t="真偽値または2",d="FALSE: 両端のダブルクォートを削除、TRUE: 削除しない、2: 2連続クォートを1つに"},
     ],
     rtype={desc="読み取った文字列または行数",types="文字列または数値"}
 )]
@@ -154,10 +154,9 @@ pub fn fget(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let row = args.get_as_int::<i32>(1, None)?;
     let fget_type = FGetType::from(row);
     let column = args.get_as_int(2, Some(0))?;
-    let dbl = args.get_as_bool(3, Some(false))?;
+    let dbl = args.get_as_int(3, Some(0))?;
 
     fopen.read(fget_type, column, dbl)
-        .map(|o| o)
         .map_err(|e| builtin_func_error(FopenError(e)))
 }
 

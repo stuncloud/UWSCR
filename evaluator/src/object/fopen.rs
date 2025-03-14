@@ -24,6 +24,9 @@ use windows::Win32::{
     },
 };
 use encoding_rs::{UTF_8, SHIFT_JIS};
+use itertools::{Itertools, MultiPeek};
+use std::iter::Enumerate;
+use std::str::Chars;
 
 static FILE_LIST: LazyLock<Mutex<Vec<(u32, OpenFile)>>> = LazyLock::new(|| Mutex::new(vec![]));
 static FILE_ID: LazyLock<Mutex<u32>> = LazyLock::new(|| Mutex::new(0));
@@ -228,18 +231,19 @@ pub struct Fopen {
     path: PathBuf,
     id: u32,
     no_cr: bool,
-    csv_delimiter: u8,
+    csv_delimiter: char,
     share: u32,
-    lines: Option<Vec<String>>,
+    // lines: Option<Vec<String>>,
+    buf: Option<FopenBuf>,
 }
 
 impl Fopen {
-    const LB: &'static str = "\r\n";
+    const CRLF: &'static str = "\r\n";
     pub fn new(path: &str, flag: u32) -> Self {
         let flag = FopenFlag::from(flag);
         let no_cr = flag.option.no_cr;
         let use_tab = flag.option.tab;
-        let csv_delimiter = if use_tab {b'\t'} else {b','};
+        let csv_delimiter = if use_tab {'\t'} else {','};
         let share = if flag.option.exclusive {
             FILE_SHARE_NONE.0
         } else {
@@ -247,7 +251,7 @@ impl Fopen {
         };
         let path = PathBuf::from(path);
         let id = Self::new_id();
-        Self { flag, path, id, no_cr, csv_delimiter, share, lines: None }
+        Self { flag, path, id, no_cr, csv_delimiter, share, buf: None }
     }
     fn new_id() -> u32 {
         let mut m = FILE_ID.lock().unwrap();
@@ -280,8 +284,7 @@ impl Fopen {
                 let mut buf = vec![];
                 file.read_to_end(&mut buf)?;
                 let text = self.decode(&buf)?;
-                let lines = text.lines().map(|l| l.to_string()).collect();
-                self.lines = Some(lines);
+                self.buf = Some(FopenBuf::new(text));
             }
             OpenFile::File(file)
         } else {
@@ -298,10 +301,16 @@ impl Fopen {
     fn can_write(&self) -> bool {
         self.flag.mode == FopenMode::Write || self.flag.mode == FopenMode::ReadWrite
     }
-    fn to_file(&self, file: &mut File, text: String) -> FopenResult<()> {
+    fn to_file(&self, file: &mut File, mut text: String) -> FopenResult<()> {
         // ファイル冒頭から書き込む
         file.seek(SeekFrom::Start(0))?;
         file.set_len(0)?;
+        // F_NOCR かつ 末尾がCRLFであれば除去する
+        if self.no_cr && text.ends_with(Self::CRLF){
+            if let Some(nocr) = text.strip_suffix(Self::CRLF) {
+                text = nocr.into();
+            }
+        }
 
         let mut stream = BufWriter::new(file);
         match self.flag.encoding {
@@ -311,7 +320,7 @@ impl Fopen {
                     stream.write_all(&utf16.to_le_bytes())?;
                 }
                 if ! self.no_cr {
-                    for utf16 in "\r\n".encode_utf16() {
+                    for utf16 in Self::CRLF.encode_utf16() {
                         stream.write_all(&utf16.to_le_bytes())?;
                     }
                 }
@@ -322,7 +331,7 @@ impl Fopen {
                     stream.write_all(&utf16.to_be_bytes())?;
                 }
                 if ! self.no_cr {
-                    for utf16 in "\r\n".encode_utf16() {
+                    for utf16 in Self::CRLF.encode_utf16() {
                         stream.write_all(&utf16.to_be_bytes())?;
                     }
                 }
@@ -331,7 +340,7 @@ impl Fopen {
                 let (cow,_,_) = SHIFT_JIS.encode(&text);
                 stream.write_all(cow.as_ref())?;
                 if ! self.no_cr {
-                    stream.write_all("\r\n".as_bytes())?;
+                    stream.write_all(Self::CRLF.as_bytes())?;
                 }
             }
             _ => {
@@ -340,7 +349,7 @@ impl Fopen {
                 }
                 stream.write_all(text.as_bytes())?;
                 if ! self.no_cr {
-                    stream.write_all("\r\n".as_bytes())?;
+                    stream.write_all(Self::CRLF.as_bytes())?;
                 }
             },
         }
@@ -352,8 +361,8 @@ impl Fopen {
         let mut list = FILE_LIST.lock().unwrap();
         if let Some(index) = list.iter().position(|(id, _)| *id == self.id) {
             if self.can_write() {
-                if let Some(lines) = &self.lines {
-                    let text = lines.join(Self::LB);
+                if let Some(buf) = &self.buf {
+                    let text = buf.to_string();
                     if let Some((_, openfile)) = list.get_mut(index) {
                         match openfile {
                             OpenFile::File(file) => {
@@ -391,7 +400,7 @@ impl Fopen {
                     size += stream.write(&utf16.to_le_bytes())?;
                 }
                 if ! self.no_cr {
-                    for utf16 in "\r\n".encode_utf16() {
+                    for utf16 in Self::CRLF.encode_utf16() {
                         stream.write_all(&utf16.to_le_bytes())?;
                     }
                 }
@@ -401,7 +410,7 @@ impl Fopen {
                 let (cow,_,_) = SHIFT_JIS.encode(text);
                 let size = file.write(cow.as_ref())?;
                 if ! self.no_cr {
-                    file.write_all("\r\n".as_bytes())?;
+                    file.write_all(Self::CRLF.as_bytes())?;
                 }
                 size
             },
@@ -411,7 +420,7 @@ impl Fopen {
                 }
                 let size = file.write(text.as_bytes())?;
                 if ! self.no_cr {
-                    file.write_all("\r\n".as_bytes())?;
+                    file.write_all(Self::CRLF.as_bytes())?;
                 }
                 size
             },
@@ -439,20 +448,19 @@ impl Fopen {
         }
         Ok(txt)
     }
-    pub fn read(&mut self, fget_type: FGetType, column: u32, as_is: bool) -> FopenResult<Object> {
-        let lines = self.lines.as_ref().ok_or(FopenError::NotReadable)?;
+    pub fn read(&mut self, fget_type: FGetType, column: u32, dbl: i32) -> FopenResult<Object> {
+        let buf = self.buf.as_ref().ok_or(FopenError::NotReadable)?;
         let obj = match fget_type {
-            FGetType::Row(n) => {
-                let row = n as usize - 1;
-                let text = lines.get(row);
+            FGetType::Row(row_index) => {
+                let text = buf.get_line(row_index);
                 if column == 0 {
                     // 行読み出し
-                    text.map_or(Object::Empty, |row| row.to_string().into())
+                    text.into()
                 } else {
                     // csv読み出し
                     match text {
                         Some(text) => {
-                            Self::csv_read(text, column, as_is, self.csv_delimiter)
+                            Self::csv_read(text, column, dbl, self.csv_delimiter)
                                 .map_or(Object::Empty, |text| text.into())
                         },
                         None => Object::Empty,
@@ -460,157 +468,142 @@ impl Fopen {
                 }
             },
             FGetType::LineCount => {
-                let len = lines.len();
+                let len = buf.get_linecount();
                 len.into()
             },
             FGetType::AllText => {
-                let text = lines.join(Self::LB);
+                let text = buf.to_string();
                 text.into()
             },
         };
         Ok(obj)
     }
-    fn csv_read(text: &String, column: u32, as_is: bool, delimiter: u8) -> FopenResult<Option<String>> {
-        let quote = if as_is {0} else {b'"'};
-        let rdr = text.as_bytes();
-        let mut reader = csv::ReaderBuilder::new()
-            .has_headers(false)
-            .delimiter(delimiter)
-            // .quoting(quoting)
-            .quote(quote)
-            .trim(csv::Trim::All)
-            .flexible(true)
-            .from_reader(rdr);
-        let result = match reader.records().nth(0) {
-            Some(record) => {
-                let i = column as usize - 1;
-                record?.get(i).map(|s| s.to_string())
-            },
-            None => None,
-        };
-        Ok(result)
+    fn csv_read<D: Into<FgetDbl>>(text: &str, column: u32, flg: D, delimiter: char) -> FopenResult<Option<String>> {
+        let csv = UCsv::parse(text, delimiter);
+
+        const DBLDBL: &str = "\"\"";
+        const DBL: &str = "\"";
+
+        fn remove_side_quot(s: &str) -> String {
+            if s.contains(DBLDBL) {
+                // 連続するクォートが含まれていたらそのまま
+                s.to_string()
+            } else if s.starts_with(DBL) && s.ends_with(DBL) {
+                // 前後の単一クォートを消す
+                s.strip_prefix(DBL).unwrap()
+                    .strip_suffix(DBL).unwrap()
+                    .to_string()
+            } else {
+                // それ以外もそのまま返す
+                s.to_string()
+            }
+        }
+
+        let item = csv.get(column as usize - 1)
+            .map(|s| {
+                let s = s.trim_matches(' ');
+                match flg.into() {
+                    FgetDbl::Remove => {
+                        remove_side_quot(s)
+                    },
+                    FgetDbl::AsIs => {
+                        s.to_string()
+                    },
+                    FgetDbl::TwoToOne => {
+                        let s = s.replace(DBLDBL, DBL);
+                        // ここからはFgetDbl::Removeと同じ処理
+                        remove_side_quot(&s)
+                    },
+                }
+            });
+        Ok(item)
     }
     pub fn write(&mut self, value: &str, fput_type: FPutType) -> FopenResult<()> {
-        match &mut self.lines {
-            Some(lines) => {
+        match &mut self.buf {
+            Some(buf) => {
                 match fput_type {
-                    FPutType::Row(row) => {
-                        let row = row as usize;
-                        if row > lines.len() {
-                            lines.resize(row, String::new());
-                        }
-                        let index = row - 1;
-                        lines[index] = value.to_string();
+                    FPutType::Row(row_index) => {
+                        buf.replace_line(row_index, |s| {
+                            *s = value.into();
+                        });
                     },
                     FPutType::AllText => {},
-                    FPutType::Insert(row) => {
-                        let row = row as usize;
-                        if row > lines.len() {
-                            lines.resize(row, String::new());
-                        }
-                        let index = row - 1;
-                        lines.insert(index, value.to_string());
+                    FPutType::Insert(row_index) => {
+                        buf.insert_line(row_index, value);
                     },
-                    FPutType::Csv(row, col) => Self::csv_write(lines, value, Some(row), col, self.csv_delimiter)?,
+                    FPutType::Csv(row_index, col_index) => {
+                        buf.replace_line(row_index, |line: &mut String| {
+                            let csv = Self::csv_write(line, value, col_index, self.csv_delimiter);
+                            *line = csv;
+                        })
+                    },
                     FPutType::Append(col) => match col {
-                        Some(col) => Self::csv_write(lines, value, None, col, self.csv_delimiter)?,
-                        None => lines.push(value.to_string()),
+                        Some(col_index) => {
+                            let line = Self::csv_write("", value, col_index, self.csv_delimiter);
+                            buf.append_line(&line);
+                        },
+                        None => {
+                            buf.append_line(value);
+                        },
                     },
                 }
             },
             None => {
-                let mut lines = vec![];
-                match fput_type {
-                    FPutType::Row(row) |
-                    FPutType::Insert(row) => {
-                        lines.resize((row - 1) as usize, String::new());
-                        lines.push(value.to_string());
+                let buf = match fput_type {
+                    FPutType::Row(row_index) |
+                    FPutType::Insert(row_index) => {
+                        let mut buf = FopenBuf::default();
+                        buf.insert_line(row_index, value);
+                        buf
                     },
                     FPutType::AllText => {
-                        lines = value.lines().map(|line| line.to_string()).collect::<Vec<_>>();
+                        FopenBuf::new(value.into())
                     },
-                    FPutType::Csv(row, col) => Self::csv_write(&mut lines, value, Some(row), col, self.csv_delimiter)?,
-                    FPutType::Append(col) => match col {
-                        Some(col) => Self::csv_write(&mut lines, value, None, col, self.csv_delimiter)?,
-                        None => lines.push(value.to_string()),
+                    FPutType::Csv(row_index, col_index) => {
+                        let mut buf = FopenBuf::default();
+                        buf.replace_line(row_index, |line| {
+                            let csv = Self::csv_write(line, value, col_index, self.csv_delimiter);
+                            *line = csv;
+                        });
+                        buf
                     },
-                }
-                self.lines = Some(lines);
+                    FPutType::Append(col) => {
+                        let mut buf = FopenBuf::default();
+                        match col {
+                            Some(col_index) => {
+                                let line = Self::csv_write("", value, col_index, self.csv_delimiter);
+                                buf.append_line(&line);
+                            },
+                            None => {
+                                buf.append_line(value);
+                            },
+                        }
+                        buf
+                    },
+                };
+                self.buf = Some(buf);
             },
         };
         Ok(())
     }
-    fn csv_write(lines: &mut Vec<String>, value: &str, row: Option<i32>, col: i32, delimiter: u8) -> FopenResult<()> {
-        let mut writer = csv::WriterBuilder::new()
-            .delimiter(delimiter)
-            .from_writer(vec![]);
-
-        if let Some(row) = row {
-            let row = row as usize;
-            let index = row - 1;
-            if row > lines.len() {
-                lines.resize(row, String::new());
-            }
-            let maybe_record = if let Some(text) = lines.get(index) {
-                let mut reader = csv::ReaderBuilder::new()
-                    .has_headers(false)
-                    .delimiter(delimiter)
-                    .flexible(true)
-                    .from_reader(text.as_bytes());
-                match reader.records().next() {
-                    Some(record) => Some(record?),
-                    None => None,
-                }
-            } else {
-                None
-            };
-            let mut c = 0;
-            match maybe_record {
-                Some(record) => for v in record.iter() {
-                    c += 1;
-                    if c == col {
-                        writer.write_field(value)?;
-                    } else {
-                        writer.write_field(v)?;
-                    }
-                },
-                None => {
-                    for _ in 1..col {
-                        writer.write_field("")?;
-                    }
-                    writer.write_field(value)?;
-                },
-            }
-            writer.write_record(None::<&[u8]>)?;
-            writer.flush()?;
-            let csv = String::from_utf8(writer.into_inner()?)?;
-            lines[index] = csv.trim_end_matches("\n").to_string();
-        } else {
-            for _ in 1..col {
-                writer.write_field("")?;
-            }
-            writer.write_field(value)?;
-            writer.write_record(None::<&[u8]>)?;
-            writer.flush()?;
-            let csv = String::from_utf8(writer.into_inner()?)?;
-            lines.push(csv.trim_end_matches("\n").to_string());
-        }
-        Ok(())
+    fn csv_write(line: &str, value: &str, col_index: usize, delimiter: char) -> String {
+        let mut csv = UCsv::parse(line, delimiter);
+        let column = csv.get_mut(col_index);
+        *column = value.into();
+        csv.to_string()
     }
     pub fn remove(&mut self, row: usize) {
-        if let Some(lines) = &mut self.lines {
-            let index = row - 1;
-            if row <= lines.len() {
-                lines.remove(index);
-            }
+        if let Some(buf) = &mut self.buf {
+            let row_index = row.saturating_sub(1);
+            buf.remove_line(row_index);
         }
     }
 
     /* ini */
     pub fn get_sections(&self) -> Vec<String> {
-        match &self.lines {
-            Some(lines) => {
-                let ini = Ini::parse(lines);
+        match &self.buf {
+            Some(buf) => {
+                let ini = Ini::parse(buf);
                 ini.get_sections()
             },
             None => vec![],
@@ -631,9 +624,9 @@ impl Fopen {
         Ok(sections)
     }
     pub fn get_keys(&self, section: &str) -> Vec<String> {
-        match &self.lines {
-            Some(lines) => {
-                let ini = Ini::parse(lines);
+        match &self.buf {
+            Some(buf) => {
+                let ini = Ini::parse(buf);
                 ini.get_keys(section)
             },
             None => vec![],
@@ -654,9 +647,9 @@ impl Fopen {
         Ok(keys)
     }
     pub fn ini_read(&self, section: &str, key: &str) -> Option<String> {
-        match &self.lines {
-            Some(lines) => {
-                let ini = Ini::parse(lines);
+        match &self.buf {
+            Some(buf) => {
+                let ini = Ini::parse(buf);
                 ini.get(section, key)
             },
             None => None,
@@ -677,12 +670,12 @@ impl Fopen {
         Ok(value)
     }
     pub fn ini_write(&mut self, section: &str, key: &str, value: &str) {
-        let mut ini = match &self.lines {
-            Some(lines) => Ini::parse(lines),
+        let mut ini = match &self.buf {
+            Some(buf) => Ini::parse(buf),
             None => Ini::new(),
         };
         if ini.set(section, key, value) {
-            self.lines = Some(ini.to_lines());
+            self.buf.replace(FopenBuf::new(ini.to_string()));
         }
     }
     pub fn ini_write_from_path(path: &str, section: &str, key: &str, value: &str) -> FopenResult<()> {
@@ -694,15 +687,15 @@ impl Fopen {
         Ok(())
     }
     pub fn ini_delete(&mut self, section: &str, key: Option<&str>) {
-        let mut ini = match &self.lines {
-            Some(lines) => Ini::parse(lines),
+        let mut ini = match &self.buf {
+            Some(buf) => Ini::parse(buf),
             None => Ini::new(),
         };
         if match key {
             Some(key) => ini.remove(section, key),
             None => ini.remove_section(section),
         } {
-            self.lines = Some(ini.to_lines());
+            self.buf.replace(FopenBuf::new(ini.to_string()));
         }
     }
     pub fn ini_delete_from_path(path: &str, section: &str, key: Option<&str>) -> FopenResult<()> {
@@ -802,20 +795,205 @@ impl Fopen {
             let mut result = vec![];
             let mut lpfindfiledata = WIN32_FIND_DATAW::default();
             let lpfilename = path.as_ref().to_str()
-                .map(|p| HSTRING::from(p))
+                .map(HSTRING::from)
                 .ok_or(FopenError::InvalidPath)?;
 
             let hfindfile = FindFirstFileW(&lpfilename, &mut lpfindfiledata)?;
             if ! hfindfile.is_invalid() {
-                result.push(lpfindfiledata.clone());
+                result.push(lpfindfiledata);
                 lpfindfiledata = WIN32_FIND_DATAW::default();
                 while FindNextFileW(hfindfile, &mut lpfindfiledata).is_ok() {
-                    result.push(lpfindfiledata.clone());
+                    result.push(lpfindfiledata);
                     lpfindfiledata = WIN32_FIND_DATAW::default();
                 }
                 let _ = FindClose(hfindfile);
             }
             Ok(result)
+        }
+    }
+}
+
+
+#[derive(Debug, Clone, PartialEq, Default)]
+struct FopenBuf {
+    buf: String,
+}
+impl FopenBuf {
+    const LF: char = '\n';
+    const CR: &str = "\r";
+    const CRLF: &str = "\r\n";
+    pub fn new(s: String) -> Self {
+        Self { buf: s }
+    }
+    /// 指定行を取得
+    pub fn get_line(&self, row_index: usize) -> Option<&str> {
+        let (from, to) = self.get_range(row_index)?;
+        match to {
+            Some(to) => Some(&self.buf[from..to]),
+            None => Some(&self.buf[from..]),
+        }
+    }
+    /// 該当行の開始位置と終了位置を得る
+    fn get_range(&self, row_index: usize) -> Option<(usize, Option<usize>)> {
+        let mut lfs = self.buf.match_indices(Self::LF).enumerate()
+            .filter_map(|(nth, (index, _))| {
+                let accept = row_index.eq(&nth) || row_index.saturating_sub(1).eq(&nth);
+                accept.then_some(index)
+            });
+        match (lfs.next(), lfs.next()) {
+            (None, None) => {
+                if self.buf.contains(Self::LF) {
+                    None
+                } else {
+                    row_index.eq(&0).then_some((0, None))
+                }
+            },
+            (None, Some(_)) => None,
+            (Some(index), None) => {
+                if row_index > 0 {
+                    let from = index + 1;
+                    Some((from, None))
+                } else {
+                    let to = self.fix_to(index);
+                    Some((0, Some(to)))
+                }
+            },
+            (Some(from), Some(to)) => {
+                let to = self.fix_to(to);
+                let from = from + 1;
+                Some((from, Some(to)))
+            },
+        }
+    }
+    /// `\n` の前に `\r` があった場合は終了位置を修正する
+    fn fix_to(&self, to: usize) -> usize {
+        let maybe_cr = to.saturating_sub(1);
+        match self.buf.get(maybe_cr..to) {
+            Some(Self::CR) => maybe_cr,
+            _ => to,
+        }
+    }
+    /// 行を置き換える
+    pub fn replace_line<F>(&mut self, row_index: usize, replacer: F)
+    where F: Fn(&mut String)
+    {
+        let range = self.get_range(row_index);
+        match range {
+            Some((from, to)) => {
+                let mut row = match to {
+                    Some(to) => self.buf.drain(from..to).collect(),
+                    None => self.buf.drain(from..).collect(),
+                };
+                replacer(&mut row);
+                self.buf.insert_str(from, &row);
+            },
+            None => {
+                self.add_new_row(row_index);
+                let mut row = String::new();
+                replacer(&mut row);
+                self.buf += &row;
+            },
+        }
+    }
+    /// 行を挿入
+    pub fn insert_line(&mut self, row_index: usize, line: &str) {
+        match self.get_range(row_index) {
+            Some((from, _)) => {
+                self.buf.insert_str(from, line);
+                self.buf.insert_str(from + line.len(), Self::CRLF);
+            },
+            None => {
+                self.add_new_row(row_index);
+                self.buf += line;
+            },
+        }
+    }
+    fn add_new_row(&mut self, row_index: usize) {
+        let rows = self.buf.matches(Self::LF).count() + 1;
+        let crlfs = Self::CRLF.repeat(row_index - rows + 1);
+        self.buf.push_str(&crlfs);
+    }
+    /// 行数を得る
+    pub fn get_linecount(&self) -> usize {
+        self.buf.matches(Self::LF).count() + 1
+    }
+    /// 追記
+    fn append_line(&mut self, line: &str) {
+        if self.get_linecount() - 1 > 0 {
+            self.buf.push_str(Self::CRLF);
+        }
+        self.buf.push_str(line);
+    }
+    /// 削除
+    fn remove_line(&mut self, row_index: usize) {
+        if let Some((from, to)) = self.get_range(row_index) {
+            match to {
+                Some(to) => {
+                    if row_index > 1 {
+                        // 2行目以降は直前の改行から取り除く
+                        if self.buf.get(from.saturating_sub(2)..from).is_some_and(|s| Self::CRLF.eq(s)) {
+                            // 直前のcrlfからを取り除く
+                            let _ = self.buf.drain(from-2..to);
+                        } else {
+                            // 直前のlfから取り除く
+                            let _ = self.buf.drain(from-1..to);
+                        }
+                    } else {
+                        // 1行目は直後の改行まで取り除く
+                        if self.buf.get(to..to+2).is_some_and(|s| Self::CRLF.eq(s)) {
+                            // 改行がCRLF
+                            let _ = self.buf.drain(from..to+2);
+                        } else {
+                            // 改行がLF
+                            let _ = self.buf.drain(from..to+1);
+                        }
+                    }
+                },
+                None => {
+                    if row_index > 1 {
+                        // 2行目以降かつ文末まで
+                        if self.buf.get(from.saturating_sub(2)..from).is_some_and(|s| Self::CRLF.eq(s)) {
+                            // 直前のcrlfからを取り除く
+                            let _ = self.buf.drain(from-2..);
+                        } else {
+                            // 直前のlfから取り除く
+                            let _ = self.buf.drain(from-1..);
+                        }
+                    } else {
+                        // 1行目かつ文末まで
+                        self.buf.clear();
+                    }
+                },
+            }
+        }
+    }
+    pub fn to_vec(&self) -> Vec<String> {
+        self.buf.lines().map(|s| s.into()).collect()
+    }
+}
+
+impl std::fmt::Display for FopenBuf {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.buf)
+    }
+}
+impl From<&FopenBuf> for Vec<String> {
+    fn from(buf: &FopenBuf) -> Self {
+        buf.to_vec()
+    }
+}
+
+enum FgetDbl {
+    Remove,
+    AsIs,
+    TwoToOne,
+}
+impl From<i32> for FgetDbl {
+    fn from(value: i32) -> Self {
+        match value {
+            0 => Self::Remove,
+            2 => Self::TwoToOne,
+            _ => Self::AsIs
         }
     }
 }
@@ -848,37 +1026,43 @@ impl Default for FileOrderBy {
 }
 
 pub enum FGetType {
-    Row(i32),
+    Row(usize),
     LineCount,
     AllText,
 }
 impl From<i32> for FGetType {
     fn from(n: i32) -> Self {
         match n {
-            1.. => Self::Row(n),
+            1.. => Self::Row(n as usize - 1),
             0 | -1 => Self::LineCount,
             _ => Self::AllText,
         }
     }
 }
 pub enum FPutType {
-    Row(i32),
+    Row(usize),
     AllText,
-    Insert(i32),
-    Csv(i32, i32),
-    Append(Option<i32>),
+    Insert(usize),
+    Csv(usize, usize),
+    Append(Option<usize>),
 }
 impl From<(i32, i32)> for FPutType {
     fn from((row, col): (i32, i32)) -> Self {
         match row {
             -2 => Self::AllText, // F_ALLTEXT
-            1.. => match col {
-                -1 => Self::Insert(row), // F_INSERT
-                1.. => Self::Csv(row, col),
-                _ => Self::Row(row), // 列0
+            1.. => {
+                let row_index = row as usize - 1;
+                match col {
+                    -1 => Self::Insert(row_index), // F_INSERT
+                    1.. => {
+                        let col_index = col as usize - 1;
+                        Self::Csv(row_index, col_index)
+                    },
+                    _ => Self::Row(row_index), // 列0
+                }
             },
             _ => if col > 0 {
-                Self::Append(Some(col)) // 行0 + 列指定
+                Self::Append(Some(col as usize - 1)) // 行0 + 列指定
             } else {
                 Self::Append(None) // 行0 + 列0
             }
@@ -906,6 +1090,98 @@ impl std::fmt::Display for Fopen {
         )
     }
 }
+
+struct UCsv {
+    items: Vec<String>,
+    delimiter: char,
+}
+impl UCsv {
+    fn _new(delimiter: char) -> Self {
+        Self { items: Vec::new(), delimiter}
+    }
+    fn parse(row: &str, delimiter: char) -> Self {
+        let mut items = Vec::new();
+        let mut chars = row.chars().enumerate().multipeek();
+        while let Some((index, char)) = chars.peek() {
+            match char {
+                // 区切り文字
+                ch if delimiter.eq(ch) => {
+                    let index = *index;
+                    let item = Self::take(&mut chars, Some(index));
+                    items.push(item);
+                },
+                '"' => {
+                    let item = Self::parse_quoted_item(&mut chars, delimiter);
+                    items.push(item);
+                },
+                _ => {},
+            }
+        }
+        let item = Self::take(&mut chars, None);
+        if !item.is_empty() {
+            items.push(item);
+        }
+        Self { items, delimiter }
+    }
+    fn parse_quoted_item(chars: &mut MultiPeekableCharIndices, delimiter: char) -> String {
+        chars.reset_peek();
+        let mut cnt = 0;
+        while let Some((index, char)) = chars.peek() {
+            match char {
+                '"' => {
+                    cnt += 1;
+                },
+                ch if delimiter.eq(ch) => if cnt % 2 == 0 {
+                    let index = *index;
+                    return Self::take(chars, Some(index));
+                },
+                _ => {},
+            }
+        }
+        Self::take(chars, None)
+    }
+    fn take(chars: &mut MultiPeekableCharIndices, index: Option<usize>) -> String {
+        let item = match index {
+            Some(index) => chars.peeking_take_while(|(i, _)| *i < index)
+                .map(|(_, ch)| ch)
+                .collect(),
+            None => chars.peeking_take_while(|_| true)
+                .map(|(_, ch)| ch)
+                .collect(),
+        };
+        // 区切り文字なので消費
+        chars.next();
+        item
+    }
+
+    fn resize(&mut self, new_len: usize) {
+        self.items.resize_with(new_len, Default::default);
+    }
+    fn get(&self, index: usize) -> Option<&String> {
+        self.items.get(index)
+    }
+    fn get_mut(&mut self, index: usize) -> &mut String {
+        if self.items.get(index).is_none() {
+            self.resize(index+1);
+        }
+        self.items.get_mut(index).unwrap()
+    }
+    // fn splice(&mut self, index: usize, item: String) {
+    //     if self.items.get(index).is_none() {
+    //         self.resize(index+1);
+    //     }
+    //     self.items.splice(index..=index, [item]);
+    // }
+}
+type MultiPeekableCharIndices<'a> = MultiPeek<Enumerate<Chars<'a>>>;
+impl std::fmt::Display for UCsv {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let sep = self.delimiter.to_string();
+        let row = self.items.join(&sep);
+        write!(f, "{row}")
+    }
+}
+
 
 #[derive(Debug)]
 struct Ini {
@@ -975,9 +1251,9 @@ impl Ini {
         Self {lines: vec![]}
     }
     // fn parse(text: &str) -> Self {
-    fn parse(lines: &Vec<String>) -> Self {
+    fn parse<V: Into<Vec<String>>>(lines: V) -> Self {
         let mut current_section = None::<String>;
-        // let lines = text.lines()
+        let lines: Vec<String> = lines.into();
         let lines = lines.iter()
                 .map(|s| {
                     let trim = s.trim();
@@ -1102,10 +1378,16 @@ impl Ini {
 
     fn to_lines(&self) -> Vec<String> {
         let lines = self.lines
-                .iter()
-                .map(|l| l.to_string())
-                .collect::<Vec<_>>();
+            .iter()
+            .map(|l| l.to_string())
+            .collect::<Vec<_>>();
         lines
+    }
+}
+impl std::fmt::Display for Ini {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = self.to_lines().join("\r\n");
+        write!(f, "{s}")
     }
 }
 
@@ -1135,12 +1417,10 @@ impl CsvRow {
         self.0.resize_with(new_len, Default::default);
     }
     fn get_mut(&mut self, index: usize) -> &mut String {
-        if self.0.get(index).is_some() {
-            self.0.get_mut(index).unwrap()
-        } else {
+        if self.0.get(index).is_none() {
             self.resize(index+1);
-            self.get_mut(index)
         }
+        self.0.get_mut(index).unwrap()
     }
     fn splice(&mut self, index: usize, vec: Vec<String>) {
         if self.0.get(index).is_none() {
