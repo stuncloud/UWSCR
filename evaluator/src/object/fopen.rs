@@ -484,35 +484,46 @@ impl Fopen {
         const DBLDBL: &str = "\"\"";
         const DBL: &str = "\"";
 
-        fn remove_side_quot(s: &str) -> String {
-            if s.contains(DBLDBL) {
-                // 連続するクォートが含まれていたらそのまま
-                s.to_string()
-            } else if s.starts_with(DBL) && s.ends_with(DBL) {
-                // 前後の単一クォートを消す
-                s.strip_prefix(DBL).unwrap()
-                    .strip_suffix(DBL).unwrap()
-                    .to_string()
-            } else {
-                // それ以外もそのまま返す
-                s.to_string()
-            }
-        }
-
         let item = csv.get(column as usize - 1)
             .map(|s| {
+                // 両サイドの半角スペースを消す
                 let s = s.trim_matches(' ');
                 match flg.into() {
                     FgetDbl::Remove => {
-                        remove_side_quot(s)
+                        let s = if s.contains(DBLDBL) {
+                            // 連続するクォートが含まれていたらそのまま
+                            s
+                        } else if s.starts_with(DBL) && s.ends_with(DBL) {
+                            // 前後の単一クォートを消す
+                            s.strip_prefix(DBL).unwrap()
+                                .strip_suffix(DBL).unwrap()
+                        } else {
+                            // それ以外もそのまま返す
+                            s
+                        };
+                        s.to_string()
                     },
                     FgetDbl::AsIs => {
                         s.to_string()
                     },
                     FgetDbl::TwoToOne => {
-                        let s = s.replace(DBLDBL, DBL);
-                        // ここからはFgetDbl::Removeと同じ処理
-                        remove_side_quot(&s)
+                        // ダブルクォートで開始するなら
+                        if s.starts_with(DBL){
+                            // 更にダブルクォートで終わるなら両端のダブルクォートを除去
+                            let s = if s.ends_with(DBL) {
+                                s.strip_prefix(DBL)
+                                    .unwrap()
+                                    .strip_suffix(DBL)
+                                    .unwrap()
+                            } else {
+                                s
+                            };
+                            // その後2連続ダブルクォートを1つに置換する
+                            s.replace(DBLDBL, DBL)
+                        } else {
+                            // そのまま帰す
+                            s.into()
+                        }
                     },
                 }
             });
@@ -1754,5 +1765,39 @@ impl From<Vec<Option<&String>>> for CsvValue {
             .map(|col| col.map(|s| s.to_string()).unwrap_or_default())
             .collect();
         CsvValue::Row(cols)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::object::{Fopen, FPutType, FGetType};
+    use rstest::rstest;
+
+    #[rstest]
+    #[case::q_1_1_to_0_0(r#","abc","#, "abc")]
+    #[case::q_2_2_to_1_1(r#",""abc"","#, r#""abc""#)]
+    #[case::q_3_3_to_1_1(r#","""abc""","#, r#""abc""#)]
+    #[case::q_4_4_to_2_2(r#",""""abc"""","#, r#"""abc"""#)]
+    #[case::q_5_5_to_2_2(r#","""""abc""""","#, r#"""abc"""#)]
+    #[case::q_7_7_to_3_3(r#","""""""abc""""""","#, r#""""abc""""#)]
+    #[case::q_1_0_to_1_0(r#","abc,"#, r#""abc,"#)]
+    #[case::q_2_0_to_1_0(r#",""abc,"#, r#""abc"#)]
+    #[case::q_3_0_to_2_0(r#","""abc,"#, r#"""abc,"#)]
+    #[case::q_4_0_to_2_0(r#",""""abc,"#, r#"""abc"#)]
+    #[case::q_5_0_to_3_0(r#","""""abc,"#, r#""""abc,"#)]
+    #[case::q_0_1_to_0_1(r#",abc","#, r#"abc","#)]
+    #[case::q_0_2_to_0_2(r#",abc"","#, r#"abc"""#)]
+    #[case::q_0_3_to_0_3(r#",abc""","#, r#"abc""","#)]
+    #[case::q_0_4_to_0_4(r#",abc"""","#, r#"abc"""""#)]
+    #[case::q_0_5_to_0_5(r#",abc""""","#, r#"abc""""","#)]
+    #[test]
+    fn csv_flg_2_test(#[case] input: &str, #[case] expect: &str) {
+        let mut fopen = Fopen::new("", 6); // F_READ or F_WRITE
+        fopen.write(input, FPutType::Append(None)).expect("fopen::write has failed");
+
+        let value = fopen.read(FGetType::Row(0), 2, 2)
+            .expect("fopen::read has failed")
+            .to_string();
+        assert_eq!(expect, value);
     }
 }
