@@ -200,6 +200,7 @@ pub enum UErrorKind {
     ExcelError,
     SafeArrayError,
     FormError,
+    CaptureError,
 }
 
 impl fmt::Display for UErrorKind {
@@ -417,6 +418,10 @@ impl fmt::Display for UErrorKind {
                 "Formエラー",
                 "Form error",
             ),
+            Self::CaptureError => write_locale!(f,
+                "画面キャプチャエラー",
+                "Screen Capturing Error",
+            ),
         }
     }
 }
@@ -608,6 +613,7 @@ pub enum UErrorMessage {
     DetectedDialogOpening,
     ArrayArgSizeOverflow(usize),
     ShouldBeAsciiCharacter(String),
+    ExplorerMayBeSuspended,
 }
 
 impl fmt::Display for UErrorMessage {
@@ -1365,6 +1371,10 @@ impl fmt::Display for UErrorMessage {
             Self::ShouldBeAsciiCharacter(s) => write_locale!(f,
                 "有効な引数はASCII文字一文字です ({s})",
                 "Valid argument is single ascii character ({s})",
+            ),
+            Self::ExplorerMayBeSuspended => write_locale!(f,
+                "Explorerが停止しているかもしれません、その場合Explorerを再起動してください",
+                "Explorer might have been suspended, restart Explorer if so",
             ),
         }
     }

@@ -3,7 +3,8 @@ use windows::{
     Win32::{
         Foundation:: {
             MAX_PATH, HWND, WPARAM, LPARAM, BOOL,
-            GetLastError
+            GetLastError,
+            E_INVALIDARG,
         },
         System::{
             SystemInformation::{
@@ -345,6 +346,9 @@ impl Win32Error {
             error,
             hint: Some(hint.to_string())
         }
+    }
+    pub fn is_invalid_arg_error(&self) -> bool {
+        self.error.code() == E_INVALIDARG
     }
 }
 impl std::fmt::Display for Win32Error {

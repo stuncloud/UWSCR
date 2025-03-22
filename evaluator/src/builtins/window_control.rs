@@ -2557,13 +2557,13 @@ pub fn chkclr(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncRe
     let ss = match mi.hwnd {
         Some(hwnd) => {
             let client = mi.is_client();
-            ScreenShot::get_window_wgcapi(hwnd, left, top, right, bottom, client)?
+            ScreenShot::get_window_wgcapi(hwnd, left, top, right, bottom, client)
         },
         None => {
             let monitor = args.get_as_int(3, Some(0))?;
-            ScreenShot::get_screen_wgcapi(monitor, left, top, right, bottom)?
+            ScreenShot::get_screen_wgcapi(monitor, left, top, right, bottom)
         },
-    };
+    }?;
 
     if ss.is_empty() {
         Ok(Object::Array(Vec::new()))

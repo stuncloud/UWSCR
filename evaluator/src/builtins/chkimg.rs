@@ -9,13 +9,14 @@ use std::io::Read;
 use crate::error::{UError, UErrorKind, UErrorMessage};
 use super::window_control::{ImgConst, Monitor};
 use util::clipboard::Clipboard;
+use util::winapi::WindowsResultExt;
 
 use opencv::prelude::MatTraitConstManual;
 
 use windows::{
     core::{Result as Win32Result, Error as Win32Error, IInspectable, ComInterface},
     Win32::{
-        Foundation::{HWND, RECT, POINT, E_FAIL,},
+        Foundation::{HWND, RECT, POINT, E_FAIL},
         Graphics::{
             Gdi::{
                 SRCCOPY, CAPTUREBLT, DIB_RGB_COLORS,
@@ -51,7 +52,7 @@ use windows::{
             RoInitialize, RoUninitialize, RO_INIT_SINGLETHREADED,
             Graphics::Capture::IGraphicsCaptureItemInterop,
             Direct3D11::{CreateDirect3D11DeviceFromDXGIDevice, IDirect3DDxgiInterfaceAccess},
-        }
+        },
     },
     Graphics::{
         Capture::{GraphicsCaptureItem, Direct3D11CaptureFramePool},
@@ -658,33 +659,53 @@ impl ScreenShot {
 
     fn capture(item: CaptureItem) -> Result<Mat, UError> {
         WINRT_INIT.with(|once| {
-            match once.get_or_init(|| WinRTInit::new()) {
+            match once.get_or_init(WinRTInit::new) {
                 Ok(_) => Ok(()),
                 Err(e) => Err(e.clone()),
             }
         })?;
         unsafe {
-            let interop = windows::core::factory::<GraphicsCaptureItem, IGraphicsCaptureItemInterop>()?;
+            let interop = windows::core::factory::<GraphicsCaptureItem, IGraphicsCaptureItemInterop>()
+                .err_hint("core::factory")?;
             let item: GraphicsCaptureItem = match item {
                 CaptureItem::Window(hwnd) => {
-                    interop.CreateForWindow(hwnd)?
+                    interop.CreateForWindow(hwnd).err_hint("CreateForWindow")?
                 },
                 CaptureItem::Monitor(hmonitor) => {
-                    interop.CreateForMonitor(hmonitor)?
+                    interop.CreateForMonitor(hmonitor).err_hint("CreateForMonitor")?
                 },
             };
 
-            let d3d_device = Self::create_d3d_device()?;
-            let context = d3d_device.GetImmediateContext()?;
+            let d3d_device = Self::create_d3d_device().err_hint("create_d3d_device")?;
+            let context = d3d_device.GetImmediateContext().err_hint("GetImmediateContext")?;
 
             let texture = {
-                let size = item.Size()?;
+                let size = item.Size().err_hint("GraphicsCaptureItem::Size")?;
+
+                let zero_sized = size.Height == 0 || size.Width == 0;
 
                 let dxgidevice: IDXGIDevice = d3d_device.cast()?;
-                let device: IDirect3DDevice = CreateDirect3D11DeviceFromDXGIDevice(&dxgidevice)?.cast()?;
+                let device: IDirect3DDevice = CreateDirect3D11DeviceFromDXGIDevice(&dxgidevice)
+                    .err_hint("CreateDirect3D11DeviceFromDXGIDevice")?
+                    .cast()
+                    .err_hint("cast<IDirect3DDevice>")?;
 
-                let frame_pool = Direct3D11CaptureFramePool::CreateFreeThreaded(&device, DirectXPixelFormat::B8G8R8A8UIntNormalized, 1, size)?;
-                let session = frame_pool.CreateCaptureSession(&item)?;
+                let frame_pool = Direct3D11CaptureFramePool::CreateFreeThreaded(&device, DirectXPixelFormat::B8G8R8A8UIntNormalized, 1, size)
+                    .err_hint("Direct3D11CaptureFramePool::CreateFreeThreaded")
+                    .map_err(|e| {
+                        if e.is_invalid_arg_error() && zero_sized {
+                            // E_INVALIDARGかつサイズ0の場合は注意喚起エラー
+                            UError::new(UErrorKind::CaptureError, UErrorMessage::ExplorerMayBeSuspended)
+                        } else {
+                            e.into()
+                        }
+                    })?;
+                let session = frame_pool.CreateCaptureSession(&item)
+                    .err_hint("CreateCaptureSession")?;
+
+                // キャプチャ時に枠を消す
+                // 失敗するのだけれどダメ元でやる
+                let _ = session.SetIsBorderRequired(false);
 
                 let (s, r) = channel();
                 let handler = TypedEventHandler::<Direct3D11CaptureFramePool, IInspectable>::new({
@@ -695,12 +716,15 @@ impl ScreenShot {
                         Ok(())
                     }
                 });
-                frame_pool.FrameArrived(&handler)?;
-                session.StartCapture()?;
+                let token = frame_pool.FrameArrived(&handler).err_hint("FrameArrived")?;
+                session.StartCapture().err_hint("StartCapture")?;
 
-                let frame = r.recv().map_err(|_| Win32Error::from(E_FAIL))?;
-                let access: IDirect3DDxgiInterfaceAccess = frame.Surface()?.cast()?;
-                let source: ID3D11Texture2D = access.GetInterface()?;
+                let frame = r.recv().map_err(|_| Win32Error::from(E_FAIL)).err_hint("recv(Direct3D11CaptureFrame)")?;
+                let access: IDirect3DDxgiInterfaceAccess = frame.Surface()
+                    .err_hint("Surface")?
+                    .cast()
+                    .err_hint("cast<IDirect3DDxgiInterfaceAccess>")?;
+                let source: ID3D11Texture2D = access.GetInterface().err_hint("GetInterface<ID3D11Texture2D>")?;
 
                 let mut desc = D3D11_TEXTURE2D_DESC::default();
                 source.GetDesc(&mut desc);
@@ -710,13 +734,19 @@ impl ScreenShot {
                 desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ.0 as u32;
 
                 let mut texture = None;
-                d3d_device.CreateTexture2D(&desc, None, Some(&mut texture))?;
+                d3d_device.CreateTexture2D(&desc, None, Some(&mut texture))
+                    .err_hint("CreateTexture2D")?;
                 let texture = texture.unwrap();
 
-                context.CopyResource(Some(&texture.cast()?), Some(&source.cast()?));
+                context.CopyResource(
+                    Some(&texture.cast().err_hint("texture.cast")?),
+                    Some(&source.cast().err_hint("source.cast")?)
+                );
 
-                session.Close()?;
-                frame_pool.Close()?;
+                // 後始末
+                frame_pool.RemoveFrameArrived(token).err_hint("RemoveFrameArrived")?;
+                frame_pool.Close().err_hint("Direct3D11CaptureFramePool::Close")?;
+                session.Close().err_hint("GraphicsCaptureSession::Close")?;
 
                 texture
             };
@@ -724,10 +754,11 @@ impl ScreenShot {
             let mut desc = D3D11_TEXTURE2D_DESC::default();
             texture.GetDesc(&mut desc);
 
-            let resource: ID3D11Resource = texture.cast()?;
+            let resource: ID3D11Resource = texture.cast().err_hint("cast<ID3D11Resource>")?;
             let mut mapped = D3D11_MAPPED_SUBRESOURCE::default();
 
-            context.Map(Some(&resource), 0, D3D11_MAP_READ, 0, Some(&mut mapped))?;
+            context.Map(Some(&resource), 0, D3D11_MAP_READ, 0, Some(&mut mapped))
+                .err_hint("ID3D11DeviceContext::Map")?;
 
             let slice = std::slice::from_raw_parts(mapped.pData as *const u8, (desc.Height * mapped.RowPitch) as usize);
 
