@@ -7,7 +7,7 @@
 <link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="スクリプト制御" href="scriptcontrol.html" /><link rel="prev" title="文字列操作関数" href="text.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>ウィンドウ操作関数 - UWSCR 1.0.5</title>
+        <title>ウィンドウ操作関数 - UWSCR 1.0.6</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 1.0.5</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 1.0.6</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 1.0.5</span>
+  <span class="sidebar-brand-text">UWSCR 1.0.6</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -1092,7 +1092,7 @@
 <span class="sig-name descname"><span class="pre">MORG_DIRECT</span></span></dt>
 <dd><div class="line-block">
 <div class="line">対象ウィンドウのクライアント領域左上を基準とする</div>
-<div class="line">また <a class="reference internal" href="#mmv" title="mmv"><code class="xref any py py-func docutils literal notranslate"><span class="pre">mmv</span></code></a>, <a class="reference internal" href="#btn" title="btn"><code class="xref any py py-func docutils literal notranslate"><span class="pre">btn</span></code></a> 及び <a class="reference internal" href="#kbd" title="kbd"><code class="xref any py py-func docutils literal notranslate"><span class="pre">kbd</span></code></a> 関数のマウス・キー操作をウィンドウに直接送信(PostMessage)する</div>
+<div class="line">また <a class="reference internal" href="#mmv" title="mmv"><code class="xref any py py-func docutils literal notranslate"><span class="pre">mmv</span></code></a>, <a class="reference internal" href="#btn" title="btn"><code class="xref any py py-func docutils literal notranslate"><span class="pre">btn</span></code></a> 及び <a class="reference internal" href="#kbd" title="kbd"><code class="xref any py py-func docutils literal notranslate"><span class="pre">kbd</span></code></a> 関数のマウス・キー操作をウィンドウに直接送信(<code class="docutils literal notranslate"><span class="pre">SendMessage</span></code>)する</div>
 <div class="line">送信するメッセージは以下 (対象ウィンドウがこれらのメッセージを処理しない場合操作は無効となる)</div>
 </div>
 <div class="table-wrapper docutils container">
@@ -2464,6 +2464,19 @@
 <span class="k">next</span>
 </pre></div>
 </div>
+</div>
+<div class="caution admonition">
+<p class="admonition-title">「Explorerが停止しているかもしれません、その場合Explorerを再起動してください」エラーについて</p>
+<div class="line-block">
+<div class="line">Explorerが停止状態のため画面のキャプチャに失敗している可能性があります</div>
+<div class="line">このエラーが出力された場合はタスクマネージャでExplorerの状態を確認してください</div>
+<div class="line">もし停止していたら再起動してください</div>
+</div>
+<ol class="arabic simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">Ctrl</span></code> + <code class="docutils literal notranslate"><span class="pre">Shift</span></code> + <code class="docutils literal notranslate"><span class="pre">Esc</span></code> キーを同時に押し、タスクマネージャを起動します</p></li>
+<li><p><strong>エクスプローラー</strong> を右クリックします</p></li>
+<li><p>メニューの <code class="docutils literal notranslate"><span class="pre">再起動</span></code> を押します</p></li>
+</ol>
 </div>
 </dd></dl>
 

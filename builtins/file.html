@@ -7,7 +7,7 @@
 <link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="GUI" href="gui.html" /><link rel="prev" title="システム関数" href="system.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>ファイル操作関数 - UWSCR 1.0.5</title>
+        <title>ファイル操作関数 - UWSCR 1.0.6</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 1.0.5</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 1.0.6</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 1.0.5</span>
+  <span class="sidebar-brand-text">UWSCR 1.0.6</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -432,21 +432,29 @@
 
 </p></li>
 <li><p><strong>列</strong> (<em>数値</em>) -- 読み取るcsv列の番号 (1から)、0の場合は行全体</p></li>
-<li><p><strong>ダブルクォート無視</strong> (<em>真偽値 省略可</em>) -- <p>列が1以上 (csv読み取り) の場合に有効</p>
+<li><p><strong>ダブルクォート無視</strong> (<em>真偽値または2 省略可</em>) -- <p>列が1以上 (csv読み取り) の場合に有効</p>
 <dl class="object">
 <dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">TRUE</span></span></dt>
+<span class="sig-name descname"><span class="pre">FALSE</span></span></dt>
 <dd><div class="line-block">
-<div class="line">ダブルクォートを無視する</div>
+<div class="line">両端のダブルクォートを削除する</div>
 </div>
 </dd></dl>
 
 <dl class="object">
 <dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">FALSE</span></span></dt>
+<span class="sig-name descname"><span class="pre">TRUE</span></span></dt>
 <dd><div class="line-block">
-<div class="line">ダブルクォートで括られていたら単語と判断する</div>
-<div class="line">ダブルクォートはダブルクォートでエスケープする (<code class="docutils literal notranslate"><span class="pre">&quot;&quot;</span></code>)</div>
+<div class="line">両端にダブルクォートがあってもなにもしない</div>
+</div>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">2</span></span></dt>
+<dd><div class="line-block">
+<div class="line">連続するダブルクォート (<code class="docutils literal notranslate"><span class="pre">&quot;&quot;</span></code>) を単一のダブルクォート (<code class="docutils literal notranslate"><span class="pre">&quot;</span></code>) にする</div>
+<div class="line">その後両端のダブルクォートを削除する (FALSEと同じ処理)</div>
 </div>
 </dd></dl>
 
@@ -650,6 +658,226 @@ foo   ,    bar   ,  baz
 <span class="c">// 自動ファイルクローズ</span>
 <span class="k">print</span><span class="w"> </span><span class="n">fput</span><span class="p">(</span><span class="n">fopen</span><span class="p">(</span><span class="n">path</span><span class="o">,</span><span class="w"> </span><span class="n">F_WRITE</span><span class="w"> </span><span class="n">or</span><span class="w"> </span><span class="n">F_AUTOCLOSE</span><span class="p">)</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;auto close&quot;</span><span class="p">)</span>
 <span class="c">// F_AUTOCLOSEによりfput実行後にファイルが自動でクローズされる</span>
+</pre></div>
+</div>
+</div>
+</dd></dl>
+
+</section>
+<section id="csv">
+<h2>CSVファイル<a class="headerlink" href="#csv" title="この見出しへのパーマリンク">#</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="csvopen">
+<span class="sig-name descname"><span class="pre">csvopen</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">CSVパス</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">ヘッダ有無=FALSE</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">TSVモード=FALSE</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#csvopen" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">CSVファイルを開く</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>CSVパス</strong> (<em>文字列</em>) -- CSVファイルのパス</p></li>
+<li><p><strong>ヘッダ有無</strong> (<em>真偽値 省略可</em>) -- 対象CSVファイルにヘッダ行があるかどうか</p></li>
+<li><p><strong>TSVモード</strong> (<em>真偽値または文字 省略可</em>) -- FALSEの場合はカンマ区切り、TRUEにするとタブ文字区切り、または任意のASCII文字</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>CSVオブジェクト</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>CSVファイルを示すオブジェクト、各種csv関数で利用される</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="csvclose">
+<span class="sig-name descname"><span class="pre">csvclose</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">csv</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#csvclose" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">編集したCSVをファイルに書き出す</div>
+<div class="line">バッファに変更があった場合のみ対象ファイルに書き込みを行う</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">csvopen</span></code> で指定したファイルが存在しない場合は新しいファイルが作成される</div>
+<div class="line">この関数呼び出し後のCSVオブジェクトに対して再度この関数を実行しても書き込みは行われない</div>
+</div>
+<div class="hint admonition">
+<p class="admonition-title">自動クローズ</p>
+<div class="line-block">
+<div class="line">CSVオブジェクトが破棄された場合は自動でこの関数と同等の処理が行われます</div>
+<div class="line">(<code class="docutils literal notranslate"><span class="pre">fopen</span></code> の <code class="docutils literal notranslate"><span class="pre">F_AUTOCLOSE</span></code> 指定時と同様です)</div>
+</div>
+</div>
+<div class="note admonition">
+<p class="admonition-title">クローズ後のCSVオブジェクトについて</p>
+<div class="line-block">
+<div class="line">バッファに対する読み書きはできますが、再度 <code class="docutils literal notranslate"><span class="pre">csvclose</span></code> で書き込みを行うことはできません</div>
+</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>csv</strong> (<em>CSVオブジェクト</em>) -- <code class="docutils literal notranslate"><span class="pre">csvopen</span></code> の戻り値</p>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>なし</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="csvread">
+<span class="sig-name descname"><span class="pre">csvread</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">csv</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">行</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">列</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#csvread" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">CSVバッファから値を読み出します</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>csv</strong> (<em>CSVオブジェクト</em>) -- <code class="docutils literal notranslate"><span class="pre">csvopen</span></code> の戻り値</p></li>
+<li><p><strong>行</strong> (<em>数値 省略可</em>) -- CSVの行番号</p></li>
+<li><p><strong>列</strong> (<em>数値または文字列 省略可</em>) -- CSVの列番号、またはヘッダのカラム名</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>文字列または配列</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p><p>行列の指定方法により得られる値が変わります</p>
+<div class="table-wrapper docutils container">
+<table class="docutils align-left">
+<thead>
+<tr class="row-odd"><th class="head"><p>行</p></th>
+<th class="head"><p>列</p></th>
+<th class="head"><p>値</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>省略</p></td>
+<td><p>省略</p></td>
+<td><p>CSV全体の文字列</p></td>
+</tr>
+<tr class="row-odd"><td><p>省略</p></td>
+<td><p>1以上</p></td>
+<td><p>該当列の配列</p></td>
+</tr>
+<tr class="row-even"><td><p>0</p></td>
+<td><p>省略</p></td>
+<td><p>ヘッダ行の配列</p></td>
+</tr>
+<tr class="row-odd"><td><p>1以上</p></td>
+<td><p>省略</p></td>
+<td><p>該当行の配列</p></td>
+</tr>
+<tr class="row-even"><td><p>1以上</p></td>
+<td><p>1以上</p></td>
+<td><p>該当行及び列の文字列</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</p>
+</dd>
+</dl>
+<div class="admonition- admonition">
+<p class="admonition-title">サンプルコード</p>
+<div class="literal-block-wrapper docutils container" id="id4">
+<div class="code-block-caption"><span class="caption-text">test.csv</span><a class="headerlink" href="#id4" title="このコードへのパーマリンク">#</a></div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">項目1</span><span class="p">,</span><span class="n">項目2</span><span class="p">,</span><span class="n">項目3</span>
+<span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span>
+<span class="mi">10</span><span class="p">,</span><span class="mi">20</span><span class="p">,</span><span class="mi">30</span>
+<span class="mi">100</span><span class="p">,</span><span class="mi">200</span><span class="p">,</span><span class="mi">300</span>
+</pre></div>
+</div>
+</div>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// ヘッダ行を有効にして開く</span>
+<span class="n">csv</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">csvopen</span><span class="p">(</span><span class="s">&quot;test.csv&quot;</span><span class="o">,</span><span class="w"> </span><span class="n">true</span><span class="p">)</span>
+
+<span class="c">// CSV全体を得る</span>
+<span class="k">print</span><span class="w"> </span><span class="n">csvread</span><span class="p">(</span><span class="n">csv</span><span class="p">)</span>
+<span class="c">// 項目1,項目2,項目3</span>
+<span class="c">// 1,2,3</span>
+<span class="c">// 10,20,30</span>
+<span class="c">// 100,200,300</span>
+
+<span class="c">// ヘッダ行の配列を得る</span>
+<span class="k">print</span><span class="w"> </span><span class="n">csvread</span><span class="p">(</span><span class="n">csv</span><span class="o">,</span><span class="w"> </span><span class="m">0</span><span class="p">)</span><span class="w">          </span><span class="c">// [項目1, 項目2, 項目3]</span>
+<span class="c">// 2行目の配列を得る</span>
+<span class="k">print</span><span class="w"> </span><span class="n">csvread</span><span class="p">(</span><span class="n">csv</span><span class="o">,</span><span class="w"> </span><span class="m">2</span><span class="p">)</span><span class="w">          </span><span class="c">// [10, 20, 30]</span>
+<span class="c">// 2行目1列目の文字列を得る</span>
+<span class="k">print</span><span class="w"> </span><span class="n">csvread</span><span class="p">(</span><span class="n">csv</span><span class="o">,</span><span class="w"> </span><span class="m">2</span><span class="o">,</span><span class="w"> </span><span class="m">1</span><span class="p">)</span><span class="w">       </span><span class="c">// 10</span>
+<span class="c">// 1列目の配列を得る</span>
+<span class="k">print</span><span class="w"> </span><span class="n">csvread</span><span class="p">(</span><span class="n">csv</span><span class="o">,</span><span class="w"> </span><span class="o">,</span><span class="w"> </span><span class="m">1</span><span class="p">)</span><span class="w">        </span><span class="c">// [1, 10, 100]</span>
+<span class="c">// 列をカラム名で指定</span>
+<span class="k">print</span><span class="w"> </span><span class="n">csvread</span><span class="p">(</span><span class="n">csv</span><span class="o">,</span><span class="w"> </span><span class="m">3</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;項目2&quot;</span><span class="p">)</span><span class="w"> </span><span class="c">// 200</span>
+<span class="k">print</span><span class="w"> </span><span class="n">csvread</span><span class="p">(</span><span class="n">csv</span><span class="o">,</span><span class="w"> </span><span class="o">,</span><span class="w"> </span><span class="s">&quot;項目3&quot;</span><span class="p">)</span><span class="w">  </span><span class="c">// [3, 30, 300]</span>
+</pre></div>
+</div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="csvwrite">
+<span class="sig-name descname"><span class="pre">csvwrite</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">csv</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">行</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">列</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">値</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#csvwrite" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">CSVバッファに書き込みを行う</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>csv</strong> (<em>CSVオブジェクト</em>) -- <code class="docutils literal notranslate"><span class="pre">csvopen</span></code> の戻り値</p></li>
+<li><p><strong>行</strong> (<em>数値</em>) -- CSVの行番号</p></li>
+<li><p><strong>列</strong> (<em>数値または文字列</em>) -- CSVの列番号、またはヘッダのカラム名</p></li>
+<li><p><strong>値</strong> (<em>文字列または配列</em>) -- 書き込む値</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>真偽値</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>書き込み時true</p>
+</dd>
+</dl>
+<div class="admonition- admonition">
+<p class="admonition-title">サンプルコード</p>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">new_csv</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;new.csv&quot;</span>
+<span class="n">deletefile</span><span class="p">(</span><span class="n">new_csv</span><span class="p">)</span>
+
+<span class="c">// ファイルを新規作成</span>
+<span class="n">csv</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">csvopen</span><span class="p">(</span><span class="n">new_csv</span><span class="o">,</span><span class="w"> </span><span class="n">true</span><span class="p">)</span>
+
+<span class="c">// 0行目指定でヘッダを書き込む</span>
+<span class="n">csvwrite</span><span class="p">(</span><span class="n">csv</span><span class="o">,</span><span class="w"> </span><span class="m">0</span><span class="o">,</span><span class="w"> </span><span class="m">1</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;項目1&quot;</span><span class="p">)</span>
+<span class="n">csvwrite</span><span class="p">(</span><span class="n">csv</span><span class="o">,</span><span class="w"> </span><span class="m">0</span><span class="o">,</span><span class="w"> </span><span class="m">2</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;項目2&quot;</span><span class="p">)</span>
+<span class="n">csvwrite</span><span class="p">(</span><span class="n">csv</span><span class="o">,</span><span class="w"> </span><span class="m">0</span><span class="o">,</span><span class="w"> </span><span class="m">3</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;項目3&quot;</span><span class="p">)</span>
+<span class="c">// 指定位置に書き込み</span>
+<span class="n">csvwrite</span><span class="p">(</span><span class="n">csv</span><span class="o">,</span><span class="w"> </span><span class="m">1</span><span class="o">,</span><span class="w"> </span><span class="m">1</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;1-1&quot;</span><span class="p">)</span>
+<span class="c">// 配列指定で複数列書き込み</span>
+<span class="n">csvwrite</span><span class="p">(</span><span class="n">csv</span><span class="o">,</span><span class="w"> </span><span class="m">2</span><span class="o">,</span><span class="w"> </span><span class="m">1</span><span class="o">,</span><span class="w"> </span><span class="p">[</span><span class="s">&quot;2-1&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;2-2&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;2-3&quot;</span><span class="p">])</span>
+<span class="c">// 3行目を飛ばして4行目に書き込み</span>
+<span class="n">csvwrite</span><span class="p">(</span><span class="n">csv</span><span class="o">,</span><span class="w"> </span><span class="m">4</span><span class="o">,</span><span class="w"> </span><span class="m">1</span><span class="o">,</span><span class="w"> </span><span class="p">[</span><span class="s">&quot;4-1&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;4-2&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;4-3&quot;</span><span class="p">])</span>
+<span class="c">// 2列目から書き込み</span>
+<span class="n">csvwrite</span><span class="p">(</span><span class="n">csv</span><span class="o">,</span><span class="w"> </span><span class="m">5</span><span class="o">,</span><span class="w"> </span><span class="m">2</span><span class="o">,</span><span class="w"> </span><span class="p">[</span><span class="s">&quot;5-2&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;5-3&quot;</span><span class="p">])</span>
+<span class="c">// 列の数は可変</span>
+<span class="n">csvwrite</span><span class="p">(</span><span class="n">csv</span><span class="o">,</span><span class="w"> </span><span class="m">6</span><span class="o">,</span><span class="w"> </span><span class="m">1</span><span class="o">,</span><span class="w"> </span><span class="p">[</span><span class="s">&quot;6-1&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;6-2&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;6-3&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;6-4&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;6-5&quot;</span><span class="p">])</span>
+
+<span class="c">// 全体読み出し</span>
+<span class="k">print</span><span class="w"> </span><span class="n">csvread</span><span class="p">(</span><span class="n">csv</span><span class="p">)</span>
+<span class="c">// 項目1,項目2,項目3</span>
+<span class="c">// 1-1</span>
+<span class="c">// 2-1,2-2,2-3</span>
+<span class="c">// &quot;&quot;</span>
+<span class="c">// 4-1,4-2,4-3</span>
+<span class="c">// ,5-2,5-3</span>
+<span class="c">// 6-1,6-2,6-3,6-4,6-5</span>
+
+<span class="n">csvclose</span><span class="p">(</span><span class="n">csv</span><span class="p">)</span><span class="w"> </span><span class="c">// 保存</span>
+
+<span class="c">// 書き出したファイルも確認</span>
+<span class="k">print</span><span class="w"> </span><span class="n">fget</span><span class="p">(</span><span class="n">fopen</span><span class="p">(</span><span class="n">new_csv</span><span class="o">,</span><span class="w"> </span><span class="n">F_READ</span><span class="w"> </span><span class="n">or</span><span class="w"> </span><span class="n">F_AUTOCLOSE</span><span class="p">)</span><span class="o">,</span><span class="w"> </span><span class="n">F_ALLTEXT</span><span class="p">)</span>
+<span class="c">// 項目1,項目2,項目3</span>
+<span class="c">// 1-1</span>
+<span class="c">// 2-1,2-2,2-3</span>
+<span class="c">// &quot;&quot;</span>
+<span class="c">// 4-1,4-2,4-3</span>
+<span class="c">// ,5-2,5-3</span>
+<span class="c">// 6-1,6-2,6-3,6-4,6-5</span>
 </pre></div>
 </div>
 </div>
@@ -1189,6 +1417,13 @@ foo   ,    bar   ,  baz
 <li><a class="reference internal" href="#fput"><code class="docutils literal notranslate"><span class="pre">fput()</span></code></a></li>
 <li><a class="reference internal" href="#fdelline"><code class="docutils literal notranslate"><span class="pre">fdelline()</span></code></a></li>
 <li><a class="reference internal" href="#fclose"><code class="docutils literal notranslate"><span class="pre">fclose()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#csv">CSVファイル</a><ul>
+<li><a class="reference internal" href="#csvopen"><code class="docutils literal notranslate"><span class="pre">csvopen()</span></code></a></li>
+<li><a class="reference internal" href="#csvclose"><code class="docutils literal notranslate"><span class="pre">csvclose()</span></code></a></li>
+<li><a class="reference internal" href="#csvread"><code class="docutils literal notranslate"><span class="pre">csvread()</span></code></a></li>
+<li><a class="reference internal" href="#csvwrite"><code class="docutils literal notranslate"><span class="pre">csvwrite()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#ini">iniファイル</a><ul>
