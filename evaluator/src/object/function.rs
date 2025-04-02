@@ -68,12 +68,23 @@ impl Function {
     pub fn invoke(&self, evaluator: &mut Evaluator, mut arguments: Vec<(Option<Expression>, Object)>, this: Option<This>) -> EvalResult<Object> {
         let param_len = self.params.len();
         let mut params = self.params.clone();
-        if param_len > arguments.len() {
-            // デフォルト引数が渡された場合
-            arguments.resize(params.len(), (None, Object::EmptyParam));
-        } else if param_len < arguments.len() {
-            // 可変長引数が渡された場合
-            params.resize(arguments.len(), FuncParam::new_dummy());
+        // if param_len > arguments.len() {
+        //     // デフォルト引数が渡された場合
+        //     arguments.resize(params.len(), (None, Object::EmptyParam));
+        // } else if param_len < arguments.len() {
+        //     // 可変長引数が渡された場合
+        //     params.resize(arguments.len(), FuncParam::new_dummy());
+        // }
+        match arguments.len().cmp(&param_len) {
+            std::cmp::Ordering::Less => {
+                // デフォルト引数が渡された場合
+                arguments.resize(params.len(), (None, Object::EmptyParam));
+            },
+            std::cmp::Ordering::Equal => {},
+            std::cmp::Ordering::Greater => {
+                // 可変長引数が渡された場合
+                params.resize(arguments.len(), FuncParam::new_dummy());
+            },
         }
 
         // 無名関数ならローカルコープをコピーする
@@ -91,13 +102,14 @@ impl Function {
         /* 引数の処理 */
 
         // 引数定義と渡された引数をくっつける
-        let list = params.into_iter().zip(arguments.into_iter());
+        let list = params.into_iter().zip(arguments);
         // 可変長引数
         let mut variadic = vec![];
         // 可変長引数の変数名
         let mut variadic_name = None;
 
-        for (_, (param, (arg_expr, obj))) in list.enumerate() {
+        // for (_i, (param, (arg_expr, obj))) in list.enumerate() {
+        for (param, (arg_expr, obj)) in list {
             let name = param.name();
             // 引数種別チェック
             // デフォルト値の評価もここでやる
@@ -112,22 +124,30 @@ impl Function {
                     obj
                 },
                 ParamKind::Reference => {
-                    match arg_expr.unwrap() {
-                        Expression::Array(_, _) |
-                        Expression::Assign(_, _) |
-                        Expression::CompoundAssign(_, _, _) => return Err(UError::new(
-                            UErrorKind::FuncCallError,
-                            UErrorMessage::FuncInvalidArgument(name),
-                        )),
-                        e => {
-                            // 型チェック
-                            evaluator.is_valid_type(&param, &obj)?;
-                            // パラメータ変数に参照を代入
-                            if let Some(outer) = evaluator.env.clone_outer() {
-                                evaluator.env.define_param_to_local(&name, Object::Reference(e, outer))?;
-                            } else {
-                                Err(UError::new(UErrorKind::EvaluatorError, UErrorMessage::NoOuterScopeFound))?;
+                    match arg_expr {
+                        Some(expr) => match expr {
+                            Expression::Array(_, _) |
+                            Expression::Assign(_, _) |
+                            Expression::CompoundAssign(_, _, _) => return Err(UError::new(
+                                UErrorKind::FuncCallError,
+                                UErrorMessage::FuncInvalidArgument(name),
+                            )),
+                            e => {
+                                // 型チェック
+                                evaluator.is_valid_type(&param, &obj)?;
+                                // パラメータ変数に参照を代入
+                                if let Some(outer) = evaluator.env.clone_outer() {
+                                    evaluator.env.define_param_to_local(&name, Object::Reference(e, outer))?;
+                                } else {
+                                    Err(UError::new(UErrorKind::EvaluatorError, UErrorMessage::NoOuterScopeFound))?;
+                                }
                             }
+                        },
+                        None => {
+                            Err(UError::new(
+                                UErrorKind::FuncCallError,
+                                UErrorMessage::FuncArgRequired(name)
+                            ))?;
                         }
                     }
                     // 通常のパラメータ変数への代入は行わないためcontinueする

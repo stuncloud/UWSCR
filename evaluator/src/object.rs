@@ -34,11 +34,14 @@ use crate::error::{UError, UErrorKind, UErrorMessage};
 use crate::gui::form::{WebViewForm, WebViewRemoteObject};
 use parser::ast::*;
 
+#[cfg(feature="chkimg")]
+use crate::builtins::chkimg::ColorFound;
+
 use windows::Win32::Foundation::HWND;
 
 use std::fmt;
 use std::hash::{Hash, Hasher};
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, Mutex, RwLock, OnceLock};
 use std::ops::{Add, Sub, Mul, Div, Rem, BitOr, BitAnd, BitXor};
 use std::cmp::Ordering;
 
@@ -90,6 +93,7 @@ pub enum Object {
     TabWindow(TabWindow),
     RemoteObject(RemoteObject),
     Fopen(Arc<Mutex<Fopen>>),
+    Csv(Arc<RwLock<Csv>>),
     ByteArray(Vec<u8>),
     /// 参照渡しされたパラメータ変数
     Reference(Expression, Arc<Mutex<Layer>>),
@@ -105,7 +109,13 @@ pub enum Object {
     /// FormのRemoteObject
     WebViewRemoteObject(WebViewRemoteObject),
     /// PARAM_STR
-    ParamStr(Vec<String>)
+    ParamStr(Vec<String>),
+    /// chkclr戻り値
+    #[cfg(feature="chkimg")]
+    ChkClrResult(Vec<ColorFound>),
+    /// chkclr戻り値の個別アイテム
+    #[cfg(feature="chkimg")]
+    ColorFound(ColorFound),
 }
 impl std::fmt::Debug for Object {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -146,6 +156,7 @@ impl std::fmt::Debug for Object {
             Object::TabWindow(arg0) => f.debug_tuple("TabWindow").field(arg0).finish(),
             Object::RemoteObject(arg0) => f.debug_tuple("RemoteObject").field(arg0).finish(),
             Object::Fopen(arg0) => f.debug_tuple("Fopen").field(arg0).finish(),
+            Object::Csv(arg0) => f.debug_tuple("Csv").field(arg0).finish(),
             Object::ByteArray(arg0) => f.debug_tuple("ByteArray").field(arg0).finish(),
             Object::Reference(arg0, arg1) => f.debug_tuple("Reference").field(arg0).field(arg1).finish(),
             Object::WebRequest(arg0) => f.debug_tuple("WebRequest").field(arg0).finish(),
@@ -158,6 +169,10 @@ impl std::fmt::Debug for Object {
             Object::WebViewForm(arg0) => f.debug_tuple("WebViewForm").field(arg0).finish(),
             Object::WebViewRemoteObject(arg0) => f.debug_tuple("WebViewRemoteObject").field(arg0).finish(),
             Object::ParamStr(vec) => f.debug_list().entries(vec.iter()).finish(),
+            #[cfg(feature="chkimg")]
+            Object::ChkClrResult(vec) => f.debug_list().entries(vec.iter()).finish(),
+            #[cfg(feature="chkimg")]
+            Object::ColorFound(arg0) => f.debug_tuple("ColorFound").field(arg0).finish(),
         }
     }
 }
@@ -171,42 +186,42 @@ impl fmt::Display for Object {
             Object::String(value) => write!(f, "{}", value),
             Object::Bool(b) => write!(f, "{}", if *b {"True"} else {"False"}),
             Object::Array(objects) => {
-                let mut members = String::new();
-                for (i, obj) in objects.iter().enumerate() {
-                    if i < 1 {
-                        members.push_str(&format!("{}", obj))
-                    } else {
-                        members.push_str(&format!(", {}", obj))
-                    }
-                }
-                write!(f, "[{}]", members)
-            },
+                        let mut members = String::new();
+                        for (i, obj) in objects.iter().enumerate() {
+                            if i < 1 {
+                                members.push_str(&format!("{}", obj))
+                            } else {
+                                members.push_str(&format!(", {}", obj))
+                            }
+                        }
+                        write!(f, "[{}]", members)
+                    },
             Object::HashTbl(hash) => {
-                let mut key_values = String::new();
-                for (i, (k, v)) in hash.lock().unwrap().map().iter().enumerate() {
-                    if i < 1 {
-                        key_values.push_str(&format!("\"{}\": {}", k, v))
-                    } else {
-                        key_values.push_str(&format!(", \"{}\": {}", k, v))
-                    }
-                }
-                write!(f, "{{{}}}", key_values)
-            },
+                        let mut key_values = String::new();
+                        for (i, (k, v)) in hash.lock().unwrap().map().iter().enumerate() {
+                            if i < 1 {
+                                key_values.push_str(&format!("\"{}\": {}", k, v))
+                            } else {
+                                key_values.push_str(&format!(", \"{}\": {}", k, v))
+                            }
+                        }
+                        write!(f, "{{{}}}", key_values)
+                    },
             Object::Function(func) => {
-                let title = if func.is_proc {"procedure"} else {"function"};
-                let params = func.params.iter().map(|p| p.to_string()).collect::<Vec<_>>().join(", ");
-                write!(f, "{}: {}({})", title, func.name.as_ref().unwrap(), params)
-            },
+                        let title = if func.is_proc {"procedure"} else {"function"};
+                        let params = func.params.iter().map(|p| p.to_string()).collect::<Vec<_>>().join(", ");
+                        write!(f, "{}: {}({})", title, func.name.as_ref().unwrap(), params)
+                    },
             Object::AsyncFunction(func) => {
-                let title = if func.is_proc {"procedure"} else {"function"};
-                let params = func.params.iter().map(|p| p.to_string()).collect::<Vec<_>>().join(", ");
-                write!(f, "{}: {}({})", title, func.name.as_ref().unwrap(), params)
-            },
+                        let title = if func.is_proc {"procedure"} else {"function"};
+                        let params = func.params.iter().map(|p| p.to_string()).collect::<Vec<_>>().join(", ");
+                        write!(f, "{}: {}({})", title, func.name.as_ref().unwrap(), params)
+                    },
             Object::AnonFunc(func) => {
-                let title = if func.is_proc {"anonymous procedure"} else {"anonymous function"};
-                let params = func.params.iter().map(|p| p.to_string()).collect::<Vec<_>>().join(", ");
-                write!(f, "{}({})", title, params)
-            },
+                        let title = if func.is_proc {"anonymous procedure"} else {"anonymous function"};
+                        let params = func.params.iter().map(|p| p.to_string()).collect::<Vec<_>>().join(", ");
+                        write!(f, "{}({})", title, params)
+                    },
             Object::BuiltinFunction(name, _, _) => write!(f, "builtin: {}()", name),
             Object::Null => write!(f, "\0"),
             Object::Empty => write!(f, ""),
@@ -218,19 +233,19 @@ impl fmt::Display for Object {
             Object::Module(m) => write!(f, "module: {}", m.lock().unwrap().name()),
             Object::Class(name, _) => write!(f, "class: {}", name),
             Object::Instance(m) => {
-                let ins = m.lock().unwrap();
-                if ins.is_dropped {
-                    write!(f, "NOTHING")
-                } else {
-                    write!(f, "instance of {}", ins.name)
-                }
-            },
+                        let ins = m.lock().unwrap();
+                        if ins.is_dropped {
+                            write!(f, "NOTHING")
+                        } else {
+                            write!(f, "instance of {}", ins.name)
+                        }
+                    },
             Object::Handle(h) => write!(f, "{:?}", h),
             Object::RegEx(re) => write!(f, "regex: {}", re),
             Object::Global => write!(f, "GLOBAL"),
             Object::UObject(uobj) => {
-                write!(f, "{}", uobj)
-            },
+                        write!(f, "{}", uobj)
+                    },
             Object::DynamicVar(func) => write!(f, "{}", func()),
             Object::Version(v) => write!(f, "{}", v),
             Object::ExpandableTB(_) => write!(f, "expandable textblock"),
@@ -244,51 +259,61 @@ impl fmt::Display for Object {
             Object::TabWindow(t) => write!(f, "TabWindow: {t}"),
             Object::RemoteObject(r) => write!(f, "{r}"),
             Object::Fopen(arc) => {
-                let fopen = arc.lock().unwrap();
-                write!(f, "{}", &*fopen)
-            },
+                        let fopen = arc.lock().unwrap();
+                        write!(f, "{}", &*fopen)
+                    },
+            Object::Csv(csv) => {
+                        match csv.read() {
+                            Ok(csv) => write!(f, "{}", csv),
+                            Err(e) => write!(f, "{} (poisoned)", e.get_ref()),
+                        }
+                    },
             Object::ByteArray(arr) => write!(f, "{:?}", arr),
             Object::Reference(_, _) => write!(f, "Reference"),
             Object::WebRequest(req) => {
-                let mutex = req.lock().unwrap();
-                write!(f, "{mutex}")
-            },
+                        let mutex = req.lock().unwrap();
+                        write!(f, "{mutex}")
+                    },
             Object::WebResponse(res) => write!(f, "{res}"),
             Object::HtmlNode(node) => write!(f, "{node}"),
             Object::MemberCaller(method, member) => {
-                match method {
-                    MemberCaller::Module(m) => {
-                        match m.try_lock() {
-                            Ok(m) => write!(f, "{}.{member}", m.name()),
-                            Err(_) => write!(f, "{{Module}}.{member}"),
+                        match method {
+                            MemberCaller::Module(m) => {
+                                match m.try_lock() {
+                                    Ok(m) => write!(f, "{}.{member}", m.name()),
+                                    Err(_) => write!(f, "{{Module}}.{member}"),
+                                }
+                            },
+                            MemberCaller::ClassInstance(ins) => {
+                                match ins.try_lock() {
+                                    Ok(g) => write!(f, "{}.{member}", g.name),
+                                    Err(_) => write!(f, "{{ClassInstance}}.{member}"),
+                                }
+                            },
+                            MemberCaller::BrowserBuilder(_) => write!(f, "BrowserBuilder.{member}"),
+                            MemberCaller::Browser(_) => write!(f, "Browser.{member}"),
+                            MemberCaller::TabWindow(_) => write!(f, "TabWindow.{member}"),
+                            MemberCaller::RemoteObject(_) => write!(f, "RemoteObject.{member}"),
+                            MemberCaller::WebRequest(_) => write!(f, "WebRequest.{member}"),
+                            MemberCaller::WebResponse(_) => write!(f, "WebResponse.{member}"),
+                            MemberCaller::HtmlNode(_) => write!(f, "HtmlNode.{member}"),
+                            MemberCaller::ComObject(_) => write!(f, "ComObject.{member}"),
+                            MemberCaller::UStruct(ust) => write!(f, "{}.{member}", ust.name),
+                            MemberCaller::WebViewForm(_) => write!(f, "WebViewForm.{member}"),
+                            MemberCaller::WebViewRemoteObject(_) => write!(f, "WebViewRemoteObject.{member}"),
+                            MemberCaller::UObject(_) => write!(f, "UObject.{member}"),
                         }
                     },
-                    MemberCaller::ClassInstance(ins) => {
-                        match ins.try_lock() {
-                            Ok(g) => write!(f, "{}.{member}", g.name),
-                            Err(_) => write!(f, "{{ClassInstance}}.{member}"),
-                        }
-                    },
-                    MemberCaller::BrowserBuilder(_) => write!(f, "BrowserBuilder.{member}"),
-                    MemberCaller::Browser(_) => write!(f, "Browser.{member}"),
-                    MemberCaller::TabWindow(_) => write!(f, "TabWindow.{member}"),
-                    MemberCaller::RemoteObject(_) => write!(f, "RemoteObject.{member}"),
-                    MemberCaller::WebRequest(_) => write!(f, "WebRequest.{member}"),
-                    MemberCaller::WebResponse(_) => write!(f, "WebResponse.{member}"),
-                    MemberCaller::HtmlNode(_) => write!(f, "HtmlNode.{member}"),
-                    MemberCaller::ComObject(_) => write!(f, "ComObject.{member}"),
-                    MemberCaller::UStruct(ust) => write!(f, "{}.{member}", ust.name),
-                    MemberCaller::WebViewForm(_) => write!(f, "WebViewForm.{member}"),
-                    MemberCaller::WebViewRemoteObject(_) => write!(f, "WebViewRemoteObject.{member}"),
-                    MemberCaller::UObject(_) => write!(f, "UObject.{member}"),
-                }
-            },
             Object::ComObject(com) => write!(f, "{com}"),
             Object::Unknown(unk) => write!(f, "{unk}"),
             Object::Variant(variant) => write!(f, "{variant}"),
             Object::WebViewForm(form) => write!(f, "{form}"),
             Object::WebViewRemoteObject(remote) => write!(f, "{remote}"),
             Object::ParamStr(vec) => write!(f, "{vec:?}"),
+            #[cfg(feature="chkimg")]
+            Object::ChkClrResult(res) => write!(f, "ChkClrResult({})", res.len()),
+            #[cfg(feature="chkimg")]
+            Object::ColorFound(found) => write!(f, "{found}"),
         }
     }
 }
@@ -306,6 +331,16 @@ fn compare_string<A, B>(a: A, b: B) -> bool
     } else {
         a.to_string().eq_ignore_ascii_case(&b.to_string())
     }
+}
+fn compare_mutex<T>(m1: &Arc<Mutex<T>>, m2: &Arc<Mutex<T>>) -> bool {
+    let _lock = m1.lock();
+    let result = m2.try_lock().is_err();
+    result
+}
+fn compare_rwlock<T>(rw1: &Arc<RwLock<T>>, rw2: &Arc<RwLock<T>>) -> bool {
+    let _lock = rw1.write();
+    let result = rw2.try_write().is_err();
+    result
 }
 
 impl PartialEq for Object {
@@ -405,9 +440,10 @@ impl PartialEq for Object {
             Object::TabWindow(t) => if let Object::TabWindow(t2) = other {t == t2} else {false},
             Object::RemoteObject(r) => if let Object::RemoteObject(r2) = other {r == r2} else {false},
             Object::Fopen(f1) => if let Object::Fopen(f2) = other {
-                let _tmp = f1.lock().unwrap();
-                let result = f2.try_lock().is_err();
-                result
+                compare_mutex(f1, f2)
+            } else {false},
+            Object::Csv(csv1) => if let Object::Csv(csv2) = other {
+                compare_rwlock(csv1, csv2)
             } else {false},
             Object::ByteArray(arr1) => if let Object::ByteArray(arr2) = other {
                 arr1 == arr2
@@ -448,7 +484,15 @@ impl PartialEq for Object {
             },
             Object::ParamStr(v1) => {
                 if let Object::ParamStr(v2) = other {v1 == v2} else {false}
-            }
+            },
+            #[cfg(feature="chkimg")]
+            Object::ChkClrResult(v1) => {
+                if let Object::ChkClrResult(v2) = other {v1 == v2} else {false}
+            },
+            #[cfg(feature="chkimg")]
+            Object::ColorFound(v1) => {
+                if let Object::ColorFound(v2) = other {v1 == v2} else {false}
+            },
         }
     }
 }
@@ -497,6 +541,7 @@ impl Object {
             Object::TabWindow(_) => ObjectType::TYPE_TABWINDOW_OBJECT,
             Object::RemoteObject(_) => ObjectType::TYPE_REMOTE_OBJECT,
             Object::Fopen(_) => ObjectType::TYPE_FILE_ID,
+            Object::Csv(_) => ObjectType::TYPE_CSV_OBJ,
             Object::ByteArray(_) => ObjectType::TYPE_BYTE_ARRAY,
             Object::Reference(_, _) => ObjectType::TYPE_REFERENCE,
             Object::WebRequest(_) => ObjectType::TYPE_WEB_REQUEST,
@@ -505,6 +550,10 @@ impl Object {
             Object::MemberCaller(_, _) => ObjectType::TYPE_MEMBER_CALLER,
             Object::WebViewForm(_) => ObjectType::TYPE_WEBVIEW_FORM,
             Object::WebViewRemoteObject(_) => ObjectType::TYPE_WEBVIEW_REMOTEOBJECT,
+            #[cfg(feature="chkimg")]
+            Object::ChkClrResult(_) => ObjectType::TYPE_CHKCLR_RESULT,
+            #[cfg(feature="chkimg")]
+            Object::ColorFound(_) => ObjectType::TYPE_CHKCLR_ITEM,
 
             Object::ParamStr(_) |
             Object::EmptyParam |
@@ -935,47 +984,8 @@ impl Add for Object {
                     ))
                 }
             },
-            // 以下はエラー
-            Object::ParamStr(_) |
-            Object::WebViewForm(_) |
-            Object::WebViewRemoteObject(_) |
-            Object::Variant(_) |
-            Object::Unknown(_) |
-            Object::ComObject(_) |
-            Object::MemberCaller(_, _) |
-            Object::HtmlNode(_) |
-            Object::RemoteObject(_) |
-            Object::HashTbl(_) |
-            Object::AnonFunc(_) |
-            Object::Function(_) |
-            Object::AsyncFunction(_) |
-            Object::BuiltinFunction(_, _, _) |
-            Object::Module(_) |
-            Object::Class(_, _) |
-            Object::Instance(_) |
-            Object::EmptyParam |
-            Object::Nothing |
-            Object::Continue(_) |
-            Object::Break(_) |
-            Object::Handle(_) |
-            Object::RegEx(_) |
-            Object::Exit |
-            Object::Global |
-            Object::UObject(_) |
-            Object::DynamicVar(_) |
-            Object::ExpandableTB(_) |
-            Object::Enum(_) |
-            Object::Task(_) |
-            Object::DefDllFunction(_) |
-            Object::StructDef(_) |
-            Object::UStruct(_) |
-            Object::BrowserBuilder(_) |
-            Object::Browser(_) |
-            Object::TabWindow(_) |
-            Object::Fopen(_) |
-            Object::WebRequest(_) |
-            Object::WebResponse(_) |
-            Object::Reference(_, _) => {
+            // これら以外はエラー
+            _ => {
                 Err(UError::new(
                     UErrorKind::OperatorError,
                     UErrorMessage::LeftSideTypeInvalid(Infix::Plus),
@@ -1038,50 +1048,8 @@ impl Sub for Object {
                     ))
                 }
             },
-            // 以下はエラー
-            Object::ParamStr(_) |
-            Object::WebViewForm(_) |
-            Object::WebViewRemoteObject(_) |
-            Object::Variant(_) |
-            Object::Unknown(_) |
-            Object::ComObject(_) |
-            Object::MemberCaller(_, _) |
-            Object::HtmlNode(_) |
-            Object::RemoteObject(_) |
-            Object::Array(_) |
-            Object::Null |
-            Object::ByteArray(_) |
-            Object::HashTbl(_) |
-            Object::AnonFunc(_) |
-            Object::Function(_) |
-            Object::AsyncFunction(_) |
-            Object::BuiltinFunction(_, _, _) |
-            Object::Module(_) |
-            Object::Class(_, _) |
-            Object::Instance(_) |
-            Object::EmptyParam |
-            Object::Nothing |
-            Object::Continue(_) |
-            Object::Break(_) |
-            Object::Handle(_) |
-            Object::RegEx(_) |
-            Object::Exit |
-            Object::Global |
-            Object::UObject(_) |
-            Object::DynamicVar(_) |
-            Object::ExpandableTB(_) |
-            Object::Enum(_) |
-            Object::Task(_) |
-            Object::DefDllFunction(_) |
-            Object::StructDef(_) |
-            Object::UStruct(_) |
-            Object::BrowserBuilder(_) |
-            Object::Browser(_) |
-            Object::TabWindow(_) |
-            Object::Fopen(_) |
-            Object::WebRequest(_) |
-            Object::WebResponse(_) |
-            Object::Reference(_, _) => {
+            // これら以外はエラー
+            _ => {
                 Err(UError::new(
                     UErrorKind::OperatorError,
                     UErrorMessage::LeftSideTypeInvalid(Infix::Minus),
@@ -1169,49 +1137,8 @@ impl Mul for Object {
                     ))
                 }
             },
-            // 以下はエラー
-            Object::ParamStr(_) |
-            Object::WebViewForm(_) |
-            Object::WebViewRemoteObject(_) |
-            Object::Variant(_) |
-            Object::Unknown(_) |
-            Object::ComObject(_) |
-            Object::MemberCaller(_, _) |
-            Object::HtmlNode(_) |
-            Object::RemoteObject(_) |
-            Object::Array(_) |
-            Object::ByteArray(_) |
-            Object::HashTbl(_) |
-            Object::AnonFunc(_) |
-            Object::Function(_) |
-            Object::AsyncFunction(_) |
-            Object::BuiltinFunction(_, _, _) |
-            Object::Module(_) |
-            Object::Class(_, _) |
-            Object::Instance(_) |
-            Object::EmptyParam |
-            Object::Nothing |
-            Object::Continue(_) |
-            Object::Break(_) |
-            Object::Handle(_) |
-            Object::RegEx(_) |
-            Object::Exit |
-            Object::Global |
-            Object::UObject(_) |
-            Object::DynamicVar(_) |
-            Object::ExpandableTB(_) |
-            Object::Enum(_) |
-            Object::Task(_) |
-            Object::DefDllFunction(_) |
-            Object::StructDef(_) |
-            Object::UStruct(_) |
-            Object::BrowserBuilder(_) |
-            Object::Browser(_) |
-            Object::TabWindow(_) |
-            Object::Fopen(_) |
-            Object::WebRequest(_) |
-            Object::WebResponse(_) |
-            Object::Reference(_, _) => {
+            // これら以外はエラー
+            _ => {
                 Err(UError::new(
                     UErrorKind::OperatorError,
                     UErrorMessage::LeftSideTypeInvalid(Infix::Multiply),
@@ -1284,50 +1211,8 @@ impl Div for Object {
                     ))
                 }
             },
-            // 以下はエラー
-            Object::ParamStr(_) |
-            Object::WebViewForm(_) |
-            Object::WebViewRemoteObject(_) |
-            Object::Variant(_) |
-            Object::Unknown(_) |
-            Object::ComObject(_) |
-            Object::MemberCaller(_, _) |
-            Object::HtmlNode(_) |
-            Object::RemoteObject(_) |
-            Object::Null |
-            Object::Array(_) |
-            Object::ByteArray(_) |
-            Object::HashTbl(_) |
-            Object::AnonFunc(_) |
-            Object::Function(_) |
-            Object::AsyncFunction(_) |
-            Object::BuiltinFunction(_, _, _) |
-            Object::Module(_) |
-            Object::Class(_, _) |
-            Object::Instance(_) |
-            Object::EmptyParam |
-            Object::Nothing |
-            Object::Continue(_) |
-            Object::Break(_) |
-            Object::Handle(_) |
-            Object::RegEx(_) |
-            Object::Exit |
-            Object::Global |
-            Object::UObject(_) |
-            Object::DynamicVar(_) |
-            Object::ExpandableTB(_) |
-            Object::Enum(_) |
-            Object::Task(_) |
-            Object::DefDllFunction(_) |
-            Object::StructDef(_) |
-            Object::UStruct(_) |
-            Object::BrowserBuilder(_) |
-            Object::Browser(_) |
-            Object::TabWindow(_) |
-            Object::Fopen(_) |
-            Object::WebRequest(_) |
-            Object::WebResponse(_) |
-            Object::Reference(_, _) => {
+            // これら以外はエラー
+            _ => {
                 Err(UError::new(
                     UErrorKind::OperatorError,
                     UErrorMessage::LeftSideTypeInvalid(Infix::Divide),
@@ -1399,50 +1284,8 @@ impl Rem for Object {
                     ))
                 }
             },
-            // 以下はエラー
-            Object::ParamStr(_) |
-            Object::WebViewForm(_) |
-            Object::WebViewRemoteObject(_) |
-            Object::Variant(_) |
-            Object::Unknown(_) |
-            Object::ComObject(_) |
-            Object::MemberCaller(_, _) |
-            Object::HtmlNode(_) |
-            Object::RemoteObject(_) |
-            Object::Null |
-            Object::Array(_) |
-            Object::ByteArray(_) |
-            Object::HashTbl(_) |
-            Object::AnonFunc(_) |
-            Object::Function(_) |
-            Object::AsyncFunction(_) |
-            Object::BuiltinFunction(_, _, _) |
-            Object::Module(_) |
-            Object::Class(_, _) |
-            Object::Instance(_) |
-            Object::EmptyParam |
-            Object::Nothing |
-            Object::Continue(_) |
-            Object::Break(_) |
-            Object::Handle(_) |
-            Object::RegEx(_) |
-            Object::Exit |
-            Object::Global |
-            Object::UObject(_) |
-            Object::DynamicVar(_) |
-            Object::ExpandableTB(_) |
-            Object::Enum(_) |
-            Object::Task(_) |
-            Object::DefDllFunction(_) |
-            Object::StructDef(_) |
-            Object::UStruct(_) |
-            Object::BrowserBuilder(_) |
-            Object::Browser(_) |
-            Object::TabWindow(_) |
-            Object::Fopen(_) |
-            Object::WebRequest(_) |
-            Object::WebResponse(_) |
-            Object::Reference(_, _) => {
+            // これら以外はエラー
+            _ => {
                 Err(UError::new(
                     UErrorKind::OperatorError,
                     UErrorMessage::LeftSideTypeInvalid(Infix::Plus),
@@ -1508,50 +1351,8 @@ impl BitOr for Object {
                     ))
                 }
             },
-            // 以下はエラー
-            Object::ParamStr(_) |
-            Object::WebViewForm(_) |
-            Object::WebViewRemoteObject(_) |
-            Object::Variant(_) |
-            Object::Unknown(_) |
-            Object::ComObject(_) |
-            Object::MemberCaller(_, _) |
-            Object::HtmlNode(_) |
-            Object::RemoteObject(_) |
-            Object::Null |
-            Object::Array(_) |
-            Object::ByteArray(_) |
-            Object::HashTbl(_) |
-            Object::AnonFunc(_) |
-            Object::Function(_) |
-            Object::AsyncFunction(_) |
-            Object::BuiltinFunction(_, _, _) |
-            Object::Module(_) |
-            Object::Class(_, _) |
-            Object::Instance(_) |
-            Object::EmptyParam |
-            Object::Nothing |
-            Object::Continue(_) |
-            Object::Break(_) |
-            Object::Handle(_) |
-            Object::RegEx(_) |
-            Object::Exit |
-            Object::Global |
-            Object::UObject(_) |
-            Object::DynamicVar(_) |
-            Object::ExpandableTB(_) |
-            Object::Enum(_) |
-            Object::Task(_) |
-            Object::DefDllFunction(_) |
-            Object::StructDef(_) |
-            Object::UStruct(_) |
-            Object::BrowserBuilder(_) |
-            Object::Browser(_) |
-            Object::TabWindow(_) |
-            Object::Fopen(_) |
-            Object::WebRequest(_) |
-            Object::WebResponse(_) |
-            Object::Reference(_, _) => {
+            // これら以外はエラー
+            _ => {
                 Err(UError::new(
                     UErrorKind::OperatorError,
                     UErrorMessage::LeftSideTypeInvalid(Infix::Plus),
@@ -1616,50 +1417,8 @@ impl BitAnd for Object {
                     ))
                 }
             },
-            // 以下はエラー
-            Object::ParamStr(_) |
-            Object::WebViewForm(_) |
-            Object::WebViewRemoteObject(_) |
-            Object::Variant(_) |
-            Object::Unknown(_) |
-            Object::ComObject(_) |
-            Object::MemberCaller(_, _) |
-            Object::HtmlNode(_) |
-            Object::RemoteObject(_) |
-            Object::Null |
-            Object::Array(_) |
-            Object::ByteArray(_) |
-            Object::HashTbl(_) |
-            Object::AnonFunc(_) |
-            Object::Function(_) |
-            Object::AsyncFunction(_) |
-            Object::BuiltinFunction(_, _, _) |
-            Object::Module(_) |
-            Object::Class(_, _) |
-            Object::Instance(_) |
-            Object::EmptyParam |
-            Object::Nothing |
-            Object::Continue(_) |
-            Object::Break(_) |
-            Object::Handle(_) |
-            Object::RegEx(_) |
-            Object::Exit |
-            Object::Global |
-            Object::UObject(_) |
-            Object::DynamicVar(_) |
-            Object::ExpandableTB(_) |
-            Object::Enum(_) |
-            Object::Task(_) |
-            Object::DefDllFunction(_) |
-            Object::StructDef(_) |
-            Object::UStruct(_) |
-            Object::BrowserBuilder(_) |
-            Object::Browser(_) |
-            Object::TabWindow(_) |
-            Object::Fopen(_) |
-            Object::WebRequest(_) |
-            Object::WebResponse(_) |
-            Object::Reference(_, _) => {
+            // これら以外はエラー
+            _ => {
                 Err(UError::new(
                     UErrorKind::OperatorError,
                     UErrorMessage::LeftSideTypeInvalid(Infix::Plus),
@@ -1724,50 +1483,8 @@ impl BitXor for Object {
                     ))
                 }
             },
-            // 以下はエラー
-            Object::ParamStr(_) |
-            Object::WebViewForm(_) |
-            Object::WebViewRemoteObject(_) |
-            Object::Variant(_) |
-            Object::Unknown(_) |
-            Object::ComObject(_) |
-            Object::MemberCaller(_, _) |
-            Object::HtmlNode(_) |
-            Object::RemoteObject(_) |
-            Object::Null |
-            Object::Array(_) |
-            Object::ByteArray(_) |
-            Object::HashTbl(_) |
-            Object::AnonFunc(_) |
-            Object::Function(_) |
-            Object::AsyncFunction(_) |
-            Object::BuiltinFunction(_, _, _) |
-            Object::Module(_) |
-            Object::Class(_, _) |
-            Object::Instance(_) |
-            Object::EmptyParam |
-            Object::Nothing |
-            Object::Continue(_) |
-            Object::Break(_) |
-            Object::Handle(_) |
-            Object::RegEx(_) |
-            Object::Exit |
-            Object::Global |
-            Object::UObject(_) |
-            Object::DynamicVar(_) |
-            Object::ExpandableTB(_) |
-            Object::Enum(_) |
-            Object::Task(_) |
-            Object::DefDllFunction(_) |
-            Object::StructDef(_) |
-            Object::UStruct(_) |
-            Object::BrowserBuilder(_) |
-            Object::Browser(_) |
-            Object::TabWindow(_) |
-            Object::Fopen(_) |
-            Object::WebRequest(_) |
-            Object::WebResponse(_) |
-            Object::Reference(_, _) => {
+            // これら以外はエラー
+            _ => {
                 Err(UError::new(
                     UErrorKind::OperatorError,
                     UErrorMessage::LeftSideTypeInvalid(Infix::Plus),
@@ -1870,6 +1587,7 @@ pub enum ObjectType {
     TYPE_TABWINDOW_OBJECT,
     TYPE_REMOTE_OBJECT,
     TYPE_FILE_ID,
+    TYPE_CSV_OBJ,
     TYPE_BYTE_ARRAY,
     TYPE_REFERENCE,
     TYPE_WEB_REQUEST,
@@ -1877,7 +1595,38 @@ pub enum ObjectType {
     TYPE_HTML_NODE,
     TYPE_WEBVIEW_FORM,
     TYPE_WEBVIEW_REMOTEOBJECT,
+    TYPE_CHKCLR_RESULT,
+    TYPE_CHKCLR_ITEM,
 
     TYPE_MEMBER_CALLER,
     TYPE_NOT_VALUE_TYPE,
+}
+
+#[cfg(feature="chkimg")]
+impl From<&ColorFound> for Object {
+    fn from(found: &ColorFound) -> Self {
+        let x = found.x.into();
+        let y = found.y.into();
+        let color = found.color.iter().map(|n| (*n).into()).collect();
+        Self::Array(vec![x, y, Self::Array(color)])
+    }
+}
+#[cfg(feature="chkimg")]
+impl From<ColorFound> for Object {
+    fn from(found: ColorFound) -> Self {
+        let x = found.x.into();
+        let y = found.y.into();
+        let color = found.color.iter().map(|n| (*n).into()).collect();
+        Self::Array(vec![x, y, Self::Array(color)])
+    }
+}
+impl From<TabWindow> for Object {
+    fn from(tab: TabWindow) -> Self {
+        Object::TabWindow(tab)
+    }
+}
+impl From<char> for Object {
+    fn from(char: char) -> Self {
+        Object::String(char.to_string())
+    }
 }

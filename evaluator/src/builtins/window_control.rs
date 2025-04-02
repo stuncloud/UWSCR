@@ -2557,13 +2557,13 @@ pub fn chkclr(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncRe
     let ss = match mi.hwnd {
         Some(hwnd) => {
             let client = mi.is_client();
-            ScreenShot::get_window_wgcapi(hwnd, left, top, right, bottom, client)?
+            ScreenShot::get_window_wgcapi(hwnd, left, top, right, bottom, client)
         },
         None => {
             let monitor = args.get_as_int(3, Some(0))?;
-            ScreenShot::get_screen_wgcapi(monitor, left, top, right, bottom)?
+            ScreenShot::get_screen_wgcapi(monitor, left, top, right, bottom)
         },
-    };
+    }?;
 
     if ss.is_empty() {
         Ok(Object::Array(Vec::new()))
@@ -2572,14 +2572,9 @@ pub fn chkclr(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncRe
             ss.save(Some("chkclr.png"))?;
         }
 
-        let found = check_color.search(&ss)?.into_iter()
-            .map(|(x, y, (b, g, r))| {
-                let color = Object::Array(vec![b.into(), g.into(), r.into()]);
-                Object::Array(vec![x.into(), y.into(), color])
-            })
-            .collect();
+        let found = check_color.search(&ss)?;
 
-        Ok(Object::Array(found))
+        Ok(Object::ChkClrResult(found))
     }
 
 }

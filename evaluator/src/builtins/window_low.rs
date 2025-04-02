@@ -35,7 +35,7 @@ use windows::{
             WindowsAndMessaging::{
                 GetWindowRect, GetClientRect,
                 GetCursorPos, SetCursorPos,
-                PostMessageW, WM_MOUSEMOVE,
+                SendMessageW, WM_MOUSEMOVE,
                 WM_LBUTTONUP, WM_LBUTTONDOWN,
                 WM_RBUTTONUP, WM_RBUTTONDOWN,
                 WM_MBUTTONUP, WM_MBUTTONDOWN,
@@ -291,6 +291,17 @@ impl Input {
             (x, y)
         }
     }
+    /// MORG_DIRECT時のメッセージ送信
+    unsafe fn direct_message<W, L>(&self, msg: u32, wparam: W, lparam: L) -> isize
+    where
+        W: IntoPrm<WPARAM>,
+        L: IntoPrm<LPARAM>,
+    {
+        let wparam = wparam.intop();
+        let lparam = lparam.intop();
+        SendMessageW(self.hwnd.as_ref(), msg, wparam, lparam)
+            .0
+    }
     fn send_key(&self, vk: u8, action: KeyActionEnum, wait: u64, extend: bool) {
         sleep(wait);
         match action {
@@ -311,7 +322,7 @@ impl Input {
                 hstring.as_wide()
                     .into_iter()
                     .map(|n| *n as usize)
-                    .for_each(|char| {let _ = PostMessageW(self.hwnd.as_ref(), WM_CHAR, WPARAM(char), LPARAM(1));});
+                    .for_each(|char| {self.direct_message(WM_CHAR, char, 1);});
             } else {
                 let pinputs = str.encode_utf16()
                     .map(|scan| {
@@ -334,7 +345,7 @@ impl Input {
     fn key_down(&self, vk: u8, extend: bool) {
         unsafe {
             if self.direct {
-                let _ = PostMessageW(self.hwnd.as_ref(), WM_KEYDOWN, WPARAM(vk as usize), LPARAM(0));
+                self.direct_message(WM_KEYDOWN, vk as usize, 0);
             } else {
                 let mut input = INPUT::default();
                 let dwflags = if extend {
@@ -359,7 +370,7 @@ impl Input {
     fn key_up(&self, vk: u8, extend: bool) {
         unsafe {
             if self.direct {
-                let _ = PostMessageW(self.hwnd.as_ref(), WM_KEYUP, WPARAM(vk as usize), LPARAM(0));
+                self.direct_message(WM_KEYUP, vk as usize, 0);
             } else {
                 let mut input = INPUT::default();
                 let dwflags = if extend {
@@ -385,7 +396,8 @@ impl Input {
         unsafe {
             if self.direct {
                 let lparam = make_lparam(x, y);
-                PostMessageW(self.hwnd.as_ref(), WM_MOUSEMOVE, None, lparam).is_ok()
+                let res = self.direct_message(WM_MOUSEMOVE, 0, lparam);
+                res == 0
             } else {
                 let (x, y) = self.fix_point(x, y);
                 move_mouse_to(x, y)
@@ -401,7 +413,7 @@ impl Input {
                     MouseButton::Middle => WM_MBUTTONDOWN,
                 };
                 let lparam = make_lparam(x, y);
-                let _ = PostMessageW(self.hwnd.as_ref(), msg, None, lparam);
+                self.direct_message(msg, None, lparam);
             } else {
                 let (x, y) = self.fix_point(x, y);
                 let dwflags = match btn {
@@ -432,7 +444,7 @@ impl Input {
                     MouseButton::Middle => WM_MBUTTONUP,
                 };
                 let lparam = make_lparam(x, y);
-                let _ = PostMessageW(self.hwnd.as_ref(), msg, None, lparam);
+                self.direct_message(msg, None, lparam);
             } else {
                 let (x, y) = self.fix_point(x, y);
                 let dwflags = match btn {
@@ -475,7 +487,7 @@ impl Input {
                 let wparam = ((amount & 0xFFFF) << 16) as usize;
                 let (x, y) = self.fix_point(x, y);
                 let lparam = ((x & 0xFFFF) | (y & 0xFFFF) << 16) as isize;
-                let _ = PostMessageW(self.hwnd.as_ref(), msg, WPARAM(wparam), LPARAM(lparam));
+                self.direct_message(msg, WPARAM(wparam), LPARAM(lparam));
             } else {
                 let dwflags = if horizontal {MOUSEEVENTF_HWHEEL} else {MOUSEEVENTF_WHEEL};
                 let mut input = INPUT::default();
@@ -655,4 +667,28 @@ impl PointerTouchInfoExt for POINTER_TOUCH_INFO {
 
 fn sleep(ms: u64) {
     thread::sleep(time::Duration::from_millis(ms))
+}
+
+trait IntoPrm<T> {
+    fn intop(self) -> T;
+}
+impl<D: Default> IntoPrm<D> for Option<D> {
+    fn intop(self) -> D {
+        self.unwrap_or_default()
+    }
+}
+impl<P> IntoPrm<P> for P {
+    fn intop(self) -> P {
+        self
+    }
+}
+impl IntoPrm<WPARAM> for usize {
+    fn intop(self) -> WPARAM {
+        WPARAM(self)
+    }
+}
+impl IntoPrm<LPARAM> for isize {
+    fn intop(self) -> LPARAM {
+        LPARAM(self)
+    }
 }

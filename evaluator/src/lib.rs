@@ -1008,28 +1008,74 @@ impl Evaluator {
         Ok(None)
     }
 
-    fn eval_for_in_statement(&mut self, loopvar: Identifier, index_var: Option<Identifier>, islast_var: Option<Identifier>, collection: Expression, block: BlockStatement, alt: Option<BlockStatement>) -> EvalResult<Option<Object>> {
-        let Identifier(var) = loopvar;
-        let col_obj = match self.eval_expression(collection)? {
-            Object::Array(a) => a,
-            Object::String(s) => s.chars().map(|c| Object::String(c.to_string())).collect::<Vec<Object>>(),
-            Object::HashTbl(h) => h.lock().unwrap().keys(),
-            Object::ByteArray(arr) => arr.iter().map(|n| Object::Num(*n as f64)).collect(),
-            Object::Browser(b) => b.get_tabs()?.into_iter().map(|t| Object::TabWindow(t)).collect(),
-            Object::RemoteObject(remote) => remote.to_object_vec()?,
-            Object::WebViewRemoteObject(remote) => remote.to_object_vec()?,
-            Object::ComObject(com) => com.to_object_vec()?,
-            Object::UObject(uo) => uo.to_object_vec()?,
-            _ => return Err(UError::new(
+    fn eval_for_in_statement(
+        &mut self,
+        loopvar: Identifier,
+        index_var: Option<Identifier>,
+        islast_var: Option<Identifier>,
+        collection: Expression,
+        block: BlockStatement,
+        alt: Option<BlockStatement>
+    ) -> EvalResult<Option<Object>> {
+        let Identifier(var) = &loopvar;
+        match self.eval_expression(collection)? {
+            Object::Array(arr) => {
+                self.eval_for_in_statement_inner(arr, var, index_var, islast_var, block, alt)
+            },
+            Object::String(s) => {
+                let chars = s.chars().collect();
+                self.eval_for_in_statement_inner(chars, var, index_var, islast_var, block, alt)
+            },
+            Object::HashTbl(h) => {
+                let keys = h.lock().unwrap().keys();
+                self.eval_for_in_statement_inner(keys, var, index_var, islast_var, block, alt)
+            },
+            Object::ByteArray(arr) => {
+                self.eval_for_in_statement_inner(arr, var, index_var, islast_var, block, alt)
+            },
+            Object::Browser(b) => {
+                let tabs = b.get_tabs()?;
+                self.eval_for_in_statement_inner(tabs, var, index_var, islast_var, block, alt)
+            },
+            Object::RemoteObject(remote) => {
+                let vec = remote.to_object_vec()?;
+                self.eval_for_in_statement_inner(vec, var, index_var, islast_var, block, alt)
+            },
+            Object::WebViewRemoteObject(remote) => {
+                let vec = remote.to_object_vec()?;
+                self.eval_for_in_statement_inner(vec, var, index_var, islast_var, block, alt)
+            },
+            Object::ComObject(com) => {
+                let vec = com.to_object_vec()?;
+                self.eval_for_in_statement_inner(vec, var, index_var, islast_var, block, alt)
+            },
+            Object::UObject(uo) => {
+                let vec = uo.to_object_vec()?;
+                self.eval_for_in_statement_inner(vec, var, index_var, islast_var, block, alt)
+            },
+            #[cfg(feature="chkimg")]
+            Object::ChkClrResult(vec) => {
+                self.eval_for_in_statement_inner(vec, var, index_var, islast_var, block, alt)
+            },
+            _ => Err(UError::new(
                 UErrorKind::SyntaxError,
                 UErrorMessage::ForInError
             ))
-        };
-
+        }
+    }
+    fn eval_for_in_statement_inner<O: Into<Object>>(
+        &mut self,
+        col_obj: Vec<O>,
+        var: &str,
+        index_var: Option<Identifier>,
+        islast_var: Option<Identifier>,
+        block: BlockStatement,
+        alt: Option<BlockStatement>,
+    ) -> EvalResult<Option<Object>> {
         let mut broke = false;
         let len = col_obj.len();
         for (i, o) in col_obj.into_iter().enumerate() {
-            self.env.assign(&var, o)?;
+            self.env.assign(var, o.into())?;
             if let Some(Identifier(name)) = &index_var {
                 self.env.assign(name, i.into())?;
             }
@@ -1870,6 +1916,27 @@ impl Evaluator {
                     ))
                 }
             },
+            #[cfg(feature="chkimg")]
+            Object::ChkClrResult(vec) => {
+                if let Object::Num(i) = index {
+                    vec.get(i as usize)
+                        .map(|found| found.into())
+                        .ok_or(UError::new(
+                            UErrorKind::EvaluatorError,
+                            UErrorMessage::IndexOutOfBounds(index),
+                        ))?
+                } else {
+                    return Err(UError::new(
+                        UErrorKind::EvaluatorError,
+                        UErrorMessage::InvalidIndex(index)
+                    ))
+                }
+            },
+            #[cfg(feature="chkimg")]
+            Object::ColorFound(found) => {
+                let found = Object::from(found);
+                self.get_index_value(found, index, None)?
+            }
             o => return Err(UError::new(
                 UErrorKind::Any("Evaluator::get_index_value".into()),
                 UErrorMessage::NotAnArray(o.to_owned()),

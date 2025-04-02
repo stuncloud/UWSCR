@@ -3,7 +3,8 @@ use windows::{
     Win32::{
         Foundation:: {
             MAX_PATH, HWND, WPARAM, LPARAM, BOOL,
-            GetLastError
+            GetLastError,
+            E_INVALIDARG,
         },
         System::{
             SystemInformation::{
@@ -67,9 +68,9 @@ pub fn to_ansi_bytes(string: &str) -> Vec<u8> {
             None,
             PCSTR::null(),
             None
-        );
+        ) as usize;
         if len > 0 {
-            let mut result: Vec<u8> = Vec::with_capacity(len as usize);
+            let mut result: Vec<u8> = vec![0; len];
             WideCharToMultiByte(
                 CP_ACP,
                 WC_COMPOSITECHECK,
@@ -107,9 +108,9 @@ pub fn from_ansi_bytes(ansi: &[u8]) -> String {
             MB_PRECOMPOSED,
             ansi,
             None
-        );
+        ) as usize;
         if len > 0 {
-            let mut wide: Vec<u16> = Vec::with_capacity(len as usize);
+            let mut wide: Vec<u16> = vec![0; len];
             MultiByteToWideChar(
                 CP_ACP,
                 MB_PRECOMPOSED,
@@ -331,5 +332,46 @@ impl SystemError {
 impl std::fmt::Display for SystemError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "[{}] {}", self.code, self.msg)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Win32Error {
+    error: windows::core::Error,
+    hint: Option<String>,
+}
+impl Win32Error {
+    fn new(error: windows::core::Error, hint: &str) -> Self {
+        Self {
+            error,
+            hint: Some(hint.to_string())
+        }
+    }
+    pub fn is_invalid_arg_error(&self) -> bool {
+        self.error.code() == E_INVALIDARG
+    }
+}
+impl std::fmt::Display for Win32Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let code = self.error.code().0;
+        let msg = self.error.message().to_string();
+        write!(f, "0x{code:08X} {msg}")?;
+        if let Some(hint) = &self.hint {
+            write!(f, " ({hint})")?;
+        }
+        Ok(())
+    }
+}
+impl From<windows::core::Error> for Win32Error {
+    fn from(error: windows::core::Error) -> Self {
+        Self { error, hint: None }
+    }
+}
+pub trait WindowsResultExt<T> {
+    fn err_hint(self, hint: &str) -> std::result::Result<T, Win32Error>;
+}
+impl<T> WindowsResultExt<T> for windows::core::Result<T> {
+    fn err_hint(self, hint: &str) -> std::result::Result<T, Win32Error> {
+        self.map_err(|error| Win32Error::new(error, hint))
     }
 }

@@ -702,10 +702,11 @@ impl Shell {
     fn unicode_output_to_string(u8: &[u8]) -> String {
         let u16: Vec<u16> = u8
             .chunks_exact(2)
-            .into_iter()
             .map(|a| u16::from_ne_bytes([a[0], a[1]]))
             .collect();
         String::from_utf16_lossy(&u16)
+            .trim_end_matches(char::is_control)
+            .to_string()
     }
     fn to_base64(command: &str) -> String {
         let wide = command.encode_utf16().collect::<Vec<u16>>();

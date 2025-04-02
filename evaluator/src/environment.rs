@@ -85,6 +85,9 @@ impl Layer {
             layer.clear();
         }
     }
+    fn clear_local(&mut self) {
+        self.local.clear();
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -106,7 +109,7 @@ impl Environment {
     }
     pub fn clear_local(&mut self) {
         let mut layer = self.current.lock().unwrap();
-        layer.clear();
+        layer.clear_local();
     }
 
     pub fn new(params: Vec<String>) -> Self {
