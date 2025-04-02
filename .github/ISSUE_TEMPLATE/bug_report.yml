@@ -35,10 +35,10 @@ body:
       label: バージョン
       description: 不具合が発生したUWSCRのバージョンを選択してください
       options:
+        - "1.0.6"
         - "1.0.5"
         - "1.0.4"
         - "1.0.3"
-        - "1.0.2"
         - "その他"
     validations:
       required: true
