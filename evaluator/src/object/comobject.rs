@@ -883,6 +883,7 @@ impl TryInto<Object> for VARIANT {
 impl TryInto<Object> for *mut SAFEARRAY {
     type Error = ComError;
 
+    #[allow(clippy::not_unsafe_ptr_arg_deref)]
     fn try_into(self) -> Result<Object, Self::Error> {
         unsafe {
             let lbound = SafeArrayGetLBound(self, 1)?;
@@ -903,6 +904,7 @@ impl TryInto<Object> for *mut SAFEARRAY {
 impl TryInto<Object> for *mut *mut SAFEARRAY {
     type Error = ComError;
 
+    #[allow(clippy::not_unsafe_ptr_arg_deref)]
     fn try_into(self) -> Result<Object, Self::Error> {
         unsafe {
             let psa = *self;
@@ -1459,6 +1461,7 @@ impl IDispatch_Impl for EventDisp {
         unimplemented!()
     }
 
+    #[allow(clippy::not_unsafe_ptr_arg_deref)]
     fn Invoke(&self,dispidmember:i32,_riid: *const ::windows::core::GUID,_lcid:u32,_wflags:DISPATCH_FLAGS,pdispparams: *const DISPPARAMS,pvarresult: *mut VARIANT,_pexcepinfo: *mut EXCEPINFO,_puargerr: *mut u32) ->  ::windows::core::Result<()> {
         unsafe {
             if self.memid == dispidmember {
