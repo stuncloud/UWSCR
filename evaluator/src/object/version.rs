@@ -21,9 +21,6 @@ impl Version {
     pub fn parse(&self) -> f64 {
         format!("{}.{}{}", self.major, self.minor, self.patch).parse().unwrap_or(0.0)
     }
-    pub fn to_string(&self) -> String {
-        format!("{}.{}.{}", self.major, self.minor, self.patch)
-    }
 }
 
 impl FromStr for Version {
