@@ -995,18 +995,26 @@ trait GetPairs {
             pairs.replace(Pairs::new());
         }
         let start_pos = *pos;
+        let mut dbl_quot_flg = false;
+        let mut sgl_quot_flg = false;
         while let Some(c) = input.get(*pos + 1) {
             *pos += 1;
-            if *c == Self::LEFT {
-                Self::search(input, pairs, pos, false, false);
-            } else if *c == Self::RIGHT {
-                if ! is_right {
-                    if let Some(pairs) = pairs {
-                        pairs.push(start_pos, *pos);
+            match c {
+                '"' => dbl_quot_flg = !dbl_quot_flg,
+                '\'' => sgl_quot_flg = !sgl_quot_flg,
+                c => if ! dbl_quot_flg && ! sgl_quot_flg {
+                    if *c == Self::LEFT {
+                        Self::search(input, pairs, pos, false, false);
+                    } else if *c == Self::RIGHT {
+                        if ! is_right {
+                            if let Some(pairs) = pairs {
+                                pairs.push(start_pos, *pos);
+                            }
+                        }
+                        if ! is_top {
+                            break;
+                        }
                     }
-                }
-                if ! is_top {
-                    break;
                 }
             }
         }
