@@ -1232,7 +1232,7 @@ impl Into<UError> for ExceptionDetails {
     }
 }
 
-#[allow(dead_code)]
+// #[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Default)]
 pub struct RemoteObject0 {
     pub r#type: String,
@@ -1240,16 +1240,16 @@ pub struct RemoteObject0 {
     #[serde(rename="className")]
     class_name: Option<String>,
     pub value: Option<Value>,
-    #[serde(rename="unserializableValue")]
-    unserializable_value: Option<String>,
+    // #[serde(rename="unserializableValue")]
+    // unserializable_value: Option<String>,
     description: Option<String>,
-    #[serde(rename="webDriverValue")]
-    web_driver_value: Option<Value>,
+    // #[serde(rename="webDriverValue")]
+    // web_driver_value: Option<Value>,
     #[serde(rename="objectId")]
     pub object_id: Option<String>,
-    preview: Option<Value>,
-    #[serde(rename="customPreview")]
-    custom_preview: Option<Value>
+    // preview: Option<Value>,
+    // #[serde(rename="customPreview")]
+    // custom_preview: Option<Value>
 }
 
 #[derive(Clone)]
