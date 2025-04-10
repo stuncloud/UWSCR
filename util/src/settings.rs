@@ -7,7 +7,7 @@ use std::{
         read,
     },
     fmt,
-    io::{Write, SeekFrom, Seek},
+    io::Write,
     path::PathBuf,
     sync::Mutex,
     str::FromStr,
@@ -22,20 +22,29 @@ use schemars::{schema_for, JsonSchema};
 use std::sync::LazyLock;
 
 /// %APPDATA%\UWSCR\settings.json
-static SETTING_FILE_PATH: LazyLock<Result<PathBuf, Error>> = LazyLock::new(|| {
-    let mut path = PathBuf::from(
-        get_special_directory(CSIDL_APPDATA as i32)
-    );
+/// %APPDATA%\UWSCR\uwscr-settings-schema.json
+static SETTING_FILES: LazyLock<Result<SettingFiles, Error>> = LazyLock::new(|| {
+    // AppData
+    let mut path = PathBuf::from(get_special_directory(CSIDL_APPDATA as i32));
+    // UWSCRフォルダがなければ作る
     path.push("UWSCR");
     if ! path.exists() {
         create_dir_all(&path)?
     }
-    path.push("settings.json");
-    Ok(path)
+    let mut schema = path.clone();
+    let mut settings = path;
+    schema.push("uwscr-settings-schema.json");
+    settings.push("settings.json");
+    Ok(SettingFiles { settings, schema })
 });
+struct SettingFiles {
+    settings: PathBuf,
+    schema: PathBuf,
+}
+
 pub static USETTINGS: LazyLock<Mutex<USettings>> = LazyLock::new(|| {
-    let settings = if let Ok(path) = SETTING_FILE_PATH.as_ref() {
-        USettings::from_file(path).unwrap_or_default()
+    let settings = if let Ok(files) = SETTING_FILES.as_ref() {
+        USettings::from_file(&files.settings).unwrap_or_default()
     } else {
         USettings::default()
     };
@@ -60,47 +69,36 @@ pub struct USettings {
     #[serde(default, deserialize_with = "string_or_struct")]
     pub logfont: LogFont,
     /// この設定ファイルのschemaファイルのパス
-    #[serde(default = "get_default_schema", skip_deserializing, rename(serialize = "$schema"))]
+    #[serde(default = "get_schema_url", skip_deserializing, rename(serialize = "$schema"))]
     pub schema: String,
 }
 
-fn get_default_schema() -> String {
-    let version = env!("CARGO_PKG_VERSION");
-    let uri = format!("https://github.com/stuncloud/UWSCR/releases/download/{}/uwscr-settings-schema.json", version);
-    let schema = if cfg!(debug_assertions) {
-        match std::env::current_dir() {
-            Ok(mut p) => {
-                p.push("schema");
-                p.push("uwscr-settings-schema.json");
-                match url::Url::from_file_path(p) {
-                    Ok(u) => u.as_str().to_string(),
-                    Err(_) => uri
-                }
-            },
-            Err(_) => uri
-        }
-    } else {
-        uri
-    };
-    schema
+fn get_schema_url() -> String {
+    SETTING_FILES.as_ref().ok()
+        .and_then(|f| {
+            url::Url::from_file_path(&f.schema)
+                .map(|url| url.to_string())
+                .ok()
+        })
+        .unwrap_or_default()
 }
 
 impl USettings {
     pub fn get_current_settings_as_json(&self) -> String {
-        serde_json::to_string_pretty(&self).unwrap_or(String::new())
+        serde_json::to_string_pretty(&self).unwrap_or_default()
     }
     pub fn from_file(path: &PathBuf) -> Result<Self, Error> {
-        let json = read(&path)?;
+        let json = read(path)?;
         let usettings = serde_json::from_slice::<USettings>(&json)?;
         Ok(usettings)
     }
     pub fn to_file(&self, path: &PathBuf) -> Result<(), Error> {
-        let json = serde_json::to_string_pretty::<USettings>(&self)?;
+        let json = serde_json::to_string_pretty::<USettings>(self)?;
         let mut file = OpenOptions::new()
                             .create(true)
                             .truncate(true)
                             .write(true)
-                            .open::<&PathBuf>(&path)?;
+                            .open::<&PathBuf>(path)?;
         write!(file, "{}", json)?;
         Ok(())
     }
@@ -108,7 +106,7 @@ impl USettings {
 
 impl Default for USettings {
     fn default() -> Self {
-        let schema = get_default_schema();
+        let schema = get_schema_url();
         USettings {
             options: UOption::default(),
             browser: Browser::default(),
@@ -206,7 +204,7 @@ impl Default for UOption {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct UPosition {
     /// x座標
     #[serde(default)]
@@ -214,15 +212,6 @@ pub struct UPosition {
     /// y座標
     #[serde(default)]
     pub top: i32,
-}
-
-impl Default for UPosition {
-    fn default() -> Self {
-        UPosition {
-            left: 0,
-            top: 0
-        }
-    }
 }
 
 const DEFAULT_FONT_SIZE: i32 = 12;
@@ -328,7 +317,7 @@ where
     deserializer.deserialize_any(StringOrStruct(PhantomData))
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct Browser {
     /// Chromeのパス
     #[serde(default)]
@@ -341,28 +330,12 @@ pub struct Browser {
     pub vivaldi: Option<String>,
 }
 
-impl Default for Browser {
-    fn default() -> Self {
-        Self {
-            chrome: None,
-            msedge: None,
-            vivaldi: None,
-        }
-    }
-}
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct Chkimg {
     /// chkimg()実行時の画面を保存するかどうか
     #[serde(default)]
     pub save_ss: bool,
-}
-impl Default for Chkimg {
-    fn default() -> Self {
-        Self {
-            save_ss: false,
-        }
-    }
 }
 
 // pub fn usettings_singleton(usettings: Option<USettings>) -> Box<SingletonSettings> {
@@ -443,22 +416,31 @@ impl From<&String> for FileMode {
     }
 }
 pub fn out_default_setting_file(mode: FileMode) -> Result<String, Error> {
-    let path = SETTING_FILE_PATH.as_ref()?;
+    let files = SETTING_FILES.as_ref()?;
     // ファイルが無ければ必ず新規作成
-    let mode = if ! path.exists() {FileMode::Init} else {mode};
+    let mode = if ! files.settings.exists() {FileMode::Init} else {mode};
     match mode {
         FileMode::Open => {},
         FileMode::Init => {
             let s = USettings::default();
-            s.to_file(path)?;
+            s.to_file(&files.settings)?;
+            // ローカルjson schemaも更新
+            save_json_schema(&files.schema)?;
         },
         FileMode::Merge => {
-            let s = USettings::from_file(path)?;
-            s.to_file(path)?;
+            let s = USettings::from_file(&files.settings)?;
+            s.to_file(&files.settings)?;
+            // ローカルjson schemaも更新
+            save_json_schema(&files.schema)?;
         },
     }
-    shell_execute(path.to_str().unwrap().to_string(), None);
-    Ok(format!("Opening {}", path.to_str().unwrap()))
+    shell_execute(files.settings.to_str().unwrap().to_string(), None);
+    Ok(format!("Opening {}", files.settings.to_str().unwrap()))
+}
+fn save_json_schema(path: &std::path::Path) -> Result<(), Error> {
+    let parent = path.parent().unwrap().to_path_buf();
+    out_json_schema_file(parent)?;
+    Ok(())
 }
 
 pub fn out_json_schema_file(mut path: PathBuf) -> Result<String, Error> {
@@ -469,9 +451,11 @@ pub fn out_json_schema_file(mut path: PathBuf) -> Result<String, Error> {
 
     let schema = schema_for!(USettings);
     let json = serde_json::to_string_pretty(&schema)?;
-    let mut file = OpenOptions::new().create(true).write(true).open::<&PathBuf>(&path)?;
-    file.seek(SeekFrom::Start(0))?;
-    file.set_len(0)?;
+    let mut file = OpenOptions::new()
+        .create(true)
+        .truncate(true)
+        .write(true)
+        .open::<&PathBuf>(&path)?;
     write!(file, "{}", json)?;
 
     Ok(format!("Created {}", path.to_str().unwrap()))
