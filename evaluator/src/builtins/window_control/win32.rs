@@ -49,13 +49,15 @@ use windows::{
                 GetWindowThreadProcessId, GetParent,
                 // slider
                 IsWindowVisible, GetWindowRect,
-                GetScrollInfo, SCROLLBAR_CONSTANTS, SB_HORZ, SB_VERT, SCROLLINFO, SIF_ALL,
-                GetScrollBarInfo, SCROLLBARINFO, OBJECT_IDENTIFIER, OBJID_HSCROLL, OBJID_VSCROLL,
+                GetScrollInfo, SCROLLBAR_CONSTANTS, SB_CTL, SB_HORZ, SB_VERT, SCROLLINFO, SIF_ALL,
+                GetScrollBarInfo, SCROLLBARINFO, OBJID_CLIENT,
                 WM_HSCROLL, WM_VSCROLL, SB_THUMBTRACK,
+                WINDOW_LONG_PTR_INDEX, GWL_STYLE, SBS_VERT,
                 // get/sendstr
                 WM_GETTEXT, WM_GETTEXTLENGTH, WM_CHAR,
                 GetGUIThreadInfo, GUITHREADINFO, WM_SETTEXT,
                 // GetWindowTextW, GetWindowTextLengthW,
+
             },
         },
         Graphics::Gdi::{ClientToScreen, ScreenToClient},
@@ -74,6 +76,10 @@ use windows::{
         }
     }
 };
+#[cfg(target_pointer_width="32")]
+use windows::Win32::UI::WindowsAndMessaging::GetWindowLongW;
+#[cfg(target_pointer_width="64")]
+use windows::Win32::UI::WindowsAndMessaging::GetWindowLongPtrW;
 
 use util::winapi::{
     get_class_name, get_window_title, make_wparam, get_window_style,
@@ -224,24 +230,16 @@ impl Win32 {
                 item.found = Some(ItemFound::new(hwnd, target, ItemInfo::TrackBar));
                 return false.into();
             },
-            _ => if IsWindowVisible(hwnd).as_bool() {
+            TargetClass::ScrollBar => if IsWindowVisible(hwnd).as_bool() {
                 // スクロールバーを探す
-                if let Some(scrollinfo) = Slider::get_scrollbar_info(hwnd, SB_HORZ) {
+                if let Some(info) = Slider::get_scrollbar_item_info(hwnd) {
                     if item.is_in_exact_order() {
-                        let point = Slider::get_scrollbar_point(hwnd, OBJID_HSCROLL);
-                        let info = ItemInfo::ScrollBar(scrollinfo, SB_HORZ, point);
-                        item.found = Some(ItemFound::new(hwnd, target, info));
-                        return false.into()
-                    }
-                } else if let Some(scrollinfo) = Slider::get_scrollbar_info(hwnd, SB_VERT) {
-                    if item.is_in_exact_order() {
-                        let point = Slider::get_scrollbar_point(hwnd, OBJID_VSCROLL);
-                        let info = ItemInfo::ScrollBar(scrollinfo, SB_VERT, point);
                         item.found = Some(ItemFound::new(hwnd, target, info));
                         return false.into()
                     }
                 }
-            }
+            },
+            _ => {}
         }
         true.into()
     }
@@ -740,7 +738,7 @@ impl Win32 {
                     Some(slider)
                 },
                 ItemInfo::ScrollBar(info, dir, point) => {
-                    let slider = Slider::ScrollBar(found.hwnd, info, dir.0, point);
+                    let slider = Slider::ScrollBar(found.hwnd, hwnd, info, dir.0, point);
                     Some(slider)
                 }
                 _ => None
@@ -2230,34 +2228,35 @@ struct TBBUTTON86 {
 }
 
 pub enum Slider {
-    /// parent, SCROLLINFO, 縦横, (X, Y)
-    ScrollBar(HWND, SCROLLINFO, i32, (i32, i32)),
-    /// trackbar, parent
+    /// scrollbar, mainwin, SCROLLINFO, 縦横, (X, Y)
+    ScrollBar(HWND, HWND, SCROLLINFO, i32, (i32, i32)),
+    /// trackbar, mainwin
     TrackBar(HWND, HWND)
 }
 
 impl Slider {
     pub fn set_pos(&self, pos: i32, smooth: bool) -> bool {
         match self {
-            Slider::ScrollBar(hwnd, info, dir, _) => {
+            Slider::ScrollBar(hwnd, _, info, dir, _) => {
                 let pos = pos.min(info.nMax).max(info.nMin);
                 let msg = if *dir == 0 {WM_HSCROLL} else {WM_VSCROLL};
+                let parent_hwnd = Win32::get_parent(*hwnd);
+                // let parent_hwnd = Win32::get_parent(parent_hwnd);
                 if smooth {
                     let mut next = info.nPos;
                     let back = info.nPos > pos;
                     loop {
                         if back {next -= 1;} else {next += 1;}
                         let wparam = (SB_THUMBTRACK.0 | (next & 0xFFFF) << 16) as usize;
-                        Win32::send_message(*hwnd, msg, wparam, 0);
+                        Win32::send_message(parent_hwnd, msg, wparam, 0);
                         if next == pos {
                             break;
                         }
                     }
                 } else {
                     let wparam = (SB_THUMBTRACK.0 | (pos & 0xFFFF) << 16) as usize;
-                    Win32::send_message(*hwnd, msg, wparam, 0);
+                    Win32::send_message(parent_hwnd, msg, wparam, 0);
                 }
-                true
             },
             Slider::TrackBar(hwnd, _) => {
                 Win32::send_message(*hwnd, TBM_SETPOS, 1, pos as isize);
@@ -2272,13 +2271,27 @@ impl Slider {
                 let (x, y) = Win32::get_center(rect);
                 let point = Win32::client_to_screen(*hwnd, x, y);
                 MouseInput::left_click(*hwnd, Some(point));
-                true
+            },
+        }
+        self.current_pos_is(pos)
+    }
+    fn current_pos_is(&self, new_pos: i32) -> bool {
+        let new_pos = self.get_min().max(new_pos);
+        let new_pos = self.get_max().min(new_pos);
+        match self {
+            Slider::ScrollBar(hwnd, _, _, _, _) => unsafe {
+                let cur = Self::get_scrollbar_info(*hwnd)
+                    .map(|info| info.nPos);
+                cur.is_some_and(|cur| cur == new_pos)
+            },
+            Slider::TrackBar(_, _) => {
+                self.get_pos() == new_pos
             },
         }
     }
     pub fn get_pos(&self) -> i32 {
         match self {
-            Self::ScrollBar(_, info, _, _) => info.nPos,
+            Self::ScrollBar(_, _, info, _, _) => info.nPos,
             Self::TrackBar(hwnd, _) => {
                 let tbm_getpos = 1024;
                 Win32::send_message(*hwnd, tbm_getpos, 0, 0) as i32
@@ -2287,25 +2300,25 @@ impl Slider {
     }
     pub fn get_min(&self) -> i32 {
         match self {
-            Self::ScrollBar(_, info, _, _) => info.nMin,
+            Self::ScrollBar(_, _, info, _, _) => info.nMin,
             Self::TrackBar(hwnd, _) => Win32::send_message(*hwnd, TBM_GETRANGEMIN, 0, 0) as i32,
         }
     }
     pub fn get_max(&self) -> i32 {
         match self {
-            Self::ScrollBar(_, info, _, _) => info.nMax,
+            Self::ScrollBar(_, _, info, _, _) => info.nMax,
             Self::TrackBar(hwnd, _) => Win32::send_message(*hwnd, TBM_GETRANGEMAX, 0, 0) as i32,
         }
     }
     pub fn get_page(&self) -> i32 {
         match self {
-            Self::ScrollBar(_, info, _, _) => info.nPage as i32,
+            Self::ScrollBar(_, _, info, _, _) => info.nPage as i32,
             Self::TrackBar(hwnd, _) => Win32::send_message(*hwnd, TBM_GETPAGESIZE, 0, 0) as i32,
         }
     }
     pub fn get_bar(&self) -> i32 {
         match self {
-            Self::ScrollBar(_, _, dir, _) => *dir as i32,
+            Self::ScrollBar(_, _, _, dir, _) => *dir,
             Self::TrackBar(hwnd, _) => {
                 let style = TBS_VERT as i32;
                 if get_window_style(*hwnd) & style > 0 {1} else {0}
@@ -2313,35 +2326,57 @@ impl Slider {
         }
     }
     pub fn get_point(&self) -> (i32, i32) {
-        match self {
-            Self::ScrollBar(_, _, _, point) => *point,
-            Self::TrackBar(hwnd, parent) => {
-                unsafe {
+        unsafe {
+            let (main_win_hwnd, mut point) = match self {
+                Self::ScrollBar(_, main, _, _, point) => {
+                    let point = POINT { x: point.0, y: point.1 };
+                    (main, point)
+                },
+                Self::TrackBar(hwnd, main) => {
                     let mut rect = RECT::default();
                     let _ = GetWindowRect(*hwnd, &mut rect);
-                    let mut point = POINT { x: rect.left, y: rect.top };
-                    ScreenToClient(*parent, &mut point);
-                    (point.x, point.y)
-                }
-            },
+                    let point = POINT { x: rect.left, y: rect.top };
+                    (main, point)
+                },
+            };
+            ScreenToClient(*main_win_hwnd, &mut point);
+            (point.x, point.y)
         }
     }
-    unsafe fn get_scrollbar_info(hwnd: HWND, nbar: SCROLLBAR_CONSTANTS) -> Option<SCROLLINFO> {
-        let mut info = SCROLLINFO::default();
-        info.cbSize = std::mem::size_of::<SCROLLINFO>() as u32;
-        info.fMask = SIF_ALL;
-        GetScrollInfo(hwnd, nbar, &mut info).ok()?;
-        if info.nPage > 0 {
+    unsafe fn get_scrollbar_item_info(hwnd: HWND) -> Option<ItemInfo> {
+        let info = Self::get_scrollbar_info(hwnd)?;
+        let point = Self::get_scrollbar_point(hwnd);
+        let sb_const = Self::get_scrollbar_dir(hwnd);
+        Some(ItemInfo::ScrollBar(info, sb_const, point))
+    }
+    unsafe fn get_scrollbar_info(hwnd: HWND) -> Option<SCROLLINFO> {
+        let mut info = SCROLLINFO {
+            cbSize: std::mem::size_of::<SCROLLINFO>() as u32,
+            fMask: SIF_ALL,
+            ..Default::default()
+        };
+        if GetScrollInfo(hwnd, SB_CTL, &mut info).is_ok() {
             Some(info)
         } else {
             None
         }
     }
-    unsafe fn get_scrollbar_point(hwnd: HWND, idobject: OBJECT_IDENTIFIER) -> (i32, i32) {
-        let mut info = SCROLLBARINFO::default();
-        info.cbSize = std::mem::size_of::<SCROLLBARINFO>() as u32;
-        let _ = GetScrollBarInfo(hwnd, idobject, &mut info);
+    unsafe fn get_scrollbar_point(hwnd: HWND) -> (i32, i32) {
+        let mut info = SCROLLBARINFO {
+            cbSize: std::mem::size_of::<SCROLLBARINFO>() as u32,
+            ..Default::default()
+        };
+        let _ = GetScrollBarInfo(hwnd, OBJID_CLIENT, &mut info);
         (info.rcScrollBar.left, info.rcScrollBar.top)
+    }
+    unsafe fn get_scrollbar_dir(hwnd: HWND) -> SCROLLBAR_CONSTANTS {
+        let style = get_window_long(hwnd, GWL_STYLE);
+        let vertical = SBS_VERT as isize;
+        if (style & vertical) == vertical {
+            SB_VERT
+        } else {
+            SB_HORZ
+        }
     }
 }
 
@@ -2410,4 +2445,14 @@ impl StatusBar {
             }
         }
     }
+}
+
+
+#[cfg(target_pointer_width="32")]
+unsafe fn get_window_long(hwnd: HWND, nindex: WINDOW_LONG_PTR_INDEX) -> isize {
+    GetWindowLongW(hwnd, nindex) as isize
+}
+#[cfg(target_pointer_width="64")]
+unsafe fn get_window_long(hwnd: HWND, nindex: WINDOW_LONG_PTR_INDEX) -> isize {
+    GetWindowLongPtrW(hwnd, nindex)
 }
