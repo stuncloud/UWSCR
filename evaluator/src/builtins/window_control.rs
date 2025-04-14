@@ -1974,7 +1974,7 @@ pub fn setslider(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult 
     let hwnd = get_hwnd_from_id(id);
     let value = args.get_as_int(1, None)?;
     let nth = args.get_as_int(2, Some(1))?;
-    let smooth = args.get_as_bool(3, Some(true))?;
+    let smooth = args.get_as_bool(3, Some(false))?;
 
     let result = if let Some(slider) = Slider::new(hwnd, nth) {
         slider.set(value, smooth)

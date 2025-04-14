@@ -420,7 +420,7 @@ ID0について
 
     :return: なし
 
-.. function:: setslider(ID, 値, [n番目=1, スクロール=TRUE])
+.. function:: setslider(ID, 値, [n番目=1, スクロール=FALSE])
 
     | スライダー(スクロールバー、トラックバー)の値を設定します
 
