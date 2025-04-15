@@ -16,7 +16,7 @@ use windows::{
         Foundation::{POINT, HWND, RECT, WPARAM, LPARAM, HANDLE},
         UI::{
             Input::KeyboardAndMouse::{
-                SendInput, INPUT,
+                SendInput, INPUT, INPUT_0,
                 KEYBDINPUT, INPUT_KEYBOARD, VIRTUAL_KEY,
                 KEYBD_EVENT_FLAGS, KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP, KEYEVENTF_UNICODE,
                 MOUSEINPUT, INPUT_MOUSE, MOUSEEVENTF_ABSOLUTE,
@@ -35,7 +35,8 @@ use windows::{
             WindowsAndMessaging::{
                 GetWindowRect, GetClientRect,
                 GetCursorPos, SetCursorPos,
-                SendMessageW, WM_MOUSEMOVE,
+                PostMessageW,
+                WM_MOUSEMOVE,
                 WM_LBUTTONUP, WM_LBUTTONDOWN,
                 WM_RBUTTONUP, WM_RBUTTONDOWN,
                 WM_MBUTTONUP, WM_MBUTTONDOWN,
@@ -193,11 +194,14 @@ pub fn btn(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResul
 pub fn get_current_pos() -> BuiltInResult<POINT>{
     let mut point = POINT {x: 0, y: 0};
     unsafe {
-        if GetCursorPos(&mut point).is_ok() == false {
-            return Err(builtin_func_error(UErrorMessage::UnableToGetCursorPosition));
-        };
+        // if !GetCursorPos(&mut point).is_ok() {
+        //     return Err(builtin_func_error(UErrorMessage::UnableToGetCursorPosition));
+        // };
+        GetCursorPos(&mut point)
+            .map(|_| point)
+            .map_err(|_| builtin_func_error(UErrorMessage::UnableToGetCursorPosition))
     }
-    Ok(point)
+    // Ok(point)
 }
 
 #[builtin_func_desc(
@@ -221,8 +225,8 @@ pub fn kbd(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResul
         .unwrap_or(KeyActionEnum::CLICK);
     let wait= args.get_as_int::<u64>(2, Some(0))?;
 
-    let vk_win = key_codes::VirtualKeyCode::VK_WIN as u8;
-    let vk_rwin = key_codes::VirtualKeyCode::VK_START as u8;
+    let vk_win = key_codes::VirtualKeyCode::VK_WIN as usize;
+    let vk_rwin = key_codes::VirtualKeyCode::VK_START as usize;
     let input = Input::from(&evaluator.mouseorg);
     match key {
         TwoTypeArg::U(vk) => {
@@ -266,6 +270,10 @@ impl From<&Option<MouseOrg>> for Input {
 impl Input {
     /// kbdのCLICKでdownとupの間の待機秒数 (ms)
     const KEY_CLICK_WAIT: u64 = 100;
+    /// btnのCLICKでdownとupの間の待機秒数 (ms)
+    const MOUSE_CLICK_WAIT: u64 = 35;
+    /// kbd/btnのCLICKでup後の待機秒数 (ms)
+    const AFTER_CLICK_WAIT: u64 = 10;
     pub fn is_client(&self) -> bool {
         self.client
     }
@@ -292,23 +300,23 @@ impl Input {
         }
     }
     /// MORG_DIRECT時のメッセージ送信
-    unsafe fn direct_message<W, L>(&self, msg: u32, wparam: W, lparam: L) -> isize
+    unsafe fn direct_message<W, L>(&self, msg: u32, wparam: W, lparam: L) -> bool
     where
         W: IntoPrm<WPARAM>,
         L: IntoPrm<LPARAM>,
     {
         let wparam = wparam.intop();
         let lparam = lparam.intop();
-        SendMessageW(self.hwnd.as_ref(), msg, wparam, lparam)
-            .0
+        PostMessageW(self.hwnd.as_ref(), msg, wparam, lparam).is_ok()
     }
-    fn send_key(&self, vk: u8, action: KeyActionEnum, wait: u64, extend: bool) {
+    fn send_key(&self, vk: usize, action: KeyActionEnum, wait: u64, extend: bool) {
         sleep(wait);
         match action {
             KeyActionEnum::CLICK => {
                 self.key_down(vk, extend);
                 sleep(Self::KEY_CLICK_WAIT);
-                self.key_up(vk, extend)
+                self.key_up(vk, extend);
+                sleep(Self::AFTER_CLICK_WAIT);
             },
             KeyActionEnum::DOWN => self.key_down(vk, extend),
             KeyActionEnum::UP => self.key_up(vk, extend),
@@ -320,32 +328,34 @@ impl Input {
             if self.direct {
                 let hstring = HSTRING::from(str);
                 hstring.as_wide()
-                    .into_iter()
+                    .iter()
                     .map(|n| *n as usize)
                     .for_each(|char| {self.direct_message(WM_CHAR, char, 1);});
             } else {
                 let pinputs = str.encode_utf16()
                     .map(|scan| {
-                        let mut input = INPUT::default();
-                        input.r#type = INPUT_KEYBOARD;
-                        input.Anonymous.ki = KEYBDINPUT {
-                            wVk: VIRTUAL_KEY(0),
-                            wScan: scan,
-                            dwFlags: KEYEVENTF_UNICODE,
-                            time: 0,
-                            dwExtraInfo: *INPUT_EXTRA_INFO,
-                        };
-                        input
+                        INPUT {
+                            r#type: INPUT_KEYBOARD,
+                            Anonymous: INPUT_0 {
+                                ki: KEYBDINPUT {
+                                    wVk: VIRTUAL_KEY(0),
+                                    wScan: scan,
+                                    dwFlags: KEYEVENTF_UNICODE,
+                                    time: 0,
+                                    dwExtraInfo: *INPUT_EXTRA_INFO,
+                                }
+                            }
+                        }
                     })
                     .collect::<Vec<_>>();
                 SendInput(&pinputs, size_of::<INPUT>() as i32);
             }
         }
     }
-    fn key_down(&self, vk: u8, extend: bool) {
+    fn key_down(&self, vk: usize, extend: bool) {
         unsafe {
             if self.direct {
-                self.direct_message(WM_KEYDOWN, vk as usize, 0);
+                self.direct_message(WM_KEYDOWN, vk, 0);
             } else {
                 let mut input = INPUT::default();
                 let dwflags = if extend {
@@ -367,10 +377,10 @@ impl Input {
             }
         }
     }
-    fn key_up(&self, vk: u8, extend: bool) {
+    fn key_up(&self, vk: usize, extend: bool) {
         unsafe {
             if self.direct {
-                self.direct_message(WM_KEYUP, vk as usize, 0);
+                self.direct_message(WM_KEYUP, vk, 0);
             } else {
                 let mut input = INPUT::default();
                 let dwflags = if extend {
@@ -396,8 +406,7 @@ impl Input {
         unsafe {
             if self.direct {
                 let lparam = make_lparam(x, y);
-                let res = self.direct_message(WM_MOUSEMOVE, 0, lparam);
-                res == 0
+                self.direct_message(WM_MOUSEMOVE, 0, lparam)
             } else {
                 let (x, y) = self.fix_point(x, y);
                 move_mouse_to(x, y)
@@ -421,15 +430,18 @@ impl Input {
                     MouseButton::Right => MOUSEEVENTF_RIGHTDOWN,
                     MouseButton::Middle => MOUSEEVENTF_MIDDLEDOWN,
                 } | MOUSEEVENTF_ABSOLUTE;
-                let mut input = INPUT::default();
-                input.r#type = INPUT_MOUSE;
-                input.Anonymous.mi = MOUSEINPUT {
-                    dx: x,
-                    dy: y,
-                    mouseData: 0,
-                    dwFlags: dwflags,
-                    time: 0,
-                    dwExtraInfo: *INPUT_EXTRA_INFO,
+                let input = INPUT {
+                    r#type: INPUT_MOUSE,
+                    Anonymous: INPUT_0 {
+                        mi: MOUSEINPUT {
+                            dx: x,
+                            dy: y,
+                            mouseData: 0,
+                            dwFlags: dwflags,
+                            time: 0,
+                            dwExtraInfo: *INPUT_EXTRA_INFO,
+                        }
+                    }
                 };
                 SendInput(&[input], size_of::<INPUT>() as i32);
             }
@@ -452,15 +464,18 @@ impl Input {
                     MouseButton::Right => MOUSEEVENTF_RIGHTUP,
                     MouseButton::Middle => MOUSEEVENTF_MIDDLEUP,
                 } | MOUSEEVENTF_ABSOLUTE;
-                let mut input = INPUT::default();
-                input.r#type = INPUT_MOUSE;
-                input.Anonymous.mi = MOUSEINPUT {
-                    dx: x,
-                    dy: y,
-                    mouseData: 0,
-                    dwFlags: dwflags,
-                    time: 0,
-                    dwExtraInfo: *INPUT_EXTRA_INFO,
+                let input = INPUT {
+                    r#type: INPUT_MOUSE,
+                    Anonymous: INPUT_0 {
+                        mi: MOUSEINPUT {
+                            dx: x,
+                            dy: y,
+                            mouseData: 0,
+                            dwFlags: dwflags,
+                            time: 0,
+                            dwExtraInfo: *INPUT_EXTRA_INFO,
+                        }
+                    }
                 };
                 SendInput(&[input], size_of::<INPUT>() as i32);
             }
@@ -468,7 +483,9 @@ impl Input {
     }
     fn mouse_click(&self, x: i32, y: i32, btn: &MouseButton) {
         self.mouse_down(x, y, btn);
+        sleep(Self::MOUSE_CLICK_WAIT);
         self.mouse_up(x, y, btn);
+        sleep(Self::AFTER_CLICK_WAIT);
     }
     fn mouse_button(&self, x: i32, y: i32, btn: &MouseButton, action: KeyActionEnum) {
         self.move_mouse(x, y);
@@ -490,15 +507,18 @@ impl Input {
                 self.direct_message(msg, WPARAM(wparam), LPARAM(lparam));
             } else {
                 let dwflags = if horizontal {MOUSEEVENTF_HWHEEL} else {MOUSEEVENTF_WHEEL};
-                let mut input = INPUT::default();
-                input.r#type = INPUT_MOUSE;
-                input.Anonymous.mi = MOUSEINPUT {
-                    dx: 0,
-                    dy: 0,
-                    mouseData: amount as u32,
-                    dwFlags: dwflags,
-                    time: 0,
-                    dwExtraInfo: *INPUT_EXTRA_INFO,
+                let input = INPUT {
+                    r#type: INPUT_MOUSE,
+                    Anonymous: INPUT_0 {
+                        mi: MOUSEINPUT {
+                            dx: 0,
+                            dy: 0,
+                            mouseData: amount as u32,
+                            dwFlags: dwflags,
+                            time: 0,
+                            dwExtraInfo: *INPUT_EXTRA_INFO,
+                        }
+                    }
                 };
                 SendInput(&[input], size_of::<INPUT>() as i32);
             }
@@ -612,30 +632,32 @@ impl Input {
     }
     fn new_pointer_touch_info(x: i32, y: i32, flags: POINTER_FLAGS) -> POINTER_TOUCH_INFO {
         let margin = 2;
-        let mut touch_info = POINTER_TOUCH_INFO::default();
-        touch_info.touchMask = TOUCH_MASK_CONTACTAREA|TOUCH_MASK_ORIENTATION|TOUCH_MASK_PRESSURE;
-        touch_info.rcContact = RECT { left: x-margin, top: y-margin, right: x+margin, bottom: y+margin };
-        touch_info.orientation = 90;
-        touch_info.pressure = 1000;
-        touch_info.pointerInfo = POINTER_INFO {
-            pointerType: PT_TOUCH,
-            pointerId: 0,
-            frameId: 0,
-            pointerFlags: flags,
-            sourceDevice: HANDLE::default(),
-            hwndTarget: HWND::default(),
-            ptPixelLocation: POINT { x, y },
-            ptHimetricLocation: POINT::default(),
-            ptPixelLocationRaw: POINT::default(),
-            ptHimetricLocationRaw: POINT::default(),
-            dwTime: 0,
-            historyCount: 0,
-            InputData: 0,
-            dwKeyStates: 0,
-            PerformanceCount: 0,
-            ButtonChangeType: POINTER_BUTTON_CHANGE_TYPE::default(),
-        };
-        touch_info
+
+        POINTER_TOUCH_INFO {
+            touchMask: TOUCH_MASK_CONTACTAREA|TOUCH_MASK_ORIENTATION|TOUCH_MASK_PRESSURE,
+            rcContact: RECT { left: x-margin, top: y-margin, right: x+margin, bottom: y+margin },
+            orientation: 90,
+            pressure: 1000,
+            pointerInfo: POINTER_INFO {
+                pointerType: PT_TOUCH,
+                pointerId: 0,
+                frameId: 0,
+                pointerFlags: flags,
+                sourceDevice: HANDLE::default(),
+                hwndTarget: HWND::default(),
+                ptPixelLocation: POINT { x, y },
+                ptHimetricLocation: POINT::default(),
+                ptPixelLocationRaw: POINT::default(),
+                ptHimetricLocationRaw: POINT::default(),
+                dwTime: 0,
+                historyCount: 0,
+                InputData: 0,
+                dwKeyStates: 0,
+                PerformanceCount: 0,
+                ButtonChangeType: POINTER_BUTTON_CHANGE_TYPE::default(),
+            },
+            ..Default::default()
+        }
     }
 }
 enum MouseButton {
