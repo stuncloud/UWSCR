@@ -700,12 +700,9 @@ pub fn chr(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 )]
 pub fn asc(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let str = args.get_as_string(0, None)?;
-    let code = match str.chars().next() {
-        Some(first) => {
-            first as u32
-        },
-        None => 0,
-    };
+    let code = str.chars().next()
+        .map(|first| first as u32)
+        .unwrap_or_default();
     Ok(Object::Num(code as f64))
 }
 
@@ -738,7 +735,7 @@ pub fn chrb(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 pub fn ascb(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let str = args.get_as_string(0, None)?;
     let bytes = to_ansi_bytes(&str);
-    let code = bytes.get(0).unwrap_or(&0);
+    let code = bytes.first().unwrap_or(&0);
     Ok(Object::Num(*code as f64))
 }
 

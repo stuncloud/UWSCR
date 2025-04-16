@@ -225,8 +225,8 @@ pub fn kbd(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResul
         .unwrap_or(KeyActionEnum::CLICK);
     let wait= args.get_as_int::<u64>(2, Some(0))?;
 
-    let vk_win = key_codes::VirtualKeyCode::VK_WIN as usize;
-    let vk_rwin = key_codes::VirtualKeyCode::VK_START as usize;
+    let vk_win = key_codes::VirtualKeyCode::VK_WIN as u32;
+    let vk_rwin = key_codes::VirtualKeyCode::VK_START as u32;
     let input = Input::from(&evaluator.mouseorg);
     match key {
         TwoTypeArg::U(vk) => {
@@ -309,7 +309,7 @@ impl Input {
         let lparam = lparam.intop();
         PostMessageW(self.hwnd.as_ref(), msg, wparam, lparam).is_ok()
     }
-    fn send_key(&self, vk: usize, action: KeyActionEnum, wait: u64, extend: bool) {
+    fn send_key(&self, vk: u32, action: KeyActionEnum, wait: u64, extend: bool) {
         sleep(wait);
         match action {
             KeyActionEnum::CLICK => {
@@ -322,6 +322,28 @@ impl Input {
             KeyActionEnum::UP => self.key_up(vk, extend),
         }
     }
+    unsafe fn send_unicode<'a, U: Into<UTF16Encodable<'a>>>(u: U) {
+        let uable: UTF16Encodable = u.into();
+        let pinputs = uable.to_vec()
+            .into_iter()
+            .map(|scan| {
+                INPUT {
+                    r#type: INPUT_KEYBOARD,
+                    Anonymous: INPUT_0 {
+                        ki: KEYBDINPUT {
+                            wVk: VIRTUAL_KEY(0),
+                            wScan: scan,
+                            dwFlags: KEYEVENTF_UNICODE,
+                            time: 0,
+                            dwExtraInfo: *INPUT_EXTRA_INFO,
+                        }
+                    }
+                }
+            })
+            .collect::<Vec<_>>();
+        let cbsize = size_of::<INPUT>() as i32;
+        SendInput(&pinputs, cbsize);
+    }
     fn send_str(&self, str: &str, wait: u64) {
         sleep(wait);
         unsafe {
@@ -332,55 +354,46 @@ impl Input {
                     .map(|n| *n as usize)
                     .for_each(|char| {self.direct_message(WM_CHAR, char, 1);});
             } else {
-                let pinputs = str.encode_utf16()
-                    .map(|scan| {
-                        INPUT {
-                            r#type: INPUT_KEYBOARD,
-                            Anonymous: INPUT_0 {
-                                ki: KEYBDINPUT {
-                                    wVk: VIRTUAL_KEY(0),
-                                    wScan: scan,
-                                    dwFlags: KEYEVENTF_UNICODE,
-                                    time: 0,
-                                    dwExtraInfo: *INPUT_EXTRA_INFO,
-                                }
-                            }
-                        }
-                    })
-                    .collect::<Vec<_>>();
-                SendInput(&pinputs, size_of::<INPUT>() as i32);
+                Self::send_unicode(str);
             }
         }
     }
-    fn key_down(&self, vk: usize, extend: bool) {
+    fn key_down(&self, vk: u32, extend: bool) {
         unsafe {
             if self.direct {
-                self.direct_message(WM_KEYDOWN, vk, 0);
+                self.direct_message(WM_KEYDOWN, vk as usize, 0);
+            } else if vk > 255 {
+                if let Some(ch) = char::from_u32(vk) {
+                    Self::send_unicode(ch);
+                }
             } else {
-                let mut input = INPUT::default();
                 let dwflags = if extend {
                     KEYEVENTF_EXTENDEDKEY
                 } else {
                     KEYBD_EVENT_FLAGS(0)
                 };
-                // let scan = MapVirtualKeyW(vk as u32, 0) as u16;
                 let wvk = VIRTUAL_KEY(vk as u16);
-                input.r#type = INPUT_KEYBOARD;
-                input.Anonymous.ki = KEYBDINPUT {
-                    wVk: wvk,
-                    wScan: 0,
-                    dwFlags: dwflags,
-                    time: 0,
-                    dwExtraInfo: *INPUT_EXTRA_INFO,
+                let input = INPUT {
+                    r#type: INPUT_KEYBOARD,
+                    Anonymous: INPUT_0 {
+                        ki: KEYBDINPUT {
+                            wVk: wvk,
+                            wScan: 0,
+                            dwFlags: dwflags,
+                            time: 0,
+                            dwExtraInfo: *INPUT_EXTRA_INFO,
+                        }
+                    }
                 };
-                SendInput(&[input], size_of::<INPUT>() as i32);
+                let cbsize = size_of::<INPUT>() as i32;
+                SendInput(&[input], cbsize);
             }
         }
     }
-    fn key_up(&self, vk: usize, extend: bool) {
+    fn key_up(&self, vk: u32, extend: bool) {
         unsafe {
             if self.direct {
-                self.direct_message(WM_KEYUP, vk, 0);
+                self.direct_message(WM_KEYUP, vk as usize, 0);
             } else {
                 let mut input = INPUT::default();
                 let dwflags = if extend {
@@ -413,6 +426,13 @@ impl Input {
             }
         }
     }
+    /// マウスボタン系メッセージを送る直前に異なる座標でWM_MOUSEMOVEを3回送る
+    unsafe fn mmv_before_mouse_btn(&self, x: i32, y: i32) {
+        for n in [1, -1, 0] {
+            let lparam = make_lparam(x + n, y + n);
+            self.direct_message(WM_MOUSEMOVE, None, lparam);
+        }
+    }
     fn mouse_down(&self, x: i32, y: i32, btn: &MouseButton) {
         unsafe {
             if self.direct {
@@ -421,10 +441,12 @@ impl Input {
                     MouseButton::Right => WM_RBUTTONDOWN,
                     MouseButton::Middle => WM_MBUTTONDOWN,
                 };
+                self.mmv_before_mouse_btn(x, y);
                 let lparam = make_lparam(x, y);
                 self.direct_message(msg, None, lparam);
             } else {
-                let (x, y) = self.fix_point(x, y);
+                self.move_mouse(x, y);
+                let (dx, dy) = self.fix_point(x, y);
                 let dwflags = match btn {
                     MouseButton::Left => MOUSEEVENTF_LEFTDOWN,
                     MouseButton::Right => MOUSEEVENTF_RIGHTDOWN,
@@ -434,8 +456,8 @@ impl Input {
                     r#type: INPUT_MOUSE,
                     Anonymous: INPUT_0 {
                         mi: MOUSEINPUT {
-                            dx: x,
-                            dy: y,
+                            dx,
+                            dy,
                             mouseData: 0,
                             dwFlags: dwflags,
                             time: 0,
@@ -455,10 +477,12 @@ impl Input {
                     MouseButton::Right => WM_RBUTTONUP,
                     MouseButton::Middle => WM_MBUTTONUP,
                 };
+                self.mmv_before_mouse_btn(x, y);
                 let lparam = make_lparam(x, y);
                 self.direct_message(msg, None, lparam);
             } else {
-                let (x, y) = self.fix_point(x, y);
+                self.move_mouse(x, y);
+                let (dx, dy) = self.fix_point(x, y);
                 let dwflags = match btn {
                     MouseButton::Left => MOUSEEVENTF_LEFTUP,
                     MouseButton::Right => MOUSEEVENTF_RIGHTUP,
@@ -468,8 +492,8 @@ impl Input {
                     r#type: INPUT_MOUSE,
                     Anonymous: INPUT_0 {
                         mi: MOUSEINPUT {
-                            dx: x,
-                            dy: y,
+                            dx,
+                            dy,
                             mouseData: 0,
                             dwFlags: dwflags,
                             time: 0,
@@ -488,7 +512,6 @@ impl Input {
         sleep(Self::AFTER_CLICK_WAIT);
     }
     fn mouse_button(&self, x: i32, y: i32, btn: &MouseButton, action: KeyActionEnum) {
-        self.move_mouse(x, y);
         match action {
             KeyActionEnum::CLICK => self.mouse_click(x, y, btn),
             KeyActionEnum::DOWN => self.mouse_down(x, y, btn),
@@ -496,23 +519,24 @@ impl Input {
         }
     }
     fn mouse_wheel(&self, x: i32, y: i32, amount: i32, horizontal: bool) {
-        self.move_mouse(x, y);
         unsafe {
             if self.direct {
+                self.mmv_before_mouse_btn(x, y);
                 let msg = if horizontal {WM_MOUSEHWHEEL} else {WM_MOUSEWHEEL};
                 let amount = amount * WHEEL_DELTA as i32;
                 let wparam = ((amount & 0xFFFF) << 16) as usize;
-                let (x, y) = self.fix_point(x, y);
-                let lparam = ((x & 0xFFFF) | (y & 0xFFFF) << 16) as isize;
-                self.direct_message(msg, WPARAM(wparam), LPARAM(lparam));
+                let lparam = make_lparam(x, y);
+                self.direct_message(msg, wparam, lparam);
             } else {
+                self.move_mouse(x, y);
+                let (dx, dy) = self.fix_point(x, y);
                 let dwflags = if horizontal {MOUSEEVENTF_HWHEEL} else {MOUSEEVENTF_WHEEL};
                 let input = INPUT {
                     r#type: INPUT_MOUSE,
                     Anonymous: INPUT_0 {
                         mi: MOUSEINPUT {
-                            dx: 0,
-                            dy: 0,
+                            dx,
+                            dy,
                             mouseData: amount as u32,
                             dwFlags: dwflags,
                             time: 0,
@@ -712,5 +736,32 @@ impl IntoPrm<WPARAM> for usize {
 impl IntoPrm<LPARAM> for isize {
     fn intop(self) -> LPARAM {
         LPARAM(self)
+    }
+}
+
+enum UTF16Encodable<'a> {
+    Str(&'a str),
+    Char(char),
+}
+impl UTF16Encodable<'_> {
+    fn to_vec(&self) -> Vec<u16> {
+        match self {
+            Self::Str(s) => s.encode_utf16().collect(),
+            Self::Char(ch) => {
+                let mut dst = [0; 2];
+                ch.encode_utf16(&mut dst).to_vec()
+            },
+        }
+    }
+}
+
+impl<'a> From<&'a str> for UTF16Encodable<'a> {
+    fn from(value: &'a str) -> Self {
+        Self::Str(value)
+    }
+}
+impl From<char> for UTF16Encodable<'_> {
+    fn from(value: char) -> Self {
+        Self::Char(value)
     }
 }

@@ -549,28 +549,28 @@ ID0について
                   - カーソル移動
                   - ``WM_MOUSEMOVE``
                 * - btn
-                  - 左ボタン下げ
+                  - 左ボタン下げ (LEFT, DOWN)
                   - ``WM_LBUTTONDOWN``
                 * - btn
-                  - 左ボタン上げ
+                  - 左ボタン上げ (LEFT, UP)
                   - ``WM_LBUTTONUP``
                 * - btn
-                  - 右ボタン下げ
+                  - 右ボタン下げ (RIGHT, DOWN)
                   - ``WM_RBUTTONDOWN``
                 * - btn
-                  - 右ボタン上げ
+                  - 右ボタン上げ (RIGHT, UP)
                   - ``WM_RBUTTONUP``
                 * - btn
-                  - 中央ボタン下げ
+                  - 中央ボタン下げ (MIDDLE, DOWN)
                   - ``WM_MBUTTONDOWN``
                 * - btn
-                  - 中央ボタン上げ
+                  - 中央ボタン上げ (MIDDLE, UP)
                   - ``WM_MBUTTONUP``
                 * - btn
-                  - マウスホイール回転(縦)
+                  - マウスホイール回転(縦) (WHEEL)
                   - ``WM_MOUSEWHEEL``
                 * - btn
-                  - マウスホイール回転(横)
+                  - マウスホイール回転(横) (WHEEL2)
                   - ``WM_MOUSEHWHEEL``
                 * - kbd
                   - キー下げ
@@ -581,6 +581,15 @@ ID0について
                 * - kbd
                   - 文字送信(1文字ずつ)
                   - ``WM_CHAR``
+
+            .. admonition:: btnについて
+                :class: note
+
+                | btn関数では各メッセージを送る前に以下のメッセージが送信されます
+
+                5. ``WM_MOUSEMOVE`` (x+1, y+1)
+                6. ``WM_MOUSEMOVE`` (x-1, y-1)
+                7. ``WM_MOUSEMOVE`` (x, y)
 
             .. admonition:: TOUCH非対応
                 :class: caution
@@ -1643,7 +1652,18 @@ ID0について
 
             .. object:: CLICK
 
-                ボタンクリック (デフォルト)
+                | ボタンクリック (デフォルト)
+                | DOWN→UPを連続で行います
+
+                .. admonition:: 待機時間について
+                    :class: note
+
+                    | DOWNとUPの間と、UP後にわずかに待機時間が入ります
+
+                    1. ``DOWN``
+                    2. 待機
+                    3. ``UP``
+                    4. 待機(小)
 
             .. object:: DOWN
 
@@ -1678,19 +1698,30 @@ ID0について
             btn(TOUCH, DOWN, 300, 300)
             btn(TOUCH, UP, 150, 150, 10) // 10ならとても遅い
 
-.. function:: kbd(仮想キー, [状態=CLICK, ms=0])
+.. function:: kbd(仮想キーまたは文字コード, [状態=CLICK, ms=0])
 .. function:: kbd(送信文字列, [状態=CLICK, ms=0])
     :noindex:
 
     | キーボード入力を送信します
 
-    :param 定数 仮想キー: :ref:`virtual_keys` のいずれか
+    :param 数値 仮想キーまたは文字コード: :ref:`virtual_keys` のいずれか、または文字コード
     :param 文字列 送信文字列: キー入力として送信される文字列
     :param 定数 省略可 状態: キーの入力状態を指定、文字列送信時は無視される
 
         .. object:: CLICK
 
-            キークリック (デフォルト)
+            | キークリック (デフォルト)
+            | DOWN→UPを連続で行います
+
+            .. admonition:: 待機時間について
+                :class: note
+
+                | DOWNとUPの間と、UP後にわずかに待機時間が入ります
+
+                1. ``DOWN``
+                2. 待機
+                3. ``UP``
+                4. 待機(小)
 
         .. object:: DOWN
 
@@ -1708,6 +1739,7 @@ ID0について
 
         .. sourcecode:: uwscr
 
+            // キーコード入力
             // a が入力される
             kbd(VK_A)
 
@@ -1715,6 +1747,10 @@ ID0について
             kbd(VK_SHIFT, DOWN)
             kbd(VK_A, CLICK, 100)
             kbd(VK_SHIFT, UP, 100)
+
+            // 文字コード入力
+            // あ が入力される
+            kbd(asc("あ"))
 
             // A が入力される
             kbd("A")
