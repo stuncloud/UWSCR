@@ -472,7 +472,7 @@ pub fn wmi_query(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult 
         .into_iter()
         .map(|m| {
             let value = Value::Object(m);
-            Object::UObject(UObject::new(value))
+            value.into()
         })
         .collect();
     Ok(Object::Array(obj))

@@ -47,7 +47,6 @@ use std::cmp::Ordering;
 
 use num_traits::Zero;
 use strum_macros::{VariantNames, Display, EnumString, EnumProperty};
-use serde_json::{self, Value};
 
 use super::EvalResult;
 
@@ -749,39 +748,6 @@ impl Into<Object> for usize {
         Object::Num(self as f64)
     }
 }
-impl Into<Object> for Value {
-    fn into(self) -> Object {
-        match self {
-            serde_json::Value::Null => Object::Null,
-            serde_json::Value::Bool(b) => Object::Bool(b),
-            serde_json::Value::Number(n) => match n.as_f64() {
-                Some(f) => Object::Num(f),
-                None => Object::Num(f64::NAN)
-            },
-            serde_json::Value::String(s) =>Object::String(s),
-            serde_json::Value::Array(_) |
-            serde_json::Value::Object(_) => Object::UObject(UObject::new(self)),
-        }
-    }
-}
-impl From<&Value> for Object {
-    fn from(v: &Value) -> Self {
-        match v {
-            Value::Null => Object::Null,
-            Value::Bool(b) => Object::Bool(*b),
-            Value::Number(n) => match n.as_f64() {
-                Some(f) => Object::Num(f),
-                None => Object::Num(f64::NAN)
-            },
-            Value::String(s) => Object::String(s.to_string()),
-            Value::Array(_) |
-            Value::Object(_) => {
-                let uobj = UObject::new(v.clone());
-                Object::UObject(uobj)
-            },
-        }
-    }
-}
 impl Into<Object> for Option<String> {
     fn into(self) -> Object {
         if let Some(s) = self {
@@ -833,61 +799,6 @@ impl Into<i32> for Object {
     }
 }
 
-pub trait ValueExt {
-    fn get_case_insensitive(&self, key: &str) -> Option<&Value>;
-    fn get_case_insensitive_mut(&mut self, key: &str) -> Option<&mut Value>;
-}
-
-impl ValueExt for Value {
-    fn get_case_insensitive(&self, key: &str) -> Option<&Value> {
-        match self {
-            Value::Object(map) => {
-                let upper = key.to_ascii_uppercase();
-                let map2 = map.clone();
-                let keys_found = map2.iter()
-                                            .filter(|(k, _)| k.to_ascii_uppercase() == upper)
-                                            .map(|(k,_)| k.as_str())
-                                            .collect::<Vec<_>>();
-                if keys_found.len() == 0 {
-                    None
-                } else {
-                    // 複数あった場合は完全一致を返す
-                    // 完全一致がなければ1つ目を返す
-                    if keys_found.contains(&key) {
-                        map.get(key)
-                    } else {
-                        map.get(keys_found[0])
-                    }
-                }
-            },
-            _ => None,
-        }
-    }
-    fn get_case_insensitive_mut(&mut self, key: &str) -> Option<&mut Value> {
-        match self {
-            Value::Object(ref mut map) => {
-                let upper = key.to_ascii_uppercase();
-                let map2 = map.clone();
-                let keys_found = map2.iter()
-                                            .filter(|(k, _)| k.to_ascii_uppercase() == upper)
-                                            .map(|(k,_)| k.as_str())
-                                            .collect::<Vec<_>>();
-                if keys_found.len() == 0 {
-                    None
-                } else {
-                    // 複数あった場合は完全一致を返す
-                    // 完全一致がなければ1つ目を返す
-                    if keys_found.contains(&key) {
-                        map.get_mut(key)
-                    } else {
-                        map.get_mut(keys_found[0])
-                    }
-                }
-            },
-            _ => None,
-        }
-    }
-}
 
 /* 演算 */
 impl PartialOrd for Object {

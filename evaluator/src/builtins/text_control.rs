@@ -11,7 +11,6 @@ use regex::Regex;
 use strum_macros::{EnumString, VariantNames};
 use num_derive::{ToPrimitive, FromPrimitive};
 use num_traits::FromPrimitive;
-use serde_json;
 use kanaria::{
     string::UCSStr,
     utils::{ConvertTarget, CharExtend}
@@ -41,6 +40,8 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("chgmoj", replace, get_desc!(replace));
     sets.add("tojson", tojson, get_desc!(tojson));
     sets.add("fromjson", fromjson, get_desc!(fromjson));
+    sets.add("toyaml", toyaml, get_desc!(toyaml));
+    sets.add("fromyaml", fromyaml, get_desc!(fromyaml));
     sets.add("copy", copy, get_desc!(copy));
     sets.add("pos", pos, get_desc!(pos));
     sets.add("betweenstr", betweenstr, get_desc!(betweenstr));
@@ -83,7 +84,7 @@ pub fn length(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
             let len = remote.length()?;
             return Ok(Object::Num(len));
         },
-        Object::UObject(u) => u.get_size()?,
+        Object::UObject(u) => u.get_size(),
         #[cfg(feature="chkimg")]
         Object::ChkClrResult(v) => v.len(),
         o => return Err(builtin_func_error(UErrorMessage::InvalidArgument(o)))
@@ -353,13 +354,14 @@ pub fn replace(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 )]
 pub fn tojson(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let prettify = args.get_as_bool(1, Some(false))?;
-    let to_string = if prettify {serde_json::to_string_pretty} else {serde_json::to_string};
     let uo = args.get_as_uobject(0)?;
-    let value = uo.value();
-    to_string(&value).map_or_else(
-        |e| Err(builtin_func_error(UErrorMessage::Any(e.to_string()))),
-        |s| Ok(Object::String(s))
-    )
+    let result = if prettify {
+        uo.to_json_string_pretty()
+    } else {
+        uo.to_json_string()
+    };
+    result.map(|s| s.into())
+        .map_err(|e| builtin_func_error(UErrorMessage::Any(e.to_string())))
 }
 
 #[builtin_func_desc(
@@ -371,10 +373,38 @@ pub fn tojson(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 )]
 pub fn fromjson(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let json = args.get_as_string(0, None)?;
-    serde_json::from_str::<serde_json::Value>(json.as_str()).map_or_else(
-        |_| Ok(Object::Empty),
-        |v| Ok(Object::UObject(UObject::new(v)))
-    )
+    let obj = UObject::from_json_str(&json)
+        .map(Object::UObject)
+        .unwrap_or_default();
+    Ok(obj)
+}
+
+#[builtin_func_desc(
+    desc="UObjectをyaml文字列にする",
+    rtype={desc="yaml文字列",types="文字列"}
+    args=[
+        {n="UObject",t="UObject",d="yamlに変換するUObject"},
+    ],
+)]
+pub fn toyaml(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let uo = args.get_as_uobject(0)?;
+    uo.to_yaml_string()
+        .map(|yaml| yaml.into())
+        .map_err(|e| builtin_func_error(UErrorMessage::Any(e.to_string())))
+}
+#[builtin_func_desc(
+    desc="yaml文字列をUObjectにする",
+    rtype={desc="成功時UObject、失敗時EMPTY",types="UObject"}
+    args=[
+        {n="yaml文字列",t="文字列",d="UObjectに変換するyaml文字列"},
+    ],
+)]
+pub fn fromyaml(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let yaml = args.get_as_string(0, None)?;
+    let obj = UObject::from_yaml_str(&yaml)
+        .map(Object::UObject)
+        .unwrap_or_default();
+    Ok(obj)
 }
 
 #[builtin_func_desc(

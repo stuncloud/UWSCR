@@ -537,7 +537,7 @@ pub fn createform(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult
         Ok(Object::WebViewForm(form))
     } else {
         let value = form.message_loop()?;
-        Ok(Object::UObject(UObject::new(value)))
+        Ok(value.into())
     }
 }
 

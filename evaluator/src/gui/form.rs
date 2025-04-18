@@ -9,7 +9,7 @@ use crate::{
     error::{UError, UErrorKind, UErrorMessage},
     Evaluator,
     object::{
-        Object, UObject, Function,
+        Object, Function,
         browser::{RuntimeResult, RemoteObject0, ExceptionDetails},
     },
     builtins::{
@@ -372,7 +372,7 @@ impl WebViewForm {
         match name.to_ascii_lowercase().as_str() {
             "wait" => {
                 let value = self.message_loop()?;
-                Ok(Object::UObject(UObject::new(value)))
+                Ok(Object::from(value))
             },
             "setvisible" => {
                 let visible = args.as_bool(0).unwrap_or(true);
@@ -801,7 +801,7 @@ impl std::fmt::Display for WebViewRemoteObject {
         } else {
             match &self.remote.value {
                 Some(value) => {
-                    let obj = Object::from(value);
+                    let obj = Object::from(value.clone());
                     write!(f, "{obj}")
                 },
                 None => write!(f, "NULL"),
@@ -832,7 +832,7 @@ impl WebViewRemoteObject {
                 }
             },
             o => {
-                let value = Evaluator::object_to_serde_value(o)
+                let value = Value::try_from(o)
                     .map_err(|err| WebViewError::UError(err.message))?;
                 Ok(json!({"value": value}))
             }

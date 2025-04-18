@@ -230,11 +230,9 @@ impl WebResponse {
     }
     fn json(&self) -> Object {
         if let Some(body) = &self.body {
-            if let Ok(value) = serde_json::from_str(body) {
-                Object::UObject(UObject::new(value))
-            } else {
-                Object::Empty
-            }
+            UObject::from_json_str(body)
+                .map(Object::UObject)
+                .unwrap_or_default()
         } else {
             Object::Empty
         }

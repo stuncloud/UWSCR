@@ -1,6 +1,5 @@
 use super::Object;
 use crate::builtins::window_control::get_id_from_hwnd;
-use crate::Evaluator;
 use crate::error::{UError, UErrorKind, UErrorMessage};
 use util::settings::USETTINGS;
 
@@ -1275,8 +1274,7 @@ impl fmt::Display for RemoteObject {
         } else {
             match &self.remote.value {
                 Some(value) => {
-                    let obj = Object::from(value);
-                    write!(f, "{obj}")
+                    write!(f, "{value}")
                 },
                 None => write!(f, "NULL"),
             }
@@ -1664,6 +1662,14 @@ impl Into<RemoteFuncArg> for Value {
         RemoteFuncArg::Value(self)
     }
 }
+impl TryFrom<Object> for RemoteFuncArg {
+    type Error = UError;
+
+    fn try_from(value: Object) -> Result<Self, Self::Error> {
+        let value = value.try_into()?;
+        Ok(RemoteFuncArg::Value(value))
+    }
+}
 
 pub enum RemoteFuncArg {
     Value(Value),
@@ -1675,7 +1681,7 @@ impl RemoteFuncArg {
         if let Object::RemoteObject(remote) = o {
             Ok(RemoteFuncArg::RemoteObject(remote))
         } else {
-            let value = Evaluator::object_to_serde_value(o)?;
+            let value = o.try_into()?;
             Ok(RemoteFuncArg::Value(value))
         }
     }

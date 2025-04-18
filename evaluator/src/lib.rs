@@ -35,8 +35,6 @@ use windows::Win32::Foundation::HWND;
 
 use num_traits::FromPrimitive;
 use regex::Regex;
-use serde_json;
-use serde_json::Value;
 
 pub static LOGPRINTWIN: OnceLock<Mutex<Result<LogPrintWin, UError>>> = OnceLock::new();
 // static FORCE_BOOL: OnceLock<bool> = OnceLock::new();
@@ -1590,8 +1588,8 @@ impl Evaluator {
                 if i == Infix::Plus {
                     if let Object::UObject(u) = left {
                         // UObjectの配列はpushできる
-                        let new_value = Self::object_to_serde_value(right)?;
-                        return if u.push(new_value) {
+                        // let new_value = Self::object_to_serde_value(right)?;
+                        return if u.push(right) {
                             Ok(Object::UObject(u))
                         } else {
                             Err(UError::new(
@@ -1612,14 +1610,8 @@ impl Evaluator {
             },
             Expression::UObject(json) => {
                 // 文字列展開する
-                if let Object::String(ref s) = self.expand_string(json, true, None) {
-                    match serde_json::from_str::<serde_json::Value>(s) {
-                        Ok(v) => Object::UObject(UObject::new(v)),
-                        Err(e) => return Err(UError::new(
-                            UErrorKind::UObjectError,
-                            UErrorMessage::JsonParseError(format!("Error message: {}", e)),
-                        )),
-                    }
+                if let Object::String(json) = self.expand_string(json, true, None) {
+                    Object::UObject(UObject::from_json_str(&json)?)
                 } else {
                     Object::Empty
                 }
@@ -1832,7 +1824,7 @@ impl Evaluator {
                     UErrorMessage::InvalidKeyOrIndex(format!("[{}, {}]", index, hash_enum.unwrap())),
                 ));
             } else {
-                self.eval_uobject(&u, index)?
+                u.get(&index)?
             },
             Object::ComObject(com) => {
                 com.get_by_index(vec![index])?
@@ -2117,15 +2109,14 @@ impl Evaluator {
             },
             // Value::Array
             Object::UObject(uo) => {
-                let new_value = Self::object_to_serde_value(new)?;
-                uo.set(index, new_value, Some(member))?;
+                uo.set(index, new, Some(member))?;
             },
             Object::ComObject(com) => {
                 com.set_property_by_index(&member, index, new)?;
             },
             Object::RemoteObject(ref remote) => {
-                let value = Self::object_to_serde_value(new)?;
-                remote.set(Some(&member), Some(&index.to_string()), value.into())?;
+                let value = new.try_into()?;
+                remote.set(Some(&member), Some(&index.to_string()), value)?;
             },
             Object::WebViewRemoteObject(ref remote) => {
                 let index = index.to_string();
@@ -2269,13 +2260,12 @@ impl Evaluator {
             },
             Object::RemoteObject(remote) => {
                 let index = index.to_string();
-                let value = Self::object_to_serde_value(new.clone())?;
-                remote.set(None, Some(&index), value.into())?;
+                let value = new.clone().try_into()?;
+                remote.set(None, Some(&index), value)?;
                 Ok((None, false))
             },
             Object::UObject(uobj) => {
-                let new_value = Self::object_to_serde_value(new.clone())?;
-                uobj.set(index, new_value, None)?;
+                uobj.set(index, new.clone(), None)?;
                 Ok((None, false))
             }
             _ => Err(UError::new(UErrorKind::AssignError, UErrorMessage::NotAnArray("".into())))
@@ -2348,8 +2338,7 @@ impl Evaluator {
             Object::UObject(uo) => {
                 if let Expression::Identifier(Identifier(name)) = expr_member {
                     let index = Object::String(name);
-                    let new_value = Self::object_to_serde_value(new)?;
-                    uo.set(index, new_value, None)?;
+                    uo.set(index, new, None)?;
                 } else {
                     return Err(UError::new(
                         UErrorKind::UObjectError,
@@ -2914,7 +2903,8 @@ impl Evaluator {
                 if is_func {
                     Ok(Object::MemberCaller(MemberCaller::UObject(u), member))
                 } else {
-                    self.eval_uobject(&u, member.into())
+                    let index = member.into();
+                    u.get(&index)
                 }
             },
             Object::Enum(e) => {
@@ -3073,54 +3063,6 @@ impl Evaluator {
         }
     }
 
-    fn eval_uobject(&self, uobject: &UObject, index: Object) -> EvalResult<Object> {
-        let o = match uobject.get(&index)? {
-            Some(value) => match value {
-                Value::Null => Object::Null,
-                Value::Bool(b) => Object::Bool(b),
-                Value::Number(n) => match n.as_f64() {
-                    Some(f) => Object::Num(f),
-                    None => return Err(UError::new(
-                        UErrorKind::UObjectError,
-                        UErrorMessage::CanNotConvertToNumber(n.clone())
-                    )),
-                },
-                Value::String(s) => {
-                    self.expand_string(s.clone(), true, None)
-                },
-                Value::Array(_) |
-                Value::Object(_) => {
-                    let pointer = uobject.pointer(Some(index)).unwrap();
-                    let new_obj = uobject.clone_with_pointer(pointer);
-                    Object::UObject(new_obj)
-                },
-            },
-            None => return Err(UError::new(
-                UErrorKind::UObjectError,
-                UErrorMessage::InvalidMemberOrIndex(index.to_string()),
-            )),
-        };
-        Ok(o)
-    }
-
-    pub fn object_to_serde_value(o: Object) -> EvalResult<serde_json::Value> {
-        let v = match o {
-            Object::Null => serde_json::Value::Null,
-            Object::Bool(b) => serde_json::Value::Bool(b),
-            Object::Num(n) => serde_json::Value::Number(serde_json::Number::from_f64(n).unwrap()),
-            Object::String(s) => serde_json::Value::String(s),
-            Object::UObject(u) => u.value(),
-            Object::Array(arr) => {
-                let values = arr.into_iter().map(Self::object_to_serde_value).collect::<EvalResult<Vec<serde_json::Value>>>()?;
-                serde_json::Value::Array(values)
-            },
-            o => return Err(UError::new(
-                UErrorKind::UObjectError,
-                UErrorMessage::CanNotConvertToUObject(o)
-            )),
-        };
-        Ok(v)
-    }
 
     fn set_mouseorg<T: Into<MorgTarget>, C: Into<MorgContext>>(&mut self, hwnd: HWND, target: T, context: C) {
         let morg = MouseOrg {
