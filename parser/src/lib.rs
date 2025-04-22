@@ -1906,10 +1906,8 @@ impl Parser {
         let current_with = self.get_current_with();
         self.set_with(Some(expression.clone()));
         let mut block = self.parse_block_statement();
-        if with_temp_assignment.is_some() {
-            block.insert(0, StatementWithRow::new_non_existent_line(
-                with_temp_assignment.unwrap()
-            ));
+        if let Some(statement) = with_temp_assignment {
+            block.insert(0, StatementWithRow::new_non_existent_line(statement));
         }
         if ! self.is_current_closing_token_expected(BlockEnd::EndWith) {
             return None;

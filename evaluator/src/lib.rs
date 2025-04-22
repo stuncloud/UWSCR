@@ -660,7 +660,7 @@ impl Evaluator {
             Statement::With(o_e, block) => if let Some(e) = o_e {
                 let s = self.eval_block_statement(block);
                 if let Expression::Identifier(Identifier(name)) = e {
-                    if name.find("@with_tmp_").is_some() {
+                    if name.contains("@with_tmp_") {
                         self.env.remove_variable(name);
                     }
                 }
