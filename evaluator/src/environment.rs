@@ -191,7 +191,7 @@ impl Environment {
     }
 
     pub fn remove_variable(&mut self, name: String) {
-        self.current.lock().unwrap().local.retain(|o| o.name.eq_ignore_ascii_case(&name));
+        self.current.lock().unwrap().local.retain(|o| !o.name.eq_ignore_ascii_case(&name));
     }
 
     fn set(&mut self, name: &str, container_type: ContainerType, value: Object, to_global: bool) {
