@@ -32,7 +32,7 @@ rand = "0.8.5"
 regex = "1"
 reqwest = { version = "0.11", features = ["blocking"] }
 stacker = "0.1.14"
-scraper = "0.18.1"
+scraper = "0.23.1"
 strum = "0.26.1"
 strum_macros = "0.26.1"
 tungstenite = "0.21.0"

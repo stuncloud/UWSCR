@@ -25,7 +25,7 @@ impl From<InvalidHeaderName> for UError {
 
 type WebResult<T> = Result<T, UError>;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct WebRequest {
     // builder: ClientBuilder,
     user_agent: Option<String>,
@@ -42,14 +42,7 @@ impl std::fmt::Display for WebRequest {
 }
 impl WebRequest {
     pub fn new() -> Self {
-        Self {
-            user_agent: None,
-            headers: HeaderMap::new(),
-            timeout: None,
-            body: None,
-            basic: None,
-            bearer: None,
-        }
+        Self::default()
     }
     fn add_header(&mut self, key: &str, value: &str) -> WebResult<()> {
         let key = HeaderName::from_str(key)?;
@@ -293,7 +286,7 @@ trait RequestBuilderExt {
 
 impl RequestBuilderExt for RequestBuilder {
     fn set_header(self, headers: &HeaderMap<HeaderValue>) -> Self {
-        if headers.len() > 0 {
+        if !headers.is_empty() {
             self.headers(headers.clone())
         } else {
             self
@@ -330,7 +323,7 @@ impl RequestBuilderExt for RequestBuilder {
 }
 
 /* ParseHTML */
-use scraper::{Html, node::Element, ElementRef, Selector, error::SelectorErrorKind};
+use scraper::{Html, ElementRef, element_ref::Select, Selector, error::SelectorErrorKind};
 
 impl From<SelectorErrorKind<'_>> for UError {
     fn from(e: SelectorErrorKind) -> Self {
@@ -338,60 +331,136 @@ impl From<SelectorErrorKind<'_>> for UError {
     }
 }
 
+// #[derive(Debug, Clone, PartialEq)]
+// pub struct ElementNode {
+//     html: String,
+//     inner_html: String,
+//     text: Vec<String>,
+//     element: Element,
+// }
+// impl From<ElementRef<'_>> for ElementNode {
+//     fn from(element_ref: ElementRef) -> Self {
+//         let element = element_ref.value().to_owned();
+
+//         // let html = elem.html();
+//         // let inner_html = elem.inner_html();
+//         // let text = elem.text().map(|t| t.to_string()).collect();
+//         // let element = elem.value().to_owned();
+//         // Self { html, inner_html, text, element }
+//     }
+// }
+// impl From<ElementNode> for Object {
+//     fn from(val: ElementNode) -> Self {
+//         Object::HtmlNode(HtmlNode::Element(val))
+//     }
+// }
+// impl ElementNode {
+//     fn find(&self, selectors: &str) -> WebResult<Vec<Self>> {
+//         let fragment = Html::parse_fragment(&self.inner_html);
+//         let selector = Selector::parse(selectors)?;
+//         let nodes = fragment.select(&selector)
+//             .map(|elem| Self::from(elem))
+//             .collect();
+//         Ok(nodes)
+//     }
+// }
+
+/// ノードへのアクセサ
 #[derive(Debug, Clone, PartialEq)]
-
-pub struct ElementNode {
-    html: String,
-    inner_html: String,
-    text: Vec<String>,
-    element: Element,
+pub enum Accessor {
+    Selector(Selector),
+    Index(usize),
 }
-impl From<ElementRef<'_>> for ElementNode {
-    fn from(elem: ElementRef) -> Self {
-        let html = elem.html();
-        let inner_html = elem.inner_html();
-        let text = elem.text().map(|t| t.to_string()).collect();
-        let element = elem.value().to_owned();
-        Self { html, inner_html, text, element }
+impl Accessor {
+    fn as_selector(&self) -> Option<&Selector> {
+        match self {
+            Accessor::Selector(selector) => Some(selector),
+            Accessor::Index(_) => None,
+        }
+    }
+    fn as_index(&self) -> Option<usize> {
+        match self {
+            Accessor::Selector(_) => None,
+            Accessor::Index(index) => Some(*index),
+        }
     }
 }
-impl Into<Object> for ElementNode {
-    fn into(self) -> Object {
-        Object::HtmlNode(HtmlNode::Element(self))
-    }
+enum Accessed<'a, 'b> {
+    Select(Box<Select<'a, 'b>>),
+    ElementRef(ElementRef<'a>),
 }
-impl ElementNode {
-    fn find(&self, selectors: &str) -> WebResult<Vec<Self>> {
-        let fragment = Html::parse_fragment(&self.inner_html);
-        let selector = Selector::parse(selectors)?;
-        let nodes = fragment.select(&selector)
-            .map(|elem| Self::from(elem))
-            .collect();
-        Ok(nodes)
-    }
-}
-
 #[derive(Debug, Clone, PartialEq)]
-pub enum HtmlNode {
-    Fragment(Html),
-    Element(ElementNode),
-    None,
+pub struct HtmlNode {
+    html: Html,
+    accessors: Vec<Accessor>,
 }
-
 impl std::fmt::Display for HtmlNode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            HtmlNode::Fragment(html) => write!(f, "{}", html.html()),
-            HtmlNode::Element(elem) => write!(f, "{}", elem.html),
-            HtmlNode::None => write!(f, ""),
+
+        match self.access() {
+            Some(a) => match a {
+                Accessed::Select(select) => {
+                    let names = select.map(|e| e.value().name()).collect::<Vec<_>>();
+                    write!(f, "Collection: {names:?}")
+                },
+                Accessed::ElementRef(element_ref) => {
+                    let name = element_ref.value().name();
+                    if self.accessors.is_empty() {
+                        write!(f, "Root: {name}")
+                    } else {
+                        write!(f, "Element: {name}")
+                    }
+                },
+            },
+            None => write!(f, ""),
         }
     }
 }
 
 impl HtmlNode {
     pub fn new(html: &str) -> Self {
-        let fragment = Html::parse_fragment(html);
-        Self::Fragment(fragment)
+        let html = Html::parse_fragment(html);
+        Self {
+            html,
+            accessors: Vec::new()
+        }
+    }
+    fn access(&self) -> Option<Accessed> {
+        let root = Accessed::ElementRef(self.html.root_element());
+        let accessed = self.accessors.iter()
+            .try_fold(root, |accessed, accessor| {
+                match accessed {
+                    Accessed::Select(mut select) => {
+                        select.nth(accessor.as_index()?)
+                            .map(Accessed::ElementRef)
+                    },
+                    Accessed::ElementRef(element_ref) => {
+                        let select = element_ref.select(accessor.as_selector()?);
+                        Some(Accessed::Select(Box::new(select)))
+                    },
+                }
+            });
+        accessed
+    }
+    fn push_accessor(&mut self, accessor: Accessor) {
+        self.accessors.push(accessor);
+    }
+    pub fn set_index(&mut self, index: usize) {
+        self.push_accessor(Accessor::Index(index));
+    }
+    pub fn into_vec(self) -> Option<Vec<Object>> {
+        match self.access()? {
+            Accessed::Select(select) => {
+                let vec = select.enumerate().map(|(index, _)| {
+                    let mut node = self.clone();
+                    node.set_index(index);
+                    Object::HtmlNode(node)
+                })
+                .collect();
+                Some(vec)
+            },
+            Accessed::ElementRef(_) => None,
+        }
     }
 
     pub fn get_property(&self, name: &str) -> WebResult<Object> {
@@ -399,22 +468,44 @@ impl HtmlNode {
             "outerhtml" => self.outer_html(),
             "innerhtml" => self.inner_html(),
             "text" => self.texts(),
-            "isempty" => Ok(HtmlNode::None.eq(self).into()),
+            "isroot" => Ok(self.accessors.is_empty().into()),
+            "iselement" => {
+                let obj = match self.accessors.last() {
+                    Some(a) => match a {
+                        Accessor::Selector(_) => false,
+                        Accessor::Index(_) => true,
+                    },
+                    // 空の場合はルートなのでtrue
+                    None => true,
+                }.into();
+                Ok(obj)
+            },
+            "iscollection" => {
+                let obj = match self.accessors.last() {
+                    Some(a) => match a {
+                        Accessor::Selector(_) => true,
+                        Accessor::Index(_) => false,
+                    },
+                    None => false,
+                }.into();
+                Ok(obj)
+            },
+            // "isempty" => Ok(self.is_empty().into()),
             _ => Err(UError::new(
                 UErrorKind::HtmlNodeError,
                 UErrorMessage::InvalidMember(name.to_string())
             ))
         }
     }
-    pub fn invoke_method(&self, name: &str, args: Vec<Object>) -> WebResult<Object> {
+    pub fn invoke_method(self, name: &str, args: Vec<Object>) -> WebResult<Object> {
         match name.to_ascii_lowercase().as_str() {
             "find" => {
                 let selectors = args.as_string(0)?;
-                self.find(&selectors, false)
+                self.find(&selectors)
             },
             "first" | "findfirst" => {
                 let selectors = args.as_string(0)?;
-                self.find(&selectors, true)
+                self.first(&selectors)
             },
             "attr" | "attribute" => {
                 let name = args.as_string(0)?;
@@ -426,78 +517,97 @@ impl HtmlNode {
             ))
         }
     }
+    // fn is_empty(&self) -> bool {
+    //     self.0.is_none()
+    // }
     fn outer_html(&self) -> WebResult<Object> {
-        let obj = match self {
-            HtmlNode::Fragment(html) => html.html().into(),
-            HtmlNode::Element(elem) => elem.html.as_str().into(),
-            HtmlNode::None => Object::Empty,
+        let obj = match self.access() {
+            Some(a) => match a {
+                Accessed::Select(select) => {
+                    let arr = select.map(|e| e.html().into()).collect();
+                    Object::Array(arr)
+                },
+                Accessed::ElementRef(element_ref) => element_ref.html().into(),
+            },
+            None => Object::Empty,
         };
         Ok(obj)
     }
     fn inner_html(&self) -> WebResult<Object> {
-        let obj = match self {
-            HtmlNode::Fragment(_) => Object::Empty,
-            HtmlNode::Element(elem) => elem.inner_html.as_str().into(),
-            HtmlNode::None => Object::Empty,
+        let obj = match self.access() {
+            Some(a) => match a {
+                Accessed::Select(select) => {
+                    let arr = select.map(|e| e.inner_html().into()).collect();
+                    Object::Array(arr)
+                },
+                Accessed::ElementRef(element_ref) => element_ref.inner_html().into(),
+            },
+            None => Object::Empty,
         };
         Ok(obj)
     }
     fn texts(&self) -> WebResult<Object> {
-        let obj = match self {
-            HtmlNode::Fragment(_) => Object::Empty,
-            HtmlNode::Element(elem) => {
-                let arr = elem.text.iter()
-                    .map(|s| s.as_str().into())
-                    .collect();
-                Object::Array(arr)
-            },
-            HtmlNode::None => Object::Empty,
-        };
-        Ok(obj)
-    }
-    fn find(&self, selectors: &str, first: bool) -> WebResult<Object> {
-        let obj = match self {
-            HtmlNode::Fragment(html) => {
-                let selector = Selector::parse(selectors)?;
-                let mut select = html.select(&selector);
-                if first {
-                    match select.next().map(|elem| ElementNode::from(elem)) {
-                        Some(node) => node.into(),
-                        None => Object::HtmlNode(HtmlNode::None),
-                    }
-                } else {
+        let obj = match self.access() {
+            Some(a) => match a {
+                Accessed::Select(select) => {
                     let arr = select
-                        .map(|elem| ElementNode::from(elem).into())
+                        .map(|e| {
+                            let arr = e.text().map(|t| t.into()).collect();
+                            Object::Array(arr)
+                        })
                         .collect();
+                    Object::Array(arr)
+                },
+                Accessed::ElementRef(element_ref) => {
+                    let arr = element_ref.text().map(|t| t.into()).collect();
                     Object::Array(arr)
                 }
             },
-            HtmlNode::Element(elem) => {
-                let mut nodes = elem.find(selectors)?.into_iter();
-                if first {
-                    match nodes.next() {
-                        Some(node) => node.into(),
-                        None => Object::HtmlNode(HtmlNode::None),
-                    }
-                } else {
-                    let arr = nodes
-                        .map(|node| node.into())
-                        .collect();
-                    Object::Array(arr)
-                }
-            },
-            HtmlNode::None => Object::HtmlNode(HtmlNode::None),
+            None => Object::Empty,
         };
         Ok(obj)
     }
-    fn attr(&self, name: &str) -> WebResult<Object> {
-        let obj = match self {
-            HtmlNode::Fragment(_) => Object::Empty,
-            HtmlNode::Element(elem) => {
-                let value = elem.element.attr(name);
-                value.into()
+    fn find(mut self, selectors: &str) -> WebResult<Object> {
+        let obj = match self.access() {
+            Some(a) => match a {
+                Accessed::Select(_) => Object::Empty,
+                Accessed::ElementRef(_) => {
+                    let selector = Selector::parse(selectors)?;
+                    self.push_accessor(Accessor::Selector(selector));
+                    Object::HtmlNode(self)
+                }
             },
-            HtmlNode::None => Object::Empty,
+            None => Object::Empty,
+        };
+        Ok(obj)
+    }
+    fn first(mut self, selectors: &str) -> WebResult<Object> {
+        let obj = match self.access() {
+            Some(a) => match a {
+                Accessed::Select(_) => Object::Empty,
+                Accessed::ElementRef(_) => {
+                    let selector = Selector::parse(selectors)?;
+                    self.push_accessor(Accessor::Selector(selector));
+                    self.push_accessor(Accessor::Index(0));
+                    Object::HtmlNode(self)
+                }
+            },
+            None => Object::Empty,
+        };
+        Ok(obj)
+    }
+    fn attr(&self, attr: &str) -> WebResult<Object> {
+        let obj = match self.access() {
+            Some(a) => match a {
+                Accessed::Select(s) => {
+                    let arr = s.map(|e| e.attr(attr).into()).collect();
+                    Object::Array(arr)
+                },
+                Accessed::ElementRef(e) => {
+                    e.attr(attr).into()
+                }
+            },
+            None => Object::Empty,
         };
         Ok(obj)
     }

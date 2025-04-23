@@ -1051,6 +1051,12 @@ impl Evaluator {
                 let vec = uo.to_object_vec()?;
                 self.eval_for_in_statement_inner(vec, var, index_var, islast_var, block, alt)
             },
+            Object::HtmlNode(node) => {
+                let vec = node.into_vec().ok_or(UError::new(
+                    UErrorKind::SyntaxError, UErrorMessage::ForInError
+                ))?;
+                self.eval_for_in_statement_inner(vec, var, index_var, islast_var, block, alt)
+            }
             #[cfg(feature="chkimg")]
             Object::ChkClrResult(vec) => {
                 self.eval_for_in_statement_inner(vec, var, index_var, islast_var, block, alt)
@@ -1908,6 +1914,17 @@ impl Evaluator {
                     ))
                 }
             },
+            Object::HtmlNode(mut node) => {
+                if let Object::Num(i) = index {
+                    node.set_index(i as usize);
+                    Object::HtmlNode(node)
+                } else {
+                    return Err(UError::new(
+                        UErrorKind::EvaluatorError,
+                        UErrorMessage::InvalidIndex(index)
+                    ))
+                }
+            }
             #[cfg(feature="chkimg")]
             Object::ChkClrResult(vec) => {
                 if let Object::Num(i) = index {
