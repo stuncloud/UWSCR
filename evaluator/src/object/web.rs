@@ -261,7 +261,11 @@ trait WebArg {
 impl WebArg for Vec<Object> {
     fn as_string(&self, index: usize) -> WebResult<String> {
         let obj = self.get(index).ok_or(UError::new(UErrorKind::WebRequestError, UErrorMessage::BuiltinArgRequiredAt(index+1)))?;
-        Ok(obj.to_string())
+        if let Object::EmptyParam = obj {
+            Ok(String::new())
+        } else {
+            Ok(obj.to_string())
+        }
     }
 
     fn _as_bool(&self, index: usize) -> WebResult<bool> {
@@ -331,39 +335,6 @@ impl From<SelectorErrorKind<'_>> for UError {
     }
 }
 
-// #[derive(Debug, Clone, PartialEq)]
-// pub struct ElementNode {
-//     html: String,
-//     inner_html: String,
-//     text: Vec<String>,
-//     element: Element,
-// }
-// impl From<ElementRef<'_>> for ElementNode {
-//     fn from(element_ref: ElementRef) -> Self {
-//         let element = element_ref.value().to_owned();
-
-//         // let html = elem.html();
-//         // let inner_html = elem.inner_html();
-//         // let text = elem.text().map(|t| t.to_string()).collect();
-//         // let element = elem.value().to_owned();
-//         // Self { html, inner_html, text, element }
-//     }
-// }
-// impl From<ElementNode> for Object {
-//     fn from(val: ElementNode) -> Self {
-//         Object::HtmlNode(HtmlNode::Element(val))
-//     }
-// }
-// impl ElementNode {
-//     fn find(&self, selectors: &str) -> WebResult<Vec<Self>> {
-//         let fragment = Html::parse_fragment(&self.inner_html);
-//         let selector = Selector::parse(selectors)?;
-//         let nodes = fragment.select(&selector)
-//             .map(|elem| Self::from(elem))
-//             .collect();
-//         Ok(nodes)
-//     }
-// }
 
 /// ノードへのアクセサ
 #[derive(Debug, Clone, PartialEq)]
@@ -490,7 +461,7 @@ impl HtmlNode {
                 }.into();
                 Ok(obj)
             },
-            // "isempty" => Ok(self.is_empty().into()),
+            "textcontent" => self.text_content(None, true),
             _ => Err(UError::new(
                 UErrorKind::HtmlNodeError,
                 UErrorMessage::InvalidMember(name.to_string())
@@ -511,15 +482,55 @@ impl HtmlNode {
                 let name = args.as_string(0)?;
                 self.attr(&name)
             },
+            "textcontent" => {
+                let sep = args.as_string(0).ok();
+                let trim = args._as_bool(1).unwrap_or(true);
+                self.text_content(sep.as_deref(), trim)
+            }
             _ => Err(UError::new(
                 UErrorKind::HtmlNodeError,
                 UErrorMessage::InvalidMember(name.to_string())
             ))
         }
     }
-    // fn is_empty(&self) -> bool {
-    //     self.0.is_none()
-    // }
+    fn text_content(&self, sep: Option<&str>, trim: bool) -> WebResult<Object> {
+        let join = |t1: String, t2: &str| -> String {
+            match sep {
+                Some(s) => {
+                    match (t1.is_empty(), t2.is_empty()) {
+                        (true, true) => t1,
+                        (true, false) => t1 + t2,
+                        (false, true) => t1,
+                        (false, false) => t1 + s + t2,
+                    }
+                },
+                None => t1 + t2,
+            }
+        };
+        let obj = match self.access() {
+            Some(a) => match a {
+                Accessed::Select(select) => {
+                    let arr = select
+                        .map(|e| {
+                            let text_content = e.text()
+                                .map(|t| if trim {t.trim()} else {t})
+                                .fold(String::new(), join);
+                            text_content.into()
+                        })
+                        .collect();
+                    Object::Array(arr)
+                },
+                Accessed::ElementRef(element_ref) => {
+                    let text_content = element_ref.text()
+                        .map(|t| if trim {t.trim()} else {t})
+                        .fold(String::new(), join);
+                    text_content.into()
+                }
+            },
+            None => Object::Empty,
+        };
+        Ok(obj)
+    }
     fn outer_html(&self) -> WebResult<Object> {
         let obj = match self.access() {
             Some(a) => match a {
