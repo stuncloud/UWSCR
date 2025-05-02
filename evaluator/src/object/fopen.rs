@@ -928,9 +928,16 @@ impl FopenBuf {
     pub fn get_linecount(&self) -> usize {
         self.buf.matches(Self::LF).count() + 1
     }
+    /// 直前が改行かどうか
+    fn buf_endswith_crlf(&self) -> bool {
+        self.buf.ends_with(Self::CRLF) ||
+        self.buf.ends_with(Self::LF) ||
+        self.buf.ends_with(Self::CR)
+    }
     /// 追記
     fn append_line(&mut self, line: &str) {
-        if self.get_linecount() - 1 > 0 {
+        if !self.buf.is_empty() && !self.buf_endswith_crlf() {
+            // バッファが空、または終端が改行でなければ改行を挿入
             self.buf.push_str(Self::CRLF);
         }
         self.buf.push_str(line);
