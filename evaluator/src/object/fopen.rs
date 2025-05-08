@@ -284,10 +284,13 @@ impl Fopen {
                 let mut buf = vec![];
                 file.read_to_end(&mut buf)?;
                 let text = self.decode(&buf)?;
-                self.buf = Some(FopenBuf::new(text));
+                self.buf.replace(FopenBuf::new(text));
             }
             OpenFile::File(file)
         } else {
+            if self.can_read() {
+                self.buf.replace(FopenBuf::default());
+            }
             OpenFile::New(opt)
         };
 
@@ -305,52 +308,45 @@ impl Fopen {
         // ファイル冒頭から書き込む
         file.seek(SeekFrom::Start(0))?;
         file.set_len(0)?;
-        // F_NOCR かつ 末尾がCRLFであれば除去する
-        if self.no_cr && text.ends_with(Self::CRLF){
-            if let Some(nocr) = text.strip_suffix(Self::CRLF) {
-                text = nocr.into();
+        let fixed = if self.no_cr {
+            // F_NOCRであればCRLFを除去
+            match text.strip_suffix(Self::CRLF) {
+                Some(nocr) => nocr,
+                None => &text,
             }
-        }
+        } else {
+            // F_NOCRではなく末尾に改行がなければ改行を加える
+            if text.ends_with(Self::CRLF) {
+                &text
+            } else {
+                text += Self::CRLF;
+                &text
+            }
+        };
 
         let mut stream = BufWriter::new(file);
         match self.flag.encoding {
             FopenEncoding::Utf16LE => {
                 stream.write_all(&[0xFF, 0xFE])?;
-                for utf16 in text.encode_utf16() {
+                for utf16 in fixed.encode_utf16() {
                     stream.write_all(&utf16.to_le_bytes())?;
-                }
-                if ! self.no_cr {
-                    for utf16 in Self::CRLF.encode_utf16() {
-                        stream.write_all(&utf16.to_le_bytes())?;
-                    }
                 }
             },
             FopenEncoding::Utf16BE => {
                 stream.write_all(&[0xFE, 0xFF])?;
-                for utf16 in text.encode_utf16() {
+                for utf16 in fixed.encode_utf16() {
                     stream.write_all(&utf16.to_be_bytes())?;
-                }
-                if ! self.no_cr {
-                    for utf16 in Self::CRLF.encode_utf16() {
-                        stream.write_all(&utf16.to_be_bytes())?;
-                    }
                 }
             },
             FopenEncoding::Sjis => {
-                let (cow,_,_) = SHIFT_JIS.encode(&text);
+                let (cow,_,_) = SHIFT_JIS.encode(&fixed);
                 stream.write_all(cow.as_ref())?;
-                if ! self.no_cr {
-                    stream.write_all(Self::CRLF.as_bytes())?;
-                }
             }
             _ => {
                 if self.flag.encoding == FopenEncoding::Utf8B {
                     stream.write_all(&[0xEF, 0xBB, 0xBF])?;
                 }
-                stream.write_all(text.as_bytes())?;
-                if ! self.no_cr {
-                    stream.write_all(Self::CRLF.as_bytes())?;
-                }
+                stream.write_all(fixed.as_bytes())?;
             },
         }
         stream.flush()?;
@@ -926,9 +922,9 @@ impl FopenBuf {
     }
     /// 行数を得る
     pub fn get_linecount(&self) -> usize {
-        self.buf.matches(Self::LF).count() + 1
+        self.buf.lines().count()
     }
-    /// 直前が改行かどうか
+    /// 現在のバッファ終端が改行かどうか
     fn buf_endswith_crlf(&self) -> bool {
         self.buf.ends_with(Self::CRLF) ||
         self.buf.ends_with(Self::LF) ||
@@ -941,6 +937,7 @@ impl FopenBuf {
             self.buf.push_str(Self::CRLF);
         }
         self.buf.push_str(line);
+        self.buf.push_str(Self::CRLF);
     }
     /// 削除
     fn remove_line(&mut self, row_index: usize) {
