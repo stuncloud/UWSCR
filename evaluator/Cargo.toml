@@ -44,6 +44,9 @@ wmi = "0.13.0"
 zip = "0.6.2"
 itertools = "0.14.0"
 serde_yml = "0.0.12"
+image = "0.25.6"
+rayon = "1.10.0"
+clipboard-rs = "0.2.4"
 
 [dependencies.windows]
 workspace = true

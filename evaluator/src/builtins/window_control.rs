@@ -20,7 +20,7 @@ use util::winapi::get_console_hwnd;
 use util::clipboard::Clipboard;
 
 #[cfg(feature="chkimg")]
-use crate::builtins::chkimg::{ChkImg, ScreenShot, CheckColor};
+use crate::builtins::chkimg::{SearchImage, ScreenShot, CheckColor};
 #[cfg(feature="chkimg")]
 use util::settings::USETTINGS;
 
@@ -172,6 +172,10 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("monitor", monitor, get_desc!(monitor));
     sets.add("mouseorg", mouseorg, get_desc!(mouseorg));
     sets.add("chkmorg", chkmorg, get_desc!(chkmorg));
+    #[cfg(feature="chkimg")]
+    sets.add("chkimg", chkimg, get_desc!(chkimg));
+    #[cfg(feature="chkimg")]
+    sets.add("searchimage", searchimage, get_desc!(searchimage));
     #[cfg(feature="chkimg")]
     sets.add("chkimg", chkimg, get_desc!(chkimg));
     #[cfg(feature="chkimg")]
@@ -1211,27 +1215,150 @@ pub fn monitor(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 #[cfg(feature="chkimg")]
 #[allow(non_camel_case_types)]
 #[derive(Debug, EnumString, EnumProperty, VariantNames, ToPrimitive, FromPrimitive)]
-pub enum ChkImgOption {
-    #[strum[props(desc="グレースケール化せず探索を行う")]]
-    CHKIMG_NO_GRAY = 1,
-    #[strum[props(desc="GraphicCaptureAPIでキャプチャする")]]
-    CHKIMG_USE_WGCAPI = 2,
-    #[strum[props(desc="類似度の計算に TM_SQDIFF を使用")]]
-    CHKIMG_METHOD_SQDIFF = 4,
-    #[strum[props(desc="類似度の計算に TM_SQDIFF_NORMED を使用")]]
-    CHKIMG_METHOD_SQDIFF_NORMED = 4 + 8,
-    #[strum[props(desc="類似度の計算に TM_CCORR を使用")]]
-    CHKIMG_METHOD_CCORR = 4 + 16,
-    #[strum[props(desc="類似度の計算に TM_CCORR_NORMED を使用")]]
-    CHKIMG_METHOD_CCORR_NORMED = 4 + 32,
-    #[strum[props(desc="類似度の計算に TM_CCOEFF を使用")]]
-    CHKIMG_METHOD_CCOEFF = 4 + 64,
-    #[strum[props(desc="類似度の計算に TM_CCOEFF_NORMED を使用 (デフォルト)")]]
-    CHKIMG_METHOD_CCOEFF_NORMED = 4 + 128,
+pub enum ImgMsk {
+    #[strum[props(desc="有効範囲: R -2 < 対象R < R + 2")]]
+    IMG_MSK_R1 = 1,
+    #[strum[props(desc="有効範囲: R -4 < 対象R < R + 4")]]
+    IMG_MSK_R2 = 3,
+    #[strum[props(desc="有効範囲: R -8 < 対象R < R + 8")]]
+    IMG_MSK_R3 = 7,
+    #[strum[props(desc="有効範囲: R -16 < 対象R < R + 16")]]
+    IMG_MSK_R4 = 15,
+    #[strum[props(desc="有効範囲: G -2 < 対象G < G + 2")]]
+    IMG_MSK_G1 = 256,
+    #[strum[props(desc="有効範囲: G -4 < 対象G < G + 4")]]
+    IMG_MSK_G2 = 768,
+    #[strum[props(desc="有効範囲: G -8 < 対象G < G + 8")]]
+    IMG_MSK_G3 = 1792,
+    #[strum[props(desc="有効範囲: G -16 < 対象G < G + 16")]]
+    IMG_MSK_G4 = 3840,
+    #[strum[props(desc="有効範囲: B -2 < 対象B < B + 2")]]
+    IMG_MSK_B1 = 65536,
+    #[strum[props(desc="有効範囲: B -4 < 対象B < B + 4")]]
+    IMG_MSK_B2 = 196608,
+    #[strum[props(desc="有効範囲: B -8 < 対象B < B + 8")]]
+    IMG_MSK_B3 = 458752,
+    #[strum[props(desc="有効範囲: B -16 < 対象B < B + 16")]]
+    IMG_MSK_B4 = 983040,
+    #[strum[props(desc="有効範囲: n -2 < 対象色 < n + 2")]]
+    IMG_MSK_BGR1 = 65793,
+    #[strum[props(desc="有効範囲: n -4 < 対象色 < n + 4")]]
+    IMG_MSK_BGR2 = 197379,
+    #[strum[props(desc="有効範囲: n -8 < 対象色 < n + 8")]]
+    IMG_MSK_BGR3 = 460551,
+    #[strum[props(desc="有効範囲: n -16 < 対象色 < n + 16")]]
+    IMG_MSK_BGR4 = 986895,
+}
+#[cfg(feature="chkimg")]
+#[builtin_func_desc(
+    desc="スクリーン上の画像の位置を返す",
+    rtype={desc="画像位置情報 [X,Y]、またはその配列",types="配列"}
+    args=[
+        {o, n="ファイル名",t="文字列",d="画像ファイルのパス"},
+        {o, n="探索方式",t="数値",d=r#"画像ファイルのパス
+- 0: 指定なし (デフォルト)
+- 1: 指定画像の左上を透過色とする
+- 2: 指定画像の右上を透過色とする
+- 3: 指定画像の左下を透過色とする
+- 4: 指定画像の右下を透過色とする
+- -1: 色を無視して形で判定"#},
+        {o, n="x1",t="数値",d="探索範囲の左上x座標"},
+        {o, n="y1",t="数値",d="探索範囲の左上y座標"},
+        {o, n="x2",t="数値",d="探索範囲の右下x座標"},
+        {o, n="y2",t="数値",d="探索範囲の右下y座標"},
+        {o, n="n番目",t="数値",d="左上から見てn番目の座標を返す、-1なら該当するすべての座標"},
+        {o, n="色幅",t="定数",d=r#"許容する色の範囲を定数で指定、OR連結可
+- IMG_MSK_R1: RGBのうちR (赤) に対して `R -2 < 対象R < R + 2` の範囲で許容する
+- IMG_MSK_R2: RGBのうちR (赤) に対して `R -4 < 対象R < R + 4` の範囲で許容する
+- IMG_MSK_R3: RGBのうちR (赤) に対して `R -8 < 対象R < R + 8` の範囲で許容する
+- IMG_MSK_R4: RGBのうちR (赤) に対して `R -16 < 対象R < R + 16` の範囲で許容する
+- IMG_MSK_G1: RGBのうちG (緑) に対して `G -2 < 対象G < G + 2` の範囲で許容する
+- IMG_MSK_G2: RGBのうちG (緑) に対して `G -4 < 対象G < G + 4` の範囲で許容する
+- IMG_MSK_G3: RGBのうちG (緑) に対して `G -8 < 対象G < G + 8` の範囲で許容する
+- IMG_MSK_G4: RGBのうちG (緑) に対して `G -16 < 対象G < G + 16` の範囲で許容する
+- IMG_MSK_B1: RGBのうちB (青) に対して `B -2 < 対象B < B + 2` の範囲で許容する
+- IMG_MSK_B2: RGBのうちB (青) に対して `B -4 < 対象B < B + 4` の範囲で許容する
+- IMG_MSK_B3: RGBのうちB (青) に対して `B -8 < 対象B < B + 8` の範囲で許容する
+- IMG_MSK_B4: RGBのうちB (青) に対して `B -16 < 対象B < B + 16` の範囲で許容する
+- IMG_MSK_BGR1: RGBそれぞれに対して `n -2 < 対象色 < n + 2` の範囲で許容する
+- IMG_MSK_BGR2: RGBそれぞれに対して `n -4 < 対象色 < n + 4` の範囲で許容する
+- IMG_MSK_BGR3: RGBそれぞれに対して `n -8 < 対象色 < n + 8` の範囲で許容する
+- IMG_MSK_BGR4: RGBそれぞれに対して `n -16 < 対象色 < n + 16` の範囲で許容する
+"#},
+    ],
+)]
+pub fn chkimg(e: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    use crate::builtins::chkimg::{ChkimgLikeImageMatcher, SearchMethod};
+    use super::chkimg::Image;
+
+    let target = match args.get_as_string(0, None).ok() {
+        Some(path) => Image::from_file(path)?,
+        None => match Image::from_clipboard() {
+            Some(clip) => clip,
+            None => return Ok(Object::Array(Vec::new())),
+        },
+    };
+    let method = args.get_as_int(1, Some(0))?;
+    let left = args.get_as_int_or_empty(2)?;
+    let top = args.get_as_int_or_empty(3)?;
+    let right = args.get_as_int_or_empty(4)?;
+    let bottom = args.get_as_int_or_empty(5)?;
+    let nth = args.get_as_int(6, Some(1))?;
+    let threshold = args.get_as_int(7, Some(0))?;
+
+    let mi = MorgImg::from(&e.mouseorg);
+    let captured = match mi.hwnd {
+        Some(hwnd) => {
+            let style = if mi.is_back {ImgConst::IMG_BACK} else {ImgConst::IMG_FORE};
+            let client = mi.is_client();
+            ScreenShot::get_window(hwnd, left, top, right, bottom, client, style)?
+        },
+        None => ScreenShot::get_screen(left, top, right, bottom)?,
+    };
+    if should_save_ss() {
+        captured.save(None)?;
+    }
+
+    let method = SearchMethod::new(method, threshold, &target);
+    let matcher = ChkimgLikeImageMatcher::new(captured, &target)?;
+    let found = match matcher.find(method, nth) {
+        chkimg::ChkimgLikeMatches::Nth(loc) => match loc {
+            Some(loc) => vec![loc.x.into(), loc.y.into()],
+            None => Vec::new(),
+        },
+        chkimg::ChkimgLikeMatches::All(match_locations) => {
+            match_locations.into_iter()
+                .map(|loc| Object::Array(vec![loc.x.into(), loc.y.into()]))
+                .collect()
+        },
+    };
+    Ok(Object::Array(found))
 }
 
 #[cfg(feature="chkimg")]
-impl ChkImgOption {
+#[allow(non_camel_case_types)]
+#[derive(Debug, EnumString, EnumProperty, VariantNames, ToPrimitive, FromPrimitive)]
+pub enum SearchImageOption {
+    #[strum[props(desc="グレースケール化せず探索を行う")]]
+    SCHIMG_NO_GRAY = 1,
+    #[strum[props(desc="GraphicCaptureAPIでキャプチャする")]]
+    SCHIMG_USE_WGCAPI = 2,
+    #[strum[props(desc="類似度の計算に TM_SQDIFF を使用")]]
+    SCHIMG_METHOD_SQDIFF = 4,
+    #[strum[props(desc="類似度の計算に TM_SQDIFF_NORMED を使用")]]
+    SCHIMG_METHOD_SQDIFF_NORMED = 4 + 8,
+    #[strum[props(desc="類似度の計算に TM_CCORR を使用")]]
+    SCHIMG_METHOD_CCORR = 4 + 16,
+    #[strum[props(desc="類似度の計算に TM_CCORR_NORMED を使用")]]
+    SCHIMG_METHOD_CCORR_NORMED = 4 + 32,
+    #[strum[props(desc="類似度の計算に TM_CCOEFF を使用")]]
+    SCHIMG_METHOD_CCOEFF = 4 + 64,
+    #[strum[props(desc="類似度の計算に TM_CCOEFF_NORMED を使用 (デフォルト)")]]
+    SCHIMG_METHOD_CCOEFF_NORMED = 4 + 128,
+}
+
+#[cfg(feature="chkimg")]
+impl SearchImageOption {
     fn gray_scale(opt: i32) -> bool {
         1 & opt != 1
     }
@@ -1278,15 +1405,15 @@ fn should_save_ss() -> bool {
             {o,n="right",t="数値",d="探索範囲の右下X座標、省略時はスクリーンまたはウィンドウ右下X座標"},
             {o,n="bottom",t="数値",d="探索範囲の右下Y座標、省略時はスクリーンまたはウィンドウ右下Y座標"},
             {o,n="オプション",t="定数",d=r#"探索オプションを以下から指定、OR連結可
-- CHKIMG_NO_GRAY: 画像をグレースケール化せず探索を行う
-- CHKIMG_USE_WGCAPI: デスクトップまたはウィンドウの画像取得にGraphicsCaptureAPIを使う
-- CHKIMG_METHOD_SQDIFF: 類似度の計算にTM_SQDIFFを使用する、他の計算方法と併用不可
-- CHKIMG_METHOD_SQDIFF_NORMED: 類似度の計算にTM_SQDIFF_NORMEDを使用する、他の計算方法と併用不可
-- CHKIMG_METHOD_CCORR: 類似度の計算にTM_CCORRを使用する、他の計算方法と併用不可
-- CHKIMG_METHOD_CCORR_NORMED: 類似度の計算にTM_CCORR_NORMEDを使用する、他の計算方法と併用不可
-- CHKIMG_METHOD_CCOEFF: 類似度の計算にTM_CCOEFFを使用する、他の計算方法と併用不可
-- CHKIMG_METHOD_CCOEFF_NORMED: 類似度の計算にTM_CCOEFF_NORMEDを使用する、他の計算方法と併用不可"#},
-            {o,n="モニタ番号",t="数値",d="CHKIMG_USE_WGCAPI指定時かつmouseorg未使用時に探索するモニタ番号を0から指定"},
+- SCHIMG_NO_GRAY: 画像をグレースケール化せず探索を行う
+- SCHIMG_USE_WGCAPI: デスクトップまたはウィンドウの画像取得にGraphicsCaptureAPIを使う
+- SCHIMG_METHOD_SQDIFF: 類似度の計算にTM_SQDIFFを使用する、他の計算方法と併用不可
+- SCHIMG_METHOD_SQDIFF_NORMED: 類似度の計算にTM_SQDIFF_NORMEDを使用する、他の計算方法と併用不可
+- SCHIMG_METHOD_CCORR: 類似度の計算にTM_CCORRを使用する、他の計算方法と併用不可
+- SCHIMG_METHOD_CCORR_NORMED: 類似度の計算にTM_CCORR_NORMEDを使用する、他の計算方法と併用不可
+- SCHIMG_METHOD_CCOEFF: 類似度の計算にTM_CCOEFFを使用する、他の計算方法と併用不可
+- SCHIMG_METHOD_CCOEFF_NORMED: 類似度の計算にTM_CCOEFF_NORMEDを使用する、他の計算方法と併用不可"#},
+            {o,n="モニタ番号",t="数値",d="SCHIMG_USE_WGCAPI指定時かつMOUSEORG未使用時に探索するモニタ番号を0から指定"},
         ],
         [
             {n="画像",t="文字列",d="画像ファイルのパス"},
@@ -1294,19 +1421,19 @@ fn should_save_ss() -> bool {
             {o,n="最大検索数",t="数値",d="指定した数の座標が見つかり次第探索を打ち切る、指定数に満たない場合全体を探索"},
             {o,n="範囲",t="配列",d="[左上X座標, 左上Y座標, 右下X座標, 右下Y座標]"},
             {o,n="オプション",t="定数",d=r#"探索オプションを以下から指定、OR連結可
-- CHKIMG_NO_GRAY: 画像をグレースケール化せず探索を行う
-- CHKIMG_USE_WGCAPI: デスクトップまたはウィンドウの画像取得にGraphicsCaptureAPIを使う
-- CHKIMG_METHOD_SQDIFF: 類似度の計算にTM_SQDIFFを使用する、他の計算方法と併用不可
-- CHKIMG_METHOD_SQDIFF_NORMED: 類似度の計算にTM_SQDIFF_NORMEDを使用する、他の計算方法と併用不可
-- CHKIMG_METHOD_CCORR: 類似度の計算にTM_CCORRを使用する、他の計算方法と併用不可
-- CHKIMG_METHOD_CCORR_NORMED: 類似度の計算にTM_CCORR_NORMEDを使用する、他の計算方法と併用不可
-- CHKIMG_METHOD_CCOEFF: 類似度の計算にTM_CCOEFFを使用する、他の計算方法と併用不可
-- CHKIMG_METHOD_CCOEFF_NORMED: 類似度の計算にTM_CCOEFF_NORMEDを使用する、他の計算方法と併用不可"#},
-            {o,n="モニタ番号",t="数値",d="CHKIMG_USE_WGCAPI指定時かつmouseorg未使用時に探索するモニタ番号を0から指定"},
+- SCHIMG_NO_GRAY: 画像をグレースケール化せず探索を行う
+- SCHIMG_USE_WGCAPI: デスクトップまたはウィンドウの画像取得にGraphicsCaptureAPIを使う
+- SCHIMG_METHOD_SQDIFF: 類似度の計算にTM_SQDIFFを使用する、他の計算方法と併用不可
+- SCHIMG_METHOD_SQDIFF_NORMED: 類似度の計算にTM_SQDIFF_NORMEDを使用する、他の計算方法と併用不可
+- SCHIMG_METHOD_CCORR: 類似度の計算にTM_CCORRを使用する、他の計算方法と併用不可
+- SCHIMG_METHOD_CCORR_NORMED: 類似度の計算にTM_CCORR_NORMEDを使用する、他の計算方法と併用不可
+- SCHIMG_METHOD_CCOEFF: 類似度の計算にTM_CCOEFFを使用する、他の計算方法と併用不可
+- SCHIMG_METHOD_CCOEFF_NORMED: 類似度の計算にTM_CCOEFF_NORMEDを使用する、他の計算方法と併用不可"#},
+            {o,n="モニタ番号",t="数値",d="SCHIMG_USE_WGCAPI指定時かつMOUSEORG未使用時に探索するモニタ番号を0から指定"},
         ],
     ],
 )]
-pub fn chkimg(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn searchimage(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let default_score = 95.0;
     let path = args.get_as_string(0, None)?;
     let score = args.get_as_f64(1, Some(default_score))?;
@@ -1366,7 +1493,7 @@ pub fn chkimg(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncRe
             } else {
                 ImgConst::IMG_FORE
             };
-            if ChkImgOption::use_wgcapi(opt) {
+            if SearchImageOption::use_wgcapi(opt) {
                 if ScreenShot::is_window_capturable(hwnd) {
                     ScreenShot::get_window_wgcapi(hwnd, left, top, right, bottom, client)?
                 } else {
@@ -1378,7 +1505,7 @@ pub fn chkimg(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncRe
             }
         },
         None => {
-            if ChkImgOption::use_wgcapi(opt) {
+            if SearchImageOption::use_wgcapi(opt) {
                 ScreenShot::get_screen_wgcapi(monitor, left, top, right, bottom)?
             } else {
                 ScreenShot::get_screen(left, top, right, bottom)?
@@ -1389,8 +1516,8 @@ pub fn chkimg(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncRe
     if should_save_ss() {
         ss.save(None)?;
     }
-    let chk = ChkImg::from_screenshot(ss, ChkImgOption::gray_scale(opt))?;
-    let method = ChkImgOption::method(opt);
+    let chk = SearchImage::from_screenshot(ss, SearchImageOption::gray_scale(opt))?;
+    let method = SearchImageOption::method(opt);
     let result = chk.search(&path, score, Some(count), method)?;
     let arr = result
         .into_iter()

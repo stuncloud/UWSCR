@@ -1416,7 +1416,64 @@ ID0について
 画像検索
 --------
 
-.. function:: chkimg(画像ファイルパス, [スコア=95, 最大検索数=5, left=EMPTY, top=EMPTY, right=EMPTY, bottom=EMPTY, オプション=0, モニタ番号=0])
+.. function:: ChkImg([ファイル名={clipboard}, 探索方式=0, x1=EMPTY, y1=EMPTY, x2=EMPTY, y2=EMPTY, n番目=1, 色幅=0])
+
+    | スクリーン上の指定画像と一致する位置の情報を返す
+
+    :param 文字列 省略可 ファイル名: 探す画像ファイルのパス、省略時はクリップボード画像
+    :param 数値 省略可 探索方式: 一致判定の方式を指定
+
+        - 0: すべてのピクセルで一致を判定する
+        - 1: 指定画像の左上を透過色とし、指定画像の透過色に当たる部分は常に一致、それ以外は通常の一致判定を行う
+        - 2: 指定画像の右上を透過色とする
+        - 3: 指定画像の左下を透過色とする
+        - 4: 指定画像の右下を透過色とする
+        - -1: 色ではなく形での一致を判定する、色幅は無視される
+
+    :param 数値 省略可 x1: 探索範囲の左上x座標、省略時はスクリーン全体の左上
+    :param 数値 省略可 y1: 探索範囲の左上y座標、省略時はスクリーン全体の左上
+    :param 数値 省略可 x2: 探索範囲の右下x座標、省略時はスクリーン全体の右下
+    :param 数値 省略可 y2: 探索範囲の右下y座標、省略時はスクリーン全体の右下
+    :param 数値 省略可 n番目: スクリーン左上から見てn番目の一致座標を返す、-1ならスクリーン上で一致するすべての座標を返す
+
+    :param 定数 省略可 色幅: 各ピクセルについて許容する色範囲を指定 (OR連結可)、省略時は完全一致
+
+        - IMG_MSK_R1: RGBのうちR (赤) に対して ``R -2 < 対象R < R + 2`` の範囲で許容する
+        - IMG_MSK_R2: RGBのうちR (赤) に対して ``R -4 < 対象R < R + 4`` の範囲で許容する
+        - IMG_MSK_R3: RGBのうちR (赤) に対して ``R -8 < 対象R < R + 8`` の範囲で許容する
+        - IMG_MSK_R4: RGBのうちR (赤) に対して ``R -16 < 対象R < R + 16`` の範囲で許容する
+        - IMG_MSK_G1: RGBのうちG (緑) に対して ``G -2 < 対象G < G + 2`` の範囲で許容する
+        - IMG_MSK_G2: RGBのうちG (緑) に対して ``G -4 < 対象G < G + 4`` の範囲で許容する
+        - IMG_MSK_G3: RGBのうちG (緑) に対して ``G -8 < 対象G < G + 8`` の範囲で許容する
+        - IMG_MSK_G4: RGBのうちG (緑) に対して ``G -16 < 対象G < G + 16`` の範囲で許容する
+        - IMG_MSK_B1: RGBのうちB (青) に対して ``B -2 < 対象B < B + 2`` の範囲で許容する
+        - IMG_MSK_B2: RGBのうちB (青) に対して ``B -4 < 対象B < B + 4`` の範囲で許容する
+        - IMG_MSK_B3: RGBのうちB (青) に対して ``B -8 < 対象B < B + 8`` の範囲で許容する
+        - IMG_MSK_B4: RGBのうちB (青) に対して ``B -16 < 対象B < B + 16`` の範囲で許容する
+        - IMG_MSK_BGR1: RGBそれぞれに対して ``n -2 < 対象色 < n + 2`` の範囲で許容する
+        - IMG_MSK_BGR2: RGBそれぞれに対して ``n -4 < 対象色 < n + 4`` の範囲で許容する
+        - IMG_MSK_BGR3: RGBそれぞれに対して ``n -8 < 対象色 < n + 8`` の範囲で許容する
+        - IMG_MSK_BGR4: RGBそれぞれに対して ``n -16 < 対象色 < n + 16`` の範囲で許容する
+
+    :rtype: 配列
+    :return:
+
+        | n番目で1以上を指定した場合は該当する位置の [x, y]
+        | -1を指定した場合は [x, y] の配列
+        | 見つからなかった場合は空の配列
+        | クリップボード指定でクリップボードに画像がない場合も空の配列
+
+    .. admonition:: サンプルコード
+
+        .. sourcecode:: uwscr
+
+            // n番目を-2にすることで探索が並列処理になる
+            for xy in chkimg(image, 0,,,,, -2, IMG_MSK_BGR3)
+                print xy
+            next
+
+
+.. function:: SearchImage(画像ファイルパス, [スコア=95, 最大検索数=5, left=EMPTY, top=EMPTY, right=EMPTY, bottom=EMPTY, オプション=0, モニタ番号=0])
 
     | 指定画像をスクリーン上から探してその座標を返します
 
@@ -1448,11 +1505,11 @@ ID0について
     :param 数値 省略可 bottom: 検索範囲指定: 右下X座標、省略時は画面右下Y座標
     :param 定数 省略可 オプション: 実行時オプションを指定、OR連結可
 
-        .. object:: CHKIMG_NO_GRAY
+        .. object:: SCHIMG_NO_GRAY
 
             | 画像をグレースケール化せず探索を行う
 
-        .. object:: CHKIMG_USE_WGCAPI
+        .. object:: SCHIMG_USE_WGCAPI
 
             | デスクトップまたはウィンドウの画像取得にGraphicsCaptureAPIを使う
             | デスクトップの場合は対象とするモニタを次の引数で指定
@@ -1467,27 +1524,27 @@ ID0について
                 | 対象ウィンドウが最小化されている、または非表示になっている場合はキャプチャを行わず関数を終了します
                 | このオプションでウィンドウをキャプチャする場合は対象ウィンドウが表示状態になっていることを確認してください
 
-        .. object:: CHKIMG_METHOD_SQDIFF
+        .. object:: SCHIMG_METHOD_SQDIFF
 
             | 類似度の計算にTM_SQDIFFを使用する、他の計算方法と併用不可
 
-        .. object:: CHKIMG_METHOD_SQDIFF_NORMED
+        .. object:: SCHIMG_METHOD_SQDIFF_NORMED
 
             | 類似度の計算にTM_SQDIFF_NORMEDを使用する、他の計算方法と併用不可
 
-        .. object:: CHKIMG_METHOD_CCORR
+        .. object:: SCHIMG_METHOD_CCORR
 
             | 類似度の計算にTM_CCORRを使用する、他の計算方法と併用不可
 
-        .. object:: CHKIMG_METHOD_CCORR_NORMED
+        .. object:: SCHIMG_METHOD_CCORR_NORMED
 
             | 類似度の計算にTM_CCORR_NORMEDを使用する、他の計算方法と併用不可
 
-        .. object:: CHKIMG_METHOD_CCOEFF
+        .. object:: SCHIMG_METHOD_CCOEFF
 
             | 類似度の計算にTM_CCOEFFを使用する、他の計算方法と併用不可
 
-        .. object:: CHKIMG_METHOD_CCOEFF_NORMED
+        .. object:: SCHIMG_METHOD_CCOEFF_NORMED
 
             | 類似度の計算にTM_CCOEFF_NORMEDを使用する、他の計算方法と併用不可
             | 計算方法未指定時はこれが適用される
@@ -1495,7 +1552,7 @@ ID0について
 
     :param 定数 省略可 モニタ番号:
 
-        | ``CHKIMG_USE_WGCAPI`` 時に検索するモニタ番号を0から指定、デフォルトは0 (プライマリモニタ)
+        | ``SCHIMG_USE_WGCAPI`` 時に検索するモニタ番号を0から指定、デフォルトは0 (プライマリモニタ)
         | mousemorg使用時はウィンドウを対象とするためこの引数指定は不要
 
     :rtype: 二次元配列
@@ -1509,7 +1566,7 @@ ID0について
                 print found // [x, y, スコア]
             next
 
-.. function:: chkimg(画像ファイルパス, [スコア=95, 最大検索数=5, 範囲, オプション=0])
+.. function:: SearchImage(画像ファイルパス, [スコア=95, 最大検索数=5, 範囲, オプション=0])
     :noindex:
 
     | 配列による範囲指定

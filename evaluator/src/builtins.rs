@@ -994,7 +994,9 @@ fn init_builtin_consts() -> BuiltinConsts {
     sets.append(&mut BuiltinConsts::new::<window_control::MorgTargetConst>());
     sets.append(&mut BuiltinConsts::new::<window_control::MorgContextConst>());
     #[cfg(feature="chkimg")]
-    sets.append(&mut BuiltinConsts::new::<window_control::ChkImgOption>());
+    sets.append(&mut BuiltinConsts::new::<window_control::SearchImageOption>());
+    #[cfg(feature="chkimg")]
+    sets.append(&mut BuiltinConsts::new::<window_control::ImgMsk>());
 
     // text control
     sets.append(&mut BuiltinConsts::new::<text_control::RegexEnum>());
