@@ -48,7 +48,7 @@ impl From<ToggleState> for ThreeState {
     }
 }
 
-
+#[allow(clippy::upper_case_acronyms)]
 pub struct UIA {
     automation: UIAutomation,
     element: UIAElement,
@@ -89,11 +89,10 @@ impl UIA {
                 }
             },
             UIAFound::Multi(elements) => {
-                let point = elements.into_iter()
+                elements.into_iter()
                     .map(|elem| elem.multi_select())
-                    .last()
-                    .unwrap_or_default();
-                point
+                    .next_back()
+                    .unwrap_or_default()
             },
             UIAFound::ListViewItem(list, text) => {
                 list.select()?;
@@ -105,11 +104,10 @@ impl UIA {
         match self.find(ci)? {
             UIAFound::Single(element, _) => element.get_clickable_point(),
             UIAFound::Multi(elements) => {
-                let point = elements.into_iter()
+                elements.into_iter()
                     .map(|elem| elem.get_clickable_point())
-                    .last()
-                    .unwrap_or_default();
-                point
+                    .next_back()
+                    .unwrap_or_default()
             },
             UIAFound::ListViewItem(_, text) => text.get_clickable_point()
         }
@@ -203,7 +201,8 @@ impl UIAElement {
     }
     fn search(&self, target: &mut UIATarget) -> Option<UIAFound> {
         unsafe {
-            let array = self.element.FindAll(TreeScope_Children, &target.condition).ok()?;
+            let condition = target.condition();
+            let array = self.element.FindAll(TreeScope_Children, &condition).ok()?;
             let len = array.Length().ok()?;
             for index in 0..len {
                 if let Ok(elem) = array.GetElement(index) {
@@ -212,37 +211,38 @@ impl UIAElement {
                         if target.contains(&controltype_id) {
                             match controltype_id {
                                 UIA_ListControlTypeId => {
-                                    if let Some(header) = element.has_header(&target.condition) {
+                                    if let Some(header) = element.has_header(&condition) {
                                         // リストビュー
                                         if target.search_listview {
-                                            if let Some(listitems) = element.get_list_items(&target.condition) {
+                                            if let Some(listitems) = element.get_list_items(&condition) {
                                                 if target.is_multiple() {
                                                     let found = listitems
                                                         .filter(|item| {
-                                                            match item.get_texts(&target.condition) {
+                                                            match item.get_texts(&condition) {
                                                                 Some(mut texts) => {
-                                                                    texts.find(|e| target.includes(e))
-                                                                        .is_some()
+                                                                    texts.any(|e| target.includes(&e))
                                                                 },
                                                                 None => false,
                                                             }
                                                         })
                                                         .collect::<Vec<_>>();
-                                                    if found.len() > 0 {
+                                                    if !found.is_empty() {
                                                         return Some(UIAFound::Multi(found));
                                                     }
                                                 } else {
                                                     for item in listitems {
-                                                        if let Some(mut texts) = item.get_texts(&target.condition) {
-                                                            if let Some(text) = texts.find(|e| target.matches(e)) {
-                                                                return Some(UIAFound::ListViewItem(item, text));
-                                                            }
+                                                        let found: Option<UIAElement> = {
+                                                            let mut texts = item.get_texts(&condition)?;
+                                                            texts.find(|e| target.matches(e))
+                                                        };
+                                                        if let Some(text) = found {
+                                                            return Some(UIAFound::ListViewItem(item, text));
                                                         }
                                                     }
                                                 }
                                             }
                                             // ヘッダを検索
-                                            if let Some(mut items) = header.get_header_items(&target.condition) {
+                                            if let Some(mut items) = header.get_header_items(&condition) {
                                                 let found = items
                                                     .find(|e| target.matches(e))
                                                     .map(|e| UIAFound::Single(e, UIA_HeaderControlTypeId));
@@ -254,18 +254,18 @@ impl UIAElement {
                                     } else {
                                         // リスト
                                         if target.search_list {
-                                            if let Some(mut listitems) = element.get_list_items(&target.condition) {
+                                            if let Some(mut listitems) = element.get_list_items(&condition) {
                                                 // \tが含まれてたら該当する複数アイテムを返す
                                                 if target.is_multiple() {
                                                     let found = listitems
-                                                        .filter(|e| target.includes(&e))
+                                                        .filter(|e| target.includes(e))
                                                         .collect::<Vec<_>>();
-                                                    if found.len() > 0 {
+                                                    if !found.is_empty() {
                                                         return Some(UIAFound::Multi(found));
                                                     }
                                                 } else {
                                                     let found = listitems
-                                                        .find(|e| target.matches(&e))
+                                                        .find(|e| target.matches(e))
                                                         .map(|e| UIAFound::Single(e, UIA_ListControlTypeId));
                                                     if found.is_some() {
                                                         return found;
@@ -278,9 +278,9 @@ impl UIAElement {
                                 UIA_ComboBoxControlTypeId => {
                                     // リストを展開する
                                     element.expand();
-                                    if let Some(mut listitems) = element.get_list_items(&target.condition) {
+                                    if let Some(mut listitems) = element.get_list_items(&condition) {
                                         let found = listitems
-                                            .find(|e| target.matches(&e))
+                                            .find(|e| target.matches(e))
                                             .map(|e| UIAFound::Single(e, UIA_ComboBoxControlTypeId));
                                         if found.is_some() {
                                             return found;
@@ -289,7 +289,7 @@ impl UIAElement {
                                     element.collapse();
                                 },
                                 UIA_TabControlTypeId => {
-                                    if let Some(mut items) = self.get_tab_items(&target.condition) {
+                                    if let Some(mut items) = self.get_tab_items(&condition) {
                                         let found = items
                                             .find(|e| target.matches(e))
                                             .map(|e| UIAFound::Single(e, UIA_TabControlTypeId));
@@ -315,7 +315,7 @@ impl UIAElement {
                                     todo!()
                                 },
                                 UIA_ToolBarControlTypeId => {
-                                    if let Some(mut buttons) = self.get_toolbar_buttons(&target.condition) {
+                                    if let Some(mut buttons) = self.get_toolbar_buttons(&condition) {
                                         let found = buttons
                                             .find(|e| target.matches(e))
                                             .map(|e| UIAFound::Single(e, UIA_ToolBarControlTypeId));
@@ -408,7 +408,8 @@ impl UIAElement {
         } else {
             path.next()
         };
-        let elements = self.find_all(TreeScope_Children, &target.condition)?
+        let condition = target.condition();
+        let elements = self.find_all(TreeScope_Children, &condition)?
             .filter(|e| e.filter_by_type(UIA_TreeItemControlTypeId));
         for element in elements {
             if target.matches_with_name(&element, name) {
@@ -449,8 +450,7 @@ impl UIAElement {
                     if len > 0 {
                         let elements = (0..len)
                             .map(move |index| array.GetElement(index).ok())
-                            .map(|e| e.map(|element| Self {element}))
-                            .flatten();
+                            .filter_map(|e| e.map(|element| Self {element}));
                         return Some(elements)
                     }
                 }
@@ -691,8 +691,7 @@ impl UIATarget {
     fn includes(&mut self, element: &UIAElement) -> bool {
         if let Some(name) = element.get_name() {
             self.name.split('\t')
-                .find(|pat| match_title(&name, *pat, self.partial))
-                .is_some()
+                .any(|pat| match_title(&name, pat, self.partial))
         } else {
             false
         }
@@ -704,6 +703,9 @@ impl UIATarget {
         } else {
             false
         }
+    }
+    fn condition(&self) -> IUIAutomationCondition {
+        self.condition.clone()
     }
 }
 
