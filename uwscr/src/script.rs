@@ -25,25 +25,22 @@ pub fn run(script: String, script_path: PathBuf, params: Vec<String>, ast: Optio
         .map_err(|e| ScriptError::new(UWSCRErrorTitle::InitializeError, e))?;
     let uwscr_dir = exe_full_path.parent()
         .ok_or(ScriptError::new(UWSCRErrorTitle::InitializeError, "unable to get uwscr directory"))?;
-    env::set_var("GET_UWSC_DIR", &uwscr_dir.as_os_str());
+    unsafe {env::set_var("GET_UWSC_DIR", uwscr_dir.as_os_str());}
 
     let script_full_path = get_absolute_path(&script_path);
     let script_dir = script_full_path.parent()
         .ok_or(ScriptError::new(UWSCRErrorTitle::InitializeError, "unable to get script directory"))?;
-    env::set_var("GET_SCRIPT_DIR", &script_dir.as_os_str());
+    unsafe {env::set_var("GET_SCRIPT_DIR", script_dir.as_os_str());}
 
     if let Some(name) = script_path.file_name() {
-        env::set_var("GET_UWSC_NAME", name);
+        unsafe {env::set_var("GET_UWSC_NAME", name);}
         // デフォルトダイアログタイトルを設定
-        env::set_var("UWSCR_DEFAULT_TITLE", &format!("UWSCR - {}", name.to_string_lossy()))
+        unsafe {env::set_var("UWSCR_DEFAULT_TITLE", format!("UWSCR - {}", name.to_string_lossy()));}
     }
-    match env::set_current_dir(&script_dir) {
-        Err(_)=> return Err(ScriptError::new(
-            UWSCRErrorTitle::InitializeError,
-            "unable to set current directory"
-        )),
-        _ => {}
-    };
+    if let Err(_) = env::set_current_dir(&script_dir) { return Err(ScriptError::new(
+        UWSCRErrorTitle::InitializeError,
+        "unable to set current directory"
+    )) };
 
     let names = get_builtin_string_names();
     let parser = Parser::new(Lexer::new(&script), Some(script_dir.to_path_buf()), Some(names));
