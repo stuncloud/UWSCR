@@ -18,19 +18,19 @@ pub fn init(dir: &PathBuf) {
             if path.is_dir() {
                 path.push("uwscr.log");
             }
-            env::set_var("UWSCR_LOG_FILE", path.as_os_str());
+            unsafe { env::set_var("UWSCR_LOG_FILE", path.as_os_str()); }
             path
         },
         None => {
             let mut path = dir.clone();
             path.push("uwscr");
             path.set_extension("log");
-            env::set_var("UWSCR_LOG_FILE", path.to_str().unwrap());
+            unsafe { env::set_var("UWSCR_LOG_FILE", path.to_str().unwrap()); }
             path
         },
     };
     let lines = u.options.log_lines;
-    env::set_var("UWSCR_LOG_LINES", lines.to_string());
+    unsafe { env::set_var("UWSCR_LOG_LINES", lines.to_string()); }
     let mut log = u.options.log_file;
     if log > 4 {log = 1};
     if log == 4 {
@@ -42,7 +42,7 @@ pub fn init(dir: &PathBuf) {
         }
     }
     if log != 1 {
-        env::set_var("UWSCR_LOG_TYPE", log.to_string());
+        unsafe { env::set_var("UWSCR_LOG_TYPE", log.to_string()); }
     }
 }
 

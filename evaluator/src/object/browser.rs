@@ -695,7 +695,7 @@ impl TabWindow {
         let id = document.remote.object_id.as_ref().unwrap();
         let declaration = "function(selector) {return this.querySelectorAll(selector);}";
         let elements = document.dp.invoke_function(id, declaration, args, false, false)?;
-        elements.to_iter()
+        elements.into_iter()
     }
     fn get_nth_element_by_name_value(&self, name: String, value: Option<String>, nth: usize) -> BrowserResult<Option<RemoteObject>> {
         let selector = match value {
@@ -1441,7 +1441,7 @@ impl RemoteObject {
         ))
         }
     }
-    fn as_js_iterator(&self) -> BrowserResult<RemoteObject> {
+    fn into_js_iterator(self) -> BrowserResult<RemoteObject> {
         let declaration = "function() { return [...this].values(); }";
         if let Some(id) = &self.remote.object_id {
             self.dp.invoke_function(id, declaration, vec![], false, false)
@@ -1471,8 +1471,8 @@ impl RemoteObject {
             ))
         }
     }
-    fn to_iter(&self) -> BrowserResult<impl Iterator<Item = RemoteObject>> {
-        let iter = self.as_js_iterator()?;
+    fn into_iter(self) -> BrowserResult<impl Iterator<Item = RemoteObject>> {
+        let iter = self.into_js_iterator()?;
         let mut vec = vec![];
         loop {
             let next = iter.js_iterator_next()?;
@@ -1490,8 +1490,8 @@ impl RemoteObject {
         }
         Ok(vec.into_iter())
     }
-    pub fn to_object_vec(&self) -> BrowserResult<Vec<Object>> {
-        let vec = self.to_iter()?.map(|remote| remote.into()).collect();
+    pub fn to_object_vec(self) -> BrowserResult<Vec<Object>> {
+        let vec = self.into_iter()?.map(|remote| remote.into()).collect();
         Ok(vec)
     }
     pub fn get_type(&self) -> String {
@@ -1534,7 +1534,7 @@ impl RemoteObject {
         match tag_name.to_ascii_uppercase().as_str() {
             "SELECT" => {
                 // SELECT要素は選択されたOptionのテキストを返す
-                let texts = self.get_property("selectedOptions")?.to_iter()?
+                let texts = self.get_property("selectedOptions")?.into_iter()?
                     .filter_map(|opt| opt.get_property("textContent").ok())
                     .filter_map(|text| text.as_value())
                     .filter_map(|value| value.as_str().map(|s| s.to_string()))
@@ -1617,7 +1617,7 @@ impl RemoteObject {
                 "objectId": self.remote.object_id,
             }))?;
             let files = self.get_property("files")?;
-            files.to_iter()?
+            files.into_iter()?
                 .map(|file| {
                     let name = file.get_property("name")?.as_string();
                     let matched = input_value.iter().find(|path| path.ends_with(&name)).is_some();

@@ -419,25 +419,19 @@ impl UIAElement {
                     // sleep(20);
                     if let Some(found) = element.search_treeview_item(target, Some(next), path2) {
                         return Some(found)
-                    } else {
-                        if let Some(ExpandCollapseState_Collapsed) = state {
-                            element.collapse();
-                        }
+                    } else if let Some(ExpandCollapseState_Collapsed) = state {
+                        element.collapse();
                     }
-                } else {
-                    if target.is_in_exact_order() {
-                        return Some(element);
-                    }
+                } else if target.is_in_exact_order() {
+                    return Some(element);
                 }
             } else {
                 let state = element.get_expand_collapse_state();
                 element.expand();
                 if let Some(found) = element.search_treeview_item(target, name, path.clone()) {
                     return Some(found);
-                } else {
-                    if let Some(ExpandCollapseState_Collapsed) = state {
-                        element.collapse();
-                    }
+                } else if let Some(ExpandCollapseState_Collapsed) = state {
+                    element.collapse();
                 }
             }
         }

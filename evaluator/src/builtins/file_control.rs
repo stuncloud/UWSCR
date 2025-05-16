@@ -1,4 +1,5 @@
 mod drop;
+mod interface;
 
 use crate::Evaluator;
 use crate::builtins::*;
@@ -432,11 +433,18 @@ pub fn dropfile(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
             (Some(_), Some(_)) => 3,
         };
         let dir = args.get_as_string(index, None)?;
-        let files = args.get_rest_as_string_array(index + 1, 1)?;
+        let dir = PathBuf::from(dir);
+        let files = args.get_rest_as_string_array(index + 1, 1)?
+            .into_iter()
+            .map(|file| {
+                let mut _dir = dir.clone();
+                _dir.push(file);
+                _dir.to_string_lossy().to_string()
+            })
+            .collect();
 
-        let files = drop::get_list_hstring(dir, files);
         let (x, y) = drop::get_point(hwnd, x, y);
-        drop::dropfile(hwnd, &files, x, y);
+        drop::dropfile(hwnd, files, x, y);
     }
     Ok(Object::Empty)
 }

@@ -478,7 +478,7 @@ impl Evaluator {
                 usettings.options.log_file = n as u8;
             },
             OptionSetting::Dlgtitle(s) => {
-                env::set_var("UWSCR_DEFAULT_TITLE", &s);
+                unsafe { env::set_var("UWSCR_DEFAULT_TITLE", &s); }
                 usettings.options.dlg_title = Some(s);
             },
             OptionSetting::GuiPrint(b) => {

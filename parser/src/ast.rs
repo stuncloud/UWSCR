@@ -2256,7 +2256,7 @@ impl fmt::Display for ParamType {
             ParamType::HashTbl => write!(f, "hash"),
             ParamType::Function => write!(f, "func"),
             ParamType::UObject => write!(f, "uobject"),
-            ParamType::UserDefinition(ref name) => write!(f, "{}", name),
+            ParamType::UserDefinition(name) => write!(f, "{}", name),
         }
     }
 }

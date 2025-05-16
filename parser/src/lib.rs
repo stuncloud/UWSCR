@@ -2850,7 +2850,7 @@ impl Parser {
             Token::ComErrRet |
             Token::Exit |
             Token::ExitExit => Identifier(token.to_string()),
-            Token::Identifier(ref i) => Identifier(i.clone()),
+            Token::Identifier(i) => Identifier(i.clone()),
         };
         Some(identifier)
     }

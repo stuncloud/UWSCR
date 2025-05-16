@@ -289,7 +289,7 @@ pub fn env(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 pub fn set_env(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let key = args.get_as_string(0, None)?;
     let value = args.get_as_string(1, None)?;
-    std::env::set_var(key, value);
+    unsafe {std::env::set_var(key, value);}
     Ok(Object::Empty)
 }
 

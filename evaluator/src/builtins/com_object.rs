@@ -169,34 +169,34 @@ pub fn getoleitem(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult
     ],
     rtype={desc="",types=""}
 )]
-pub fn oleevent(_evaluator: &mut Evaluator, _args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    // let mut com = args.get_as_comobject(0)?;
-    // if args.len() > 1 {
-    //     // セット
-    //     let interface = args.get_as_string(1, None)?;
-    //     let event = args.get_as_string(2, None)?;
-    //     let func = match args.get_as_function_or_string(3, true)? {
-    //         Some(two) => match two {
-    //             TwoTypeArg::T(name) => {
-    //                 match evaluator.env.get_function(&name) {
-    //                     Some(obj) => match obj {
-    //                         Object::Function(func) => Ok(func),
-    //                         _ => Err(builtin_func_error(UErrorMessage::IsNotUserFunction(name))),
-    //                     },
-    //                     None => Err(builtin_func_error(UErrorMessage::FunctionNotFound(name))),
-    //                 }
-    //             },
-    //             TwoTypeArg::U(func) => Ok(func),
-    //         },
-    //         None => Err(builtin_func_error(UErrorMessage::FunctionRequired)),
-    //     }?;
-    //     com.set_event_handler(&interface, &event, func, evaluator.clone())?;
-    // } else {
-    //     // 解除
-    //     com.remove_event_handler()?;
-    // }
-    // Ok(Object::Empty)
-    Err(builtin_func_error(UErrorMessage::UnavailableFunction))
+pub fn oleevent(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let mut com = args.get_as_comobject(0)?;
+    if args.len() > 1 {
+        // セット
+        let interface = args.get_as_string(1, None)?;
+        let event = args.get_as_string(2, None)?;
+        let func = match args.get_as_function_or_string(3, true)? {
+            Some(two) => match two {
+                TwoTypeArg::T(name) => {
+                    match evaluator.env.get_function(&name) {
+                        Some(obj) => match obj {
+                            Object::Function(func) => Ok(func),
+                            _ => Err(builtin_func_error(UErrorMessage::IsNotUserFunction(name))),
+                        },
+                        None => Err(builtin_func_error(UErrorMessage::FunctionNotFound(name))),
+                    }
+                },
+                TwoTypeArg::U(func) => Ok(func),
+            },
+            None => Err(builtin_func_error(UErrorMessage::FunctionRequired)),
+        }?;
+        com.set_event_handler(&interface, &event, func, evaluator.clone())?;
+    } else {
+        // 解除
+        com.remove_event_handler()?;
+    }
+    Ok(Object::Empty)
+    // Err(builtin_func_error(UErrorMessage::UnavailableFunction))
 }
 
 #[builtin_func_desc(

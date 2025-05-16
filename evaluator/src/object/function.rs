@@ -260,7 +260,7 @@ impl Evaluator {
                 _ => {}
             },
             ParamType::UserDefinition(ref name) => match obj {
-                Object::Instance(ref arc) => {
+                Object::Instance(arc) => {
                     let m = arc.lock().unwrap();
                     if m.name.to_ascii_lowercase() == name.to_ascii_lowercase() {
                         return Ok(());

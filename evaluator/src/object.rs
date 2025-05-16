@@ -510,7 +510,7 @@ impl Object {
             Object::AsyncFunction(_) => ObjectType::TYPE_ASYNC_FUNCTION,
             Object::Module(_) => ObjectType::TYPE_MODULE,
             Object::Class(_,_) => ObjectType::TYPE_CLASS,
-            Object::Instance(ref m) => {
+            Object::Instance(m) => {
                 let ins = m.lock().unwrap();
                 if ins.is_dropped {
                     ObjectType::TYPE_NOTHING

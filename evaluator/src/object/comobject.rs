@@ -1,7 +1,12 @@
 use windows::{
-    core::{self, BSTR, HRESULT, HSTRING, PCWSTR, PWSTR, ComInterface, GUID, Interface, implement, IUnknown},
+    core::{
+        self, BSTR, HRESULT, HSTRING, PCWSTR, PWSTR, ComInterface, GUID, Interface, implement, IUnknown,
+    },
     Win32::{
-        Foundation::{VARIANT_BOOL, DISP_E_MEMBERNOTFOUND, HWND, LPARAM, BOOL},
+        Foundation::{
+            VARIANT_BOOL, HWND, LPARAM, BOOL,
+            E_NOTIMPL, DISP_E_MEMBERNOTFOUND,
+        },
         UI::{
             WindowsAndMessaging::{
                 SetForegroundWindow,
@@ -1259,15 +1264,43 @@ impl TypeInfo {
     }
     fn get_ids_of_names(&self, name: &str) -> ComResult<i32> {
         unsafe {
-            let hstring = HSTRING::from(name);
-            let rgsznames = PCWSTR::from_raw(hstring.as_ptr());
+            let wide = name.to_wide_null_terminated();
+            let rgsznames = PCWSTR::from_raw(wide.as_ptr());
             let mut pmemid = 0;
-            self.info.GetIDsOfNames(&rgsznames, 1, &mut pmemid)?;
-            Ok(pmemid)
+            match self.info.GetIDsOfNames(&rgsznames, 1, &mut pmemid) {
+                Ok(_) => Ok(pmemid),
+                Err(err) => {
+                    self.names_iter()?
+                        .find_map(|(bstr, memid)| {
+                            bstr.eq(name).then_some(memid)
+                        })
+                        .ok_or(err.into())
+                },
+            }
+        }
+    }
+    fn names_iter(&self) -> ComResult<impl Iterator<Item = (BSTR, i32)>> {
+        unsafe {
+            let attr = self.GetTypeAttr()?.as_ref().unwrap();
+            let iter = (0..attr.cFuncs as u32)
+                .filter_map(|index| {
+                    let desc = self.GetFuncDesc(index).ok()?.as_ref().unwrap();
+                    let mut rgbstrnames = vec![BSTR::default()];
+                    let mut pcnames = 0;
+                    self.GetNames(desc.memid, &mut rgbstrnames, &mut pcnames).ok()?;
+                    rgbstrnames.pop().map(|bstr| (bstr, desc.memid))
+                });
+            Ok(iter)
         }
     }
 }
+impl std::ops::Deref for TypeInfo {
+    type Target = ITypeInfo;
 
+    fn deref(&self) -> &Self::Target {
+        &self.info
+    }
+}
 impl TryFrom<&IDispatch> for TypeInfo {
     type Error = ComError;
 
@@ -1413,18 +1446,18 @@ impl EventHandlers {
 }
 
 pub struct EventHandler {
-    _event: EventDisp,
+    _object: IUnknown,
     cp: IConnectionPoint,
     cookie: u32,
 }
 impl EventHandler {
     fn new(_event: EventDisp, container: IConnectionPointContainer, riid: &GUID) -> ComResult<Self> {
         unsafe {
-            let disp = _event.cast::<IDispatch>()?;
+            let _object = IUnknown::from(_event);
 
             let cp = container.FindConnectionPoint(riid)?;
-            let cookie = cp.Advise(&disp)?;
-            Ok(Self {_event, cp, cookie})
+            let cookie = cp.Advise(&_object)?;
+            Ok(Self {_object, cp, cookie})
         }
     }
     fn unset(&self) -> ComResult<()> {
@@ -1450,15 +1483,15 @@ impl EventDisp {
 #[allow(non_snake_case)]
 impl IDispatch_Impl for EventDisp {
     fn GetTypeInfoCount(&self) ->  ::windows::core::Result<u32> {
-        unimplemented!()
+        Err(E_NOTIMPL.into())
     }
 
     fn GetTypeInfo(&self,_itinfo:u32,_lcid:u32) ->  ::windows::core::Result<ITypeInfo> {
-        unimplemented!()
+        Err(E_NOTIMPL.into())
     }
 
     fn GetIDsOfNames(&self,_riid: *const ::windows::core::GUID,_rgsznames: *const ::windows::core::PCWSTR,_cnames:u32,_lcid:u32,_rgdispid: *mut i32) ->  ::windows::core::Result<()> {
-        unimplemented!()
+        Err(E_NOTIMPL.into())
     }
 
     #[allow(clippy::not_unsafe_ptr_arg_deref)]
@@ -1506,9 +1539,11 @@ impl DispParamsExt for DISPPARAMS {
     fn as_object_vec(&self) -> ComResult<Vec<Object>> {
         unsafe {
             let len = self.cArgs as usize;
-            let ptr = self.rgvarg;
-            let variants = Vec::from_raw_parts(ptr, len, len);
-            variants.into_iter()
+            let mut args = Vec::with_capacity(len);
+            self.rgvarg.copy_to_nonoverlapping(args.as_mut_ptr(), len);
+            args.set_len(len);
+
+            args.into_iter()
                 .map(|v| v.try_into())
                 .collect()
         }
