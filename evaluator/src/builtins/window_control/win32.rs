@@ -91,7 +91,7 @@ use crate::builtins::{
 };
 use super::clkitem::{ClkItem, MouseInput, match_title, ClkResult};
 use super::{get_process_id_from_hwnd, get_window_rect};
-use super::acc::U32Ext;
+use super::U32Ext;
 
 use std::mem;
 use std::ffi::c_void;

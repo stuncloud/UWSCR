@@ -13,7 +13,7 @@ use crate::{
         browser::{RuntimeResult, RemoteObject0, ExceptionDetails},
     },
     builtins::{
-        window_control::U32Ext,
+        U32Ext,
         dialog::FormOptions,
         BuiltinFuncError,
     },

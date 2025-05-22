@@ -1,1542 +1,1388 @@
-use std::ptr::null_mut;
 use std::ffi::c_void;
-use std::mem::{transmute, ManuallyDrop};
 
 use windows::{
-    core::{ComInterface, BSTR},
+    core::{self, Interface, ComInterface, BSTR},
     Win32::{
-        Foundation::{HWND, POINT},
+        Foundation::{HWND, POINT, E_INVALIDARG},
         UI::{
-            WindowsAndMessaging::{
-                STATE_SYSTEM_ALERT_HIGH,STATE_SYSTEM_ALERT_MEDIUM,STATE_SYSTEM_ALERT_LOW,STATE_SYSTEM_ANIMATED,STATE_SYSTEM_BUSY,STATE_SYSTEM_CHECKED,STATE_SYSTEM_COLLAPSED,STATE_SYSTEM_DEFAULT,STATE_SYSTEM_EXPANDED,STATE_SYSTEM_EXTSELECTABLE,STATE_SYSTEM_FLOATING,STATE_SYSTEM_FOCUSED,STATE_SYSTEM_HOTTRACKED,STATE_SYSTEM_LINKED,STATE_SYSTEM_MARQUEED,STATE_SYSTEM_MIXED,STATE_SYSTEM_MOVEABLE,STATE_SYSTEM_MULTISELECTABLE,STATE_SYSTEM_PROTECTED,STATE_SYSTEM_READONLY,STATE_SYSTEM_SELECTABLE,STATE_SYSTEM_SELECTED,STATE_SYSTEM_SELFVOICING,STATE_SYSTEM_SIZEABLE,STATE_SYSTEM_TRAVERSED,
-                OBJECT_IDENTIFIER, OBJID_WINDOW,
-            },
             Accessibility::{
-                ROLE_SYSTEM_ALERT, ROLE_SYSTEM_ANIMATION, ROLE_SYSTEM_APPLICATION, ROLE_SYSTEM_BORDER, ROLE_SYSTEM_BUTTONDROPDOWN, ROLE_SYSTEM_BUTTONDROPDOWNGRID, ROLE_SYSTEM_BUTTONMENU, ROLE_SYSTEM_CARET, ROLE_SYSTEM_CELL, ROLE_SYSTEM_CHARACTER, ROLE_SYSTEM_CHART, ROLE_SYSTEM_CHECKBUTTON, ROLE_SYSTEM_CLIENT, ROLE_SYSTEM_CLOCK, ROLE_SYSTEM_COLUMN, ROLE_SYSTEM_COLUMNHEADER, ROLE_SYSTEM_COMBOBOX, ROLE_SYSTEM_CURSOR, ROLE_SYSTEM_DIAGRAM, ROLE_SYSTEM_DIAL, ROLE_SYSTEM_DIALOG, ROLE_SYSTEM_DOCUMENT, ROLE_SYSTEM_DROPLIST, ROLE_SYSTEM_EQUATION, ROLE_SYSTEM_GRAPHIC, ROLE_SYSTEM_GRIP, ROLE_SYSTEM_GROUPING, ROLE_SYSTEM_HELPBALLOON, ROLE_SYSTEM_HOTKEYFIELD, ROLE_SYSTEM_INDICATOR, ROLE_SYSTEM_IPADDRESS, ROLE_SYSTEM_LINK, ROLE_SYSTEM_LIST, ROLE_SYSTEM_LISTITEM, ROLE_SYSTEM_MENUBAR, ROLE_SYSTEM_MENUITEM, ROLE_SYSTEM_MENUPOPUP, ROLE_SYSTEM_OUTLINE, ROLE_SYSTEM_OUTLINEBUTTON, ROLE_SYSTEM_OUTLINEITEM, ROLE_SYSTEM_PAGETAB, ROLE_SYSTEM_PAGETABLIST, ROLE_SYSTEM_PANE, ROLE_SYSTEM_PROGRESSBAR, ROLE_SYSTEM_PROPERTYPAGE, ROLE_SYSTEM_PUSHBUTTON, ROLE_SYSTEM_RADIOBUTTON, ROLE_SYSTEM_ROW, ROLE_SYSTEM_ROWHEADER, ROLE_SYSTEM_SCROLLBAR, ROLE_SYSTEM_SEPARATOR, ROLE_SYSTEM_SLIDER, ROLE_SYSTEM_SOUND, ROLE_SYSTEM_SPINBUTTON, ROLE_SYSTEM_SPLITBUTTON, ROLE_SYSTEM_STATICTEXT, ROLE_SYSTEM_STATUSBAR, ROLE_SYSTEM_TABLE, ROLE_SYSTEM_TEXT, ROLE_SYSTEM_TITLEBAR, ROLE_SYSTEM_TOOLBAR, ROLE_SYSTEM_TOOLTIP, ROLE_SYSTEM_WHITESPACE, ROLE_SYSTEM_WINDOW,
                 IAccessible,
-                AccessibleObjectFromWindow, AccessibleObjectFromPoint,
+                AccessibleObjectFromWindow, WindowFromAccessibleObject,AccessibleObjectFromPoint,
                 AccessibleChildren,
-                WindowFromAccessibleObject,
-                GetRoleTextW, GetStateTextW,
-                SELFLAG_TAKEFOCUS,SELFLAG_TAKESELECTION,SELFLAG_ADDSELECTION,
-                STATE_SYSTEM_HASPOPUP,STATE_SYSTEM_NORMAL,
+                GetStateTextW, GetRoleTextW,
+                ROLE_SYSTEM_ALERT,ROLE_SYSTEM_ANIMATION,ROLE_SYSTEM_APPLICATION,ROLE_SYSTEM_BORDER,ROLE_SYSTEM_BUTTONDROPDOWN,ROLE_SYSTEM_BUTTONDROPDOWNGRID,ROLE_SYSTEM_BUTTONMENU,ROLE_SYSTEM_CARET,ROLE_SYSTEM_CELL,ROLE_SYSTEM_CHARACTER,ROLE_SYSTEM_CHART,ROLE_SYSTEM_CHECKBUTTON,ROLE_SYSTEM_CLIENT,ROLE_SYSTEM_CLOCK,ROLE_SYSTEM_COLUMN,ROLE_SYSTEM_COLUMNHEADER,ROLE_SYSTEM_COMBOBOX,ROLE_SYSTEM_CURSOR,ROLE_SYSTEM_DIAGRAM,ROLE_SYSTEM_DIAL,ROLE_SYSTEM_DIALOG,ROLE_SYSTEM_DOCUMENT,ROLE_SYSTEM_DROPLIST,ROLE_SYSTEM_EQUATION,ROLE_SYSTEM_GRAPHIC,ROLE_SYSTEM_GRIP,ROLE_SYSTEM_GROUPING,ROLE_SYSTEM_HELPBALLOON,ROLE_SYSTEM_HOTKEYFIELD,ROLE_SYSTEM_INDICATOR,ROLE_SYSTEM_IPADDRESS,ROLE_SYSTEM_LINK,ROLE_SYSTEM_LIST,ROLE_SYSTEM_LISTITEM,ROLE_SYSTEM_MENUBAR,ROLE_SYSTEM_MENUITEM,ROLE_SYSTEM_MENUPOPUP,ROLE_SYSTEM_OUTLINE,ROLE_SYSTEM_OUTLINEBUTTON,ROLE_SYSTEM_OUTLINEITEM,ROLE_SYSTEM_PAGETAB,ROLE_SYSTEM_PAGETABLIST,ROLE_SYSTEM_PANE,ROLE_SYSTEM_PROGRESSBAR,ROLE_SYSTEM_PROPERTYPAGE,ROLE_SYSTEM_PUSHBUTTON,ROLE_SYSTEM_RADIOBUTTON,ROLE_SYSTEM_ROW,ROLE_SYSTEM_ROWHEADER,ROLE_SYSTEM_SCROLLBAR,ROLE_SYSTEM_SEPARATOR,ROLE_SYSTEM_SLIDER,ROLE_SYSTEM_SOUND,ROLE_SYSTEM_SPINBUTTON,ROLE_SYSTEM_SPLITBUTTON,ROLE_SYSTEM_STATICTEXT,ROLE_SYSTEM_STATUSBAR,ROLE_SYSTEM_TABLE,ROLE_SYSTEM_TEXT,ROLE_SYSTEM_TITLEBAR,ROLE_SYSTEM_TOOLBAR,ROLE_SYSTEM_TOOLTIP,ROLE_SYSTEM_WHITESPACE,ROLE_SYSTEM_WINDOW,
+                SELFLAG_ADDSELECTION, SELFLAG_TAKEFOCUS, SELFLAG_TAKESELECTION,
             },
-            Controls::{
-                STATE_SYSTEM_FOCUSABLE,STATE_SYSTEM_INVISIBLE,STATE_SYSTEM_OFFSCREEN,STATE_SYSTEM_PRESSED,STATE_SYSTEM_UNAVAILABLE,
+            WindowsAndMessaging::{
+                OBJID_WINDOW,
+                STATE_SYSTEM_CHECKED,
             },
+            Controls::STATE_SYSTEM_UNAVAILABLE,
         },
-        System::{
-            Com::IDispatch,
-            Variant::{
-                VARIANT, VARIANT_0_0,
-                VT_I4,VT_DISPATCH,
-            }
-        },
-        Graphics::Gdi::{ScreenToClient, ClientToScreen}
+        Graphics::Gdi::{ClientToScreen, ScreenToClient},
+        System::Variant::{VARIANT, VT_I4, VT_DISPATCH},
+        System::Com::IDispatch,
     }
 };
 
-use super::clkitem::{ClkItem, match_title};
-use crate::builtins::window_low::move_mouse_to;
-use util::winapi::{get_class_name, from_wide_string};
+use std::ops::ControlFlow;
 
-#[derive(Debug, Clone)]
-pub struct Acc {
-    obj: IAccessible,
-    id: Option<i32>,
-    // has_child: bool,
-}
+use crate::{builtins::window_low::move_mouse_to, object::VariantExt, U32Ext};
+use super::clkitem::{ClkItem, ClkTarget};
 
-// #[allow(unused)]
+pub struct Acc {}
+
 impl Acc {
-    pub fn new(obj: IAccessible, id: i32) -> Self {
-        // Self { obj, id: Some(id), has_child: false }
-        Self { obj, id: Some(id) }
-    }
-    pub fn from_hwnd(hwnd: HWND) -> Option<Self> {
-        if let HWND(0) = hwnd {
-            None
-        } else {
-            Self::from_hwnd_and_id(hwnd, OBJID_WINDOW)
+    pub fn getitem(hwnd: HWND, target: u32, max_count: i32, ignore_disabled: bool) -> Option<Vec<String>> {
+        let gi = GetItem::new(target, max_count, ignore_disabled)?;
+        let window = AccWindow::from_hwnd(hwnd).ok()?;
+        let mut iter = window.into_iter();
+        if gi.reverse {
+            iter.reverse();
         }
-    }
-    fn from_hwnd_and_id(hwnd: HWND, obj_id: OBJECT_IDENTIFIER) -> Option<Self> {
-        unsafe {
-            let mut ppvobject = null_mut::<IAccessible>() as *mut c_void;
-            match AccessibleObjectFromWindow(hwnd, obj_id.0 as u32, &IAccessible::IID, &mut ppvobject) {
-                Ok(_) => {
-                    let obj: IAccessible = transmute(ppvobject);
-                    // Some(Acc {obj, id: None, has_child: true })
-                    Some(Acc {obj, id: None })
-                },
-                Err(_) => {
-                    None
-                },
-            }
-        }
-    }
-    pub fn from_point(hwnd: HWND, clx: i32, cly: i32) -> Option<Self> {
-        unsafe {
-            let mut ptscreen = POINT { x: clx, y: cly };
-            ClientToScreen(hwnd, &mut ptscreen);
-            let mut ppacc = None;
-            let mut pvarchild = VARIANT::default();
-            AccessibleObjectFromPoint(ptscreen, &mut ppacc, &mut pvarchild).ok()?;
-            let id = i32::from_variant(pvarchild);
-            // let has_child = id.is_some_and(|n| n != 0);
-            // ppacc.map(|obj| Acc { obj, id, has_child })
-            ppacc.map(|obj| Acc { obj, id })
-        }
-    }
-    #[allow(unused)]
-    pub fn get_hwnd(&self) -> Option<HWND> {
-        unsafe {
-            let mut hwnd = HWND::default();
-            WindowFromAccessibleObject(&self.obj, Some(&mut hwnd)).ok()?;
-            Some(hwnd)
-        }
-    }
-    pub fn get_child_count(&self) -> i32 {
-        unsafe {
-            self.obj.accChildCount().unwrap_or(0)
-        }
-    }
-    fn has_child(&self) -> bool {
-        // self.has_child && self.get_child_count() > 0
-        self.get_child_count() > 0
-    }
-    fn get_parent(&self) -> Option<Self> {
-        unsafe {
-            if let Ok(disp) = self.obj.accParent() {
-                disp.cast()
-                    .ok()
-                    // .map(|obj| Self { obj, id: None, has_child: true })
-                    .map(|obj| Self { obj, id: None })
-            } else {
-                None
-            }
-        }
-    }
-    fn get_varchild(&self) -> VARIANT {
-        self.id.unwrap_or(0).into_variant()
-    }
-    fn has_valid_name(&self) -> bool {
-        if let Some(name) = self.get_name() {
-            name.len() > 0
-        } else {
-            false
-        }
-    }
-    fn get_item_name(&self) -> Option<String> {
-        if let Some(AccRole::Text) = self.get_role() {
-            self.get_value()
-        } else {
-            self.get_name()
-        }
-    }
-    /// DrawTextやTextOutで描画されたテキストを得る
-    pub fn get_api_text(&self) -> Option<String> {
-        None
-    }
-    pub fn get_name(&self) -> Option<String> {
-        unsafe {
-            let varchild = self.get_varchild();
-            self.obj.get_accName(varchild)
-                    .map(|bstr| bstr.to_string())
-                    .ok()
-        }
-    }
-    pub fn get_default_action(&self) -> Option<String> {
-        unsafe {
-            let varchild = self.get_varchild();
-            self.obj.get_accDefaultAction(varchild)
-                    .map(|bstr| bstr.to_string())
-                    .ok()
-        }
-    }
-    pub fn click(&self, check: bool) -> AccClickResult {
-        if let Some(AccRole::ListItem) = self.get_role() {
-            // リスト項目の場合はまず選択
-            self.select(false);
-        }
-        let result = if let Some(action) = self.get_default_action() {
-            match self.invoke_default_action(check) {
-                true => AccClickResult::new(true, AccClickReason::DefaultAction(action)),
-                // デフォルトアクションが失敗したら選択する
-                false => {
-                    let result = self.select(false);
-                    AccClickResult::new(result, AccClickReason::DefaultActionAndSelect(action))
-                },
-            }
-        } else {
-            let result = self.select(false);
-            AccClickResult::new(result, AccClickReason::Select)
-        };
-        result
-    }
-    fn invoke_default_action(&self, check: bool) -> bool {
-        unsafe {
-            let varchild = self.get_varchild();
-            match self.get_role() {
-                Some(role) => match role {
-                    AccRole::CheckButton |
-                    AccRole::MenuItem => if check {
-                        // チェック状態にする
-                        if self.is_checked() {
-                            // すでにチェック済みなのでなにもしない
-                            true
-                        } else {
-                            // チェックする
-                            self.obj.accDoDefaultAction(varchild).is_ok()
-                        }
-                    } else {
-                        // 未チェック状態にする
-                        if self.is_checked() {
-                            // チェックを外す
-                            self.obj.accDoDefaultAction(varchild).is_ok()
-                        } else {
-                            // すでに未チェックなのでなにもしない
-                            true
-                        }
-                    }
-                    _ => if check {
-                        self.obj.accDoDefaultAction(varchild).is_ok()
-                    } else {
-                        true
-                    }
-                },
-                None => false,
-            }
-        }
-    }
-    fn select(&self, append: bool) -> bool {
-        unsafe {
-            let varchild = self.get_varchild();
-            let flag = if append {
-                SELFLAG_ADDSELECTION
-            } else {
-                SELFLAG_TAKEFOCUS|SELFLAG_TAKESELECTION
-            } as i32;
-            self.obj.accSelect(flag, varchild).is_ok()
-        }
-    }
-    fn is_checked(&self) -> bool {
-        if let Some(state) = self.get_state(None) {
-            (state as u32 & STATE_SYSTEM_CHECKED) > 0
-        } else {
-            false
-        }
-    }
-    pub fn get_point(&self, center: bool) -> Option<(i32, i32)>{
-        unsafe {
-            let varchild = self.get_varchild();
-            let mut pxleft = 0;
-            let mut pytop = 0;
-            let mut pcxwidth = 0;
-            let mut pcyheight = 0;
-            self.obj.accLocation(&mut pxleft, &mut pytop, &mut pcxwidth, &mut pcyheight, varchild).ok()?;
-            if center {
-                let x = pxleft + pcxwidth / 2;
-                let y = pytop + pcyheight / 2;
-                Some((x, y))
-            } else {
-                Some((pxleft, pytop))
-            }
-        }
-    }
-    fn get_location(&self) -> Option<[i32; 4]> {
-        unsafe {
-            let varchild = self.get_varchild();
-            let mut pxleft = 0;
-            let mut pytop = 0;
-            let mut pcxwidth = 0;
-            let mut pcyheight = 0;
-            self.obj.accLocation(&mut pxleft, &mut pytop, &mut pcxwidth, &mut pcyheight, varchild).ok()?;
-            Some([pxleft, pytop, pcxwidth, pcyheight])
-        }
-    }
-    pub fn get_screen_location(&self, hwnd: HWND) -> Option<Vec<i32>> {
-        unsafe {
-            let [cx, cy, w, h] = self.get_location()?;
-            let mut lppoint = POINT { x: cx, y: cy };
-            ScreenToClient(hwnd, &mut lppoint);
-            Some(vec![lppoint.x, lppoint.y, w, h])
-        }
-    }
-    pub fn get_role(&self) -> Option<AccRole> {
-        unsafe {
-            let varchild = self.get_varchild();
-            let variant = self.obj.get_accRole(varchild).ok()?;
-            let role = i32::from_variant(variant)?.into();
-            Some(role)
-        }
-    }
-    pub fn get_role_text(&self) -> Option<String> {
-        unsafe {
-            let varchild = self.get_varchild();
-            let variant = self.obj.get_accRole(varchild).ok()?;
-            let lrole = i32::from_variant(variant)? as u32;
-            let size = GetRoleTextW(lrole, None) as usize;
-            let mut buf = vec![0; size +1];
-            GetRoleTextW(lrole, Some(&mut buf));
-            Some(from_wide_string(&buf))
-        }
-    }
-    pub fn get_value(&self) -> Option<String> {
-        unsafe {
-            let varchild = self.get_varchild();
-            self.obj.get_accValue(varchild)
-                    .map(|bstr| bstr.to_string())
-                    .ok()
-        }
-    }
-    pub fn set_value(&self, value: &str) -> bool {
-        unsafe {
-            let szvalue = BSTR::from(value);
-            let varchild = self.get_varchild();
-            self.obj.put_accValue(varchild, &szvalue).is_ok()
-        }
-    }
-    fn append_value(&self, value: &str) -> bool {
-        if let Some(old) = self.get_value() {
-            let new = format!("{old}{value}");
-            self.set_value(&new)
-        } else {
-            false
-        }
-    }
-    fn _get_focused(&self) -> Option<Self> {
-        unsafe {
-            let varchild = self.obj.accFocus().ok()?;
-            self.get_acc_from_varchild(varchild, true)
-        }
-    }
-
-    fn _get_classname(&self) -> Option<String> {
-        let hwnd = self.get_hwnd()?;
-        let class_name = get_class_name(hwnd);
-        Some(class_name)
-    }
-
-
-    pub fn search(&self, item: &SearchItem, order: &mut u32, backwards: bool) -> Option<SearchResult> {
-        let varchildren = self.get_varchildren(backwards);
-
-        for varchild in varchildren {
-            if let Some(acc) = self.get_acc_from_varchild(varchild, true) {
-                if let Some(role) = acc.get_role() {
-                    if item.target.is_valid_parent_role(&role, &acc) {
-                        match role {
-                            AccRole::Combobox => if let Some(found) = acc.search_combo(item, order, backwards) {
-                                return Some(found);
-                            },
-                            AccRole::List => if let Some(found) = acc.search_list(item, order, backwards) {
-                                return Some(found);
-                            }
-                            AccRole::MenuBar => if let Some(found) = acc.search_menu(item, order, backwards, None) {
-                                return Some(found);
-                            },
-                            AccRole::Text |
-                            AccRole::StaticText |
-                            AccRole::Cell => {
-                                if acc.is_target_text(order, item, &role) {
-                                    return Some(SearchResult::Acc(acc));
-                                }
-                            },
-                            _ => if let Some(found) = acc.search_child(&role, item, order, backwards, None) {
-                                return Some(found);
-                            }
-                        }
+        let result = Vec::with_capacity(gi.count);
+        let flow = iter
+            .filter(|child| {
+                gi.role_matches_to(child.role)
+            })
+            .try_fold(result, |mut result, child| {
+                if let Ok(name) = child.name() {
+                    if !name.is_empty() {
+                        result.push(name);
                     }
                 }
-                if acc.has_child() {
-                    // 子があればサーチ
-                    if let Some(found) = acc.search(item, order, backwards) {
-                        // 見つかれば終了
-                        return Some(found);
-                    }
-                }
-            }
-        }
-        None
-    }
-    fn search_child(&self, parent: &AccRole, item: &SearchItem, order: &mut u32, backwards: bool, path: Option<String>) -> Option<SearchResult> {
-        let varchildren = self.get_varchildren(backwards);
-        let ignore_invisible = TargetRole::ignore_invisible(&parent);
-        for varchild in varchildren {
-            if let Some(acc) = self.get_acc_from_varchild(varchild, ignore_invisible) {
-                let mut new_path = None;
-                if let Some(role) = acc.get_role() {
-                    let name = match acc.get_item_name() {
-                        Some(name) => name,
-                        None => continue,
-                    };
-                    match parent {
-                        AccRole::Window |
-                        AccRole::Client |
-                        AccRole::PageTablist |
-                        AccRole::ToolBar => {
-                            if item.target.contains(parent, &role) {
-                                if item.matches(&name, order) {
-                                    return Some(SearchResult::Acc(acc));
-                                }
-                            } else {
-                                continue;
-                            }
-                        },
-                        // treeview, menu
-                        AccRole::Outline => {
-                            if item.target.contains(&parent, &role) {
-                                if item.is_path() {
-                                    new_path = match &path {
-                                        Some(p) => {
-                                            let path = format!("{p}\\{name}");
-                                            if item.matches(&path, order) {
-                                                return Some(SearchResult::Acc(acc));
-                                            }
-                                            Some(path)
-                                        },
-                                        None => {
-                                            if item.matches(&name, order) {
-                                                return Some(SearchResult::Acc(acc));
-                                            }
-                                            Some(name)
-                                        },
-                                    };
-                                } else {
-                                    if item.matches(&name, order) {
-                                        return Some(SearchResult::Acc(acc));
-                                    }
-                                }
-                            }
-                        },
-                        AccRole::Text |
-                        AccRole::StaticText |
-                        AccRole::Cell => {
-                            if acc.is_target_text(order, item, &role) {
-                                return Some(SearchResult::Acc(acc));
-                            }
-                        },
-                        _ => continue,
-                    }
-                }
-                if acc.has_child() {
-                    if let Some(found) = self.search_child(parent, item, order, backwards, new_path) {
-                        return Some(found);
-                    }
-                }
-            }
-        }
-        None
-    }
-
-    fn search_combo(&self, item: &SearchItem, order: &mut u32, backwards: bool) ->  Option<SearchResult> {
-        let mut listitem = None;
-        let mut button = None;
-        for varchild in self.get_varchildren(backwards) {
-            if let Some(window) = self.get_child_acc_by_role(varchild.clone(), AccRole::Window, false) {
-                'listitem_loop: for varchild in window.get_varchildren(backwards) {
-                    if let Some(list) = window.get_child_acc_by_role(varchild, AccRole::List, false) {
-                        for varchild in list.get_varchildren(backwards) {
-                            if let Some(li) = list.get_child_acc_by_role(varchild, AccRole::ListItem, false) {
-                                if let Some(name) = li.get_name() {
-                                    if item.matches(&name, order) {
-                                        listitem = Some(li);
-                                        break 'listitem_loop;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            if let Some(pb) = self.get_child_acc_by_role(varchild, AccRole::PushButton, false) {
-                button = Some(pb);
-            }
-        }
-        match (button, listitem) {
-            (Some(button), Some(listitem)) => Some(SearchResult::Combo(button, listitem)),
-            _ => None,
-        }
-    }
-    fn get_parent_if_combo(&self) -> Option<Self> {
-        if let Some(window) = self.get_parent() {
-            if let Some(maybe_combo) = window.get_parent() {
-                if maybe_combo.get_role() == Some(AccRole::Combobox) {
-                    return Some(maybe_combo)
-                }
-            }
-        }
-        None
-    }
-    fn search_list(&self, item: &SearchItem, order: &mut u32, backwards: bool) ->  Option<SearchResult> {
-        if let Some(combo) = self.get_parent_if_combo() {
-            return combo.search_combo(item, order, backwards);
-        }
-        let varchildren = self.get_varchildren(backwards);
-        let list_items = varchildren.into_iter()
-            .map(|varchild| self.get_acc_from_varchild(varchild, false));
-        let maybe_header = list_items.clone().find_map(|maybe_acc| {
-                match maybe_acc {
-                    Some(acc) => match acc.get_role() {
-                        Some(role) => if role.eq(&AccRole::Window) {
-                            Some(acc)
-                        } else {
-                            None
-                        },
-                        None => None,
-                    },
-                    None => None,
+                if result.len() < result.capacity() {
+                    ControlFlow::Continue(result)
+                } else {
+                    ControlFlow::Break(result)
                 }
             });
-        if let Some(header) = maybe_header {
-            // ListView
-            if let Some(found) = header.search_listview_header(item, order, backwards) {
-                return Some(found);
-            }
-            for maybe_acc in list_items {
-                if let Some(acc) = maybe_acc {
-                    if let Some(AccRole::ListItem) = acc.get_role() {
-                        let name = match acc.get_name() {
-                            Some(name) => name,
-                            None => continue,
-                        };
-                        if item.matches(&name, order) {
-                            return Some(SearchResult::Acc(acc));
-                        } else {
-                            if let Some(found) = acc.search_listview_items(item, order, backwards) {
-                                return Some(found);
-                            }
-                        }
-                    }
+        match flow {
+            ControlFlow::Continue(result) |
+            ControlFlow::Break(result) => Some(result),
+        }
+    }
+    pub fn from_point(hwnd: HWND, clx: i32, cly: i32, pos_acc_type: u16) -> Option<PosAccResult> {
+        let window = AccWindow::from_hwnd(hwnd).ok()?;
+        let child = window.child_from_client_point(clx, cly)?;
+        match PosAccType::from(pos_acc_type) {
+            PosAccType::DisplayOrApi => child.name().ok()
+                .or(child.user_draw_text())
+                .map(PosAccResult::String),
+            PosAccType::Display => child.name().ok().map(PosAccResult::String),
+            PosAccType::Api => child.user_draw_text().map(PosAccResult::String),
+            PosAccType::Name => child.name().ok().map(PosAccResult::String),
+            PosAccType::Value => child.value().ok().map(PosAccResult::String),
+            PosAccType::Role => child.role_text().ok().map(PosAccResult::String),
+            PosAccType::State => child.state_text().ok().map(PosAccResult::Vec),
+            PosAccType::Description => child.description().ok().map(PosAccResult::String),
+            PosAccType::Location => child.location().ok().map(PosAccResult::Location),
+        }
+    }
+    pub fn get_check_state(hwnd: HWND, name: &str, nth: usize) -> Option<i32> {
+        let window = AccWindow::from_hwnd(hwnd).ok()?;
+        window
+            .find_nth(nth, |child| {
+                child.role_is_one_of(&[ROLE_SYSTEM_CHECKBUTTON])
+                && child.name_includes(name)
+            })
+            .and_then(|child| child.state().ok())
+            .map(|state| ChkBtnResult::from(state).into())
+    }
+    pub fn get_edit_str(hwnd: HWND, nth: usize, mouse: bool) -> Option<String> {
+        let window = AccWindow::from_hwnd(hwnd).ok()?;
+        window.find_nth_text(nth, &[ROLE_SYSTEM_TEXT], mouse)
+    }
+    pub fn get_static_str(hwnd: HWND, nth: usize, mouse: bool) -> Option<String> {
+        let window = AccWindow::from_hwnd(hwnd).ok()?;
+        window.find_nth_text(nth, &[ROLE_SYSTEM_STATICTEXT], mouse)
+    }
+    pub fn get_cell_str(hwnd: HWND, nth: usize, mouse: bool) -> Option<String> {
+        let window = AccWindow::from_hwnd(hwnd).ok()?;
+        window.find_nth_text(nth, &[ROLE_SYSTEM_CELL], mouse)
+    }
+    pub fn sendstr<R>(hwnd: HWND, nth: usize, str: &str, replace: R) where R: Into<bool> {
+        if let Ok(window) = AccWindow::from_hwnd(hwnd) {
+            let replace: bool = replace.into();
+            if let Some(child) = window.find_nth(nth, |child| child.role_is_one_of(&[ROLE_SYSTEM_TEXT])) {
+                if replace {
+                    child.set_value(str);
+                } else if let Ok(old) = child.value() {
+                    let value = old + str;
+                    child.set_value(&value);
+                } else {
+                    child.set_value(str);
                 }
             }
-            None
-        } else {
-            // List
-            let mut group = vec![];
-            for maybe_acc in list_items {
-                if let Some(acc) = maybe_acc {
-                    if let Some(AccRole::ListItem) = acc.get_role() {
-                        let name = match acc.get_item_name() {
-                            Some(name) => name,
-                            None => continue,
-                        };
-                        if item.matches(&name, order) {
-                            if item.is_group() {
-                                // リストの複数選択
-                                group.push(acc);
-                                continue;
-                            } else {
-                                return Some(SearchResult::Acc(acc));
-                            }
-                        }
-                    }
+        }
+    }
+    pub fn sendstr_cell<R>(hwnd: HWND, nth: usize, str: &str, replace: R) where R: Into<bool> {
+        if let Ok(window) = AccWindow::from_hwnd(hwnd) {
+            let replace: bool = replace.into();
+            let maybe = window
+                .find_nth(nth, |child| child.role_is_one_of(&[ROLE_SYSTEM_CELL]))
+                .and_then(|cell| cell.into_iter().find(|child| child.role_is_one_of(&[ROLE_SYSTEM_TEXT])));
+            if let Some(child) = maybe {
+                if replace {
+                    child.set_value(str);
+                } else if let Ok(old) = child.value() {
+                    let value = old + str;
+                    child.set_value(&value);
+                } else {
+                    child.set_value(str);
                 }
             }
-            if group.is_empty() {
+        }
+    }
+    pub fn find_click_target(hwnd: HWND, item: &ClkItem) -> Option<AccChild> {
+        let window = AccWindow::from_hwnd(hwnd).ok()?;
+        let mut iter = window.into_iter();
+        if item.backwards {
+            iter.reverse();
+        }
+        let roles = u32::from(&item.target);
+        let nth = item.order as usize;
+        if let Some(path_iter) = item.name_as_path() {
+            // 探す名前が path\to\item の場合
+            let children = iter.filter(|child| child.role_is_one_of(&[ROLE_SYSTEM_OUTLINE, ROLE_SYSTEM_MENUBAR]));
+            let found = path_iter.fold(None::<AccChild>, |found, name| {
+                // let children = if let Some(child) = found {
+                //     child.into_iter()
+                // } else {
+                //     children
+                // };
                 None
-            } else {
-                Some(SearchResult::Group(group))
-            }
+            });
+            found
+        } else {
+            let filter = Self::find_click_target_filter(&item.name, item.short);
+            iter.filter(|child| roles.includes(child.role))
+                .filter_map(filter)
+                .nth(nth)
         }
     }
-    fn search_listview_items(&self, item: &SearchItem, order: &mut u32, backwards: bool) ->  Option<SearchResult> {
-        if self.has_child() {
-            let varchildren = self.get_varchildren(backwards);
-            for varchild in varchildren {
-                if let Some(acc) = self.get_acc_from_varchild(varchild, false) {
-                    if let Some(role) = acc.get_role() {
-                        match role {
-                            AccRole::Text |
-                            AccRole::StaticText => {
-                                match acc.get_item_name() {
-                                    Some(name) => {
-                                        if item.matches(&name, order) {
-                                            return Some(SearchResult::Acc(acc));
-                                        }
-                                    },
-                                    None => {},
-                                }
-                            }
-                            _ => if let Some(found) = acc.search_listview_items(item, order, backwards) {
-                                return Some(found);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        None
-    }
-    fn search_listview_header(&self, item: &SearchItem, order: &mut u32, backwards: bool) ->  Option<SearchResult> {
-        let varchildren = self.get_varchildren(backwards);
-        for varchild in varchildren {
-            if let Some(acc) = self.get_acc_from_varchild(varchild, true) {
-                if let Some(AccRole::ColumnHeader) = self.get_role() {
-                    let name = match acc.get_name() {
-                        Some(name) => name,
-                        None => continue,
-                    };
-                    if item.matches(&name, order) {
-                        return Some(SearchResult::Acc(acc));
-                    }
-                } else {
-                    if acc.has_child() {
-                        if let Some(found) = acc.search_listview_header(item, order, backwards) {
-                            return Some(found);
-                        }
-                    }
-                }
-            }
-        }
-        None
-    }
-    fn search_menu(&self, item: &SearchItem, order: &mut u32, backwards: bool, path: Option<String>) ->  Option<SearchResult> {
-        let varchildren = self.get_varchildren(backwards);
-        for varchild in varchildren {
-            if let Some(acc) = self.get_acc_from_varchild(varchild, false) {
-                if let Some(role) = acc.get_role() {
-                    match role {
-                        AccRole::MenuItem => {
-                            if let Some(name) = acc.get_name() {
-                                let name = if item.is_path() {
-                                    if let Some(p) = &path {
-                                        format!("{p}\\{name}")
-                                    } else {
-                                         name
-                                    }
-                                } else {
-                                    name
-                                };
-                                if item.matches(&name, order) {
-                                    return Some(SearchResult::Menu(acc));
-                                }
-                                if acc.has_child() {
-                                    if let Some(found) = acc.search_menu(item, order, backwards, Some(name)) {
-                                        return Some(found);
-                                    }
-                                }
-                            }
-                        },
-                        AccRole::Window |
-                        AccRole::MenuPopup => {
-                            if acc.has_child() {
-                                if let Some(found) = acc.search_menu(item, order, backwards, path.clone()) {
-                                    return Some(found);
-                                }
-                            }
-                        },
-                        _ => {}
-                    }
-                }
-            }
-        }
-        None
-    }
-    pub fn _search_slider(&self, order: &mut u32) -> Option<Self> {
-        let varchildren = self.get_varchildren(false);
-        for varchild in varchildren {
-            if let Some(acc) = self.get_acc_from_varchild(varchild, true) {
-                if let Some(role) = acc.get_role() {
-                    match role {
-                        AccRole::ScrollBar |
-                        AccRole::Slider => {
-                            println!("\u{001b}[36m[debug] role: {:?}\u{001b}[0m", &role);
-                            *order -= 1;
-                            if *order < 1 {
-                                return Some(acc);
-                            }
-                        },
-                        _ => {
-                            println!("\u{001b}[35m[debug] role: {:?}\u{001b}[0m", &role);
-                        }
-                    }
-                }
-                if acc.has_child() {
-                    let maybe_found = acc._search_slider(order);
-                    if maybe_found.is_some() {
-                        return maybe_found;
-                    }
-                }
-            }
-        }
-        None
-    }
-    fn is_target_text(&self, order: &mut u32, item: &SearchItem, role: &AccRole) -> bool {
-        if item.target.match_parent(role) {
-            if *order == 0 {
-                // フォーカスしてたらtrue
-                if let Some(state) = self.get_state(None) {
-                    if (state as u32).includes(STATE_SYSTEM_FOCUSED) {
-                        return true;
-                    }
-                }
-            } else {
-                if let Some(state) = self.get_state(None) {
-                    let state = state as u32;
-                    // 条件
-                    let flg = match role {
-                        // エディットコントロールとセルは可視かつフォーカス可能なもの
-                        AccRole::Cell |
-                        AccRole::Text => ! state.includes(STATE_SYSTEM_INVISIBLE.0) && state.includes(STATE_SYSTEM_FOCUSABLE.0),
-                        // スタティックコントロールは可視かどうか
-                        AccRole::StaticText => ! state.includes(STATE_SYSTEM_INVISIBLE.0),
-                        _ => false
-                    };
-                    if flg {
-                        if SearchItem::is_in_exact_order(order) {
-                            return true;
-                        }
-                    }
-                }
-            }
-        }
-        false
-    }
-
-    // fn get_children(&self, backwards: bool, ignore_invisible: bool) -> Vec<Self> {
-    //     let varchildren = self.get_varchildren(backwards);
-    //     varchildren.into_iter()
-    //         .filter_map(|varchild| self.get_acc_from_varchild(varchild, ignore_invisible))
-    //         .collect()
-    // }
-
-    fn get_varchildren(&self, backwards: bool) -> Vec<VARIANT> {
-        let cnt = self.get_child_count() as usize;
-        let mut rgvarchildren = vec![VARIANT::default(); cnt];
-        let mut pcobtained = 0;
-        if cnt > 0 {
-            unsafe {
-                if AccessibleChildren(&self.obj, 0, &mut rgvarchildren, &mut pcobtained).is_err() {
-                    return vec![];
-                }
-            }
-            if backwards {
-                rgvarchildren.reverse();
-            }
-        }
-        rgvarchildren
-    }
-    fn get_acc_from_varchild(&self, varchild: VARIANT, ignore_invisible: bool) -> Option<Self> {
-        unsafe {
-            let variant00 = &varchild.Anonymous.Anonymous;
-            match variant00.vt {
-                VT_I4 => {
-                    let id = variant00.Anonymous.lVal;
-                    let disp = self.obj.get_accChild(varchild).ok()?;
-                    let acc = Self::from_idispatch(disp, id)?;
-                    if ignore_invisible {
-                        if acc.is_visible(None).is_some_and(|b| b) {
-                            Some(acc)
-                        } else {
-                            None
-                        }
+    fn find_click_target_filter(name: &str, partial: bool) -> impl FnMut(AccChild) -> Option<AccChild>
+    {
+        let find_name_matched = move |id: AccIdChild<'_>| -> Option<AccChild> {
+            id.valid_name()
+                .is_some_and(|child_name| {
+                    if partial {
+                        child_name.partial_match(name)
                     } else {
-                        Some(acc)
+                        child_name.exact_match(name)
                     }
-                },
-                VT_DISPATCH => {
-                    let disp = &variant00.Anonymous.pdispVal;
-                    let acc = Self::from_pdispval(disp)?;
-                    if ignore_invisible {
-                        if acc.is_visible(None).is_some_and(|b| b) {
-                            Some(acc)
-                        } else {
-                            None
-                        }
-                    } else {
-                        Some(acc)
-                    }
-                },
-                _ => None
-            }
-        }
-    }
-    fn get_child_acc_by_role(&self, varchild: VARIANT, role: AccRole, ignore_invisible: bool) -> Option<Self> {
-        if let Some(acc) = self.get_acc_from_varchild(varchild, ignore_invisible) {
-            if acc.get_role() == Some(role) {
-                Some(acc)
-            } else {
-                None
-            }
-        } else {
-            None
-        }
-    }
-    pub fn get_state(&self, varchild: Option<VARIANT>) -> Option<i32> {
-        unsafe {
-            let state = match varchild {
-                Some(varchild) => self.obj.get_accState(varchild).ok()?,
-                None => {
-                    let varchild = self.get_varchild();
-                    self.obj.get_accState(varchild).ok()?
-                },
-            };
-            i32::from_variant(state)
-        }
-    }
-    pub fn get_state_texts(&self) -> Option<Vec<String>> {
-        let states = self.get_state(None)? as u32;
-        let mut texts = vec![];
-        let list = [
-            STATE_SYSTEM_ALERT_HIGH,
-            STATE_SYSTEM_ALERT_MEDIUM,
-            STATE_SYSTEM_ALERT_LOW,
-            STATE_SYSTEM_ANIMATED,
-            STATE_SYSTEM_BUSY,
-            STATE_SYSTEM_CHECKED,
-            STATE_SYSTEM_COLLAPSED,
-            STATE_SYSTEM_DEFAULT,
-            STATE_SYSTEM_EXPANDED,
-            STATE_SYSTEM_EXTSELECTABLE,
-            STATE_SYSTEM_FLOATING,
-            STATE_SYSTEM_FOCUSED,
-            STATE_SYSTEM_HOTTRACKED,
-            STATE_SYSTEM_LINKED,
-            STATE_SYSTEM_MARQUEED,
-            STATE_SYSTEM_MIXED,
-            STATE_SYSTEM_MOVEABLE,
-            STATE_SYSTEM_MULTISELECTABLE,
-            STATE_SYSTEM_PROTECTED,
-            STATE_SYSTEM_READONLY,
-            STATE_SYSTEM_SELECTABLE,
-            STATE_SYSTEM_SELECTED,
-            STATE_SYSTEM_SELFVOICING,
-            STATE_SYSTEM_SIZEABLE,
-            STATE_SYSTEM_TRAVERSED,
-            STATE_SYSTEM_HASPOPUP,
-            STATE_SYSTEM_NORMAL,
-            STATE_SYSTEM_FOCUSABLE.0,
-            STATE_SYSTEM_INVISIBLE.0,
-            STATE_SYSTEM_OFFSCREEN.0,
-            STATE_SYSTEM_PRESSED.0,
-            STATE_SYSTEM_UNAVAILABLE.0,
-        ];
-        for state in list {
-            if states.includes(state) {
-                if let Some(text) = self.get_state_text(state) {
-                    texts.push(text);
-                }
-            }
-        }
-        Some(texts)
-    }
-    fn get_state_text(&self, state: u32) -> Option<String> {
-        unsafe {
-            let size = GetStateTextW(state, None) as usize;
-            let mut buf = vec![0; size + 1];
-            GetStateTextW(state, Some(&mut buf));
-            Some(from_wide_string(&buf))
-        }
-    }
-    pub fn get_description(&self) -> Option<String> {
-        unsafe {
-            let varchild = self.get_varchild();
-            self.obj.get_accDescription(varchild)
-                .map(|bstr| bstr.to_string())
-                .ok()
-        }
-    }
-    fn is_visible(&self, varchild: Option<VARIANT>) -> Option<bool> {
-        let is_visible = match self.get_role()? {
-            // 特定のロールは可視・不可視に関わらず許可
-            AccRole::ListItem => true,
-            _ => {
-                // 可視なら許可
-                match self.get_state(varchild) {
-                    Some(state) => ! (state as u32).includes(STATE_SYSTEM_INVISIBLE.0),
-                    None => false,
-                }
-            }
-        };
-        Some(is_visible)
-    }
-    fn is_disabled(&self, varchild: Option<VARIANT>) -> Option<bool> {
-        self.get_state(varchild).and_then(|state| Some((state as u32).includes(STATE_SYSTEM_UNAVAILABLE.0)))
-    }
-    fn is_selectable(&self) -> bool {
-        match self.get_state(None) {
-            Some(state) => (state & STATE_SYSTEM_SELECTABLE as i32) > 0,
-            None => false,
-        }
-    }
-    fn from_pdispval(pdispval: &Option<IDispatch>) -> Option<Self> {
-        match pdispval {
-            Some(disp) => {
-                disp.cast::<IAccessible>()
-                    .ok()
-                    // .map(|obj| Self { obj, id: None, has_child: true })
-                    .map(|obj| Self { obj, id: None })
-            },
-            None => None,
-        }
-    }
-    fn from_idispatch(disp: IDispatch, id: i32) -> Option<Self> {
-        disp.cast::<IAccessible>()
-            .ok()
-            // .map(|obj| Self { obj, id: Some(id), has_child: true })
-            .map(|obj| Self { obj, id: Some(id) })
-    }
-    pub fn get_check_state(hwnd: HWND, name: String, nth: u32) -> Option<i32> {
-        let acc = Self::from_hwnd(hwnd)?;
-        let target = TargetRole { parent: vec![AccRole::Window, AccRole::MenuBar] };
-        let item = SearchItem::new(name, true, target);
-        let mut order = nth;
-        let search_result = acc.search(&item, &mut order, false)?;
-        let result = match search_result {
-            SearchResult::Acc(acc) |
-            SearchResult::Menu(acc) => acc.is_checked() as i32,
-            SearchResult::Group(_) => -1,
-            SearchResult::Combo(_, _) => 0,
-        };
-        Some(result)
-    }
-    fn get_str(hwnd: HWND, role: AccRole, nth: u32, mouse: bool) -> Option<String> {
-        let acc = Self::from_hwnd(hwnd)?;
-        let target = TargetRole {parent: vec![role]};
-        let item = SearchItem::new(String::default(), false, target);
-        let mut order = nth;
-        match acc.search(&item, &mut order, false)? {
-            SearchResult::Acc(acc) => {
-                if mouse {
-                    if let Some((x, y)) = acc.get_point(false) {
-                        move_mouse_to(x+5, y+5);
-                    }
-                }
-                acc.get_item_name()
-            },
-            _ => None
-        }
-    }
-    pub fn get_edit_str(hwnd: HWND, nth: u32, mouse: bool) -> Option<String> {
-        Self::get_str(hwnd, AccRole::Text, nth, mouse)
-    }
-    pub fn get_static_str(hwnd: HWND, nth: u32, mouse: bool) -> Option<String> {
-        Self::get_str(hwnd, AccRole::StaticText, nth, mouse)
-    }
-    pub fn get_cell_str(hwnd: HWND, nth: u32, mouse: bool) -> Option<String> {
-        Self::get_str(hwnd, AccRole::Cell, nth, mouse)
-    }
-    pub fn sendstr(hwnd: HWND, nth: u32, str: &str, mode: super::SendStrMode) {
-        Self::send_str(hwnd, nth, str, mode, AccRole::Text)
-    }
-    pub fn sendstr_cell(hwnd: HWND, nth: u32, str: &str, mode: super::SendStrMode) {
-        Self::send_str(hwnd, nth, str, mode, AccRole::Cell)
-    }
-    fn send_str(hwnd: HWND, nth: u32, str: &str, mode: super::SendStrMode, role: AccRole) {
-        let Some(acc) = Self::from_hwnd(hwnd) else {
-            return;
-        };
-        let target = TargetRole {parent: vec![role]};
-        let item = SearchItem::new(String::default(), false, target);
-        let mut order = nth;
-        if let Some(SearchResult::Acc(acc)) = acc.search(&item, &mut order, false) {
-            match mode {
-                super::SendStrMode::Append => acc.append_value(str),
-                super::SendStrMode::Replace |
-                super::SendStrMode::OneByOne => acc.set_value(str),
-            };
-        }
-    }
-    fn search_items(&self, gi: &mut GetItem) -> Option<()> {
-        let varchildren = self.get_varchildren(gi.backward);
-        for varchild in varchildren {
-            if let Some(acc) = self.get_acc_from_varchild(varchild, false) {
-                if gi.ignore_disabled && acc.is_disabled(None).is_some_and(|b| b) {
-                    // ディセーブルは無視
-                } else {
-                    if let Some(role) = acc.get_role() {
-                        let click2 = gi.click2 && acc.is_selectable();
-                        match role {
-                            AccRole::Text => if gi.edit || click2 {
-                                if let Some(value) = acc.get_value() {
-                                    gi.add(value)?;
-                                }
-                            },
-                            AccRole::StaticText => if gi.r#static || click2 {
-                                if let Some(value) = acc.get_name() {
-                                    gi.add(value)?;
-                                }
-                            },
-                            AccRole::PushButton |
-                            AccRole::CheckButton |
-                            AccRole::RadioButton |
-                            AccRole::ButtonDropdown |
-                            AccRole::ButtonDropdownGrid |
-                            AccRole::ButtonMenu |
-                            AccRole::ListItem |
-                            AccRole::PageTab |
-                            AccRole::MenuItem |
-                            // AccRole::MenuPopup |
-                            AccRole::OutlineItem |
-                            AccRole::OutlineButton |
-                            AccRole::ColumnHeader |
-                            AccRole::Link => if gi.click {
-                                if let Some(value) = acc.get_name() {
-                                    gi.add(value)?;
-                                }
-                            },
-                            _ => if click2 {
-                                if let Some(value) = acc.get_name() {
-                                    gi.add(value)?;
-                                }
-                            }
-                        }
-                    }
-                    if acc.has_child() {
-                        acc.search_items(gi)?;
-                    }
-                }
-            }
-        }
-        Some(())
-    }
-    pub fn getitem(hwnd: HWND, opt: u32, acc_max: i32, ignore_disabled: bool) -> Vec<String> {
-        let mut gi = GetItem::new(opt, acc_max, ignore_disabled);
-        if gi.acc_enabled() {
-            if let Some(acc) = Self::from_hwnd(hwnd) {
-                acc.search_items(&mut gi);
-                gi.found
-            } else {
-                vec![]
-            }
-        } else {
-            vec![]
-        }
-    }
-
-    pub fn enum_acc(&self) -> AccDetail {
-        let detail: AccDetail = self.into();
-        // let children = self.get_varchildren(false)
-        //     .into_iter()
-        //     .filter_map(|varchild| self.get_acc_from_varchild(varchild, true))
-        //     .map(|ref acc| acc.enum_acc())
-        //     // .map(|ref acc| acc.into())
-        //     .collect();
-        // detail.children = children;
-        // println!("\u{001b}[33m{detail:#?}\u{001b}[0m");
-        detail
-    }
-}
-
-#[allow(dead_code)]
-#[derive(Debug)]
-pub struct AccClickResult(bool, AccClickReason);
-#[derive(Debug)]
-pub enum AccClickReason {
-    /// デフォルトアクションを実行
-    DefaultAction(String),
-    /// 選択
-    Select,
-    /// デフォルトアクションに失敗して選択した
-    DefaultActionAndSelect(String)
-}
-impl AccClickResult {
-    fn new(result: bool, reason: AccClickReason) -> Self {
-        Self(result, reason)
-    }
-    pub fn as_bool(&self) -> bool {
-        self.0
-    }
-    pub fn reason(&self) -> Option<String> {
-        match &self.1 {
-            AccClickReason::DefaultAction(reason) |
-            AccClickReason::DefaultActionAndSelect(reason) => Some(reason.clone()),
-            AccClickReason::Select => None,
-        }
-    }
-}
-
-#[derive(Debug)]
-pub enum SearchResult {
-    Acc(Acc),
-    Group(Vec<Acc>),
-    // Route(Vec<Acc>)
-    Menu(Acc),
-    /// PushButton, ListItem
-    Combo(Acc, Acc),
-}
-impl SearchResult {
-    pub fn get_hwnd(&self) -> Option<HWND> {
-        if let Self::Acc(acc) = self {
-            acc.get_hwnd()
-        } else {
-            None
-        }
-    }
-    pub fn get_point(&self) -> Option<(i32, i32)> {
-        match self {
-            SearchResult::Acc(acc) => acc.get_point(true),
-            SearchResult::Group(group) => {
-                if let Some(last) = group.last() {
-                    last.get_point(true)
-                } else {
-                    None
-                }
-            },
-            SearchResult::Menu(_) => None,
-            SearchResult::Combo(acc, _) => acc.get_point(false),
-        }
-    }
-    pub fn click(&self, check: bool) -> bool {
-        match self {
-            SearchResult::Acc(acc) => {
-                acc.click(check).as_bool()
-            },
-            SearchResult::Group(group) => {
-                group.into_iter()
-                    .map(|acc| acc.select(true))
-                    .reduce(|a, b| a && b)
-                    .unwrap_or(false)
-            },
-            SearchResult::Menu(acc) => {
-                acc.click(check).as_bool()
-            },
-            SearchResult::Combo(button, item) => {
-                button.invoke_default_action(check) && item.invoke_default_action(check)
-            },
-        }
-    }
-}
-
-
-#[derive(Debug)]
-pub struct SearchItem {
-    name: String,
-    short: bool,
-    target: TargetRole,
-    group: Vec<String>,
-}
-
-impl SearchItem {
-    fn new(name: String, short: bool, target: TargetRole) -> Self {
-        let (name, group) = if name.contains('\t') {
-            (String::new(), name.split('\t').map(|s| s.to_string()).collect())
-        } else {
-            (name, vec![])
-        };
-        Self { name, short, target, group }
-    }
-    pub fn from_clkitem(item: &ClkItem) -> Self {
-        let target = TargetRole::from_clkitem(item);
-        Self::new(item.name.to_string(), item.short, target)
-    }
-    // pub fn generate_listview_searcher(&self) -> Self {
-    //     Self {
-    //         name: self.name.clone(),
-    //         short: self.short,
-    //         target: SearchTarget::ListViewItem.get_target_role()
-    //     }
-    // }
-    fn matches(&self, other: &String, order: &mut u32) -> bool {
-        if self.group.is_empty() {
-            if match_title(other, &self.name, self.short) {
-                Self::is_in_exact_order(order)
-            } else {
-                false
-            }
-        } else {
-            self.group.iter()
-                .find(|name| {
-                    match_title(other, name, self.short)
                 })
-                .is_some()
-        }
-    }
-    fn is_in_exact_order(order: &mut u32) -> bool {
-        *order -= 1;
-        *order < 1
-    }
-    fn is_group(&self) -> bool {
-        ! self.group.is_empty()
-    }
-    fn is_path(&self) -> bool {
-        self.name.contains('\\')
-    }
-
-}
-
-#[derive(Debug, Default)]
-struct TargetRole {
-    parent: Vec<AccRole>,
-    // children: Vec<AccRole>
-}
-impl TargetRole {
-    fn new(parent: Vec<AccRole>) -> Self {
-        Self { parent }
-    }
-    fn from_clkitem(item: &ClkItem) -> Self {
-        let mut parent = vec![];
-        if item.target.button {
-            parent.push(AccRole::Window);
-        }
-        if item.target.list {
-            parent.push(AccRole::List);
-            parent.push(AccRole::Combobox);
-        }
-        if item.target.tab {
-            parent.push(AccRole::PageTablist);
-        }
-        if item.target.menu {
-            parent.push(AccRole::MenuBar);
-        }
-        if item.target.treeview {
-            parent.push(AccRole::Outline);
-        }
-        if item.target.listview {
-            parent.push(AccRole::List);
-        }
-        if item.target.toolbar {
-            parent.push(AccRole::ToolBar);
-        }
-        if item.target.link {
-            parent.push(AccRole::Client);
-        }
-        Self::new(parent)
-    }
-    fn match_parent(&self, role: &AccRole) -> bool {
-        self.parent.iter()
-            .find(|parent| parent.eq(&role))
-            .is_some()
-    }
-    fn is_valid_parent_role(&self, role: &AccRole, acc: &Acc) -> bool {
-        if self.match_parent(role) {
-            let name_check = match role {
-                // 該当親ロールで名前がないものは無視
-                AccRole::Window |
-                AccRole::Client => acc.has_valid_name(),
-                // edit, staticは子の有無をチェックしない
-                AccRole::Text |
-                AccRole::StaticText => return true,
-                // それ以外は名前をチェックしない
-                _ => true,
-            };
-            name_check && acc.has_child()
-        } else {
-            false
-        }
-
-    }
-    fn contains(&self, parent: &AccRole, role: &AccRole) -> bool {
-        // self.children.contains(role)
-        match parent {
-            // ボタン類、リンク
-            AccRole::Window => match role {
-                AccRole::PushButton|
-                AccRole::CheckButton|
-                AccRole::RadioButton|
-                AccRole::ButtonDropdown|
-                AccRole::ButtonDropdownGrid|
-                AccRole::ButtonMenu => true,
-                _ => false
-            },
-            // リスト
-            AccRole::List => AccRole::ListItem.eq(role),
-            AccRole::Combobox => AccRole::ListItem.eq(role),
-            // タブ
-            AccRole::PageTablist => AccRole::PageTab.eq(role),
-            // メニュー
-            AccRole::MenuBar => match role {
-                AccRole::MenuItem|
-                AccRole::MenuPopup => true,
-                _ => false
-            },
-            // ツリービュー
-            AccRole::Outline => match role {
-                AccRole::OutlineItem|
-                AccRole::OutlineButton => true,
-                _ => false,
-            },
-            // リストビュー
-            // ツールバー
-            AccRole::ToolBar => match role {
-                AccRole::PushButton => true,
-                _ => false
+                .then_some(AccChild::from(id))
+        };
+        let f = move |child: AccChild| {
+            match child.role {
+                ROLE_SYSTEM_LIST => {
+                    child.iter()
+                        .filter(|id| id.role_is(ROLE_SYSTEM_LISTITEM))
+                        .find_map(find_name_matched)
+                },
+                ROLE_SYSTEM_MENUBAR => {
+                    child.iter()
+                        .filter(|id| id.role_is(ROLE_SYSTEM_MENUITEM))
+                        .find_map(find_name_matched)
+                },
+                ROLE_SYSTEM_PAGETABLIST => {
+                    child.iter()
+                        .filter(|id| id.role_is(ROLE_SYSTEM_PAGETAB))
+                        .find_map(find_name_matched)
+                },
+                ROLE_SYSTEM_TOOLBAR => {
+                    child.iter()
+                        .find_map(find_name_matched)
+                },
+                ROLE_SYSTEM_OUTLINE => {
+                    // treeviewはネストするのでどうする
+                    todo!()
+                }
+                _ => Some(child)
             }
-            // リンク
-            AccRole::Client => AccRole::Link.eq(role),
-            AccRole::Text |
-            AccRole::StaticText |
-            AccRole::Cell => true,
-            _ => false
+        };
+        // Box::new(f)
+        f
+    }
+    fn role_from_target(target: &ClkTarget) -> u32 {
+        let mut role = 0;
+        if target.button {
+            role |= ROLE_SYSTEM_PUSHBUTTON|ROLE_SYSTEM_CHECKBUTTON|ROLE_SYSTEM_RADIOBUTTON;
         }
-    }
-    fn ignore_invisible(role: &AccRole) -> bool {
-        match role {
-            AccRole::Outline |
-            AccRole::Combobox => false,
-            _ => true,
+        if target.link {
+            role |= ROLE_SYSTEM_LINK;
         }
-    }
-}
-
-fn to_vt_i4(n: i32) -> VARIANT {
-    let mut variant = VARIANT::default();
-    let mut variant00 = VARIANT_0_0::default();
-    variant00.vt = VT_I4;
-    variant00.Anonymous.lVal = n;
-    variant.Anonymous.Anonymous = ManuallyDrop::new(variant00);
-    variant
-}
-
-trait I32Ext {
-    fn into_variant(&self) -> VARIANT;
-    fn from_variant(variant: VARIANT) -> Option<i32>;
-}
-
-impl I32Ext for i32 {
-    fn into_variant(&self) -> VARIANT {
-        to_vt_i4(*self)
-    }
-
-    fn from_variant(variant: VARIANT) -> Option<i32> {
-        unsafe {
-            let variant00 = &variant.Anonymous.Anonymous;
-            match variant00.vt {
-                VT_I4 => Some(variant00.Anonymous.lVal),
-                _ => None
-            }
+        if target.list {
+            role |= ROLE_SYSTEM_LIST;
         }
-    }
-}
-
-pub trait U32Ext {
-    fn includes<T: Into<u32>>(&self, other: T) -> bool;
-}
-impl U32Ext for u32{
-    fn includes<T: Into<u32>>(&self, other: T) -> bool {
-        let other: u32 = other.into();
-        (self & other) == other
-    }
-}
-
-
-#[derive(Debug, PartialEq)]
-pub enum AccRole {
-    Alert,
-    Animation,
-    Application,
-    Border,
-    ButtonDropdown,
-    ButtonDropdownGrid,
-    ButtonMenu,
-    Caret,
-    Cell,
-    Character,
-    Chart,
-    CheckButton,
-    Client,
-    Clock,
-    Column,
-    ColumnHeader,
-    Combobox,
-    Cursor,
-    Diagram,
-    Dial,
-    Dialog,
-    Document,
-    Droplist,
-    Equation,
-    Graphic,
-    Grip,
-    Grouping,
-    HelpBalloon,
-    HotkeyField,
-    Indicator,
-    Ipaddress,
-    Link,
-    List,
-    ListItem,
-    MenuBar,
-    MenuItem,
-    MenuPopup,
-    Outline,
-    OutlineButton,
-    OutlineItem,
-    PageTab,
-    PageTablist,
-    Pane,
-    ProgressBar,
-    PropertyPage,
-    PushButton,
-    RadioButton,
-    Row,
-    RowHeader,
-    ScrollBar,
-    Separator,
-    Slider,
-    Sound,
-    SpinButton,
-    SplitButton,
-    StaticText,
-    StatusBar,
-    Table,
-    Text,
-    TitleBar,
-    ToolBar,
-    Tooltip,
-    Whitespace,
-    Window,
-    Unknown(i32),
-}
-
-impl From<i32> for AccRole {
-    fn from(n: i32) -> Self {
-        match n as u32 {
-            ROLE_SYSTEM_ALERT => Self::Alert,
-            ROLE_SYSTEM_ANIMATION => Self::Animation,
-            ROLE_SYSTEM_APPLICATION => Self::Application,
-            ROLE_SYSTEM_BORDER => Self::Border,
-            ROLE_SYSTEM_BUTTONDROPDOWN => Self::ButtonDropdown,
-            ROLE_SYSTEM_BUTTONDROPDOWNGRID => Self::ButtonDropdownGrid,
-            ROLE_SYSTEM_BUTTONMENU => Self::ButtonMenu,
-            ROLE_SYSTEM_CARET => Self::Caret,
-            ROLE_SYSTEM_CELL => Self::Cell,
-            ROLE_SYSTEM_CHARACTER => Self::Character,
-            ROLE_SYSTEM_CHART => Self::Chart,
-            ROLE_SYSTEM_CHECKBUTTON => Self::CheckButton,
-            ROLE_SYSTEM_CLIENT => Self::Client,
-            ROLE_SYSTEM_CLOCK => Self::Clock,
-            ROLE_SYSTEM_COLUMN => Self::Column,
-            ROLE_SYSTEM_COLUMNHEADER => Self::ColumnHeader,
-            ROLE_SYSTEM_COMBOBOX => Self::Combobox,
-            ROLE_SYSTEM_CURSOR => Self::Cursor,
-            ROLE_SYSTEM_DIAGRAM => Self::Diagram,
-            ROLE_SYSTEM_DIAL => Self::Dial,
-            ROLE_SYSTEM_DIALOG => Self::Dialog,
-            ROLE_SYSTEM_DOCUMENT => Self::Document,
-            ROLE_SYSTEM_DROPLIST => Self::Droplist,
-            ROLE_SYSTEM_EQUATION => Self::Equation,
-            ROLE_SYSTEM_GRAPHIC => Self::Graphic,
-            ROLE_SYSTEM_GRIP => Self::Grip,
-            ROLE_SYSTEM_GROUPING => Self::Grouping,
-            ROLE_SYSTEM_HELPBALLOON => Self::HelpBalloon,
-            ROLE_SYSTEM_HOTKEYFIELD => Self::HotkeyField,
-            ROLE_SYSTEM_INDICATOR => Self::Indicator,
-            ROLE_SYSTEM_IPADDRESS => Self::Ipaddress,
-            ROLE_SYSTEM_LINK => Self::Link,
-            ROLE_SYSTEM_LIST => Self::List,
-            ROLE_SYSTEM_LISTITEM => Self::ListItem,
-            ROLE_SYSTEM_MENUBAR => Self::MenuBar,
-            ROLE_SYSTEM_MENUITEM => Self::MenuItem,
-            ROLE_SYSTEM_MENUPOPUP => Self::MenuPopup,
-            ROLE_SYSTEM_OUTLINE => Self::Outline,
-            ROLE_SYSTEM_OUTLINEBUTTON => Self::OutlineButton,
-            ROLE_SYSTEM_OUTLINEITEM => Self::OutlineItem,
-            ROLE_SYSTEM_PAGETAB => Self::PageTab,
-            ROLE_SYSTEM_PAGETABLIST => Self::PageTablist,
-            ROLE_SYSTEM_PANE => Self::Pane,
-            ROLE_SYSTEM_PROGRESSBAR => Self::ProgressBar,
-            ROLE_SYSTEM_PROPERTYPAGE => Self::PropertyPage,
-            ROLE_SYSTEM_PUSHBUTTON => Self::PushButton,
-            ROLE_SYSTEM_RADIOBUTTON => Self::RadioButton,
-            ROLE_SYSTEM_ROW => Self::Row,
-            ROLE_SYSTEM_ROWHEADER => Self::RowHeader,
-            ROLE_SYSTEM_SCROLLBAR => Self::ScrollBar,
-            ROLE_SYSTEM_SEPARATOR => Self::Separator,
-            ROLE_SYSTEM_SLIDER => Self::Slider,
-            ROLE_SYSTEM_SOUND => Self::Sound,
-            ROLE_SYSTEM_SPINBUTTON => Self::SpinButton,
-            ROLE_SYSTEM_SPLITBUTTON => Self::SplitButton,
-            ROLE_SYSTEM_STATICTEXT => Self::StaticText,
-            ROLE_SYSTEM_STATUSBAR => Self::StatusBar,
-            ROLE_SYSTEM_TABLE => Self::Table,
-            ROLE_SYSTEM_TEXT => Self::Text,
-            ROLE_SYSTEM_TITLEBAR => Self::TitleBar,
-            ROLE_SYSTEM_TOOLBAR => Self::ToolBar,
-            ROLE_SYSTEM_TOOLTIP => Self::Tooltip,
-            ROLE_SYSTEM_WHITESPACE => Self::Whitespace,
-            ROLE_SYSTEM_WINDOW => Self::Window,
-            _ => Self::Unknown(n)
+        if target.listview {
+            role |= ROLE_SYSTEM_LIST;
         }
+        if target.menu {
+            role |= ROLE_SYSTEM_MENUBAR;
+        }
+        if target.tab {
+            role |= ROLE_SYSTEM_PAGETABLIST;
+        }
+        if target.toolbar {
+            role |= ROLE_SYSTEM_TOOLBAR;
+        }
+        if target.treeview {
+            role |= ROLE_SYSTEM_OUTLINE;
+        }
+        role
     }
 }
 
-
-#[derive(Debug)]
 struct GetItem {
-    edit: bool,
-    r#static: bool,
-    click: bool,
-    click2: bool,
-    count: Option<u32>,
-    backward: bool,
-    found: Vec<String>,
+    role: GetItemRole,
+    reverse: bool,
+    background: bool,
+    count: usize,
     ignore_disabled: bool,
 }
 impl GetItem {
-    fn new(opt: u32, acc_max: i32, ignore_disabled: bool) -> Self {
-        let edit = opt.includes(super::GetItemConst::ITM_ACCEDIT);
-        let r#static = opt.includes(super::GetItemConst::ITM_ACCTXT);
-        let (click, click2) = if opt.includes(super::GetItemConst::ITM_ACCCLK2) {
-            (true, true)
-        } else if opt.includes(super::GetItemConst::ITM_ACCCLK) {
-            (true, false)
-        } else {
-            (false, false)
+    fn new(target: u32, max_count: i32, ignore_disabled: bool) -> Option<Self> {
+        let role = match target {
+            n if (n & 4194304) > 0 => GetItemRole::Clickable,
+            n if (n & 272629760) > 0 => GetItemRole::ClickableOrSelectable,
+            n if (n & 8388608) > 0 => GetItemRole::StaticText,
+            n if (n & 16777216) > 0 => GetItemRole::Editable,
+            _ => None?,
         };
-        let mut backward = opt.includes(super::GetItemConst::ITM_FROMLAST);
-        let count = if acc_max > 0 {
-            Some(acc_max as u32)
-        } else if acc_max < 0 {
-            backward = true;
-            Some(acc_max.abs() as u32)
+        let (count, reverse) = if max_count.is_negative() {
+            (max_count.unsigned_abs() as usize, true)
         } else {
-            None
+            (max_count.unsigned_abs() as usize, (target & 65536) > 0)
         };
-        Self { edit, r#static, click, click2, count, backward, found: vec![], ignore_disabled }
+        let background = (target & 512) > 0;
+        Some(Self { role, reverse, background, count, ignore_disabled })
     }
-    fn add(&mut self, value: String) -> Option<()> {
-        if value.len() > 0 {
-            if let Some(count) = self.count.as_mut() {
-                if *count > 0 {
-                    *count -= 1;
-                    if *count == 0 {
-                        return None;
-                    }
-                }
+    fn role_matches_to(&self, other: u32) -> bool {
+        let other = GetItemRole::from(other);
+        self.role.eq(&other)
+    }
+}
+
+#[derive(Debug, PartialEq)]
+enum GetItemRole {
+    /// ITM_ACCCLK
+    Clickable,
+    /// ITM_ACCCLK2
+    ClickableOrSelectable,
+    /// ITM_ACCTXT
+    StaticText,
+    /// ITM_ACCEDIT
+    Editable,
+    /// 該当なし
+    Other,
+    /// 規定のロールですらない
+    Invalid(u32),
+}
+impl From<u32> for GetItemRole {
+    fn from(role: u32) -> Self {
+        match role {
+            // オブジェクトは、ユーザーに通知する必要があるアラートまたは条件を表します。 このロールは、アラートを具体化するが、メッセージ ボックス、グラフィック、テキスト、サウンドなどの別のユーザー インターフェイス要素に関連付けられていないオブジェクトにのみ使用されます。
+            ROLE_SYSTEM_ALERT => Self::Other,
+            // オブジェクトは、一連のビットマップ フレームを表示するコントロールなど、コンテンツが時間の経過と同時に変化するアニメーション コントロールを表します。 アニメーション コントロールは、ファイルがコピーされたとき、または他の時間のかかるタスクが実行されるときに表示されます。
+            ROLE_SYSTEM_ANIMATION => Self::Other,
+            // オブジェクトは、アプリケーションのメイン ウィンドウを表します。
+            ROLE_SYSTEM_APPLICATION => Self::Other,
+            // オブジェクトはウィンドウの境界線を表します。 境界線全体は、各辺の個別のオブジェクトではなく、1 つのオブジェクトで表されます。
+            ROLE_SYSTEM_BORDER => Self::Other,
+            // オブジェクトは、項目のリストを展開するボタンを表します。
+            ROLE_SYSTEM_BUTTONDROPDOWN => Self::Clickable,
+            // オブジェクトは、グリッドを展開するボタンを表します。
+            ROLE_SYSTEM_BUTTONDROPDOWNGRID => Self::Clickable,
+            // オブジェクトは、メニューを展開するボタンを表します。
+            ROLE_SYSTEM_BUTTONMENU => Self::Clickable,
+            // オブジェクトはシステム キャレットを表します。
+            ROLE_SYSTEM_CARET => Self::Other,
+            // オブジェクトは、テーブル内のセルを表します。
+            ROLE_SYSTEM_CELL => Self::Other,
+            // オブジェクトは、Microsoft Office Assistant などの漫画のようなグラフィック オブジェクトを表します。このオブジェクトは、アプリケーションのユーザーにヘルプを提供するために表示されます。
+            ROLE_SYSTEM_CHARACTER => Self::Other,
+            // オブジェクトは、データのグラフ作成に使用されるグラフィカル イメージを表します。
+            ROLE_SYSTEM_CHART => Self::Other,
+            // オブジェクトは、チェック ボックス コントロールを表します。これは、他のオプションとは別に選択またはクリアされるオプションです。
+            ROLE_SYSTEM_CHECKBUTTON => Self::Clickable,
+            // オブジェクトは、ウィンドウのクライアント領域を表します。 UI 要素のロールに関する質問がある場合、Microsoft Active Accessibility はこのロールを既定として使用します。
+            ROLE_SYSTEM_CLIENT => Self::Other,
+            // オブジェクトは、時間を表示するコントロールを表します。
+            ROLE_SYSTEM_CLOCK => Self::Other,
+            // オブジェクトは、テーブル内のセルの列を表します。
+            ROLE_SYSTEM_COLUMN => Self::Other,
+            // オブジェクトは列ヘッダーを表し、テーブル内の列の視覚的なラベルを提供します。
+            ROLE_SYSTEM_COLUMNHEADER => Self::Other,
+            // オブジェクトはコンボ ボックスを表します。定義済みの選択肢のセットを提供する、関連付けられたリスト ボックスを持つ編集コントロールです。
+            ROLE_SYSTEM_COMBOBOX => Self::Other,
+            // オブジェクトは、システムのマウス ポインターを表します。
+            ROLE_SYSTEM_CURSOR => Self::Other,
+            // オブジェクトは、データのダイアグラムに使用されるグラフィカル イメージを表します。
+            ROLE_SYSTEM_DIAGRAM => Self::Other,
+            // オブジェクトは、ダイヤルまたはノブを表します。
+            ROLE_SYSTEM_DIAL => Self::Other,
+            // オブジェクトは、ダイアログ ボックスまたはメッセージ ボックスを表します。
+            ROLE_SYSTEM_DIALOG => Self::Other,
+            // オブジェクトはドキュメント ウィンドウを表します。 ドキュメント ウィンドウは常にアプリケーション ウィンドウ内に含まれます。 このロールは MDI ウィンドウにのみ適用され、MDI タイトル バーを含むオブジェクトを参照します。
+            ROLE_SYSTEM_DOCUMENT => Self::Other,
+            // オブジェクトは、カレンダー コントロール SysDateTimePick32 を表します。 Microsoft Active Accessibility ランタイム コンポーネントは、このロールを使用して、日付またはカレンダー コントロールが見つかったことを示します。
+            ROLE_SYSTEM_DROPLIST => Self::Other,
+            // オブジェクトは数式を表します。
+            ROLE_SYSTEM_EQUATION => Self::Other,
+            // オブジェクトは図を表します。
+            ROLE_SYSTEM_GRAPHIC => Self::Other,
+            // オブジェクトは、ユーザーがウィンドウなどのユーザー インターフェイス要素を操作できるようにする特別なマウス ポインターを表します。 この例の 1 つは、右下隅をドラッグしてウィンドウのサイズを変更する場合です。
+            ROLE_SYSTEM_GRIP => Self::Other,
+            // オブジェクトは、他のオブジェクトを論理的にグループ化します。 グループ化オブジェクトとそこに含まれるオブジェクトの間には、常に親子関係があるとは限りません。
+            ROLE_SYSTEM_GROUPING => Self::Other,
+            // オブジェクトには、ヒントまたはヘルプ バルーンの形式でヘルプ トピックが表示されます。
+            ROLE_SYSTEM_HELPBALLOON => Self::Other,
+            // オブジェクトは、ユーザーがキーストロークの組み合わせまたはシーケンスを入力できるようにするキーボード ショートカット フィールドを表します。
+            ROLE_SYSTEM_HOTKEYFIELD => Self::Other,
+            // オブジェクトは、現在の項目を指すインジケーター (ポインター グラフィックなど) を表します。
+            ROLE_SYSTEM_INDICATOR => Self::Other,
+            // オブジェクトは、IP アドレス用に設計された編集コントロールを表します。 編集コントロールは、IP アドレスの特定の部分ごとにセクションに分割されます。
+            ROLE_SYSTEM_IPADDRESS => Self::Editable,
+            // オブジェクトは、他のリンクを表します。 このオブジェクトは、テキストやグラフィックのように見えることもありますが、ボタンに似た動作をします。
+            ROLE_SYSTEM_LINK => Self::Clickable,
+            // オブジェクトはリスト ボックスを表し、ユーザーは 1 つ以上の項目を選択できます。
+            ROLE_SYSTEM_LIST => Self::Other,
+            // オブジェクトは、リスト ボックスまたはコンボ ボックス、ドロップダウン リスト ボックス、またはドロップダウン コンボ ボックスのリスト部分の項目を表します。
+            ROLE_SYSTEM_LISTITEM => Self::Clickable,
+            // オブジェクトは、ユーザーがメニューを選択するメニュー バー (ウィンドウのタイトル バーの下に配置) を表します。
+            ROLE_SYSTEM_MENUBAR => Self::Other,
+            // オブジェクトはメニュー項目を表します。ユーザーがコマンドの実行、オプションの選択、または別のメニューの表示を選択できるメニュー エントリです。 機能的には、メニュー項目は、プッシュ ボタン、ラジオ ボタン、チェック ボックス、またはメニューと同じです。
+            ROLE_SYSTEM_MENUITEM => Self::Clickable,
+            // オブジェクトはメニューを表します。各メニューは、特定のアクションを持つオプションの一覧です。 メニュー バーから選択すると表示されるドロップダウン メニューを含め、すべてのメニューの種類にロールが必要です。および ショートカット メニュー。マウスの右ボタンをクリックして表示されます。
+            ROLE_SYSTEM_MENUPOPUP => Self::Other,
+            // オブジェクトは、ツリー ビュー コントロールなどのアウトラインまたはツリー構造を表し、階層リストを表示し、ユーザーがブランチを展開および折りたたみできるようにします。
+            ROLE_SYSTEM_OUTLINE => Self::Other,
+            // オブジェクトは、アウトライン項目のように移動する項目を表します。 上方向キーと下方向キーは、アウトライン内を移動するために使用されます。 ただし、左方向キーと右方向キーを押したときに展開と折りたたみを行う代わりに、SPACE キーまたは Enter キーを押したときに項目にフォーカスがあるときに、これらのメニューが展開または折りたたみされます。
+            ROLE_SYSTEM_OUTLINEBUTTON => Self::Other,
+            // オブジェクトは、アウトライン構造またはツリー構造の項目を表します。
+            ROLE_SYSTEM_OUTLINEITEM => Self::Clickable,
+            // オブジェクトはページ タブを表します。ページ タブ コントロールの唯一の子は、関連付けられたページの内容を持つROLE_SYSTEM_GROUPING オブジェクトです。
+            ROLE_SYSTEM_PAGETAB => Self::Other,
+            // オブジェクトは、ページ タブ コントロールのコンテナーを表します。
+            ROLE_SYSTEM_PAGETABLIST => Self::Other,
+            // オブジェクトは、フレームまたはドキュメント ウィンドウ内のペインを表します。 ユーザーは、ペイン間や現在のペインの内容の中は移動できますが、異なるペインの項目間は移動できません。 したがって、ペインは、フレームまたはドキュメント ウィンドウよりも低いが、個々のコントロールよりも高いグループ化レベルを表します。 ユーザーは、状況に応じて、TAB、F6、または CTRL + TAB キーを押すことによって、ペイン間を移動します。
+            ROLE_SYSTEM_PANE => Self::Other,
+            // オブジェクトは進行状況バーを表し、実行中の操作の完了量を動的に示します。 このコントロールは、ユーザー入力を受け取らなくなります。
+            ROLE_SYSTEM_PROGRESSBAR => Self::Other,
+            // オブジェクトはプロパティ シートを表します。
+            ROLE_SYSTEM_PROPERTYPAGE => Self::Other,
+            // オブジェクトは、プッシュ ボタン コントロールを表します。
+            ROLE_SYSTEM_PUSHBUTTON => Self::Clickable,
+            // オブジェクトは、オプション ボタン (以前はラジオ ボタン) を表します。 これは、相互に排他的なオプションのグループの 1 つです。 同じ親を共有し、この属性を持つすべてのオブジェクトは、相互に排他的な 1 つのグループの一部であると見なされます。 これらのオブジェクトを個別のグループに分割するには、ROLE_SYSTEM_GROUPING オブジェクトを使用します。
+            ROLE_SYSTEM_RADIOBUTTON => Self::Clickable,
+            // オブジェクトは、テーブル内のセルの行を表します。
+            ROLE_SYSTEM_ROW => Self::Other,
+            // オブジェクトは行ヘッダーを表し、テーブル行の視覚的なラベルを提供します。
+            ROLE_SYSTEM_ROWHEADER => Self::Other,
+            // オブジェクトは、垂直または水平のスクロール バーを表します。これは、クライアント領域の一部であるか、コントロールで使用されます。
+            ROLE_SYSTEM_SCROLLBAR => Self::Other,
+            // オブジェクトは、スペースを 2 つの領域に視覚的に分割するために使用されます。 区切り記号オブジェクトの例としては、区切り記号メニュー項目と、ウィンドウ内の分割ウィンドウを分割するバーがあります。
+            ROLE_SYSTEM_SEPARATOR => Self::Other,
+            // オブジェクトはスライダーを表します。これにより、ユーザーは、最小値と最大値の間で特定の増分で設定を調整できます。
+            ROLE_SYSTEM_SLIDER => Self::Other,
+            // オブジェクトは、さまざまなシステム イベントに関連付けられているシステム サウンドを表します。
+            ROLE_SYSTEM_SOUND => Self::Other,
+            // オブジェクトはスピン ボックスを表します。これは、ユーザーがスピン ボックスに関連付けられている別の "バディ" コントロールに表示される値をインクリメントまたはデクリメントできるようにするコントロールです。
+            ROLE_SYSTEM_SPINBUTTON => Self::Other,
+            // オブジェクトは、ボタンに直接隣接するドロップダウン リスト アイコンがあるツールバー上のボタンを表します。
+            ROLE_SYSTEM_SPLITBUTTON => Self::Other,
+            // オブジェクトは、他のコントロールのラベルやダイアログ ボックスの指示など、読み取り専用のテキストを表します。 静的テキストは変更または選択できません。
+            ROLE_SYSTEM_STATICTEXT => Self::StaticText,
+            // オブジェクトは、ウィンドウの下部にある領域であり、現在の操作、アプリケーションの状態、または選択したオブジェクトに関する情報を表示するステータス バーを表します。 ステータス バーには、さまざまな種類の情報を表示する複数のフィールドがあります。
+            ROLE_SYSTEM_STATUSBAR => Self::Other,
+            // オブジェクトは、セルの行と列、および必要に応じて行ヘッダーと列ヘッダーを含むテーブルを表します。
+            ROLE_SYSTEM_TABLE => Self::Other,
+            // オブジェクトは、編集を許可する選択可能なテキストを表すか、読み取り専用として指定されます。
+            ROLE_SYSTEM_TEXT => Self::Editable,
+            // オブジェクトは、ウィンドウのタイトルまたはキャプションバーを表します。
+            ROLE_SYSTEM_TITLEBAR => Self::Other,
+            // オブジェクトはツールバーを表します。これは、頻繁に使用される機能に簡単にアクセスできるコントロールのグループです。
+            ROLE_SYSTEM_TOOLBAR => Self::Clickable,
+            // オブジェクトは、役に立つヒントを提供するツールヒントを表します。
+            ROLE_SYSTEM_TOOLTIP => Self::Other,
+            // オブジェクトは、他のオブジェクト間の空白を表します。
+            ROLE_SYSTEM_WHITESPACE => Self::Other,
+            // オブジェクトはウィンドウ フレームを表します。このフレームには、タイトル バー、クライアント、ウィンドウのその他のオブジェクトなどの子オブジェクトが含まれます。
+            ROLE_SYSTEM_WINDOW => Self::Other,
+            r => Self::Invalid(r),
+        }
+    }
+}
+enum PosAccType {
+    DisplayOrApi,
+    Display,
+    Api,
+    Name,
+    Value,
+    Role,
+    State,
+    Description,
+    Location,
+}
+impl From<u16> for PosAccType {
+    fn from(value: u16) -> Self {
+        match value {
+            1 => Self::Display,
+            2 => Self::Api,
+            3 => Self::Name,
+            4 => Self::Value,
+            5 => Self::Role,
+            6 => Self::State,
+            7 => Self::Description,
+            8 => Self::Location,
+            _ => Self::DisplayOrApi,
+        }
+    }
+}
+pub enum PosAccResult {
+    String(String),
+    Vec(Vec<String>),
+    Location([i32; 4])
+}
+enum ChkBtnResult {
+    Unchecked,
+    Checked,
+    Gray,
+}
+impl From<u32> for ChkBtnResult {
+    fn from(state: u32) -> Self {
+        match (state & STATE_SYSTEM_CHECKED) > 0 {
+            true => Self::Checked,
+            false => Self::Unchecked,
+        }
+    }
+}
+impl From<ChkBtnResult> for i32 {
+    fn from(value: ChkBtnResult) -> Self {
+        match value {
+            ChkBtnResult::Unchecked => 0,
+            ChkBtnResult::Checked => 1,
+            ChkBtnResult::Gray => 2,
+        }
+    }
+}
+
+trait IAccessibleExt {
+    fn as_iaccessible(&self) -> &IAccessible;
+
+    /// ロールを得る
+    fn role(&self, varchild: VARIANT) -> core::Result<u32> {
+        unsafe {
+            let role = self.as_iaccessible().get_accRole(varchild)?;
+            let role = role.Anonymous.Anonymous.Anonymous.lVal as u32;
+            Ok(role)
+        }
+    }
+    /// ロール名を得る
+    fn role_text(&self, varchild: VARIANT) -> core::Result<String> {
+        unsafe {
+            let role = self.role(varchild)?;
+            let size = GetRoleTextW(role, None) as usize;
+            let mut buf = vec![0; size+1];
+            GetRoleTextW(role, Some(&mut buf));
+            // remove \0
+            let trimed = if let Some(right) = buf.iter().rposition(|n| *n != 0) {
+                &buf[0..=right]
             } else {
-                self.found.push(value);
+                &buf
+            };
+            Ok(String::from_utf16_lossy(trimed))
+        }
+    }
+    fn role_is_one_of(&self, roles: &[u32], varchild: VARIANT) -> bool {
+        match self.role(varchild) {
+            Ok(role) => roles.contains(&role),
+            Err(_) => false,
+        }
+    }
+    fn role_is(&self, other: u32, varchild: VARIANT) -> bool {
+        match self.role(varchild) {
+            Ok(role) => role == other,
+            Err(_) => false,
+        }
+    }
+    /// 親オブジェクトを得る
+    fn parent(&self) -> core::Result<Option<IAccessible>>
+    where Self: Sized
+    {
+        unsafe {
+            self.as_iaccessible().accParent().ok()
+                .map(|disp| disp.cast::<IAccessible>())
+                .transpose()
+        }
+    }
+    /// 自身のHWNDを得る
+    fn hwnd(&self) -> core::Result<HWND> {
+        let mut hwnd = HWND::default();
+        unsafe { WindowFromAccessibleObject(self.as_iaccessible(), Some(&mut hwnd))?; }
+        Ok(hwnd)
+    }
+    /// スクリーン座標を得る\
+    /// [left, top, width, height]
+    fn location(&self, varchild: VARIANT) -> core::Result<[i32; 4]> {
+        unsafe {
+            let mut loc = [0i32; 4];
+            self.as_iaccessible().accLocation(
+                &mut loc[0], &mut loc[1],
+                &mut loc[2], &mut loc[3],
+                varchild
+            )?;
+            Ok(loc)
+        }
+    }
+    /// HWNDに対する自身のクライアント座標を得る\
+    /// [left, top, width, height]
+    fn client_location(&self, hwnd: HWND, varchild: VARIANT) -> core::Result<[i32; 4]> {
+        unsafe {
+            let mut loc = self.location(varchild)?;
+            let mut p = POINT { x: loc[0], y: loc[1] };
+            ScreenToClient(hwnd, &mut p);
+            loc[0] = p.x;
+            loc[1] = p.y;
+            Ok(loc)
+        }
+    }
+    /// 自身の名前を返す
+    fn name(&self, varchild: VARIANT) -> core::Result<String> {
+        unsafe {
+            self.as_iaccessible().get_accName(varchild).map(|bstr| bstr.to_string())
+        }
+    }
+    /// 値を得る
+    fn value(&self, varchild: VARIANT) -> core::Result<String> {
+        unsafe {
+            self.as_iaccessible().get_accValue(varchild).map(|bstr| bstr.to_string())
+        }
+    }
+    fn set_value(&self, varchild: VARIANT, value: &str) -> core::Result<()> {
+        unsafe {
+            let bstr = BSTR::from(value);
+            self.as_iaccessible().put_accValue(varchild, &bstr)
+        }
+    }
+    /// 自身のデフォルトアクションを実行する
+    fn default_action(&self, varchild: VARIANT) -> core::Result<()> {
+        unsafe {
+            self.as_iaccessible().accDoDefaultAction(varchild)
+        }
+    }
+    /// 自身の状態を返す
+    fn state(&self, varchild: VARIANT) -> core::Result<u32> {
+        unsafe {
+            let var_state = self.as_iaccessible().get_accState(varchild)?;
+            let state = var_state.Anonymous.Anonymous.Anonymous.lVal as u32;
+            Ok(state)
+        }
+    }
+    /// 自身の状態に状態定数が含まれるかどうか
+    fn includes(&self, state: u32, varchild: VARIANT) -> core::Result<bool> {
+        let states = self.state(varchild)?;
+        let includes = (states & state) == state;
+        Ok(includes)
+    }
+    /// 自身の状態を文字列で返す
+    fn state_text(&self, varchild: VARIANT) -> core::Result<Vec<String>> {
+        let states = self.state(varchild)?;
+        let texts = (0..32).filter_map(|n| {
+            let state = 2u32.pow(n);
+            ((states & state) == state).then_some(Self::state_to_text(state))
+        })
+        .collect();
+        Ok(texts)
+    }
+    /// 状態を表す定数を文字列にする
+    fn state_to_text(state: u32) -> String {
+        unsafe {
+            let size = GetStateTextW(state, None) as usize;
+            let mut buf = vec![0; size+1];
+            GetStateTextW(state, Some(&mut buf));
+            // remove \0
+            let trimed = if let Some(right) = buf.iter().rposition(|n| *n != 0) {
+                &buf[0..=right]
+            } else {
+                &buf
+            };
+            String::from_utf16_lossy(trimed)
+        }
+    }
+    /// 説明を得る
+    fn description(&self, varchild: VARIANT) -> core::Result<String> {
+        unsafe {
+            self.as_iaccessible().get_accDescription(varchild)
+                .map(|bstr| bstr.to_string())
+        }
+    }
+    /// 子の数を得る
+    fn child_count(&self) -> usize {
+        unsafe {
+            self.as_iaccessible().accChildCount().unwrap_or_default() as usize
+        }
+    }
+    /// 子要素を得る
+    fn children(&self) -> Vec<VARIANT> {
+        unsafe {
+            let _ = self.as_iaccessible().accFocus()
+                .inspect_err(|e| {dbg!(e);});
+            let size = self.child_count();
+            let mut rgvarchildren = vec![VARIANT::default(); size];
+            let _ = AccessibleChildren(self.as_iaccessible(), 0, &mut rgvarchildren, &mut 0);
+            rgvarchildren
+        }
+    }
+    /// ディセーブルかどうか
+    fn is_disabled(&self, varchild: VARIANT) -> bool {
+        match self.state(varchild) {
+            Ok(s) => {
+                let disabled = STATE_SYSTEM_UNAVAILABLE.0;
+                (s & disabled) == disabled
+            },
+            // エラーはdisabledと見なす
+            Err(_) => true
+        }
+    }
+    fn user_draw_text(&self) -> Option<String> {
+        None
+    }
+    fn select(&self, flags: u32, varchild: VARIANT) -> core::Result<()> {
+        unsafe {
+            self.as_iaccessible().accSelect(flags as i32, varchild)
+        }
+    }
+}
+impl IAccessibleExt for IAccessible {
+    fn as_iaccessible(&self) -> &IAccessible {
+        &self
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct AccWindow {
+    /// IAccessibleオブジェクト
+    inner: IAccessible,
+    /// 自身のHWND
+    hwnd: HWND,
+}
+impl AccWindow {
+    /// IAccessibleからAccWindowを得る
+    fn from_iaccessible(acc: IAccessible) -> core::Result<Self> {
+        unsafe {
+            let mut hwnd = HWND::default();
+            WindowFromAccessibleObject(&acc, Some(&mut hwnd))?;
+            Ok(Self { inner: acc, hwnd})
+        }
+    }
+    /// HWNDからAccWindowを得る
+    fn from_hwnd(hwnd: HWND) -> core::Result<Self> {
+        unsafe {
+            let dwid = OBJID_WINDOW.0 as u32;
+            let riid = &IAccessible::IID;
+            let mut ppvobject = std::ptr::null_mut::<IAccessible>() as *mut c_void;
+            AccessibleObjectFromWindow(hwnd, dwid, riid, &mut ppvobject)?;
+            let inner = IAccessible::from_raw(ppvobject);
+            Ok(Self { inner, hwnd})
+        }
+    }
+    /// 自身のクライアント座標上にあるオブジェクトを得る (posacc用)
+    fn child_from_client_point(&self, client_x: i32, client_y: i32) -> Option<AccChild> {
+        unsafe {
+            let mut p = POINT { x: client_x, y: client_y };
+            ClientToScreen(self.hwnd, &mut p);
+            let mut acc = None;
+            let mut varchild = VARIANT::default();
+            AccessibleObjectFromPoint(p, &mut acc, &mut varchild).ok()?;
+            AccChild::new(acc?, varchild)
+        }
+    }
+
+
+    fn find_nth<P>(self, nth: usize, predicate: P) -> Option<AccChild>
+    where P: FnMut(&AccChild) -> bool
+    {
+        self.into_iter()
+            .filter(predicate)
+            .nth(nth)
+    }
+    fn find_nth_text(self, nth: usize, roles: &[u32], mouse: bool) -> Option<String> {
+        let found = self.find_nth(nth, |child| {
+            child.role_is_one_of(roles)
+        })?;
+        let text = found.value().ok()?;
+        if mouse {
+            if let Ok([x, y, w, h]) = found.location() {
+                let x = x + w / 2;
+                let y = y + h / 2;
+                move_mouse_to(x, y);
             }
         }
-        Some(())
-    }
-    fn acc_enabled(&self) -> bool {
-        self.edit ||
-        self.r#static ||
-        self.click ||
-        self.click2
+        Some(text)
     }
 }
 
-#[derive(Debug)]
-#[allow(dead_code)]
-pub struct AccDetail {
-    name: Option<String>,
-    value: Option<String>,
-    role: Option<String>,
-    state: Option<Vec<String>>,
-    description: Option<String>,
-    location: Option<[i32; 4]>,
-    children: Vec<Self>,
+impl IntoIterator for AccWindow {
+    type Item = AccChild;
+
+    type IntoIter = AccIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        AccIter::new(self.inner, None)
+    }
 }
 
-impl Into<AccDetail> for &Acc {
-    fn into(self) -> AccDetail {
-        let name = self.get_name();
-        let value = self.get_value();
-        let role = self.get_role_text();
-        let state = self.get_state_texts();
-        let description = self.get_description();
-        let location = self.get_location();
-        let children = self.get_varchildren(false)
-            .into_iter()
-            .filter_map(|varchild| self.get_acc_from_varchild(varchild, false))
-            .map(|ref acc| acc.into())
-            .collect::<Vec<_>>();
-        AccDetail { name, value, role, state, description, location, children }
-        // AccDetail { name, value, role, state, description, location, children: Vec::new() }
-        // AccDetail { name, value, role, state, description, location }
+impl<'a> From<&'a AccChild> for &'a IAccessible {
+    fn from(child: &'a AccChild) -> Self {
+        &child.inner
+    }
+}
+
+impl TryFrom<IAccessible> for AccChild {
+    type Error = core::Error;
+
+    fn try_from(acc: IAccessible) -> Result<Self, Self::Error> {
+        Self::new(acc, VARIANT::default()).ok_or(E_INVALIDARG.into())
+    }
+}
+
+#[derive()]
+pub struct AccChild {
+    inner: IAccessible,
+    role: u32,
+    varchild: VARIANT,
+}
+impl std::fmt::Debug for AccChild {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AccChild")
+            .field("inner", &self.inner)
+            .field("role", &self.role)
+            .field("varchild", &self.varchild.vt())
+            .finish()
+    }
+}
+impl IntoIterator for AccChild {
+    type Item = AccChild;
+
+    type IntoIter = AccIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        AccIter::new(self.inner, None)
+    }
+}
+impl AccChild {
+    fn iaccessible(&self) -> &IAccessible {
+        self.into()
+    }
+    fn varchild(&self) -> VARIANT {
+        self.varchild.clone()
+    }
+    fn new(acc: IAccessible, varchild: VARIANT) -> Option<Self> {
+        let role = acc.role(varchild.clone()).ok()?;
+        let child = Self { inner: acc, role, varchild };
+        Some(child)
+    }
+    fn iter(&self) -> AccIdIter {
+        AccIdIter::new(self.iaccessible())
+    }
+    fn from_idispatch(disp: &IDispatch) -> Option<Self> {
+        disp.cast::<IAccessible>().ok()
+            .and_then(|acc| Self::try_from(acc).ok())
+    }
+    fn maybe_parent(&self) -> Option<&IAccessible> {
+        let parent = self.iaccessible();
+        (parent.child_count() > 0).then_some(parent)
+    }
+    fn role_is_one_of(&self, roles: &[u32]) -> bool {
+        self.iaccessible().role_is_one_of(roles, self.varchild())
+    }
+    fn role_is(&self, other: u32) -> bool {
+        self.iaccessible().role_is(other, self.varchild())
+    }
+    fn role(&self) -> core::Result<u32> {
+        self.iaccessible().role(self.varchild())
+    }
+    fn role_text(&self) -> core::Result<String> {
+        self.iaccessible().role_text(self.varchild())
+    }
+    pub fn hwnd(&self) -> core::Result<HWND> {
+        self.iaccessible().hwnd()
+    }
+    pub fn location(&self) -> core::Result<[i32; 4]> {
+        self.iaccessible().location(self.varchild())
+    }
+    fn client_location(&self, hwnd: HWND) -> core::Result<[i32; 4]> {
+        self.iaccessible().client_location(hwnd, self.varchild())
+    }
+    fn name(&self) -> core::Result<String> {
+        self.iaccessible().name(self.varchild())
+    }
+    fn state(&self) -> core::Result<u32> {
+        self.iaccessible().state(self.varchild())
+    }
+    fn state_text(&self) -> core::Result<Vec<String>> {
+        self.iaccessible().state_text(self.varchild())
+    }
+    fn is_disabled(&self) -> bool {
+        self.iaccessible().is_disabled(self.varchild())
+    }
+    fn value(&self) -> core::Result<String> {
+        self.iaccessible().value(self.varchild())
+    }
+    fn set_value(&self, value: &str) {
+        let _ = self.iaccessible().set_value(self.varchild(), value);
+    }
+    fn description(&self) -> core::Result<String> {
+        self.iaccessible().description(self.varchild())
+    }
+    fn user_draw_text(&self) -> Option<String> {
+        self.iaccessible().user_draw_text()
+    }
+    // fn get_combo_list(&self) -> Option<AccChild> {
+    //     self.role_is_one_of(&[ROLE_SYSTEM_COMBOBOX]).then_some(())?;
+    //     self.iter()
+    //         .filter_map(|id| id.as_child())
+    //         .find_map(|child| {
+    //             child.into_iter()
+    //                 .find(|id| id.role_is_one_of(&[ROLE_SYSTEM_LIST]))
+    //         })
+    // }
+
+    // fn get_clickable_names(self, clickable: &[u32], ignore_disabled: bool) -> Vec<String> {
+    //     let iter = self.iter();
+    //     iter.flat_map(|id| {
+    //         if /* id.role_is_one_of(clickable) {
+    //             if ignore_disabled && id.is_disabled() {
+    //                 Vec::new()
+    //             } else if let Ok(name) = id.name() {
+    //                 println!("\u{001b}[33m[debug] name: {name:?}\u{001b}[0m");
+    //                 vec![name]
+    //             } else {
+    //                 Vec::new()
+    //             }
+    //         } else if */ let Some(child) = id.as_child() {
+    //             child.get_clickable_names(clickable, ignore_disabled)
+    //         } else {
+    //             Vec::new()
+    //         }
+    //     })
+    //     .collect()
+    // }
+    // fn get_names_by_role(&self, ignore_disabled: bool) -> Vec<String> {
+    //     if let Ok(role) = self.role() {
+    //         match role {
+    //             // ツールバーは配下のボタンを返す
+    //             ROLE_SYSTEM_TOOLBAR => {
+    //                 self.iter()
+    //                     .filter(|id| {
+    //                         // ディセーブルフラグ
+    //                         !(ignore_disabled && id.is_disabled()) &&
+    //                         // ボタンのみ
+    //                         id.role_is_one_of(&[ROLE_SYSTEM_PUSHBUTTON])
+    //                     })
+    //                     // 有効な名前であれば返す
+    //                     .filter_map(|id| id.valid_name())
+    //                     .collect()
+    //             },
+    //             ROLE_SYSTEM_PAGETABLIST => {
+    //                 self.iter()
+    //                     .filter(|id| !(ignore_disabled && id.is_disabled()))
+    //                     .filter_map(|id| id.valid_name())
+    //                     .collect()
+    //             },
+    //             // 以下はクリックされる機能があるためそのまま名前を返す
+    //             ROLE_SYSTEM_LINK |
+    //             ROLE_SYSTEM_PUSHBUTTON => {
+    //                 if ignore_disabled && self.is_disabled() {
+    //                     // ディセーブルフラグ
+    //                     Default::default()
+    //                 } else {
+    //                     self.name()
+    //                         .into_iter()
+    //                         .filter_map(|name| {
+    //                             (!name.is_empty())
+    //                                 .then_some(name)
+    //                         })
+    //                         .collect()
+    //                 }
+    //             },
+    //             _ => Default::default()
+    //         }
+    //     } else {
+    //         // ロールが得られなかったら何も返さない
+    //         Default::default()
+    //     }
+    // }
+
+    fn default_action(&self) -> bool {
+        self.iaccessible().default_action(self.varchild()).is_ok()
+    }
+    /// 他の選択に加えて選択
+    pub fn add_select(&self) -> bool {
+        self.iaccessible().select(SELFLAG_ADDSELECTION, self.varchild()).is_ok()
+    }
+    /// 単独で選択
+    pub fn select(&self) -> bool {
+        self.iaccessible().select(SELFLAG_TAKEFOCUS|SELFLAG_TAKESELECTION, self.varchild()).is_ok()
+    }
+    fn is_checked(&self) -> bool {
+        if let Ok(state) = self.iaccessible().state(self.varchild()) {
+            state.includes(STATE_SYSTEM_CHECKED)
+        } else {
+            false
+        }
+    }
+    fn name_includes(&self, other: &str) -> bool {
+        self.name().is_ok_and(|name| name.partial_match(other))
+    }
+    pub fn click(&self, check: bool) -> bool {
+        match self.role {
+            ROLE_SYSTEM_LISTITEM => self.select(),
+            ROLE_SYSTEM_CHECKBUTTON |
+            ROLE_SYSTEM_MENUITEM => if check {
+                // チェック状態にする
+                if self.is_checked() {
+                    // 既にチェック済み
+                    true
+                } else {
+                    // チェックする
+                    self.default_action()
+                }
+            } else {
+                // 未チェック状態にする
+                if self.is_checked() {
+                    // チェックを外す
+                    self.default_action()
+                } else {
+                    // 既に未チェック
+                    true
+                }
+            },
+            _ => if check {
+                // クリック
+                self.default_action()
+            } else {
+                // クリックはしない
+                true
+            },
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct AccIter {
+    acc: IAccessible,
+    items: Vec<VARIANT>,
+    reverse: bool,
+    parent: Option<Box<Self>>,
+    _depth: u32,
+    index: usize,
+}
+impl AccIter {
+    fn new(acc: IAccessible, items: Option<Vec<VARIANT>>) -> Self {
+        let items = match items {
+            Some(items) => items,
+            None => acc.children(),
+        };
+        Self {
+            acc,
+            items,
+            reverse: false,
+            parent: None,
+            _depth: 0,
+            index: 0,
+        }
+    }
+    fn reverse(&mut self) {
+        self.reverse = true;
+        self.items.reverse();
+    }
+    fn new_branch(&mut self, acc: IAccessible, mut items: Vec<VARIANT>) {
+        let _depth = self._depth + 1;
+        if self.reverse {
+            items.reverse();
+        }
+        // 下の階層のイテレータを作る
+        let iter = Self {
+            acc,
+            items,
+            reverse: self.reverse,
+            parent: None,
+            _depth,
+            index: 0,
+        };
+        // selfに新たなイテレータを書き込み、自身を取り出す
+        let current = std::mem::replace(self, iter);
+        // 自身をparentに書き込む
+        self.parent.replace(Box::new(current));
+    }
+}
+impl Iterator for AccIter {
+    type Item = AccChild;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        unsafe {
+            if let Some(varchild) = self.items.get(self.index) {
+                self.index += 1;
+                match varchild.vt() {
+                    VT_I4 => {
+                        AccChild::new(self.acc.clone(), varchild.clone())
+                    },
+                    VT_DISPATCH => {
+                        let child = varchild.Anonymous.Anonymous.Anonymous.pdispVal
+                            .as_ref()
+                            .and_then(AccChild::from_idispatch)?;
+                        let items = child.iaccessible().children();
+                        let is_parent = items.iter().all(|v|v.vt() == VT_I4);
+                        self.new_branch(child.inner.clone(), items);
+                        if is_parent {
+                            // varchildがインデックスなら子の次の子要素を返す
+                            self.next()
+                        } else {
+                            // オブジェクトならひとまず子自身を返す
+                            Some(child)
+                        }
+                    },
+                    _ => None,
+                }
+            } else if let Some(parent) = self.parent.take() {
+                *self = *parent;
+                self.next()
+            } else {
+                None
+            }
+        }
+    }
+}
+// /// 逆順サーチ用ACCイテレータ
+// struct ReverseAccIter {
+//     object: IAccessible,
+//     current: AccBranch
+// }
+// impl ReverseAccIter {
+//     fn new(object: IAccessible, branch: AccBranch) -> Self {
+//         let mut current = branch;
+//         current.children.reverse();
+//         Self { object, current }
+//     }
+// }
+// impl Iterator for ReverseAccIter {
+//     type Item = AccItem;
+
+//     fn next(&mut self) -> Option<Self::Item> {
+//         match self.current.next(&self.object) {
+//             Some(child) => {
+//                 self.current.new_reverse_branch_if_parent(&child);
+//                 Some(child)
+//             },
+//             None => {
+//                 self.current.restore_branch()?;
+//                 self.next()
+//             },
+//         }
+//     }
+// }
+
+// #[derive(Clone, Default)]
+// struct AccBranch {
+//     parent: Option<Box<Self>>,
+//     children: Vec<VARIANT>,
+//     index: usize,
+//     _depth: u32,
+//     reverse: bool,
+// }
+// impl AccBranch {
+//     fn new(children: Vec<VARIANT>) -> Self {
+//         Self {
+//             children,
+//             ..Default::default()
+//         }
+//     }
+//     fn new_reverse(mut children: Vec<VARIANT>) -> Self {
+//         children.reverse();
+//         Self { children, reverse: true, ..Default::default()}
+//     }
+//     fn new_branch_if_parent(&mut self, child: &AccChild) {
+//         if let Some(parent) = child.maybe_parent() {
+//             let children = parent.children();
+//             let mut branch = Self::new(children);
+//             branch._depth = self._depth + 1;
+//             branch.parent = Some(Box::new(self.to_owned()));
+//             *self = branch;
+//         }
+//     }
+//     fn new_reverse_branch_if_parent(&mut self, child: &AccChild) {
+//         if let Some(parent) = child.maybe_parent() {
+//             let children = parent.children();
+//             dbg!(children.len());
+//             let mut branch = Self::new_reverse(children);
+//             branch._depth = self._depth + 1;
+//             branch.parent = Some(Box::new(self.to_owned()));
+//             *self = branch;
+//         }
+//     }
+//     fn restore_branch(&mut self) -> Option<()> {
+//         let parent = self.parent.to_owned()?;
+//         *self = *parent;
+//         Some(())
+//     }
+//     fn _next(&mut self, parent: &IAccessible) -> Option<AccChild> {
+//         unsafe {
+//             while let Some(varchild) = self.children.get(self.index) {
+//                 self.index += 1;
+
+//                 let v00 = &varchild.Anonymous.Anonymous;
+//                 let vt = v00.vt;
+//                 let child = match vt {
+//                     VT_I4 => {
+//                         None
+//                     },
+//                     VT_DISPATCH => {
+//                         v00.Anonymous.pdispVal
+//                             .as_ref()
+//                             .and_then(|disp| AccChild::from_idispatch(disp))
+//                     },
+//                     _ => None
+//                 };
+//                 if child.is_some() {
+//                     return child.inspect(|c| {
+//                         println!("\u{001b}[36m[debug] child: {c:?}\u{001b}[0m");
+//                         println!("\u{001b}[33m[debug] depth: {}\u{001b}[0m", self._depth);
+//                         println!(
+//                             "\u{001b}[90m{:?} {:?} {:?}\u{001b}[0m",
+//                             c.name(),
+//                             c.role_text(),
+//                             c.state_text(),
+//                         );
+//     ;                });
+//                 }
+//             }
+//             None
+//         }
+//     }
+// }
+
+
+// impl<'a> IntoIterator for &'a AccChild {
+//     type Item = AccIdChild<'a>;
+
+//     type IntoIter = AccIdIter<'a>;
+
+//     fn into_iter(self) -> Self::IntoIter {
+//         unsafe {
+//             let object = self.iaccessible();
+//             AccIdIter::new(object)
+//         }
+//     }
+// }
+
+/// IAccessible + varchild (VT_I4) を探索するイテレータ
+struct AccIdIter<'a> {
+    object: &'a IAccessible,
+    children: Vec<VARIANT>,
+    index: usize,
+}
+impl<'a> AccIdIter<'a> {
+    fn new(object: &'a IAccessible) -> Self {
+        let children = object.children();
+        Self {
+            object,
+            children,
+            index: 0,
+        }
+    }
+    fn reverse(self) -> ReverseAccIdIter<'a> {
+        ReverseAccIdIter::new(self.object, self.children)
+    }
+}
+impl<'a> Iterator for AccIdIter<'a> {
+    type Item = AccIdChild<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let id = self.children.get(self.index)?;
+        self.index += 1;
+        Some(AccIdChild(self.object, id.clone()))
+    }
+}
+struct ReverseAccIdIter<'a> {
+    object: &'a IAccessible,
+    children: Vec<VARIANT>,
+    index: usize,
+}
+impl<'a> ReverseAccIdIter<'a> {
+    fn new(object: &'a IAccessible, mut children: Vec<VARIANT>) -> Self {
+        children.reverse();
+        Self { object, children, index: 0 }
+    }
+}
+impl<'a> Iterator for ReverseAccIdIter<'a> {
+    type Item = AccIdChild<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let id = self.children.get(self.index)?;
+        self.index += 1;
+        Some(AccIdChild(self.object, id.clone()))
+    }
+}
+
+impl From<AccIdChild<'_>> for AccChild {
+    fn from(id: AccIdChild) -> Self {
+        Self {
+            inner: id.iaccessible().clone(),
+            role: id.iaccessible().role(id.varchild()).unwrap_or_default(),
+            varchild: id.varchild(),
+        }
+    }
+}
+
+struct AccIdChild<'a>(&'a IAccessible, VARIANT);
+impl std::fmt::Debug for AccIdChild<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("AccIdChild")
+            .field(&self.0)
+            .field(unsafe{&self.1.Anonymous.Anonymous.Anonymous.lVal})
+            .finish()
+    }
+}
+impl AccIdChild<'_> {
+    fn iaccessible(&self) -> &IAccessible {
+        self.0
+    }
+    fn varchild(&self) -> VARIANT {
+        self.1.clone()
+    }
+    // fn as_child(&self) -> Option<AccChild> {
+    //     unsafe {
+    //         let v00 = &self.1.Anonymous.Anonymous;
+    //         let pdispval = (v00.vt == VT_DISPATCH).then_some(&v00.Anonymous.pdispVal)?;
+    //         let child = pdispval.as_ref().and_then(|disp| {
+    //             AccChild::from_idispatch(disp)
+    //         });
+    //         match child {
+    //             Some(child) => Some(child),
+    //             None => self.0.get_accChild(self.1.clone()).ok()
+    //                 .and_then(|disp| AccChild::from_idispatch(&disp))
+    //         }
+    //     }
+    // }
+    fn name(&self) -> core::Result<String> {
+        self.iaccessible().name(self.varchild())
+    }
+    fn valid_name(&self) -> Option<String> {
+        self.name().ok()
+            .and_then(|name| {
+                (!name.is_empty())
+                    .then_some(name)
+            })
+    }
+    fn client_location(&self, hwnd: HWND) -> core::Result<[i32; 4]> {
+        self.iaccessible().client_location(hwnd, self.varchild())
+    }
+    fn role(&self) -> core::Result<u32> {
+        self.iaccessible().role(self.varchild())
+    }
+    fn role_text(&self) -> core::Result<String> {
+        self.iaccessible().role_text(self.varchild())
+    }
+    fn state_text(&self) -> core::Result<Vec<String>> {
+        self.iaccessible().state_text(self.varchild())
+    }
+    fn is_disabled(&self) -> bool {
+        self.iaccessible().is_disabled(self.varchild())
+    }
+    fn role_is_one_of(&self, roles: &[u32]) -> bool {
+        self.iaccessible().role_is_one_of(roles, self.varchild())
+    }
+    fn role_is(&self, other: u32) -> bool {
+        self.iaccessible().role_is(other, self.varchild())
+    }
+}
+
+struct ScreenPoint(pub POINT);
+impl From<POINT> for ScreenPoint {
+    fn from(point: POINT) -> Self {
+        Self(point)
+    }
+}
+impl From<(i32, i32)> for ScreenPoint {
+    fn from((x, y): (i32, i32)) -> Self {
+        let point = POINT { x, y };
+        point.into()
+    }
+}
+
+impl From<&ClkTarget> for u32 {
+    fn from(target: &ClkTarget) -> Self {
+        let mut role = 0;
+        if target.button {
+            role |= ROLE_SYSTEM_PUSHBUTTON|ROLE_SYSTEM_CHECKBUTTON|ROLE_SYSTEM_RADIOBUTTON;
+        }
+        if target.link {
+            role |= ROLE_SYSTEM_LINK;
+        }
+        if target.list {
+            role |= ROLE_SYSTEM_LIST;
+        }
+        if target.listview {
+            role |= ROLE_SYSTEM_LIST;
+        }
+        if target.menu {
+            role |= ROLE_SYSTEM_MENUBAR;
+        }
+        if target.tab {
+            role |= ROLE_SYSTEM_PAGETABLIST;
+        }
+        if target.toolbar {
+            role |= ROLE_SYSTEM_TOOLBAR;
+        }
+        if target.treeview {
+            role |= ROLE_SYSTEM_OUTLINE;
+        }
+        role
+    }
+}
+
+trait AccNameMatch {
+    fn exact_match(&self, other: &str) -> bool;
+    fn partial_match(&self, other: &str) -> bool;
+    fn remove_mnemonic(&self) -> &str;
+    fn find_ignore_ascii_case(&self, pat: &str) -> Option<usize>;
+}
+
+impl<T> AccNameMatch for T where T: std::ops::Deref<Target = str> {
+    fn exact_match(&self, other: &str) -> bool {
+        self.remove_mnemonic().eq_ignore_ascii_case(other)
+    }
+
+    fn partial_match(&self, other: &str) -> bool {
+        self.find_ignore_ascii_case(other).is_some()
+    }
+    /// ニーモニックを除去した名前
+    fn remove_mnemonic(&self) -> &str {
+        if let Some(a) = self.find("(&") {
+            if let Some(b) = self.find(")") {
+                if b == a + 3 {
+                    if a == 0 {
+                        &self[b+1..]
+                    } else {
+                        &self[..a]
+                    }
+                } else {
+                    self
+                }
+            } else {
+                self
+            }
+        } else {
+            self
+        }
+    }
+    fn find_ignore_ascii_case(&self, other: &str) -> Option<usize> {
+        let pat_bytes = other.as_bytes();
+        self.as_bytes().windows(other.len()).enumerate()
+            .find_map(|(i, w)| w.eq_ignore_ascii_case(pat_bytes).then_some(i) )
     }
 }

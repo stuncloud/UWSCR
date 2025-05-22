@@ -15,7 +15,7 @@ use crate::builtins::{
 };
 use crate::gui::UWindow;
 pub use monitor::Monitor;
-pub use acc::U32Ext;
+pub use acc::{AccWindow, PosAccResult};
 use util::winapi::get_console_hwnd;
 use util::clipboard::Clipboard;
 
@@ -182,7 +182,7 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("saveimg", saveimg, get_desc!(saveimg));
     #[cfg(feature="chkimg")]
     sets.add("chkclr", chkclr, get_desc!(chkclr));
-    sets.add("enum_acc", enum_acc, get_desc!(enum_acc));
+    // sets.add("enum_acc", enum_acc, get_desc!(enum_acc));
     sets
 }
 
@@ -311,32 +311,34 @@ struct TargetWindow {
 
 unsafe extern "system"
 fn callback_find_window(hwnd: HWND, lparam: LPARAM) -> BOOL {
-    let mut title_buffer = [0; MAX_NAME_SIZE];
-    let mut class_buffer = [0; MAX_NAME_SIZE];
-    // let target = &mut *(lparam as *mut TargetWindow) as &mut TargetWindow;
-    let target = &mut *(lparam.0 as *mut TargetWindow);
+    unsafe {
+        let mut title_buffer = [0; MAX_NAME_SIZE];
+        let mut class_buffer = [0; MAX_NAME_SIZE];
+        // let target = &mut *(lparam as *mut TargetWindow) as &mut TargetWindow;
+        let target = &mut *(lparam.0 as *mut TargetWindow);
 
-    let len = GetWindowTextW(hwnd, &mut title_buffer);
-    let title = String::from_utf16_lossy(&title_buffer[..len as usize]);
-    match title.to_ascii_lowercase().find(target.title.to_ascii_lowercase().as_str()) {
-        Some(_) => {
-            let len = GetClassNameW(hwnd, &mut class_buffer);
-            let class = String::from_utf16_lossy(&class_buffer[..len as usize]);
+        let len = GetWindowTextW(hwnd, &mut title_buffer);
+        let title = String::from_utf16_lossy(&title_buffer[..len as usize]);
+        match title.to_ascii_lowercase().find(target.title.to_ascii_lowercase().as_str()) {
+            Some(_) => {
+                let len = GetClassNameW(hwnd, &mut class_buffer);
+                let class = String::from_utf16_lossy(&class_buffer[..len as usize]);
 
-            match class.to_ascii_lowercase().find(target.class_name.to_ascii_lowercase().as_str()) {
-                Some(_) => {
-                    target.title = title;
-                    target.class_name = class;
-                    target.hwnd = hwnd;
-                    target.found = true;
-                    return false.into();
-                },
-                None => ()
-            }
-        },
-        None => ()
+                match class.to_ascii_lowercase().find(target.class_name.to_ascii_lowercase().as_str()) {
+                    Some(_) => {
+                        target.title = title;
+                        target.class_name = class;
+                        target.hwnd = hwnd;
+                        target.found = true;
+                        return false.into();
+                    },
+                    None => ()
+                }
+            },
+            None => ()
+        }
+        true.into() // 次のウィンドウへ
     }
-    true.into() // 次のウィンドウへ
 }
 
 fn find_window(title: String, class_name: String, timeout: f64) -> windows::core::Result<HWND> {
@@ -1709,7 +1711,7 @@ pub enum GetItemConst {
     ITM_ACCEDIT   = 16777216,
     #[strum[props(desc="ACCで逆順検索")]]
     ITM_FROMLAST  = 65536,
-    // ITM_BACK      = 512,
+    ITM_BACK      = 512,
 }
 impl Into<u32> for GetItemConst {
     fn into(self) -> u32 {
@@ -1757,9 +1759,10 @@ pub fn getitem(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     // api
     let mut items = win32::Win32::getitem(hwnd, target, nth, column, ignore_disabled);
     // acc
-    let acc_items = acc::Acc::getitem(hwnd, target, acc_max, ignore_disabled);
+    if let Some(acc_items) = acc::Acc::getitem(hwnd, target, acc_max, ignore_disabled) {
+        items.extend(acc_items);
+    }
 
-    items.extend(acc_items);
     let arr = items.into_iter().map(|s| s.into()).collect();
     Ok(Object::Array(arr))
 }
@@ -1812,57 +1815,26 @@ pub fn posacc(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let hwnd = get_hwnd_from_id(id);
     let clx = args.get_as_int(1, None::<i32>)?;
     let cly = args.get_as_int(2, None::<i32>)?;
-    let mode = args.get_as_int(3, Some(0_u16))?;
-    let mode = if (mode & AccConst::ACC_BACK as u16) > 0 {
+    let pos_acc_type = args.get_as_int(3, Some(0_u16))?;
+    let pos_acc_type = if (pos_acc_type & AccConst::ACC_BACK as u16) > 0 {
         // ACC_BACKを除去
-        mode - AccConst::ACC_BACK as u16
+        pos_acc_type - AccConst::ACC_BACK as u16
     } else {
         // ACC_BACKがないので対象ウィンドウをアクティブにする
         unsafe { SetForegroundWindow(hwnd); }
-        mode
+        pos_acc_type
     };
-    let obj = match acc::Acc::from_point(hwnd, clx, cly) {
-        Some(acc) => match mode {
-            0 => {
-                match acc.get_name().map(|name|name.into()) {
-                    Some(obj) => obj,
-                    None => acc.get_api_text().map(|api| api.into()).unwrap_or_default(),
-                }
-            }
-            1 | 3 => {
-                acc.get_name().map(|name|name.into()).unwrap_or_default()
+    let obj = match acc::Acc::from_point(hwnd, clx, cly, pos_acc_type) {
+        Some(res) => match res {
+            PosAccResult::String(s) => s.into(),
+            PosAccResult::Vec(items) => {
+                let arr = items.into_iter().map(Object::String).collect();
+                Object::Array(arr)
             },
-            2 => {
-                acc.get_api_text().map(|api| api.into()).unwrap_or_default()
+            PosAccResult::Location(loc) => {
+                let arr = loc.map(|n| n.into()).to_vec();
+                Object::Array(arr)
             },
-            4 => {
-                acc.get_value().map(|val| val.into()).unwrap_or_default()
-            },
-            5 => {
-                acc.get_role_text().map(|role| role.into()).unwrap_or_default()
-            },
-            6 => {
-                let vec2obj = |vec: Vec<String>| {
-                    let arr = vec.into_iter()
-                        .map(|text| text.into())
-                        .collect();
-                    Object::Array(arr)
-                };
-                acc.get_state_texts().map(vec2obj).unwrap_or_default()
-            },
-            7 => {
-                acc.get_description().map(|desc| desc.into()).unwrap_or_default()
-            },
-            8 => {
-                let vec2obj = |vec: Vec<i32>| {
-                    let arr = vec.into_iter()
-                        .map(|n| n.into())
-                        .collect();
-                    Object::Array(arr)
-                };
-                acc.get_screen_location(hwnd).map(vec2obj).unwrap_or_default()
-            },
-            _ => Object::Empty
         },
         None => Object::Empty,
     };
@@ -2187,7 +2159,7 @@ pub fn chkbtn(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let hwnd = get_hwnd_from_id(id);
     if unsafe {IsWindow(hwnd).as_bool()} {
         let result = if acc {
-            acc::Acc::get_check_state(hwnd, name, nth).unwrap_or(-1)
+            acc::Acc::get_check_state(hwnd, &name, nth as usize).unwrap_or(-1)
         } else {
             let state = win32::Win32::get_check_state(hwnd, name.clone(), nth);
             if state < 0 {
@@ -2254,9 +2226,9 @@ pub fn getstr(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
                 GetStrConst::STR_EDIT => win32::Win32::get_edit_str(hwnd, nth, mouse),
                 GetStrConst::STR_STATIC => win32::Win32::get_static_str(hwnd, nth, mouse),
                 GetStrConst::STR_STATUS => win32::Win32::get_status_str(hwnd, nth, mouse),
-                GetStrConst::STR_ACC_EDIT => acc::Acc::get_edit_str(hwnd, nth, mouse),
-                GetStrConst::STR_ACC_STATIC => acc::Acc::get_static_str(hwnd, nth, mouse),
-                GetStrConst::STR_ACC_CELL => acc::Acc::get_cell_str(hwnd, nth, mouse),
+                GetStrConst::STR_ACC_EDIT => acc::Acc::get_edit_str(hwnd, nth as usize, mouse),
+                GetStrConst::STR_ACC_STATIC => acc::Acc::get_static_str(hwnd, nth as usize, mouse),
+                GetStrConst::STR_ACC_CELL => acc::Acc::get_cell_str(hwnd, nth as usize, mouse),
                 GetStrConst::STR_UIA => None,
             };
             Ok(str.into())
@@ -2283,6 +2255,15 @@ impl From<i32> for SendStrMode {
             0 => Self::Append,
             2 => Self::OneByOne,
             _ => Self::Replace,
+        }
+    }
+}
+impl From<SendStrMode> for bool {
+    fn from(mode: SendStrMode) -> Self {
+        match mode {
+            SendStrMode::Append => false,
+            SendStrMode::Replace => true,
+            SendStrMode::OneByOne => false,
         }
     }
 }
@@ -2324,9 +2305,9 @@ pub fn sendstr(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
                     uia::UIA::sendstr(hwnd, nth, str);
                 }
             },
-            5 => acc::Acc::sendstr_cell(hwnd, nth, &str, mode), // cell
+            5 => acc::Acc::sendstr_cell(hwnd, nth as usize, &str, mode), // cell
             6 => uia::UIA::sendstr(hwnd, nth, str), // uia
-            _ => acc::Acc::sendstr(hwnd, nth, &str, mode), // acc
+            _ => acc::Acc::sendstr(hwnd, nth as usize, &str, mode), // acc
         };
     }
     Ok(Object::Empty)
@@ -2415,39 +2396,37 @@ pub fn saveimg(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
         }
     } else if id < 0 {
         return Ok(Object::Empty);
+    } else if wgcapi {
+        let monitor = args.get_as_int(10, Some(0))?;
+        let right = match left {
+            Some(l) => match width {
+                Some(w) => {
+                    if l.is_negative() {
+                        Some(w)
+                    } else {
+                        Some(l + w)
+                    }
+                },
+                None => None,
+            },
+            None => width,
+        };
+        let bottom = match top {
+            Some(t) => match height {
+                Some(h) => {
+                    if t.is_negative() {
+                        Some(h)
+                    } else {
+                        Some(t + h)
+                    }
+                },
+                None => None,
+            },
+            None => height,
+        };
+        ScreenShot::get_screen_wgcapi(monitor, left, top, right, bottom)?
     } else {
-        if wgcapi {
-            let monitor = args.get_as_int(10, Some(0))?;
-            let right = match left {
-                Some(l) => match width {
-                    Some(w) => {
-                        if l.is_negative() {
-                            Some(w)
-                        } else {
-                            Some(l + w)
-                        }
-                    },
-                    None => None,
-                },
-                None => width,
-            };
-            let bottom = match top {
-                Some(t) => match height {
-                    Some(h) => {
-                        if t.is_negative() {
-                            Some(h)
-                        } else {
-                            Some(t + h)
-                        }
-                    },
-                    None => None,
-                },
-                None => height,
-            };
-            ScreenShot::get_screen_wgcapi(monitor, left, top, right, bottom)?
-        } else {
-            ScreenShot::get_screen_wh(left, top, width, height)?
-        }
+        ScreenShot::get_screen_wh(left, top, width, height)?
     };
     if let Some(filename) = filename {
         let mut path = std::path::PathBuf::from(filename);
@@ -2706,23 +2685,23 @@ pub fn chkclr(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncRe
 
 }
 
-#[builtin_func_desc(
-    desc="ACC要素を列挙",
-    rtype={desc="ACC要素のリスト",types="配列"}
-    args=[
-        {n="ID",t="数値",d="対象ウィンドウ"},
-    ],
-)]
-pub fn enum_acc(_: &mut Evaluator, _args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let id = _args.get_as_int(0, None::<i32>)?;
-    let hwnd = get_hwnd_from_id(id);
-    let obj = match acc::Acc::from_hwnd(hwnd) {
-        Some(acc) => {
-            let _detail = acc.enum_acc();
-            format!("{_detail:#?}").into()
-            // Object::Empty
-        },
-        None => Object::Empty,
-    };
-    Ok(obj)
-}
+// #[builtin_func_desc(
+//     desc="ACC要素を列挙",
+//     rtype={desc="ACC要素のリスト",types="配列"}
+//     args=[
+//         {n="ID",t="数値",d="対象ウィンドウ"},
+//     ],
+// )]
+// pub fn enum_acc(_: &mut Evaluator, _args: BuiltinFuncArgs) -> BuiltinFuncResult {
+//     let id = _args.get_as_int(0, None::<i32>)?;
+//     let hwnd = get_hwnd_from_id(id);
+//     let obj = match acc::Acc::from_hwnd(hwnd) {
+//         Some(acc) => {
+//             let _detail = acc.enum_acc();
+//             format!("{_detail:#?}").into()
+//             // Object::Empty
+//         },
+//         None => Object::Empty,
+//     };
+//     Ok(obj)
+// }

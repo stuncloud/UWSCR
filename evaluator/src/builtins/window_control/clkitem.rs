@@ -31,11 +31,18 @@ pub struct ClkItem {
     back_ground: bool,
     pub move_mouse: bool,
     pub short: bool,
-    backwards: bool,
+    pub backwards: bool,
     button: ClkButton,
     api: ClkApi,
     pub order: u32,
     as_hwnd: bool,
+}
+impl ClkItem {
+    const PATH_DELIMITER: &str = "\\";
+    pub fn name_as_path(&self) -> Option<std::str::Split<&str>> {
+        self.name.contains(Self::PATH_DELIMITER)
+            .then_some(self.name.split(Self::PATH_DELIMITER))
+    }
 }
 
 pub struct ClkTarget {
@@ -160,14 +167,14 @@ impl ClkItem {
         if let Some(uia) = uia::UIA::new(hwnd) {
             match self.button {
                 ClkButton::Default => {
-                    if let Some(uia::UIAClickPoint(point)) = uia.click(&self, check) {
+                    if let Some(uia::UIAClickPoint(point)) = uia.click(self, check) {
                         ClkResult::new(true, hwnd, point)
                     } else {
                         ClkResult::failed()
                     }
                 },
                 _ => {
-                    if let Some(point) = uia.get_point(&self) {
+                    if let Some(point) = uia.get_point(self) {
                         let clicked = match self.button {
                             ClkButton::Left => MouseInput::left_click(hwnd, Some(point)),
                             ClkButton::LeftDouble => MouseInput::left_dblclick(hwnd, Some(point)),
@@ -185,35 +192,28 @@ impl ClkItem {
         }
     }
     fn click_acc(&self, hwnd: HWND, check: bool) -> ClkResult {
-        if let Some(window) = acc::Acc::from_hwnd(hwnd) {
-            let item = acc::SearchItem::from_clkitem(self);
-            let mut order = self.order;
+        if let Some(found) = acc::Acc::find_click_target(hwnd, self) {
 
-            match window.search(&item, &mut order, self.backwards) {
-                Some(target) => {
-                    let result = match self.button {
-                        ClkButton::Left => if let Some(hwnd) = target.get_hwnd() {
-                            MouseInput::left_click(hwnd, None)
-                        } else {
-                            false
-                        },
-                        ClkButton::LeftDouble => if let Some(hwnd) = target.get_hwnd() {
-                            MouseInput::left_dblclick(hwnd, None)
-                        } else {
-                            false
-                        },
-                        ClkButton::Right => if let Some(hwnd) = target.get_hwnd() {
-                            MouseInput::right_click(hwnd, None)
-                        } else {
-                            false
-                        },
-                        ClkButton::Default => target.click(check),
-                    };
-                    let point = target.get_point();
-                    return ClkResult::new(result, target.get_hwnd().unwrap_or_default(), point);
+            let result = match self.button {
+                ClkButton::Left => if let Ok(hwnd) = found.hwnd() {
+                    MouseInput::left_click(hwnd, None)
+                } else {
+                    false
                 },
-                None => ClkResult::failed(),
-            }
+                ClkButton::LeftDouble => if let Ok(hwnd) = found.hwnd() {
+                    MouseInput::left_dblclick(hwnd, None)
+                } else {
+                    false
+                },
+                ClkButton::Right => if let Ok(hwnd) = found.hwnd() {
+                    MouseInput::right_click(hwnd, None)
+                } else {
+                    false
+                },
+                ClkButton::Default => found.click(check),
+            };
+            let point = found.location().map(|[x, y, _, _]| (x, y)).ok();
+            ClkResult::new(result, found.hwnd().unwrap_or_default(), point)
         } else {
             ClkResult::failed()
         }
@@ -353,7 +353,7 @@ pub fn match_title(title: &str, pat: &str, partial: bool) -> bool {
     let lower_title = title.to_ascii_lowercase();
     let lower_pat = pat.to_ascii_lowercase();
     if partial {
-        lower_title.find(&lower_pat).is_some()
+        lower_title.contains(&lower_pat)
     } else {
         let titles = fix_title(&lower_title);
         titles.contains(&lower_pat)

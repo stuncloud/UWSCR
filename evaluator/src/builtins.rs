@@ -1391,3 +1391,13 @@ pub fn get_struct_layout(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFun
     let layout = sdef.layout(None);
     Ok(layout.into())
 }
+
+pub trait U32Ext {
+    fn includes<T: Into<u32>>(&self, other: T) -> bool;
+}
+impl U32Ext for u32{
+    fn includes<T: Into<u32>>(&self, other: T) -> bool {
+        let other: u32 = other.into();
+        (self & other) == other
+    }
+}
