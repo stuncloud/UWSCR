@@ -5,7 +5,8 @@ use windows::{
     Win32::{
         Foundation::{
             VARIANT_BOOL, HWND, LPARAM, BOOL,
-            E_NOTIMPL, DISP_E_MEMBERNOTFOUND,
+            E_NOTIMPL, DISP_E_MEMBERNOTFOUND, E_POINTER,
+            HGLOBAL, GlobalFree,
         },
         UI::{
             WindowsAndMessaging::{
@@ -43,6 +44,9 @@ use windows::{
             },
             Wmi::{
                 ISWbemObject, ISWbemProperty,
+            },
+            Memory::{
+                GlobalAlloc, GlobalLock, GlobalUnlock, GMEM_MOVEABLE,
             }
         },
     }
@@ -55,7 +59,8 @@ use util::winapi::{WString, get_absolute_path};
 
 use std::mem::ManuallyDrop;
 use std::ffi::c_void;
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{OnceLock, Arc, RwLock, LazyLock};
+use std::collections::HashMap;
 
 use num_traits::FromPrimitive;
 
@@ -166,7 +171,7 @@ impl From<ComError> for UError {
 #[derive(Clone)]
 pub struct ComObject {
     idispatch: IDispatch,
-    handlers: Arc<Mutex<EventHandlers>>
+    events: EventHandlers,
 }
 impl std::fmt::Display for ComObject {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -208,8 +213,14 @@ impl PartialEq for ComObject {
 
 impl From<IDispatch> for ComObject {
     fn from(idispatch: IDispatch) -> Self {
-        let handlers = Arc::new(Mutex::new(EventHandlers::new()));
-        Self { idispatch, handlers }
+        Self { idispatch, events: Default::default() }
+    }
+}
+impl std::ops::Deref for ComObject {
+    type Target = IDispatch;
+
+    fn deref(&self) -> &Self::Target {
+        &self.idispatch
     }
 }
 
@@ -239,25 +250,26 @@ impl ComObject {
         }
     }
     unsafe fn get_clsid(id: &str) -> ComResult<GUID> {
-        // {XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX} であればGUIDだが厳密な検査はしない
-        let clsid = if id.len() == 38 && id.contains('{') && id.contains('-') {
-            // GUID
-            let lpsz = HSTRING::from(id);
-            CLSIDFromString(&lpsz)?
-        } else {
-            // ProgID
-            let lpszprogid = HSTRING::from(id);
-            CLSIDFromProgID(&lpszprogid)?
-        };
-        Ok(clsid)
+        unsafe {
+            // {XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX} であればGUIDだが厳密な検査はしない
+            let clsid = if id.len() == 38 && id.contains('{') && id.contains('-') {
+                // GUID
+                let lpsz = HSTRING::from(id);
+                CLSIDFromString(&lpsz)?
+            } else {
+                // ProgID
+                let lpszprogid = HSTRING::from(id);
+                CLSIDFromProgID(&lpszprogid)?
+            };
+            Ok(clsid)
+        }
     }
     pub fn new(id: String, allow_ie: bool) -> ComResult<Self> {
         unsafe {
             let rclsid = Self::get_clsid(&id)?;
             Self::disallow_ie(&rclsid, allow_ie)?;
             let idispatch = Self::create_instance(&rclsid)?;
-            let handlers = Arc::new(Mutex::new(EventHandlers::new()));
-            let obj = Self {idispatch, handlers};
+            let obj = Self::from(idispatch);
             Ok(obj)
         }
     }
@@ -295,8 +307,7 @@ impl ComObject {
                     let maybe_obj = match ppunk {
                         Some(unk) => {
                             let idispatch = unk.cast::<IDispatch>()?;
-                            let handlers = Arc::new(Mutex::new(EventHandlers::new()));
-                            let obj = Self {idispatch, handlers};
+                            let obj = Self::from(idispatch);
                             Some(obj)
                         },
                         None => None,
@@ -678,25 +689,22 @@ impl ComObject {
 
         let container = self.cast()?;
         let handler = EventHandler::new(event, container, &riid)?;
-        let mut handlers = self.handlers.lock().unwrap();
-        handlers.set(handler);
+        self.events.set(handler);
         Ok(())
     }
     pub fn remove_event_handler(&mut self) -> ComResult<()> {
-        let mut handlers = self.handlers.lock().unwrap();
-        handlers.remove()
+        self.events.remove()
     }
 }
-
 #[derive(Debug, Clone)]
 pub enum ComArg {
     Arg(Object),
     ByRef(Expression, Object),
     NamedArg(String, Object),
 }
-impl Into<Object> for ComArg {
-    fn into(self) -> Object {
-        match self {
+impl From<ComArg> for Object {
+    fn from(val: ComArg) -> Self {
+        match val {
             ComArg::Arg(o) |
             ComArg::ByRef(_, o) |
             ComArg::NamedArg(_, o) => o,
@@ -832,14 +840,11 @@ impl TryInto<Object> for VARIANT {
                     },
                     VT_DISPATCH => if is_ref {
                         match v00.Anonymous.ppdispVal.as_mut() {
-                            Some(maybe_disp) => match maybe_disp {
-                                Some(disp) => {
-                                    let obj = ComObject::from(disp.clone());
-                                    Ok(Object::ComObject(obj))
-                                },
-                                None => Ok(Object::Nothing),
+                            Some(Some(disp)) => {
+                                let obj = ComObject::from(disp.clone());
+                                Ok(Object::ComObject(obj))
                             },
-                            None => Ok(Object::Nothing),
+                            _ => Ok(Object::Nothing),
                         }
                     } else {
                         match &*v00.Anonymous.pdispVal {
@@ -854,14 +859,11 @@ impl TryInto<Object> for VARIANT {
                     VT_NULL => Ok(Object::Null),
                     VT_UNKNOWN => if is_ref {
                         match v00.Anonymous.ppunkVal.as_mut() {
-                            Some(maybe_unk) => match maybe_unk {
-                                Some(unk) => {
-                                    let unk = unk.clone();
-                                    Ok(Object::Unknown(unk.into()))
-                                },
-                                None => Ok(Object::Nothing),
+                            Some(Some(unk)) => {
+                                let unk = unk.clone();
+                                Ok(Object::Unknown(unk.into()))
                             },
-                            None => Ok(Object::Nothing),
+                            _ => Ok(Object::Nothing),
                         }
                     } else {
                         match &*v00.Anonymous.punkVal {
@@ -1089,27 +1091,23 @@ impl Object {
     }
     fn flatten(self, index: Vec<i32>) -> Option<Vec<(Object, Vec<i32>)>>{
         if let Object::Array(arr) = self {
-            let is_all_array = arr.iter().all(|o| if let Object::Array(_) = o {true} else {false});
-            let is_all_value = arr.iter().all(|o| if let Object::Array(_) = o {false} else {true});
+            let is_all_array = arr.iter().all(|o| matches!(o, Object::Array(_)));
+            let is_all_value = arr.iter().all(|o| !matches!(o, Object::Array(_)));
             if is_all_array {
                 let mut arr2 = vec![];
-                let mut i = 0;
-                for obj in arr {
+                for (i, obj) in arr.into_iter().enumerate() {
                     let mut index2 = index.clone();
-                    index2.push(i);
+                    index2.push(i as i32);
                     let v = obj.flatten(index2)?;
                     arr2.extend(v);
-                    i += 1;
                 }
                 Some(arr2)
             } else if is_all_value {
                 let mut arr2 = vec![];
-                let mut i = 0;
-                for obj in arr {
+                for (i, obj) in arr.into_iter().enumerate() {
                     let mut index2 = index.clone();
-                    index2.push(i);
+                    index2.push(i as i32);
                     arr2.push((obj, index2));
-                    i += 1;
                 }
                 Some(arr2)
             } else {
@@ -1142,7 +1140,7 @@ impl ParamNames {
             .map(|s| s.to_string().to_ascii_uppercase());
         let names = match vts {
             Some(vts) => {
-                names.zip(vts.into_iter())
+                names.zip(vts)
                     .map(|(name, vt)| ParamName {name, vt: Some(vt)})
                     .collect()
             },
@@ -1272,7 +1270,7 @@ impl TypeInfo {
                 Err(err) => {
                     self.names_iter()?
                         .find_map(|(bstr, memid)| {
-                            bstr.eq(name).then_some(memid)
+                            bstr.to_string().eq_ignore_ascii_case(name).then_some(memid)
                         })
                         .ok_or(err.into())
                 },
@@ -1389,26 +1387,18 @@ impl ComCollection {
     }
     fn to_comobject_vec(&self) -> ComResult<Vec<ComObject>> {
         let mut vec = vec![];
-        loop {
-            if let Some(variant) = self.next()? {
-                let disp = variant.to_idispatch()?;
-                vec.push(ComObject::from(disp));
-            } else {
-                break;
-            }
+        while let Some(variant) = self.next()? {
+            let disp = variant.to_idispatch()?;
+            vec.push(ComObject::from(disp));
         }
         self.reset()?;
         Ok(vec)
     }
     fn to_object_vec(&self) -> ComResult<Vec<Object>> {
         let mut vec = vec![];
-        loop {
-            if let Some(variant) = self.next()? {
-                let obj = variant.try_into()?;
-                vec.push(obj);
-            } else {
-                break;
-            }
+        while let Some(variant) = self.next()? {
+            let obj = variant.try_into()?;
+            vec.push(obj);
         }
         self.reset()?;
         Ok(vec)
@@ -1425,39 +1415,47 @@ impl TryFrom<Option<VARIANT>> for Object {
         }
     }
 }
-
-pub struct EventHandlers {
-    handlers: Vec<EventHandler>
-}
+#[derive(Debug, Clone, Default)]
+pub struct EventHandlers(Vec<EventHandler>);
 impl EventHandlers {
-    fn new() -> Self {
-        Self {handlers: Vec::new()}
+    /// - addr: ComObjectのアドレス
+    pub fn set(&mut self, handler: EventHandler) {
+        self.push(handler);
     }
-    fn set(&mut self, handler: EventHandler) {
-        self.handlers.push(handler);
-    }
-    fn remove(&mut self) -> ComResult<()>{
-        for handler in &self.handlers {
+    pub fn remove(&mut self) -> ComResult<()> {
+        for handler in &self.0 {
             handler.unset()?;
         }
-        self.handlers.clear();
+        self.clear();
         Ok(())
     }
 }
+impl std::ops::Deref for EventHandlers {
+    type Target = Vec<EventHandler>;
 
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl std::ops::DerefMut for EventHandlers {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct EventHandler {
-    _object: IUnknown,
     cp: IConnectionPoint,
     cookie: u32,
 }
-impl EventHandler {
-    fn new(_event: EventDisp, container: IConnectionPointContainer, riid: &GUID) -> ComResult<Self> {
-        unsafe {
-            let _object = IUnknown::from(_event);
 
+impl EventHandler {
+    fn new(event: EventDisp, container: IConnectionPointContainer, riid: &GUID) -> ComResult<Self> {
+        unsafe {
+            let unk = IUnknown::from(event);
             let cp = container.FindConnectionPoint(riid)?;
-            let cookie = cp.Advise(&_object)?;
-            Ok(Self {_object, cp, cookie})
+            let cookie = cp.Advise(&unk)?;
+            Ok(Self {cp, cookie})
         }
     }
     fn unset(&self) -> ComResult<()> {
@@ -1497,9 +1495,11 @@ impl IDispatch_Impl for EventDisp {
     #[allow(clippy::not_unsafe_ptr_arg_deref)]
     fn Invoke(&self,dispidmember:i32,_riid: *const ::windows::core::GUID,_lcid:u32,_wflags:DISPATCH_FLAGS,pdispparams: *const DISPPARAMS,pvarresult: *mut VARIANT,_pexcepinfo: *mut EXCEPINFO,_puargerr: *mut u32) ->  ::windows::core::Result<()> {
         unsafe {
+            println!("\u{001b}[36m[Invoke] dispidmember: {dispidmember:?}\u{001b}[0m");
             if self.memid == dispidmember {
                 // DISPPARAMSをObject配列に変換
-                let dp = &*pdispparams;
+                let dp = pdispparams.as_ref()
+                    .ok_or(core::Error::from(E_POINTER))?;
                 let args = dp.as_object_vec().map_err(|e| e.as_windows_error())?;
                 // DISPPARAMSの値をEVENT_PRMをセット
                 let new = Object::Array(args.clone());
@@ -1514,9 +1514,9 @@ impl IDispatch_Impl for EventDisp {
                 let obj = self.func.invoke(&mut evaluator, arguments, None)
                     .map_err(|e| ComError::UError(e).as_windows_error())?;
                 // 関数の戻り値をpvarresultに渡す
-                *pvarresult = VARIANT::try_from(obj).map_err(|e| e.as_windows_error())?;
-            } else {
-                *pvarresult = VARIANT::from_bool(false);
+                if let Some(result) = pvarresult.as_mut() {
+                    *result = VARIANT::try_from(obj).map_err(|e| e.as_windows_error())?;
+                }
             }
             Ok(())
         }
@@ -1664,21 +1664,18 @@ impl GetObject {
                         let disp = IDispatch::from_raw(pvobject);
                         let com = ComObject::from(disp);
                         let name = com.get_type_name().unwrap_or_default();
-                        match name.as_str() {
-                            "Window" => {
-                                if let Ok(app) = com.get_property_as_comobject("Application") {
-                                    if let Ok(variant) = app.get_raw_property("Name") {
-                                        let name = variant.to_string().unwrap_or_default();
-                                        if self.r#type.compare(&name) {
-                                            nth -= 1;
-                                            if nth == 0 {
-                                                return Some(app);
-                                            }
+                        if name.as_str() == "Window" {
+                            if let Ok(app) = com.get_property_as_comobject("Application") {
+                                if let Ok(variant) = app.get_raw_property("Name") {
+                                    let name = variant.to_string().unwrap_or_default();
+                                    if self.r#type.compare(&name) {
+                                        nth -= 1;
+                                        if nth == 0 {
+                                            return Some(app);
                                         }
                                     }
                                 }
                             }
-                            _ => {}
                         }
                     }
                 }
@@ -1686,7 +1683,7 @@ impl GetObject {
             None
         }
     }
-    fn compare(&self, title: &String) -> bool {
+    fn compare(&self, title: &str) -> bool {
         let title = title.to_ascii_lowercase();
         title.contains(&self.title)
     }
@@ -1695,15 +1692,17 @@ impl GetObject {
     }
     unsafe extern "system"
     fn callback(hwnd: HWND, lparam: LPARAM) -> BOOL {
-        let go = lparam.0 as *mut Self;
-
-        let mut buf = [0; 512];
-        let len = GetWindowTextW(hwnd, &mut buf) as usize;
-        let title = String::from_utf16_lossy(&buf[..len]);
-        if (*go).compare(&title) {
-            (*go).push(hwnd);
+        unsafe {
+            if let Some(go) = (lparam.0 as *mut Self).as_mut() {
+                let mut buf = [0; 512];
+                let len = GetWindowTextW(hwnd, &mut buf) as usize;
+                let title = String::from_utf16_lossy(&buf[..len]);
+                if go.compare(&title) {
+                    go.push(hwnd);
+                }
+            }
+            true.into()
         }
-        true.into()
     }
 }
 struct EnumChildren {
@@ -1725,8 +1724,11 @@ impl EnumChildren {
     }
     unsafe extern "system"
     fn callback(hwnd: HWND, lparam: LPARAM) -> BOOL {
-        let vec = lparam.0 as *mut Self;
-        (*vec).push(hwnd);
+        unsafe {
+            if let Some(vec) = (lparam.0 as *mut Self).as_mut() {
+                vec.push(hwnd);
+            }
+        }
         true.into()
     }
 }
