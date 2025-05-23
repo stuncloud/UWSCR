@@ -2652,7 +2652,7 @@ pub fn chkclr(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncRe
     if range.len() > 4 {
         return Err(builtin_func_error(UErrorMessage::ArrayArgSizeOverflow(4)));
     }
-    let to_i32 = |i: usize| range.get(i).map(|o| o.as_f64(false).map(|n| n as i32)).flatten();
+    let to_i32 = |i: usize| range.get(i).and_then(|o| o.as_f64(false).map(|n| n as i32));
     let left = to_i32(0);
     let top = to_i32(1);
     let right = to_i32(2);
@@ -2660,14 +2660,24 @@ pub fn chkclr(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncRe
 
     let mi = MorgImg::from(&evaluator.mouseorg);
 
+    let monitor = args.get_as_int(3, Some(-1i32))?;
     let ss = match mi.hwnd {
         Some(hwnd) => {
             let client = mi.is_client();
+            if monitor < 0 {
+                let style = if mi.is_back {ImgConst::IMG_BACK} else {ImgConst::IMG_FORE};
+                ScreenShot::get_window(hwnd, left, top, right, bottom, client, style)
+            } else {
             ScreenShot::get_window_wgcapi(hwnd, left, top, right, bottom, client)
+            }
         },
         None => {
-            let monitor = args.get_as_int(3, Some(0))?;
+            if monitor < 0 {
+                ScreenShot::get_screen(left, top, right, bottom)
+            } else {
+                let monitor = monitor.unsigned_abs();
             ScreenShot::get_screen_wgcapi(monitor, left, top, right, bottom)
+            }
         },
     }?;
 
