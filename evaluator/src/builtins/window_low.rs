@@ -1,7 +1,7 @@
 use crate::object::*;
 use crate::builtins::*;
 use crate::{Evaluator, MouseOrg, MorgTarget};
-use util::winapi::make_lparam;
+use util::winapi::{make_lparam, get_window_style};
 
 use std::{thread, time};
 use std::mem::size_of;
@@ -13,7 +13,7 @@ use num_traits::FromPrimitive;
 use windows::{
     core::HSTRING,
     Win32::{
-        Foundation::{POINT, HWND, RECT, WPARAM, LPARAM, HANDLE},
+        Foundation::{POINT, HWND, RECT, WPARAM, LPARAM, HANDLE, BOOL},
         UI::{
             Input::KeyboardAndMouse::{
                 SendInput, INPUT, INPUT_0,
@@ -35,7 +35,7 @@ use windows::{
             WindowsAndMessaging::{
                 GetWindowRect, GetClientRect,
                 GetCursorPos, SetCursorPos,
-                PostMessageW,
+                PostMessageW, ChildWindowFromPoint,
                 WM_MOUSEMOVE,
                 WM_LBUTTONUP, WM_LBUTTONDOWN,
                 WM_RBUTTONUP, WM_RBUTTONDOWN,
@@ -43,6 +43,8 @@ use windows::{
                 WM_KEYUP, WM_KEYDOWN, WM_CHAR,
                 WM_MOUSEWHEEL, WM_MOUSEHWHEEL, WHEEL_DELTA,
                 PT_TOUCH, TOUCH_MASK_CONTACTAREA, TOUCH_MASK_ORIENTATION, TOUCH_MASK_PRESSURE,
+                WS_VSCROLL, WS_HSCROLL,
+                EnumWindows,
             },
         },
         Graphics::Gdi::ClientToScreen,
@@ -299,16 +301,116 @@ impl Input {
             (x, y)
         }
     }
-    /// MORG_DIRECT時のメッセージ送信
-    unsafe fn direct_message<W, L>(&self, msg: u32, wparam: W, lparam: L) -> bool
+    fn child_hwnd_from_client_point(&self, x: i32, y: i32) -> Option<HWND> {
+        unsafe {
+            let point = POINT { x, y };
+            let hwnd = ChildWindowFromPoint(self.hwnd.as_ref(), point);
+            Some(hwnd)
+        }
+    }
+    /// MORG_DIRECT時のメッセージ送信\
+    /// 子ウィンドウに送信したい場合はhcwndを指定
+    fn direct_message<W, L>(&self, msg: u32, wparam: W, lparam: L, hcwnd: Option<HWND>) -> bool
     where
         W: IntoPrm<WPARAM>,
         L: IntoPrm<LPARAM>,
     {
-        let wparam = wparam.intop();
-        let lparam = lparam.intop();
-        PostMessageW(self.hwnd.as_ref(), msg, wparam, lparam).is_ok()
+        unsafe {
+            let hwnd = hcwnd.or(self.hwnd);
+            let wparam = wparam.intop();
+            let lparam = lparam.intop();
+            PostMessageW(hwnd.as_ref(), msg, wparam, lparam)
+                .is_ok()
+        }
     }
+    /// morg_directキー送信
+    fn direct_key(&self, msg: u32, vk: u32) -> bool {
+        self.direct_message(msg, vk as usize, 1, None)
+    }
+    /// morg_directマウスボタン送信\
+    /// マウスホイール回転の場合は`wheel`で回転量を指定
+    fn direct_mouse(&self, msg: u32, x: i32, y: i32) -> bool {
+        let (x, y) = Self::client_to_screen(self.hwnd, x, y);
+        let lparam = make_lparam(x, y);
+        self.direct_message(msg, None::<usize>, lparam, None)
+    }
+    fn direct_mouse_wheel(&self, horizontal: bool, x: i32, y: i32, delta: i32) -> bool {
+        let msg = if horizontal {
+            WM_MOUSEHWHEEL
+        } else {
+            WM_MOUSEWHEEL
+        };
+        let lparam = make_lparam(x, y);
+        let delta = ((delta * WHEEL_DELTA as i32) & 0xFFFF) as u32;
+        let wparam = (delta << 16) as usize;
+        let child = self.child_from_point(x, y);
+        self.direct_message(msg, wparam, lparam, child)
+    }
+    // fn child_with_scrollbar(&self, horizontal: bool, x: i32, y: i32) -> Option<HWND> {
+    //     if Self::has_scrollbar(self.hwnd, horizontal) {
+    //         self.hwnd
+    //     } else {
+    //         let hcwnd = self.child_from_point(x, y);
+    //         if Self::has_scrollbar(hcwnd, horizontal) {
+    //             hcwnd
+    //         } else {
+    //             let (x, y) = Self::client_to_screen(self.hwnd, x, y);
+    //             self.find_scrollable(x, y, horizontal)
+    //         }
+    //     }
+    // }
+    fn child_from_point(&self, x: i32, y: i32) -> Option<HWND> {
+        self.hwnd.map(|hwnd| {
+            unsafe {
+                let point = POINT { x, y };
+                ChildWindowFromPoint(hwnd, point)
+            }
+        })
+    }
+    fn client_to_screen(hwnd: Option<HWND>, x: i32, y: i32) -> (i32, i32) {
+        if let Some(hwnd) = hwnd {
+            unsafe {
+                let mut point = POINT { x, y };
+                ClientToScreen(hwnd, &mut point);
+                let POINT { x, y } = point;
+                (x, y)
+            }
+        } else {
+            (x, y)
+        }
+    }
+    // fn find_scrollable(&self, x: i32, y: i32, horizontal: bool) -> Option<HWND> {
+    //     unsafe {
+    //         unsafe extern "system"
+    //         fn callback(hwnd: HWND, lparam: LPARAM) -> BOOL {
+    //             unsafe {
+    //                 let ptr = lparam.0 as *mut FindScrollable;
+    //                 if let Some(find) = ptr.as_mut() {
+    //                     let found = find.verify(hwnd);
+    //                     // 見つかったらFALSEを返して抜ける
+    //                     (!found).into()
+    //                 } else {
+    //                     false.into()
+    //                 }
+    //             }
+    //         }
+
+    //         let mut find = FindScrollable::new(x, y, horizontal);
+    //         let lparam = &mut find as *mut FindScrollable as isize;
+    //         EnumWindows(Some(callback), LPARAM(lparam)).ok()
+    //             .and_then(|_| find.found())
+    //     }
+    // }
+    // fn has_scrollbar(hwnd: Option<HWND>, horizontal: bool) -> bool {
+    //     hwnd.is_some_and(|hwnd| {
+    //         let style= if horizontal {
+    //             WS_HSCROLL.0
+    //         } else {
+    //             WS_VSCROLL.0
+    //         } as isize;
+    //         (get_window_style(hwnd) & style) > 0
+    //     })
+    // }
     fn send_key(&self, vk: u32, action: KeyActionEnum, wait: u64, extend: bool) {
         sleep(wait);
         match action {
@@ -351,8 +453,8 @@ impl Input {
                 let hstring = HSTRING::from(str);
                 hstring.as_wide()
                     .iter()
-                    .map(|n| *n as usize)
-                    .for_each(|char| {self.direct_message(WM_CHAR, char, 1);});
+                    .map(|n| *n as u32)
+                    .for_each(|char| {self.direct_key(WM_CHAR, char);});
             } else {
                 Self::send_unicode(str);
             }
@@ -361,7 +463,7 @@ impl Input {
     fn key_down(&self, vk: u32, extend: bool) {
         unsafe {
             if self.direct {
-                self.direct_message(WM_KEYDOWN, vk as usize, 0);
+                self.direct_key(WM_KEYDOWN, vk);
             } else if vk > 255 {
                 if let Some(ch) = char::from_u32(vk) {
                     Self::send_unicode(ch);
@@ -393,7 +495,7 @@ impl Input {
     fn key_up(&self, vk: u32, extend: bool) {
         unsafe {
             if self.direct {
-                self.direct_message(WM_KEYUP, vk as usize, 0);
+                self.direct_key(WM_KEYUP, vk);
             } else {
                 let mut input = INPUT::default();
                 let dwflags = if extend {
@@ -418,8 +520,7 @@ impl Input {
     fn move_mouse(&self, x: i32, y: i32) -> bool {
         unsafe {
             if self.direct {
-                let lparam = make_lparam(x, y);
-                self.direct_message(WM_MOUSEMOVE, 0, lparam)
+                self.direct_mouse(WM_MOUSEMOVE, x, y)
             } else {
                 let (x, y) = self.fix_point(x, y);
                 move_mouse_to(x, y)
@@ -427,11 +528,11 @@ impl Input {
         }
     }
     /// マウスボタン系メッセージを送る直前に異なる座標でWM_MOUSEMOVEを3回送る
-    unsafe fn mmv_before_mouse_btn(&self, x: i32, y: i32) {
-        for n in [1, -1, 0] {
-            let lparam = make_lparam(x + n, y + n);
-            self.direct_message(WM_MOUSEMOVE, None, lparam);
-        }
+    fn mmv_before_mouse_btn(&self, x: i32, y: i32) -> bool {
+        [1, -1, 0].into_iter()
+            .all(|n| {
+                self.direct_mouse(WM_MOUSEMOVE, x + n, y + n)
+            })
     }
     fn mouse_down(&self, x: i32, y: i32, btn: &MouseButton) {
         unsafe {
@@ -442,8 +543,7 @@ impl Input {
                     MouseButton::Middle => WM_MBUTTONDOWN,
                 };
                 self.mmv_before_mouse_btn(x, y);
-                let lparam = make_lparam(x, y);
-                self.direct_message(msg, None, lparam);
+                self.direct_mouse(msg, x, y);
             } else {
                 self.move_mouse(x, y);
                 let (dx, dy) = self.fix_point(x, y);
@@ -478,8 +578,7 @@ impl Input {
                     MouseButton::Middle => WM_MBUTTONUP,
                 };
                 self.mmv_before_mouse_btn(x, y);
-                let lparam = make_lparam(x, y);
-                self.direct_message(msg, None, lparam);
+                self.direct_mouse(msg, x, y);
             } else {
                 self.move_mouse(x, y);
                 let (dx, dy) = self.fix_point(x, y);
@@ -522,11 +621,7 @@ impl Input {
         unsafe {
             if self.direct {
                 self.mmv_before_mouse_btn(x, y);
-                let msg = if horizontal {WM_MOUSEHWHEEL} else {WM_MOUSEWHEEL};
-                let amount = amount * WHEEL_DELTA as i32;
-                let wparam = ((amount & 0xFFFF) << 16) as usize;
-                let lparam = make_lparam(x, y);
-                self.direct_message(msg, wparam, lparam);
+                self.direct_mouse_wheel(horizontal, x, y, amount);
             } else {
                 self.move_mouse(x, y);
                 let (dx, dy) = self.fix_point(x, y);
@@ -684,6 +779,40 @@ impl Input {
         }
     }
 }
+// struct FindScrollable {
+//     x: i32,
+//     y: i32,
+//     horizontal: bool,
+//     found: Option<HWND>
+// }
+// impl FindScrollable {
+//     fn new(x: i32, y: i32, horizontal: bool) -> Self {
+//         Self {
+//             x,
+//             y,
+//             horizontal,
+//             found: None,
+//         }
+//     }
+//     /// 見つかったらtrue
+//     fn verify(&mut self, hwnd: HWND) -> bool {
+//         unsafe {
+//             let mut rect = RECT::default();
+//             let _ = GetClientRect(hwnd, &mut rect);
+//             let (cleft, ctop) = Input::client_to_screen(Some(hwnd), rect.left, rect.top);
+//             let (cright, cbottom) = Input::client_to_screen(Some(hwnd), rect.right, rect.bottom);
+//             if (cleft..cright).contains(&self.x) && (cbottom..ctop).contains(&self.y) {
+//                 self.found.replace(hwnd);
+//                 true
+//             } else {
+//                 false
+//             }
+//         }
+//     }
+//     fn found(self) -> Option<HWND> {
+//         self.found
+//     }
+// }
 enum MouseButton {
     Left,
     Right,
@@ -718,13 +847,21 @@ fn sleep(ms: u64) {
 trait IntoPrm<T> {
     fn intop(self) -> T;
 }
-impl<D: Default> IntoPrm<D> for Option<D> {
+impl<D, T> IntoPrm<D> for Option<T>
+where
+    T: IntoPrm<D> + Default,
+{
     fn intop(self) -> D {
-        self.unwrap_or_default()
+        self.unwrap_or_default().intop()
     }
 }
-impl<P> IntoPrm<P> for P {
-    fn intop(self) -> P {
+impl IntoPrm<WPARAM> for WPARAM {
+    fn intop(self) -> WPARAM {
+        self
+    }
+}
+impl IntoPrm<LPARAM> for LPARAM {
+    fn intop(self) -> LPARAM {
         self
     }
 }
