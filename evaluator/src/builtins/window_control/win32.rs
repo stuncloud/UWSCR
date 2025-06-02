@@ -1368,7 +1368,7 @@ enum ButtonType {
 
 impl From<HWND> for ButtonType {
     fn from(h: HWND) -> Self {
-        let style = get_window_style(h);
+        let style = get_window_style(h) as i32;
         match style & (BS_CHECKBOX|BS_AUTOCHECKBOX|BS_RADIOBUTTON|BS_AUTORADIOBUTTON|BS_3STATE|BS_AUTO3STATE) {
             BS_3STATE |
             BS_AUTO3STATE => Self::ThreeState,
@@ -2321,7 +2321,7 @@ impl Slider {
             Self::ScrollBar(_, _, _, dir, _) => *dir,
             Self::TrackBar(hwnd, _) => {
                 let style = TBS_VERT as i32;
-                if get_window_style(*hwnd) & style > 0 {1} else {0}
+                if get_window_style(*hwnd) as i32 & style > 0 {1} else {0}
             },
         }
     }

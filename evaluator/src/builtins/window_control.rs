@@ -582,8 +582,7 @@ pub fn clkitem(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let names = args.get_as_string_array(1)?;
     let clk_const = args.get_as_int(2, Some(0_usize))?;
     let check = args.get_as_three_state(3, Some(ThreeState::True))?;
-    let order = args.get_as_int(4, Some(1))?;
-    let order = if order < 1 {1_u32} else {order as u32};
+    let order = args.get_as_nth(4)?;
 
     let hwnd = get_hwnd_from_id(id);
 
@@ -694,7 +693,7 @@ pub fn ctrlwin(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
                 );
             },
             CtrlWinCmd::TOPNOACTV => unsafe {
-                for h in vec![HWND_TOPMOST, HWND_NOTOPMOST] {
+                for h in [HWND_TOPMOST, HWND_NOTOPMOST] {
                     let _ = SetWindowPos(
                         hwnd,
                         h,
@@ -1711,6 +1710,7 @@ pub enum GetItemConst {
     ITM_ACCEDIT   = 16777216,
     #[strum[props(desc="ACCで逆順検索")]]
     ITM_FROMLAST  = 65536,
+    #[strum[props(desc="ACCでウィンドウをアクティブにしない")]]
     ITM_BACK      = 512,
 }
 impl Into<u32> for GetItemConst {
@@ -1740,7 +1740,8 @@ impl Into<u32> for GetItemConst {
 - ITM_ACCCLK2: ACCによりクリック可能なものおよび選択可能テキスト
 - ITM_ACCTXT: ACCスタティックテキスト
 - ITM_ACCEDIT: ACCエディット可能テキスト
-- ITM_FROMLAST: ACCで検索順序を逆にする (最後のアイテムから取得)"#},
+- ITM_FROMLAST: ACCで検索順序を逆にする
+- ITM_BACK: ACCでウィンドウをアクティブにしない"#},
         {o,n="n番目",t="数値",d="リスト、リストビュー、ツリービューが複数ある場合その順番、-1ならすべて取得"},
         {o,n="列",t="数値",d="取得するリストビューの列を指定、0なら全て、-1ならカラム名"},
         {o,n="無効無視",t="真偽値",d="TRUEならディセーブル状態のコントロールは取得しない"},
@@ -2211,24 +2212,24 @@ pub enum GetStrConst {
 )]
 pub fn getstr(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = args.get_as_int(0, None)?;
-    let nth = args.get_as_nth(1)?;
+    let nth = args.get_as_int(1, Some(0))?;
     let item_type = args.get_as_const(2, false)?.unwrap_or(GetStrConst::STR_EDIT);
     let mouse = args.get_as_bool(3, Some(false))?;
 
     if id == 0 {
         // クリップボードから
-        let str = Clipboard::new().map_err(|e| UError::from(e))?.get_str();
+        let str = Clipboard::new().map_err(UError::from)?.get_str();
         Ok(str.into())
     } else {
         let hwnd = get_hwnd_from_id(id);
         if is_window(hwnd) {
             let str = match item_type {
-                GetStrConst::STR_EDIT => win32::Win32::get_edit_str(hwnd, nth, mouse),
-                GetStrConst::STR_STATIC => win32::Win32::get_static_str(hwnd, nth, mouse),
-                GetStrConst::STR_STATUS => win32::Win32::get_status_str(hwnd, nth, mouse),
-                GetStrConst::STR_ACC_EDIT => acc::Acc::get_edit_str(hwnd, nth as usize, mouse),
-                GetStrConst::STR_ACC_STATIC => acc::Acc::get_static_str(hwnd, nth as usize, mouse),
-                GetStrConst::STR_ACC_CELL => acc::Acc::get_cell_str(hwnd, nth as usize, mouse),
+                GetStrConst::STR_EDIT => win32::Win32::get_edit_str(hwnd, nth as u32, mouse),
+                GetStrConst::STR_STATIC => win32::Win32::get_static_str(hwnd, nth as u32, mouse),
+                GetStrConst::STR_STATUS => win32::Win32::get_status_str(hwnd, nth as u32, mouse),
+                GetStrConst::STR_ACC_EDIT => acc::Acc::get_edit_str(hwnd, nth, mouse),
+                GetStrConst::STR_ACC_STATIC => acc::Acc::get_static_str(hwnd, nth, mouse),
+                GetStrConst::STR_ACC_CELL => acc::Acc::get_cell_str(hwnd, nth, mouse),
                 GetStrConst::STR_UIA => None,
             };
             Ok(str.into())
@@ -2292,7 +2293,7 @@ pub fn sendstr(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 
     if id == 0 {
         // クリップボードに挿入
-        Clipboard::new().map_err(|e| UError::from(e))?.send_str(str);
+        Clipboard::new().map_err(UError::from)?.send_str(str);
     } else {
         let hwnd = get_hwnd_from_id(id);
         let mode = SendStrMode::from(mode);
@@ -2615,7 +2616,7 @@ fn obj_vec_to_u8_slice(arr: Vec<Object>) -> [u8; 3] {
         {n="探索色",t="数値または配列",d="BGR値、または [B,G,R]"},
         {o,n="閾値",t="数値または配列",d="BGRそれぞれに対する閾値、または [B,G,R] で個別指定"},
         {o,n="範囲",t="配列",d="[左上X,左上Y,右下X,右下Y] で指定、省略時はモニタまたはウィンドウ全体"},
-        {o,n="モニタ番号",t="数値",d="mouseorg未使用時に探索対象となるモニタを指定(0から)"},
+        {o,n="キャプチャ方法",t="数値",d="Graphics Capture APIを利用する場合探索対象となるモニタ番号を指定(0から)"},
     ],
 )]
 pub fn chkclr(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -2668,7 +2669,7 @@ pub fn chkclr(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncRe
                 let style = if mi.is_back {ImgConst::IMG_BACK} else {ImgConst::IMG_FORE};
                 ScreenShot::get_window(hwnd, left, top, right, bottom, client, style)
             } else {
-            ScreenShot::get_window_wgcapi(hwnd, left, top, right, bottom, client)
+                ScreenShot::get_window_wgcapi(hwnd, left, top, right, bottom, client)
             }
         },
         None => {
@@ -2676,7 +2677,7 @@ pub fn chkclr(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncRe
                 ScreenShot::get_screen(left, top, right, bottom)
             } else {
                 let monitor = monitor.unsigned_abs();
-            ScreenShot::get_screen_wgcapi(monitor, left, top, right, bottom)
+                ScreenShot::get_screen_wgcapi(monitor, left, top, right, bottom)
             }
         },
     }?;

@@ -1,5 +1,5 @@
 use super::ClkConst;
-use super::acc;
+use super::acc::{self, IAccessibleExt};
 use super::win32;
 use super::uia;
 use crate::builtins::{
@@ -193,7 +193,8 @@ impl ClkItem {
     }
     fn click_acc(&self, hwnd: HWND, check: bool) -> ClkResult {
         if let Some(found) = acc::Acc::find_click_target(hwnd, self) {
-
+            let hwnd = found.hwnd().unwrap_or_default();
+            let point = found.location().map(|[x, y, _, _]| (x, y)).ok();
             let result = match self.button {
                 ClkButton::Left => if let Ok(hwnd) = found.hwnd() {
                     MouseInput::left_click(hwnd, None)
@@ -212,8 +213,7 @@ impl ClkItem {
                 },
                 ClkButton::Default => found.click(check),
             };
-            let point = found.location().map(|[x, y, _, _]| (x, y)).ok();
-            ClkResult::new(result, found.hwnd().unwrap_or_default(), point)
+            ClkResult::new(result, hwnd, point)
         } else {
             ClkResult::failed()
         }
