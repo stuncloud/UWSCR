@@ -40,10 +40,6 @@ pub struct Acc {}
 
 impl Acc {
     pub fn getitem(hwnd: HWND, target: u32, max_count: i32, ignore_disabled: bool) -> Option<Vec<String>> {
-        #[cfg(debug_assertions)]
-        AccWindow::_out_all_item(hwnd, "D:\\temp");
-
-
         let gi = GetItem::new(target, max_count, ignore_disabled)?;
         let window = AccWindow::from_hwnd(hwnd).ok()?;
         if !gi.background {
@@ -149,9 +145,9 @@ impl Acc {
         (roles.contains(&ROLE_SYSTEM_MENUBAR) || roles.contains(&ROLE_SYSTEM_OUTLINE)).then_some(())?;
         item.name_as_path()
     }
-    pub fn find_click_target(hwnd: HWND, item: &ClkItem) -> Option<AccChild> {
-        // #[cfg(debug_assertions)]
-        // AccWindow::_out_all_item(hwnd, "D:\\temp");
+    pub fn find_click_target(hwnd: HWND, item: &ClkItem) -> Option<ClickTargetFound> {
+        #[cfg(debug_assertions)]
+        AccWindow::_out_all_item(hwnd, "D:\\temp");
 
         let window = AccWindow::from_hwnd(hwnd).ok()?;
         let mut iter = window.into_iter();
@@ -167,7 +163,7 @@ impl Acc {
             let parents = iter.filter(|child| child.role_is_one_of(&roles))
                 .flat_map(|child| child.into_iter());
             let item_roles = [ROLE_SYSTEM_MENUITEM, ROLE_SYSTEM_OUTLINEITEM];
-            path_iter.fold(None::<Vec<AccChild>>, move |mut children, name| {
+            let found = path_iter.fold(None::<Vec<AccChild>>, move |mut children, name| {
                 if let Some(_children) = children.take() {
                     let filtered = _children.into_iter()
                         .flat_map(|child| {
@@ -186,12 +182,26 @@ impl Acc {
                     children.replace(filtered);
                 }
                 children
-            }).and_then(|found| found.into_iter().nth(nth))
+            }).and_then(|found| found.into_iter().nth(nth));
+            found.map(ClickTargetFound::Single)
+        } else if item.target.list && item.name.contains('\t') {
+            let names = item.name.split('\t').collect::<Vec<_>>();
+            let matches = iter.filter(|child| child.role_is(ROLE_SYSTEM_LIST))
+                .flat_map(|child| {
+                    child.into_iter()
+                        .filter(|c| {c.role_is(ROLE_SYSTEM_LISTITEM)})
+                        .filter(|c| names.iter().any(|name| c.name_matches_to(name, true)))
+                })
+                .collect::<Vec<_>>();
+            (!matches.is_empty())
+                .then_some(ClickTargetFound::Multi(matches))
         } else {
             let filter = Self::find_click_target_filter(&item.name, item.short);
-            iter.filter(|child| child.role_is_one_of(&roles))
+            let found = iter.filter(|child| child.role_is_one_of(&roles))
                 .filter_map(filter)
                 .nth(nth)
+                .inspect(|c| {dbg!(AccChildDetail::from(c));});
+            found.map(ClickTargetFound::Single)
         }
     }
     fn find_click_target_filter(name: &str, partial: bool) -> impl FnMut(AccChild) -> Option<AccChild>
@@ -267,6 +277,52 @@ impl Acc {
             roles.push(ROLE_SYSTEM_OUTLINE);
         }
         roles
+    }
+}
+pub enum ClickTargetFound {
+    Single(AccChild),
+    Multi(Vec<AccChild>),
+}
+impl ClickTargetFound {
+    pub fn click(self, check: bool) -> bool {
+        match self {
+            ClickTargetFound::Single(child) => child.click(check),
+            ClickTargetFound::Multi(children) => {
+                let mut iter = children.into_iter();
+                // 一つ目のアイテムを選択
+                if iter.next().is_some_and(|c| c.select_one()) {
+                    // 残りのアイテムも追加選択
+                    iter.for_each(|c| {
+                        c.add_select();
+                    });
+                    true
+                } else {
+                    false
+                }
+            },
+        }
+    }
+    pub fn hwnd(&self) -> core::Result<HWND> {
+        match self {
+            ClickTargetFound::Single(child) => child.hwnd(),
+            ClickTargetFound::Multi(children) => {
+                children.first()
+                    .map(|c| c.hwnd())
+                    .transpose()
+                    .map(|h| h.unwrap_or_default())
+            },
+        }
+    }
+    pub fn location(&self) -> core::Result<[i32; 4]> {
+        match self {
+            ClickTargetFound::Single(child) => child.location(),
+            ClickTargetFound::Multi(children) => {
+                children.last()
+                    .map(|c| c.location())
+                    .transpose()
+                    .map(|loc| loc.unwrap_or_default())
+            },
+        }
     }
 }
 
