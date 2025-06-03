@@ -6,7 +6,6 @@ use windows::{
         Foundation::{
             VARIANT_BOOL, HWND, LPARAM, BOOL,
             E_NOTIMPL, DISP_E_MEMBERNOTFOUND, E_POINTER,
-            HGLOBAL, GlobalFree,
         },
         UI::{
             WindowsAndMessaging::{
@@ -44,9 +43,6 @@ use windows::{
             },
             Wmi::{
                 ISWbemObject, ISWbemProperty,
-            },
-            Memory::{
-                GlobalAlloc, GlobalLock, GlobalUnlock, GMEM_MOVEABLE,
             }
         },
     }
@@ -59,8 +55,7 @@ use util::winapi::{WString, get_absolute_path};
 
 use std::mem::ManuallyDrop;
 use std::ffi::c_void;
-use std::sync::{OnceLock, Arc, RwLock, LazyLock};
-use std::collections::HashMap;
+use std::sync::OnceLock;
 
 use num_traits::FromPrimitive;
 
@@ -103,7 +98,7 @@ impl ComError {
             ComError::IENotAllowed => false,
         }
     }
-    fn as_windows_error(self) -> core::Error {
+    fn into_windows_error(self) -> core::Error {
         match self {
             ComError::WindowsError { message, code, description: _ } => {
                 core::Error::new(HRESULT(code), HSTRING::from(message))
@@ -301,7 +296,6 @@ impl ComObject {
                     }
                 },
                 None => {
-                    let pvreserved = std::ptr::null_mut() as *mut std::ffi::c_void;
                     let mut ppunk = None;
                     GetActiveObject(&rclsid, None, &mut ppunk)?;
                     let maybe_obj = match ppunk {
@@ -355,7 +349,7 @@ impl ComObject {
     pub fn get_raw_property(&self, prop: &str) -> ComResult<VARIANT> {
         let dispidmember = self.get_id_from_name(prop)?;
         let mut dp = DISPPARAMS::default();
-        self.invoke_raw(dispidmember, &mut dp, DISPATCH_PROPERTYGET|DISPATCH_METHOD)
+        self.invoke_raw(dispidmember, &dp, DISPATCH_PROPERTYGET|DISPATCH_METHOD)
     }
     fn get_property_as_comobject(&self, prop: &str) -> ComResult<Self> {
         let variant = self.get_raw_property(prop)?;
@@ -379,7 +373,7 @@ impl ComObject {
         dp.cNamedArgs = 1;
         let mut named_args = vec![DISPID_PROPERTYPUT];
         dp.rgdispidNamedArgs = named_args.as_mut_ptr();
-        self.invoke(dispidmember, &mut dp, DISPATCH_PROPERTYPUT)?;
+        self.invoke(dispidmember, &dp, DISPATCH_PROPERTYPUT)?;
         Ok(())
     }
     /// インデックス指定でプロパティの値を得る
@@ -409,11 +403,11 @@ impl ComObject {
         args.reverse();
         dp.cArgs = args.len() as u32;
         dp.rgvarg = args.as_mut_ptr();
-        self.invoke_raw(dispidmember, &mut dp, DISPATCH_PROPERTYGET|DISPATCH_METHOD)
+        self.invoke_raw(dispidmember, &dp, DISPATCH_PROPERTYGET|DISPATCH_METHOD)
     }
     fn get_property_by_index_as_comobject(&self, prop: &str, index: Vec<Object>) -> ComResult<Self> {
         let variant = self.get_raw_property_by_index(prop, index)?;
-        variant.to_idispatch().map(|disp| Self::from(disp))
+        variant.to_idispatch().map(Self::from)
     }
     /// インデックス指定でプロパティへ代入
     /// obj.prop[index] = value
@@ -428,7 +422,7 @@ impl ComObject {
         dp.cNamedArgs = 1;
         let mut named_args = vec![DISPID_PROPERTYPUT];
         dp.rgdispidNamedArgs = named_args.as_mut_ptr();
-        self.invoke(dispidmember, &mut dp, DISPATCH_PROPERTYPUT)?;
+        self.invoke(dispidmember, &dp, DISPATCH_PROPERTYPUT)?;
         Ok(())
     }
     /// オブジェクト自身にインデックス指定
@@ -453,7 +447,7 @@ impl ComObject {
         args.reverse();
         dp.cArgs = args.len() as u32;
         dp.rgvarg = args.as_mut_ptr();
-        self.invoke(dispidmember, &mut dp, DISPATCH_PROPERTYGET|DISPATCH_METHOD)
+        self.invoke(dispidmember, &dp, DISPATCH_PROPERTYGET|DISPATCH_METHOD)
     }
     /// メソッドの実行
     /// obj.method(args)
@@ -500,7 +494,7 @@ impl ComObject {
                         }
                     },
                     ComArgType::NamedArg(name, v) => {
-                        let id = pnames.get_id_of(&name)?;
+                        let id = pnames.get_id_of(name)?;
                         named_flg = true;
                         Ok((Some(id), v.clone()))
                     },
@@ -518,7 +512,7 @@ impl ComObject {
         // 名前付き引数
         if ids.iter().any(|name| name.is_some()) {
             let mut named_args = ids.into_iter()
-                .filter_map(|maybe_id| maybe_id)
+                .flatten()
                 .collect::<Vec<_>>();
             named_args.reverse();
             if ! named_args.is_empty() {
@@ -530,10 +524,7 @@ impl ComObject {
         vargs.reverse();
         // 参照渡しは値を更新する
         for (arg, varg) in args.iter_mut().zip(vargs.into_iter()) {
-            match arg {
-                ComArg::ByRef(_, byref) => *byref = varg.try_into()?,
-                _ => {}
-            }
+            if let ComArg::ByRef(_, byref) = arg { *byref = varg.try_into()? }
         }
         Ok(variant)
     }
@@ -581,7 +572,7 @@ impl ComObject {
             let cnt = self.get_property("Count")
                 .map_err(|_| ComError::new_u(UErrorKind::ComCollectionError, UErrorMessage::FailedToConvertToCollection))?;
             let cnt = cnt.as_f64(false).ok_or(ComError::new_u(UErrorKind::ComCollectionError, UErrorMessage::FailedToConvertToCollection))? as u32;
-            (0..cnt).into_iter()
+            (0..cnt)
                 .map(|i| {
                     let index = vec![i.into()];
                     self.get_property_by_index("Item", index)
@@ -595,11 +586,7 @@ impl ComObject {
     }
     fn is_wmi_object(&self) -> bool {
         if let Some(name) = self.get_type_name().as_deref() {
-            match name {
-                "ISWbemObject" |
-                "ISWbemObjectEx" => true,
-                _ => false
-            }
+            matches!(name, "ISWbemObject" |"ISWbemObjectEx")
         } else {
             false
         }
@@ -896,7 +883,7 @@ impl TryInto<Object> for *mut SAFEARRAY {
             let lbound = SafeArrayGetLBound(self, 1)?;
             let ubound = SafeArrayGetUBound(self, 1)?;
             let size = ubound - lbound + 1;
-            let arr = (0..size).into_iter()
+            let arr = (0..size)
                 .map(|rgindices| {
                     let mut variant = VARIANT::default();
                     let pv = &mut variant as *mut _ as *mut c_void;
@@ -938,80 +925,118 @@ pub trait VariantExt {
     fn to_string(&self) -> ComResult<String>;
     fn to_bool(&self) -> ComResult<bool>;
     fn change_type(&self, vt: VARENUM) -> ComResult<VARIANT>;
+    fn new_variant<F>(vt: VARENUM, f: F) -> VARIANT
+    where F: FnOnce(&mut VARIANT_0_0)
+    {
+        let mut variant = VARIANT::default();
+        let mut v00 = VARIANT_0_0 {
+            vt,
+            ..Default::default()
+        };
+        f(&mut v00);
+        variant.Anonymous.Anonymous = ManuallyDrop::new(v00);
+        variant
+    }
 }
 
 impl VariantExt for VARIANT {
     fn null() -> VARIANT {
-        let mut variant = VARIANT::default();
-        let mut v00 = VARIANT_0_0::default();
-        v00.vt = VT_NULL;
-        variant.Anonymous.Anonymous = ManuallyDrop::new(v00);
-        variant
+        // let mut variant = VARIANT::default();
+        // let mut v00 = VARIANT_0_0::default();
+        // v00.vt = VT_NULL;
+        // variant.Anonymous.Anonymous = ManuallyDrop::new(v00);
+        // variant
+        Self::new_variant(VT_NULL, |_| {})
     }
     fn by_ref(var_val: *mut VARIANT) -> VARIANT {
-        let mut variant = VARIANT::default();
-        let mut v00 = VARIANT_0_0::default();
-        v00.vt = VARENUM(VT_VARIANT.0|VT_BYREF.0);
-        v00.Anonymous.pvarVal = var_val;
-        variant.Anonymous.Anonymous = ManuallyDrop::new(v00);
-        variant
+        // let mut variant = VARIANT::default();
+        // let mut v00 = VARIANT_0_0::default();
+        // v00.vt = VARENUM(VT_VARIANT.0|VT_BYREF.0);
+        // v00.Anonymous.pvarVal = var_val;
+        // variant.Anonymous.Anonymous = ManuallyDrop::new(v00);
+        // variant
+        Self::new_variant(VARENUM(VT_VARIANT.0|VT_BYREF.0), move |v00| {
+            v00.Anonymous.pvarVal = var_val;
+        })
     }
     fn from_f64(n: f64) -> VARIANT {
-        let mut variant = VARIANT::default();
-        let mut v00 = VARIANT_0_0::default();
-        v00.vt = VT_R8;
-        v00.Anonymous.dblVal = n;
-        variant.Anonymous.Anonymous = ManuallyDrop::new(v00);
-        variant
+        // let mut variant = VARIANT::default();
+        // let mut v00 = VARIANT_0_0::default();
+        // v00.vt = VT_R8;
+        // v00.Anonymous.dblVal = n;
+        // variant.Anonymous.Anonymous = ManuallyDrop::new(v00);
+        // variant
+        Self::new_variant(VT_R8, move |v00| {
+            v00.Anonymous.dblVal = n;
+        })
     }
     fn from_i32(n: i32) -> VARIANT {
-        let mut variant = VARIANT::default();
-        let mut v00 = VARIANT_0_0::default();
-        v00.vt = VT_I4;
-        v00.Anonymous.intVal = n;
-        variant.Anonymous.Anonymous = ManuallyDrop::new(v00);
-        variant
+        // let mut variant = VARIANT::default();
+        // let mut v00 = VARIANT_0_0::default();
+        // v00.vt = VT_I4;
+        // v00.Anonymous.intVal = n;
+        // variant.Anonymous.Anonymous = ManuallyDrop::new(v00);
+        // variant
+        Self::new_variant(VT_I4, move |v00| {
+            v00.Anonymous.lVal = n;
+        })
     }
     fn from_string(s: String) -> VARIANT {
-        let mut variant = VARIANT::default();
-        let mut v00 = VARIANT_0_0::default();
-        v00.vt = VT_BSTR;
-        let bstr = BSTR::from(s);
-        v00.Anonymous.bstrVal = ManuallyDrop::new(bstr);
-        variant.Anonymous.Anonymous = ManuallyDrop::new(v00);
-        variant
+        // let mut variant = VARIANT::default();
+        // let mut v00 = VARIANT_0_0::default();
+        // v00.vt = VT_BSTR;
+        // let bstr = BSTR::from(s);
+        // v00.Anonymous.bstrVal = ManuallyDrop::new(bstr);
+        // variant.Anonymous.Anonymous = ManuallyDrop::new(v00);
+        // variant
+        Self::new_variant(VT_BSTR, move |v00| {
+            let bstr = BSTR::from(s);
+            v00.Anonymous.bstrVal = ManuallyDrop::new(bstr);
+        })
     }
     fn from_bool(b: bool) -> VARIANT {
-        let mut variant = VARIANT::default();
-        let mut v00 = VARIANT_0_0::default();
-        v00.vt = VT_BOOL;
-        v00.Anonymous.boolVal = VARIANT_BOOL::from(b);
-        variant.Anonymous.Anonymous = ManuallyDrop::new(v00);
-        variant
+        // let mut variant = VARIANT::default();
+        // let mut v00 = VARIANT_0_0::default();
+        // v00.vt = VT_BOOL;
+        // v00.Anonymous.boolVal = VARIANT_BOOL::from(b);
+        // variant.Anonymous.Anonymous = ManuallyDrop::new(v00);
+        // variant
+        Self::new_variant(VT_BOOL, move |v00| {
+            v00.Anonymous.boolVal = VARIANT_BOOL::from(b);
+        })
     }
     fn from_idispatch(disp: IDispatch) -> VARIANT {
-        let mut variant = VARIANT::default();
-        let mut v00 = VARIANT_0_0::default();
-        v00.vt = VT_DISPATCH;
-        v00.Anonymous.pdispVal = ManuallyDrop::new(Some(disp));
-        variant.Anonymous.Anonymous = ManuallyDrop::new(v00);
-        variant
+        // let mut variant = VARIANT::default();
+        // let mut v00 = VARIANT_0_0::default();
+        // v00.vt = VT_DISPATCH;
+        // v00.Anonymous.pdispVal = ManuallyDrop::new(Some(disp));
+        // variant.Anonymous.Anonymous = ManuallyDrop::new(v00);
+        // variant
+        Self::new_variant(VT_DISPATCH, move |v00| {
+            v00.Anonymous.pdispVal = ManuallyDrop::new(Some(disp));
+        })
     }
     fn from_iunknown(unk: IUnknown) -> VARIANT {
-        let mut variant = VARIANT::default();
-        let mut v00 = VARIANT_0_0::default();
-        v00.vt = VT_UNKNOWN;
-        v00.Anonymous.punkVal = ManuallyDrop::new(Some(unk));
-        variant.Anonymous.Anonymous = ManuallyDrop::new(v00);
-        variant
+        // let mut variant = VARIANT::default();
+        // let mut v00 = VARIANT_0_0::default();
+        // v00.vt = VT_UNKNOWN;
+        // v00.Anonymous.punkVal = ManuallyDrop::new(Some(unk));
+        // variant.Anonymous.Anonymous = ManuallyDrop::new(v00);
+        // variant
+        Self::new_variant(VT_UNKNOWN, move |v00| {
+            v00.Anonymous.punkVal = ManuallyDrop::new(Some(unk));
+        })
     }
     fn from_safearray(psa: *mut SAFEARRAY) -> VARIANT {
-        let mut variant = VARIANT::default();
-        let mut v00 = VARIANT_0_0::default();
-        v00.vt = VARENUM(VT_ARRAY.0|VT_VARIANT.0);
-        v00.Anonymous.parray = psa;
-        variant.Anonymous.Anonymous = ManuallyDrop::new(v00);
-        variant
+        // let mut variant = VARIANT::default();
+        // let mut v00 = VARIANT_0_0::default();
+        // v00.vt = VARENUM(VT_ARRAY.0|VT_VARIANT.0);
+        // v00.Anonymous.parray = psa;
+        // variant.Anonymous.Anonymous = ManuallyDrop::new(v00);
+        // variant
+        Self::new_variant(VARENUM(VT_ARRAY.0|VT_VARIANT.0), move |v00| {
+            v00.Anonymous.parray = psa;
+        })
     }
     fn vt(&self) -> VARENUM {
         unsafe {
@@ -1318,8 +1343,8 @@ impl TryFrom<&ComObject> for ComCollection {
     type Error = ComError;
 
     fn try_from(com: &ComObject) -> Result<Self, Self::Error> {
-        let mut pdispparams = DISPPARAMS::default();
-        let v = com.invoke_raw(DISPID_NEWENUM, &mut pdispparams, DISPATCH_PROPERTYGET|DISPATCH_METHOD)?;
+        let pdispparams = DISPPARAMS::default();
+        let v = com.invoke_raw(DISPID_NEWENUM, &pdispparams, DISPATCH_PROPERTYGET|DISPATCH_METHOD)?;
         unsafe {
             let v00 = &v.Anonymous.Anonymous;
             if let Some(unk) = &*v00.Anonymous.punkVal {
@@ -1467,6 +1492,7 @@ impl EventHandler {
 }
 
 #[implement(IDispatch)]
+#[allow(non_camel_case_types)]
 pub struct EventDisp {
     evaluator: Evaluator,
     func: Function,
@@ -1500,22 +1526,22 @@ impl IDispatch_Impl for EventDisp {
                 // DISPPARAMSをObject配列に変換
                 let dp = pdispparams.as_ref()
                     .ok_or(core::Error::from(E_POINTER))?;
-                let args = dp.as_object_vec().map_err(|e| e.as_windows_error())?;
+                let args = dp.as_object_vec().map_err(|e| e.into_windows_error())?;
                 // DISPPARAMSの値をEVENT_PRMをセット
                 let new = Object::Array(args.clone());
                 let mut evaluator = self.evaluator.clone();
                 evaluator.assign_identifier("EVENT_PRM", new)
-                    .map_err(|e| ComError::UError(e).as_windows_error())?;
+                    .map_err(|e| ComError::UError(e).into_windows_error())?;
                 // 関数の引数にもセット
                 let arguments = args.into_iter()
                     .map(|o| (None, o))
                     .collect();
                 // イベントハンドラ関数を実行
                 let obj = self.func.invoke(&mut evaluator, arguments, None)
-                    .map_err(|e| ComError::UError(e).as_windows_error())?;
+                    .map_err(|e| ComError::UError(e).into_windows_error())?;
                 // 関数の戻り値をpvarresultに渡す
                 if let Some(result) = pvarresult.as_mut() {
-                    *result = VARIANT::try_from(obj).map_err(|e| e.as_windows_error())?;
+                    *result = VARIANT::try_from(obj).map_err(|e| e.into_windows_error())?;
                 }
             }
             Ok(())
@@ -1659,7 +1685,7 @@ impl GetObject {
                 let mut ec = EnumChildren::new(*hwnd);
                 ec.run();
                 for child in &ec.children {
-                    let mut pvobject = std::ptr::null_mut() as *mut c_void;
+                    let mut pvobject = std::ptr::null_mut();
                     if AccessibleObjectFromWindow(*child, OBJID_NATIVEOM.0 as u32, &IDispatch::IID, &mut pvobject).is_ok() {
                         let disp = IDispatch::from_raw(pvobject);
                         let com = ComObject::from(disp);

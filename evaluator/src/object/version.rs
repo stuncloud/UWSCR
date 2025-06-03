@@ -44,7 +44,7 @@ impl PartialEq for Version {
 
 impl PartialEq<String> for Version {
     fn eq(&self, other: &String) -> bool {
-        self.to_string() == *other
+        Self::from_str(other).is_ok_and(|v| v.eq(self))
     }
 }
 

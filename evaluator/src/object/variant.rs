@@ -52,9 +52,9 @@ impl TryFrom<Object> for Variant {
         Ok(Self(variant))
     }
 }
-impl Into<Object> for Variant {
-    fn into(self) -> Object {
-        Object::Variant(self)
+impl From<Variant> for Object {
+    fn from(val: Variant) -> Self {
+        Object::Variant(val)
     }
 }
 

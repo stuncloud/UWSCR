@@ -448,7 +448,7 @@ impl Browser {
             "tabs" => {
                 let tabs = self.get_tabs()?
                     .into_iter()
-                    .map(|tab| Object::TabWindow(tab))
+                    .map(Object::TabWindow)
                     .collect();
                 Ok(Object::Array(tabs))
             },
@@ -522,7 +522,7 @@ impl TabWindow {
         // エラーは握りつぶしてfalseを返す
         if let Ok(document) = self.document() {
             if let Ok(state) = document.get_property("readyState") {
-                match state.as_value() {
+                match state.into_value() {
                     Some(v) => v.as_str().unwrap_or_default() == "complete",
                     None => false,
                 }
@@ -707,10 +707,10 @@ impl TabWindow {
     }
     fn get_nth_element_by_tagname_and_property(&self, tag: String, prop_name: &str, prop_value: &str, nth: usize) -> BrowserResult<Option<RemoteObject>> {
         let mut elements = self.query_selector_all(tag)?.filter(|remote| {
-            let prop_val = remote.get_property(prop_name).ok().map(|r| r.as_value()).flatten();
+            let prop_val = remote.get_property(prop_name).ok().and_then(|r| r.into_value());
             match prop_val {
                 Some(val) => {
-                    val.as_str().unwrap_or_default().to_ascii_lowercase() == prop_value.to_ascii_lowercase()
+                    val.as_str().unwrap_or_default().eq_ignore_ascii_case(prop_value)
                 },
                 None => false,
             }
@@ -745,7 +745,7 @@ impl TabWindow {
                 let col = format!("{}", col - 1);
                 match rows.get_property_by_index("cells", &col) {
                     Ok(cell) => {
-                        match cell.get_property("textContent")?.as_value() {
+                        match cell.get_property("textContent")?.into_value() {
                             Some(v) => Ok(v.into()),
                             None => Ok(Object::Empty),
                         }
@@ -763,7 +763,7 @@ impl TabWindow {
                     let new = new_value.first().map(|s| s.to_string()).unwrap_or_default();
                     remote.set_property("value", RemoteFuncArg::Value(json!(&new)))?;
                     let v = remote.get_property("value")?;
-                    let eq = v.as_value().unwrap_or_default() == json!(new);
+                    let eq = v.into_value().unwrap_or_default() == json!(new);
                     Ok(eq.into())
                 } else {
                     remote.emulate_key_input(new_value)
@@ -807,7 +807,7 @@ impl TabWindow {
         let mut elements = self.query_selector_all(tag)?;
         match elements.nth(nth - 1) {
             Some(remote) => {
-                match remote.get_property("outerHTML")?.as_value() {
+                match remote.get_property("outerHTML")?.into_value() {
                     Some(value) => Ok(value.into()),
                     None => Ok(Object::Empty),
                 }
@@ -1082,10 +1082,9 @@ impl BrowserProcess {
         let processes: Vec<Win32Process> = pcon.filtered_query(&filters)?;
 
         if let Some(tcpcon) = tcpcons.first() {
-            if processes.len() > 0 {
+            if !processes.is_empty() {
                 let found = processes.iter()
-                    .find(|p| p.process_id == tcpcon.owning_process)
-                    .is_some();
+                    .any(|p| p.process_id == tcpcon.owning_process);
                 if found {
                     Ok(ProcessFound::Found)
                 } else {
@@ -1094,12 +1093,10 @@ impl BrowserProcess {
             } else {
                 Ok(ProcessFound::UnMatch)
             }
+        } else if !processes.is_empty() {
+            Ok(ProcessFound::NoPort)
         } else {
-            if processes.len() > 0 {
-                Ok(ProcessFound::NoPort)
-            } else {
-                Ok(ProcessFound::None)
-            }
+            Ok(ProcessFound::None)
         }
     }
     fn new_wmi_connection(namespace: Option<&str>) -> WMIResult<WMIConnection> {
@@ -1117,7 +1114,7 @@ impl BrowserProcess {
         filters.insert("LocalPort".to_string(), FilterValue::Number(port.into()));
         filters.insert("state".to_string(), FilterValue::Number(2));
         let result: Vec<NetTCPConnection> = connection.filtered_query(&filters)?;
-        let pid = if result.len() > 0 {
+        let pid = if !result.is_empty() {
             result[0].owning_process
         } else {
             0
@@ -1135,14 +1132,16 @@ impl BrowserProcess {
 
     unsafe extern "system"
     fn enum_window_proc(hwnd: HWND, lparam: LPARAM) -> BOOL {
-        let data = &mut *(lparam.0 as *mut LparamData);
-        let mut pid = 0;
-        GetWindowThreadProcessId(hwnd, Some(&mut pid));
-        if data.0 == pid && GetWindow(hwnd, GW_OWNER) == HWND::default() && IsWindowVisible(hwnd).as_bool() {
-            data.1 = hwnd;
-            false.into()
-        } else {
-            true.into()
+        unsafe {
+            let data = &mut *(lparam.0 as *mut LparamData);
+            let mut pid = 0;
+            GetWindowThreadProcessId(hwnd, Some(&mut pid));
+            if data.0 == pid && GetWindow(hwnd, GW_OWNER) == HWND::default() && IsWindowVisible(hwnd).as_bool() {
+                data.1 = hwnd;
+                false.into()
+            } else {
+                true.into()
+            }
         }
     }
 }
@@ -1222,11 +1221,11 @@ impl fmt::Display for ExceptionDetails {
         write!(f, "Runtime Exception: {}", self.text)
     }
 }
-impl Into<UError> for ExceptionDetails {
-    fn into(self) -> UError {
+impl From<ExceptionDetails> for UError {
+    fn from(val: ExceptionDetails) -> Self {
         UError::new(
             UErrorKind::BrowserControlError,
-            UErrorMessage::BrowserRuntimeException(self.to_string())
+            UErrorMessage::BrowserRuntimeException(val.to_string())
         )
     }
 }
@@ -1353,11 +1352,11 @@ impl RemoteObject {
             ))
         }
     }
-    fn as_value(self) -> Option<Value> {
+    fn into_value(self) -> Option<Value> {
         self.remote.value
     }
-    fn as_string(self) -> String {
-        let value = self.as_value().unwrap_or_default();
+    fn into_string(self) -> String {
+        let value = self.into_value().unwrap_or_default();
         value.as_str().unwrap_or_default().to_string()
     }
     pub fn get(&self, name: Option<&str>, index: Option<&str>) -> BrowserResult<Object> {
@@ -1368,7 +1367,7 @@ impl RemoteObject {
             (Some(name), Some(index)) => self.get_property_by_index(name, index),
 
         };
-        result.map(|remote| remote.to_object())
+        result.map(|remote| remote.into_object())
     }
     pub fn set(&self, name: Option<&str>, index: Option<&str>, value: RemoteFuncArg) -> BrowserResult<Object> {
         let result = match (name, index) {
@@ -1377,13 +1376,13 @@ impl RemoteObject {
             (Some(name), None) => self.set_property(name, value),
             (Some(name), Some(index)) => self.set_property_by_index(name, index, value),
         };
-        result.map(|remote| remote.to_object())
+        result.map(|remote| remote.into_object())
     }
     pub fn invoke_method(&self, name: &str, args: Vec<RemoteFuncArg>, await_promise: bool) -> BrowserResult<Object> {
         let declaration = format!("function(...args) {{ return this.{name}(...args); }}");
         if let Some(id) = &self.remote.object_id {
             self.dp.invoke_function(id, &declaration, args, true, await_promise)
-                .map(|remote| remote.to_object())
+                .map(|remote| remote.into_object())
         } else {
             Err(UError::new(
                 UErrorKind::BrowserControlError,
@@ -1392,10 +1391,10 @@ impl RemoteObject {
         }
     }
     pub fn invoke_as_function(&self, args: Vec<RemoteFuncArg>, await_promise: bool) -> BrowserResult<Object> {
-        let declaration = format!("function(...args) {{ return this(...args); }}");
+        let declaration = "function(...args) { return this(...args); }".to_string();
         if let Some(id) = &self.remote.object_id {
             self.dp.invoke_function(id, &declaration, args, true, await_promise)
-                .map(|remote| remote.to_object())
+                .map(|remote| remote.into_object())
         } else {
             Err(UError::new(
                 UErrorKind::BrowserControlError,
@@ -1403,7 +1402,7 @@ impl RemoteObject {
             ))
         }
     }
-    fn to_object(self) -> Object {
+    fn into_object(self) -> Object {
         if self.remote.object_id.is_some() {
             Object::RemoteObject(self)
         } else {
@@ -1529,35 +1528,35 @@ impl RemoteObject {
     }
     /// IE関数互換関数群で使うエレメントの値を返す関数
     fn as_element_value(&self) -> BrowserResult<Object> {
-        let value = self.get_property("tagName")?.as_value().unwrap_or_default();
+        let value = self.get_property("tagName")?.into_value().unwrap_or_default();
         let tag_name = value.as_str().unwrap_or_default();
         match tag_name.to_ascii_uppercase().as_str() {
             "SELECT" => {
                 // SELECT要素は選択されたOptionのテキストを返す
                 let texts = self.get_property("selectedOptions")?.into_iter()?
                     .filter_map(|opt| opt.get_property("textContent").ok())
-                    .filter_map(|text| text.as_value())
+                    .filter_map(|text| text.into_value())
                     .filter_map(|value| value.as_str().map(|s| s.to_string()))
                     .collect::<Vec<_>>();
                 Ok(texts.join(" ").to_string().into())
             },
             "INPUT" => {
-                let value = self.get_property("type")?.as_value().unwrap_or_default();
+                let value = self.get_property("type")?.into_value().unwrap_or_default();
                 let type_name = value.as_str().unwrap_or_default();
                 match type_name.to_ascii_uppercase().as_str() {
                     // 特定のINPUT要素はvalue以外を返す
                     "RADIO" | "CHECKBOX" => {
-                        let checked = self.get_property("checked")?.as_value().unwrap_or_default().as_bool().unwrap_or(false);
+                        let checked = self.get_property("checked")?.into_value().unwrap_or_default().as_bool().unwrap_or(false);
                         Ok(checked.into())
                     },
                     _ => {
-                        self.get_property("value").map(|remote| remote.to_object())
+                        self.get_property("value").map(|remote| remote.into_object())
                     }
                 }
             },
             _ => {
                 // 上記以外の要素はtextContentを返す
-                self.get_property("textContent").map(|remote| remote.to_object())
+                self.get_property("textContent").map(|remote| remote.into_object())
             }
         }
     }
@@ -1575,7 +1574,7 @@ impl RemoteObject {
             // clickメソッドを実行
             self.invoke_method("click", vec![], false)?;
             // クリック成否を得る
-            let clicked = self.get_property("uwscr_brsetdata_click_flg")?.as_value().unwrap_or_default().as_bool().unwrap_or(false);
+            let clicked = self.get_property("uwscr_brsetdata_click_flg")?.into_value().unwrap_or_default().as_bool().unwrap_or(false);
             // 後始末
             // イベントハンドラの登録を解除
             self.invoke_method("removeEventListener", vec![
@@ -1596,7 +1595,7 @@ impl RemoteObject {
     }
     fn match_text_content(&self, text: &str, exact_match: bool) -> bool {
         match self.get_property("textContent") {
-            Ok(remote) => match remote.as_value() {
+            Ok(remote) => match remote.into_value() {
                 Some(value) => match value.as_str() {
                     Some(t) => if exact_match {
                         t == text
@@ -1619,8 +1618,8 @@ impl RemoteObject {
             let files = self.get_property("files")?;
             files.into_iter()?
                 .map(|file| {
-                    let name = file.get_property("name")?.as_string();
-                    let matched = input_value.iter().find(|path| path.ends_with(&name)).is_some();
+                    let name = file.get_property("name")?.into_string();
+                    let matched = input_value.iter().any(|path| path.ends_with(&name));
                     Ok(matched)
                 })
                 .reduce(|a, b| Ok(a? && b?))
@@ -1630,36 +1629,36 @@ impl RemoteObject {
             self.set_property("value", RemoteFuncArg::Value(json!(null)))?;
             let text = input_value.first().map(|s| s.to_string()).unwrap_or_default();
             self.dp.send("Input.insertText", json!({"text": text}))?;
-            let value = self.get_property("value")?.as_string();
+            let value = self.get_property("value")?.into_string();
             let result = value == text;
             Ok(result)
         }
     }
     fn is_input_file(&self) -> BrowserResult<bool> {
-        let t= self.get_property("type")?.as_string();
+        let t= self.get_property("type")?.into_string();
         Ok(t == "file")
     }
 
 }
 
-impl Into<Value> for RemoteObject {
-    fn into(self) -> Value {
-        serde_json::to_value(self.remote.to_owned()).unwrap_or_default()
+impl From<RemoteObject> for Value {
+    fn from(val: RemoteObject) -> Self {
+        serde_json::to_value(val.remote.to_owned()).unwrap_or_default()
     }
 }
-impl Into<RemoteFuncArg> for RemoteObject {
-    fn into(self) -> RemoteFuncArg {
-        RemoteFuncArg::RemoteObject(self)
+impl From<RemoteObject> for RemoteFuncArg {
+    fn from(val: RemoteObject) -> Self {
+        RemoteFuncArg::RemoteObject(val)
     }
 }
-impl Into<Object> for RemoteObject {
-    fn into(self) -> Object {
-        self.to_object()
+impl From<RemoteObject> for Object {
+    fn from(val: RemoteObject) -> Self {
+        val.into_object()
     }
 }
-impl Into<RemoteFuncArg> for Value {
-    fn into(self) -> RemoteFuncArg {
-        RemoteFuncArg::Value(self)
+impl From<Value> for RemoteFuncArg {
+    fn from(val: Value) -> Self {
+        RemoteFuncArg::Value(val)
     }
 }
 impl TryFrom<Object> for RemoteFuncArg {

@@ -41,7 +41,7 @@ impl MemberDefVec {
                     DefDllParamSize::Const(name) => {
                         e.env.get_const_num(&name)
                             .ok_or(UError::new(UErrorKind::StructDefError, UErrorMessage::DllArgConstSizeIsNotValid))
-                            .map(|n| Some(n))
+                            .map(Some)
                     },
                     DefDllParamSize::Size(n) => Ok(Some(n)),
                     DefDllParamSize::None => Ok(None),
@@ -174,7 +174,7 @@ impl StructDef {
                 }
             }
         }
-        let soffset = self.members.iter().next().map(|m| m.offset).unwrap_or_default() + *offset;
+        let soffset = self.members.first().map(|m| m.offset).unwrap_or_default() + *offset;
         *offset += o;
         soffset
     }
@@ -240,14 +240,14 @@ impl RefVal {
     fn new_ptr() -> EvalResult<Self> {
         Self::new::<usize>(1)
     }
-    fn set<T>(&self, v: &Vec<T>) {
+    fn set<T>(&self, v: &[T]) {
         unsafe {
             let dst = self.ptr as *mut T;
             ptr::copy_nonoverlapping(v.as_ptr(), dst, v.len());
         }
     }
     fn set_ptr(&self, addr: usize) {
-        self.set::<usize>(&vec![addr]);
+        self.set::<usize>(&[addr]);
     }
     fn address(&self) -> usize {
         self.ptr as usize
@@ -468,7 +468,7 @@ impl UStructMember {
     }
     /// 新たな文字列バッファをセットし、バッファとそのアドレスを返す
     fn set_new_string(&self, string: &str, is_ansi: bool) -> EvalResult<(StringBuffer, usize)> {
-        let buf = StringBuffer::from_str(&string, is_ansi)?;
+        let buf = StringBuffer::from_str(string, is_ansi)?;
         let addr = if self.is_ref {
             // バッファのポインタのポインタ
             self.set_string_ptr_ref(buf.address())?
@@ -483,7 +483,7 @@ impl UStructMember {
     /// サイズ指定版
     fn set_new_string_sized(&self, string: &str, len: usize, is_ansi: bool) -> EvalResult<(StringBuffer, usize)> {
         let buf = StringBuffer::new(len, is_ansi)?;
-        buf.set_string(&string, is_ansi)?;
+        buf.set_string(string, is_ansi)?;
         let addr = if self.is_ref {
             self.set_string_ptr_ref(buf.address())?
         } else {
@@ -508,8 +508,7 @@ impl UStructMember {
         let mut ust = match &self.r#type {
             MemberType::Struct(sdef) => {
                 let ptr = (addr + self.offset) as *mut c_void;
-                let ust = UStruct::new_from_pointer(ptr, sdef);
-                ust
+                UStruct::new_from_pointer(ptr, sdef)
             },
             MemberType::UStruct(sdef) => {
                 let ust = UStruct::try_from(sdef)?;
@@ -531,18 +530,10 @@ impl UStructMember {
         Ok(())
     }
     fn is_wide_string(&self) -> bool {
-        match self.r#type {
-            MemberType::Wstring |
-            MemberType::PWchar => true,
-            _ => false,
-        }
+        matches!(self.r#type, MemberType::Wstring|MemberType::PWchar)
     }
     fn is_ansi_string(&self) -> bool {
-        match self.r#type {
-            MemberType::String |
-            MemberType::Pchar => true,
-            _ => false,
-        }
+        matches!(self.r#type, MemberType::String|MemberType::Pchar)
     }
     pub fn get_ustruct_mut(&mut self) -> Option<&mut UStruct> {
         self.ustruct.as_mut()
@@ -614,7 +605,7 @@ impl TryFrom<&StructDef> for UStruct {
 impl UStruct {
     fn new(sdef: &StructDef) -> Self {
         let members = sdef.members.iter()
-            .map(|mdef| UStructMember::new(mdef))
+            .map(UStructMember::new)
             .collect();
         Self {
             name: sdef.name.clone(),
@@ -665,7 +656,7 @@ impl UStruct {
                 let p = mutex.lock().unwrap();
                 p.ptr
             },
-            None => ptr::null_mut() as *mut c_void,
+            None => ptr::null_mut(),
         }
     }
     pub fn size(&self) -> usize {
@@ -876,42 +867,38 @@ impl UStruct {
             let ansi = to_ansi_bytes(&s);
             if ansi.len() > count {
                 return Err(UError::new(UErrorKind::UStructError, UErrorMessage::StructMemberSizeError(count)));
+            } else if member.is_ref {
+                let refval = RefVal::new::<u8>(count)?;
+                refval.set(&ansi);
+                unsafe {
+                    let src = refval.ptr as usize;
+                    let dst = addr as *mut _;
+                    ptr::copy_nonoverlapping(&src, dst, 1);
+                }
             } else {
-                if member.is_ref {
-                    let refval = RefVal::new::<u8>(count)?;
-                    refval.set(&ansi);
-                    unsafe {
-                        let src = refval.ptr as usize;
-                        let dst = addr as *mut _;
-                        ptr::copy_nonoverlapping(&src, dst, 1);
-                    }
-                } else {
-                    let src = ansi.as_ptr();
-                    let dst = addr as *mut u8;
-                    unsafe {
-                        ptr::copy_nonoverlapping(src, dst, ansi.len());
-                    }
+                let src = ansi.as_ptr();
+                let dst = addr as *mut u8;
+                unsafe {
+                    ptr::copy_nonoverlapping(src, dst, ansi.len());
                 }
             }
         } else {
             let wide = to_wide_string(&s);
             if wide.len() > count {
                 return Err(UError::new(UErrorKind::UStructError, UErrorMessage::StructMemberSizeError(count)));
+            } else if member.is_ref {
+                let refval = RefVal::new::<u16>(count)?;
+                refval.set(&wide);
+                unsafe {
+                    let src = refval.ptr as usize;
+                    let dst = addr as *mut _;
+                    ptr::copy_nonoverlapping(&src, dst, 1);
+                }
             } else {
-                if member.is_ref {
-                    let refval = RefVal::new::<u16>(count)?;
-                    refval.set(&wide);
-                    unsafe {
-                        let src = refval.ptr as usize;
-                        let dst = addr as *mut _;
-                        ptr::copy_nonoverlapping(&src, dst, 1);
-                    }
-                } else {
-                    let src = wide.as_ptr();
-                    let dst = addr as *mut u16;
-                    unsafe {
-                        ptr::copy_nonoverlapping(src, dst, wide.len());
-                    }
+                let src = wide.as_ptr();
+                let dst = addr as *mut u16;
+                unsafe {
+                    ptr::copy_nonoverlapping(src, dst, wide.len());
                 }
             }
         }
@@ -1136,7 +1123,7 @@ impl UStruct {
                 Ok(addr.into())
             },
             "bufsize" => {
-                let obj = args.get(0).ok_or(UError::new(UErrorKind::UStructError, UErrorMessage::BuiltinArgRequiredAt(1)))?;
+                let obj = args.first().ok_or(UError::new(UErrorKind::UStructError, UErrorMessage::BuiltinArgRequiredAt(1)))?;
                 let name = obj.to_string();
                 let member = self.get_member(&name)?;
                 let size = member.buffer_size();
@@ -1229,18 +1216,10 @@ impl MemberType {
         }
     }
     fn is_ansi(&self) -> bool {
-        match self {
-            MemberType::String |
-            MemberType::Pchar => true,
-            _ => false
-        }
+        matches!(self, MemberType::String|MemberType::Pchar)
     }
     fn is_char(&self) -> bool {
-        match self {
-            MemberType::PWchar |
-            MemberType::Pchar => true,
-            _ => false
-        }
+        matches!(self, MemberType::PWchar|MemberType::Pchar)
     }
 }
 impl std::fmt::Display for MemberType {

@@ -124,19 +124,19 @@ impl BuiltinFuncArgs {
                 .collect()
         }
     }
+    #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
         self.arguments.len()
     }
     pub fn get_expr(&self, i: usize) -> Option<Expression> {
-        self.arguments.get(i).map_or(None,|e| e.0.clone())
+        self.arguments.get(i).and_then(|e| e.0.clone())
     }
     // pub fn get_objects_from(&mut self, index: usize) -> Vec<Object> {
     //     let rest = self.arguments.split_off(index);
     //     rest.into_iter().map(|a| a.1.clone()).collect()
     // }
     pub fn take_argument(&mut self, index: usize) -> Vec<(Option<Expression>, Object)> {
-        let rest = self.arguments.split_off(index);
-        rest.into_iter().map(|a| a.clone()).collect()
+        self.arguments.split_off(index)
     }
 
     // ビルトイン関数の引数を受け取るための関数群
@@ -145,7 +145,7 @@ impl BuiltinFuncArgs {
     // 引数が省略されていた場合はdefaultの値を返す
     // 引数が必須なのになかったらエラーを返す
     fn get_arg<T, F: Fn(Object)-> BuiltInResult<T>>(&self, i: usize, f: F) -> BuiltInResult<T> {
-        if self.len() >= i+ 1 {
+        if self.len() > i {
             let obj = self.item(i);
             f(obj)
         } else {
@@ -153,7 +153,7 @@ impl BuiltinFuncArgs {
         }
     }
     fn get_arg_with_default<T, F: Fn(Object)-> BuiltInResult<T>>(&self, i: usize, default: Option<T>, f: F) -> BuiltInResult<T> {
-        if self.len() >= i+ 1 {
+        if self.len() > i {
             let obj = self.item(i);
             if obj == Object::EmptyParam {
                 // 引数が省略されていた場合、デフォルト値を返すか必須引数ならエラーにする
@@ -166,7 +166,7 @@ impl BuiltinFuncArgs {
         }
     }
     fn get_arg_with_default2<T, F: Fn(Object, Option<T>)-> BuiltInResult<T>>(&self, i: usize, default: Option<T>, f: F) -> BuiltInResult<T> {
-        if self.len() >= i+ 1 {
+        if self.len() > i {
             let obj = self.item(i);
             f(obj, default)
         } else {
@@ -175,16 +175,14 @@ impl BuiltinFuncArgs {
         }
     }
     fn get_arg_with_required_flag<T, F: Fn(Object)-> BuiltInResult<Option<T>>>(&self, i: usize, required: bool, f: F) -> BuiltInResult<Option<T>> {
-        if self.len() >= i+ 1 {
+        if self.len() > i {
             let obj = self.item(i);
             f(obj)
+        } else if required {
+            let err = BuiltinFuncError::new(UErrorMessage::BuiltinArgRequiredAt(i + 1));
+            Err(err)
         } else {
-            if required {
-                let err = BuiltinFuncError::new(UErrorMessage::BuiltinArgRequiredAt(i + 1));
-                Err(err)
-            } else {
-                Ok(None)
-            }
+            Ok(None)
         }
     }
 
@@ -497,7 +495,7 @@ impl BuiltinFuncArgs {
     pub fn get_rest_as_string_array(&self, i: usize, requires: usize) -> BuiltInResult<Vec<String>> {
         let vec = self.split_off(i)
             .into_iter()
-            .map(|o| match o {
+            .flat_map(|o| match o {
                 Object::Array(vec) => vec.into_iter()
                         .map(|o| o.to_string())
                         .collect(),
@@ -511,7 +509,6 @@ impl BuiltinFuncArgs {
                 Object::EmptyParam => {vec![]},
                 o => vec![o.to_string()]
             })
-            .flatten()
             .filter(|s| ! s.is_empty())
             .collect::<Vec<_>>();
         if vec.len() < requires {
@@ -528,7 +525,7 @@ impl BuiltinFuncArgs {
                 .filter_map(|o| match o {
                     Object::Num(n) => {
                         FromPrimitive::from_f64(n)
-                            .map(|key| SCKeyCode::VirtualKeyCode(key))
+                            .map(SCKeyCode::VirtualKeyCode)
                     },
                     Object::String(s) => {
                         s.chars().next()
@@ -807,10 +804,7 @@ impl From<bool> for ThreeState {
 }
 impl ThreeState {
     pub fn as_bool(&self) -> bool {
-        match self {
-            Self::False => false,
-            _ => true
-        }
+        !matches!(self, Self::False)
     }
 }
 pub struct BuiltinFunctionSet {
@@ -826,13 +820,14 @@ impl BuiltinFunctionSet {
     }
 }
 
+#[derive(Default)]
 pub struct BuiltinFunctionSets {
     sets: Vec<BuiltinFunctionSet>
 }
 
 impl BuiltinFunctionSets {
     pub fn new() -> Self {
-        BuiltinFunctionSets{sets: vec![]}
+        Self::default()
     }
     pub fn add(&mut self, name: &str, func: BuiltinFunction, desc: FuncDesc) {
         let len = desc.arg_len();
@@ -855,9 +850,9 @@ impl BuiltinFunctionSets {
         }
     }
 }
-impl Into<Vec<BuiltinName>> for BuiltinFunctionSets {
-    fn into(self) -> Vec<BuiltinName> {
-        self.sets.into_iter()
+impl From<BuiltinFunctionSets> for Vec<BuiltinName> {
+    fn from(val: BuiltinFunctionSets) -> Self {
+        val.sets.into_iter()
             .map(|set| BuiltinName::new_func(set.name, set.desc))
             .collect()
     }
@@ -1037,7 +1032,7 @@ fn init_builtin_consts() -> BuiltinConsts {
     // SLCT_* 定数
     let mut slcts = BuiltinConsts {
         sets: {
-            let mut sets = (1..=31_u32).into_iter()
+            let mut sets = (1..=31_u32)
                 .map(|n| {
                     let val = 2_i32.pow(n - 1);
                     let name = format!("SLCT_{n}");
@@ -1135,12 +1130,12 @@ impl BuiltinConsts {
     }
 }
 
-impl Into<Vec<BuiltinName>> for BuiltinConsts {
-    fn into(self) -> Vec<BuiltinName> {
-        self.sets.into_iter()
+impl From<BuiltinConsts> for Vec<BuiltinName> {
+    fn from(val: BuiltinConsts) -> Self {
+        val.sets.into_iter()
             .map(|set| BuiltinName {
                 name: set.name,
-                desc: set.desc.map(|d| BuiltinNameDesc::Const(d)),
+                desc: set.desc.map(BuiltinNameDesc::Const),
                 hidden: set.hidden,
             })
             .collect()
@@ -1157,16 +1152,16 @@ fn special_variables() -> BuiltinConsts {
         env!("CARGO_PKG_VERSION").parse::<Version>().unwrap_or(Version::new(0,0,0))
     ), Some("UWSCRのバージョン".into())));
     sets.push(BuiltinConst::new("GET_UWSC_DIR".into(),
-        env::var("GET_UWSC_DIR").map_or(Object::Empty, |path| Object::String(path))
+        env::var("GET_UWSC_DIR").map_or(Object::Empty, Object::String)
     , Some("uwscr.exeのあるディレクトリ".into())));
     sets.push(BuiltinConst::new("GET_UWSCR_DIR".into(),
-        env::var("GET_UWSC_DIR").map_or(Object::Empty, |path| Object::String(path))
+        env::var("GET_UWSC_DIR").map_or(Object::Empty, Object::String)
     , Some("uwscr.exeのあるディレクトリ".into())));
     sets.push(BuiltinConst::new("GET_UWSC_NAME".into(),
-        env::var("GET_UWSC_NAME").map_or(Object::Empty, |path| Object::String(path))
+        env::var("GET_UWSC_NAME").map_or(Object::Empty, Object::String)
     , Some("スクリプト名".into())));
     sets.push(BuiltinConst::new("GET_UWSCR_NAME".into(),
-        env::var("GET_UWSC_NAME").map_or(Object::Empty, |path| Object::String(path))
+        env::var("GET_UWSC_NAME").map_or(Object::Empty, Object::String)
     , Some("スクリプト名".into())));
     sets.push(BuiltinConst::new("GET_WIN_DIR".into(), Object::String(
         get_windows_directory()
@@ -1256,7 +1251,7 @@ fn builtin_func_sets() -> BuiltinFunctionSets {
 pub fn builtin_eval(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let script = args.get_as_string(0, None)?;
     evaluator.invoke_eval_script(&script)
-        .map_err(|err| BuiltinFuncError::UError(err))
+        .map_err(BuiltinFuncError::UError)
 }
 
 #[builtin_func_desc(
@@ -1332,7 +1327,7 @@ pub fn get_settings(_: &mut Evaluator, _: BuiltinFuncArgs) -> BuiltinFuncResult 
 pub fn raise(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let msg = args.get_as_string(0, None)?;
     let title = args.get_as_string(1, Some(String::new()))?;
-    let kind = if title.len() > 0 {
+    let kind = if !title.is_empty() {
         UErrorKind::Any(title)
     } else {
         UErrorKind::UserDefinedError

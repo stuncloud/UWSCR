@@ -339,7 +339,7 @@ impl Fopen {
                 }
             },
             FopenEncoding::Sjis => {
-                let (cow,_,_) = SHIFT_JIS.encode(&fixed);
+                let (cow,_,_) = SHIFT_JIS.encode(fixed);
                 stream.write_all(cow.as_ref())?;
             }
             _ => {
@@ -1213,8 +1213,8 @@ enum IniLine {
 impl IniLine {
     fn get_inikey_if_match(&self, section: &str, key: &str) -> Option<IniKey> {
         if let Self::Key(inikey) = self {
-            if inikey.section.to_ascii_uppercase() == section.to_ascii_uppercase() &&
-            inikey.key.to_ascii_uppercase() == key.to_ascii_uppercase() {
+            if inikey.section.eq_ignore_ascii_case(section) &&
+            inikey.key.eq_ignore_ascii_case(key) {
                 Some(inikey.clone())
             } else {
                 None
@@ -1230,7 +1230,7 @@ impl IniLine {
     fn is_in_section(&self, section: &str) -> bool {
         match self {
             IniLine::Section(section2) => {
-                section2.to_ascii_uppercase() == section.to_ascii_uppercase()
+                section2.eq_ignore_ascii_case(section)
             },
             IniLine::Key(inikey) => inikey.is_in(section),
             IniLine::Other(_) => false,
@@ -1247,7 +1247,7 @@ struct IniKey {
 
 impl IniKey {
     fn is_in(&self, section: &str) -> bool {
-        self.section.to_ascii_uppercase() == section.to_ascii_uppercase()
+        self.section.eq_ignore_ascii_case(section)
     }
 }
 
@@ -1284,7 +1284,7 @@ impl Ini {
                                 value: val.trim().to_string(),
                             }),
                             None => {
-                                if trim.len() > 0 {
+                                if !trim.is_empty() {
                                     // 空行以外のOtherだったらセクションから外す
                                     current_section = None;
                                 }
@@ -1292,7 +1292,7 @@ impl Ini {
                             },
                         }
                     } else {
-                        if trim.len() > 0 {
+                        if !trim.is_empty() {
                             // 空行以外のOtherだったらセクションから外す
                             current_section = None;
                         }
@@ -1358,10 +1358,10 @@ impl Ini {
         let len = self.lines.len();
         self.lines.retain(|line| match line {
             IniLine::Section(s) => {
-                s.to_ascii_uppercase() != section.to_ascii_uppercase()
+                !s.eq_ignore_ascii_case(section)
             },
             IniLine::Key(key) => {
-                key.section.to_ascii_uppercase() != section.to_ascii_uppercase()
+                !key.section.eq_ignore_ascii_case(section)
             },
             IniLine::Other(_) => true,
         });
@@ -1628,7 +1628,7 @@ impl Csv {
     }
 
     pub fn read_all(&self) -> FopenResult<CsvValue> {
-        self.buffer_to_csv().map(|csv| CsvValue::All(csv))
+        self.buffer_to_csv().map(CsvValue::All)
     }
     pub fn read(&self, row: usize, column: Option<usize>) -> CsvValue {
         match column {

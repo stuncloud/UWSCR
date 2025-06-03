@@ -166,7 +166,7 @@ impl Function {
                     continue;
                 },
                 ParamKind::Dummy => {
-                    if variadic.len() < 1 {
+                    if variadic.is_empty() {
                         return Err(UError::new(
                             UErrorKind::FuncCallError,
                             UErrorMessage::FuncTooManyArguments(param_len)
@@ -180,12 +180,12 @@ impl Function {
             evaluator.is_valid_type(&param, &value)?;
 
             // 可変長引数でなければローカル変数を定義
-            if variadic.len() < 1 {
+            if variadic.is_empty() {
                 evaluator.env.define_param_to_local(&name, value)?;
             }
         }
         // 可変長引数のローカル変数を定義
-        if variadic_name.is_some() && variadic.len() > 0 {
+        if variadic_name.is_some() && !variadic.is_empty() {
             evaluator.env.define_param_to_local(&variadic_name.unwrap(), Object::Array(variadic))?;
         }
 
@@ -233,36 +233,21 @@ impl Evaluator {
                 Object::ExpandableTB(_) => return Ok(()),
                 _ => {}
             },
-            ParamType::Number => match obj {
-                Object::Num(_) => return Ok(()),
-                _ => {}
-            },
-            ParamType::Bool => match obj {
-                Object::Bool(_) => return Ok(()),
-                _ => {}
-            },
-            ParamType::Array => match obj {
-                Object::Array(_) => return Ok(()),
-                _ => {}
-            },
-            ParamType::HashTbl => match obj {
-                Object::HashTbl(_) => return Ok(()),
-                _ => {}
-            },
+            ParamType::Number => if let Object::Num(_) = obj { return Ok(()) },
+            ParamType::Bool => if let Object::Bool(_) = obj { return Ok(()) },
+            ParamType::Array => if let Object::Array(_) = obj { return Ok(()) },
+            ParamType::HashTbl => if let Object::HashTbl(_) = obj { return Ok(()) },
             ParamType::Function => match obj {
                 Object::MemberCaller(_, _) |
                 Object::Function(_) |
                 Object::AnonFunc(_) => return Ok(()),
                 _ => {}
             },
-            ParamType::UObject => match obj {
-                Object::UObject(_) => return Ok(()),
-                _ => {}
-            },
+            ParamType::UObject => if let Object::UObject(_) = obj { return Ok(()) },
             ParamType::UserDefinition(ref name) => match obj {
                 Object::Instance(arc) => {
                     let m = arc.lock().unwrap();
-                    if m.name.to_ascii_lowercase() == name.to_ascii_lowercase() {
+                    if m.name.eq_ignore_ascii_case(name) {
                         return Ok(());
                     }
                 },
