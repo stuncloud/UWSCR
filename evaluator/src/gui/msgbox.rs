@@ -36,6 +36,7 @@ pub struct MsgBox {
 }
 impl MsgBox {
     const BTN_MIN_WIDTH: i32 = 70;
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         title: &str,
         message: &str,
@@ -151,7 +152,8 @@ impl UWindow<DialogResult<MsgBoxButton>> for MsgBox {
             let mut msg = wm::MSG::default();
             let hwnd = HWND::default();
             let point = self.get_pos().unwrap_or_default();
-            let result = loop {
+
+            loop {
                 let point = self.get_pos().unwrap_or(point);
                 match wm::GetMessageW(&mut msg, hwnd, 0, 0).0 {
                     -1 => {
@@ -179,14 +181,11 @@ impl UWindow<DialogResult<MsgBoxButton>> for MsgBox {
                                 }
                             },
                             wm::WM_COMMAND => {
-                                match msg.wParam.hi_word() as u32 {
-                                    wm::BN_CLICKED => {
-                                        let id = msg.wParam.lo_word() as i32;
-                                        let res = DialogResult { result: MsgBoxButton(id), point };
-                                        self.destroy();
-                                        break Ok(res);
-                                    },
-                                    _ => {}
+                                if msg.wParam.hi_word() as u32 == wm::BN_CLICKED {
+                                    let id = msg.wParam.lo_word() as i32;
+                                    let res = DialogResult { result: MsgBoxButton(id), point };
+                                    self.destroy();
+                                    break Ok(res);
                                 }
                             }
                             _ => {},
@@ -197,24 +196,25 @@ impl UWindow<DialogResult<MsgBoxButton>> for MsgBox {
                     wm::TranslateMessage(&msg);
                     wm::DispatchMessageW(&msg);
                 }
-            };
-            result
+            }
         }
     }
     unsafe extern "system"
     fn dlgproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
-        match msg {
-            wm::WM_COMMAND |
-            wm::WM_NOTIFY => {
-                let _ = wm::PostMessageW(HWND(0), msg, wparam, lparam);
-                LRESULT(0)
-            },
-            wm::WM_CLOSE => {
-                // let _ = wm::DestroyWindow(hwnd);
-                let _ = wm::PostMessageW(HWND(0), wm::WM_COMMAND, WPARAM(BTN_CANCEL.0 as usize), None);
-                LRESULT(0)
-            },
-            msg => wm::DefDlgProcW(hwnd, msg, wparam, lparam)
+        unsafe {
+            match msg {
+                wm::WM_COMMAND |
+                wm::WM_NOTIFY => {
+                    let _ = wm::PostMessageW(HWND(0), msg, wparam, lparam);
+                    LRESULT(0)
+                },
+                wm::WM_CLOSE => {
+                    // let _ = wm::DestroyWindow(hwnd);
+                    let _ = wm::PostMessageW(HWND(0), wm::WM_COMMAND, WPARAM(BTN_CANCEL.0 as usize), None);
+                    LRESULT(0)
+                },
+                msg => wm::DefDlgProcW(hwnd, msg, wparam, lparam)
+            }
         }
     }
 }
@@ -265,14 +265,14 @@ impl BitAnd for MsgBoxButton {
 
 impl std::fmt::Display for MsgBoxButton {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            &BTN_YES => write!(f, "はい(&Y)"),
-            &BTN_NO => write!(f, "いいえ(&N)"),
-            &BTN_OK => write!(f, "&OK"),
-            &BTN_CANCEL => write!(f, "キャンセル(&C)"),
-            &BTN_ABORT => write!(f, "中止(&A)"),
-            &BTN_RETRY => write!(f, "再試行(&R)"),
-            &BTN_IGNORE => write!(f, "無視(&I)"),
+        match *self {
+            BTN_YES => write!(f, "はい(&Y)"),
+            BTN_NO => write!(f, "いいえ(&N)"),
+            BTN_OK => write!(f, "&OK"),
+            BTN_CANCEL => write!(f, "キャンセル(&C)"),
+            BTN_ABORT => write!(f, "中止(&A)"),
+            BTN_RETRY => write!(f, "再試行(&R)"),
+            BTN_IGNORE => write!(f, "無視(&I)"),
             _ => write!(f, "にゃーん")
         }
     }

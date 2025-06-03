@@ -33,8 +33,8 @@ impl UWindow<()> for PopupParentWin {
 
     unsafe extern "system"
     fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
-        match msg {
-            msg => wm::DefWindowProcW(hwnd, msg, wparam, lparam)
+        unsafe {
+            wm::DefWindowProcW(hwnd, msg, wparam, lparam)
         }
     }
     fn draw(&self) -> UWindowResult<()> {
@@ -101,39 +101,47 @@ impl PopupMenu {
             Ok(selected)
         }
     }
-    unsafe fn set_submenu(parent: wm::HMENU, names: &Vec<ItemName>, id: &mut usize, items: &mut Vec<MenuItem>) -> UWindowResult<()> {
-        let mut index = 0usize;
-        loop {
-            let Some(item) = names.get(index) else {break;};
-            if let ItemName::Item(name) = item {
-                let name = HSTRING::from(name);
-                if let Some(ItemName::SubItems(names)) = names.get(index+1) {
-                    let sub = Self::create_menu()?;
-                    Self::append_submenu(parent, &sub, &name)?;
-                    Self::set_submenu(sub, names, id, items)?;
-                    index += 1;
-                } else {
-                    items.push(MenuItem::new(*id, name.to_string()));
-                    Self::append_menu_item(parent, id, &name)?;
+    unsafe fn set_submenu(parent: wm::HMENU, names: &[ItemName], id: &mut usize, items: &mut Vec<MenuItem>) -> UWindowResult<()> {
+        unsafe {
+            let mut index = 0usize;
+            loop {
+                let Some(item) = names.get(index) else {break;};
+                if let ItemName::Item(name) = item {
+                    let name = HSTRING::from(name);
+                    if let Some(ItemName::SubItems(names)) = names.get(index+1) {
+                        let sub = Self::create_menu()?;
+                        Self::append_submenu(parent, &sub, &name)?;
+                        Self::set_submenu(sub, names, id, items)?;
+                        index += 1;
+                    } else {
+                        items.push(MenuItem::new(*id, name.to_string()));
+                        Self::append_menu_item(parent, id, &name)?;
+                    }
                 }
+                index += 1;
             }
-            index += 1;
+            Ok(())
         }
-        Ok(())
     }
     unsafe fn create_menu() -> UWindowResult<wm::HMENU> {
-        wm::CreatePopupMenu().map_err(|_| UWindowError::PopupMenuCreateError)
+        unsafe {
+            wm::CreatePopupMenu().map_err(|_| UWindowError::PopupMenuCreateError)
+        }
     }
     unsafe fn append_submenu(parent: wm::HMENU, sub: &wm::HMENU, item: &HSTRING) -> UWindowResult<()> {
-        wm::AppendMenuW(parent, wm::MF_POPUP, sub.0 as usize, item)
-            .map_err(|_| UWindowError::PopupMenuAppendError)?;
-        Ok(())
+        unsafe {
+            wm::AppendMenuW(parent, wm::MF_POPUP, sub.0 as usize, item)
+                .map_err(|_| UWindowError::PopupMenuAppendError)?;
+            Ok(())
+        }
     }
     unsafe fn append_menu_item(hmenu: wm::HMENU, id: &mut usize, item: &HSTRING) -> UWindowResult<()> {
-        wm::AppendMenuW(hmenu, wm::MF_ENABLED|wm::MF_STRING, *id, item)
-            .map_err(|_| UWindowError::PopupMenuAppendError)?;
-        *id += 1;
-        Ok(())
+        unsafe {
+            wm::AppendMenuW(hmenu, wm::MF_ENABLED|wm::MF_STRING, *id, item)
+                .map_err(|_| UWindowError::PopupMenuAppendError)?;
+            *id += 1;
+            Ok(())
+        }
     }
 }
 

@@ -86,14 +86,18 @@ impl LogPrintWin {
         Ok(edit)
     }
     unsafe fn resize_edit(parent: HWND, edit: Option<HWND>) {
-        let rect = Self::get_client_rect(parent);
-        let edit = edit.unwrap_or(wm::GetDlgItem(parent, Self::ID_EDIT));
-        let _ = wm::MoveWindow(edit, rect.left, rect.top, rect.right-rect.left, rect.bottom-rect.top, true);
+        unsafe {
+            let rect = Self::get_client_rect(parent);
+            let edit = edit.unwrap_or(wm::GetDlgItem(parent, Self::ID_EDIT));
+            let _ = wm::MoveWindow(edit, rect.left, rect.top, rect.right-rect.left, rect.bottom-rect.top, true);
+        }
     }
     unsafe fn get_client_rect(hwnd: HWND) -> RECT {
-        let mut rect = RECT::default();
-        let _ = wm::GetClientRect(hwnd, &mut rect);
-        rect
+        unsafe {
+            let mut rect = RECT::default();
+            let _ = wm::GetClientRect(hwnd, &mut rect);
+            rect
+        }
     }
 }
 
@@ -126,16 +130,18 @@ impl UWindow<()> for LogPrintWin {
     }
     unsafe extern "system"
     fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
-        match msg {
-            wm::WM_CLOSE => {
-                let _ = wm::ShowWindow(hwnd, wm::SW_HIDE);
-                LRESULT(0)
-            },
-            wm::WM_SIZE => {
-                Self::resize_edit(hwnd, None);
-                LRESULT(0)
+        unsafe {
+            match msg {
+                wm::WM_CLOSE => {
+                    let _ = wm::ShowWindow(hwnd, wm::SW_HIDE);
+                    LRESULT(0)
+                },
+                wm::WM_SIZE => {
+                    Self::resize_edit(hwnd, None);
+                    LRESULT(0)
+                }
+                msg => wm::DefWindowProcW(hwnd, msg, wparam, lparam)
             }
-            msg => wm::DefWindowProcW(hwnd, msg, wparam, lparam)
         }
     }
 

@@ -47,6 +47,7 @@ impl Slctbox {
     const ID_PROGRESS: i32 = -14;
     const CTL_ID_FIRST: usize = 100;
 
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         title: &str,
         message: Option<String>,
@@ -370,7 +371,7 @@ impl UWindow<DialogResult<SlctReturnValue>> for Slctbox {
             let hwnd = HWND::default();
 
             // プログレスバー
-            let hprogress = wm::GetDlgItem(self.hwnd, Self::ID_PROGRESS as i32);
+            let hprogress = wm::GetDlgItem(self.hwnd, Self::ID_PROGRESS);
             let progress = (hprogress.0 > 0).then(|| {
                 wm::SendMessageW(hprogress, PBM_SETRANGE32, WPARAM(0), LPARAM(100));
                 std::time::Instant::now()
@@ -408,78 +409,71 @@ impl UWindow<DialogResult<SlctReturnValue>> for Slctbox {
                             break Ok(Default::default());
                         }
                     },
-                    _ => match msg.message {
-                        wm::WM_COMMAND => {
-                            if msg.wParam.hi_word() as u32 == wm::BN_CLICKED {
-                                let id = msg.wParam.lo_word() as i16 as i32;
-                                if id == Self::ID_CANCEL {
-                                    self.destroy();
-                                    break Ok(Default::default());
-                                } else if id == Self::ID_OK {
-                                    match self.ctl_type {
-                                        SlctCtlType::Button => {
-                                            unreachable!()
-                                        },
-                                        SlctCtlType::CheckBox => {
-                                            let indexes = self.items.iter().enumerate()
-                                                .filter_map(|(i, _)| {
-                                                    let id = (i + Self::CTL_ID_FIRST) as i32;
-                                                    let chk = wm::GetDlgItem(self.hwnd, id);
-                                                    let r = wm::SendMessageW(chk, wm::BM_GETCHECK, None, None);
+                    _ => if msg.message == wm::WM_COMMAND && msg.wParam.hi_word() as u32 == wm::BN_CLICKED {
+                        let id = msg.wParam.lo_word() as i16 as i32;
+                        if id == Self::ID_CANCEL {
+                            self.destroy();
+                            break Ok(Default::default());
+                        } else if id == Self::ID_OK {
+                            match self.ctl_type {
+                                SlctCtlType::Button => {
+                                    unreachable!()
+                                },
+                                SlctCtlType::CheckBox => {
+                                    let indexes = self.items.iter().enumerate()
+                                        .filter_map(|(i, _)| {
+                                            let id = (i + Self::CTL_ID_FIRST) as i32;
+                                            let chk = wm::GetDlgItem(self.hwnd, id);
+                                            let r = wm::SendMessageW(chk, wm::BM_GETCHECK, None, None);
 
-                                                    (r.0 as u32 == BST_CHECKED.0).then_some(i as i32)
-                                                })
-                                                .collect::<Vec<_>>();
-                                            let result = self.index_vec_as_return_value(indexes)?;
-                                            self.destroy();
-                                            break Ok(DialogResult::new(result, point));
-                                        },
-                                        SlctCtlType::Radio => {
-                                            let index = self.items.iter().enumerate()
-                                                .find_map(|(index, _)| {
-                                                    let id = (index + Self::CTL_ID_FIRST) as i32;
-                                                    let rdo = wm::GetDlgItem(self.hwnd, id);
-                                                    let r = wm::SendMessageW(rdo, wm::BM_GETCHECK, None, None);
-                                                    (r.0 as u32 == BST_CHECKED.0).then_some(index as i32)
-                                                });
-                                            let result = index.map(|i| self.index_as_return_value(i))
-                                                .unwrap_or(Ok(SlctReturnValue::Cancel))
-                                                .map(|r| DialogResult::new(r, point));
-                                            self.destroy();
-                                            break result;
-                                        },
-                                        SlctCtlType::Combo => {
-                                            let cmb = wm::GetDlgItem(self.hwnd, Self::ID_COMBOBOX);
-                                            let index = wm::SendMessageW(cmb, wm::CB_GETCURSEL, None, None).0 as i32;
-                                            let result = self.index_as_return_value(index)
-                                                .map(|r| DialogResult::new(r, point));
-                                            self.destroy();
-                                            break result;
-                                        },
-                                        SlctCtlType::List => {
-                                            let lst = wm::GetDlgItem(self.hwnd, Self::ID_LISTBOX);
-                                            let cnt = wm::SendMessageW(lst, wm::LB_GETSELCOUNT, None, None).0 as usize;
-                                            let mut buf = vec![0i32; cnt];
-                                            let wparam = WPARAM(cnt);
-                                            let lparam = LPARAM(buf.as_mut_ptr() as isize);
-                                            wm::SendMessageW(lst, wm::LB_GETSELITEMS, wparam, lparam);
-                                            let result = self.index_vec_as_return_value(buf)
-                                                .map(|r| DialogResult::new(r, point));
-                                            self.destroy();
-                                            break result;
-                                        },
-                                    }
-                                } else {
-                                    if self.ctl_type == SlctCtlType::Button {
-                                        let index = id - Self::CTL_ID_FIRST as i32;
-                                        let result = self.index_as_return_value(index)?;
-                                        self.destroy();
-                                        break Ok(DialogResult::new(result, point));
-                                    }
-                                }
+                                            (r.0 as u32 == BST_CHECKED.0).then_some(i as i32)
+                                        })
+                                        .collect::<Vec<_>>();
+                                    let result = self.index_vec_as_return_value(indexes)?;
+                                    self.destroy();
+                                    break Ok(DialogResult::new(result, point));
+                                },
+                                SlctCtlType::Radio => {
+                                    let index = self.items.iter().enumerate()
+                                        .find_map(|(index, _)| {
+                                            let id = (index + Self::CTL_ID_FIRST) as i32;
+                                            let rdo = wm::GetDlgItem(self.hwnd, id);
+                                            let r = wm::SendMessageW(rdo, wm::BM_GETCHECK, None, None);
+                                            (r.0 as u32 == BST_CHECKED.0).then_some(index as i32)
+                                        });
+                                    let result = index.map(|i| self.index_as_return_value(i))
+                                        .unwrap_or(Ok(SlctReturnValue::Cancel))
+                                        .map(|r| DialogResult::new(r, point));
+                                    self.destroy();
+                                    break result;
+                                },
+                                SlctCtlType::Combo => {
+                                    let cmb = wm::GetDlgItem(self.hwnd, Self::ID_COMBOBOX);
+                                    let index = wm::SendMessageW(cmb, wm::CB_GETCURSEL, None, None).0 as i32;
+                                    let result = self.index_as_return_value(index)
+                                        .map(|r| DialogResult::new(r, point));
+                                    self.destroy();
+                                    break result;
+                                },
+                                SlctCtlType::List => {
+                                    let lst = wm::GetDlgItem(self.hwnd, Self::ID_LISTBOX);
+                                    let cnt = wm::SendMessageW(lst, wm::LB_GETSELCOUNT, None, None).0 as usize;
+                                    let mut buf = vec![0i32; cnt];
+                                    let wparam = WPARAM(cnt);
+                                    let lparam = LPARAM(buf.as_mut_ptr() as isize);
+                                    wm::SendMessageW(lst, wm::LB_GETSELITEMS, wparam, lparam);
+                                    let result = self.index_vec_as_return_value(buf)
+                                        .map(|r| DialogResult::new(r, point));
+                                    self.destroy();
+                                    break result;
+                                },
                             }
-                        },
-                        _ => {}
+                        } else if self.ctl_type == SlctCtlType::Button {
+                            let index = id - Self::CTL_ID_FIRST as i32;
+                            let result = self.index_as_return_value(index)?;
+                            self.destroy();
+                            break Ok(DialogResult::new(result, point));
+                        }
                     }
                 };
                 if ! wm::IsDialogMessageW(self.hwnd(), &msg).as_bool() {
@@ -492,16 +486,18 @@ impl UWindow<DialogResult<SlctReturnValue>> for Slctbox {
     }
     unsafe extern "system"
     fn dlgproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
-        match msg {
-            wm::WM_COMMAND => {
-                let _ = wm::PostMessageW(HWND(0), msg, wparam, lparam);
-                LRESULT(0)
+        unsafe {
+            match msg {
+                wm::WM_COMMAND => {
+                    let _ = wm::PostMessageW(HWND(0), msg, wparam, lparam);
+                    LRESULT(0)
+                }
+                wm::WM_CLOSE => {
+                    let _ = wm::PostMessageW(HWND(0), wm::WM_COMMAND, WPARAM(Self::ID_CANCEL as usize), None);
+                    LRESULT(0)
+                },
+                msg => wm::DefDlgProcW(hwnd, msg, wparam, lparam)
             }
-            wm::WM_CLOSE => {
-                let _ = wm::PostMessageW(HWND(0), wm::WM_COMMAND, WPARAM(Self::ID_CANCEL as usize), None);
-                LRESULT(0)
-            },
-            msg => wm::DefDlgProcW(hwnd, msg, wparam, lparam)
         }
     }
 }

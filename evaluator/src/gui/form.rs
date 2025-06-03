@@ -59,7 +59,7 @@ pub enum WebViewError {
     RecvError(String),
     SendError(String),
     HtmlFileError(std::io::Error),
-    JavaScriptError(ExceptionDetails),
+    JavaScriptError(Box<ExceptionDetails>),
     NotRemoteObject
 }
 impl From<core::Error> for WebViewError {
@@ -187,43 +187,45 @@ impl WebViewForm {
         Ok(())
     }
     unsafe fn create(title: &str, size: FormSize, opt: u32) -> WebViewResult<HWND> {
-        let hinstance = GetModuleHandleW(None)?;
-        REGISTER_CLASS.get_or_init(|| {
-            let class = wm::WNDCLASSEXW {
-                cbSize: std::mem::size_of::<wm::WNDCLASSEXW>() as u32,
-                style: wm::CS_HREDRAW|wm::CS_VREDRAW,
-                lpfnWndProc: Some(Self::wndproc),
-                // cbClsExtra: todo!(),
-                // cbWndExtra: todo!(),
-                hInstance: hinstance.into(),
-                hIcon: wm::LoadIconW(hinstance, PCWSTR(1 as _))?,
-                // hCursor: wm::LoadCursorW(hinstance, wm::IDC_ARROW)?,
-                // hbrBackground: todo!(),
-                // lpszMenuName: todo!(),
-                lpszClassName: FORM_CLASS_NAME,
-                // hIconSm: wm::LoadIconW(hinstance, PCWSTR(1 as _))?,
-                ..Default::default()
-            };
-            wm::RegisterClassExW(&class);
-            Ok(())
-        }).clone()?;
+        unsafe {
+            let hinstance = GetModuleHandleW(None)?;
+            REGISTER_CLASS.get_or_init(|| {
+                let class = wm::WNDCLASSEXW {
+                    cbSize: std::mem::size_of::<wm::WNDCLASSEXW>() as u32,
+                    style: wm::CS_HREDRAW|wm::CS_VREDRAW,
+                    lpfnWndProc: Some(Self::wndproc),
+                    // cbClsExtra: todo!(),
+                    // cbWndExtra: todo!(),
+                    hInstance: hinstance.into(),
+                    hIcon: wm::LoadIconW(hinstance, PCWSTR(1 as _))?,
+                    // hCursor: wm::LoadCursorW(hinstance, wm::IDC_ARROW)?,
+                    // hbrBackground: todo!(),
+                    // lpszMenuName: todo!(),
+                    lpszClassName: FORM_CLASS_NAME,
+                    // hIconSm: wm::LoadIconW(hinstance, PCWSTR(1 as _))?,
+                    ..Default::default()
+                };
+                wm::RegisterClassExW(&class);
+                Ok(())
+            }).clone()?;
 
-        let title = HSTRING::from(title);
-        let dwstyle = Self::new_style(opt);
-        let dwexstyle = Self::new_ex_style(opt);
+            let title = HSTRING::from(title);
+            let dwstyle = Self::new_style(opt);
+            let dwexstyle = Self::new_ex_style(opt);
 
-        let hwnd = wm::CreateWindowExW(
-            dwexstyle,
-            FORM_CLASS_NAME,
-            &title,
-            dwstyle,
-            size.x, size.y, size.w, size.h,
-            None,
-            None,
-            hinstance,
-            None
-        );
-        Ok(hwnd)
+            let hwnd = wm::CreateWindowExW(
+                dwexstyle,
+                FORM_CLASS_NAME,
+                &title,
+                dwstyle,
+                size.x, size.y, size.w, size.h,
+                None,
+                None,
+                hinstance,
+                None
+            );
+            Ok(hwnd)
+        }
     }
     fn new_style(opt: u32) -> wm::WINDOW_STYLE {
         let mut style = wm::WS_OVERLAPPED|wm::WS_CAPTION;
@@ -287,28 +289,30 @@ impl WebViewForm {
         }
     }
     unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
-        match msg {
-            wm::WM_SIZE => {
-                if let Ok(size) = Self::get_size(hwnd) {
-                    if let Some(webview) = WebView::get_window_webview(hwnd) {
-                        let _ = webview.controller.0.SetBounds(size.into_rect());
+        unsafe {
+            match msg {
+                wm::WM_SIZE => {
+                    if let Ok(size) = Self::get_size(hwnd) {
+                        if let Some(webview) = WebView::get_window_webview(hwnd) {
+                            let _ = webview.controller.0.SetBounds(size.into_rect());
+                        }
                     }
-                }
-                LRESULT(0)
-            },
-            wm::WM_CLOSE => {
-                let _ = wm::DestroyWindow(hwnd);
-                LRESULT(0)
-            },
-            wm::WM_DESTROY => {
-                if let Some(_) = WebView::get_window_webview(hwnd) {
-                    // webviewが有効であればwebviewを除去
-                    WebView::remove_window_webview(hwnd);
-                    wm::PostQuitMessage(0);
-                }
-                LRESULT(0)
-            },
-            msg => wm::DefWindowProcW(hwnd, msg, wparam, lparam)
+                    LRESULT(0)
+                },
+                wm::WM_CLOSE => {
+                    let _ = wm::DestroyWindow(hwnd);
+                    LRESULT(0)
+                },
+                wm::WM_DESTROY => {
+                    if WebView::get_window_webview(hwnd).is_some() {
+                        // webviewが有効であればwebviewを除去
+                        WebView::remove_window_webview(hwnd);
+                        wm::PostQuitMessage(0);
+                    }
+                    LRESULT(0)
+                },
+                msg => wm::DefWindowProcW(hwnd, msg, wparam, lparam)
+            }
         }
     }
     pub fn message_loop(&self) -> WebViewResult<Value> {
@@ -454,11 +458,11 @@ struct SubmitEvent {
     submit: String,
     data: Vec<Value>,
 }
-impl Into<Value> for SubmitEvent {
-    fn into(self) -> Value {
+impl From<SubmitEvent> for Value {
+    fn from(val: SubmitEvent) -> Self {
         json!({
-            "submit": self.submit,
-            "data": self.data
+            "submit": val.submit,
+            "data": val.data
         })
     }
 }
@@ -665,9 +669,8 @@ impl WebView {
             }}"#);
             let args = vec![Object::WebViewRemoteObject(remote.clone())];
             remote.invoke_runtime_function(&declaration, args, true, false)
-                .and_then(|_| {
+                .map(|_| {
                     handlers.push(func);
-                    Ok(())
                 })?;
         }
         Ok(())
@@ -840,7 +843,7 @@ impl WebViewRemoteObject {
     }
     fn convert_args(args: Vec<Object>) -> WebViewResult<Vec<Value>> {
         args.into_iter()
-            .map(|obj| Self::convert_arg(obj))
+            .map(Self::convert_arg)
             .collect()
     }
     fn invoke_runtime_function(&self, declaration: &str, args: Vec<Object>, user_gesture: bool, await_promise: bool) -> WebViewResult<WebViewRemoteObject> {
@@ -865,7 +868,7 @@ impl WebViewRemoteObject {
             None => format!("function() {{return this.{name};}}"),
         };
         self.invoke_runtime_function(&declaration, vec![], false, false)
-            .map(|r| r.to_object())
+            .map(|r| r.into_object())
     }
     pub fn set_property(&self, name: &str, value: Object, index: Option<&str>) -> WebViewResult<Object> {
         let declaration = match index {
@@ -873,29 +876,29 @@ impl WebViewRemoteObject {
             None => format!("function(value) {{return this.{name} = value;}}"),
         };
         self.invoke_runtime_function(&declaration, vec![value], false, false)
-            .map(|r| r.to_object())
+            .map(|r| r.into_object())
     }
     pub fn get_self_by_index(&self, index: &str) -> WebViewResult<Object> {
         let declaration = format!("function() {{return this[{index}];}}");
         self.invoke_runtime_function(&declaration, vec![], false, false)
-            .map(|r| r.to_object())
+            .map(|r| r.into_object())
     }
     pub fn set_self_by_index(&self, index: &str, value: Object) -> WebViewResult<Object> {
         let declaration = format!("function(value) {{return this[{index}] = value;}}");
         self.invoke_runtime_function(&declaration, vec![value], false, false)
-            .map(|r| r.to_object())
+            .map(|r| r.into_object())
     }
     pub fn invoke_method(&self, name: &str, args: Vec<Object>, await_promise: bool) -> WebViewResult<Object> {
         let declaration = format!("function(...args) {{ return this.{name}(...args); }}");
         self.invoke_runtime_function(&declaration, args, true, await_promise)
-            .map(|r| r.to_object())
+            .map(|r| r.into_object())
     }
     pub fn invoke_self_as_function(&self, args: Vec<Object>, await_promise: bool) -> WebViewResult<Object> {
-        let declaration = format!("function(...args) {{ return this(...args); }}");
+        let declaration = "function(...args) { return this(...args); }".to_string();
         self.invoke_runtime_function(&declaration, args, true, await_promise)
-            .map(|r| r.to_object())
+            .map(|r| r.into_object())
     }
-    fn to_object(self) -> Object {
+    fn into_object(self) -> Object {
         if self.remote.object_id.is_some() {
             Object::WebViewRemoteObject(self)
         } else {
@@ -1040,7 +1043,7 @@ impl IntoRect for SIZE {
 impl RuntimeResult {
     fn into_result(self, webview: Arc<wv2w32::ICoreWebView2>) -> WebViewResult<WebViewRemoteObject> {
         if let Some(exception) = self.exception_details {
-            Err(WebViewError::JavaScriptError(exception))
+            Err(WebViewError::JavaScriptError(Box::new(exception)))
         } else {
             let remote = WebViewRemoteObject::new(webview, self.result);
             Ok(remote)
@@ -1050,17 +1053,17 @@ impl RuntimeResult {
 
 #[cfg(target_pointer_width="32")]
 unsafe fn set_window_long(hwnd: HWND, nindex: wm::WINDOW_LONG_PTR_INDEX, dwnewlong: isize) -> isize {
-    wm::SetWindowLongW(hwnd, nindex, dwnewlong as i32) as isize
+    unsafe { wm::SetWindowLongW(hwnd, nindex, dwnewlong as i32) as isize }
 }
 #[cfg(target_pointer_width="32")]
 unsafe fn get_window_long(hwnd: HWND, nindex: wm::WINDOW_LONG_PTR_INDEX,) -> isize {
-    wm::GetWindowLongW(hwnd, nindex) as isize
+    unsafe { wm::GetWindowLongW(hwnd, nindex) as isize }
 }
 #[cfg(target_pointer_width="64")]
 unsafe fn set_window_long(hwnd: HWND, nindex: wm::WINDOW_LONG_PTR_INDEX, dwnewlong: isize) -> isize {
-    wm::SetWindowLongPtrW(hwnd, nindex, dwnewlong)
+    unsafe { wm::SetWindowLongPtrW(hwnd, nindex, dwnewlong) }
 }
 #[cfg(target_pointer_width="64")]
 unsafe fn get_window_long(hwnd: HWND, nindex: wm::WINDOW_LONG_PTR_INDEX,) -> isize {
-    wm::GetWindowLongPtrW(hwnd, nindex)
+    unsafe { wm::GetWindowLongPtrW(hwnd, nindex) }
 }
