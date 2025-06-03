@@ -1,7 +1,7 @@
 use crate::object::*;
 use crate::builtins::*;
 use crate::{Evaluator, MouseOrg, MorgTarget};
-use util::winapi::{make_lparam, get_window_style};
+use util::winapi::make_lparam;
 
 use std::{thread, time};
 use std::mem::size_of;
@@ -13,7 +13,7 @@ use num_traits::FromPrimitive;
 use windows::{
     core::HSTRING,
     Win32::{
-        Foundation::{POINT, HWND, RECT, WPARAM, LPARAM, HANDLE, BOOL},
+        Foundation::{POINT, HWND, RECT, WPARAM, LPARAM, HANDLE},
         UI::{
             Input::KeyboardAndMouse::{
                 SendInput, INPUT, INPUT_0,
@@ -43,8 +43,6 @@ use windows::{
                 WM_KEYUP, WM_KEYDOWN, WM_CHAR,
                 WM_MOUSEWHEEL, WM_MOUSEHWHEEL, WHEEL_DELTA,
                 PT_TOUCH, TOUCH_MASK_CONTACTAREA, TOUCH_MASK_ORIENTATION, TOUCH_MASK_PRESSURE,
-                WS_VSCROLL, WS_HSCROLL,
-                EnumWindows,
             },
         },
         Graphics::Gdi::ClientToScreen,
@@ -301,7 +299,7 @@ impl Input {
             (x, y)
         }
     }
-    fn child_hwnd_from_client_point(&self, x: i32, y: i32) -> Option<HWND> {
+    fn _child_hwnd_from_client_point(&self, x: i32, y: i32) -> Option<HWND> {
         unsafe {
             let point = POINT { x, y };
             let hwnd = ChildWindowFromPoint(self.hwnd.as_ref(), point);
@@ -444,7 +442,7 @@ impl Input {
             })
             .collect::<Vec<_>>();
         let cbsize = size_of::<INPUT>() as i32;
-        SendInput(&pinputs, cbsize);
+        unsafe {SendInput(&pinputs, cbsize);}
     }
     fn send_str(&self, str: &str, wait: u64) {
         sleep(wait);
@@ -518,13 +516,11 @@ impl Input {
         }
     }
     fn move_mouse(&self, x: i32, y: i32) -> bool {
-        unsafe {
-            if self.direct {
-                self.direct_mouse(WM_MOUSEMOVE, x, y)
-            } else {
-                let (x, y) = self.fix_point(x, y);
-                move_mouse_to(x, y)
-            }
+        if self.direct {
+            self.direct_mouse(WM_MOUSEMOVE, x, y)
+        } else {
+            let (x, y) = self.fix_point(x, y);
+            move_mouse_to(x, y)
         }
     }
     /// マウスボタン系メッセージを送る直前に異なる座標でWM_MOUSEMOVEを3回送る

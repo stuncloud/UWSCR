@@ -110,7 +110,7 @@ static WINDOW_CONTROL_SINGLETON: LazyLock<WindowControl> = LazyLock::new(||{
 
 pub fn get_next_id() -> i32 {
     let mut next_id = WINDOW_CONTROL_SINGLETON.next_id.lock().unwrap();
-    let id = next_id.clone();
+    let id = *next_id;
     *next_id += 1;
 
     id
@@ -319,23 +319,17 @@ fn callback_find_window(hwnd: HWND, lparam: LPARAM) -> BOOL {
 
         let len = GetWindowTextW(hwnd, &mut title_buffer);
         let title = String::from_utf16_lossy(&title_buffer[..len as usize]);
-        match title.to_ascii_lowercase().find(target.title.to_ascii_lowercase().as_str()) {
-            Some(_) => {
-                let len = GetClassNameW(hwnd, &mut class_buffer);
-                let class = String::from_utf16_lossy(&class_buffer[..len as usize]);
+        if title.to_ascii_lowercase().contains(target.title.to_ascii_lowercase().as_str()) {
+            let len = GetClassNameW(hwnd, &mut class_buffer);
+            let class = String::from_utf16_lossy(&class_buffer[..len as usize]);
 
-                match class.to_ascii_lowercase().find(target.class_name.to_ascii_lowercase().as_str()) {
-                    Some(_) => {
-                        target.title = title;
-                        target.class_name = class;
-                        target.hwnd = hwnd;
-                        target.found = true;
-                        return false.into();
-                    },
-                    None => ()
-                }
-            },
-            None => ()
+            if class.to_ascii_lowercase().contains(target.class_name.to_ascii_lowercase().as_str()) {
+                target.title = title;
+                target.class_name = class;
+                target.hwnd = hwnd;
+                target.found = true;
+                return false.into();
+            }
         }
         true.into() // 次のウィンドウへ
     }
@@ -1096,17 +1090,15 @@ pub fn status(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
             i += 1;
         }
         Ok(Object::HashTbl(Arc::new(Mutex::new(stats))))
-    } else {
-        if let Some(cmd) = args.get_as_const::<StatusEnum>(1, true)?{
-            if cmd == StatusEnum::ST_ALL {
-                Ok(get_all_status(hwnd)?)
-            } else {
-                let st = get_status_result(hwnd, cmd)?;
-                Ok(st)
-            }
+    } else if let Some(cmd) = args.get_as_const::<StatusEnum>(1, true)?{
+        if cmd == StatusEnum::ST_ALL {
+            Ok(get_all_status(hwnd)?)
         } else {
-            Ok(Object::Empty)
+            let st = get_status_result(hwnd, cmd)?;
+            Ok(st)
         }
+    } else {
+        Ok(Object::Empty)
     }
 }
 
@@ -1464,10 +1456,10 @@ pub fn searchimage(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinF
                 if arr.len() > 4 {
                     return Err(builtin_func_error(UErrorMessage::ArrayArgSizeOverflow(4)));
                 }
-                let left = arr.get(0).map(|o| o.as_f64(false)).flatten().map(|n| n as i32);
-                let top = arr.get(1).map(|o| o.as_f64(false)).flatten().map(|n| n as i32);
-                let right = arr.get(2).map(|o| o.as_f64(false)).flatten().map(|n| n as i32);
-                let bottom = arr.get(3).map(|o| o.as_f64(false)).flatten().map(|n| n as i32);
+                let left = arr.first().and_then(|o| o.as_f64(false)).map(|n| n as i32);
+                let top = arr.get(1).and_then(|o| o.as_f64(false)).map(|n| n as i32);
+                let right = arr.get(2).and_then(|o| o.as_f64(false)).map(|n| n as i32);
+                let bottom = arr.get(3).and_then(|o| o.as_f64(false)).map(|n| n as i32);
                 let opt = args.get_as_int(4, Some(0))?;
                 let monitor = args.get_as_int(5, Some(0))?;
                 (left, top, right, bottom, opt, monitor)
@@ -1537,13 +1529,15 @@ pub fn searchimage(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinF
 
 unsafe extern "system"
 fn callback_getallwin(hwnd: HWND, lparam: LPARAM) -> BOOL {
-    let list = lparam.0 as *mut HwndList;
-    match hwnd {
-        HWND(0) => false.into(),
-        h => {
-            (*list).0.push(h);
-            true.into()
-        },
+    unsafe {
+        let list = lparam.0 as *mut HwndList;
+        match hwnd {
+            HWND(0) => false.into(),
+            h => {
+                (*list).0.push(h);
+                true.into()
+            },
+        }
     }
 }
 
@@ -1598,31 +1592,33 @@ pub enum GetHndConst {
 
 unsafe extern "system"
 fn callback_getctlhnd(hwnd: HWND, lparam: LPARAM) -> BOOL {
-    let ctlhnd = &mut *(lparam.0 as *mut CtlHnd);
-    let pat = ctlhnd.target.to_ascii_lowercase();
+    unsafe {
+        let ctlhnd = &mut *(lparam.0 as *mut CtlHnd);
+        let pat = ctlhnd.target.to_ascii_lowercase();
 
-    let mut buffer = [0; MAX_NAME_SIZE];
-    let len = GetWindowTextW(hwnd, &mut buffer);
-    let title = String::from_utf16_lossy(&buffer[..len as usize]);
-    if let Some(_) = title.to_ascii_lowercase().find(&pat) {
-        ctlhnd.order -= 1;
-        if ctlhnd.order == 0 {
-            ctlhnd.hwnd = hwnd;
-            return false.into()
-        }
-    } else {
         let mut buffer = [0; MAX_NAME_SIZE];
-        let len = GetClassNameW(hwnd, &mut buffer);
-        let name = String::from_utf16_lossy(&buffer[..len as usize]);
-        if let Some(_) = name.to_ascii_lowercase().find(&pat) {
-            ctlhnd.order-= 1;
+        let len = GetWindowTextW(hwnd, &mut buffer);
+        let title = String::from_utf16_lossy(&buffer[..len as usize]);
+        if title.to_ascii_lowercase().contains(&pat) {
+            ctlhnd.order -= 1;
             if ctlhnd.order == 0 {
                 ctlhnd.hwnd = hwnd;
                 return false.into()
             }
+        } else {
+            let mut buffer = [0; MAX_NAME_SIZE];
+            let len = GetClassNameW(hwnd, &mut buffer);
+            let name = String::from_utf16_lossy(&buffer[..len as usize]);
+            if name.to_ascii_lowercase().contains(&pat) {
+                ctlhnd.order-= 1;
+                if ctlhnd.order == 0 {
+                    ctlhnd.hwnd = hwnd;
+                    return false.into()
+                }
+            }
         }
+        true.into()
     }
-    true.into()
 }
 
 struct CtlHnd{target: String, hwnd: HWND, order: u32}
@@ -1713,9 +1709,9 @@ pub enum GetItemConst {
     #[strum[props(desc="ACCでウィンドウをアクティブにしない")]]
     ITM_BACK      = 512,
 }
-impl Into<u32> for GetItemConst {
-    fn into(self) -> u32 {
-        ToPrimitive::to_u32(&self).unwrap_or(0)
+impl From<GetItemConst> for u32 {
+    fn from(val: GetItemConst) -> Self {
+        ToPrimitive::to_u32(&val).unwrap_or(0)
     }
 }
 
@@ -1896,8 +1892,10 @@ pub enum CurConst {
 )]
 pub fn muscur(_: &mut Evaluator, _: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = unsafe {
-        let mut pci = CURSORINFO::default();
-        pci.cbSize = std::mem::size_of::<CURSORINFO>() as u32;
+        let mut pci = CURSORINFO {
+            cbSize: std::mem::size_of::<CURSORINFO>() as u32,
+            ..Default::default()
+        };
         let _ = GetCursorInfo(&mut pci);
         pci.hCursor.0
     };
@@ -2431,18 +2429,18 @@ pub fn saveimg(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     };
     if let Some(filename) = filename {
         let mut path = std::path::PathBuf::from(filename);
-        let ext = path.extension().map(|os| os.to_str()).flatten();
+        let ext = path.extension().and_then(|os| os.to_str());
         let (jpg_quality, png_compression) = match ext {
             Some("jpg") | Some("jpeg") => {
-                (param.filter(|n| n >= &0 && n <= &100), None)
+                (param.filter(|n| (0..=100).contains(n)), None)
             },
             Some("png") => {
-                (None, param.filter(|n| n >= &0 && n <= &9))
+                (None, param.filter(|n| (0..=9).contains(n)))
             },
             Some(_) => (None, None),
             None => {
                 path.set_extension("png");
-                (None, param.filter(|n| n >= &0 && n <= &9))
+                (None, param.filter(|n| (0..=9).contains(n)))
             }
         };
         let filename = path.to_string_lossy();
@@ -2465,9 +2463,9 @@ pub enum MorgTargetConst {
     #[strum[props(desc="起点座標をウィンドウのクライアント領域の左上にし、直接送信を有効にする")]]
     MORG_DIRECT = 2,
 }
-impl Into<MorgTarget> for MorgTargetConst {
-    fn into(self) -> MorgTarget {
-        match self {
+impl From<MorgTargetConst> for MorgTarget {
+    fn from(val: MorgTargetConst) -> Self {
+        match val {
             MorgTargetConst::MORG_WINDOW => MorgTarget::Window,
             MorgTargetConst::MORG_CLIENT => MorgTarget::Client,
             MorgTargetConst::MORG_DIRECT => MorgTarget::Direct,
@@ -2483,9 +2481,9 @@ pub enum MorgContextConst {
     #[strum[props(desc="ウィンドウから直接画像や色を取得")]]
     MORG_BACK = 2,
 }
-impl Into<MorgContext> for MorgContextConst {
-    fn into(self) -> MorgContext {
-        match self {
+impl From<MorgContextConst> for MorgContext {
+    fn from(val: MorgContextConst) -> Self {
+        match val {
             MorgContextConst::MORG_FORE => MorgContext::Fore,
             MorgContextConst::MORG_BACK => MorgContext::Back,
         }
@@ -2604,7 +2602,7 @@ pub fn chkmorg(evaluator: &mut Evaluator, _: BuiltinFuncArgs) -> BuiltinFuncResu
 
 #[cfg(feature="chkimg")]
 fn obj_vec_to_u8_slice(arr: Vec<Object>) -> [u8; 3] {
-    let to_u8 = |i: usize| arr.get(i).map(|o| o.as_f64(true)).flatten().unwrap_or(0.0) as u8;
+    let to_u8 = |i: usize| arr.get(i).and_then(|o| o.as_f64(true)).unwrap_or(0.0) as u8;
     [ to_u8(0), to_u8(1), to_u8(2) ]
 }
 

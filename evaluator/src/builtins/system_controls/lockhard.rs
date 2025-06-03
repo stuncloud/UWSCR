@@ -138,42 +138,45 @@ impl LockHard {
     }
     unsafe extern "system"
     fn ll_mouse_hook(ncode: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
-        if ncode == HC_ACTION as i32 && wparam.0 != WM_MOUSEMOVE as usize {
-            if let Ok(lh) = LOCKHARD.lock() {
-                let mhs = *(lparam.0 as *mut MSLLHOOKSTRUCT);
-                if mhs.dwExtraInfo != *INPUT_EXTRA_INFO {
-                    match lh.hwnd {
-                        Some(hwnd) => {
-                            if hwnd == Self::window_from_point(mhs.pt) {
-                                return LRESULT(1);
-                            }
-                        },
-                        None => return LRESULT(1),
+        unsafe {
+            if ncode == HC_ACTION as i32 && wparam.0 != WM_MOUSEMOVE as usize {
+                if let Ok(lh) = LOCKHARD.lock() {
+                    let mhs = *(lparam.0 as *mut MSLLHOOKSTRUCT);
+                    if mhs.dwExtraInfo != *INPUT_EXTRA_INFO {
+                        match lh.hwnd {
+                            Some(hwnd) => {
+                                if hwnd == Self::window_from_point(mhs.pt) {
+                                    return LRESULT(1);
+                                }
+                            },
+                            None => return LRESULT(1),
+                        }
                     }
                 }
             }
+            CallNextHookEx(None, ncode, wparam, lparam)
         }
-        CallNextHookEx(None, ncode, wparam, lparam)
     }
     unsafe extern "system"
     fn ll_keyboard_hook(ncode: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
-        if ncode == HC_ACTION as i32 {
-
-            if let Ok(lh) = LOCKHARD.lock() {
-                let khs = *(lparam.0 as *mut KBDLLHOOKSTRUCT);
-                if khs.dwExtraInfo != *INPUT_EXTRA_INFO {
-                    match lh.hwnd {
-                        Some(hwnd) => {
-                            if hwnd == GetForegroundWindow() {
-                                return LRESULT(1);
-                            }
-                        },
-                        None => return LRESULT(1),
+        unsafe {
+            if ncode == HC_ACTION as i32 {
+                if let Ok(lh) = LOCKHARD.lock() {
+                    let khs = *(lparam.0 as *mut KBDLLHOOKSTRUCT);
+                    if khs.dwExtraInfo != *INPUT_EXTRA_INFO {
+                        match lh.hwnd {
+                            Some(hwnd) => {
+                                if hwnd == GetForegroundWindow() {
+                                    return LRESULT(1);
+                                }
+                            },
+                            None => return LRESULT(1),
+                        }
                     }
                 }
             }
+            CallNextHookEx(None, ncode, wparam, lparam)
         }
-        CallNextHookEx(None, ncode, wparam, lparam)
     }
     fn set_cad_event_hook(&mut self) {
         unsafe {

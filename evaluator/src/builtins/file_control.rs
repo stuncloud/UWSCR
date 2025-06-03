@@ -8,7 +8,7 @@ use crate::error::UErrorMessage::FopenError;
 
 use std::io::{Write, Read};
 use std::sync::{Arc, Mutex, RwLock};
-use std::path::PathBuf;
+use std::path::{PathBuf, Path};
 use std::sync::LazyLock;
 
 use strum_macros::{EnumString, VariantNames};
@@ -499,6 +499,7 @@ impl Zip {
                 .write(true)
                 .read(append)
                 .create(true)
+                .truncate(true)
                 .open(&self.path)?;
         let mut zip = if append {
             zip::ZipWriter::new_append(file)?
@@ -508,7 +509,7 @@ impl Zip {
         let options = zip::write::FileOptions::default()
             .compression_method(zip::CompressionMethod::Deflated);
 
-        let paths = files.into_iter().map(|p| PathBuf::from(p));
+        let paths = files.into_iter().map(PathBuf::from);
         for path in paths {
             if path.is_dir() {
 
@@ -545,16 +546,14 @@ impl Zip {
         zip.finish()?;
         Ok(())
     }
-    fn list_children(path: &PathBuf, list: &mut Vec<PathBuf>) {
+    fn list_children(path: &Path, list: &mut Vec<PathBuf>) {
         if let Ok(entries) = path.read_dir() {
-            for entry in entries {
-                if let Ok(entry) = entry {
-                    if let Ok(file_type) = entry.file_type() {
-                        if file_type.is_dir() {
-                            Self::list_children(&entry.path(), list)
-                        } else if file_type.is_file() {
-                            list.push(entry.path());
-                        }
+            for entry in entries.flatten() {
+                if let Ok(file_type) = entry.file_type() {
+                    if file_type.is_dir() {
+                        Self::list_children(&entry.path(), list)
+                    } else if file_type.is_file() {
+                        list.push(entry.path());
                     }
                 }
             }

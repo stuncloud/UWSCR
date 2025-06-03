@@ -1,5 +1,5 @@
 use super::ClkConst;
-use super::acc::{self, IAccessibleExt};
+use super::acc::{self};
 use super::win32;
 use super::uia;
 use crate::builtins::{

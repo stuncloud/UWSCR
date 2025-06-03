@@ -71,8 +71,7 @@ impl Speak {
                 Some(voice) => voice.clone(),
                 None => {
                     let rclsid = GUID::from_u128(0x96749377_3391_11D2_9EE3_00C04F797396);
-                    let voice = CoCreateInstance::<_, ISpVoice>(&rclsid, None, CLSCTX_ALL)?;
-                    voice
+                    CoCreateInstance::<_, ISpVoice>(&rclsid, None, CLSCTX_ALL)?
                 },
             };
 

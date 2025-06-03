@@ -231,7 +231,7 @@ impl Drop for WinRTInit {
     }
 }
 thread_local! {
-    static WINRT_INIT: OnceLock<Win32Result<WinRTInit>> = OnceLock::new();
+    static WINRT_INIT: OnceLock<Win32Result<WinRTInit>> = const { OnceLock::new() };
 }
 
 pub enum CaptureItem {
@@ -259,79 +259,81 @@ impl std::fmt::Display for ScreenShot {
 pub type ScreenShotResult = Result<ScreenShot, UError>;
 impl ScreenShot {
     unsafe fn new(hwnd: Option<&HWND>, left: i32, top: i32, width: i32, height: i32) -> ScreenShotResult {
-        let hdc = match hwnd {
-            Some(hwnd) => GetWindowDC(*hwnd),
-            None => GetDC(None),
-        };
-        let hdc_compat = CreateCompatibleDC(hdc);
-        if hdc_compat.is_invalid() {
-            ReleaseDC(hwnd, hdc);
-            return Err(UError::new(
-                UErrorKind::ScreenShotError,
-                UErrorMessage::GdiError("CreateCompatibleDC".into())
-            ));
-        }
+        unsafe {
+            let hdc = match hwnd {
+                Some(hwnd) => GetWindowDC(*hwnd),
+                None => GetDC(None),
+            };
+            let hdc_compat = CreateCompatibleDC(hdc);
+            if hdc_compat.is_invalid() {
+                ReleaseDC(hwnd, hdc);
+                return Err(UError::new(
+                    UErrorKind::ScreenShotError,
+                    UErrorMessage::GdiError("CreateCompatibleDC".into())
+                ));
+            }
 
-        let hbmp = CreateCompatibleBitmap(hdc, width, height);
-        let mut info = BITMAPINFO::default();
-        info.bmiHeader.biSize = std::mem::size_of::<BITMAPINFOHEADER>() as u32;
-        info.bmiHeader.biWidth = width;
-        info.bmiHeader.biHeight = -height; // 上下反転させる
-        info.bmiHeader.biPlanes = 1;
-        info.bmiHeader.biBitCount = 32;
+            let hbmp = CreateCompatibleBitmap(hdc, width, height);
+            let mut info = BITMAPINFO::default();
+            info.bmiHeader.biSize = std::mem::size_of::<BITMAPINFOHEADER>() as u32;
+            info.bmiHeader.biWidth = width;
+            info.bmiHeader.biHeight = -height; // 上下反転させる
+            info.bmiHeader.biPlanes = 1;
+            info.bmiHeader.biBitCount = 32;
 
-        let hobj = SelectObject(hdc_compat, hbmp);
-        if hobj.is_invalid() {
+            let hobj = SelectObject(hdc_compat, hbmp);
+            if hobj.is_invalid() {
+                ReleaseDC(hwnd, hdc);
+                DeleteDC(hdc_compat);
+                DeleteObject(hbmp);
+                return Err(UError::new(
+                    UErrorKind::ScreenShotError,
+                    UErrorMessage::GdiError("SelectObject".into())
+                ));
+            }
+
+            let res = StretchBlt(
+                hdc_compat,
+                0,
+                0,
+                width,
+                height,
+                hdc,
+                left,
+                top,
+                width,
+                height,
+                SRCCOPY| CAPTUREBLT
+            );
+            if ! res.as_bool() {
+                ReleaseDC(hwnd, hdc);
+                DeleteDC(hdc_compat);
+                DeleteObject(hbmp);
+                return Err(UError::new(
+                    UErrorKind::ScreenShotError,
+                    UErrorMessage::GdiError("StretchBlt".into())
+                ));
+            }
+
+            let mut data = Mat::new_rows_cols(height, width, opencv_core::CV_8UC4)?;
+            let pdata = data.data_mut() as *mut c_void;
+            GetDIBits(
+                hdc_compat,
+                hbmp,
+                0,
+                height as u32,
+                Some(pdata),
+                &mut info,
+                DIB_RGB_COLORS
+            );
+
+            // cleanup
             ReleaseDC(hwnd, hdc);
             DeleteDC(hdc_compat);
             DeleteObject(hbmp);
-            return Err(UError::new(
-                UErrorKind::ScreenShotError,
-                UErrorMessage::GdiError("SelectObject".into())
-            ));
+
+            Ok(ScreenShot {data, left, top, width, height})
         }
-
-        let res = StretchBlt(
-            hdc_compat,
-            0,
-            0,
-            width,
-            height,
-            hdc,
-            left,
-            top,
-            width,
-            height,
-            SRCCOPY| CAPTUREBLT
-        );
-        if ! res.as_bool() {
-            ReleaseDC(hwnd, hdc);
-            DeleteDC(hdc_compat);
-            DeleteObject(hbmp);
-            return Err(UError::new(
-                UErrorKind::ScreenShotError,
-                UErrorMessage::GdiError("StretchBlt".into())
-            ));
-        }
-
-        let mut data = Mat::new_rows_cols(height, width, opencv_core::CV_8UC4)?;
-        let pdata = data.data_mut() as *mut c_void;
-        GetDIBits(
-            hdc_compat,
-            hbmp,
-            0,
-            height as u32,
-            Some(pdata),
-            &mut info,
-            DIB_RGB_COLORS
-        );
-
-        // cleanup
-        ReleaseDC(hwnd, hdc);
-        DeleteDC(hdc_compat);
-        DeleteObject(hbmp);
-
-        Ok(ScreenShot {data, left, top, width, height})
     }
 
 
@@ -624,8 +626,7 @@ impl ScreenShot {
             let cw = crect.right - crect.left;
             let ch = crect.bottom - crect.top;
             // クライアント領域を切り出す
-            let cropped = Self::crop_image(&mat, cx, cy, cw, ch)?;
-            cropped
+            Self::crop_image(&mat, cx, cy, cw, ch)?
         } else {
             mat
         };

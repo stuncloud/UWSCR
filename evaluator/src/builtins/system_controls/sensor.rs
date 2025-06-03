@@ -112,7 +112,7 @@ impl Sensor {
                 let report = sensor.GetData();
                 let report = report.ok()?;
                 report.GetSensorValue(&self.prop_key).ok()
-                    .map(|p| PropVariant(p))
+                    .map(PropVariant)
             }
         }
     }

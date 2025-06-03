@@ -111,49 +111,51 @@ impl UWindow<()> for SetHotKeyWindow {
     }
     unsafe extern "system"
     fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
-        match msg {
-            WM_HOTKEY => {
-                let vk = lparam.hi_word();
-                let mo = lparam.lo_word();
-                let maybe_func = {
-                    let mutex = HOTKEY_WINDOW.lock().unwrap();
-                    match mutex.as_ref() {
-                        Some(shkw) => {
-                            if let Some((_, f)) = shkw.keymap.get(&(vk, mo)) {
-                                Some((f.clone(), shkw.evaluator.clone()))
-                            } else {
-                                None
-                            }
-                        },
-                        None => None,
-                    }
-                };
-                if let Some((function, mut evaluator)) = maybe_func {
-                    // 引数としてキー情報を渡す
-                    let arguments = vec![
-                        (Some(Expression::EmptyArgument), vk.into()),
-                        (Some(Expression::EmptyArgument), mo.into()),
-                    ];
-                    if let Err(err) = function.invoke(&mut evaluator, arguments, None) {
-                        if let Ok(mutex) = HOTKEY_WINDOW.lock() {
-                            if let Some(shkw) = mutex.as_ref() {
-                                shkw.close();
-                            }
+        unsafe {
+            match msg {
+                WM_HOTKEY => {
+                    let vk = lparam.hi_word();
+                    let mo = lparam.lo_word();
+                    let maybe_func = {
+                        let mutex = HOTKEY_WINDOW.lock().unwrap();
+                        match mutex.as_ref() {
+                            Some(shkw) => {
+                                if let Some((_, f)) = shkw.keymap.get(&(vk, mo)) {
+                                    Some((f.clone(), shkw.evaluator.clone()))
+                                } else {
+                                    None
+                                }
+                            },
+                            None => None,
                         }
-                        evaluator.clear_local();
-                        let msg = err.errror_text_with_line();
-                        out_log(&msg, LogType::Error);
-                        show_message(&msg, &UWSCRErrorTitle::SetHotKey.to_string(), true);
-                        std::process::exit(0);
+                    };
+                    if let Some((function, mut evaluator)) = maybe_func {
+                        // 引数としてキー情報を渡す
+                        let arguments = vec![
+                            (Some(Expression::EmptyArgument), vk.into()),
+                            (Some(Expression::EmptyArgument), mo.into()),
+                        ];
+                        if let Err(err) = function.invoke(&mut evaluator, arguments, None) {
+                            if let Ok(mutex) = HOTKEY_WINDOW.lock() {
+                                if let Some(shkw) = mutex.as_ref() {
+                                    shkw.close();
+                                }
+                            }
+                            evaluator.clear_local();
+                            let msg = err.errror_text_with_line();
+                            out_log(&msg, LogType::Error);
+                            show_message(&msg, &UWSCRErrorTitle::SetHotKey.to_string(), true);
+                            std::process::exit(0);
+                        }
                     }
-                }
-                DefWindowProcW(hwnd, msg, wparam, lparam)
-            },
-            WM_CLOSE => {
-                let _ = DestroyWindow(hwnd);
-                LRESULT(0)
-            },
-            msg => DefWindowProcW(hwnd, msg, wparam, lparam),
+                    DefWindowProcW(hwnd, msg, wparam, lparam)
+                },
+                WM_CLOSE => {
+                    let _ = DestroyWindow(hwnd);
+                    LRESULT(0)
+                },
+                msg => DefWindowProcW(hwnd, msg, wparam, lparam),
+            }
         }
     }
 

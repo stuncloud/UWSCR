@@ -123,7 +123,9 @@ unsafe fn ole_drop(hglobal: HGLOBAL) -> bool {
     };
 
     let data = IDataObject::from(data);
-    let _ = data.as_impl().SetData(&fmt, &med, false.into());
+    unsafe {
+        let _ = data.as_impl().SetData(&fmt, &med, false.into());
+    }
     let source = IDropSource::from(source);
     dbg!(&data, &source);
     if let Ok(drop_win) = OleDrop::new(data, source) {
@@ -215,16 +217,18 @@ impl UWindow<bool> for OleDrop {
 
     unsafe extern "system"
     fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
-        match msg {
-            WM_CREATE => {
-                let _ = PostMessageW(hwnd, DO_DRAG_AND_DROP, None, None);
-                LRESULT(0)
-            },
-            WM_DESTROY => {
-                PostQuitMessage(0);
-                LRESULT(0)
+        unsafe {
+            match msg {
+                WM_CREATE => {
+                    let _ = PostMessageW(hwnd, DO_DRAG_AND_DROP, None, None);
+                    LRESULT(0)
+                },
+                WM_DESTROY => {
+                    PostQuitMessage(0);
+                    LRESULT(0)
+                }
+                msg => DefWindowProcW(hwnd, msg, wparam, lparam),
             }
-            msg => DefWindowProcW(hwnd, msg, wparam, lparam),
         }
     }
 }

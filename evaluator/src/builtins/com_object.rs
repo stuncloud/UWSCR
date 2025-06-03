@@ -96,9 +96,9 @@ impl BitOr<VarType> for u16 {
         }
     }
 }
-impl Into<Object> for VarType {
-    fn into(self) -> Object {
-        ToPrimitive::to_f64(&self).unwrap_or(0.0).into()
+impl From<VarType> for Object {
+    fn from(val: VarType) -> Self {
+        ToPrimitive::to_f64(&val).unwrap_or(0.0).into()
     }
 }
 

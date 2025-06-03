@@ -22,7 +22,7 @@ struct GetTime {
 
 impl GetTime {
     fn now() -> Self {
-        let dt = Local::now().into();
+        let dt = Local::now();
         Self { dt }
     }
     fn from_str(dt: &str) -> GetTimeResult<Self> {
