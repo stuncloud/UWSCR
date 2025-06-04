@@ -1,7 +1,7 @@
 use std::{ffi::c_void, mem::ManuallyDrop};
 
 use windows::{
-    core::{self, Interface, ComInterface, BSTR, HRESULT, Type},
+    core::{self, Interface, ComInterface, BSTR},
     Win32::{
         Foundation::{HWND, POINT},
         UI::{
@@ -12,12 +12,10 @@ use windows::{
                 GetStateTextW, GetRoleTextW,
                 ROLE_SYSTEM_ALERT,ROLE_SYSTEM_ANIMATION,ROLE_SYSTEM_APPLICATION,ROLE_SYSTEM_BORDER,ROLE_SYSTEM_BUTTONDROPDOWN,ROLE_SYSTEM_BUTTONDROPDOWNGRID,ROLE_SYSTEM_BUTTONMENU,ROLE_SYSTEM_CARET,ROLE_SYSTEM_CELL,ROLE_SYSTEM_CHARACTER,ROLE_SYSTEM_CHART,ROLE_SYSTEM_CHECKBUTTON,ROLE_SYSTEM_CLIENT,ROLE_SYSTEM_CLOCK,ROLE_SYSTEM_COLUMN,ROLE_SYSTEM_COLUMNHEADER,ROLE_SYSTEM_COMBOBOX,ROLE_SYSTEM_CURSOR,ROLE_SYSTEM_DIAGRAM,ROLE_SYSTEM_DIAL,ROLE_SYSTEM_DIALOG,ROLE_SYSTEM_DOCUMENT,ROLE_SYSTEM_DROPLIST,ROLE_SYSTEM_EQUATION,ROLE_SYSTEM_GRAPHIC,ROLE_SYSTEM_GRIP,ROLE_SYSTEM_GROUPING,ROLE_SYSTEM_HELPBALLOON,ROLE_SYSTEM_HOTKEYFIELD,ROLE_SYSTEM_INDICATOR,ROLE_SYSTEM_IPADDRESS,ROLE_SYSTEM_LINK,ROLE_SYSTEM_LIST,ROLE_SYSTEM_LISTITEM,ROLE_SYSTEM_MENUBAR,ROLE_SYSTEM_MENUITEM,ROLE_SYSTEM_MENUPOPUP,ROLE_SYSTEM_OUTLINE,ROLE_SYSTEM_OUTLINEBUTTON,ROLE_SYSTEM_OUTLINEITEM,ROLE_SYSTEM_PAGETAB,ROLE_SYSTEM_PAGETABLIST,ROLE_SYSTEM_PANE,ROLE_SYSTEM_PROGRESSBAR,ROLE_SYSTEM_PROPERTYPAGE,ROLE_SYSTEM_PUSHBUTTON,ROLE_SYSTEM_RADIOBUTTON,ROLE_SYSTEM_ROW,ROLE_SYSTEM_ROWHEADER,ROLE_SYSTEM_SCROLLBAR,ROLE_SYSTEM_SEPARATOR,ROLE_SYSTEM_SLIDER,ROLE_SYSTEM_SOUND,ROLE_SYSTEM_SPINBUTTON,ROLE_SYSTEM_SPLITBUTTON,ROLE_SYSTEM_STATICTEXT,ROLE_SYSTEM_STATUSBAR,ROLE_SYSTEM_TABLE,ROLE_SYSTEM_TEXT,ROLE_SYSTEM_TITLEBAR,ROLE_SYSTEM_TOOLBAR,ROLE_SYSTEM_TOOLTIP,ROLE_SYSTEM_WHITESPACE,ROLE_SYSTEM_WINDOW,
                 SELFLAG_ADDSELECTION, SELFLAG_TAKEFOCUS, SELFLAG_TAKESELECTION,
-                STATE_SYSTEM_HASPOPUP,
             },
             WindowsAndMessaging::{
                 OBJID_WINDOW,
                 STATE_SYSTEM_CHECKED, STATE_SYSTEM_FOCUSED, STATE_SYSTEM_LINKED, STATE_SYSTEM_SELECTABLE,
-                GetWindowTextW, GetClassNameW,
                 SetForegroundWindow,
                 CHILDID_SELF,
             },
@@ -30,7 +28,7 @@ use windows::{
         System::Com::IDispatch,
     }
 };
-
+const ROLE_SYSTEM_LISTVIEW: u32 = ROLE_SYSTEM_LIST + 10000;
 use std::ops::ControlFlow;
 
 use crate::{builtins::window_low::move_mouse_to, object::VariantExt, U32Ext};
@@ -156,41 +154,45 @@ impl Acc {
         }
         let roles: Vec<u32> = Self::roles_from_target(&item.target);
         let nth = (item.order as usize).saturating_sub(1);
+        /* 探す名前が path\to\item の場合 */
         if let Some(path_iter) = Self::name_as_path(item, &roles) {
-            // 探す名前が path\to\item の場合
             let roles= Self::roles_from_path_target(&item.target);
             // メニューまたはツリービューを探す
-            let parents = iter.filter(|child| child.role_is_one_of(&roles))
-                .flat_map(|child| child.into_iter());
+            let parents = iter.filter(|child| child.role_is_one_of(&roles));
             let item_roles = [ROLE_SYSTEM_MENUITEM, ROLE_SYSTEM_OUTLINEITEM];
-            let found = path_iter.fold(None::<Vec<AccChild>>, move |mut children, name| {
-                if let Some(_children) = children.take() {
-                    let filtered = _children.into_iter()
-                        .flat_map(|child| {
-                            let filter = Self::find_click_target_filter(name, true);
-                            child.into_iter()
+            let found = path_iter.fold(None::<Vec<AccChild>>, move |mut branches, name| {
+                if let Some(_branches) = branches.take() {
+                    let filtered = _branches.into_iter()
+                        .flat_map(|branch| {
+                            branch.dbg_detail();
+                            branch.iter()
                                 .filter(|child| child.role_is_one_of(&item_roles))
-                                .filter_map(filter)
+                                .filter(|c| c.name_matches_to(name, item.short))
                         })
                         .collect();
-                    children.replace(filtered);
+                    branches.replace(filtered);
                 } else {
-                    let filter = Self::find_click_target_filter(name, true);
-                    let filtered = parents.clone().filter(|child| child.role_is_one_of(&item_roles))
-                        .filter_map(filter)
+                    let filtered = parents.clone()
+                        .flat_map(|p| {
+                            p.into_iter()
+                                .filter(|c| c.role_is_one_of(&item_roles))
+                                .filter(|c| c.name_matches_to(name, item.short))
+                        })
                         .collect();
-                    children.replace(filtered);
+                    branches.replace(filtered);
                 }
-                children
+                branches
             }).and_then(|found| found.into_iter().nth(nth));
             found.map(ClickTargetFound::Single)
-        } else if item.target.list && item.name.contains('\t') {
+        /* リスト複数選択の場合 */
+        } else if (item.target.list||item.target.listview) && item.name.contains('\t') {
             let names = item.name.split('\t').collect::<Vec<_>>();
-            let matches = iter.filter(|child| child.role_is(ROLE_SYSTEM_LIST))
+            let roles = Self::roles_multi_select(&item.target);
+            let matches = iter.filter(|child| child.role_is_one_of(&roles))
                 .flat_map(|child| {
                     child.into_iter()
                         .filter(|c| {c.role_is(ROLE_SYSTEM_LISTITEM)})
-                        .filter(|c| names.iter().any(|name| c.name_matches_to(name, true)))
+                        .filter(|c| names.iter().any(|name| c.name_matches_to(name, item.short)))
                 })
                 .collect::<Vec<_>>();
             (!matches.is_empty())
@@ -198,13 +200,13 @@ impl Acc {
         } else {
             let filter = Self::find_click_target_filter(&item.name, item.short);
             let found = iter.filter(|child| child.role_is_one_of(&roles))
-                .filter_map(filter)
+                .flat_map(filter)
                 .nth(nth)
-                .inspect(|c| {dbg!(AccChildDetail::from(c));});
+                .inspect(AccChild::dbg_detail);
             found.map(ClickTargetFound::Single)
         }
     }
-    fn find_click_target_filter(name: &str, partial: bool) -> impl FnMut(AccChild) -> Option<AccChild>
+    fn find_click_target_filter(name: &str, partial: bool) -> impl FnMut(AccChild) -> Vec<AccChild>
     {
         let find_name_matched = move |child: AccChild| -> Option<AccChild> {
             child.name_matches_to(name, partial)
@@ -215,27 +217,40 @@ impl Acc {
                 ROLE_SYSTEM_LIST => {
                     child.into_iter()
                         .filter(|c| c.role_is(ROLE_SYSTEM_LISTITEM))
-                        .find_map(find_name_matched)
+                        .filter_map(find_name_matched)
+                        .collect()
                 },
+                ROLE_SYSTEM_LISTVIEW => {
+                    child.into_iter()
+                        .filter(|c| c.role_is(ROLE_SYSTEM_LISTITEM))
+                        .filter_map(find_name_matched)
+                        .collect()
+                }
                 ROLE_SYSTEM_MENUBAR => {
                     child.into_iter()
                         .filter(|c| c.role_is(ROLE_SYSTEM_MENUITEM))
-                        .find_map(find_name_matched)
+                        .filter_map(find_name_matched)
+                        .collect()
                 },
                 ROLE_SYSTEM_PAGETABLIST => {
                     child.into_iter()
                         .filter(|c| c.role_is(ROLE_SYSTEM_PAGETAB))
-                        .find_map(find_name_matched)
+                        .filter_map(find_name_matched)
+                        .collect()
                 },
                 ROLE_SYSTEM_TOOLBAR => {
                     child.into_iter()
-                        .find_map(find_name_matched)
+                        .filter_map(find_name_matched)
+                        .collect()
                 },
                 ROLE_SYSTEM_OUTLINE => {
                     // treeviewはネストするのでどうする
-                    todo!()
+                    child.into_iter()
+                        .filter(|c| c.role_is(ROLE_SYSTEM_OUTLINEITEM))
+                        .filter_map(find_name_matched)
+                        .collect()
                 }
-                _ => find_name_matched(child)
+                _ => find_name_matched(child).into_iter().collect()
             }
         }
     }
@@ -251,7 +266,7 @@ impl Acc {
             roles.push(ROLE_SYSTEM_LIST);
         }
         if target.listview {
-            roles.push(ROLE_SYSTEM_LIST);
+            roles.push(ROLE_SYSTEM_LISTVIEW);
         }
         if target.menu {
             roles.push(ROLE_SYSTEM_MENUBAR);
@@ -275,6 +290,17 @@ impl Acc {
         }
         if target.treeview {
             roles.push(ROLE_SYSTEM_OUTLINE);
+        }
+        roles
+    }
+    /// アイテム名がタブ文字区切りの場合のターゲットを返す
+    fn roles_multi_select(target: &ClkTarget) -> Vec<u32> {
+        let mut roles = Vec::new();
+        if target.list {
+            roles.push(ROLE_SYSTEM_LIST);
+        }
+        if target.listview {
+            roles.push(ROLE_SYSTEM_LISTVIEW);
         }
         roles
     }
@@ -398,6 +424,7 @@ impl GetItem {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 enum GetItemRole {
     /// ITM_ACCCLK
     Clickable,
@@ -412,18 +439,6 @@ enum GetItemRole {
     /// 規定のロールですらない
     Invalid(u32),
 }
-// impl PartialEq for GetItemRole {
-//     fn eq(&self, other: &Self) -> bool {
-//         match self {
-//             Self::ClickableOrSelectable => matches!(other, GetItemRole::Clickable|GetItemRole::ClickableOrSelectable),
-//             Self::Clickable => matches!(other, Self::Clickable),
-//             Self::StaticText => matches!(other, Self::StaticText),
-//             Self::Editable => matches!(other, Self::Editable),
-//             Self::Other => matches!(other, Self::Other),
-//             Self::Invalid(_) => matches!(other, Self::Invalid(_)),
-//         }
-//     }
-// }
 impl From<u32> for GetItemRole {
     fn from(role: u32) -> Self {
         match role {
@@ -656,16 +671,10 @@ pub trait IAccessibleExt {
         }
     }
     fn role_is_one_of(&self, roles: &[u32]) -> bool {
-        match self.role() {
-            Ok(role) => roles.contains(&role),
-            Err(_) => false,
-        }
+        self.role().is_ok_and(|r| roles.contains(&r))
     }
     fn role_is(&self, other: u32) -> bool {
-        match self.role() {
-            Ok(role) => role == other,
-            Err(_) => false,
-        }
+        self.role().is_ok_and(|role| role==other)
     }
     /// 親オブジェクトを得る
     fn parent(&self) -> Option<Self> where Self: Sized;
@@ -690,7 +699,7 @@ pub trait IAccessibleExt {
     }
     /// HWNDに対する自身のクライアント座標を得る\
     /// [left, top, width, height]
-    fn client_location(&self, hwnd: HWND) -> core::Result<[i32; 4]> {
+    fn _client_location(&self, hwnd: HWND) -> core::Result<[i32; 4]> {
         unsafe {
             let mut loc = self.location()?;
             let mut p = POINT { x: loc[0], y: loc[1] };
@@ -787,8 +796,6 @@ pub trait IAccessibleExt {
     /// 子要素を得る
     fn children(&self) -> Vec<VARIANT> {
         unsafe {
-            // let _ = self.as_iaccessible().accFocus()
-            //     .inspect_err(|e| {dbg!(e);});
             let size = self.child_count();
             let mut rgvarchildren = vec![VARIANT::default(); size];
             let _ = AccessibleChildren(self.as_iaccessible(), 0, &mut rgvarchildren, &mut 0);
@@ -821,7 +828,7 @@ pub trait IAccessibleExt {
             Err(_) => false,
         }
     }
-    fn is_offscreen(&self) -> bool {
+    fn _is_offscreen(&self) -> bool {
         match self.state() {
             Ok(s) => !s.includes(STATE_SYSTEM_OFFSCREEN.0),
             Err(_) => false,
@@ -856,7 +863,7 @@ pub struct AccWindow {
 }
 impl AccWindow {
     /// IAccessibleからAccWindowを得る
-    fn from_iaccessible(acc: IAccessible) -> core::Result<Self> {
+    fn _from_iaccessible(acc: IAccessible) -> core::Result<Self> {
         unsafe {
             let mut hwnd = HWND::default();
             WindowFromAccessibleObject(&acc, Some(&mut hwnd))?;
@@ -882,8 +889,12 @@ impl AccWindow {
             let mut acc = None;
             let mut varchild = VARIANT::default();
             AccessibleObjectFromPoint(p, &mut acc, &mut varchild).ok()?;
-            dbg!(varchild.vt());
-            Some(AccChild::new(acc?, varchild, 0, 0))
+            let child = AccChild::new(acc?, varchild, 0, 0);
+            if child.role_is(ROLE_SYSTEM_STATICTEXT) {
+                child.parent()
+            } else {
+                Some(child)
+            }
         }
     }
 
@@ -938,18 +949,6 @@ impl AccWindow {
     }
     #[cfg(debug_assertions)]
     fn _out_all_item(hwnd: HWND, out_dir: &str) {
-        fn file_name(hwnd: HWND) -> String {
-            const MAX_NAME_SIZE: usize = 512;
-            unsafe {
-                let mut buffer = [0; MAX_NAME_SIZE];
-                let len = GetWindowTextW(hwnd, &mut buffer);
-                let title = String::from_utf16_lossy(&buffer[..len as usize]);
-                buffer.fill(0);
-                let len = GetClassNameW(hwnd, &mut buffer);
-                let class = String::from_utf16_lossy(&buffer[..len as usize]);
-                format!("{title}_{class}.txt")
-            }
-        }
         if let Ok(window) = Self::from_hwnd(hwnd) {
 
             let all = window.into_iter()
@@ -957,8 +956,11 @@ impl AccWindow {
                 .collect::<Vec<_>>();
             let contents = format!("{all:#?}");
             let mut path = std::path::PathBuf::from(out_dir);
-            path.push(file_name(hwnd));
-            let _ = std::fs::write(path, contents);
+            path.push(format!("{}.txt", hwnd.0));
+            let _ = std::fs::write(&path, contents)
+                .inspect_err(|e| {
+                    dbg!(e, path);
+                });
         }
     }
 }
@@ -969,7 +971,7 @@ impl IntoIterator for AccWindow {
     type IntoIter = AccIter;
 
     fn into_iter(self) -> Self::IntoIter {
-        AccIter::new(self.inner, None)
+        AccIter::new(self.inner, None, None)
     }
 }
 
@@ -1008,7 +1010,7 @@ impl IntoIterator for AccChild {
     type IntoIter = AccIter;
 
     fn into_iter(self) -> Self::IntoIter {
-        AccIter::new(self.inner, None)
+        AccIter::new(self.inner, None, Some(self.depth+1))
     }
 }
 impl IAccessibleExt for AccChild {
@@ -1025,7 +1027,24 @@ impl IAccessibleExt for AccChild {
         } else {
             self.as_iaccessible().parent()?
         };
-        Some(Self { inner, varchild: Self::childid_self(), index: 0, depth: 0 })
+        Some(Self { inner, varchild: Self::childid_self(), index: 0, depth: self.depth.saturating_sub(1) })
+    }
+    fn role(&self) -> core::Result<u32> {
+        let role = unsafe {
+            self.as_iaccessible().get_accRole(self.varchild())?
+                .Anonymous.Anonymous.Anonymous.lVal as u32
+        };
+        if role.eq(&ROLE_SYSTEM_LIST) {
+            let is_listview = self.iter()
+                .any(|c| !c.role_is(ROLE_SYSTEM_LISTITEM) && c.depth.eq(&(self.depth+1)));
+            if is_listview {
+                Ok(ROLE_SYSTEM_LISTVIEW)
+            } else {
+                Ok(ROLE_SYSTEM_LIST)
+            }
+        } else {
+            Ok(role)
+        }
     }
 }
 impl AccChild {
@@ -1056,7 +1075,7 @@ impl AccChild {
             })
     }
     fn iter(&self) -> AccIter {
-        AccIter::new(self.inner.clone(), None)
+        AccIter::new(self.inner.clone(), None, Some(self.depth+1))
     }
     fn from_idispatch(disp: &IDispatch, index: usize, depth: u32) -> Option<Self> {
         disp.cast::<IAccessible>().ok()
@@ -1092,7 +1111,8 @@ impl AccChild {
     }
     pub fn click(self, check: bool) -> bool {
         match self.role().unwrap_or(0) {
-            ROLE_SYSTEM_LISTITEM => self.select_one(),
+            ROLE_SYSTEM_LISTITEM => self.list_click(check),
+            ROLE_SYSTEM_OUTLINEITEM => self.treeview_click(check),
             ROLE_SYSTEM_CHECKBUTTON => self.check(check),
             ROLE_SYSTEM_MENUITEM => self.menu_click(check),
             n if n > 0 => if check {
@@ -1125,24 +1145,6 @@ impl AccChild {
             },
         }
     }
-    // fn _close_menu(&self, parent: Option<IAccessible>) {
-    //     // 自身の親、または再帰で得た親の親
-    //     let parent = parent
-    //         .or(self.parent().filter(|p| p.role_is(ROLE_SYSTEM_MENUITEM)));
-    //     dbg!(&parent);
-    //     if let Some(parent) = parent {
-    //         if let Some(grand_parent) = parent.parent().filter(|p| p.role_is(ROLE_SYSTEM_MENUITEM)) {
-    //             // 親の親もメニュー項目であれば再帰
-    //             dbg!(1);
-    //             self._close_menu(Some(grand_parent));
-    //         } else {
-    //             dbg!(2);
-    //             // 親の親がメニュー項目でないならデフォルトアクションを実行
-    //             let _ = parent.do_default_action();
-    //         }
-    //     }
-    // }
-
     /// 親を遡りトップからメニューリストを開いていく\
     /// 親がいればそれを展開し、その後再取得した自身を返す
     fn open_menu(self) -> Self {
@@ -1180,7 +1182,49 @@ impl AccChild {
             },
         }
     }
-
+    fn list_click(&self, check: bool) -> bool {
+        if self.has_state(STATE_SYSTEM_INVISIBLE.0) {
+            // 不可視の場合コンボボックスかもしれない
+            if let Some(combo) = self.find_ancestor(ROLE_SYSTEM_COMBOBOX) {
+                if let Some(btn) = combo.iter()
+                    // 開くボタンを探す
+                    .find(|c| c.role_is(ROLE_SYSTEM_PUSHBUTTON) && c.depth == combo.depth)
+                {
+                    let _ = btn.do_default_action();
+                    return if let Some(item) = combo.into_iter().find(|c| c.eq(self)) {
+                        if check {
+                            item.do_default_action().is_ok()
+                        } else {
+                            true
+                        }
+                    } else {
+                        false
+                    }
+                }
+            }
+        }
+        if check {
+            self.select_one()
+        } else {
+            true
+        }
+    }
+    fn find_ancestor(&self, role: u32) -> Option<Self> {
+        let parent = self.parent()?;
+        if parent.role_is(role) {
+            Some(parent)
+        } else {
+            parent.find_ancestor(role)
+        }
+    }
+    fn treeview_click(&self, check: bool) -> bool {
+        if ! check { return true; }
+        self.select_one() && if self.default_action().is_ok() {
+            self.do_default_action().is_ok()
+        } else {
+            true
+        }
+    }
     fn get_item_value(&self) -> core::Result<String> {
         if self.role_is(ROLE_SYSTEM_TEXT) && self.state().is_ok_and(|s| !s.includes(STATE_SYSTEM_LINKED)) {
             // エディットボックスかつリンクではないならvalueを返す
@@ -1191,17 +1235,9 @@ impl AccChild {
                 .map(|name| name.remove_mnemonic().into())
         }
     }
-    fn do_optional_action(&self, option: &Option<IterOption>) {
-        if let Some(opt) = option {
-            match opt {
-                IterOption::OpenSubMenu => {
-                    if self.role_is(ROLE_SYSTEM_MENUITEM) && self.has_state(STATE_SYSTEM_HASPOPUP) {
-                        let _ = self.do_default_action();
-                        std::thread::sleep(std::time::Duration::from_millis(10));
-                    }
-                }
-            }
-        }
+    fn dbg_detail(&self) {
+        #[cfg(debug_assertions)]
+        dbg!(AccChildDetail::from(self));
     }
 }
 
@@ -1217,7 +1253,7 @@ struct AccChildDetail {
     status_text: String,
     value: String,
     description: String,
-    locacion: String,
+    location: String,
     id: Option<i32>,
     child_count: usize,
     default_action: String,
@@ -1237,7 +1273,7 @@ impl From<&AccChild> for AccChildDetail {
             status_text: child.state_text().map(|v| v.join(", ")).unwrap_or_else(|e| e.to_string()),
             value: child.value().unwrap_or_else(|e| e.to_string()),
             description: child.description().unwrap_or_else(|e| e.to_string()),
-            locacion: child.location().map(|loc| format!("{loc:?}")).unwrap_or_else(|e|e.to_string()),
+            location: child.location().map(|loc| format!("{loc:?}")).unwrap_or_else(|e|e.to_string()),
             id: child.id(),
             child_count: child.child_count(),
             default_action: child.default_action().unwrap_or_else(|e| e.to_string()),
@@ -1248,10 +1284,6 @@ impl From<&AccChild> for AccChildDetail {
     }
 }
 
-#[derive(Clone, Copy)]
-pub enum IterOption {
-    OpenSubMenu,
-}
 #[derive(Clone)]
 pub struct AccIter {
     acc: IAccessible,
@@ -1260,10 +1292,9 @@ pub struct AccIter {
     parent: Option<Box<Self>>,
     _depth: u32,
     index: usize,
-    option: Option<IterOption>,
 }
 impl AccIter {
-    fn new(acc: IAccessible, items: Option<Vec<VARIANT>>) -> Self {
+    fn new(acc: IAccessible, items: Option<Vec<VARIANT>>, depth: Option<u32>) -> Self {
         let items = match items {
             Some(items) => items,
             None => acc.children(),
@@ -1273,18 +1304,13 @@ impl AccIter {
             items,
             reverse: false,
             parent: None,
-            _depth: 0,
+            _depth: depth.unwrap_or_default(),
             index: 0,
-            option: None,
         }
     }
     fn reverse(&mut self) {
         self.reverse = true;
         self.items.reverse();
-    }
-    fn open_sub_menu(mut self) -> Self {
-        self.option.replace(IterOption::OpenSubMenu);
-        self
     }
     fn new_branch(&mut self, acc: IAccessible) {
         let _depth = self._depth + 1;
@@ -1300,7 +1326,6 @@ impl AccIter {
             parent: None,
             _depth,
             index: 0,
-            option: self.option,
         };
         // selfに新たなイテレータを書き込み、自身を取り出す
         let current = std::mem::replace(self, iter);
@@ -1318,14 +1343,12 @@ impl Iterator for AccIter {
                 self.index += 1;
                 match varchild.vt() {
                     VT_I4 => {
-                        // dbg!(self._depth, self.acc.name(varchild.clone()));
                         Some(AccChild::new(self.acc.clone(), varchild.clone(), index, self._depth))
                     },
                     VT_DISPATCH => {
                         let child = varchild.Anonymous.Anonymous.Anonymous.pdispVal
                             .as_ref()
                             .and_then(|disp| AccChild::from_idispatch(disp, index, self._depth))?;
-                        child.do_optional_action(&self.option);
                         self.new_branch(child.inner.clone());
                         Some(child)
                     },
@@ -1341,234 +1364,6 @@ impl Iterator for AccIter {
                 None
             }
         }
-    }
-}
-// /// 逆順サーチ用ACCイテレータ
-// struct ReverseAccIter {
-//     object: IAccessible,
-//     current: AccBranch
-// }
-// impl ReverseAccIter {
-//     fn new(object: IAccessible, branch: AccBranch) -> Self {
-//         let mut current = branch;
-//         current.children.reverse();
-//         Self { object, current }
-//     }
-// }
-// impl Iterator for ReverseAccIter {
-//     type Item = AccItem;
-
-//     fn next(&mut self) -> Option<Self::Item> {
-//         match self.current.next(&self.object) {
-//             Some(child) => {
-//                 self.current.new_reverse_branch_if_parent(&child);
-//                 Some(child)
-//             },
-//             None => {
-//                 self.current.restore_branch()?;
-//                 self.next()
-//             },
-//         }
-//     }
-// }
-
-// #[derive(Clone, Default)]
-// struct AccBranch {
-//     parent: Option<Box<Self>>,
-//     children: Vec<VARIANT>,
-//     index: usize,
-//     _depth: u32,
-//     reverse: bool,
-// }
-// impl AccBranch {
-//     fn new(children: Vec<VARIANT>) -> Self {
-//         Self {
-//             children,
-//             ..Default::default()
-//         }
-//     }
-//     fn new_reverse(mut children: Vec<VARIANT>) -> Self {
-//         children.reverse();
-//         Self { children, reverse: true, ..Default::default()}
-//     }
-//     fn new_branch_if_parent(&mut self, child: &AccChild) {
-//         if let Some(parent) = child.maybe_parent() {
-//             let children = parent.children();
-//             let mut branch = Self::new(children);
-//             branch._depth = self._depth + 1;
-//             branch.parent = Some(Box::new(self.to_owned()));
-//             *self = branch;
-//         }
-//     }
-//     fn new_reverse_branch_if_parent(&mut self, child: &AccChild) {
-//         if let Some(parent) = child.maybe_parent() {
-//             let children = parent.children();
-//             dbg!(children.len());
-//             let mut branch = Self::new_reverse(children);
-//             branch._depth = self._depth + 1;
-//             branch.parent = Some(Box::new(self.to_owned()));
-//             *self = branch;
-//         }
-//     }
-//     fn restore_branch(&mut self) -> Option<()> {
-//         let parent = self.parent.to_owned()?;
-//         *self = *parent;
-//         Some(())
-//     }
-//     fn _next(&mut self, parent: &IAccessible) -> Option<AccChild> {
-//         unsafe {
-//             while let Some(varchild) = self.children.get(self.index) {
-//                 self.index += 1;
-
-//                 let v00 = &varchild.Anonymous.Anonymous;
-//                 let vt = v00.vt;
-//                 let child = match vt {
-//                     VT_I4 => {
-//                         None
-//                     },
-//                     VT_DISPATCH => {
-//                         v00.Anonymous.pdispVal
-//                             .as_ref()
-//                             .and_then(|disp| AccChild::from_idispatch(disp))
-//                     },
-//                     _ => None
-//                 };
-//                 if child.is_some() {
-//                     return child.inspect(|c| {
-//                         println!("\u{001b}[36m[debug] child: {c:?}\u{001b}[0m");
-//                         println!("\u{001b}[33m[debug] depth: {}\u{001b}[0m", self._depth);
-//                         println!(
-//                             "\u{001b}[90m{:?} {:?} {:?}\u{001b}[0m",
-//                             c.name(),
-//                             c.role_text(),
-//                             c.state_text(),
-//                         );
-//     ;                });
-//                 }
-//             }
-//             None
-//         }
-//     }
-// }
-
-
-// impl<'a> IntoIterator for &'a AccChild {
-//     type Item = AccIdChild<'a>;
-
-//     type IntoIter = AccIdIter<'a>;
-
-//     fn into_iter(self) -> Self::IntoIter {
-//         unsafe {
-//             let object = self.iaccessible();
-//             AccIdIter::new(object)
-//         }
-//     }
-// }
-
-// /// IAccessible + varchild (VT_I4) を探索するイテレータ
-// struct AccIdIter<'a> {
-//     object: &'a IAccessible,
-//     children: Vec<VARIANT>,
-//     index: usize,
-// }
-// impl<'a> AccIdIter<'a> {
-//     fn new(object: &'a IAccessible) -> Self {
-//         let children = object.children();
-//         Self {
-//             object,
-//             children,
-//             index: 0,
-//         }
-//     }
-//     fn reverse(self) -> ReverseAccIdIter<'a> {
-//         ReverseAccIdIter::new(self.object, self.children)
-//     }
-// }
-// impl<'a> Iterator for AccIdIter<'a> {
-//     type Item = AccIdChild<'a>;
-
-//     fn next(&mut self) -> Option<Self::Item> {
-//         let id = self.children.get(self.index)?;
-//         self.index += 1;
-//         Some(AccIdChild(self.object, id.clone()))
-//     }
-// }
-// struct ReverseAccIdIter<'a> {
-//     object: &'a IAccessible,
-//     children: Vec<VARIANT>,
-//     index: usize,
-// }
-// impl<'a> ReverseAccIdIter<'a> {
-//     fn new(object: &'a IAccessible, mut children: Vec<VARIANT>) -> Self {
-//         children.reverse();
-//         Self { object, children, index: 0 }
-//     }
-// }
-// impl<'a> Iterator for ReverseAccIdIter<'a> {
-//     type Item = AccIdChild<'a>;
-
-//     fn next(&mut self) -> Option<Self::Item> {
-//         let id = self.children.get(self.index)?;
-//         self.index += 1;
-//         Some(AccIdChild(self.object, id.clone()))
-//     }
-// }
-
-// impl From<AccIdChild<'_>> for AccChild {
-//     fn from(id: AccIdChild) -> Self {
-//         Self {
-//             inner: id.iaccessible().clone(),
-//             // role: id.iaccessible().role(id.varchild()).unwrap_or_default(),
-//             varchild: id.varchild(),
-//         }
-//     }
-// }
-
-// struct AccIdChild<'a>(&'a IAccessible, VARIANT);
-
-// impl std::fmt::Debug for AccIdChild<'_> {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         f.debug_tuple("AccIdChild")
-//             .field(&self.0)
-//             .field(unsafe{&self.1.Anonymous.Anonymous.Anonymous.lVal})
-//             .finish()
-//     }
-// }
-// impl IAccessibleExt for AccIdChild<'_> {
-//     fn as_iaccessible(&self) -> &IAccessible {
-//         self.0
-//     }
-
-//     fn varchild(&self) -> VARIANT {
-//         self.1.clone()
-//     }
-// }
-// impl AccIdChild<'_> {
-//     fn iaccessible(&self) -> &IAccessible {
-//         self.0
-//     }
-//     fn varchild(&self) -> VARIANT {
-//         self.1.clone()
-//     }
-//     fn valid_name(&self) -> Option<String> {
-//         self.name().ok()
-//             .and_then(|name| {
-//                 (!name.is_empty())
-//                     .then_some(name)
-//             })
-//     }
-// }
-
-struct ScreenPoint(pub POINT);
-impl From<POINT> for ScreenPoint {
-    fn from(point: POINT) -> Self {
-        Self(point)
-    }
-}
-impl From<(i32, i32)> for ScreenPoint {
-    fn from((x, y): (i32, i32)) -> Self {
-        let point = POINT { x, y };
-        point.into()
     }
 }
 
