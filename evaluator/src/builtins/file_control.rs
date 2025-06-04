@@ -1,5 +1,5 @@
 mod drop;
-mod interface;
+// mod interface;
 
 use crate::Evaluator;
 use crate::builtins::*;
@@ -444,9 +444,11 @@ pub fn dropfile(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
             .collect();
 
         let (x, y) = drop::get_point(hwnd, x, y);
-        drop::dropfile(hwnd, files, x, y);
+        let b = drop::dropfile(hwnd, files, x, y);
+        Ok(b.into())
+    } else {
+        Ok(Object::Empty)
     }
-    Ok(Object::Empty)
 }
 
 struct Zip {
