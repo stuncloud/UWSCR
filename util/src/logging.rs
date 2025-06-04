@@ -1,7 +1,7 @@
 use crate::settings::USETTINGS;
 
 use std::env;
-use std::path::PathBuf;
+use std::path::{PathBuf, Path};
 use std::fs::OpenOptions;
 use std::io::prelude::*;
 use std::io::{BufReader, SeekFrom};
@@ -10,7 +10,7 @@ use std::fmt;
 use chrono::Local;
 
 
-pub fn init(dir: &PathBuf) {
+pub fn init(dir: &Path) {
     let u = USETTINGS.lock().unwrap();
     let path = match u.options.log_path {
         Some(ref s) => {
@@ -22,7 +22,7 @@ pub fn init(dir: &PathBuf) {
             path
         },
         None => {
-            let mut path = dir.clone();
+            let mut path = dir.to_path_buf();
             path.push("uwscr");
             path.set_extension("log");
             unsafe { env::set_var("UWSCR_LOG_FILE", path.to_str().unwrap()); }
@@ -33,13 +33,11 @@ pub fn init(dir: &PathBuf) {
     unsafe { env::set_var("UWSCR_LOG_LINES", lines.to_string()); }
     let mut log = u.options.log_file;
     if log > 4 {log = 1};
-    if log == 4 {
-        if path.exists() {
-            let _dummy = OpenOptions::new()
-                .write(true)
-                .truncate(true)
-                .open(path);
-        }
+    if log == 4 && path.exists() {
+        let _dummy = OpenOptions::new()
+            .write(true)
+            .truncate(true)
+            .open(path);
     }
     if log != 1 {
         unsafe { env::set_var("UWSCR_LOG_TYPE", log.to_string()); }
@@ -47,10 +45,10 @@ pub fn init(dir: &PathBuf) {
 }
 
 pub fn out_log(log: &String, log_type: LogType) {
-    if log.len() == 0 {
+    if log.is_empty() {
         return;
     }
-    let log_option = env::var("UWSCR_LOG_TYPE").ok().map(|t| t.parse::<u8>().ok()).flatten();
+    let log_option = env::var("UWSCR_LOG_TYPE").ok().and_then(|t| t.parse::<u8>().ok());
     if log_option.is_none() && log_type != LogType::Panic {
         return;
     }
@@ -59,12 +57,11 @@ pub fn out_log(log: &String, log_type: LogType) {
     };
     let no_date_time = log_option.is_some_and(|n| n == 2);
 
-    let max_lines = env::var("UWSCR_LOG_LINES").ok().map(|l| l.parse::<usize>().ok()).flatten().unwrap_or(400);
+    let max_lines = env::var("UWSCR_LOG_LINES").ok().and_then(|l| l.parse::<usize>().ok()).unwrap_or(400);
 
     {
         let mut file = OpenOptions::new()
             .create(true)
-            .write(true)
             .append(true)
             .open(&path)
             .expect("Unable to open log file");

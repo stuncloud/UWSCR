@@ -49,16 +49,22 @@ enum ShortCircuitCondition {
     Other(bool),
 }
 impl ShortCircuitCondition {
-    fn to_bool(self) -> bool {
-        match self {
-            ShortCircuitCondition::And(b) |
-            ShortCircuitCondition::Or(b) |
+    fn into_bool(self) -> bool {
+        self.into()
+    }
+}
+impl From<ShortCircuitCondition> for bool {
+    fn from(cond: ShortCircuitCondition) -> Self {
+        match cond {
+            ShortCircuitCondition::And(b) => b,
+            ShortCircuitCondition::Or(b) => b,
             ShortCircuitCondition::Other(b) => b,
         }
     }
 }
 
 #[derive(Debug, Default)]
+#[allow(clippy::upper_case_acronyms)]
 enum ConditionType {
     ForceBool,
     UWSC,
@@ -138,7 +144,7 @@ impl Evaluator {
         if LOGPRINTWIN.get().is_none() {
             let title = match std::env::var("GET_UWSC_NAME") {
                 Ok(name) => format!("UWSCR - {}", name),
-                Err(_) => format!("UWSCR"),
+                Err(_) => "UWSCR".to_string(),
             };
             let font = {
                 let usettings = USETTINGS.lock().unwrap();
@@ -210,23 +216,21 @@ impl Evaluator {
         if cfg!(feature="gui") {
             Self::start_logprint_win(true);
             self.gui_print = Some(true);
-        } else {
-            if self.gui_print.is_none() {
-                self.gui_print = if cfg!(feature="gui") {
+        } else if self.gui_print.is_none() {
+            self.gui_print = if cfg!(feature="gui") {
+                Some(true)
+            } else {
+                let mut settings = USETTINGS.lock().unwrap();
+                // --windowが指定されていた場合はOPTION設定に関わらずtrue
+                if let Some(true) = FORCE_WINDOW_MODE.get() {
+                    settings.options.gui_print = true;
                     Some(true)
                 } else {
-                    let mut settings = USETTINGS.lock().unwrap();
-                    // --windowが指定されていた場合はOPTION設定に関わらずtrue
-                    if let Some(true) = FORCE_WINDOW_MODE.get() {
-                        settings.options.gui_print = true;
-                        Some(true)
-                    } else {
-                        Some(settings.options.gui_print)
-                    }
-                };
-                if let Some(true) = self.gui_print {
-                    Self::start_logprint_win(true);
+                    Some(settings.options.gui_print)
                 }
+            };
+            if let Some(true) = self.gui_print {
+                Self::start_logprint_win(true);
             }
         }
 
@@ -236,15 +240,14 @@ impl Evaluator {
                 self.eval_statement(statement)
             });
             match res {
-                Ok(opt) => match opt {
-                    Some(o) => match o {
+                Ok(opt) => if let Some(o) = opt {
+                    match o {
                         Object::Exit => {
                             result = Some(Object::Exit);
                             break;
                         },
                         _ => result = Some(o),
-                    },
-                    None => ()
+                    }
                 },
                 Err(e) => {
                     match e.kind {
@@ -306,7 +309,7 @@ impl Evaluator {
                 //     .stdout(Stdio::inherit())
                 //     .stderr(Stdio::inherit())
                 //     .current_dir(dir);
-                if let Ok(_) = cmd.spawn() {
+                if cmd.spawn().is_ok() {
                     self.clear();
                     process::exit(0);
                 }
@@ -319,14 +322,13 @@ impl Evaluator {
     fn eval_block_statement(&mut self, block: BlockStatement) -> EvalResult<Option<Object>> {
         for statement in block {
             match self.eval_statement(statement) {
-                Ok(result) => match result {
-                    Some(o) => match o {
+                Ok(result) => if let Some(o) = result {
+                    match o {
                         Object::Continue(_) |
                         Object::Break(_) |
                         Object::Exit => return Ok(Some(o)),
                         _ => (),
-                    },
-                    None => (),
+                    }
                 },
                 Err(e) => {
                     return Err(e);
@@ -474,7 +476,7 @@ impl Evaluator {
                 usettings.options.log_lines = n as u32;
             },
             OptionSetting::Logfile(n) => {
-                let n = if n < 0 || n > 4 {1} else {n};
+                let n = if !(0..=4).contains(&n) {1} else {n};
                 usettings.options.log_file = n as u8;
             },
             OptionSetting::Dlgtitle(s) => {
@@ -700,7 +702,7 @@ impl Evaluator {
     fn eval_conditional_expression(&mut self, expression: Expression) -> EvalResult<bool> {
         let cond_type = Self::get_condition_type();
         if self.short_circuit {
-            self.eval_conditional_expression_short_circuit(expression, cond_type).map(|c| c.to_bool())
+            self.eval_conditional_expression_short_circuit(expression, cond_type).map(|c| c.into())
         } else {
             self.eval_conditional_expression_inner(expression, cond_type)
         }
@@ -758,7 +760,7 @@ impl Evaluator {
                             },
                             ShortCircuitCondition::And(b) |
                             ShortCircuitCondition::Or(b) => {
-                                Ok(ShortCircuitCondition::Or(b || false))
+                                Ok(ShortCircuitCondition::Or(b))
                             },
                         }
                     },
@@ -767,7 +769,7 @@ impl Evaluator {
             },
             expression => {
                 self.eval_conditional_expression_inner(expression, cond_type)
-                    .map(|b| ShortCircuitCondition::Other(b))
+                    .map(ShortCircuitCondition::Other)
             },
         }
     }
@@ -809,7 +811,7 @@ impl Evaluator {
                             },
                             ShortCircuitCondition::And(b) |
                             ShortCircuitCondition::Or(b) => {
-                                Ok(ShortCircuitCondition::Or(b || false))
+                                Ok(ShortCircuitCondition::Or(b))
                             },
                         }
                     },
@@ -978,24 +980,21 @@ impl Evaluator {
             if step > 0 && counter > counter_end || step < 0 && counter < counter_end {
                 break false;
             }
-            match self.eval_loopblock_statement(block.clone())? {
-                Some(o) => match o {
-                        Object::Continue(n) => if n > 1 {
-                            return Ok(Some(Object::Continue(n - 1)));
-                        } else {
-                            counter += step;
-                            self.env.assign(&var, Object::Num(counter as f64))?;
-                            continue;
-                        },
-                        Object::Break(n) => if n > 1 {
-                            return Ok(Some(Object::Break(n - 1)));
-                        } else {
-                            break true;
-                        },
-                        o => return Ok(Some(o))
-                },
-                _ => ()
-            };
+            if let Some(o) = self.eval_loopblock_statement(block.clone())? { match o {
+                    Object::Continue(n) => if n > 1 {
+                        return Ok(Some(Object::Continue(n - 1)));
+                    } else {
+                        counter += step;
+                        self.env.assign(&var, Object::Num(counter as f64))?;
+                        continue;
+                    },
+                    Object::Break(n) => if n > 1 {
+                        return Ok(Some(Object::Break(n - 1)));
+                    } else {
+                        break true;
+                    },
+                    o => return Ok(Some(o))
+            } };
             counter += step;
             self.env.assign(&var, Object::Num(counter as f64))?;
         };
@@ -1111,7 +1110,7 @@ impl Evaluator {
     }
 
     fn eval_loop_flg_expression(&mut self, expression: Expression) -> Result<bool, UError> {
-        Ok(self.eval_conditional_expression(expression)?)
+        self.eval_conditional_expression(expression)
     }
 
     fn eval_while_statement(&mut self, expression: Expression, block: BlockStatement) -> EvalResult<Option<Object>> {
@@ -1172,14 +1171,11 @@ impl Evaluator {
 
     fn eval_funtcion_definition_statement(&mut self, name: &String, params: Vec<FuncParam>, body: BlockStatement, is_proc: bool, is_async: bool) -> EvalResult<Object> {
         for statement in &body {
-            match statement.statement {
-                Statement::Function{name: _, params: _, body: _, is_proc: _, is_async: _}  => {
-                    return Err(UError::new(
-                        UErrorKind::FuncDefError,
-                        UErrorMessage::NestedDefinition
-                    ))
-                },
-                _ => {},
+            if let Statement::Function{name: _, params: _, body: _, is_proc: _, is_async: _} = statement.statement {
+                return Err(UError::new(
+                    UErrorKind::FuncDefError,
+                    UErrorMessage::NestedDefinition
+                ))
             };
         }
         let func = Function::new_named(name.into(), params, body, is_proc);
@@ -1359,9 +1355,8 @@ impl Evaluator {
         };
         if ! opt_finally {
             // OPTFINALLYでない場合でexit、exitexitなら終了する
-            match obj {
-                Some(Object::Exit) => return Ok(obj),
-                _ => {}
+            if let Some(Object::Exit) = obj {
+                return Ok(obj)
             }
         }
         if finally.is_some() {
@@ -1423,7 +1418,7 @@ impl Evaluator {
                     // free_console();
                     std::process::exit(0);
                 }));
-                let result = evaluator.eval_function_call_expression(func, args, false);
+                let result = evaluator.eval_function_call_expression(*func, args, false);
                 evaluator.clear_local();
                 com.uninit();
                 if let Err(e) = result {
@@ -1506,12 +1501,9 @@ impl Evaluator {
                         ).reduce(|a, mut b| {
                             if b == usize::MAX {
                                 // 値が省略された場合は実際のサイズを算出
-                                b = (l / a) as usize + (if l % a == 0 {0} else {1});
+                                b = (l / a) + (if l % a == 0 {0} else {1});
                             }
-                            match a.checked_mul(b) {
-                                Some(n) => n,
-                                None => 0,
-                            }
+                            a.checked_mul(b).unwrap_or_default()
                         }).unwrap();
 
                         if actual_size == 0 {
@@ -1530,14 +1522,14 @@ impl Evaluator {
                                 let mut dimension = vec![];
                                 for _ in 0..=size {
                                     let o = tmp.pop();
-                                    if o.is_some() {
-                                        dimension.push(o.unwrap());
+                                    if let Some(o) = o {
+                                        dimension.push(o);
                                     } else {
                                         break;
                                     }
                                 }
                                 array.push(Object::Array(dimension));
-                                if tmp.len() == 0 {
+                                if tmp.is_empty() {
                                     break;
                                 }
                             }
@@ -1554,7 +1546,7 @@ impl Evaluator {
             Expression::Infix(i, l, r) => {
                 if self.short_circuit && (i == Infix::AndL || i == Infix::OrL) {
                     self.eval_expression_short_circuit(Expression::Infix(i, l, r))
-                        .map(|c| c.to_bool().into())?
+                        .map(|c| c.into_bool().into())?
                 } else {
                     let left = self.eval_expression(*l)?;
                     let right = self.eval_expression(*r)?;
@@ -1582,7 +1574,7 @@ impl Evaluator {
                 Object::AnonFunc(func)
             },
             Expression::FuncCall {func, args, is_await} => {
-                self.eval_function_call_expression(func, args, is_await)?
+                self.eval_function_call_expression(*func, args, is_await)?
             },
             Expression::Assign(l, r) => {
                 let value = self.eval_expression(*r)?;
@@ -1787,16 +1779,16 @@ impl Evaluator {
                             match hahtblenum {
                                 HashTblEnum::HASH_EXISTS => hash.check(key),
                                 HashTblEnum::HASH_REMOVE => hash.remove(key),
-                                HashTblEnum::HASH_KEY => if i.is_some() {
-                                    hash.get_key(i.unwrap())
+                                HashTblEnum::HASH_KEY => if let Some(index) = i {
+                                    hash.get_key(index)
                                 } else {
                                     return Err(UError::new(
                                     UErrorKind::EvaluatorError,
                                         UErrorMessage::MissingHashIndex("HASH_KEY".into())
                                     ));
                                 },
-                                HashTblEnum::HASH_VAL => if i.is_some() {
-                                    hash.get_value(i.unwrap())
+                                HashTblEnum::HASH_VAL => if let Some(index) = i {
+                                    hash.get_value(index)
                                 } else {
                                     return Err(UError::new(
                                         UErrorKind::EvaluatorError,
@@ -1872,14 +1864,14 @@ impl Evaluator {
                 match method {
                     MemberCaller::RemoteObject(remote) => {
                         let index = index.to_string();
-                        remote.get(Some(&name), Some(&index))?
+                        remote.get(Some(name), Some(&index))?
                     },
                     MemberCaller::ComObject(com) => {
                         com.get_property_by_index(name, vec![index.clone()])?
                     },
                     MemberCaller::WebViewRemoteObject(remote) => {
                         let index = index.to_string();
-                        remote.get_property(&name, Some(&index))?
+                        remote.get_property(name, Some(&index))?
                     }
                     MemberCaller::Module(_) |
                     MemberCaller::ClassInstance(_) |
@@ -2030,7 +2022,7 @@ impl Evaluator {
                 if this.has_member(name) {
                     this.assign(name, new, None)?;
                 } else {
-                    self.env.assign(name.into(), new)?;
+                    self.env.assign(name, new)?;
                 }
             },
             Object::Instance(mutex) => {
@@ -2039,11 +2031,11 @@ impl Evaluator {
                 if this.has_member(name) {
                     this.assign(name, new, None)?;
                 } else {
-                    self.env.assign(name.into(), new)?;
+                    self.env.assign(name, new)?;
                 }
             }
             _ => {
-                self.env.assign(name.into(), new)?;
+                self.env.assign(name, new)?;
             }
         }
         Ok(())
@@ -2074,7 +2066,7 @@ impl Evaluator {
                         if this.has_member(name) {
                             this.assign(name, new_value, None)?;
                         } else {
-                            self.env.assign(name.into(), new_value)?;
+                            self.env.assign(name, new_value)?;
                         }
                     },
                     Object::Instance(mutex) => {
@@ -2083,11 +2075,11 @@ impl Evaluator {
                         if this.has_member(name) {
                             this.assign(name, new_value, None)?;
                         } else {
-                            self.env.assign(name.into(), new_value)?;
+                            self.env.assign(name, new_value)?;
                         }
                     }
                     _ => {
-                        self.env.assign(name.into(), new_value)?;
+                        self.env.assign(name, new_value)?;
                     }
                 }
             }
@@ -2535,7 +2527,7 @@ impl Evaluator {
                             Some(o) => Ok(o),
                             None => match self.get_variable(&name) {
                                 Some(o) => Ok(o),
-                                None => return Err(UError::new(
+                                None => Err(UError::new(
                                     UErrorKind::UndefinedError,
                                     UErrorMessage::FunctionNotFound(name),
                                 )),
@@ -2562,11 +2554,10 @@ impl Evaluator {
             com.uninit();
             ret
         });
-        let task = UTask {
+
+        UTask {
             handle: Arc::new(Mutex::new(Some(handle))),
-        };
-        // Object::Task(task)
-        task
+        }
     }
 
     fn await_task(&mut self, task: UTask) -> EvalResult<Object> {
@@ -2627,8 +2618,8 @@ impl Evaluator {
         Ok(())
     }
 
-    fn eval_function_call_expression(&mut self, func: Box<Expression>, args: Vec<Expression>, is_await: bool) -> EvalResult<Object> {
-        let func_object = self.eval_expression_for_func_call(*func)?;
+    fn eval_function_call_expression(&mut self, func: Expression, args: Vec<Expression>, is_await: bool) -> EvalResult<Object> {
+        let func_object = self.eval_expression_for_func_call(func)?;
         if let Object::MemberCaller(MemberCaller::ComObject(com), member) = func_object {
             // COMのメソッド呼び出し
             let mut comargs = ComObject::to_comarg(self, args)?;
@@ -2724,8 +2715,8 @@ impl Evaluator {
                     let args = arguments.into_iter()
                         .map(|(_, o)| browser::RemoteFuncArg::from_object(o))
                         .collect::<EvalResult<Vec<browser::RemoteFuncArg>>>()?;
-                    remote.invoke_as_function(args, is_await)
-                        .map(|r| r.into())
+                    let r = remote.invoke_as_function(args, is_await)?;
+                    Ok(r)
                 },
                 Object::MemberCaller(method, member) => {
                     match method {
@@ -2930,15 +2921,13 @@ impl Evaluator {
                         UErrorKind::EnumError,
                         UErrorMessage::CanNotCallMethod(member)
                     ))
+                } else if let Some(n) = e.get(&member) {
+                    Ok(Object::Num(n))
                 } else {
-                    if let Some(n) = e.get(&member) {
-                        Ok(Object::Num(n))
-                    } else {
-                        Err(UError::new(
-                            UErrorKind::EnumError,
-                            UErrorMessage::MemberNotFound(member)
-                        ))
-                    }
+                    Err(UError::new(
+                        UErrorKind::EnumError,
+                        UErrorMessage::MemberNotFound(member)
+                    ))
                 }
             },
             Object::UStruct(ust) => {
@@ -3032,15 +3021,15 @@ impl Evaluator {
 
     fn get_module_member(&self, mutex: &Arc<Mutex<Module>>, member: &String, is_func: bool) -> EvalResult<Object> {
         let module = mutex.try_lock().expect("Dead lock: Evaluator::get_module_member");
-        if module.is_local_member(&member, is_func) {
+        if module.is_local_member(member, is_func) {
             match self.get_variable("this").unwrap_or_default() {
                 Object::Module(this) => {
                     if this.try_lock().is_err() {
                         // ロックに失敗した場合thisと呼び出し元が同一と判断し、プライベートメンバを返す
                         if is_func {
-                            return module.get_function(&member);
+                            return module.get_function(member);
                         } else {
-                            return module.get_member(&member);
+                            return module.get_member(member);
                         }
                     }
                 }
@@ -3048,9 +3037,9 @@ impl Evaluator {
                     if ins.try_lock().is_err() {
                         // ロックに失敗した場合moduleとインスタンス内のモジュールは同一と判断し、プライベートメンバを返す
                         if is_func {
-                            return module.get_function(&member);
+                            return module.get_function(member);
                         } else {
-                            return module.get_member(&member);
+                            return module.get_member(member);
                         }
                     }
                 }
@@ -3065,17 +3054,15 @@ impl Evaluator {
                 UErrorKind::DotOperatorError,
                 UErrorMessage::IsPrivateMember(module.name(), member_name)
             ))
+        } else if is_func {
+            module.get_function(member)
         } else {
-            if is_func {
-                module.get_function(&member)
-            } else {
-                match module.get_public_member(&member) {
-                    Ok(Object::ExpandableTB(text)) => Ok(self.expand_string(text, true, None)),
-                    Ok(Object::Function(_)) => {
-                        Ok(Object::MemberCaller(MemberCaller::Module(mutex.clone()), member.clone()))
-                    },
-                    res => res
-                }
+            match module.get_public_member(member) {
+                Ok(Object::ExpandableTB(text)) => Ok(self.expand_string(text, true, None)),
+                Ok(Object::Function(_)) => {
+                    Ok(Object::MemberCaller(MemberCaller::Module(mutex.clone()), member.clone()))
+                },
+                res => res
             }
         }
     }
@@ -5189,7 +5176,7 @@ fend
                             Some(obj) => {
                                 match &obj {
                                     Object::Array(arr) => {
-                                        let Object::Bool(b) = arr.get(0).expect("expect array object") else {
+                                        let Object::Bool(b) = arr.first().expect("expect array object") else {
                                             panic!("bad result: {arr:?}");
                                         };
                                         let Object::String(s) = arr.get(1).expect("expect string object") else {

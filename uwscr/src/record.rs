@@ -264,11 +264,10 @@ pub fn record_desktop(level: RecordLevel) -> RecordResult<Option<Vec<String>>> {
         let recorder = DesktopRecorder::new()?;
 
         let handle = std::thread::spawn(move || {
-            let records = match level {
+            match level {
                 RecordLevel::Low => record_low_level(receiver),
                 RecordLevel::High => record_high_level(receiver),
-            };
-            records
+            }
         });
 
         let title = HSTRING::from("UWSCR デスクトップ操作記録");
@@ -423,57 +422,64 @@ impl DesktopRecorder {
         let recorder = Self { mouse, keyboard };
         Ok(recorder)
     }
-    unsafe fn hook() -> Win32Result<(HHOOK, HHOOK)>{
-        let mouse = SetWindowsHookExW(WH_MOUSE_LL, Some(Self::ll_mouse_hook), None, 0)?;
-        let keyboard = SetWindowsHookExW(WH_KEYBOARD_LL, Some(Self::ll_keyboard_hook), None, 0)?;
-        Ok((mouse, keyboard))
+    fn hook() -> Win32Result<(HHOOK, HHOOK)>{
+        unsafe {
+            let mouse = SetWindowsHookExW(WH_MOUSE_LL, Some(Self::ll_mouse_hook), None, 0)?;
+            let keyboard = SetWindowsHookExW(WH_KEYBOARD_LL, Some(Self::ll_keyboard_hook), None, 0)?;
+            Ok((mouse, keyboard))
+        }
     }
     unsafe fn unhook(&self) -> Win32Result<()> {
-        UnhookWindowsHookEx(self.mouse)?;
-        UnhookWindowsHookEx(self.keyboard)?;
-        Ok(())
+        unsafe {
+            UnhookWindowsHookEx(self.mouse)?;
+            UnhookWindowsHookEx(self.keyboard)?;
+            Ok(())
+        }
     }
 
     unsafe extern "system"
     fn ll_mouse_hook(ncode: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
-
-        if ncode == HC_ACTION as i32 {
-            if let Some(sender) = DESKTOP_SENDER.get() {
-                let p = lparam.0 as *const MSLLHOOKSTRUCT;
-                let event = MouseEvent::from(&*p);
-                let record = match wparam.0 as u32 {
-                    WM_LBUTTONDOWN => DesktopRecord::Mouse(event, MouseEventType::LeftDown),
-                    WM_LBUTTONUP => DesktopRecord::Mouse(event, MouseEventType::LeftUp),
-                    WM_RBUTTONDOWN => DesktopRecord::Mouse(event, MouseEventType::RightDown),
-                    WM_RBUTTONUP => DesktopRecord::Mouse(event, MouseEventType::RightUp),
-                    WM_MOUSEMOVE => DesktopRecord::Mouse(event, MouseEventType::Move),
-                    WM_MOUSEWHEEL => DesktopRecord::Mouse(event, MouseEventType::Wheel),
-                    WM_MBUTTONDOWN => DesktopRecord::Mouse(event, MouseEventType::MiddleDown),
-                    WM_MBUTTONUP => DesktopRecord::Mouse(event, MouseEventType::MiddleUp),
-                    msg => DesktopRecord::MouseUnknown(msg),
-                };
-                let _ = sender.send(record);
+        unsafe {
+            if ncode == HC_ACTION as i32 {
+                if let Some(sender) = DESKTOP_SENDER.get() {
+                    let p = lparam.0 as *const MSLLHOOKSTRUCT;
+                    let event = MouseEvent::from(&*p);
+                    let record = match wparam.0 as u32 {
+                        WM_LBUTTONDOWN => DesktopRecord::Mouse(event, MouseEventType::LeftDown),
+                        WM_LBUTTONUP => DesktopRecord::Mouse(event, MouseEventType::LeftUp),
+                        WM_RBUTTONDOWN => DesktopRecord::Mouse(event, MouseEventType::RightDown),
+                        WM_RBUTTONUP => DesktopRecord::Mouse(event, MouseEventType::RightUp),
+                        WM_MOUSEMOVE => DesktopRecord::Mouse(event, MouseEventType::Move),
+                        WM_MOUSEWHEEL => DesktopRecord::Mouse(event, MouseEventType::Wheel),
+                        WM_MBUTTONDOWN => DesktopRecord::Mouse(event, MouseEventType::MiddleDown),
+                        WM_MBUTTONUP => DesktopRecord::Mouse(event, MouseEventType::MiddleUp),
+                        msg => DesktopRecord::MouseUnknown(msg),
+                    };
+                    let _ = sender.send(record);
+                }
             }
+            CallNextHookEx(None, ncode, wparam, lparam)
         }
-        CallNextHookEx(None, ncode, wparam, lparam)
     }
     unsafe extern "system"
     fn ll_keyboard_hook(ncode: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
-        if ncode == HC_ACTION as i32 {
-            if let Some(sender) = DESKTOP_SENDER.get() {
-                let p = lparam.0 as *const KBDLLHOOKSTRUCT;
-                let event = KeyboardEvent::from(&*p);
-                let record = match wparam.0 as u32 {
-                    WM_KEYDOWN => DesktopRecord::Keyboard(event, KeyboardEventType::Down),
-                    WM_KEYUP => DesktopRecord::Keyboard(event, KeyboardEventType::Up),
-                    WM_SYSKEYDOWN => DesktopRecord::Keyboard(event, KeyboardEventType::SysDown),
-                    WM_SYSKEYUP => DesktopRecord::Keyboard(event, KeyboardEventType::SysUp),
-                    msg => DesktopRecord::KeyboardUnknown(msg),
-                };
-                let _ = sender.send(record);
+        unsafe {
+            if ncode == HC_ACTION as i32 {
+                if let Some(sender) = DESKTOP_SENDER.get() {
+                    let p = lparam.0 as *const KBDLLHOOKSTRUCT;
+                    let event = KeyboardEvent::from(&*p);
+                    let record = match wparam.0 as u32 {
+                        WM_KEYDOWN => DesktopRecord::Keyboard(event, KeyboardEventType::Down),
+                        WM_KEYUP => DesktopRecord::Keyboard(event, KeyboardEventType::Up),
+                        WM_SYSKEYDOWN => DesktopRecord::Keyboard(event, KeyboardEventType::SysDown),
+                        WM_SYSKEYUP => DesktopRecord::Keyboard(event, KeyboardEventType::SysUp),
+                        msg => DesktopRecord::KeyboardUnknown(msg),
+                    };
+                    let _ = sender.send(record);
+                }
             }
+            CallNextHookEx(None, ncode, wparam, lparam)
         }
-        CallNextHookEx(None, ncode, wparam, lparam)
     }
 
 }

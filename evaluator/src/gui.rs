@@ -229,9 +229,11 @@ impl FontFamily {
         }
     }
     unsafe fn point_to_pixel(point: i32) -> i32 {
-        let hdc = Gdi::GetDC(None);
-        let ppi = Gdi::GetDeviceCaps(hdc, Gdi::LOGPIXELSY);
-        -(point * ppi / 72)
+        unsafe {
+            let hdc = Gdi::GetDC(None);
+            let ppi = Gdi::GetDeviceCaps(hdc, Gdi::LOGPIXELSY);
+            -(point * ppi / 72)
+        }
     }
 }
 impl Default for FontFamily {
@@ -325,7 +327,7 @@ pub trait UWindow<T> {
         unsafe {
             let mut rect = RECT::default();
             wm::GetWindowRect(self.hwnd(), &mut rect)
-                .and_then(|_| Ok(rect))
+                .map(|_| rect)
                 .ok()
         }
     }
@@ -363,7 +365,7 @@ pub trait UWindow<T> {
         unsafe {
             let mut msg = wm::MSG::default();
             let hwnd = HWND::default();
-            let result = loop {
+            loop {
                 match wm::GetMessageW(&mut msg, hwnd, 0, 0).0 {
                     -1 => {
                         break Err(UWindowError::Win32(core::Error::from_win32()));
@@ -371,16 +373,13 @@ pub trait UWindow<T> {
                     0 => {
                         break Ok(Default::default());
                     },
-                    _ => match msg.message {
-                        _ => {}
-                    }
+                    _ => {}
                 };
                 if ! wm::IsDialogMessageW(self.hwnd(), &msg).as_bool() {
                     wm::TranslateMessage(&msg);
                     wm::DispatchMessageW(&msg);
                 }
-            };
-            result
+            }
         }
     }
     fn register_window_class(once: &OnceLock<UWindowResult<()>>) -> UWindowResult<()> {
@@ -427,50 +426,52 @@ pub trait UWindow<T> {
         }
     }
     fn set_dlgsubproc(hwnd: HWND, subproc: WindowProc) {
-        unsafe {
-            let dwnewlong = subproc as *const WindowProc as isize;
-            Self::set_window_long(hwnd, wm::GWLP_WNDPROC, dwnewlong);
-        }
+        let dwnewlong = subproc as *const WindowProc as isize;
+        Self::set_window_long(hwnd, wm::GWLP_WNDPROC, dwnewlong);
     }
+    #[allow(clippy::missing_safety_doc)]
     unsafe extern "system"
     fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
-        match msg {
-            msg => wm::DefWindowProcW(hwnd, msg, wparam, lparam)
+        unsafe {
+            wm::DefWindowProcW(hwnd, msg, wparam, lparam)
         }
     }
+    #[allow(clippy::missing_safety_doc)]
     unsafe extern "system"
     fn dlgproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
-        match msg {
-            wm::WM_CLOSE => {
-                let _ = wm::DestroyWindow(hwnd);
-                LRESULT(0)
-            },
-            msg => wm::DefDlgProcW(hwnd, msg, wparam, lparam)
+        unsafe {
+            match msg {
+                wm::WM_CLOSE => {
+                    let _ = wm::DestroyWindow(hwnd);
+                    LRESULT(0)
+                },
+                msg => wm::DefDlgProcW(hwnd, msg, wparam, lparam)
+            }
         }
     }
     #[cfg(target_pointer_width="32")]
-    unsafe fn set_window_long(hwnd: HWND, nindex: wm::WINDOW_LONG_PTR_INDEX, dwnewlong: isize) -> isize {
-        wm::SetWindowLongW(hwnd, nindex, dwnewlong as i32) as isize
+    fn set_window_long(hwnd: HWND, nindex: wm::WINDOW_LONG_PTR_INDEX, dwnewlong: isize) -> isize {
+        unsafe { wm::SetWindowLongW(hwnd, nindex, dwnewlong as i32) as isize }
     }
     #[cfg(target_pointer_width="64")]
-    unsafe fn set_window_long(hwnd: HWND, nindex: wm::WINDOW_LONG_PTR_INDEX, dwnewlong: isize) -> isize {
-        wm::SetWindowLongPtrW(hwnd, nindex, dwnewlong)
+    fn set_window_long(hwnd: HWND, nindex: wm::WINDOW_LONG_PTR_INDEX, dwnewlong: isize) -> isize {
+        unsafe { wm::SetWindowLongPtrW(hwnd, nindex, dwnewlong) }
     }
     #[cfg(target_pointer_width="32")]
-    unsafe fn get_window_long(hwnd: HWND, nindex: wm::WINDOW_LONG_PTR_INDEX) -> isize {
-        wm::GetWindowLongW(hwnd, nindex) as isize
+    fn get_window_long(hwnd: HWND, nindex: wm::WINDOW_LONG_PTR_INDEX) -> isize {
+        unsafe { wm::GetWindowLongW(hwnd, nindex) as isize }
     }
     #[cfg(target_pointer_width="64")]
-    unsafe fn get_window_long(hwnd: HWND, nindex: wm::WINDOW_LONG_PTR_INDEX) -> isize {
-        wm::GetWindowLongPtrW(hwnd, nindex)
+    fn get_window_long(hwnd: HWND, nindex: wm::WINDOW_LONG_PTR_INDEX) -> isize {
+        unsafe { wm::GetWindowLongPtrW(hwnd, nindex) }
     }
     #[cfg(target_pointer_width="32")]
-    unsafe fn set_class_long(hwnd: HWND, nindex: wm::GET_CLASS_LONG_INDEX, dwnewlong: isize) -> usize {
-        wm::SetClassLongW(hwnd, nindex, dwnewlong as i32) as usize
+    fn set_class_long(hwnd: HWND, nindex: wm::GET_CLASS_LONG_INDEX, dwnewlong: isize) -> usize {
+        unsafe { wm::SetClassLongW(hwnd, nindex, dwnewlong as i32) as usize }
     }
     #[cfg(target_pointer_width="64")]
-    unsafe fn set_class_long(hwnd: HWND, nindex: wm::GET_CLASS_LONG_INDEX, dwnewlong: isize) -> usize {
-        wm::SetClassLongPtrW(hwnd, nindex, dwnewlong)
+    fn set_class_long(hwnd: HWND, nindex: wm::GET_CLASS_LONG_INDEX, dwnewlong: isize) -> usize {
+        unsafe { wm::SetClassLongPtrW(hwnd, nindex, dwnewlong) }
     }
 
     fn set_font(&self, hwnd: HWND, text: &str) -> SIZE {
@@ -539,7 +540,7 @@ pub trait UWindow<T> {
                 .style(WS_CHILD|WS_VISIBLE)
                 .parent(self.hwnd())
                 .build()?;
-            let size = self.set_font(hwnd, &title);
+            let size = self.set_font(hwnd, title);
             let mut child = ChildCtl::new(hwnd, None, self.hwnd(), Static);
             child.move_to(x, y, Some(size.cx), Some(size.cy));
             Ok(child)

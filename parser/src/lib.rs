@@ -81,29 +81,16 @@ enum ExpressionState {
 }
 impl ExpressionState {
     fn is_start_of_line(&self) -> bool {
-        match self {
-            Self::StartOfLine => true,
-            _ => false,
-        }
+        matches!(self, Self::StartOfLine)
     }
     fn is_lambda(&self) -> bool {
-        match self {
-            Self::Lambda => true,
-            _ => false,
-        }
+        matches!(self, Self::Lambda)
     }
     fn is_sol_or_lambda(&self) -> bool {
-        match self {
-            Self::StartOfLine |
-            Self::Lambda => true,
-            _ => false,
-        }
+        matches!(self, Self::StartOfLine|Self::Lambda)
     }
     fn could_be_access(&self) -> bool {
-        match self {
-            Self::NotAccess => false,
-            _ => true
-        }
+        !matches!(self, Self::NotAccess)
     }
 }
 
@@ -292,11 +279,7 @@ impl Parser {
     }
 
     fn is_current_token_end_of_block(&mut self) -> bool {
-        match &self.current_token.token {
-            Token::BlockEnd(_) |
-            Token::Rbrace => true,
-            _ => false
-        }
+        matches!(&self.current_token.token, Token::BlockEnd(_)|Token::Rbrace)
     }
 
     fn is_next_token(&mut self, token: &Token) -> bool {
@@ -309,10 +292,10 @@ impl Parser {
     fn bump_to_next_expected_token(&mut self, expected: Token) -> Option<bool> {
         if self.is_next_token(&expected) {
             self.bump()?;
-            return Some(true);
+            Some(true)
         } else {
             self.error_next_token_is_unexpected(expected);
-            return Some(false);
+            Some(false)
         }
     }
 
@@ -321,10 +304,10 @@ impl Parser {
     /// 異なる場合はエラーを積む
     fn is_current_token_expected(&mut self, expected: Token) -> bool {
         if self.is_current_token(&expected) {
-            return true;
+            true
         } else {
             self.error_current_token_is_unexpected(expected);
-            return false;
+            false
         }
     }
 
@@ -432,7 +415,7 @@ impl Parser {
         self.parse_to_builder();
         self.check_identifier();
 
-        if self.errors.len() == 0 {
+        if self.errors.is_empty() {
             let program = self.builder.build(self.lexer.lines);
             Ok(program)
         } else {
@@ -1002,7 +985,7 @@ impl Parser {
             _ => {
                 self.bump()?;
                 self.parse_variable_definition(false)
-                    .map(|v| Statement::Public(v))
+                    .map(Statement::Public)
             },
         }
     }
@@ -1016,7 +999,7 @@ impl Parser {
     fn parse_const_statement(&mut self) -> Option<Statement> {
         self.bump()?;
         self.parse_variable_definition(true)
-            .map(|v| Statement::Const(v))
+            .map(Statement::Const)
     }
 
     fn parse_hash_statement(&mut self) -> Option<Statement> {
@@ -1032,10 +1015,7 @@ impl Parser {
         let option = if self.is_next_token(&Token::EqualOrAssign) {
             self.bump()?;
             self.bump()?;
-            match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
-                Some(e) => Some(e),
-                None => return None
-            }
+            self.parse_expression(Precedence::Lowest, ExpressionState::Default)
         } else {
             None
         };
@@ -1095,10 +1075,7 @@ impl Parser {
             let hash_option = if self.is_next_token(&Token::EqualOrAssign) {
                 self.bump()?;
                 self.bump()?;
-                match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
-                    Some(e) => Some(e),
-                    None => return None
-                }
+                self.parse_expression(Precedence::Lowest, ExpressionState::Default)
             } else {
                 None
             };
@@ -1281,10 +1258,7 @@ impl Parser {
                 // 引数の確認
                 let args = if self.is_next_token(&Token::Lparen) {
                     self.bump()?;
-                    match self.parse_expression_list(Token::Rparen, true) {
-                        Some(ve) => ve,
-                        None => vec![],
-                    }
+                    self.parse_expression_list(Token::Rparen, true).unwrap_or_default()
                 } else {
                     vec![]
                 };
@@ -1467,22 +1441,16 @@ impl Parser {
             match self.current_token.token {
                 Token::Identifier(_) |
                 Token::Struct => {
-                    let def_dll_param = self.parse_dll_param(false);
-                    if def_dll_param.is_none() {
-                        return None;
-                    }
-                    s.push(def_dll_param.unwrap());
+                    let def_dll_param = self.parse_dll_param(false)?;
+                    s.push(def_dll_param);
                 },
                 Token::Ref => {
                     self.bump()?;
                     match self.current_token.token {
                         Token::Identifier(_) |
                         Token::Struct => {
-                            let def_dll_param = self.parse_dll_param(true);
-                            if def_dll_param.is_none() {
-                                return None;
-                            }
-                            s.push(def_dll_param.unwrap());
+                            let def_dll_param = self.parse_dll_param(true)?;
+                            s.push(def_dll_param);
                         },
                         _ => {
                             self.error_current_token_is_invalid();
@@ -1532,7 +1500,7 @@ impl Parser {
             let mut argtypes = vec![];
             loop {
                 let t = match &self.current_token.token {
-                    Token::Identifier(i) => match DllType::from_str(&i) {
+                    Token::Identifier(i) => match DllType::from_str(i) {
                         Ok(t) => t,
                         Err(name) => {
                             self.error_on_current_token(ParseErrorKind::InvalidDllType(name));
@@ -1567,7 +1535,7 @@ impl Parser {
                 self.bump()?;
                 self.bump()?;
                 match &self.current_token.token {
-                    Token::Identifier(i) => match DllType::from_str(&i) {
+                    Token::Identifier(i) => match DllType::from_str(i) {
                         Ok(t) => t,
                         Err(name) => {
                             self.error_on_current_token(ParseErrorKind::InvalidDllType(name));
@@ -1583,28 +1551,26 @@ impl Parser {
                 DllType::Void
             };
             Some(DefDllParam::Callback(argtypes, rtype))
-        } else {
-            if self.is_next_token(&Token::Lbracket) {
-                self.bump()?; // [ に移動
-                self.bump()?; // 数値または ] に移動
-                match self.current_token.token() {
-                    Token::Rbracket => Some(DefDllParam::Param{ dll_type, is_ref, size: DefDllParamSize::Size(0) }),
-                    Token::Num(n) => {
-                        self.bump_to_next_expected_token(Token::Rbracket)?.then_some(())?;
-                        Some(DefDllParam::Param { dll_type, is_ref, size: DefDllParamSize::Size(n as usize) })
-                    },
-                    _ => {
-                        // サイズが識別子の場合const文脈
-                        self.builder.set_const_scope();
-                        let Identifier(name) = self.parse_identifier(IdentifierType::Access)?;
-                        self.builder.reset_const_scope();
-                        self.bump_to_next_expected_token(Token::Rbracket)?.then_some(())?;
-                        Some(DefDllParam::Param{ dll_type, is_ref, size: DefDllParamSize::Const(name) })
-                    },
-                }
-            } else {
-                Some(DefDllParam::Param{dll_type, is_ref, size: DefDllParamSize::None})
+        } else if self.is_next_token(&Token::Lbracket) {
+            self.bump()?; // [ に移動
+            self.bump()?; // 数値または ] に移動
+            match self.current_token.token() {
+                Token::Rbracket => Some(DefDllParam::Param{ dll_type, is_ref, size: DefDllParamSize::Size(0) }),
+                Token::Num(n) => {
+                    self.bump_to_next_expected_token(Token::Rbracket)?.then_some(())?;
+                    Some(DefDllParam::Param { dll_type, is_ref, size: DefDllParamSize::Size(n as usize) })
+                },
+                _ => {
+                    // サイズが識別子の場合const文脈
+                    self.builder.set_const_scope();
+                    let Identifier(name) = self.parse_identifier(IdentifierType::Access)?;
+                    self.builder.reset_const_scope();
+                    self.bump_to_next_expected_token(Token::Rbracket)?.then_some(())?;
+                    Some(DefDllParam::Param{ dll_type, is_ref, size: DefDllParamSize::Const(name) })
+                },
             }
+        } else {
+            Some(DefDllParam::Param{dll_type, is_ref, size: DefDllParamSize::None})
         }
     }
 
@@ -1757,25 +1723,16 @@ impl Parser {
                 }
                 self.bump()?;
                 self.bump()?;
-                let from = match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
-                    Some(e) => e,
-                    None => return None
-                };
+                let from = self.parse_expression(Precedence::Lowest, ExpressionState::Default)?;
                 if ! self.bump_to_next_expected_token(Token::To)? {
                     return None;
                 }
                 self.bump()?;
-                let to = match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
-                    Some(e) => e,
-                    None => return None
-                };
+                let to = self.parse_expression(Precedence::Lowest, ExpressionState::Default)?;
                 let step = if self.is_next_token(&Token::Step) {
                     self.bump()?;
                     self.bump()?;
-                    match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
-                        Some(e) => Some(e),
-                        None => return None
-                    }
+                    self.parse_expression(Precedence::Lowest, ExpressionState::Default)
                 } else {
                     None
                 };
@@ -1840,7 +1797,7 @@ impl Parser {
             },
             _ => {
                 self.error_current_token_is_invalid();
-                return None;
+                None
             }
         }
     }
@@ -2019,7 +1976,7 @@ impl Parser {
         if bump {
             self.bump()?;
         }
-        code.map(|c| Statement::ExitExit(c))
+        code.map(Statement::ExitExit)
     }
 
     fn parse_textblock_statement(&mut self, is_ex: bool) -> Option<Statement> {
@@ -2045,26 +2002,16 @@ impl Parser {
             self.error_on_next_token(ParseErrorKind::BlockClosingTokenIsUnexpected(Token::EndTextBlock, self.next_token.token()));
             return None;
         }
-        if name.is_some() {
-            Some(Statement::TextBlock(name.unwrap(), Literal::TextBlock(body, is_ex)))
-        } else {
-            // コメントtextblock
-            None
-        }
+        name.map(|name| Statement::TextBlock(name, Literal::TextBlock(body, is_ex)))
     }
 
     fn parse_expression_as_statement(&mut self) -> Option<Expression> {
-        match self.parse_expression(Precedence::Lowest, ExpressionState::StartOfLine) {
-            Some(e) => {
-                Some(e)
-            }
-            None => None
-        }
+        self.parse_expression(Precedence::Lowest, ExpressionState::StartOfLine)
     }
 
-    fn parse_option_statement(&mut self, opt_name: &String) -> Option<Statement> {
+    fn parse_option_statement(&mut self, opt_name: &str) -> Option<Statement> {
         // self.bump()?;
-        let name = opt_name.as_str();
+        let name = opt_name;
         let statement = match name {
             "explicit" => {
                 if ! self.is_next_token(&Token::EqualOrAssign) {
@@ -2379,7 +2326,7 @@ impl Parser {
                 }
                 next = n;
             }
-            if u_enum.add(&id, next).is_err() {
+            if !u_enum.add(&id, next) {
                 self.error_on_current_token(ParseErrorKind::EnumMemberDuplicated(name, id));
                 return None;
             }
@@ -2860,7 +2807,7 @@ impl Parser {
             Some(e) => self.parse_dotcall_expression(e),
             None => {
                 self.error_on_current_token(ParseErrorKind::OutOfWith);
-                return None;
+                None
             }
         }
     }
@@ -2894,7 +2841,7 @@ impl Parser {
     fn parse_bool_expression(&mut self) -> Option<Expression> {
         match self.current_token.token {
             Token::Bool(v) => Some(
-                Expression::Literal(Literal::Bool(v == true))
+                Expression::Literal(Literal::Bool(v))
             ),
             _ => None
         }
@@ -2961,11 +2908,9 @@ impl Parser {
             if ! self.bump_to_next_expected_token(end)? {
                 return None;
             }
-        } else {
-            if ! self.is_next_token(&end) && ! self.is_next_token(&Token::Eof) {
-                self.error_next_token_is_invalid();
-                return None;
-            }
+        } else if ! self.is_next_token(&end) && ! self.is_next_token(&Token::Eof) {
+            self.error_next_token_is_invalid();
+            return None;
         }
 
         Some(list)
@@ -3025,10 +2970,8 @@ impl Parser {
         };
         self.bump()?;
 
-        match self.parse_expression(Precedence::Prefix, ExpressionState::Default) {
-            Some(e) => Some(Expression::Prefix(prefix, Box::new(e))),
-            None => None
-        }
+        self.parse_expression(Precedence::Prefix, ExpressionState::Default)
+            .map(|e| Expression::Prefix(prefix, Box::new(e)))
     }
 
     fn parse_infix_expression(&mut self, left: Expression) -> Option<Expression> {
@@ -3060,25 +3003,17 @@ impl Parser {
         let precedence = self.current_token_precedence();
         self.bump()?;
 
-        match self.parse_expression(precedence, ExpressionState::Default) {
-            Some(e) => Some(Expression::Infix(infix, Box::new(left), Box::new(e))),
-            None => None
-        }
+        self.parse_expression(precedence, ExpressionState::Default)
+            .map(|e| Expression::Infix(infix, Box::new(left), Box::new(e)))
     }
 
     fn parse_index_expression(&mut self, left: Expression) -> Option<Expression> {
         self.bump()?;
-        let index = match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
-            Some(e) => e,
-            None => return None
-        };
+        let index = self.parse_expression(Precedence::Lowest, ExpressionState::Default)?;
         let hash_enum = if self.is_next_token(&Token::Comma) {
             self.bump()?;
             self.bump()?;
-            match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
-                Some(e) => Some(e),
-                None => return None
-            }
+            self.parse_expression(Precedence::Lowest, ExpressionState::Default)
         } else {
             None
         };
@@ -3108,10 +3043,7 @@ impl Parser {
 
     fn parse_if_statement(&mut self) -> Option<Statement> {
         self.bump()?;
-        let condition = match self.parse_expression(Precedence::Lowest, ExpressionState::Default) {
-            Some(e) => e,
-            None => return None
-        };
+        let condition = self.parse_expression(Precedence::Lowest, ExpressionState::Default)?;
         if self.is_next_token(&Token::Then) {
             self.bump()?;
         }
@@ -3170,18 +3102,16 @@ impl Parser {
                     (None, self.parse_block_statement())
                 );
                 // break;
-            } else {
-                if self.is_current_token(&Token::BlockEnd(BlockEnd::ElseIf)) {
+            } else if self.is_current_token(&Token::BlockEnd(BlockEnd::ElseIf)) {
+                self.bump()?;
+                let row = self.current_token.pos.row;
+                let line = self.lexer.get_line(row);
+                let elseifcond = self.parse_expression(Precedence::Lowest, ExpressionState::Default)?;
+                if self.is_next_token(&Token::Then) {
                     self.bump()?;
-                    let row = self.current_token.pos.row;
-                    let line = self.lexer.get_line(row);
-                    let elseifcond = self.parse_expression(Precedence::Lowest, ExpressionState::Default)?;
-                    if self.is_next_token(&Token::Then) {
-                        self.bump()?;
-                    }
-                    let condstmt = StatementWithRow::new(Statement::Expression(elseifcond), row, line, Some(self.script_name()));
-                    alternatives.push((Some(condstmt), self.parse_block_statement()));
                 }
+                let condstmt = StatementWithRow::new(Statement::Expression(elseifcond), row, line, Some(self.script_name()));
+                alternatives.push((Some(condstmt), self.parse_block_statement()));
             }
         }
         if ! self.is_current_closing_token_expected(BlockEnd::EndIf) {
@@ -3211,10 +3141,7 @@ impl Parser {
         while self.is_current_token_in(vec![Token::Eol, Token::BlockEnd(BlockEnd::Case), Token::BlockEnd(BlockEnd::Default)]) {
             match self.current_token.token {
                 Token::BlockEnd(BlockEnd::Case) => {
-                    let case_values = match self.parse_expression_list(Token::Eol, true) {
-                        Some(list) => list,
-                        None => return None
-                    };
+                    let case_values = self.parse_expression_list(Token::Eol, true)?;
                     cases.push((
                         case_values,
                         self.parse_block_statement()
@@ -3243,7 +3170,7 @@ impl Parser {
             Token::Procedure => self.parse_function_statement(true, true),
             _ => {
                 self.error_on_current_token(ParseErrorKind::FunctionRequiredAfterAsync);
-                return None;
+                None
             },
         }
     }
@@ -3288,14 +3215,13 @@ impl Parser {
         let members = self.parse_block_statement();
 
         let has_constructor = members.iter()
-        .find(|s| {
-            if let Statement::Function { name, params:_, body:_, is_proc: true, is_async:_ } = &s.statement {
+            .any(|s| {
+                if let Statement::Function { name, params:_, body:_, is_proc: true, is_async:_ } = &s.statement {
                     name.0.eq_ignore_ascii_case(&identifier.0)
                 } else {
                     false
                 }
-            })
-            .is_some();
+            });
 
         if ! self.is_current_token(&end_token) {
             self.error_current_block_closing_token_was_unexpected(blockend);
@@ -3368,9 +3294,7 @@ impl Parser {
         let mut body = vec![];
         loop {
             let optexpr = self.parse_expression(Precedence::Lowest, ExpressionState::Lambda);
-            if optexpr.is_none() {
-                return None;
-            }
+            optexpr.as_ref()?;
 
             let row = self.next_token.pos.row;
             if self.is_next_token(&Token::Pipeline) {
@@ -3584,10 +3508,7 @@ impl Parser {
     }
 
     fn parse_function_call_expression(&mut self, func: Expression, is_await: bool) -> Option<Expression> {
-        let args = match self.parse_func_arguments() {
-            Some(a) => a,
-            None => return None
-        };
+        let args = self.parse_func_arguments()?;
 
         Some(Expression::FuncCall {
             func: Box::new(func),
@@ -3700,11 +3621,11 @@ print 2
         "#;
         parser_test(input, vec![
             StatementWithRow::new_expected(
-                Statement::Print(Expression::Literal(Literal::Num(1 as f64))),
+                Statement::Print(Expression::Literal(Literal::Num(1_f64))),
                 2,
             ),
             StatementWithRow::new_expected(
-                Statement::Print(Expression::Literal(Literal::Num(2 as f64))),
+                Statement::Print(Expression::Literal(Literal::Num(2_f64))),
                 5,
             ),
         ], vec![])
@@ -3719,7 +3640,7 @@ print 2
                         vec![
                             (
                                 Identifier(String::from("hoge")),
-                                Expression::Literal(Literal::Num(1 as f64))
+                                Expression::Literal(Literal::Num(1_f64))
                             ),
                         ],
                         false
@@ -3760,11 +3681,11 @@ print 2
                                 Identifier(String::from("arr1")),
                                 Expression::Array(
                                     vec![
-                                        Expression::Literal(Literal::Num(1 as f64)),
-                                        Expression::Literal(Literal::Num(3 as f64)),
-                                        Expression::Literal(Literal::Num(5 as f64)),
-                                        Expression::Literal(Literal::Num(7 as f64)),
-                                        Expression::Literal(Literal::Num(9 as f64)),
+                                        Expression::Literal(Literal::Num(1_f64)),
+                                        Expression::Literal(Literal::Num(3_f64)),
+                                        Expression::Literal(Literal::Num(5_f64)),
+                                        Expression::Literal(Literal::Num(7_f64)),
+                                        Expression::Literal(Literal::Num(9_f64)),
                                     ],
                                     vec![
                                         Expression::Literal(Literal::Empty),
@@ -3912,7 +3833,7 @@ print []
 "#;
         parser_test(input, vec![
             StatementWithRow::new_expected(
-                Statement::Print(Expression::Literal(Literal::Num(1 as f64))),
+                Statement::Print(Expression::Literal(Literal::Num(1_f64))),
                 2
             ),
             StatementWithRow::new_expected(
@@ -4049,7 +3970,7 @@ endif
                             condition: Expression::Identifier(Identifier(String::from("a"))),
                             consequence: Box::new(
                                 StatementWithRow::new_expected(
-                                    Statement::Print(Expression::Literal(Literal::Num(1 as f64))),
+                                    Statement::Print(Expression::Literal(Literal::Num(1_f64))),
                                     1
                                 )
                             ),
@@ -4380,14 +4301,14 @@ print +1
             StatementWithRow::new_expected(
                 Statement::Print(Expression::Prefix(
                     Prefix::Minus,
-                    Box::new(Expression::Literal(Literal::Num(1 as f64)))
+                    Box::new(Expression::Literal(Literal::Num(1_f64)))
                 )),
                 3
             ),
             StatementWithRow::new_expected(
                 Statement::Print(Expression::Prefix(
                     Prefix::Plus,
-                    Box::new(Expression::Literal(Literal::Num(1 as f64)))
+                    Box::new(Expression::Literal(Literal::Num(1_f64)))
                 )),
                 4
             )
@@ -4414,96 +4335,96 @@ print 3 <= 5
             StatementWithRow::new_expected(
                 Statement::Print(Expression::Infix(
                     Infix::Plus,
-                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                    Box::new(Expression::Literal(Literal::Num(5 as f64))),
+                    Box::new(Expression::Literal(Literal::Num(3_f64))),
+                    Box::new(Expression::Literal(Literal::Num(5_f64))),
                 )),
                 2
             ),
             StatementWithRow::new_expected(
                 Statement::Print(Expression::Infix(
                     Infix::Minus,
-                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                    Box::new(Expression::Literal(Literal::Num(5 as f64))),
+                    Box::new(Expression::Literal(Literal::Num(3_f64))),
+                    Box::new(Expression::Literal(Literal::Num(5_f64))),
                 )),
                 3
             ),
             StatementWithRow::new_expected(
                 Statement::Print(Expression::Infix(
                     Infix::Multiply,
-                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                    Box::new(Expression::Literal(Literal::Num(5 as f64))),
+                    Box::new(Expression::Literal(Literal::Num(3_f64))),
+                    Box::new(Expression::Literal(Literal::Num(5_f64))),
                 )),
                 4
             ),
             StatementWithRow::new_expected(
                 Statement::Print(Expression::Infix(
                     Infix::Divide,
-                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                    Box::new(Expression::Literal(Literal::Num(5 as f64))),
+                    Box::new(Expression::Literal(Literal::Num(3_f64))),
+                    Box::new(Expression::Literal(Literal::Num(5_f64))),
                 )),
                 5
             ),
             StatementWithRow::new_expected(
                 Statement::Print(Expression::Infix(
                     Infix::GreaterThan,
-                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                    Box::new(Expression::Literal(Literal::Num(5 as f64))),
+                    Box::new(Expression::Literal(Literal::Num(3_f64))),
+                    Box::new(Expression::Literal(Literal::Num(5_f64))),
                 )),
                 6
             ),
             StatementWithRow::new_expected(
                 Statement::Print(Expression::Infix(
                     Infix::LessThan,
-                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                    Box::new(Expression::Literal(Literal::Num(5 as f64))),
+                    Box::new(Expression::Literal(Literal::Num(3_f64))),
+                    Box::new(Expression::Literal(Literal::Num(5_f64))),
                 )),
                 7
             ),
             StatementWithRow::new_expected(
                 Statement::Print(Expression::Infix(
                     Infix::Equal,
-                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                    Box::new(Expression::Literal(Literal::Num(5 as f64))),
+                    Box::new(Expression::Literal(Literal::Num(3_f64))),
+                    Box::new(Expression::Literal(Literal::Num(5_f64))),
                 )),
                 8
             ),
             StatementWithRow::new_expected(
                 Statement::Print(Expression::Infix(
                     Infix::Equal,
-                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                    Box::new(Expression::Literal(Literal::Num(5 as f64))),
+                    Box::new(Expression::Literal(Literal::Num(3_f64))),
+                    Box::new(Expression::Literal(Literal::Num(5_f64))),
                 )),
                 9
             ),
             StatementWithRow::new_expected(
                 Statement::Print(Expression::Infix(
                     Infix::NotEqual,
-                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                    Box::new(Expression::Literal(Literal::Num(5 as f64))),
+                    Box::new(Expression::Literal(Literal::Num(3_f64))),
+                    Box::new(Expression::Literal(Literal::Num(5_f64))),
                 )),
                 10
             ),
             StatementWithRow::new_expected(
                 Statement::Print(Expression::Infix(
                     Infix::NotEqual,
-                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                    Box::new(Expression::Literal(Literal::Num(5 as f64))),
+                    Box::new(Expression::Literal(Literal::Num(3_f64))),
+                    Box::new(Expression::Literal(Literal::Num(5_f64))),
                 )),
                 11
             ),
             StatementWithRow::new_expected(
                 Statement::Print(Expression::Infix(
                     Infix::GreaterThanEqual,
-                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                    Box::new(Expression::Literal(Literal::Num(5 as f64))),
+                    Box::new(Expression::Literal(Literal::Num(3_f64))),
+                    Box::new(Expression::Literal(Literal::Num(5_f64))),
                 )),
                 12
             ),
             StatementWithRow::new_expected(
                 Statement::Print(Expression::Infix(
                     Infix::LessThanEqual,
-                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                    Box::new(Expression::Literal(Literal::Num(5 as f64))),
+                    Box::new(Expression::Literal(Literal::Num(3_f64))),
+                    Box::new(Expression::Literal(Literal::Num(5_f64))),
                 )),
                 13
             ),
@@ -4660,13 +4581,13 @@ print 3 <= 5
                                 Infix::Equal,
                                 Box::new(Expression::Infix(
                                     Infix::GreaterThan,
-                                    Box::new(Expression::Literal(Literal::Num(5 as f64))),
-                                    Box::new(Expression::Literal(Literal::Num(4 as f64))),
+                                    Box::new(Expression::Literal(Literal::Num(5_f64))),
+                                    Box::new(Expression::Literal(Literal::Num(4_f64))),
                                 )),
                                 Box::new(Expression::Infix(
                                     Infix::LessThan,
-                                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                                    Box::new(Expression::Literal(Literal::Num(4 as f64))),
+                                    Box::new(Expression::Literal(Literal::Num(3_f64))),
+                                    Box::new(Expression::Literal(Literal::Num(4_f64))),
                                 )),
                             )
                         ), 1
@@ -4682,13 +4603,13 @@ print 3 <= 5
                                 Infix::NotEqual,
                                 Box::new(Expression::Infix(
                                     Infix::LessThan,
-                                    Box::new(Expression::Literal(Literal::Num(5 as f64))),
-                                    Box::new(Expression::Literal(Literal::Num(4 as f64))),
+                                    Box::new(Expression::Literal(Literal::Num(5_f64))),
+                                    Box::new(Expression::Literal(Literal::Num(4_f64))),
                                 )),
                                 Box::new(Expression::Infix(
                                     Infix::GreaterThan,
-                                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                                    Box::new(Expression::Literal(Literal::Num(4 as f64))),
+                                    Box::new(Expression::Literal(Literal::Num(3_f64))),
+                                    Box::new(Expression::Literal(Literal::Num(4_f64))),
                                 )),
                             )
                         ), 1
@@ -4704,13 +4625,13 @@ print 3 <= 5
                                 Infix::Equal,
                                 Box::new(Expression::Infix(
                                     Infix::GreaterThanEqual,
-                                    Box::new(Expression::Literal(Literal::Num(5 as f64))),
-                                    Box::new(Expression::Literal(Literal::Num(4 as f64))),
+                                    Box::new(Expression::Literal(Literal::Num(5_f64))),
+                                    Box::new(Expression::Literal(Literal::Num(4_f64))),
                                 )),
                                 Box::new(Expression::Infix(
                                     Infix::LessThanEqual,
-                                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                                    Box::new(Expression::Literal(Literal::Num(4 as f64))),
+                                    Box::new(Expression::Literal(Literal::Num(3_f64))),
+                                    Box::new(Expression::Literal(Literal::Num(4_f64))),
                                 )),
                             )
                         ), 1
@@ -4726,24 +4647,24 @@ print 3 <= 5
                                 Infix::Equal,
                                 Box::new(Expression::Infix(
                                     Infix::Plus,
-                                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                                    Box::new(Expression::Literal(Literal::Num(3_f64))),
                                     Box::new(Expression::Infix(
                                         Infix::Multiply,
-                                        Box::new(Expression::Literal(Literal::Num(4 as f64))),
-                                        Box::new(Expression::Literal(Literal::Num(5 as f64))),
+                                        Box::new(Expression::Literal(Literal::Num(4_f64))),
+                                        Box::new(Expression::Literal(Literal::Num(5_f64))),
                                     )),
                                 )),
                                 Box::new(Expression::Infix(
                                     Infix::Plus,
                                     Box::new(Expression::Infix(
                                         Infix::Multiply,
-                                        Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                                        Box::new(Expression::Literal(Literal::Num(1 as f64))),
+                                        Box::new(Expression::Literal(Literal::Num(3_f64))),
+                                        Box::new(Expression::Literal(Literal::Num(1_f64))),
                                     )),
                                     Box::new(Expression::Infix(
                                         Infix::Multiply,
-                                        Box::new(Expression::Literal(Literal::Num(4 as f64))),
-                                        Box::new(Expression::Literal(Literal::Num(5 as f64))),
+                                        Box::new(Expression::Literal(Literal::Num(4_f64))),
+                                        Box::new(Expression::Literal(Literal::Num(5_f64))),
                                     )),
                                 )),
                             )
@@ -4760,8 +4681,8 @@ print 3 <= 5
                                 Infix::Equal,
                                 Box::new(Expression::Infix(
                                     Infix::GreaterThan,
-                                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                                    Box::new(Expression::Literal(Literal::Num(5 as f64))),
+                                    Box::new(Expression::Literal(Literal::Num(3_f64))),
+                                    Box::new(Expression::Literal(Literal::Num(5_f64))),
                                 )),
                                 Box::new(Expression::Literal(Literal::Bool(false))),
                             )
@@ -4778,8 +4699,8 @@ print 3 <= 5
                                 Infix::Equal,
                                 Box::new(Expression::Infix(
                                     Infix::LessThan,
-                                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                                    Box::new(Expression::Literal(Literal::Num(5 as f64))),
+                                    Box::new(Expression::Literal(Literal::Num(3_f64))),
+                                    Box::new(Expression::Literal(Literal::Num(5_f64))),
                                 )),
                                 Box::new(Expression::Literal(Literal::Bool(true))),
                             )
@@ -4796,14 +4717,14 @@ print 3 <= 5
                                 Infix::Plus,
                                 Box::new(Expression::Infix(
                                     Infix::Plus,
-                                    Box::new(Expression::Literal(Literal::Num(1 as f64))),
+                                    Box::new(Expression::Literal(Literal::Num(1_f64))),
                                     Box::new(Expression::Infix(
                                         Infix::Plus,
-                                        Box::new(Expression::Literal(Literal::Num(2 as f64))),
-                                        Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                                        Box::new(Expression::Literal(Literal::Num(2_f64))),
+                                        Box::new(Expression::Literal(Literal::Num(3_f64))),
                                     )),
                                 )),
-                                Box::new(Expression::Literal(Literal::Num(4 as f64))),
+                                Box::new(Expression::Literal(Literal::Num(4_f64))),
                             )
                         ), 1
                     )
@@ -4818,10 +4739,10 @@ print 3 <= 5
                                 Infix::Multiply,
                                 Box::new(Expression::Infix(
                                     Infix::Plus,
-                                    Box::new(Expression::Literal(Literal::Num(5 as f64))),
-                                    Box::new(Expression::Literal(Literal::Num(5 as f64))),
+                                    Box::new(Expression::Literal(Literal::Num(5_f64))),
+                                    Box::new(Expression::Literal(Literal::Num(5_f64))),
                                 )),
-                                Box::new(Expression::Literal(Literal::Num(2 as f64))),
+                                Box::new(Expression::Literal(Literal::Num(2_f64))),
                             )
                         ), 1
                     )
@@ -4834,11 +4755,11 @@ print 3 <= 5
                         Statement::Print(
                             Expression::Infix(
                                 Infix::Divide,
-                                Box::new(Expression::Literal(Literal::Num(2 as f64))),
+                                Box::new(Expression::Literal(Literal::Num(2_f64))),
                                 Box::new(Expression::Infix(
                                     Infix::Plus,
-                                    Box::new(Expression::Literal(Literal::Num(5 as f64))),
-                                    Box::new(Expression::Literal(Literal::Num(5 as f64))),
+                                    Box::new(Expression::Literal(Literal::Num(5_f64))),
+                                    Box::new(Expression::Literal(Literal::Num(5_f64))),
                                 )),
                             )
                         ), 1
@@ -4853,8 +4774,8 @@ print 3 <= 5
                             Prefix::Minus,
                             Box::new(Expression::Infix(
                                 Infix::Plus,
-                                Box::new(Expression::Literal(Literal::Num(5 as f64))),
-                                Box::new(Expression::Literal(Literal::Num(5 as f64))),
+                                Box::new(Expression::Literal(Literal::Num(5_f64))),
+                                Box::new(Expression::Literal(Literal::Num(5_f64))),
                             ))
                         )), 1
                     )
@@ -4868,8 +4789,8 @@ print 3 <= 5
                             Prefix::Not,
                             Box::new(Expression::Infix(
                                 Infix::Equal,
-                                Box::new(Expression::Literal(Literal::Num(5 as f64))),
-                                Box::new(Expression::Literal(Literal::Num(5 as f64))),
+                                Box::new(Expression::Literal(Literal::Num(5_f64))),
+                                Box::new(Expression::Literal(Literal::Num(5_f64))),
                             ))
                         )), 1
                     )
@@ -4910,25 +4831,25 @@ print 3 <= 5
                             args: vec![
                                 Expression::Identifier(Identifier(String::from("a"))),
                                 Expression::Identifier(Identifier(String::from("b"))),
-                                Expression::Literal(Literal::Num(1 as f64)),
+                                Expression::Literal(Literal::Num(1_f64)),
                                 Expression::Infix(
                                     Infix::Multiply,
-                                    Box::new(Expression::Literal(Literal::Num(2 as f64))),
-                                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                                    Box::new(Expression::Literal(Literal::Num(2_f64))),
+                                    Box::new(Expression::Literal(Literal::Num(3_f64))),
                                 ),
                                 Expression::Infix(
                                     Infix::Plus,
-                                    Box::new(Expression::Literal(Literal::Num(4 as f64))),
-                                    Box::new(Expression::Literal(Literal::Num(5 as f64))),
+                                    Box::new(Expression::Literal(Literal::Num(4_f64))),
+                                    Box::new(Expression::Literal(Literal::Num(5_f64))),
                                 ),
                                 Expression::FuncCall{
                                     func: Box::new(Expression::Identifier(Identifier(String::from("add")))),
                                     args: vec![
-                                        Expression::Literal(Literal::Num(6 as f64)),
+                                        Expression::Literal(Literal::Num(6_f64)),
                                         Expression::Infix(
                                             Infix::Multiply,
-                                            Box::new(Expression::Literal(Literal::Num(7 as f64))),
-                                            Box::new(Expression::Literal(Literal::Num(8 as f64))),
+                                            Box::new(Expression::Literal(Literal::Num(7_f64))),
+                                            Box::new(Expression::Literal(Literal::Num(8_f64))),
                                         )
                                     ],
                                     is_await: false,
@@ -4951,10 +4872,10 @@ print 3 <= 5
                                 Box::new(Expression::Index(
                                     Box::new(Expression::Literal(Literal::Array(
                                         vec![
-                                            Expression::Literal(Literal::Num(1 as f64)),
-                                            Expression::Literal(Literal::Num(2 as f64)),
-                                            Expression::Literal(Literal::Num(3 as f64)),
-                                            Expression::Literal(Literal::Num(4 as f64)),
+                                            Expression::Literal(Literal::Num(1_f64)),
+                                            Expression::Literal(Literal::Num(2_f64)),
+                                            Expression::Literal(Literal::Num(3_f64)),
+                                            Expression::Literal(Literal::Num(4_f64)),
                                         ]
                                     ))),
                                     Box::new(Expression::Infix(
@@ -4982,26 +4903,26 @@ print 3 <= 5
                                     Box::new(Expression::Identifier(Identifier(String::from("a")))),
                                     Box::new(Expression::Index(
                                         Box::new(Expression::Identifier(Identifier(String::from("b")))),
-                                        Box::new(Expression::Literal(Literal::Num(2 as f64))),
+                                        Box::new(Expression::Literal(Literal::Num(2_f64))),
                                         Box::new(None)
                                     ))
                                 ),
                                 Expression::Index(
                                     Box::new(Expression::Identifier(Identifier(String::from("b")))),
-                                    Box::new(Expression::Literal(Literal::Num(1 as f64))),
+                                    Box::new(Expression::Literal(Literal::Num(1_f64))),
                                     Box::new(None),
                                 ),
                                 Expression::Infix(
                                     Infix::Multiply,
-                                    Box::new(Expression::Literal(Literal::Num(2 as f64))),
+                                    Box::new(Expression::Literal(Literal::Num(2_f64))),
                                     Box::new(Expression::Index(
                                         Box::new(Expression::Literal(Literal::Array(
                                             vec![
-                                                Expression::Literal(Literal::Num(1 as f64)),
-                                                Expression::Literal(Literal::Num(2 as f64)),
+                                                Expression::Literal(Literal::Num(1_f64)),
+                                                Expression::Literal(Literal::Num(2_f64)),
                                             ]
                                         ))),
-                                        Box::new(Expression::Literal(Literal::Num(1 as f64))),
+                                        Box::new(Expression::Literal(Literal::Num(1_f64))),
                                         Box::new(None)
                                     ))
                                 )
@@ -5033,11 +4954,11 @@ print 3 <= 5
                     StatementWithRow::new_expected(
                         Statement::Print(Expression::Infix(
                             Infix::Plus,
-                            Box::new(Expression::Literal(Literal::Num(1 as f64))),
+                            Box::new(Expression::Literal(Literal::Num(1_f64))),
                             Box::new(Expression::Infix(
                                 Infix::Mod,
-                                Box::new(Expression::Literal(Literal::Num(5 as f64))),
-                                Box::new(Expression::Literal(Literal::Num(3 as f64))),
+                                Box::new(Expression::Literal(Literal::Num(5_f64))),
+                                Box::new(Expression::Literal(Literal::Num(3_f64))),
                             )),
                         )), 1
                     )
@@ -5053,15 +4974,15 @@ print 3 <= 5
                                 Infix::And,
                                 Box::new(Expression::Infix(
                                     Infix::Multiply,
-                                    Box::new(Expression::Literal(Literal::Num(3 as f64))),
-                                    Box::new(Expression::Literal(Literal::Num(2 as f64))),
+                                    Box::new(Expression::Literal(Literal::Num(3_f64))),
+                                    Box::new(Expression::Literal(Literal::Num(2_f64))),
                                 )),
-                                Box::new(Expression::Literal(Literal::Num(2 as f64))),
+                                Box::new(Expression::Literal(Literal::Num(2_f64))),
                             )),
                             Box::new(Expression::Infix(
                                 Infix::Or,
-                                Box::new(Expression::Literal(Literal::Num(2 as f64))),
-                                Box::new(Expression::Literal(Literal::Num(4 as f64))),
+                                Box::new(Expression::Literal(Literal::Num(2_f64))),
+                                Box::new(Expression::Literal(Literal::Num(4_f64))),
                             )),
                         )), 1
                     )
@@ -5087,7 +5008,7 @@ endif
                             ),
                             consequence: vec![
                                 StatementWithRow::new_expected(
-                                    Statement::Print(Expression::Literal(Literal::Num(1 as f64))),
+                                    Statement::Print(Expression::Literal(Literal::Num(1_f64))),
                                     3
                                 )
                             ],
@@ -5111,7 +5032,7 @@ endif
                     StatementWithRow::new_expected(
                         Statement::Expression(Expression::Assign(
                             Box::new(Expression::Identifier(Identifier(String::from("a")))),
-                            Box::new(Expression::Literal(Literal::Num(1 as f64)))
+                            Box::new(Expression::Literal(Literal::Num(1_f64)))
                         )), 1
                     )
                 ]
@@ -5123,10 +5044,10 @@ endif
                         Statement::Expression(Expression::Assign(
                             Box::new(Expression::Index(
                                 Box::new(Expression::Identifier(Identifier(String::from("a")))),
-                                Box::new(Expression::Literal(Literal::Num(0 as f64))),
+                                Box::new(Expression::Literal(Literal::Num(0_f64))),
                                 Box::new(None)
                             )),
-                            Box::new(Expression::Literal(Literal::Num(1 as f64)))
+                            Box::new(Expression::Literal(Literal::Num(1_f64)))
                         )), 1
                     )
                 ]
@@ -5139,13 +5060,13 @@ endif
                             Box::new(Expression::Index(
                                 Box::new(Expression::Index(
                                     Box::new(Expression::Identifier(Identifier(String::from("a")))),
-                                    Box::new(Expression::Literal(Literal::Num(0 as f64))),
+                                    Box::new(Expression::Literal(Literal::Num(0_f64))),
                                     Box::new(None)
                                 )),
-                                Box::new(Expression::Literal(Literal::Num(0 as f64))),
+                                Box::new(Expression::Literal(Literal::Num(0_f64))),
                                 Box::new(None)
                             )),
-                            Box::new(Expression::Literal(Literal::Num(1 as f64)))
+                            Box::new(Expression::Literal(Literal::Num(1_f64)))
                         )), 1
                     )
                 ]
@@ -5158,8 +5079,8 @@ endif
                             Box::new(Expression::Identifier(Identifier(String::from("a")))),
                             Box::new(Expression::Infix(
                                 Infix::Equal,
-                                Box::new(Expression::Literal(Literal::Num(1 as f64))),
-                                Box::new(Expression::Literal(Literal::Num(2 as f64))),
+                                Box::new(Expression::Literal(Literal::Num(1_f64))),
+                                Box::new(Expression::Literal(Literal::Num(2_f64))),
                             ))
                         )), 1
                     )
@@ -5184,8 +5105,8 @@ next
                     StatementWithRow::new_expected(
                         Statement::For {
                             loopvar: Identifier(String::from("i")),
-                            from: Expression::Literal(Literal::Num(0 as f64)),
-                            to: Expression::Literal(Literal::Num(5 as f64)),
+                            from: Expression::Literal(Literal::Num(0_f64)),
+                            to: Expression::Literal(Literal::Num(5_f64)),
                             step: None,
                             block: vec![
                                 StatementWithRow::new_expected(
@@ -5208,11 +5129,11 @@ next
                     StatementWithRow::new_expected(
                         Statement::For {
                             loopvar: Identifier(String::from("i")),
-                            from: Expression::Literal(Literal::Num(5 as f64)),
-                            to: Expression::Literal(Literal::Num(0 as f64)),
+                            from: Expression::Literal(Literal::Num(5_f64)),
+                            to: Expression::Literal(Literal::Num(0_f64)),
                             step: Some(Expression::Prefix(
                                 Prefix::Minus,
-                                Box::new(Expression::Literal(Literal::Num(1 as f64)))
+                                Box::new(Expression::Literal(Literal::Num(1_f64)))
                             )),
                             block: vec![
                                 StatementWithRow::new_expected(
@@ -5297,8 +5218,8 @@ endfor
                     StatementWithRow::new_expected(
                         Statement::For {
                             loopvar: Identifier(String::from("i")),
-                            from: Expression::Literal(Literal::Num(0 as f64)),
-                            to: Expression::Literal(Literal::Num(5 as f64)),
+                            from: Expression::Literal(Literal::Num(0_f64)),
+                            to: Expression::Literal(Literal::Num(5_f64)),
                             step: None,
                             block: vec![
                                 StatementWithRow::new_expected(
@@ -6743,6 +6664,7 @@ fend
         }
     }
 
+    #[allow(clippy::non_canonical_partial_ord_impl)]
     impl PartialOrd for ParseError {
         fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
             // match self.kind.partial_cmp(&other.kind) {

@@ -128,23 +128,17 @@ fn start_uwscr() {
                     return;
                 },
             };
-            match std::env::set_current_dir(dir) {
-                Err(e) => {
-                    show_message(&e.to_string(), dlg_title, true);
-                    return;
-                },
-                _ => {},
+            if let Err(e) = std::env::set_current_dir(dir) {
+                show_message(&e.to_string(), dlg_title, true);
+                return;
             };
             match get_script(&script_fullpath) {
                 Ok(s) => {
                     let names = get_builtin_string_names();
-                    match serializer::serialize(s, names) {
-                        Some(bin) => {
-                            // uwslファイルとして保存
-                            script_fullpath.set_extension("uwsl");
-                            serializer::save(script_fullpath, bin);
-                        },
-                        None => {},
+                    if let Some(bin) = serializer::serialize(s, names) {
+                        // uwslファイルとして保存
+                        script_fullpath.set_extension("uwsl");
+                        serializer::save(script_fullpath, bin);
                     }
                 },
                 Err(e) => {
@@ -191,6 +185,7 @@ fn start_uwscr() {
                             let file = std::fs::OpenOptions::new()
                                 .write(true)
                                 .create(true)
+                                .truncate(true)
                                 .open(&path);
                             match file {
                                 Ok(mut file) => {

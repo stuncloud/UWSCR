@@ -26,7 +26,7 @@ fn main() {
             },
             _ => "UWSCR"
         };
-        res.set("FileDescription", &desc);
+        res.set("FileDescription", desc);
         res.set("LegalCopyright", "Joey Takahashi a.k.a. stuncloud");
         res.set_manifest(r#"
 <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">

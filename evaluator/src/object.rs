@@ -345,10 +345,7 @@ fn compare_rwlock<T>(rw1: &Arc<RwLock<T>>, rw2: &Arc<RwLock<T>>) -> bool {
 impl PartialEq for Object {
     fn eq(&self, other: &Self) -> bool {
         match self {
-            Object::EmptyParam => match other {
-                Object::EmptyParam => true,
-                _ => false
-            },
+            Object::EmptyParam => matches!(other, Object::EmptyParam),
             Object::Num(n) => match other {
                 Object::Num(n2) => n == n2,
                 Object::String(s) => compare_string(n, s),
@@ -402,18 +399,9 @@ impl PartialEq for Object {
                 let _ins = m1.lock().unwrap();
                 m2.try_lock().is_err()
             } else {false},
-            Object::Null => match other {
-                Object::Null => true,
-                _ => false
-            },
-            Object::Empty => match other {
-                Object::Empty => true,
-                _ => false,
-            },
-            Object::Nothing => match other {
-                Object::Nothing => true,
-                _ => false,
-            },
+            Object::Null => matches!(other, Object::Null),
+            Object::Empty => matches!(other, Object::Empty),
+            Object::Nothing => matches!(other, Object::Nothing),
             Object::Continue(_) => false,
             Object::Break(_) => false,
             Object::Handle(h) => if let Object::Handle(h2) = other {h==h2} else {false},
@@ -577,8 +565,8 @@ impl Object {
                 ! ins.is_dropped
             },
             Object::String(s) |
-            Object::ExpandableTB(s) => s.len() > 0,
-            Object::Array(arr) => arr.len() > 0,
+            Object::ExpandableTB(s) => !s.is_empty(),
+            Object::Array(arr) => !arr.is_empty(),
             Object::Num(n) => ! n.is_zero(),
             Object::Handle(h) => h.0 > 0,
             _ => true
@@ -692,108 +680,106 @@ impl Hash for Object {
     }
 }
 
+#[allow(clippy::derivable_impls)]
 impl Default for Object {
     fn default() -> Self {
         Object::Empty
     }
 }
 
-impl Into<Object> for String {
-    fn into(self) -> Object {
-        Object::String(self)
+impl From<String> for Object {
+    fn from(val: String) -> Self {
+        Object::String(val)
     }
 }
-impl Into<Object> for &str {
-    fn into(self) -> Object {
-        Object::String(self.to_string())
+impl From<&str> for Object {
+    fn from(val: &str) -> Self {
+        Object::String(val.to_string())
     }
 }
-impl Into<Object> for f64 {
-    fn into(self) -> Object {
-        Object::Num(self)
+impl From<f64> for Object {
+    fn from(val: f64) -> Self {
+        Object::Num(val)
     }
 }
-impl Into<Object> for u16 {
-    fn into(self) -> Object {
-        Object::Num(self as f64)
+impl From<u16> for Object {
+    fn from(val: u16) -> Self {
+        Object::Num(val as f64)
     }
 }
-impl Into<Object> for u8 {
-    fn into(self) -> Object {
-        Object::Num(self as f64)
+impl From<u8> for Object {
+    fn from(val: u8) -> Self {
+        Object::Num(val as f64)
     }
 }
-impl Into<Object> for i32 {
-    fn into(self) -> Object {
-        Object::Num(self as f64)
+impl From<i32> for Object {
+    fn from(val: i32) -> Self {
+        Object::Num(val as f64)
     }
 }
-impl Into<Object> for i64 {
-    fn into(self) -> Object {
-        Object::Num(self as f64)
+impl From<i64> for Object {
+    fn from(val: i64) -> Self {
+        Object::Num(val as f64)
     }
 }
-impl Into<Object> for u32 {
-    fn into(self) -> Object {
-        Object::Num(self as f64)
+impl From<u32> for Object {
+    fn from(val: u32) -> Self {
+        Object::Num(val as f64)
     }
 }
-impl Into<Object> for f32 {
-    fn into(self) -> Object {
-        Object::Num(self as f64)
+impl From<f32> for Object {
+    fn from(val: f32) -> Self {
+        Object::Num(val as f64)
     }
 }
-impl Into<Object> for usize {
-    fn into(self) -> Object {
-        Object::Num(self as f64)
+impl From<usize> for Object {
+    fn from(val: usize) -> Self {
+        Object::Num(val as f64)
     }
 }
-impl Into<Object> for Option<String> {
-    fn into(self) -> Object {
-        if let Some(s) = self {
+impl From<Option<String>> for Object {
+    fn from(val: Option<String>) -> Self {
+        if let Some(s) = val {
             Object::String(s)
         } else {
             Object::Empty
         }
     }
 }
-impl Into<Object> for Option<&str> {
-    fn into(self) -> Object {
-        if let Some(s) = self {
+impl From<Option<&str>> for Object {
+    fn from(val: Option<&str>) -> Self {
+        if let Some(s) = val {
             Object::String(s.to_string())
         } else {
             Object::Empty
         }
     }
 }
-impl Into<Object> for Vec<String> {
-    fn into(self) -> Object {
-        let arr = self.into_iter()
+impl From<Vec<String>> for Object {
+    fn from(val: Vec<String>) -> Self {
+        let arr = val.into_iter()
             .map(|s| s.into())
             .collect();
         Object::Array(arr)
     }
 }
-impl Into<Object> for bool {
-    fn into(self) -> Object {
-        Object::Bool(self)
+impl From<bool> for Object {
+    fn from(val: bool) -> Self {
+        Object::Bool(val)
     }
 }
-impl  Into<Object> for Vec<u8> {
-    fn into(self) -> Object {
-        Object::ByteArray(self)
+impl  From<Vec<u8>> for Object {
+    fn from(val: Vec<u8>) -> Self {
+        Object::ByteArray(val)
     }
 }
 
-impl Into<i32> for Object {
-    fn into(self) -> i32 {
-        match self {
+impl From<Object> for i32 {
+    fn from(val: Object) -> Self {
+        match val {
             Object::Num(n) => n as i32,
             Object::Bool(b) => b as i32,
-            Object::String(ref s) => match s.parse::<i32>() {
-                Ok(n) => n,
-                Err(_) => 0
-            },
+            Object::String(ref s) => s.parse::<i32>().unwrap_or(0),
             _ => 0
         }
     }
@@ -820,17 +806,15 @@ impl Add for Object {
             Object::Num(n) => {
                 if let Some(n2) = rhs.as_f64(true) {
                     Ok(Object::Num(n + n2))
+                } else if let Object::String(s2) = rhs {
+                    let mut s = n.to_string();
+                    s.push_str(&s2);
+                    Ok(Object::String(s))
                 } else {
-                    if let Object::String(s2) = rhs {
-                        let mut s = n.to_string();
-                        s.push_str(&s2);
-                        Ok(Object::String(s))
-                    } else {
-                        Err(UError::new(
-                            UErrorKind::OperatorError,
-                            UErrorMessage::RightSideTypeInvalid(Infix::Plus),
-                        ))
-                    }
+                    Err(UError::new(
+                        UErrorKind::OperatorError,
+                        UErrorMessage::RightSideTypeInvalid(Infix::Plus),
+                    ))
                 }
             },
             Object::String(mut s) => {
@@ -1028,7 +1012,7 @@ impl Mul for Object {
                 }
             },
             Object::Empty => {
-                if let Some(_) = rhs.as_f64(false) {
+                if rhs.as_f64(false).is_some() {
                     // 0を掛ける
                     Ok(Object::Num(0.0))
                 } else {
@@ -1103,7 +1087,7 @@ impl Div for Object {
                 }
             },
             Object::Empty => {
-                if let Some(_) = rhs.as_f64(false) {
+                if rhs.as_f64(false).is_some() {
                     Ok(Object::Num(0.0))
                 } else {
                     Err(UError::new(
@@ -1176,7 +1160,7 @@ impl Rem for Object {
                 }
             },
             Object::Empty => {
-                if let Some(_) = rhs.as_f64(false) {
+                if rhs.as_f64(false).is_some() {
                     Ok(Object::Num(0.0))
                 } else {
                     Err(UError::new(

@@ -140,14 +140,13 @@ impl Lexer {
 
     pub fn get_line(&self, row: usize) -> String {
         if row > 0 && row <= self.lines.len() {
-            let line = self.lines[row - 1].clone();
-            line
+            self.lines[row - 1].clone()
         } else {
             String::new()
         }
     }
 
-    fn to_next_row(&mut self) {
+    fn set_to_next_row(&mut self) {
         // self.position_before = self.position.clone();
         self.position.row += 1;
         self.position.column = 0;
@@ -168,7 +167,7 @@ impl Lexer {
             self.read_char();
         }
         self.read_char();
-        self.to_next_row();
+        self.set_to_next_row();
     }
 
     /// inputの指定位置に移動
@@ -231,30 +230,23 @@ impl Lexer {
 
     fn skip_whitespace(&mut self) -> bool {
         let mut skipped = false;
-        loop {
-            match self.ch {
-                ' ' | '\t' | '　' => {
-                    self.read_char();
-                    skipped = true;
-                },
-                _ => {
-                    break;
-                }
-            }
+        while let ' ' | '\t' | '　' = self.ch {
+            self.read_char();
+            skipped = true;
         }
         skipped
     }
 
     pub fn next_token(&mut self) -> TokenInfo {
         if self.is_textblock {
-            let p = self.position.clone();
+            let p = self.position;
             let body = self.get_textblock_body();
             let is_comment = self.is_comment_textblock;
             self.is_comment_textblock = true;
             return TokenInfo::new_with_pos(Token::TextBlockBody(body, is_comment), p, false);
         }
         let skipped = self.skip_whitespace();
-        let p: Position = self.position.clone();
+        let p: Position = self.position;
 
         if self.def_dll.is_some_and(|(_, len)| len > 0 ) {
             let token = self.get_dll_path();
@@ -313,7 +305,7 @@ impl Lexer {
                             break;
                         }
                     }
-                    self.to_next_row();
+                    self.set_to_next_row();
                     Token::Eol
                 } else if self.nextch_is('=') {
                     self.read_char();
@@ -471,14 +463,14 @@ impl Lexer {
             '|' => Token::Pipeline,
             '\'' => return TokenInfo::new_with_pos(self.consume_literal_string('\''), p, skipped),
             '\n' => {
-                self.to_next_row();
+                self.set_to_next_row();
                 Token::Eol
             },
             '\r' => {
                 if self.nextch_is('\n') {
                     self.read_char();
                 }
-                self.to_next_row();
+                self.set_to_next_row();
                 Token::Eol
             },
             '\0' => Token::Eof,
@@ -492,7 +484,7 @@ impl Lexer {
             self.textblock_flg = false;
         }
         self.read_char();
-        return TokenInfo::new_with_pos(token, p, skipped);
+        TokenInfo::new_with_pos(token, p, skipped)
     }
 
     fn is_dll_path(&mut self) {
@@ -609,7 +601,7 @@ impl Lexer {
             },
         };
         // 文字列から()のペアを探す
-        let input = (&path_and_args).chars().collect();
+        let input = path_and_args.chars().collect();
         let mut pairs = None;
         let mut pos = 0;
         ParenPairs::search(&input, &mut pairs, &mut pos, true, false);
@@ -758,42 +750,28 @@ impl Lexer {
     fn consume_number(&mut self) -> Token {
         let start_pos = self.pos;
         let mut has_period = false;
-        loop {
-            match self.ch {
-                '0'..='9' => {
-                    if self.nextch_is('.') {
-                        self.read_char();
-                        if ! has_period {
-                            has_period = true;
-                        } else {
-                            break;
-                        }
-                    }
-                    self.read_char();
-                },
-                _ => {
+        while let '0'..='9' = self.ch {
+            if self.nextch_is('.') {
+                self.read_char();
+                if ! has_period {
+                    has_period = true;
+                } else {
                     break;
                 }
             }
+            self.read_char();
         }
-        let literal: &String = &self.input[start_pos..self.pos].into_iter().collect();
+        let literal: &String = &self.input[start_pos..self.pos].iter().collect();
         Token::Num(literal.parse::<f64>().unwrap())
     }
 
     fn consume_hexadecimal(&mut self) -> Token {
         self.read_char(); // $の次から読む
         let start_pos = self.pos;
-        loop {
-            match self.ch {
-                '0'..='9' | 'a'..='f' | 'A'..='F' => {
-                    self.read_char();
-                },
-                _ => {
-                    break;
-                }
-            }
+        while let '0'..='9' | 'a'..='f' | 'A'..='F' = self.ch {
+            self.read_char();
         }
-        let literal: &String = &self.input[start_pos..self.pos].into_iter().collect();
+        let literal: &String = &self.input[start_pos..self.pos].iter().collect();
         Token::Hex(literal.to_string())
     }
 
@@ -808,7 +786,7 @@ impl Lexer {
         loop {
             if self.ch == ends_with {
                 // 適切に閉じられた場合は文字列トークンとして返す
-                let literal = self.input[start..self.pos].into_iter()
+                let literal = self.input[start..self.pos].iter()
                     .filter(|c| **c != '\0')
                     .collect::<String>();
                 self.read_char();
@@ -886,14 +864,14 @@ impl Lexer {
                             self.input.remove(self.pos);
                         }
                         self.input.remove(self.pos);
-                        self.to_next_row();
+                        self.set_to_next_row();
                     }
                 },
                 '\r' => {
                     if self.nextch_is('\n') {
                         self.read_char();
                     }
-                    self.to_next_row();
+                    self.set_to_next_row();
                 }
                 '}' | ']' => {
                     self.read_char();
@@ -909,7 +887,7 @@ impl Lexer {
             self.read_char();
         }
         self.read_char();
-        let json: String = self.input[start_pos..self.pos].into_iter().collect();
+        let json: String = self.input[start_pos..self.pos].iter().collect();
         Token::UObject(json)
     }
 
@@ -974,7 +952,7 @@ impl Lexer {
         }
         self.position.column = 0;
         self.is_textblock = false;
-        let body: String = self.input[start_pos..end_pos].into_iter().collect();
+        let body: String = self.input[start_pos..end_pos].iter().collect();
         body
     }
 
@@ -1090,7 +1068,7 @@ mod test {
             Token::Dim,
             Token::Identifier("hoge".to_string()),
             Token::EqualOrAssign,
-            Token::Num(123 as f64),
+            Token::Num(123_f64),
         ];
         test_next_token(input, tokens);
     }
@@ -1104,15 +1082,15 @@ mod test {
             Token::Lbracket,
             Token::Rbracket,
             Token::EqualOrAssign,
-            Token::Num(1 as f64),
+            Token::Num(1_f64),
             Token::Comma,
-            Token::Num(3 as f64),
+            Token::Num(3_f64),
             Token::Comma,
-            Token::Num(5 as f64),
+            Token::Num(5_f64),
             Token::Comma,
-            Token::Num(7 as f64),
+            Token::Num(7_f64),
             Token::Comma,
-            Token::Num(9 as f64),
+            Token::Num(9_f64),
         ];
         test_next_token(input, tokens);
     }
@@ -1124,7 +1102,7 @@ mod test {
             Token::Public,
             Token::Identifier("fuga".to_string()),
             Token::EqualOrAssign,
-            Token::Num(123 as f64),
+            Token::Num(123_f64),
         ];
         test_next_token(input, tokens);
     }
@@ -1136,7 +1114,7 @@ mod test {
             Token::Public,
             Token::Identifier("fuga".to_string()),
             Token::EqualOrAssign,
-            Token::Num(123 as  f64),
+            Token::Num(123_f64),
         ];
         test_next_token(input, tokens);
     }
@@ -1150,7 +1128,7 @@ print 123.456
 "#;
         let tokens = vec![
             Token::Print,
-            Token::Num(123 as f64),
+            Token::Num(123_f64),
             Token::Eol,
             Token::Print,
             Token::Hex("1234AB".to_string()),
@@ -1198,14 +1176,14 @@ print 123.456
         let tokens = vec![
             Token::Print,
             Token::Lparen,
-            Token::Num(1 as f64),
+            Token::Num(1_f64),
             Token::Plus,
-            Token::Num(2 as f64),
+            Token::Num(2_f64),
             Token::Rparen,
             Token::Asterisk,
-            Token::Num(4 as f64),
+            Token::Num(4_f64),
             Token::Slash,
-            Token::Num(3 as f64),
+            Token::Num(3_f64),
         ];
         test_next_token(input, tokens);
     }

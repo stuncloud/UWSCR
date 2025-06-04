@@ -37,7 +37,7 @@ pub fn run(script: String, script_path: PathBuf, params: Vec<String>, ast: Optio
         // デフォルトダイアログタイトルを設定
         unsafe {env::set_var("UWSCR_DEFAULT_TITLE", format!("UWSCR - {}", name.to_string_lossy()));}
     }
-    if let Err(_) = env::set_current_dir(&script_dir) { return Err(ScriptError::new(
+    if env::set_current_dir(script_dir).is_err() { return Err(ScriptError::new(
         UWSCRErrorTitle::InitializeError,
         "unable to set current directory"
     )) };

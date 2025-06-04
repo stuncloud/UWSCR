@@ -17,7 +17,7 @@ pub fn serialize(script: String, builtin_names: Vec<String>) -> Option<Vec<u8>> 
             for err in errors {
                 eprintln!("{}", err);
             }
-            eprintln!("");
+            eprintln!();
             None
         },
     }

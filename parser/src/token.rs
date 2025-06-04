@@ -215,6 +215,7 @@ pub enum Token {
 }
 
 impl Token {
+    #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
         match self {
             Token::Illegal(_) => 1,

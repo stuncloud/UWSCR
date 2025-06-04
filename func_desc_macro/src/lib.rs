@@ -23,7 +23,7 @@ pub fn builtin_func_desc(args: TokenStream, input: TokenStream) -> TokenStream {
     }.into();
 
     // 元の関数定義と*_desc関数定義を返す
-    fn_desc.extend(input.into_iter());
+    fn_desc.extend(input);
     fn_desc
 }
 
