@@ -12,6 +12,7 @@ use crate::builtins::{
     system_controls::is_64bit_os,
     text_control::ErrConst,
     dialog::THREAD_LOCAL_BALLOON,
+    U32Ext,
 };
 use crate::gui::UWindow;
 pub use monitor::Monitor;
@@ -1704,6 +1705,8 @@ pub enum GetItemConst {
     ITM_ACCTXT    = 8388608,
     #[strum[props(desc="ACCエディット可能テキスト")]]
     ITM_ACCEDIT   = 16777216,
+    #[strum[props(desc="ACCのツリー構造を取得")]]
+    ITM_ACC_TREE = 0x2000000,
     #[strum[props(desc="ACCで逆順検索")]]
     ITM_FROMLAST  = 65536,
     #[strum[props(desc="ACCでウィンドウをアクティブにしない")]]
@@ -1736,6 +1739,7 @@ impl From<GetItemConst> for u32 {
 - ITM_ACCCLK2: ACCによりクリック可能なものおよび選択可能テキスト
 - ITM_ACCTXT: ACCスタティックテキスト
 - ITM_ACCEDIT: ACCエディット可能テキスト
+- ITM_ACC_TREE: ACCエツリー構造
 - ITM_FROMLAST: ACCで検索順序を逆にする
 - ITM_BACK: ACCでウィンドウをアクティブにしない"#},
         {o,n="n番目",t="数値",d="リスト、リストビュー、ツリービューが複数ある場合その順番、-1ならすべて取得"},
@@ -1747,21 +1751,26 @@ impl From<GetItemConst> for u32 {
 pub fn getitem(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = args.get_as_int(0, None)?;
     let hwnd = get_hwnd_from_id(id);
-    let target = args.get_as_int(1, None)?;
+    let target = args.get_as_int(1, None::<u32>)?;
     let nth = args.get_as_int(2, Some(1))?;
     let column = args.get_as_int(3, Some(1))?;
     let ignore_disabled = args.get_as_bool(4, Some(false))?;
     let acc_max = args.get_as_int(5, Some(0))?;
 
-    // api
-    let mut items = win32::Win32::getitem(hwnd, target, nth, column, ignore_disabled);
-    // acc
-    if let Some(acc_items) = acc::Acc::getitem(hwnd, target, acc_max, ignore_disabled) {
-        items.extend(acc_items);
-    }
+    if target.includes(u32::from(GetItemConst::ITM_ACC_TREE)) {
+        let value = acc::Acc::get_acc_tree(hwnd);
+        Ok(Object::UObject(value.into()))
+    } else {
+        // api
+        let mut items = win32::Win32::getitem(hwnd, target, nth, column, ignore_disabled);
+        // acc
+        if let Some(acc_items) = acc::Acc::getitem(hwnd, target, acc_max, ignore_disabled) {
+            items.extend(acc_items);
+        }
 
-    let arr = items.into_iter().map(|s| s.into()).collect();
-    Ok(Object::Array(arr))
+        let arr = items.into_iter().map(|s| s.into()).collect();
+        Ok(Object::Array(arr))
+    }
 }
 
 #[allow(non_camel_case_types)]

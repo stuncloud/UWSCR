@@ -1256,6 +1256,11 @@ ID0について
 
             ACCエディット可能テキスト
 
+        .. object:: ITM_ACC_TREE
+
+            | ACCツリー構造
+            | この定数を指定した場合は他の定数および以降の引数は無視されます
+
         .. object:: ITM_FROMLAST
 
             ACCで検索順序を逆にする
@@ -1285,8 +1290,21 @@ ID0について
     :param 数値 省略可 列: ITM_LISTVIEW指定時にどの列から取得するかを指定(1から)、0ならすべての列、-1ならカラム名を取得
     :param 真偽値 省略可 ディセーブル無視: FALSEならディセーブル状態でも取得する、TRUEなら取得しない
     :param 数値 省略可 ACC最大取得数: ACC指定時に取得するアイテム数の上限を指定、0なら無制限、マイナス指定時は逆順(ITM_FROMLASTと同じ)
-    :rtype: 文字列の配列
-    :return: 取得されたアイテム名の配列
+    :rtype: 文字列の配列またはUObject
+    :return:
+
+        | 取得されたアイテム名の配列
+        | ``ITM_ACC_TREE`` 指定時はACCのツリー構造を示すUObject (失敗時はNULL)
+
+        .. sourcecode:: uwscr
+
+            // 対象ウィンドウのACCツリー構造を取得
+            id = getid("ファイル名を指定して実行")
+            uo = getitem(id, ITM_ACC_TREE)
+            json = tojson(uo, TRUE)
+            path = ".\acc.json"
+            fput(fopen(path, F_WRITE8 or F_AUTOCLOSE), json)
+            shexec(path)
 
         .. admonition:: UWSCとの違い
             :class: caution

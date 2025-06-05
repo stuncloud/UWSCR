@@ -33,7 +33,7 @@ use std::ops::ControlFlow;
 
 use crate::{builtins::window_low::move_mouse_to, object::VariantExt, U32Ext};
 use super::clkitem::{ClkItem, ClkTarget};
-
+use serde_json::{Value, json};
 pub struct Acc {}
 
 impl Acc {
@@ -303,6 +303,12 @@ impl Acc {
             roles.push(ROLE_SYSTEM_LISTVIEW);
         }
         roles
+    }
+
+    pub fn get_acc_tree(hwnd: HWND) -> Value {
+        AccWindow::from_hwnd(hwnd)
+            .map(AccWindow::into_value)
+            .unwrap_or(Value::Null)
     }
 }
 pub enum ClickTargetFound {
@@ -947,6 +953,11 @@ impl AccWindow {
         }
         Some(text)
     }
+
+    fn into_value(self) -> Value {
+        AccChild::from(self).into_value()
+    }
+
     #[cfg(debug_assertions)]
     fn _out_all_item(hwnd: HWND, out_dir: &str) {
         if let Ok(window) = Self::from_hwnd(hwnd) {
@@ -1238,6 +1249,58 @@ impl AccChild {
     fn dbg_detail(&self) {
         #[cfg(debug_assertions)]
         dbg!(AccChildDetail::from(self));
+    }
+    fn is_object(&self) -> bool {
+        self.id().is_some_and(|n| n.eq(&0))
+    }
+    fn child_objects(&self) -> impl Iterator<Item = Self> {
+        self.children().into_iter().enumerate()
+            .filter_map(|(index, varchild)| {
+                match varchild.vt() {
+                    VT_I4 => {
+                        Some(Self::new(self.inner.clone(), varchild, index, self.depth+1))
+                    },
+                    VT_DISPATCH => {
+                        varchild.to_idispatch().ok()
+                            .and_then(|disp| Self::from_idispatch(&disp, index, self.depth+1))
+                    },
+                    _ => None
+                }
+            })
+    }
+    fn into_value(self) -> Value {
+        let detail = AccChildDetail::from(&self);
+        let location = self.location().unwrap_or_default();
+        let children = if self.is_object() {
+            let v = self.child_objects()
+                .map(Self::into_value)
+                .collect::<Vec<_>>();
+            Some(v)
+        } else {
+            None
+        };
+        json!({
+            "name": detail.name,
+            "value": detail.value,
+            "role": [
+                detail.role,
+                detail.role_text,
+            ],
+            "status": [
+                detail.status,
+                detail.status_text,
+            ],
+            "default_action": detail.default_action,
+            "description": detail.description,
+            "location": location,
+            "hwnd": detail.hwnd.0,
+            "children": children,
+        })
+    }
+}
+impl From<AccWindow> for AccChild {
+    fn from(window: AccWindow) -> Self {
+        Self::new(window.inner, Self::childid_self(), 0, 0)
     }
 }
 
