@@ -213,11 +213,7 @@ impl Expression {
             Self::DotCall(_, _) => false,
             // COMのパラメータ付きプロパティかもしれない場合
             Self::FuncCall { func, args:_, is_await: false } => {
-                if let Self::DotCall(_, _) = func.as_ref() {
-                    false
-                } else {
-                    true
-                }
+                !matches!(func.as_ref(), Self::DotCall(_, _))
             },
             _ => true
         }
@@ -452,19 +448,18 @@ impl UEnum {
         );
         value
     }
-    pub fn add(&mut self, id: &String, value: f64) -> Result<(), ()> {
-        if self.members.iter().find(|(m, n)| m == id || n == &value).is_some() {
-            Err(())
+    pub fn add(&mut self, id: &String, value: f64) -> bool {
+        if self.members.iter().any(|(m, n)| m == id || n == &value) {
+            false
         } else {
             self.members.push((id.to_string(), value));
-            Ok(())
+            true
         }
     }
     pub fn include(&self, value: f64) -> bool {
         self.members
             .iter()
-            .find(|(_, n)| *n == value)
-            .is_some()
+            .any(|(_, n)| *n == value)
     }
 }
 
@@ -591,7 +586,7 @@ impl ProgramBuilder {
         // if let Some(names) = builtin_names {
         //     let _ = BUILTIN_NAMES.set(names);
         // }
-        let location = path.map(|path| ScriptLocation::Path(path)).unwrap_or_default();
+        let location = path.map(ScriptLocation::Path).unwrap_or_default();
         Self {
             location,
             builtin_names,
@@ -606,7 +601,7 @@ impl ProgramBuilder {
         }
     }
     pub fn new_call_builder(&self, path: Option<PathBuf>) -> Self {
-        let location = path.map(|path| ScriptLocation::Path(path)).unwrap_or_default();
+        let location = path.map(ScriptLocation::Path).unwrap_or_default();
         let depth = self.depth + 1;
         Self {
             location, depth,
@@ -832,58 +827,54 @@ impl ProgramBuilder {
                 } else if is_dim {
                     self.scope.push_anon_dim(name);
                 }
-            } else {
-                if is_const {
-                    self.scope.push_const(name);
-                } else if is_public {
-                    self.scope.push_public(name);
-                } else if is_dim {
-                    self.scope.push_anon_dim(name);
-                }
-            }
-        } else {
-            if is_const {
-                // 定数定義
-                if is_module {
-                    // module m
-                    //     const x
-                    //     function f()
-                    //         const y
-                    //     fend
-                    self.scope.push_module_const(name);
-                } else {
-                    // const x
-                    self.scope.push_const(name);
-                }
+            } else if is_const {
+                self.scope.push_const(name);
             } else if is_public {
-                // グローバル変数定義
-                if is_module {
-                    // モジュール内
-                    self.scope.push_module_public(name);
-                } else {
-                    // モジュール外
-                    self.scope.push_public(name);
-                }
+                self.scope.push_public(name);
             } else if is_dim {
-                // 変数定義
-                if is_module {
-                    // モジュール内
-                    if is_func {
-                        // 関数内
-                        self.scope.push_function_dim(name);
-                    } else {
-                        // 関数外
-                        self.scope.push_module_dim(name);
-                    }
+                self.scope.push_anon_dim(name);
+            }
+        } else if is_const {
+            // 定数定義
+            if is_module {
+                // module m
+                //     const x
+                //     function f()
+                //         const y
+                //     fend
+                self.scope.push_module_const(name);
+            } else {
+                // const x
+                self.scope.push_const(name);
+            }
+        } else if is_public {
+            // グローバル変数定義
+            if is_module {
+                // モジュール内
+                self.scope.push_module_public(name);
+            } else {
+                // モジュール外
+                self.scope.push_public(name);
+            }
+        } else if is_dim {
+            // 変数定義
+            if is_module {
+                // モジュール内
+                if is_func {
+                    // 関数内
+                    self.scope.push_function_dim(name);
                 } else {
-                    // モジュール外
-                    if is_func {
-                        // 関数内
-                        self.scope.push_function_dim(name);
-                    } else {
-                        // 関数外
-                        self.scope.push_dim(name)
-                    }
+                    // 関数外
+                    self.scope.push_module_dim(name);
+                }
+            } else {
+                // モジュール外
+                if is_func {
+                    // 関数内
+                    self.scope.push_function_dim(name);
+                } else {
+                    // 関数外
+                    self.scope.push_dim(name)
                 }
             }
         }
@@ -916,12 +907,8 @@ impl ProgramBuilder {
                 return true;
             }
             // module関数内では以下も有効
-            if self.scope.is_module() {
-                if "this".eq_ignore_ascii_case(name) {
-                    return true;
-                } else if "global".eq_ignore_ascii_case(name) {
-                    return true;
-                }
+            if self.scope.is_module() && ("this".eq_ignore_ascii_case(name) || "global".eq_ignore_ascii_case(name)) {
+                return true;
             }
         } else {
             // 関数外のみで以下が有効
@@ -931,8 +918,7 @@ impl ProgramBuilder {
         }
         if let Some(names) = &self.builtin_names {
             names.iter()
-                .find(|builtin| builtin.eq_ignore_ascii_case(name))
-                .is_some()
+                .any(|builtin| builtin.eq_ignore_ascii_case(name))
         } else {
             false
         }
@@ -996,10 +982,8 @@ impl ProgramBuilder {
                         }
                     }
                 }
-            } else {
-                if let Some(anon) = self.scope.current_anon_mut() {
-                    anon.access.push(name)
-                }
+            } else if let Some(anon) = self.scope.current_anon_mut() {
+                anon.access.push(name)
             }
         } else if is_func {
             // 関数スコープ
@@ -1162,31 +1146,28 @@ impl ProgramBuilder {
     }
     fn get_call_public(&self) -> Names {
         let names = self.call.iter()
-            .map(|(_, scope)| {
+            .flat_map(|(_, scope)| {
                 scope.public.names.0.clone()
             })
-            .flatten()
             .collect();
         Names(names)
     }
     fn get_call_const(&self) -> Names {
         let names = self.call.iter()
-            .map(|(_, scope)| {
+            .flat_map(|(_, scope)| {
                 scope.r#const.names.0.clone()
             })
-            .flatten()
             .collect();
         Names(names)
     }
     fn get_call_global(&self) -> Names {
         let names = self.call.iter()
-            .map(|(_, scope)| {
+            .flat_map(|(_, scope)| {
                 let p = scope.public.names.0.clone();
                 let c = scope.r#const.names.0.clone();
                 let d = scope.definition.0.clone();
                 [p, c, d].into_iter().flatten().collect::<Vec<_>>()
             })
-            .flatten()
             .collect();
         Names(names)
     }
@@ -1486,17 +1467,15 @@ impl BuilderScope {
                         // dim文脈
                         module.dim.anon.0.push(current);
                     }
-                } else {
-                    if self.state.r#const {
-                        // const文脈
-                        self.r#const.anon.0.push(current);
-                    } else if self.state.public {
-                        // public文脈
-                        self.public.anon.0.push(current);
-                    } else if self.state.dim {
-                        // dim文脈
-                        self.dim.anon.0.push(current);
-                    }
+                } else if self.state.r#const {
+                    // const文脈
+                    self.r#const.anon.0.push(current);
+                } else if self.state.public {
+                    // public文脈
+                    self.public.anon.0.push(current);
+                } else if self.state.dim {
+                    // dim文脈
+                    self.dim.anon.0.push(current);
                 }
                 // currentをNoneにする
                 self.current_anon = None;
@@ -1561,6 +1540,7 @@ impl Name {
     }
 }
 
+#[allow(clippy::enum_variant_names)]
 /// 重複確認方法を示すフラグ
 enum DupFlg {
     /// 名前を比較して一致なら重複
@@ -1596,11 +1576,7 @@ impl Names {
     fn get_undeclared(&self, declarations: &Vec<&Names>) -> Names {
         let names = self.0.iter()
             .filter_map(|name| {
-                declarations.iter()
-                    // 宣言リストに名前が含まれているものを探す
-                    .find(|names| names.contains(name))
-                    // どこにも含まれていなければNone
-                    .is_none()
+                (!declarations.iter().any(|names| names.contains(name)))
                     // 未宣言としNameを返す
                     .then_some(name.clone())
             })
@@ -1613,17 +1589,13 @@ impl Names {
             .filter_map(|name| {
                 let in_global = global.iter()
                     // グローバルから探す
-                    .find(|names| names.contains(name))
-                    .is_some();
+                    .any(|names| names.contains(name));
                 if in_global {
                     // グローバルで一致があったので返さない
                     None
                 } else {
                     // ローカルを探す
-                    local.iter()
-                        .find(|names| names.contains_bypos(name))
-                        // 重複がない
-                        .is_none()
+                    (!local.iter().any(|names| names.contains_bypos(name)))
                         // コピーを返す
                         .then_some(name.clone())
                 }
@@ -1632,24 +1604,24 @@ impl Names {
         Names(names)
     }
     fn contains(&self, other: &Name) -> bool {
-        self.iter().find(|name| name.is_duplicated(other, &DupFlg::ByName)).is_some()
+        self.iter().any(|name| name.is_duplicated(other, &DupFlg::ByName))
     }
     fn contains_bypos(&self, other: &Name) -> bool {
-        self.iter().find(|name| name.is_duplicated(other, &DupFlg::ByPos)).is_some()
+        self.iter().any(|name| name.is_duplicated(other, &DupFlg::ByPos))
     }
     fn remove_dup(&mut self) {
         self.0.sort_by(|a, b| a.name.cmp(&b.name));
         self.0.dedup_by(|a, b| a.name == b.name);
     }
 }
-impl Into<Vec<Name>> for Names {
-    fn into(self) -> Vec<Name> {
-        self.0
+impl From<Names> for Vec<Name> {
+    fn from(val: Names) -> Self {
+        val.0
     }
 }
-impl Into<Vec<Name>> for &Names {
-    fn into(self) -> Vec<Name> {
-        self.clone().0
+impl From<&Names> for Vec<Name> {
+    fn from(val: &Names) -> Self {
+        val.clone().0
     }
 }
 
@@ -1897,8 +1869,8 @@ impl FuncScope {
             anon.implicit_declaration();
         }
     }
-    fn get_undeclared(&self, r#type: &UndeclaredNameType, outer: &Vec<&Names>) -> Names {
-        let mut declarations = outer.clone();
+    fn get_undeclared(&self, r#type: &UndeclaredNameType, outer: &[&Names]) -> Names {
+        let mut declarations = outer.to_vec();
         declarations.push(&self.dim);
         declarations.push(&self.param);
         let mut names = match r#type {
@@ -1985,8 +1957,8 @@ impl AnonFuncScope {
             .filter_map(|name| {
                 r#const.iter().find_map(|names| names.if_duplicated(name, DupFlg::ByName))
                     .or( self.dim.if_duplicated(name, DupFlg::ByPos) )
-                    .or( parent_anon_dims.as_ref().map(|names| names.if_duplicated(name, DupFlg::ByPos)).flatten() )
-                    .or( parent_dim.as_ref().map(|names| names.if_duplicated(name, DupFlg::ByPos)).flatten() )
+                    .or( parent_anon_dims.as_ref().and_then(|names| names.if_duplicated(name, DupFlg::ByPos)) )
+                    .or( parent_dim.as_ref().and_then(|names| names.if_duplicated(name, DupFlg::ByPos)) )
             })
             .collect();
         names.append(dups);
@@ -2011,22 +1983,21 @@ impl AnonFuncScope {
         assignee.remove_dup();
         self.dim.append_mut(&mut assignee);
     }
-    fn get_undeclared(&self, r#type: &UndeclaredNameType, outer_declarations: &Vec<&Names>) -> Names {
-        let mut declarations = outer_declarations.clone();
+    fn get_undeclared(&self, r#type: &UndeclaredNameType, outer_declarations: &[&Names]) -> Names {
+        let mut declarations = outer_declarations.to_vec();
         declarations.push(&self.dim);
         declarations.push(&self.param);
         //vec![vec![&self.dim, &self.param], outer_declarations].into_iter().flatten().collect();
-        let names = match r#type {
+        match r#type {
             UndeclaredNameType::Access => self.access.get_undeclared(&declarations),
             UndeclaredNameType::Assign => self.assignee.get_undeclared(&declarations),
-        };
-        names
+        }
     }
 }
 #[derive(Debug, Clone, Default)]
 struct AnonFuncs(Vec<AnonFuncScope>);
 impl AnonFuncs {
-    fn get_undeclared(&self, r#type: &UndeclaredNameType, declarations: &Vec<&Names>) -> Names {
+    fn get_undeclared(&self, r#type: &UndeclaredNameType, declarations: &[&Names]) -> Names {
         let mut names = Names::default();
         for anon in &self.0 {
             let mut undeclared = anon.get_undeclared(r#type, declarations);
@@ -2112,8 +2083,8 @@ impl ModuleScope {
             func.implicit_declaration();
         }
     }
-    fn get_undeclared(&self, r#type: &UndeclaredNameType, outer: &Vec<&Names>) -> Names {
-        let mut dec = outer.clone();
+    fn get_undeclared(&self, r#type: &UndeclaredNameType, outer: &[&Names]) -> Names {
+        let mut dec = outer.to_vec();
         match r#type {
             UndeclaredNameType::Access => {
                 let mut inner = vec![&self.r#const.names, &self.public.names, &self.dim.names];
@@ -2256,7 +2227,7 @@ impl fmt::Display for ParamType {
             ParamType::HashTbl => write!(f, "hash"),
             ParamType::Function => write!(f, "func"),
             ParamType::UObject => write!(f, "uobject"),
-            ParamType::UserDefinition(ref name) => write!(f, "{}", name),
+            ParamType::UserDefinition(name) => write!(f, "{}", name),
         }
     }
 }
@@ -2271,7 +2242,7 @@ impl From<String> for ParamType {
             "hash" => ParamType::HashTbl,
             "func" => ParamType::Function,
             "uobject" => ParamType::UObject,
-            _ => ParamType::UserDefinition(s.into())
+            _ => ParamType::UserDefinition(s)
         }
     }
 }
@@ -2367,7 +2338,7 @@ impl std::fmt::Display for DefDllParam {
                 let s = match size {
                     DefDllParamSize::Const(c) => format!("[{c}]"),
                     DefDllParamSize::Size(n) => format!("[{n}]"),
-                    DefDllParamSize::None => format!(""),
+                    DefDllParamSize::None => String::new(),
                 };
                 write!(f, "{r}{dll_type}{s}")
             },

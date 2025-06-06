@@ -21,7 +21,7 @@ static DIALOG_TITLE: LazyLock<String> = LazyLock::new(|| {
         Some(title) => title.to_string(),
         None => match std::env::var("GET_UWSC_NAME") {
             Ok(name) => format!("UWSCR - {}", name),
-            Err(_) => format!("UWSCR"),
+            Err(_) => "UWSCR".to_string(),
         },
     }
 });
@@ -162,7 +162,7 @@ pub fn msgbox(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let enable_link = args.get_as_bool(5, Some(false))?;
 
     let font = Some(DIALOG_FONT_FAMILY.clone());
-    let defbtn = focus.map(|n| MsgBoxButton(n));
+    let defbtn = focus.map(MsgBoxButton);
     let title = DIALOG_TITLE.as_str();
 
     let msgbox = MsgBox::new(title, &message, x, y, MsgBoxButton(btns), defbtn, font, enable_link)
@@ -195,13 +195,13 @@ pub fn input(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let mut label = match msg.len() {
         0 => return Err(builtin_func_error(UErrorMessage::EmptyArrayNotAllowed)),
         1 => vec![None],
-        _ => msg.drain(1..).map(|s| Some(s)).collect::<Vec<_>>(),
+        _ => msg.drain(1..).map(Some).collect::<Vec<_>>(),
     };
     if label.len() > 5 {
         label.resize(5, None);
     }
     let mut default_values = match args.get_as_string_array_or_empty(1)? {
-        Some(vec) => vec.into_iter().map(|s| Some(s)).collect(),
+        Some(vec) => vec.into_iter().map(Some).collect(),
         None => vec![None],
     };
     default_values.resize(label.len(), None);
@@ -210,8 +210,8 @@ pub fn input(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let (x, y) = get_dlg_point(&args, (3, 4), &INPUT_POINT)?;
 
     let fields = label.into_iter()
-        .zip(default_values.into_iter())
-        .zip(mask_flags.into_iter())
+        .zip(default_values)
+        .zip(mask_flags)
         .map(|((label, default), mask)| {
             InputField::new(label, default, mask)
         })
@@ -235,7 +235,7 @@ pub fn input(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
             let s = vec.pop().unwrap_or_default();
             Ok(Object::String(s))
         } else {
-            let arr = vec.into_iter().map(|s| Object::String(s)).collect();
+            let arr = vec.into_iter().map(Object::String).collect();
             Ok(Object::Array(arr))
         },
         None => if count > 1 {
@@ -489,9 +489,9 @@ pub enum FormOptions {
     #[strum[props(desc="オプションなし")]]
     FOM_DEFAULT   = 0,
 }
-impl Into<u32> for FormOptions {
-    fn into(self) -> u32 {
-        ToPrimitive::to_u32(&self).unwrap_or_default()
+impl From<FormOptions> for u32 {
+    fn from(val: FormOptions) -> Self {
+        ToPrimitive::to_u32(&val).unwrap_or_default()
     }
 }
 
@@ -537,7 +537,7 @@ pub fn createform(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult
         Ok(Object::WebViewForm(form))
     } else {
         let value = form.message_loop()?;
-        Ok(Object::UObject(UObject::new(value)))
+        Ok(value.into())
     }
 }
 

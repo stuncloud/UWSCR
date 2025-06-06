@@ -93,14 +93,18 @@ impl InputBox {
         }
     }
     unsafe fn get_edit_text(&self, hwnd: HWND) -> String {
-        let cnt = wm::GetWindowTextLengthW(hwnd) + 1;
-        let mut buf = vec![0u16; cnt as usize];
-        wm::GetWindowTextW(hwnd, &mut buf);
-        String::from_utf16_lossy(&buf).trim_end_matches('\0').to_string()
+        unsafe {
+            let cnt = wm::GetWindowTextLengthW(hwnd) + 1;
+            let mut buf = vec![0u16; cnt as usize];
+            wm::GetWindowTextW(hwnd, &mut buf);
+            String::from_utf16_lossy(&buf).trim_end_matches('\0').to_string()
+        }
     }
     unsafe fn set_edit_text(hwnd: HWND, wide: &[u16]) {
-        let lpstring = PCWSTR::from_raw(wide.as_ptr());
-        let _ = wm::SetWindowTextW(hwnd, lpstring);
+        unsafe {
+            let lpstring = PCWSTR::from_raw(wide.as_ptr());
+            let _ = wm::SetWindowTextW(hwnd, lpstring);
+        }
     }
 
 }
@@ -127,7 +131,7 @@ impl UWindow<DialogResult<InputResult>> for InputBox {
             .map(|(i, f)| {
                 let label = match &f.label {
                     Some(label) => {
-                        Some(self.set_static(&label, x, y)?)
+                        Some(self.set_static(label, x, y)?)
                     },
                     None => None,
                 };
@@ -294,18 +298,20 @@ impl UWindow<DialogResult<InputResult>> for InputBox {
 
     unsafe extern "system"
     fn dlgproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
-        match msg {
-            wm::WM_DROPFILES |
-            wm::WM_COMMAND => {
-                let _ = wm::PostMessageW(HWND(0), msg, wparam, lparam);
-                LRESULT(0)
-            },
-            wm::WM_CLOSE => {
-                // let _ = wm::DestroyWindow(hwnd);
-                let _ = wm::PostMessageW(HWND(0), wm::WM_COMMAND, WPARAM(Self::ID_CANCEL as usize), None);
-                LRESULT(0)
-            },
-            msg => wm::DefDlgProcW(hwnd, msg, wparam, lparam)
+        unsafe {
+            match msg {
+                wm::WM_DROPFILES |
+                wm::WM_COMMAND => {
+                    let _ = wm::PostMessageW(HWND(0), msg, wparam, lparam);
+                    LRESULT(0)
+                },
+                wm::WM_CLOSE => {
+                    // let _ = wm::DestroyWindow(hwnd);
+                    let _ = wm::PostMessageW(HWND(0), wm::WM_COMMAND, WPARAM(Self::ID_CANCEL as usize), None);
+                    LRESULT(0)
+                },
+                msg => wm::DefDlgProcW(hwnd, msg, wparam, lparam)
+            }
         }
     }
 }

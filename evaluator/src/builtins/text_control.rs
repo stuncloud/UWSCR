@@ -11,7 +11,6 @@ use regex::Regex;
 use strum_macros::{EnumString, VariantNames};
 use num_derive::{ToPrimitive, FromPrimitive};
 use num_traits::FromPrimitive;
-use serde_json;
 use kanaria::{
     string::UCSStr,
     utils::{ConvertTarget, CharExtend}
@@ -41,6 +40,8 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     sets.add("chgmoj", replace, get_desc!(replace));
     sets.add("tojson", tojson, get_desc!(tojson));
     sets.add("fromjson", fromjson, get_desc!(fromjson));
+    sets.add("toyaml", toyaml, get_desc!(toyaml));
+    sets.add("fromyaml", fromyaml, get_desc!(fromyaml));
     sets.add("copy", copy, get_desc!(copy));
     sets.add("pos", pos, get_desc!(pos));
     sets.add("betweenstr", betweenstr, get_desc!(betweenstr));
@@ -83,7 +84,7 @@ pub fn length(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
             let len = remote.length()?;
             return Ok(Object::Num(len));
         },
-        Object::UObject(u) => u.get_size()?,
+        Object::UObject(u) => u.get_size(),
         #[cfg(feature="chkimg")]
         Object::ChkClrResult(v) => v.len(),
         o => return Err(builtin_func_error(UErrorMessage::InvalidArgument(o)))
@@ -119,7 +120,7 @@ pub fn lengthb(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 )]
 pub fn lengthu(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let len = match args.get_as_object(0, None)? {
-        Object::String(s) => s.as_bytes().len(),
+        Object::String(s) => s.len(),
         Object::Num(n) => n.to_string().len(),
         Object::Bool(b) => b.to_string().len(),
         Object::Empty => 0,
@@ -203,7 +204,7 @@ pub fn newre(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     if args.get_as_bool(3, Some(false))? {
         opt = format!("{}{}", opt, "a");
     };
-    if opt.len() > 0 {
+    if !opt.is_empty() {
         pattern = format!("(?{}){}", opt, pattern);
     }
     Ok(Object::RegEx(pattern))
@@ -353,13 +354,14 @@ pub fn replace(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 )]
 pub fn tojson(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let prettify = args.get_as_bool(1, Some(false))?;
-    let to_string = if prettify {serde_json::to_string_pretty} else {serde_json::to_string};
     let uo = args.get_as_uobject(0)?;
-    let value = uo.value();
-    to_string(&value).map_or_else(
-        |e| Err(builtin_func_error(UErrorMessage::Any(e.to_string()))),
-        |s| Ok(Object::String(s))
-    )
+    let result = if prettify {
+        uo.to_json_string_pretty()
+    } else {
+        uo.to_json_string()
+    };
+    result.map(|s| s.into())
+        .map_err(|e| builtin_func_error(UErrorMessage::Any(e.to_string())))
 }
 
 #[builtin_func_desc(
@@ -371,10 +373,38 @@ pub fn tojson(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 )]
 pub fn fromjson(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let json = args.get_as_string(0, None)?;
-    serde_json::from_str::<serde_json::Value>(json.as_str()).map_or_else(
-        |_| Ok(Object::Empty),
-        |v| Ok(Object::UObject(UObject::new(v)))
-    )
+    let obj = UObject::from_json_str(&json)
+        .map(Object::UObject)
+        .unwrap_or_default();
+    Ok(obj)
+}
+
+#[builtin_func_desc(
+    desc="UObjectをyaml文字列にする",
+    rtype={desc="yaml文字列",types="文字列"}
+    args=[
+        {n="UObject",t="UObject",d="yamlに変換するUObject"},
+    ],
+)]
+pub fn toyaml(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let uo = args.get_as_uobject(0)?;
+    uo.to_yaml_string()
+        .map(|yaml| yaml.into())
+        .map_err(|e| builtin_func_error(UErrorMessage::Any(e.to_string())))
+}
+#[builtin_func_desc(
+    desc="yaml文字列をUObjectにする",
+    rtype={desc="成功時UObject、失敗時EMPTY",types="UObject"}
+    args=[
+        {n="yaml文字列",t="文字列",d="UObjectに変換するyaml文字列"},
+    ],
+)]
+pub fn fromyaml(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    let yaml = args.get_as_string(0, None)?;
+    let obj = UObject::from_yaml_str(&yaml)
+        .map(Object::UObject)
+        .unwrap_or_default();
+    Ok(obj)
 }
 
 #[builtin_func_desc(
@@ -430,14 +460,14 @@ fn find_all(target: &str, pattern: &str) -> Vec<usize> {
         .collect()
 }
 fn find_pos(target: &str, pattern: &str, nth: i32) -> Option<usize> {
-    let mut found = find_all(&target, &pattern);
-    let index = if nth > 0 {
-        nth - 1
-    } else if nth < 0 {
-        found.reverse();
-        nth.abs() - 1
-    } else {
-        nth
+    let mut found = find_all(target, pattern);
+    let index = match nth.cmp(&0) {
+        std::cmp::Ordering::Less => {
+            found.reverse();
+            nth.unsigned_abs().saturating_sub(1)
+        },
+        std::cmp::Ordering::Equal => nth.unsigned_abs(),
+        std::cmp::Ordering::Greater => nth.unsigned_abs().saturating_sub(1),
     } as usize;
     found.get(index).copied()
 }
@@ -490,8 +520,8 @@ fn truncate_to_nth_pattern(target: &str, pattern: &str, nth: i32) -> Option<Stri
     Some(found)
 }
 fn find_all_between(target: &str, from: &str, to: &str, flag: bool) -> Vec<String> {
-    let from_pos = find_all(&target, &from);
-    let to_pos = find_all(&target, &to);
+    let from_pos = find_all(target, from);
+    let to_pos = find_all(target, to);
     let from_len = from.len();
     let to_len = to.len();
 
@@ -517,16 +547,16 @@ fn find_all_between(target: &str, from: &str, to: &str, flag: bool) -> Vec<Strin
             })
             .collect()
     };
-    let words = pairs.into_iter()
+
+    pairs.into_iter()
         .map(|(f, t)| target[f..t].to_string())
-        .collect();
-    words
+        .collect()
 }
 fn find_all_between_backward(target: &str, from: &str, to: &str, flag: bool) -> Vec<String> {
 
-    let mut from_pos = find_all(&target, &from);
+    let mut from_pos = find_all(target, from);
     from_pos.reverse();
-    let mut to_pos = find_all(&target, &to);
+    let mut to_pos = find_all(target, to);
     to_pos.reverse();
     let from_len = from.len();
 
@@ -550,17 +580,17 @@ fn find_all_between_backward(target: &str, from: &str, to: &str, flag: bool) -> 
             })
             .collect()
     };
-    let words = pairs.into_iter()
+
+    pairs.into_iter()
         .map(|(f, t)| target[f..t].to_string())
-        .collect();
-    words
+        .collect()
 }
 
 fn find_nth_between(target: &str, from: &str, to: &str, nth: i32, flag: bool) -> Option<String> {
     if nth < 0 {
         // 逆順
         let found = find_all_between_backward(target, from, to, flag);
-        let index = nth.abs() as usize - 1;
+        let index = nth.unsigned_abs() as usize - 1;
         found.get(index).map(|s| s.to_string())
     } else {
         let found = find_all_between(target, from, to, flag);
@@ -583,9 +613,9 @@ fn find_nth_between(target: &str, from: &str, to: &str, nth: i32, flag: bool) ->
 pub fn betweenstr(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let str = args.get_as_string(0, None)?;
     let from = args.get_as_string_or_empty(1)?
-        .filter(|s| s.len() > 0);
+        .filter(|s| !s.is_empty());
     let to = args.get_as_string_or_empty(2)?
-        .filter(|s| s.len() > 0);
+        .filter(|s| !s.is_empty());
     let nth = args.get_as_int(3, Some(1_i32))?;
     let flag = args.get_as_bool(4, Some(false))?;
 
@@ -605,7 +635,7 @@ pub fn betweenstr(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult
             }
         },
     };
-    Ok(between.map(|s|Object::String(s)).unwrap_or_default())
+    Ok(between.map(Object::String).unwrap_or_default())
 }
 
 #[builtin_func_desc(
@@ -700,12 +730,9 @@ pub fn chr(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 )]
 pub fn asc(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let str = args.get_as_string(0, None)?;
-    let code = match str.chars().next() {
-        Some(first) => {
-            first as u32
-        },
-        None => 0,
-    };
+    let code = str.chars().next()
+        .map(|first| first as u32)
+        .unwrap_or_default();
     Ok(Object::Num(code as f64))
 }
 
@@ -738,7 +765,7 @@ pub fn chrb(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 pub fn ascb(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let str = args.get_as_string(0, None)?;
     let bytes = to_ansi_bytes(&str);
-    let code = bytes.get(0).unwrap_or(&0);
+    let code = bytes.first().unwrap_or(&0);
     Ok(Object::Num(*code as f64))
 }
 
@@ -953,7 +980,7 @@ pub fn format(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
             } else {
                 let t = (len / cnt) + 1;
                 let new = s.repeat(t);
-                new.to_char_vec()[0..len].into_iter().collect()
+                new.to_char_vec()[0..len].iter().collect()
             }
         },
         TwoTypeArg::U(n) => {
@@ -962,9 +989,9 @@ pub fn format(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
                     let milli = args.get_as_bool(2, Some(false))?;
                     let secs = n as i64;
                     let locale_str = args.get_as_string(3, None).ok();
-                    let s = system_controls::gettime::format(&fmt, secs, milli, locale_str.as_deref())
-                        .map_err(|e| builtin_func_error(UErrorMessage::FormatTimeError(e.to_string())))?;
-                    s.into()
+
+                    system_controls::gettime::format(&fmt, secs, milli, locale_str.as_deref())
+                        .map_err(|e| builtin_func_error(UErrorMessage::FormatTimeError(e.to_string())))?
                 },
                 TwoTypeArg::U(num) => {
                     let digit = args.get_as_int(2, Some(0_i32))?;
@@ -1044,36 +1071,27 @@ pub fn token(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncRes
     if base.contains(delimiter) {
         if dblquote_flg {
             let mut is_in_dbl_quote = false;
-            let mut pos = 0_usize;
             let mut deli_pos = None::<usize>;
             let mut rem_pos = 0_usize;
-            let mut base_chars = base.chars();
-            loop {
-                match base_chars.next() {
-                    Some(char) => {
-                        if char == '"' {
-                            is_in_dbl_quote = !is_in_dbl_quote;
-                        }
-                        if ! is_in_dbl_quote {
-                            if deli_pos.is_some() {
-                                if ! delimiter_chars.contains(&char) {
-                                    rem_pos = pos;
-                                    break;
-                                }
-                            } else {
-                                if delimiter_chars.contains(&char) {
-                                    deli_pos = Some(pos);
-                                    if ! delimiter_flg {
-                                        rem_pos = pos + 1;
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    None => break,
+            let base_chars = base.chars();
+            for (pos, char) in base_chars.enumerate() {
+                if char == '"' {
+                    is_in_dbl_quote = !is_in_dbl_quote;
                 }
-                pos +=  1;
+                if ! is_in_dbl_quote {
+                    if deli_pos.is_some() {
+                        if ! delimiter_chars.contains(&char) {
+                            rem_pos = pos;
+                            break;
+                        }
+                    } else if delimiter_chars.contains(&char) {
+                        deli_pos = Some(pos);
+                        if ! delimiter_flg {
+                            rem_pos = pos + 1;
+                            break;
+                        }
+                    }
+                }
             }
             let sfrt = if let Some(p) = deli_pos {
                 let chars = base.chars().collect::<Vec<_>>();
@@ -1093,13 +1111,9 @@ pub fn token(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncRes
                 .map(|(t, r)| (t.to_string(), r.to_string()))
                 .unwrap_or_default();
             if delimiter_flg {
-                loop {
-                    if let Some((t,r)) = remained.split_once(delimiter) {
-                        if t.is_empty() {
-                            remained = r.to_string();
-                        } else {
-                            break;
-                        }
+                while let Some((t,r)) = remained.split_once(delimiter) {
+                    if t.is_empty() {
+                        remained = r.to_string();
                     } else {
                         break;
                     }
@@ -1199,8 +1213,7 @@ impl ByteArray {
     }
     fn as_wide(str: &str) -> Vec<u8> {
         let bytes = str.encode_utf16()
-            .map(|n| n.to_le_bytes())
-            .flatten()
+            .flat_map(|n| n.to_le_bytes())
             .collect();
         bytes
     }

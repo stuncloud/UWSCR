@@ -45,7 +45,7 @@ fn join(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let slice = &arr[from..=to];
     let joined = slice.iter()
             .map(|o| o.to_string())
-            .filter(|s| if empty_flg {s.len() > 0} else {true})
+            .filter(|s| if empty_flg {!s.is_empty()} else {true})
             .collect::<Vec<String>>()
             .join(&sep);
     Ok(joined.into())
@@ -72,9 +72,9 @@ impl Default for QsrtConst {
         Self::QSRT_A
     }
 }
-impl Into<qsort::SortOrder> for QsrtConst {
-    fn into(self) -> qsort::SortOrder {
-        match self {
+impl From<QsrtConst> for qsort::SortOrder {
+    fn from(val: QsrtConst) -> Self {
+        match val {
             QsrtConst::QSRT_A => qsort::SortOrder::Ascending,
             QsrtConst::QSRT_D => qsort::SortOrder::Descending,
             QsrtConst::QSRT_UNICODEA => qsort::SortOrder::UnicodeAsc,
@@ -144,7 +144,7 @@ pub fn reverse(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncR
     arr.reverse();
 
     evaluator.update_reference(vec![(expr, Object::Array(arr))])
-        .map_err(|err| BuiltinFuncError::UError(err))?;
+        .map_err(BuiltinFuncError::UError)?;
 
     Ok(Object::Empty)
 }
@@ -152,7 +152,7 @@ pub fn reverse(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncR
 fn new_empty_array(size: usize) -> Vec<Object> {
     vec![Object::Empty; size]
 }
-fn get_array_dimension(arr: &Vec<Object>) -> Option<Vec<usize>> {
+fn get_array_dimension(arr: &[Object]) -> Option<Vec<usize>> {
     arr.iter()
         .map(|o| {
             if let Object::Array(arr2) = o {
@@ -185,9 +185,9 @@ fn get_array_object_from_dimension(dim: Vec<usize>) -> Object {
             }
         }
     }
-    result.map(|arr| Object::Array(arr)).unwrap_or(Object::Empty)
+    result.map(Object::Array).unwrap_or(Object::Empty)
 }
-fn get_resize_default_value(arr: &Vec<Object>, value: Option<Object>) -> Object {
+fn get_resize_default_value(arr: &[Object], value: Option<Object>) -> Object {
     if let Some(default) = value {
         default
     } else if let Some(dim) = get_array_dimension(arr) {
@@ -222,7 +222,7 @@ pub fn resize(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncRe
         let i = arr.len() as isize - 1;
 
         evaluator.update_reference(vec![(expr, Object::Array(arr))])
-            .map_err(|err| BuiltinFuncError::UError(err))?;
+            .map_err(BuiltinFuncError::UError)?;
 
         Ok(Object::Num(i as f64))
     } else {
@@ -304,7 +304,7 @@ pub fn split(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
                 }
             });
         record
-            .map(|r| r.map(|arr| Object::Array(arr)))
+            .map(|r| r.map(Object::Array))
             .unwrap_or(Err(builtin_func_error(UErrorMessage::Any("CSV conversion error".into()))))
     } else {
         let split = str.split(delimiter.as_str());
@@ -322,7 +322,7 @@ pub fn split(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
         if empty_flg {
             arr.retain(|o| {
                 if let Object::String(s) = o {
-                    s.len() > 0
+                    !s.is_empty()
                 } else {
                     true
                 }
@@ -403,7 +403,7 @@ pub fn calcarray(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult 
     }
 }
 
-fn fill_array(arr: &mut Vec<Object>, value: Object) {
+fn fill_array(arr: &mut [Object], value: Object) {
     for obj in arr.iter_mut() {
         if let Object::Array(a) = obj {
             fill_array(a, value.clone());
@@ -428,7 +428,7 @@ pub fn setclear(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFunc
     fill_array(&mut arr, value);
 
     evaluator.update_reference(vec![(expr, Object::Array(arr))])
-        .map_err(|err| BuiltinFuncError::UError(err))?;
+        .map_err(BuiltinFuncError::UError)?;
 
     Ok(Object::Empty)
 }
@@ -449,17 +449,17 @@ pub fn shiftarray(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFu
     }
 
     let len = arr.len();
-    let rotate = shift.abs() as usize;
+    let rotate = shift.unsigned_abs() as usize;
     arr.resize(len + rotate, Object::Empty);
-    if shift > 0 {
-        arr.rotate_right(rotate);
-    } else if shift < 0 {
-        arr.rotate_left(rotate);
+    match shift.cmp(&0) {
+        std::cmp::Ordering::Less => arr.rotate_left(rotate),
+        std::cmp::Ordering::Equal => {},
+        std::cmp::Ordering::Greater => arr.rotate_right(rotate),
     }
     arr.resize(len, Object::Empty);
 
     evaluator.update_reference(vec![(expr, Object::Array(arr))])
-        .map_err(|err| BuiltinFuncError::UError(err))?;
+        .map_err(BuiltinFuncError::UError)?;
 
     Ok(Object::Empty)
 }

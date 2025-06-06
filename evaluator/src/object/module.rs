@@ -53,7 +53,7 @@ impl Module {
     }
 
     pub fn is_destructor_name(&self, name: &str) -> bool {
-        name.to_string() == format!("_{}_", self.name())
+        *name == format!("_{}_", self.name())
     }
 
     pub fn get_destructor(&self) -> Option<Object> {
@@ -200,7 +200,7 @@ impl Module {
     }
 
     pub fn assign_public(&mut self, name: &str, value: Object, dimension: Option<Vec<Object>>) -> Result<(), UError> {
-        if self.contains(&name, ContainerType::Public) {
+        if self.contains(name, ContainerType::Public) {
             match dimension {
                 Some(d) => {
                     return self.assign_index(name, value, d, ContainerType::Public)
@@ -227,17 +227,14 @@ impl Module {
     /// プライベート関数からスコープ情報を消す
     pub fn remove_outer_from_private_func(&mut self) {
         for o in self.members.iter_mut() {
-            match o.object.as_mut() {
-                Object::AnonFunc(f) => {
-                    f.outer = None;
-                },
-                _ => {},
+            if let Object::AnonFunc(f) = o.object.as_mut() {
+                f.outer = None;
             }
         }
     }
 
     pub fn is_disposed(&self) -> bool {
-        self.members.len() == 0
+        self.members.is_empty()
     }
 
     pub fn dispose(&mut self) {
@@ -251,11 +248,11 @@ impl Module {
 
 impl Object {
     fn is_func(&self) -> bool {
-        match self {
+        matches!(
+            self,
             Object::Function(_) |
             Object::AnonFunc(_) |
-            Object::AsyncFunction(_) => true,
-            _ => false
-        }
+            Object::AsyncFunction(_)
+        )
     }
 }

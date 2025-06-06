@@ -27,8 +27,8 @@ pub fn run(script: Option<String>, script_path: Option<PathBuf>, params: Vec<Str
     match env::current_exe() {
         Ok(full) => {
             match full.parent() {
-                Some(dir) => {
-                    env::set_var("GET_UWSC_DIR", &dir.as_os_str());
+                Some(dir) => unsafe {
+                    env::set_var("GET_UWSC_DIR", dir.as_os_str());
                 },
                 None => {
                     eprintln!("failed to get uwscr directory");
@@ -44,11 +44,15 @@ pub fn run(script: Option<String>, script_path: Option<PathBuf>, params: Vec<Str
     if let Some(path) = script_path {
         let full = get_absolute_path(&path);
         if let Some(name) = full.file_name() {
-            env::set_var("GET_UWSC_NAME", name);
-            env::set_var("UWSCR_DEFAULT_TITLE", &format!("UWSCR REPL - {}", name.to_string_lossy()))
+            unsafe {
+                env::set_var("GET_UWSC_NAME", name);
+                env::set_var("UWSCR_DEFAULT_TITLE", format!("UWSCR REPL - {}", name.to_string_lossy()))
+            }
         }
         if let Some(dir) = full.parent() {
-            env::set_var("GET_SCRIPT_DIR", dir.as_os_str());
+            unsafe {
+                env::set_var("GET_SCRIPT_DIR", dir.as_os_str());
+            }
         }
     }
 
@@ -181,7 +185,7 @@ impl UReadLine {
 
 
         let name = "menu1";
-        let compmenu = ColumnarMenu::default().with_name(&name);
+        let compmenu = ColumnarMenu::default().with_name(name);
         let bindings = get_key_bindings(name);
         let menu = ReedlineMenu::EngineCompleter(Box::new(compmenu));
 

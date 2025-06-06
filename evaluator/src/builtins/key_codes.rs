@@ -179,7 +179,7 @@ impl SCKeyCode {
     pub fn codes_to_input(codes: Vec<Self>) -> Vec<INPUT> {
         let mut down_keys = vec![];
         let inputs = codes.into_iter()
-            .map(|sc| {
+            .flat_map(|sc| {
                 let down = sc.to_input(false);
                 let up = sc.to_input(true);
                 if sc.is_down_key() {
@@ -189,14 +189,15 @@ impl SCKeyCode {
                     vec![down, up]
                 }
             })
-            .flatten()
             .collect::<Vec<_>>();
         down_keys.reverse();
         [inputs, down_keys].concat()
     }
     fn to_input(&self, up: bool) -> INPUT {
-        let mut input = INPUT::default();
-        input.r#type = INPUT_KEYBOARD;
+        let mut input = INPUT {
+            r#type: INPUT_KEYBOARD,
+            ..Default::default()
+        };
         let mut ki = KEYBDINPUT::default();
         match self {
             SCKeyCode::VirtualKeyCode(key) => {
@@ -222,7 +223,7 @@ impl SCKeyCode {
     fn is_down_key(&self) -> bool {
         match self {
             SCKeyCode::VirtualKeyCode(key) => {
-                match key {
+                matches!(key,
                     VirtualKeyCode::VK_SHIFT |
                     VirtualKeyCode::VK_CTRL |
                     VirtualKeyCode::VK_ALT |
@@ -230,13 +231,8 @@ impl SCKeyCode {
                     VirtualKeyCode::VK_RCTRL |
                     VirtualKeyCode::VK_RALT |
                     VirtualKeyCode::VK_WIN |
-                    VirtualKeyCode::VK_START => {
-                        true
-                    },
-                    _ => {
-                        false
-                    }
-                }
+                    VirtualKeyCode::VK_START
+                )
             },
             SCKeyCode::Unicode(_) => {
                 false

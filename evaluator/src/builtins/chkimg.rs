@@ -54,6 +54,7 @@ use windows::{
             Direct3D11::{CreateDirect3D11DeviceFromDXGIDevice, IDirect3DDxgiInterfaceAccess},
         },
     },
+
     Graphics::{
         Capture::{GraphicsCaptureItem, Direct3D11CaptureFramePool},
         DirectX::{DirectXPixelFormat, Direct3D11::IDirect3DDevice},
@@ -94,7 +95,7 @@ pub type MatchedPoints = Vec<MatchedPoint>;
 pub type ChkImgResult<T> = Result<T, UError>;
 
 #[derive(Debug)]
-pub struct ChkImg {
+pub struct SearchImage {
     image: Mat,
     width: i32,
     height: i32,
@@ -102,7 +103,7 @@ pub struct ChkImg {
     offset_y: i32,
     gray_scale: bool,
 }
-impl ChkImg {
+impl SearchImage {
     pub fn from_screenshot(ss: ScreenShot, gray_scale: bool) -> ChkImgResult<Self> {
         let (width, height) = Self::get_width_height(&ss.data);
         Ok(Self {
@@ -230,7 +231,7 @@ impl Drop for WinRTInit {
     }
 }
 thread_local! {
-    static WINRT_INIT: OnceLock<Win32Result<WinRTInit>> = OnceLock::new();
+    static WINRT_INIT: OnceLock<Win32Result<WinRTInit>> = const { OnceLock::new() };
 }
 
 pub enum CaptureItem {
@@ -258,79 +259,81 @@ impl std::fmt::Display for ScreenShot {
 pub type ScreenShotResult = Result<ScreenShot, UError>;
 impl ScreenShot {
     unsafe fn new(hwnd: Option<&HWND>, left: i32, top: i32, width: i32, height: i32) -> ScreenShotResult {
-        let hdc = match hwnd {
-            Some(hwnd) => GetWindowDC(*hwnd),
-            None => GetDC(None),
-        };
-        let hdc_compat = CreateCompatibleDC(hdc);
-        if hdc_compat.is_invalid() {
-            ReleaseDC(hwnd, hdc);
-            return Err(UError::new(
-                UErrorKind::ScreenShotError,
-                UErrorMessage::GdiError("CreateCompatibleDC".into())
-            ));
-        }
+        unsafe {
+            let hdc = match hwnd {
+                Some(hwnd) => GetWindowDC(*hwnd),
+                None => GetDC(None),
+            };
+            let hdc_compat = CreateCompatibleDC(hdc);
+            if hdc_compat.is_invalid() {
+                ReleaseDC(hwnd, hdc);
+                return Err(UError::new(
+                    UErrorKind::ScreenShotError,
+                    UErrorMessage::GdiError("CreateCompatibleDC".into())
+                ));
+            }
 
-        let hbmp = CreateCompatibleBitmap(hdc, width, height);
-        let mut info = BITMAPINFO::default();
-        info.bmiHeader.biSize = std::mem::size_of::<BITMAPINFOHEADER>() as u32;
-        info.bmiHeader.biWidth = width;
-        info.bmiHeader.biHeight = -height; // 上下反転させる
-        info.bmiHeader.biPlanes = 1;
-        info.bmiHeader.biBitCount = 32;
+            let hbmp = CreateCompatibleBitmap(hdc, width, height);
+            let mut info = BITMAPINFO::default();
+            info.bmiHeader.biSize = std::mem::size_of::<BITMAPINFOHEADER>() as u32;
+            info.bmiHeader.biWidth = width;
+            info.bmiHeader.biHeight = -height; // 上下反転させる
+            info.bmiHeader.biPlanes = 1;
+            info.bmiHeader.biBitCount = 32;
 
-        let hobj = SelectObject(hdc_compat, hbmp);
-        if hobj.is_invalid() {
+            let hobj = SelectObject(hdc_compat, hbmp);
+            if hobj.is_invalid() {
+                ReleaseDC(hwnd, hdc);
+                DeleteDC(hdc_compat);
+                DeleteObject(hbmp);
+                return Err(UError::new(
+                    UErrorKind::ScreenShotError,
+                    UErrorMessage::GdiError("SelectObject".into())
+                ));
+            }
+
+            let res = StretchBlt(
+                hdc_compat,
+                0,
+                0,
+                width,
+                height,
+                hdc,
+                left,
+                top,
+                width,
+                height,
+                SRCCOPY| CAPTUREBLT
+            );
+            if ! res.as_bool() {
+                ReleaseDC(hwnd, hdc);
+                DeleteDC(hdc_compat);
+                DeleteObject(hbmp);
+                return Err(UError::new(
+                    UErrorKind::ScreenShotError,
+                    UErrorMessage::GdiError("StretchBlt".into())
+                ));
+            }
+
+            let mut data = Mat::new_rows_cols(height, width, opencv_core::CV_8UC4)?;
+            let pdata = data.data_mut() as *mut c_void;
+            GetDIBits(
+                hdc_compat,
+                hbmp,
+                0,
+                height as u32,
+                Some(pdata),
+                &mut info,
+                DIB_RGB_COLORS
+            );
+
+            // cleanup
             ReleaseDC(hwnd, hdc);
             DeleteDC(hdc_compat);
             DeleteObject(hbmp);
-            return Err(UError::new(
-                UErrorKind::ScreenShotError,
-                UErrorMessage::GdiError("SelectObject".into())
-            ));
+
+            Ok(ScreenShot {data, left, top, width, height})
         }
-
-        let res = StretchBlt(
-            hdc_compat,
-            0,
-            0,
-            width,
-            height,
-            hdc,
-            left,
-            top,
-            width,
-            height,
-            SRCCOPY| CAPTUREBLT
-        );
-        if ! res.as_bool() {
-            ReleaseDC(hwnd, hdc);
-            DeleteDC(hdc_compat);
-            DeleteObject(hbmp);
-            return Err(UError::new(
-                UErrorKind::ScreenShotError,
-                UErrorMessage::GdiError("StretchBlt".into())
-            ));
-        }
-
-        let mut data = Mat::new_rows_cols(height, width, opencv_core::CV_8UC4)?;
-        let pdata = data.data_mut() as *mut c_void;
-        GetDIBits(
-            hdc_compat,
-            hbmp,
-            0,
-            height as u32,
-            Some(pdata),
-            &mut info,
-            DIB_RGB_COLORS
-        );
-
-        // cleanup
-        ReleaseDC(hwnd, hdc);
-        DeleteDC(hdc_compat);
-        DeleteObject(hbmp);
-
-        Ok(ScreenShot {data, left, top, width, height})
     }
 
 
@@ -575,7 +578,7 @@ impl ScreenShot {
 
     fn crop_image(mat: &Mat, x: i32, y: i32, width: i32, height: i32) -> opencv::Result<Mat> {
         let roi = opencv_core::Rect { x, y, width, height };
-        Mat::roi(&mat, roi)
+        Mat::roi(mat, roi)
     }
 
     /* Windows Graphics Capture API */
@@ -623,8 +626,7 @@ impl ScreenShot {
             let cw = crect.right - crect.left;
             let ch = crect.bottom - crect.top;
             // クライアント領域を切り出す
-            let cropped = Self::crop_image(&mat, cx, cy, cw, ch)?;
-            cropped
+            Self::crop_image(&mat, cx, cy, cw, ch)?
         } else {
             mat
         };
@@ -889,5 +891,418 @@ impl ColorFound {
 impl std::fmt::Display for ColorFound {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "[{}, {}, {:?}]", self.x, self.y, self.color)
+    }
+}
+
+
+/* chkimg */
+
+use std::num::NonZeroUsize;
+use std::path::Path;
+use std::cmp::Ordering;
+use image::{load_from_memory, DynamicImage, GenericImageView, RgbImage};
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
+
+
+#[derive(PartialEq)]
+pub struct Image {
+    inner: DynamicImage,
+}
+impl Image {
+    fn new(buffer: &[u8]) -> ChkImgResult<Self> {
+        let inner = load_from_memory(buffer)
+            .map_err(|e| UError::new(
+                UErrorKind::Any("Image Error".into()),
+                UErrorMessage::Any(e.to_string()))
+            )?;
+        Ok(Self { inner })
+    }
+    /// ファイルから自身を作成
+    pub fn from_file<P: AsRef<Path>>(path: P) -> ChkImgResult<Self> {
+        let mut file = File::open(path)?;
+        let mut buffer = Vec::new();
+        file.read_to_end(&mut buffer)?;
+        Self::new(&buffer)
+    }
+    pub fn from_clipboard() -> Option<Self> {
+        use clipboard_rs::{ClipboardContext, common::RustImage, Clipboard};
+        let ctx = ClipboardContext::new().ok()?;
+        let image = ctx.get_image()
+            .inspect_err(|e| {dbg!(e);})
+            .ok()?;
+        image.get_dynamic_image().ok()
+            .map(|inner| Self { inner })
+    }
+    pub(super) fn to_rgb8(&self) -> RgbImage {
+        self.inner.to_rgb8()
+    }
+
+    fn first_row(rgb: &RgbImage) -> &[u8] {
+        rgb.as_raw()
+            .chunks_exact(rgb.width() as usize * 3)
+            .next()
+            .unwrap()
+    }
+    fn last_row(rgb: &RgbImage) -> &[u8] {
+        rgb.as_raw()
+            .rchunks_exact(rgb.width() as usize * 3)
+            .next()
+            .unwrap()
+    }
+    fn left_rgb(row: &[u8]) -> &[u8] {
+        row.chunks_exact(3).next().unwrap()
+    }
+    fn right_rgb(row: &[u8]) -> &[u8] {
+        row.rchunks_exact(3).next().unwrap()
+    }
+
+    /// 左上の色
+    pub fn left_top(&self) -> RgbColor {
+        let rgb = self.to_rgb8();
+        let bytes = rgb.as_raw();
+        RgbColor::from(&bytes[0..=2])
+    }
+    /// 左上の色
+    pub fn right_top(&self) -> RgbColor {
+        let rgb = self.to_rgb8();
+        let pixel = Self::right_rgb(Self::first_row(&rgb));
+        pixel.into()
+    }
+    /// 左下の色
+    pub fn left_bottom(&self) -> RgbColor {
+        let rgb = self.to_rgb8();
+        let pixel = Self::left_rgb(Self::last_row(&rgb));
+        pixel.into()
+    }
+    /// 右下の色
+    pub fn right_bottom(&self) -> RgbColor {
+        let rgb = self.to_rgb8();
+        let pixel = Self::right_rgb(Self::last_row(&rgb));
+        pixel.into()
+    }
+
+}
+impl From<RgbImage> for Image {
+    fn from(value: RgbImage) -> Self {
+        Self { inner: DynamicImage::ImageRgb8(value) }
+    }
+}
+impl PartialOrd for Image {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        let (i_w, i_h) = self.inner.dimensions();
+        let (o_w, o_h) = other.inner.dimensions();
+        if i_w > o_w && i_h > o_h {
+            Some(Ordering::Greater)
+        } else if i_w == o_w && i_h == o_h {
+            Some(Ordering::Equal)
+        } else {
+            Some(Ordering::Less)
+        }
+    }
+}
+/// 画像マッチ座標
+#[derive(Debug, PartialEq, Clone, Default)]
+pub struct MatchLocation {
+    /// マッチしたX座標
+    pub x: i32,
+    /// マッチしたY座標
+    pub y: i32,
+}
+impl MatchLocation {
+    pub(crate) fn new(x: i32, y: i32) -> Self {
+        Self { x, y }
+    }
+}
+/// RGB
+#[derive(Debug)]
+pub struct RgbColor([u8; 3]);
+impl From<&[u8]> for RgbColor {
+    /// ## panics
+    /// スライスの長さが3未満だとpanicする
+    fn from(slice: &[u8]) -> Self {
+        if slice.len() < 3 {
+            panic!("Length of &[u8] must be 3");
+        } else {
+            Self([slice[0], slice[1], slice[2]])
+        }
+    }
+}
+impl From<[u8; 3]> for RgbColor {
+    fn from(rgb: [u8; 3]) -> Self {
+        Self(rgb)
+    }
+}
+
+/// chkimg風探索の結果
+#[derive(Debug)]
+#[cfg_attr(test, derive(PartialEq))]
+pub enum ChkimgLikeMatches {
+    /// n番目指定
+    Nth(Option<MatchLocation>),
+    /// 全探索
+    All(Vec<MatchLocation>),
+}
+/// 探索結果の形式
+pub enum ResultType {
+    Nth(NonZeroUsize),
+    All,
+}
+impl From<i32> for ResultType {
+    fn from(value: i32) -> Self {
+        match value {
+            0 | -1 => Self::All,
+            n => Self::Nth(NonZeroUsize::new(n as usize).unwrap())
+        }
+    }
+}
+impl Default for ResultType {
+    fn default() -> Self {
+        Self::Nth(NonZeroUsize::new(1).unwrap())
+    }
+}
+/// 探索方法
+#[derive(Debug)]
+pub enum SearchMethod {
+    /// 完全一致
+    Exact,
+    /// 色幅マッチ
+    Threshold(RgbColor),
+    /// 透過色マッチ
+    Transparent(RgbColor),
+    /// 色幅かつ透過色あり\
+    /// (閾値, 透過色)
+    ThresholdTransparent(RgbColor, RgbColor),
+    /// 色無視マッチ\
+    /// 前のピクセルと比べて違いがあったかどうかで判定
+    /// - 探す画像の前後ピクセルが一致の場合対象も前後一致であれば形としては一致
+    /// - 探す画像の前後ピクセルが不一致の場合対象も前後不一致であれば形としては一致
+    Shape
+}
+impl SearchMethod {
+    pub fn new(method: i32, threshold: u32, target: &Image) -> Self {
+        let threshold = Self::rgb_from_threshold(threshold);
+        match method {
+            1 => threshold.map(|t| Self::ThresholdTransparent(t, target.left_top()))
+                .unwrap_or(Self::Transparent(target.left_top())),
+            2 => threshold.map(|t| Self::ThresholdTransparent(t, target.right_top()))
+                .unwrap_or(Self::Transparent(target.right_top())),
+            3 => threshold.map(|t| Self::ThresholdTransparent(t, target.left_bottom()))
+                .unwrap_or(Self::Transparent(target.left_bottom())),
+            4 => threshold.map(|t| Self::ThresholdTransparent(t, target.right_bottom()))
+                .unwrap_or(Self::Transparent(target.right_bottom())),
+            -1 => Self::Shape,
+            _ => threshold.map(Self::Threshold)
+                .unwrap_or(Self::Exact),
+        }
+    }
+    fn rgb_from_threshold(threshold: u32) -> Option<RgbColor> {
+        let r = match threshold & 15 {
+            1 => 2,
+            3 => 4,
+            7 => 8,
+            15 => 16,
+            _ => 0
+        };
+        let g = match threshold & 3840 {
+            256 => 2,
+            768 => 4,
+            1792 => 8,
+            3840 => 16,
+            _ => 0,
+        };
+        let b = match threshold & 983040 {
+            65536 => 2,
+            196608 => 4,
+            458752 => 8,
+            983040 => 16,
+            _ => 0,
+        };
+        (r > 0 || g > 0 || b > 0).then_some(RgbColor([r, g, b]))
+    }
+    /// メソッドに従いマッチ判定を行う
+    fn matches(&self, row_slice: &[u8], target_slice: &[u8]) -> bool {
+        // RGBのイテレータにする
+        let row_iter = row_slice.chunks_exact(3);
+        let target_iter = target_slice.chunks_exact(3);
+        match self {
+            SearchMethod::Exact => {
+                row_slice.eq(target_slice)
+            },
+            SearchMethod::Threshold(threshold) => {
+                row_iter.zip(target_iter)
+                    .all(|(color, target)| {
+                        threshold.in_range(color, target)
+                    })
+            },
+            SearchMethod::Transparent(transparent) => {
+                row_iter.zip(target_iter)
+                    .all(|(color, target)| {
+                        // targetが透過色ならtrue
+                        transparent.eq(target) ||
+                        // 透過色以外なら色が一致するかを確認
+                        color.eq(target)
+                    })
+                },
+            Self::ThresholdTransparent(threshold, transparent) => {
+                row_iter.zip(target_iter)
+                    .all(|(color, target)| {
+                        // targetが透過色ならtrue
+                        transparent.eq(target) ||
+                        // 透過色以外なら色幅一致するかを確認
+                        threshold.in_range(color, target)
+                    })
+            }
+            SearchMethod::Shape => {
+                let mut row_iter = row_iter;
+                let mut target_iter = target_iter;
+                if let (Some(row_first), Some(target_first)) = (row_iter.next(), target_iter.next()) {
+                    target_iter.zip(row_iter)
+                        .try_fold((target_first, row_first), |prev, cur| {
+                            // - targetの前後が一致かつ対象の前後も一致
+                            // - targetの前後が不一致かつ対象の前後も不一致
+                            // の場合に続行
+                            prev.0.eq(cur.0)
+                                .eq(&prev.1.eq(cur.1))
+                                .then_some(cur)
+                        })
+                        // 最後まで一致であればSomeとなり、trueを返す
+                        .is_some()
+                } else {
+                    // いずれも最初の色がないというのはunreachableな気もするが一応falseを返す
+                    false
+                }
+            },
+        }
+    }
+}
+/// chkimg風画像探索
+pub struct ChkimgLikeImageMatcher {
+    captured: ScreenShot,
+    target: RgbImage,
+}
+impl ChkimgLikeImageMatcher {
+    pub fn new(mut captured: ScreenShot, target: &Image) -> ChkImgResult<Self> {
+        let target = target.to_rgb8();
+
+        let _ = std::fs::write("D:\\work\\uwscr_test\\target.txt", format!("{target:#?}"));
+
+        let mut rgb = Mat::default();
+        imgproc::cvt_color(&captured.data, &mut rgb, imgproc::COLOR_BGR2RGB, 0)?;
+        captured.data = rgb;
+        Ok(Self { captured, target, })
+    }
+    /// 画像探索
+    pub fn find<RT>(&self, method: SearchMethod, rtype: RT) -> ChkimgLikeMatches
+    where RT: Into<ResultType>,
+    {
+        let rows = (self.captured.height as u32 - self.target.height() + 1) as usize;
+
+        let matcher = MatcherInner {
+            method: &method,
+            captured: self.captured.data.data_bytes().unwrap(),
+            width: self.captured.width as usize * 3,
+            target: self.target.as_raw(),
+            window_size: self.target.width() as usize * 3,
+            target_rows: self.target.height() as usize,
+            offset_x: self.captured.left,
+            offset_y: self.captured.top,
+        };
+
+        match rtype.into() {
+            ResultType::Nth(nth) => {
+                let n = nth.get().saturating_sub(1);
+                let found = (0..rows)
+                    .flat_map(|row| matcher.get_matched(row))
+                    .nth(n);
+                ChkimgLikeMatches::Nth(found)
+            },
+            ResultType::All => {
+                let found = (0..rows)
+                    .flat_map(|row| matcher.get_matched(row))
+                    .collect();
+                ChkimgLikeMatches::All(found)
+            },
+        }
+    }
+}
+
+struct MatcherInner<'a> {
+    method: &'a SearchMethod,
+    captured: &'a [u8],
+    width: usize,
+    target: &'a [u8],
+    window_size: usize,
+    target_rows: usize,
+    offset_x: i32,
+    offset_y: i32,
+}
+impl MatcherInner<'_> {
+    fn get_matched(&self, row: usize) -> Vec<MatchLocation> {
+        let first_target_slice = &self.target[0..self.window_size];
+
+        // 列の探索範囲は行の最初からtargetが収まる範囲まで
+        let from = row * self.width;
+        let to = from + self.width - self.window_size + 1;
+        let captured_row_slice = &self.captured[from..to];
+
+        let windows = captured_row_slice
+            // target幅でwindowにしていく
+            .windows(self.window_size)
+            // 列インデックスを追加
+            .enumerate()
+            // 画像の列はインデックス÷3なのでstepを入れる
+            .step_by(3);
+
+        windows
+            .filter_map(move |(col, row_slice)| {
+                // targetの最初の行がマッチするかどうか
+                self.method.matches(row_slice, first_target_slice)
+                    .then_some(col)
+            })
+            .filter(move |col| {
+            // targetの2行目以降全体とのマッチを判定
+            (1..self.target_rows).into_par_iter()
+                .all(|t_row| {
+                    let t_from = t_row * self.window_size;
+                    let t_to = t_from + self.window_size;
+                    // targetの行スライス
+                    let target_slice = &self.target[t_from..t_to];
+                    let c_from = (row + t_row) * self.width + col;
+                    let c_to = c_from + self.window_size;
+                    // captuerdの該当部分の行スライス
+                    let row_slice = &self.captured[c_from..c_to];
+                    self.method.matches(row_slice, target_slice)
+                })
+            })
+            .map(move |col| {
+                // 画像列はインデックス÷3 (RGB幅)
+                let x = (col/3) as i32 + self.offset_x;
+                let y = row as i32 + self.offset_y;
+                MatchLocation::new(x, y)
+            })
+            .collect()
+    }
+}
+
+impl RgbColor {
+    /// 自身のRGB値をそれぞれ閾値としてtargetからの色範囲にcolorが含まれるかを返す\
+    /// 閾値が0の場合は直接比較\
+    /// 条件は (target - 閾値) < color < (target + 閾値)
+    fn in_range(&self, color: &[u8], target: &[u8]) -> bool {
+        self.0.iter().enumerate()
+            .all(|(i, t)| {
+                if *t == 0 {
+                    target[i].eq(&color[i])
+                } else {
+                    ((target[i].saturating_sub(*t)+1)..(target[i].saturating_add(*t)))
+                        .contains(&color[i])
+                }
+            })
+    }
+}
+
+impl PartialEq<[u8]> for RgbColor {
+    fn eq(&self, other: &[u8]) -> bool {
+        self.0.eq(other)
     }
 }

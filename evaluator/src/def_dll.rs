@@ -119,34 +119,34 @@ impl std::fmt::Display for DllType {
         }
     }
 }
-impl Into<DllType> for ast::DllType {
-    fn into(self) -> DllType {
-        match self {
-            Self::Int => DllType::Int,
-            Self::Long => DllType::Long,
-            Self::Bool => DllType::Bool,
-            Self::Uint => DllType::Uint,
-            Self::Hwnd => DllType::Hwnd,
-            Self::Handle => DllType::Handle,
-            Self::String => DllType::String,
-            Self::Wstring => DllType::Wstring,
-            Self::Float => DllType::Float,
-            Self::Double => DllType::Double,
-            Self::Word => DllType::Word,
-            Self::Dword => DllType::Dword,
-            Self::Byte => DllType::Byte,
-            Self::Char => DllType::Char,
-            Self::Pchar => DllType::Pchar,
-            Self::Wchar => DllType::Wchar,
-            Self::PWchar => DllType::PWchar,
-            Self::Boolean => DllType::Boolean,
-            Self::Longlong => DllType::Longlong,
-            Self::SafeArray => DllType::SafeArray,
-            Self::Void => DllType::Void,
-            Self::Pointer => DllType::Pointer,
-            Self::Size => DllType::Size,
-            Self::UStruct => DllType::UStruct,
-            Self::CallBack => DllType::CallBack,
+impl From<ast::DllType> for DllType {
+    fn from(val: ast::DllType) -> Self {
+        match val {
+            ast::DllType::Int => DllType::Int,
+            ast::DllType::Long => DllType::Long,
+            ast::DllType::Bool => DllType::Bool,
+            ast::DllType::Uint => DllType::Uint,
+            ast::DllType::Hwnd => DllType::Hwnd,
+            ast::DllType::Handle => DllType::Handle,
+            ast::DllType::String => DllType::String,
+            ast::DllType::Wstring => DllType::Wstring,
+            ast::DllType::Float => DllType::Float,
+            ast::DllType::Double => DllType::Double,
+            ast::DllType::Word => DllType::Word,
+            ast::DllType::Dword => DllType::Dword,
+            ast::DllType::Byte => DllType::Byte,
+            ast::DllType::Char => DllType::Char,
+            ast::DllType::Pchar => DllType::Pchar,
+            ast::DllType::Wchar => DllType::Wchar,
+            ast::DllType::PWchar => DllType::PWchar,
+            ast::DllType::Boolean => DllType::Boolean,
+            ast::DllType::Longlong => DllType::Longlong,
+            ast::DllType::SafeArray => DllType::SafeArray,
+            ast::DllType::Void => DllType::Void,
+            ast::DllType::Pointer => DllType::Pointer,
+            ast::DllType::Size => DllType::Size,
+            ast::DllType::UStruct => DllType::UStruct,
+            ast::DllType::CallBack => DllType::CallBack,
         }
     }
 }
@@ -168,7 +168,7 @@ impl std::fmt::Display for DllParam {
                 let r = if *is_ref {"var "} else {""};
                 let s = match size {
                     Some(n) => format!("[{n}]"),
-                    None => format!(""),
+                    None => String::new(),
                 };
                 write!(f, "{r}{dll_type}{s}")
             },
@@ -190,6 +190,7 @@ impl std::fmt::Display for DllParam {
     }
 }
 impl DllParam {
+    #[allow(clippy::len_without_is_empty)]
     /// パラメータの数を得る
     pub fn len(&self) -> usize {
         match self {
@@ -443,12 +444,12 @@ impl DefDll {
     }
     unsafe fn string_from_ansi_ptr(ptr: *const u8) -> String {
         let pcstr = PCSTR::from_raw(ptr);
-        let ansi = pcstr.as_bytes();
+        let ansi = unsafe { pcstr.as_bytes() };
         from_ansi_bytes(ansi)
     }
     unsafe fn string_from_wide_ptr(ptr: *const u16) -> String {
         let pcwstr = PCWSTR::from_raw(ptr);
-        let wide = pcwstr.as_wide();
+        let wide = unsafe { pcwstr.as_wide() };
         from_wide_string(wide)
     }
 }
@@ -520,7 +521,7 @@ struct DllArgs {
     args: Vec<DllArg>,
 }
 impl DllArgs {
-    fn new(params: &Vec<DllParam>, arguments: Vec<(Option<Expression>, Object)>, e: &mut Evaluator) -> EvalResult<Self> {
+    fn new(params: &[DllParam], arguments: Vec<(Option<Expression>, Object)>, e: &mut Evaluator) -> EvalResult<Self> {
         let mut iter_args = arguments.into_iter();
         let args = params.iter()
             .map(|param| DllArg::new(param, &mut iter_args, e) )
@@ -742,7 +743,7 @@ enum DllArgVal {
     NullPtr,
 }
 impl DllArgVal {
-    fn check_size<U>(vec: &Vec<U>, size: usize) -> EvalResult<()> {
+    fn check_size<U>(vec: &[U], size: usize) -> EvalResult<()> {
         if size > 0 && size != vec.len() {
             Err(UError::new(UErrorKind::DllFuncError, UErrorMessage::DllArrayArgLengthMismatch))
         } else {
@@ -965,7 +966,7 @@ impl DllArgVal {
                 let obj = match &p.r#type {
                     DllType::Int |
                     DllType::Long => p.into_object::<i32>(),
-                    DllType::Bool => p.into_object::<i32>().to_bool_obj(),
+                    DllType::Bool => p.into_object::<i32>().into_bool_obj(),
                     DllType::Uint |
                     DllType::Dword => p.into_object::<u32>(),
                     DllType::Hwnd |
@@ -976,7 +977,7 @@ impl DllArgVal {
                     DllType::Double => p.into_object::<f64>(),
                     DllType::Word => p.into_object::<u16>(),
                     DllType::Byte => p.into_object::<u8>(),
-                    DllType::Boolean => p.into_object::<u8>().to_bool_obj(),
+                    DllType::Boolean => p.into_object::<u8>().into_bool_obj(),
                     DllType::Longlong => p.into_object::<i64>(),
                     DllType::Char |
                     DllType::Pchar => p.into_string_object(true, true),
@@ -1008,7 +1009,7 @@ struct StructArg {
     ustruct: UStruct,
 }
 impl StructArg {
-    fn set_values(params: &Vec<DllParam>, ustruct: &mut UStruct, iter_args: &mut IntoIter<(Option<Expression>, Object)>) -> EvalResult<()> {
+    fn set_values(params: &[DllParam], ustruct: &mut UStruct, iter_args: &mut IntoIter<(Option<Expression>, Object)>) -> EvalResult<()> {
         for (index, param) in params.iter().enumerate() {
             match param {
                 DllParam::Param { dll_type:_, is_ref:_, size:_ } => {
@@ -1057,11 +1058,9 @@ impl StructArg {
         for member in ustruct.get_members() {
             if let Some(ust) = member.get_ustruct() {
                 Self::assign_member_values(ust, e)?;
-            } else {
-                if let Some(expr) = &member.refexpr {
-                    let value = ustruct.get(member)?;
-                    e.eval_assign_expression(expr.clone(), value)?;
-                }
+            } else if let Some(expr) = &member.refexpr {
+                let value = ustruct.get(member)?;
+                e.eval_assign_expression(expr.clone(), value)?;
             }
         }
         Ok(())
@@ -1115,7 +1114,7 @@ impl Object {
             },
         }
     }
-    fn to_bool_obj(self) -> Object {
+    fn into_bool_obj(self) -> Object {
         if let Object::Array(arr) = self {
             let arr = arr.into_iter().map(|o| o.is_truthy().into()).collect();
             Object::Array(arr)
@@ -1153,28 +1152,28 @@ impl UCallback {
         self.user_func.get_closure(&self.rtype)
     }
     unsafe extern "C" fn callback_u8(_cif: &libffi::low::ffi_cif, result: &mut u8, args: *const *const c_void, userdata: &mut UserFunc) {
-        *result = userdata.invoke::<u8>(args);
+        *result = unsafe { userdata.invoke::<u8>(args) };
     }
     unsafe extern "C" fn callback_u16(_cif: &libffi::low::ffi_cif, result: &mut u16, args: *const *const c_void, userdata: &mut UserFunc) {
-        *result = userdata.invoke::<u16>(args);
+        *result = unsafe { userdata.invoke::<u16>(args) };
     }
     unsafe extern "C" fn callback_u32(_cif: &libffi::low::ffi_cif, result: &mut u32, args: *const *const c_void, userdata: &mut UserFunc) {
-        *result = userdata.invoke::<u32>(args);
+        *result = unsafe { userdata.invoke::<u32>(args) };
     }
     unsafe extern "C" fn callback_i32(_cif: &libffi::low::ffi_cif, result: &mut i32, args: *const *const c_void, userdata: &mut UserFunc) {
-        *result = userdata.invoke::<i32>(args);
+        *result = unsafe { userdata.invoke::<i32>(args) };
     }
     unsafe extern "C" fn callback_i64(_cif: &libffi::low::ffi_cif, result: &mut i64, args: *const *const c_void, userdata: &mut UserFunc) {
-        *result = userdata.invoke::<i64>(args);
+        *result = unsafe { userdata.invoke::<i64>(args) };
     }
     unsafe extern "C" fn callback_f32(_cif: &libffi::low::ffi_cif, result: &mut f32, args: *const *const c_void, userdata: &mut UserFunc) {
-        *result = userdata.invoke::<f32>(args);
+        *result = unsafe { userdata.invoke::<f32>(args) };
     }
     unsafe extern "C" fn callback_f64(_cif: &libffi::low::ffi_cif, result: &mut f64, args: *const *const c_void, userdata: &mut UserFunc) {
-        *result = userdata.invoke::<f64>(args);
+        *result = unsafe { userdata.invoke::<f64>(args) };
     }
     unsafe extern "C" fn callback_usize(_cif: &libffi::low::ffi_cif, result: &mut usize, args: *const *const c_void, userdata: &mut UserFunc) {
-        *result = userdata.invoke::<usize>(args);
+        *result = unsafe { userdata.invoke::<usize>(args) };
     }
 }
 
@@ -1198,100 +1197,104 @@ impl UserFunc {
     unsafe fn invoke<T>(&mut self, args: *const *const c_void) -> T
         where T: FromPrimitive + Default
     {
-        let len = self.arg_types.len();
-        let arg_ptrs = std::slice::from_raw_parts(args, len);
-        let arguments = arg_ptrs.into_iter().zip(self.arg_types.iter())
-            .map(|(ptr, t)| (Some(Expression::Callback), Self::ptr_as_object(*ptr, t)))
-            .collect();
-        match self.function.invoke(&mut self.evaluator, arguments, None) {
-            Ok(obj) => {
-                match obj.as_f64(true) {
-                    Some(n) => match T::from_f64(n) {
-                        Some(t) => t,
+        unsafe {
+            let len = self.arg_types.len();
+            let arg_ptrs = std::slice::from_raw_parts(args, len);
+            let arguments = arg_ptrs.iter().zip(self.arg_types.iter())
+                .map(|(ptr, t)| (Some(Expression::Callback), Self::ptr_as_object(*ptr, t)))
+                .collect();
+            match self.function.invoke(&mut self.evaluator, arguments, None) {
+                Ok(obj) => {
+                    match obj.as_f64(true) {
+                        Some(n) => match T::from_f64(n) {
+                            Some(t) => t,
+                            None => {
+                                self.result = Some(UError::new(UErrorKind::DllFuncError, UErrorMessage::CallbackReturnValueCastError));
+                                T::from_i32(0).unwrap_or_default()
+                            },
+                        },
                         None => {
                             self.result = Some(UError::new(UErrorKind::DllFuncError, UErrorMessage::CallbackReturnValueCastError));
                             T::from_i32(0).unwrap_or_default()
                         },
-                    },
-                    None => {
-                        self.result = Some(UError::new(UErrorKind::DllFuncError, UErrorMessage::CallbackReturnValueCastError));
-                        T::from_i32(0).unwrap_or_default()
-                    },
-                }
-            },
-            Err(err) => {
-                self.result = Some(err);
-                T::from_i32(0).unwrap_or_default()
-            },
+                    }
+                },
+                Err(err) => {
+                    self.result = Some(err);
+                    T::from_i32(0).unwrap_or_default()
+                },
+            }
         }
     }
     unsafe fn ptr_as_object(ptr: *const c_void, t: &DllType) -> Object {
-        match t {
-            DllType::Int |
-            DllType::Long => {
-                let n: i32 = Self::copy(ptr);
-                n.into()
-            },
-            DllType::Bool => {
-                let n: i32 = Self::copy(ptr);
-                (n != 0).into()
-            },
-            DllType::Uint |
-            DllType::Dword => {
-                let n: u32 = Self::copy(ptr);
-                n.into()
-            },
-            DllType::Word => {
-                let n: u16 = Self::copy(ptr);
-                n.into()
-            },
-            DllType::Byte => {
-                let n: u8 = Self::copy(ptr);
-                n.into()
-            },
-            DllType::Boolean => {
-                let n: u8 = Self::copy(ptr);
-                (n != 0).into()
-            },
-            DllType::Float => {
-                let n: f32 = Self::copy(ptr);
-                n.into()
-            },
-            DllType::Double => {
-                let n: f64 = Self::copy(ptr);
-                n.into()
-            },
-            DllType::Longlong => {
-                let n: i64 = Self::copy(ptr);
-                n.into()
-            },
-            DllType::Hwnd |
-            DllType::Handle |
-            DllType::Pointer |
-            DllType::Size => {
-                let n: usize = Self::copy(ptr);
-                n.into()
-            },
-            DllType::Void => Object::Empty,
-            DllType::SafeArray |
-            DllType::Char |
-            DllType::Wchar |
-            DllType::String |
-            DllType::Wstring |
-            DllType::Pchar |
-            DllType::PWchar |
-            DllType::UStruct |
-            DllType::CallBack => unimplemented!(),
+        unsafe {
+            match t {
+                DllType::Int |
+                DllType::Long => {
+                    let n: i32 = Self::copy(ptr);
+                    n.into()
+                },
+                DllType::Bool => {
+                    let n: i32 = Self::copy(ptr);
+                    (n != 0).into()
+                },
+                DllType::Uint |
+                DllType::Dword => {
+                    let n: u32 = Self::copy(ptr);
+                    n.into()
+                },
+                DllType::Word => {
+                    let n: u16 = Self::copy(ptr);
+                    n.into()
+                },
+                DllType::Byte => {
+                    let n: u8 = Self::copy(ptr);
+                    n.into()
+                },
+                DllType::Boolean => {
+                    let n: u8 = Self::copy(ptr);
+                    (n != 0).into()
+                },
+                DllType::Float => {
+                    let n: f32 = Self::copy(ptr);
+                    n.into()
+                },
+                DllType::Double => {
+                    let n: f64 = Self::copy(ptr);
+                    n.into()
+                },
+                DllType::Longlong => {
+                    let n: i64 = Self::copy(ptr);
+                    n.into()
+                },
+                DllType::Hwnd |
+                DllType::Handle |
+                DllType::Pointer |
+                DllType::Size => {
+                    let n: usize = Self::copy(ptr);
+                    n.into()
+                },
+                DllType::Void => Object::Empty,
+                DllType::SafeArray |
+                DllType::Char |
+                DllType::Wchar |
+                DllType::String |
+                DllType::Wstring |
+                DllType::Pchar |
+                DllType::PWchar |
+                DllType::UStruct |
+                DllType::CallBack => unimplemented!(),
+            }
         }
     }
     unsafe fn copy<T: Default>(ptr: *const c_void) -> T {
         let mut dst: T = T::default();
         let src = ptr as *const T;
-        copy_nonoverlapping(src, &mut dst, 1);
+        unsafe { copy_nonoverlapping(src, &mut dst, 1) };
         dst
     }
     fn get_closure(&mut self, rtype: &DllType) -> Closure {
-        let args = self.arg_types.iter().map(|t| Type::from(t)).collect::<Vec<_>>();
+        let args = self.arg_types.iter().map(Type::from).collect::<Vec<_>>();
         let result = Type::from(rtype);
         let cif = Cif::new(args, result);
         match rtype {

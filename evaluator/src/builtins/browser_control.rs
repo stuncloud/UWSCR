@@ -185,9 +185,9 @@ pub fn browser_getdata(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncR
     let tab = args.get_as_tabwindow(0)?;
     let name = args.get_as_string(1, None)?;
     let obj = if let Some((left, right)) = name.split_once('=') {
-        if left.to_ascii_lowercase() == "tag" {
+        if left.eq_ignore_ascii_case("tag") {
             // タグ指定
-            if right.to_ascii_lowercase() == "table" {
+            if right.eq_ignore_ascii_case("table") {
                 // テーブル
                 let nth = args.get_as_nth(2)? as usize;
                 let row = args.get_as_nth(3)? as usize;
@@ -295,28 +295,25 @@ pub fn browser_setdata(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncR
                 let obj = if click {
                     let name = args.get_as_string(2, None)?;
                     if let Some((left, tag)) = name.split_once('=') {
-                        if left.to_ascii_lowercase() == "tag" {
-                            if tag.to_ascii_lowercase() == "img" {
+                        if left.eq_ignore_ascii_case("tag") {
+                            if tag.eq_ignore_ascii_case("img") {
                                 // imgタグ
                                 let src = args.get_as_string_or_empty(3)?;
                                 let nth = args.get_as_nth(4)? as usize;
-                                let obj = tab.click_img(src, nth)?;
-                                obj
+                                tab.click_img(src, nth)?
                             } else {
                                 // img以外
                                 match args.get_as_num_or_string(3).unwrap_or(TwoTypeArg::U(1_usize)) {
                                     TwoTypeArg::T(prop) => {
                                         if let Some((prop_name, prop_value)) = prop.split_once('=') {
                                             let nth = args.get_as_nth(4)? as usize;
-                                            let obj = tab.click_by_tag_and_property(tag.into(), prop_name, prop_value, nth)?;
-                                            obj
+                                            tab.click_by_tag_and_property(tag.into(), prop_name, prop_value, nth)?
                                         } else {
                                             Object::Bool(false)
                                         }
                                     },
                                     TwoTypeArg::U(nth) => {
-                                        let obj = tab.click_by_nth_tag(tag.into(), nth)?;
-                                        obj
+                                        tab.click_by_nth_tag(tag.into(), nth)?
                                     },
                                 }
                             }
@@ -324,15 +321,13 @@ pub fn browser_setdata(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncR
                             // タグ指定じゃないのでname-valueとしてクリック
                             let value = args.get_as_string_or_empty(3)?;
                             let nth = args.get_as_nth(4)? as usize;
-                            let obj = tab.click_by_name_value(name, value, nth)?;
-                            obj
+                            tab.click_by_name_value(name, value, nth)?
                         }
                     } else {
                         // name-valueでクリック
                         let value = args.get_as_string_or_empty(3)?;
                         let nth = args.get_as_nth(4)? as usize;
-                        let obj = tab.click_by_name_value(name, value, nth)?;
-                        obj
+                        tab.click_by_name_value(name, value, nth)?
                     }
                 } else {
                     Object::Bool(false)

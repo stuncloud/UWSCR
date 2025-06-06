@@ -68,12 +68,14 @@ fn exit_windows_ex(flags: EXIT_WINDOWS_FLAGS, force: bool) {
         }
         let mut lpluid = LUID::default();
         let _ = LookupPrivilegeValueW(None, SE_SHUTDOWN_NAME, &mut lpluid);
-        let mut laa = LUID_AND_ATTRIBUTES::default();
-        laa.Luid = lpluid;
-        laa.Attributes = SE_PRIVILEGE_ENABLED;
-        let mut tkp = TOKEN_PRIVILEGES::default();
-        tkp.PrivilegeCount = 1;
-        tkp.Privileges = [laa];
+        let laa = LUID_AND_ATTRIBUTES {
+            Luid: lpluid,
+            Attributes: SE_PRIVILEGE_ENABLED,
+        };
+        let tkp = TOKEN_PRIVILEGES {
+            PrivilegeCount: 1,
+            Privileges: [laa],
+        };
 
         if AdjustTokenPrivileges(tokenhandle, false, Some(&tkp), 0, None, None).is_err() {
             return;

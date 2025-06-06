@@ -284,10 +284,13 @@ impl Fopen {
                 let mut buf = vec![];
                 file.read_to_end(&mut buf)?;
                 let text = self.decode(&buf)?;
-                self.buf = Some(FopenBuf::new(text));
+                self.buf.replace(FopenBuf::new(text));
             }
             OpenFile::File(file)
         } else {
+            if self.can_read() {
+                self.buf.replace(FopenBuf::default());
+            }
             OpenFile::New(opt)
         };
 
@@ -305,52 +308,45 @@ impl Fopen {
         // ファイル冒頭から書き込む
         file.seek(SeekFrom::Start(0))?;
         file.set_len(0)?;
-        // F_NOCR かつ 末尾がCRLFであれば除去する
-        if self.no_cr && text.ends_with(Self::CRLF){
-            if let Some(nocr) = text.strip_suffix(Self::CRLF) {
-                text = nocr.into();
+        let fixed = if self.no_cr {
+            // F_NOCRであればCRLFを除去
+            match text.strip_suffix(Self::CRLF) {
+                Some(nocr) => nocr,
+                None => &text,
             }
-        }
+        } else {
+            // F_NOCRではなく末尾に改行がなければ改行を加える
+            if text.ends_with(Self::CRLF) {
+                &text
+            } else {
+                text += Self::CRLF;
+                &text
+            }
+        };
 
         let mut stream = BufWriter::new(file);
         match self.flag.encoding {
             FopenEncoding::Utf16LE => {
                 stream.write_all(&[0xFF, 0xFE])?;
-                for utf16 in text.encode_utf16() {
+                for utf16 in fixed.encode_utf16() {
                     stream.write_all(&utf16.to_le_bytes())?;
-                }
-                if ! self.no_cr {
-                    for utf16 in Self::CRLF.encode_utf16() {
-                        stream.write_all(&utf16.to_le_bytes())?;
-                    }
                 }
             },
             FopenEncoding::Utf16BE => {
                 stream.write_all(&[0xFE, 0xFF])?;
-                for utf16 in text.encode_utf16() {
+                for utf16 in fixed.encode_utf16() {
                     stream.write_all(&utf16.to_be_bytes())?;
-                }
-                if ! self.no_cr {
-                    for utf16 in Self::CRLF.encode_utf16() {
-                        stream.write_all(&utf16.to_be_bytes())?;
-                    }
                 }
             },
             FopenEncoding::Sjis => {
-                let (cow,_,_) = SHIFT_JIS.encode(&text);
+                let (cow,_,_) = SHIFT_JIS.encode(fixed);
                 stream.write_all(cow.as_ref())?;
-                if ! self.no_cr {
-                    stream.write_all(Self::CRLF.as_bytes())?;
-                }
             }
             _ => {
                 if self.flag.encoding == FopenEncoding::Utf8B {
                     stream.write_all(&[0xEF, 0xBB, 0xBF])?;
                 }
-                stream.write_all(text.as_bytes())?;
-                if ! self.no_cr {
-                    stream.write_all(Self::CRLF.as_bytes())?;
-                }
+                stream.write_all(fixed.as_bytes())?;
             },
         }
         stream.flush()?;
@@ -926,14 +922,22 @@ impl FopenBuf {
     }
     /// 行数を得る
     pub fn get_linecount(&self) -> usize {
-        self.buf.matches(Self::LF).count() + 1
+        self.buf.lines().count()
+    }
+    /// 現在のバッファ終端が改行かどうか
+    fn buf_endswith_crlf(&self) -> bool {
+        self.buf.ends_with(Self::CRLF) ||
+        self.buf.ends_with(Self::LF) ||
+        self.buf.ends_with(Self::CR)
     }
     /// 追記
     fn append_line(&mut self, line: &str) {
-        if self.get_linecount() - 1 > 0 {
+        if !self.buf.is_empty() && !self.buf_endswith_crlf() {
+            // バッファが空、または終端が改行でなければ改行を挿入
             self.buf.push_str(Self::CRLF);
         }
         self.buf.push_str(line);
+        self.buf.push_str(Self::CRLF);
     }
     /// 削除
     fn remove_line(&mut self, row_index: usize) {
@@ -1209,8 +1213,8 @@ enum IniLine {
 impl IniLine {
     fn get_inikey_if_match(&self, section: &str, key: &str) -> Option<IniKey> {
         if let Self::Key(inikey) = self {
-            if inikey.section.to_ascii_uppercase() == section.to_ascii_uppercase() &&
-            inikey.key.to_ascii_uppercase() == key.to_ascii_uppercase() {
+            if inikey.section.eq_ignore_ascii_case(section) &&
+            inikey.key.eq_ignore_ascii_case(key) {
                 Some(inikey.clone())
             } else {
                 None
@@ -1226,7 +1230,7 @@ impl IniLine {
     fn is_in_section(&self, section: &str) -> bool {
         match self {
             IniLine::Section(section2) => {
-                section2.to_ascii_uppercase() == section.to_ascii_uppercase()
+                section2.eq_ignore_ascii_case(section)
             },
             IniLine::Key(inikey) => inikey.is_in(section),
             IniLine::Other(_) => false,
@@ -1243,7 +1247,7 @@ struct IniKey {
 
 impl IniKey {
     fn is_in(&self, section: &str) -> bool {
-        self.section.to_ascii_uppercase() == section.to_ascii_uppercase()
+        self.section.eq_ignore_ascii_case(section)
     }
 }
 
@@ -1280,7 +1284,7 @@ impl Ini {
                                 value: val.trim().to_string(),
                             }),
                             None => {
-                                if trim.len() > 0 {
+                                if !trim.is_empty() {
                                     // 空行以外のOtherだったらセクションから外す
                                     current_section = None;
                                 }
@@ -1288,7 +1292,7 @@ impl Ini {
                             },
                         }
                     } else {
-                        if trim.len() > 0 {
+                        if !trim.is_empty() {
                             // 空行以外のOtherだったらセクションから外す
                             current_section = None;
                         }
@@ -1354,10 +1358,10 @@ impl Ini {
         let len = self.lines.len();
         self.lines.retain(|line| match line {
             IniLine::Section(s) => {
-                s.to_ascii_uppercase() != section.to_ascii_uppercase()
+                !s.eq_ignore_ascii_case(section)
             },
             IniLine::Key(key) => {
-                key.section.to_ascii_uppercase() != section.to_ascii_uppercase()
+                !key.section.eq_ignore_ascii_case(section)
             },
             IniLine::Other(_) => true,
         });
@@ -1624,7 +1628,7 @@ impl Csv {
     }
 
     pub fn read_all(&self) -> FopenResult<CsvValue> {
-        self.buffer_to_csv().map(|csv| CsvValue::All(csv))
+        self.buffer_to_csv().map(CsvValue::All)
     }
     pub fn read(&self, row: usize, column: Option<usize>) -> CsvValue {
         match column {

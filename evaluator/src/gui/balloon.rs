@@ -31,6 +31,7 @@ impl Balloon {
     const DEFAULT_FORE_COLOR: u32 = 0x000000;
     const DEFAULT_BACK_COLOR: u32 = 0x00FFFF;
 
+    #[allow(clippy::too_many_arguments)]
     pub fn new(message: &str, x: i32, y: i32, font: Option<FontFamily>, fore_color: Option<u32>, back_color: Option<u32>, shape: u8, transparency: i16) -> UWindowResult<Self> {
         let hwnd = Self::create_window("UWSCR")?;
         let hfont = font.unwrap_or_default().create()?;
@@ -52,7 +53,7 @@ impl Balloon {
         }
     }
     fn get_border_brush(&self) -> Gdi::HBRUSH {
-        let mut border = self.back_color.clone();
+        let mut border = self.back_color;
         let COLORREF(color) = &mut border;
         if *color == u32::MAX {
             *color -= 1;
@@ -62,18 +63,20 @@ impl Balloon {
         Self::new_solid_brush(border)
     }
     unsafe fn set_transparent(&self) {
-        let ex = Self::get_window_long(self.hwnd, wm::GWL_EXSTYLE);
-        let dwnewlong = ex | wm::WS_EX_LAYERED.0 as isize;
-        Self::set_window_long(self.hwnd, wm::GWL_EXSTYLE, dwnewlong);
-        match self.transparency {
-            Transparency::None => {},
-            Transparency::Alpha(alpha) => {
-                let _ = wm::SetLayeredWindowAttributes(self.hwnd, COLORREF::default(), alpha, wm::LWA_ALPHA);
-            },
-            Transparency::NoBackground |
-            Transparency::NoBackgroundAndBorder => {
-                let _ = wm::SetLayeredWindowAttributes(self.hwnd, self.back_color, 0, wm::LWA_COLORKEY);
-            },
+        unsafe {
+            let ex = Self::get_window_long(self.hwnd, wm::GWL_EXSTYLE);
+            let dwnewlong = ex | wm::WS_EX_LAYERED.0 as isize;
+            Self::set_window_long(self.hwnd, wm::GWL_EXSTYLE, dwnewlong);
+            match self.transparency {
+                Transparency::None => {},
+                Transparency::Alpha(alpha) => {
+                    let _ = wm::SetLayeredWindowAttributes(self.hwnd, COLORREF::default(), alpha, wm::LWA_ALPHA);
+                },
+                Transparency::NoBackground |
+                Transparency::NoBackgroundAndBorder => {
+                    let _ = wm::SetLayeredWindowAttributes(self.hwnd, self.back_color, 0, wm::LWA_COLORKEY);
+                },
+            }
         }
     }
     unsafe fn get_poly_points(&self, w_margin: &mut i32, h_margin: &mut i32) -> ([POINT; 6], POINT) {
@@ -254,13 +257,11 @@ impl UWindow<()> for Balloon {
 
     unsafe extern "system"
     fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
-        match msg {
-            msg => {
-                if let Ok(hcursor) = wm::LoadCursorW(None, wm::IDC_ARROW) {
-                    wm::SetCursor(hcursor);
-                }
-                wm::DefWindowProcW(hwnd, msg, wparam, lparam)
+        unsafe {
+            if let Ok(hcursor) = wm::LoadCursorW(None, wm::IDC_ARROW) {
+                wm::SetCursor(hcursor);
             }
+            wm::DefWindowProcW(hwnd, msg, wparam, lparam)
         }
     }
 

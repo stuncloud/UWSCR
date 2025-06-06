@@ -16,7 +16,7 @@ use windows::{
         Foundation::{POINT, HWND, RECT, WPARAM, LPARAM, HANDLE},
         UI::{
             Input::KeyboardAndMouse::{
-                SendInput, INPUT,
+                SendInput, INPUT, INPUT_0,
                 KEYBDINPUT, INPUT_KEYBOARD, VIRTUAL_KEY,
                 KEYBD_EVENT_FLAGS, KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP, KEYEVENTF_UNICODE,
                 MOUSEINPUT, INPUT_MOUSE, MOUSEEVENTF_ABSOLUTE,
@@ -35,7 +35,8 @@ use windows::{
             WindowsAndMessaging::{
                 GetWindowRect, GetClientRect,
                 GetCursorPos, SetCursorPos,
-                SendMessageW, WM_MOUSEMOVE,
+                PostMessageW, ChildWindowFromPoint,
+                WM_MOUSEMOVE,
                 WM_LBUTTONUP, WM_LBUTTONDOWN,
                 WM_RBUTTONUP, WM_RBUTTONDOWN,
                 WM_MBUTTONUP, WM_MBUTTONDOWN,
@@ -193,11 +194,14 @@ pub fn btn(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResul
 pub fn get_current_pos() -> BuiltInResult<POINT>{
     let mut point = POINT {x: 0, y: 0};
     unsafe {
-        if GetCursorPos(&mut point).is_ok() == false {
-            return Err(builtin_func_error(UErrorMessage::UnableToGetCursorPosition));
-        };
+        // if !GetCursorPos(&mut point).is_ok() {
+        //     return Err(builtin_func_error(UErrorMessage::UnableToGetCursorPosition));
+        // };
+        GetCursorPos(&mut point)
+            .map(|_| point)
+            .map_err(|_| builtin_func_error(UErrorMessage::UnableToGetCursorPosition))
     }
-    Ok(point)
+    // Ok(point)
 }
 
 #[builtin_func_desc(
@@ -221,8 +225,8 @@ pub fn kbd(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResul
         .unwrap_or(KeyActionEnum::CLICK);
     let wait= args.get_as_int::<u64>(2, Some(0))?;
 
-    let vk_win = key_codes::VirtualKeyCode::VK_WIN as u8;
-    let vk_rwin = key_codes::VirtualKeyCode::VK_START as u8;
+    let vk_win = key_codes::VirtualKeyCode::VK_WIN as u32;
+    let vk_rwin = key_codes::VirtualKeyCode::VK_START as u32;
     let input = Input::from(&evaluator.mouseorg);
     match key {
         TwoTypeArg::U(vk) => {
@@ -266,6 +270,10 @@ impl From<&Option<MouseOrg>> for Input {
 impl Input {
     /// kbdのCLICKでdownとupの間の待機秒数 (ms)
     const KEY_CLICK_WAIT: u64 = 100;
+    /// btnのCLICKでdownとupの間の待機秒数 (ms)
+    const MOUSE_CLICK_WAIT: u64 = 35;
+    /// kbd/btnのCLICKでup後の待機秒数 (ms)
+    const AFTER_CLICK_WAIT: u64 = 10;
     pub fn is_client(&self) -> bool {
         self.client
     }
@@ -291,28 +299,150 @@ impl Input {
             (x, y)
         }
     }
-    /// MORG_DIRECT時のメッセージ送信
-    unsafe fn direct_message<W, L>(&self, msg: u32, wparam: W, lparam: L) -> isize
+    fn _child_hwnd_from_client_point(&self, x: i32, y: i32) -> Option<HWND> {
+        unsafe {
+            let point = POINT { x, y };
+            let hwnd = ChildWindowFromPoint(self.hwnd.as_ref(), point);
+            Some(hwnd)
+        }
+    }
+    /// MORG_DIRECT時のメッセージ送信\
+    /// 子ウィンドウに送信したい場合はhcwndを指定
+    fn direct_message<W, L>(&self, msg: u32, wparam: W, lparam: L, hcwnd: Option<HWND>) -> bool
     where
         W: IntoPrm<WPARAM>,
         L: IntoPrm<LPARAM>,
     {
-        let wparam = wparam.intop();
-        let lparam = lparam.intop();
-        SendMessageW(self.hwnd.as_ref(), msg, wparam, lparam)
-            .0
+        unsafe {
+            let hwnd = hcwnd.or(self.hwnd);
+            let wparam = wparam.intop();
+            let lparam = lparam.intop();
+            PostMessageW(hwnd.as_ref(), msg, wparam, lparam)
+                .is_ok()
+        }
     }
-    fn send_key(&self, vk: u8, action: KeyActionEnum, wait: u64, extend: bool) {
+    /// morg_directキー送信
+    fn direct_key(&self, msg: u32, vk: u32) -> bool {
+        self.direct_message(msg, vk as usize, 1, None)
+    }
+    /// morg_directマウスボタン送信\
+    /// マウスホイール回転の場合は`wheel`で回転量を指定
+    fn direct_mouse(&self, msg: u32, x: i32, y: i32) -> bool {
+        let (x, y) = Self::client_to_screen(self.hwnd, x, y);
+        let lparam = make_lparam(x, y);
+        self.direct_message(msg, None::<usize>, lparam, None)
+    }
+    fn direct_mouse_wheel(&self, horizontal: bool, x: i32, y: i32, delta: i32) -> bool {
+        let msg = if horizontal {
+            WM_MOUSEHWHEEL
+        } else {
+            WM_MOUSEWHEEL
+        };
+        let lparam = make_lparam(x, y);
+        let delta = ((delta * WHEEL_DELTA as i32) & 0xFFFF) as u32;
+        let wparam = (delta << 16) as usize;
+        let child = self.child_from_point(x, y);
+        self.direct_message(msg, wparam, lparam, child)
+    }
+    // fn child_with_scrollbar(&self, horizontal: bool, x: i32, y: i32) -> Option<HWND> {
+    //     if Self::has_scrollbar(self.hwnd, horizontal) {
+    //         self.hwnd
+    //     } else {
+    //         let hcwnd = self.child_from_point(x, y);
+    //         if Self::has_scrollbar(hcwnd, horizontal) {
+    //             hcwnd
+    //         } else {
+    //             let (x, y) = Self::client_to_screen(self.hwnd, x, y);
+    //             self.find_scrollable(x, y, horizontal)
+    //         }
+    //     }
+    // }
+    fn child_from_point(&self, x: i32, y: i32) -> Option<HWND> {
+        self.hwnd.map(|hwnd| {
+            unsafe {
+                let point = POINT { x, y };
+                ChildWindowFromPoint(hwnd, point)
+            }
+        })
+    }
+    fn client_to_screen(hwnd: Option<HWND>, x: i32, y: i32) -> (i32, i32) {
+        if let Some(hwnd) = hwnd {
+            unsafe {
+                let mut point = POINT { x, y };
+                ClientToScreen(hwnd, &mut point);
+                let POINT { x, y } = point;
+                (x, y)
+            }
+        } else {
+            (x, y)
+        }
+    }
+    // fn find_scrollable(&self, x: i32, y: i32, horizontal: bool) -> Option<HWND> {
+    //     unsafe {
+    //         unsafe extern "system"
+    //         fn callback(hwnd: HWND, lparam: LPARAM) -> BOOL {
+    //             unsafe {
+    //                 let ptr = lparam.0 as *mut FindScrollable;
+    //                 if let Some(find) = ptr.as_mut() {
+    //                     let found = find.verify(hwnd);
+    //                     // 見つかったらFALSEを返して抜ける
+    //                     (!found).into()
+    //                 } else {
+    //                     false.into()
+    //                 }
+    //             }
+    //         }
+
+    //         let mut find = FindScrollable::new(x, y, horizontal);
+    //         let lparam = &mut find as *mut FindScrollable as isize;
+    //         EnumWindows(Some(callback), LPARAM(lparam)).ok()
+    //             .and_then(|_| find.found())
+    //     }
+    // }
+    // fn has_scrollbar(hwnd: Option<HWND>, horizontal: bool) -> bool {
+    //     hwnd.is_some_and(|hwnd| {
+    //         let style= if horizontal {
+    //             WS_HSCROLL.0
+    //         } else {
+    //             WS_VSCROLL.0
+    //         } as isize;
+    //         (get_window_style(hwnd) & style) > 0
+    //     })
+    // }
+    fn send_key(&self, vk: u32, action: KeyActionEnum, wait: u64, extend: bool) {
         sleep(wait);
         match action {
             KeyActionEnum::CLICK => {
                 self.key_down(vk, extend);
                 sleep(Self::KEY_CLICK_WAIT);
-                self.key_up(vk, extend)
+                self.key_up(vk, extend);
+                sleep(Self::AFTER_CLICK_WAIT);
             },
             KeyActionEnum::DOWN => self.key_down(vk, extend),
             KeyActionEnum::UP => self.key_up(vk, extend),
         }
+    }
+    unsafe fn send_unicode<'a, U: Into<UTF16Encodable<'a>>>(u: U) {
+        let uable: UTF16Encodable = u.into();
+        let pinputs = uable.to_vec()
+            .into_iter()
+            .map(|scan| {
+                INPUT {
+                    r#type: INPUT_KEYBOARD,
+                    Anonymous: INPUT_0 {
+                        ki: KEYBDINPUT {
+                            wVk: VIRTUAL_KEY(0),
+                            wScan: scan,
+                            dwFlags: KEYEVENTF_UNICODE,
+                            time: 0,
+                            dwExtraInfo: *INPUT_EXTRA_INFO,
+                        }
+                    }
+                }
+            })
+            .collect::<Vec<_>>();
+        let cbsize = size_of::<INPUT>() as i32;
+        unsafe {SendInput(&pinputs, cbsize);}
     }
     fn send_str(&self, str: &str, wait: u64) {
         sleep(wait);
@@ -320,57 +450,50 @@ impl Input {
             if self.direct {
                 let hstring = HSTRING::from(str);
                 hstring.as_wide()
-                    .into_iter()
-                    .map(|n| *n as usize)
-                    .for_each(|char| {self.direct_message(WM_CHAR, char, 1);});
+                    .iter()
+                    .map(|n| *n as u32)
+                    .for_each(|char| {self.direct_key(WM_CHAR, char);});
             } else {
-                let pinputs = str.encode_utf16()
-                    .map(|scan| {
-                        let mut input = INPUT::default();
-                        input.r#type = INPUT_KEYBOARD;
-                        input.Anonymous.ki = KEYBDINPUT {
-                            wVk: VIRTUAL_KEY(0),
-                            wScan: scan,
-                            dwFlags: KEYEVENTF_UNICODE,
-                            time: 0,
-                            dwExtraInfo: *INPUT_EXTRA_INFO,
-                        };
-                        input
-                    })
-                    .collect::<Vec<_>>();
-                SendInput(&pinputs, size_of::<INPUT>() as i32);
+                Self::send_unicode(str);
             }
         }
     }
-    fn key_down(&self, vk: u8, extend: bool) {
+    fn key_down(&self, vk: u32, extend: bool) {
         unsafe {
             if self.direct {
-                self.direct_message(WM_KEYDOWN, vk as usize, 0);
+                self.direct_key(WM_KEYDOWN, vk);
+            } else if vk > 255 {
+                if let Some(ch) = char::from_u32(vk) {
+                    Self::send_unicode(ch);
+                }
             } else {
-                let mut input = INPUT::default();
                 let dwflags = if extend {
                     KEYEVENTF_EXTENDEDKEY
                 } else {
                     KEYBD_EVENT_FLAGS(0)
                 };
-                // let scan = MapVirtualKeyW(vk as u32, 0) as u16;
                 let wvk = VIRTUAL_KEY(vk as u16);
-                input.r#type = INPUT_KEYBOARD;
-                input.Anonymous.ki = KEYBDINPUT {
-                    wVk: wvk,
-                    wScan: 0,
-                    dwFlags: dwflags,
-                    time: 0,
-                    dwExtraInfo: *INPUT_EXTRA_INFO,
+                let input = INPUT {
+                    r#type: INPUT_KEYBOARD,
+                    Anonymous: INPUT_0 {
+                        ki: KEYBDINPUT {
+                            wVk: wvk,
+                            wScan: 0,
+                            dwFlags: dwflags,
+                            time: 0,
+                            dwExtraInfo: *INPUT_EXTRA_INFO,
+                        }
+                    }
                 };
-                SendInput(&[input], size_of::<INPUT>() as i32);
+                let cbsize = size_of::<INPUT>() as i32;
+                SendInput(&[input], cbsize);
             }
         }
     }
-    fn key_up(&self, vk: u8, extend: bool) {
+    fn key_up(&self, vk: u32, extend: bool) {
         unsafe {
             if self.direct {
-                self.direct_message(WM_KEYUP, vk as usize, 0);
+                self.direct_key(WM_KEYUP, vk);
             } else {
                 let mut input = INPUT::default();
                 let dwflags = if extend {
@@ -393,16 +516,19 @@ impl Input {
         }
     }
     fn move_mouse(&self, x: i32, y: i32) -> bool {
-        unsafe {
-            if self.direct {
-                let lparam = make_lparam(x, y);
-                let res = self.direct_message(WM_MOUSEMOVE, 0, lparam);
-                res == 0
-            } else {
-                let (x, y) = self.fix_point(x, y);
-                move_mouse_to(x, y)
-            }
+        if self.direct {
+            self.direct_mouse(WM_MOUSEMOVE, x, y)
+        } else {
+            let (x, y) = self.fix_point(x, y);
+            move_mouse_to(x, y)
         }
+    }
+    /// マウスボタン系メッセージを送る直前に異なる座標でWM_MOUSEMOVEを3回送る
+    fn mmv_before_mouse_btn(&self, x: i32, y: i32) -> bool {
+        [1, -1, 0].into_iter()
+            .all(|n| {
+                self.direct_mouse(WM_MOUSEMOVE, x + n, y + n)
+            })
     }
     fn mouse_down(&self, x: i32, y: i32, btn: &MouseButton) {
         unsafe {
@@ -412,24 +538,28 @@ impl Input {
                     MouseButton::Right => WM_RBUTTONDOWN,
                     MouseButton::Middle => WM_MBUTTONDOWN,
                 };
-                let lparam = make_lparam(x, y);
-                self.direct_message(msg, None, lparam);
+                self.mmv_before_mouse_btn(x, y);
+                self.direct_mouse(msg, x, y);
             } else {
-                let (x, y) = self.fix_point(x, y);
+                self.move_mouse(x, y);
+                let (dx, dy) = self.fix_point(x, y);
                 let dwflags = match btn {
                     MouseButton::Left => MOUSEEVENTF_LEFTDOWN,
                     MouseButton::Right => MOUSEEVENTF_RIGHTDOWN,
                     MouseButton::Middle => MOUSEEVENTF_MIDDLEDOWN,
                 } | MOUSEEVENTF_ABSOLUTE;
-                let mut input = INPUT::default();
-                input.r#type = INPUT_MOUSE;
-                input.Anonymous.mi = MOUSEINPUT {
-                    dx: x,
-                    dy: y,
-                    mouseData: 0,
-                    dwFlags: dwflags,
-                    time: 0,
-                    dwExtraInfo: *INPUT_EXTRA_INFO,
+                let input = INPUT {
+                    r#type: INPUT_MOUSE,
+                    Anonymous: INPUT_0 {
+                        mi: MOUSEINPUT {
+                            dx,
+                            dy,
+                            mouseData: 0,
+                            dwFlags: dwflags,
+                            time: 0,
+                            dwExtraInfo: *INPUT_EXTRA_INFO,
+                        }
+                    }
                 };
                 SendInput(&[input], size_of::<INPUT>() as i32);
             }
@@ -443,24 +573,28 @@ impl Input {
                     MouseButton::Right => WM_RBUTTONUP,
                     MouseButton::Middle => WM_MBUTTONUP,
                 };
-                let lparam = make_lparam(x, y);
-                self.direct_message(msg, None, lparam);
+                self.mmv_before_mouse_btn(x, y);
+                self.direct_mouse(msg, x, y);
             } else {
-                let (x, y) = self.fix_point(x, y);
+                self.move_mouse(x, y);
+                let (dx, dy) = self.fix_point(x, y);
                 let dwflags = match btn {
                     MouseButton::Left => MOUSEEVENTF_LEFTUP,
                     MouseButton::Right => MOUSEEVENTF_RIGHTUP,
                     MouseButton::Middle => MOUSEEVENTF_MIDDLEUP,
                 } | MOUSEEVENTF_ABSOLUTE;
-                let mut input = INPUT::default();
-                input.r#type = INPUT_MOUSE;
-                input.Anonymous.mi = MOUSEINPUT {
-                    dx: x,
-                    dy: y,
-                    mouseData: 0,
-                    dwFlags: dwflags,
-                    time: 0,
-                    dwExtraInfo: *INPUT_EXTRA_INFO,
+                let input = INPUT {
+                    r#type: INPUT_MOUSE,
+                    Anonymous: INPUT_0 {
+                        mi: MOUSEINPUT {
+                            dx,
+                            dy,
+                            mouseData: 0,
+                            dwFlags: dwflags,
+                            time: 0,
+                            dwExtraInfo: *INPUT_EXTRA_INFO,
+                        }
+                    }
                 };
                 SendInput(&[input], size_of::<INPUT>() as i32);
             }
@@ -468,10 +602,11 @@ impl Input {
     }
     fn mouse_click(&self, x: i32, y: i32, btn: &MouseButton) {
         self.mouse_down(x, y, btn);
+        sleep(Self::MOUSE_CLICK_WAIT);
         self.mouse_up(x, y, btn);
+        sleep(Self::AFTER_CLICK_WAIT);
     }
     fn mouse_button(&self, x: i32, y: i32, btn: &MouseButton, action: KeyActionEnum) {
-        self.move_mouse(x, y);
         match action {
             KeyActionEnum::CLICK => self.mouse_click(x, y, btn),
             KeyActionEnum::DOWN => self.mouse_down(x, y, btn),
@@ -479,26 +614,26 @@ impl Input {
         }
     }
     fn mouse_wheel(&self, x: i32, y: i32, amount: i32, horizontal: bool) {
-        self.move_mouse(x, y);
         unsafe {
             if self.direct {
-                let msg = if horizontal {WM_MOUSEHWHEEL} else {WM_MOUSEWHEEL};
-                let amount = amount * WHEEL_DELTA as i32;
-                let wparam = ((amount & 0xFFFF) << 16) as usize;
-                let (x, y) = self.fix_point(x, y);
-                let lparam = ((x & 0xFFFF) | (y & 0xFFFF) << 16) as isize;
-                self.direct_message(msg, WPARAM(wparam), LPARAM(lparam));
+                self.mmv_before_mouse_btn(x, y);
+                self.direct_mouse_wheel(horizontal, x, y, amount);
             } else {
+                self.move_mouse(x, y);
+                let (dx, dy) = self.fix_point(x, y);
                 let dwflags = if horizontal {MOUSEEVENTF_HWHEEL} else {MOUSEEVENTF_WHEEL};
-                let mut input = INPUT::default();
-                input.r#type = INPUT_MOUSE;
-                input.Anonymous.mi = MOUSEINPUT {
-                    dx: 0,
-                    dy: 0,
-                    mouseData: amount as u32,
-                    dwFlags: dwflags,
-                    time: 0,
-                    dwExtraInfo: *INPUT_EXTRA_INFO,
+                let input = INPUT {
+                    r#type: INPUT_MOUSE,
+                    Anonymous: INPUT_0 {
+                        mi: MOUSEINPUT {
+                            dx,
+                            dy,
+                            mouseData: amount as u32,
+                            dwFlags: dwflags,
+                            time: 0,
+                            dwExtraInfo: *INPUT_EXTRA_INFO,
+                        }
+                    }
                 };
                 SendInput(&[input], size_of::<INPUT>() as i32);
             }
@@ -612,32 +747,68 @@ impl Input {
     }
     fn new_pointer_touch_info(x: i32, y: i32, flags: POINTER_FLAGS) -> POINTER_TOUCH_INFO {
         let margin = 2;
-        let mut touch_info = POINTER_TOUCH_INFO::default();
-        touch_info.touchMask = TOUCH_MASK_CONTACTAREA|TOUCH_MASK_ORIENTATION|TOUCH_MASK_PRESSURE;
-        touch_info.rcContact = RECT { left: x-margin, top: y-margin, right: x+margin, bottom: y+margin };
-        touch_info.orientation = 90;
-        touch_info.pressure = 1000;
-        touch_info.pointerInfo = POINTER_INFO {
-            pointerType: PT_TOUCH,
-            pointerId: 0,
-            frameId: 0,
-            pointerFlags: flags,
-            sourceDevice: HANDLE::default(),
-            hwndTarget: HWND::default(),
-            ptPixelLocation: POINT { x, y },
-            ptHimetricLocation: POINT::default(),
-            ptPixelLocationRaw: POINT::default(),
-            ptHimetricLocationRaw: POINT::default(),
-            dwTime: 0,
-            historyCount: 0,
-            InputData: 0,
-            dwKeyStates: 0,
-            PerformanceCount: 0,
-            ButtonChangeType: POINTER_BUTTON_CHANGE_TYPE::default(),
-        };
-        touch_info
+
+        POINTER_TOUCH_INFO {
+            touchMask: TOUCH_MASK_CONTACTAREA|TOUCH_MASK_ORIENTATION|TOUCH_MASK_PRESSURE,
+            rcContact: RECT { left: x-margin, top: y-margin, right: x+margin, bottom: y+margin },
+            orientation: 90,
+            pressure: 1000,
+            pointerInfo: POINTER_INFO {
+                pointerType: PT_TOUCH,
+                pointerId: 0,
+                frameId: 0,
+                pointerFlags: flags,
+                sourceDevice: HANDLE::default(),
+                hwndTarget: HWND::default(),
+                ptPixelLocation: POINT { x, y },
+                ptHimetricLocation: POINT::default(),
+                ptPixelLocationRaw: POINT::default(),
+                ptHimetricLocationRaw: POINT::default(),
+                dwTime: 0,
+                historyCount: 0,
+                InputData: 0,
+                dwKeyStates: 0,
+                PerformanceCount: 0,
+                ButtonChangeType: POINTER_BUTTON_CHANGE_TYPE::default(),
+            },
+            ..Default::default()
+        }
     }
 }
+// struct FindScrollable {
+//     x: i32,
+//     y: i32,
+//     horizontal: bool,
+//     found: Option<HWND>
+// }
+// impl FindScrollable {
+//     fn new(x: i32, y: i32, horizontal: bool) -> Self {
+//         Self {
+//             x,
+//             y,
+//             horizontal,
+//             found: None,
+//         }
+//     }
+//     /// 見つかったらtrue
+//     fn verify(&mut self, hwnd: HWND) -> bool {
+//         unsafe {
+//             let mut rect = RECT::default();
+//             let _ = GetClientRect(hwnd, &mut rect);
+//             let (cleft, ctop) = Input::client_to_screen(Some(hwnd), rect.left, rect.top);
+//             let (cright, cbottom) = Input::client_to_screen(Some(hwnd), rect.right, rect.bottom);
+//             if (cleft..cright).contains(&self.x) && (cbottom..ctop).contains(&self.y) {
+//                 self.found.replace(hwnd);
+//                 true
+//             } else {
+//                 false
+//             }
+//         }
+//     }
+//     fn found(self) -> Option<HWND> {
+//         self.found
+//     }
+// }
 enum MouseButton {
     Left,
     Right,
@@ -672,13 +843,21 @@ fn sleep(ms: u64) {
 trait IntoPrm<T> {
     fn intop(self) -> T;
 }
-impl<D: Default> IntoPrm<D> for Option<D> {
+impl<D, T> IntoPrm<D> for Option<T>
+where
+    T: IntoPrm<D> + Default,
+{
     fn intop(self) -> D {
-        self.unwrap_or_default()
+        self.unwrap_or_default().intop()
     }
 }
-impl<P> IntoPrm<P> for P {
-    fn intop(self) -> P {
+impl IntoPrm<WPARAM> for WPARAM {
+    fn intop(self) -> WPARAM {
+        self
+    }
+}
+impl IntoPrm<LPARAM> for LPARAM {
+    fn intop(self) -> LPARAM {
         self
     }
 }
@@ -690,5 +869,32 @@ impl IntoPrm<WPARAM> for usize {
 impl IntoPrm<LPARAM> for isize {
     fn intop(self) -> LPARAM {
         LPARAM(self)
+    }
+}
+
+enum UTF16Encodable<'a> {
+    Str(&'a str),
+    Char(char),
+}
+impl UTF16Encodable<'_> {
+    fn to_vec(&self) -> Vec<u16> {
+        match self {
+            Self::Str(s) => s.encode_utf16().collect(),
+            Self::Char(ch) => {
+                let mut dst = [0; 2];
+                ch.encode_utf16(&mut dst).to_vec()
+            },
+        }
+    }
+}
+
+impl<'a> From<&'a str> for UTF16Encodable<'a> {
+    fn from(value: &'a str) -> Self {
+        Self::Str(value)
+    }
+}
+impl From<char> for UTF16Encodable<'_> {
+    fn from(value: char) -> Self {
+        Self::Char(value)
     }
 }

@@ -149,8 +149,10 @@ impl Monitor {
     }
     fn get_monitor_settings(name: &[u16; 32]) -> Option<DEVMODE> {
         unsafe {
-            let mut dm = DEVMODE::default();
-            dm.dmSize = size_of::<DEVMODE>() as u16;
+            let mut dm = DEVMODE {
+                dmSize: size_of::<DEVMODE>() as u16,
+                ..Default::default()
+            };
             let lpszdevicename = HSTRING::from_wide(name).ok()?;
             let lpdevmode = <*mut _>::cast(&mut dm);
             if EnumDisplaySettingsW(&lpszdevicename, ENUM_CURRENT_SETTINGS, lpdevmode).as_bool() {
@@ -174,8 +176,10 @@ impl Monitor {
     }
     fn get_display_device(szdevice: &[u16; 32]) -> Option<DISPLAY_DEVICEW> {
         unsafe {
-            let mut dd = DISPLAY_DEVICEW::default();
-            dd.cb = size_of::<DISPLAY_DEVICEW>() as u32;
+            let mut dd = DISPLAY_DEVICEW {
+                cb: size_of::<DISPLAY_DEVICEW>() as u32,
+                ..Default::default()
+            };
             let lpdevice = HSTRING::from_wide(szdevice).ok()?;
             if EnumDisplayDevicesW(&lpdevice, 0, &mut dd, 0).as_bool() {
                 Some(dd)
@@ -199,38 +203,56 @@ impl Monitor {
     /// モニタ数カウント用コールバック関数
     unsafe extern "system"
     fn callback_count(_: HMONITOR, _: HDC, _: *mut RECT, lparam: LPARAM) -> BOOL {
-        let counter = &mut *(lparam.0 as *mut u32);
-        *counter += 1;
-        true.into()
+        unsafe {
+            let ptr = lparam.0 as *mut u32;
+            if let Some(counter) = ptr.as_mut() {
+                *counter += 1;
+                true.into()
+            } else {
+                false.into()
+            }
+        }
     }
     /// インデックス取得用コールバック関数
     unsafe extern "system"
     fn callback_get_index(hmonitor: HMONITOR, _: HDC, _: *mut RECT, lparam: LPARAM) -> BOOL {
-        let data = &mut *(lparam.0 as *mut (HMONITOR, u32));
-        if hmonitor == data.0 {
-            return false.into();
-        } else {
-            data.1 += 1;
+        unsafe {
+            let ptr = lparam.0 as *mut (HMONITOR, u32);
+            if let Some(data) = ptr.as_mut() {
+                if hmonitor.eq(&data.0) {
+                    return false.into();
+                } else {
+                    data.1 += 1;
+                }
+                true.into()
+            } else {
+                false.into()
+            }
         }
-        true.into()
     }
     /// HMONITOR取得用コールバック関数
     unsafe extern "system"
     fn callback_get_handle(hmonitor: HMONITOR, _: HDC, _: *mut RECT, lparam: LPARAM) -> BOOL {
-        let data = &mut *(lparam.0 as *mut (HMONITOR, u32));
-        if data.1 == 0 {
-            data.0 = hmonitor;
-            false.into()
-        } else {
-            data.1 -= 1;
-            true.into()
+        unsafe {
+            let ptr = lparam.0 as *mut (HMONITOR, u32);
+            if let Some(data) = ptr.as_mut() {
+                if data.1 > 0 {
+                    data.1 -= 1;
+                    true.into()
+                } else {
+                    data.0 = hmonitor;
+                    false.into()
+                }
+            } else {
+                false.into()
+            }
         }
     }
 }
 
 #[repr(C)]
 #[derive(Debug, Default)]
-#[allow(non_snake_case)]
+#[allow(non_snake_case, clippy::upper_case_acronyms)]
 struct DEVMODE {
     pub dmDeviceName: [u16; 32],
     pub dmSpecVersion: u16,

@@ -87,7 +87,7 @@ impl From<USemanticTokenType> for (u32, u32) {
         }
     }
 }
-pub const SEMANTIC_TOKEN_LEGEND: LazyLock<SemanticTokensLegend> = LazyLock::new(|| {
+pub static SEMANTIC_TOKEN_LEGEND: LazyLock<SemanticTokensLegend> = LazyLock::new(|| {
     SemanticTokensLegend {
         token_types: vec![
             SemanticTokenType::KEYWORD,
@@ -178,7 +178,7 @@ impl SemanticTokenParser {
         // self._token_infos.push(info);
     }
 
-    pub fn parse(mut self, builtins: &Vec<BuiltinName>) -> Vec<SemanticToken> {
+    pub fn parse(mut self, builtins: &[BuiltinName]) -> Vec<SemanticToken> {
         loop {
             let info = self.next();
             match info.token {
@@ -186,17 +186,14 @@ impl SemanticTokenParser {
                     let hoge = builtins.iter()
                         .find(|name| name.name().eq_ignore_ascii_case(ident));
                     if let Some(name) = hoge {
-                        match name.desc() {
-                            Some(desc) => match desc {
-                                BuiltinNameDesc::Function(_) => {
-                                    self.set_token(&info, USemanticTokenType::Function);
-                                },
-                                BuiltinNameDesc::Const(_) => {
-                                    self.set_token(&info, USemanticTokenType::Constant);
-                                },
+                        if let Some(desc) = name.desc() { match desc {
+                            BuiltinNameDesc::Function(_) => {
+                                self.set_token(&info, USemanticTokenType::Function);
                             },
-                            None => {}
-                        }
+                            BuiltinNameDesc::Const(_) => {
+                                self.set_token(&info, USemanticTokenType::Constant);
+                            },
+                        } }
                     }
                 },
                 Token::Eof => break,

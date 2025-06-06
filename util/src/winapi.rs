@@ -18,7 +18,7 @@ use windows::{
                 MESSAGEBOX_STYLE, MB_OK, MB_ICONEXCLAMATION,
                 GetSystemMetrics, MessageBoxW,
                 GetClassNameW, GetWindowTextW,
-                GetWindowLongW, GWL_STYLE,
+                WINDOW_LONG_PTR_INDEX, GWL_STYLE,
                 SW_SHOWNORMAL
             },
             Shell::{ SHGetSpecialFolderPathW, ShellExecuteW },
@@ -34,6 +34,10 @@ use windows::{
         Storage::FileSystem::GetFullPathNameW,
     }
 };
+#[cfg(target_pointer_width="32")]
+use windows::Win32::UI::WindowsAndMessaging::GetWindowLongW;
+#[cfg(target_pointer_width="64")]
+use windows::Win32::UI::WindowsAndMessaging::GetWindowLongPtrW;
 
 use std::ffi::OsStr;
 use std::os::windows::ffi::OsStrExt;
@@ -287,9 +291,21 @@ pub fn get_window_title(hwnd: HWND) -> String {
     }
 }
 
-pub fn get_window_style(hwnd: HWND) -> i32 {
+pub fn get_window_style(hwnd: HWND) -> isize {
     unsafe {
-        GetWindowLongW(hwnd, GWL_STYLE)
+        get_window_long(hwnd, GWL_STYLE)
+    }
+}
+#[cfg(target_pointer_width="32")]
+unsafe fn get_window_long(hwnd: HWND, nindex: WINDOW_LONG_PTR_INDEX) -> isize {
+    unsafe {
+        GetWindowLongW(hwnd, nindex) as isize
+    }
+}
+#[cfg(target_pointer_width="64")]
+unsafe fn get_window_long(hwnd: HWND, nindex: WINDOW_LONG_PTR_INDEX) -> isize {
+    unsafe {
+        GetWindowLongPtrW(hwnd, nindex)
     }
 }
 

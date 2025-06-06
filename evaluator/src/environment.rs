@@ -120,7 +120,7 @@ impl Environment {
             })),
             global: Arc::new(Mutex::new(init_builtins()))
         };
-        env.define("PARAM_STR".into(), Object::ParamStr(params), ContainerType::Variable, false).unwrap();
+        env.define("PARAM_STR", Object::ParamStr(params), ContainerType::Variable, false).unwrap();
         env.add(NamedObject::new(
             "TRY_ERRLINE".into(), Object::Empty, ContainerType::Variable
         ), false);
@@ -191,7 +191,7 @@ impl Environment {
     }
 
     pub fn remove_variable(&mut self, name: String) {
-        self.current.lock().unwrap().local.retain(|o| o.name.eq_ignore_ascii_case(&name));
+        self.current.lock().unwrap().local.retain(|o| !o.name.eq_ignore_ascii_case(&name));
     }
 
     fn set(&mut self, name: &str, container_type: ContainerType, value: Object, to_global: bool) {
@@ -266,29 +266,25 @@ impl Environment {
 
     // 変数評価の際に呼ばれる
     pub fn get_variable(&self, name: &str) -> Option<Object> {
-        let obj = match self.get(&name, ContainerType::Variable) {
+        let obj = match self.get(name, ContainerType::Variable) {
             // ローカル変数
             Some(value) => Some(value),
-            None => match self.get(&name, ContainerType::Const) {
+            None => match self.get(name, ContainerType::Const) {
                 // ローカル定数 (一部の特殊変数)
                 Some(value) => Some(value),
-                None => match self.get_from_this(&name) {
+                None => match self.get_from_this(name) {
                     // Class/Moduleメンバ変数
                     Some(value) => Some(value),
-                    None => match self.get_from_global(&name, ContainerType::Const) {
+                    None => match self.get_from_global(name, ContainerType::Const) {
                         // グローバル定数
                         Some(value) => Some(value),
-                        None => match self.get_from_global(&name, ContainerType::Public) {
+                        None => match self.get_from_global(name, ContainerType::Public) {
                             // パブリック変数
                             Some(value) => Some(value),
-                            None => match self.get_from_global(&name, ContainerType::BuiltinConst) {
+                            None => match self.get_from_global(name, ContainerType::BuiltinConst) {
                                 // ビルトイン定数
                                 Some(value) => Some(value),
-                                None => match self.get_from_global(&name, ContainerType::Variable) {
-                                    // グローバル変数
-                                    Some(value) => Some(value),
-                                    None => None
-                                }
+                                None => self.get_from_global(name, ContainerType::Variable)
                             }
                         }
                     }
@@ -341,21 +337,18 @@ impl Environment {
 
     pub fn get_tmp_instance(&self, name: &str, from_global: bool) -> Option<Object> {
         if from_global {
-            self.get_from_global(&name, ContainerType::Variable)
+            self.get_from_global(name, ContainerType::Variable)
         } else {
             self.get(name, ContainerType::Variable)
         }
     }
 
     pub fn get_function(&self, name: &str) -> Option<Object> {
-        match self.get_function_from_this(&name) {
+        match self.get_function_from_this(name) {
             Some(func) => Some(func),
-            None =>  match self.get_from_global(&name, ContainerType::Function) {
+            None =>  match self.get_from_global(name, ContainerType::Function) {
                 Some(func) => Some(func),
-                None => match self.get_from_global(&name, ContainerType::BuiltinFunc) {
-                    Some(func) => Some(func),
-                    None => None
-                }
+                None => self.get_from_global(name, ContainerType::BuiltinFunc)
             }
         }
     }
@@ -412,22 +405,22 @@ impl Environment {
     }
 
     pub fn get_module(&self, name: &str) -> Option<Object> {
-        self.get_from_global(&name, ContainerType::Module)
+        self.get_from_global(name, ContainerType::Module)
     }
 
     pub fn get_class(&self, name: &str) -> Option<Object> {
-        self.get_from_global(&name, ContainerType::Class)
+        self.get_from_global(name, ContainerType::Class)
     }
 
     pub fn get_struct(&self, name: &str) -> Option<Object> {
-        self.get_from_global(&name, ContainerType::Struct)
+        self.get_from_global(name, ContainerType::Struct)
     }
 
     // 予約語チェック
     fn is_reserved(&mut self, name: &str) -> bool {
         self.global.lock().unwrap().iter().any(|obj| obj.name.eq_ignore_ascii_case(name) &&
         obj.container_type == ContainerType::BuiltinConst) ||
-        vec![
+        [
             "GLOBAL",
             "THIS",
             "TRY_ERRLINE",
@@ -686,7 +679,7 @@ impl Environment {
     /// ループ内のdim文はそのまま代入式として扱う
     pub fn in_loop_dim_definition(&mut self, name: &str, value: Object) {
         // 初回はdim定義として処理し、その後は代入とする
-        if let Err(_) = self.define_local(name, value.clone()) {
+        if self.define_local(name, value.clone()).is_err() {
             self.set(name, ContainerType::Variable, value, false);
         }
     }
@@ -747,17 +740,11 @@ impl Environment {
 
     pub fn get_module_member(&self, name: &str) -> Object {
         let mut arr = Vec::new();
-        match self.get_module(name) {
-            Some(o) => match o {
-                Object::Module(m) => {
-                    let module = m.lock().unwrap();
-                    for obj in module.get_members().into_iter() {
-                        arr.push(Object::String(format!("{}: {}", module.name(), obj)))
-                    }
-                },
-                _ => ()
-            },
-            None => ()
+        if let Some(Object::Module(m)) = self.get_module(name) {
+            let module = m.lock().unwrap();
+            for obj in module.get_members().into_iter() {
+                arr.push(Object::String(format!("{}: {}", module.name(), obj)))
+            }
         }
         Object::Array(arr)
     }
@@ -767,6 +754,7 @@ impl Environment {
         self.set("TRY_ERRLINE", ContainerType::Variable, Object::String(line), false);
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn init_g_time_const(&mut self, year: i32, month: i32, date: i32, hour: i32, minute: i32, second: i32, millisec: i32, day: i32) {
         self.add(NamedObject::new("G_TIME_YY".into(), year.into(), ContainerType::Const), false);
         self.add(NamedObject::new("G_TIME_MM".into(), month.into(), ContainerType::Const), false);
@@ -789,6 +777,7 @@ impl Environment {
         self.add(NamedObject::new("G_TIME_ZZ2".into(), to_str_obj(millisec, 3), ContainerType::Const), false);
         self.add(NamedObject::new("G_TIME_YY4".into(), to_str_obj(year, 4), ContainerType::Const), false);
     }
+    #[allow(clippy::too_many_arguments)]
     pub fn set_g_time_const(&mut self, year: i32, month: i32, date: i32, hour: i32, minute: i32, second: i32, millisec: i32, day: i32) {
         self.set("G_TIME_YY", ContainerType::Const, year.into(), false);
         self.set("G_TIME_MM", ContainerType::Const, month.into(), false);
@@ -876,13 +865,9 @@ pub fn check_special_assignment(obj1: &Object, obj2: &Object) -> bool {
         Object::Instance(ins) => {
             // クラスインスタンスにNothingが代入される場合はdisposeする
             if let Object::Nothing = obj2 {
-                let destructor = {
-                    let guarud = ins.try_lock().expect("lock error: check_special_assignment");
-                    guarud.get_destructor()
-                };
-                let this = ins.clone();
-                destructor(this);
-                ins.try_lock().expect("lock error: check_special_assignment").dispose2();
+                let mut guarud = ins.try_lock().expect("lock error: check_special_assignment");
+                guarud.dispose();
+                // ins.try_lock().expect("lock error: check_special_assignment").dispose2();
             }
             true
         },
@@ -902,7 +887,7 @@ mod tests {
     fn test_define_local() {
         let mut env = Environment::new(vec![]);
         assert_eq!(
-            env.define_local("hoge".into(),Object::Num(1.1)),
+            env.define_local("hoge",Object::Num(1.1)),
             Ok(())
         )
     }

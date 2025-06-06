@@ -1480,11 +1480,11 @@ impl From<Win32Error> for UError {
     }
 }
 
-impl Into<Vec<String>> for UError {
-    fn into(self) -> Vec<String> {
+impl From<UError> for Vec<String> {
+    fn from(val: UError) -> Self {
         vec![
-            self.get_line().to_string(),
-            self.to_string(),
+            val.get_line().to_string(),
+            val.to_string(),
         ]
     }
 }

@@ -66,10 +66,10 @@ impl Args {
             },
         }
     }
-    fn to_params(vec: &Vec<ArgDesc>) -> String {
+    fn to_params(vec: &[ArgDesc]) -> String {
         vec.iter().map(|arg| arg.name.clone()).reduce(|a, b| a + ", " + &b).unwrap_or_default()
     }
-    fn to_snippet_params(vec: &Vec<ArgDesc>) -> String {
+    fn to_snippet_params(vec: &[ArgDesc]) -> String {
         let mut index = 0;
         vec.iter().map(|arg| {
             if index == 0 {
@@ -88,7 +88,7 @@ impl Args {
         .reduce(|a,b| a + &b)
         .unwrap_or_default()
     }
-    fn to_document(vec: &Vec<ArgDesc>) -> String {
+    fn to_document(vec: &[ArgDesc]) -> String {
         vec.iter().map(|arg| {
             format!(
                 "#### {} [{}/{}{}]\n\n{}",
@@ -136,7 +136,7 @@ impl FuncDesc {
     }
 }
 impl Args {
-    fn _len(args: &Vec<ArgDesc>) -> i32 {
+    fn _len(args: &[ArgDesc]) -> i32 {
         args.iter()
             .map(|arg| arg.variadic.unwrap_or(1))
             .reduce(|a,b| a + b)
@@ -149,13 +149,13 @@ impl Args {
                 sets.iter()
                     .map(|(args, _)| Self::_len(args))
                     .reduce(|a, b| a.max(b))
-                    .unwrap_or_default() as i32
+                    .unwrap_or_default()
             },
         }
     }
 }
 
-fn parse_argdesc<'a>(content: ParseBuffer<'a>) -> syn::Result<Vec<ArgDesc>> {
+fn parse_argdesc(content: ParseBuffer<'_>) -> syn::Result<Vec<ArgDesc>> {
     let mut args = vec![];
     loop {
         if content.is_empty() {
@@ -389,8 +389,8 @@ impl ToTokens for FuncDesc {
                 args: #_args,
                 rtype: #_type,
             }
-        }.into();
-        tokens.extend(stream.into_iter());
+        };
+        tokens.extend(stream);
     }
 }
 impl ToTokens for ArgDesc {
@@ -412,8 +412,8 @@ impl ToTokens for ArgDesc {
                 optional: #optional,
                 variadic: #opt_variadic
             }
-        }.into();
-        tokens.extend(stream.into_iter())
+        };
+        tokens.extend(stream)
     }
 }
 impl ToTokens for RetDesc {
@@ -424,7 +424,7 @@ impl ToTokens for RetDesc {
                 r#type: #r#type.to_string(),
                 desc: #desc.to_string(),
             }
-        }.into();
-        tokens.extend(stream.into_iter())
+        };
+        tokens.extend(stream)
     }
 }

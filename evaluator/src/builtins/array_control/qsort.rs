@@ -41,12 +41,10 @@ impl Qsort {
                     } else {
                         Some(Ordering::Less)
                     }
+                } else if b.is_ok() {
+                    Some(Ordering::Greater)
                 } else {
-                    if let Ok(_) = b {
-                        Some(Ordering::Greater)
-                    } else {
-                        obj1.partial_cmp(obj2)
-                    }
+                    obj1.partial_cmp(obj2)
                 }
             },
             SortOrder::NaturalDsc => {
@@ -58,12 +56,10 @@ impl Qsort {
                     } else {
                         Some(Ordering::Greater)
                     }
+                } else if b.is_ok() {
+                    Some(Ordering::Less)
                 } else {
-                    if let Ok(_) = b {
-                        Some(Ordering::Less)
-                    } else {
-                        obj2.partial_cmp(obj1)
-                    }
+                    obj2.partial_cmp(obj1)
                 }
             },
         }
@@ -88,21 +84,15 @@ impl Qsort {
         // let pivot = array[h as usize].clone();
         let mut i = l - 1;
         for j in l..h {
-            if let Some(ordering) = self.compare(&array[h as usize], &array[j as usize]) {
-                match ordering {
-                    Ordering::Greater |
-                    Ordering::Equal => {
-                        i += 1;
-                        let a = i as usize;
-                        let b = j as usize;
-                        array.swap(a, b);
-                        for arr in arrays.as_mut() {
-                            if let Some(arr) = arr.as_mut() {
-                               arr.swap(a, b);
-                            }
-                        }
-                    },
-                    _ => {},
+            if self.compare(&array[h as usize], &array[j as usize]).is_some_and(|o| o.ne(&Ordering::Less)) {
+                i += 1;
+                let a = i as usize;
+                let b = j as usize;
+                array.swap(a, b);
+                for arr in arrays.as_mut() {
+                    if let Some(arr) = arr.as_mut() {
+                        arr.swap(a, b);
+                    }
                 }
             }
         }

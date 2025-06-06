@@ -21,9 +21,6 @@ impl Version {
     pub fn parse(&self) -> f64 {
         format!("{}.{}{}", self.major, self.minor, self.patch).parse().unwrap_or(0.0)
     }
-    pub fn to_string(&self) -> String {
-        format!("{}.{}.{}", self.major, self.minor, self.patch)
-    }
 }
 
 impl FromStr for Version {
@@ -47,7 +44,7 @@ impl PartialEq for Version {
 
 impl PartialEq<String> for Version {
     fn eq(&self, other: &String) -> bool {
-        self.to_string() == *other
+        Self::from_str(other).is_ok_and(|v| v.eq(self))
     }
 }
 

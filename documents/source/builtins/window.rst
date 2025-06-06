@@ -420,7 +420,7 @@ ID0について
 
     :return: なし
 
-.. function:: setslider(ID, 値, [n番目=1, スクロール=TRUE])
+.. function:: setslider(ID, 値, [n番目=1, スクロール=FALSE])
 
     | スライダー(スクロールバー、トラックバー)の値を設定します
 
@@ -508,7 +508,7 @@ ID0について
 
     - :any:`mmv`
     - :any:`btn`
-    - :any:`chkimg` (指定座標及び戻り値の座標)
+    - :any:`ChkImg` (指定座標及び戻り値の座標)
     - :any:`chkclr` (指定座標及び戻り値の座標)
     - :any:`peekcolor`
 
@@ -549,28 +549,28 @@ ID0について
                   - カーソル移動
                   - ``WM_MOUSEMOVE``
                 * - btn
-                  - 左ボタン下げ
+                  - 左ボタン下げ (LEFT, DOWN)
                   - ``WM_LBUTTONDOWN``
                 * - btn
-                  - 左ボタン上げ
+                  - 左ボタン上げ (LEFT, UP)
                   - ``WM_LBUTTONUP``
                 * - btn
-                  - 右ボタン下げ
+                  - 右ボタン下げ (RIGHT, DOWN)
                   - ``WM_RBUTTONDOWN``
                 * - btn
-                  - 右ボタン上げ
+                  - 右ボタン上げ (RIGHT, UP)
                   - ``WM_RBUTTONUP``
                 * - btn
-                  - 中央ボタン下げ
+                  - 中央ボタン下げ (MIDDLE, DOWN)
                   - ``WM_MBUTTONDOWN``
                 * - btn
-                  - 中央ボタン上げ
+                  - 中央ボタン上げ (MIDDLE, UP)
                   - ``WM_MBUTTONUP``
                 * - btn
-                  - マウスホイール回転(縦)
+                  - マウスホイール回転(縦) (WHEEL)
                   - ``WM_MOUSEWHEEL``
                 * - btn
-                  - マウスホイール回転(横)
+                  - マウスホイール回転(横) (WHEEL2)
                   - ``WM_MOUSEHWHEEL``
                 * - kbd
                   - キー下げ
@@ -582,6 +582,15 @@ ID0について
                   - 文字送信(1文字ずつ)
                   - ``WM_CHAR``
 
+            .. admonition:: btnについて
+                :class: note
+
+                | btn関数では各メッセージを送る前に以下のメッセージが送信されます
+
+                5. ``WM_MOUSEMOVE`` (x+1, y+1)
+                6. ``WM_MOUSEMOVE`` (x-1, y-1)
+                7. ``WM_MOUSEMOVE`` (x, y)
+
             .. admonition:: TOUCH非対応
                 :class: caution
 
@@ -591,11 +600,11 @@ ID0について
 
         .. object:: MORG_FORE
 
-            | スクリーン上から画像を取得する (:any:`chkimg`)、または色を得る (:any:`peekcolor`)
+            | スクリーン上から画像を取得する (:any:`ChkImg`)、または色を得る (:any:`peekcolor`)
 
         .. object:: MORG_BACK
 
-            | 対象ウィンドウから直接画像の取得 (:any:`chkimg`)、または色の取得 (:any:`peekcolor`) を試みる
+            | 対象ウィンドウから直接画像の取得 (:any:`ChkImg`)、または色の取得 (:any:`peekcolor`) を試みる
             | 他のウィンドウに隠れている場合でも使用可能
 
             .. admonition:: 動作しない場合
@@ -1141,6 +1150,9 @@ ID0について
 
     :param 数値 省略可 n番目: n番目に該当するアイテム種別の文字列を得る
 
+        | 0の場合はフォーカスされたコントロール
+        | ``-n`` の場合はDisableになっているものも含めたn番目
+
         .. admonition:: UWSCとは順序が異なる場合があります
             :class: caution
 
@@ -1244,15 +1256,18 @@ ID0について
 
             ACCエディット可能テキスト
 
+        .. object:: ITM_ACC_TREE
+
+            | ACCツリー構造
+            | この定数を指定した場合は他の定数および以降の引数は無視されます
+
         .. object:: ITM_FROMLAST
 
-            ACCで検索順序を逆にする (最後のアイテムから取得)
+            ACCで検索順序を逆にする
 
-        .. admonition:: UWSCとの違い
-            :class: caution
+        .. object:: ITM_BACK
 
-            | ACCでもウィンドウをアクティブにしないため、ITM_BACKは廃止されました
-
+            ACCでウィンドウをアクティブにしない
 
     :param 数値 省略可 n番目: ITM_LIST、ITM_TREEVIEW、ITM_LISTVIEW指定時かつ対象が複数あった場合にいずれを取得するか指定、-1ならすべて取得
 
@@ -1275,8 +1290,21 @@ ID0について
     :param 数値 省略可 列: ITM_LISTVIEW指定時にどの列から取得するかを指定(1から)、0ならすべての列、-1ならカラム名を取得
     :param 真偽値 省略可 ディセーブル無視: FALSEならディセーブル状態でも取得する、TRUEなら取得しない
     :param 数値 省略可 ACC最大取得数: ACC指定時に取得するアイテム数の上限を指定、0なら無制限、マイナス指定時は逆順(ITM_FROMLASTと同じ)
-    :rtype: 文字列の配列
-    :return: 取得されたアイテム名の配列
+    :rtype: 文字列の配列またはUObject
+    :return:
+
+        | 取得されたアイテム名の配列
+        | ``ITM_ACC_TREE`` 指定時はACCのツリー構造を示すUObject (失敗時はNULL)
+
+        .. sourcecode:: uwscr
+
+            // 対象ウィンドウのACCツリー構造を取得
+            id = getid("ファイル名を指定して実行")
+            uo = getitem(id, ITM_ACC_TREE)
+            json = tojson(uo, TRUE)
+            path = ".\acc.json"
+            fput(fopen(path, F_WRITE8 or F_AUTOCLOSE), json)
+            shexec(path)
 
         .. admonition:: UWSCとの違い
             :class: caution
@@ -1307,6 +1335,19 @@ ID0について
                 // 1: 実行するプログラム名、または開くフォルダーやドキュメント名、インターネット リソース名を入力してください。
                 // 2: 名前(&O):
 
+            - ACC全般は以下の条件で取得します
+              - 条件に一致するロール
+              - 可視またはフォーカス可能
+              - ステータスが0ではない
+              - ディセーブル無視がTRUEの場合enabledのもののみ
+            - ITM_ACCCLK
+              - リンクの場合親要素を含めないようにしました
+            - ITM_ACCCLK2
+            - ITM_ACCTXT
+              - 親要素を含めないようにしました
+            - ITM_EDIT
+              - 読み取り専用も取得するようにしました
+
 .. function:: getslctlst(ID, [n番目=1, 列=1])
 
     | 表示されているコンボボックス、リストボックス、ツリービュー、リストビューから選択されている項目を取得
@@ -1323,7 +1364,7 @@ ID0について
             | リストやリストビューが複数選択されていた場合にタブ連結された文字列ではなく、
             | それぞれの要素を持つ配列として返すようになりました
 
-.. function:: chkclr(探索色, [閾値=0, 範囲=[], モニタ番号=0])
+.. function:: chkclr(探索色, [閾値=0, 範囲=[], キャプチャ方法=-1])
 
     | 範囲内に探索色があればその位置を返します
     | :any:`mouseorg` が実行されている場合は探索対象がそのウィンドウとなります
@@ -1351,7 +1392,7 @@ ID0について
                 // 上限: [255, 105, 255]
                 // が探索色となるB要素とR要素はすべてを対象とし、Gのみ95-105を対象とする
 
-    :param 配列 省略可 範囲: 探索範囲を [左上x, 左上y, 右下x, 右下y] で指定、省略時はモニタまたはウィンドウに準拠
+    :param 配列 省略可 範囲: 探索範囲を [左上x, 左上y, 右下x, 右下y] で指定、省略時はモニタまたはウィンドウのサイズ
 
         .. admonition:: 部分的な省略について
             :class: hint
@@ -1363,7 +1404,16 @@ ID0について
             - [100, 100] 左上xyを指定、右下xyは省略
             - [100, null, 100] 左上xと右下xを指定、左上yと右下yは省略
 
-    :param 数値 省略可 モニタ番号: mouseorgを使わない場合に探索対象とするモニタ番号を0から指定
+    :param 数値 省略可 キャプチャ方法: キャプチャ方法及びキャプチャ対象モニタを指定する
+
+        - mouseorg未使用時
+          - -1: スクリーン全体をGDIでキャプチャする
+          - 0以上の数値: 値をモニタ番号とし、Graphic Capture APIでキャプチャする
+        - mouseorg使用時
+          - -1: ウィンドウをGDIでキャプチャする
+          - 0以上の数値: ウィンドウをGraphic Capture APIでキャプチャする
+
+
     :rtype: 二次元配列
     :return: 該当色のある座標および見つかった色([x, y, [b, g, r]])の配列
 
@@ -1407,7 +1457,64 @@ ID0について
 画像検索
 --------
 
-.. function:: chkimg(画像ファイルパス, [スコア=95, 最大検索数=5, left=EMPTY, top=EMPTY, right=EMPTY, bottom=EMPTY, オプション=0, モニタ番号=0])
+.. function:: ChkImg([ファイル名={clipboard}, 探索方式=0, x1=EMPTY, y1=EMPTY, x2=EMPTY, y2=EMPTY, n番目=1, 色幅=0])
+
+    | スクリーン上の指定画像と一致する位置の情報を返す
+
+    :param 文字列 省略可 ファイル名: 探す画像ファイルのパス、省略時はクリップボード画像
+    :param 数値 省略可 探索方式: 一致判定の方式を指定
+
+        - 0: すべてのピクセルで一致を判定する
+        - 1: 指定画像の左上を透過色とし、指定画像の透過色に当たる部分は常に一致、それ以外は通常の一致判定を行う
+        - 2: 指定画像の右上を透過色とする
+        - 3: 指定画像の左下を透過色とする
+        - 4: 指定画像の右下を透過色とする
+        - -1: 色ではなく形での一致を判定する、色幅は無視される
+
+    :param 数値 省略可 x1: 探索範囲の左上x座標、省略時はスクリーン全体の左上
+    :param 数値 省略可 y1: 探索範囲の左上y座標、省略時はスクリーン全体の左上
+    :param 数値 省略可 x2: 探索範囲の右下x座標、省略時はスクリーン全体の右下
+    :param 数値 省略可 y2: 探索範囲の右下y座標、省略時はスクリーン全体の右下
+    :param 数値 省略可 n番目: スクリーン左上から見てn番目の一致座標を返す、-1ならスクリーン上で一致するすべての座標を返す
+
+    :param 定数 省略可 色幅: 各ピクセルについて許容する色範囲を指定 (OR連結可)、省略時は完全一致
+
+        - IMG_MSK_R1: RGBのうちR (赤) に対して ``R -2 < 対象R < R + 2`` の範囲で許容する
+        - IMG_MSK_R2: RGBのうちR (赤) に対して ``R -4 < 対象R < R + 4`` の範囲で許容する
+        - IMG_MSK_R3: RGBのうちR (赤) に対して ``R -8 < 対象R < R + 8`` の範囲で許容する
+        - IMG_MSK_R4: RGBのうちR (赤) に対して ``R -16 < 対象R < R + 16`` の範囲で許容する
+        - IMG_MSK_G1: RGBのうちG (緑) に対して ``G -2 < 対象G < G + 2`` の範囲で許容する
+        - IMG_MSK_G2: RGBのうちG (緑) に対して ``G -4 < 対象G < G + 4`` の範囲で許容する
+        - IMG_MSK_G3: RGBのうちG (緑) に対して ``G -8 < 対象G < G + 8`` の範囲で許容する
+        - IMG_MSK_G4: RGBのうちG (緑) に対して ``G -16 < 対象G < G + 16`` の範囲で許容する
+        - IMG_MSK_B1: RGBのうちB (青) に対して ``B -2 < 対象B < B + 2`` の範囲で許容する
+        - IMG_MSK_B2: RGBのうちB (青) に対して ``B -4 < 対象B < B + 4`` の範囲で許容する
+        - IMG_MSK_B3: RGBのうちB (青) に対して ``B -8 < 対象B < B + 8`` の範囲で許容する
+        - IMG_MSK_B4: RGBのうちB (青) に対して ``B -16 < 対象B < B + 16`` の範囲で許容する
+        - IMG_MSK_BGR1: RGBそれぞれに対して ``n -2 < 対象色 < n + 2`` の範囲で許容する
+        - IMG_MSK_BGR2: RGBそれぞれに対して ``n -4 < 対象色 < n + 4`` の範囲で許容する
+        - IMG_MSK_BGR3: RGBそれぞれに対して ``n -8 < 対象色 < n + 8`` の範囲で許容する
+        - IMG_MSK_BGR4: RGBそれぞれに対して ``n -16 < 対象色 < n + 16`` の範囲で許容する
+
+    :rtype: 配列
+    :return:
+
+        | n番目で1以上を指定した場合は該当する位置の [x, y]
+        | -1を指定した場合は [x, y] の配列
+        | 見つからなかった場合は空の配列
+        | クリップボード指定でクリップボードに画像がない場合も空の配列
+
+    .. admonition:: サンプルコード
+
+        .. sourcecode:: uwscr
+
+            // n番目を-2にすることで探索が並列処理になる
+            for xy in chkimg(image, 0,,,,, -2, IMG_MSK_BGR3)
+                print xy
+            next
+
+
+.. function:: SearchImage(画像ファイルパス, [スコア=95, 最大検索数=5, left=EMPTY, top=EMPTY, right=EMPTY, bottom=EMPTY, オプション=0, モニタ番号=0])
 
     | 指定画像をスクリーン上から探してその座標を返します
 
@@ -1439,11 +1546,11 @@ ID0について
     :param 数値 省略可 bottom: 検索範囲指定: 右下X座標、省略時は画面右下Y座標
     :param 定数 省略可 オプション: 実行時オプションを指定、OR連結可
 
-        .. object:: CHKIMG_NO_GRAY
+        .. object:: SCHIMG_NO_GRAY
 
             | 画像をグレースケール化せず探索を行う
 
-        .. object:: CHKIMG_USE_WGCAPI
+        .. object:: SCHIMG_USE_WGCAPI
 
             | デスクトップまたはウィンドウの画像取得にGraphicsCaptureAPIを使う
             | デスクトップの場合は対象とするモニタを次の引数で指定
@@ -1458,27 +1565,27 @@ ID0について
                 | 対象ウィンドウが最小化されている、または非表示になっている場合はキャプチャを行わず関数を終了します
                 | このオプションでウィンドウをキャプチャする場合は対象ウィンドウが表示状態になっていることを確認してください
 
-        .. object:: CHKIMG_METHOD_SQDIFF
+        .. object:: SCHIMG_METHOD_SQDIFF
 
             | 類似度の計算にTM_SQDIFFを使用する、他の計算方法と併用不可
 
-        .. object:: CHKIMG_METHOD_SQDIFF_NORMED
+        .. object:: SCHIMG_METHOD_SQDIFF_NORMED
 
             | 類似度の計算にTM_SQDIFF_NORMEDを使用する、他の計算方法と併用不可
 
-        .. object:: CHKIMG_METHOD_CCORR
+        .. object:: SCHIMG_METHOD_CCORR
 
             | 類似度の計算にTM_CCORRを使用する、他の計算方法と併用不可
 
-        .. object:: CHKIMG_METHOD_CCORR_NORMED
+        .. object:: SCHIMG_METHOD_CCORR_NORMED
 
             | 類似度の計算にTM_CCORR_NORMEDを使用する、他の計算方法と併用不可
 
-        .. object:: CHKIMG_METHOD_CCOEFF
+        .. object:: SCHIMG_METHOD_CCOEFF
 
             | 類似度の計算にTM_CCOEFFを使用する、他の計算方法と併用不可
 
-        .. object:: CHKIMG_METHOD_CCOEFF_NORMED
+        .. object:: SCHIMG_METHOD_CCOEFF_NORMED
 
             | 類似度の計算にTM_CCOEFF_NORMEDを使用する、他の計算方法と併用不可
             | 計算方法未指定時はこれが適用される
@@ -1486,7 +1593,7 @@ ID0について
 
     :param 定数 省略可 モニタ番号:
 
-        | ``CHKIMG_USE_WGCAPI`` 時に検索するモニタ番号を0から指定、デフォルトは0 (プライマリモニタ)
+        | ``SCHIMG_USE_WGCAPI`` 時に検索するモニタ番号を0から指定、デフォルトは0 (プライマリモニタ)
         | mousemorg使用時はウィンドウを対象とするためこの引数指定は不要
 
     :rtype: 二次元配列
@@ -1500,7 +1607,7 @@ ID0について
                 print found // [x, y, スコア]
             next
 
-.. function:: chkimg(画像ファイルパス, [スコア=95, 最大検索数=5, 範囲, オプション=0])
+.. function:: SearchImage(画像ファイルパス, [スコア=95, 最大検索数=5, 範囲, オプション=0])
     :noindex:
 
     | 配列による範囲指定
@@ -1643,7 +1750,18 @@ ID0について
 
             .. object:: CLICK
 
-                ボタンクリック (デフォルト)
+                | ボタンクリック (デフォルト)
+                | DOWN→UPを連続で行います
+
+                .. admonition:: 待機時間について
+                    :class: note
+
+                    | DOWNとUPの間と、UP後にわずかに待機時間が入ります
+
+                    1. ``DOWN``
+                    2. 待機
+                    3. ``UP``
+                    4. 待機(小)
 
             .. object:: DOWN
 
@@ -1678,19 +1796,30 @@ ID0について
             btn(TOUCH, DOWN, 300, 300)
             btn(TOUCH, UP, 150, 150, 10) // 10ならとても遅い
 
-.. function:: kbd(仮想キー, [状態=CLICK, ms=0])
+.. function:: kbd(仮想キーまたは文字コード, [状態=CLICK, ms=0])
 .. function:: kbd(送信文字列, [状態=CLICK, ms=0])
     :noindex:
 
     | キーボード入力を送信します
 
-    :param 定数 仮想キー: :ref:`virtual_keys` のいずれか
+    :param 数値 仮想キーまたは文字コード: :ref:`virtual_keys` のいずれか、または文字コード
     :param 文字列 送信文字列: キー入力として送信される文字列
     :param 定数 省略可 状態: キーの入力状態を指定、文字列送信時は無視される
 
         .. object:: CLICK
 
-            キークリック (デフォルト)
+            | キークリック (デフォルト)
+            | DOWN→UPを連続で行います
+
+            .. admonition:: 待機時間について
+                :class: note
+
+                | DOWNとUPの間と、UP後にわずかに待機時間が入ります
+
+                1. ``DOWN``
+                2. 待機
+                3. ``UP``
+                4. 待機(小)
 
         .. object:: DOWN
 
@@ -1708,6 +1837,7 @@ ID0について
 
         .. sourcecode:: uwscr
 
+            // キーコード入力
             // a が入力される
             kbd(VK_A)
 
@@ -1715,6 +1845,10 @@ ID0について
             kbd(VK_SHIFT, DOWN)
             kbd(VK_A, CLICK, 100)
             kbd(VK_SHIFT, UP, 100)
+
+            // 文字コード入力
+            // あ が入力される
+            kbd(asc("あ"))
 
             // A が入力される
             kbd("A")

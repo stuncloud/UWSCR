@@ -12,15 +12,16 @@ use crate::builtins::{
     system_controls::is_64bit_os,
     text_control::ErrConst,
     dialog::THREAD_LOCAL_BALLOON,
+    U32Ext,
 };
 use crate::gui::UWindow;
 pub use monitor::Monitor;
-pub use acc::U32Ext;
+pub use acc::{AccWindow, PosAccResult};
 use util::winapi::get_console_hwnd;
 use util::clipboard::Clipboard;
 
 #[cfg(feature="chkimg")]
-use crate::builtins::chkimg::{ChkImg, ScreenShot, CheckColor};
+use crate::builtins::chkimg::{SearchImage, ScreenShot, CheckColor};
 #[cfg(feature="chkimg")]
 use util::settings::USETTINGS;
 
@@ -110,7 +111,7 @@ static WINDOW_CONTROL_SINGLETON: LazyLock<WindowControl> = LazyLock::new(||{
 
 pub fn get_next_id() -> i32 {
     let mut next_id = WINDOW_CONTROL_SINGLETON.next_id.lock().unwrap();
-    let id = next_id.clone();
+    let id = *next_id;
     *next_id += 1;
 
     id
@@ -175,10 +176,14 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     #[cfg(feature="chkimg")]
     sets.add("chkimg", chkimg, get_desc!(chkimg));
     #[cfg(feature="chkimg")]
+    sets.add("searchimage", searchimage, get_desc!(searchimage));
+    #[cfg(feature="chkimg")]
+    sets.add("chkimg", chkimg, get_desc!(chkimg));
+    #[cfg(feature="chkimg")]
     sets.add("saveimg", saveimg, get_desc!(saveimg));
     #[cfg(feature="chkimg")]
     sets.add("chkclr", chkclr, get_desc!(chkclr));
-    sets.add("enum_acc", enum_acc, get_desc!(enum_acc));
+    // sets.add("enum_acc", enum_acc, get_desc!(enum_acc));
     sets
 }
 
@@ -307,32 +312,28 @@ struct TargetWindow {
 
 unsafe extern "system"
 fn callback_find_window(hwnd: HWND, lparam: LPARAM) -> BOOL {
-    let mut title_buffer = [0; MAX_NAME_SIZE];
-    let mut class_buffer = [0; MAX_NAME_SIZE];
-    // let target = &mut *(lparam as *mut TargetWindow) as &mut TargetWindow;
-    let target = &mut *(lparam.0 as *mut TargetWindow);
+    unsafe {
+        let mut title_buffer = [0; MAX_NAME_SIZE];
+        let mut class_buffer = [0; MAX_NAME_SIZE];
+        // let target = &mut *(lparam as *mut TargetWindow) as &mut TargetWindow;
+        let target = &mut *(lparam.0 as *mut TargetWindow);
 
-    let len = GetWindowTextW(hwnd, &mut title_buffer);
-    let title = String::from_utf16_lossy(&title_buffer[..len as usize]);
-    match title.to_ascii_lowercase().find(target.title.to_ascii_lowercase().as_str()) {
-        Some(_) => {
+        let len = GetWindowTextW(hwnd, &mut title_buffer);
+        let title = String::from_utf16_lossy(&title_buffer[..len as usize]);
+        if title.to_ascii_lowercase().contains(target.title.to_ascii_lowercase().as_str()) {
             let len = GetClassNameW(hwnd, &mut class_buffer);
             let class = String::from_utf16_lossy(&class_buffer[..len as usize]);
 
-            match class.to_ascii_lowercase().find(target.class_name.to_ascii_lowercase().as_str()) {
-                Some(_) => {
-                    target.title = title;
-                    target.class_name = class;
-                    target.hwnd = hwnd;
-                    target.found = true;
-                    return false.into();
-                },
-                None => ()
+            if class.to_ascii_lowercase().contains(target.class_name.to_ascii_lowercase().as_str()) {
+                target.title = title;
+                target.class_name = class;
+                target.hwnd = hwnd;
+                target.found = true;
+                return false.into();
             }
-        },
-        None => ()
+        }
+        true.into() // 次のウィンドウへ
     }
-    true.into() // 次のウィンドウへ
 }
 
 fn find_window(title: String, class_name: String, timeout: f64) -> windows::core::Result<HWND> {
@@ -576,8 +577,7 @@ pub fn clkitem(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let names = args.get_as_string_array(1)?;
     let clk_const = args.get_as_int(2, Some(0_usize))?;
     let check = args.get_as_three_state(3, Some(ThreeState::True))?;
-    let order = args.get_as_int(4, Some(1))?;
-    let order = if order < 1 {1_u32} else {order as u32};
+    let order = args.get_as_nth(4)?;
 
     let hwnd = get_hwnd_from_id(id);
 
@@ -688,7 +688,7 @@ pub fn ctrlwin(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
                 );
             },
             CtrlWinCmd::TOPNOACTV => unsafe {
-                for h in vec![HWND_TOPMOST, HWND_NOTOPMOST] {
+                for h in [HWND_TOPMOST, HWND_NOTOPMOST] {
                     let _ = SetWindowPos(
                         hwnd,
                         h,
@@ -1091,17 +1091,15 @@ pub fn status(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
             i += 1;
         }
         Ok(Object::HashTbl(Arc::new(Mutex::new(stats))))
-    } else {
-        if let Some(cmd) = args.get_as_const::<StatusEnum>(1, true)?{
-            if cmd == StatusEnum::ST_ALL {
-                Ok(get_all_status(hwnd)?)
-            } else {
-                let st = get_status_result(hwnd, cmd)?;
-                Ok(st)
-            }
+    } else if let Some(cmd) = args.get_as_const::<StatusEnum>(1, true)?{
+        if cmd == StatusEnum::ST_ALL {
+            Ok(get_all_status(hwnd)?)
         } else {
-            Ok(Object::Empty)
+            let st = get_status_result(hwnd, cmd)?;
+            Ok(st)
         }
+    } else {
+        Ok(Object::Empty)
     }
 }
 
@@ -1211,27 +1209,150 @@ pub fn monitor(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 #[cfg(feature="chkimg")]
 #[allow(non_camel_case_types)]
 #[derive(Debug, EnumString, EnumProperty, VariantNames, ToPrimitive, FromPrimitive)]
-pub enum ChkImgOption {
-    #[strum[props(desc="グレースケール化せず探索を行う")]]
-    CHKIMG_NO_GRAY = 1,
-    #[strum[props(desc="GraphicCaptureAPIでキャプチャする")]]
-    CHKIMG_USE_WGCAPI = 2,
-    #[strum[props(desc="類似度の計算に TM_SQDIFF を使用")]]
-    CHKIMG_METHOD_SQDIFF = 4,
-    #[strum[props(desc="類似度の計算に TM_SQDIFF_NORMED を使用")]]
-    CHKIMG_METHOD_SQDIFF_NORMED = 4 + 8,
-    #[strum[props(desc="類似度の計算に TM_CCORR を使用")]]
-    CHKIMG_METHOD_CCORR = 4 + 16,
-    #[strum[props(desc="類似度の計算に TM_CCORR_NORMED を使用")]]
-    CHKIMG_METHOD_CCORR_NORMED = 4 + 32,
-    #[strum[props(desc="類似度の計算に TM_CCOEFF を使用")]]
-    CHKIMG_METHOD_CCOEFF = 4 + 64,
-    #[strum[props(desc="類似度の計算に TM_CCOEFF_NORMED を使用 (デフォルト)")]]
-    CHKIMG_METHOD_CCOEFF_NORMED = 4 + 128,
+pub enum ImgMsk {
+    #[strum[props(desc="有効範囲: R -2 < 対象R < R + 2")]]
+    IMG_MSK_R1 = 1,
+    #[strum[props(desc="有効範囲: R -4 < 対象R < R + 4")]]
+    IMG_MSK_R2 = 3,
+    #[strum[props(desc="有効範囲: R -8 < 対象R < R + 8")]]
+    IMG_MSK_R3 = 7,
+    #[strum[props(desc="有効範囲: R -16 < 対象R < R + 16")]]
+    IMG_MSK_R4 = 15,
+    #[strum[props(desc="有効範囲: G -2 < 対象G < G + 2")]]
+    IMG_MSK_G1 = 256,
+    #[strum[props(desc="有効範囲: G -4 < 対象G < G + 4")]]
+    IMG_MSK_G2 = 768,
+    #[strum[props(desc="有効範囲: G -8 < 対象G < G + 8")]]
+    IMG_MSK_G3 = 1792,
+    #[strum[props(desc="有効範囲: G -16 < 対象G < G + 16")]]
+    IMG_MSK_G4 = 3840,
+    #[strum[props(desc="有効範囲: B -2 < 対象B < B + 2")]]
+    IMG_MSK_B1 = 65536,
+    #[strum[props(desc="有効範囲: B -4 < 対象B < B + 4")]]
+    IMG_MSK_B2 = 196608,
+    #[strum[props(desc="有効範囲: B -8 < 対象B < B + 8")]]
+    IMG_MSK_B3 = 458752,
+    #[strum[props(desc="有効範囲: B -16 < 対象B < B + 16")]]
+    IMG_MSK_B4 = 983040,
+    #[strum[props(desc="有効範囲: n -2 < 対象色 < n + 2")]]
+    IMG_MSK_BGR1 = 65793,
+    #[strum[props(desc="有効範囲: n -4 < 対象色 < n + 4")]]
+    IMG_MSK_BGR2 = 197379,
+    #[strum[props(desc="有効範囲: n -8 < 対象色 < n + 8")]]
+    IMG_MSK_BGR3 = 460551,
+    #[strum[props(desc="有効範囲: n -16 < 対象色 < n + 16")]]
+    IMG_MSK_BGR4 = 986895,
+}
+#[cfg(feature="chkimg")]
+#[builtin_func_desc(
+    desc="スクリーン上の画像の位置を返す",
+    rtype={desc="画像位置情報 [X,Y]、またはその配列",types="配列"}
+    args=[
+        {o, n="ファイル名",t="文字列",d="画像ファイルのパス"},
+        {o, n="探索方式",t="数値",d=r#"画像ファイルのパス
+- 0: 指定なし (デフォルト)
+- 1: 指定画像の左上を透過色とする
+- 2: 指定画像の右上を透過色とする
+- 3: 指定画像の左下を透過色とする
+- 4: 指定画像の右下を透過色とする
+- -1: 色を無視して形で判定"#},
+        {o, n="x1",t="数値",d="探索範囲の左上x座標"},
+        {o, n="y1",t="数値",d="探索範囲の左上y座標"},
+        {o, n="x2",t="数値",d="探索範囲の右下x座標"},
+        {o, n="y2",t="数値",d="探索範囲の右下y座標"},
+        {o, n="n番目",t="数値",d="左上から見てn番目の座標を返す、-1なら該当するすべての座標"},
+        {o, n="色幅",t="定数",d=r#"許容する色の範囲を定数で指定、OR連結可
+- IMG_MSK_R1: RGBのうちR (赤) に対して `R -2 < 対象R < R + 2` の範囲で許容する
+- IMG_MSK_R2: RGBのうちR (赤) に対して `R -4 < 対象R < R + 4` の範囲で許容する
+- IMG_MSK_R3: RGBのうちR (赤) に対して `R -8 < 対象R < R + 8` の範囲で許容する
+- IMG_MSK_R4: RGBのうちR (赤) に対して `R -16 < 対象R < R + 16` の範囲で許容する
+- IMG_MSK_G1: RGBのうちG (緑) に対して `G -2 < 対象G < G + 2` の範囲で許容する
+- IMG_MSK_G2: RGBのうちG (緑) に対して `G -4 < 対象G < G + 4` の範囲で許容する
+- IMG_MSK_G3: RGBのうちG (緑) に対して `G -8 < 対象G < G + 8` の範囲で許容する
+- IMG_MSK_G4: RGBのうちG (緑) に対して `G -16 < 対象G < G + 16` の範囲で許容する
+- IMG_MSK_B1: RGBのうちB (青) に対して `B -2 < 対象B < B + 2` の範囲で許容する
+- IMG_MSK_B2: RGBのうちB (青) に対して `B -4 < 対象B < B + 4` の範囲で許容する
+- IMG_MSK_B3: RGBのうちB (青) に対して `B -8 < 対象B < B + 8` の範囲で許容する
+- IMG_MSK_B4: RGBのうちB (青) に対して `B -16 < 対象B < B + 16` の範囲で許容する
+- IMG_MSK_BGR1: RGBそれぞれに対して `n -2 < 対象色 < n + 2` の範囲で許容する
+- IMG_MSK_BGR2: RGBそれぞれに対して `n -4 < 対象色 < n + 4` の範囲で許容する
+- IMG_MSK_BGR3: RGBそれぞれに対して `n -8 < 対象色 < n + 8` の範囲で許容する
+- IMG_MSK_BGR4: RGBそれぞれに対して `n -16 < 対象色 < n + 16` の範囲で許容する
+"#},
+    ],
+)]
+pub fn chkimg(e: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+    use crate::builtins::chkimg::{ChkimgLikeImageMatcher, SearchMethod};
+    use super::chkimg::Image;
+
+    let target = match args.get_as_string(0, None).ok() {
+        Some(path) => Image::from_file(path)?,
+        None => match Image::from_clipboard() {
+            Some(clip) => clip,
+            None => return Ok(Object::Array(Vec::new())),
+        },
+    };
+    let method = args.get_as_int(1, Some(0))?;
+    let left = args.get_as_int_or_empty(2)?;
+    let top = args.get_as_int_or_empty(3)?;
+    let right = args.get_as_int_or_empty(4)?;
+    let bottom = args.get_as_int_or_empty(5)?;
+    let nth = args.get_as_int(6, Some(1))?;
+    let threshold = args.get_as_int(7, Some(0))?;
+
+    let mi = MorgImg::from(&e.mouseorg);
+    let captured = match mi.hwnd {
+        Some(hwnd) => {
+            let style = if mi.is_back {ImgConst::IMG_BACK} else {ImgConst::IMG_FORE};
+            let client = mi.is_client();
+            ScreenShot::get_window(hwnd, left, top, right, bottom, client, style)?
+        },
+        None => ScreenShot::get_screen(left, top, right, bottom)?,
+    };
+    if should_save_ss() {
+        captured.save(None)?;
+    }
+
+    let method = SearchMethod::new(method, threshold, &target);
+    let matcher = ChkimgLikeImageMatcher::new(captured, &target)?;
+    let found = match matcher.find(method, nth) {
+        chkimg::ChkimgLikeMatches::Nth(loc) => match loc {
+            Some(loc) => vec![loc.x.into(), loc.y.into()],
+            None => Vec::new(),
+        },
+        chkimg::ChkimgLikeMatches::All(match_locations) => {
+            match_locations.into_iter()
+                .map(|loc| Object::Array(vec![loc.x.into(), loc.y.into()]))
+                .collect()
+        },
+    };
+    Ok(Object::Array(found))
 }
 
 #[cfg(feature="chkimg")]
-impl ChkImgOption {
+#[allow(non_camel_case_types)]
+#[derive(Debug, EnumString, EnumProperty, VariantNames, ToPrimitive, FromPrimitive)]
+pub enum SearchImageOption {
+    #[strum[props(desc="グレースケール化せず探索を行う")]]
+    SCHIMG_NO_GRAY = 1,
+    #[strum[props(desc="GraphicCaptureAPIでキャプチャする")]]
+    SCHIMG_USE_WGCAPI = 2,
+    #[strum[props(desc="類似度の計算に TM_SQDIFF を使用")]]
+    SCHIMG_METHOD_SQDIFF = 4,
+    #[strum[props(desc="類似度の計算に TM_SQDIFF_NORMED を使用")]]
+    SCHIMG_METHOD_SQDIFF_NORMED = 4 + 8,
+    #[strum[props(desc="類似度の計算に TM_CCORR を使用")]]
+    SCHIMG_METHOD_CCORR = 4 + 16,
+    #[strum[props(desc="類似度の計算に TM_CCORR_NORMED を使用")]]
+    SCHIMG_METHOD_CCORR_NORMED = 4 + 32,
+    #[strum[props(desc="類似度の計算に TM_CCOEFF を使用")]]
+    SCHIMG_METHOD_CCOEFF = 4 + 64,
+    #[strum[props(desc="類似度の計算に TM_CCOEFF_NORMED を使用 (デフォルト)")]]
+    SCHIMG_METHOD_CCOEFF_NORMED = 4 + 128,
+}
+
+#[cfg(feature="chkimg")]
+impl SearchImageOption {
     fn gray_scale(opt: i32) -> bool {
         1 & opt != 1
     }
@@ -1278,15 +1399,15 @@ fn should_save_ss() -> bool {
             {o,n="right",t="数値",d="探索範囲の右下X座標、省略時はスクリーンまたはウィンドウ右下X座標"},
             {o,n="bottom",t="数値",d="探索範囲の右下Y座標、省略時はスクリーンまたはウィンドウ右下Y座標"},
             {o,n="オプション",t="定数",d=r#"探索オプションを以下から指定、OR連結可
-- CHKIMG_NO_GRAY: 画像をグレースケール化せず探索を行う
-- CHKIMG_USE_WGCAPI: デスクトップまたはウィンドウの画像取得にGraphicsCaptureAPIを使う
-- CHKIMG_METHOD_SQDIFF: 類似度の計算にTM_SQDIFFを使用する、他の計算方法と併用不可
-- CHKIMG_METHOD_SQDIFF_NORMED: 類似度の計算にTM_SQDIFF_NORMEDを使用する、他の計算方法と併用不可
-- CHKIMG_METHOD_CCORR: 類似度の計算にTM_CCORRを使用する、他の計算方法と併用不可
-- CHKIMG_METHOD_CCORR_NORMED: 類似度の計算にTM_CCORR_NORMEDを使用する、他の計算方法と併用不可
-- CHKIMG_METHOD_CCOEFF: 類似度の計算にTM_CCOEFFを使用する、他の計算方法と併用不可
-- CHKIMG_METHOD_CCOEFF_NORMED: 類似度の計算にTM_CCOEFF_NORMEDを使用する、他の計算方法と併用不可"#},
-            {o,n="モニタ番号",t="数値",d="CHKIMG_USE_WGCAPI指定時かつmouseorg未使用時に探索するモニタ番号を0から指定"},
+- SCHIMG_NO_GRAY: 画像をグレースケール化せず探索を行う
+- SCHIMG_USE_WGCAPI: デスクトップまたはウィンドウの画像取得にGraphicsCaptureAPIを使う
+- SCHIMG_METHOD_SQDIFF: 類似度の計算にTM_SQDIFFを使用する、他の計算方法と併用不可
+- SCHIMG_METHOD_SQDIFF_NORMED: 類似度の計算にTM_SQDIFF_NORMEDを使用する、他の計算方法と併用不可
+- SCHIMG_METHOD_CCORR: 類似度の計算にTM_CCORRを使用する、他の計算方法と併用不可
+- SCHIMG_METHOD_CCORR_NORMED: 類似度の計算にTM_CCORR_NORMEDを使用する、他の計算方法と併用不可
+- SCHIMG_METHOD_CCOEFF: 類似度の計算にTM_CCOEFFを使用する、他の計算方法と併用不可
+- SCHIMG_METHOD_CCOEFF_NORMED: 類似度の計算にTM_CCOEFF_NORMEDを使用する、他の計算方法と併用不可"#},
+            {o,n="モニタ番号",t="数値",d="SCHIMG_USE_WGCAPI指定時かつMOUSEORG未使用時に探索するモニタ番号を0から指定"},
         ],
         [
             {n="画像",t="文字列",d="画像ファイルのパス"},
@@ -1294,19 +1415,19 @@ fn should_save_ss() -> bool {
             {o,n="最大検索数",t="数値",d="指定した数の座標が見つかり次第探索を打ち切る、指定数に満たない場合全体を探索"},
             {o,n="範囲",t="配列",d="[左上X座標, 左上Y座標, 右下X座標, 右下Y座標]"},
             {o,n="オプション",t="定数",d=r#"探索オプションを以下から指定、OR連結可
-- CHKIMG_NO_GRAY: 画像をグレースケール化せず探索を行う
-- CHKIMG_USE_WGCAPI: デスクトップまたはウィンドウの画像取得にGraphicsCaptureAPIを使う
-- CHKIMG_METHOD_SQDIFF: 類似度の計算にTM_SQDIFFを使用する、他の計算方法と併用不可
-- CHKIMG_METHOD_SQDIFF_NORMED: 類似度の計算にTM_SQDIFF_NORMEDを使用する、他の計算方法と併用不可
-- CHKIMG_METHOD_CCORR: 類似度の計算にTM_CCORRを使用する、他の計算方法と併用不可
-- CHKIMG_METHOD_CCORR_NORMED: 類似度の計算にTM_CCORR_NORMEDを使用する、他の計算方法と併用不可
-- CHKIMG_METHOD_CCOEFF: 類似度の計算にTM_CCOEFFを使用する、他の計算方法と併用不可
-- CHKIMG_METHOD_CCOEFF_NORMED: 類似度の計算にTM_CCOEFF_NORMEDを使用する、他の計算方法と併用不可"#},
-            {o,n="モニタ番号",t="数値",d="CHKIMG_USE_WGCAPI指定時かつmouseorg未使用時に探索するモニタ番号を0から指定"},
+- SCHIMG_NO_GRAY: 画像をグレースケール化せず探索を行う
+- SCHIMG_USE_WGCAPI: デスクトップまたはウィンドウの画像取得にGraphicsCaptureAPIを使う
+- SCHIMG_METHOD_SQDIFF: 類似度の計算にTM_SQDIFFを使用する、他の計算方法と併用不可
+- SCHIMG_METHOD_SQDIFF_NORMED: 類似度の計算にTM_SQDIFF_NORMEDを使用する、他の計算方法と併用不可
+- SCHIMG_METHOD_CCORR: 類似度の計算にTM_CCORRを使用する、他の計算方法と併用不可
+- SCHIMG_METHOD_CCORR_NORMED: 類似度の計算にTM_CCORR_NORMEDを使用する、他の計算方法と併用不可
+- SCHIMG_METHOD_CCOEFF: 類似度の計算にTM_CCOEFFを使用する、他の計算方法と併用不可
+- SCHIMG_METHOD_CCOEFF_NORMED: 類似度の計算にTM_CCOEFF_NORMEDを使用する、他の計算方法と併用不可"#},
+            {o,n="モニタ番号",t="数値",d="SCHIMG_USE_WGCAPI指定時かつMOUSEORG未使用時に探索するモニタ番号を0から指定"},
         ],
     ],
 )]
-pub fn chkimg(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
+pub fn searchimage(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let default_score = 95.0;
     let path = args.get_as_string(0, None)?;
     let score = args.get_as_f64(1, Some(default_score))?;
@@ -1336,10 +1457,10 @@ pub fn chkimg(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncRe
                 if arr.len() > 4 {
                     return Err(builtin_func_error(UErrorMessage::ArrayArgSizeOverflow(4)));
                 }
-                let left = arr.get(0).map(|o| o.as_f64(false)).flatten().map(|n| n as i32);
-                let top = arr.get(1).map(|o| o.as_f64(false)).flatten().map(|n| n as i32);
-                let right = arr.get(2).map(|o| o.as_f64(false)).flatten().map(|n| n as i32);
-                let bottom = arr.get(3).map(|o| o.as_f64(false)).flatten().map(|n| n as i32);
+                let left = arr.first().and_then(|o| o.as_f64(false)).map(|n| n as i32);
+                let top = arr.get(1).and_then(|o| o.as_f64(false)).map(|n| n as i32);
+                let right = arr.get(2).and_then(|o| o.as_f64(false)).map(|n| n as i32);
+                let bottom = arr.get(3).and_then(|o| o.as_f64(false)).map(|n| n as i32);
                 let opt = args.get_as_int(4, Some(0))?;
                 let monitor = args.get_as_int(5, Some(0))?;
                 (left, top, right, bottom, opt, monitor)
@@ -1366,7 +1487,7 @@ pub fn chkimg(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncRe
             } else {
                 ImgConst::IMG_FORE
             };
-            if ChkImgOption::use_wgcapi(opt) {
+            if SearchImageOption::use_wgcapi(opt) {
                 if ScreenShot::is_window_capturable(hwnd) {
                     ScreenShot::get_window_wgcapi(hwnd, left, top, right, bottom, client)?
                 } else {
@@ -1378,7 +1499,7 @@ pub fn chkimg(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncRe
             }
         },
         None => {
-            if ChkImgOption::use_wgcapi(opt) {
+            if SearchImageOption::use_wgcapi(opt) {
                 ScreenShot::get_screen_wgcapi(monitor, left, top, right, bottom)?
             } else {
                 ScreenShot::get_screen(left, top, right, bottom)?
@@ -1389,8 +1510,8 @@ pub fn chkimg(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncRe
     if should_save_ss() {
         ss.save(None)?;
     }
-    let chk = ChkImg::from_screenshot(ss, ChkImgOption::gray_scale(opt))?;
-    let method = ChkImgOption::method(opt);
+    let chk = SearchImage::from_screenshot(ss, SearchImageOption::gray_scale(opt))?;
+    let method = SearchImageOption::method(opt);
     let result = chk.search(&path, score, Some(count), method)?;
     let arr = result
         .into_iter()
@@ -1409,13 +1530,15 @@ pub fn chkimg(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncRe
 
 unsafe extern "system"
 fn callback_getallwin(hwnd: HWND, lparam: LPARAM) -> BOOL {
-    let list = lparam.0 as *mut HwndList;
-    match hwnd {
-        HWND(0) => false.into(),
-        h => {
-            (*list).0.push(h);
-            true.into()
-        },
+    unsafe {
+        let list = lparam.0 as *mut HwndList;
+        match hwnd {
+            HWND(0) => false.into(),
+            h => {
+                (*list).0.push(h);
+                true.into()
+            },
+        }
     }
 }
 
@@ -1470,31 +1593,33 @@ pub enum GetHndConst {
 
 unsafe extern "system"
 fn callback_getctlhnd(hwnd: HWND, lparam: LPARAM) -> BOOL {
-    let ctlhnd = &mut *(lparam.0 as *mut CtlHnd);
-    let pat = ctlhnd.target.to_ascii_lowercase();
+    unsafe {
+        let ctlhnd = &mut *(lparam.0 as *mut CtlHnd);
+        let pat = ctlhnd.target.to_ascii_lowercase();
 
-    let mut buffer = [0; MAX_NAME_SIZE];
-    let len = GetWindowTextW(hwnd, &mut buffer);
-    let title = String::from_utf16_lossy(&buffer[..len as usize]);
-    if let Some(_) = title.to_ascii_lowercase().find(&pat) {
-        ctlhnd.order -= 1;
-        if ctlhnd.order == 0 {
-            ctlhnd.hwnd = hwnd;
-            return false.into()
-        }
-    } else {
         let mut buffer = [0; MAX_NAME_SIZE];
-        let len = GetClassNameW(hwnd, &mut buffer);
-        let name = String::from_utf16_lossy(&buffer[..len as usize]);
-        if let Some(_) = name.to_ascii_lowercase().find(&pat) {
-            ctlhnd.order-= 1;
+        let len = GetWindowTextW(hwnd, &mut buffer);
+        let title = String::from_utf16_lossy(&buffer[..len as usize]);
+        if title.to_ascii_lowercase().contains(&pat) {
+            ctlhnd.order -= 1;
             if ctlhnd.order == 0 {
                 ctlhnd.hwnd = hwnd;
                 return false.into()
             }
+        } else {
+            let mut buffer = [0; MAX_NAME_SIZE];
+            let len = GetClassNameW(hwnd, &mut buffer);
+            let name = String::from_utf16_lossy(&buffer[..len as usize]);
+            if name.to_ascii_lowercase().contains(&pat) {
+                ctlhnd.order-= 1;
+                if ctlhnd.order == 0 {
+                    ctlhnd.hwnd = hwnd;
+                    return false.into()
+                }
+            }
         }
+        true.into()
     }
-    true.into()
 }
 
 struct CtlHnd{target: String, hwnd: HWND, order: u32}
@@ -1580,13 +1705,16 @@ pub enum GetItemConst {
     ITM_ACCTXT    = 8388608,
     #[strum[props(desc="ACCエディット可能テキスト")]]
     ITM_ACCEDIT   = 16777216,
+    #[strum[props(desc="ACCのツリー構造を取得")]]
+    ITM_ACC_TREE = 0x2000000,
     #[strum[props(desc="ACCで逆順検索")]]
     ITM_FROMLAST  = 65536,
-    // ITM_BACK      = 512,
+    #[strum[props(desc="ACCでウィンドウをアクティブにしない")]]
+    ITM_BACK      = 512,
 }
-impl Into<u32> for GetItemConst {
-    fn into(self) -> u32 {
-        ToPrimitive::to_u32(&self).unwrap_or(0)
+impl From<GetItemConst> for u32 {
+    fn from(val: GetItemConst) -> Self {
+        ToPrimitive::to_u32(&val).unwrap_or(0)
     }
 }
 
@@ -1611,7 +1739,9 @@ impl Into<u32> for GetItemConst {
 - ITM_ACCCLK2: ACCによりクリック可能なものおよび選択可能テキスト
 - ITM_ACCTXT: ACCスタティックテキスト
 - ITM_ACCEDIT: ACCエディット可能テキスト
-- ITM_FROMLAST: ACCで検索順序を逆にする (最後のアイテムから取得)"#},
+- ITM_ACC_TREE: ACCエツリー構造
+- ITM_FROMLAST: ACCで検索順序を逆にする
+- ITM_BACK: ACCでウィンドウをアクティブにしない"#},
         {o,n="n番目",t="数値",d="リスト、リストビュー、ツリービューが複数ある場合その順番、-1ならすべて取得"},
         {o,n="列",t="数値",d="取得するリストビューの列を指定、0なら全て、-1ならカラム名"},
         {o,n="無効無視",t="真偽値",d="TRUEならディセーブル状態のコントロールは取得しない"},
@@ -1621,20 +1751,26 @@ impl Into<u32> for GetItemConst {
 pub fn getitem(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = args.get_as_int(0, None)?;
     let hwnd = get_hwnd_from_id(id);
-    let target = args.get_as_int(1, None)?;
+    let target = args.get_as_int(1, None::<u32>)?;
     let nth = args.get_as_int(2, Some(1))?;
     let column = args.get_as_int(3, Some(1))?;
     let ignore_disabled = args.get_as_bool(4, Some(false))?;
     let acc_max = args.get_as_int(5, Some(0))?;
 
-    // api
-    let mut items = win32::Win32::getitem(hwnd, target, nth, column, ignore_disabled);
-    // acc
-    let acc_items = acc::Acc::getitem(hwnd, target, acc_max, ignore_disabled);
+    if target.includes(u32::from(GetItemConst::ITM_ACC_TREE)) {
+        let value = acc::Acc::get_acc_tree(hwnd);
+        Ok(Object::UObject(value.into()))
+    } else {
+        // api
+        let mut items = win32::Win32::getitem(hwnd, target, nth, column, ignore_disabled);
+        // acc
+        if let Some(acc_items) = acc::Acc::getitem(hwnd, target, acc_max, ignore_disabled) {
+            items.extend(acc_items);
+        }
 
-    items.extend(acc_items);
-    let arr = items.into_iter().map(|s| s.into()).collect();
-    Ok(Object::Array(arr))
+        let arr = items.into_iter().map(|s| s.into()).collect();
+        Ok(Object::Array(arr))
+    }
 }
 
 #[allow(non_camel_case_types)]
@@ -1685,57 +1821,26 @@ pub fn posacc(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let hwnd = get_hwnd_from_id(id);
     let clx = args.get_as_int(1, None::<i32>)?;
     let cly = args.get_as_int(2, None::<i32>)?;
-    let mode = args.get_as_int(3, Some(0_u16))?;
-    let mode = if (mode & AccConst::ACC_BACK as u16) > 0 {
+    let pos_acc_type = args.get_as_int(3, Some(0_u16))?;
+    let pos_acc_type = if (pos_acc_type & AccConst::ACC_BACK as u16) > 0 {
         // ACC_BACKを除去
-        mode - AccConst::ACC_BACK as u16
+        pos_acc_type - AccConst::ACC_BACK as u16
     } else {
         // ACC_BACKがないので対象ウィンドウをアクティブにする
         unsafe { SetForegroundWindow(hwnd); }
-        mode
+        pos_acc_type
     };
-    let obj = match acc::Acc::from_point(hwnd, clx, cly) {
-        Some(acc) => match mode {
-            0 => {
-                match acc.get_name().map(|name|name.into()) {
-                    Some(obj) => obj,
-                    None => acc.get_api_text().map(|api| api.into()).unwrap_or_default(),
-                }
-            }
-            1 | 3 => {
-                acc.get_name().map(|name|name.into()).unwrap_or_default()
+    let obj = match acc::Acc::from_point(hwnd, clx, cly, pos_acc_type) {
+        Some(res) => match res {
+            PosAccResult::String(s) => s.into(),
+            PosAccResult::Vec(items) => {
+                let arr = items.into_iter().map(Object::String).collect();
+                Object::Array(arr)
             },
-            2 => {
-                acc.get_api_text().map(|api| api.into()).unwrap_or_default()
+            PosAccResult::Location(loc) => {
+                let arr = loc.map(|n| n.into()).to_vec();
+                Object::Array(arr)
             },
-            4 => {
-                acc.get_value().map(|val| val.into()).unwrap_or_default()
-            },
-            5 => {
-                acc.get_role_text().map(|role| role.into()).unwrap_or_default()
-            },
-            6 => {
-                let vec2obj = |vec: Vec<String>| {
-                    let arr = vec.into_iter()
-                        .map(|text| text.into())
-                        .collect();
-                    Object::Array(arr)
-                };
-                acc.get_state_texts().map(vec2obj).unwrap_or_default()
-            },
-            7 => {
-                acc.get_description().map(|desc| desc.into()).unwrap_or_default()
-            },
-            8 => {
-                let vec2obj = |vec: Vec<i32>| {
-                    let arr = vec.into_iter()
-                        .map(|n| n.into())
-                        .collect();
-                    Object::Array(arr)
-                };
-                acc.get_screen_location(hwnd).map(vec2obj).unwrap_or_default()
-            },
-            _ => Object::Empty
         },
         None => Object::Empty,
     };
@@ -1796,8 +1901,10 @@ pub enum CurConst {
 )]
 pub fn muscur(_: &mut Evaluator, _: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = unsafe {
-        let mut pci = CURSORINFO::default();
-        pci.cbSize = std::mem::size_of::<CURSORINFO>() as u32;
+        let mut pci = CURSORINFO {
+            cbSize: std::mem::size_of::<CURSORINFO>() as u32,
+            ..Default::default()
+        };
         let _ = GetCursorInfo(&mut pci);
         pci.hCursor.0
     };
@@ -1974,7 +2081,7 @@ pub fn setslider(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult 
     let hwnd = get_hwnd_from_id(id);
     let value = args.get_as_int(1, None)?;
     let nth = args.get_as_int(2, Some(1))?;
-    let smooth = args.get_as_bool(3, Some(true))?;
+    let smooth = args.get_as_bool(3, Some(false))?;
 
     let result = if let Some(slider) = Slider::new(hwnd, nth) {
         slider.set(value, smooth)
@@ -2060,7 +2167,7 @@ pub fn chkbtn(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let hwnd = get_hwnd_from_id(id);
     if unsafe {IsWindow(hwnd).as_bool()} {
         let result = if acc {
-            acc::Acc::get_check_state(hwnd, name, nth).unwrap_or(-1)
+            acc::Acc::get_check_state(hwnd, &name, nth as usize).unwrap_or(-1)
         } else {
             let state = win32::Win32::get_check_state(hwnd, name.clone(), nth);
             if state < 0 {
@@ -2112,21 +2219,21 @@ pub enum GetStrConst {
 )]
 pub fn getstr(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let id = args.get_as_int(0, None)?;
-    let nth = args.get_as_nth(1)?;
+    let nth = args.get_as_int(1, Some(0))?;
     let item_type = args.get_as_const(2, false)?.unwrap_or(GetStrConst::STR_EDIT);
     let mouse = args.get_as_bool(3, Some(false))?;
 
     if id == 0 {
         // クリップボードから
-        let str = Clipboard::new().map_err(|e| UError::from(e))?.get_str();
+        let str = Clipboard::new().map_err(UError::from)?.get_str();
         Ok(str.into())
     } else {
         let hwnd = get_hwnd_from_id(id);
         if is_window(hwnd) {
             let str = match item_type {
-                GetStrConst::STR_EDIT => win32::Win32::get_edit_str(hwnd, nth, mouse),
-                GetStrConst::STR_STATIC => win32::Win32::get_static_str(hwnd, nth, mouse),
-                GetStrConst::STR_STATUS => win32::Win32::get_status_str(hwnd, nth, mouse),
+                GetStrConst::STR_EDIT => win32::Win32::get_edit_str(hwnd, nth as u32, mouse),
+                GetStrConst::STR_STATIC => win32::Win32::get_static_str(hwnd, nth as u32, mouse),
+                GetStrConst::STR_STATUS => win32::Win32::get_status_str(hwnd, nth as u32, mouse),
                 GetStrConst::STR_ACC_EDIT => acc::Acc::get_edit_str(hwnd, nth, mouse),
                 GetStrConst::STR_ACC_STATIC => acc::Acc::get_static_str(hwnd, nth, mouse),
                 GetStrConst::STR_ACC_CELL => acc::Acc::get_cell_str(hwnd, nth, mouse),
@@ -2159,6 +2266,15 @@ impl From<i32> for SendStrMode {
         }
     }
 }
+impl From<SendStrMode> for bool {
+    fn from(mode: SendStrMode) -> Self {
+        match mode {
+            SendStrMode::Append => false,
+            SendStrMode::Replace => true,
+            SendStrMode::OneByOne => false,
+        }
+    }
+}
 
 #[builtin_func_desc(
     desc="エディットボックスまたはクリップボードに文字列を送信する",
@@ -2184,7 +2300,7 @@ pub fn sendstr(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 
     if id == 0 {
         // クリップボードに挿入
-        Clipboard::new().map_err(|e| UError::from(e))?.send_str(str);
+        Clipboard::new().map_err(UError::from)?.send_str(str);
     } else {
         let hwnd = get_hwnd_from_id(id);
         let mode = SendStrMode::from(mode);
@@ -2197,9 +2313,9 @@ pub fn sendstr(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
                     uia::UIA::sendstr(hwnd, nth, str);
                 }
             },
-            5 => acc::Acc::sendstr_cell(hwnd, nth, &str, mode), // cell
+            5 => acc::Acc::sendstr_cell(hwnd, nth as usize, &str, mode), // cell
             6 => uia::UIA::sendstr(hwnd, nth, str), // uia
-            _ => acc::Acc::sendstr(hwnd, nth, &str, mode), // acc
+            _ => acc::Acc::sendstr(hwnd, nth as usize, &str, mode), // acc
         };
     }
     Ok(Object::Empty)
@@ -2288,54 +2404,52 @@ pub fn saveimg(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
         }
     } else if id < 0 {
         return Ok(Object::Empty);
+    } else if wgcapi {
+        let monitor = args.get_as_int(10, Some(0))?;
+        let right = match left {
+            Some(l) => match width {
+                Some(w) => {
+                    if l.is_negative() {
+                        Some(w)
+                    } else {
+                        Some(l + w)
+                    }
+                },
+                None => None,
+            },
+            None => width,
+        };
+        let bottom = match top {
+            Some(t) => match height {
+                Some(h) => {
+                    if t.is_negative() {
+                        Some(h)
+                    } else {
+                        Some(t + h)
+                    }
+                },
+                None => None,
+            },
+            None => height,
+        };
+        ScreenShot::get_screen_wgcapi(monitor, left, top, right, bottom)?
     } else {
-        if wgcapi {
-            let monitor = args.get_as_int(10, Some(0))?;
-            let right = match left {
-                Some(l) => match width {
-                    Some(w) => {
-                        if l.is_negative() {
-                            Some(w)
-                        } else {
-                            Some(l + w)
-                        }
-                    },
-                    None => None,
-                },
-                None => width,
-            };
-            let bottom = match top {
-                Some(t) => match height {
-                    Some(h) => {
-                        if t.is_negative() {
-                            Some(h)
-                        } else {
-                            Some(t + h)
-                        }
-                    },
-                    None => None,
-                },
-                None => height,
-            };
-            ScreenShot::get_screen_wgcapi(monitor, left, top, right, bottom)?
-        } else {
-            ScreenShot::get_screen_wh(left, top, width, height)?
-        }
+        ScreenShot::get_screen_wh(left, top, width, height)?
     };
     if let Some(filename) = filename {
         let mut path = std::path::PathBuf::from(filename);
-        let ext = path.extension().map(|os| os.to_str()).flatten();
+        let ext = path.extension().and_then(|os| os.to_str());
         let (jpg_quality, png_compression) = match ext {
             Some("jpg") | Some("jpeg") => {
-                (param.filter(|n| n >= &0 && n <= &100), None)
+                (param.filter(|n| (0..=100).contains(n)), None)
             },
             Some("png") => {
-                (None, param.filter(|n| n >= &0 && n <= &9))
+                (None, param.filter(|n| (0..=9).contains(n)))
             },
             Some(_) => (None, None),
             None => {
                 path.set_extension("png");
-                (None, param.filter(|n| n >= &0 && n <= &9))
+                (None, param.filter(|n| (0..=9).contains(n)))
             }
         };
         let filename = path.to_string_lossy();
@@ -2358,9 +2472,9 @@ pub enum MorgTargetConst {
     #[strum[props(desc="起点座標をウィンドウのクライアント領域の左上にし、直接送信を有効にする")]]
     MORG_DIRECT = 2,
 }
-impl Into<MorgTarget> for MorgTargetConst {
-    fn into(self) -> MorgTarget {
-        match self {
+impl From<MorgTargetConst> for MorgTarget {
+    fn from(val: MorgTargetConst) -> Self {
+        match val {
             MorgTargetConst::MORG_WINDOW => MorgTarget::Window,
             MorgTargetConst::MORG_CLIENT => MorgTarget::Client,
             MorgTargetConst::MORG_DIRECT => MorgTarget::Direct,
@@ -2376,9 +2490,9 @@ pub enum MorgContextConst {
     #[strum[props(desc="ウィンドウから直接画像や色を取得")]]
     MORG_BACK = 2,
 }
-impl Into<MorgContext> for MorgContextConst {
-    fn into(self) -> MorgContext {
-        match self {
+impl From<MorgContextConst> for MorgContext {
+    fn from(val: MorgContextConst) -> Self {
+        match val {
             MorgContextConst::MORG_FORE => MorgContext::Fore,
             MorgContextConst::MORG_BACK => MorgContext::Back,
         }
@@ -2497,7 +2611,7 @@ pub fn chkmorg(evaluator: &mut Evaluator, _: BuiltinFuncArgs) -> BuiltinFuncResu
 
 #[cfg(feature="chkimg")]
 fn obj_vec_to_u8_slice(arr: Vec<Object>) -> [u8; 3] {
-    let to_u8 = |i: usize| arr.get(i).map(|o| o.as_f64(true)).flatten().unwrap_or(0.0) as u8;
+    let to_u8 = |i: usize| arr.get(i).and_then(|o| o.as_f64(true)).unwrap_or(0.0) as u8;
     [ to_u8(0), to_u8(1), to_u8(2) ]
 }
 
@@ -2509,7 +2623,7 @@ fn obj_vec_to_u8_slice(arr: Vec<Object>) -> [u8; 3] {
         {n="探索色",t="数値または配列",d="BGR値、または [B,G,R]"},
         {o,n="閾値",t="数値または配列",d="BGRそれぞれに対する閾値、または [B,G,R] で個別指定"},
         {o,n="範囲",t="配列",d="[左上X,左上Y,右下X,右下Y] で指定、省略時はモニタまたはウィンドウ全体"},
-        {o,n="モニタ番号",t="数値",d="mouseorg未使用時に探索対象となるモニタを指定(0から)"},
+        {o,n="キャプチャ方法",t="数値",d="Graphics Capture APIを利用する場合探索対象となるモニタ番号を指定(0から)"},
     ],
 )]
 pub fn chkclr(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
@@ -2546,7 +2660,7 @@ pub fn chkclr(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncRe
     if range.len() > 4 {
         return Err(builtin_func_error(UErrorMessage::ArrayArgSizeOverflow(4)));
     }
-    let to_i32 = |i: usize| range.get(i).map(|o| o.as_f64(false).map(|n| n as i32)).flatten();
+    let to_i32 = |i: usize| range.get(i).and_then(|o| o.as_f64(false).map(|n| n as i32));
     let left = to_i32(0);
     let top = to_i32(1);
     let right = to_i32(2);
@@ -2554,14 +2668,24 @@ pub fn chkclr(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncRe
 
     let mi = MorgImg::from(&evaluator.mouseorg);
 
+    let monitor = args.get_as_int(3, Some(-1i32))?;
     let ss = match mi.hwnd {
         Some(hwnd) => {
             let client = mi.is_client();
-            ScreenShot::get_window_wgcapi(hwnd, left, top, right, bottom, client)
+            if monitor < 0 {
+                let style = if mi.is_back {ImgConst::IMG_BACK} else {ImgConst::IMG_FORE};
+                ScreenShot::get_window(hwnd, left, top, right, bottom, client, style)
+            } else {
+                ScreenShot::get_window_wgcapi(hwnd, left, top, right, bottom, client)
+            }
         },
         None => {
-            let monitor = args.get_as_int(3, Some(0))?;
-            ScreenShot::get_screen_wgcapi(monitor, left, top, right, bottom)
+            if monitor < 0 {
+                ScreenShot::get_screen(left, top, right, bottom)
+            } else {
+                let monitor = monitor.unsigned_abs();
+                ScreenShot::get_screen_wgcapi(monitor, left, top, right, bottom)
+            }
         },
     }?;
 
@@ -2579,23 +2703,23 @@ pub fn chkclr(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncRe
 
 }
 
-#[builtin_func_desc(
-    desc="ACC要素を列挙",
-    rtype={desc="ACC要素のリスト",types="配列"}
-    args=[
-        {n="ID",t="数値",d="対象ウィンドウ"},
-    ],
-)]
-pub fn enum_acc(_: &mut Evaluator, _args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let id = _args.get_as_int(0, None::<i32>)?;
-    let hwnd = get_hwnd_from_id(id);
-    let obj = match acc::Acc::from_hwnd(hwnd) {
-        Some(acc) => {
-            let _detail = acc.enum_acc();
-            format!("{_detail:#?}").into()
-            // Object::Empty
-        },
-        None => Object::Empty,
-    };
-    Ok(obj)
-}
+// #[builtin_func_desc(
+//     desc="ACC要素を列挙",
+//     rtype={desc="ACC要素のリスト",types="配列"}
+//     args=[
+//         {n="ID",t="数値",d="対象ウィンドウ"},
+//     ],
+// )]
+// pub fn enum_acc(_: &mut Evaluator, _args: BuiltinFuncArgs) -> BuiltinFuncResult {
+//     let id = _args.get_as_int(0, None::<i32>)?;
+//     let hwnd = get_hwnd_from_id(id);
+//     let obj = match acc::Acc::from_hwnd(hwnd) {
+//         Some(acc) => {
+//             let _detail = acc.enum_acc();
+//             format!("{_detail:#?}").into()
+//             // Object::Empty
+//         },
+//         None => Object::Empty,
+//     };
+//     Ok(obj)
+// }

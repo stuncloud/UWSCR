@@ -173,8 +173,10 @@ pub enum KindOfOsResultType {
 
 
 pub fn get_os_kind() -> Vec<f64> {
-    let mut info = OSVERSIONINFOEXW::default();
-    info.dwOSVersionInfoSize = std::mem::size_of::<OSVERSIONINFOEXW>() as u32;
+    let mut info = OSVERSIONINFOEXW {
+        dwOSVersionInfoSize: std::mem::size_of::<OSVERSIONINFOEXW>() as u32,
+        ..Default::default()
+    };
     let p_info = <*mut _>::cast(&mut info);
     unsafe {
         let _ = GetVersionExW(p_info);
@@ -289,16 +291,18 @@ pub fn env(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 pub fn set_env(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let key = args.get_as_string(0, None)?;
     let value = args.get_as_string(1, None)?;
-    std::env::set_var(key, value);
+    unsafe {std::env::set_var(key, value);}
     Ok(Object::Empty)
 }
 
 fn create_process(cmd: String) -> BuiltInResult<PROCESS_INFORMATION> {
     unsafe {
-        let mut si = STARTUPINFOW::default();
-        si.cb = mem::size_of::<STARTUPINFOW>() as u32;
-        si.dwFlags = STARTF_USESHOWWINDOW;
-        si.wShowWindow = SW_SHOW.0 as u16;
+        let si = STARTUPINFOW {
+            cb: mem::size_of::<STARTUPINFOW>() as u32,
+            dwFlags: STARTF_USESHOWWINDOW,
+            wShowWindow: SW_SHOW.0 as u16,
+            ..Default::default()
+        };
         let mut pi = PROCESS_INFORMATION::default();
         let mut command = to_wide_string(&cmd);
 
@@ -311,7 +315,7 @@ fn create_process(cmd: String) -> BuiltInResult<PROCESS_INFORMATION> {
             NORMAL_PRIORITY_CLASS,
             None,
             PCWSTR::null(),
-            &mut si,
+            &si,
             &mut pi
         )?;
         WaitForInputIdle(pi.hProcess, 1000);
@@ -326,14 +330,16 @@ struct ProcessHwnd {
 
 unsafe extern "system"
 fn enum_window_proc(hwnd: HWND, lparam: LPARAM) -> BOOL {
-    let ph = &mut *(lparam.0 as *mut ProcessHwnd);
-    let mut pid = 0;
-    GetWindowThreadProcessId(hwnd, Some(&mut pid));
-    if pid == ph.pid {
-        ph.hwnd = hwnd;
-        false.into()
-    } else {
-        true.into()
+    unsafe {
+        let ph = &mut *(lparam.0 as *mut ProcessHwnd);
+        let mut pid = 0;
+        GetWindowThreadProcessId(hwnd, Some(&mut pid));
+        if pid == ph.pid {
+            ph.hwnd = hwnd;
+            false.into()
+        } else {
+            true.into()
+        }
     }
 }
 
@@ -394,7 +400,7 @@ pub fn exec(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 )]
 pub fn shexec(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let cmd = args.get_as_string(0, None)?;
-    let params = args.get_as_string(1, None).map_or(None, |s| Some(s));
+    let params = args.get_as_string(1, None).ok();
     let shell_result = shell_execute(cmd, params);
     Ok(shell_result.into())
 }
@@ -436,7 +442,7 @@ pub fn wait_task(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFun
     match args.get_as_task(0)? {
         TwoTypeArg::T(task) => {
             evaluator.await_task(task)
-                .map_err(|e| BuiltinFuncError::UError(e))
+                .map_err(BuiltinFuncError::UError)
         },
         TwoTypeArg::U(remote) => {
             let remote = match remote.await_promise()? {
@@ -472,7 +478,7 @@ pub fn wmi_query(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult 
         .into_iter()
         .map(|m| {
             let value = Value::Object(m);
-            Object::UObject(UObject::new(value))
+            value.into()
         })
         .collect();
     Ok(Object::Array(obj))
@@ -620,14 +626,14 @@ impl Shell {
         let mut shell = Command::new(self.shell.to_string());
         if self.shell == ShellType::Cmd {
             // doscmd
-            shell.raw_arg(&self.option.to_string());
+            shell.raw_arg(self.option.to_string());
             shell.raw_arg("/C");
             shell.raw_arg(&self.command);
 
         } else {
             // powershell, pwsh
             if self.option == ShellOption::PsNoProfile {
-                shell.arg(&self.option.to_string());
+                shell.arg(self.option.to_string());
             }
             let command = format!(
                 "[console]::OutputEncoding = [System.Text.Encoding]::UTF8;{}",
@@ -671,19 +677,17 @@ impl Shell {
                         output.stderr
                     };
                     output_to_string(&out)
+                } else if output.stderr.is_empty() {
+                    String::from_utf8(output.stdout).unwrap_or_default()
                 } else {
-                    if output.stderr.is_empty() {
-                        String::from_utf8(output.stdout).unwrap_or_default()
-                    } else {
-                        let out = String::from_utf8(output.stdout).unwrap_or_default();
-                        match String::from_utf8(output.stderr) {
-                            Ok(err) => if out.is_empty() {
-                                err
-                            } else {
-                                err + "\r\n" + &out
-                            },
-                            Err(_) => out,
-                        }
+                    let out = String::from_utf8(output.stdout).unwrap_or_default();
+                    match String::from_utf8(output.stderr) {
+                        Ok(err) => if out.is_empty() {
+                            err
+                        } else {
+                            err + "\r\n" + &out
+                        },
+                        Err(_) => out,
                     }
                 };
                 // let out_string = match self.option {
@@ -710,7 +714,7 @@ impl Shell {
     }
     fn to_base64(command: &str) -> String {
         let wide = command.encode_utf16().collect::<Vec<u16>>();
-        let bytes = wide.into_iter().map(|u| u.to_ne_bytes()).flatten().collect::<Vec<u8>>();
+        let bytes = wide.into_iter().flat_map(|u| u.to_ne_bytes()).collect::<Vec<u8>>();
         general_purpose::STANDARD.encode(bytes)
     }
 }
@@ -945,7 +949,7 @@ pub fn sound(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
 )]
 pub fn beep(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     let duration = args.get_as_int(0, Some(300u32))?;
-    let freq = args.get_as_int(1, Some(2000u32))?.min(32767).max(37);
+    let freq = (args.get_as_int(1, Some(2000u32))?).clamp(37, 32767);
     let count = args.get_as_int(2, Some(1u32))?.max(1);
     sound::beep(duration, freq, count);
     Ok(Object::Empty)

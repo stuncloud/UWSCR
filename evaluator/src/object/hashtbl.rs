@@ -48,11 +48,14 @@ impl HashTbl {
         self.map.keys().map(|key| Object::String(key.clone())).collect()
     }
     pub fn values(&self) -> Vec<Object> {
-        self.map.values().map(|val| val.clone()).collect()
+        self.map.values().cloned().collect()
     }
 
     pub fn len(&self) -> usize {
         self.map.len()
+    }
+    pub fn is_empty(&self) -> bool {
+        self.map.is_empty()
     }
 
     pub fn insert(&mut self, name: String, value: Object) {

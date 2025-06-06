@@ -30,7 +30,7 @@ impl UwscrLanguageServer {
         let stdin = tokio::io::stdin();
         let stdout = tokio::io::stdout();
 
-        let (service, socket) = LspService::new(|client| Backend::new(client));
+        let (service, socket) = LspService::new(Backend::new);
         let future = Server::new(stdin, stdout, socket).serve(service);
         rt.block_on(future);
         Ok(())
@@ -83,7 +83,7 @@ impl FileCache {
         self.contents.insert(uri, script);
     }
     fn get(&self, uri: &Url) -> Option<String> {
-        self.contents.get(uri).map(|s| s.clone())
+        self.contents.get(uri).cloned()
     }
     // fn get_mut(&self, uri: &Url) -> Option<&mut String> {
     //     self.contents.get_mut(uri)
@@ -99,7 +99,7 @@ struct ProgramAndDiagnostics {
 
 fn new_completion_item(kind: CompletionItemKind, detail: String, insert_text: String, label: String, label_detail: Option<String>, label_desc: Option<String>, document: Option<String>) -> CompletionItem {
     CompletionItem {
-        label: label,
+        label,
         label_details: Some(CompletionItemLabelDetails {
             detail: label_detail,
             description: label_desc,
@@ -127,7 +127,7 @@ fn new_completion_item(kind: CompletionItemKind, detail: String, insert_text: St
 }
 struct BuiltinNameWrapper<'a>(&'a BuiltinName);
 
-impl<'a> From<BuiltinNameWrapper<'_>> for Vec<CompletionItem> {
+impl From<BuiltinNameWrapper<'_>> for Vec<CompletionItem> {
     fn from(wrapper: BuiltinNameWrapper) -> Self {
         let name = wrapper.0.name();
         match wrapper.0.desc() {
@@ -143,7 +143,7 @@ impl<'a> From<BuiltinNameWrapper<'_>> for Vec<CompletionItem> {
                                         CompletionItemKind::FUNCTION,
                                         desc.desc.clone(),
                                         format!("{label}({})", pd.snippet_params),
-                                        format!("{label}"),
+                                        label.clone(),
                                         Some(format!("({})", pd.params)),
                                         pd.label_desc,
                                         Some(pd.document)
@@ -155,8 +155,8 @@ impl<'a> From<BuiltinNameWrapper<'_>> for Vec<CompletionItem> {
                             let item = new_completion_item(
                                 CompletionItemKind::FUNCTION,
                                 desc.desc.clone(),
-                                format!("{label}()"),
-                                format!("{label}"),
+                                label.clone(),
+                                label,
                                 Some("()".into()),
                                 None,
                                 None
@@ -170,7 +170,7 @@ impl<'a> From<BuiltinNameWrapper<'_>> for Vec<CompletionItem> {
                     let item = new_completion_item(
                         CompletionItemKind::CONSTANT,
                         desc.to_string(),
-                        format!("{}", &label),
+                        label.clone(),
                         label,
                         None,
                         None,
@@ -185,7 +185,7 @@ impl<'a> From<BuiltinNameWrapper<'_>> for Vec<CompletionItem> {
                 let item = new_completion_item(
                     CompletionItemKind::CONSTANT,
                     detail,
-                    format!("{}", &label),
+                    label.clone(),
                     label,
                     None,
                     None,
@@ -209,8 +209,7 @@ impl Backend {
         let builtins = get_builtin_names();
         let mut completion_items: Vec<CompletionItem> = builtins.iter()
             .filter(|name| name.is_visible())
-            .map(|name| Vec::<CompletionItem>::from(BuiltinNameWrapper(name)))
-            .flatten()
+            .flat_map(|name| Vec::<CompletionItem>::from(BuiltinNameWrapper(name)))
             .collect();
         let mut snippets = get_snippets();
         completion_items.append(&mut snippets);

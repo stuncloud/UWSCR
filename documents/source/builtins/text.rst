@@ -488,6 +488,89 @@ JSON
             print tojson(obj.bar)
             // {"baz": 2}
 
+
+            // yaml由来のUObjectも変換可能
+            textblock yaml
+            hoge: abc
+            piyo:
+                foo: 1
+                bar: 1
+            endtextblock
+
+            obj = FromYaml(yaml)
+            print ToJson(obj)
+            // {"hoge":"abc","piyo":{"foo":1.0,"bar":1.0}}
+
+    .. admonition:: yaml由来のUObject
+        :class: hint
+
+        |
+
+YAML
+----
+
+.. function:: FromYaml(yaml)
+
+    | yaml文字列をUObjectにします
+
+    :param 文字列 yaml: yaml文字列
+    :return: 変換に成功した場合は ``UObject`` 、失敗時は ``EMPTY``
+
+    .. admonition:: サンプルコード
+
+        .. sourcecode:: uwscr
+
+            textblock yaml
+            hoge: abc
+            piyo:
+                foo: 1
+                bar: 1
+            endtextblock
+
+            obj = FromYaml(yaml)
+            print obj.hoge     // abc
+            print obj.piyo.foo // 1
+
+.. function:: ToYaml(UObject)
+
+    | UObjectをyaml文字列にします
+
+    :param UObject UObject: yaml文字列にしたいUObject
+    :return: yaml文字列
+
+    .. admonition:: サンプルコード
+
+        .. sourcecode:: uwscr
+
+            textblock yaml
+            hoge: abc
+            piyo:
+                foo: 1
+                bar: 1
+            endtextblock
+
+            obj = FromYaml(yaml)
+            print ToYaml(obj)
+            // hoge: abc
+            // piyo:
+            //   foo: 1
+            //   bar: 1
+
+
+            // json由来のUObjectも変換可能
+            obj = @{
+                "foo": 1,
+                "bar": {
+                    "baz": 2
+                }
+            }@
+
+            print toyaml(obj)
+            // foo: 1.0
+            // bar:
+            //   baz: 2.0
+
+
 検索
 ----
 

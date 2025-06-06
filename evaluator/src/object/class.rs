@@ -30,11 +30,8 @@ impl ClassInstance {
             // 無名関数のスコープ情報を消す
             let mut guard = ins.module.lock().unwrap();
             for named_obj in guard.get_members_mut() {
-                match named_obj.object.as_mut() {
-                    Object::AnonFunc(f) => {
-                        f.outer = None;
-                    },
-                    _ => {}
+                if let Object::AnonFunc(f) = named_obj.object.as_mut() {
+                    f.outer = None;
                 }
             }
         }
