@@ -7,7 +7,7 @@
 <link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="prev" title="Excel" href="excel.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>ウェブ関連 - UWSCR 1.0.6</title>
+        <title>ウェブ関連 - UWSCR 1.1.0</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 1.0.6</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 1.1.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 1.0.6</span>
+  <span class="sidebar-brand-text">UWSCR 1.1.0</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -2007,9 +2007,28 @@
 <dd class="field-even"><p><a class="reference internal" href="#node-object"><span class="std std-ref">HtmlNodeオブジェクト</span></a></p>
 </dd>
 <dt class="field-odd">戻り値<span class="colon">:</span></dt>
-<dd class="field-odd"><p>パースされたHTMLドキュメントを示す <a class="reference internal" href="#node-object"><span class="std std-ref">HtmlNodeオブジェクト</span></a></p>
+<dd class="field-odd"><p>パースされたHTMLドキュメントを示す <a class="reference internal" href="#node-object"><span class="std std-ref">HtmlNodeオブジェクト</span></a> (ルートエレメント)</p>
 </dd>
 </dl>
+<div class="warning admonition">
+<p class="admonition-title">部分HTMLのパースについて</p>
+<div class="line-block">
+<div class="line">HTMLドキュメント全体ではなく一部をパースした場合に意図した結果が返らない場合があります</div>
+<div class="line">例: <code class="docutils literal notranslate"><span class="pre">tbody``以下</span> <span class="pre">(親の</span> <span class="pre">``table</span></code> がない)</div>
+</div>
+<div class="highlight-html notranslate"><div class="highlight"><pre><span></span><span class="p">&lt;</span><span class="nt">tbody</span><span class="p">&gt;</span>
+  <span class="p">&lt;</span><span class="nt">tr</span><span class="p">&gt;</span>
+    <span class="p">&lt;</span><span class="nt">td</span><span class="p">&gt;</span>りんご<span class="p">&lt;/</span><span class="nt">td</span><span class="p">&gt;</span>
+    <span class="p">&lt;</span><span class="nt">td</span><span class="p">&gt;</span>バナナ<span class="p">&lt;/</span><span class="nt">td</span><span class="p">&gt;</span>
+    <span class="p">&lt;</span><span class="nt">td</span><span class="p">&gt;</span>メロン<span class="p">&lt;/</span><span class="nt">td</span><span class="p">&gt;</span>
+  <span class="p">&lt;/</span><span class="nt">tr</span><span class="p">&gt;</span>
+<span class="p">&lt;/</span><span class="nt">tbody</span><span class="p">&gt;</span>
+</pre></div>
+</div>
+<div class="line-block">
+<div class="line">この動作は現状では仕様とし、このような部分パースは非推奨とします</div>
+</div>
+</div>
 <div class="admonition- admonition">
 <p class="admonition-title">サンプルコード</p>
 <div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">res</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">WebRequest</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
@@ -2035,8 +2054,13 @@
 <section id="htmlnode">
 <span id="node-object"></span><h3>HtmlNodeオブジェクト<a class="headerlink" href="#htmlnode" title="この見出しへのパーマリンク">#</a></h3>
 <div class="line-block">
-<div class="line">パースされたHTMLドキュメントおよびエレメントを示すオブジェクト</div>
+<div class="line">以下のいずれかを示します</div>
 </div>
+<ul class="simple">
+<li><p>ルートエレメント</p></li>
+<li><p>エレメントのコレクション</p></li>
+<li><p>エレメント</p></li>
+</ul>
 <dl class="py class">
 <dt class="sig sig-object py" id="HtmlNode">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">HtmlNode</span></span><a class="headerlink" href="#HtmlNode" title="この定義へのパーマリンク">#</a></dt>
@@ -2045,17 +2069,17 @@
 <span class="sig-name descname"><span class="pre">find</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">selector</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#HtmlNode.find" title="この定義へのパーマリンク">#</a></dt>
 <dd><div class="line-block">
 <div class="line">cssセレクタに該当するエレメント郡を <a class="reference internal" href="#node-object"><span class="std std-ref">HtmlNodeオブジェクト</span></a> の配列として返す</div>
-<div class="line">空ノードの場合常に空の配列を返す</div>
+<div class="line">オブジェクトがコレクションの場合はEMPTYを返す</div>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>selector</strong> (<em>文字列</em>) -- cssセレクタ</p>
 </dd>
 <dt class="field-even">戻り値の型<span class="colon">:</span></dt>
-<dd class="field-even"><p><a class="reference internal" href="#node-object"><span class="std std-ref">HtmlNodeオブジェクト</span></a> 配列</p>
+<dd class="field-even"><p><a class="reference internal" href="#node-object"><span class="std std-ref">HtmlNodeオブジェクト</span></a> (コレクション)</p>
 </dd>
 <dt class="field-odd">戻り値<span class="colon">:</span></dt>
-<dd class="field-odd"><p>cssセレクタに該当するエレメントの <a class="reference internal" href="#node-object"><span class="std std-ref">HtmlNodeオブジェクト</span></a> 配列</p>
+<dd class="field-odd"><p>cssセレクタに該当するエレメントのコレクション</p>
 </dd>
 </dl>
 </dd></dl>
@@ -2070,18 +2094,17 @@
 <span class="sig-name descname"><span class="pre">findfirst</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">selector</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#HtmlNode.findfirst" title="この定義へのパーマリンク">#</a></dt>
 <dd><div class="line-block">
 <div class="line">cssセレクタに該当する最初のエレメントを <a class="reference internal" href="#node-object"><span class="std std-ref">HtmlNodeオブジェクト</span></a> として返す</div>
-<div class="line">該当するエレメントがない場合は空ノードを返す</div>
-<div class="line">空ノードの場合常に空ノードを返す</div>
+<div class="line">オブジェクトがコレクションの場合はEMPTYを返す</div>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>selector</strong> (<em>文字列</em>) -- cssセレクタ</p>
 </dd>
 <dt class="field-even">戻り値の型<span class="colon">:</span></dt>
-<dd class="field-even"><p><a class="reference internal" href="#node-object"><span class="std std-ref">HtmlNodeオブジェクト</span></a></p>
+<dd class="field-even"><p><a class="reference internal" href="#node-object"><span class="std std-ref">HtmlNodeオブジェクト</span></a> (エレメント)</p>
 </dd>
 <dt class="field-odd">戻り値<span class="colon">:</span></dt>
-<dd class="field-odd"><p>cssセレクタに該当する最初のエレメントの <a class="reference internal" href="#node-object"><span class="std std-ref">HtmlNodeオブジェクト</span></a></p>
+<dd class="field-odd"><p>cssセレクタに該当する最初のエレメント</p>
 </dd>
 </dl>
 </dd></dl>
@@ -2095,15 +2118,16 @@
 <dt class="sig sig-object py" id="HtmlNode.attribute">
 <span class="sig-name descname"><span class="pre">attribute</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">属性名</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#HtmlNode.attribute" title="この定義へのパーマリンク">#</a></dt>
 <dd><div class="line-block">
-<div class="line">エレメントの属性名を指定してその値を返す</div>
-<div class="line">HTMLドキュメント、空ノードの場合は常にEMPTYを返す</div>
+<div class="line">該当するエレメント属性の値を返す</div>
+<div class="line">該当する属性がなかった場合はEMPTY</div>
+<div class="line">コレクションの場合はそれぞれの属性値の配列を返す</div>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>属性名</strong> (<em>文字列</em>) -- 属性の名前</p>
 </dd>
 <dt class="field-even">戻り値の型<span class="colon">:</span></dt>
-<dd class="field-even"><p>文字列またはEMPTY</p>
+<dd class="field-even"><p>文字列またはEMPTY、またはそれらの配列</p>
 </dd>
 <dt class="field-odd">戻り値<span class="colon">:</span></dt>
 <dd class="field-odd"><p>該当する属性の値、属性がない場合EMPTY</p>
@@ -2111,47 +2135,108 @@
 </dl>
 </dd></dl>
 
+<dl class="py method">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">textContent</span></span><span class="sig-paren">(</span><span class="optional">[</span><em class="sig-param"><span class="n"><span class="pre">結合文字=&quot;&quot;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">トリム=TRUE</span></span></em><span class="optional">]</span><span class="sig-paren">)</span></dt>
+<dd><div class="line-block">
+<div class="line">エレメント内のテキストノードを結合してひとつの文字列として返す</div>
+<div class="line">コレクションの場合はそれぞれのエレメントについて結合処理を行い、それらを配列として返す</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>結合文字</strong> (<em>文字列 省略可</em>) -- この文字を挟んで結合する</p></li>
+<li><p><strong>トリム</strong> (<em>真偽値 省略可</em>) -- 結合前に各テキストノードの前後のホワイトスペースを除去する</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>文字列、または文字列の配列</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>結合した文字列またはその配列</p>
+</dd>
+</dl>
+</dd></dl>
+
 <dl class="py property">
 <dt class="sig sig-object py" id="HtmlNode.outerhtml">
 <em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">outerhtml</span></span><a class="headerlink" href="#HtmlNode.outerhtml" title="この定義へのパーマリンク">#</a></dt>
-<dd><ul class="simple">
-<li><p>HTMLドキュメント: 全体のHTMLを文字列で返す</p></li>
-<li><p>エレメント: エレメント自身を含むHTMLを文字列で返す</p></li>
-<li><p>空ノード: EMPTY</p></li>
-</ul>
+<dd><div class="line-block">
+<div class="line">エレメントのHTMLの文字列を返す</div>
+<div class="line">コレクションの場合はそれぞれのHTMLの配列を返す</div>
+</div>
 </dd></dl>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="HtmlNode.innerhtml">
 <em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">innerhtml</span></span><a class="headerlink" href="#HtmlNode.innerhtml" title="この定義へのパーマリンク">#</a></dt>
-<dd><ul class="simple">
-<li><p>HTMLドキュメント: EMPTY</p></li>
-<li><p>エレメント: エレメント以下のHTMLを文字列で返す</p></li>
-<li><p>空ノード: EMPTY</p></li>
-</ul>
+<dd><div class="line-block">
+<div class="line">エレメント配下のHTMLの文字列を返す</div>
+<div class="line">コレクションの場合はそれぞれのHTMLの配列を返す</div>
+</div>
 </dd></dl>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="HtmlNode.text">
 <em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">text</span></span><a class="headerlink" href="#HtmlNode.text" title="この定義へのパーマリンク">#</a></dt>
-<dd><ul class="simple">
-<li><p>HTMLドキュメント: EMPTY</p></li>
-<li><p>エレメント: エレメントのテキストノードを文字列の配列で返す</p></li>
-<li><p>空ノード: EMPTY</p></li>
-</ul>
+<dd><div class="line-block">
+<div class="line">エレメント内のテキストノードの配列を返す</div>
+<div class="line">コレクションの場合はそれぞれのテキストノード配列の配列を返す</div>
+</div>
 </dd></dl>
 
 <dl class="py property">
-<dt class="sig sig-object py" id="HtmlNode.isempty">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">isempty</span></span><a class="headerlink" href="#HtmlNode.isempty" title="この定義へのパーマリンク">#</a></dt>
+<dt class="sig sig-object py" id="HtmlNode.textContent">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">textContent</span></span><a class="headerlink" href="#HtmlNode.textContent" title="この定義へのパーマリンク">#</a></dt>
 <dd><div class="line-block">
-<div class="line">空ノードであればTRUE</div>
+<div class="line">エレメント内のテキストノードを結合してひとつの文字列として返す</div>
+<div class="line">コレクションの場合はエレメント毎に結合された文字列の配列を返す</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">node.textContent()</span></code> とした場合と同等</div>
+</div>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="HtmlNode.isRoot">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">isRoot</span></span><a class="headerlink" href="#HtmlNode.isRoot" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">ルートエレメントかどうか</div>
+</div>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="HtmlNode.isElement">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">isElement</span></span><a class="headerlink" href="#HtmlNode.isElement" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">エレメントかどうか</div>
+<div class="line">ルートエレメントの場合もTRUEを返す</div>
+</div>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="HtmlNode.isCollection">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">isCollection</span></span><a class="headerlink" href="#HtmlNode.isCollection" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">コレクションかどうか</div>
 </div>
 </dd></dl>
 
 </dd></dl>
 
 </section>
+</section>
+<section id="id12">
+<h2>コレクションのインデックスアクセス<a class="headerlink" href="#id12" title="この見出しへのパーマリンク">#</a></h2>
+<p>コレクションは配列のようにインデックスアクセスによりエレメントを返します</p>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ParseHTML</span><span class="p">(</span><span class="n">html</span><span class="p">)</span>
+<span class="n">inputs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">root</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s">&quot;form input&quot;</span><span class="p">)</span>
+<span class="k">print</span><span class="w"> </span><span class="n">inputs</span><span class="p">[</span><span class="m">0</span><span class="p">]</span><span class="o">.</span><span class="n">attr</span><span class="p">(</span><span class="s">&quot;value&quot;</span><span class="p">)</span>
+
+<span class="c">// for-in対応</span>
+<span class="k">for</span><span class="w"> </span><span class="n">input</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="n">inputs</span>
+<span class="w">    </span><span class="k">print</span><span class="w"> </span><span class="n">input</span><span class="o">.</span><span class="n">attr</span><span class="p">(</span><span class="s">&quot;value&quot;</span><span class="p">)</span>
+<span class="k">next</span>
+</pre></div>
+</div>
 </section>
 </section>
 
@@ -2333,13 +2418,17 @@
 <li><a class="reference internal" href="#HtmlNode.outerhtml"><code class="docutils literal notranslate"><span class="pre">HtmlNode.outerhtml</span></code></a></li>
 <li><a class="reference internal" href="#HtmlNode.innerhtml"><code class="docutils literal notranslate"><span class="pre">HtmlNode.innerhtml</span></code></a></li>
 <li><a class="reference internal" href="#HtmlNode.text"><code class="docutils literal notranslate"><span class="pre">HtmlNode.text</span></code></a></li>
-<li><a class="reference internal" href="#HtmlNode.isempty"><code class="docutils literal notranslate"><span class="pre">HtmlNode.isempty</span></code></a></li>
+<li><a class="reference internal" href="#HtmlNode.textContent"><code class="docutils literal notranslate"><span class="pre">HtmlNode.textContent</span></code></a></li>
+<li><a class="reference internal" href="#HtmlNode.isRoot"><code class="docutils literal notranslate"><span class="pre">HtmlNode.isRoot</span></code></a></li>
+<li><a class="reference internal" href="#HtmlNode.isElement"><code class="docutils literal notranslate"><span class="pre">HtmlNode.isElement</span></code></a></li>
+<li><a class="reference internal" href="#HtmlNode.isCollection"><code class="docutils literal notranslate"><span class="pre">HtmlNode.isCollection</span></code></a></li>
 </ul>
 </li>
 </ul>
 </li>
 </ul>
 </li>
+<li><a class="reference internal" href="#id12">コレクションのインデックスアクセス</a></li>
 </ul>
 </li>
 </ul>

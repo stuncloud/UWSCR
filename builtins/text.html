@@ -7,7 +7,7 @@
 <link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="ウィンドウ操作関数" href="window.html" /><link rel="prev" title="引数の型について" href="about_parameters.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>文字列操作関数 - UWSCR 1.0.6</title>
+        <title>文字列操作関数 - UWSCR 1.1.0</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 1.0.6</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 1.1.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 1.0.6</span>
+  <span class="sidebar-brand-text">UWSCR 1.1.0</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -891,6 +891,107 @@
 <span class="c">// 子オブジェクトも変換可能</span>
 <span class="k">print</span><span class="w"> </span><span class="n">tojson</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">bar</span><span class="p">)</span>
 <span class="c">// {&quot;baz&quot;: 2}</span>
+
+
+<span class="c">// yaml由来のUObjectも変換可能</span>
+<span class="k">textblock</span><span class="w"> </span><span class="n">yaml</span>
+<span class="s">hoge: abc</span>
+<span class="s">piyo:</span>
+<span class="s">    foo: 1</span>
+<span class="s">    bar: 1</span>
+<span class="k">endtextblock</span>
+
+<span class="n">obj</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">FromYaml</span><span class="p">(</span><span class="n">yaml</span><span class="p">)</span>
+<span class="k">print</span><span class="w"> </span><span class="n">ToJson</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+<span class="c">// {&quot;hoge&quot;:&quot;abc&quot;,&quot;piyo&quot;:{&quot;foo&quot;:1.0,&quot;bar&quot;:1.0}}</span>
+</pre></div>
+</div>
+</div>
+<div class="hint admonition">
+<p class="admonition-title">yaml由来のUObject</p>
+<div class="line-block">
+<div class="line"><br /></div>
+</div>
+</div>
+</dd></dl>
+
+</section>
+<section id="yaml">
+<h2>YAML<a class="headerlink" href="#yaml" title="この見出しへのパーマリンク">#</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="FromYaml">
+<span class="sig-name descname"><span class="pre">FromYaml</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">yaml</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#FromYaml" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">yaml文字列をUObjectにします</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>yaml</strong> (<em>文字列</em>) -- yaml文字列</p>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>変換に成功した場合は <code class="docutils literal notranslate"><span class="pre">UObject</span></code> 、失敗時は <code class="docutils literal notranslate"><span class="pre">EMPTY</span></code></p>
+</dd>
+</dl>
+<div class="admonition- admonition">
+<p class="admonition-title">サンプルコード</p>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="k">textblock</span><span class="w"> </span><span class="n">yaml</span>
+<span class="s">hoge: abc</span>
+<span class="s">piyo:</span>
+<span class="s">    foo: 1</span>
+<span class="s">    bar: 1</span>
+<span class="k">endtextblock</span>
+
+<span class="n">obj</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">FromYaml</span><span class="p">(</span><span class="n">yaml</span><span class="p">)</span>
+<span class="k">print</span><span class="w"> </span><span class="n">obj</span><span class="o">.</span><span class="n">hoge</span><span class="w">     </span><span class="c">// abc</span>
+<span class="k">print</span><span class="w"> </span><span class="n">obj</span><span class="o">.</span><span class="n">piyo</span><span class="o">.</span><span class="n">foo</span><span class="w"> </span><span class="c">// 1</span>
+</pre></div>
+</div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="ToYaml">
+<span class="sig-name descname"><span class="pre">ToYaml</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">UObject</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ToYaml" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">UObjectをyaml文字列にします</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>UObject</strong> (<em>UObject</em>) -- yaml文字列にしたいUObject</p>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>yaml文字列</p>
+</dd>
+</dl>
+<div class="admonition- admonition">
+<p class="admonition-title">サンプルコード</p>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="k">textblock</span><span class="w"> </span><span class="n">yaml</span>
+<span class="s">hoge: abc</span>
+<span class="s">piyo:</span>
+<span class="s">    foo: 1</span>
+<span class="s">    bar: 1</span>
+<span class="k">endtextblock</span>
+
+<span class="n">obj</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">FromYaml</span><span class="p">(</span><span class="n">yaml</span><span class="p">)</span>
+<span class="k">print</span><span class="w"> </span><span class="n">ToYaml</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+<span class="c">// hoge: abc</span>
+<span class="c">// piyo:</span>
+<span class="c">//   foo: 1</span>
+<span class="c">//   bar: 1</span>
+
+
+<span class="c">// json由来のUObjectも変換可能</span>
+<span class="n">obj</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">@{</span>
+<span class="w">    </span><span class="s">&quot;foo&quot;</span><span class="o">:</span><span class="w"> </span><span class="m">1</span><span class="o">,</span>
+<span class="w">    </span><span class="s">&quot;bar&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="s">&quot;baz&quot;</span><span class="o">:</span><span class="w"> </span><span class="m">2</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}@</span>
+
+<span class="k">print</span><span class="w"> </span><span class="n">toyaml</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+<span class="c">// foo: 1.0</span>
+<span class="c">// bar:</span>
+<span class="c">//   baz: 2.0</span>
 </pre></div>
 </div>
 </div>
@@ -1720,6 +1821,11 @@
 <li><a class="reference internal" href="#json">JSON</a><ul>
 <li><a class="reference internal" href="#FromJson"><code class="docutils literal notranslate"><span class="pre">FromJson()</span></code></a></li>
 <li><a class="reference internal" href="#ToJson"><code class="docutils literal notranslate"><span class="pre">ToJson()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#yaml">YAML</a><ul>
+<li><a class="reference internal" href="#FromYaml"><code class="docutils literal notranslate"><span class="pre">FromYaml()</span></code></a></li>
+<li><a class="reference internal" href="#ToYaml"><code class="docutils literal notranslate"><span class="pre">ToYaml()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#id8">検索</a><ul>

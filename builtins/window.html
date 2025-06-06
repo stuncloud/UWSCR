@@ -7,7 +7,7 @@
 <link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="スクリプト制御" href="scriptcontrol.html" /><link rel="prev" title="文字列操作関数" href="text.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>ウィンドウ操作関数 - UWSCR 1.0.6</title>
+        <title>ウィンドウ操作関数 - UWSCR 1.1.0</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 1.0.6</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 1.1.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 1.0.6</span>
+  <span class="sidebar-brand-text">UWSCR 1.1.0</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -904,7 +904,7 @@
 
 <dl class="py function">
 <dt class="sig sig-object py" id="setslider">
-<span class="sig-name descname"><span class="pre">setslider</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ID</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">値</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">n番目=1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">スクロール=TRUE</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#setslider" title="この定義へのパーマリンク">#</a></dt>
+<span class="sig-name descname"><span class="pre">setslider</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ID</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">値</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">n番目=1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">スクロール=FALSE</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#setslider" title="この定義へのパーマリンク">#</a></dt>
 <dd><div class="line-block">
 <div class="line">スライダー(スクロールバー、トラックバー)の値を設定します</div>
 </div>
@@ -1050,7 +1050,7 @@
 <ul class="simple">
 <li><p><a class="reference internal" href="#mmv" title="mmv"><code class="xref any py py-func docutils literal notranslate"><span class="pre">mmv</span></code></a></p></li>
 <li><p><a class="reference internal" href="#btn" title="btn"><code class="xref any py py-func docutils literal notranslate"><span class="pre">btn</span></code></a></p></li>
-<li><p><a class="reference internal" href="#chkimg" title="chkimg"><code class="xref any py py-func docutils literal notranslate"><span class="pre">chkimg</span></code></a> (指定座標及び戻り値の座標)</p></li>
+<li><p><a class="reference internal" href="#ChkImg" title="ChkImg"><code class="xref any py py-func docutils literal notranslate"><span class="pre">ChkImg</span></code></a> (指定座標及び戻り値の座標)</p></li>
 <li><p><a class="reference internal" href="#chkclr" title="chkclr"><code class="xref any py py-func docutils literal notranslate"><span class="pre">chkclr</span></code></a> (指定座標及び戻り値の座標)</p></li>
 <li><p><a class="reference internal" href="#peekcolor" title="peekcolor"><code class="xref any py py-func docutils literal notranslate"><span class="pre">peekcolor</span></code></a></p></li>
 </ul>
@@ -1109,35 +1109,35 @@
 <td><p><code class="docutils literal notranslate"><span class="pre">WM_MOUSEMOVE</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p>btn</p></td>
-<td><p>左ボタン下げ</p></td>
+<td><p>左ボタン下げ (LEFT, DOWN)</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">WM_LBUTTONDOWN</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p>btn</p></td>
-<td><p>左ボタン上げ</p></td>
+<td><p>左ボタン上げ (LEFT, UP)</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">WM_LBUTTONUP</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p>btn</p></td>
-<td><p>右ボタン下げ</p></td>
+<td><p>右ボタン下げ (RIGHT, DOWN)</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">WM_RBUTTONDOWN</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p>btn</p></td>
-<td><p>右ボタン上げ</p></td>
+<td><p>右ボタン上げ (RIGHT, UP)</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">WM_RBUTTONUP</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p>btn</p></td>
-<td><p>中央ボタン下げ</p></td>
+<td><p>中央ボタン下げ (MIDDLE, DOWN)</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">WM_MBUTTONDOWN</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p>btn</p></td>
-<td><p>中央ボタン上げ</p></td>
+<td><p>中央ボタン上げ (MIDDLE, UP)</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">WM_MBUTTONUP</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p>btn</p></td>
-<td><p>マウスホイール回転(縦)</p></td>
+<td><p>マウスホイール回転(縦) (WHEEL)</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">WM_MOUSEWHEEL</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p>btn</p></td>
-<td><p>マウスホイール回転(横)</p></td>
+<td><p>マウスホイール回転(横) (WHEEL2)</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">WM_MOUSEHWHEEL</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p>kbd</p></td>
@@ -1155,6 +1155,17 @@
 </tbody>
 </table>
 </div>
+<div class="note admonition">
+<p class="admonition-title">btnについて</p>
+<div class="line-block">
+<div class="line">btn関数では各メッセージを送る前に以下のメッセージが送信されます</div>
+</div>
+<ol class="arabic simple" start="5">
+<li><p><code class="docutils literal notranslate"><span class="pre">WM_MOUSEMOVE</span></code> (x+1, y+1)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">WM_MOUSEMOVE</span></code> (x-1, y-1)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">WM_MOUSEMOVE</span></code> (x, y)</p></li>
+</ol>
+</div>
 <div class="caution admonition">
 <p class="admonition-title">TOUCH非対応</p>
 <div class="line-block">
@@ -1169,7 +1180,7 @@
 <dt class="sig sig-object">
 <span class="sig-name descname"><span class="pre">MORG_FORE</span></span></dt>
 <dd><div class="line-block">
-<div class="line">スクリーン上から画像を取得する (<a class="reference internal" href="#chkimg" title="chkimg"><code class="xref any py py-func docutils literal notranslate"><span class="pre">chkimg</span></code></a>)、または色を得る (<a class="reference internal" href="#peekcolor" title="peekcolor"><code class="xref any py py-func docutils literal notranslate"><span class="pre">peekcolor</span></code></a>)</div>
+<div class="line">スクリーン上から画像を取得する (<a class="reference internal" href="#ChkImg" title="ChkImg"><code class="xref any py py-func docutils literal notranslate"><span class="pre">ChkImg</span></code></a>)、または色を得る (<a class="reference internal" href="#peekcolor" title="peekcolor"><code class="xref any py py-func docutils literal notranslate"><span class="pre">peekcolor</span></code></a>)</div>
 </div>
 </dd></dl>
 
@@ -1177,7 +1188,7 @@
 <dt class="sig sig-object">
 <span class="sig-name descname"><span class="pre">MORG_BACK</span></span></dt>
 <dd><div class="line-block">
-<div class="line">対象ウィンドウから直接画像の取得 (<a class="reference internal" href="#chkimg" title="chkimg"><code class="xref any py py-func docutils literal notranslate"><span class="pre">chkimg</span></code></a>)、または色の取得 (<a class="reference internal" href="#peekcolor" title="peekcolor"><code class="xref any py py-func docutils literal notranslate"><span class="pre">peekcolor</span></code></a>) を試みる</div>
+<div class="line">対象ウィンドウから直接画像の取得 (<a class="reference internal" href="#ChkImg" title="ChkImg"><code class="xref any py py-func docutils literal notranslate"><span class="pre">ChkImg</span></code></a>)、または色の取得 (<a class="reference internal" href="#peekcolor" title="peekcolor"><code class="xref any py py-func docutils literal notranslate"><span class="pre">peekcolor</span></code></a>) を試みる</div>
 <div class="line">他のウィンドウに隠れている場合でも使用可能</div>
 </div>
 <div class="caution admonition">
@@ -2102,6 +2113,10 @@
 </div>
 </p></li>
 <li><p><strong>n番目</strong> (<em>数値 省略可</em>) -- <p>n番目に該当するアイテム種別の文字列を得る</p>
+<div class="line-block">
+<div class="line">0の場合はフォーカスされたコントロール</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">-n</span></code> の場合はDisableになっているものも含めたn番目</div>
+</div>
 <div class="caution admonition">
 <p class="admonition-title">UWSCとは順序が異なる場合があります</p>
 <div class="line-block">
@@ -2275,16 +2290,25 @@
 
 <dl class="object">
 <dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">ITM_FROMLAST</span></span></dt>
-<dd><p>ACCで検索順序を逆にする (最後のアイテムから取得)</p>
+<span class="sig-name descname"><span class="pre">ITM_ACC_TREE</span></span></dt>
+<dd><div class="line-block">
+<div class="line">ACCツリー構造</div>
+<div class="line">この定数を指定した場合は他の定数および以降の引数は無視されます</div>
+</div>
 </dd></dl>
 
-<div class="caution admonition">
-<p class="admonition-title">UWSCとの違い</p>
-<div class="line-block">
-<div class="line">ACCでもウィンドウをアクティブにしないため、ITM_BACKは廃止されました</div>
-</div>
-</div>
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ITM_FROMLAST</span></span></dt>
+<dd><p>ACCで検索順序を逆にする</p>
+</dd></dl>
+
+<dl class="object">
+<dt class="sig sig-object">
+<span class="sig-name descname"><span class="pre">ITM_BACK</span></span></dt>
+<dd><p>ACCでウィンドウをアクティブにしない</p>
+</dd></dl>
+
 </p></li>
 <li><p><strong>n番目</strong> (<em>数値 省略可</em>) -- <p>ITM_LIST、ITM_TREEVIEW、ITM_LISTVIEW指定時かつ対象が複数あった場合にいずれを取得するか指定、-1ならすべて取得</p>
 <div class="hint admonition">
@@ -2311,10 +2335,22 @@
 </ul>
 </dd>
 <dt class="field-even">戻り値の型<span class="colon">:</span></dt>
-<dd class="field-even"><p>文字列の配列</p>
+<dd class="field-even"><p>文字列の配列またはUObject</p>
 </dd>
 <dt class="field-odd">戻り値<span class="colon">:</span></dt>
-<dd class="field-odd"><p><p>取得されたアイテム名の配列</p>
+<dd class="field-odd"><p><div class="line-block">
+<div class="line">取得されたアイテム名の配列</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">ITM_ACC_TREE</span></code> 指定時はACCのツリー構造を示すUObject (失敗時はNULL)</div>
+</div>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// 対象ウィンドウのACCツリー構造を取得</span>
+<span class="n">id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">getid</span><span class="p">(</span><span class="s">&quot;ファイル名を指定して実行&quot;</span><span class="p">)</span>
+<span class="n">uo</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">getitem</span><span class="p">(</span><span class="n">id</span><span class="o">,</span><span class="w"> </span><span class="n">ITM_ACC_TREE</span><span class="p">)</span>
+<span class="n">json</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">tojson</span><span class="p">(</span><span class="n">uo</span><span class="o">,</span><span class="w"> </span><span class="n">TRUE</span><span class="p">)</span>
+<span class="n">path</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;.\acc.json&quot;</span>
+<span class="n">fput</span><span class="p">(</span><span class="n">fopen</span><span class="p">(</span><span class="n">path</span><span class="o">,</span><span class="w"> </span><span class="n">F_WRITE8</span><span class="w"> </span><span class="n">or</span><span class="w"> </span><span class="n">F_AUTOCLOSE</span><span class="p">)</span><span class="o">,</span><span class="w"> </span><span class="n">json</span><span class="p">)</span>
+<span class="n">shexec</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+</pre></div>
+</div>
 <div class="caution admonition">
 <p class="admonition-title">UWSCとの違い</p>
 <div class="line-block">
@@ -2343,6 +2379,20 @@
 <span class="c">// 2: 名前(&amp;O):</span>
 </pre></div>
 </div>
+<ul class="simple">
+<li><p>ACC全般は以下の条件で取得します
+- 条件に一致するロール
+- 可視またはフォーカス可能
+- ステータスが0ではない
+- ディセーブル無視がTRUEの場合enabledのもののみ</p></li>
+<li><p>ITM_ACCCLK
+- リンクの場合親要素を含めないようにしました</p></li>
+<li><p>ITM_ACCCLK2</p></li>
+<li><p>ITM_ACCTXT
+- 親要素を含めないようにしました</p></li>
+<li><p>ITM_EDIT
+- 読み取り専用も取得するようにしました</p></li>
+</ul>
 </div>
 </p>
 </dd>
@@ -2382,7 +2432,7 @@
 
 <dl class="py function">
 <dt class="sig sig-object py" id="chkclr">
-<span class="sig-name descname"><span class="pre">chkclr</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">探索色</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">閾値=0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">範囲=[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">モニタ番号=0</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#chkclr" title="この定義へのパーマリンク">#</a></dt>
+<span class="sig-name descname"><span class="pre">chkclr</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">探索色</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">閾値=0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">範囲=[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">キャプチャ方法=-1</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#chkclr" title="この定義へのパーマリンク">#</a></dt>
 <dd><div class="line-block">
 <div class="line">範囲内に探索色があればその位置を返します</div>
 <div class="line"><a class="reference internal" href="#mouseorg" title="mouseorg"><code class="xref any py py-func docutils literal notranslate"><span class="pre">mouseorg</span></code></a> が実行されている場合は探索対象がそのウィンドウとなります</div>
@@ -2415,7 +2465,7 @@
 </div>
 </div>
 </p></li>
-<li><p><strong>範囲</strong> (<em>配列 省略可</em>) -- <p>探索範囲を [左上x, 左上y, 右下x, 右下y] で指定、省略時はモニタまたはウィンドウに準拠</p>
+<li><p><strong>範囲</strong> (<em>配列 省略可</em>) -- <p>探索範囲を [左上x, 左上y, 右下x, 右下y] で指定、省略時はモニタまたはウィンドウのサイズ</p>
 <div class="hint admonition">
 <p class="admonition-title">部分的な省略について</p>
 <div class="line-block">
@@ -2429,7 +2479,16 @@
 </ul>
 </div>
 </p></li>
-<li><p><strong>モニタ番号</strong> (<em>数値 省略可</em>) -- mouseorgを使わない場合に探索対象とするモニタ番号を0から指定</p></li>
+<li><p><strong>キャプチャ方法</strong> (<em>数値 省略可</em>) -- <p>キャプチャ方法及びキャプチャ対象モニタを指定する</p>
+<ul>
+<li><p>mouseorg未使用時
+- -1: スクリーン全体をGDIでキャプチャする
+- 0以上の数値: 値をモニタ番号とし、Graphic Capture APIでキャプチャする</p></li>
+<li><p>mouseorg使用時
+- -1: ウィンドウをGDIでキャプチャする
+- 0以上の数値: ウィンドウをGraphic Capture APIでキャプチャする</p></li>
+</ul>
+</p></li>
 </ul>
 </dd>
 <dt class="field-even">戻り値の型<span class="colon">:</span></dt>
@@ -2484,8 +2543,79 @@
 <section id="id4">
 <h2>画像検索<a class="headerlink" href="#id4" title="この見出しへのパーマリンク">#</a></h2>
 <dl class="py function">
-<dt class="sig sig-object py" id="chkimg">
-<span class="sig-name descname"><span class="pre">chkimg</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">画像ファイルパス</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">スコア=95</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">最大検索数=5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">left=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">top=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">right=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bottom=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">オプション=0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">モニタ番号=0</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#chkimg" title="この定義へのパーマリンク">#</a></dt>
+<dt class="sig sig-object py" id="ChkImg">
+<span class="sig-name descname"><span class="pre">ChkImg</span></span><span class="sig-paren">(</span><span class="optional">[</span><em class="sig-param"><span class="n"><span class="pre">ファイル名={clipboard}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">探索方式=0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x1=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y1=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x2=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y2=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n番目=1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">色幅=0</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#ChkImg" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">スクリーン上の指定画像と一致する位置の情報を返す</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ファイル名</strong> (<em>文字列 省略可</em>) -- 探す画像ファイルのパス、省略時はクリップボード画像</p></li>
+<li><p><strong>探索方式</strong> (<em>数値 省略可</em>) -- <p>一致判定の方式を指定</p>
+<ul>
+<li><p>0: すべてのピクセルで一致を判定する</p></li>
+<li><p>1: 指定画像の左上を透過色とし、指定画像の透過色に当たる部分は常に一致、それ以外は通常の一致判定を行う</p></li>
+<li><p>2: 指定画像の右上を透過色とする</p></li>
+<li><p>3: 指定画像の左下を透過色とする</p></li>
+<li><p>4: 指定画像の右下を透過色とする</p></li>
+<li><p>-1: 色ではなく形での一致を判定する、色幅は無視される</p></li>
+</ul>
+</p></li>
+<li><p><strong>x1</strong> (<em>数値 省略可</em>) -- 探索範囲の左上x座標、省略時はスクリーン全体の左上</p></li>
+<li><p><strong>y1</strong> (<em>数値 省略可</em>) -- 探索範囲の左上y座標、省略時はスクリーン全体の左上</p></li>
+<li><p><strong>x2</strong> (<em>数値 省略可</em>) -- 探索範囲の右下x座標、省略時はスクリーン全体の右下</p></li>
+<li><p><strong>y2</strong> (<em>数値 省略可</em>) -- 探索範囲の右下y座標、省略時はスクリーン全体の右下</p></li>
+<li><p><strong>n番目</strong> (<em>数値 省略可</em>) -- スクリーン左上から見てn番目の一致座標を返す、-1ならスクリーン上で一致するすべての座標を返す</p></li>
+<li><p><strong>色幅</strong> (<em>定数 省略可</em>) -- <p>各ピクセルについて許容する色範囲を指定 (OR連結可)、省略時は完全一致</p>
+<ul>
+<li><p>IMG_MSK_R1: RGBのうちR (赤) に対して <code class="docutils literal notranslate"><span class="pre">R</span> <span class="pre">-2</span> <span class="pre">&lt;</span> <span class="pre">対象R</span> <span class="pre">&lt;</span> <span class="pre">R</span> <span class="pre">+</span> <span class="pre">2</span></code> の範囲で許容する</p></li>
+<li><p>IMG_MSK_R2: RGBのうちR (赤) に対して <code class="docutils literal notranslate"><span class="pre">R</span> <span class="pre">-4</span> <span class="pre">&lt;</span> <span class="pre">対象R</span> <span class="pre">&lt;</span> <span class="pre">R</span> <span class="pre">+</span> <span class="pre">4</span></code> の範囲で許容する</p></li>
+<li><p>IMG_MSK_R3: RGBのうちR (赤) に対して <code class="docutils literal notranslate"><span class="pre">R</span> <span class="pre">-8</span> <span class="pre">&lt;</span> <span class="pre">対象R</span> <span class="pre">&lt;</span> <span class="pre">R</span> <span class="pre">+</span> <span class="pre">8</span></code> の範囲で許容する</p></li>
+<li><p>IMG_MSK_R4: RGBのうちR (赤) に対して <code class="docutils literal notranslate"><span class="pre">R</span> <span class="pre">-16</span> <span class="pre">&lt;</span> <span class="pre">対象R</span> <span class="pre">&lt;</span> <span class="pre">R</span> <span class="pre">+</span> <span class="pre">16</span></code> の範囲で許容する</p></li>
+<li><p>IMG_MSK_G1: RGBのうちG (緑) に対して <code class="docutils literal notranslate"><span class="pre">G</span> <span class="pre">-2</span> <span class="pre">&lt;</span> <span class="pre">対象G</span> <span class="pre">&lt;</span> <span class="pre">G</span> <span class="pre">+</span> <span class="pre">2</span></code> の範囲で許容する</p></li>
+<li><p>IMG_MSK_G2: RGBのうちG (緑) に対して <code class="docutils literal notranslate"><span class="pre">G</span> <span class="pre">-4</span> <span class="pre">&lt;</span> <span class="pre">対象G</span> <span class="pre">&lt;</span> <span class="pre">G</span> <span class="pre">+</span> <span class="pre">4</span></code> の範囲で許容する</p></li>
+<li><p>IMG_MSK_G3: RGBのうちG (緑) に対して <code class="docutils literal notranslate"><span class="pre">G</span> <span class="pre">-8</span> <span class="pre">&lt;</span> <span class="pre">対象G</span> <span class="pre">&lt;</span> <span class="pre">G</span> <span class="pre">+</span> <span class="pre">8</span></code> の範囲で許容する</p></li>
+<li><p>IMG_MSK_G4: RGBのうちG (緑) に対して <code class="docutils literal notranslate"><span class="pre">G</span> <span class="pre">-16</span> <span class="pre">&lt;</span> <span class="pre">対象G</span> <span class="pre">&lt;</span> <span class="pre">G</span> <span class="pre">+</span> <span class="pre">16</span></code> の範囲で許容する</p></li>
+<li><p>IMG_MSK_B1: RGBのうちB (青) に対して <code class="docutils literal notranslate"><span class="pre">B</span> <span class="pre">-2</span> <span class="pre">&lt;</span> <span class="pre">対象B</span> <span class="pre">&lt;</span> <span class="pre">B</span> <span class="pre">+</span> <span class="pre">2</span></code> の範囲で許容する</p></li>
+<li><p>IMG_MSK_B2: RGBのうちB (青) に対して <code class="docutils literal notranslate"><span class="pre">B</span> <span class="pre">-4</span> <span class="pre">&lt;</span> <span class="pre">対象B</span> <span class="pre">&lt;</span> <span class="pre">B</span> <span class="pre">+</span> <span class="pre">4</span></code> の範囲で許容する</p></li>
+<li><p>IMG_MSK_B3: RGBのうちB (青) に対して <code class="docutils literal notranslate"><span class="pre">B</span> <span class="pre">-8</span> <span class="pre">&lt;</span> <span class="pre">対象B</span> <span class="pre">&lt;</span> <span class="pre">B</span> <span class="pre">+</span> <span class="pre">8</span></code> の範囲で許容する</p></li>
+<li><p>IMG_MSK_B4: RGBのうちB (青) に対して <code class="docutils literal notranslate"><span class="pre">B</span> <span class="pre">-16</span> <span class="pre">&lt;</span> <span class="pre">対象B</span> <span class="pre">&lt;</span> <span class="pre">B</span> <span class="pre">+</span> <span class="pre">16</span></code> の範囲で許容する</p></li>
+<li><p>IMG_MSK_BGR1: RGBそれぞれに対して <code class="docutils literal notranslate"><span class="pre">n</span> <span class="pre">-2</span> <span class="pre">&lt;</span> <span class="pre">対象色</span> <span class="pre">&lt;</span> <span class="pre">n</span> <span class="pre">+</span> <span class="pre">2</span></code> の範囲で許容する</p></li>
+<li><p>IMG_MSK_BGR2: RGBそれぞれに対して <code class="docutils literal notranslate"><span class="pre">n</span> <span class="pre">-4</span> <span class="pre">&lt;</span> <span class="pre">対象色</span> <span class="pre">&lt;</span> <span class="pre">n</span> <span class="pre">+</span> <span class="pre">4</span></code> の範囲で許容する</p></li>
+<li><p>IMG_MSK_BGR3: RGBそれぞれに対して <code class="docutils literal notranslate"><span class="pre">n</span> <span class="pre">-8</span> <span class="pre">&lt;</span> <span class="pre">対象色</span> <span class="pre">&lt;</span> <span class="pre">n</span> <span class="pre">+</span> <span class="pre">8</span></code> の範囲で許容する</p></li>
+<li><p>IMG_MSK_BGR4: RGBそれぞれに対して <code class="docutils literal notranslate"><span class="pre">n</span> <span class="pre">-16</span> <span class="pre">&lt;</span> <span class="pre">対象色</span> <span class="pre">&lt;</span> <span class="pre">n</span> <span class="pre">+</span> <span class="pre">16</span></code> の範囲で許容する</p></li>
+</ul>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>配列</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p><div class="line-block">
+<div class="line">n番目で1以上を指定した場合は該当する位置の [x, y]</div>
+<div class="line">-1を指定した場合は [x, y] の配列</div>
+<div class="line">見つからなかった場合は空の配列</div>
+<div class="line">クリップボード指定でクリップボードに画像がない場合も空の配列</div>
+</div>
+</p>
+</dd>
+</dl>
+<div class="admonition- admonition">
+<p class="admonition-title">サンプルコード</p>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// n番目を-2にすることで探索が並列処理になる</span>
+<span class="k">for</span><span class="w"> </span><span class="n">xy</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="n">chkimg</span><span class="p">(</span><span class="n">image</span><span class="o">,</span><span class="w"> </span><span class="m">0</span><span class="o">,,,,,</span><span class="w"> </span><span class="o">-</span><span class="m">2</span><span class="o">,</span><span class="w"> </span><span class="n">IMG_MSK_BGR3</span><span class="p">)</span>
+<span class="w">    </span><span class="k">print</span><span class="w"> </span><span class="n">xy</span>
+<span class="k">next</span>
+</pre></div>
+</div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="SearchImage">
+<span class="sig-name descname"><span class="pre">SearchImage</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">画像ファイルパス</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">スコア=95</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">最大検索数=5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">left=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">top=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">right=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bottom=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">オプション=0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">モニタ番号=0</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#SearchImage" title="この定義へのパーマリンク">#</a></dt>
 <dd><div class="line-block">
 <div class="line">指定画像をスクリーン上から探してその座標を返します</div>
 </div>
@@ -2524,7 +2654,7 @@
 <li><p><strong>オプション</strong> (<em>定数 省略可</em>) -- <p>実行時オプションを指定、OR連結可</p>
 <dl class="object">
 <dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">CHKIMG_NO_GRAY</span></span></dt>
+<span class="sig-name descname"><span class="pre">SCHIMG_NO_GRAY</span></span></dt>
 <dd><div class="line-block">
 <div class="line">画像をグレースケール化せず探索を行う</div>
 </div>
@@ -2532,7 +2662,7 @@
 
 <dl class="object">
 <dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">CHKIMG_USE_WGCAPI</span></span></dt>
+<span class="sig-name descname"><span class="pre">SCHIMG_USE_WGCAPI</span></span></dt>
 <dd><div class="line-block">
 <div class="line">デスクトップまたはウィンドウの画像取得にGraphicsCaptureAPIを使う</div>
 <div class="line">デスクトップの場合は対象とするモニタを次の引数で指定</div>
@@ -2554,7 +2684,7 @@
 
 <dl class="object">
 <dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">CHKIMG_METHOD_SQDIFF</span></span></dt>
+<span class="sig-name descname"><span class="pre">SCHIMG_METHOD_SQDIFF</span></span></dt>
 <dd><div class="line-block">
 <div class="line">類似度の計算にTM_SQDIFFを使用する、他の計算方法と併用不可</div>
 </div>
@@ -2562,7 +2692,7 @@
 
 <dl class="object">
 <dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">CHKIMG_METHOD_SQDIFF_NORMED</span></span></dt>
+<span class="sig-name descname"><span class="pre">SCHIMG_METHOD_SQDIFF_NORMED</span></span></dt>
 <dd><div class="line-block">
 <div class="line">類似度の計算にTM_SQDIFF_NORMEDを使用する、他の計算方法と併用不可</div>
 </div>
@@ -2570,7 +2700,7 @@
 
 <dl class="object">
 <dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">CHKIMG_METHOD_CCORR</span></span></dt>
+<span class="sig-name descname"><span class="pre">SCHIMG_METHOD_CCORR</span></span></dt>
 <dd><div class="line-block">
 <div class="line">類似度の計算にTM_CCORRを使用する、他の計算方法と併用不可</div>
 </div>
@@ -2578,7 +2708,7 @@
 
 <dl class="object">
 <dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">CHKIMG_METHOD_CCORR_NORMED</span></span></dt>
+<span class="sig-name descname"><span class="pre">SCHIMG_METHOD_CCORR_NORMED</span></span></dt>
 <dd><div class="line-block">
 <div class="line">類似度の計算にTM_CCORR_NORMEDを使用する、他の計算方法と併用不可</div>
 </div>
@@ -2586,7 +2716,7 @@
 
 <dl class="object">
 <dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">CHKIMG_METHOD_CCOEFF</span></span></dt>
+<span class="sig-name descname"><span class="pre">SCHIMG_METHOD_CCOEFF</span></span></dt>
 <dd><div class="line-block">
 <div class="line">類似度の計算にTM_CCOEFFを使用する、他の計算方法と併用不可</div>
 </div>
@@ -2594,7 +2724,7 @@
 
 <dl class="object">
 <dt class="sig sig-object">
-<span class="sig-name descname"><span class="pre">CHKIMG_METHOD_CCOEFF_NORMED</span></span></dt>
+<span class="sig-name descname"><span class="pre">SCHIMG_METHOD_CCOEFF_NORMED</span></span></dt>
 <dd><div class="line-block">
 <div class="line">類似度の計算にTM_CCOEFF_NORMEDを使用する、他の計算方法と併用不可</div>
 <div class="line">計算方法未指定時はこれが適用される</div>
@@ -2603,7 +2733,7 @@
 
 </p></li>
 <li><p><strong>モニタ番号</strong> (<em>定数 省略可</em>) -- <div class="line-block">
-<div class="line"><code class="docutils literal notranslate"><span class="pre">CHKIMG_USE_WGCAPI</span></code> 時に検索するモニタ番号を0から指定、デフォルトは0 (プライマリモニタ)</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">SCHIMG_USE_WGCAPI</span></code> 時に検索するモニタ番号を0から指定、デフォルトは0 (プライマリモニタ)</div>
 <div class="line">mousemorg使用時はウィンドウを対象とするためこの引数指定は不要</div>
 </div>
 </p></li>
@@ -2628,7 +2758,7 @@
 
 <dl class="py function">
 <dt class="sig sig-object py">
-<span class="sig-name descname"><span class="pre">chkimg</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">画像ファイルパス</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">スコア=95</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">最大検索数=5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">範囲</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">オプション=0</span></span></em><span class="optional">]</span><span class="sig-paren">)</span></dt>
+<span class="sig-name descname"><span class="pre">SearchImage</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">画像ファイルパス</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">スコア=95</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">最大検索数=5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">範囲</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">オプション=0</span></span></em><span class="optional">]</span><span class="sig-paren">)</span></dt>
 <dd><div class="line-block">
 <div class="line">配列による範囲指定</div>
 </div>
@@ -2839,7 +2969,22 @@
 <div><dl class="object">
 <dt class="sig sig-object">
 <span class="sig-name descname"><span class="pre">CLICK</span></span></dt>
-<dd><p>ボタンクリック (デフォルト)</p>
+<dd><div class="line-block">
+<div class="line">ボタンクリック (デフォルト)</div>
+<div class="line">DOWN→UPを連続で行います</div>
+</div>
+<div class="note admonition">
+<p class="admonition-title">待機時間について</p>
+<div class="line-block">
+<div class="line">DOWNとUPの間と、UP後にわずかに待機時間が入ります</div>
+</div>
+<ol class="arabic simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">DOWN</span></code></p></li>
+<li><p>待機</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">UP</span></code></p></li>
+<li><p>待機(小)</p></li>
+</ol>
+</div>
 </dd></dl>
 
 <dl class="object">
@@ -2890,7 +3035,7 @@
 
 <dl class="py function">
 <dt class="sig sig-object py" id="kbd">
-<span class="sig-name descname"><span class="pre">kbd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">仮想キー</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">状態=CLICK</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ms=0</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#kbd" title="この定義へのパーマリンク">#</a></dt>
+<span class="sig-name descname"><span class="pre">kbd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">仮想キーまたは文字コード</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">状態=CLICK</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ms=0</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#kbd" title="この定義へのパーマリンク">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py function">
@@ -2902,13 +3047,28 @@
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>仮想キー</strong> (<em>定数</em>) -- <a class="reference internal" href="#virtual-keys"><span class="std std-ref">仮想キーコード一覧</span></a> のいずれか</p></li>
+<li><p><strong>仮想キーまたは文字コード</strong> (<em>数値</em>) -- <a class="reference internal" href="#virtual-keys"><span class="std std-ref">仮想キーコード一覧</span></a> のいずれか、または文字コード</p></li>
 <li><p><strong>送信文字列</strong> (<em>文字列</em>) -- キー入力として送信される文字列</p></li>
 <li><p><strong>状態</strong> (<em>定数 省略可</em>) -- <p>キーの入力状態を指定、文字列送信時は無視される</p>
 <dl class="object">
 <dt class="sig sig-object">
 <span class="sig-name descname"><span class="pre">CLICK</span></span></dt>
-<dd><p>キークリック (デフォルト)</p>
+<dd><div class="line-block">
+<div class="line">キークリック (デフォルト)</div>
+<div class="line">DOWN→UPを連続で行います</div>
+</div>
+<div class="note admonition">
+<p class="admonition-title">待機時間について</p>
+<div class="line-block">
+<div class="line">DOWNとUPの間と、UP後にわずかに待機時間が入ります</div>
+</div>
+<ol class="arabic simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">DOWN</span></code></p></li>
+<li><p>待機</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">UP</span></code></p></li>
+<li><p>待機(小)</p></li>
+</ol>
+</div>
 </dd></dl>
 
 <dl class="object">
@@ -2933,13 +3093,18 @@
 </dl>
 <div class="admonition- admonition">
 <p class="admonition-title">サンプルコード</p>
-<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// a が入力される</span>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// キーコード入力</span>
+<span class="c">// a が入力される</span>
 <span class="n">kbd</span><span class="p">(</span><span class="n">VK_A</span><span class="p">)</span>
 
 <span class="c">// A が入力される</span>
 <span class="n">kbd</span><span class="p">(</span><span class="n">VK_SHIFT</span><span class="o">,</span><span class="w"> </span><span class="n">DOWN</span><span class="p">)</span>
 <span class="n">kbd</span><span class="p">(</span><span class="n">VK_A</span><span class="o">,</span><span class="w"> </span><span class="n">CLICK</span><span class="o">,</span><span class="w"> </span><span class="m">100</span><span class="p">)</span>
 <span class="n">kbd</span><span class="p">(</span><span class="n">VK_SHIFT</span><span class="o">,</span><span class="w"> </span><span class="n">UP</span><span class="o">,</span><span class="w"> </span><span class="m">100</span><span class="p">)</span>
+
+<span class="c">// 文字コード入力</span>
+<span class="c">// あ が入力される</span>
+<span class="n">kbd</span><span class="p">(</span><span class="n">asc</span><span class="p">(</span><span class="s">&quot;あ&quot;</span><span class="p">))</span>
 
 <span class="c">// A が入力される</span>
 <span class="n">kbd</span><span class="p">(</span><span class="s">&quot;A&quot;</span><span class="p">)</span>
@@ -3829,7 +3994,8 @@
 </ul>
 </li>
 <li><a class="reference internal" href="#id4">画像検索</a><ul>
-<li><a class="reference internal" href="#chkimg"><code class="docutils literal notranslate"><span class="pre">chkimg()</span></code></a></li>
+<li><a class="reference internal" href="#ChkImg"><code class="docutils literal notranslate"><span class="pre">ChkImg()</span></code></a></li>
+<li><a class="reference internal" href="#SearchImage"><code class="docutils literal notranslate"><span class="pre">SearchImage()</span></code></a></li>
 <li><a class="reference internal" href="#saveimg"><code class="docutils literal notranslate"><span class="pre">saveimg()</span></code></a></li>
 </ul>
 </li>

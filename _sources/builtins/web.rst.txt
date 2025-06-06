@@ -1172,7 +1172,25 @@ HTTPパーサー
 
     :param 文字列またはWebResponse html: HTMLドキュメントまたはその一部を示す文字列、またはHTMLドキュメントとして受けた :ref:`web_response`
     :rtype: :ref:`node_object`
-    :return: パースされたHTMLドキュメントを示す :ref:`node_object`
+    :return: パースされたHTMLドキュメントを示す :ref:`node_object` (ルートエレメント)
+
+    .. admonition:: 部分HTMLのパースについて
+        :class: warning
+
+        | HTMLドキュメント全体ではなく一部をパースした場合に意図した結果が返らない場合があります
+        | 例: ``tbody``以下 (親の ``table`` がない)
+
+        .. code:: html
+
+                  <tbody>
+                    <tr>
+                      <td>りんご</td>
+                      <td>バナナ</td>
+                      <td>メロン</td>
+                    </tr>
+                  </tbody>
+
+        | この動作は現状では仕様とし、このような部分パースは非推奨とします
 
     .. admonition:: サンプルコード
 
@@ -1199,58 +1217,101 @@ HTTPパーサー
 HtmlNodeオブジェクト
 ~~~~~~~~~~~~~~~~~~~~
 
-| パースされたHTMLドキュメントおよびエレメントを示すオブジェクト
+| 以下のいずれかを示します
+
+- ルートエレメント
+- エレメントのコレクション
+- エレメント
 
 .. class:: HtmlNode
 
     .. method:: find(selector)
 
         | cssセレクタに該当するエレメント郡を :ref:`node_object` の配列として返す
-        | 空ノードの場合常に空の配列を返す
+        | オブジェクトがコレクションの場合はEMPTYを返す
 
         :param 文字列 selector: cssセレクタ
-        :rtype: :ref:`node_object` 配列
-        :return: cssセレクタに該当するエレメントの :ref:`node_object` 配列
+        :rtype: :ref:`node_object` (コレクション)
+        :return: cssセレクタに該当するエレメントのコレクション
 
     .. method:: first(selector)
     .. method:: findfirst(selector)
 
         | cssセレクタに該当する最初のエレメントを :ref:`node_object` として返す
-        | 該当するエレメントがない場合は空ノードを返す
-        | 空ノードの場合常に空ノードを返す
+        | オブジェクトがコレクションの場合はEMPTYを返す
 
         :param 文字列 selector: cssセレクタ
-        :rtype: :ref:`node_object`
-        :return: cssセレクタに該当する最初のエレメントの :ref:`node_object`
+        :rtype: :ref:`node_object` (エレメント)
+        :return: cssセレクタに該当する最初のエレメント
 
     .. method:: attr(属性名)
     .. method:: attribute(属性名)
 
-        | エレメントの属性名を指定してその値を返す
-        | HTMLドキュメント、空ノードの場合は常にEMPTYを返す
+        | 該当するエレメント属性の値を返す
+        | 該当する属性がなかった場合はEMPTY
+        | コレクションの場合はそれぞれの属性値の配列を返す
 
         :param 文字列 属性名: 属性の名前
-        :rtype: 文字列またはEMPTY
+        :rtype: 文字列またはEMPTY、またはそれらの配列
         :return: 該当する属性の値、属性がない場合EMPTY
+
+    .. method:: textContent([結合文字="", トリム=TRUE])
+        :noindex:
+
+        | エレメント内のテキストノードを結合してひとつの文字列として返す
+        | コレクションの場合はそれぞれのエレメントについて結合処理を行い、それらを配列として返す
+
+        :param 文字列 省略可 結合文字: この文字を挟んで結合する
+        :param 真偽値 省略可 トリム: 結合前に各テキストノードの前後のホワイトスペースを除去する
+        :rtype: 文字列、または文字列の配列
+        :return: 結合した文字列またはその配列
 
     .. property:: outerhtml
 
-        - HTMLドキュメント: 全体のHTMLを文字列で返す
-        - エレメント: エレメント自身を含むHTMLを文字列で返す
-        - 空ノード: EMPTY
+        | エレメントのHTMLの文字列を返す
+        | コレクションの場合はそれぞれのHTMLの配列を返す
 
     .. property:: innerhtml
 
-        - HTMLドキュメント: EMPTY
-        - エレメント: エレメント以下のHTMLを文字列で返す
-        - 空ノード: EMPTY
+        | エレメント配下のHTMLの文字列を返す
+        | コレクションの場合はそれぞれのHTMLの配列を返す
 
     .. property:: text
 
-        - HTMLドキュメント: EMPTY
-        - エレメント: エレメントのテキストノードを文字列の配列で返す
-        - 空ノード: EMPTY
+        | エレメント内のテキストノードの配列を返す
+        | コレクションの場合はそれぞれのテキストノード配列の配列を返す
 
-    .. property:: isempty
+    .. property:: textContent
 
-        | 空ノードであればTRUE
+        | エレメント内のテキストノードを結合してひとつの文字列として返す
+        | コレクションの場合はエレメント毎に結合された文字列の配列を返す
+        | ``node.textContent()`` とした場合と同等
+
+    .. property:: isRoot
+
+        | ルートエレメントかどうか
+
+    .. property:: isElement
+
+        | エレメントかどうか
+        | ルートエレメントの場合もTRUEを返す
+
+    .. property:: isCollection
+
+        | コレクションかどうか
+
+コレクションのインデックスアクセス
+----------------------------------
+
+コレクションは配列のようにインデックスアクセスによりエレメントを返します
+
+.. sourcecode:: uwscr
+
+    root = ParseHTML(html)
+    inputs = root.find("form input")
+    print inputs[0].attr("value")
+
+    // for-in対応
+    for input in inputs
+        print input.attr("value")
+    next
