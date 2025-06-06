@@ -1269,8 +1269,9 @@ impl AccChild {
             })
     }
     fn into_value(self) -> Value {
-        let detail = AccChildDetail::from(&self);
-        let location = self.location().unwrap_or_default();
+        fn to_error_string(e: core::Error) -> String {
+            format!("Error: {e}")
+        }
         let children = if self.is_object() {
             let v = self.child_objects()
                 .map(Self::into_value)
@@ -1280,20 +1281,20 @@ impl AccChild {
             None
         };
         json!({
-            "name": detail.name,
-            "value": detail.value,
+            "name": self.name().unwrap_or_else(to_error_string),
+            "value": self.value().unwrap_or_else(to_error_string),
             "role": [
-                detail.role,
-                detail.role_text,
+                self.role().map(|r|r.to_string()).unwrap_or_else(to_error_string),
+                self.role_text().unwrap_or_else(to_error_string),
             ],
             "status": [
-                detail.status,
-                detail.status_text,
+                self.state().map(|s|s.to_string()).unwrap_or_else(to_error_string),
+                self.state_text().map(|v|v.join(", ")).unwrap_or_else(to_error_string),
             ],
-            "default_action": detail.default_action,
-            "description": detail.description,
-            "location": location,
-            "hwnd": detail.hwnd.0,
+            "default_action": self.default_action().unwrap_or_else(to_error_string),
+            "description": self.description().unwrap_or_else(to_error_string),
+            "location": self.location().unwrap_or_default(),
+            "hwnd": self.hwnd().unwrap_or_default().0,
             "children": children,
         })
     }
