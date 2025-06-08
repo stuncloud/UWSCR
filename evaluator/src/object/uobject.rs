@@ -747,6 +747,12 @@ impl From<JsonValue> for UObject {
 }
 impl From<JsonValue> for Object {
     fn from(value: JsonValue) -> Self {
-        Self::UObject(value.into())
+        match value {
+            JsonValue::Null => Object::Null,
+            JsonValue::Bool(b) => b.into(),
+            JsonValue::Number(n) => n.as_f64().unwrap_or_default().into(),
+            JsonValue::String(s) => s.into(),
+            value => Object::UObject(value.into())
+        }
     }
 }
