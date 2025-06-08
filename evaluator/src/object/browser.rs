@@ -372,7 +372,11 @@ impl Browser {
             .ok_or(UError::new(UErrorKind::BrowserControlError, UErrorMessage::DetectedDialogOpening))?;
         let infos = serde_json::from_value::<TargetInfos>(value)?;
         let tabs = infos.target_infos.into_iter()
-            .filter(|target| target.r#type == "page" && ! target.url.starts_with("devtools://"))
+            .filter(|target| {
+                target.r#type == "page"
+                && ! target.url.starts_with("devtools://")
+                && ! target.url.starts_with("chrome-extension://")
+            })
             .collect();
         Ok(tabs)
     }
