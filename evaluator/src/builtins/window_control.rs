@@ -365,7 +365,7 @@ fn find_window(title: String, class_name: String, timeout: f64) -> windows::core
                 let _ = CloseHandle(h);
                 break;
             }
-            if limit.is_some() && now.elapsed() >= limit.unwrap() {
+            if limit.is_some_and(|limit| now.elapsed().ge(&limit)) {
                 break;
             }
         }
