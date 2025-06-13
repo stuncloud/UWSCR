@@ -352,8 +352,7 @@ impl Lexer {
                     *n += 1;
                 }
                 if self.paren_pairs.is_none() {
-                    let mut pos = self.pos;
-                    self.get_paren_pairs(&mut pos, false);
+                    self.get_paren_pairs(self.pos, false);
                 }
                 if let Some(pairs) = &self.paren_pairs {
                     if pairs.has_pair_r(&self.pos) {
@@ -370,8 +369,7 @@ impl Lexer {
                     *n = n.saturating_sub(1);
                 }
                 if self.paren_pairs.is_none() {
-                    let mut pos = self.pos;
-                    self.get_paren_pairs(&mut pos, true);
+                    self.get_paren_pairs(self.pos, true);
                 }
                 if let Some(pairs) = &self.paren_pairs {
                     if pairs.has_pair_l(&self.pos) {
@@ -387,8 +385,7 @@ impl Lexer {
             '}' => Token::Rbrace,
             '[' => {
                 if self.bracket_pairs.is_none() {
-                    let mut pos = self.pos;
-                    self.get_bracket_pairs(&mut pos, false);
+                    self.get_bracket_pairs(self.pos, false);
                 }
                 if let Some(pairs) = &self.bracket_pairs {
                     if pairs.has_pair_r(&self.pos) {
@@ -402,8 +399,7 @@ impl Lexer {
             },
             ']' => {
                 if self.bracket_pairs.is_none() {
-                    let mut pos = self.pos;
-                    self.get_bracket_pairs(&mut pos, true);
+                    self.get_bracket_pairs(self.pos, true);
                 }
                 if let Some(pairs) = &self.bracket_pairs {
                     if pairs.has_pair_l(&self.pos) {
@@ -603,8 +599,7 @@ impl Lexer {
         // 文字列から()のペアを探す
         let input = path_and_args.chars().collect();
         let mut pairs = None;
-        let mut pos = 0;
-        ParenPairs::search(&input, &mut pairs, &mut pos, true, false);
+        ParenPairs::search(&input, &mut pairs, 0, false, true);
         match pairs.take_if(|pairs| pairs.has_pairs()) {
             Some(pairs) => {
                 let (paren_l, paren_r) = pairs.last_pair().unwrap_or_default();
@@ -957,43 +952,45 @@ impl Lexer {
     }
 
     /// ()ペアを得る
-    fn get_paren_pairs(&mut self, pos: &mut usize, is_right: bool) {
+    fn get_paren_pairs(&mut self, pos: usize, is_right: bool) {
         ParenPairs::search(&self.input, &mut self.paren_pairs, pos, true, is_right);
     }
     /// []ペアを得る
-    fn get_bracket_pairs(&mut self, pos: &mut usize, is_right: bool) {
+    fn get_bracket_pairs(&mut self, pos: usize, is_right: bool) {
         BracketPairs::search(&self.input, &mut self.bracket_pairs, pos, true, is_right);
     }
 }
 trait GetPairs {
     const LEFT: char;
     const RIGHT: char;
-    fn search(input: &Vec<char>, pairs: &mut Option<Pairs>, pos: &mut usize, is_top: bool, is_right: bool) {
+    fn search(input: &Vec<char>, pairs: &mut Option<Pairs>, pos: usize, is_top: bool, is_right: bool) {
         if pairs.is_none() {
             pairs.replace(Pairs::new());
         }
-        let start_pos = *pos;
-        let mut dbl_quot_flg = false;
-        let mut sgl_quot_flg = false;
-        while let Some(c) = input.get(*pos + 1) {
-            *pos += 1;
+        let start_pos = pos;
+        let mut iter = input[pos+1..].iter().enumerate();
+        while let Some((i, c)) = iter.next() {
             match c {
-                '"' => dbl_quot_flg = !dbl_quot_flg,
-                '\'' => sgl_quot_flg = !sgl_quot_flg,
-                c => if ! dbl_quot_flg && ! sgl_quot_flg {
-                    if *c == Self::LEFT {
-                        Self::search(input, pairs, pos, false, false);
-                    } else if *c == Self::RIGHT {
-                        if ! is_right {
-                            if let Some(pairs) = pairs {
-                                pairs.push(start_pos, *pos);
-                            }
-                        }
-                        if ! is_top {
-                            break;
+                '"' => {
+                    while iter.next().is_some_and(|(_, c)| '"'.ne(c)) {}
+                }
+                '\'' => {
+                    while iter.next().is_some_and(|(_, c)| '\''.ne(c)) {}
+                },
+                c if Self::LEFT.eq(c) => {
+                    Self::search(input, pairs, pos+i+1, false, false);
+                },
+                c if Self::RIGHT.eq(c) => {
+                    if ! is_right {
+                        if let Some(pairs) = pairs {
+                            pairs.push(start_pos, pos+i+1);
                         }
                     }
-                }
+                    if ! is_top {
+                        break;
+                    }
+                },
+                _ => {}
             }
         }
     }

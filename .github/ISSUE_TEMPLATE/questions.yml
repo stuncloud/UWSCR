@@ -22,10 +22,9 @@ body:
       default: 0
       options:
         - "なし"
-        - "1.1.0"
+        - "1.1.1"
         - "1.0.6"
         - "1.0.5"
-        - "1.0.4"
         - "その他"
     validations:
       required: false

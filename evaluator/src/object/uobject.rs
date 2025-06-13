@@ -3,6 +3,7 @@ use crate::error::{UError,UErrorKind,UErrorMessage};
 use crate::EvalResult;
 
 use std::borrow::BorrowMut;
+use std::ops::Deref;
 use std::sync::{Arc, RwLock};
 use itertools::Itertools;
 use serde_json::Value as JsonValue;
@@ -17,6 +18,29 @@ pub struct UObject {
 pub enum JYValue {
     Json(JsonValue),
     Yaml(YamlValue),
+}
+#[derive(Debug)]
+enum JYValueRef<'a> {
+    Json(&'a JsonValue),
+    Yaml(&'a YamlValue),
+}
+impl JYValue {
+    const NULL_JSON: JsonValue = JsonValue::Null;
+    const NULL_YAML: YamlValue = YamlValue::Null;
+    fn value_from_pointer(&self, pointer: Option<&str>) -> JYValueRef {
+        match pointer {
+            Some(p) => match self {
+                JYValue::Json(value) => value.pointer(p)
+                    .map(JYValueRef::Json).unwrap_or(JYValueRef::Json(&Self::NULL_JSON)),
+                JYValue::Yaml(value) => value.pointer(p)
+                    .map(JYValueRef::Yaml).unwrap_or(JYValueRef::Yaml(&Self::NULL_YAML)),
+            },
+            None => match self {
+                JYValue::Json(value) => JYValueRef::Json(value),
+                JYValue::Yaml(value) => JYValueRef::Yaml(value),
+            },
+        }
+    }
 }
 
 impl UObject {
@@ -76,12 +100,41 @@ impl UObject {
             pointer,
         }
     }
-    pub fn index_to_pointer(&self, index: Option<&Object>) -> Option<String> {
-        match (&self.pointer, index) {
+    pub fn pointer_to<I: std::fmt::Display + ?Sized>(&self, member: Option<&I>) -> Option<String> {
+        match (&self.pointer, member) {
             (None, None) => None,
             (None, Some(i)) => Some(format!("/{}", i)),
             (Some(p), None) => Some(p.to_string()),
             (Some(p), Some(i)) => Some(format!("{}/{}", p, i)),
+        }
+    }
+    fn json_value_to_object<I: std::fmt::Display>(&self, value: &JsonValue, member: Option<&I>) -> Object {
+        match value {
+            JsonValue::Null => Object::Null,
+            JsonValue::Bool(b) => (*b).into(),
+            JsonValue::Number(number) => number.into(),
+            JsonValue::String(s) => s.deref().into(),
+            JsonValue::Array(_) |
+            JsonValue::Object(_) => {
+                let pointer = self.pointer_to(member);
+                let obj = self.clone_with_pointer(pointer);
+                Object::UObject(obj)
+            },
+        }
+    }
+    fn yaml_value_to_object<I: std::fmt::Display + ?Sized>(&self, value: &YamlValue, member: Option<&I>) -> Object {
+        match value {
+            YamlValue::Null => Object::Null,
+            YamlValue::Bool(b) => (*b).into(),
+            YamlValue::Number(number) => number.into(),
+            YamlValue::String(s) => s.deref().into(),
+            YamlValue::Sequence(_) |
+            YamlValue::Mapping(_) |
+            YamlValue::Tagged(_) => {
+                let pointer = self.pointer_to(member);
+                let obj = self.clone_with_pointer(pointer);
+                Object::UObject(obj)
+            },
         }
     }
     pub fn get(&self, index: &Object) -> EvalResult<Object> {
@@ -104,18 +157,7 @@ impl UObject {
                     UErrorKind::UObjectError,
                     UErrorMessage::InvalidMemberOrIndex(index.to_string())
                 ))?;
-                let obj = match value {
-                    JsonValue::Null => Object::Null,
-                    JsonValue::Bool(b) => (*b).into(),
-                    JsonValue::Number(number) => number.as_f64().unwrap_or_default().into(),
-                    JsonValue::String(s) => s.clone().into(),
-                    JsonValue::Array(_) |
-                    JsonValue::Object(_) => {
-                        let pointer = self.index_to_pointer(Some(index));
-                        let new = self.clone_with_pointer(pointer);
-                        Object::UObject(new)
-                    },
-                };
+                let obj = self.json_value_to_object(value, Some(index));
                 Ok(obj)
             },
             JYValue::Yaml(value) => {
@@ -135,30 +177,9 @@ impl UObject {
                     UErrorKind::UObjectError,
                     UErrorMessage::InvalidMemberOrIndex(index.to_string())
                 ))?;
-                let obj = match value {
-                    YamlValue::Null => Object::Null,
-                    YamlValue::Bool(b) => (*b).into(),
-                    YamlValue::Number(number) => number.as_f64().unwrap_or_default().into(),
-                    YamlValue::String(s) => s.clone().into(),
-                    YamlValue::Sequence(_) |
-                    YamlValue::Mapping(_) |
-                    YamlValue::Tagged(_) => {
-                        let pointer = self.index_to_pointer(Some(index));
-                        let new = self.clone_with_pointer(pointer);
-                        Object::UObject(new)
-                    },
-                };
+                let obj = self.yaml_value_to_object(value, Some(index));
                 Ok(obj)
             },
-        }
-    }
-    fn pointer_to(&self, member: Option<&String>) -> Option<String> {
-        match &self.pointer {
-            Some(p) => match member {
-                Some(m) => Some(format!("{p}/{m}")),
-                None => Some(p.to_string()),
-            },
-            None => member.map(|m| format!("/{m}")),
         }
     }
     /// UObjectへの代入
@@ -283,35 +304,25 @@ impl UObject {
     }
     pub fn to_object_vec(&self) -> EvalResult<Vec<Object>> {
         let read = self.value.read().unwrap();
-        match &*read {
-            JYValue::Json(value) => value.as_array()
-                .map(|arr| {
-                        (0..arr.len()).map(|i| {
-                            let pointer = match &self.pointer {
-                                Some(p) => format!("{p}/{i}"),
-                                None => format!("/{i}"),
-                            };
-                            let o = self.clone_with_pointer(Some(pointer));
-                            Object::UObject(o)
-                        })
-                        .collect()
-                }),
-            JYValue::Yaml(value) => value.as_array()
-                .map(|arr| {
-                    (0..arr.len()).map(|i| {
-                        let pointer = match &self.pointer {
-                            Some(p) => format!("{p}/{i}"),
-                            None => format!("/{i}"),
-                        };
-                        let o = self.clone_with_pointer(Some(pointer));
-                        Object::UObject(o)
-                    })
-                    .collect()
-                }),
-        }.ok_or(UError::new(
-            UErrorKind::UObjectError,
-            UErrorMessage::UObjectIsNotAnArray,
-        ))
+        let jy = read.value_from_pointer(self.pointer.as_deref());
+        match jy {
+            JYValueRef::Json(JsonValue::Array(vec)) => {
+                let vec = vec.iter().enumerate()
+                    .map(|(i, v)| self.json_value_to_object(v, Some(&i)))
+                    .collect();
+                Ok(vec)
+            },
+            JYValueRef::Yaml(YamlValue::Sequence(vec)) => {
+                let vec = vec.iter().enumerate()
+                    .map(|(i, v)| self.yaml_value_to_object(v, Some(&i)))
+                    .collect();
+                Ok(vec)
+            }
+            _ => Err(UError::new(
+                UErrorKind::UObjectError,
+                UErrorMessage::UObjectIsNotAnArray,
+            ))
+        }
     }
     pub fn get_size(&self) -> usize {
         let read = self.value.read().unwrap();
@@ -326,14 +337,15 @@ impl UObject {
     }
     fn keys(&self) -> EvalResult<Vec<Object>> {
         let read = self.value.read().unwrap();
-        let keys = match &*read {
-            JYValue::Json(value) => match value {
+        let jyref = read.value_from_pointer(self.pointer.as_deref());
+        let keys = match jyref {
+            JYValueRef::Json(value) => match value {
                 JsonValue::Object(map) => {
                     map.keys().map(|key| key.as_str().into()).collect()
                 },
                 _ => Vec::new()
             },
-            JYValue::Yaml(value) => match value {
+            JYValueRef::Yaml(value) => match value {
                 YamlValue::Mapping(map) => {
                     map.keys().map(|key| key.as_str().into()).collect()
                 },
@@ -344,16 +356,21 @@ impl UObject {
     }
     fn values(&self) -> EvalResult<Vec<Object>> {
         let read = self.value.read().unwrap();
-        let values = match &*read {
-            JYValue::Json(value) => match value {
+        let jyref = read.value_from_pointer(self.pointer.as_deref());
+        let values = match jyref {
+            JYValueRef::Json(value) => match value {
                 JsonValue::Object(map) => {
-                    map.values().map(|v| v.as_str().into()).collect()
+                    map.keys().zip(map.values())
+                        .map(|(key, value)| self.json_value_to_object(value, Some(key)))
+                        .collect()
                 },
                 _ => Vec::new()
             },
-            JYValue::Yaml(value) => match value {
+            JYValueRef::Yaml(value) => match value {
                 YamlValue::Mapping(map) => {
-                    map.values().map(|v| v.as_str().into()).collect()
+                    map.keys().zip(map.values())
+                        .map(|(key, value)| self.yaml_value_to_object(value, key.as_str()))
+                        .collect()
                 },
                 _ => Vec::new()
             },
@@ -377,30 +394,10 @@ impl UObject {
 
 impl std::fmt::Display for UObject {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let read = self.value.read().unwrap();
-        let s = match &*read {
-            JYValue::Json(value) => {
-                let value = match &self.pointer {
-                    Some(p) => value.pointer(p).unwrap_or(&JsonValue::Null),
-                    None => value,
-                };
-                match serde_json::to_string(value) {
-                    Ok(json) => json,
-                    Err(e) => e.to_string(),
-                }
-            },
-            JYValue::Yaml(value) => {
-                let value = match &self.pointer {
-                    Some(p) => value.pointer(p).unwrap_or(&YamlValue::Null),
-                    None => value,
-                };
-                match serde_yml::to_string(value) {
-                    Ok(yaml) => yaml,
-                    Err(e) => e.to_string(),
-                }
-            },
-        };
-        write!(f, "{s}")
+        match self.clone().to_json_string() {
+            Ok(j) => write!(f, "{j}"),
+            Err(e) => write!(f, "{e}"),
+        }
     }
 }
 
@@ -494,7 +491,7 @@ trait ValueExt {
     fn get_case_insensitive_mut(&mut self, key: &str) -> Option<&mut Self>;
 }
 trait YamlValueExt {
-    fn as_array(&self) -> Option<&Vec<Self>> where Self: Sized;
+    // fn as_array(&self) -> Option<&Vec<Self>> where Self: Sized;
     fn as_array_mut(&mut self) -> Option<&mut Vec<Self>> where Self: Sized;
     fn len(&self) -> usize;
 }
@@ -569,12 +566,12 @@ impl ValueExt for YamlValue {
     }
 }
 impl YamlValueExt for YamlValue {
-        fn as_array(&self) -> Option<&Vec<YamlValue>> {
-            match self {
-                YamlValue::Sequence(seq) => Some(seq),
-                _ => None
-            }
-        }
+        // fn as_array(&self) -> Option<&Vec<YamlValue>> {
+        //     match self {
+        //         YamlValue::Sequence(seq) => Some(seq),
+        //         _ => None
+        //     }
+        // }
 
         fn as_array_mut(&mut self) -> Option<&mut Vec<YamlValue>> {
             match self {
@@ -747,6 +744,22 @@ impl From<JsonValue> for UObject {
 }
 impl From<JsonValue> for Object {
     fn from(value: JsonValue) -> Self {
-        Self::UObject(value.into())
+        match value {
+            JsonValue::Null => Object::Null,
+            JsonValue::Bool(b) => b.into(),
+            JsonValue::Number(n) => n.as_f64().unwrap_or_default().into(),
+            JsonValue::String(s) => s.into(),
+            value => Object::UObject(value.into())
+        }
+    }
+}
+impl From<&serde_json::Number> for Object {
+    fn from(n: &serde_json::Number) -> Self {
+        n.as_f64().unwrap_or_default().into()
+    }
+}
+impl From<&serde_yml::Number> for Object {
+    fn from(n: &serde_yml::Number) -> Self {
+        n.as_f64().unwrap_or_default().into()
     }
 }
