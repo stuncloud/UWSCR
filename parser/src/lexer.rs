@@ -599,7 +599,7 @@ impl Lexer {
         // 文字列から()のペアを探す
         let input = path_and_args.chars().collect();
         let mut pairs = None;
-        ParenPairs::search(&input, &mut pairs, 0, true, false);
+        ParenPairs::search(&input, &mut pairs, 0, false, true);
         match pairs.take_if(|pairs| pairs.has_pairs()) {
             Some(pairs) => {
                 let (paren_l, paren_r) = pairs.last_pair().unwrap_or_default();
