@@ -1859,7 +1859,7 @@ ID0について
             // abcde が入力される
             kbd("abcde")
 
-.. function:: acw(ID, [x=EMPTY, y=EMPTY, h=EMPTY, w=EMPTY, ms=0])
+.. function:: acw(ID, [x=EMPTY, y=EMPTY, w=EMPTY, h=EMPTY, ms=0])
 
     | ウィンドウの位置やサイズを変更します
     | :ref:`ID0 <about_id0>` を更新します
@@ -1867,8 +1867,8 @@ ID0について
     :param 数値 ID: ウィンドウID
     :param 数値 省略可 x: 移動先のX座標、省略時は対象ウィンドウの現在のX座標
     :param 数値 省略可 y: 移動先のY座標、省略時は対象ウィンドウの現在のY座標
-    :param 数値 省略可 h: 変更するウィンドウの高さ、省略時は対象ウィンドウの現在の高さ
     :param 数値 省略可 w: 変更するウィンドウの幅、省略時は対象ウィンドウの現在の幅
+    :param 数値 省略可 h: 変更するウィンドウの高さ、省略時は対象ウィンドウの現在の高さ
     :param 数値 省略可 ms: ウィンドウに変更を加えるまでの待機時間 (ミリ秒)
     :return: なし
 

@@ -36,7 +36,7 @@ use windows::{
             },
             Variant::{
                 VARIANT, VARIANT_0_0,
-                VARENUM, VT_ARRAY,VT_BYREF,VT_BOOL,VT_BSTR,VT_CY,VT_DATE,VT_DECIMAL,VT_DISPATCH,VT_EMPTY,VT_I1,VT_I2,VT_I4,VT_INT,VT_NULL,VT_R4,VT_R8,VT_UI1,VT_UI2,VT_UI4,VT_UINT,VT_UNKNOWN,VT_VARIANT,
+                VARENUM, VT_ARRAY,VT_BYREF,VT_BOOL,VT_BSTR,VT_CY,VT_DATE,VT_DECIMAL,VT_DISPATCH,VT_EMPTY,VT_I1,VT_I2,VT_I4,VT_I8,VT_INT,VT_NULL,VT_R4,VT_R8,VT_UI1,VT_UI2,VT_UI4,VT_UI8,VT_UINT,VT_UNKNOWN,VT_VARIANT,
                 // VT_PTR, VT_SAFEARRAY,
                 VAR_CHANGE_FLAGS,
                 VariantChangeType, VariantClear,
@@ -810,10 +810,12 @@ impl TryInto<Object> for VARIANT {
                     VT_I1 |
                     VT_I2 |
                     VT_I4 |
+                    VT_I8 |
                     VT_INT |
                     VT_UI1 |
                     VT_UI2 |
                     VT_UI4 |
+                    VT_UI8 |
                     VT_UINT |
                     VT_R4 => {
                         let variant = self.change_type(VT_R8)?;

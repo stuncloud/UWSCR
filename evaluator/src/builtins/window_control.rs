@@ -365,7 +365,7 @@ fn find_window(title: String, class_name: String, timeout: f64) -> windows::core
                 let _ = CloseHandle(h);
                 break;
             }
-            if limit.is_some() && now.elapsed() >= limit.unwrap() {
+            if limit.is_some_and(|limit| now.elapsed().ge(&limit)) {
                 break;
             }
         }
@@ -470,8 +470,8 @@ pub fn get_id_from_hwnd(hwnd: HWND) -> f64 {
         {n="ウィンドウID",t="数値",d="対象ウィンドウ"},
         {o,n="X",t="数値",d="移動先X座標、省略時は現在のX座標"},
         {o,n="Y",t="数値",d="移動先Y座標、省略時は現在のY座標"},
-        {o,n="高さ",t="数値",d="ウィンドウ高さ、省略時は現在の高さを維持"},
         {o,n="幅",t="数値",d="ウィンドウ幅、省略時は現在の幅を維持"},
+        {o,n="高さ",t="数値",d="ウィンドウ高さ、省略時は現在の高さを維持"},
         {o,n="待機秒",t="数値",d="ウィンドウに変更を加えるまでの待機時間をミリ秒で指定"},
     ],
 )]

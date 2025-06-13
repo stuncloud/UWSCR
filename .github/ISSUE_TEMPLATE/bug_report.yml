@@ -36,10 +36,10 @@ body:
       description: 不具合が発生したUWSCRのバージョンを選択してください (その他の場合は備考欄に詳細を記述してください)
       multiple: true
       options:
+        - "1.1.1"
         - "1.1.0"
         - "1.0.6"
         - "1.0.5"
-        - "1.0.4"
         - "その他"
     validations:
       required: true
