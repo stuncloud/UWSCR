@@ -51,10 +51,8 @@ impl Acc {
         let flow = iter
             .filter(|child| gi.validate(child))
             .try_fold(result, |mut result, child| {
-                if let Ok(item) = child.get_item_value() {
-                    if !item.is_empty() {
-                        result.push(item);
-                    }
+                if let Some(item) = child.get_item_value() {
+                    result.push(item);
                 }
                 if result.len() < result.capacity() {
                     ControlFlow::Continue(result)
@@ -109,7 +107,10 @@ impl Acc {
     pub fn sendstr<R>(hwnd: HWND, nth: usize, str: &str, replace: R) where R: Into<bool> {
         if let Ok(window) = AccWindow::from_hwnd(hwnd) {
             let replace: bool = replace.into();
-            if let Some(child) = window.find_nth(nth, |child| child.role_is_one_of(&[ROLE_SYSTEM_TEXT])) {
+            let predicate = |child: &AccChild| {
+                child.is_valid() && child.role_is(ROLE_SYSTEM_TEXT)
+            };
+            if let Some(child) = window.find_nth(nth, &predicate) {
                 if replace {
                     let _ = child.set_value(str);
                 } else if let Ok(old) = child.value() {
@@ -125,8 +126,8 @@ impl Acc {
         if let Ok(window) = AccWindow::from_hwnd(hwnd) {
             let replace: bool = replace.into();
             let maybe = window
-                .find_nth(nth, |child| child.role_is_one_of(&[ROLE_SYSTEM_CELL]))
-                .and_then(|cell| cell.into_iter().find(|child| child.role_is_one_of(&[ROLE_SYSTEM_TEXT])));
+                .find_nth(nth, |child| child.role_is(ROLE_SYSTEM_CELL))
+                .and_then(|cell| cell.into_iter().find(|child| child.role_is(ROLE_SYSTEM_TEXT)));
             if let Some(child) = maybe {
                 if replace {
                     let _ = child.set_value(str);
@@ -423,8 +424,7 @@ impl GetItem {
             GetItemRole::Invalid(_) => false
         };
         is_valid_role
-            && (child.is_visible() || child.is_focusable())
-            && child_state > 0
+            && child.is_valid()
             && !(self.ignore_disabled && child.is_disabled())
     }
 }
@@ -1236,14 +1236,19 @@ impl AccChild {
             true
         }
     }
-    fn get_item_value(&self) -> core::Result<String> {
+    fn get_item_value(&self) -> Option<String> {
         if self.role_is(ROLE_SYSTEM_TEXT) && self.state().is_ok_and(|s| !s.includes(STATE_SYSTEM_LINKED)) {
             // エディットボックスかつリンクではないならvalueを返す
-            self.value()
+            // 空文字も返す
+            self.value().ok()
         } else {
             // その他は名前
             self.name()
-                .map(|name| name.remove_mnemonic().into())
+                .ok()
+                .and_then(|name| {
+                    let name = name.remove_mnemonic();
+                    (!name.is_empty()).then_some(name.to_string())
+                })
         }
     }
     fn dbg_detail(&self) {
@@ -1297,6 +1302,10 @@ impl AccChild {
             "hwnd": self.hwnd().unwrap_or_default().0,
             "children": children,
         })
+    }
+    fn is_valid(&self) -> bool {
+        (self.is_visible() || self.is_focusable())
+        && self.state().is_ok_and(|s| s > 0)
     }
 }
 impl From<AccWindow> for AccChild {
