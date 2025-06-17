@@ -541,8 +541,8 @@ impl Object {
             Object::ChkClrResult(_) => ObjectType::TYPE_CHKCLR_RESULT,
             #[cfg(feature="chkimg")]
             Object::ColorFound(_) => ObjectType::TYPE_CHKCLR_ITEM,
+            Object::ParamStr(_) => ObjectType::TYPE_PARAM_STR,
 
-            Object::ParamStr(_) |
             Object::EmptyParam |
             Object::DynamicVar(_) |
             Object::Continue(_) |
@@ -550,6 +550,68 @@ impl Object {
             Object::Exit => ObjectType::TYPE_NOT_VALUE_TYPE,
         }
     }
+
+    pub fn length(&self) -> Option<usize> {
+        let len = match self {
+            Object::String(s) => s.chars().count(),
+            Object::Num(n) => n.to_string().len(),
+            Object::Array(v) => v.len(),
+            Object::Bool(b) => b.to_string().len(),
+            Object::HashTbl(h) => h.lock().unwrap().len(),
+            Object::StructDef(sdef) => sdef.size,
+            Object::UStruct(ust) => ust.size(),
+            Object::Empty => 0,
+            Object::Null => 1,
+            Object::ByteArray(arr) => arr.len(),
+            Object::RemoteObject(remote) => remote.length().ok()? as usize,
+            Object::UObject(u) => u.get_size(),
+            Object::ParamStr(p) => p.len(),
+            #[cfg(feature="chkimg")]
+            Object::ChkClrResult(v) => v.len(),
+            #[cfg(feature="chkimg")]
+            Object::ColorFound(found) => Object::from(found).length()?,
+
+
+            Object::AnonFunc(_) |
+            Object::Function(_) |
+            Object::AsyncFunction(_) |
+            Object::BuiltinFunction(_, _, _) |
+            Object::Module(_) |
+            Object::Class(_, _) |
+            Object::Instance(_) |
+            Object::EmptyParam |
+            Object::Nothing |
+            Object::Continue(_) |
+            Object::Break(_) |
+            Object::Handle(_) |
+            Object::RegEx(_) |
+            Object::Exit |
+            Object::Global |
+            Object::DynamicVar(_) |
+            Object::Version(_) |
+            Object::ExpandableTB(_) |
+            Object::Enum(_) |
+            Object::Task(_) |
+            Object::DefDllFunction(_) |
+            Object::ComObject(_) |
+            Object::Unknown(_) |
+            Object::Variant(_) |
+            Object::BrowserBuilder(_) |
+            Object::Browser(_) |
+            Object::TabWindow(_) |
+            Object::Fopen(_) |
+            Object::Csv(_) |
+            Object::Reference(_, _) |
+            Object::WebRequest(_) |
+            Object::WebResponse(_) |
+            Object::HtmlNode(_) |
+            Object::MemberCaller(_, _) |
+            Object::WebViewForm(_) |
+            Object::WebViewRemoteObject(_)  => None?,
+        };
+        Some(len)
+    }
+
     pub fn is_equal(&self, other: &Object) -> bool {
         self == other
     }
@@ -1492,6 +1554,7 @@ pub enum ObjectType {
     TYPE_WEBVIEW_REMOTEOBJECT,
     TYPE_CHKCLR_RESULT,
     TYPE_CHKCLR_ITEM,
+    TYPE_PARAM_STR,
 
     TYPE_MEMBER_CALLER,
     TYPE_NOT_VALUE_TYPE,

@@ -1060,6 +1060,9 @@ impl Evaluator {
             Object::ChkClrResult(vec) => {
                 self.eval_for_in_statement_inner(vec, var, index_var, islast_var, block, alt)
             },
+            Object::ParamStr(v) => {
+                self.eval_for_in_statement_inner(v, var, index_var, islast_var, block, alt)
+            }
             _ => Err(UError::new(
                 UErrorKind::SyntaxError,
                 UErrorMessage::ForInError

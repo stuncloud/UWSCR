@@ -69,27 +69,11 @@ pub fn builtin_func_sets() -> BuiltinFunctionSets {
     ],
 )]
 pub fn length(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
-    let len = match args.get_as_object(0, None)? {
-        Object::String(s) => s.chars().count(),
-        Object::Num(n) => n.to_string().len(),
-        Object::Array(v) => v.len(),
-        Object::Bool(b) => b.to_string().len(),
-        Object::HashTbl(h) => h.lock().unwrap().len(),
-        Object::StructDef(sdef) => sdef.size,
-        Object::UStruct(ust) => ust.size(),
-        Object::Empty => 0,
-        Object::Null => 1,
-        Object::ByteArray(ref arr) => arr.len(),
-        Object::RemoteObject(ref remote) => {
-            let len = remote.length()?;
-            return Ok(Object::Num(len));
-        },
-        Object::UObject(u) => u.get_size(),
-        #[cfg(feature="chkimg")]
-        Object::ChkClrResult(v) => v.len(),
-        o => return Err(builtin_func_error(UErrorMessage::InvalidArgument(o)))
-    };
-    Ok(Object::Num(len as f64))
+    let obj = args.get_as_object(0, None)?;
+    match obj.length() {
+        Some(len) => Ok(len.into()),
+        None => Err(builtin_func_error(UErrorMessage::InvalidArgument(obj))),
+    }
 }
 
 #[builtin_func_desc(
