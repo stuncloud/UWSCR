@@ -1060,6 +1060,9 @@ impl Evaluator {
             Object::ChkClrResult(vec) => {
                 self.eval_for_in_statement_inner(vec, var, index_var, islast_var, block, alt)
             },
+            Object::ParamStr(v) => {
+                self.eval_for_in_statement_inner(v, var, index_var, islast_var, block, alt)
+            }
             _ => Err(UError::new(
                 UErrorKind::SyntaxError,
                 UErrorMessage::ForInError
@@ -4712,6 +4715,12 @@ dim obj = @{
         "baz": 2,
         "qux": [3, 4, 5]
     },
+    "baz": [
+        1,
+        {
+            "qux": 2
+        }
+    ],
     "quux": 0
 }@
         "#;
@@ -4745,6 +4754,14 @@ dim obj = @{
     #[case(
         "obj.bar.qux[1] = 9; obj.bar.qux[1]",
         Object::Num(9.0)
+    )]
+    #[case(
+        "obj.baz[0]",
+        Object::Num(1.0)
+    )]
+    #[case(
+        "obj.baz[1].qux",
+        Object::Num(2.0)
     )]
     fn test_uobject(#[case] input: &str, #[case] expected: Object) {
         let mut e = uobject_fixture();

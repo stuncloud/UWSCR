@@ -62,24 +62,16 @@ impl UObject {
     }
     pub fn to_json_string(self) -> Result<String, UObjectError> {
         let read = self.value.read()?;
-        let s = match &*read {
-            JYValue::Json(value) => serde_json::to_string(value)?,
-            JYValue::Yaml(_) => {
-                let json = JsonValue::from(read.clone());
-                serde_json::to_string(&json)?
-            },
-        };
+        let jyref = read.value_from_pointer(self.pointer.as_deref());
+        let value = JsonValue::from(jyref);
+        let s = serde_json::to_string(&value)?;
         Ok(s)
     }
     pub fn to_json_string_pretty(self) -> Result<String, UObjectError> {
         let read = self.value.read()?;
-        let s = match &*read {
-            JYValue::Json(value) => serde_json::to_string_pretty(value)?,
-            JYValue::Yaml(_) => {
-                let json = JsonValue::from(read.clone());
-                serde_json::to_string_pretty(&json)?
-            },
-        };
+        let jyref = read.value_from_pointer(self.pointer.as_deref());
+        let value = JsonValue::from(jyref);
+        let s = serde_json::to_string_pretty(&value)?;
         Ok(s)
     }
     pub fn to_yaml_string(self) -> Result<String, UObjectError> {
@@ -326,13 +318,14 @@ impl UObject {
     }
     pub fn get_size(&self) -> usize {
         let read = self.value.read().unwrap();
-        match &*read {
-            JYValue::Json(value) => match value {
-                JsonValue::Array(values) => values.len(),
+        let jyref = read.value_from_pointer(self.pointer.as_deref());
+        match jyref {
+            JYValueRef::Json(value) => match value {
+                JsonValue::Array(arr) => arr.len(),
                 JsonValue::Object(map) => map.len(),
-                _ => 0
+                _ => 0,
             },
-            JYValue::Yaml(value) => value.len(),
+            JYValueRef::Yaml(value) => value.len(),
         }
     }
     fn keys(&self) -> EvalResult<Vec<Object>> {
@@ -623,6 +616,15 @@ impl From<JYValue> for JsonValue {
                     JYValue::Yaml(tagged_value.value).into()
                 },
             },
+        }
+    }
+}
+
+impl From<JYValueRef<'_>> for JsonValue {
+    fn from(r: JYValueRef) -> Self {
+        match r {
+            JYValueRef::Json(value) => value.clone(),
+            JYValueRef::Yaml(value) => JYValue::Yaml(value.clone()).into(),
         }
     }
 }
