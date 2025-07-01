@@ -971,6 +971,12 @@ trait GetPairs {
         let mut iter = input[pos+1..].iter().enumerate();
         while let Some((i, c)) = iter.next() {
             match c {
+                '/' if iter.next().is_some_and(|(_, c)| '/'.eq(c)) => {
+                    if iter.next().is_some_and(|(_, c)| '-'.ne(c)) {
+                        // コメントなので行末まで無視
+                        while iter.next().is_some_and(|(_, c)| '\n'.eq(c)) {}
+                    }
+                },
                 '"' => {
                     while iter.next().is_some_and(|(_, c)| '"'.ne(c)) {}
                 }
