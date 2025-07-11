@@ -19,7 +19,7 @@ pub enum JYValue {
     Json(JsonValue),
     Yaml(YamlValue),
 }
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 enum JYValueRef<'a> {
     Json(&'a JsonValue),
     Yaml(&'a YamlValue),
@@ -395,10 +395,11 @@ impl std::fmt::Display for UObject {
 
 impl PartialEq for UObject {
     fn eq(&self, other: &Self) -> bool {
-        // 一方をロックしもう一方もロックできれば別のオブジェクト
-        let _tmp = self.value.write().unwrap();
-        let is_same_object = other.value.write().is_err();
-        is_same_object && self.pointer == other.pointer
+        let read1 = self.value.read().unwrap();
+        let value1 = read1.value_from_pointer(self.pointer.as_deref());
+        let read2 = other.value.read().unwrap();
+        let value2 = read2.value_from_pointer(other.pointer.as_deref());
+        value1 == value2
     }
 }
 
