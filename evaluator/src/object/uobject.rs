@@ -2,7 +2,6 @@ use super::Object;
 use crate::error::{UError,UErrorKind,UErrorMessage};
 use crate::EvalResult;
 
-use std::borrow::BorrowMut;
 use std::ops::Deref;
 use std::sync::{Arc, RwLock};
 use itertools::Itertools;
@@ -295,11 +294,6 @@ impl UObject {
             JYValueRef::Json(JsonValue::Array(vec)) => {
                 let vec = vec.iter().enumerate()
                     .map(|(i, v)| self.json_value_to_object(v, Some(&i)))
-                    .inspect(|o| {
-                        if let Object::UObject(uo) = o {
-                            dbg!(uo);
-                        }
-                    })
                     .collect();
                 Ok(vec)
             },
@@ -485,7 +479,7 @@ trait ValueExt {
 }
 trait YamlValueExt {
     // fn as_array(&self) -> Option<&Vec<Self>> where Self: Sized;
-    fn as_array_mut(&mut self) -> Option<&mut Vec<Self>> where Self: Sized;
+    // fn as_array_mut(&mut self) -> Option<&mut Vec<Self>> where Self: Sized;
     fn len(&self) -> usize;
 }
 impl ValueExt for JsonValue {
@@ -566,12 +560,12 @@ impl YamlValueExt for YamlValue {
         //     }
         // }
 
-        fn as_array_mut(&mut self) -> Option<&mut Vec<YamlValue>> {
-            match self {
-                YamlValue::Sequence(seq) => Some(seq),
-                _ => None
-            }
-        }
+        // fn as_array_mut(&mut self) -> Option<&mut Vec<YamlValue>> {
+        //     match self {
+        //         YamlValue::Sequence(seq) => Some(seq),
+        //         _ => None
+        //     }
+        // }
         fn len(&self) -> usize {
             match self {
                 YamlValue::Sequence(values) => values.len(),
