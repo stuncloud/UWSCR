@@ -24,6 +24,11 @@ enum JYValueRef<'a> {
     Json(&'a JsonValue),
     Yaml(&'a YamlValue),
 }
+#[derive(Debug)]
+enum JYValueMut<'a> {
+    Json(&'a mut JsonValue),
+    Yaml(&'a mut YamlValue),
+}
 impl JYValue {
     const NULL_JSON: JsonValue = JsonValue::Null;
     const NULL_YAML: YamlValue = YamlValue::Null;
@@ -38,6 +43,32 @@ impl JYValue {
             None => match self {
                 JYValue::Json(value) => JYValueRef::Json(value),
                 JYValue::Yaml(value) => JYValueRef::Yaml(value),
+            },
+        }
+    }
+    fn set_value_on_pointer<F, T>(&mut self, pointer: Option<&str>, f: F) -> T
+    where
+        F: Fn(JYValueMut) -> T,
+    {
+        match pointer {
+            Some(p) => {
+                match self {
+                    JYValue::Json(value) => match value.pointer_mut(p) {
+                        Some(v) => f(JYValueMut::Json(v)),
+                        None => f(JYValueMut::Json(&mut JsonValue::Null)),
+                    },
+                    JYValue::Yaml(value) => match value.pointer_mut(p) {
+                        Some(v) => f(JYValueMut::Yaml(v)),
+                        None => f(JYValueMut::Yaml(&mut YamlValue::Null)),
+                    },
+                }
+            },
+            None => {
+                let jymut = match self {
+                    JYValue::Json(value) => JYValueMut::Json(value),
+                    JYValue::Yaml(value) => JYValueMut::Yaml(value),
+                };
+                f(jymut)
             },
         }
     }
@@ -95,9 +126,9 @@ impl UObject {
     pub fn pointer_to<I: std::fmt::Display + ?Sized>(&self, member: Option<&I>) -> Option<String> {
         match (&self.pointer, member) {
             (None, None) => None,
-            (None, Some(i)) => Some(format!("/{}", i)),
+            (None, Some(i)) => Some(format!("/{i}")),
             (Some(p), None) => Some(p.to_string()),
-            (Some(p), Some(i)) => Some(format!("{}/{}", p, i)),
+            (Some(p), Some(i)) => Some(format!("{p}/{i}")),
         }
     }
     fn json_value_to_object<I: std::fmt::Display>(&self, value: &JsonValue, member: Option<&I>) -> Object {
@@ -176,123 +207,86 @@ impl UObject {
     }
     /// UObjectへの代入
     pub fn set(&self, index: Object, new_value: Object, member: Option<String>) -> EvalResult<()> {
+        let new_jy = JYValue::try_from(new_value)?;
         let mut write = self.value.write().unwrap();
+        let index = &index;
         let pointer = self.pointer_to(member.as_ref());
-        match &mut *write {
-            JYValue::Json(value) => {
-                let new_json_value = new_value.try_into()?;
-                let mut_val = match &pointer {
-                    Some(p) => value.pointer_mut(p)
-                            .ok_or(UError::new(
-                                UErrorKind::UObjectError,
-                                UErrorMessage::InvalidMemberOrIndex(member.unwrap_or_default())
-                            ))?,
-                    None => value.borrow_mut(),
-                };
-                match index {
-                    Object::String(key) => {
-                        match mut_val.get_case_insensitive_mut(&key) {
-                            Some(v) => {
-                                *v = new_json_value;
-                                Ok(())
-                            },
-                            None => Err(UError::new(
-                                UErrorKind::UObjectError,
-                                UErrorMessage::InvalidMemberOrIndex(key)
-                            )),
-                        }
-                    },
-                    Object::Num(i) => {
-                        match mut_val.get_mut(i as usize) {
-                            Some(v) => {
-                                *v = new_json_value;
-                                Ok(())
-                            },
-                            None => todo!(),
-                        }
-                    },
-                    o => Err(UError::new(
-                        UErrorKind::UObjectError,
-                        UErrorMessage::InvalidMemberOrIndex(o.to_string())
-                    )),
-                }
-            },
-            JYValue::Yaml(value) => {
-                let new_yaml_value = new_value.try_into()?;
-                let mut_val = match &pointer {
-                    Some(p) => value.pointer_mut(p)
-                    .ok_or(UError::new(
-                        UErrorKind::UObjectError,
-                        UErrorMessage::InvalidMemberOrIndex(member.unwrap_or_default())
-                    ))?,
-                    None => value.borrow_mut(),
-                };
-                match index {
-                    Object::String(key) => {
-                        match mut_val.get_case_insensitive_mut(&key) {
-                            Some(v) => {
-                                *v = new_yaml_value;
-                                Ok(())
-                            },
-                            None => Err(UError::new(
-                                UErrorKind::UObjectError,
-                                UErrorMessage::InvalidMemberOrIndex(key)
-                            )),
-                        }
-                    },
-                    Object::Num(i) => {
-                        match mut_val.get_mut(i as usize) {
-                            Some(v) => {
-                                *v = new_yaml_value;
-                                Ok(())
-                            },
-                            None => todo!(),
-                        }
-                    },
-                    o => Err(UError::new(
-                        UErrorKind::UObjectError,
-                        UErrorMessage::InvalidMemberOrIndex(o.to_string())
-                    )),
-                }
-            },
-        }
+        write.set_value_on_pointer(pointer.as_deref(), move |jymut| {
+            match jymut {
+                JYValueMut::Json(value) => {
+                    let new_j = JsonValue::from(new_jy.clone());
+                    match index {
+                        Object::String(key) => {
+                            let old = value.get_case_insensitive_mut(key)
+                                .ok_or(UError::new(UErrorKind::UObjectError, UErrorMessage::InvalidMemberOrIndex(key.to_string())))?;
+                            *old = new_j;
+                            Ok(())
+                        },
+                        Object::Num(i) => {
+                            let old = value.get_mut(*i as usize)
+                                .ok_or(UError::new(UErrorKind::UObjectError, UErrorMessage::InvalidMemberOrIndex(i.to_string())))?;
+                            *old = new_j;
+                            Ok(())
+                        },
+                        _ => Err(UError::new(
+                            UErrorKind::UObjectError,
+                            UErrorMessage::InvalidMemberOrIndex(index.to_string())
+                        ))
+                    }
+                },
+                JYValueMut::Yaml(value) => {
+                    let new_y = YamlValue::from(new_jy.clone());
+                    match index {
+                        Object::String(key) => {
+                            let old = value.get_case_insensitive_mut(key)
+                                .ok_or(UError::new(UErrorKind::UObjectError, UErrorMessage::InvalidMemberOrIndex(key.to_string())))?;
+                            *old = new_y;
+                            Ok(())
+                        },
+                        Object::Num(i) => {
+                            let old =value.get_mut(*i as usize)
+                                .ok_or(UError::new(UErrorKind::UObjectError, UErrorMessage::InvalidMemberOrIndex(i.to_string())))?;
+                            *old = new_y;
+                            Ok(())
+                        },
+                        _ => Err(UError::new(
+                            UErrorKind::UObjectError,
+                            UErrorMessage::InvalidMemberOrIndex(index.to_string())
+                        ))
+                    }
+                },
+            }
+        })
     }
     /// 配列へのpush\
     /// 成功時true
     pub fn push(&self, new_value: Object) -> bool {
+        let Ok(new_jy) = JYValue::try_from(new_value) else {
+            return false;
+        };
         let mut write = self.value.write().unwrap();
-        match &mut *write {
-            JYValue::Json(value) => {
-                let Ok(new_json_value) = new_value.try_into() else {
-                    return false;
-                };
-                let mut_array = match &self.pointer {
-                    Some(p) => value.pointer_mut(p).and_then(|v| v.as_array_mut()),
-                    None => value.as_array_mut(),
-                };
-                if let Some(array) = mut_array {
-                    array.push(new_json_value);
-                    true
-                } else {
-                    false
-                }
-            },
-            JYValue::Yaml(value) => {
-                let Ok(new_yaml_value) = new_value.try_into() else {
-                    return false
-                };
-                let mut_array = match &self.pointer {
-                    Some(p) => value.pointer_mut(p).and_then(|v| v.as_array_mut()),
-                    None => value.as_array_mut(),
-                };
-                if let Some(array) = mut_array {
-                    array.push(new_yaml_value);
-                    true
-                } else {
-                    false
-                }
-            },
-        }
+        write.set_value_on_pointer(self.pointer.as_deref(), move |jymut| {
+            match jymut {
+                JYValueMut::Json(value) => {
+                    let new_j = JsonValue::from(new_jy.clone());
+                    if let JsonValue::Array(arr) = value {
+                        arr.push(new_j);
+                        true
+                    } else {
+                        false
+                    }
+                },
+                JYValueMut::Yaml(value) => {
+                    let new_y = YamlValue::from(new_jy.clone());
+                    if let YamlValue::Sequence(seq) = value {
+                        seq.push(new_y);
+                        true
+                    } else {
+                        false
+                    }
+                },
+            }
+        })
     }
     pub fn to_object_vec(&self) -> EvalResult<Vec<Object>> {
         let read = self.value.read().unwrap();
@@ -301,6 +295,11 @@ impl UObject {
             JYValueRef::Json(JsonValue::Array(vec)) => {
                 let vec = vec.iter().enumerate()
                     .map(|(i, v)| self.json_value_to_object(v, Some(&i)))
+                    .inspect(|o| {
+                        if let Object::UObject(uo) = o {
+                            dbg!(uo);
+                        }
+                    })
                     .collect();
                 Ok(vec)
             },
@@ -653,6 +652,58 @@ impl From<JYValue> for YamlValue {
                     YamlValue::Mapping(mapping)
                 },
             },
+        }
+    }
+}
+
+impl TryFrom<Object> for JYValue {
+    type Error = UError;
+
+    fn try_from(object: Object) -> Result<Self, Self::Error> {
+        match object {
+            Object::Null => Ok(JYValue::Json(JsonValue::Null)),
+            Object::Bool(b) => Ok(JYValue::Json(JsonValue::Bool(b))),
+            Object::Num(n) => match serde_json::Number::from_f64(n) {
+                Some(n) => Ok(JYValue::Json(JsonValue::Number(n))),
+                None => Err(UError::new(
+                    UErrorKind::UObjectError,
+                    UErrorMessage::CanNotConvertToUObject(object)
+                )),
+            },
+            Object::String(s) => Ok(JYValue::Json(JsonValue::String(s))),
+            Object::UObject(uo) => {
+                let read = uo.value.read().unwrap();
+                match &*read {
+                    JYValue::Json(value) => {
+                        match &uo.pointer {
+                            Some(p) => match value.pointer(p) {
+                                Some(value) => Ok(JYValue::Json(value.clone())),
+                                None => Ok(JYValue::Json(JsonValue::Null)),
+                            },
+                            None => Ok(JYValue::Json(value.clone())),
+                        }
+                    },
+                    JYValue::Yaml(value) => {
+                        match &uo.pointer {
+                            Some(p) => match value.pointer(p) {
+                                Some(value) => Ok(JYValue::Yaml(value.clone())),
+                                None => Ok(JYValue::Yaml(YamlValue::Null)),
+                            },
+                            None => Ok(JYValue::Yaml(value.clone())),
+                        }
+                    },
+                }
+            },
+            Object::Array(arr) => {
+                let arr = arr.into_iter()
+                    .map(|o| o.try_into())
+                    .collect::<Result<_, Self::Error>>()?;
+                Ok(JYValue::Json(JsonValue::Array(arr)))
+            }
+            o => Err(UError::new(
+                UErrorKind::UObjectError,
+                UErrorMessage::CanNotConvertToUObject(o)
+            ))
         }
     }
 }
