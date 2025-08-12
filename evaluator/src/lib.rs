@@ -1046,6 +1046,10 @@ impl Evaluator {
                 let vec = com.to_object_vec()?;
                 self.eval_for_in_statement_inner(vec, var, index_var, islast_var, block, alt)
             },
+            Object::SafeArray(sa) => {
+                let vec = sa.iter().map(|v| v).collect();
+                self.eval_for_in_statement_inner(vec, var, index_var, islast_var, block, alt)
+            }
             Object::UObject(uo) => {
                 let vec = uo.to_object_vec()?;
                 self.eval_for_in_statement_inner(vec, var, index_var, islast_var, block, alt)
@@ -1830,6 +1834,19 @@ impl Evaluator {
             Object::ComObject(com) => {
                 com.get_by_index(vec![index])?
             },
+            Object::SafeArray(sa) => {
+                if let Object::Num(i) = index {
+                    sa.iter().nth(i as _).map(Object::from).ok_or(UError::new(
+                        UErrorKind::EvaluatorError,
+                        UErrorMessage::IndexOutOfBounds(index),
+                    ))?
+                } else {
+                    return Err(UError::new(
+                        UErrorKind::EvaluatorError,
+                        UErrorMessage::InvalidIndex(index)
+                    ));
+                }
+            }
             Object::ByteArray(arr) => if hash_enum.is_some() {
                 return Err(UError::new(
                     UErrorKind::EvaluatorError,

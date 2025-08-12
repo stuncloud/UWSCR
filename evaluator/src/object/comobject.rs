@@ -1,3 +1,5 @@
+mod safearray;
+
 use windows::{
     core::{
         self, BSTR, HRESULT, HSTRING, PCWSTR, PWSTR, ComInterface, GUID, Interface, implement, IUnknown,
@@ -30,7 +32,7 @@ use windows::{
             Ole::{
                 GetActiveObject,
                 DISPID_PROPERTYPUT, DISPID_NEWENUM,
-                SafeArrayCreate, SafeArrayPutElement, SafeArrayGetElement, SafeArrayGetLBound, SafeArrayGetUBound, SafeArrayDestroy,
+                SafeArrayCreate, SafeArrayPutElement, SafeArrayDestroy,
                 IEnumVARIANT,
                 IDispatchEx,fdexNameCaseInsensitive,
             },
@@ -47,7 +49,7 @@ use windows::{
         },
     }
 };
-
+pub use safearray::SAVec;
 use crate::{Object, Evaluator, EvalResult, Function};
 use crate::error::{UError, UErrorKind, UErrorMessage};
 use parser::ast::{Expression, Identifier};
@@ -72,6 +74,13 @@ pub enum ComError {
         description: Option<String>
     },
     UError(UError),
+    /// SAFEARRAYインデックス範囲外\
+    /// (次元, (lbound, ubound))
+    SafeArrayIndexOutOfBounds(usize, (i32, i32)),
+    /// SAFEARRAY次元数不一致
+    SafeArrayDimensionMismatch,
+    /// SAFEARRAYがぬるぽ
+    SafeArrayNullPointer,
     IENotAllowed,
 }
 impl ComError {
@@ -94,8 +103,7 @@ impl ComError {
             ComError::WindowsError { message: _, code, description: _ } => {
                 *code == DISP_E_MEMBERNOTFOUND.0
             },
-            ComError::UError(_) |
-            ComError::IENotAllowed => false,
+            _ => false,
         }
     }
     fn into_windows_error(self) -> core::Error {
@@ -116,7 +124,14 @@ impl ComError {
                 let code = HRESULT(-1);
                 let message = HSTRING::from("Internet Explorer not allowed");
                 core::Error::new(code, message)
-            }
+            },
+            ComError::SafeArrayIndexOutOfBounds(_, _) |
+            ComError::SafeArrayDimensionMismatch |
+            ComError::SafeArrayNullPointer => {
+                let code = HRESULT(-1);
+                let message = HSTRING::from("safearray error");
+                core::Error::new(code, message)
+            },
         }
     }
 }
@@ -158,6 +173,30 @@ impl From<ComError> for UError {
             },
             ComError::IENotAllowed => {
                 Self::new(UErrorKind::ProgIdError, UErrorMessage::InternetExplorerNotAllowed)
+            },
+            ComError::SafeArrayDimensionMismatch => {
+                Self::new_com_error(
+                    UErrorKind::SafeArrayError,
+                    UErrorMessage::ComError("dimension mismatch".to_string(), None)
+                )
+            },
+            ComError::SafeArrayIndexOutOfBounds(d, (l, u)) => {
+                Self::new_com_error(
+                    UErrorKind::SafeArrayError,
+                    UErrorMessage::ComError(
+                        format!("index out of bounds on dimension {d}; should be between {l} to {u}"),
+                        None
+                    )
+                )
+            }
+            ComError::SafeArrayNullPointer => {
+                Self::new_com_error(
+                    UErrorKind::SafeArrayError,
+                    UErrorMessage::ComError(
+                        "null pointer".to_string(),
+                        None
+                    )
+                )
             }
         }
     }
@@ -881,30 +920,22 @@ impl TryInto<Object> for *mut SAFEARRAY {
 
     #[allow(clippy::not_unsafe_ptr_arg_deref)]
     fn try_into(self) -> Result<Object, Self::Error> {
-        unsafe {
-            let lbound = SafeArrayGetLBound(self, 1)?;
-            let ubound = SafeArrayGetUBound(self, 1)?;
-            let size = ubound - lbound + 1;
-            let arr = (0..size)
-                .map(|rgindices| {
-                    let mut variant = VARIANT::default();
-                    let pv = &mut variant as *mut _ as *mut c_void;
-                    SafeArrayGetElement(self, &rgindices, pv)?;
-                    variant.try_into()
-                })
-                .collect::<ComResult<Vec<Object>>>()?;
-            Ok(Object::Array(arr))
+        SAVec::new(self)
+            .map(|savec| Object::SafeArray(savec))
         }
     }
-}
 impl TryInto<Object> for *mut *mut SAFEARRAY {
     type Error = ComError;
 
     #[allow(clippy::not_unsafe_ptr_arg_deref)]
     fn try_into(self) -> Result<Object, Self::Error> {
         unsafe {
-            let psa = *self;
-            psa.try_into()
+            if let Some(psa) = self.as_ref() {
+                SAVec::new(*psa)
+                    .map(|savec| Object::SafeArray(savec))
+            } else {
+                Err(ComError::SafeArrayNullPointer)
+            }
         }
     }
 }

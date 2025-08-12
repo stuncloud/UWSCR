@@ -24,7 +24,7 @@ pub use self::class::ClassInstance;
 pub use variant::Variant;
 use browser::{BrowserBuilder, Browser, TabWindow, RemoteObject};
 pub use web::{WebRequest, WebResponse, HtmlNode};
-pub use comobject::{ComObject, ComError, ComArg, Unknown, Excel, ExcelOpenFlag, ObjectTitle, VariantExt};
+pub use comobject::{ComObject, ComError, ComArg, Unknown, Excel, ExcelOpenFlag, ObjectTitle, VariantExt, SAVec};
 
 use util::settings::USETTINGS;
 use crate::environment::Layer;
@@ -87,6 +87,7 @@ pub enum Object {
     ComObject(ComObject),
     Unknown(Unknown),
     Variant(Variant),
+    SafeArray(SAVec),
     BrowserBuilder(Arc<Mutex<BrowserBuilder>>),
     Browser(Browser),
     TabWindow(TabWindow),
@@ -165,6 +166,7 @@ impl std::fmt::Debug for Object {
             Object::ComObject(arg0) => f.debug_tuple("ComObject").field(arg0).finish(),
             Object::Unknown(arg0) => f.debug_tuple("Unknown").field(arg0).finish(),
             Object::Variant(arg0) => f.debug_tuple("Variant").field(arg0).finish(),
+            Object::SafeArray(arg0) => f.debug_tuple("SafeArray").field(arg0).finish(),
             Object::WebViewForm(arg0) => f.debug_tuple("WebViewForm").field(arg0).finish(),
             Object::WebViewRemoteObject(arg0) => f.debug_tuple("WebViewRemoteObject").field(arg0).finish(),
             Object::ParamStr(vec) => f.debug_list().entries(vec.iter()).finish(),
@@ -306,6 +308,7 @@ impl fmt::Display for Object {
             Object::ComObject(com) => write!(f, "{com}"),
             Object::Unknown(unk) => write!(f, "{unk}"),
             Object::Variant(variant) => write!(f, "{variant}"),
+            Object::SafeArray(sa) => write!(f, "{sa:?}"),
             Object::WebViewForm(form) => write!(f, "{form}"),
             Object::WebViewRemoteObject(remote) => write!(f, "{remote}"),
             Object::ParamStr(vec) => write!(f, "{vec:?}"),
@@ -463,6 +466,9 @@ impl PartialEq for Object {
             Object::Variant(var1) => {
                 if let Object::Variant(var2) = other {var1 == var2} else {false}
             },
+            Object::SafeArray(sa1) => {
+                if let Object::SafeArray(sa2) = other {sa1 == sa2} else {false}
+            },
             Object::WebViewForm(form1) => {
                 if let Object::WebViewForm(form2) = other {form1 == form2} else {false}
             },
@@ -523,6 +529,7 @@ impl Object {
             Object::ComObject(_) => ObjectType::TYPE_COM_OBJECT,
             Object::Unknown(_) => ObjectType::TYPE_IUNKNOWN,
             Object::Variant(_) => ObjectType::TYPE_VARIANT,
+            Object::SafeArray(_) => ObjectType::TYPE_SAFEARRAY,
             Object::BrowserBuilder(_) => ObjectType::TYPE_BROWSERBUILDER_OBJECT,
             Object::Browser(_) => ObjectType::TYPE_BROWSER_OBJECT,
             Object::TabWindow(_) => ObjectType::TYPE_TABWINDOW_OBJECT,
@@ -570,7 +577,7 @@ impl Object {
             Object::ChkClrResult(v) => v.len(),
             #[cfg(feature="chkimg")]
             Object::ColorFound(found) => Object::from(found).length()?,
-
+            Object::SafeArray(sa) => sa.len(),
 
             Object::AnonFunc(_) |
             Object::Function(_) |
