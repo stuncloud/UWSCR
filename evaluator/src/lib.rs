@@ -1908,7 +1908,8 @@ impl Evaluator {
                             UErrorMessage::NotAnArray(left)
                         ))
                     },
-                    MemberCaller::UObject(_) => {
+                    MemberCaller::UObject(_) |
+                    MemberCaller::SafeArray(_) => {
                         unreachable!();
                     }
                 }
@@ -2852,7 +2853,23 @@ impl Evaluator {
                             let obj = remote.invoke_method(&member, args, is_await)?;
                             Ok(obj)
                         },
-                        MemberCaller::UObject(uobj) => uobj.invoke_method(&member)
+                        MemberCaller::UObject(uobj) => uobj.invoke_method(&member),
+                        MemberCaller::SafeArray(sa) => {
+                            match member {
+                                member if member.eq_ignore_ascii_case("get") => {
+                                    let indices = arguments.into_iter()
+                                        .map(|(_, arg)| arg)
+                                        .map(|o| o.as_f64(false).ok_or(UError::new(UErrorKind::SafeArrayError, UErrorMessage::InvalidIndex(o))))
+                                        .map(|o| o.map(|i| i as i32))
+                                        .collect::<EvalResult<Vec<_>>>()?;
+                                    let obj = sa.get(&indices)?;
+                                    Ok(obj)
+                                },
+                                member => {
+                                    Err(UError::new(UErrorKind::SafeArrayError, UErrorMessage::CanNotCallMethod(member)))
+                                }
+                            }
+                        }
                     }
                 },
                 o => Err(UError::new(
@@ -3032,6 +3049,9 @@ impl Evaluator {
                     remote.get_property(&member, None).map_err(|e| e.into())
                 }
             },
+            Object::SafeArray(sa) if is_func => {
+                Ok(Object::MemberCaller(MemberCaller::SafeArray(sa), member))
+            }
             o => Err(UError::new(
                 UErrorKind::DotOperatorError,
                 UErrorMessage::DotOperatorNotSupported(o)

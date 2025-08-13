@@ -265,11 +265,11 @@ impl fmt::Display for Object {
                     },
             Object::Csv(csv) => {
                         match csv.read() {
-                            Ok(csv) => write!(f, "{}", csv),
+                            Ok(csv) => write!(f, "{csv}"),
                             Err(e) => write!(f, "{} (poisoned)", e.get_ref()),
                         }
                     },
-            Object::ByteArray(arr) => write!(f, "{:?}", arr),
+            Object::ByteArray(arr) => write!(f, "{arr:?}"),
             Object::Reference(_, _) => write!(f, "Reference"),
             Object::WebRequest(req) => {
                         let mutex = req.lock().unwrap();
@@ -303,6 +303,7 @@ impl fmt::Display for Object {
                             MemberCaller::WebViewForm(_) => write!(f, "WebViewForm.{member}"),
                             MemberCaller::WebViewRemoteObject(_) => write!(f, "WebViewRemoteObject.{member}"),
                             MemberCaller::UObject(_) => write!(f, "UObject.{member}"),
+                            MemberCaller::SafeArray(_) => write!(f, "SafeArray.{member}"),
                         }
                     },
             Object::ComObject(com) => write!(f, "{com}"),
@@ -1480,6 +1481,7 @@ pub enum MemberCaller {
     WebViewForm(WebViewForm),
     WebViewRemoteObject(WebViewRemoteObject),
     UObject(UObject),
+    SafeArray(SAVec),
 }
 
 impl PartialEq for MemberCaller {
@@ -1507,6 +1509,7 @@ impl PartialEq for MemberCaller {
             (Self::WebViewForm(l0), Self::WebViewForm(r0)) => l0 == r0,
             (Self::WebViewRemoteObject(l0), Self::WebViewRemoteObject(r0)) => l0 == r0,
             (Self::UObject(l0), Self::UObject(r0)) => l0 == r0,
+            (Self::SafeArray(l0), Self::SafeArray(r0)) => l0 == r0,
             _ => false,
         }
     }
