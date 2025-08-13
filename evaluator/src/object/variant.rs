@@ -2,12 +2,14 @@ use std::fmt;
 use windows::Win32::System::{
     Ole::VarEqv,
     Variant::{
-        VariantClear, VARENUM, VARIANT, VT_BOOL, VT_BSTR, VT_CY, VT_DATE, VT_DECIMAL, VT_DISPATCH, VT_ERROR, VT_I1, VT_I2, VT_I4, VT_I8, VT_INT, VT_NULL, VT_R4, VT_R8, VT_UI1, VT_UI2, VT_UI4, VT_UI8, VT_UINT, VT_UNKNOWN,
+        VariantClear,
+        VARENUM, VARIANT,
+        VT_ARRAY, VT_EMPTY, VT_BOOL, VT_BSTR, VT_CY, VT_DATE, VT_DECIMAL, VT_DISPATCH, VT_ERROR, VT_I1, VT_I2, VT_I4, VT_I8, VT_INT, VT_NULL, VT_R4, VT_R8, VT_UI1, VT_UI2, VT_UI4, VT_UI8, VT_UINT, VT_UNKNOWN,
     }
 };
 use super::{
     Object,
-    comobject::{VariantExt, ComError, ComResult, Unknown, ComObject},
+    comobject::{VariantExt, ComError, ComResult, Unknown, ComObject, SAVec},
     UError, UErrorKind, UErrorMessage,
 };
 
@@ -66,6 +68,8 @@ impl TryFrom<Variant> for Object {
         unsafe {
             let v00 = &value.0.Anonymous.Anonymous;
             let obj = match value.0.vt() {
+                VT_EMPTY => Object::Empty,
+                VT_NULL => Object::Null,
                 VT_BOOL => v00.Anonymous.boolVal.as_bool().into(),
                 VT_BSTR => v00.Anonymous.bstrVal.to_string().into(),
                 VT_CY => v00.Anonymous.cyVal.int64.into(),
@@ -94,6 +98,10 @@ impl TryFrom<Variant> for Object {
                 VT_DISPATCH => match v00.Anonymous.pdispVal.as_ref() {
                     Some(disp) => Object::ComObject(ComObject::from(disp.clone())),
                     None => Object::Nothing,
+                },
+                vt if (vt.0 & VT_ARRAY.0) == VT_ARRAY.0 => {
+                    let sa = SAVec::new(v00.Anonymous.parray)?;
+                    Object::SafeArray(sa)
                 },
                 VARENUM(vt) => {
                     return Err(UError::new(UErrorKind::VariantError, UErrorMessage::FromVariant(vt)));

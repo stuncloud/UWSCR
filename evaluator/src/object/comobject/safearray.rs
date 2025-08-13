@@ -46,7 +46,7 @@ impl SAVec {
                 },
                 VT_CY => {
                     let sad = SafeArrayData::<CY>::new(psa)?;
-                    let data = sad.iter().map(|cy| SAValue::Cy(*cy)).collect();
+                    let data = sad.iter().map(|cy| SAValue::Cy(cy.int64)).collect();
                     let bounds = sad.bounds();
                     Self { data, bounds }
                 },
@@ -228,7 +228,7 @@ impl std::fmt::Display for SABound {
 pub enum SAValue {
     Bool(bool),
     Bstr(BSTR),
-    Cy(CY),
+    Cy(i64),
     Date(f64),
     Decimal(DECIMAL),
     Dispatch(IDispatch),
@@ -254,9 +254,7 @@ impl PartialEq for SAValue {
             (Self::Bool(l0), Self::Bool(r0)) => l0 == r0,
             (Self::Bstr(l0), Self::Bstr(r0)) => l0 == r0,
             (Self::Date(l0), Self::Date(r0)) => l0 == r0,
-            (Self::Cy(l0), Self::Cy(r0)) => {
-                Variant::from(*l0) == Variant::from(*r0)
-            },
+            (Self::Cy(l0), Self::Cy(r0)) => l0 == r0,
             (Self::Decimal(l0), Self::Decimal(r0)) => {
                 Variant::from(*l0) == Variant::from(*r0)
             },
@@ -309,23 +307,23 @@ impl From<&SAValue> for Object {
         }
     }
 }
-impl From<CY> for Variant {
-    fn from(value: CY) -> Self {
-        let mut variant = VARIANT::default();
-        let mut v00 = VARIANT_0_0 {
-            vt: VT_CY,
-            ..Default::default()
-        };
-        v00.Anonymous.cyVal = value;
-        variant.Anonymous.Anonymous = ManuallyDrop::new(v00);
-        Variant(variant)
-    }
-}
-impl From<CY> for Object {
-    fn from(value: CY) -> Self {
-        Object::Variant(value.into())
-    }
-}
+// impl From<CY> for Variant {
+//     fn from(value: CY) -> Self {
+//         let mut variant = VARIANT::default();
+//         let mut v00 = VARIANT_0_0 {
+//             vt: VT_CY,
+//             ..Default::default()
+//         };
+//         v00.Anonymous.cyVal = value;
+//         variant.Anonymous.Anonymous = ManuallyDrop::new(v00);
+//         Variant(variant)
+//     }
+// }
+// impl From<CY> for Object {
+//     fn from(value: CY) -> Self {
+//         Object::Variant(value.into())
+//     }
+// }
 impl From<DECIMAL> for Variant {
     fn from(value: DECIMAL) -> Self {
         let mut variant = VARIANT::default();
@@ -340,7 +338,8 @@ impl From<DECIMAL> for Variant {
 }
 impl From<DECIMAL> for Object {
     fn from(value: DECIMAL) -> Self {
-        Object::Variant(value.into())
+        let var = Variant::from(value);
+        var.try_into().unwrap_or(Object::Null)
     }
 }
 
