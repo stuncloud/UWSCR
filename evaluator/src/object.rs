@@ -579,6 +579,7 @@ impl Object {
             #[cfg(feature="chkimg")]
             Object::ColorFound(found) => Object::from(found).length()?,
             Object::SafeArray(sa) => sa.len(),
+            Object::HtmlNode(node) => return node.len(),
 
             Object::AnonFunc(_) |
             Object::Function(_) |
@@ -612,7 +613,6 @@ impl Object {
             Object::Reference(_, _) |
             Object::WebRequest(_) |
             Object::WebResponse(_) |
-            Object::HtmlNode(_) |
             Object::MemberCaller(_, _) |
             Object::WebViewForm(_) |
             Object::WebViewRemoteObject(_)  => None?,

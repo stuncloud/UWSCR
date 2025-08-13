@@ -419,6 +419,12 @@ impl HtmlNode {
     pub fn set_index(&mut self, index: usize) {
         self.push_accessor(Accessor::Index(index));
     }
+    pub fn len(&self) -> Option<usize> {
+        match self.access()? {
+            Accessed::Select(select) => Some(select.count()),
+            Accessed::ElementRef(_) => None,
+        }
+    }
     pub fn into_vec(self) -> Option<Vec<Object>> {
         match self.access()? {
             Accessed::Select(select) => {
@@ -486,6 +492,12 @@ impl HtmlNode {
                 let sep = args.as_string(0).ok();
                 let trim = args._as_bool(1).unwrap_or(true);
                 self.text_content(sep.as_deref(), trim)
+            }
+            "count" => {
+                let obj = self.len()
+                    .map(|l| l.into())
+                    .unwrap_or(Object::Empty);
+                Ok(obj)
             }
             _ => Err(UError::new(
                 UErrorKind::HtmlNodeError,

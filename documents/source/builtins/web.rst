@@ -1266,6 +1266,14 @@ HtmlNodeオブジェクト
         :rtype: 文字列、または文字列の配列
         :return: 結合した文字列またはその配列
 
+    .. method:: count()
+
+        | コレクションの場合は要素の数を返す
+        | それ以外はEMPTY
+
+        :rtype: 数値またはEMPTY
+        :return: コレクションの要素数
+
     .. property:: outerhtml
 
         | エレメントのHTMLの文字列を返す
