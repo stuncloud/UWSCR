@@ -588,11 +588,19 @@ impl From<JYValue> for JsonValue {
             JYValue::Yaml(value) => match value {
                 YamlValue::Null => JsonValue::Null,
                 YamlValue::Bool(b) => JsonValue::Bool(b),
-                YamlValue::Number(number) => {
-                    let f = number.as_f64().unwrap_or_default();
-                    match serde_json::Number::from_f64(f) {
-                        Some(n) => JsonValue::Number(n),
-                        None => JsonValue::Null,
+                YamlValue::Number(yml_num) => {
+                    if yml_num.is_i64() {
+                        JsonValue::Number(yml_num.as_i64().map(serde_json::Number::from).unwrap())
+                    } else if yml_num.is_u64() {
+                        JsonValue::Number(yml_num.as_u64().map(serde_json::Number::from).unwrap())
+                    } else if yml_num.is_f64() {
+                        let f = yml_num.as_f64().unwrap();
+                        match serde_json::Number::from_f64(f) {
+                            Some(n) => JsonValue::Number(n),
+                            None => JsonValue::Null,
+                        }
+                    } else {
+                        JsonValue::Null
                     }
                 },
                 YamlValue::String(s) => JsonValue::String(s),
@@ -630,10 +638,16 @@ impl From<JYValue> for YamlValue {
             JYValue::Json(value) => match value {
                 JsonValue::Null => YamlValue::Null,
                 JsonValue::Bool(b) => YamlValue::Bool(b),
-                JsonValue::Number(number) => {
-                    let f = number.as_f64().unwrap_or_default();
-                    let n = serde_yml::Number::from(f);
-                    YamlValue::Number(n)
+                JsonValue::Number(jsn_num) => {
+                    if jsn_num.is_i64() {
+                        YamlValue::Number(jsn_num.as_i64().map(serde_yml::Number::from).unwrap())
+                    } else if jsn_num.is_u64() {
+                        YamlValue::Number(jsn_num.as_u64().map(serde_yml::Number::from).unwrap())
+                    } else if jsn_num.is_f64() {
+                        YamlValue::Number(jsn_num.as_f64().map(serde_yml::Number::from).unwrap())
+                    } else {
+                        YamlValue::Null
+                    }
                 },
                 JsonValue::String(s) => YamlValue::String(s),
                 JsonValue::Array(values) => {
@@ -658,12 +672,9 @@ impl TryFrom<Object> for JYValue {
         match object {
             Object::Null => Ok(JYValue::Json(JsonValue::Null)),
             Object::Bool(b) => Ok(JYValue::Json(JsonValue::Bool(b))),
-            Object::Num(n) => match serde_json::Number::from_f64(n) {
-                Some(n) => Ok(JYValue::Json(JsonValue::Number(n))),
-                None => Err(UError::new(
-                    UErrorKind::UObjectError,
-                    UErrorMessage::CanNotConvertToUObject(object)
-                )),
+            Object::Num(n) => {
+                let number = new_json_number(n)?;
+                Ok(JYValue::Json(JsonValue::Number(number)))
             },
             Object::String(s) => Ok(JYValue::Json(JsonValue::String(s))),
             Object::UObject(uo) => {
@@ -710,7 +721,10 @@ impl TryFrom<Object> for YamlValue {
         match object {
             Object::Null => Ok(YamlValue::Null),
             Object::Bool(b) => Ok(YamlValue::Bool(b)),
-            Object::Num(n) => Ok(YamlValue::Number(n.into())),
+            Object::Num(n) => {
+                let number = new_yaml_number(n);
+                Ok(YamlValue::Number(number))
+            },
             Object::String(s) => Ok(YamlValue::String(s)),
             Object::UObject(jy) => {
                 let read = jy.value.read().unwrap();
@@ -748,13 +762,8 @@ impl TryFrom<Object> for JsonValue {
             Object::Null => Ok(JsonValue::Null),
             Object::Bool(b) => Ok(JsonValue::Bool(b)),
             Object::Num(f) => {
-                match serde_json::Number::from_f64(f) {
-                    Some(n) => Ok(JsonValue::Number(n)),
-                    None => Err(UError::new(
-                        UErrorKind::UObjectError,
-                        UErrorMessage::CanNotConvertToUObject(object)
-                    )),
-                }
+                let number = new_json_number(f)?;
+                Ok(JsonValue::Number(number))
             },
             Object::String(s) => Ok(JsonValue::String(s)),
             Object::UObject(jy) => {
@@ -809,5 +818,31 @@ impl From<&serde_json::Number> for Object {
 impl From<&serde_yml::Number> for Object {
     fn from(n: &serde_yml::Number) -> Self {
         n.as_f64().unwrap_or_default().into()
+    }
+}
+
+fn new_json_number(n: f64) -> Result<serde_json::Number, UError> {
+    if n.fract() == 0.0 {
+        if n.is_sign_negative() {
+            Ok(serde_json::Number::from(n as i64))
+        } else {
+            Ok(serde_json::Number::from(n as u64))
+        }
+    } else {
+        serde_json::Number::from_f64(n).ok_or(UError::new(
+            UErrorKind::UObjectError,
+            UErrorMessage::CanNotConvertToUObject(Object::Num(n))
+        ))
+    }
+}
+fn new_yaml_number(n: f64) -> serde_yml::Number {
+    if n.fract() == 0.0 {
+        if n.is_sign_negative() {
+            serde_yml::Number::from(n as i64)
+        } else {
+            serde_yml::Number::from(n as u64)
+        }
+    } else {
+        serde_yml::Number::from(n)
     }
 }
