@@ -40,7 +40,7 @@ use windows::{
                 VARIANT, VARIANT_0_0,
                 VARENUM, VT_ARRAY,VT_BYREF,VT_BOOL,VT_BSTR,VT_CY,VT_DATE,VT_DECIMAL,VT_DISPATCH,VT_EMPTY,VT_I1,VT_I2,VT_I4,VT_I8,VT_INT,VT_NULL,VT_R4,VT_R8,VT_UI1,VT_UI2,VT_UI4,VT_UI8,VT_UINT,VT_UNKNOWN,VT_VARIANT,
                 // VT_PTR, VT_SAFEARRAY,
-                VAR_CHANGE_FLAGS,
+                VARIANT_ALPHABOOL,
                 VariantChangeType, VariantClear,
             },
             Wmi::{
@@ -1126,7 +1126,7 @@ impl VariantExt for VARIANT {
     fn change_type(&self, vt: VARENUM) -> ComResult<VARIANT> {
         unsafe {
             let mut new = VARIANT::default();
-            VariantChangeType(&mut new, self, VAR_CHANGE_FLAGS(0), vt)?;
+            VariantChangeType(&mut new, self, VARIANT_ALPHABOOL, vt)?;
             Ok(new)
         }
     }

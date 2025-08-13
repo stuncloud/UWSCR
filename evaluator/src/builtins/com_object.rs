@@ -78,6 +78,11 @@ pub enum VarType {
     #[strum[props(desc="VT_ARRAY")]]
     VAR_ARRAY    = 0x2000,
 }
+impl VarType {
+    fn is_var_uwscr(vt: u16) -> bool {
+        vt == 512
+    }
+}
 impl PartialEq<VarType> for u16 {
     fn eq(&self, other: &VarType) -> bool {
         match ToPrimitive::to_u16(other) {
@@ -237,13 +242,22 @@ fn vartype(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
             TwoTypeArg::U(vt) => {
                 match obj {
                     Object::Variant(v) => {
-                        let new = v.change_type(vt)?;
-                        Ok(new.into())
+                        if VarType::is_var_uwscr(vt) {
+                            let o = v.try_into()?;
+                            Ok(o)
+                        } else {
+                            let new = v.change_type(vt)?;
+                            Ok(new.into_object())
+                        }
                     }
                     obj => {
-                        let v = Variant::try_from(obj)?;
-                        let new = v.change_type(vt)?;
-                        Ok(new.into())
+                        if VarType::is_var_uwscr(vt) {
+                            Ok(obj)
+                        } else {
+                            let v = Variant::try_from(obj)?;
+                            let new = v.change_type(vt)?;
+                            Ok(new.into_object())
+                        }
                     }
                 }
             },
