@@ -1107,6 +1107,11 @@ impl Object {
                     })
                     .collect()
             },
+            Object::ByteArray(bytes) => {
+                bytes.iter()
+                    .map(|b| T::from_u8(*b))
+                    .collect()
+            }
             o => {
                 let n = o.as_f64(true)?;
                 let t = T::from_f64(n)?;
