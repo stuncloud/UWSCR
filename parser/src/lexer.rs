@@ -925,11 +925,10 @@ impl Lexer {
             return "".to_string();
         }
         loop {
-            match self.nextch() {
+            match self.ch {
                 // 行末が来たら次がendtextblockかどうかを見る
                 '\r' | '\n' => {
-                    end_pos = self.pos + 1;
-                    self.read_char();
+                    end_pos = self.pos;
                     if self.nextch_is('\n') {
                         self.read_char();
                     }
