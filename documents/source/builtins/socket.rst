@@ -25,15 +25,13 @@
             sclose(udp1) // sclose関数を使う
 
             udp2 = udpclient(addr, port)
-            udp2 = EMPTY // 別の値で上書きしソケットオブジェクトが失われるとソケットが閉じられる
+            udp2 = EMPTY // 別の値で上書きしソケットオブジェクトが失われれば自動クローズされる
 
 
 
     :param ソケットオブジェクト ソケット: 以下のいずれかを指定
 
         - UDPClient
-        - TCPClient
-        - TCPListener
         - WebSocket
 
 
@@ -275,7 +273,7 @@ WebSocket
 
 .. function:: WebSocket(wsuri)
 
-    | WebSocketセッションを張る
+    | WebSocketに接続する
 
     :param 文字列 wsuri: ``ws://`` から始まるURI
     :rtype: WebSocket
@@ -305,6 +303,30 @@ WebSocket
     | WebSocketでデータを受信する
 
     :param WebSocket WebSocket: WebSocketオブジェクト
-    :rtype: 文字列、バイト配列、定数
+    :rtype: 文字列、バイト配列、定数、EMPTY
     :return: 受信データによる
+
+        .. admonition:: 受信データの型に注意
+            :class: important
+
+            | データの型が不明な場合は ``type_of`` 関数で型のチェックを行ってください
+
+            .. sourcecode:: uwscr
+
+                res = WsRecv(ws)
+                select type_of(res)
+                    case TYPE_STRING
+                        for_string(res)
+                    case TYPE_BYTE_ARRAY
+                        for_bytes(res)
+                    case TYPE_NUMBER
+                        select res
+                            case WS_PING
+                                print "ping"
+                            case WS_PONG
+                                print "pong"
+                        selend
+                    default
+                        print "invalid data"
+                selend
 
