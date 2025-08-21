@@ -90,14 +90,14 @@ impl UObject {
         let value = JYValue::Yaml(value);
         Ok(Self::new(value))
     }
-    pub fn to_json_string(self) -> Result<String, UObjectError> {
+    pub fn to_json_string(&self) -> Result<String, UObjectError> {
         let read = self.value.read()?;
         let jyref = read.value_from_pointer(self.pointer.as_deref());
         let value = JsonValue::from(jyref);
         let s = serde_json::to_string(&value)?;
         Ok(s)
     }
-    pub fn to_json_string_pretty(self) -> Result<String, UObjectError> {
+    pub fn to_json_string_pretty(&self) -> Result<String, UObjectError> {
         let read = self.value.read()?;
         let jyref = read.value_from_pointer(self.pointer.as_deref());
         let value = JsonValue::from(jyref);
@@ -380,7 +380,7 @@ impl UObject {
 
 impl std::fmt::Display for UObject {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.clone().to_json_string() {
+        match self.to_json_string() {
             Ok(j) => write!(f, "{j}"),
             Err(e) => write!(f, "{e}"),
         }

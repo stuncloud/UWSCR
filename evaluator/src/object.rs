@@ -25,6 +25,7 @@ pub use variant::Variant;
 use browser::{BrowserBuilder, Browser, TabWindow, RemoteObject};
 pub use web::{WebRequest, WebResponse, HtmlNode};
 pub use comobject::{ComObject, ComError, ComArg, Unknown, Excel, ExcelOpenFlag, ObjectTitle, VariantExt, SAVec};
+use crate::builtins::socket::USocket;
 
 use util::settings::USETTINGS;
 use crate::environment::Layer;
@@ -116,6 +117,8 @@ pub enum Object {
     /// chkclr戻り値の個別アイテム
     #[cfg(feature="chkimg")]
     ColorFound(ColorFound),
+    /// ネットワーク系オブジェクト
+    Socket(USocket),
 }
 impl std::fmt::Debug for Object {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -174,6 +177,7 @@ impl std::fmt::Debug for Object {
             Object::ChkClrResult(vec) => f.debug_list().entries(vec.iter()).finish(),
             #[cfg(feature="chkimg")]
             Object::ColorFound(arg0) => f.debug_tuple("ColorFound").field(arg0).finish(),
+            Object::Socket(arg0) => write!(f, "{arg0:?}"),
         }
     }
 }
@@ -317,6 +321,7 @@ impl fmt::Display for Object {
             Object::ChkClrResult(res) => write!(f, "ChkClrResult({})", res.len()),
             #[cfg(feature="chkimg")]
             Object::ColorFound(found) => write!(f, "{found}"),
+            Object::Socket(nw) => write!(f, "{nw}"),
         }
     }
 }
@@ -487,6 +492,9 @@ impl PartialEq for Object {
             Object::ColorFound(v1) => {
                 if let Object::ColorFound(v2) = other {v1 == v2} else {false}
             },
+            Object::Socket(nw1) => {
+                if let Object::Socket(nw2) = other { nw1 == nw2 } else {false}
+            }
         }
     }
 }
@@ -550,6 +558,10 @@ impl Object {
             #[cfg(feature="chkimg")]
             Object::ColorFound(_) => ObjectType::TYPE_CHKCLR_ITEM,
             Object::ParamStr(_) => ObjectType::TYPE_PARAM_STR,
+            Object::Socket(socket) => match socket {
+                USocket::Udp(_) => ObjectType::TYPE_SOCKET_UDP,
+                USocket::WebSocket(_) => ObjectType::TYPE_SOCKET_WEBSOCKET,
+            }
 
             Object::EmptyParam |
             Object::DynamicVar(_) |
@@ -581,6 +593,7 @@ impl Object {
             Object::SafeArray(sa) => sa.len(),
             Object::HtmlNode(node) => return node.len(),
 
+            Object::Socket(_) |
             Object::AnonFunc(_) |
             Object::Function(_) |
             Object::AsyncFunction(_) |
@@ -1565,6 +1578,10 @@ pub enum ObjectType {
     TYPE_CHKCLR_RESULT,
     TYPE_CHKCLR_ITEM,
     TYPE_PARAM_STR,
+    TYPE_SOCKET_UDP,
+    // TYPE_SOCKET_TCP_CLIENT,
+    // TYPE_SOCKET_TCP_LISTENER,
+    TYPE_SOCKET_WEBSOCKET,
 
     TYPE_MEMBER_CALLER,
     TYPE_NOT_VALUE_TYPE,

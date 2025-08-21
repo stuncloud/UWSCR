@@ -9,6 +9,7 @@ pub mod browser_control;
 pub mod array_control;
 pub mod dialog;
 pub mod file_control;
+pub mod socket;
 #[cfg(feature="chkimg")]
 pub mod chkimg;
 
@@ -44,7 +45,7 @@ use std::sync::{Mutex, Arc, RwLock};
 use std::string::ToString;
 
 use strum::{VariantNames, EnumProperty};
-use num_traits::{ToPrimitive, FromPrimitive};
+use num_traits::{FromPrimitive, ToPrimitive};
 use strum_macros::EnumProperty;
 
 pub type BuiltinFunction = fn(&mut Evaluator, BuiltinFuncArgs) -> BuiltinFuncResult;
@@ -723,6 +724,15 @@ impl BuiltinFuncArgs {
             Ok(value)
         })
     }
+    pub fn get_as_user_function(&self, i: usize) -> BuiltInResult<Function> {
+        self.get_arg(i, |obj| {
+            match obj {
+                Object::AnonFunc(func) |
+                Object::Function(func) => Ok(func),
+                arg => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(arg))),
+            }
+        })
+    }
 
     pub fn get_as_func_or_num(&self, i: usize) -> BuiltInResult<TwoTypeArg<f64, Function>> {
         self.get_arg(i, |arg| {
@@ -775,7 +785,54 @@ impl BuiltinFuncArgs {
             }
         })
     }
-
+    fn get_as_bytearray(&self, i: usize) -> BuiltInResult<Vec<u8>> {
+        self.get_arg(i, |obj| {
+            match obj.as_bytearray() {
+                Some(bytes) => Ok(bytes),
+                None => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(obj))),
+            }
+        })
+    }
+    fn get_as_socket(&self, i: usize) -> BuiltInResult<socket::USocket> {
+        self.get_arg(i, |obj| {
+            match obj {
+                Object::Socket(socket) => Ok(socket),
+                o => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(o))),
+            }
+        })
+    }
+    fn get_as_udp(&self, i: usize) -> BuiltInResult<socket::UdpClient> {
+        self.get_arg(i, |obj| {
+            match obj {
+                Object::Socket(socket::USocket::Udp(udp_client)) => Ok(udp_client),
+                o => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(o))),
+            }
+        })
+    }
+    fn get_as_websocket(&self, i: usize) -> BuiltInResult<socket::WebSocket> {
+        self.get_arg(i, |obj| {
+            match obj {
+                Object::Socket(socket::USocket::WebSocket(socket)) => Ok(socket),
+                o => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(o))),
+            }
+        })
+    }
+    fn get_as_ascii(&self, i: usize) -> BuiltInResult<Option<u8>> {
+        self.get_arg_with_required_flag(i, false, |obj| {
+            match obj {
+                Object::String(s) => {
+                    let bytes = s.as_bytes();
+                    if bytes.len() == 1 {
+                        Ok(Some(bytes[0]))
+                    } else {
+                        Err(BuiltinFuncError::new(UErrorMessage::ShouldBeAsciiCharacter(s)))
+                    }
+                },
+                Object::Null => Ok(Some(0)),
+                o => Err(BuiltinFuncError::new(UErrorMessage::BuiltinArgInvalid(o))),
+            }
+        })
+    }
 }
 
 pub enum TwoTypeArg<T, U> {
@@ -835,7 +892,8 @@ impl BuiltinFunctionSets {
             BuiltinFunctionSet::new(name, len, func, desc)
         );
     }
-    fn append(&mut self, other: &mut Self) {
+    fn append(&mut self, other: Self) {
+        let mut other = other;
         self.sets.append(&mut other.sets)
     }
     pub fn set(self, vec: &mut Vec<NamedObject>) {
@@ -938,27 +996,29 @@ pub fn get_builtin_string_names() -> Vec<String> {
 
 fn init_builtin_functions() -> BuiltinFunctionSets {
     let mut sets = builtin_func_sets();
-    let mut window_low_sets = window_low::builtin_func_sets();
-    let mut window_control_sets = window_control::builtin_func_sets();
-    let mut text_control_sets = text_control::builtin_func_sets();
-    let mut system_controls_sets = system_controls::builtin_func_sets();
-    let mut math_sets = math::builtin_func_sets();
-    let mut com_object_sets = com_object::builtin_func_sets();
-    let mut browser_control_sets = browser_control::builtin_func_sets();
-    let mut array_control_sets = array_control::builtin_func_sets();
-    let mut dialog_sets = dialog::builtin_func_sets();
-    let mut file_control_sets = file_control::builtin_func_sets();
+    let window_low_sets = window_low::builtin_func_sets();
+    let window_control_sets = window_control::builtin_func_sets();
+    let text_control_sets = text_control::builtin_func_sets();
+    let system_controls_sets = system_controls::builtin_func_sets();
+    let math_sets = math::builtin_func_sets();
+    let com_object_sets = com_object::builtin_func_sets();
+    let browser_control_sets = browser_control::builtin_func_sets();
+    let array_control_sets = array_control::builtin_func_sets();
+    let dialog_sets = dialog::builtin_func_sets();
+    let file_control_sets = file_control::builtin_func_sets();
+    let network_sets = socket::builtin_func_sets();
 
-    sets.append(&mut window_low_sets);
-    sets.append(&mut window_control_sets);
-    sets.append(&mut text_control_sets);
-    sets.append(&mut system_controls_sets);
-    sets.append(&mut math_sets);
-    sets.append(&mut com_object_sets);
-    sets.append(&mut browser_control_sets);
-    sets.append(&mut array_control_sets);
-    sets.append(&mut dialog_sets);
-    sets.append(&mut file_control_sets);
+    sets.append(window_low_sets);
+    sets.append(window_control_sets);
+    sets.append(text_control_sets);
+    sets.append(system_controls_sets);
+    sets.append(math_sets);
+    sets.append(com_object_sets);
+    sets.append(browser_control_sets);
+    sets.append(array_control_sets);
+    sets.append(dialog_sets);
+    sets.append(file_control_sets);
+    sets.append(network_sets);
 
     sets
 
@@ -966,71 +1026,75 @@ fn init_builtin_functions() -> BuiltinFunctionSets {
 fn init_builtin_consts() -> BuiltinConsts {
     let mut sets = BuiltinConsts {sets: vec![]};
 
-    sets.append(&mut BuiltinConsts::new_str::<ObjectType>());
+    sets.append(BuiltinConsts::new_str::<ObjectType>());
     // hashtbl
-    sets.append(&mut BuiltinConsts::new::<HashTblEnum>());
+    sets.append(BuiltinConsts::new::<HashTblEnum>());
     // window_low
-    sets.append(&mut BuiltinConsts::new::<window_low::MouseButtonEnum>());
-    sets.append(&mut BuiltinConsts::new::<window_low::KeyActionEnum>());
+    sets.append(BuiltinConsts::new::<window_low::MouseButtonEnum>());
+    sets.append(BuiltinConsts::new::<window_low::KeyActionEnum>());
     // window_control
-    sets.append(&mut BuiltinConsts::new_str::<window_control::SpecialWindowId>());
-    sets.append(&mut BuiltinConsts::new::<window_control::CtrlWinCmd>());
-    sets.append(&mut BuiltinConsts::new::<window_control::StatusEnum>());
-    sets.append(&mut BuiltinConsts::new::<window_control::MonitorEnum>());
-    sets.append(&mut BuiltinConsts::new_str::<window_control::GetHndConst>());
-    sets.append(&mut BuiltinConsts::new::<window_control::ClkConst>());
-    sets.append(&mut BuiltinConsts::new::<window_control::GetItemConst>());
-    sets.append(&mut BuiltinConsts::new::<window_control::AccConst>());
-    sets.append(&mut BuiltinConsts::new::<window_control::CurConst>());
-    sets.append(&mut BuiltinConsts::new::<window_control::ColConst>());
-    sets.append(&mut BuiltinConsts::new::<window_control::SldConst>());
-    sets.append(&mut BuiltinConsts::new::<window_control::GetStrConst>());
-    sets.append(&mut BuiltinConsts::new::<window_control::ImgConst>());
-    sets.append(&mut BuiltinConsts::new::<window_control::MorgTargetConst>());
-    sets.append(&mut BuiltinConsts::new::<window_control::MorgContextConst>());
+    sets.append(BuiltinConsts::new_str::<window_control::SpecialWindowId>());
+    sets.append(BuiltinConsts::new::<window_control::CtrlWinCmd>());
+    sets.append(BuiltinConsts::new::<window_control::StatusEnum>());
+    sets.append(BuiltinConsts::new::<window_control::MonitorEnum>());
+    sets.append(BuiltinConsts::new_str::<window_control::GetHndConst>());
+    sets.append(BuiltinConsts::new::<window_control::ClkConst>());
+    sets.append(BuiltinConsts::new::<window_control::GetItemConst>());
+    sets.append(BuiltinConsts::new::<window_control::AccConst>());
+    sets.append(BuiltinConsts::new::<window_control::CurConst>());
+    sets.append(BuiltinConsts::new::<window_control::ColConst>());
+    sets.append(BuiltinConsts::new::<window_control::SldConst>());
+    sets.append(BuiltinConsts::new::<window_control::GetStrConst>());
+    sets.append(BuiltinConsts::new::<window_control::ImgConst>());
+    sets.append(BuiltinConsts::new::<window_control::MorgTargetConst>());
+    sets.append(BuiltinConsts::new::<window_control::MorgContextConst>());
     #[cfg(feature="chkimg")]
-    sets.append(&mut BuiltinConsts::new::<window_control::SearchImageOption>());
+    sets.append(BuiltinConsts::new::<window_control::SearchImageOption>());
     #[cfg(feature="chkimg")]
-    sets.append(&mut BuiltinConsts::new::<window_control::ImgMsk>());
+    sets.append(BuiltinConsts::new::<window_control::ImgMsk>());
 
     // text control
-    sets.append(&mut BuiltinConsts::new::<text_control::RegexEnum>());
-    sets.append(&mut BuiltinConsts::new::<text_control::ErrConst>());
-    sets.append(&mut BuiltinConsts::new::<text_control::StrconvConst>());
-    sets.append(&mut BuiltinConsts::new::<text_control::FormatConst>());
-    sets.append(&mut BuiltinConsts::new::<text_control::CodeConst>());
+    sets.append(BuiltinConsts::new::<text_control::RegexEnum>());
+    sets.append(BuiltinConsts::new::<text_control::ErrConst>());
+    sets.append(BuiltinConsts::new::<text_control::StrconvConst>());
+    sets.append(BuiltinConsts::new::<text_control::FormatConst>());
+    sets.append(BuiltinConsts::new::<text_control::CodeConst>());
     // system_constrol
-    sets.append(&mut BuiltinConsts::new::<system_controls::OsKind>());
-    sets.append(&mut BuiltinConsts::new::<system_controls::KindOfOsResultType>());
-    sets.append(&mut BuiltinConsts::new::<system_controls::LockHardExConst>());
-    sets.append(&mut BuiltinConsts::new::<system_controls::SensorConst>());
-    sets.append(&mut BuiltinConsts::new::<system_controls::ToggleKey>());
-    sets.append(&mut BuiltinConsts::new::<system_controls::POFF>());
-    sets.append(&mut BuiltinConsts::new::<system_controls::GTimeOffset>());
-    sets.append(&mut BuiltinConsts::new::<system_controls::GTimeWeekDay>());
-    sets.append(&mut BuiltinConsts::new::<system_controls::SetHotKey>());
+    sets.append(BuiltinConsts::new::<system_controls::OsKind>());
+    sets.append(BuiltinConsts::new::<system_controls::KindOfOsResultType>());
+    sets.append(BuiltinConsts::new::<system_controls::LockHardExConst>());
+    sets.append(BuiltinConsts::new::<system_controls::SensorConst>());
+    sets.append(BuiltinConsts::new::<system_controls::ToggleKey>());
+    sets.append(BuiltinConsts::new::<system_controls::POFF>());
+    sets.append(BuiltinConsts::new::<system_controls::GTimeOffset>());
+    sets.append(BuiltinConsts::new::<system_controls::GTimeWeekDay>());
+    sets.append(BuiltinConsts::new::<system_controls::SetHotKey>());
 
     // math
 
     // key codes
-    sets.append(&mut BuiltinConsts::new::<key_codes::VirtualKeyCode>());
-    sets.append(&mut BuiltinConsts::new::<key_codes::VirtualMouseButton>());
+    sets.append(BuiltinConsts::new::<key_codes::VirtualKeyCode>());
+    sets.append(BuiltinConsts::new::<key_codes::VirtualMouseButton>());
     // com_object
-    sets.append(&mut BuiltinConsts::new::<com_object::VarType>());
-    sets.append(&mut BuiltinConsts::new::<com_object::ExcelConst>());
+    sets.append(BuiltinConsts::new::<com_object::VarType>());
+    sets.append(BuiltinConsts::new::<com_object::ExcelConst>());
     // browser_control
-    sets.append(&mut BuiltinConsts::new::<browser_control::BcEnum>());
+    sets.append(BuiltinConsts::new::<browser_control::BcEnum>());
     // array_control
-    sets.append(&mut BuiltinConsts::new::<array_control::QsrtConst>());
-    sets.append(&mut BuiltinConsts::new::<array_control::CalcConst>());
+    sets.append(BuiltinConsts::new::<array_control::QsrtConst>());
+    sets.append(BuiltinConsts::new::<array_control::CalcConst>());
     // dialog.rs
-    sets.append(&mut BuiltinConsts::new::<dialog::BtnConst>());
-    sets.append(&mut BuiltinConsts::new::<dialog::SlctConst>());
-    sets.append(&mut BuiltinConsts::new::<dialog::BalloonFlag>());
-    sets.append(&mut BuiltinConsts::new::<dialog::FormOptions>());
-    sets.append(&mut BuiltinConsts::new_str::<dialog::WindowClassName>());
+    sets.append(BuiltinConsts::new::<dialog::BtnConst>());
+    sets.append(BuiltinConsts::new::<dialog::SlctConst>());
+    sets.append(BuiltinConsts::new::<dialog::BalloonFlag>());
+    sets.append(BuiltinConsts::new::<dialog::FormOptions>());
+    sets.append(BuiltinConsts::new_str::<dialog::WindowClassName>());
+
+    // socket
+    sets.append(BuiltinConsts::new::<socket::WebSocketConst>());
+
     // SLCT_* 定数
-    let mut slcts = BuiltinConsts {
+    let slcts = BuiltinConsts {
         sets: {
             let mut sets = (1..=31_u32)
                 .map(|n| {
@@ -1045,14 +1109,14 @@ fn init_builtin_consts() -> BuiltinConsts {
             sets
         }
     };
-    sets.append(&mut slcts);
+    sets.append(slcts);
     // file_control
-    sets.append(&mut BuiltinConsts::new::<file_control::FileConst>());
-    sets.append(&mut BuiltinConsts::new::<file_control::FileOrderConst>());
+    sets.append(BuiltinConsts::new::<file_control::FileConst>());
+    sets.append(BuiltinConsts::new::<file_control::FileOrderConst>());
 
     // 特殊変数
-    let mut special = special_variables();
-    sets.append(&mut special);
+    let special = special_variables();
+    sets.append(special);
 
     sets
 }
@@ -1119,7 +1183,8 @@ impl BuiltinConsts {
         }
         Self {sets}
     }
-    fn append(&mut self, other: &mut Self) {
+    fn append(&mut self, other: Self) {
+        let mut other = other;
         self.sets.append(&mut other.sets)
     }
     fn set(self, vec: &mut Vec<NamedObject>) {
@@ -1394,5 +1459,22 @@ impl U32Ext for u32{
     fn includes<T: Into<u32>>(&self, other: T) -> bool {
         let other: u32 = other.into();
         (self & other) == other
+    }
+}
+
+impl Object {
+    pub fn as_bytearray(&self) -> Option<Vec<u8>> {
+        match self {
+                Object::String(s) => Some(s.as_bytes().to_vec()),
+                Object::UObject(uo) => Some(uo.to_json_string().ok()?.as_bytes().to_vec()),
+                Object::ByteArray(b) => Some(b.clone()),
+                Object::Array(arr) => {
+                    arr.iter()
+                        .map(|o| o.as_f64(false))
+                        .map(|n| n.and_then(u8::from_f64))
+                        .collect::<Option<Vec<u8>>>()
+                },
+                _ => None
+        }
     }
 }

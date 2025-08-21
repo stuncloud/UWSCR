@@ -201,6 +201,7 @@ pub enum UErrorKind {
     SafeArrayError,
     FormError,
     CaptureError,
+    SocketError,
 }
 
 impl fmt::Display for UErrorKind {
@@ -422,6 +423,10 @@ impl fmt::Display for UErrorKind {
                 "画面キャプチャエラー",
                 "Screen Capturing Error",
             ),
+            Self::SocketError => write_locale!(f,
+                "ソケットエラー",
+                "Socket Error",
+            ),
         }
     }
 }
@@ -614,6 +619,7 @@ pub enum UErrorMessage {
     ArrayArgSizeOverflow(usize),
     ShouldBeAsciiCharacter(String),
     ExplorerMayBeSuspended,
+    SocketHasBeenClosed,
 }
 
 impl fmt::Display for UErrorMessage {
@@ -1375,6 +1381,10 @@ impl fmt::Display for UErrorMessage {
             Self::ExplorerMayBeSuspended => write_locale!(f,
                 "Explorerが停止しているかもしれません、その場合Explorerを再起動してください",
                 "Explorer might have been suspended, restart Explorer if so",
+            ),
+            Self::SocketHasBeenClosed => write_locale!(f,
+                "ソケットが閉じられています",
+                "Socket has been closed",
             ),
         }
     }
