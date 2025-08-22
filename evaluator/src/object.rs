@@ -24,7 +24,8 @@ pub use self::class::ClassInstance;
 pub use variant::Variant;
 use browser::{BrowserBuilder, Browser, TabWindow, RemoteObject};
 pub use web::{WebRequest, WebResponse, HtmlNode};
-pub use comobject::{ComObject, ComError, ComArg, Unknown, Excel, ExcelOpenFlag, ObjectTitle, VariantExt};
+pub use comobject::{ComObject, ComError, ComArg, Unknown, Excel, ExcelOpenFlag, ObjectTitle, VariantExt, SAVec};
+use crate::builtins::socket::USocket;
 
 use util::settings::USETTINGS;
 use crate::environment::Layer;
@@ -87,6 +88,7 @@ pub enum Object {
     ComObject(ComObject),
     Unknown(Unknown),
     Variant(Variant),
+    SafeArray(SAVec),
     BrowserBuilder(Arc<Mutex<BrowserBuilder>>),
     Browser(Browser),
     TabWindow(TabWindow),
@@ -115,6 +117,8 @@ pub enum Object {
     /// chkclr戻り値の個別アイテム
     #[cfg(feature="chkimg")]
     ColorFound(ColorFound),
+    /// ネットワーク系オブジェクト
+    Socket(USocket),
 }
 impl std::fmt::Debug for Object {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -165,6 +169,7 @@ impl std::fmt::Debug for Object {
             Object::ComObject(arg0) => f.debug_tuple("ComObject").field(arg0).finish(),
             Object::Unknown(arg0) => f.debug_tuple("Unknown").field(arg0).finish(),
             Object::Variant(arg0) => f.debug_tuple("Variant").field(arg0).finish(),
+            Object::SafeArray(arg0) => f.debug_tuple("SafeArray").field(arg0).finish(),
             Object::WebViewForm(arg0) => f.debug_tuple("WebViewForm").field(arg0).finish(),
             Object::WebViewRemoteObject(arg0) => f.debug_tuple("WebViewRemoteObject").field(arg0).finish(),
             Object::ParamStr(vec) => f.debug_list().entries(vec.iter()).finish(),
@@ -172,6 +177,7 @@ impl std::fmt::Debug for Object {
             Object::ChkClrResult(vec) => f.debug_list().entries(vec.iter()).finish(),
             #[cfg(feature="chkimg")]
             Object::ColorFound(arg0) => f.debug_tuple("ColorFound").field(arg0).finish(),
+            Object::Socket(arg0) => write!(f, "{arg0:?}"),
         }
     }
 }
@@ -263,11 +269,11 @@ impl fmt::Display for Object {
                     },
             Object::Csv(csv) => {
                         match csv.read() {
-                            Ok(csv) => write!(f, "{}", csv),
+                            Ok(csv) => write!(f, "{csv}"),
                             Err(e) => write!(f, "{} (poisoned)", e.get_ref()),
                         }
                     },
-            Object::ByteArray(arr) => write!(f, "{:?}", arr),
+            Object::ByteArray(arr) => write!(f, "{arr:?}"),
             Object::Reference(_, _) => write!(f, "Reference"),
             Object::WebRequest(req) => {
                         let mutex = req.lock().unwrap();
@@ -301,11 +307,13 @@ impl fmt::Display for Object {
                             MemberCaller::WebViewForm(_) => write!(f, "WebViewForm.{member}"),
                             MemberCaller::WebViewRemoteObject(_) => write!(f, "WebViewRemoteObject.{member}"),
                             MemberCaller::UObject(_) => write!(f, "UObject.{member}"),
+                            MemberCaller::SafeArray(_) => write!(f, "SafeArray.{member}"),
                         }
                     },
             Object::ComObject(com) => write!(f, "{com}"),
             Object::Unknown(unk) => write!(f, "{unk}"),
             Object::Variant(variant) => write!(f, "{variant}"),
+            Object::SafeArray(sa) => write!(f, "{sa:?}"),
             Object::WebViewForm(form) => write!(f, "{form}"),
             Object::WebViewRemoteObject(remote) => write!(f, "{remote}"),
             Object::ParamStr(vec) => write!(f, "{vec:?}"),
@@ -313,6 +321,7 @@ impl fmt::Display for Object {
             Object::ChkClrResult(res) => write!(f, "ChkClrResult({})", res.len()),
             #[cfg(feature="chkimg")]
             Object::ColorFound(found) => write!(f, "{found}"),
+            Object::Socket(nw) => write!(f, "{nw}"),
         }
     }
 }
@@ -463,6 +472,9 @@ impl PartialEq for Object {
             Object::Variant(var1) => {
                 if let Object::Variant(var2) = other {var1 == var2} else {false}
             },
+            Object::SafeArray(sa1) => {
+                if let Object::SafeArray(sa2) = other {sa1 == sa2} else {false}
+            },
             Object::WebViewForm(form1) => {
                 if let Object::WebViewForm(form2) = other {form1 == form2} else {false}
             },
@@ -480,6 +492,9 @@ impl PartialEq for Object {
             Object::ColorFound(v1) => {
                 if let Object::ColorFound(v2) = other {v1 == v2} else {false}
             },
+            Object::Socket(nw1) => {
+                if let Object::Socket(nw2) = other { nw1 == nw2 } else {false}
+            }
         }
     }
 }
@@ -523,6 +538,7 @@ impl Object {
             Object::ComObject(_) => ObjectType::TYPE_COM_OBJECT,
             Object::Unknown(_) => ObjectType::TYPE_IUNKNOWN,
             Object::Variant(_) => ObjectType::TYPE_VARIANT,
+            Object::SafeArray(_) => ObjectType::TYPE_SAFEARRAY,
             Object::BrowserBuilder(_) => ObjectType::TYPE_BROWSERBUILDER_OBJECT,
             Object::Browser(_) => ObjectType::TYPE_BROWSER_OBJECT,
             Object::TabWindow(_) => ObjectType::TYPE_TABWINDOW_OBJECT,
@@ -542,6 +558,10 @@ impl Object {
             #[cfg(feature="chkimg")]
             Object::ColorFound(_) => ObjectType::TYPE_CHKCLR_ITEM,
             Object::ParamStr(_) => ObjectType::TYPE_PARAM_STR,
+            Object::Socket(socket) => match socket {
+                USocket::Udp(_) => ObjectType::TYPE_SOCKET_UDP,
+                USocket::WebSocket(_) => ObjectType::TYPE_SOCKET_WEBSOCKET,
+            }
 
             Object::EmptyParam |
             Object::DynamicVar(_) |
@@ -570,8 +590,10 @@ impl Object {
             Object::ChkClrResult(v) => v.len(),
             #[cfg(feature="chkimg")]
             Object::ColorFound(found) => Object::from(found).length()?,
+            Object::SafeArray(sa) => sa.len(),
+            Object::HtmlNode(node) => return node.len(),
 
-
+            Object::Socket(_) |
             Object::AnonFunc(_) |
             Object::Function(_) |
             Object::AsyncFunction(_) |
@@ -604,7 +626,6 @@ impl Object {
             Object::Reference(_, _) |
             Object::WebRequest(_) |
             Object::WebResponse(_) |
-            Object::HtmlNode(_) |
             Object::MemberCaller(_, _) |
             Object::WebViewForm(_) |
             Object::WebViewRemoteObject(_)  => None?,
@@ -1473,6 +1494,7 @@ pub enum MemberCaller {
     WebViewForm(WebViewForm),
     WebViewRemoteObject(WebViewRemoteObject),
     UObject(UObject),
+    SafeArray(SAVec),
 }
 
 impl PartialEq for MemberCaller {
@@ -1500,6 +1522,7 @@ impl PartialEq for MemberCaller {
             (Self::WebViewForm(l0), Self::WebViewForm(r0)) => l0 == r0,
             (Self::WebViewRemoteObject(l0), Self::WebViewRemoteObject(r0)) => l0 == r0,
             (Self::UObject(l0), Self::UObject(r0)) => l0 == r0,
+            (Self::SafeArray(l0), Self::SafeArray(r0)) => l0 == r0,
             _ => false,
         }
     }
@@ -1555,6 +1578,10 @@ pub enum ObjectType {
     TYPE_CHKCLR_RESULT,
     TYPE_CHKCLR_ITEM,
     TYPE_PARAM_STR,
+    TYPE_SOCKET_UDP,
+    // TYPE_SOCKET_TCP_CLIENT,
+    // TYPE_SOCKET_TCP_LISTENER,
+    TYPE_SOCKET_WEBSOCKET,
 
     TYPE_MEMBER_CALLER,
     TYPE_NOT_VALUE_TYPE,

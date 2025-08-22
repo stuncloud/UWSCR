@@ -1046,6 +1046,10 @@ impl Evaluator {
                 let vec = com.to_object_vec()?;
                 self.eval_for_in_statement_inner(vec, var, index_var, islast_var, block, alt)
             },
+            Object::SafeArray(sa) => {
+                let vec = sa.iter().map(|v| v).collect();
+                self.eval_for_in_statement_inner(vec, var, index_var, islast_var, block, alt)
+            }
             Object::UObject(uo) => {
                 let vec = uo.to_object_vec()?;
                 self.eval_for_in_statement_inner(vec, var, index_var, islast_var, block, alt)
@@ -1830,6 +1834,19 @@ impl Evaluator {
             Object::ComObject(com) => {
                 com.get_by_index(vec![index])?
             },
+            Object::SafeArray(sa) => {
+                if let Object::Num(i) = index {
+                    sa.iter().nth(i as _).map(Object::from).ok_or(UError::new(
+                        UErrorKind::EvaluatorError,
+                        UErrorMessage::IndexOutOfBounds(index),
+                    ))?
+                } else {
+                    return Err(UError::new(
+                        UErrorKind::EvaluatorError,
+                        UErrorMessage::InvalidIndex(index)
+                    ));
+                }
+            }
             Object::ByteArray(arr) => if hash_enum.is_some() {
                 return Err(UError::new(
                     UErrorKind::EvaluatorError,
@@ -1891,7 +1908,8 @@ impl Evaluator {
                             UErrorMessage::NotAnArray(left)
                         ))
                     },
-                    MemberCaller::UObject(_) => {
+                    MemberCaller::UObject(_) |
+                    MemberCaller::SafeArray(_) => {
                         unreachable!();
                     }
                 }
@@ -2835,7 +2853,23 @@ impl Evaluator {
                             let obj = remote.invoke_method(&member, args, is_await)?;
                             Ok(obj)
                         },
-                        MemberCaller::UObject(uobj) => uobj.invoke_method(&member)
+                        MemberCaller::UObject(uobj) => uobj.invoke_method(&member),
+                        MemberCaller::SafeArray(sa) => {
+                            match member {
+                                member if member.eq_ignore_ascii_case("get") => {
+                                    let indices = arguments.into_iter()
+                                        .map(|(_, arg)| arg)
+                                        .map(|o| o.as_f64(false).ok_or(UError::new(UErrorKind::SafeArrayError, UErrorMessage::InvalidIndex(o))))
+                                        .map(|o| o.map(|i| i as i32))
+                                        .collect::<EvalResult<Vec<_>>>()?;
+                                    let obj = sa.get(&indices)?;
+                                    Ok(obj)
+                                },
+                                member => {
+                                    Err(UError::new(UErrorKind::SafeArrayError, UErrorMessage::CanNotCallMethod(member)))
+                                }
+                            }
+                        }
                     }
                 },
                 o => Err(UError::new(
@@ -3015,6 +3049,9 @@ impl Evaluator {
                     remote.get_property(&member, None).map_err(|e| e.into())
                 }
             },
+            Object::SafeArray(sa) if is_func => {
+                Ok(Object::MemberCaller(MemberCaller::SafeArray(sa), member))
+            }
             o => Err(UError::new(
                 UErrorKind::DotOperatorError,
                 UErrorMessage::DotOperatorNotSupported(o)

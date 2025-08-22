@@ -52,6 +52,7 @@ UWSCR |version| オンラインヘルプ
     builtins/comobject
     builtins/excel
     builtins/web
+    builtins/socket
 
 ライセンス
 ----------

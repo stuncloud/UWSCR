@@ -925,11 +925,10 @@ impl Lexer {
             return "".to_string();
         }
         loop {
-            match self.nextch() {
+            match self.ch {
                 // 行末が来たら次がendtextblockかどうかを見る
                 '\r' | '\n' => {
-                    end_pos = self.pos + 1;
-                    self.read_char();
+                    end_pos = self.pos;
                     if self.nextch_is('\n') {
                         self.read_char();
                     }
@@ -968,15 +967,17 @@ trait GetPairs {
             pairs.replace(Pairs::new());
         }
         let start_pos = pos;
-        let mut iter = input[pos+1..].iter().enumerate();
+        let mut iter = input[pos+1..].iter().enumerate().peekable();
         while let Some((i, c)) = iter.next() {
             match c {
-                '/' if iter.next().is_some_and(|(_, c)| '/'.eq(c)) => {
-                    if iter.next().is_some_and(|(_, c)| '-'.ne(c)) {
-                        // コメントなので行末まで無視
-                        while iter.next().is_some_and(|(_, c)| '\n'.eq(c)) {}
+                '/' if iter.next_if(|(_, c)| '/'.eq(c)).is_some() => {
+                    if iter.next_if(|(_, c)| '-'.eq(c)).is_some() {
+                        // ダミーコメントなのでなにもしない
+                    } else {
+                        // コメントは行末までスキップ
+                        while iter.next().is_some_and(|(_, c)| '\n'.ne(c)) {}
                     }
-                },
+                }
                 '"' => {
                     while iter.next().is_some_and(|(_, c)| '"'.ne(c)) {}
                 }
