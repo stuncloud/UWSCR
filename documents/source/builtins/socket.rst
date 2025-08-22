@@ -112,7 +112,7 @@ UDP通信
         | 実際の受信データより小さいとデータが欠損する場合があります
 
     :rtype: [バイト配列, 文字列, 数値]
-    :return: 受信データを示すバイト配列、送信元IPアドレスを示す文字列、送信元ポートを示す数値の配列
+    :return: [受信データ, 送信元IPアドレス, 送信元ポート]
 
 
 TCP通信
@@ -176,7 +176,7 @@ TCP通信
 
     :param 文字 省略可 終端文字:
 
-        | 受信データの終端と判断する文字
+        | 受信データの終端と判断するASCII文字 (chr(0)～chr(255))
         | この文字が送られてこないとデータ受信が終わらずレスポンスを返せない
         | 省略時はCRLF (``"#CR"``)
 
@@ -316,17 +316,17 @@ WebSocket
                 res = WsRecv(ws)
                 select type_of(res)
                     case TYPE_STRING
-                        for_string(res)
+                        print "received string: <#res>"
                     case TYPE_BYTE_ARRAY
-                        for_bytes(res)
+                        print "received bytes: <#res>"
                     case TYPE_NUMBER
                         select res
                             case WS_PING
-                                print "ping"
+                                print "received ping"
                             case WS_PONG
-                                print "pong"
+                                print "received pong"
                         selend
                     default
-                        print "invalid data"
+                        print "received invalid data: <#res>"
                 selend
 
