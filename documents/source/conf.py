@@ -7,9 +7,9 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'UWSCR'
-copyright = '2023, stuncloud'
+copyright = '2025, stuncloud'
 author = 'stuncloud'
-version = '1.1.3'
+version = '1.1.4'
 html_title = f'{project} {version}'
 
 # -- General configuration ---------------------------------------------------
