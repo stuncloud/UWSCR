@@ -325,23 +325,25 @@ impl Input {
     fn direct_key(&self, msg: u32, vk: u32) -> bool {
         self.direct_message(msg, vk as usize, 1, None)
     }
-    /// morg_directマウスボタン送信\
-    /// マウスホイール回転の場合は`wheel`で回転量を指定
+    /// morg_directマウスボタン送信
     fn direct_mouse(&self, msg: u32, x: i32, y: i32) -> bool {
-        let (x, y) = Self::client_to_screen(self.hwnd, x, y);
         let lparam = make_lparam(x, y);
         self.direct_message(msg, None::<usize>, lparam, None)
     }
+    /// morg_direct wheel回転送信
     fn direct_mouse_wheel(&self, horizontal: bool, x: i32, y: i32, delta: i32) -> bool {
         let msg = if horizontal {
             WM_MOUSEHWHEEL
         } else {
             WM_MOUSEWHEEL
         };
+        // クライアント座標から子ウィンドウのHWNDを得る
+        let child = self.child_from_point(x, y);
+        // wheelの場合はスクリーン座標に変換
+        let (x, y) = Self::client_to_screen(self.hwnd, x, y);
         let lparam = make_lparam(x, y);
         let delta = ((delta * WHEEL_DELTA as i32) & 0xFFFF) as u32;
         let wparam = (delta << 16) as usize;
-        let child = self.child_from_point(x, y);
         self.direct_message(msg, wparam, lparam, child)
     }
     // fn child_with_scrollbar(&self, horizontal: bool, x: i32, y: i32) -> Option<HWND> {
@@ -357,6 +359,8 @@ impl Input {
     //         }
     //     }
     // }
+
+    /// クライアント座標に位置する子ウィンドウのHWNDを得る
     fn child_from_point(&self, x: i32, y: i32) -> Option<HWND> {
         self.hwnd.map(|hwnd| {
             unsafe {
