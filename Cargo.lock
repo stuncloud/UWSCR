@@ -2033,6 +2033,7 @@ name = "parser"
 version = "1.1.4"
 dependencies = [
  "bincode",
+ "itertools 0.14.0",
  "regex",
  "reqwest",
  "serde",

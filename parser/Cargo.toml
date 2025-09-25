@@ -13,3 +13,4 @@ reqwest.workspace = true
 regex.workspace = true
 strum_macros = "0.26.1"
 bincode = "1"
+itertools = "0.14.0"

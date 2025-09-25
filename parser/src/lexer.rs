@@ -959,6 +959,8 @@ impl Lexer {
         BracketPairs::search(&self.input, &mut self.bracket_pairs, pos, true, is_right);
     }
 }
+
+use itertools::{Itertools, PeekingNext, MultiPeek};
 trait GetPairs {
     const LEFT: char;
     const RIGHT: char;
@@ -967,11 +969,14 @@ trait GetPairs {
             pairs.replace(Pairs::new());
         }
         let start_pos = pos;
-        let mut iter = input[pos+1..].iter().enumerate().peekable();
+        let mut iter = input[pos+1..].iter().enumerate().multipeek();
         while let Some((i, c)) = iter.next() {
             match c {
-                '/' if iter.next_if(|(_, c)| '/'.eq(c)).is_some() => {
-                    if iter.next_if(|(_, c)| '-'.eq(c)).is_some() {
+                '\n' => {
+                    Self::skip_if_textblock(&mut iter);
+                },
+                '/' if iter.peeking_next(|(_, c)| '/'.eq(c)).is_some() => {
+                    if iter.peeking_next(|(_, c)| '-'.eq(c)).is_some() {
                         // ダミーコメントなのでなにもしない
                     } else {
                         // コメントは行末までスキップ
@@ -1000,6 +1005,61 @@ trait GetPairs {
                 _ => {}
             }
         }
+    }
+    /// textblock部分をスキップ
+    fn skip_if_textblock<'a>(iter: &mut MultiPeek<impl Iterator<Item = (usize, &'a char)>>) {
+        // ホワイトスペースはスキップし、't'であればtextblockを疑う
+        while let Some((_, c)) = iter.peek() {
+            if [' ', '\t', '　'].contains(c) {
+                // ホワイトスペースをスキップ
+            } else if 't'.eq_ignore_ascii_case(c) {
+                break;
+            } else {
+                iter.reset_peek();
+                return;
+            }
+        }
+        if !(iter.peek().is_some_and(|(_, c)| 'e'.eq_ignore_ascii_case(c))
+        && iter.peek().is_some_and(|(_, c)| 'x'.eq_ignore_ascii_case(c))
+        && iter.peek().is_some_and(|(_, c)| 't'.eq_ignore_ascii_case(c))
+        && iter.peek().is_some_and(|(_, c)| 'b'.eq_ignore_ascii_case(c))
+        && iter.peek().is_some_and(|(_, c)| 'l'.eq_ignore_ascii_case(c))
+        && iter.peek().is_some_and(|(_, c)| 'o'.eq_ignore_ascii_case(c))
+        && iter.peek().is_some_and(|(_, c)| 'c'.eq_ignore_ascii_case(c))
+        && iter.peek().is_some_and(|(_, c)| 'k'.eq_ignore_ascii_case(c))) {
+            // textblock開始ではないので終了
+            iter.reset_peek();
+            return;
+        }
+        while let Some((_, c)) = iter.peek() {
+            if '\n'.eq(c) {
+                // ホワイトスペースはスキップし、'e'であればendtextblockを疑う
+                while let Some((_, c)) = iter.peek() {
+                    if [' ', '\t', '　'].contains(c) {
+                        // ホワイトスペースをスキップ
+                    } else if 'e'.eq_ignore_ascii_case(c) {
+                        break;
+                    }
+                }
+                if iter.peek().is_some_and(|(_, c)| 'n'.eq_ignore_ascii_case(c))
+                && iter.peek().is_some_and(|(_, c)| 'd'.eq_ignore_ascii_case(c))
+                && iter.peek().is_some_and(|(_, c)| 't'.eq_ignore_ascii_case(c))
+                && iter.peek().is_some_and(|(_, c)| 'e'.eq_ignore_ascii_case(c))
+                && iter.peek().is_some_and(|(_, c)| 'x'.eq_ignore_ascii_case(c))
+                && iter.peek().is_some_and(|(_, c)| 't'.eq_ignore_ascii_case(c))
+                && iter.peek().is_some_and(|(_, c)| 'b'.eq_ignore_ascii_case(c))
+                && iter.peek().is_some_and(|(_, c)| 'l'.eq_ignore_ascii_case(c))
+                && iter.peek().is_some_and(|(_, c)| 'o'.eq_ignore_ascii_case(c))
+                && iter.peek().is_some_and(|(_, c)| 'c'.eq_ignore_ascii_case(c))
+                && let Some((k, c)) = iter.peek() && 'k'.eq_ignore_ascii_case(c) {
+                    let k = *k;
+                    // endtextblockなのでそこまで消費する
+                    let _ = iter.take_while(|(i, _)| *i < k);
+                    return;
+                }
+            }
+        }
+        iter.reset_peek();
     }
 }
 struct ParenPairs;
