@@ -736,7 +736,13 @@ impl TryFrom<Object> for YamlValue {
                         }.clone();
                         JYValue::Json(copy).into()
                     },
-                    JYValue::Yaml(value) => value.clone(),
+                    JYValue::Yaml(value) => {
+                        let value = match &jy.pointer {
+                            Some(p) => value.pointer(p).unwrap(),
+                            None => value,
+                        };
+                        value.clone()
+                    },
                 };
                 Ok(yaml)
             },
@@ -776,7 +782,13 @@ impl TryFrom<Object> for JsonValue {
                         }.clone();
                         JYValue::Yaml(copy).into()
                     },
-                    JYValue::Json(value) => value.clone(),
+                    JYValue::Json(value) => {
+                        let value = match &jy.pointer {
+                            Some(p) => value.pointer(p).unwrap(),
+                            None => value,
+                        };
+                        value.clone()
+                    },
                 };
                 Ok(json)
             },
