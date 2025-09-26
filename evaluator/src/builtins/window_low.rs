@@ -1,6 +1,6 @@
 use crate::object::*;
 use crate::builtins::*;
-use crate::{Evaluator, MouseOrg, MorgTarget};
+use crate::{Evaluator, MouseOrg, MorgTarget, MorgModFlags};
 use util::winapi::make_lparam;
 
 use std::{thread, time};
@@ -17,13 +17,14 @@ use windows::{
         UI::{
             Input::KeyboardAndMouse::{
                 SendInput, INPUT, INPUT_0,
-                KEYBDINPUT, INPUT_KEYBOARD, VIRTUAL_KEY,
+                KEYBDINPUT, INPUT_KEYBOARD,
                 KEYBD_EVENT_FLAGS, KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP, KEYEVENTF_UNICODE,
                 MOUSEINPUT, INPUT_MOUSE, MOUSEEVENTF_ABSOLUTE,
                 MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP,
                 MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP,
                 MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP,
                 MOUSEEVENTF_WHEEL, MOUSEEVENTF_HWHEEL,
+                VIRTUAL_KEY,
             },
             Input::Pointer::{
                 InitializeTouchInjection, InjectTouchInput,
@@ -162,7 +163,7 @@ pub fn btn(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResul
     let ms= args.get_as_int::<u64>(4, Some(0))?;
 
     sleep(ms);
-    let input = Input::from(&evaluator.mouseorg);
+    let mut input = Input::from(evaluator.mouseorg.as_mut());
     match btn {
         MouseButtonEnum::LEFT => {
             let action = FromPrimitive::from_i32(action).unwrap_or_default();
@@ -227,7 +228,7 @@ pub fn kbd(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResul
 
     let vk_win = key_codes::VirtualKeyCode::VK_WIN as u32;
     let vk_rwin = key_codes::VirtualKeyCode::VK_START as u32;
-    let input = Input::from(&evaluator.mouseorg);
+    let mut input = Input::from(evaluator.mouseorg.as_mut());
     match key {
         TwoTypeArg::U(vk) => {
             let extend = vk == vk_win || vk == vk_rwin;
@@ -244,14 +245,88 @@ pub fn get_morg_point(morg: &Option<MouseOrg>) -> Option<(i32, i32)> {
     Input::from(morg).get_offset()
 }
 
-pub struct Input {
+// #[derive(Debug, Default)]
+// struct ModifierKeyFlags {
+//     flags: Arc<RwLock<MODIFIERKEYS_FLAGS>>,
+// }
+// impl ModifierKeyFlags {
+//     fn new() -> Self {
+//         let flags = Arc::new(RwLock::new(Default::default()));
+//         Self { flags }
+//     }
+//     /// MODIFIERKEYS_FLAGSをusizeとして得る
+//     fn get_as_usize(&self) -> usize {
+//         let read = self.flags.read().unwrap();
+//         read.0 as usize
+//     }
+//     /// MODIFIERKEYS_FLAGSをWPARAMとして得る
+//     fn get_as_wparam(&self) -> WPARAM {
+//         let read = self.flags.read().unwrap();
+//         WPARAM(read.0 as usize)
+//     }
+//     /// MODIFIERKEYS_FLAGSを追加する
+//     fn add(&self, flag: MODIFIERKEYS_FLAGS) {
+//         let mut write = self.flags.write().unwrap();
+//         *write |= flag;
+//     }
+//     /// MODIFIERKEYS_FLAGSを取り除く
+//     fn remove(&self, flag: MODIFIERKEYS_FLAGS) {
+//         let mut write = self.flags.write().unwrap();
+//         *write &= !flag;
+//     }
+//     /// キー入力時のModキーフラグを操作し現在のフラグを返す
+//     fn keys(&self, msg: u32, vk: u32) -> WPARAM {
+//         match (VIRTUAL_KEY(vk as _), msg) {
+//             (VK_CONTROL, WM_KEYDOWN) =>self.add(MK_CONTROL),
+//             (VK_CONTROL, WM_KEYUP) =>self.remove(MK_CONTROL),
+//             (VK_SHIFT, WM_KEYDOWN) =>self.add(MK_SHIFT),
+//             (VK_SHIFT, WM_KEYUP) =>self.remove(MK_SHIFT),
+//             _ => {}
+//         }
+//         self.get_as_wparam()
+//     }
+//     fn btns(&self, msg: u32) -> WPARAM {
+//         dbg!(msg);
+//         match msg {
+//             WM_LBUTTONDOWN => self.add(MK_LBUTTON),
+//             WM_LBUTTONUP => self.remove(MK_LBUTTON),
+//             WM_MBUTTONDOWN => self.add(MK_MBUTTON),
+//             WM_MBUTTONUP => self.remove(MK_MBUTTON),
+//             WM_RBUTTONDOWN => self.add(MK_RBUTTON),
+//             WM_RBUTTONUP => self.remove(MK_RBUTTON),
+//             _ => {},
+//         }
+//         self.get_as_wparam()
+//     }
+// }
+// static MORG_MODKEY_FLAGS: LazyLock<ModifierKeyFlags> = LazyLock::new(|| {
+//     ModifierKeyFlags::new()
+// });
+pub struct Input<'a> {
     hwnd: Option<HWND>,
     /// 起点がクライアント領域ならtrue, ウィンドウ領域ならfalse
     client: bool,
     /// 直接送信ならtrue
     direct: bool,
+    modflags: Option<&'a mut MorgModFlags>
 }
-impl From<&Option<MouseOrg>> for Input {
+impl<'a> From<Option<&'a mut MouseOrg>> for Input<'a> {
+    fn from(morg: Option<&'a mut MouseOrg>) -> Self {
+        match morg {
+            Some(morg) => {
+                let hwnd = Some(morg.hwnd);
+                let (client, direct) = match morg.target {
+                    MorgTarget::Window => (false, false),
+                    MorgTarget::Client => (true, false),
+                    MorgTarget::Direct => (true, true),
+                };
+                Self { hwnd, client, direct, modflags: Some(&mut morg.modflags) }
+            },
+            None => Self { hwnd: None, client: false, direct: false, modflags: None },
+        }
+    }
+}
+impl From<&Option<MouseOrg>> for Input<'_> {
     fn from(morg: &Option<MouseOrg>) -> Self {
         match morg {
             Some(morg) => {
@@ -261,13 +336,13 @@ impl From<&Option<MouseOrg>> for Input {
                     MorgTarget::Client => (true, false),
                     MorgTarget::Direct => (true, true),
                 };
-                Self { hwnd, client, direct }
+                Self { hwnd, client, direct, modflags: None }
             },
-            None => Self { hwnd: None, client: false, direct: false },
+            None => Self { hwnd: None, client: false, direct: false, modflags: None },
         }
     }
 }
-impl Input {
+impl Input<'_> {
     /// kbdのCLICKでdownとupの間の待機秒数 (ms)
     const KEY_CLICK_WAIT: u64 = 100;
     /// btnのCLICKでdownとupの間の待機秒数 (ms)
@@ -322,16 +397,23 @@ impl Input {
         }
     }
     /// morg_directキー送信
-    fn direct_key(&self, msg: u32, vk: u32) -> bool {
+    fn direct_key(&mut self, msg: u32, vk: u32) -> bool {
+        if let Some(modflags) = self.modflags.as_deref_mut() {
+            modflags.switch_key_flags(msg, vk);
+        }
         self.direct_message(msg, vk as usize, 1, None)
     }
     /// morg_directマウスボタン送信
-    fn direct_mouse(&self, msg: u32, x: i32, y: i32) -> bool {
+    fn direct_mouse(&mut self, msg: u32, x: i32, y: i32) -> bool {
         let lparam = make_lparam(x, y);
-        self.direct_message(msg, None::<usize>, lparam, None)
+        let wparam = match self.modflags.as_deref_mut() {
+            Some(modflags) => modflags.switch_button_flags(msg),
+            None => WPARAM::default(),
+        };
+        self.direct_message(msg, wparam, lparam, None)
     }
     /// morg_direct wheel回転送信
-    fn direct_mouse_wheel(&self, horizontal: bool, x: i32, y: i32, delta: i32) -> bool {
+    fn direct_mouse_wheel(&mut self, horizontal: bool, x: i32, y: i32, delta: i32) -> bool {
         let msg = if horizontal {
             WM_MOUSEHWHEEL
         } else {
@@ -343,7 +425,11 @@ impl Input {
         let (x, y) = Self::client_to_screen(self.hwnd, x, y);
         let lparam = make_lparam(x, y);
         let delta = ((delta * WHEEL_DELTA as i32) & 0xFFFF) as u32;
-        let wparam = (delta << 16) as usize;
+        let mut wparam = match self.modflags.as_deref_mut() {
+            Some(modflags) => modflags.flags_as_usize(),
+            None => 0,
+        };
+        wparam |= (delta << 16) as usize;
         self.direct_message(msg, wparam, lparam, child)
     }
     // fn child_with_scrollbar(&self, horizontal: bool, x: i32, y: i32) -> Option<HWND> {
@@ -413,7 +499,7 @@ impl Input {
     //         (get_window_style(hwnd) & style) > 0
     //     })
     // }
-    fn send_key(&self, vk: u32, action: KeyActionEnum, wait: u64, extend: bool) {
+    fn send_key(&mut self, vk: u32, action: KeyActionEnum, wait: u64, extend: bool) {
         sleep(wait);
         match action {
             KeyActionEnum::CLICK => {
@@ -448,7 +534,7 @@ impl Input {
         let cbsize = size_of::<INPUT>() as i32;
         unsafe {SendInput(&pinputs, cbsize);}
     }
-    fn send_str(&self, str: &str, wait: u64) {
+    fn send_str(&mut self, str: &str, wait: u64) {
         sleep(wait);
         unsafe {
             if self.direct {
@@ -462,7 +548,7 @@ impl Input {
             }
         }
     }
-    fn key_down(&self, vk: u32, extend: bool) {
+    fn key_down(&mut self, vk: u32, extend: bool) {
         unsafe {
             if self.direct {
                 self.direct_key(WM_KEYDOWN, vk);
@@ -494,7 +580,7 @@ impl Input {
             }
         }
     }
-    fn key_up(&self, vk: u32, extend: bool) {
+    fn key_up(&mut self, vk: u32, extend: bool) {
         unsafe {
             if self.direct {
                 self.direct_key(WM_KEYUP, vk);
@@ -519,7 +605,7 @@ impl Input {
             }
         }
     }
-    fn move_mouse(&self, x: i32, y: i32) -> bool {
+    fn move_mouse(&mut self, x: i32, y: i32) -> bool {
         if self.direct {
             self.direct_mouse(WM_MOUSEMOVE, x, y)
         } else {
@@ -528,13 +614,13 @@ impl Input {
         }
     }
     /// マウスボタン系メッセージを送る直前に異なる座標でWM_MOUSEMOVEを3回送る
-    fn mmv_before_mouse_btn(&self, x: i32, y: i32) -> bool {
+    fn mmv_before_mouse_btn(&mut self, x: i32, y: i32) -> bool {
         [1, -1, 0].into_iter()
             .all(|n| {
                 self.direct_mouse(WM_MOUSEMOVE, x + n, y + n)
             })
     }
-    fn mouse_down(&self, x: i32, y: i32, btn: &MouseButton) {
+    fn mouse_down(&mut self, x: i32, y: i32, btn: &MouseButton) {
         unsafe {
             if self.direct {
                 let msg = match btn {
@@ -569,7 +655,7 @@ impl Input {
             }
         }
     }
-    fn mouse_up(&self, x: i32, y: i32, btn: &MouseButton) {
+    fn mouse_up(&mut self, x: i32, y: i32, btn: &MouseButton) {
         unsafe {
             if self.direct {
                 let msg = match btn {
@@ -604,20 +690,20 @@ impl Input {
             }
         }
     }
-    fn mouse_click(&self, x: i32, y: i32, btn: &MouseButton) {
+    fn mouse_click(&mut self, x: i32, y: i32, btn: &MouseButton) {
         self.mouse_down(x, y, btn);
         sleep(Self::MOUSE_CLICK_WAIT);
         self.mouse_up(x, y, btn);
         sleep(Self::AFTER_CLICK_WAIT);
     }
-    fn mouse_button(&self, x: i32, y: i32, btn: &MouseButton, action: KeyActionEnum) {
+    fn mouse_button(&mut self, x: i32, y: i32, btn: &MouseButton, action: KeyActionEnum) {
         match action {
             KeyActionEnum::CLICK => self.mouse_click(x, y, btn),
             KeyActionEnum::DOWN => self.mouse_down(x, y, btn),
             KeyActionEnum::UP => self.mouse_up(x, y, btn),
         }
     }
-    fn mouse_wheel(&self, x: i32, y: i32, amount: i32, horizontal: bool) {
+    fn mouse_wheel(&mut self, x: i32, y: i32, amount: i32, horizontal: bool) {
         unsafe {
             if self.direct {
                 self.mmv_before_mouse_btn(x, y);
