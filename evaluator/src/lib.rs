@@ -31,7 +31,15 @@ use std::ffi::c_void;
 use std::panic;
 use std::ops::{Add, Sub, Mul, Div, Rem, BitOr, BitAnd, BitXor};
 
-use windows::Win32::Foundation::HWND;
+use windows::Win32::Foundation::{HWND, WPARAM};
+use windows::Win32::System::SystemServices::{
+    MODIFIERKEYS_FLAGS,MK_CONTROL,MK_LBUTTON,MK_MBUTTON,MK_RBUTTON,MK_SHIFT,//MK_XBUTTON1,MK_XBUTTON2,
+};
+use windows::Win32::UI::Input::KeyboardAndMouse::{VIRTUAL_KEY, VK_CONTROL, VK_SHIFT};
+use windows::Win32::UI::WindowsAndMessaging::{
+    WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP, WM_RBUTTONDOWN, WM_RBUTTONUP,
+    WM_KEYDOWN, WM_KEYUP,
+};
 
 use num_traits::FromPrimitive;
 use regex::Regex;
@@ -3109,11 +3117,7 @@ impl Evaluator {
 
 
     fn set_mouseorg<T: Into<MorgTarget>, C: Into<MorgContext>>(&mut self, hwnd: HWND, target: T, context: C) {
-        let morg = MouseOrg {
-            hwnd,
-            target: target.into(),
-            context: context.into(),
-        };
+        let morg = MouseOrg::new(hwnd, target, context);
         self.mouseorg = Some(morg);
     }
     fn clear_mouseorg(&mut self) {
@@ -3126,7 +3130,65 @@ pub struct MouseOrg {
     hwnd: HWND,
     target: MorgTarget,
     context: MorgContext,
+    modflags: MorgModFlags,
 }
+impl MouseOrg {
+    fn new(hwnd: HWND, target: impl Into<MorgTarget>, context: impl Into<MorgContext>) -> Self {
+        Self {
+            hwnd,
+            target: target.into(),
+            context: context.into(),
+            modflags: Default::default(),
+        }
+    }
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct MorgModFlags(MODIFIERKEYS_FLAGS);
+impl MorgModFlags {
+    /// MODIFIERKEYS_FLAGSを追加する
+    fn flag_add(&mut self, flag: MODIFIERKEYS_FLAGS) {
+        self.0 |= flag;
+    }
+    /// MODIFIERKEYS_FLAGSを取り除く
+    fn flag_remove(&mut self, flag: MODIFIERKEYS_FLAGS) {
+        self.0 &= !flag;
+    }
+    /// MODIFIERKEYS_FLAGSをusizeとして得る
+    fn flags_as_usize(&self) -> usize {
+        self.0.0 as usize
+    }
+    /// MODIFIERKEYS_FLAGSをWPARAMとして得る
+    fn flags_as_wparam(&self) -> WPARAM {
+        WPARAM(self.0.0 as usize)
+    }
+    /// キー入力時のModフラグを操作し現在のフラグを返す
+    fn switch_key_flags(&mut self, msg: u32, vk: u32) -> WPARAM {
+        match (VIRTUAL_KEY(vk as _), msg) {
+            (VK_CONTROL, WM_KEYDOWN) =>self.flag_add(MK_CONTROL),
+            (VK_CONTROL, WM_KEYUP) =>self.flag_remove(MK_CONTROL),
+            (VK_SHIFT, WM_KEYDOWN) =>self.flag_add(MK_SHIFT),
+            (VK_SHIFT, WM_KEYUP) =>self.flag_remove(MK_SHIFT),
+            _ => {}
+        }
+        self.flags_as_wparam()
+    }
+    /// ボタン入力時のModフラグを操作し現在のフラグを返す
+    fn switch_button_flags(&mut self, msg: u32) -> WPARAM {
+        match msg {
+            WM_LBUTTONDOWN => self.flag_add(MK_LBUTTON),
+            WM_LBUTTONUP => self.flag_remove(MK_LBUTTON),
+            WM_MBUTTONDOWN => self.flag_add(MK_MBUTTON),
+            WM_MBUTTONUP => self.flag_remove(MK_MBUTTON),
+            WM_RBUTTONDOWN => self.flag_add(MK_RBUTTON),
+            WM_RBUTTONUP => self.flag_remove(MK_RBUTTON),
+            _ => {},
+        }
+        self.flags_as_wparam()
+    }
+
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum MorgTarget {
     Window,

@@ -2498,12 +2498,12 @@ impl From<MorgContextConst> for MorgContext {
         }
     }
 }
-struct MorgImg {
-    input: window_low::Input,
+struct MorgImg<'a> {
+    input: window_low::Input<'a>,
     is_back: bool,
     hwnd: Option<HWND>,
 }
-impl From<&Option<MouseOrg>> for MorgImg {
+impl<'a> From<&Option<MouseOrg>> for MorgImg<'a> {
     fn from(morg: &Option<MouseOrg>) -> Self {
         let input = window_low::Input::from(morg);
         let (is_back, hwnd) = match &morg {
@@ -2515,7 +2515,7 @@ impl From<&Option<MouseOrg>> for MorgImg {
         Self { input, is_back, hwnd }
     }
 }
-impl MorgImg {
+impl MorgImg<'_> {
     #[cfg(feature="chkimg")]
     fn is_client(&self) -> bool {
         self.input.is_client()
