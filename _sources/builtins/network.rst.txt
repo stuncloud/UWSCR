@@ -1,0 +1,85 @@
+ネットワーク機能
+================
+
+UDP通信
+-------
+
+.. admonition:: サンプルコード
+
+    .. sourcecode:: uwscr
+
+        const PORT_SEND = 50101
+        const PORT_RECV = 50303
+
+        function sender()
+            // 呼び出しから3秒後にデータを送信する
+            const LOCALHOST = "127.0.0.1"
+            client = udpclient(LOCALHOST, PORT_SEND)
+            sleep(3)
+            udpsend(client, LOCALHOST, PORT_RECV, "UDP通信テスト")
+        fend
+
+
+        client = udpclient("0.0.0.0", PORT_RECV)
+
+        // 送信スレッドを呼ぶ
+        thread sender()
+
+        // 受信待機
+        r = udprecv(client, 100)
+
+        // 受信データを整形
+        data = decode(r[0], CODE_BYTEARRAYU)
+        addr = r[1]
+        port = r[2]
+
+        print "<#addr>:<#port> からメッセージを受信しました: <#data>"
+        // 127.0.0.1:50101 からメッセージを受信しました: UDP通信テスト
+
+.. function:: UDPClient(IPアドレス, ポート)
+
+    | 任意のアドレスとポートで待ち受けるUDPクライアントオブジェクトを返す
+
+    :param 文字列 IPアドレス: 自身の待ち受けIPアドレス
+    :param 数値 ポート: 自身の待ち受けポート
+    :rtype: UDPクライアント
+    :return: UDP送受信を行うためのオブジェクト
+
+.. function:: UDPSend(udp, IPアドレス, ポート, 送信データ)
+
+    | UDPによるデータ送信を行う
+
+    :param UDPクライアント udp: データを送信するUDPクライアント
+    :param 文字列 IPアドレス: 送信先IPアドレス
+    :param 数値 ポート: 送信先ポート
+    :param 値 送信データ:
+
+        |
+        | 有効な値は
+
+        - 文字列: UTF8バイト配列に変換される
+        - バイト配列: encode関数の戻り値
+        - 数値配列: 数値 (0-255) の配列、数値以外や範囲外が含まれていたらエラーとなる
+
+    :rtype: 真偽値
+    :return: 送信成功時TRUE
+
+
+.. function:: UDPRecv(バッファサイズ)
+
+    | UDPによるデータ受信を行う
+
+    :param 数値 バッファサイズ:
+
+        | 受信するデータ (バイト配列) のバッファサイズ
+        | 実際の受信データより小さいとデータが欠損する場合があります
+
+    :rtype: [バイト配列, 文字列, 数値]
+    :return: 受信データを示すバイト配列、送信元IPアドレスを示す文字列、送信元ポートを示す数値の配列
+
+
+TCP通信
+-------
+
+WebSocket
+---------

@@ -4,10 +4,10 @@
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <meta name="color-scheme" content="light dark"><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
     <link rel="icon" href="../_static/MAINICON_0016-0256_light.ico" type="image/vnd.microsoft.icon">
-<link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="文字列操作関数" href="text.html" /><link rel="prev" title="特殊変数" href="../syntax/special_variables.html" />
+<link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="prev" title="ウェブ関連" href="web.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>引数の型について - UWSCR 1.1.5</title>
+        <title>ネットワーク機能 - UWSCR 1.1.3</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 1.1.5</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 1.1.3</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 1.1.5</span>
+  <span class="sidebar-brand-text">UWSCR 1.1.3</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -171,7 +171,7 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">ビルトイン関数</span></p>
 <ul class="current">
-<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">引数の型について</a></li>
+<li class="toctree-l1"><a class="reference internal" href="about_parameters.html">引数の型について</a></li>
 <li class="toctree-l1"><a class="reference internal" href="text.html">文字列操作関数</a></li>
 <li class="toctree-l1"><a class="reference internal" href="window.html">ウィンドウ操作関数</a></li>
 <li class="toctree-l1"><a class="reference internal" href="scriptcontrol.html">スクリプト制御</a></li>
@@ -183,7 +183,7 @@
 <li class="toctree-l1"><a class="reference internal" href="comobject.html">COMオブジェクト</a></li>
 <li class="toctree-l1"><a class="reference internal" href="excel.html">Excel</a></li>
 <li class="toctree-l1"><a class="reference internal" href="web.html">ウェブ関連</a></li>
-<li class="toctree-l1"><a class="reference internal" href="socket.html">ソケット通信</a></li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">ネットワーク機能</a></li>
 </ul>
 
 </div>
@@ -219,44 +219,125 @@
         </div>
         <article role="main">
           <section id="id1">
-<h1>引数の型について<a class="headerlink" href="#id1" title="この見出しへのパーマリンク">#</a></h1>
-<div class="line-block">
-<div class="line">ビルトイン関数の引数の型について</div>
-</div>
-<section id="id2">
-<h2>文字列<a class="headerlink" href="#id2" title="この見出しへのパーマリンク">#</a></h2>
-<div class="line-block">
-<div class="line">文字列型の引数は主に文字列型の値を受けることを想定していますが、文字列型以外の値を渡すこともできます</div>
-<div class="line">文字列型以外の値を渡した場合、その値に対して <strong>暗黙の文字列変換</strong> を行います</div>
-<div class="line">どのような変換が行われるかは <a class="reference internal" href="../syntax/statement.html#value-types"><span class="std std-ref">値型</span></a> の型一覧を参照してください</div>
-</div>
-<div class="caution admonition">
-<p class="admonition-title">真偽値について</p>
-<div class="line-block">
-<div class="line">UWSCでは真偽値型(<code class="docutils literal notranslate"><span class="pre">TRUE</span></code>, <code class="docutils literal notranslate"><span class="pre">FALSE</span></code>)を文字列型引数に渡すと <code class="docutils literal notranslate"><span class="pre">&quot;1&quot;</span></code> または <code class="docutils literal notranslate"><span class="pre">&quot;0&quot;</span></code> へと変換されていましたが、UWSCRでは <code class="docutils literal notranslate"><span class="pre">&quot;True&quot;</span></code> または <code class="docutils literal notranslate"><span class="pre">&quot;False&quot;</span></code> に変換されます</div>
-<div class="line">そのためUWSCにて <code class="docutils literal notranslate"><span class="pre">&quot;1&quot;</span></code> または <code class="docutils literal notranslate"><span class="pre">&quot;0&quot;</span></code> を想定しているスクリプトをUWSCRで実行すると問題になる可能性があります</div>
-</div>
-<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">fid</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fopen</span><span class="p">(</span><span class="s">&quot;hoge.txt&quot;</span><span class="o">,</span><span class="w"> </span><span class="n">F_READ</span><span class="w"> </span><span class="n">or</span><span class="w"> </span><span class="n">F_WRITE</span><span class="p">)</span>
-<span class="n">fput</span><span class="p">(</span><span class="n">fid</span><span class="o">,</span><span class="w"> </span><span class="n">TRUE</span><span class="o">,</span><span class="w"> </span><span class="m">1</span><span class="p">)</span><span class="w"> </span><span class="c">// 暗黙の文字列変換が行われて書き込みが行われる</span>
+<h1>ネットワーク機能<a class="headerlink" href="#id1" title="この見出しへのパーマリンク">#</a></h1>
+<section id="udp">
+<h2>UDP通信<a class="headerlink" href="#udp" title="この見出しへのパーマリンク">#</a></h2>
+<div class="admonition- admonition">
+<p class="admonition-title">サンプルコード</p>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="kd">const</span><span class="w"> </span><span class="n">PORT_SEND</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">50101</span>
+<span class="kd">const</span><span class="w"> </span><span class="n">PORT_RECV</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">50303</span>
 
-<span class="c">// 書き込んだ値を読む</span>
-<span class="n">value</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fget</span><span class="p">(</span><span class="n">fid</span><span class="o">,</span><span class="w"> </span><span class="m">1</span><span class="p">)</span>
+<span class="kd">function</span><span class="w"> </span><span class="n">sender</span><span class="p">()</span>
+<span class="w">    </span><span class="c">// 呼び出しから3秒後にデータを送信する</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="n">LOCALHOST</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;127.0.0.1&quot;</span>
+<span class="w">    </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">udpclient</span><span class="p">(</span><span class="n">LOCALHOST</span><span class="o">,</span><span class="w"> </span><span class="n">PORT_SEND</span><span class="p">)</span>
+<span class="w">    </span><span class="n">sleep</span><span class="p">(</span><span class="m">3</span><span class="p">)</span>
+<span class="w">    </span><span class="n">udpsend</span><span class="p">(</span><span class="n">client</span><span class="o">,</span><span class="w"> </span><span class="n">LOCALHOST</span><span class="o">,</span><span class="w"> </span><span class="n">PORT_RECV</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;UDP通信テスト&quot;</span><span class="p">)</span>
+<span class="kd">fend</span>
 
-<span class="k">print</span><span class="w"> </span><span class="n">value</span><span class="w"> </span><span class="c">// UWSC: 1, UWSCR: True</span>
+
+<span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">udpclient</span><span class="p">(</span><span class="s">&quot;0.0.0.0&quot;</span><span class="o">,</span><span class="w"> </span><span class="n">PORT_RECV</span><span class="p">)</span>
+
+<span class="c">// 送信スレッドを呼ぶ</span>
+<span class="n">thread</span><span class="w"> </span><span class="n">sender</span><span class="p">()</span>
+
+<span class="c">// 受信待機</span>
+<span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">udprecv</span><span class="p">(</span><span class="n">client</span><span class="o">,</span><span class="w"> </span><span class="m">100</span><span class="p">)</span>
+
+<span class="c">// 受信データを整形</span>
+<span class="n">data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">decode</span><span class="p">(</span><span class="n">r</span><span class="p">[</span><span class="m">0</span><span class="p">]</span><span class="o">,</span><span class="w"> </span><span class="n">CODE_BYTEARRAYU</span><span class="p">)</span>
+<span class="n">addr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">r</span><span class="p">[</span><span class="m">1</span><span class="p">]</span>
+<span class="n">port</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">r</span><span class="p">[</span><span class="m">2</span><span class="p">]</span>
+
+<span class="k">print</span><span class="w"> </span><span class="s">&quot;&lt;#addr&gt;:&lt;#port&gt; からメッセージを受信しました: &lt;#data&gt;&quot;</span>
+<span class="c">// 127.0.0.1:50101 からメッセージを受信しました: UDP通信テスト</span>
 </pre></div>
 </div>
 </div>
+<dl class="py function">
+<dt class="sig sig-object py" id="UDPClient">
+<span class="sig-name descname"><span class="pre">UDPClient</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">IPアドレス</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ポート</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#UDPClient" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">任意のアドレスとポートで待ち受けるUDPクライアントオブジェクトを返す</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>IPアドレス</strong> (<em>文字列</em>) -- 自身の待ち受けIPアドレス</p></li>
+<li><p><strong>ポート</strong> (<em>数値</em>) -- 自身の待ち受けポート</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>UDPクライアント</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>UDP送受信を行うためのオブジェクト</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="UDPSend">
+<span class="sig-name descname"><span class="pre">UDPSend</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">udp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">IPアドレス</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ポート</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">送信データ</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#UDPSend" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">UDPによるデータ送信を行う</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>udp</strong> (<em>UDPクライアント</em>) -- データを送信するUDPクライアント</p></li>
+<li><p><strong>IPアドレス</strong> (<em>文字列</em>) -- 送信先IPアドレス</p></li>
+<li><p><strong>ポート</strong> (<em>数値</em>) -- 送信先ポート</p></li>
+<li><p><strong>送信データ</strong> (<em>値</em>) -- <div class="line-block">
+<div class="line"><br /></div>
+<div class="line">有効な値は</div>
+</div>
+<ul>
+<li><p>文字列: UTF8バイト配列に変換される</p></li>
+<li><p>バイト配列: encode関数の戻り値</p></li>
+<li><p>数値配列: 数値 (0-255) の配列、数値以外や範囲外が含まれていたらエラーとなる</p></li>
+</ul>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>真偽値</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>送信成功時TRUE</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="UDPRecv">
+<span class="sig-name descname"><span class="pre">UDPRecv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">バッファサイズ</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#UDPRecv" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">UDPによるデータ受信を行う</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>バッファサイズ</strong> (<em>数値</em>) -- <div class="line-block">
+<div class="line">受信するデータ (バイト配列) のバッファサイズ</div>
+<div class="line">実際の受信データより小さいとデータが欠損する場合があります</div>
+</div>
+</p>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>[バイト配列, 文字列, 数値]</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>受信データを示すバイト配列、送信元IPアドレスを示す文字列、送信元ポートを示す数値の配列</p>
+</dd>
+</dl>
+</dd></dl>
+
 </section>
-<section id="id3">
-<h2>真偽値<a class="headerlink" href="#id3" title="この見出しへのパーマリンク">#</a></h2>
-<div class="line-block">
-<div class="line">真偽値を受ける引数は主に真偽値型の値を受けることを想定していますが、真偽値型以外の値を渡すこともできる場合があります</div>
-<div class="line">真偽値型以外の値が渡せる場合はその値の真偽性により <code class="docutils literal notranslate"><span class="pre">TRUE</span></code> または <code class="docutils literal notranslate"><span class="pre">FALSE</span></code> への暗黙の変換が行われます</div>
-<div class="line">真偽性の判定については <a class="reference internal" href="../syntax/statement.html#tf-cond"><span class="std std-ref">条件式の判定</span></a> を参照してください</div>
-</div>
-<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">logprint</span><span class="p">(</span><span class="s">&quot;hoge&quot;</span><span class="p">)</span><span class="w"> </span><span class="c">// 文字列型は真偽性の判定結果がtruthyであるためTRUEとして扱われる</span>
-</pre></div>
-</div>
+<section id="tcp">
+<h2>TCP通信<a class="headerlink" href="#tcp" title="この見出しへのパーマリンク">#</a></h2>
+</section>
+<section id="websocket">
+<h2>WebSocket<a class="headerlink" href="#websocket" title="この見出しへのパーマリンク">#</a></h2>
 </section>
 </section>
 
@@ -265,23 +346,15 @@
       <footer>
         
         <div class="related-pages">
-          <a class="next-page" href="text.html">
-              <div class="page-info">
-                <div class="context">
-                  <span>Next</span>
-                </div>
-                <div class="title">文字列操作関数</div>
-              </div>
-              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
-            </a>
-          <a class="prev-page" href="../syntax/special_variables.html">
+          
+          <a class="prev-page" href="web.html">
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
               <div class="page-info">
                 <div class="context">
                   <span>Previous</span>
                 </div>
                 
-                <div class="title">特殊変数</div>
+                <div class="title">ウェブ関連</div>
                 
               </div>
             </a>
@@ -289,7 +362,7 @@
         <div class="bottom-of-page">
           <div class="left-details">
             <div class="copyright">
-                Copyright &#169; 2025, stuncloud
+                Copyright &#169; 2023, stuncloud
             </div>
             Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
             
@@ -317,9 +390,15 @@
         <div class="toc-tree-container">
           <div class="toc-tree">
             <ul>
-<li><a class="reference internal" href="#">引数の型について</a><ul>
-<li><a class="reference internal" href="#id2">文字列</a></li>
-<li><a class="reference internal" href="#id3">真偽値</a></li>
+<li><a class="reference internal" href="#">ネットワーク機能</a><ul>
+<li><a class="reference internal" href="#udp">UDP通信</a><ul>
+<li><a class="reference internal" href="#UDPClient"><code class="docutils literal notranslate"><span class="pre">UDPClient()</span></code></a></li>
+<li><a class="reference internal" href="#UDPSend"><code class="docutils literal notranslate"><span class="pre">UDPSend()</span></code></a></li>
+<li><a class="reference internal" href="#UDPRecv"><code class="docutils literal notranslate"><span class="pre">UDPRecv()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#tcp">TCP通信</a></li>
+<li><a class="reference internal" href="#websocket">WebSocket</a></li>
 </ul>
 </li>
 </ul>

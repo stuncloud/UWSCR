@@ -1,0 +1,759 @@
+<!doctype html>
+<html class="no-js" lang="ja">
+  <head><meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="color-scheme" content="light dark"><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+    <link rel="icon" href="../_static/MAINICON_0016-0256_light.ico" type="image/vnd.microsoft.icon">
+<link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="prev" title="ウェブ関連" href="web.html" />
+
+    <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
+        <title>ソケット通信 - UWSCR 1.1.5</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f8f8f8;
+  --color-code-foreground: black;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-half" viewBox="0 0 24 24">
+    <title>Auto light/dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-shadow">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M13 12h5" />
+      <path d="M13 15h4" />
+      <path d="M13 18h1" />
+      <path d="M13 9h4" />
+      <path d="M13 6h1" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc">
+<label class="overlay sidebar-overlay" for="__navigation">
+  <div class="visually-hidden">Hide navigation sidebar</div>
+</label>
+<label class="overlay toc-overlay" for="__toc">
+  <div class="visually-hidden">Hide table of contents sidebar</div>
+</label>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <div class="visually-hidden">Toggle site navigation sidebar</div>
+        <i class="icon"><svg><use href="#svg-menu"></use></svg></i>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../index.html"><div class="brand">UWSCR 1.1.5</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle">
+          <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+          <svg class="theme-icon-when-auto"><use href="#svg-sun-half"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <div class="visually-hidden">Toggle table of contents sidebar</div>
+        <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
+  
+  
+  <span class="sidebar-brand-text">UWSCR 1.1.5</span>
+  
+</a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
+  <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">使い方</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../usage/installation.html">インストール方法</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage/how_to_run.html">実行方法</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage/settings.html">設定ファイル</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage/how_to_build.html">ビルド方法</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage/language_server.html">Language Server機能について</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage/example.html">サンプルコード集</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">スクリプト構文</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../syntax/statement.html">スクリプト構文</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../syntax/special_variables.html">特殊変数</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">ビルトイン関数</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="about_parameters.html">引数の型について</a></li>
+<li class="toctree-l1"><a class="reference internal" href="text.html">文字列操作関数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="window.html">ウィンドウ操作関数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="scriptcontrol.html">スクリプト制御</a></li>
+<li class="toctree-l1"><a class="reference internal" href="system.html">システム関数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="file.html">ファイル操作関数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gui.html">GUI</a></li>
+<li class="toctree-l1"><a class="reference internal" href="array.html">配列操作関数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="math.html">数学関数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="comobject.html">COMオブジェクト</a></li>
+<li class="toctree-l1"><a class="reference internal" href="excel.html">Excel</a></li>
+<li class="toctree-l1"><a class="reference internal" href="web.html">ウェブ関連</a></li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">ソケット通信</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          
+<div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle">
+              <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+              <svg class="theme-icon-when-auto"><use href="#svg-sun-half"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <div class="visually-hidden">Toggle table of contents sidebar</div>
+            <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+          </label>
+        </div>
+        <article role="main">
+          <section id="id1">
+<h1>ソケット通信<a class="headerlink" href="#id1" title="この見出しへのパーマリンク">#</a></h1>
+<ul class="simple">
+<li><p>UDP</p></li>
+<li><p>TCP</p></li>
+<li><p>WebSocket</p></li>
+</ul>
+<div class="line-block">
+<div class="line">を利用した通信を行うための関数群です</div>
+</div>
+<section id="id2">
+<h2>共通<a class="headerlink" href="#id2" title="この見出しへのパーマリンク">#</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="sclose">
+<span class="sig-name descname"><span class="pre">sclose</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ソケット</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#sclose" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">ソケットを閉じます</div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">注釈</p>
+<p>自動クローズ</p>
+<div class="line-block">
+<div class="line">ソケットはソケットオブジェクトが破棄された時点で閉じられます</div>
+<div class="line">以下の方法のいずれでもソケットを閉じることができます</div>
+</div>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">udp1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">udpclient</span><span class="p">(</span><span class="n">addr</span><span class="o">,</span><span class="w"> </span><span class="n">port</span><span class="p">)</span>
+<span class="n">sclose</span><span class="p">(</span><span class="n">udp1</span><span class="p">)</span><span class="w"> </span><span class="c">// sclose関数を使う</span>
+
+<span class="n">udp2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">udpclient</span><span class="p">(</span><span class="n">addr</span><span class="o">,</span><span class="w"> </span><span class="n">port</span><span class="p">)</span>
+<span class="n">udp2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">EMPTY</span><span class="w"> </span><span class="c">// 別の値で上書きしソケットオブジェクトが失われれば自動クローズされる</span>
+</pre></div>
+</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>ソケット</strong> (<em>ソケットオブジェクト</em>) -- <p>以下のいずれかを指定</p>
+<ul class="simple">
+<li><p>UDPClient</p></li>
+<li><p>WebSocket</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="udp">
+<h2>UDP通信<a class="headerlink" href="#udp" title="この見出しへのパーマリンク">#</a></h2>
+<div class="admonition- admonition">
+<p class="admonition-title">サンプルコード</p>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="kd">const</span><span class="w"> </span><span class="n">PORT_SEND</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">50101</span>
+<span class="kd">const</span><span class="w"> </span><span class="n">PORT_RECV</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">50303</span>
+
+<span class="kd">function</span><span class="w"> </span><span class="n">sender</span><span class="p">()</span>
+<span class="w">    </span><span class="c">// 呼び出しから3秒後にデータを送信する</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="n">LOCALHOST</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;127.0.0.1&quot;</span>
+<span class="w">    </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">udpclient</span><span class="p">(</span><span class="n">LOCALHOST</span><span class="o">,</span><span class="w"> </span><span class="n">PORT_SEND</span><span class="p">)</span>
+<span class="w">    </span><span class="n">sleep</span><span class="p">(</span><span class="m">3</span><span class="p">)</span>
+<span class="w">    </span><span class="n">udpsend</span><span class="p">(</span><span class="n">client</span><span class="o">,</span><span class="w"> </span><span class="n">LOCALHOST</span><span class="o">,</span><span class="w"> </span><span class="n">PORT_RECV</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;UDP通信テスト&quot;</span><span class="p">)</span>
+<span class="kd">fend</span>
+
+
+<span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">udpclient</span><span class="p">(</span><span class="s">&quot;0.0.0.0&quot;</span><span class="o">,</span><span class="w"> </span><span class="n">PORT_RECV</span><span class="p">)</span>
+
+<span class="c">// 送信スレッドを呼ぶ</span>
+<span class="n">thread</span><span class="w"> </span><span class="n">sender</span><span class="p">()</span>
+
+<span class="c">// 受信待機</span>
+<span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">udprecv</span><span class="p">(</span><span class="n">client</span><span class="o">,</span><span class="w"> </span><span class="m">100</span><span class="p">)</span>
+
+<span class="c">// 受信データを整形</span>
+<span class="n">data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">decode</span><span class="p">(</span><span class="n">r</span><span class="p">[</span><span class="m">0</span><span class="p">]</span><span class="o">,</span><span class="w"> </span><span class="n">CODE_BYTEARRAYU</span><span class="p">)</span>
+<span class="n">addr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">r</span><span class="p">[</span><span class="m">1</span><span class="p">]</span>
+<span class="n">port</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">r</span><span class="p">[</span><span class="m">2</span><span class="p">]</span>
+
+<span class="k">print</span><span class="w"> </span><span class="s">&quot;&lt;#addr&gt;:&lt;#port&gt; からメッセージを受信しました: &lt;#data&gt;&quot;</span>
+<span class="c">// 127.0.0.1:50101 からメッセージを受信しました: UDP通信テスト</span>
+
+<span class="n">sclose</span><span class="p">(</span><span class="n">client</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<dl class="py function">
+<dt class="sig sig-object py" id="UdpClient">
+<span class="sig-name descname"><span class="pre">UdpClient</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">IPアドレス</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ポート</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#UdpClient" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">任意のアドレスとポートで待ち受けるUDPクライアントオブジェクトを返す</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>IPアドレス</strong> (<em>文字列</em>) -- 自身の待ち受けIPアドレス</p></li>
+<li><p><strong>ポート</strong> (<em>数値</em>) -- 自身の待ち受けポート</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>UDPクライアント</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>UDP送受信を行うためのオブジェクト</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="UdpSend">
+<span class="sig-name descname"><span class="pre">UdpSend</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">udp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">IPアドレス</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ポート</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">送信データ</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#UdpSend" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">UDPによるデータ送信を行う</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>udp</strong> (<em>UDPクライアント</em>) -- データを送信するUDPクライアント</p></li>
+<li><p><strong>IPアドレス</strong> (<em>文字列</em>) -- 送信先IPアドレス</p></li>
+<li><p><strong>ポート</strong> (<em>数値</em>) -- 送信先ポート</p></li>
+<li><p><strong>送信データ</strong> (<em>値</em>) -- <div class="line-block">
+<div class="line">以下のいずれかの型の値に対応</div>
+</div>
+<ul>
+<li><p>文字列: UTF8バイト配列に変換される</p></li>
+<li><p>UObject: json文字列としてUTF8バイト配列に変換される</p></li>
+<li><p>バイト配列: encode関数の戻り値等</p></li>
+<li><p>数値配列: 数値 (0-255) の配列、数値以外や範囲外が含まれていたらエラーとなる</p></li>
+</ul>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>真偽値</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>送信成功時TRUE</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="UdpRecv">
+<span class="sig-name descname"><span class="pre">UdpRecv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">バッファサイズ</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#UdpRecv" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">UDPによるデータ受信を行う</div>
+<div class="line">データを受信するまでブロックする</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>バッファサイズ</strong> (<em>数値</em>) -- <div class="line-block">
+<div class="line">受信するデータ (バイト配列) のバッファサイズ</div>
+<div class="line">実際の受信データより小さいとデータが欠損する場合があります</div>
+</div>
+</p>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>[バイト配列, 文字列, 数値]</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>[受信データ, 送信元IPアドレス, 送信元ポート]</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="tcp">
+<h2>TCP通信<a class="headerlink" href="#tcp" title="この見出しへのパーマリンク">#</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="TcpSend">
+<span class="sig-name descname"><span class="pre">TcpSend</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">IPアドレス</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ポート</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">送信データ</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#TcpSend" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">TCPで接続先にデータを送信し、受け取ったレスポンスを返す</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>IPアドレス</strong> (<em>文字列</em>) -- 対象サーバーのIPアドレス</p></li>
+<li><p><strong>ポート</strong> (<em>数値</em>) -- 対象サーバーのポート</p></li>
+<li><p><strong>送信データ</strong> (<em>値</em>) -- <div class="line-block">
+<div class="line">以下のいずれかの型の値に対応</div>
+</div>
+<ul>
+<li><p>文字列: UTF8バイト配列に変換される</p></li>
+<li><p>UObject: json文字列としてUTF8バイト配列に変換される</p></li>
+<li><p>バイト配列: encode関数の戻り値等</p></li>
+<li><p>数値配列: 数値 (0-255) の配列、数値以外や範囲外が含まれていたらエラーとなる</p></li>
+</ul>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>バイト配列</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>レスポンスデータを示すバイト配列</p>
+</dd>
+</dl>
+<div class="admonition- admonition">
+<p class="admonition-title">サンプルコード</p>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// example.comにGETリクエストを送る</span>
+
+<span class="c">// GETリクエストデータ</span>
+<span class="c">// 末尾に改行を2つ入れないとダメ</span>
+<span class="k">textblock</span><span class="w"> </span><span class="n">request</span>
+<span class="s">GET /index.html HTTP/1.1</span>
+<span class="s">Host: example.com</span>
+<span class="s">Connection: close</span>
+
+
+<span class="n">endtextblock</span>
+
+<span class="c">// GETリクエストを送信</span>
+<span class="n">res</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">TcpSend</span><span class="p">(</span><span class="s">&quot;23.192.228.80&quot;</span><span class="o">,</span><span class="w"> </span><span class="m">80</span><span class="o">,</span><span class="w"> </span><span class="n">request</span><span class="p">)</span>
+<span class="c">// レスポンスデータを文字列に変換してprint</span>
+<span class="k">print</span><span class="w"> </span><span class="n">decode</span><span class="p">(</span><span class="n">res</span><span class="o">,</span><span class="w"> </span><span class="n">CODE_BYTEARRAYU</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="TcpListener">
+<span class="sig-name descname"><span class="pre">TcpListener</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">IPアドレス</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ポート</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ハンドラ</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">終端文字=&quot;&lt;#CR&gt;&quot;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">タイムアウト秒=10</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#TcpListener" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">指定アドレス及びポートでTCP接続の待ち受けを行う</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>IPアドレス</strong> (<em>文字列</em>) -- 待ち受けIPアドレス</p></li>
+<li><p><strong>ポート</strong> (<em>数値</em>) -- 待ち受けポート</p></li>
+<li><p><strong>ハンドラ</strong> (<em>関数</em>) -- <div class="line-block">
+<div class="line">受信したデータをバイト配列として受け、クライアントに返信するデータを戻り値とする関数</div>
+<div class="line">返信に有効な型は以下</div>
+</div>
+<ul>
+<li><p>文字列: UTF8バイト配列に変換され返信される</p></li>
+<li><p>UObject: json文字列がUTF8バイト配列に変換され返信される</p></li>
+<li><p>バイト配列: encode関数の戻り値等</p></li>
+<li><p>数値配列: バイト配列に変換可能であれば返信される</p></li>
+<li><p>FALSE, NULL, EMPTY: 待ち受け状態を抜ける (クライアントには空データが返る)</p></li>
+</ul>
+</p></li>
+<li><p><strong>終端文字</strong> (<em>文字 省略可</em>) -- <div class="line-block">
+<div class="line">受信データの終端と判断するASCII文字 (chr(0)～chr(255))</div>
+<div class="line">この文字が送られてこないとデータ受信が終わらずレスポンスを返せない</div>
+<div class="line">省略時はCRLF (<code class="docutils literal notranslate"><span class="pre">&quot;#CR&quot;</span></code>)</div>
+</div>
+</p></li>
+<li><p><strong>タイムアウト秒</strong> (<em>数値</em>) -- 受信できない場合のタイムアウト秒 (終端文字が送られない場合などにタイムアウトする可能性がある)</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値<span class="colon">:</span></dt>
+<dd class="field-even"><p>なし</p>
+</dd>
+</dl>
+<div class="admonition- admonition">
+<p class="admonition-title">サンプルコード</p>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// 受信データハンドラ</span>
+<span class="c">// 受信内容により返信を変更する</span>
+<span class="kd">function</span><span class="w"> </span><span class="n">handler</span><span class="p">(</span><span class="n">bytes</span><span class="p">)</span>
+<span class="w">    </span><span class="n">received</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">decode</span><span class="p">(</span><span class="n">bytes</span><span class="o">,</span><span class="w"> </span><span class="n">CODE_BYTEARRAYU</span><span class="p">)</span>
+<span class="w">    </span><span class="kd">select</span><span class="w"> </span><span class="n">received</span>
+<span class="w">        </span><span class="kd">case</span><span class="w"> </span><span class="s">&quot;Ping&quot;</span>
+<span class="w">            </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;Pong&quot;</span>
+<span class="w">        </span><span class="kd">case</span><span class="w"> </span><span class="s">&quot;さようなら&quot;</span>
+<span class="w">            </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;またね&quot;</span>
+<span class="w">        </span><span class="kd">default</span>
+<span class="w">            </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;こんにちは、&lt;#received&gt;さん&quot;</span>
+<span class="w">    </span><span class="kd">selend</span>
+<span class="kd">fend</span>
+
+<span class="c">// 別スレッドでリッスン開始</span>
+<span class="n">thread</span><span class="w"> </span><span class="n">TcpListener</span><span class="p">(</span><span class="s">&quot;0.0.0.0&quot;</span><span class="o">,</span><span class="w"> </span><span class="m">9999</span><span class="o">,</span><span class="w"> </span><span class="n">handler</span><span class="p">)</span>
+
+<span class="c">// データ送信関数ラッパー</span>
+<span class="n">send</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kd">function</span><span class="p">(</span><span class="n">data</span><span class="o">:</span><span class="w"> </span><span class="n">string</span><span class="p">)</span>
+<span class="w">    </span><span class="c">// デフォルトではTcpListenerのデータ終端が改行なので末尾に&lt;#CR&gt;を加える</span>
+<span class="w">    </span><span class="n">res</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">TcpSend</span><span class="p">(</span><span class="s">&quot;127.0.0.1&quot;</span><span class="o">,</span><span class="w"> </span><span class="m">9999</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;&lt;#data&gt;&lt;#CR&gt;&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">decode</span><span class="p">(</span><span class="n">res</span><span class="o">,</span><span class="w"> </span><span class="n">CODE_BYTEARRAYU</span><span class="p">)</span>
+<span class="kd">fend</span>
+
+<span class="n">sleep</span><span class="p">(</span><span class="m">1</span><span class="p">)</span>
+<span class="k">print</span><span class="w"> </span><span class="n">send</span><span class="p">(</span><span class="s">&quot;🐊&quot;</span><span class="p">)</span>
+<span class="c">// こんにちは、🐊さん</span>
+<span class="n">sleep</span><span class="p">(</span><span class="m">1</span><span class="p">)</span>
+<span class="k">print</span><span class="w"> </span><span class="n">send</span><span class="p">(</span><span class="s">&quot;Ping&quot;</span><span class="p">)</span>
+<span class="c">// Pong</span>
+<span class="n">sleep</span><span class="p">(</span><span class="m">1</span><span class="p">)</span>
+<span class="k">print</span><span class="w"> </span><span class="n">send</span><span class="p">(</span><span class="s">&quot;さようなら&quot;</span><span class="p">)</span>
+<span class="c">// またね</span>
+</pre></div>
+</div>
+</div>
+</dd></dl>
+
+</section>
+<section id="websocket">
+<h2>WebSocket<a class="headerlink" href="#websocket" title="この見出しへのパーマリンク">#</a></h2>
+<div class="admonition- admonition">
+<p class="admonition-title">サンプルコード</p>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// MSEdgeのデバッグポートを開いて起動</span>
+<span class="n">shexec</span><span class="p">(</span><span class="s">&quot;msedge.exe&quot;</span><span class="o">,</span><span class="w"> </span><span class="s">&quot;--remote-debugging-port=9515&quot;</span><span class="p">)</span>
+<span class="n">sleep</span><span class="p">(</span><span class="m">1</span><span class="p">)</span>
+
+<span class="c">// WebSocket用のURLを得る</span>
+<span class="n">res</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">webrequest</span><span class="p">(</span><span class="s">&quot;http://localhost:9515/json/version&quot;</span><span class="p">)</span>
+<span class="n">uri</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">res</span><span class="o">.</span><span class="n">json</span><span class="o">.</span><span class="n">webSocketDebuggerUrl</span>
+<span class="k">print</span><span class="w"> </span><span class="s">&quot;webSocketDebuggerUrl: &lt;#uri&gt;&quot;</span>
+
+<span class="c">// WebSocketオブジェクトを作成</span>
+<span class="n">ws</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">WebSocket</span><span class="p">(</span><span class="n">uri</span><span class="p">)</span>
+<span class="k">print</span><span class="w"> </span><span class="n">ws</span>
+
+<span class="c">// リクエスト用jsonオブジェクトを作る</span>
+<span class="n">request</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">@{</span>
+<span class="w">    </span><span class="s">&quot;id&quot;</span><span class="o">:</span><span class="w"> </span><span class="m">1</span><span class="o">,</span>
+<span class="w">    </span><span class="s">&quot;method&quot;</span><span class="o">:</span><span class="w"> </span><span class="s">&quot;Target.getTargets&quot;</span><span class="o">,</span>
+<span class="w">    </span><span class="s">&quot;params&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{}</span>
+<span class="p">}@</span>
+<span class="c">// リクエストを送信</span>
+<span class="n">WsSend</span><span class="p">(</span><span class="n">ws</span><span class="o">,</span><span class="w"> </span><span class="n">request</span><span class="p">)</span>
+
+<span class="k">while</span><span class="w"> </span><span class="n">TRUE</span>
+<span class="w">    </span><span class="c">// データを受信</span>
+<span class="w">    </span><span class="n">res</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">WsRecv</span><span class="p">(</span><span class="n">ws</span><span class="p">)</span>
+<span class="w">    </span><span class="n">obj</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fromjson</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="n">obj</span><span class="o">.</span><span class="n">id</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">request</span><span class="o">.</span><span class="n">id</span><span class="w"> </span><span class="k">then</span>
+<span class="w">        </span><span class="c">// idが一致したら抜ける</span>
+<span class="w">        </span><span class="k">break</span>
+<span class="w">    </span><span class="k">endif</span>
+<span class="k">wend</span>
+
+<span class="c">// Target.getTargetsメソッドの戻り値のうち、ページを示すものの情報を表示</span>
+<span class="k">for</span><span class="w"> </span><span class="n">info</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="n">obj</span><span class="o">.</span><span class="n">result</span><span class="o">.</span><span class="n">targetInfos</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="n">info</span><span class="o">.</span><span class="n">type</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s">&quot;page&quot;</span><span class="w"> </span><span class="k">then</span>
+<span class="w">        </span><span class="k">print</span>
+<span class="w">        </span><span class="k">print</span><span class="w"> </span><span class="s">&quot;type : &quot;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">info</span><span class="o">.</span><span class="n">type</span>
+<span class="w">        </span><span class="k">print</span><span class="w"> </span><span class="s">&quot;title: &quot;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">info</span><span class="o">.</span><span class="n">title</span>
+<span class="w">        </span><span class="k">print</span><span class="w"> </span><span class="s">&quot;url  : &quot;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">info</span><span class="o">.</span><span class="n">url</span>
+<span class="w">    </span><span class="k">endif</span>
+<span class="k">next</span>
+</pre></div>
+</div>
+</div>
+<dl class="py function">
+<dt class="sig sig-object py" id="WebSocket">
+<span class="sig-name descname"><span class="pre">WebSocket</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">wsuri</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#WebSocket" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">WebSocketに接続する</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>wsuri</strong> (<em>文字列</em>) -- <code class="docutils literal notranslate"><span class="pre">ws://</span></code> から始まるURI</p>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>WebSocket</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>WebSocketオブジェクト</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="WsSend">
+<span class="sig-name descname"><span class="pre">WsSend</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">WebSocket</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">送信データ</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#WsSend" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">WebSocketでデータを送信する</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>WebSocket</strong> (<em>WebSocket</em>) -- WebSocketオブジェクト</p></li>
+<li><p><strong>送信データ</strong> (<em>値</em>) -- <div class="line-block">
+<div class="line">以下のいずれかの型の値に対応</div>
+</div>
+<ul>
+<li><p>文字列</p></li>
+<li><p>UObject</p></li>
+<li><p>バイト配列</p></li>
+<li><dl class="simple">
+<dt>定数</dt><dd><ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">WS_PING</span></code> : pingを送信する</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">WS_PONG</span></code> : pongを送信する</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>戻り値の型</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p>戻り値の説明</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="WsRecv">
+<span class="sig-name descname"><span class="pre">WsRecv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">WebSocket</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#WsRecv" title="この定義へのパーマリンク">#</a></dt>
+<dd><div class="line-block">
+<div class="line">WebSocketでデータを受信する</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>WebSocket</strong> (<em>WebSocket</em>) -- WebSocketオブジェクト</p>
+</dd>
+<dt class="field-even">戻り値の型<span class="colon">:</span></dt>
+<dd class="field-even"><p>文字列、バイト配列、定数、EMPTY</p>
+</dd>
+<dt class="field-odd">戻り値<span class="colon">:</span></dt>
+<dd class="field-odd"><p><p>受信データによる</p>
+<div class="important admonition">
+<p class="admonition-title">受信データの型に注意</p>
+<div class="line-block">
+<div class="line">データの型が不明な場合は <code class="docutils literal notranslate"><span class="pre">type_of</span></code> 関数で型のチェックを行ってください</div>
+</div>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="n">res</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">WsRecv</span><span class="p">(</span><span class="n">ws</span><span class="p">)</span>
+<span class="kd">select</span><span class="w"> </span><span class="n">type_of</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
+<span class="w">    </span><span class="kd">case</span><span class="w"> </span><span class="n">TYPE_STRING</span>
+<span class="w">        </span><span class="k">print</span><span class="w"> </span><span class="s">&quot;received string: &lt;#res&gt;&quot;</span>
+<span class="w">    </span><span class="kd">case</span><span class="w"> </span><span class="n">TYPE_BYTE_ARRAY</span>
+<span class="w">        </span><span class="k">print</span><span class="w"> </span><span class="s">&quot;received bytes: &lt;#res&gt;&quot;</span>
+<span class="w">    </span><span class="kd">case</span><span class="w"> </span><span class="n">TYPE_NUMBER</span>
+<span class="w">        </span><span class="kd">select</span><span class="w"> </span><span class="n">res</span>
+<span class="w">            </span><span class="kd">case</span><span class="w"> </span><span class="n">WS_PING</span>
+<span class="w">                </span><span class="k">print</span><span class="w"> </span><span class="s">&quot;received ping&quot;</span>
+<span class="w">            </span><span class="kd">case</span><span class="w"> </span><span class="n">WS_PONG</span>
+<span class="w">                </span><span class="k">print</span><span class="w"> </span><span class="s">&quot;received pong&quot;</span>
+<span class="w">        </span><span class="kd">selend</span>
+<span class="w">    </span><span class="kd">default</span>
+<span class="w">        </span><span class="k">print</span><span class="w"> </span><span class="s">&quot;received invalid data: &lt;#res&gt;&quot;</span>
+<span class="kd">selend</span>
+</pre></div>
+</div>
+</div>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          
+          <a class="prev-page" href="web.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">ウェブ関連</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2025, stuncloud
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            <div class="icons">
+              
+            </div>
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">ソケット通信</a><ul>
+<li><a class="reference internal" href="#id2">共通</a><ul>
+<li><a class="reference internal" href="#sclose"><code class="docutils literal notranslate"><span class="pre">sclose()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#udp">UDP通信</a><ul>
+<li><a class="reference internal" href="#UdpClient"><code class="docutils literal notranslate"><span class="pre">UdpClient()</span></code></a></li>
+<li><a class="reference internal" href="#UdpSend"><code class="docutils literal notranslate"><span class="pre">UdpSend()</span></code></a></li>
+<li><a class="reference internal" href="#UdpRecv"><code class="docutils literal notranslate"><span class="pre">UdpRecv()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#tcp">TCP通信</a><ul>
+<li><a class="reference internal" href="#TcpSend"><code class="docutils literal notranslate"><span class="pre">TcpSend()</span></code></a></li>
+<li><a class="reference internal" href="#TcpListener"><code class="docutils literal notranslate"><span class="pre">TcpListener()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#websocket">WebSocket</a><ul>
+<li><a class="reference internal" href="#WebSocket"><code class="docutils literal notranslate"><span class="pre">WebSocket()</span></code></a></li>
+<li><a class="reference internal" href="#WsSend"><code class="docutils literal notranslate"><span class="pre">WsSend()</span></code></a></li>
+<li><a class="reference internal" href="#WsRecv"><code class="docutils literal notranslate"><span class="pre">WsRecv()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/sphinx_highlight.js"></script>
+    <script src="../_static/scripts/furo.js"></script>
+    <script src="../_static/translations.js"></script>
+    <script src="../_static/custom.js"></script>
+    </body>
+</html>

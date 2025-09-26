@@ -7,7 +7,7 @@
 <link rel="index" title="索引" href="genindex.html" /><link rel="search" title="検索" href="search.html" /><link rel="next" title="インストール方法" href="usage/installation.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>UWSCR 1.1.3</title>
+        <title>UWSCR 1.1.5</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="#"><div class="brand">UWSCR 1.1.3</div></a>
+      <a href="#"><div class="brand">UWSCR 1.1.5</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="#">
   
   
-  <span class="sidebar-brand-text">UWSCR 1.1.3</span>
+  <span class="sidebar-brand-text">UWSCR 1.1.5</span>
   
 </a><form class="sidebar-search-container" method="get" action="search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -183,6 +183,7 @@
 <li class="toctree-l1"><a class="reference internal" href="builtins/comobject.html">COMオブジェクト</a></li>
 <li class="toctree-l1"><a class="reference internal" href="builtins/excel.html">Excel</a></li>
 <li class="toctree-l1"><a class="reference internal" href="builtins/web.html">ウェブ関連</a></li>
+<li class="toctree-l1"><a class="reference internal" href="builtins/socket.html">ソケット通信</a></li>
 </ul>
 
 </div>
@@ -218,8 +219,8 @@
         </div>
         <article role="main">
           <section id="uwscr-version">
-<h1>UWSCR 1.1.3<a class="headerlink" href="#uwscr-version" title="この見出しへのパーマリンク">#</a></h1>
-<p>UWSCR 1.1.3 オンラインヘルプ</p>
+<h1>UWSCR 1.1.5<a class="headerlink" href="#uwscr-version" title="この見出しへのパーマリンク">#</a></h1>
+<p>UWSCR 1.1.5 オンラインヘルプ</p>
 <section id="id1">
 <h2>使い方<a class="headerlink" href="#id1" title="この見出しへのパーマリンク">#</a></h2>
 <div class="toctree-wrapper compound">
@@ -669,6 +670,30 @@
 <li class="toctree-l2"><a class="reference internal" href="builtins/web.html#id12">コレクションのインデックスアクセス</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="builtins/socket.html">ソケット通信</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="builtins/socket.html#id2">共通</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="builtins/socket.html#sclose"><code class="docutils literal notranslate"><span class="pre">sclose()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="builtins/socket.html#udp">UDP通信</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="builtins/socket.html#UdpClient"><code class="docutils literal notranslate"><span class="pre">UdpClient()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="builtins/socket.html#UdpSend"><code class="docutils literal notranslate"><span class="pre">UdpSend()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="builtins/socket.html#UdpRecv"><code class="docutils literal notranslate"><span class="pre">UdpRecv()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="builtins/socket.html#tcp">TCP通信</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="builtins/socket.html#TcpSend"><code class="docutils literal notranslate"><span class="pre">TcpSend()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="builtins/socket.html#TcpListener"><code class="docutils literal notranslate"><span class="pre">TcpListener()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="builtins/socket.html#websocket">WebSocket</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="builtins/socket.html#WebSocket"><code class="docutils literal notranslate"><span class="pre">WebSocket()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="builtins/socket.html#WsSend"><code class="docutils literal notranslate"><span class="pre">WsSend()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="builtins/socket.html#WsRecv"><code class="docutils literal notranslate"><span class="pre">WsRecv()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
 </ul>
 </div>
 </section>
@@ -712,7 +737,7 @@
         <div class="bottom-of-page">
           <div class="left-details">
             <div class="copyright">
-                Copyright &#169; 2023, stuncloud
+                Copyright &#169; 2025, stuncloud
             </div>
             Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
             
@@ -740,7 +765,7 @@
         <div class="toc-tree-container">
           <div class="toc-tree">
             <ul>
-<li><a class="reference internal" href="#">UWSCR 1.1.3</a><ul>
+<li><a class="reference internal" href="#">UWSCR 1.1.5</a><ul>
 <li><a class="reference internal" href="#id1">使い方</a></li>
 <li><a class="reference internal" href="#id2">スクリプト構文</a></li>
 <li><a class="reference internal" href="#id3">ビルトイン関数</a></li>
