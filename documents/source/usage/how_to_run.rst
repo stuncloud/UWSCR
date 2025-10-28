@@ -50,6 +50,55 @@
             # -- の後に書けばOK
             uwscr -- 123 456 -78 # ["123", "456", "-78"] として渡る
 
+    .. admonition:: batファイルでパラメータを渡す場合の注意
+        :class: warning
+
+        | batファイル (またはcmdファイル) からUWSCRを呼ぶ場合にスクリプトのパラメータとして特定の記述をした場合に正しく ``PARAM_STR`` へと反映されません
+
+        - パラメータを ``""`` で括っている
+        - かつその末尾が ``\`` である
+        - かつその後に別のパラメータが続く
+
+        | 以上を満たすパラメータがある場合 ``PARAM_STR`` が意図しない値となります
+        | 以下の例では ``["aaa\", "bbb"]`` という二つの文字列の出力が期待されますが、単一の文字列として出力されてしまいます
+
+        .. sourcecode:: uwscr
+
+            // test.uws
+            print PARAM_STR
+
+        .. sourcecode:: bat
+
+            rem test.bat
+
+            rem PARAM_STRがおかしくなる記述
+            uwscr test.uws "aaa\" "bbb"
+
+        .. sourcecode:: powershell
+
+            # 出力
+            > test.bat
+            ["aaa\" bbb"]
+
+
+        | batファイルの記述方法を変更することで回避可能です
+
+        .. sourcecode:: bat
+
+            rem test2.bat
+
+            rem ダブルクォートで括るのを止める
+            uwscr test.uws aaa\ "bbb"
+
+            rem ダブルクォートで括る場合は \ を \ でエスケープする
+            uwscr test.uws "aaa\\" "bbb"
+
+        .. sourcecode:: powershell
+
+            # 出力
+            > test2.bat
+            ["aaa\", "bbb"]
+            ["aaa\", "bbb"]
 
 .. option:: -w, --window
 

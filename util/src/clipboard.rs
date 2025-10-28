@@ -28,9 +28,14 @@ pub struct Clipboard;
 impl Clipboard {
     pub fn new() -> Result<Self, ClipboardError> {
         unsafe {
-            OpenClipboard(None)
-                .map(|_| Self)
-                .map_err(|_| ClipboardError::OpenError)
+            for _ in 0..5 {
+                if OpenClipboard(None).is_ok() {
+                    return Ok(Self);
+                } else {
+                    std::thread::sleep(std::time::Duration::from_millis(2));
+                }
+            }
+            Err(ClipboardError::OpenError)
         }
     }
     pub fn get_str(&self) -> Option<String> {
