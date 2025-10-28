@@ -7,7 +7,7 @@
 <link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="スクリプト制御" href="scriptcontrol.html" /><link rel="prev" title="文字列操作関数" href="text.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>ウィンドウ操作関数 - UWSCR 1.1.5</title>
+        <title>ウィンドウ操作関数 - UWSCR 1.1.6</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 1.1.5</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 1.1.6</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 1.1.5</span>
+  <span class="sidebar-brand-text">UWSCR 1.1.6</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -1870,6 +1870,17 @@
 <span class="sig-name descname"><span class="pre">peekcolor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">RGB指定=COL_BGR</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">クリップボード=FALSE</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#peekcolor" title="この定義へのパーマリンク">#</a></dt>
 <dd><div class="line-block">
 <div class="line">指定位置の色を得ます</div>
+</div>
+<div class="caution admonition">
+<p class="admonition-title">peekcolorを繰り返し実行する場合</p>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">peekcolor</span></code> 関数を繰り返し実行した場合、パフォーマンスに問題が出る場合があります</div>
+<div class="line">これは、 <code class="docutils literal notranslate"><span class="pre">peekcolor</span></code> が <code class="docutils literal notranslate"><span class="pre">GetPixel</span></code> というWin32関数を利用していることが原因です</div>
+<div class="line">(実装自体はUWSCと同じであり、UWSCにも同様の問題があります)</div>
+<div class="line"><br /></div>
+<div class="line">特定範囲内で任意の色を探すという用途であれば <a class="reference internal" href="#chkclr" title="chkclr"><code class="xref py py-func docutils literal notranslate"><span class="pre">chkclr()</span></code></a> 関数の使用を検討してください</div>
+<div class="line">これによりパフォーマンスを改善できる可能性があります</div>
+</div>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>

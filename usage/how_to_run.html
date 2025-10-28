@@ -7,7 +7,7 @@
 <link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="設定ファイル" href="settings.html" /><link rel="prev" title="インストール方法" href="installation.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>実行方法 - UWSCR 1.1.5</title>
+        <title>実行方法 - UWSCR 1.1.6</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 1.1.5</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 1.1.6</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 1.1.5</span>
+  <span class="sidebar-brand-text">UWSCR 1.1.6</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -268,6 +268,54 @@
 <span class="n">uwscr</span> <span class="n">123</span> <span class="n">456</span> <span class="s2">&quot;-78&quot;</span>  <span class="c"># &quot;&quot;で括っても同様</span>
 <span class="c"># -- の後に書けばOK</span>
 <span class="n">uwscr</span> <span class="p">--</span> <span class="n">123</span> <span class="n">456</span> <span class="p">-</span><span class="n">78</span> <span class="c"># [&quot;123&quot;, &quot;456&quot;, &quot;-78&quot;] として渡る</span>
+</pre></div>
+</div>
+</div>
+<div class="warning admonition">
+<p class="admonition-title">batファイルでパラメータを渡す場合の注意</p>
+<div class="line-block">
+<div class="line">batファイル (またはcmdファイル) からUWSCRを呼ぶ場合にスクリプトのパラメータとして特定の記述をした場合に正しく <code class="docutils literal notranslate"><span class="pre">PARAM_STR</span></code> へと反映されません</div>
+</div>
+<ul class="simple">
+<li><p>パラメータを <code class="docutils literal notranslate"><span class="pre">&quot;&quot;</span></code> で括っている</p></li>
+<li><p>かつその末尾が <code class="docutils literal notranslate"><span class="pre">\</span></code> である</p></li>
+<li><p>かつその後に別のパラメータが続く</p></li>
+</ul>
+<div class="line-block">
+<div class="line">以上を満たすパラメータがある場合 <code class="docutils literal notranslate"><span class="pre">PARAM_STR</span></code> が意図しない値となります</div>
+<div class="line">以下の例では <code class="docutils literal notranslate"><span class="pre">[&quot;aaa\&quot;,</span> <span class="pre">&quot;bbb&quot;]</span></code> という二つの文字列の出力が期待されますが、単一の文字列として出力されてしまいます</div>
+</div>
+<div class="highlight-uwscr notranslate"><div class="highlight"><pre><span></span><span class="c">// test.uws</span>
+<span class="k">print</span><span class="w"> </span><span class="n">PARAM_STR</span>
+</pre></div>
+</div>
+<div class="highlight-bat notranslate"><div class="highlight"><pre><span></span><span class="c1">rem test.bat</span>
+
+<span class="c1">rem PARAM_STRがおかしくなる記述</span>
+uwscr test.uws <span class="s2">&quot;aaa\&quot;</span> <span class="s2">&quot;bbb&quot;</span>
+</pre></div>
+</div>
+<div class="highlight-powershell notranslate"><div class="highlight"><pre><span></span><span class="c"># 出力</span>
+<span class="p">&gt;</span> <span class="n">test</span><span class="p">.</span><span class="n">bat</span>
+<span class="p">[</span><span class="s2">&quot;aaa\&quot;</span> <span class="n">bbb</span><span class="s2">&quot;]</span>
+</pre></div>
+</div>
+<div class="line-block">
+<div class="line">batファイルの記述方法を変更することで回避可能です</div>
+</div>
+<div class="highlight-bat notranslate"><div class="highlight"><pre><span></span><span class="c1">rem test2.bat</span>
+
+<span class="c1">rem ダブルクォートで括るのを止める</span>
+uwscr test.uws aaa\ <span class="s2">&quot;bbb&quot;</span>
+
+<span class="c1">rem ダブルクォートで括る場合は \ を \ でエスケープする</span>
+uwscr test.uws <span class="s2">&quot;aaa\\&quot;</span> <span class="s2">&quot;bbb&quot;</span>
+</pre></div>
+</div>
+<div class="highlight-powershell notranslate"><div class="highlight"><pre><span></span><span class="c"># 出力</span>
+<span class="p">&gt;</span> <span class="n">test2</span><span class="p">.</span><span class="n">bat</span>
+<span class="p">[</span><span class="s2">&quot;aaa\&quot;</span><span class="p">,</span> <span class="s2">&quot;bbb&quot;</span><span class="p">]</span>
+<span class="p">[</span><span class="s2">&quot;aaa\&quot;</span><span class="p">,</span> <span class="s2">&quot;bbb&quot;</span><span class="p">]</span>
 </pre></div>
 </div>
 </div>
