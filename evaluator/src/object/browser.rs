@@ -619,7 +619,7 @@ impl TabWindow {
                     .map(|b| b.into())
             },
             "reload" => {
-                let ignore_cache = args.as_bool(0)?;
+                let ignore_cache = args.as_bool(0).unwrap_or_default();
                 self.reload(ignore_cache)
                     .map(|b| b.into())
             },
