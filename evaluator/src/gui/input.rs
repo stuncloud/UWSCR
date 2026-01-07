@@ -71,11 +71,11 @@ impl InputBox {
     }
 
     fn set_edit(&self, default: Option<&str>, mask: bool, id: i32) -> UWindowResult<ChildCtl<Edit>> {
-        let style = mask.then_some(WINDOW_STYLE(wm::ES_PASSWORD as u32)).unwrap_or_default();
+        let mask = if mask { wm::ES_PASSWORD.into_style() } else { Default::default() };
         let menu = (Self::ID_EDIT_FIRST + id) as isize;
         let title = default.unwrap_or("");
         let hwnd = WindowBuilder::new(title, WC_EDITW)
-            .style(WS_CHILD|WS_VISIBLE|WS_TABSTOP|wm::WS_BORDER|style)
+            .style(WS_CHILD|WS_VISIBLE|WS_TABSTOP|wm::WS_BORDER|wm::ES_AUTOHSCROLL.into_style()|mask)
             .parent(self.hwnd)
             .menu(menu)
             .build()?;
@@ -214,7 +214,7 @@ impl UWindow<DialogResult<InputResult>> for InputBox {
             let mut msg = wm::MSG::default();
             let hwnd = HWND::default();
             let point = self.get_pos().unwrap_or_default();
-            let result = loop {
+            loop {
                 let point = self.get_pos().unwrap_or(point);
                 match wm::GetMessageW(&mut msg, hwnd, 0, 0).0 {
                     -1 => {
@@ -231,20 +231,18 @@ impl UWindow<DialogResult<InputResult>> for InputBox {
                                 let hdrop = HDROP(msg.wParam.0 as isize);
                                 let cnt = DragQueryFileW(hdrop, u32::MAX, None);
                                 let files = (0..cnt)
-                                    .map(|_| {
-                                        let len = DragQueryFileW(hdrop, 0, None) as usize + 1;
+                                    .map(|i| {
+                                        let len = DragQueryFileW(hdrop, i, None) as usize + 1;
                                         let mut buf = vec![0u16; len];
-                                        DragQueryFileW(hdrop, 0, Some(buf.as_mut()));
+                                        DragQueryFileW(hdrop, i, Some(buf.as_mut()));
                                         buf
                                     })
                                     .reduce(|mut b1, mut b2| {
-                                        if let Some(last) = b1.last_mut() {
-                                            if *last == 0 {
-                                                *last = '\t' as u16;
-                                            } else {
-                                                b1.push('\t' as u16);
-                                            }
-                                        }
+                                        // 末尾nullがあれば除去
+                                        b1.pop_if(|n| *n == 0);
+                                        // 連結用タブ文字を挿入
+                                        b1.push('\t' as u16);
+                                        // 次のパスを挿入
                                         b1.append(&mut b2);
                                         b1
                                     })
@@ -291,8 +289,7 @@ impl UWindow<DialogResult<InputResult>> for InputBox {
                     wm::TranslateMessage(&msg);
                     wm::DispatchMessageW(&msg);
                 }
-            };
-            result
+            }
         }
     }
 
