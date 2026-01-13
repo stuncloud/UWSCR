@@ -1153,7 +1153,7 @@ impl UCallback {
             }
         }
     }
-    fn get_closure(&mut self) -> Closure {
+    fn get_closure(&mut self) -> Closure<'_> {
         self.user_func.get_closure(&self.rtype)
     }
     unsafe extern "C" fn callback_u8(_cif: &libffi::low::ffi_cif, result: &mut u8, args: *const *const c_void, userdata: &mut UserFunc) {
@@ -1298,7 +1298,7 @@ impl UserFunc {
         unsafe { copy_nonoverlapping(src, &mut dst, 1) };
         dst
     }
-    fn get_closure(&mut self, rtype: &DllType) -> Closure {
+    fn get_closure(&mut self, rtype: &DllType) -> Closure<'_> {
         let args = self.arg_types.iter().map(Type::from).collect::<Vec<_>>();
         let result = Type::from(rtype);
         let cif = Cif::new(args, result);

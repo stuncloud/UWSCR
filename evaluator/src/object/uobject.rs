@@ -31,7 +31,7 @@ enum JYValueMut<'a> {
 impl JYValue {
     const NULL_JSON: JsonValue = JsonValue::Null;
     const NULL_YAML: YamlValue = YamlValue::Null;
-    fn value_from_pointer(&self, pointer: Option<&str>) -> JYValueRef {
+    fn value_from_pointer(&self, pointer: Option<&str>) -> JYValueRef<'_> {
         match pointer {
             Some(p) => match self {
                 JYValue::Json(value) => value.pointer(p)
