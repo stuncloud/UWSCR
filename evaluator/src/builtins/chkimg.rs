@@ -399,12 +399,10 @@ impl ScreenShot {
                     break true;
                 } else {
                     known_hwnd.push(prev);
-                    if IsWindowVisible(prev).as_bool() {
-                        if let Ok(prev_rect) = Self::get_visible_rect(prev) {
-                            if IntersectRect(&mut dest, &rect, &prev_rect).as_bool() {
-                                break false;
-                            }
-                        }
+                    if IsWindowVisible(prev).as_bool()
+                    && let Ok(prev_rect) = Self::get_visible_rect(prev)
+                    && IntersectRect(&mut dest, &rect, &prev_rect).as_bool() {
+                        break false;
                     }
                 }
             }
@@ -900,8 +898,8 @@ impl std::fmt::Display for ColorFound {
 use std::num::NonZeroUsize;
 use std::path::Path;
 use std::cmp::Ordering;
-use image::{load_from_memory, DynamicImage, GenericImageView, RgbImage};
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use image::{DynamicImage, GenericImageView, RgbImage, load_from_memory};
+use rayon::iter::{IntoParallelIterator, ParallelBridge, ParallelIterator};
 
 
 #[derive(PartialEq)]
@@ -928,7 +926,6 @@ impl Image {
         use clipboard_rs::{ClipboardContext, common::RustImage, Clipboard};
         let ctx = ClipboardContext::new().ok()?;
         let image = ctx.get_image()
-            .inspect_err(|e| {dbg!(e);})
             .ok()?;
         image.get_dynamic_image().ok()
             .map(|inner| Self { inner })
@@ -1014,7 +1011,7 @@ impl MatchLocation {
     }
 }
 /// RGB
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct RgbColor([u8; 3]);
 impl From<&[u8]> for RgbColor {
     /// ## panics
@@ -1082,18 +1079,19 @@ impl SearchMethod {
     pub fn new(method: i32, threshold: u32, target: &Image) -> Self {
         let threshold = Self::rgb_from_threshold(threshold);
         match method {
-            1 => threshold.map(|t| Self::ThresholdTransparent(t, target.left_top()))
-                .unwrap_or(Self::Transparent(target.left_top())),
-            2 => threshold.map(|t| Self::ThresholdTransparent(t, target.right_top()))
-                .unwrap_or(Self::Transparent(target.right_top())),
-            3 => threshold.map(|t| Self::ThresholdTransparent(t, target.left_bottom()))
-                .unwrap_or(Self::Transparent(target.left_bottom())),
-            4 => threshold.map(|t| Self::ThresholdTransparent(t, target.right_bottom()))
-                .unwrap_or(Self::Transparent(target.right_bottom())),
+            1 => Self::new_transparent(threshold, target.left_top()),
+            2 => Self::new_transparent(threshold, target.right_top()),
+            3 => Self::new_transparent(threshold, target.left_bottom()),
+            4 => Self::new_transparent(threshold, target.right_bottom()),
             -1 => Self::Shape,
             _ => threshold.map(Self::Threshold)
                 .unwrap_or(Self::Exact),
         }
+    }
+    fn new_transparent(threshold: Option<RgbColor>, transparent_color: RgbColor) -> Self {
+        threshold
+            .map(|t| Self::ThresholdTransparent(t, transparent_color))
+            .unwrap_or(Self::Transparent(transparent_color))
     }
     fn rgb_from_threshold(threshold: u32) -> Option<RgbColor> {
         let r = match threshold & 15 {
@@ -1119,42 +1117,61 @@ impl SearchMethod {
         };
         (r > 0 || g > 0 || b > 0).then_some(RgbColor([r, g, b]))
     }
-    /// メソッドに従いマッチ判定を行う
-    fn matches(&self, row_slice: &[u8], target_slice: &[u8]) -> bool {
+    /// 行をRGBで分割し各色を比較関数fで一致するかどうか確認する
+    fn compare_colors(row_slice: &[u8], target_slice: &[u8], f: impl Fn(&[u8], &[u8]) -> bool + Send + Sync) -> bool {
         // RGBのイテレータにする
         let row_iter = row_slice.chunks_exact(3);
         let target_iter = target_slice.chunks_exact(3);
+        // 一色ずつ比較関数で一致をチェック
+        row_iter.zip(target_iter)
+            .par_bridge()
+            .all(|(c, t)| f(c, t))
+    }
+    /// メソッドに従いマッチ判定を行う
+    fn matches(&self, row_slice: &[u8], target_slice: &[u8]) -> bool {
         match self {
             SearchMethod::Exact => {
                 row_slice.eq(target_slice)
             },
             SearchMethod::Threshold(threshold) => {
-                row_iter.zip(target_iter)
-                    .all(|(color, target)| {
-                        threshold.in_range(color, target)
-                    })
+                if row_slice.eq(target_slice) {
+                    true
+                } else {
+                    Self::compare_colors(row_slice, target_slice,
+                        |color, target| {
+                            threshold.in_range(color, target)
+                        })
+                }
             },
             SearchMethod::Transparent(transparent) => {
-                row_iter.zip(target_iter)
-                    .all(|(color, target)| {
-                        // targetが透過色ならtrue
-                        transparent.eq(target) ||
-                        // 透過色以外なら色が一致するかを確認
-                        color.eq(target)
-                    })
-                },
+                if row_slice.eq(target_slice) {
+                    true
+                } else {
+                    Self::compare_colors(row_slice, target_slice,
+                        |color, target| {
+                            // targetが透過色ならtrue
+                            transparent.eq(target) ||
+                            // 透過色以外なら色が一致するかを確認
+                            color.eq(target)
+                        })
+                }
+            },
             Self::ThresholdTransparent(threshold, transparent) => {
-                row_iter.zip(target_iter)
-                    .all(|(color, target)| {
-                        // targetが透過色ならtrue
-                        transparent.eq(target) ||
-                        // 透過色以外なら色幅一致するかを確認
-                        threshold.in_range(color, target)
-                    })
+                if row_slice.eq(target_slice) {
+                    true
+                } else {
+                    Self::compare_colors(row_slice, target_slice,
+                        |color, target| {
+                            // targetが透過色ならtrue
+                            transparent.eq(target) ||
+                            // 透過色以外なら色幅一致するかを確認
+                            threshold.in_range(color, target)
+                        })
+                }
             }
             SearchMethod::Shape => {
-                let mut row_iter = row_iter;
-                let mut target_iter = target_iter;
+                let mut row_iter = row_slice.chunks_exact(3);
+                let mut target_iter = target_slice.chunks_exact(3);
                 if let (Some(row_first), Some(target_first)) = (row_iter.next(), target_iter.next()) {
                     target_iter.zip(row_iter)
                         .try_fold((target_first, row_first), |prev, cur| {
@@ -1183,9 +1200,6 @@ pub struct ChkimgLikeImageMatcher {
 impl ChkimgLikeImageMatcher {
     pub fn new(mut captured: ScreenShot, target: &Image) -> ChkImgResult<Self> {
         let target = target.to_rgb8();
-
-        let _ = std::fs::write("D:\\work\\uwscr_test\\target.txt", format!("{target:#?}"));
-
         let mut rgb = Mat::default();
         imgproc::cvt_color(&captured.data, &mut rgb, imgproc::COLOR_BGR2RGB, 0)?;
         captured.data = rgb;
@@ -1239,12 +1253,12 @@ struct MatcherInner<'a> {
 impl MatcherInner<'_> {
     fn get_matched(&self, row: usize) -> Vec<MatchLocation> {
         let first_target_slice = &self.target[0..self.window_size];
-
-        // 列の探索範囲は行の最初からtargetが収まる範囲まで
+        // 対象画像から該当行のスライスを得る
         let from = row * self.width;
-        let to = from + self.width - self.window_size + 1;
+        let to = from + self.width;
         let captured_row_slice = &self.captured[from..to];
 
+        // 行スライスをtarget幅のwindowにしていく
         let windows = captured_row_slice
             // target幅でwindowにしていく
             .windows(self.window_size)
@@ -1259,21 +1273,7 @@ impl MatcherInner<'_> {
                 self.method.matches(row_slice, first_target_slice)
                     .then_some(col)
             })
-            .filter(move |col| {
-            // targetの2行目以降全体とのマッチを判定
-            (1..self.target_rows).into_par_iter()
-                .all(|t_row| {
-                    let t_from = t_row * self.window_size;
-                    let t_to = t_from + self.window_size;
-                    // targetの行スライス
-                    let target_slice = &self.target[t_from..t_to];
-                    let c_from = (row + t_row) * self.width + col;
-                    let c_to = c_from + self.window_size;
-                    // captuerdの該当部分の行スライス
-                    let row_slice = &self.captured[c_from..c_to];
-                    self.method.matches(row_slice, target_slice)
-                })
-            })
+            .filter(move |col| self.match_remaining(row, *col))
             .map(move |col| {
                 // 画像列はインデックス÷3 (RGB幅)
                 let x = (col/3) as i32 + self.offset_x;
@@ -1282,6 +1282,23 @@ impl MatcherInner<'_> {
             })
             .collect()
     }
+    /// targetの2行目以降と対象の該当部分がすべて一致するかどうか
+    fn match_remaining(&self, row: usize, col: usize) -> bool {
+        (1..self.target_rows)
+            .into_par_iter()
+            .all(|t_row| {
+                // targetの行スライスを得る
+                let t_from = t_row * self.window_size;
+                let t_to = t_from + self.window_size;
+                let target_slice = &self.target[t_from..t_to];
+                // captuerdの該当部分の行スライスを得る
+                let c_from = (row + t_row) * self.width + col;
+                let c_to = c_from + self.window_size;
+                let row_slice = &self.captured[c_from..c_to];
+                // メソッドに応じた比較
+                self.method.matches(row_slice, target_slice)
+            })
+    }
 }
 
 impl RgbColor {
@@ -1289,20 +1306,120 @@ impl RgbColor {
     /// 閾値が0の場合は直接比較\
     /// 条件は (target - 閾値) < color < (target + 閾値)
     fn in_range(&self, color: &[u8], target: &[u8]) -> bool {
-        self.0.iter().enumerate()
-            .all(|(i, t)| {
-                if *t == 0 {
-                    target[i].eq(&color[i])
-                } else {
-                    ((target[i].saturating_sub(*t)+1)..(target[i].saturating_add(*t)))
-                        .contains(&color[i])
-                }
-            })
+        if color.eq(target) {
+            // 完全一致なら閾値も関係ない
+            true
+        } else {
+            // RGB各色に閾値を適用し範囲内か確認する
+            self.0.iter().enumerate()
+                .all(|(i, t)| {
+                    if target[i].eq(&color[i]) {
+                        // 色が一致していれば閾値に関係なくマッチ
+                        true
+                    } else if *t == 0 {
+                        // 色が不一致かつ閾値が0なら非マッチ
+                        false
+                    } else {
+                        // 閾値による色範囲に対するチェックを行う
+                        let low = target[i].checked_sub(*t);
+                        let high = target[i].checked_add(*t);
+                        match (low, high) {
+                            // 上限も下限もオーバーフロー: すべての値が該当
+                            (None, None) => true,
+                            // 下限は0も含むみ上限未満なら該当
+                            (None, Some(high)) => (u8::MIN..high).contains(&color[i]),
+                            // 下限より大きく上限は255も含む
+                            (Some(low), None) => (low+1..=u8::MAX).contains(&color[i]),
+                            // 下限と上限の間なら該当
+                            (Some(low), Some(high)) => (low+1..high).contains(&color[i]),
+                        }
+                    }
+                })
+        }
     }
 }
 
 impl PartialEq<[u8]> for RgbColor {
     fn eq(&self, other: &[u8]) -> bool {
         self.0.eq(other)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::{MatcherInner, RgbColor, SearchMethod, MatchLocation};
+
+    #[test]
+    fn test_threshold1() {
+        let threshold = RgbColor::from([16u8, 16, 16]);
+        let color = [100u8, 100, 255];
+
+        let color1 = [100u8, 100, 255];
+        let color2 = [105u8, 85, 254];
+        let color3 = [84u8, 100, 240];
+        let color4 = [100u8, 100, 239];
+
+        assert!(threshold.in_range(&color, &color1));
+        assert!(threshold.in_range(&color, &color2));
+        assert!(! threshold.in_range(&color, &color3));
+        assert!(! threshold.in_range(&color, &color4));
+    }
+    #[test]
+    fn test_threshold2() {
+        let threshold = SearchMethod::Threshold(RgbColor::from([4u8, 4, 4]));
+        let colors = [255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 174, 201, 255, 174, 201, 255, 174, 201, 255, 174, 201, 255, 174, 201, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 174, 201, 255, 174, 201, 255, 174, 201, 255, 174, 201, 255, 174, 201, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255];
+        let colors2 = [255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 174, 200, 255, 174, 200, 255, 174, 200, 255, 174, 200, 255, 174, 200, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 174, 200, 255, 174, 200, 255, 174, 200, 255, 174, 200, 255, 174, 200, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255];
+
+        assert!(threshold.matches(&colors, &colors2));
+    }
+
+    #[test]
+    fn test_matcher_inner() {
+        let captured = [
+            100,100,100, 101,101,101, 200,200,200, 200,200,200, 200,200,200,
+            102,102,102, 103,103,103, 200,200,200, 200,200,200, 200,200,200,
+            104,104,104, 105,105,105, 200,200,200, 101,101,101, 100,100,100,
+            200,200,200, 200,200,200, 200,200,200, 103,103,103, 102,102,102,
+            200,200,200, 200,200,200, 200,200,200, 105,105,105, 104,104,104,
+        ];
+        let target = [
+            100,100,100, 101,101,101,
+            102,102,102, 103,103,103,
+            104,104,104, 105,105,105,
+        ];
+        let test_cases = [
+            (
+                SearchMethod::Exact,
+                vec![
+                    MatchLocation::new(0, 0)
+                ],
+            ),
+            (
+                SearchMethod::Threshold(RgbColor([4,4,4])),
+                vec![
+                    MatchLocation::new(0, 0),
+                    MatchLocation::new(3, 2)
+                ],
+            ),
+        ];
+
+        for (method, expected) in test_cases {
+            let matcher = MatcherInner {
+                method: &method,
+                captured: &captured,
+                width: 5 * 3,
+                target: &target,
+                window_size: 2 * 3,
+                target_rows: 3,
+                offset_x: 0,
+                offset_y: 0,
+            };
+
+            let result = (0..3)
+                .flat_map(|row| matcher.get_matched(row))
+                .collect::<Vec<_>>();
+
+            assert_eq!(result, expected, "method: {method:?}");
+        }
     }
 }
