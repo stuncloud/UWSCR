@@ -2291,6 +2291,16 @@ impl FuncParam {
     pub fn has_type(&self) -> bool {
         ! self.param_type.is_any()
     }
+    /// sethotkeyに渡す関数のパラメータ\
+    /// 以下を追加する
+    /// - HOTKEY_VK
+    /// - HOTKEY_MOD
+    pub fn hotkey_func_params() -> Vec<Self> {
+        vec![
+            FuncParam::new(Some("HOTKEY_VK".into()), ParamKind::Identifier),
+            FuncParam::new(Some("HOTKEY_MOD".into()), ParamKind::Identifier),
+        ]
+    }
 }
 
 impl fmt::Display for FuncParam {

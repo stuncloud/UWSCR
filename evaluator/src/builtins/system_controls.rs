@@ -1128,8 +1128,7 @@ pub fn sethotkey(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFun
             TwoTypeArg::T(name) => {
                 if let Some(func) = evaluator.env.get_function(&name) {
                     if let Object::Function(func) = func {
-                        sethotkey::set_hot_key(vk, mo, func, evaluator)
-                            .map_err(|e| builtin_func_error(UErrorMessage::UWindowError(e)))?;
+                        sethotkey::HOTKEY_WINDOW_HANDLER.set(vk, mo, func, evaluator);
                     } else {
                         Err(builtin_func_error(UErrorMessage::IsNotUserFunction(name)))?;
                     }
@@ -1138,12 +1137,11 @@ pub fn sethotkey(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFun
                 }
             },
             TwoTypeArg::U(func) => {
-                sethotkey::set_hot_key(vk, mo, func, evaluator)
-                    .map_err(|e| builtin_func_error(UErrorMessage::UWindowError(e)))?;
+                sethotkey::HOTKEY_WINDOW_HANDLER.set(vk, mo, func, evaluator);
             },
         }
     } else {
-        sethotkey::remove_hot_key(vk, mo);
+        sethotkey::HOTKEY_WINDOW_HANDLER.remove(vk, mo);
     }
     Ok(Object::Empty)
 }
