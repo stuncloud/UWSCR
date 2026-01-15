@@ -689,3 +689,12 @@ impl WparamExt for WPARAM {
 //         lo as u32
 //     }
 // }
+
+trait IntoWindowStyle {
+    fn into_style(self) -> WINDOW_STYLE;
+}
+impl IntoWindowStyle for i32 {
+    fn into_style(self) -> WINDOW_STYLE {
+        WINDOW_STYLE(self as u32)
+    }
+}

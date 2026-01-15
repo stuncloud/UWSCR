@@ -39,7 +39,7 @@ pub struct ClkItem {
 }
 impl ClkItem {
     const PATH_DELIMITER: &str = "\\";
-    pub fn name_as_path(&self) -> Option<std::str::Split<&str>> {
+    pub fn name_as_path(&self) -> Option<std::str::Split<'_, &str>> {
         self.name.contains(Self::PATH_DELIMITER)
             .then_some(self.name.split(Self::PATH_DELIMITER))
     }

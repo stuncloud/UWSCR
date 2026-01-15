@@ -396,7 +396,7 @@ impl HtmlNode {
             accessors: Vec::new()
         }
     }
-    fn access(&self) -> Option<Accessed> {
+    fn access(&self) -> Option<Accessed<'_, '_>> {
         let root = Accessed::ElementRef(self.html.root_element());
         let accessed = self.accessors.iter()
             .try_fold(root, |accessed, accessor| {

@@ -210,26 +210,26 @@ struct UPrompt {
     prompt_indicator: String,
 }
 impl Prompt for UPrompt {
-    fn render_prompt_left(&self) -> Cow<str> {
+    fn render_prompt_left(&self) -> Cow<'_, str> {
         Cow::Owned(self.prompt.to_string())
     }
 
-    fn render_prompt_right(&self) -> Cow<str> {
+    fn render_prompt_right(&self) -> Cow<'_, str> {
         Cow::default()
     }
 
-    fn render_prompt_indicator(&self, _: reedline::PromptEditMode) -> Cow<str> {
+    fn render_prompt_indicator(&self, _: reedline::PromptEditMode) -> Cow<'_, str> {
         Cow::Borrowed(&self.prompt_indicator)
     }
 
-    fn render_prompt_multiline_indicator(&self) -> Cow<str> {
+    fn render_prompt_multiline_indicator(&self) -> Cow<'_, str> {
         Cow::Borrowed(&self.multi_indicator)
     }
 
     fn render_prompt_history_search_indicator(
         &self,
         history_search: PromptHistorySearch,
-    ) -> Cow<str> {
+    ) -> Cow<'_, str> {
         Cow::Owned(format!("({}) ",history_search.term))
     }
 }
