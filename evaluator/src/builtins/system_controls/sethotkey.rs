@@ -6,9 +6,9 @@ use crate::{
 use util::error::UWSCRErrorTitle;
 use util::winapi::show_message;
 use util::logging::{out_log, LogType};
-use parser::ast::{FuncParam, ParamKind, Expression};
+use parser::ast::{FuncParam, Expression};
 
-use std::sync::{Arc, Mutex, RwLock, OnceLock, LazyLock, mpsc::{self, Sender, Receiver}};
+use std::sync::{Arc, RwLock, OnceLock, LazyLock, mpsc};
 use std::collections::HashMap;
 use std::thread::JoinHandle;
 
@@ -31,9 +31,7 @@ use windows::Win32::{
     };
 
 static REGISTER_CLASS: OnceLock<UWindowResult<()>> = OnceLock::new();
-// static HOTKEY_WINDOW: LazyLock<Arc<RwLock<Option<SetHotKeyWindow>>>> = LazyLock::new(|| {Arc::new(RwLock::new(None))});
-
-pub(super)  static HOTKEY_WINDOW_HANDLER: LazyLock<SetHotKeyHandler> = LazyLock::new(SetHotKeyHandler::new);
+pub(super) static HOTKEY_WINDOW_HANDLER: LazyLock<SetHotKeyHandler> = LazyLock::new(SetHotKeyHandler::new);
 
 /// RegisterHotkeyを実行させるためのメッセージ
 /// - WParam: 上位word: vk, 下位word: modキー
@@ -43,26 +41,6 @@ const WM_REGISTER_HOTKEY: u32 = WM_USER;
 /// - WParam: なし
 /// - LParam: ホットキーID
 const WM_UNREGISTER_HOTKEY: u32 = WM_USER + 1;
-
-// pub fn set_hot_key(vk: u32, mo: u32, func: Function, evaluator: &Evaluator) -> UWindowResult<()> {
-//     let mut mutex = HOTKEY_WINDOW.lock().unwrap();
-//     if let Some(shkw) = mutex.as_mut() {
-//         shkw.add(vk, mo, func);
-//     } else {
-//         let mut shkw = SetHotKeyWindow::new(evaluator)?;
-//         shkw.add(vk, mo, func);
-//         *mutex = Some(shkw);
-//     }
-//     Ok(())
-// }
-// pub fn remove_hot_key(vk: u32, mo: u32) {
-//     let mut mutex = HOTKEY_WINDOW.lock().unwrap();
-//     if let Some(shkw) = mutex.as_mut()
-//     && shkw.remove(vk, mo) == 0 {
-//         shkw.close();
-//         *mutex = None;
-//     }
-// }
 
 #[derive(Default)]
 pub(super)  struct SetHotKeyHandler {
@@ -143,7 +121,7 @@ impl SetHotKeyThread {
     }
     fn get(&self, vk: u32, mo: u32) -> Option<Function> {
         self.keymap.get(&(vk, mo))
-            .map(|(id, func)| func.clone())
+            .map(|(_, func)| func.clone())
     }
 }
 
@@ -163,8 +141,6 @@ impl SetHotKeyWindow {
         Ok(Self {
             hwnd,
             evaluator,
-            // keymap: HashMap::new(),
-            // id: 0,
         })
     }
     fn register_hotkey(hwnd: HWND, id: i32, vk: u32, mo: u32) {
@@ -255,8 +231,6 @@ impl UWindow<()> for SetHotKeyWindow {
 }
 
 trait ParamExt {
-    // fn hi_word(&self) -> u32;
-    // fn lo_word(&self) -> u32;
     fn from_hi_lo_word(hi: u32, lo: u32) -> Self;
     fn to_hi_lo_word(self) -> (u32, u32);
 }
