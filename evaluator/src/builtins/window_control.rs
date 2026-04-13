@@ -58,6 +58,7 @@ use windows::{
                 GetWindowThreadProcessId, IsIconic, IsHungAppWindow,
                 EnumChildWindows, GetMenu, GetSystemMenu,
                 GetCursorInfo, CURSORINFO,
+                GetAncestor, GA_ROOT,
             },
             Input::KeyboardAndMouse::{
                 SendInput, INPUT
@@ -246,8 +247,8 @@ pub fn getid(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
         "__GET_ACTIVE_WIN__" => unsafe {
             GetForegroundWindow()
         },
-        "__GET_FROMPOINT_WIN__" => get_hwnd_from_mouse_point(true)?,
-        "__GET_FROMPOINT_OBJ__" => get_hwnd_from_mouse_point(false)?,
+        "__GET_FROMPOINT_WIN__" => get_window_from_mouse_point()?,
+        "__GET_FROMPOINT_OBJ__" => get_child_window_from_mouse_point()?,
         "__GET_CONSOLE_WIN__" |
         "__GET_THISUWSC_WIN__" => {
             get_console_hwnd()
@@ -373,21 +374,18 @@ fn find_window(title: String, class_name: String, timeout: f64) -> windows::core
     }
 }
 
-fn get_hwnd_from_mouse_point(toplevel: bool) -> BuiltInResult<HWND> {
+fn get_child_window_from_mouse_point() -> BuiltInResult<HWND> {
     unsafe {
         let point = window_low::get_current_pos()?;
-        let mut hwnd = WindowFromPoint(point);
-        if toplevel {
-            loop {
-                let parent = GetParent(hwnd);
-                if parent.0 == 0 || ! IsWindowVisible(parent).as_bool(){
-                    break;
-                } else {
-                    hwnd = parent;
-                }
-            }
-        }
-        Ok(hwnd)
+        let child = WindowFromPoint(point);
+        Ok(child)
+    }
+}
+fn get_window_from_mouse_point() -> BuiltInResult<HWND> {
+    unsafe {
+        let child = get_child_window_from_mouse_point()?;
+        let root = GetAncestor(child, GA_ROOT);
+        Ok(root)
     }
 }
 
