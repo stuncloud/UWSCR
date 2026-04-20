@@ -9,7 +9,6 @@ use windows::{
             Controls::WC_EDITW,
             Shell::{DragAcceptFiles, DragQueryFileW, DragQueryPoint, DragFinish, HDROP},
         },
-        Graphics::Gdi,
     }
 };
 
@@ -30,7 +29,7 @@ impl InputField {
 
 pub struct InputBox {
     hwnd: HWND,
-    hfont: Gdi::HFONT,
+    font: Option<FontFamily>,
     caption: String,
     field: Vec<InputField>,
     x: Option<i32>,
@@ -60,8 +59,7 @@ impl InputBox {
         y: Option<i32>,
     ) -> UWindowResult<Self> {
         let hwnd = Self::create_window(title)?;
-        let hfont = font.unwrap_or_default().create()?;
-        let input = Self { hwnd, hfont, caption, field, x, y };
+        let input = Self { hwnd, font, caption, field, x, y };
 
         input.draw()?;
         input.show();
@@ -79,7 +77,7 @@ impl InputBox {
             .parent(self.hwnd)
             .menu(menu)
             .build()?;
-        let size = self.set_font(hwnd, "Dummy");
+        let size = self.set_font(hwnd, "Dummy")?;
 
         let mut child = ChildCtl::new(hwnd, Some(menu), self.hwnd, Edit);
         let height = Some(size.cy + 8);
@@ -205,8 +203,8 @@ impl UWindow<DialogResult<InputResult>> for InputBox {
         self.hwnd
     }
 
-    fn font(&self) -> Gdi::HFONT {
-        self.hfont
+    fn font(&self) -> &Option<FontFamily> {
+        &self.font
     }
 
     fn message_loop(&self) -> UWindowResult<DialogResult<InputResult>> {

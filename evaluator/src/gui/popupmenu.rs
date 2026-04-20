@@ -43,7 +43,7 @@ impl UWindow<()> for PopupParentWin {
     fn hwnd(&self) -> HWND {
         self.hwnd
     }
-    fn font(&self) -> Gdi::HFONT {
+    fn font(&self) -> &Option<FontFamily> {
         unimplemented!()
     }
 }

@@ -1,4 +1,4 @@
-use crate::gui::{UWindow, UWindowResult, WindowBuilder};
+use crate::gui::{UWindow, UWindowResult, WindowBuilder, FontFamily};
 use crate::{
     Evaluator,
     object::function::Function
@@ -225,7 +225,7 @@ impl UWindow<()> for SetHotKeyWindow {
         unimplemented!()
     }
 
-    fn font(&self) -> windows::Win32::Graphics::Gdi::HFONT {
+    fn font(&self) -> &Option<FontFamily> {
         unimplemented!()
     }
 }

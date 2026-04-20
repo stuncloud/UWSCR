@@ -13,7 +13,6 @@ use windows::{
                 PBM_SETRANGE32, PBM_SETPOS, BST_CHECKED
             }
         },
-        Graphics::Gdi,
     }
 };
 
@@ -25,7 +24,7 @@ static REGISTER_CLASS: OnceLock<UWindowResult<()>> = OnceLock::new();
 pub struct Slctbox {
     hwnd: HWND,
     message: Option<String>,
-    hfont: Gdi::HFONT,
+    font: Option<FontFamily>,
     ctl_type: SlctCtlType,
     ret_type: SlctReturnType,
     progress: Option<f64>,
@@ -67,12 +66,11 @@ impl Slctbox {
             .ok_or(UWindowError::SlctboxGotTooManyItems)?;
 
         let hwnd = Self::create_window(title)?;
-        let hfont = font.unwrap_or_default().create()?;
 
         let slctbox = Self {
             hwnd,
             message,
-            hfont,
+            font,
             ctl_type: (&r#type).into(),
             ret_type,
             progress,
@@ -109,7 +107,7 @@ impl Slctbox {
             .parent(self.hwnd)
             .menu(id)
             .build()?;
-        let size = self.set_font(hwnd, title);
+        let size = self.set_font(hwnd, title)?;
         let mut child = ChildCtl::new(hwnd, Some(id), self.hwnd(), CheckBox);
         let nwidth = min_width.max(size.cx + 40);
         let nheight = size.cy + 4;
@@ -131,7 +129,7 @@ impl Slctbox {
             .parent(self.hwnd)
             .menu(id)
             .build()?;
-        let size = self.set_font(hwnd, title);
+        let size = self.set_font(hwnd, title)?;
         let mut child = ChildCtl::new(hwnd, Some(id), self.hwnd, RadioButton);
         let width = Self::ITEM_MIN_WIDTH.max(size.cx + 40);
         let height = size.cy + 4;
@@ -163,7 +161,7 @@ impl Slctbox {
             let longest = self.items.iter()
                 .reduce(|a,b| if a.len() > b.len() {a} else {b})
                 .unwrap();
-            let size = self.set_font(hwnd, longest);
+            let size = self.set_font(hwnd, longest)?;
             let mut child = ChildCtl::new(hwnd, Some(Self::ID_COMBOBOX as isize), self.hwnd, ComboBox);
             let width = Self::ITEM_MIN_WIDTH.max(size.cx + 40);
             let height = size.cy + 4;
@@ -187,7 +185,7 @@ impl Slctbox {
             let longest = self.items.iter()
                 .reduce(|a,b| if a.len() > b.len() {a} else {b})
                 .unwrap();
-            let size = self.set_font(hwnd, longest);
+            let size = self.set_font(hwnd, longest)?;
             let mut child = ChildCtl::new(hwnd, Some(Self::ID_LISTBOX as isize), self.hwnd, ListBox);
             let width = Self::ITEM_MIN_WIDTH.max(size.cx + 40);
             let height = (self.items.len() as i32 + 1) * size.cy;
@@ -361,8 +359,8 @@ impl UWindow<DialogResult<SlctReturnValue>> for Slctbox {
     fn hwnd(&self) -> HWND {
         self.hwnd
     }
-    fn font(&self) -> Gdi::HFONT {
-        self.hfont
+    fn font(&self) -> &Option<FontFamily> {
+        &self.font
     }
 
     fn message_loop(&self) -> UWindowResult<DialogResult<SlctReturnValue>> {
