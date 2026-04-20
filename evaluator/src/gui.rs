@@ -204,7 +204,7 @@ impl FontFamily {
     pub fn new(name: &str, size: i32) -> Self {
         Self {name: HSTRING::from(name), size}
     }
-    pub fn create(&self) -> UWindowResult<Gdi::HFONT> {
+    pub fn create(&self) -> UWindowResult<GdiObject<Gdi::HFONT>> {
         unsafe {
             let cheight = Self::point_to_pixel(self.size);
             let hfont = Gdi::CreateFontW(
@@ -224,7 +224,7 @@ impl FontFamily {
                 &self.name
             );
             (! hfont.is_invalid())
-                .then_some(hfont)
+                .then_some(GdiObject::new(hfont))
                 .ok_or(UWindowError::CreateFontError(self.name.to_string()))
         }
     }
@@ -263,7 +263,7 @@ pub trait UWindow<T> {
     fn create_window(title: &str) -> UWindowResult<HWND>;
     fn draw(&self) -> UWindowResult<()>;
     fn hwnd(&self) -> HWND;
-    fn font(&self) -> Gdi::HFONT;
+    fn font(&self) -> &Option<FontFamily>;
 
     fn init() {
         INIT_COMMON_CONTROL.call_once(|| unsafe {
@@ -474,19 +474,25 @@ pub trait UWindow<T> {
         unsafe { wm::SetClassLongPtrW(hwnd, nindex, dwnewlong) }
     }
 
-    fn set_font(&self, hwnd: HWND, text: &str) -> SIZE {
-        unsafe {
-            let font = self.font();
-            // フォントを適用
-            wm::SendMessageW(hwnd, wm::WM_SETFONT, WPARAM(font.0 as usize), LPARAM(1));
-
-            // テキスト全体のSIZEを返す
-            self.get_text_size(hwnd, text)
+    fn create_font(&self) -> UWindowResult<GdiObject<Gdi::HFONT>> {
+        match self.font() {
+            Some(family) => family.create(),
+            None => FontFamily::default().create(),
         }
     }
-    fn get_text_size(&self, hwnd: HWND, text: &str) -> SIZE {
+    fn set_font(&self, hwnd: HWND, text: &str) -> UWindowResult<SIZE> {
         unsafe {
-            let hfont = self.font();
+            let hfont = self.create_font()?;
+            // フォントを適用
+            wm::SendMessageW(hwnd, wm::WM_SETFONT, WPARAM(hfont.as_object().0 as usize), LPARAM(1));
+
+            // テキスト全体のSIZEを返す
+            let size = self.get_text_size(hwnd, text, hfont.as_object());
+            Ok(size)
+        }
+    }
+    fn get_text_size(&self, hwnd: HWND, text: &str, hfont: Gdi::HGDIOBJ) -> SIZE {
+        unsafe {
             let mut size = SIZE::default();
             let hdc = Gdi::GetDC(hwnd);
             let old = Gdi::SelectObject(hdc, hfont);
@@ -518,7 +524,7 @@ pub trait UWindow<T> {
             // .ex_style(wm::WS_EX_STATICEDGE)
             .parent(self.hwnd())
             .build()?;
-        let size = self.set_font(hwnd, title);
+        let size = self.set_font(hwnd, title)?;
         let mut child = ChildCtl::new(hwnd, None, self.hwnd(), Static);
         child.move_to(x, y, Some(size.cx), Some(size.cy));
         Ok(child)
@@ -540,7 +546,7 @@ pub trait UWindow<T> {
                 .style(WS_CHILD|WS_VISIBLE)
                 .parent(self.hwnd())
                 .build()?;
-            let size = self.set_font(hwnd, title);
+            let size = self.set_font(hwnd, title)?;
             let mut child = ChildCtl::new(hwnd, None, self.hwnd(), Static);
             child.move_to(x, y, Some(size.cx), Some(size.cy));
             Ok(child)
@@ -558,7 +564,7 @@ pub trait UWindow<T> {
             .parent(parent)
             .menu(id)
             .build()?;
-        let size = self.set_font(hwnd, title);
+        let size = self.set_font(hwnd, title)?;
         let button = Button(default);
         let mut child = ChildCtl::new(hwnd, Some(id), self.hwnd(), button);
         let nwidth = min_width.max(size.cx + 8);
@@ -696,5 +702,43 @@ trait IntoWindowStyle {
 impl IntoWindowStyle for i32 {
     fn into_style(self) -> WINDOW_STYLE {
         WINDOW_STYLE(self as u32)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct GdiObject<H>
+where H: GdiObjectImpl+Copy,
+{
+    handle: H,
+}
+impl<H: GdiObjectImpl+Copy> GdiObject<H> {
+    fn new(handle: H) -> Self {
+        Self { handle }
+    }
+    fn as_object(&self) -> Gdi::HGDIOBJ {
+        self.handle.as_object()
+    }
+    fn as_handle(&self) -> H {
+        self.handle
+    }
+}
+impl<H: GdiObjectImpl+Copy> Drop for GdiObject<H> {
+    fn drop(&mut self) {
+        unsafe {
+            let _ = Gdi::DeleteObject(self.handle.as_object());
+        }
+    }
+}
+
+pub trait GdiObjectImpl {
+    fn as_object(&self) -> Gdi::HGDIOBJ {
+        Gdi::HGDIOBJ(self.as_inner())
+    }
+    fn as_inner(&self) -> isize;
+}
+
+impl GdiObjectImpl for Gdi::HFONT {
+    fn as_inner(&self) -> isize {
+        self.0
     }
 }

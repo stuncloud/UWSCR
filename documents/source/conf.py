@@ -9,7 +9,7 @@
 project = 'UWSCR'
 copyright = '2025, stuncloud'
 author = 'stuncloud'
-version = '1.1.7'
+version = '1.1.8'
 html_title = f'{project} {version}'
 
 # -- General configuration ---------------------------------------------------

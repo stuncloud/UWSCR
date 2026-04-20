@@ -9,7 +9,7 @@ static REGISTER_CLASS: OnceLock<UWindowResult<()>> = OnceLock::new();
 
 pub struct Balloon {
     hwnd: HWND,
-    hfont: Gdi::HFONT,
+    font: Option<FontFamily>,
     /// 背景色
     back_color: COLORREF,
     /// 文字色
@@ -34,25 +34,24 @@ impl Balloon {
     #[allow(clippy::too_many_arguments)]
     pub fn new(message: &str, x: i32, y: i32, font: Option<FontFamily>, fore_color: Option<u32>, back_color: Option<u32>, shape: u8, transparency: i16) -> UWindowResult<Self> {
         let hwnd = Self::create_window("UWSCR")?;
-        let hfont = font.unwrap_or_default().create()?;
         let fore_color = COLORREF(fore_color.unwrap_or(Self::DEFAULT_FORE_COLOR));
         let back_color = COLORREF(back_color.unwrap_or(Self::DEFAULT_BACK_COLOR));
         let message = message.to_string();
         let shape = Shape::from(shape);
         let transparency = Transparency::from(transparency);
-        let balloon = Self { hwnd, hfont, back_color, fore_color, message, shape, transparency, x, y };
+        let balloon = Self { hwnd, font, back_color, fore_color, message, shape, transparency, x, y };
 
         balloon.draw()?;
 
         Ok(balloon)
     }
 
-    fn new_solid_brush(color: COLORREF) -> Gdi::HBRUSH {
+    fn new_solid_brush(color: COLORREF) -> GdiObject<Gdi::HBRUSH> {
         unsafe {
-            Gdi::CreateSolidBrush(color)
+            GdiObject::new(Gdi::CreateSolidBrush(color))
         }
     }
-    fn get_border_brush(&self) -> Gdi::HBRUSH {
+    fn get_border_brush(&self) -> GdiObject<Gdi::HBRUSH> {
         let mut border = self.back_color;
         let COLORREF(color) = &mut border;
         if *color == u32::MAX {
@@ -61,6 +60,24 @@ impl Balloon {
             *color += 1;
         }
         Self::new_solid_brush(border)
+    }
+    fn new_rect_rgn(x2: i32, y2: i32) -> GdiObject<Gdi::HRGN> {
+        unsafe {
+            let hrgn = Gdi::CreateRectRgn(0, 0, x2, y2);
+            GdiObject::new(hrgn)
+        }
+    }
+    fn new_polygon_rgn(pptl: &[POINT; 6]) -> GdiObject<Gdi::HRGN> {
+        unsafe {
+            let hrgn = Gdi::CreatePolygonRgn(pptl, Gdi::ALTERNATE);
+            GdiObject::new(hrgn)
+        }
+    }
+    fn new_round_rect_rgn(x2: i32, y2: i32, w: i32, h: i32) -> GdiObject<Gdi::HRGN> {
+        unsafe {
+            let hrgn = Gdi::CreateRoundRectRgn(0, 0, x2, y2, w, h);
+            GdiObject::new(hrgn)
+        }
     }
     unsafe fn set_transparent(&self) {
         unsafe {
@@ -182,21 +199,20 @@ impl UWindow<()> for Balloon {
 
     fn draw(&self) -> UWindowResult<()> {
         unsafe {
-            let size = self.get_text_size(self.hwnd, &self.message);
+            let hfont = self.create_font()?;
+            let size = self.get_text_size(self.hwnd, &self.message, hfont.as_object());
             let mut w_margin = ((size.cx as f64 * 0.05) as i32).max(10);
             let width = size.cx + w_margin * 2;
             let mut h_margin = ((size.cy as f64 * 0.1) as i32).max(15);
             let height = size.cy + h_margin * 2;
             self.move_to(self.x, self.y, width, height);
 
-            let mut paint = Gdi::PAINTSTRUCT::default();
-            let mut metric = Gdi::TEXTMETRICW::default();
-            let hdc = Gdi::BeginPaint(self.hwnd, &mut paint);
+            let hdc = Gdi::GetDC(self.hwnd);
 
             // リージョンの作成
             let (hrgn, beak_point) = match self.shape {
                 Shape::Default => {
-                    let hrgn = Gdi::CreateRectRgn(0, 0, width, height);
+                    let hrgn = Self::new_rect_rgn(width, height);
                     (hrgn, None)
                 },
                 Shape::Upward(b) |
@@ -204,7 +220,7 @@ impl UWindow<()> for Balloon {
                 Shape::Leftward(b) |
                 Shape::Rightward(b) => {
                     let (pptl, point) = self.get_poly_points(&mut w_margin, &mut h_margin);
-                    let hrgn = Gdi::CreatePolygonRgn(&pptl, Gdi::ALTERNATE);
+                    let hrgn = Self::new_polygon_rgn(&pptl);
                     (hrgn, b.then_some(point))
                 },
                 Shape::Round => {
@@ -212,35 +228,34 @@ impl UWindow<()> for Balloon {
                     let x2 = rect.right - rect.left;
                     let y2 = rect.bottom - rect.top;
                     let l = (x2.max(y2) as f64 * 0.05) as i32;
-                    let hrgn = Gdi::CreateRoundRectRgn(0, 0, x2, y2, l, l);
+                    let hrgn = Self::new_round_rect_rgn(x2, y2, l, l);
                     (hrgn, None)
                 },
             };
 
             // 背景色
             let hbr = Self::new_solid_brush(self.back_color);
-            Gdi::FillRgn(hdc, hrgn, hbr);
+            Gdi::FillRgn(hdc, hrgn.as_handle(), hbr.as_handle());
             // 枠
             if self.transparency.border() {
                 let hbr = self.get_border_brush();
-                Gdi::FrameRgn(hdc, hrgn, hbr, 1, 1);
+                Gdi::FrameRgn(hdc, hrgn.as_handle(), hbr.as_handle(), 1, 1);
             }
 
             // 文字
-            let old = Gdi::SelectObject(hdc, self.hfont);
+            let old = Gdi::SelectObject(hdc, hfont.as_object());
             Gdi::SetBkMode(hdc, Gdi::TRANSPARENT);
             Gdi::SetTextColor(hdc, self.fore_color);
-            Gdi::GetTextMetricsW(hdc, &mut metric);
             let x = w_margin;
             let mut y = h_margin;
             for line in self.message.lines() {
-                let size = self.get_text_size(self.hwnd, line);
+                let size = self.get_text_size(self.hwnd, line, hfont.as_object());
                 let hstring = HSTRING::from(line);
                 Gdi::TabbedTextOutW(hdc, x, y, hstring.as_wide(), Some(&[]), x);
                 y += size.cy;
             }
             Gdi::SelectObject(hdc, old);
-            Gdi::EndPaint(self.hwnd, &paint);
+            Gdi::ReleaseDC(self.hwnd, hdc);
 
             // 指定座標を嘴先にする
             if let Some(point) = beak_point {
@@ -255,22 +270,12 @@ impl UWindow<()> for Balloon {
         Ok(())
     }
 
-    unsafe extern "system"
-    fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
-        unsafe {
-            if let Ok(hcursor) = wm::LoadCursorW(None, wm::IDC_ARROW) {
-                wm::SetCursor(hcursor);
-            }
-            wm::DefWindowProcW(hwnd, msg, wparam, lparam)
-        }
-    }
-
     fn hwnd(&self) -> HWND {
         self.hwnd
     }
 
-    fn font(&self) -> Gdi::HFONT {
-        self.hfont
+    fn font(&self) -> &Option<FontFamily> {
+        &self.font
     }
 
     fn register_window_class(once: &OnceLock<UWindowResult<()>>) -> UWindowResult<()> {
@@ -358,5 +363,16 @@ impl From<u8> for Shape {
             9 => Self::Round,
             _ => Self::Default,
         }
+    }
+}
+
+impl GdiObjectImpl for Gdi::HBRUSH {
+    fn as_inner(&self) -> isize {
+        self.0
+    }
+}
+impl GdiObjectImpl for Gdi::HRGN {
+    fn as_inner(&self) -> isize {
+        self.0
     }
 }
