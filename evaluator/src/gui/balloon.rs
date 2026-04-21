@@ -9,7 +9,7 @@ static REGISTER_CLASS: OnceLock<UWindowResult<()>> = OnceLock::new();
 
 pub struct Balloon {
     hwnd: HWND,
-    font: Option<FontFamily>,
+    font: GdiObject<Gdi::HFONT>,
     /// 背景色
     back_color: COLORREF,
     /// 文字色
@@ -39,6 +39,7 @@ impl Balloon {
         let message = message.to_string();
         let shape = Shape::from(shape);
         let transparency = Transparency::from(transparency);
+        let font = font.unwrap_or_default().create(hwnd)?;
         let balloon = Self { hwnd, font, back_color, fore_color, message, shape, transparency, x, y };
 
         balloon.draw()?;
@@ -199,7 +200,7 @@ impl UWindow<()> for Balloon {
 
     fn draw(&self) -> UWindowResult<()> {
         unsafe {
-            let hfont = self.create_font()?;
+            let hfont = self.font();
             let size = self.get_text_size(self.hwnd, &self.message, hfont.as_object());
             let mut w_margin = ((size.cx as f64 * 0.05) as i32).max(10);
             let width = size.cx + w_margin * 2;
@@ -274,7 +275,7 @@ impl UWindow<()> for Balloon {
         self.hwnd
     }
 
-    fn font(&self) -> &Option<FontFamily> {
+    fn font(&self) -> &GdiObject<Gdi::HFONT> {
         &self.font
     }
 

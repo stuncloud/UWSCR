@@ -16,7 +16,7 @@ static REGISTER_CLASS: OnceLock<UWindowResult<()>> = OnceLock::new();
 #[derive(Debug, Clone)]
 pub struct LogPrintWin {
     hwnd: HWND,
-    font: Option<FontFamily>,
+    font: GdiObject<Gdi::HFONT>,
     edit: HWND,
     /// logprint関数の表示フラグ
     visible: bool,
@@ -28,9 +28,10 @@ impl LogPrintWin {
     pub fn new(title: &str, visible: bool, font: Option<FontFamily>) -> UWindowResult<Self> {
         let hwnd = Self::create_window(title)?;
         let edit = Self::set_edit(hwnd)?;
+        let font = font.unwrap_or_default().create(hwnd)?;
         let mut logprint = Self { hwnd, font, edit, visible };
 
-        logprint.set_font(edit, "")?;
+        logprint.set_font(edit, "");
         logprint.set_visibility(visible, false);
 
         Ok(logprint)
@@ -147,7 +148,7 @@ impl UWindow<()> for LogPrintWin {
     fn hwnd(&self) -> HWND {
         self.hwnd
     }
-    fn font(&self) -> &Option<FontFamily> {
+    fn font(&self) -> &GdiObject<Gdi::HFONT> {
         &self.font
     }
 }

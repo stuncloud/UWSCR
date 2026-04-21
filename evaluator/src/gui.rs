@@ -204,9 +204,9 @@ impl FontFamily {
     pub fn new(name: &str, size: i32) -> Self {
         Self {name: HSTRING::from(name), size}
     }
-    pub fn create(&self) -> UWindowResult<GdiObject<Gdi::HFONT>> {
+    pub fn create(&self, hwnd: HWND) -> UWindowResult<GdiObject<Gdi::HFONT>> {
         unsafe {
-            let cheight = Self::point_to_pixel(self.size);
+            let cheight = Self::point_to_pixel(self.size, hwnd);
             let hfont = Gdi::CreateFontW(
                 cheight,
                 0,
@@ -228,10 +228,11 @@ impl FontFamily {
                 .ok_or(UWindowError::CreateFontError(self.name.to_string()))
         }
     }
-    unsafe fn point_to_pixel(point: i32) -> i32 {
+    unsafe fn point_to_pixel(point: i32, hwnd: HWND) -> i32 {
         unsafe {
-            let hdc = Gdi::GetDC(None);
+            let hdc = Gdi::GetDC(hwnd);
             let ppi = Gdi::GetDeviceCaps(hdc, Gdi::LOGPIXELSY);
+            Gdi::ReleaseDC(hwnd, hdc);
             -(point * ppi / 72)
         }
     }
@@ -263,7 +264,7 @@ pub trait UWindow<T> {
     fn create_window(title: &str) -> UWindowResult<HWND>;
     fn draw(&self) -> UWindowResult<()>;
     fn hwnd(&self) -> HWND;
-    fn font(&self) -> &Option<FontFamily>;
+    fn font(&self) -> &GdiObject<Gdi::HFONT>;
 
     fn init() {
         INIT_COMMON_CONTROL.call_once(|| unsafe {
@@ -474,21 +475,20 @@ pub trait UWindow<T> {
         unsafe { wm::SetClassLongPtrW(hwnd, nindex, dwnewlong) }
     }
 
-    fn create_font(&self) -> UWindowResult<GdiObject<Gdi::HFONT>> {
-        match self.font() {
-            Some(family) => family.create(),
-            None => FontFamily::default().create(),
-        }
-    }
-    fn set_font(&self, hwnd: HWND, text: &str) -> UWindowResult<SIZE> {
+    // fn create_font(&self) -> UWindowResult<GdiObject<Gdi::HFONT>> {
+    //     match self.font() {
+    //         Some(family) => family.create(self.hwnd()),
+    //         None => FontFamily::default().create(self.hwnd()),
+    //     }
+    // }
+    fn set_font(&self, hwnd: HWND, text: &str) -> SIZE {
         unsafe {
-            let hfont = self.create_font()?;
+            let hfont = self.font();
             // フォントを適用
             wm::SendMessageW(hwnd, wm::WM_SETFONT, WPARAM(hfont.as_object().0 as usize), LPARAM(1));
 
             // テキスト全体のSIZEを返す
-            let size = self.get_text_size(hwnd, text, hfont.as_object());
-            Ok(size)
+            self.get_text_size(hwnd, text, hfont.as_object())
         }
     }
     fn get_text_size(&self, hwnd: HWND, text: &str, hfont: Gdi::HGDIOBJ) -> SIZE {
@@ -524,7 +524,7 @@ pub trait UWindow<T> {
             // .ex_style(wm::WS_EX_STATICEDGE)
             .parent(self.hwnd())
             .build()?;
-        let size = self.set_font(hwnd, title)?;
+        let size = self.set_font(hwnd, title);
         let mut child = ChildCtl::new(hwnd, None, self.hwnd(), Static);
         child.move_to(x, y, Some(size.cx), Some(size.cy));
         Ok(child)
@@ -546,7 +546,7 @@ pub trait UWindow<T> {
                 .style(WS_CHILD|WS_VISIBLE)
                 .parent(self.hwnd())
                 .build()?;
-            let size = self.set_font(hwnd, title)?;
+            let size = self.set_font(hwnd, title);
             let mut child = ChildCtl::new(hwnd, None, self.hwnd(), Static);
             child.move_to(x, y, Some(size.cx), Some(size.cy));
             Ok(child)
@@ -564,7 +564,7 @@ pub trait UWindow<T> {
             .parent(parent)
             .menu(id)
             .build()?;
-        let size = self.set_font(hwnd, title)?;
+        let size = self.set_font(hwnd, title);
         let button = Button(default);
         let mut child = ChildCtl::new(hwnd, Some(id), self.hwnd(), button);
         let nwidth = min_width.max(size.cx + 8);

@@ -25,7 +25,7 @@ use std::sync::OnceLock;
 static REGISTER_CLASS: OnceLock<UWindowResult<()>> = OnceLock::new();
 pub struct MsgBox {
     hwnd: HWND,
-    font: Option<FontFamily>,
+    font: GdiObject<Gdi::HFONT>,
     x: Option<i32>,
     y: Option<i32>,
     buttons: MsgBoxButton,
@@ -47,6 +47,7 @@ impl MsgBox {
         enable_link: bool
     ) -> UWindowResult<Self> {
         let hwnd = Self::create_window(title)?;
+        let font = font.unwrap_or_default().create(hwnd)?;
         let msgbox = Self { hwnd, font, x, y, buttons, defbtn, message: message.into(), enable_link };
         msgbox.draw()?;
         msgbox.activate();
@@ -87,7 +88,7 @@ impl UWindow<DialogResult<MsgBoxButton>> for MsgBox {
     fn hwnd(&self) -> HWND {
         self.hwnd
     }
-    fn font(&self) -> &Option<FontFamily> {
+    fn font(&self) -> &GdiObject<Gdi::HFONT> {
         &self.font
     }
 
