@@ -1,4 +1,4 @@
-use crate::gui::{UWindow, UWindowResult, WindowBuilder, FontFamily};
+use crate::gui::{UWindow, UWindowResult, WindowBuilder, GdiObject};
 use crate::{
     Evaluator,
     object::function::Function
@@ -24,10 +24,11 @@ use windows::Win32::{
                 WM_USER,
             },
             Input::KeyboardAndMouse::{
-                    RegisterHotKey, UnregisterHotKey,
-                    HOT_KEY_MODIFIERS,
-                },
+                RegisterHotKey, UnregisterHotKey,
+                HOT_KEY_MODIFIERS,
+            },
         },
+        Graphics::Gdi::HFONT,
     };
 
 static REGISTER_CLASS: OnceLock<UWindowResult<()>> = OnceLock::new();
@@ -225,7 +226,7 @@ impl UWindow<()> for SetHotKeyWindow {
         unimplemented!()
     }
 
-    fn font(&self) -> &Option<FontFamily> {
+    fn font(&self) -> &GdiObject<HFONT> {
         unimplemented!()
     }
 }

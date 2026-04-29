@@ -29,7 +29,7 @@ impl InputField {
 
 pub struct InputBox {
     hwnd: HWND,
-    font: Option<FontFamily>,
+    font: GdiObject<Gdi::HFONT>,
     caption: String,
     field: Vec<InputField>,
     x: Option<i32>,
@@ -59,6 +59,7 @@ impl InputBox {
         y: Option<i32>,
     ) -> UWindowResult<Self> {
         let hwnd = Self::create_window(title)?;
+        let font = font.unwrap_or_default().create(hwnd)?;
         let input = Self { hwnd, font, caption, field, x, y };
 
         input.draw()?;
@@ -77,7 +78,7 @@ impl InputBox {
             .parent(self.hwnd)
             .menu(menu)
             .build()?;
-        let size = self.set_font(hwnd, "Dummy")?;
+        let size = self.set_font(hwnd, "Dummy");
 
         let mut child = ChildCtl::new(hwnd, Some(menu), self.hwnd, Edit);
         let height = Some(size.cy + 8);
@@ -203,7 +204,7 @@ impl UWindow<DialogResult<InputResult>> for InputBox {
         self.hwnd
     }
 
-    fn font(&self) -> &Option<FontFamily> {
+    fn font(&self) -> &GdiObject<Gdi::HFONT> {
         &self.font
     }
 
