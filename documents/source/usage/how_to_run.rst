@@ -245,7 +245,7 @@ UWSCRライブラリ(uwsl)ファイル出力
 
     ヘルプを表示します
 
-.. option:: -v, --version
+.. option:: -V, --version
 
     UWSCRのバージョンを表示します
 
