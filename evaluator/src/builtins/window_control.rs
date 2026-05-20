@@ -3,6 +3,7 @@ mod clkitem;
 mod win32;
 mod monitor;
 mod uia;
+mod uia_iter;
 
 use crate::{Evaluator, MouseOrg, MorgTarget, MorgContext, LOGPRINTWIN};
 use crate::object::*;
@@ -2038,29 +2039,40 @@ pub fn sckey(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult {
     Ok(Object::default())
 }
 
+use uia_iter::*;
 struct Slider {
-    slider: win32::Slider,
+    hwnd: HWND,
+    slider: UiaSlider,
 }
 
 impl Slider {
     fn new(hwnd: HWND, nth: u32) -> Option<Self> {
-        win32::Win32::get_slider(hwnd, nth)
-            .map(|slider| Self { slider })
+        let auto = UIAutomation::new().ok()?;
+        let window = UiaWindow::from_hwnd(&auto, hwnd).ok()?;
+        let condition = auto.slider_condition()?;
+        let iter = UiaElementIter::new(&condition, &window).ok()?;
+        let n = nth.saturating_sub(1) as usize;
+        iter.filter_map(|elem| elem.as_slider())
+            .nth(n)
+            .map(|slider| Self { hwnd, slider })
     }
-    fn get(&self, param: SldConst) -> i32 {
-
+    fn get(&self, param: SldConst) -> Option<f64> {
         match param {
-            SldConst::SLD_POS => self.slider.get_pos(),
-            SldConst::SLD_MIN => self.slider.get_min(),
-            SldConst::SLD_MAX => self.slider.get_max(),
-            SldConst::SLD_PAGE => self.slider.get_page(),
-            SldConst::SLD_BAR => self.slider.get_bar(),
-            SldConst::SLD_X => self.slider.get_point().0,
-            SldConst::SLD_Y => self.slider.get_point().1,
+            SldConst::SLD_POS => self.slider.value(),
+            SldConst::SLD_MIN => self.slider.min(),
+            SldConst::SLD_MAX => self.slider.max(),
+            SldConst::SLD_PAGE => self.slider.page(),
+            SldConst::SLD_BAR => match self.slider.dir() {
+                SliderDir::Horizontal => Some(0.0),
+                SliderDir::Vertical => Some(1.0),
+                SliderDir::None => Some(-1.0),
+            },
+            SldConst::SLD_X => Some(self.slider.clx(self.hwnd).into()),
+            SldConst::SLD_Y => Some(self.slider.cly(self.hwnd).into()),
         }
     }
-    fn set(&self, pos: i32, smooth: bool) -> bool {
-        self.slider.set_pos(pos, smooth)
+    fn set(&mut self, value: f64) -> bool {
+        self.slider.set_value(value)
     }
 }
 
@@ -2079,10 +2091,10 @@ pub fn setslider(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult 
     let hwnd = get_hwnd_from_id(id);
     let value = args.get_as_int(1, None)?;
     let nth = args.get_as_int(2, Some(1))?;
-    let smooth = args.get_as_bool(3, Some(false))?;
+    // let smooth = args.get_as_bool(3, Some(false))?;
 
-    let result = if let Some(slider) = Slider::new(hwnd, nth) {
-        slider.set(value, smooth)
+    let result = if let Some(mut slider) = Slider::new(hwnd, nth) {
+        slider.set(value)
     } else {
         false
     };
@@ -2131,9 +2143,9 @@ pub fn getslider(_: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResult 
     let nth = args.get_as_nth(1)?;
     let param = args.get_as_const(2, false)?.unwrap_or_default();
 
-    if let Some(slider) = Slider::new(hwnd, nth) {
-        let val = slider.get(param);
-        Ok(Object::Num(val as f64))
+    if let Some(slider) = Slider::new(hwnd, nth)
+    && let Some(value) = slider.get(param) {
+        Ok(Object::Num(value))
     } else {
         let error_value = Object::Num(ErrConst::ERR_VALUE as i32 as f64);
         Ok(error_value)

@@ -116,12 +116,7 @@ impl Win32 {
         let p = item as *mut SearchItem;
         let lparam = LPARAM(p as isize);
         unsafe {
-            if item.target.contains(&TargetClass::ScrollBar) {
-                EnumChildWindows(self.hwnd, Some(Self::slider_callback), lparam);
-            } else {
-                EnumChildWindows(self.hwnd, Some(Self::enum_child_callback), lparam);
-
-            }
+            EnumChildWindows(self.hwnd, Some(Self::enum_child_callback), lparam);
         }
     }
     unsafe extern "system"
@@ -218,35 +213,6 @@ impl Win32 {
         }
     }
 
-    unsafe extern "system"
-    fn slider_callback(hwnd: HWND, lparam: LPARAM) -> BOOL {
-        unsafe {
-            if let HWND(0) = hwnd {
-                return false.into()
-            };
-
-            let item = &mut *(lparam.0 as *mut SearchItem);
-            let class = get_class_name(hwnd);
-            let target = TargetClass::from(class);
-            match target {
-                TargetClass::TrackBar => if item.is_in_exact_order() {
-                    item.found = Some(ItemFound::new(hwnd, target, ItemInfo::TrackBar));
-                    return false.into();
-                },
-                TargetClass::ScrollBar => if IsWindowVisible(hwnd).as_bool() {
-                    // スクロールバーを探す
-                    if let Some(info) = Slider::get_scrollbar_item_info(hwnd) {
-                        if item.is_in_exact_order() {
-                            item.found = Some(ItemFound::new(hwnd, target, info));
-                            return false.into()
-                        }
-                    }
-                },
-                _ => {}
-            }
-            true.into()
-        }
-    }
     pub fn get_point(&self, clk_item: &ClkItem) -> ClkResult {
         let mut item = SearchItem::from_clkitem(clk_item);
         self.search(&mut item);
@@ -725,27 +691,6 @@ impl Win32 {
         }
     }
 
-    pub fn get_slider(hwnd: HWND, nth: u32) -> Option<Slider> {
-        let mut item = SearchItem::new_slider(nth);
-        let win32 = Self::new(hwnd);
-        win32.search(&mut item);
-        if let Some(found) = item.found {
-            match found.info {
-                ItemInfo::TrackBar => {
-                    let slider = Slider::TrackBar(found.hwnd, hwnd);
-                    Some(slider)
-                },
-                ItemInfo::ScrollBar(info, dir, point) => {
-                    let slider = Slider::ScrollBar(found.hwnd, hwnd, info, dir.0, point);
-                    Some(slider)
-                }
-                _ => None
-            }
-        } else {
-            None
-        }
-    }
-
     pub fn get_check_state(hwnd: HWND, name: String, nth: u32) -> i32 {
         let mut item = SearchItem {
             name,
@@ -1140,15 +1085,6 @@ impl SearchItem {
         self.order -= 1;
         self.order < 1
     }
-    pub fn new_slider(order: u32) -> Self {
-        Self {
-            name: String::new(),
-            short: false,
-            target: vec![TargetClass::ScrollBar, TargetClass::TrackBar],
-            order,
-            found: None,
-        }
-    }
 }
 
 #[derive(Debug)]
@@ -1174,8 +1110,6 @@ enum ItemInfo {
     ListViewHeader(i32, u32),
     /// index, id, pid
     ToolBar(usize, usize, u32),
-    TrackBar,
-    ScrollBar(SCROLLINFO, SCROLLBAR_CONSTANTS, (i32, i32)),
 }
 
 struct GetItem {
@@ -2236,167 +2170,6 @@ struct TBBUTTON86 {
     bReserved: [u8; 2],
     dwData: u32,
     iString: i32,
-}
-
-pub enum Slider {
-    /// scrollbar, mainwin, SCROLLINFO, 縦横, (X, Y)
-    ScrollBar(HWND, HWND, SCROLLINFO, i32, (i32, i32)),
-    /// trackbar, mainwin
-    TrackBar(HWND, HWND)
-}
-
-impl Slider {
-    pub fn set_pos(&self, pos: i32, smooth: bool) -> bool {
-        match self {
-            Slider::ScrollBar(hwnd, _, info, dir, _) => {
-                let pos = pos.min(info.nMax).max(info.nMin);
-                let msg = if *dir == 0 {WM_HSCROLL} else {WM_VSCROLL};
-                let parent_hwnd = Win32::get_parent(*hwnd);
-                // let parent_hwnd = Win32::get_parent(parent_hwnd);
-                if smooth {
-                    let mut next = info.nPos;
-                    let back = info.nPos > pos;
-                    loop {
-                        if back {next -= 1;} else {next += 1;}
-                        let wparam = (SB_THUMBTRACK.0 | (next & 0xFFFF) << 16) as usize;
-                        Win32::send_message(parent_hwnd, msg, wparam, 0);
-                        if next == pos {
-                            break;
-                        }
-                    }
-                } else {
-                    let wparam = (SB_THUMBTRACK.0 | (pos & 0xFFFF) << 16) as usize;
-                    Win32::send_message(parent_hwnd, msg, wparam, 0);
-                }
-            },
-            Slider::TrackBar(hwnd, _) => {
-                Win32::send_message(*hwnd, TBM_SETPOS, 1, pos as isize);
-                let pid = get_process_id_from_hwnd(*hwnd);
-                let Some(remote) = ProcessMemory::new(pid, None) else {
-                    return false;
-                };
-                let lparam = remote.pointer as isize;
-                Win32::send_message(*hwnd, TBM_GETTHUMBRECT, 0, lparam);
-                let mut rect = RECT::default();
-                remote.read(&mut rect);
-                let (x, y) = Win32::get_center(rect);
-                let point = Win32::client_to_screen(*hwnd, x, y);
-                MouseInput::left_click(*hwnd, Some(point));
-            },
-        }
-        self.current_pos_is(pos)
-    }
-    fn current_pos_is(&self, new_pos: i32) -> bool {
-        let new_pos = self.get_min().max(new_pos);
-        let new_pos = self.get_max().min(new_pos);
-        match self {
-            Slider::ScrollBar(hwnd, _, _, _, _) => unsafe {
-                let cur = Self::get_scrollbar_info(*hwnd)
-                    .map(|info| info.nPos);
-                cur.is_some_and(|cur| cur == new_pos)
-            },
-            Slider::TrackBar(_, _) => {
-                self.get_pos() == new_pos
-            },
-        }
-    }
-    pub fn get_pos(&self) -> i32 {
-        match self {
-            Self::ScrollBar(_, _, info, _, _) => info.nPos,
-            Self::TrackBar(hwnd, _) => {
-                let tbm_getpos = 1024;
-                Win32::send_message(*hwnd, tbm_getpos, 0, 0) as i32
-            },
-        }
-    }
-    pub fn get_min(&self) -> i32 {
-        match self {
-            Self::ScrollBar(_, _, info, _, _) => info.nMin,
-            Self::TrackBar(hwnd, _) => Win32::send_message(*hwnd, TBM_GETRANGEMIN, 0, 0) as i32,
-        }
-    }
-    pub fn get_max(&self) -> i32 {
-        match self {
-            Self::ScrollBar(_, _, info, _, _) => info.nMax,
-            Self::TrackBar(hwnd, _) => Win32::send_message(*hwnd, TBM_GETRANGEMAX, 0, 0) as i32,
-        }
-    }
-    pub fn get_page(&self) -> i32 {
-        match self {
-            Self::ScrollBar(_, _, info, _, _) => info.nPage as i32,
-            Self::TrackBar(hwnd, _) => Win32::send_message(*hwnd, TBM_GETPAGESIZE, 0, 0) as i32,
-        }
-    }
-    pub fn get_bar(&self) -> i32 {
-        match self {
-            Self::ScrollBar(_, _, _, dir, _) => *dir,
-            Self::TrackBar(hwnd, _) => {
-                let style = TBS_VERT as i32;
-                if get_window_style(*hwnd) as i32 & style > 0 {1} else {0}
-            },
-        }
-    }
-    pub fn get_point(&self) -> (i32, i32) {
-        unsafe {
-            let (main_win_hwnd, mut point) = match self {
-                Self::ScrollBar(_, main, _, _, point) => {
-                    let point = POINT { x: point.0, y: point.1 };
-                    (main, point)
-                },
-                Self::TrackBar(hwnd, main) => {
-                    let mut rect = RECT::default();
-                    let _ = GetWindowRect(*hwnd, &mut rect);
-                    let point = POINT { x: rect.left, y: rect.top };
-                    (main, point)
-                },
-            };
-            ScreenToClient(*main_win_hwnd, &mut point);
-            (point.x, point.y)
-        }
-    }
-    unsafe fn get_scrollbar_item_info(hwnd: HWND) -> Option<ItemInfo> {
-        unsafe {
-            let info = Self::get_scrollbar_info(hwnd)?;
-            let point = Self::get_scrollbar_point(hwnd);
-            let sb_const = Self::get_scrollbar_dir(hwnd);
-            Some(ItemInfo::ScrollBar(info, sb_const, point))
-        }
-    }
-    unsafe fn get_scrollbar_info(hwnd: HWND) -> Option<SCROLLINFO> {
-        unsafe {
-            let mut info = SCROLLINFO {
-                cbSize: std::mem::size_of::<SCROLLINFO>() as u32,
-                fMask: SIF_ALL,
-                ..Default::default()
-            };
-            if GetScrollInfo(hwnd, SB_CTL, &mut info).is_ok() {
-                Some(info)
-            } else {
-                None
-            }
-        }
-    }
-    unsafe fn get_scrollbar_point(hwnd: HWND) -> (i32, i32) {
-        unsafe {
-            let mut info = SCROLLBARINFO {
-                cbSize: std::mem::size_of::<SCROLLBARINFO>() as u32,
-                ..Default::default()
-            };
-            let _ = GetScrollBarInfo(hwnd, OBJID_CLIENT, &mut info);
-            (info.rcScrollBar.left, info.rcScrollBar.top)
-        }
-    }
-    unsafe fn get_scrollbar_dir(hwnd: HWND) -> SCROLLBAR_CONSTANTS {
-        unsafe {
-            let style = get_window_long(hwnd, GWL_STYLE);
-            let vertical = SBS_VERT as isize;
-            if (style & vertical) == vertical {
-                SB_VERT
-            } else {
-                SB_HORZ
-            }
-        }
-    }
 }
 
 struct SysLink {
