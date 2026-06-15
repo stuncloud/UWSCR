@@ -420,7 +420,7 @@ ID0について
 
     :return: なし
 
-.. function:: setslider(ID, 値, [n番目=1, スクロール=FALSE])
+.. function:: setslider(ID, 値, [n番目=1])
 
     | スライダー(スクロールバー、トラックバー)の値を設定します
 
@@ -433,7 +433,6 @@ ID0について
             | 最大値を上回る値だった場合は最大値に、最小値を下回る値だった場合は最小値に変更されます
 
     :param 数値 省略可 n番目: n番目のスライダーを設定する
-    :param 真偽値 省略可 スクロール: TRUEならスクロールバーを少しずつ動かす
     :rtype: 真偽値
     :return: 成功時TRUE、失敗または操作不能時はFALSE
 
@@ -1094,7 +1093,7 @@ ID0について
 
         .. object:: SLD_BAR
 
-            | 表示方向 (横なら0、縦なら1を返す)
+            | 表示方向 (横なら0、縦なら1を返す、取得不可なら-1)
 
         .. object:: SLD_X
 
@@ -1417,11 +1416,11 @@ ID0について
     :param 数値 省略可 キャプチャ方法: キャプチャ方法及びキャプチャ対象モニタを指定する
 
         - mouseorg未使用時
-          - -1: スクリーン全体をGDIでキャプチャする
-          - 0以上の数値: 値をモニタ番号とし、Graphic Capture APIでキャプチャする
+            - -1: スクリーン全体をGDIでキャプチャする
+            - 0以上の数値: 値をモニタ番号とし、Graphic Capture APIでキャプチャする
         - mouseorg使用時
-          - -1: ウィンドウをGDIでキャプチャする
-          - 0以上の数値: ウィンドウをGraphic Capture APIでキャプチャする
+            - -1: ウィンドウをGDIでキャプチャする
+            - 0以上の数値: ウィンドウをGraphic Capture APIでキャプチャする
 
 
     :rtype: 二次元配列
@@ -1470,6 +1469,12 @@ ID0について
 .. function:: ChkImg([ファイル名={clipboard}, 探索方式=0, x1=EMPTY, y1=EMPTY, x2=EMPTY, y2=EMPTY, n番目=1, 色幅=0])
 
     | スクリーン上の指定画像と一致する位置の情報を返す
+
+    .. admonition:: UWSCとは一部互換性がありません
+        :class: caution
+
+        - 特殊変数 ``G_IMG_X``, ``G_IMG_Y``, ``ALL_IMG_X``, ``ALL_IMG_Y`` は廃止
+        - 戻り値が変更されています
 
     :param 文字列 省略可 ファイル名: 探す画像ファイルのパス、省略時はクリップボード画像
     :param 数値 省略可 探索方式: 一致判定の方式を指定
@@ -1527,12 +1532,6 @@ ID0について
 .. function:: SearchImage(画像ファイルパス, [スコア=95, 最大検索数=5, left=EMPTY, top=EMPTY, right=EMPTY, bottom=EMPTY, オプション=0, モニタ番号=0])
 
     | 指定画像をスクリーン上から探してその座標を返します
-
-    .. admonition:: UWSCとは互換性がありません
-        :class: caution
-
-        - 特殊変数 ``G_IMG_X``, ``G_IMG_Y``, ``ALL_IMG_X``, ``ALL_IMG_Y`` は廃止
-        - 戻り値が変更されています
 
     :param 文字列 画像ファイルパス: 検索する画像のパス (jpg, bmp, png)
     :param 数値 省略可 スコア: 画像に対する一致率を指定 (80.0-100.0)

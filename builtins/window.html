@@ -905,7 +905,7 @@
 
 <dl class="py function">
 <dt class="sig sig-object py" id="setslider">
-<span class="sig-name descname"><span class="pre">setslider</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ID</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">値</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">n番目=1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">スクロール=FALSE</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#setslider" title="この定義へのパーマリンク">#</a></dt>
+<span class="sig-name descname"><span class="pre">setslider</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ID</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">値</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">n番目=1</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#setslider" title="この定義へのパーマリンク">#</a></dt>
 <dd><div class="line-block">
 <div class="line">スライダー(スクロールバー、トラックバー)の値を設定します</div>
 </div>
@@ -922,7 +922,6 @@
 </div>
 </p></li>
 <li><p><strong>n番目</strong> (<em>数値 省略可</em>) -- n番目のスライダーを設定する</p></li>
-<li><p><strong>スクロール</strong> (<em>真偽値 省略可</em>) -- TRUEならスクロールバーを少しずつ動かす</p></li>
 </ul>
 </dd>
 <dt class="field-even">戻り値の型<span class="colon">:</span></dt>
@@ -2011,7 +2010,7 @@
 <dt class="sig sig-object">
 <span class="sig-name descname"><span class="pre">SLD_BAR</span></span></dt>
 <dd><div class="line-block">
-<div class="line">表示方向 (横なら0、縦なら1を返す)</div>
+<div class="line">表示方向 (横なら0、縦なら1を返す、取得不可なら-1)</div>
 </div>
 </dd></dl>
 
@@ -2493,12 +2492,22 @@
 </p></li>
 <li><p><strong>キャプチャ方法</strong> (<em>数値 省略可</em>) -- <p>キャプチャ方法及びキャプチャ対象モニタを指定する</p>
 <ul>
-<li><p>mouseorg未使用時
-- -1: スクリーン全体をGDIでキャプチャする
-- 0以上の数値: 値をモニタ番号とし、Graphic Capture APIでキャプチャする</p></li>
-<li><p>mouseorg使用時
-- -1: ウィンドウをGDIでキャプチャする
-- 0以上の数値: ウィンドウをGraphic Capture APIでキャプチャする</p></li>
+<li><dl class="simple">
+<dt>mouseorg未使用時</dt><dd><ul>
+<li><p>-1: スクリーン全体をGDIでキャプチャする</p></li>
+<li><p>0以上の数値: 値をモニタ番号とし、Graphic Capture APIでキャプチャする</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>mouseorg使用時</dt><dd><ul>
+<li><p>-1: ウィンドウをGDIでキャプチャする</p></li>
+<li><p>0以上の数値: ウィンドウをGraphic Capture APIでキャプチャする</p></li>
+</ul>
+</dd>
+</dl>
+</li>
 </ul>
 </p></li>
 </ul>
@@ -2559,6 +2568,13 @@
 <span class="sig-name descname"><span class="pre">ChkImg</span></span><span class="sig-paren">(</span><span class="optional">[</span><em class="sig-param"><span class="n"><span class="pre">ファイル名={clipboard}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">探索方式=0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x1=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y1=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x2=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y2=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n番目=1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">色幅=0</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#ChkImg" title="この定義へのパーマリンク">#</a></dt>
 <dd><div class="line-block">
 <div class="line">スクリーン上の指定画像と一致する位置の情報を返す</div>
+</div>
+<div class="caution admonition">
+<p class="admonition-title">UWSCとは一部互換性がありません</p>
+<ul class="simple">
+<li><p>特殊変数 <code class="docutils literal notranslate"><span class="pre">G_IMG_X</span></code>, <code class="docutils literal notranslate"><span class="pre">G_IMG_Y</span></code>, <code class="docutils literal notranslate"><span class="pre">ALL_IMG_X</span></code>, <code class="docutils literal notranslate"><span class="pre">ALL_IMG_Y</span></code> は廃止</p></li>
+<li><p>戻り値が変更されています</p></li>
+</ul>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
@@ -2630,13 +2646,6 @@
 <span class="sig-name descname"><span class="pre">SearchImage</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">画像ファイルパス</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">スコア=95</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">最大検索数=5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">left=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">top=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">right=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bottom=EMPTY</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">オプション=0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">モニタ番号=0</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#SearchImage" title="この定義へのパーマリンク">#</a></dt>
 <dd><div class="line-block">
 <div class="line">指定画像をスクリーン上から探してその座標を返します</div>
-</div>
-<div class="caution admonition">
-<p class="admonition-title">UWSCとは互換性がありません</p>
-<ul class="simple">
-<li><p>特殊変数 <code class="docutils literal notranslate"><span class="pre">G_IMG_X</span></code>, <code class="docutils literal notranslate"><span class="pre">G_IMG_Y</span></code>, <code class="docutils literal notranslate"><span class="pre">ALL_IMG_X</span></code>, <code class="docutils literal notranslate"><span class="pre">ALL_IMG_Y</span></code> は廃止</p></li>
-<li><p>戻り値が変更されています</p></li>
-</ul>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
