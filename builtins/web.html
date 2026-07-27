@@ -7,7 +7,7 @@
 <link rel="index" title="索引" href="../genindex.html" /><link rel="search" title="検索" href="../search.html" /><link rel="next" title="ソケット通信" href="socket.html" /><link rel="prev" title="Excel" href="excel.html" />
 
     <meta name="generator" content="sphinx-5.2.3, furo 2022.09.29"/>
-        <title>ウェブ関連 - UWSCR 1.1.9</title>
+        <title>ウェブ関連 - UWSCR 1.1.10</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -124,7 +124,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">UWSCR 1.1.9</div></a>
+      <a href="../index.html"><div class="brand">UWSCR 1.1.10</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -147,7 +147,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   
-  <span class="sidebar-brand-text">UWSCR 1.1.9</span>
+  <span class="sidebar-brand-text">UWSCR 1.1.10</span>
   
 </a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
   <input class="sidebar-search" placeholder=検索 name="q" aria-label="検索">
@@ -299,6 +299,19 @@
 <dd class="field-odd"><p>対象ブラウザの <a class="reference internal" href="#browser-object"><span class="std std-ref">Browserオブジェクト</span></a></p>
 </dd>
 </dl>
+<div class="caution admonition">
+<p class="admonition-title">デフォルトプロファイルが利用できなくなりました (v1.1.10より)</p>
+<div class="line-block">
+<div class="line">Google Chromeの厳格化によりデバッグポートを利用する場合はプロファイル指定が必須となりました</div>
+<div class="line">そのため従来のようにデフォルトプロファイルで起動したブラウザの自動化ができなくなりました</div>
+<div class="line">これはMicrosoft Edgeについても同様です</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">BrowserControl</span></code> 関数利用時には以下に新たなプロファイルを作成します</div>
+</div>
+<ul class="simple">
+<li><p>Google Chrome: <code class="docutils literal notranslate"><span class="pre">スクリプトパス\chrome</span></code></p></li>
+<li><p>Microsoft Edge: <code class="docutils literal notranslate"><span class="pre">スクリプトパス\msedge</span></code></p></li>
+</ul>
+</div>
 <div class="hint admonition">
 <p class="admonition-title">ブラウザへの再接続について</p>
 <div class="line-block">
@@ -844,6 +857,7 @@
 <span class="sig-name descname"><span class="pre">profile</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">プロファイルパス</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#BrowserBuilder.profile" title="この定義へのパーマリンク">#</a></dt>
 <dd><div class="line-block">
 <div class="line">プロファイルを保存するパスを指定します</div>
+<div class="line">未指定の場合はスクリプトパス内にブラウザ名のフォルダを作成します</div>
 <div class="line">この設定は再接続時には無視されます</div>
 </div>
 <dl class="field-list simple">
