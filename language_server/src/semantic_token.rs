@@ -217,7 +217,7 @@ impl SemanticTokensLegendExt for SemanticTokensLegend {
         // self.token_modifiers.iter().position(|m0| m0 == m).unwrap_or(0) as u32
         modifiers.iter()
             .filter_map(|m| self.token_modifiers.iter().position(|_m| _m == m))
-            .map(|i| 2 ^ i)
+            .map(|i| 1 << i)
             .reduce(|a, b| a + b)
             .unwrap_or(0) as u32
     }

@@ -61,6 +61,18 @@
     :rtype: :ref:`browser_object`
     :return: 対象ブラウザの :ref:`browser_object`
 
+    .. admonition:: デフォルトプロファイルが利用できなくなりました (v1.1.10より)
+        :class: caution
+
+        | Google Chromeの厳格化によりデバッグポートを利用する場合はプロファイル指定が必須となりました
+        | そのため従来のようにデフォルトプロファイルで起動したブラウザの自動化ができなくなりました
+        | これはMicrosoft Edgeについても同様です
+        | ``BrowserControl`` 関数利用時には以下に新たなプロファイルを作成します
+
+        - Google Chrome: ``スクリプトパス\chrome``
+        - Microsoft Edge: ``スクリプトパス\msedge``
+        
+
     .. admonition:: ブラウザへの再接続について
         :class: hint
 
@@ -399,6 +411,7 @@ BrowserBuilderオブジェクト
     .. method:: profile(プロファイルパス)
 
         | プロファイルを保存するパスを指定します
+        | 未指定の場合はスクリプトパス内にブラウザ名のフォルダを作成します
         | この設定は再接続時には無視されます
 
         :param 文字列 プロファイルパス: プロファイルを保存するパス

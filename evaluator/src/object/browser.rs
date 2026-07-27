@@ -3,6 +3,7 @@ use crate::builtins::window_control::get_id_from_hwnd;
 use crate::error::{UError, UErrorKind, UErrorMessage};
 use util::settings::USETTINGS;
 
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::net::TcpStream;
 use std::collections::HashMap;
@@ -65,7 +66,15 @@ pub enum BrowserType {
     MSEdge,
     Vivaldi,
 }
-
+impl BrowserType {
+    fn as_str(&self) -> &str {
+        match self {
+            BrowserType::Chrome => "chrome",
+            BrowserType::MSEdge => "msedge",
+            BrowserType::Vivaldi => "vivaldi",
+        }
+    }
+}
 impl fmt::Display for BrowserType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -202,13 +211,30 @@ impl BrowserBuilder {
             args.push(arg)
         }
         if let Some(profile) = &self.profile {
-            let arg = format!("--user-data-dir={profile}");
+            let arg = if profile.contains(' ') {
+                format!("--user-data-dir=\"{profile}\"")
+            } else {
+                format!("--user-data-dir={profile}")
+            };
+            args.push(arg);
+        } else if let Some(mut profile) = std::env::var_os("GET_SCRIPT_DIR").and_then(|s|s.to_str().map(PathBuf::from)) {
+            profile.push(self.r#type.as_str());
+            let arg = format!("--user-data-dir={}", profile.display());
+            args.push(arg);
+        } else if let Ok(mut profile) = std::env::current_dir() {
+            profile.push(self.r#type.as_str());
+            let arg = format!("--user-data-dir={}", profile.display());
             args.push(arg);
         }
+        
         if ! self.args.is_empty() {
             let mut user_args = self.args.clone();
             args.append(&mut user_args);
         }
+        // 初回起動処理を行わない
+        args.push("--no-first-run".into());
+        // 標準ブラウザにするかどうかの確認をしない
+        args.push("--no-default-browser-check".into());
 
         let path = self.get_browser_path()?;
         Command::new(&path)
