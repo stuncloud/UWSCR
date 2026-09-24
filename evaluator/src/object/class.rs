@@ -1,85 +1,89 @@
 use super::{Object, Module, function::This};
-use super::super::Evaluator;
+use super::super::{Evaluator, ContainerType};
 
 use std::sync::{Arc, Mutex};
 
 #[derive(Debug, Clone)]
 pub struct ClassInstance {
-    pub name: String,
-    pub module: Arc<Mutex<Module>>,
+    name: String,
+    module: Module,
     evaluator: Evaluator,
-    /// trueならNOTHINGのフリをする
-    pub is_dropped: bool,
+    // /// trueならNOTHINGのフリをする
+    // is_dropped: bool,
+}
+
+impl PartialEq for ClassInstance {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+        && self.module == other.module
+    }
 }
 
 impl Drop for ClassInstance {
     fn drop(&mut self) {
-        self.dispose();
+        if self.module.is_last_copy() {
+            self.dispose();
+        }
     }
 }
 
 impl ClassInstance {
-    pub fn new(name: String, module: Arc<Mutex<Module>>, evaluator: Evaluator) -> Self {
+    pub fn new(name: String, module: Module, evaluator: Evaluator) -> Self {
         let ins = Self {
             name,
             module,
             evaluator,
-            is_dropped: false,
         };
-        {
-            // 無名関数のスコープ情報を消す
-            let mut guard = ins.module.lock().unwrap();
-            for named_obj in guard.get_members_mut() {
-                if let Object::AnonFunc(f) = named_obj.object.as_mut() {
-                    f.outer = None;
-                }
-            }
-        }
+        // // thisを追加
+        // ins.module.add("this".into(), Object::Instance(ins.clone()), ContainerType::Variable);
+        // 無名関数のスコープ情報を消す
+        ins.module.remove_outer_from_private_func();
         ins
     }
-    pub fn dispose(&mut self) {
-        if ! self.is_dropped {
-            self.is_dropped = true;
-            let destructor = {
-                let module = self.module.try_lock().expect("lock error: ClassInstance::dispose 1");
-                if let Some(Object::Function(destructor)) = module.get_destructor() {
-                    Some(destructor)
-                } else {
-                    None
-                }
-            };
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+    pub fn dropped(&self) -> bool {
+        self.inner().is_disposed()
+    }
+    pub fn inner(&self) -> &Module {
+        &self.module
+    }
+    pub fn dispose(&self) {
+        if ! self.inner().is_disposed() {
+            let destructor = self.module.get_destructor();
             if let Some(f) = destructor {
                 // dispose時はしょうがないのでthisを自身のmoduleにする
                 let this = Some(This::Module(self.module.clone()));
-                let _ = f.invoke(&mut self.evaluator, vec![], this);
-            }
-            self.module.try_lock().expect("lock error: ClassInstance::dispose 2").dispose();
-        }
-    }
-    pub fn get_destructor(&self) -> impl FnOnce(Arc<Mutex<Self>>) {
-        let evaluator = self.evaluator.clone();
-        let destructor = {
-            let module = self.module.try_lock().expect("lock error: ClassInstance::get_destructor");
-            if let Some(Object::Function(destructor)) = module.get_destructor() {
-                Some(destructor)
-            } else {
-                None
-            }
-        };
-        move |ins: Arc<Mutex<Self>>| {
-            let mut evaluator = evaluator;
-            if let Some(f) = destructor {
-                let this = Some(This::Class(ins));
+                let mut evaluator = self.evaluator.clone();
                 let _ = f.invoke(&mut evaluator, vec![], this);
             }
+            self.module.dispose();
         }
     }
-    pub fn dispose2(&mut self) {
-        if ! self.is_dropped {
-            self.is_dropped = true;
-            self.module.try_lock().expect("lock error: ClassInstance::dispose2").dispose();
-        }
-    }
+    // pub fn get_destructor(&self) -> impl FnOnce(Arc<Mutex<Self>>) {
+    //     let evaluator = self.evaluator.clone();
+    //     let destructor = {
+    //         if let Some(Object::Function(destructor)) = self.module.get_destructor() {
+    //             Some(destructor)
+    //         } else {
+    //             None
+    //         }
+    //     };
+    //     move |ins: Arc<Mutex<Self>>| {
+    //         let mut evaluator = evaluator;
+    //         if let Some(f) = destructor {
+    //             let this = Some(This::Class(ins));
+    //             let _ = f.invoke(&mut evaluator, vec![], this);
+    //         }
+    //     }
+    // }
+    // pub fn dispose2(&mut self) {
+    //     if ! self.is_dropped {
+    //         self.is_dropped = true;
+    //         self.module.dispose();
+    //     }
+    // }
     // pub fn set_instance_reference(&mut self, ins: Arc<Mutex<Self>>) {
         // let mut mutex = self.module.lock().unwrap();
         // for o in mutex.get_members_mut() {

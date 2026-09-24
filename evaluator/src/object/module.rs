@@ -7,34 +7,54 @@ use crate::environment::{
     NamedObject, ContainerType,
     check_special_assignment,
 };
+use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 #[derive(Clone, Debug)]
 pub struct Module {
     name: String,
-    members: Vec<NamedObject>,
+    members: Arc<RwLock<Vec<NamedObject>>>,
 }
 
 impl PartialEq for Module {
     fn eq(&self, other: &Self) -> bool {
-        self.name == other.name
+        // 自身のmembersをロックし、otherがロックされなければ同一Moduleと判断
+        let _tmp = self.members.try_write();
+        other.members.try_write().is_err()
+        && self.name == other.name
     }
 }
 
 impl Module {
     pub fn new(name: String) -> Self {
-        Module{name, members: Vec::new()}
+        Module{name, members: Arc::new(RwLock::new(Vec::new()))}
     }
 
     pub fn new_with_members(name: String, members: Vec<NamedObject>) -> Self {
-        Module{name, members}
+        Module{name, members: Arc::new(RwLock::new(members))}
     }
 
-    pub fn name(&self) -> String {
-        self.name.clone()
+    fn read_members(&self) -> RwLockReadGuard<'_, Vec<NamedObject>> {
+        self.members.read().unwrap()
+    }
+    fn write_members(&self) -> RwLockWriteGuard<'_, Vec<NamedObject>> {
+        self.members.write().unwrap()
     }
 
-    pub fn get_members(&self) -> Vec<NamedObject> {
-        self.members.clone()
+    pub fn name(&self) -> &String {
+        &self.name
+    }
+
+    pub fn is_last_copy(&self) -> bool {
+        let strong = Arc::strong_count(&self.members);
+        // let weak = Arc::weak_count(&self.members);
+        strong < 2
+    }
+
+    pub fn get_member_display(&self) -> Vec<String> {
+        let members = self.members.read().unwrap();
+        members.iter()
+            .map(|obj| obj.to_string())
+            .collect()
     }
 
     pub fn get_constructor(&self) -> Option<Function> {
@@ -56,44 +76,49 @@ impl Module {
         *name == format!("_{}_", self.name())
     }
 
-    pub fn get_destructor(&self) -> Option<Object> {
+    pub fn get_destructor(&self) -> Option<Function> {
         let name = format!("_{}_", self.name());
         self.get(&name, &[ContainerType::Function])
+            .and_then(|o| {
+                if let Object::Function(f) = o {
+                    Some(f)
+                } else {
+                    None
+                }
+            })
     }
 
-    pub fn add(&mut self, name: String, object: Object, container_type: ContainerType) {
-        self.members.push(NamedObject::new(name.to_ascii_uppercase(), object, container_type))
+    pub fn add(&self, name: String, object: Object, container_type: ContainerType) {
+        let mut members = self.write_members();
+        members.push(NamedObject::new(name.to_ascii_uppercase(), object, container_type))
     }
 
     fn contains(&self, name: &str, container_type: ContainerType) -> bool {
-        let key = name.to_ascii_uppercase();
-        self.members.iter().any(|obj| obj.name == key && container_type == obj.container_type)
+        let members = self.read_members();
+        members.iter().any(|obj| obj.name.eq_ignore_ascii_case(name) && container_type == obj.container_type)
     }
 
     pub fn has_member(&self, name: &str) -> bool {
-        let key = name.to_ascii_uppercase();
-        self.members.iter().any(|obj| obj.name == key)
+        let members = self.read_members();
+        members.iter().any(|obj| obj.name.eq_ignore_ascii_case(name))
     }
 
-    fn get(&self, name: &str, container_type: &[ContainerType]) -> Option<Object> {
-        let key = name.to_ascii_uppercase();
-        for ct in container_type {
-            if let Some(o) = self.members.clone().iter().find(|o| o.name == key && o.container_type == *ct) {
-                return Some(o.object.clone())
-            }
-        }
-        None
+    fn get(&self, name: &str, container_types: &[ContainerType]) -> Option<Object> {
+        let members = self.read_members();
+        members.iter()
+            .find(|o| o.name.eq_ignore_ascii_case(name) && container_types.contains(&o.container_type))
+            .map(|no| no.object.clone())
     }
 
-    fn set(&mut self, name: &str, value: Object, container_type: ContainerType) {
-        let key = name.to_ascii_uppercase();
-        for obj in self.members.iter_mut() {
-            if obj.name == key && obj.container_type == container_type {
-                if check_special_assignment(&obj.object, &value) {
-                    obj.object = value;
-                }
-                break;
-            }
+    fn set(&self, name: &str, value: Object, container_type: ContainerType) {
+        let predicate = |no: &&mut NamedObject| -> bool {
+            no.name.eq_ignore_ascii_case(name)
+            && container_type.eq(&no.container_type)
+        };
+        let mut members = self.write_members();
+        if let Some(member) = members.iter_mut().find(predicate)
+        && check_special_assignment(&member.object, &value) {
+            member.object = value;
         }
     }
 
@@ -149,7 +174,7 @@ impl Module {
         ))
     }
 
-    pub fn is_it_this(expr: &Expression) -> bool {
+    pub fn maybe_this(expr: &Expression) -> bool {
         if let Expression::Identifier(Identifier(ident)) = expr {
             ident.eq_ignore_ascii_case("this")
         } else {
@@ -157,7 +182,7 @@ impl Module {
         }
     }
 
-    fn assign_index(&mut self, name: &str, new: Object, dimension: Vec<Object>, container_type: ContainerType) -> Result<(), UError> {
+    fn assign_index(&self, name: &str, new: Object, dimension: Vec<Object>, container_type: ContainerType) -> Result<(), UError> {
         let array = self.get_member(name)?;
         let (maybe_new, update) = Evaluator::update_array_object(array, dimension, &new)
             .map_err(|mut e| {
@@ -166,15 +191,13 @@ impl Module {
                 }
                 e
             })?;
-        if update {
-            if let Some(new_array) = maybe_new {
-                self.set(name, new_array, container_type);
-            }
+        if update && let Some(new_array) = maybe_new {
+            self.set(name, new_array, container_type);
         }
         Ok(())
     }
 
-    pub fn assign(&mut self, name: &str, value: Object, dimension: Option<Vec<Object>>) -> Result<(), UError> {
+    pub fn assign(&self, name: &str, value: Object, dimension: Option<Vec<Object>>) -> Result<(), UError> {
         let container_type = if self.contains(name, ContainerType::Const) {
             // 同名の定数がある場合はエラー
             return Err(UError::new(
@@ -199,7 +222,7 @@ impl Module {
         Ok(())
     }
 
-    pub fn assign_public(&mut self, name: &str, value: Object, dimension: Option<Vec<Object>>) -> Result<(), UError> {
+    pub fn assign_public(&self, name: &str, value: Object, dimension: Option<Vec<Object>>) -> Result<(), UError> {
         if self.contains(name, ContainerType::Public) {
             match dimension {
                 Some(d) => {
@@ -210,14 +233,15 @@ impl Module {
         } else {
             return Err(UError::new(
                 UErrorKind::AssignError,
-                UErrorMessage::ModuleMemberNotFound(DefinitionType::Public, self.name(),name.to_string())
+                UErrorMessage::ModuleMemberNotFound(DefinitionType::Public, self.name().into(),name.to_string())
             ))
         }
         Ok(())
     }
 
     pub fn is_local_member(&self, name: &str, is_func: bool) -> bool {
-        self.members.iter().any(|obj| {
+        let members = self.read_members();
+        members.iter().any(|obj| {
             obj.name.eq_ignore_ascii_case(name) &&
             obj.object.is_func() == is_func &&
             obj.container_type == ContainerType::Variable
@@ -225,8 +249,9 @@ impl Module {
     }
 
     /// プライベート関数からスコープ情報を消す
-    pub fn remove_outer_from_private_func(&mut self) {
-        for o in self.members.iter_mut() {
+    pub fn remove_outer_from_private_func(&self) {
+        let mut members = self.write_members();
+        for o in members.iter_mut() {
             if let Object::AnonFunc(f) = o.object.as_mut() {
                 f.outer = None;
             }
@@ -234,15 +259,13 @@ impl Module {
     }
 
     pub fn is_disposed(&self) -> bool {
-        self.members.is_empty()
+        let members = self.read_members();
+        members.is_empty()
     }
 
-    pub fn dispose(&mut self) {
-        self.members = vec![];
-    }
-
-    pub fn get_members_mut(&mut self) -> &mut Vec<NamedObject>{
-        self.members.as_mut()
+    pub fn dispose(&self) {
+        let mut members = self.write_members();
+        members.clear();
     }
 }
 

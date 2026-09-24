@@ -299,12 +299,7 @@ impl Environment {
             //     Some(Object::String(text))
             // },
             Some(Object::Instance(ref ins)) => {
-                let dropped = if let Ok(ins) = ins.try_lock() {
-                    ins.is_dropped
-                } else {
-                    false
-                };
-                if dropped {
+                if ins.dropped() {
                     Some(Object::Nothing)
                 } else {
                     obj
@@ -316,16 +311,14 @@ impl Environment {
     // Module/Classメンバを探す
     fn get_from_this(&self, name: &str) -> Option<Object> {
         match self.get("this", ContainerType::Variable)? {
-            Object::Module(mutex) => {
-                let this = mutex.lock().unwrap();
+            Object::Module(this) => {
                 match this.get_member(name) {
                     Ok(o) => Some(o),
                     Err(_) => this.get_public_member(name).ok(),
                 }
             },
-            Object::Instance(mutex) => {
-                let ins = mutex.lock().unwrap();
-                let this = ins.module.lock().unwrap();
+            Object::Instance(ins) => {
+                let this = ins.inner();
                 match this.get_member(name) {
                     Ok(o) => Some(o),
                     Err(_) => this.get_public_member(name).ok(),
@@ -355,20 +348,13 @@ impl Environment {
     // Module/Classメンバ関数を探す
     fn get_function_from_this(&self, name: &str) -> Option<Object> {
         match self.get("this", ContainerType::Variable)? {
-            Object::Module(mutex) => {
-                let f = {
-                    let this = mutex.lock().unwrap();
-                    this.get_function(name).ok()
-                };
-                f.map(|_| Object::MemberCaller(MemberCaller::Module(mutex), name.into()))
+            Object::Module(this) => {
+                let f = this.get_function(name).ok();
+                f.map(|_| Object::MemberCaller(MemberCaller::Module(this), name.into()))
             },
-            Object::Instance(mutex) => {
-                let f = {
-                    let ins = mutex.lock().unwrap();
-                    let this = ins.module.lock().unwrap();
-                    this.get_function(name).ok()
-                };
-                f.map(|_| Object::MemberCaller(MemberCaller::ClassInstance(mutex), name.into()))
+            Object::Instance(this) => {
+                let f = this.inner().get_function(name).ok();
+                f.map(|_| Object::MemberCaller(MemberCaller::ClassInstance(this), name.into()))
             },
             _ => None
         }
@@ -740,10 +726,10 @@ impl Environment {
 
     pub fn get_module_member(&self, name: &str) -> Object {
         let mut arr = Vec::new();
-        if let Some(Object::Module(m)) = self.get_module(name) {
-            let module = m.lock().unwrap();
-            for obj in module.get_members().into_iter() {
-                arr.push(Object::String(format!("{}: {}", module.name(), obj)))
+        if let Some(Object::Module(module)) = self.get_module(name) {
+            let name = module.name();
+            for disp in module.get_member_display() {
+                arr.push(Object::String(format!("{name}: {disp}")));
             }
         }
         Object::Array(arr)
@@ -865,9 +851,7 @@ pub fn check_special_assignment(obj1: &Object, obj2: &Object) -> bool {
         Object::Instance(ins) => {
             // クラスインスタンスにNothingが代入される場合はdisposeする
             if let Object::Nothing = obj2 {
-                let mut guarud = ins.try_lock().expect("lock error: check_special_assignment");
-                guarud.dispose();
-                // ins.try_lock().expect("lock error: check_special_assignment").dispose2();
+                ins.dispose();
             }
             true
         },

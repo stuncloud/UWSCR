@@ -63,9 +63,9 @@ pub enum Object {
     Function(Function),
     AsyncFunction(Function),
     BuiltinFunction(String, i32, BuiltinFunction),
-    Module(Arc<Mutex<Module>>),
+    Module(Module),
     Class(String, BlockStatement), // class定義
-    Instance(Arc<Mutex<ClassInstance>>), // classインスタンス, デストラクタが呼ばれたらNothingになる
+    Instance(ClassInstance), // classインスタンス, デストラクタが呼ばれたらNothingになる
     Null,
     Empty,
     EmptyParam,
@@ -235,14 +235,13 @@ impl fmt::Display for Object {
             Object::Continue(n) => write!(f, "Continue {}", n),
             Object::Break(n) => write!(f, "Break {}", n),
             Object::Exit => write!(f, "Exit"),
-            Object::Module(m) => write!(f, "module: {}", m.lock().unwrap().name()),
+            Object::Module(m) => write!(f, "module: {}", m.name()),
             Object::Class(name, _) => write!(f, "class: {}", name),
-            Object::Instance(m) => {
-                        let ins = m.lock().unwrap();
-                        if ins.is_dropped {
+            Object::Instance(ins) => {
+                        if ins.dropped() {
                             write!(f, "NOTHING")
                         } else {
-                            write!(f, "instance of {}", ins.name)
+                            write!(f, "instance of {}", ins.name())
                         }
                     },
             Object::Handle(h) => write!(f, "{:?}", h),
@@ -283,18 +282,8 @@ impl fmt::Display for Object {
             Object::HtmlNode(node) => write!(f, "{node}"),
             Object::MemberCaller(method, member) => {
                         match method {
-                            MemberCaller::Module(m) => {
-                                match m.try_lock() {
-                                    Ok(m) => write!(f, "{}.{member}", m.name()),
-                                    Err(_) => write!(f, "{{Module}}.{member}"),
-                                }
-                            },
-                            MemberCaller::ClassInstance(ins) => {
-                                match ins.try_lock() {
-                                    Ok(g) => write!(f, "{}.{member}", g.name),
-                                    Err(_) => write!(f, "{{ClassInstance}}.{member}"),
-                                }
-                            },
+                            MemberCaller::Module(m) => write!(f, "{}.{member}", m.name()),
+                            MemberCaller::ClassInstance(ins) => write!(f, "{}.{member}", ins.name()),
                             MemberCaller::BrowserBuilder(_) => write!(f, "BrowserBuilder.{member}"),
                             MemberCaller::Browser(_) => write!(f, "Browser.{member}"),
                             MemberCaller::TabWindow(_) => write!(f, "TabWindow.{member}"),
@@ -399,15 +388,9 @@ impl PartialEq for Object {
             Object::Function(f1) => if let Object::Function(f2) = other {f1 == f2} else {false},
             Object::AsyncFunction(f1) => if let Object::AsyncFunction(f2) = other {f1 == f2} else {false},
             Object::BuiltinFunction(n, _, _) => if let Object::BuiltinFunction(n2,_,_) = other {n == n2} else {false},
-            Object::Module(m) => if let Object::Module(m2) = other {
-                let _tmp = m.lock().unwrap();
-                m2.try_lock().is_err()
-            } else {false},
+            Object::Module(m) => if let Object::Module(m2) = other {m == m2} else {false},
             Object::Class(n, _) => if let Object::Class(n2,_) = other {n==n2} else {false},
-            Object::Instance(m1) => if let Object::Instance(m2) = other {
-                let _ins = m1.lock().unwrap();
-                m2.try_lock().is_err()
-            } else {false},
+            Object::Instance(c1) => if let Object::Instance(c2) = other {c1 == c2} else {false},
             Object::Null => matches!(other, Object::Null),
             Object::Empty => matches!(other, Object::Empty),
             Object::Nothing => matches!(other, Object::Nothing),
@@ -513,13 +496,10 @@ impl Object {
             Object::AsyncFunction(_) => ObjectType::TYPE_ASYNC_FUNCTION,
             Object::Module(_) => ObjectType::TYPE_MODULE,
             Object::Class(_,_) => ObjectType::TYPE_CLASS,
-            Object::Instance(m) => {
-                let ins = m.lock().unwrap();
-                if ins.is_dropped {
-                    ObjectType::TYPE_NOTHING
-                } else {
-                    ObjectType::TYPE_CLASS_INSTANCE
-                }
+            Object::Instance(ins) => if ins.dropped() {
+                ObjectType::TYPE_NOTHING
+            } else {
+                ObjectType::TYPE_CLASS_INSTANCE
             },
             Object::Null => ObjectType::TYPE_NULL,
             Object::Empty => ObjectType::TYPE_EMPTY,
@@ -643,10 +623,7 @@ impl Object {
             Object::EmptyParam |
             Object::Bool(false) |
             Object::Nothing => false,
-            Object::Instance(m) => {
-                let ins = m.lock().unwrap();
-                ! ins.is_dropped
-            },
+            Object::Instance(ins) => !ins.dropped(),
             Object::String(s) |
             Object::ExpandableTB(s) => !s.is_empty(),
             Object::Array(arr) => !arr.is_empty(),
@@ -1480,8 +1457,8 @@ impl AsMut<Object> for Object {
 
 #[derive(Debug, Clone)]
 pub enum MemberCaller {
-    Module(Arc<Mutex<Module>>),
-    ClassInstance(Arc<Mutex<ClassInstance>>),
+    Module(Module),
+    ClassInstance(ClassInstance),
     BrowserBuilder(Arc<Mutex<BrowserBuilder>>),
     Browser(Browser),
     TabWindow(TabWindow),
@@ -1500,10 +1477,7 @@ pub enum MemberCaller {
 impl PartialEq for MemberCaller {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Self::ClassInstance(l0), Self::ClassInstance(r0)) => {
-                let _tmp = l0.lock().unwrap();
-                r0.try_lock().is_err()
-            },
+            (Self::ClassInstance(l0), Self::ClassInstance(r0)) => l0==r0,
             (Self::BrowserBuilder(l0), Self::BrowserBuilder(r0)) => {
                 let _tmp = l0.lock().unwrap();
                 r0.try_lock().is_err()
