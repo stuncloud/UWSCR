@@ -45,15 +45,20 @@ pub fn init(dir: &Path) {
 }
 
 pub fn out_log(log: &String, log_type: LogType) {
+    if let Err(e) = out_log_inner(log, log_type) {
+        eprintln!("Error occured on logging: {e}");
+    }
+}
+pub fn out_log_inner(log: &String, log_type: LogType) -> Result<(), std::io::Error>{
     if log.is_empty() {
-        return;
+        return Ok(());
     }
     let log_option = env::var("UWSCR_LOG_TYPE").ok().and_then(|t| t.parse::<u8>().ok());
     if log_option.is_none() && log_type != LogType::Panic {
-        return;
+        return Ok(());
     }
     let Ok(path) = env::var("UWSCR_LOG_FILE") else {
-        return;
+        return Ok(());
     };
     let no_date_time = log_option.is_some_and(|n| n == 2);
 
@@ -63,8 +68,7 @@ pub fn out_log(log: &String, log_type: LogType) {
         let mut file = OpenOptions::new()
             .create(true)
             .append(true)
-            .open(&path)
-            .expect("Unable to open log file");
+            .open(&path)?;
         match log_type {
             LogType::Error |
             LogType::Print |
@@ -73,9 +77,9 @@ pub fn out_log(log: &String, log_type: LogType) {
                     let padding = format!("{log_type}").len();
                     for (i, line) in log.lines().enumerate() {
                         if i == 0 {
-                            write!(file, "{log_type}  {line}\r\n").expect("Unable to write log file");
+                            write!(file, "{log_type}  {line}\r\n")?;
                         } else {
-                            write!(file, "{:>1$}  {line}\r\n", " ", padding).expect("Unable to write log file");
+                            write!(file, "{:>1$}  {line}\r\n", " ", padding)?;
                         }
                     }
                 } else {
@@ -83,19 +87,19 @@ pub fn out_log(log: &String, log_type: LogType) {
                     let padding = format!("{date_time} {log_type}").len();
                     for (i, line) in log.lines().enumerate() {
                         if i == 0 {
-                            write!(file, "{date_time} {log_type}  {line}\r\n").expect("Unable to write log file");
+                            write!(file, "{date_time} {log_type}  {line}\r\n")?;
                         } else {
-                            write!(file, "{:>1$}  {line}\r\n", " ", padding).expect("Unable to write log file");
+                            write!(file, "{:>1$}  {line}\r\n", " ", padding)?;
                         }
                     }
                 }
             },
             LogType::Panic => {
                 if no_date_time {
-                    write!(file, "{log_type}  {log}\r\n").expect("Unable to write log file");
+                    write!(file, "{log_type}  {log}\r\n")?;
                 } else {
                     let date_time = Local::now().format("%Y-%m-%d %H:%M:%S");
-                    write!(file, "{date_time} {log_type}  {log}\r\n").expect("Unable to write log file");
+                    write!(file, "{date_time} {log_type}  {log}\r\n")?;
                 }
             },
         }
@@ -105,31 +109,24 @@ pub fn out_log(log: &String, log_type: LogType) {
     let mut file = OpenOptions::new()
         .read(true)
         .write(true)
-        .open(&path)
-        .expect("Unable to open log file");
+        .open(&path)?;
 
     let rows = BufReader::new(&file).lines().count();
 
     if rows > max_lines {
-        file.seek(SeekFrom::Start(0)).expect("Failed on seeking");
+        file.seek(SeekFrom::Start(0))?;
         let lines = BufReader::new(file).lines();
         let n = rows - max_lines;
-        let new = lines.into_iter().enumerate()
-            .filter_map(|(i, line)| {
-                (i >= n).then_some(line)
-            })
-            .map(|line| {
-                line.unwrap_or_default()}
-            )
-            .reduce(|s1, s2| s1 + "\r\n" + &s2)
-            .expect("Failed to remove lines") + "\r\n";
+        let new = lines.enumerate()
+            .filter_map(|(i, line), | (i >= n).then_some(line.unwrap_or_default()))
+            .fold(String::new(), |a, b| a + "\r\n" + &b);
 
-        let mut file = OpenOptions::new().write(true).truncate(true).open(path).expect("Unable to open log file");
-        file.seek(SeekFrom::Start(0)).expect("Failed on seeking");
-        file.write_all(new.as_bytes())
-            .expect("Failed to write log file");
+        let mut file = OpenOptions::new().write(true).truncate(true).open(path)?;
+        file.seek(SeekFrom::Start(0))?;
+        file.write_all(new.as_bytes())?;
     }
 
+    Ok(())
 }
 
 #[derive(Debug, PartialEq)]
