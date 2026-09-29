@@ -80,6 +80,10 @@ class UwscrLexer(RegexLexer):
                 'try', 'except', 'finally', 'endtry'
             ), suffix=r'\b', prefix=r'\b'), Keyword),
             (words((
+                'TRY_ERRMSG',
+                'HASH_REMOVEALL',
+            ), suffix=r'\b', prefix=r'\b'), Keyword.Constant),
+            (words((
                 'dim', 'public', 'const',
                 'function', 'procedure', 'fend',
                 'hashtbl', 'hash', 'endhash', 'enum', 'endenum',

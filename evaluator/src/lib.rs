@@ -544,7 +544,7 @@ impl Evaluator {
                 for (i, e) in vec {
                     let (name, value) = self.eval_definition_statement(i, e)?;
                     if in_loop {
-                        self.env.in_loop_dim_definition(&name, value);
+                        self.env.in_loop_dim_definition(&name, value)?;
                     } else {
                         self.env.define_local(&name, value)?;
                     }
@@ -1353,7 +1353,7 @@ impl Evaluator {
                     self.env.set_try_error_messages(
                         e.to_string(),
                         e.get_line().to_string()
-                    );
+                    )?;
                     if except.is_some() {
                         self.eval_block_statement(except.unwrap())?
                     } else {

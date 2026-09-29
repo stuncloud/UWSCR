@@ -110,16 +110,17 @@ impl Module {
             .map(|no| no.object.clone())
     }
 
-    fn set(&self, name: &str, value: Object, container_type: ContainerType) {
+    fn set(&self, name: &str, value: Object, container_type: ContainerType) -> Result<(), UError> {
         let predicate = |no: &&mut NamedObject| -> bool {
             no.name.eq_ignore_ascii_case(name)
             && container_type.eq(&no.container_type)
         };
         let mut members = self.write_members();
         if let Some(member) = members.iter_mut().find(predicate)
-        && check_special_assignment(&member.object, &value) {
+        && check_special_assignment(&member.object, &value)? {
             member.object = value;
         }
+        Ok(())
     }
 
     pub fn get_member(&self, name: &str) -> EvalResult<Object> {
@@ -192,7 +193,7 @@ impl Module {
                 e
             })?;
         if update && let Some(new_array) = maybe_new {
-            self.set(name, new_array, container_type);
+            self.set(name, new_array, container_type)?;
         }
         Ok(())
     }
@@ -217,7 +218,7 @@ impl Module {
             Some(d) => {
                 return self.assign_index(name, value, d, container_type)
             },
-            None => self.set(name, value, container_type)
+            None => self.set(name, value, container_type)?,
         }
         Ok(())
     }
@@ -228,7 +229,7 @@ impl Module {
                 Some(d) => {
                     return self.assign_index(name, value, d, ContainerType::Public)
                 },
-                None => self.set(name, value, ContainerType::Public)
+                None => self.set(name, value, ContainerType::Public)?,
             }
         } else {
             return Err(UError::new(

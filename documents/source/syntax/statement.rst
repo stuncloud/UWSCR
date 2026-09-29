@@ -359,6 +359,44 @@ UWSCではエラーになっていたconstの一括定義も可能
     // 以下と同じ
     // hashtbl with_option = HASH_CASECARE or HASH_SORT
 
+連想配列変数への代入
+++++++++++++++++++++
+
+- 特殊定数 ``HASH_REMOVEALL`` を代入した場合は連想配列を空にします
+- 別の連想配列を代入した場合、その値を追記します
+- 上記以外の代入は実行時エラーとなります
+
+.. sourcecode:: uwscr
+
+    hash h1
+        x = 0
+        y = 0
+    endhash
+
+    hash h2
+        a = 1
+        b = 2
+    endhash
+
+    // 連想配列変数へ別の連想配列を代入する
+    h1 = h2
+
+    // h1にh2のキーと値のペアを追記する
+    print h1 // {"X": 0, "Y": 0, "A": 1, "B": 2}
+
+    try
+        // 連想配列変数へ別の値を代入するとエラーになる
+        h1 = 0
+    except
+        print TRY_ERRMSG // [代入エラー] 連想配列変数への代入はできません
+    endtry
+
+    // 特殊変数HASH_REMOVEALLを代入することで連想配列を空にする
+    h1 = HASH_REMOVEALL
+
+    print h1 // {}
+
+
 enum
 ----
 
