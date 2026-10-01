@@ -35,6 +35,7 @@ body:
       label: バージョン
       description: 不具合が発生したUWSCRのバージョンを選択してください
       options:
+        - "1.1.11"
         - "1.1.10"
         - "1.1.9"
         - "1.1.8"
@@ -70,5 +71,4 @@ body:
         - "環境は問わない"
         - "Windows 10"
         - "Windows 11"
-        - "Windows 12"
         - "その他"
