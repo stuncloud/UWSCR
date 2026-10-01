@@ -1805,7 +1805,7 @@ ID0について
             btn(TOUCH, DOWN, 300, 300)
             btn(TOUCH, UP, 150, 150, 10) // 10ならとても遅い
 
-.. function:: kbd(仮想キーまたは文字コード, [状態=CLICK, ms=0])
+.. function:: kbd(仮想キーまたは文字コード, [状態=CLICK, ms=0, スキャンコード=FALSE])
 .. function:: kbd(送信文字列, [状態=CLICK, ms=0])
     :noindex:
 
@@ -1839,6 +1839,7 @@ ID0について
             キー開放
 
     :param 数値 省略可 ms: キーボード入力を行うまでの待機時間 (ミリ秒)
+    :param 真偽値 省略可 スキャンコード: 仮想キーコードは送らずスキャンコードのみを送信する (``KEYEVENTF_SCANCODE``)
 
     :return: なし
 
