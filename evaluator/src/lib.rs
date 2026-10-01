@@ -3436,7 +3436,7 @@ f("a")
         "#,
         Object::String("hoge".to_string())
     )]
-    #[case(
+    #[case::gh27(
         r#"
 // gh-27
 hashtbl a

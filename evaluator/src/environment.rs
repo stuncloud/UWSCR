@@ -849,13 +849,9 @@ pub fn check_special_assignment(obj1: &Object, obj2: &Object) -> Result<bool, UE
                     h.lock().unwrap().clear();
                     Ok(false)
                 },
-                Object::HashTbl(h2) => {
-                    let mut h1g = h.lock().unwrap();
-                    let h2g = h2.lock().unwrap();
-                    for (key, value) in h2g.iter() {
-                        h1g.insert(key.to_string(), value.clone());
-                    }
-                    Ok(false)
+                Object::HashTbl(_) => {
+                    // 別の連想配列であれば上書きを許可
+                    Ok(true)
                 }
                 _ => Err(UError::new(UErrorKind::AssignError, UErrorMessage::AssigningToHashtblVariableIsNotAllowed))
             }
