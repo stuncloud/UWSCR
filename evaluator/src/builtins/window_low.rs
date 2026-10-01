@@ -18,13 +18,14 @@ use windows::{
             Input::KeyboardAndMouse::{
                 SendInput, INPUT, INPUT_0,
                 KEYBDINPUT, INPUT_KEYBOARD,
-                KEYBD_EVENT_FLAGS, KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP, KEYEVENTF_UNICODE,
+                KEYBD_EVENT_FLAGS, KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP, KEYEVENTF_UNICODE, KEYEVENTF_SCANCODE,
                 MOUSEINPUT, INPUT_MOUSE, MOUSEEVENTF_ABSOLUTE,
                 MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP,
                 MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP,
                 MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP,
                 MOUSEEVENTF_WHEEL, MOUSEEVENTF_HWHEEL,
                 VIRTUAL_KEY,
+                MapVirtualKeyW, MAPVK_VK_TO_VSC, MAPVK_VK_TO_VSC_EX,
             },
             Input::Pointer::{
                 InitializeTouchInjection, InjectTouchInput,
@@ -225,14 +226,14 @@ pub fn kbd(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncResul
     let action = args.get_as_const::<KeyActionEnum>(1, false)?
         .unwrap_or(KeyActionEnum::CLICK);
     let wait= args.get_as_int::<u64>(2, Some(0))?;
+    let force_scan = args.get_as_bool(3, Some(false))?;
 
     let vk_win = key_codes::VirtualKeyCode::VK_WIN as u32;
     let vk_rwin = key_codes::VirtualKeyCode::VK_START as u32;
     let mut input = Input::from(evaluator.mouseorg.as_mut());
     match key {
         TwoTypeArg::U(vk) => {
-            let extend = vk == vk_win || vk == vk_rwin;
-            input.send_key(vk, action, wait, extend);
+            input.send_key(vk, action, wait, force_scan);
         },
         TwoTypeArg::T(s) => {
             input.send_str(&s, wait);
@@ -499,17 +500,17 @@ impl Input<'_> {
     //         (get_window_style(hwnd) & style) > 0
     //     })
     // }
-    fn send_key(&mut self, vk: u32, action: KeyActionEnum, wait: u64, extend: bool) {
+    fn send_key(&mut self, vk: u32, action: KeyActionEnum, wait: u64, force_scan: bool) {
         sleep(wait);
         match action {
             KeyActionEnum::CLICK => {
-                self.key_down(vk, extend);
+                self.key_down(vk, force_scan);
                 sleep(Self::KEY_CLICK_WAIT);
-                self.key_up(vk, extend);
+                self.key_up(vk, force_scan);
                 sleep(Self::AFTER_CLICK_WAIT);
             },
-            KeyActionEnum::DOWN => self.key_down(vk, extend),
-            KeyActionEnum::UP => self.key_up(vk, extend),
+            KeyActionEnum::DOWN => self.key_down(vk, force_scan),
+            KeyActionEnum::UP => self.key_up(vk, force_scan),
         }
     }
     unsafe fn send_unicode<'a, U: Into<UTF16Encodable<'a>>>(u: U) {
@@ -548,7 +549,44 @@ impl Input<'_> {
             }
         }
     }
-    fn key_down(&mut self, vk: u32, extend: bool) {
+    /// 仮想キーコードをスキャンコードに変換し、拡張キーかどうかも調べる
+    fn vk_to_scancode(vk: u32) -> (u16, bool) {
+        unsafe {
+            let scan = MapVirtualKeyW(vk, MAPVK_VK_TO_VSC_EX) as u16;
+            let hi = (scan & 0xFF00) >> 8;
+            let extended = (hi & 0xE0) > 0;
+            (scan, extended)
+        }
+    }
+    fn send_key_input(vk: u32, mut flag: KEYBD_EVENT_FLAGS, force_scan: bool) {
+        unsafe {
+            let (scan, extended) = Self::vk_to_scancode(vk);
+            if extended {
+                flag |= KEYEVENTF_EXTENDEDKEY;
+            }
+            let vk = if force_scan {
+                flag |= KEYEVENTF_SCANCODE;
+                VIRTUAL_KEY(0)
+            } else {
+                VIRTUAL_KEY(vk as u16)
+            };
+            let input = INPUT {
+                r#type: INPUT_KEYBOARD,
+                Anonymous: INPUT_0 {
+                    ki: KEYBDINPUT {
+                        wVk: vk,
+                        wScan: scan,
+                        dwFlags: flag,
+                        time: 0,
+                        dwExtraInfo: *INPUT_EXTRA_INFO,
+                    }
+                }
+            };
+            let cbsize = size_of::<INPUT>() as i32;
+            SendInput(&[input], cbsize);
+        }
+    }
+    fn key_down(&mut self, vk: u32, force_scan: bool) {
         unsafe {
             if self.direct {
                 self.direct_key(WM_KEYDOWN, vk);
@@ -557,51 +595,16 @@ impl Input<'_> {
                     Self::send_unicode(ch);
                 }
             } else {
-                let dwflags = if extend {
-                    KEYEVENTF_EXTENDEDKEY
-                } else {
-                    KEYBD_EVENT_FLAGS(0)
-                };
-                let wvk = VIRTUAL_KEY(vk as u16);
-                let input = INPUT {
-                    r#type: INPUT_KEYBOARD,
-                    Anonymous: INPUT_0 {
-                        ki: KEYBDINPUT {
-                            wVk: wvk,
-                            wScan: 0,
-                            dwFlags: dwflags,
-                            time: 0,
-                            dwExtraInfo: *INPUT_EXTRA_INFO,
-                        }
-                    }
-                };
-                let cbsize = size_of::<INPUT>() as i32;
-                SendInput(&[input], cbsize);
+                Self::send_key_input(vk, KEYBD_EVENT_FLAGS(0), force_scan);
             }
         }
     }
-    fn key_up(&mut self, vk: u32, extend: bool) {
+    fn key_up(&mut self, vk: u32, force_scan: bool) {
         unsafe {
             if self.direct {
                 self.direct_key(WM_KEYUP, vk);
             } else {
-                let mut input = INPUT::default();
-                let dwflags = if extend {
-                    KEYEVENTF_KEYUP | KEYEVENTF_EXTENDEDKEY
-                } else {
-                    KEYEVENTF_KEYUP
-                };
-                // let scan = MapVirtualKeyW(vk as u32, 0) as u16;
-                let wvk = VIRTUAL_KEY(vk as u16);
-                input.r#type = INPUT_KEYBOARD;
-                input.Anonymous.ki = KEYBDINPUT {
-                    wVk: wvk,
-                    wScan: 0,
-                    dwFlags: dwflags,
-                    time: 0,
-                    dwExtraInfo: *INPUT_EXTRA_INFO,
-                };
-                SendInput(&[input], size_of::<INPUT>() as i32);
+                Self::send_key_input(vk, KEYEVENTF_KEYUP, force_scan);
             }
         }
     }

@@ -50,6 +50,9 @@ impl HashTbl {
     pub fn values(&self) -> Vec<Object> {
         self.map.values().cloned().collect()
     }
+    pub fn iter(&self) -> indexmap::map::Iter<'_, String, Object> {
+        self.map.iter()
+    }
 
     pub fn len(&self) -> usize {
         self.map.len()

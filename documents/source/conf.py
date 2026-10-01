@@ -9,7 +9,7 @@
 project = 'UWSCR'
 copyright = '2025, stuncloud'
 author = 'stuncloud'
-version = '1.1.10'
+version = '1.1.11'
 html_title = f'{project} {version}'
 
 # -- General configuration ---------------------------------------------------
@@ -79,6 +79,10 @@ class UwscrLexer(RegexLexer):
                 'break', 'continue',
                 'try', 'except', 'finally', 'endtry'
             ), suffix=r'\b', prefix=r'\b'), Keyword),
+            (words((
+                'TRY_ERRMSG',
+                'HASH_REMOVEALL',
+            ), suffix=r'\b', prefix=r'\b'), Keyword.Constant),
             (words((
                 'dim', 'public', 'const',
                 'function', 'procedure', 'fend',

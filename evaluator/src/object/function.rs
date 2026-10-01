@@ -97,7 +97,7 @@ impl Function {
             evaluator.env.new_scope();
         }
         /* GET_FUNC_NAME */
-        evaluator.env.set_get_func_name(self.name.clone());
+        evaluator.env.set_get_func_name(self.name.clone())?;
 
         /* 引数の処理 */
 
@@ -185,8 +185,8 @@ impl Function {
             }
         }
         // 可変長引数のローカル変数を定義
-        if variadic_name.is_some() && !variadic.is_empty() {
-            evaluator.env.define_param_to_local(&variadic_name.unwrap(), Object::Array(variadic))?;
+        if let Some(name) = &variadic_name && !variadic.is_empty() {
+            evaluator.env.define_param_to_local(name, Object::Array(variadic))?;
         }
 
         // モジュール・クラスインスタンスであればthisとglobalをセットする
@@ -245,17 +245,13 @@ impl Evaluator {
             },
             ParamType::UObject => if let Object::UObject(_) = obj { return Ok(()) },
             ParamType::UserDefinition(ref name) => match obj {
-                Object::Instance(arc) => {
-                    let m = arc.lock().unwrap();
-                    if m.name.eq_ignore_ascii_case(name) {
-                        return Ok(());
-                    }
+                Object::Instance(ins) if ins.name().eq_ignore_ascii_case(name) => {
+                    return Ok(());
                 },
                 Object::Num(n) => {
-                    if let Some(Object::Enum(e)) = self.get_variable(name) {
-                        if e.include(*n) {
-                            return Ok(());
-                        }
+                    if let Some(Object::Enum(e)) = self.get_variable(name)
+                    && e.include(*n) {
+                        return Ok(());
                     }
                 },
                 _ => {}
@@ -285,6 +281,6 @@ impl From<ParamType> for ParamTypeDetail {
 }
 
 pub enum This {
-    Module(Arc<Mutex<Module>>),
-    Class(Arc<Mutex<ClassInstance>>),
+    Module(Module),
+    Class(ClassInstance),
 }

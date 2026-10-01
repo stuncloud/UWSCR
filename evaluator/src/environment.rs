@@ -194,11 +194,11 @@ impl Environment {
         self.current.lock().unwrap().local.retain(|o| !o.name.eq_ignore_ascii_case(&name));
     }
 
-    fn set(&mut self, name: &str, container_type: ContainerType, value: Object, to_global: bool) {
+    fn set(&mut self, name: &str, container_type: ContainerType, value: Object, to_global: bool) -> Result<(), UError>{
         if to_global {
             for obj in self.global.lock().unwrap().iter_mut() {
                 if obj.name.eq_ignore_ascii_case(name) && obj.container_type == container_type {
-                    if check_special_assignment(&obj.object, &value) {
+                    if check_special_assignment(&obj.object, &value)? {
                         obj.object = value;
                     }
                     break;
@@ -207,13 +207,14 @@ impl Environment {
         } else {
             for obj in self.current.lock().unwrap().local.iter_mut() {
                 if obj.name.eq_ignore_ascii_case(name) && obj.container_type == container_type {
-                    if check_special_assignment(&obj.object, &value) {
+                    if check_special_assignment(&obj.object, &value)? {
                         obj.object = value;
                     }
                     break;
                 }
             }
         }
+        Ok(())
     }
 
     fn get(&self, name: &str, container_type: ContainerType) -> Option<Object> {
@@ -299,12 +300,7 @@ impl Environment {
             //     Some(Object::String(text))
             // },
             Some(Object::Instance(ref ins)) => {
-                let dropped = if let Ok(ins) = ins.try_lock() {
-                    ins.is_dropped
-                } else {
-                    false
-                };
-                if dropped {
+                if ins.dropped() {
                     Some(Object::Nothing)
                 } else {
                     obj
@@ -316,16 +312,14 @@ impl Environment {
     // Module/Classメンバを探す
     fn get_from_this(&self, name: &str) -> Option<Object> {
         match self.get("this", ContainerType::Variable)? {
-            Object::Module(mutex) => {
-                let this = mutex.lock().unwrap();
+            Object::Module(this) => {
                 match this.get_member(name) {
                     Ok(o) => Some(o),
                     Err(_) => this.get_public_member(name).ok(),
                 }
             },
-            Object::Instance(mutex) => {
-                let ins = mutex.lock().unwrap();
-                let this = ins.module.lock().unwrap();
+            Object::Instance(ins) => {
+                let this = ins.inner();
                 match this.get_member(name) {
                     Ok(o) => Some(o),
                     Err(_) => this.get_public_member(name).ok(),
@@ -355,20 +349,13 @@ impl Environment {
     // Module/Classメンバ関数を探す
     fn get_function_from_this(&self, name: &str) -> Option<Object> {
         match self.get("this", ContainerType::Variable)? {
-            Object::Module(mutex) => {
-                let f = {
-                    let this = mutex.lock().unwrap();
-                    this.get_function(name).ok()
-                };
-                f.map(|_| Object::MemberCaller(MemberCaller::Module(mutex), name.into()))
+            Object::Module(this) => {
+                let f = this.get_function(name).ok();
+                f.map(|_| Object::MemberCaller(MemberCaller::Module(this), name.into()))
             },
-            Object::Instance(mutex) => {
-                let f = {
-                    let ins = mutex.lock().unwrap();
-                    let this = ins.module.lock().unwrap();
-                    this.get_function(name).ok()
-                };
-                f.map(|_| Object::MemberCaller(MemberCaller::ClassInstance(mutex), name.into()))
+            Object::Instance(this) => {
+                let f = this.inner().get_function(name).ok();
+                f.map(|_| Object::MemberCaller(MemberCaller::ClassInstance(this), name.into()))
             },
             _ => None
         }
@@ -460,8 +447,7 @@ impl Environment {
     }
     pub fn define_param_to_local(&mut self, name: &str, object: Object) -> Result<(), UError> {
         if self.contains_in_local(name, &[ContainerType::Variable]) {
-            self.set(name, ContainerType::Variable, object, false);
-            Ok(())
+            self.set(name, ContainerType::Variable, object, false)
         } else {
             self.define(name, object, ContainerType::Variable, false)
         }
@@ -489,7 +475,7 @@ impl Environment {
         // 同名public宣言かつ値がある場合は更新する
         if self.contains_in_global(name, &[ContainerType::Public]) {
             if object != Object::Empty {
-                self.set(name, ContainerType::Public, object, true);
+                self.set(name, ContainerType::Public, object, true)?;
             }
             Ok(())
         } else {
@@ -577,8 +563,7 @@ impl Environment {
         };
         let object = Object::DefDllFunction(defdll);
         if self.contains_in_global(&name, &[ContainerType::Function]) {
-            self.set(&name, ContainerType::Function, object, true);
-            Ok(())
+            self.set(&name, ContainerType::Function, object, true)
         } else {
             self.define(&name, object, ContainerType::Function, true)
         }
@@ -634,10 +619,10 @@ impl Environment {
         } else if self.contains_in_local(name, &[ContainerType::Variable]) && include_local {
             // ローカル代入許可の場合のみ
             // 同名のローカル変数が存在する場合は値を上書き
-            self.set(name, ContainerType::Variable, value, false);
+            self.set(name, ContainerType::Variable, value, false)?;
         } else if self.contains_in_global(name, &[ContainerType::Public]) {
             // 同名のグローバル変数が存在する場合は値を上書き
-            self.set(name, ContainerType::Public, value, true);
+            self.set(name, ContainerType::Public, value, true)?;
             is_public = true;
         } else if include_local {
             // ローカル代入許可の場合のみ
@@ -677,11 +662,12 @@ impl Environment {
     }
 
     /// ループ内のdim文はそのまま代入式として扱う
-    pub fn in_loop_dim_definition(&mut self, name: &str, value: Object) {
+    pub fn in_loop_dim_definition(&mut self, name: &str, value: Object) -> EvalResult<()> {
         // 初回はdim定義として処理し、その後は代入とする
         if self.define_local(name, value.clone()).is_err() {
-            self.set(name, ContainerType::Variable, value, false);
+            self.set(name, ContainerType::Variable, value, false)?;
         }
+        Ok(())
     }
 
     pub fn set_func_params_to_local(&mut self, name: String, value: &Object) {
@@ -740,18 +726,19 @@ impl Environment {
 
     pub fn get_module_member(&self, name: &str) -> Object {
         let mut arr = Vec::new();
-        if let Some(Object::Module(m)) = self.get_module(name) {
-            let module = m.lock().unwrap();
-            for obj in module.get_members().into_iter() {
-                arr.push(Object::String(format!("{}: {}", module.name(), obj)))
+        if let Some(Object::Module(module)) = self.get_module(name) {
+            let name = module.name();
+            for disp in module.get_member_display() {
+                arr.push(Object::String(format!("{name}: {disp}")));
             }
         }
         Object::Array(arr)
     }
 
-    pub fn set_try_error_messages(&mut self, message: String, line: String) {
-        self.set("TRY_ERRMSG", ContainerType::Variable, Object::String(message), false);
-        self.set("TRY_ERRLINE", ContainerType::Variable, Object::String(line), false);
+    pub fn set_try_error_messages(&mut self, message: String, line: String) -> EvalResult<()> {
+        self.set("TRY_ERRMSG", ContainerType::Variable, Object::String(message), false)?;
+        self.set("TRY_ERRLINE", ContainerType::Variable, Object::String(line), false)?;
+        Ok(())
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -778,27 +765,28 @@ impl Environment {
         self.add(NamedObject::new("G_TIME_YY4".into(), to_str_obj(year, 4), ContainerType::Const), false);
     }
     #[allow(clippy::too_many_arguments)]
-    pub fn set_g_time_const(&mut self, year: i32, month: i32, date: i32, hour: i32, minute: i32, second: i32, millisec: i32, day: i32) {
-        self.set("G_TIME_YY", ContainerType::Const, year.into(), false);
-        self.set("G_TIME_MM", ContainerType::Const, month.into(), false);
-        self.set("G_TIME_DD", ContainerType::Const, date.into(), false);
-        self.set("G_TIME_HH", ContainerType::Const, hour.into(), false);
-        self.set("G_TIME_NN", ContainerType::Const, minute.into(), false);
-        self.set("G_TIME_SS", ContainerType::Const, second.into(), false);
-        self.set("G_TIME_ZZ", ContainerType::Const, millisec.into(), false);
-        self.set("G_TIME_WW", ContainerType::Const, day.into(), false);
+    pub fn set_g_time_const(&mut self, year: i32, month: i32, date: i32, hour: i32, minute: i32, second: i32, millisec: i32, day: i32) -> EvalResult<()> {
+        self.set("G_TIME_YY", ContainerType::Const, year.into(), false)?;
+        self.set("G_TIME_MM", ContainerType::Const, month.into(), false)?;
+        self.set("G_TIME_DD", ContainerType::Const, date.into(), false)?;
+        self.set("G_TIME_HH", ContainerType::Const, hour.into(), false)?;
+        self.set("G_TIME_NN", ContainerType::Const, minute.into(), false)?;
+        self.set("G_TIME_SS", ContainerType::Const, second.into(), false)?;
+        self.set("G_TIME_ZZ", ContainerType::Const, millisec.into(), false)?;
+        self.set("G_TIME_WW", ContainerType::Const, day.into(), false)?;
         let to_str_obj = |n: i32, len: usize| {
             let str = format!("{:0>1$}", n, len);
             str.into()
         };
-        self.set("G_TIME_YY2", ContainerType::Const, to_str_obj(year%100, 2), false);
-        self.set("G_TIME_MM2", ContainerType::Const, to_str_obj(month, 2), false);
-        self.set("G_TIME_DD2", ContainerType::Const, to_str_obj(date, 2), false);
-        self.set("G_TIME_HH2", ContainerType::Const, to_str_obj(hour, 2), false);
-        self.set("G_TIME_NN2", ContainerType::Const, to_str_obj(minute, 2), false);
-        self.set("G_TIME_SS2", ContainerType::Const, to_str_obj(second, 2), false);
-        self.set("G_TIME_ZZ2", ContainerType::Const, to_str_obj(millisec, 3), false);
-        self.set("G_TIME_YY4", ContainerType::Const, to_str_obj(year, 4), false);
+        self.set("G_TIME_YY2", ContainerType::Const, to_str_obj(year%100, 2), false)?;
+        self.set("G_TIME_MM2", ContainerType::Const, to_str_obj(month, 2), false)?;
+        self.set("G_TIME_DD2", ContainerType::Const, to_str_obj(date, 2), false)?;
+        self.set("G_TIME_HH2", ContainerType::Const, to_str_obj(hour, 2), false)?;
+        self.set("G_TIME_NN2", ContainerType::Const, to_str_obj(minute, 2), false)?;
+        self.set("G_TIME_SS2", ContainerType::Const, to_str_obj(second, 2), false)?;
+        self.set("G_TIME_ZZ2", ContainerType::Const, to_str_obj(millisec, 3), false)?;
+        self.set("G_TIME_YY4", ContainerType::Const, to_str_obj(year, 4), false)?;
+        Ok(())
     }
     pub fn clone_outer(&self) -> Option<Arc<Mutex<Layer>>> {
         let current = self.current.lock().unwrap();
@@ -821,13 +809,14 @@ impl Environment {
         }
     }
 
-    pub fn set_get_func_name(&mut self, value: Option<String>) {
+    pub fn set_get_func_name(&mut self, value: Option<String>) -> EvalResult<()> {
         let name = "GET_FUNC_NAME";
         if self.contains_in_local(name, &[ContainerType::Const]) {
-            self.set(name, ContainerType::Const, value.into(), false);
+            self.set(name, ContainerType::Const, value.into(), false)?;
         } else {
             self.add(NamedObject::new(name.into(), value.into(), ContainerType::Const), false);
         }
+        Ok(())
     }
 
     pub fn get_builtin_func_names(&self) -> Vec<String> {
@@ -849,29 +838,32 @@ impl Environment {
 
 // 特殊な代入に対する処理
 // falseを返したら代入は行わない
-pub fn check_special_assignment(obj1: &Object, obj2: &Object) -> bool {
+pub fn check_special_assignment(obj1: &Object, obj2: &Object) -> Result<bool, UError> {
+    use super::object::HashTblEnum::HASH_REMOVEALL;
     match obj1 {
         // HASH_REMOVEALL
         Object::HashTbl(h) => {
-            if let Object::Num(n) = obj2 {
-                let hash_remove_all = super::object::hashtbl::HashTblEnum::HASH_REMOVEALL as i32;
-                if *n as i32 == hash_remove_all {
+            match obj2 {
+                Object::Num(n) if *n as i32 == HASH_REMOVEALL as i32 => {
+                    // HASH_REMOVEALLの場合は連想配列を空にする
                     h.lock().unwrap().clear();
-                    return false;
+                    Ok(false)
+                },
+                Object::HashTbl(_) => {
+                    // 別の連想配列であれば上書きを許可
+                    Ok(true)
                 }
+                _ => Err(UError::new(UErrorKind::AssignError, UErrorMessage::AssigningToHashtblVariableIsNotAllowed))
             }
-            true
         },
         Object::Instance(ins) => {
             // クラスインスタンスにNothingが代入される場合はdisposeする
             if let Object::Nothing = obj2 {
-                let mut guarud = ins.try_lock().expect("lock error: check_special_assignment");
-                guarud.dispose();
-                // ins.try_lock().expect("lock error: check_special_assignment").dispose2();
+                ins.dispose();
             }
-            true
+            Ok(true)
         },
-        _ => true
+        _ => Ok(true)
     }
 }
 

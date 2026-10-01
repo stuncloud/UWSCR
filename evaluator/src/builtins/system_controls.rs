@@ -1203,7 +1203,8 @@ pub fn gettime(evaluator: &mut Evaluator, args: BuiltinFuncArgs) -> BuiltinFuncR
 
     let val = gettime::get(dt, offset, opt)
         .map_err(|e| builtin_func_error(UErrorMessage::GetTimeParseError(e.to_string())))?;
-    evaluator.env.set_g_time_const(val.year, val.month, val.date, val.hour, val.minute, val.second, val.millisec, val.day);
+    evaluator.env.set_g_time_const(val.year, val.month, val.date, val.hour, val.minute, val.second, val.millisec, val.day)
+        .map_err(BuiltinFuncError::UError)?;
     if milli {
         Ok(val.timestamp_millis.into())
     } else {

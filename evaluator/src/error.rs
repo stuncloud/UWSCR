@@ -90,8 +90,9 @@ impl PartialEq for UError {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub enum UErrorLine {
+    #[default]
     None,
     Line {
         row: usize,
@@ -109,11 +110,6 @@ impl UErrorLine {
             UErrorLine::None => false,
             UErrorLine::Line { row, line:_, script_name:_ } => *row > 0,
         }
-    }
-}
-impl Default for UErrorLine {
-    fn default() -> Self {
-        Self::None
     }
 }
 
@@ -620,6 +616,7 @@ pub enum UErrorMessage {
     ShouldBeAsciiCharacter(String),
     ExplorerMayBeSuspended,
     SocketHasBeenClosed,
+    AssigningToHashtblVariableIsNotAllowed,
 }
 
 impl fmt::Display for UErrorMessage {
@@ -1385,6 +1382,10 @@ impl fmt::Display for UErrorMessage {
             Self::SocketHasBeenClosed => write_locale!(f,
                 "ソケットが閉じられています",
                 "Socket has been closed",
+            ),
+            Self::AssigningToHashtblVariableIsNotAllowed => write_locale!(f,
+                "連想配列変数への代入はできません",
+                "Assigning to hashtbl variable is not allowed",
             ),
         }
     }
